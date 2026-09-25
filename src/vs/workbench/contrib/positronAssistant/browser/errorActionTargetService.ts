@@ -16,7 +16,6 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { AI_ENABLED_KEY } from '../common/positronAIConfigurationKeys.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { ExtensionsRegistry, IExtensionPointUser } from '../../../services/extensions/common/extensionsRegistry.js';
@@ -41,7 +40,7 @@ const errorActionTargetSchema = {
 		},
 		command: {
 			type: 'string',
-			description: localize('positron.errorActionTargets.command', "Command to run when the user presses Fix or Explain. It receives an object with `action`, `prompt`, `context`, and `contextName` properties."),
+			description: localize('positron.errorActionTargets.command', "Command to run when the user presses Fix or Explain. It receives an object with `action`, `conversation`, `prompt`, `context`, and `contextName` properties."),
 		},
 		requiresExtension: {
 			type: 'string',
@@ -79,13 +78,12 @@ function getConfigurationNode(targets: readonly IErrorActionTarget[]): IConfigur
 				enum: [POSIT_ASSISTANT_TARGET_ID, ...targets.map(target => target.id)],
 				enumItemLabels: [localize('positron.errorActions.target.positAssistant', "Posit Assistant"), ...targets.map(target => target.label)],
 				enumDescriptions: [
-					localize('positron.errorActions.target.positAssistantDescription', "Send errors to Posit Assistant."),
+					localize('positron.errorActions.target.positAssistantDescription', "Opens Posit Assistant and sends the error."),
 					...targets.map(target => target.description ?? ''),
 				],
-				markdownDescription: localize(
+				description: localize(
 					'positron.errorActions.target',
-					"Where the Fix and Explain actions on console, notebook, and Quarto errors send the error. Options other than Posit Assistant are contributed by extensions and only appear when available. Requires `#{0}#`.",
-					AI_ENABLED_KEY
+					"The assistant to use when you select Fix or Explain on an error in the Console, a notebook, or a Quarto document."
 				),
 				scope: ConfigurationScope.WINDOW,
 			},

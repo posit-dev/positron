@@ -64,8 +64,11 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const runNewChat = (action: 'fix' | 'explain', prompt: string) => {
 		// Send to a contributed target (e.g. Claude Code) when one is selected.
 		if (props.target) {
+			// Continue the current conversation, matching Posit Assistant's
+			// 'auto' target below.
 			return services.get(IErrorActionTargetService).run(props.target, {
 				action,
+				conversation: 'current',
 				prompt,
 				context: errorText,
 				contextName: ATTACHMENT_NAME,

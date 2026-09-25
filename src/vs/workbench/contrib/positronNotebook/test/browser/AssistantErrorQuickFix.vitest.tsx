@@ -128,14 +128,15 @@ describe('AssistantErrorQuickFix', () => {
 	describe('with a contributed target', () => {
 		const target: IErrorActionTarget = { id: 'claude-code', label: 'Claude Code', command: 'test.sendError' };
 
-		it('sends the prompt and ANSI-free error to the target instead of Posit Assistant', async () => {
+		it('sends the prompt and ANSI-free error to a new conversation with the target', async () => {
 			const user = userEvent.setup();
 			const run = vi.spyOn(ctx.get(IErrorActionTargetService), 'run');
 			renderQuickFix({ target, getPayload: () => ({ ...defaultPayload, attachmentContent: '\u001b[31mboom\u001b[0m' }) });
-			await user.click(screen.getByRole('button', { name: 'Ask Claude Code to explain' }));
+			await user.click(screen.getByRole('button', { name: 'Ask Claude Code to explain in new chat' }));
 
 			expect(run).toHaveBeenCalledWith(target, {
 				action: 'explain',
+				conversation: 'new',
 				prompt: 'Explain this test error. Do not make changes or edit any files; just explain the error.',
 				context: 'boom',
 				contextName: 'test-error.txt',
@@ -143,10 +144,19 @@ describe('AssistantErrorQuickFix', () => {
 			expect(ctx.get(ICommandService).executeCommand).not.toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.anything());
 		});
 
-		it('hides the continue-in-current-chat dropdowns', () => {
+		it('continues the current conversation via the fix dropdown action', async () => {
+			const user = userEvent.setup();
+			const run = vi.spyOn(ctx.get(IErrorActionTargetService), 'run');
 			renderQuickFix({ target });
-			expect(screen.queryByRole('button', { name: 'More fix options' })).not.toBeInTheDocument();
-			expect(screen.queryByRole('button', { name: 'More explain options' })).not.toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'More fix options' }));
+
+			const showContextMenu = vi.mocked(ctx.get(IContextMenuService).showContextMenu);
+			const delegate = showContextMenu.mock.calls.at(-1)?.[0] as IContextMenuDelegate;
+			const actions = delegate.getActions() as IAction[];
+			expect(actions[0].label).toBe('Ask Claude Code to fix in current chat');
+			await actions[0].run();
+
+			expect(run).toHaveBeenCalledWith(target, expect.objectContaining({ action: 'fix', conversation: 'current' }));
 		});
 	});
 });

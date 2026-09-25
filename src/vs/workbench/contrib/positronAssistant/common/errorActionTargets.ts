@@ -19,6 +19,11 @@ export const POSIT_ASSISTANT_TARGET_ID = 'posit-assistant';
 export interface IErrorActionRequest {
 	/** Which button the user pressed. */
 	action: 'fix' | 'explain';
+	/**
+	 * Whether to start a new conversation or continue the current one. Targets
+	 * that cannot continue a conversation start a new one.
+	 */
+	conversation: 'new' | 'current';
 	/** Instruction for the assistant, e.g. "Fix this console error." */
 	prompt: string;
 	/** Plain-text error details (message, traceback, failing code), ANSI-free. */

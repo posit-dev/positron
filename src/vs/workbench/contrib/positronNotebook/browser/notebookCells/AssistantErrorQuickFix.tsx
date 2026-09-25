@@ -64,8 +64,7 @@ interface AssistantErrorQuickFixProps {
  * Presentational "Fix" and "Explain" split buttons for an error output. Sends
  * the error content to Posit Assistant via posit-assistant.newChat: the primary
  * click starts a fresh conversation, the dropdown continues the current one.
- * A contributed target gets the error through its own command instead, and has
- * no dropdown since targets cannot continue an existing conversation.
+ * A contributed target gets the error through its own command instead.
  *
  * This component does no gating; each caller decides whether to render it (see
  * NotebookCellQuickFix and QuartoOutputQuickFix, which apply their surface's
@@ -90,6 +89,7 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 		if (target) {
 			return services.get(IErrorActionTargetService).run(target, {
 				action,
+				conversation: chatTarget === 'new' ? 'new' : 'current',
 				prompt,
 				context: content,
 				contextName: attachmentName,
@@ -112,10 +112,12 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	const pressedExplainHandler = () => runNewChat('explain', 'new');
 
 	// Memoize dropdown actions for Fix button
-	const fixDropdownActions = useMemo((): IAction[] => target ? [] : [
+	const fixDropdownActions = useMemo((): IAction[] => [
 		{
 			id: 'continue-in-existing-chat',
-			label: localize('positronAssistantFixInCurrentChat', "Ask assistant to fix in current chat"),
+			label: target
+				? localize('positronAssistantFixInCurrentChatTarget', "Ask {0} to fix in current chat", target.label)
+				: localize('positronAssistantFixInCurrentChat', "Ask assistant to fix in current chat"),
 			tooltip: localize('positronAssistantFixInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
@@ -124,10 +126,12 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	], [runNewChat, target]);
 
 	// Memoize dropdown actions for Explain button
-	const explainDropdownActions = useMemo((): IAction[] => target ? [] : [
+	const explainDropdownActions = useMemo((): IAction[] => [
 		{
 			id: 'continue-in-existing-chat',
-			label: localize('positronAssistantExplainInCurrentChat', "Ask assistant to explain in current chat"),
+			label: target
+				? localize('positronAssistantExplainInCurrentChatTarget', "Ask {0} to explain in current chat", target.label)
+				: localize('positronAssistantExplainInCurrentChat', "Ask assistant to explain in current chat"),
 			tooltip: localize('positronAssistantExplainInCurrentChatTooltip', "Opens in the current chat session to retain conversation context"),
 			class: undefined,
 			enabled: true,
@@ -137,11 +141,11 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 
 	// Tooltip strings
 	const fixTooltip = target
-		? localize('positronAssistantFixTargetTooltip', "Ask {0} to fix", target.label)
+		? localize('positronAssistantFixTargetTooltip', "Ask {0} to fix in new chat", target.label)
 		: localize('positronAssistantFixTooltip', "Ask assistant to fix in new chat");
 	const fixDropdownTooltip = localize('positronAssistantFixDropdownTooltip', "More fix options");
 	const explainTooltip = target
-		? localize('positronAssistantExplainTargetTooltip', "Ask {0} to explain", target.label)
+		? localize('positronAssistantExplainTargetTooltip', "Ask {0} to explain in new chat", target.label)
 		: localize('positronAssistantExplainTooltip', "Ask assistant to explain in new chat");
 	const explainDropdownTooltip = localize('positronAssistantExplainDropdownTooltip', "More explain options");
 

@@ -105,6 +105,7 @@ describe('ConsoleQuickFix', () => {
 		await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
 		expect(run).toHaveBeenCalledWith(target, {
 			action: 'fix',
+			conversation: 'current',
 			prompt: 'Fix this console error.',
 			context: expectedAttachmentText,
 			contextName: 'Console Error',

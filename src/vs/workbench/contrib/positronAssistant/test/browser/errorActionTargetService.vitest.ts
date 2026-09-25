@@ -110,7 +110,7 @@ describe('ErrorActionTargetService', () => {
 
 	it('runs the target command with the request', async () => {
 		const service = createService();
-		const request = { action: 'fix' as const, prompt: 'Fix it.', context: 'boom', contextName: 'Console Error' };
+		const request = { action: 'fix' as const, conversation: 'new' as const, prompt: 'Fix it.', context: 'boom', contextName: 'Console Error' };
 		await service.run(claudeCodeTarget, request);
 		expect(executeCommand).toHaveBeenCalledWith('positron-claude-code.sendError', request);
 	});
@@ -118,7 +118,7 @@ describe('ErrorActionTargetService', () => {
 	it('surfaces a notification when the target command fails', async () => {
 		const service = createService();
 		executeCommand.mockRejectedValueOnce(new Error('command not found'));
-		await service.run(claudeCodeTarget, { action: 'fix', prompt: 'Fix it.', context: '', contextName: 'Console Error' });
+		await service.run(claudeCodeTarget, { action: 'fix', conversation: 'new', prompt: 'Fix it.', context: '', contextName: 'Console Error' });
 		expect(notifyError).toHaveBeenCalledWith('Could not send the error to Claude Code: command not found');
 	});
 });
