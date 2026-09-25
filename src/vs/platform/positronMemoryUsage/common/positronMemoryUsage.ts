@@ -51,7 +51,10 @@ export interface IPositronProcessMemoryInfo {
 	freeSystemMemory: number;
 	/** Memory used by Positron processes (Electron or server) in bytes. */
 	positronProcessMemory: number;
-	/** Memory used by the extension host process(es) and their children, in bytes. */
+	/**
+	 * Memory used by the extension host process(es), in bytes. Includes their
+	 * child processes except on desktop macOS and Windows.
+	 */
 	extensionHostMemory: number;
 }
 
