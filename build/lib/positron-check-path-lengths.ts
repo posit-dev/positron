@@ -62,8 +62,8 @@ export interface IFileCountResult {
 	shipped: IFileCount;
 	/** The `extensions/` directory as a whole. */
 	extensions: IBudgetedFileCount;
-	/** The gzip copies in `extensions/`, which no budget counts. */
-	gzipCopies: IFileCount;
+	/** The gzip copies and source maps in `extensions/`, which no budget counts. */
+	unbudgeted: IFileCount;
 	/** Each directory inside `extensions/`, largest first. */
 	byExtension: IExtensionFileCount[];
 	/** The entries over budget, `extensions/` as a whole included. */
@@ -164,9 +164,15 @@ function packageOf(segments: string[]): string | undefined {
 		: segments[start];
 }
 
-/** Web server builds add these (`addCompressedSiblings` in gulpfile.reh.ts), so budgets skip them to fit every build. */
-function isGzipCopy(filePath: string, paths: ReadonlySet<string>): boolean {
-	return filePath.endsWith('.gz') && paths.has(filePath.slice(0, -'.gz'.length));
+/**
+ * Only some builds ship these, so budgets skip them to fit every build. Web
+ * server builds add gzip copies (`addCompressedSiblings` in gulpfile.reh.ts),
+ * and only CI builds strip source maps (`stripSourceMapsInPackagingTasks` in
+ * gulpfile.vscode.ts).
+ */
+function isUnbudgeted(filePath: string, paths: ReadonlySet<string>): boolean {
+	return /\.(js|css)\.map$/.test(filePath)
+		|| (filePath.endsWith('.gz') && paths.has(filePath.slice(0, -'.gz'.length)));
 }
 
 function addTo(counts: Map<string, IFileCount>, name: string, bytes: number): void {
@@ -185,7 +191,7 @@ function summarizeFileCounts(files: IShippedFile[], extensionsDir: string, budge
 	const byExtension = new Map<string, IFileCount>();
 	const packagesByExtension = new Map<string, Map<string, IFileCount>>();
 	const extensions: IBudgetedFileCount = { name: EXTENSIONS_TOTAL_NAME, files: 0, bytes: 0, budget: budgets.total };
-	const gzipCopies: IFileCount = { name: 'gzip copies', files: 0, bytes: 0 };
+	const unbudgeted: IFileCount = { name: 'unbudgeted', files: 0, bytes: 0 };
 	const shipped: IFileCount = { name: '', files: 0, bytes: 0 };
 	const paths = new Set(files.map(file => file.path));
 
@@ -197,9 +203,9 @@ function summarizeFileCounts(files: IShippedFile[], extensionsDir: string, budge
 			continue;
 		}
 
-		if (isGzipCopy(file.path, paths)) {
-			gzipCopies.files++;
-			gzipCopies.bytes += file.bytes;
+		if (isUnbudgeted(file.path, paths)) {
+			unbudgeted.files++;
+			unbudgeted.bytes += file.bytes;
 			continue;
 		}
 
@@ -233,7 +239,7 @@ function summarizeFileCounts(files: IShippedFile[], extensionsDir: string, budge
 	return {
 		shipped,
 		extensions,
-		gzipCopies,
+		unbudgeted,
 		byExtension: extensionCounts,
 		offenders: [extensions, ...extensionCounts].filter(count => count.files > count.budget)
 	};
@@ -278,13 +284,13 @@ function formatBytes(bytes: number): string {
 
 /** Logs the file-count result. Returns an error message when a count is over budget. */
 function reportFileCounts(result: IFileCountResult, budgets: IFileCountBudgets): string | undefined {
-	const { shipped, extensions, gzipCopies, byExtension, offenders } = result;
+	const { shipped, extensions, unbudgeted, byExtension, offenders } = result;
 
 	fancyLog(`File counts: ${formatCount(extensions.files)} files (${formatBytes(extensions.bytes)}) in `
 		+ `${EXTENSIONS_TOTAL_NAME}, budget ${formatCount(extensions.budget)}; `
 		+ `${formatCount(shipped.files)} files (${formatBytes(shipped.bytes)}) shipped in total`);
-	if (gzipCopies.files > 0) {
-		fancyLog(`  ${formatCount(gzipCopies.files)} gzip copies (${formatBytes(gzipCopies.bytes)}) in `
+	if (unbudgeted.files > 0) {
+		fancyLog(`  ${formatCount(unbudgeted.files)} gzip copies and source maps (${formatBytes(unbudgeted.bytes)}) in `
 			+ `${EXTENSIONS_TOTAL_NAME} are in the total but outside every budget`);
 	}
 
