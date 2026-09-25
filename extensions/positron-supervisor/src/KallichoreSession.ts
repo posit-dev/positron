@@ -1096,7 +1096,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			return;
 		}
 		const commClose = new CommCloseCommand(id);
-		this.sendCommand(commClose);
+		this.sendCommand(commClose).catch((err) => {
+			this.log(`Failed to close comm ${id}: ${err}`, vscode.LogLevel.Error);
+		});
 	}
 
 	/**
@@ -1133,7 +1135,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 		const reply = new InputReplyCommand(this._activeBackendRequestHeader, value);
 		this.log(`Sending input reply for ${id}: ${value}`, vscode.LogLevel.Debug);
-		this.sendCommand(reply);
+		this.sendCommand(reply).catch((err) => {
+			this.log(`Failed to send input reply for ${id}: ${err}`, vscode.LogLevel.Error);
+		});
 	}
 
 	/**
@@ -1729,6 +1733,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			return Promise.reject(new Error('This session cannot be reconnected.'));
 		}
 
+		// `start()` can reconnect an exited session through `connect()` without
+		// calling `restart()`. Replace the cancelled barrier so sends wait for
+		// this connection and `onopen` can release them.
+		if (this._connected.isCancelled()) {
+			this._connected = new Barrier();
+		}
+
 		// Get the WebSocket URI for the session. This will throw an error if
 		// the URI cannot be determined.
 		const wsUri = await this.getWebsocketUri();
@@ -1773,7 +1784,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					// If the error happened after the connection was established,
 					// something bad happened. Close the connected barrier and
 					// show an error.
-					this._connected = new Barrier();
+					this.closeConnectedBarrier();
 					vscode.window.showErrorMessage(`Error connecting to ${this.dynState.sessionName} (${this.metadata.sessionId}): ${JSON.stringify(err)}`);
 				} else {
 					// The connection never established; reject the promise and
@@ -1800,7 +1811,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 				// When the socket is closed, reset the connected barrier and
 				// clear the websocket instance.
-				this._connected = new Barrier();
+				this.closeConnectedBarrier();
 				this._socket = undefined;
 			};
 
@@ -1875,6 +1886,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Perform the restart
 		this._restarting = true;
+
+		// A cancelled barrier cannot be reopened. Replace it so sends wait for
+		// the replacement kernel's connection instead of failing on the old exit.
+		if (this._connected.isCancelled()) {
+			this._connected = new Barrier();
+		}
+
 		try {
 			// Create the restart request
 			const restart: RestartSession = {
@@ -2057,6 +2075,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			// Additional guard to ensure we don't try to reconnect
 			this._canConnect = false;
+
+			// A transferred session cannot reconnect from this client. Reject
+			// sends that would otherwise wait indefinitely for a connection.
+			this._connected.cancel(new Error(
+				`Cannot send message to session ${this.metadata.sessionId}: it was transferred to another client`
+			));
 		} else if (data.hasOwnProperty('exited')) {
 			this.onExited(data.exited);
 		}
@@ -2126,6 +2150,20 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Preserve closed barriers so existing waiters remain reachable by
+	 * `open()` and `cancel()`.
+	 *
+	 * Preserve cancelled barriers so sends still reject if the socket's
+	 * `onclose()` runs after `onExited()`. Only `connect()` and `restart()`
+	 * replace a cancelled barrier.
+	 */
+	private closeConnectedBarrier() {
+		if (this._connected.isOpen()) {
+			this._connected = new Barrier();
+		}
+	}
+
+	/**
 	 * Processs and emit a state change.
 	 *
 	 * @param newState The new kernel state
@@ -2138,8 +2176,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 		this.log(`State: ${this._runtimeState} => ${newState} (${reason})`, vscode.LogLevel.Debug);
 		if (newState === positron.RuntimeState.Offline) {
-			// Close the connected barrier if the kernel is offline
-			this._connected = new Barrier();
+			this.closeConnectedBarrier();
 		}
 		if (this._runtimeState === positron.RuntimeState.Offline &&
 			newState !== positron.RuntimeState.Exited &&
@@ -2201,7 +2238,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.log(`Kernel exited with code ${exitCode}; cleaning up.`, vscode.LogLevel.Info);
 			this._socket?.close();
 			this._socket = undefined;
-			this._connected = new Barrier();
+
+			// Without a restart, no connection will release waiting sends.
+			// Reject them so `startPositronLsp()` cannot block an R session's
+			// services queue and later LSP activations.
+			this._connected.cancel(new Error(
+				`Cannot send message to session ${this.metadata.sessionId}: the kernel has exited`
+			));
 		}
 
 		// All clients are now closed
@@ -2221,7 +2264,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		});
 		this._startingComms.clear();
 
-		// Clear any pending requests
+		// Pending requests cannot receive replies after the kernel exits.
+		this._pendingRequests.forEach((req) => {
+			req.reject(new Error('Kernel exited'));
+		});
 		this._pendingRequests.clear();
 		this._pendingUiCommRequests.forEach((req) => {
 			req.promise.reject(new Error('Kernel exited'));
