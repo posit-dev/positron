@@ -38,7 +38,8 @@ export class PackageManager {
 			const expectedOutput = this.getExpectedOutput(packageName, action);
 
 			await this.app.workbench.console.executeCode(packageInfo.type, command);
-			await expect(this.app.code.driver.currentPage.getByText(expectedOutput)).toBeVisible();
+			// Multi-library R prints both the "Installing package into" header and "trying URL".
+			await expect(this.app.code.driver.currentPage.getByText(expectedOutput).first()).toBeVisible();
 
 			if (packageInfo.type === 'R') {
 				// The output matched above is printed when `install.packages()` starts, not when it
@@ -92,7 +93,8 @@ export class PackageManager {
 			case 'snowflake':
 				return /you may need to restart the kernel to use updated packages/;
 			default:
-				return action === 'install' ? /Installing|Downloading|Fetched/ : /Removing|Uninstalling/;
+				// R prints the "Installing package into" header only with more than one library path.
+				return action === 'install' ? /Installing|Downloading|Fetched|trying URL/ : /Removing|Uninstalling/;
 		}
 	}
 }

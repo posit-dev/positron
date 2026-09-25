@@ -12,6 +12,11 @@
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: space-between;
-	grid-row: summary-row-action-bar / data-grid;
+	/*
+	 * Ends at its own row rather than at the data grid. The summary column gains a notice row
+	 * between the two when it has something to report, and spanning to the data grid would take
+	 * that row in as well.
+	 */
+	grid-row: summary-row-action-bar / span 1;
 	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
 }

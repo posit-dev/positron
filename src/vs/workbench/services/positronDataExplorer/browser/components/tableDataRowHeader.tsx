@@ -10,7 +10,8 @@ import './tableDataRowHeader.css';
  * TableDataRowHeaderProps interface.
  */
 interface TableDataRowHeaderProps {
-	value: string;
+	unavailable?: boolean;
+	value?: string;
 }
 
 /**
@@ -19,6 +20,18 @@ interface TableDataRowHeaderProps {
  * @returns The rendered component.
  */
 export const TableDataRowHeader = (props: TableDataRowHeaderProps) => {
+	// The label isn't known yet -- either the table's shape hasn't been read, or the table is
+	// labeled and this label hasn't arrived. Stand in for it with the same placeholder bar the
+	// column headers use, so a loading grid reads as loading along both of its edges. The bar
+	// stops pulsing once the labels have been asked for and not delivered, because from then on
+	// there is no load for it to be reporting.
+	if (props.value === undefined) {
+		const placeholderClass = props.unavailable ?
+			'data-grid-unavailable-placeholder' :
+			'data-grid-loading-placeholder';
+		return <div className={`${placeholderClass} label-placeholder`} />;
+	}
+
 	// Render.
 	return (
 		<div className='text'>

@@ -57,9 +57,10 @@ export interface ICanvasRestoreSweepServices {
 }
 
 /**
- * Layout restore brings back a dedicated Canvas window whenever the previous
- * session quit in Canvas mode; a window not presenting Canvas must not sit
- * next to one. Merge its Canvas back into the IDE as an inline tab (the
+ * A window not presenting Canvas must not sit next to a dedicated Canvas
+ * window. Layout restore no longer brings one back
+ * (positronEditorPartsRestore.ts); this catches any other that outlived
+ * Canvas mode. Merge its Canvas back into the IDE as an inline tab (the
  * conversation survives; the emptied window closes itself). Recognized by
  * the `lockCompact` trait, which only Canvas mode sets; a Canvas the user
  * popped out by hand lacks it and is left alone. Idempotent.

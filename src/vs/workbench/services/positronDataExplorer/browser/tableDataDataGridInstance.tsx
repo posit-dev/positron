@@ -16,6 +16,7 @@ import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/col
 import { TableDataCell } from './components/tableDataCell.js';
 import { AnchorPoint } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { TableDataRowHeader } from './components/tableDataRowHeader.js';
+import { TableDataCellPlaceholder } from './components/tableDataCellPlaceholder.js';
 import { CustomContextMenuItem } from '../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { PositronDataExplorerColumn } from './positronDataExplorerColumn.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
@@ -108,6 +109,33 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * calculation cannot overwrite the widths of a later one that has already finished.
 	 */
 	private _columnWidthsGeneration = 0;
+
+	/**
+	 * Whether column width calculators arrived while the initial load was running, so the column
+	 * widths still need to be recalculated with them once that load is done.
+	 */
+	private _pendingColumnWidthsRecalculation = false;
+
+	/**
+	 * Counts the sets of column width calculators that have been installed. A column width
+	 * calculation compares the generation it read against this before concluding that the widths it
+	 * produced were measured with the newest calculators.
+	 */
+	private _columnWidthCalculatorsGeneration = 0;
+
+	/**
+	 * Whether the layout entries have been applied, which is what tells the grid it knows enough --
+	 * the table's shape and its measured column widths -- to lay itself out correctly.
+	 */
+	private _layoutEntriesApplied = false;
+
+	/**
+	 * Whether the initial load failed. The grid still has no layout entries, but going on waiting
+	 * for entries that are not coming would leave a progress indicator turning forever, so the grid
+	 * paints what it has -- nothing -- as it did before there was an indicator at all. Cleared when
+	 * becoming visible retries the load.
+	 */
+	private _initialLoadFailed = false;
 
 	//#endregion Private Properties
 
@@ -238,6 +266,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets a value which indicates whether the grid does not yet know enough to lay itself out
+	 * correctly. The column widths are measured from the schema and a sample of the data, which on
+	 * a slow backend takes a while to arrive; until it has, laying out would mean guessing at the
+	 * widths and then shifting every column when the real ones land.
+	 */
+	override get loading() {
+		return !this._layoutEntriesApplied && !this._initialLoadFailed;
+	}
+
+	/**
 	 * Gets the page height.
 	 */
 	override get pageHeight() {
@@ -360,7 +398,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override rowHeader(rowIndex: number) {
 		return (
-			<TableDataRowHeader value={this._tableDataCache.getRowLabel(rowIndex)} />
+			<TableDataRowHeader
+				unavailable={this._tableDataCache.rowLabelsLoadFailed}
+				value={this._tableDataCache.getRowLabel(rowIndex)}
+			/>
 		);
 	}
 
@@ -391,16 +432,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns The cell value.
 	 */
 	cell(columnIndex: number, rowIndex: number): JSX.Element | undefined {
-		// Get the column.
+		// Get the column and the data cell. Either one missing means the cache hasn't loaded this
+		// part of the table yet -- the schema for the column, or the value itself -- so stand in for
+		// the value rather than leaving the cell blank. Whether that load is still coming decides
+		// which way the placeholder reads: a cell the last fetch failed to deliver is not one the
+		// grid is working on, and marking it as though it were is the wait that never ends.
 		const column = this.column(columnIndex);
-		if (!column) {
-			return undefined;
-		}
-
-		// Get the data cell.
 		const dataCell = this._tableDataCache.getDataCell(columnIndex, rowIndex);
-		if (!dataCell) {
-			return undefined;
+		if (!column || !dataCell) {
+			return <TableDataCellPlaceholder unavailable={this._tableDataCache.dataLoadFailed} />;
 		}
 
 		// Return the TableDataCell.
@@ -766,12 +806,24 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	setColumnWidthCalculators(columnWidthCalculators?: ColumnWidthCalculators) {
 		this._tableDataCache.setColumnWidthCalculators(columnWidthCalculators);
+		this._columnWidthCalculatorsGeneration++;
 
 		// Recalculate the column widths with the new calculators. Supplying calculators means the
 		// columns are to be measured with them, whether they are arriving for the first time -- the
 		// panel mounts asynchronously, so the initial load can run before they are here -- or
 		// replacing an earlier set that measured with a font the user has since changed.
-		if (columnWidthCalculators && this._initialLoadComplete) {
+		if (!columnWidthCalculators) {
+			return;
+		}
+
+		// Recalculating alongside a running initial load would apply column layout entries on their
+		// own, before that load has applied its row layout entries. The grid would then paint a band
+		// of column headers with no names (the schema is still on its way), no row headers and no
+		// cells -- which reads as broken, and lasts as long as the load does on a slow backend. So
+		// defer to the load, which applies both sets of entries together, and recalculate after it.
+		if (this._initialLoadInProgress) {
+			this._pendingColumnWidthsRecalculation = true;
+		} else if (this._initialLoadComplete) {
 			this.recalculateColumnWidths().catch(onUnexpectedError);
 		}
 	}
@@ -868,6 +920,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 			this._initialLoadInProgress = true;
 			this._initialLoadComplete = true;
+			this._initialLoadFailed = false;
 			this._pendingSchemaUpdate = false;
 			this._pendingDataUpdate = false;
 			try {
@@ -879,9 +932,21 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				// grid keeps whatever it had -- for a first load, no data at all -- and nothing
 				// would ask for the rest of it again.
 				this._initialLoadComplete = false;
+
+				// Stop waiting on a load that isn't coming back, and repaint so the grid comes out
+				// from behind the progress indicator.
+				this._initialLoadFailed = true;
+				this.fireOnDidUpdateEvent();
+
 				throw error;
 			} finally {
 				this._initialLoadInProgress = false;
+			}
+
+			// Apply column width calculators that arrived too late for this load to measure with.
+			if (this._pendingColumnWidthsRecalculation) {
+				this._pendingColumnWidthsRecalculation = false;
+				await this.recalculateColumnWidths();
 			}
 			return;
 		}
@@ -932,17 +997,35 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			});
 		}
 
-		// Calculate column widths.
+		// Calculate column widths. Note the calculators this calculation will measure with: it reads
+		// them synchronously, ahead of the backend round trips it then awaits.
+		const columnWidthCalculatorsGeneration = this._columnWidthCalculatorsGeneration;
 		const columnWidths = await this._tableDataCache.calculateColumnWidths(
 			this.minimumColumnWidth,
 			this.maximumColumnWidth
 		);
+
+		// Getting widths back means the calculators were in place when this calculation read them,
+		// and an unchanged generation means those are still the newest ones -- so a recalculation
+		// deferred while the initial load was running has nothing left to redo. Calculators that
+		// arrived after the read leave it standing: this calculation measured with the ones they
+		// replaced, so the deferred recalculation is the only thing that will apply them.
+		if (columnWidths &&
+			columnWidthCalculatorsGeneration === this._columnWidthCalculatorsGeneration) {
+			this._pendingColumnWidthsRecalculation = false;
+		}
 
 		// Set the layout entries. These widths are the newest, so a column width calculation still
 		// awaiting the backend is now stale and drops its result rather than overwriting them.
 		this._columnWidthsGeneration++;
 		this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
 		this._rowLayoutManager.setEntries(state.table_shape.num_rows);
+
+		// The grid now has the table's shape and its measured column widths, which is everything it
+		// needs to lay itself out correctly. Until this point it has nothing it can paint without
+		// guessing at the widths, so it shows a progress indicator instead.
+		const layoutEntriesWereApplied = this._layoutEntriesApplied;
+		this._layoutEntriesApplied = true;
 
 		// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
 		if (state.table_shape.num_rows === 0) {
@@ -964,6 +1047,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				this._horizontalScrollOffset = 0;
 			} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
 				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
+			}
+
+			// Announce coming out of the progress indicator ourselves rather than leaving it to the
+			// data fetch that follows: a table with no columns has nothing to fetch, so the cache
+			// is never updated and the indicator would turn forever. (The zero-row branch above
+			// already fires for its own reasons.)
+			if (!layoutEntriesWereApplied) {
+				this.fireOnDidUpdateEvent();
 			}
 		}
 	}

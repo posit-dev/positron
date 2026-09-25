@@ -84,7 +84,7 @@
 
   "extensions/open-remote-ssh/": ["@:remote-ssh"],
   "extensions/open-remote-wsl/": ["@:remote-wsl"],
-  "extensions/positron-catalog-explorer/": ["@:catalog-explorer"],
+  "extensions/positron-catalog-explorer/": [],
   "extensions/positron-code-cells/": [],
   "extensions/positron-data-driver-databricks/": ["@:connections"],
   "extensions/positron-data-driver-duckdb/": ["@:connections"],

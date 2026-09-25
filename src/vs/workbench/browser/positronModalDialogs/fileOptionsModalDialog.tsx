@@ -93,6 +93,7 @@ export const FileOptionsModalDialog = (props: FileOptionsDialogProps) => {
 			renderer={props.renderer}
 			title={localize('positron.fileOptionsModalDialogTitle', "File Options")}
 			width={350}
+			onCancel={handleCancel}
 		>
 			<ContentArea>
 				<div className='file-options-content'>

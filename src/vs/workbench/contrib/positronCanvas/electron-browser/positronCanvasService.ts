@@ -100,9 +100,8 @@ export interface IPositronCanvasService {
 	 * Puts away an auxiliary window that layout restore brought back while
 	 * this window boots into Canvas. Restore recreates the workspace's
 	 * detached windows natively visible, and the startup curtain covers only
-	 * the main window, so a restored Canvas window (blank until the assistant
-	 * resolves it) or a floating editor would sit on screen before Canvas is
-	 * up. A held window is treated like any window Canvas mode puts away:
+	 * the main window, so a floating editor would sit on screen before Canvas
+	 * is up. A held window is treated like any window Canvas mode puts away:
 	 * entry shows it if it becomes the Canvas window, exit and startup
 	 * recovery re-show it otherwise.
 	 */

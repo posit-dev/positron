@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { LanguageClient, Position, Range, RequestType, VersionedTextDocumentIdentifier } from 'vscode-languageclient/node';
+import { LanguageClient, Position, Range, RequestType, State, VersionedTextDocumentIdentifier } from 'vscode-languageclient/node';
 
 interface HelpTopicParams {
 	textDocument: VersionedTextDocumentIdentifier;
@@ -25,19 +25,28 @@ export namespace HelpTopicRequest {
  */
 export class RHelpTopicProvider implements positron.HelpTopicProvider {
 
-	/** The language client instance */
-	private readonly _client: LanguageClient;
-
+	/**
+	 * @param _shouldDecline Documents to answer `undefined` for, so that Positron
+	 *   asks the next provider instead. The console client declines the Quarto
+	 *   cells that a session of their own serves.
+	 */
 	constructor(
-		readonly client: LanguageClient,
-	) {
-		this._client = client;
-	}
+		private readonly _client: LanguageClient,
+		private readonly _shouldDecline?: (document: vscode.TextDocument) => boolean,
+	) { }
 
 	async provideHelpTopic(
 		document: vscode.TextDocument,
 		position: vscode.Position,
 		token: vscode.CancellationToken): Promise<string | undefined> {
+
+		// A client keeps its registrations when it stops, and the registry asks
+		// the newest first, so a stopped session is asked ahead of the console
+		// client that can still answer. Decline rather than reject: a rejection
+		// from a dead connection is noise every caller has to survive.
+		if (this._client.state !== State.Running || this._shouldDecline?.(document)) {
+			return undefined;
+		}
 
 		const params: HelpTopicParams = {
 			textDocument: this._client.code2ProtocolConverter.asVersionedTextDocumentIdentifier(document),

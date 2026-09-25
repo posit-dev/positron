@@ -36,6 +36,13 @@
 #     `.native-edit-context`.
 
 set -u
+
+# Call the repo's playwright-cli directly: npx resolves the same package but
+# costs about a second per invocation. Located from this script, not from $PWD.
+PW_CLI=("$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)/node_modules/.bin/playwright-cli")
+if [[ ! -x "${PW_CLI[0]}" ]]; then
+	PW_CLI=(npx @playwright/cli)
+fi
 umask 077
 
 APPEND=0
@@ -92,8 +99,8 @@ esac
 
 # Clear the editor through Monaco's keyboard handling without using a clipboard.
 if [[ "$APPEND" != "1" ]]; then
-	npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} press "${SELECT_ALL_MOD}+a" >/dev/null 2>&1 || true
-	npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} press Backspace >/dev/null 2>&1 || true
+	"${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} press "${SELECT_ALL_MOD}+a" >/dev/null 2>&1 || true
+	"${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} press Backspace >/dev/null 2>&1 || true
 fi
 
 # Build the evaluation payload in Node for automatic JSON escaping. Wait for two
@@ -135,7 +142,7 @@ JS=$(node -e '
 ' "$TEXT" "$VERIFY")
 
 # Extract the JSON-encoded result from the CLI's diagnostic output.
-RAW=$(npx @playwright/cli ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {
+RAW=$("${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {
 	echo "{\"ok\":false,\"error\":\"@playwright/cli eval failed\"}"
 	echo "$RAW" >&2
 	exit 1

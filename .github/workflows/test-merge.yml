@@ -27,7 +27,6 @@ jobs:
       shards: 2
       matrix: '{"shard":[1,2]}'
       workers: 2
-      allow_soft_fail: true
       max_failures: 10  # 20 max failures / 2 shards = 10
     secrets: inherit
 
@@ -40,7 +39,6 @@ jobs:
       grep: ""
       project: "e2e-windows"
       display_name: "electron-win"
-      allow_soft_fail: true
       upload_logs: false
       shards: 3
       matrix: '{"shard":[1,2,3]}'
@@ -60,7 +58,6 @@ jobs:
       shards: 2
       matrix: '{"shard":[1,2]}'
       workers: 2
-      allow_soft_fail: true
       max_failures: 10  # 20 max failures / 2 shards = 10
     secrets: inherit
 

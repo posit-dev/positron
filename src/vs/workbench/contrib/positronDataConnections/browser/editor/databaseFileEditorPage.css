@@ -1,0 +1,139 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * The database file page. It deliberately borrows the layout of the editor placeholder it replaces
+ * (.monaco-editor-pane-placeholder): one centered column, a hero mark at the top, a centered
+ * sentence of explanation, and a single filled button beneath. A user who has met the "file is not
+ * displayed in the text editor" page should read this as the same kind of page, with the format's
+ * own mark in place of the warning triangle and something to do instead of a dead end.
+ */
+
+.database-file-editor-container {
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+}
+
+.database-file-editor-container:focus {
+	outline: none;
+}
+
+.database-file-editor-page {
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--vscode-spacing-size160);
+	color: var(--vscode-editor-foreground);
+	background-color: var(--vscode-editor-background);
+}
+
+.database-file-editor-page .database-file-editor-page-content {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: var(--vscode-spacing-size120);
+
+	/* Matches the placeholder's measure, which keeps the sentence to a readable few lines. */
+	max-width: 450px;
+	text-align: center;
+}
+
+/*
+ * The hero slot. It holds its size whether or not there is a logo in it, so the page below does not
+ * move when the driver finishes loading -- and shows nothing at all until then, rather than standing
+ * a placeholder in for something that is about to arrive.
+ */
+.database-file-editor-page .database-file-editor-page-badge {
+	width: 64px;
+	height: 64px;
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+
+	/* The badge's border has to sit inside these 64px. Left to grow outside them, it would make the
+	   slot 2px taller the moment the logo arrived, nudging everything below it down. */
+	box-sizing: border-box;
+}
+
+/*
+ * The badge proper, drawn only once there is a logo to put on it: a light tile with a hairline
+ * border, the same treatment the provider cards in the Add Data Connection dialog give the same
+ * logos (see selectDataConnectionProvider.css, whose badge these values scale up from -- same ratio
+ * of logo to tile, one radius tier larger for the larger surface). The badge is what makes these
+ * logos work in both themes: they are drawn for a light background -- DuckDB's mark is black on
+ * transparent -- so on a dark editor background the bare logo all but disappears. The colors are
+ * literals rather than theme tokens for that reason: the tile has to stay light in a dark theme,
+ * which is exactly what a theme color would not do.
+ */
+.database-file-editor-page .database-file-editor-page-badge.has-logo {
+	border-radius: var(--vscode-cornerRadius-xLarge);
+	border: var(--vscode-strokeThickness) solid rgba(128, 128, 128, 0.2);
+	background: #f8f8f8;
+}
+
+.database-file-editor-page .database-file-editor-page-logo {
+	width: 40px;
+	height: 40px;
+	object-fit: contain;
+}
+
+.database-file-editor-page .database-file-editor-page-title {
+	font-size: var(--vscode-fontSize-heading2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	word-break: break-all;
+}
+
+/*
+ * Two lines: what the file is, and what can be done with it. Only the second changes as the driver
+ * loads, and since the column is centered, a line more or less of it would move everything above
+ * and below. Each of the four things the second line can say fits one line at this measure -- which
+ * is what naming the format on the first line buys -- so two lines is the exact height of the block
+ * rather than an approximation of it. The line height is pinned for the same reason: the
+ * reservation is two of these, not two of whatever the font happens to inherit.
+ */
+.database-file-editor-page .database-file-editor-page-description {
+	font-size: var(--vscode-fontSize-body1);
+	font-weight: var(--vscode-fontWeight-regular);
+	line-height: 20px;
+	min-height: 40px;
+	word-break: break-word;
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.database-file-editor-page .database-file-editor-page-button {
+	height: 28px;
+	min-width: 80px;
+	padding: 0 var(--vscode-spacing-size160);
+	margin-top: var(--vscode-spacing-size40);
+	border-radius: var(--vscode-cornerRadius-small);
+	font-size: var(--vscode-fontSize-body1);
+	color: var(--vscode-button-foreground);
+	background-color: var(--vscode-button-background);
+}
+
+.database-file-editor-page .database-file-editor-page-button:hover:not(.disabled) {
+	background-color: var(--vscode-button-hoverBackground);
+}
+
+.database-file-editor-page .database-file-editor-page-button.disabled {
+	opacity: 0.4;
+}
+
+/*
+ * Until the driver has resolved there is no telling whether this button creates a connection or
+ * opens the one the user already has, so it isn't shown -- but it is still laid out, holding the
+ * space it will occupy so nothing moves when it appears. `visibility` rather than `display` for
+ * exactly that reason; it also takes the button out of the tab order and the accessibility tree
+ * while it is not there to be pressed.
+ */
+.database-file-editor-page .database-file-editor-page-button.awaiting-driver {
+	visibility: hidden;
+}

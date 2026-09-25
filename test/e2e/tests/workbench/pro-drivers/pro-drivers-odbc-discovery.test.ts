@@ -59,10 +59,10 @@ const POSTGRES_DRIVER_SO = `${DRIVERS_DIR}/postgresql/bin/lib/libpostgresqlodbc_
 // `odbcinst -j`; these defaults only cover a teardown that runs before that resolution.
 //
 // Writing to the wrong pair is silent and confusing rather than loud: the driver never gets
-// registered, so the DSN cannot connect -- but the pane still *lists* it, because the ODBC driver
-// extension reads its own candidate directories (`SYSTEM_CONFIG_DIRS` in
-// extensions/positron-data-driver-odbc/src/odbcinst.ts). The connection then appears in the tree
-// and expands to nothing, which is what this suite hit on openSUSE.
+// registered, so the ODBC driver extension (SYSTEM_CONFIG_DIRS in
+// extensions/positron-data-driver-odbc/src/odbcinst.ts) drops the DSN from discovery instead of
+// listing a connection that cannot work. The symptom on openSUSE was a DSN missing from the pane
+// entirely, with nothing in the UI to say why.
 let odbcinstPath = '/etc/odbcinst.ini';
 let odbcIniPath = '/etc/odbc.ini';
 
@@ -253,9 +253,8 @@ test.describe('Workbench: Posit Pro Drivers', {
 			);
 			const [resolvedInst, resolvedIni] = odbcPaths.stdout.trim().split('\n').map(line => line.trim());
 			// Assert rather than fall back to /etc: a silent fallback is what makes the openSUSE
-			// failure mode so hard to read -- the config lands somewhere unixODBC ignores, the DSNs
-			// are still listed by the pane, and the only symptom is a connection that expands to
-			// nothing.
+			// failure mode so hard to read -- the config lands somewhere unixODBC ignores, and the
+			// DSNs that depend on it simply disappear from the pane rather than erroring loudly.
 			expect(resolvedInst, 'odbcinst -j did not report a system driver file').toBeTruthy();
 			expect(resolvedIni, 'odbcinst -j did not report a system DSN file').toBeTruthy();
 			odbcinstPath = resolvedInst;

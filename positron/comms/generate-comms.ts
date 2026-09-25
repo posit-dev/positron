@@ -647,6 +647,7 @@ use serde::Serialize;
 		yield ' */\n';
 		yield `#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n`;
 		yield `#[serde(tag = "method", content = "result")]\n`;
+		yield `#[allow(clippy::large_enum_variant)]\n`;
 		yield `pub enum ${snakeCaseToSentenceCase(name)}${contract.name}Reply {\n`;
 		for (const method of source.methods) {
 			if (method.result) {

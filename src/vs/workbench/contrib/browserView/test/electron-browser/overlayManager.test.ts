@@ -154,4 +154,67 @@ suite('BrowserOverlayManager', () => {
 
 		assert.deepStrictEqual(overlays.map(o => o.type), [BrowserOverlayType.Dialog]);
 	});
+
+	// --- Start Positron ---
+	test('detects a Positron modal popup covering the browser container', () => {
+		const browserContainer = addElement('browser-container', {
+			position: 'absolute', left: '0px', top: '0px', width: '300px', height: '300px'
+		});
+		addElement('positron-modal-popup-container', {
+			position: 'fixed', left: '0px', top: '0px', width: '400px', height: '400px', zIndex: '2540'
+		});
+
+		const overlays = manager.getOverlappingOverlays(browserContainer);
+
+		assert.deepStrictEqual(overlays.map(o => o.type), [BrowserOverlayType.Menu]);
+	});
+
+	// Regression test: the popup box itself is positioned near its anchor and may not overlap
+	// the browser container, but its `.positron-modal-popup-container` always fills the
+	// workbench, so the container (not the inner box) must be what's tracked.
+	test('detects a Positron modal popup container even when the popup box itself does not overlap', () => {
+		const browserContainer = addElement('browser-container', {
+			position: 'absolute', left: '0px', top: '0px', width: '300px', height: '300px'
+		});
+		const popupContainer = addElement('positron-modal-popup-container', {
+			position: 'fixed', left: '0px', top: '0px', width: '400px', height: '400px', zIndex: '2540'
+		});
+		addElement('positron-modal-popup', {
+			position: 'absolute', left: '350px', top: '350px', width: '20px', height: '20px'
+		}, popupContainer);
+
+		const overlays = manager.getOverlappingOverlays(browserContainer);
+
+		assert.deepStrictEqual(overlays.map(o => o.type), [BrowserOverlayType.Menu]);
+	});
+
+	test('detects a Positron modal dialog covering the browser container', () => {
+		const browserContainer = addElement('browser-container', {
+			position: 'absolute', left: '0px', top: '0px', width: '300px', height: '300px'
+		});
+		addElement('positron-modal-dialog-container', {
+			position: 'fixed', left: '0px', top: '0px', width: '400px', height: '400px', zIndex: '2540'
+		});
+
+		const overlays = manager.getOverlappingOverlays(browserContainer);
+
+		assert.deepStrictEqual(overlays.map(o => o.type), [BrowserOverlayType.Dialog]);
+	});
+
+	// Regression test: dialogs built on PositronDynamicModalDialog (e.g. Configure
+	// LLM Providers, Data Connections) render a `.positron-dynamic-modal-dialog-box-container`,
+	// a different container than the static `.positron-modal-dialog-container`.
+	test('detects a Positron dynamic modal dialog covering the browser container', () => {
+		const browserContainer = addElement('browser-container', {
+			position: 'absolute', left: '0px', top: '0px', width: '300px', height: '300px'
+		});
+		addElement('positron-dynamic-modal-dialog-box-container', {
+			position: 'fixed', left: '0px', top: '0px', width: '400px', height: '400px', zIndex: '2540'
+		});
+
+		const overlays = manager.getOverlappingOverlays(browserContainer);
+
+		assert.deepStrictEqual(overlays.map(o => o.type), [BrowserOverlayType.Dialog]);
+	});
+	// --- End Positron ---
 });

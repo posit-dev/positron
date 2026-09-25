@@ -206,6 +206,7 @@ export interface MainThreadConsoleServiceShape {
 	$getSessionIdForLanguage(languageId: string): Promise<string | undefined>;
 	$tryPasteText(sessionId: string, text: string): void;
 	$getActiveConsoleSessionId(): Promise<string | undefined>;
+	$getConsoleInputFocusedLastSessionId(): Promise<string | undefined>;
 }
 
 export interface ExtHostConsoleServiceShape {

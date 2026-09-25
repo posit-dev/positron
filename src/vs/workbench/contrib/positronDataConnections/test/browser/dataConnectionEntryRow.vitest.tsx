@@ -8,6 +8,7 @@
 import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -106,6 +107,7 @@ describe('DataConnectionEntryRow', () => {
 	const onDisconnect = vi.fn();
 	const onRefresh = vi.fn();
 	const onMenuOpening = vi.fn((): IDisposable => ({ dispose: vi.fn() }));
+	const hoverManager = stubInterface<IHoverManager>({ showHover: vi.fn(), hideHover: vi.fn() });
 
 	/**
 	 * Renders a row -- the saved profile, connected, unless told otherwise -- and right-clicks it.
@@ -121,6 +123,7 @@ describe('DataConnectionEntryRow', () => {
 		rtl.render(
 			<DataConnectionEntryRow
 				entry={{ profile: rowProfile, instance }}
+				hoverManager={hoverManager}
 				onDisconnect={onDisconnectRow}
 				onMenuOpening={onMenuOpening}
 				onRefresh={onRefresh}
@@ -150,21 +153,21 @@ describe('DataConnectionEntryRow', () => {
 	it('shows the connected indicator for a profile with a live connection', () => {
 		const instance = stubInterface<IDataConnectionInstance>({ id: 'instance-1', profileId: profile.id });
 
-		rtl.render(<DataConnectionEntryRow entry={{ profile, instance }} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
+		rtl.render(<DataConnectionEntryRow entry={{ profile, instance }} hoverManager={hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
 
 		// The indicator is a bare dot, so its accessible name is the only thing to query it by.
 		expect(screen.getByRole('img', { name: 'Connected' })).toBeInTheDocument();
 	});
 
 	it('shows no connected indicator for a saved profile that is not connected', () => {
-		rtl.render(<DataConnectionEntryRow entry={{ profile }} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
+		rtl.render(<DataConnectionEntryRow entry={{ profile }} hoverManager={hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
 
 		expect(screen.queryByRole('img', { name: 'Connected' })).not.toBeInTheDocument();
 		expect(screen.getByText('My Connection', { exact: false })).toBeInTheDocument();
 	});
 
 	it('badges a discovered profile as Detected', () => {
-		rtl.render(<DataConnectionEntryRow entry={{ profile: discoveredProfile }} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
+		rtl.render(<DataConnectionEntryRow entry={{ profile: discoveredProfile }} hoverManager={hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
 
 		// The badge has no role, so its aria-label -- which explains why the row is there, where the
 		// visible word alone would not -- is what there is to query it by.
@@ -172,9 +175,26 @@ describe('DataConnectionEntryRow', () => {
 	});
 
 	it('shows no Detected badge for a saved profile', () => {
-		rtl.render(<DataConnectionEntryRow entry={{ profile }} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
+		rtl.render(<DataConnectionEntryRow entry={{ profile }} hoverManager={hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
 
 		expect(screen.queryByLabelText(DISCOVERED_LABEL)).not.toBeInTheDocument();
+	});
+
+	it('hides the actions hover when a right-click opens the menu', async () => {
+		await rightClickRow();
+
+		expect(hoverManager.hideHover).toHaveBeenCalled();
+	});
+
+	it('hides the actions hover when the row unmounts under the pointer', async () => {
+		const { unmount } = rtl.render(<DataConnectionEntryRow entry={{ profile }} hoverManager={hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />);
+		const user = userEvent.setup();
+		await user.hover(screen.getByRole('button', { name: 'Actions' }));
+		expect(hoverManager.showHover).toHaveBeenCalled();
+
+		unmount();
+
+		expect(hoverManager.hideHover).toHaveBeenCalled();
 	});
 
 	it('offers Disconnect above Remove for a connected profile', async () => {

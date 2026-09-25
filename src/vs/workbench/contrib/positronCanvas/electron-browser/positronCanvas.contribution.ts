@@ -174,11 +174,10 @@ class CanvasStartupBoot extends Disposable {
 	) {
 		super();
 
-		// Layout restore brings the workspace's detached windows back natively
-		// visible (a Canvas window quit in Canvas mode among them, blank until
-		// the assistant resolves it) while the curtain covers only the main
-		// window. Hold them until restore is done; entry shows the one it
-		// adopts, exit and Open Positron re-show the rest.
+		// Layout restore brings the workspace's detached editor windows back
+		// natively visible (never a Canvas window; positronEditorPartsRestore.ts)
+		// while the curtain covers only the main window. Hold them until
+		// restore is done; exit and Open Positron re-show them.
 		this._register(holdRestoredAuxiliaryWindows(
 			this.auxiliaryWindowService,
 			this.editorGroupsService,

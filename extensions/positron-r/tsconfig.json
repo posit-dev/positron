@@ -33,5 +33,9 @@
 		"src/**/*",
 		"../../src/positron-dts/positron.d.ts",
 		"../../src/vscode-dts/vscode.d.ts",
+	],
+	"exclude": [
+		"src/**/*.vitest.ts",
+		"src/**/*.vitest.tsx"
 	]
 }

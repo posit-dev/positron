@@ -43,7 +43,7 @@ I'll dynamically fetch the current e2e test tags from `test/e2e/infra/test-runne
 - Feature tags (functionality-specific)
 - Platform tags (OS/environment control)
 - Performance tags
-- Special tags (critical, soft-fail)
+- Special tags (critical)
 
 ### Step 3: Evaluate Test Coverage (PETE)
 

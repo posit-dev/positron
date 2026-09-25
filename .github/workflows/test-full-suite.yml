@@ -195,7 +195,6 @@ jobs:
       display_name: "electron"
       install_undetectable_interpreters: true
       install_license: false
-      allow_soft_fail: false
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
@@ -214,7 +213,6 @@ jobs:
       grep: ${{ inputs.grep || '' }}
       project: "e2e-windows"
       display_name: "electron-win"
-      allow_soft_fail: false
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
@@ -268,7 +266,6 @@ jobs:
       display_name: "chromium"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
@@ -289,7 +286,6 @@ jobs:
       display_name: "chromium (rocky)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-suse:
@@ -306,7 +302,6 @@ jobs:
       display_name: "chromium (suse)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-sles:
@@ -323,7 +318,6 @@ jobs:
       display_name: "chromium (sles)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-debian:
@@ -340,7 +334,6 @@ jobs:
       display_name: "chromium (debian)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   build-workbench:
@@ -374,7 +367,6 @@ jobs:
       display_name: "workbench"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   # Same test set as the workbench lane, run against a Rocky Linux 9 container.
@@ -394,7 +386,6 @@ jobs:
       display_name: "workbench-rocky"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   # Same test set again, on an openSUSE Leap 15.6 container. `grep` is pinned to
@@ -415,7 +406,6 @@ jobs:
       display_name: "workbench-suse"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-workbench-stable:
@@ -430,7 +420,6 @@ jobs:
       display_name: "workbench-stable"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
       install_mode: "ci-stable"
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
@@ -464,7 +453,6 @@ jobs:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       display_name: "connect"
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   build-jupyter:
@@ -488,7 +476,6 @@ jobs:
       display_name: "jupyter"
       install_license: true
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   build-remote-ssh:
@@ -511,7 +498,6 @@ jobs:
       grep: ${{ inputs.grep || '@:remote-ssh' }}
       display_name: "remote-ssh"
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   unit-tests:
