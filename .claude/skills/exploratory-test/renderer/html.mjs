@@ -15,7 +15,7 @@
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
 import { resolve as resolvePath } from 'node:path';
-import { parseReport, escapeHtml, safeUrl, basename } from './report-parse.mjs';
+import { parseReport, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, FILE_SCRIPT } from './repro-files.mjs';
 
@@ -418,10 +418,10 @@ export function buildAgentPrompt(f, report, options = {}) {
 	}).join('\n\n'));
 	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
 	const { cases, related } = f.tests;
-	if (cases.length) {
+	if (cases.length && f.verified !== 'disputed') {
 		const named = new Set(cases.map(c => c.path));
 		const others = related.filter(r => !named.has(r.path));
-		section('Regression test (suggestion)', [
+		section(f.verified === 'unresolved' ? 'Regression test (suggestion; the verifier left this finding unresolved)' : 'Regression test (suggestion)', [
 			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : c.level ? ` \u2192 ${c.level} test; place it per the repo's test guidance` : ''}`),
 			others.length && `Other tests that touch this code: ${others.map(r => `${r.path}${r.level ? ` (${r.level})` : ''}`).join(', ')}`,
 		].filter(Boolean).join('\n'));
@@ -501,7 +501,8 @@ function renderErrorOutput(f, sha, exists) {
 
 function renderRegressionTest(f, sha) {
 	const { cases, related } = f.tests;
-	if (!cases.length) {
+	// Tests are aimed at the Cause, so they are no better than the finding the verifier judged.
+	if (!cases.length || f.verified === 'disputed') {
 		return '';
 	}
 	const sep = ' <span class="rt-sep" aria-hidden="true">&middot;</span> ';
@@ -515,8 +516,7 @@ function renderRegressionTest(f, sha) {
 			return c.level || c.noteHtml ? row(c.level, [c.noteHtml]) : '';
 		}
 		// A file the case says to create has nothing to link to yet.
-		const isNew = /\bnew\b/i.test(c.note) && !/\bexists?\b/i.test(c.note);
-		return row(c.level, [`Add to ${fileLink(c.path, isNew ? null : sourceHref(c.path, sha), 'rt-file')}`, c.noteHtml]);
+		return row(c.level, [`Add to ${fileLink(c.path, isNewTestFile(c) ? null : sourceHref(c.path, sha), 'rt-file')}`, c.noteHtml]);
 	};
 	const plural = cases.length > 1;
 	const named = new Set(cases.map(c => c.path));
@@ -526,7 +526,8 @@ function renderRegressionTest(f, sha) {
 			+ others.map(r => `<li>${row(r.level, [fileLink(r.path, sourceHref(r.path, sha), 'rt-file'), r.noteHtml])}</li>`).join('')
 			+ '</ul></div>'
 		: '';
-	return collapsedRow(' regtest', 'Regression test', `${cases.length} missing case${plural ? 's' : ''}`,
+	const tail = `${cases.length} missing case${plural ? 's' : ''}${f.verified === 'unresolved' ? ' \u00b7 finding unresolved' : ''}`;
+	return collapsedRow(' regtest', 'Regression test', tail,
 		`<div class="rt-group"><div class="rt-label">Suggested case${plural ? 's' : ''}</div>`
 		+ `<ol class="rt-cases">${cases.map(c => `<li>${c.textHtml}${where(c)}</li>`).join('')}</ol></div>`
 		+ othersHtml);

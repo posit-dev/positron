@@ -56,8 +56,13 @@ const listFiles = () => {
 		? readdirSync(root, { recursive: true }).map(p => join(root, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
 		: [];
 };
+// Test paths in the report are relative to the checkout the explorer runs in.
+const repoRoot = (() => {
+	try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
+})();
+const repoFileExists = repoRoot ? path => existsSync(join(repoRoot, path)) : undefined;
 const printProblems = () => {
-	const problems = lintReport(markdown, ledger, { fileExists, listFiles });
+	const problems = lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists });
 	if (problems.length) {
 		console.error(`format problems:\n${problems.map(p => `  ${p}`).join('\n')}`);
 	}

@@ -1085,6 +1085,20 @@ test('renderReportHtml ends a card with closed rows: error, cause, regression te
 	assert.doesNotMatch(c, /class="cause"/);
 });
 
+test('the regression test follows the verdict: hidden when disputed, caveated when unresolved', () => {
+	const verdict = word => RICH
+		.replace('| # | Finding | Severity | Reproduction |', '| # | Finding | Severity | Reproduction | Verified |')
+		.replace('|---|---|---|---|', '|---|---|---|---|---|')
+		.replace('| 1 | a claim | major | 3/3 |', `| 1 | a claim | major | 3/3 | ${word} |`);
+	const disputed = renderReportHtml(verdict('disputed'));
+	assert.doesNotMatch(card(disputed, 1), /lc regtest/);
+	assert.doesNotMatch(promptText(disputed, 1), /### Regression test/);
+	const unresolved = renderReportHtml(verdict('unresolved'));
+	assert.match(card(unresolved, 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases \u00b7 finding unresolved<\/span>/);
+	assert.match(promptText(unresolved, 1), /^### Regression test \(suggestion; the verifier left this finding unresolved\)$/m);
+	assert.match(card(renderReportHtml(verdict('confirmed')), 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
+});
+
 test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
 	const html = renderReportHtml(md([
 		'## Findings', '',

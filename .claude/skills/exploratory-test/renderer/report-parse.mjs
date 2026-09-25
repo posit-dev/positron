@@ -630,6 +630,11 @@ function parseTestCase(text) {
 	return { text: m[1].trim(), level: TEST_LEVEL[m[2].toLowerCase()], path: (m[3] ?? '').trim(), note: (m[4] ?? '').trim() };
 }
 
+/** A suggested case whose file does not exist yet: `(new file)`. */
+export function isNewTestFile(testCase) {
+	return /\bnew\b/i.test(testCase.note) && !/\bexists?\b/i.test(testCase.note);
+}
+
 /** `` `path` -- Unit, short note `` */
 function parseRelatedTest(text) {
 	const m = /^`([^`]+)`\s*(?:--|\u2014|-)?\s*(?:(unit|extension|e2e)\b[,;:\s]*)?([\s\S]*)$/i.exec(text);

@@ -10,7 +10,7 @@ Repository: `{{REPO}}`. Read files at a ref with `git show <ref>:<path>`. Do not
 
 See the change under test with `git -C {{REPO}} diff {{DIFF}}`.
 
-For EACH finding, answer these three questions explicitly:
+For EACH finding, answer these four questions explicitly:
 
 1. Does the code support the report's stated cause hypothesis? Read the files
    it names and quote the lines that confirm or contradict it. Cited lines
@@ -27,6 +27,10 @@ For EACH finding, answer these three questions explicitly:
    code the change now reaches, check that sentence against the diff. Flag it
    if the diff does not show it, or if it is written as a label ("New",
    "Pre-existing") rather than as reasoning.
+4. For each test file the report says already covers something (`exists,
+   covers ...` under Regression test, or a note under Other tests), open it and
+   say whether it does. A wrong claim does not change the verdict; name the
+   file and what it actually covers.
 
 Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say
 what evidence is missing).

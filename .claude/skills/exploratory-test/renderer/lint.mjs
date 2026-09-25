@@ -11,7 +11,7 @@
  * can check, returned as one line each for the agent to fix and re-render.
  */
 
-import { isDefaultsOnly, parseLedger } from './report-parse.mjs';
+import { isDefaultsOnly, isNewTestFile, parseLedger, parseReport } from './report-parse.mjs';
 import { FILE_NAME, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -181,7 +181,7 @@ function ledgerPreconditions(ledger) {
  * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
  * @returns {string[]} one line per problem; empty when the report is clean
  */
-export function lintReport(markdown, ledger, { fileExists, listFiles } = {}) {
+export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists } = {}) {
 	const problems = [];
 	const lines = prose(markdown);
 	const text = String(markdown ?? '');
@@ -277,6 +277,15 @@ export function lintReport(markdown, ledger, { fileExists, listFiles } = {}) {
 	if (fileExists) {
 		const missing = [...new Set([...text.matchAll(/\]\((shots\/[^)\s]+)\)/g)].map(m => m[1]))].filter(p => !fileExists(p));
 		for (const p of missing) { problems.push(`report: links ${p}, which is not in the run directory`); }
+	}
+
+	if (repoFileExists) {
+		for (const f of parseReport(text).findings) {
+			const paths = [...f.tests.cases.filter(c => c.path && !isNewTestFile(c)), ...f.tests.related].map(t => t.path);
+			for (const p of new Set(paths.filter(p => !repoFileExists(p)))) {
+				problems.push(`report: Finding ${f.n} names test file ${p}, which is not in the repository; fix the path, mark it (new file), or drop it`);
+			}
+		}
 	}
 
 	problems.push(...lintFiles(markdown, ledger, [...needs, ...ledgerPreconditions(ledger)], { fileExists, listFiles }));

@@ -136,6 +136,20 @@ test('flags a screenshot linked through a variable or URL instead of shots/', ()
 	}
 });
 
+test('flags a test file that is not in the repository, but not one marked new', () => {
+	const tests = REPORT.replace('- [shots/a.png](shots/a.png) -- Step 2: empty panel\n', [
+		'- [shots/a.png](shots/a.png) -- Step 2: empty panel', '',
+		'**Regression test**', '',
+		'- Retry loads the panel. -- Unit `src/a.test.ts` (exists)',
+		'- A new case. -- E2E `test/e2e/tests/b.test.ts` (new file)', '',
+		'**Other tests that touch this code**', '',
+		'- `src/c.test.ts` -- Unit, request shape', '',
+	].join('\n'));
+	const problems = lintReport(tests, LEDGER, { fileExists: () => true, repoFileExists: p => p === 'src/a.test.ts' });
+	assert.deepEqual(problems.filter(p => /not in the repository/.test(p)).map(p => /test file ([^,\s]+)/.exec(p)[1]), ['src/c.test.ts']);
+	assert.deepEqual(lint(tests), []);
+});
+
 test('flags a FAIL without Log:, a pass without a screenshot and a bad Status', () => {
 	const ledger = LEDGER
 		.replace('   Log: none found in logs/r.log\n', '')
