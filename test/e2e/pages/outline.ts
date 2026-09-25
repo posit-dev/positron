@@ -68,6 +68,20 @@ export class Outline {
 		return outlineData;
 	}
 
+	/**
+	 * The label and tree depth of every rendered Outline row, in display order.
+	 * Groups render their label differently from symbols, so both are read.
+	 */
+	async getOutlineRows(): Promise<{ label: string; level: number }[]> {
+		const rows = await this.code.driver.currentPage.locator(OUTLINE_TREE).locator('.monaco-list-row').all();
+		const result: { label: string; level: number }[] = [];
+		for (const row of rows) {
+			const label = await row.locator('.label-name, .outline-element-label').first().textContent();
+			result.push({ label: (label ?? '').trim(), level: Number(await row.getAttribute('aria-level')) });
+		}
+		return result;
+	}
+
 	async expectOutlineElementToBeVisible(text: string, visible = true): Promise<void> {
 		await test.step(`Expect outline element to be ${visible ? 'visible' : 'not visible'}: ${text}`, async () => {
 			visible
