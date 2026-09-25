@@ -41,6 +41,22 @@
 					"default": "",
 					"scope": "application"
 				},
+				"remoteSSH.transport": {
+					"type": "string",
+					"description": "Selects the SSH implementation. Native mode delegates configuration, routing, and authentication to the system OpenSSH client.",
+					"default": "ssh2",
+					"enum": [
+						"ssh2",
+						"native"
+					],
+					"scope": "application"
+				},
+				"remoteSSH.path": {
+					"type": "string",
+					"description": "Path to the OpenSSH executable used by the native transport.",
+					"default": "ssh",
+					"scope": "application"
+				},
 				"remoteSSH.connectTimeout": {
 					"type": "number",
 					"description": "Specifies the timeout in seconds used for the SSH command that connects to the remote.",
