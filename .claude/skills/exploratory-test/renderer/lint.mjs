@@ -111,6 +111,29 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 }
 
 /**
+ * A finding's repro is one ledger scenario's steps: every screenshot its steps
+ * cite comes from a single scenario, and that scenario failed for this finding.
+ * Other runs belong under Evidence as a Variant.
+ */
+function lintReproScenario(findings, scenarios) {
+	const problems = [];
+	const shotsOf = steps => new Set(steps.flatMap(st => st.evidence.map(e => basename(e.file || e.href))));
+	const owners = scenarios.map(s => ({ s, shots: shotsOf(s.steps) }));
+	for (const f of findings) {
+		const cited = [...shotsOf(f.steps)].filter(shot => owners.some(o => o.shots.has(shot)));
+		if (!cited.length) { continue; }
+		const whole = owners.filter(o => cited.every(shot => o.shots.has(shot))).map(o => o.s);
+		if (!whole.length) {
+			const ids = owners.filter(o => cited.some(shot => o.shots.has(shot))).map(o => o.s.id);
+			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and other runs go under Evidence as a Variant`);
+		} else if (!whole.some(s => s.finding === f.n || s.steps.some(st => st.finding === f.n))) {
+			problems.push(`report: Finding ${f.n}'s steps come from ${whole.map(s => s.id).join(' or ')}, whose Status does not name Finding ${f.n}`);
+		}
+	}
+	return problems;
+}
+
+/**
  * The test-file rules: every file a finding's setup or a scenario's
  * precondition names is saved under `files/` and listed in `## Files`, and the
  * two agree. `needs` is `[where, text]` for each setup line to check.
@@ -285,6 +308,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		for (const p of missing) { problems.push(`report: links ${p}, which is not in the run directory`); }
 	}
 
+	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? []));
 	if (repoFileExists) {
 		for (const f of parseReport(text).findings) {
 			const paths = [...f.tests.cases.filter(c => c.path && !isNewTestFile(c)), ...f.tests.related].map(t => t.path);

@@ -136,6 +136,26 @@ test('flags a screenshot linked through a variable or URL instead of shots/', ()
 	}
 });
 
+test('a repro is one scenario\'s steps, and that scenario failed for the finding', () => {
+	const ledger = [
+		'# Test ledger', '',
+		'## S01 - Panel loads', 'Status: pass', 'Result: loads', '', 'Steps:', '1. VERIFY it loads -> PASS', '   Evidence: p.png', '',
+		'## S02 - Retry', 'Status: fail - Finding 1', 'Result: fails', '', 'Steps:',
+		'1. VERIFY the button shows -> PASS', '   Evidence: r1.png',
+		'2. VERIFY it loads -> FAIL - Finding 1', '   Observed: empty', '   Evidence: r2.png', '',
+		'## S03 - Retry in Python', 'Status: fail - Finding 1', 'Result: fails', '', 'Steps:',
+		'1. VERIFY it loads -> FAIL - Finding 1', '   Observed: empty', '   Evidence: o1.png', '',
+	].join('\n');
+	const withShots = (...shots) => REPORT.replace('1. Click Retry.\n2. VERIFY the panel loads -> FAIL - Finding 1\n',
+		'**Repro** -- starting state: the panel open\n\n' + shots.map((shot, k) => `${k + 1}. VERIFY step ${k + 1} -> ${k === shots.length - 1 ? 'FAIL - Finding 1' : 'PASS'}\n   Evidence: ${shot}\n`).join(''));
+	const repro = report => lintReport(report, ledger, { fileExists: () => true }).filter(p => /steps (mix|come from)/.test(p));
+	assert.deepEqual(repro(withShots('r1.png', 'r2.png')), []);
+	assert.deepEqual(repro(withShots('r2.png', 'o1.png')), ["report: Finding 1's steps mix S02 and S03; the repro is one scenario's steps, and other runs go under Evidence as a Variant"]);
+	assert.deepEqual(repro(withShots('p.png')), ["report: Finding 1's steps come from S01, whose Status does not name Finding 1"]);
+	// A screenshot no scenario cites is another rule's problem.
+	assert.deepEqual(repro(withShots('r2.png', 'stray.png')), []);
+});
+
 test('flags a test file that is not in the repository, but not one marked new', () => {
 	const tests = REPORT.replace('- [shots/a.png](shots/a.png) -- Step 2: empty panel\n', [
 		'- [shots/a.png](shots/a.png) -- Step 2: empty panel', '',

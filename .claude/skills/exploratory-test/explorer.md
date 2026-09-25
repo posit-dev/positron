@@ -241,7 +241,9 @@ the picture shows something the text can't.
 
 A finding's steps are the minimal sequence from the scenario that found it: its
 actions plus the verify steps that matter, keeping PASS checks that show what
-still works just before the failure.
+still works just before the failure. Every step is one that scenario ran; stop
+at the failure unless it went on. Another scenario's run of the same bug goes
+under Evidence as a `Variant:`.
 
 Run details goes last: the branch and how you proved the build matches it, the
 state you manufactured and restored, and the local noise you ignored. The
