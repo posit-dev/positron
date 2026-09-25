@@ -26,12 +26,13 @@ export const MIN_TERMINAL_VERSION = '2.0.24';
  */
 export const MIN_CHAT_VERSION = '2.0.35';
 
-/** A Claude Code command to run, or the minimum version the user must install. */
-export type ClaudeCodeLaunch =
-	{ kind: 'command'; command: string; args: unknown[] } |
+/** Where to open the new Claude Code session, or the minimum version needed. */
+export type ClaudeCodeSurface =
+	{ kind: 'chat' } |
+	{ kind: 'terminal' } |
 	{ kind: 'outdated'; minimumVersion: string };
 
-/** Build the full prompt, inlining the error context as a fenced block. */
+/** Build the chat prompt, inlining the error context as a fenced block. */
 export function formatPrompt(request: ErrorActionRequest): string {
 	if (!request.context) {
 		return request.prompt;
@@ -44,21 +45,31 @@ export function formatPrompt(request: ErrorActionRequest): string {
 }
 
 /**
- * Pick the Claude Code command that opens a new session with the prompt.
- * @param version The installed Claude Code version, e.g. "2.1.282".
- * @param useTerminal The user's `claudeCode.useTerminal` setting.
+ * Build a single-line terminal prompt that @-mentions a file holding the
+ * error context. The prompt becomes a `claude` command-line argument, and a
+ * newline in it would end the command early.
+ * @param contextPath File containing `request.context`, or undefined when
+ *   there is no context.
  */
-export function getClaudeCodeLaunch(prompt: string, version: string, useTerminal: boolean): ClaudeCodeLaunch {
-	if (useTerminal) {
-		return isAtLeast(version, MIN_TERMINAL_VERSION)
-			? { kind: 'command', command: 'claude-vscode.terminal.open', args: [prompt] }
-			: { kind: 'outdated', minimumVersion: MIN_TERMINAL_VERSION };
+export function formatTerminalPrompt(request: ErrorActionRequest, contextPath: string | undefined): string {
+	const prompt = request.prompt.replace(/\s*\n\s*/g, ' ');
+	if (!contextPath) {
+		return prompt;
 	}
-	// An undefined session ID starts a new conversation with the prompt filled
-	// into the input, ready for the user to send.
-	return isAtLeast(version, MIN_CHAT_VERSION)
-		? { kind: 'command', command: 'claude-vscode.editor.open', args: [undefined, prompt] }
-		: { kind: 'outdated', minimumVersion: MIN_CHAT_VERSION };
+	const mention = /\s/.test(contextPath) ? `@"${contextPath}"` : `@${contextPath}`;
+	return `${prompt} ${request.contextName}: ${mention}`;
+}
+
+/**
+ * Pick where to open the new session, honoring `claudeCode.useTerminal`.
+ * @param version The installed Claude Code version, e.g. "2.1.282".
+ */
+export function getClaudeCodeSurface(version: string, useTerminal: boolean): ClaudeCodeSurface {
+	const minimumVersion = useTerminal ? MIN_TERMINAL_VERSION : MIN_CHAT_VERSION;
+	if (!isAtLeast(version, minimumVersion)) {
+		return { kind: 'outdated', minimumVersion };
+	}
+	return { kind: useTerminal ? 'terminal' : 'chat' };
 }
 
 /** Compare dotted numeric versions, ignoring any prerelease suffix. */

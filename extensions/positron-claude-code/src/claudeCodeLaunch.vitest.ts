@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { formatPrompt, getClaudeCodeLaunch } from './claudeCodeLaunch';
+import { formatPrompt, formatTerminalPrompt, getClaudeCodeSurface } from './claudeCodeLaunch';
 
 describe('formatPrompt', () => {
 	it('inlines the error context as a fenced block after the prompt', () => {
@@ -31,31 +31,42 @@ describe('formatPrompt', () => {
 	});
 });
 
-describe('getClaudeCodeLaunch', () => {
-	it('opens a new chat with the prompt when useTerminal is off', () => {
-		expect(getClaudeCodeLaunch('Fix it', '2.1.282', false)).toEqual({
-			kind: 'command',
-			command: 'claude-vscode.editor.open',
-			args: [undefined, 'Fix it'],
-		});
+describe('formatTerminalPrompt', () => {
+	const request = { action: 'fix' as const, prompt: 'Fix this console error.', context: 'Error:\n! boom', contextName: 'Console Error' };
+
+	it('keeps the prompt on one line and @-mentions the context file', () => {
+		expect(formatTerminalPrompt(request, '/tmp/positron-claude-code/error-1.txt'))
+			.toBe('Fix this console error. Console Error: @/tmp/positron-claude-code/error-1.txt');
 	});
 
-	it('opens a new terminal session with the prompt when useTerminal is on', () => {
-		expect(getClaudeCodeLaunch('Fix it', '2.1.282', true)).toEqual({
-			kind: 'command',
-			command: 'claude-vscode.terminal.open',
-			args: ['Fix it'],
-		});
+	it('quotes a context path that contains spaces', () => {
+		expect(formatTerminalPrompt(request, 'C:\\Users\\Ada Lovelace\\error.txt'))
+			.toBe('Fix this console error. Console Error: @"C:\\Users\\Ada Lovelace\\error.txt"');
+	});
+
+	it('flattens newlines in the prompt itself', () => {
+		expect(formatTerminalPrompt({ ...request, prompt: 'Explain.\nDo not edit files.' }, undefined))
+			.toBe('Explain. Do not edit files.');
+	});
+});
+
+describe('getClaudeCodeSurface', () => {
+	it('opens a new chat when useTerminal is off', () => {
+		expect(getClaudeCodeSurface('2.1.282', false)).toEqual({ kind: 'chat' });
+	});
+
+	it('opens a new terminal session when useTerminal is on', () => {
+		expect(getClaudeCodeSurface('2.1.282', true)).toEqual({ kind: 'terminal' });
 	});
 
 	it('accepts the first versions that take a prompt', () => {
-		expect(getClaudeCodeLaunch('Fix it', '2.0.35', false).kind).toBe('command');
-		expect(getClaudeCodeLaunch('Fix it', '2.0.24', true).kind).toBe('command');
+		expect(getClaudeCodeSurface('2.0.35', false)).toEqual({ kind: 'chat' });
+		expect(getClaudeCodeSurface('2.0.24', true)).toEqual({ kind: 'terminal' });
 	});
 
 	it('reports versions that ignore the prompt as outdated', () => {
-		expect(getClaudeCodeLaunch('Fix it', '2.0.34', false)).toEqual({ kind: 'outdated', minimumVersion: '2.0.35' });
-		expect(getClaudeCodeLaunch('Fix it', '2.0.23', true)).toEqual({ kind: 'outdated', minimumVersion: '2.0.24' });
-		expect(getClaudeCodeLaunch('Fix it', '1.0.126', false).kind).toBe('outdated');
+		expect(getClaudeCodeSurface('2.0.34', false)).toEqual({ kind: 'outdated', minimumVersion: '2.0.35' });
+		expect(getClaudeCodeSurface('2.0.23', true)).toEqual({ kind: 'outdated', minimumVersion: '2.0.24' });
+		expect(getClaudeCodeSurface('1.0.126', false)).toEqual({ kind: 'outdated', minimumVersion: '2.0.35' });
 	});
 });
