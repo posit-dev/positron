@@ -8,13 +8,14 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IAction } from '../../../../../base/common/actions.js';
+import { Event } from '../../../../../base/common/event.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
-import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestPositronConsoleInstance, TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -244,6 +245,60 @@ describe('ConsoleTab', () => {
 			expect(notify).toHaveBeenCalledOnce();
 			expect(screen.queryByRole('tab', { name: newName })).not.toBeInTheDocument();
 			expect(screen.getByRole('tab', { name: sessionName })).toBeInTheDocument();
+		});
+	});
+
+	describe('delete session', () => {
+		async function clickDelete(sessionId: string, stillRegisteredAfterFailure: boolean) {
+			const instance = addActiveConsoleInstance(sessionId, 'My Python Session');
+			const session = stubInterface<ILanguageRuntimeSession>({
+				sessionId,
+				getRuntimeState: () => RuntimeState.Ready,
+				onDidUpdateResourceUsage: Event.None,
+			});
+			let registered = true;
+			const runtimeSessionService = ctx.reactServices.runtimeSessionService;
+			vi.spyOn(runtimeSessionService, 'getSession')
+				.mockImplementation(() => registered ? session : undefined);
+			vi.spyOn(runtimeSessionService, 'deleteSession').mockImplementation(async () => {
+				registered = stillRegisteredAfterFailure;
+				throw new Error('runtime did not exit');
+			});
+			const warn = vi.spyOn(ctx.reactServices.notificationService, 'warn');
+			const error = vi.spyOn(ctx.reactServices.notificationService, 'error');
+
+			rtl.render(
+				<PositronConsoleContextProvider>
+					<ConsoleTab
+						hideSessionName={false}
+						hoverManager={hoverManager}
+						positronConsoleInstance={instance}
+						width={200}
+						onChangeSession={() => { }}
+						onSessionNameHiddenChange={() => { }}
+					/>
+				</PositronConsoleContextProvider>
+			);
+			await userEvent.setup().click(screen.getByTestId('trash-session'));
+
+			return {
+				warn: warn.mock.calls.map(([message]) => message),
+				error: error.mock.calls.map(([message]) => message),
+			};
+		}
+
+		it('warns that the runtime may still be running when deletion removed the session but rethrew', async () => {
+			expect(await clickDelete('test-session-delete-1', false)).toEqual({
+				warn: ['Session deleted, but its runtime may still be running: runtime did not exit'],
+				error: [],
+			});
+		});
+
+		it('reports a failed deletion when the session is still registered', async () => {
+			expect(await clickDelete('test-session-delete-2', true)).toEqual({
+				warn: [],
+				error: ['Failed to delete session: runtime did not exit'],
+			});
 		});
 	});
 

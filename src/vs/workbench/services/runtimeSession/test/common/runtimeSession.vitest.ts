@@ -10,10 +10,12 @@ import { Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
+import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
@@ -1718,5 +1720,168 @@ describe('Positron - RuntimeSessionService', () => {
 
 			expect(session.metadata.userSelected).toBe(true);
 		});
+	});
+
+	// A failed shutdown must not leave an unusable console registered for
+	// other components to act on (https://github.com/posit-dev/positron/issues/15781).
+	describe('deleting a session whose runtime does not exit', () => {
+		function spyOnWarnings() {
+			return vi.spyOn(ctx.instantiationService.get(INotificationService), 'warn');
+		}
+		let warn: ReturnType<typeof spyOnWarnings>;
+
+		beforeEach(() => {
+			warn = spyOnWarnings();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		async function startReadyConsole() {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			return session;
+		}
+
+
+		async function deleteRunningOutGracePeriods(session: TestLanguageRuntimeSession) {
+			vi.useFakeTimers();
+			const deleted = runtimeSessionService.deleteSession(session.sessionId);
+			// Handle a rejection before advancing fake timers to avoid an
+			// unhandled rejection from `deleteSession()`.
+			const outcome = deleted.then(
+				() => 'deleted',
+				(error: Error) => error.message,
+			);
+			await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + FORCE_QUIT_GRACE_MS);
+			return outcome;
+		}
+
+		it('does not force a runtime that exits after the shutdown request', async () => {
+			const session = await startReadyConsole();
+
+			const outcome = await deleteRunningOutGracePeriods(session);
+
+			expect({
+				outcome,
+				forceQuitCount: session.forceQuitCount,
+				warnings: warn.mock.calls.length,
+				registered: runtimeSessionService.getSession(session.sessionId) !== undefined,
+			}).toEqual({ outcome: 'deleted', forceQuitCount: 0, warnings: 0, registered: false });
+		});
+
+		it('forces the runtime to quit when it does not exit after the shutdown request', async () => {
+			const session = await startReadyConsole();
+			session.shutdownBehavior = 'noExit';
+
+			const outcome = await deleteRunningOutGracePeriods(session);
+
+			expect({
+				outcome,
+				forceQuitCount: session.forceQuitCount,
+				warnings: warn.mock.calls.map(([message]) => message),
+				registered: runtimeSessionService.getSession(session.sessionId) !== undefined,
+			}).toEqual({
+				outcome: 'deleted',
+				forceQuitCount: 1,
+				warnings: [`${session.dynState.sessionName} did not exit after a shutdown request and was forced to quit. ` +
+					`Its exit handlers may not have finished.`],
+				registered: false,
+			});
+		});
+
+		it('forces the runtime to quit when the shutdown request never completes', async () => {
+			const session = await startReadyConsole();
+			session.shutdownBehavior = 'noReply';
+
+			const outcome = await deleteRunningOutGracePeriods(session);
+
+			expect({
+				outcome,
+				forceQuitCount: session.forceQuitCount,
+				warnings: warn.mock.calls.length,
+				registered: runtimeSessionService.getSession(session.sessionId) !== undefined,
+			}).toEqual({ outcome: 'deleted', forceQuitCount: 1, warnings: 1, registered: false });
+		});
+
+		it('waits for the end event of a runtime that exits as the grace period expires', async () => {
+			const session = await startReadyConsole();
+			session.shutdownBehavior = 'noExit';
+
+			vi.useFakeTimers();
+			let settled = false;
+			const outcome = runtimeSessionService.deleteSession(session.sessionId).then(
+				() => 'deleted',
+				(error: Error) => error.message,
+			).finally(() => settled = true);
+
+			// `Exited` arrives before the shutdown timeout, but deletion must
+			// wait for `onDidEndSession()` after the timeout.
+			await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS - 1);
+			session.setRuntimeState(RuntimeState.Exited);
+			await vi.advanceTimersByTimeAsync(2);
+			const settledBeforeEnd = settled;
+
+			session.endSession();
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect({
+				settledBeforeEnd,
+				outcome: await outcome,
+				forceQuitCount: session.forceQuitCount,
+				warnings: warn.mock.calls.length,
+			}).toEqual({ settledBeforeEnd: false, outcome: 'deleted', forceQuitCount: 0, warnings: 0 });
+		});
+
+		it('deletes the session and rethrows when even a forced quit does not end it', async () => {
+			const session = await startReadyConsole();
+			session.shutdownBehavior = 'noExit';
+			session.exitsOnForceQuit = false;
+
+			const outcome = await deleteRunningOutGracePeriods(session);
+
+			expect({
+				outcome,
+				forceQuitCount: session.forceQuitCount,
+				registered: runtimeSessionService.getSession(session.sessionId) !== undefined,
+			}).toEqual({
+				outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} ` +
+					`to finish exiting, even after forcing it to quit.`,
+				forceQuitCount: 1,
+				registered: false,
+			});
+		});
+	});
+
+	// Only `deleteSession()` force-quits. Other shutdowns time out so
+	// `waitForShutdown()` can offer the user that choice.
+	it('does not force a notebook runtime that does not exit after the shutdown request', async () => {
+		const session = await startNotebook(runtime);
+		await waitForRuntimeState(session, RuntimeState.Ready);
+		session.shutdownBehavior = 'noExit';
+
+		vi.useFakeTimers();
+		try {
+			const outcome = shutdownNotebook().then(
+				() => 'shut down',
+				(error: Error) => error.message,
+			);
+			await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + FORCE_QUIT_GRACE_MS);
+
+			expect({
+				outcome: await outcome,
+				forceQuitCount: session.forceQuitCount,
+			}).toEqual({
+				outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} to finish exiting.`,
+				forceQuitCount: 0,
+			});
+
+			// End the simulated session so `waitForShutdown()` stops watching it.
+			session.setRuntimeState(RuntimeState.Exited);
+			await vi.advanceTimersByTimeAsync(0);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 });
