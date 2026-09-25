@@ -911,6 +911,26 @@ function splitFindingRef(text) {
 const LEDGER_SEP = /\s+(?:·|-|\|)\s+/;
 
 /**
+ * The ledger Environment's first line, `Positron <version> build <n>, <build>
+ * (Code - OSS <v>), on <OS> (<platform>).`, as the issue's two lines; null for
+ * any other line. The Code - OSS version is dropped: Run details still has it.
+ */
+export function parseSystemLine(text) {
+	const m = /^Positron\s+(.+),\s+on\s+(.+?)\.?$/.exec(String(text ?? '').trim().replace(/^[-*]\s+/, ''));
+	if (!m) {
+		return null;
+	}
+	const [version, ...build] = m[1].replace(/\s*\(Code - OSS[^)]*\)/i, '').split(/,\s*/);
+	const kind = build.join(', ').replace(/^an?\s+/i, '').replace(/\b([0-9a-f]{7,40})\b/i, '`$1`');
+	const os = m[2].trim();
+	const platform = /^(.+?)\s*\(([^)]+)\)$/.exec(os);
+	return {
+		positron: `Positron ${version.trim()}${kind ? ` (${kind})` : ''}`,
+		os: platform ? `${platform[1]}, ${platform[2]}` : /^not recorded$/i.test(os) ? 'OS not recorded' : os,
+	};
+}
+
+/**
  * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
  * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
  * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
@@ -1260,6 +1280,8 @@ export function parseReport(markdown, { ledger } = {}) {
 				preconditions,
 				steps: steps.map(stepText),
 				cause: parsed.cause ?? '',
+				summary: parsed.summary.join(' '),
+				prose: parsed.matched === 0 ? bodyLines.join('\n').trim() : '',
 			},
 			// Nothing recognisable in the body: render it as prose rather than
 			// showing an empty card.
@@ -1409,6 +1431,8 @@ export function parseReport(markdown, { ledger } = {}) {
 		runDetails,
 		logs: fromLedger?.logs ?? [],
 		files: fromLedger?.files ?? [],
+		// The ledger's Environment as written, for the issue's System details.
+		environment: fromLedger?.environment ?? [],
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass
 		// only matters for a report written before the total carried one.

@@ -143,7 +143,9 @@ ran and every one you did not; the report has no Coverage tables of its own.
 PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
 
 ## Environment
-- <what is true for the whole run: build, launch, workspace, interpreters>
+- Positron <version> build <n>, <dev build | release build> of <short sha> (Code - OSS <version>), on <OS> <version> (<platform> <arch>).
+- <Python or R> <version> with <the packages the run used>.
+- <anything else true for the whole run: launch, workspace, window>
 
 ## Logs
 - logs/<file> | <what wrote it> | <errors it holds, or "no errors">
@@ -191,7 +193,15 @@ Steps:
   surface you checked and when.
 - `## Environment` holds only what is true for the whole run: the build, how the
   app was launched, the interpreters. Run details shows it; do not repeat it
-  there.
+  there. The first bullet is the system line, in exactly this shape:
+  `- Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).`
+  The report's "File a GitHub issue" button copies it into System details, so
+  read each value, never guess: Positron's version and build from Help: About
+  (or `positronVersion` and `positronBuildNumber` in `product.json`), the commit
+  from `git rev-parse --short=10 HEAD`, Code - OSS from `package.json`'s
+  `version`, and the OS from `/etc/os-release` or `sw_vers`, with `uname -sm`.
+  Write "not recorded" in place of any value you cannot find. Then one bullet per
+  interpreter, starting with `Python` or `R` and its version.
 - `## Logs` has one line per file you copied into `logs/`, written at the end,
   with the errors in it ("2 errors, both in Finding 1", "no errors"). An error
   no check is tied to is counted here and nowhere else. Only what the app or

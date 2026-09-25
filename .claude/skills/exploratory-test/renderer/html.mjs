@@ -15,9 +15,9 @@
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
 import { resolve as resolvePath } from 'node:path';
-import { parseReport, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
+import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
-import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, FILE_SCRIPT } from './repro-files.mjs';
+import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
 
 const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -27,6 +27,10 @@ const ICON = {
 	// currentColor, which is the body-coloured word beside it.
 	statusCheck: '<svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	copy: '<svg class="cp-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6"></rect><path d="M3 10.5V4.1c0-.6.5-1.1 1.1-1.1h6.4"></path></svg>',
+	// The simplified bug: four legs, no centre line, drawn level with Copy's top edge.
+	bug: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+		+ '<path d="M6.2 5.1a1.8 1.8 0 0 1 3.6 0"/><rect x="4.75" y="5.5" width="6.5" height="8" rx="3.25"/>'
+		+ '<path d="M4.75 8.6H2.5M13.5 8.6h-2.25M4.9 11.7 3 13M11.1 11.7 13 13"/></svg>',
 	copied: '<svg class="cp-ok" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	down: '<svg class="cov-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>',
 	// The collapsed rows' and the Coverage rows' disclosure: 12px, right-pointing.
@@ -354,6 +358,62 @@ function safeLinks(text) {
 }
 
 /**
+ * A finding's Evidence as list items. `where` places a path beside the report;
+ * `shot` names a screenshot.
+ */
+function evidenceItems(f, where, shot) {
+	return f.evidence.map(e => {
+		if (e.kind === 'shot') {
+			return `- ${shot(e)} \u2014 ${e.step ? `${e.step.label}: ` : ''}${e.caption}`;
+		}
+		if (e.kind === 'log') {
+			const quote = /["\u201c\u201d]/.test(e.quote) ? e.quote : `\u201c${e.quote}\u201d`;
+			return `- ${where(e.path)} \u2014 ${quote}${e.note ? ` (${capitalize(e.note)})` : ''}`;
+		}
+		return `- ${e.text}`;
+	}).concat(f.errors.map(e => {
+		// A logged error is evidence in its own right: where it is, and what it said.
+		const file = logFile(e.source);
+		if (!file || f.evidence.some(ev => ev.kind === 'log' && ev.path === e.source)) {
+			return null;
+		}
+		const [at, ...counts] = e.meta;
+		const said = e.message.split('\n')[0];
+		return `- ${where(e.source)}${said ? ` \u2014 \u201c${said}\u201d` : ''}`
+			+ (e.meta.length ? ` (${[at, ...counts.map(countText)].filter(Boolean).join(', ')})` : '');
+	}).filter(Boolean)).join('\n');
+}
+
+/** Each error fenced, then where it was logged. `clip` shortens the fenced text. */
+function errorOutput(f, where, clip = text => text) {
+	return f.errors.map(e => {
+		if (!logFile(e.source)) {
+			return [[e.source, ...e.meta].filter(Boolean).join(' | '), e.raw && fenced(clip(e.raw))].filter(Boolean).join('\n');
+		}
+		const [at, ...counts] = e.meta;
+		const tail = [at && ` (${at})`, counts.length && `, ${counts.map(countText).join(', ')}`].filter(Boolean).join('');
+		return [e.raw && fenced(clip(e.raw)), `Logged in ${where(e.source)}${tail}.`].filter(Boolean).join('\n');
+	}).join('\n\n');
+}
+
+/** The suggested regression cases as `{ heading, body }`, or null when there are none to suggest. */
+function regressionTest(f) {
+	const { cases, related } = f.tests;
+	if (!cases.length || f.verified === 'disputed') {
+		return null;
+	}
+	const named = new Set(cases.map(c => c.path));
+	const others = related.filter(r => !named.has(r.path));
+	return {
+		heading: f.verified === 'unresolved' ? 'Regression test (suggestion; the verifier left this finding unresolved)' : 'Regression test (suggestion)',
+		body: [
+			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : c.level ? ` \u2192 ${c.level} test; place it per the repo's test guidance` : ''}`),
+			others.length && `Other tests that touch this code: ${others.map(r => `${r.path}${r.level ? ` (${r.level})` : ''}`).join(', ')}`,
+		].filter(Boolean).join('\n'),
+	};
+}
+
+/**
  * The finding as a Markdown prompt an agent can be handed, from the same parsed
  * fields the card renders. A section with nothing in it is left out rather than
  * printed as an empty heading.
@@ -386,45 +446,14 @@ export function buildAgentPrompt(f, report, options = {}) {
 		p => absolutePath(p, base), fenced));
 	// A step's own block stays under its number.
 	section('Reproduction', t.steps.map((step, i) => `${i + 1}. ${step.replace(/\n/g, '\n   ')}`).join('\n'));
-	section('Evidence', f.evidence.map(e => {
-		if (e.kind === 'shot') {
-			return `- ${absolutePath(e.src, base)} \u2014 ${e.step ? `${e.step.label}: ` : ''}${e.caption}`;
-		}
-		if (e.kind === 'log') {
-			const quote = /["\u201c\u201d]/.test(e.quote) ? e.quote : `\u201c${e.quote}\u201d`;
-			return `- ${absolutePath(e.path, base)} \u2014 ${quote}${e.note ? ` (${capitalize(e.note)})` : ''}`;
-		}
-		return `- ${e.text}`;
-	}).concat(f.errors.map(e => {
-		// A logged error is evidence in its own right: where it is, and what it said.
-		const file = logFile(e.source);
-		if (!file || f.evidence.some(ev => ev.kind === 'log' && ev.path === e.source)) {
-			return null;
-		}
-		const [where, ...counts] = e.meta;
-		const said = e.message.split('\n')[0];
-		return `- ${absolutePath(e.source, base)}${said ? ` \u2014 \u201c${said}\u201d` : ''}`
-			+ (e.meta.length ? ` (${[where, ...counts.map(countText)].filter(Boolean).join(', ')})` : '');
-	}).filter(Boolean)).join('\n'));
+	section('Evidence', evidenceItems(f, p => absolutePath(p, base), e => absolutePath(e.src, base)));
 	// Every error, including the ones the card hides for having no stack: a bare
 	// message is still a lead for whoever picks this up.
-	section('Error output', f.errors.map(e => {
-		if (!logFile(e.source)) {
-			return [[e.source, ...e.meta].filter(Boolean).join(' | '), e.raw && fenced(e.raw)].filter(Boolean).join('\n');
-		}
-		const [where, ...counts] = e.meta;
-		const tail = [where && ` (${where})`, counts.length && `, ${counts.map(countText).join(', ')}`].filter(Boolean).join('');
-		return [e.raw && fenced(e.raw), `Logged in ${absolutePath(e.source, base)}${tail}.`].filter(Boolean).join('\n');
-	}).join('\n\n'));
+	section('Error output', errorOutput(f, p => absolutePath(p, base)));
 	section('Likely cause (hypothesis, not verified)', capitalize(t.cause));
-	const { cases, related } = f.tests;
-	if (cases.length && f.verified !== 'disputed') {
-		const named = new Set(cases.map(c => c.path));
-		const others = related.filter(r => !named.has(r.path));
-		section(f.verified === 'unresolved' ? 'Regression test (suggestion; the verifier left this finding unresolved)' : 'Regression test (suggestion)', [
-			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : c.level ? ` \u2192 ${c.level} test; place it per the repo's test guidance` : ''}`),
-			others.length && `Other tests that touch this code: ${others.map(r => `${r.path}${r.level ? ` (${r.level})` : ''}`).join(', ')}`,
-		].filter(Boolean).join('\n'));
+	const regression = regressionTest(f);
+	if (regression) {
+		section(regression.heading, regression.body);
 	}
 	const [branch, sha] = report.chips;
 	section('Context', [report.pr && `PR: ${report.pr.url}`, branch && `Branch: ${branch}`, sha && `Commit: ${sha}`, options.diff && `Diff: ${options.diff}`]
@@ -446,12 +475,176 @@ function renderCopyButton(f) {
 		+ `${ICON.copy}${ICON.copied}</button>`;
 }
 
+/**
+ * Text for a `text/plain` script element. A closing tag ends it early, and a
+ * comment opener before a `<script` makes the parser skip the real closing tag
+ * and swallow the page; a saved HTML file brings both. The copy handlers undo this.
+ */
+function scriptText(text) {
+	return text.replace(/<(?=\/script|!--)/gi, '<\\');
+}
+
 function renderPromptBlock(f, report, options) {
-	// Raw text inside a script element: a closing tag ends it early, and a
-	// comment opener before a `<script` makes the parser skip the real closing
-	// tag and swallow the page. A saved HTML file brings both.
-	const text = buildAgentPrompt(f, report, options).replace(/<(?=\/script|!--)/gi, '<\\');
-	return `<script type="text/plain" id="prompt-f${f.n}">${text}</script>`;
+	return `<script type="text/plain" id="prompt-f${f.n}">${scriptText(buildAgentPrompt(f, report, options))}</script>`;
+}
+
+const ISSUE_NEW_URL = `${REPO_URL}/issues/new`;
+// GitHub rejects a new-issue link much longer than this.
+const ISSUE_URL_MAX = 8000;
+// An issue quotes this many lines of each error; the report has the rest.
+const ISSUE_ERROR_LINES = 6;
+
+/** The page's public URL: CI publishes one; a local run has only a path, which is never linked. */
+function reportUrl(base) {
+	return /^https?:\/\//i.test(base ?? '') ? `${base.replace(/\/+$/, '')}/index.html` : null;
+}
+
+/** Positron and OS, then the session, each value on its own line under its label. */
+function systemDetails(report) {
+	const env = report.environment.map(l => l.trim().replace(/^[-*]\s+/, '')).filter(Boolean);
+	const system = env.map(parseSystemLine).find(Boolean);
+	const session = env.filter(l => /^(?:Python|R)\s+\d/.test(l)).map(l => l.replace(/\.$/, ''));
+	// Two trailing spaces keep GitHub's line break.
+	const lines = group => group.join('  \n');
+	return [
+		'## System details',
+		'**Positron and OS:**  ',
+		lines(system ? [system.positron, system.os] : ['Not recorded']),
+		'',
+		'**Session:**  ',
+		lines(session.length ? session : ['Not recorded']),
+	].join('\n');
+}
+
+/** The first mention of a saved file in `text`, as "`name` (below)"; a mention inside a code span is left alone. */
+function markBelow(text, file) {
+	const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const names = [...new Set([file.path, file.rel, file.name])].map(esc).join('|');
+	const bare = new RegExp(`(?<![\\w/.-])(?:${names})(?!\\w|\\.\\w)`);
+	const quoted = new RegExp(`^\`(?:${names})\`$`);
+	let done = false;
+	const out = text.split(/(`[^`\n]*`)/).map(part => {
+		if (done || (part.startsWith('`') && !quoted.test(part))) {
+			return part;
+		}
+		return part.replace(part.startsWith('`') ? quoted : bare, () => {
+			done = true;
+			return `\`${file.name}\` (below)`;
+		});
+	}).join('');
+	return { text: out, done };
+}
+
+/** A step as the issue writes it: its result in bold, and no log line, which Error messages has. */
+function issueStep(step, observed) {
+	const result = step.result
+		? ` \u2192 **${step.result.toUpperCase()}**${observed && step.observed ? ` (observed: ${step.observed})` : ''}`
+		: '';
+	return [step.md + result, ...step.rest].join('\n');
+}
+
+/**
+ * The finding as a GitHub issue body, for an engineer rather than an agent:
+ * loosely Positron's issue template, from the same parsed fields as the card.
+ * No severity or status, which triage sets; no instructions, and no local path.
+ * Screenshots are listed, not embedded, because CI storage expires.
+ * `fileText: false` swaps each saved file's text for where to find it.
+ */
+export function buildIssueBody(f, report, options = {}, { fileText = true } = {}) {
+	const t = f.text;
+	const [branch, sha] = report.chips;
+	const url = reportUrl(options.base);
+	const by = url ? `[exploratory test](${url}#f${f.n})` : 'exploratory test';
+	const at = [branch && `\`${branch}\``, sha && `\`${sha}\``].filter(Boolean).join(' @ ');
+	const of = report.pr ? `#${report.pr.number}${at ? ` (${at})` : ''}` : at;
+	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', systemDetails(report), ''];
+	const section = (heading, body) => {
+		if (body) {
+			out.push(`## ${heading}`, safeLinks(body), '');
+		}
+	};
+	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
+
+	section('Describe the issue', capitalize([t.impact, t.prose].filter(Boolean).join('\n\n') || t.summary));
+
+	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
+	const marked = new Set();
+	const preconditions = t.preconditions.map(p => files.reduce((text, file) => {
+		if (marked.has(file.path)) {
+			return text;
+		}
+		const m = markBelow(text, file);
+		if (m.done) {
+			marked.add(file.path);
+		}
+		return m.text;
+	}, p));
+	// The card's rule: a step repeats what it observed only when two failed checks saw different things.
+	const failed = f.steps.filter(st => st.result === 'fail');
+	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
+	section('Steps to reproduce', [
+		preconditions.map(p => `- ${p.replace(/\n/g, '\n  ')}`).join('\n'),
+		f.steps.map((st, i) => `${i + 1}. ${issueStep(st, observed).replace(/\n/g, '\n   ')}`).join('\n'),
+	].filter(Boolean).join('\n\n'));
+	section('Expected', capitalize(t.expected));
+	section('Actual', capitalize(t.observed));
+
+	const clip = raw => {
+		const lines = raw.split('\n');
+		return lines.length > ISSUE_ERROR_LINES ? [...lines.slice(0, ISSUE_ERROR_LINES), '    \u2026'].join('\n') : raw;
+	};
+	section('Error messages', errorOutput(f, p => p, clip) || 'None recorded by the run.');
+	const evidence = evidenceItems(f, p => p, e => e.file);
+	section('Evidence', evidence && `Screenshots and logs are in the ${by} report for this run:\n${evidence}`);
+
+	if (t.cause) {
+		fold('Likely cause (hypothesis, not verified)', capitalize(t.cause));
+	}
+	const regression = regressionTest(f);
+	if (regression) {
+		fold(regression.heading, regression.body);
+	}
+	for (const file of files) {
+		const source = fileText ? fileSource(file) : null;
+		if (source) {
+			fold(escapeHtml(file.name), fenced(source.text, source.lang));
+		} else {
+			out.push(`\`${file.name}\` is in the report's \`files/\` folder.`, '');
+		}
+	}
+	return out.join('\n').trimEnd();
+}
+
+function issueHref(title, body) {
+	return `${ISSUE_NEW_URL}?title=${encodeURIComponent(title)}&labels=exploratory${body === undefined ? '' : `&body=${encodeURIComponent(body)}`}`;
+}
+
+/**
+ * The new-issue link for a finding, as `{ href, text, copy }`. The body goes in
+ * the link when it fits, first with the saved files' text and then without.
+ * When neither fits, the link carries the title alone and `copy` is set: the
+ * page copies `text`, the full body, on click instead.
+ */
+export function issueLink(f, report, options = {}) {
+	const full = buildIssueBody(f, report, options);
+	for (const text of [full, buildIssueBody(f, report, options, { fileText: false })]) {
+		const href = issueHref(f.title, text);
+		if (href.length <= ISSUE_URL_MAX) {
+			return { href, text, copy: false };
+		}
+	}
+	return { href: issueHref(f.title), text: full, copy: true };
+}
+
+// A plain link, so it works without JavaScript; the reader files the issue on GitHub with their own account.
+function renderIssueButton(f, issue) {
+	return `<a class="gh-btn" href="${escapeHtml(issue.href)}" target="_blank" rel="noopener" data-tip="File a GitHub issue"`
+		+ (issue.copy ? ` data-issue="issue-f${f.n}"` : '')
+		+ ` aria-label="File a GitHub issue for finding ${f.n} (opens GitHub in a new tab)">${ICON.bug}</a>`;
+}
+
+function renderIssueBlock(f, issue) {
+	return `<script type="text/plain" id="issue-f${f.n}">${scriptText(issue.text)}</script>`;
 }
 
 /** One closed row at the end of a card: a label, a quiet tail, and its content. */
@@ -546,6 +739,7 @@ function renderCardDetails(f, report, options = {}) {
 
 function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
+	const issue = issueLink(f, report, options);
 	const context = [];
 	if (f.confirmed === 'Confirmed' || f.verified === 'confirmed') {
 		context.push(`<span class="confirmed">${ICON.check(12)}Confirmed</span>`);
@@ -561,6 +755,7 @@ function renderFindingCard(f, report, options) {
 		+ `<span class="group identity"><span class="who">Finding ${f.n}</span>${pill(f.severity)}</span>`
 		+ '<span class="rule" aria-hidden="true"></span>'
 		+ `<span class="group context">${contextHtml}</span>`
+		+ renderIssueButton(f, issue)
 		+ (prompts ? renderCopyButton(f) : '')
 		+ '</div>';
 
@@ -568,7 +763,7 @@ function renderFindingCard(f, report, options) {
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
 		+ '</header>';
 
-	const promptBlock = prompts ? renderPromptBlock(f, report, options) : '';
+	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
 	// A saved file the card names opens its viewer. Not the prompt block: that
 	// is raw text, and it carries the files itself.
 	const files = options.files ?? [];
@@ -928,6 +1123,22 @@ var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){d
 if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
 else{fallback();}});});`;
 
+// A link too long for GitHub opens the form with the title only, so the click
+// copies the description as well and says so. Only pages with such a link ship this.
+const ISSUE_SCRIPT = `(function(){var toast=document.createElement('div');toast.className='gh-toast';toast.setAttribute('role','status');
+toast.innerHTML='${ICON.check(13)}<span></span>';document.body.appendChild(toast);var t;
+function show(){toast.querySelector('span').textContent='Description copied. Paste it into the issue on GitHub.';
+toast.classList.add('show');clearTimeout(t);t=setTimeout(function(){toast.classList.remove('show');},5000);}
+document.querySelectorAll('.gh-btn[data-issue]').forEach(function(a){a.addEventListener('click',function(){
+var el=document.getElementById(a.dataset.issue);if(!el){return;}
+// Undo scriptText's escapes, or the paste carries them.
+var text=el.textContent.replace(/<\\\\(?=\\/script|!--)/gi,'<');
+function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){show();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(show,fallback);}
+else{fallback();}});});})();`;
+
 /**
  * Renders the report markdown as a self-contained HTML page.
  *
@@ -1010,7 +1221,8 @@ ${viewers}
 ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	// Code blocks in steps have copy buttons even when agent prompts are off.
 	const copy = prompts || page.includes('class="code-cp"');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}</body>
+	const issue = page.includes(' data-issue="');
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }

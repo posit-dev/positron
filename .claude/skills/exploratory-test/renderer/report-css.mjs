@@ -120,6 +120,10 @@ const PROFESSIONAL = `
 	--code-cp-hover-bg: rgba(28,31,35,.06);
 	--cp-rest: #C4C0B6;
 	--cp-hover-bg: #F6F5F1;
+	--toast-bg: #1C1F23;
+	--toast-text: #FFFFFF;
+	--toast-border: #1C1F23;
+	--toast-check: #8FD3A8;
 
 	--totop-bg: #FFFFFF;
 	--totop-border: #E7E4DC;
@@ -250,6 +254,10 @@ const PARTY = `
 	--code-cp-hover-bg: rgba(245,241,255,.08);
 	--cp-rest: #4E4580;
 	--cp-hover-bg: #2A2250;
+	--toast-bg: #241D42;
+	--toast-text: #F5F1FF;
+	--toast-border: #5B4F92;
+	--toast-check: #3BD69E;
 
 	--totop-bg: #1E1838;
 	--totop-border: #342A5C;
@@ -439,12 +447,21 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .meta .confirmed svg{align-self:center;color:var(--pass-text)}
 .meta .reproduced{color:var(--faint-rate)}
 .cp-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
-.card:hover .cp-btn{color:var(--muted)}
-/* Scoped under .card so they outrank the card-hover colour above. */
 .card .cp-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
 .card .cp-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
 .cp-btn:hover::after,.cp-btn:focus-visible::after,.cp-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .cp-btn .cp-ok{display:none}
+/* File a GitHub issue: sits just left of Copy, the pair pushed right together. */
+.gh-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px 0 -6px auto;align-self:center;position:relative;border-radius:7px;color:var(--cp-rest);text-decoration:none;transition:color .15s ease,background-color .15s ease}
+.gh-btn:last-child{margin-right:-6px}
+.gh-btn+.cp-btn{margin-left:-19px}
+.gh-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
+.gh-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
+.gh-btn:hover::after,.gh-btn:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
+.gh-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,8px);display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;background:var(--toast-bg);color:var(--toast-text);border:1px solid var(--toast-border);font-family:var(--sans);font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;z-index:50}
+.gh-toast.show{opacity:1;transform:translate(-50%,0)}
+.gh-toast svg{color:var(--toast-check)}
+@media (prefers-reduced-motion:reduce){.gh-btn,.gh-toast{transition:none}}
 .cp-btn.is-copied{color:var(--pass-fill) !important}
 .cp-btn.is-copied .cp-ok{display:block}
 .cp-btn.is-copied .cp-ico{display:none}
