@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { raceTimeout } from '../../../../base/common/async.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { isAbsolute } from '../../../../base/common/path.js';
 import { isEqual } from '../../../../base/common/resources.js';
@@ -34,6 +35,17 @@ import { IPositronCanvasService } from './positronCanvasService.js';
  */
 export const SWITCH_CANVAS_FOLDER_COMMAND_ID = 'positron.experimental.switchCanvasFolder';
 export const GET_CANVAS_FOLDERS_COMMAND_ID = 'positron.experimental.getCanvasFolders';
+
+/**
+ * How long one session's shutdown may take behind the curtains. A kernel can
+ * exit without answering the shutdown request (the supervisor then drops the
+ * request unanswered), and a shutdown can hang in the extension; without a
+ * bound the user would be stuck behind inert curtains. Matches the runtime
+ * service's own wait for a session to end (a later end already fails
+ * `deleteSession`), so Canvas is back before its 10 s "not responding"
+ * prompt picks a visible window to render in.
+ */
+const SESSION_SHUTDOWN_TIMEOUT = 5_000;
 
 /**
  * Opens another folder in the Canvas window: an ordinary folder load into
@@ -138,12 +150,16 @@ export class CanvasFolderSwitcher {
 				// Rechecked per session: an earlier shutdown can leave a
 				// dependent session busy.
 				this.requireSettled(session);
-				let deleted: boolean;
+				let deleted: boolean | undefined;
 				try {
-					deleted = await this.runtimeSessionService.deleteSession(session.sessionId);
+					deleted = await raceTimeout(this.runtimeSessionService.deleteSession(session.sessionId), SESSION_SHUTDOWN_TIMEOUT);
 				} catch (cause) {
 					this.logService.error(`[canvas] Could not shut down the ${session.dynState.sessionName} session for the folder open`, cause);
 					throw new Error(localize('positron.canvas.switchSessionFailed', "The {0} session could not be shut down.", session.dynState.sessionName), { cause });
+				}
+				if (deleted === undefined) {
+					this.logService.error(`[canvas] The ${session.dynState.sessionName} session did not shut down within ${SESSION_SHUTDOWN_TIMEOUT}ms for the folder open`);
+					throw new Error(localize('positron.canvas.switchSessionTimeout', "The {0} session did not shut down in time. Try again.", session.dynState.sessionName));
 				}
 				if (!deleted) {
 					throw new Error(localize('positron.canvas.switchSession', "Shutting down the {0} session was cancelled.", session.dynState.sessionName));
