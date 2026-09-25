@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.82.0",
+			"version": "2026.84.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
