@@ -5,7 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { readFileSync } from 'node:fs';
+import { buildVerifyPrompt, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -468,4 +469,23 @@ test('every script in the action parses', async () => {
 		const r = spawnSync(process.execPath, ['--check', new URL(f, dir).pathname], { encoding: 'utf8' });
 		assert.equal(r.status, 0, `${f}: ${r.stderr}`);
 	}
+});
+
+const VERIFIER = readFileSync(new URL('../../../.claude/skills/exploratory-test/verifier.md', import.meta.url), 'utf8');
+const RUN = { workDir: '/tmp/run', repoRoot: '/repo', baseSha: 'aaaa1111', headSha: 'bbbb2222' };
+
+test('buildVerifyPrompt fills verifier.md with the run paths and diff range', () => {
+	const prompt = buildVerifyPrompt(VERIFIER, RUN);
+	assert.doesNotMatch(prompt, /\{\{/);
+	assert.match(prompt, /^You are verifying an exploratory-test report/);
+	assert.match(prompt, /Report: `\/tmp\/run\/report\.md`/);
+	assert.match(prompt, /`\/tmp\/run\/files\/`/);
+	assert.match(prompt, /git -C \/repo diff aaaa1111\.\.\.bbbb2222/);
+	// parseVerdicts reads this line from the reply, so the example has to survive.
+	assert.match(prompt, /\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n/);
+});
+
+test('buildVerifyPrompt throws when the template and its values drift apart', () => {
+	assert.throws(() => buildVerifyPrompt(`${VERIFIER}\n{{NEW_THING}}`, RUN), /no value for \{\{NEW_THING\}\}/);
+	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
 });

@@ -8,15 +8,18 @@
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
+import { buildVerifyPrompt, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
+// Beside explorer.md, so both prompts come from the harness checkout rather
+// than the branch under test, which may not have this file yet.
+const VERIFIER_PATH = join(dirname(EXPLORER_PATH), 'verifier.md');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
@@ -125,40 +128,9 @@ Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full comman
 // Takes no report: the verifier is pointed at report.md on disk rather than
 // handed its text, so that it reads the same bytes the reviewer will.
 async function verifyReport() {
-	const prompt = [
-		'You are verifying an exploratory-test report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
-		'',
-		`Report: \`${join(WORK_DIR, 'report.md')}\``,
-		`The reporting agent's own action log, with timestamps: \`${join(WORK_DIR, 'actions.log')}\``,
-		`Its scenario ledger, with each scenario's steps and checks: \`${join(WORK_DIR, 'ledger.md')}\``,
-		`Repository: \`${REPO_ROOT}\`. Read files at a ref with \`git show <ref>:<path>\`. Do not modify anything.`,
-		'',
-		`See the change under test with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA}\`.`,
-		'',
-		'For EACH finding, answer these three questions explicitly:',
-		'',
-		"1. Does the code support the report's stated cause hypothesis? Read the files it names and quote the lines that confirm or contradict it. Cited lines existing is not enough: trace the path from the trigger the repro describes to the symptom, and say whether it runs through the code the report blames. Check the hypothesis against every observation in the steps, including ones it does not mention.",
-		"2. Could anything the reporting agent did to its own test environment produce the reported symptom? Read the action log, the ledger's `## Environment` and Run details for how it set the machine up, then ask whether that setup, rather than the product, explains what it saw.",
-		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it, which is what `exposed` means. A flipped default, new call site or removed fallback that routes users onto unchanged defective code is `exposed`, even when users see it as a regression. To choose between `exposed` and `no`, ask whether a user on the old code and old defaults could reach the failure, not whether the defective line ran; only a failure users could already hit is `no`. A control run on this build (such as a setting turned off) still carries the diff, so it is not evidence about the old code. A blank or unrecognised `Introduced?` (anything but `yes`, `no` or `exposed`) is a missing answer: flag it, and say which value the diff supports.',
-		'',
-		'Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say what evidence is missing).',
-		'',
-		'Also flag any place where the report asserts a check it could not have performed as described.',
-		'',
-		'Start your reply with a single machine-readable line, exactly this shape, one entry per finding in the table:',
-		'',
-		'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE',
-		'',
-		'It is read to annotate the findings table, so use only CONFIRMED, FALSE POSITIVE or UNRESOLVED, and number the findings as the table does.',
-		'',
-		'Then keep it short. The table column is what a reviewer reads; this section is for what the column cannot say.',
-		'',
-		'- A finding you CONFIRM gets one line: what convinced you.',
-		'- A finding you dispute or cannot resolve gets a short paragraph: the evidence that contradicts it, or what is missing.',
-		'- End with one line naming anything the report claimed but could not have checked, or `No process issues.`',
-		'',
-		'No preamble, no restating the finding, no summary of the report. Do not write any files.',
-	].join('\n');
+	const prompt = buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
+		workDir: WORK_DIR, repoRoot: REPO_ROOT, baseSha: BASE_SHA, headSha: HEAD_SHA,
+	});
 
 	const chunks = [];
 	for await (const message of query({
