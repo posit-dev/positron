@@ -30,6 +30,19 @@ export async function disposeAll(disposables: vscode.Disposable[]) {
 }
 
 /**
+ * Like `disposeAll()`, but logs errors instead of throwing them. For cleanup
+ * that runs while another error may be in flight (typically a failing
+ * assertion), which a throwing disposable would otherwise replace.
+ */
+export async function disposeAllQuietly(disposables: vscode.Disposable[]) {
+	try {
+		await disposeAll(disposables);
+	} catch (err) {
+		console.error(`Error while running disposables: ${err}`);
+	}
+}
+
+/**
  * Runs a closure with a disposables array, ensuring all disposables are disposed in reverse order after execution.
  * @param fn The closure to run, which receives the disposables array.
  */
@@ -40,13 +53,7 @@ export async function withDisposables<T>(
 	try {
 		return await fn(disposables);
 	} finally {
-		// Catch any errors occurring while running disposables to avoid overriding
-		// errors from `fn` (typically failing assertions)
-		try {
-			await disposeAll(disposables);
-		} catch (err) {
-			console.error(`Error while running disposables: ${err}`);
-		}
+		await disposeAllQuietly(disposables);
 	}
 }
 
