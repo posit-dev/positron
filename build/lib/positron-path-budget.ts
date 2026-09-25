@@ -82,9 +82,10 @@ export function describeBudget(): string {
  * The budgets do not count the gzip copies that the web server builds add. See
  * `isGzipCopy` in positron-check-path-lengths.ts.
  *
- * The largest count so far is 25,497, in the win32-x64 build of #16228.
+ * The expected count is about 20,900; the budget leaves about 10% headroom
+ * above it.
  */
-export const EXTENSIONS_FILE_COUNT_BUDGET = 28_000;
+export const EXTENSIONS_FILE_COUNT_BUDGET = 23_000;
 
 /**
  * File-count budget for an extension that `EXTENSION_FILE_COUNT_BUDGETS` does not
@@ -106,7 +107,6 @@ export const DEFAULT_EXTENSION_FILE_COUNT_BUDGET = 100;
 export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map([
 	['copilot', 8_500], // 7,728
 	['positron-python', 6_350], // 5,219; 5,784 on win32-x64
-	['positron-data-driver-snowflake', 5_050], // 4,590
 	['positron-data-driver-databricks', 3_460], // 3,145
 	['positron-data-driver-odbc', 550], // 493
 	['positron-data-driver-sqlite', 540], // 448; 489 on win32-x64
@@ -157,9 +157,9 @@ const EXTENSION_NODE_MODULES_EXCLUDES = [
 	'node_modules/**/*.d.ts.map',
 	// The ESM twins of `dist-cjs` in the AWS and Smithy SDKs. `@aws-sdk/*` and
 	// `@smithy/*` resolve `main` and the `node` export condition to `dist-cjs`.
-	// The only consumer is `snowflake-sdk`, which stays external to the esbuild
-	// bundle and therefore loads as CommonJS. These patterns name the two package
-	// scopes, because many other packages ship `dist-es` as their only build.
+	// The only runtime consumer would be an ESM import of the SDK, which no
+	// bundled extension does. These patterns name the two package scopes,
+	// because many other packages ship `dist-es` as their only build.
 	'node_modules/@aws-sdk/**/dist-es/**',
 	'node_modules/@smithy/**/dist-es/**',
 	// node-pre-gyp's scratch dir from a source-build fallback (e.g. odbc has
