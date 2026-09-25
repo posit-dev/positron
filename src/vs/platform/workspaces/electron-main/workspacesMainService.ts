@@ -15,17 +15,11 @@ import { IWorkspaceBackupInfo, IFolderBackupInfo } from '../../backup/common/bac
 import { Event } from '../../../base/common/event.js';
 // --- Start Positron ---
 import { IEnvironmentMainService } from '../../environment/electron-main/environmentMainService.js';
-import { ICanvasFolderResolution, ICanvasFolderWorkspaceService } from '../common/positronFolderWorkspace.js';
+import { ICanvasFolderResolution } from '../common/positronFolderWorkspace.js';
 import { openCanvasFolder, resolveCanvasFolder } from './positronFolderWorkspace.js';
 // --- End Positron ---
 
-export class WorkspacesMainService implements AddFirstParameterToFunctions<IWorkspacesService, Promise<unknown> /* only methods, not events */, number /* window ID */>,
-	// --- Start Positron ---
-	// The Canvas folder open rides on this channel; the clause keeps the
-	// main-process methods in step with the renderer-facing interface.
-	AddFirstParameterToFunctions<ICanvasFolderWorkspaceService, Promise<unknown>, number /* window ID */>
-// --- End Positron ---
-{
+export class WorkspacesMainService implements AddFirstParameterToFunctions<IWorkspacesService, Promise<unknown> /* only methods, not events */, number /* window ID */> {
 
 	declare readonly _serviceBrand: undefined;
 
