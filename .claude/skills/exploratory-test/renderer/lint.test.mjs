@@ -121,6 +121,13 @@ test('flags a linked shot that is not on disk', () => {
 	assert.ok(lintReport(REPORT, LEDGER, { fileExists: () => false }).some(p => /links shots\/a\.png/.test(p)));
 });
 
+test('flags a screenshot linked through a variable or URL instead of shots/', () => {
+	for (const target of ['$U/a.png', 'https://cdn.example/run/shots/a.png']) {
+		const problems = lint(REPORT.replace('- [shots/a.png](shots/a.png)', `- [shots/a.png](${target})`));
+		assert.ok(problems.some(p => p.includes(`not ${target}`)), target);
+	}
+});
+
 test('flags a FAIL without Log:, a pass without a screenshot and a bad Status', () => {
 	const ledger = LEDGER
 		.replace('   Log: none found in logs/r.log\n', '')

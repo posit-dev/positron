@@ -244,8 +244,11 @@ is in code the diff adds or changes. `exposed` means the defect predates the
 change and the diff makes users reach it: a flipped default, a new call site, a
 removed fallback, or shifted timing that lets an existing race fire. A
 regression users can see is still `exposed` when the broken code is old; the
-"X no longer Y" claim already tells the reader it is a regression. Cause names
-the line and says which applies. `exposed` is not a hedge.
+"X no longer Y" claim already tells the reader it is a regression. Before
+`exposed`, read the removed side of the diff: if the old code, under its old
+defaults, still ran the defective code, it is `no`, even when the diff makes the
+defect easier to see. If the diff cannot settle that, say so in Cause. Cause
+names the line and says which applies. `exposed` is not a hedge.
 
 `Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
@@ -436,6 +439,10 @@ snapshot shows none of it. Before reporting something as missing, read its
 state from the DOM (`aria-expanded`, `hidden`, row counts) or expand and scroll
 to it. When a log says the data was delivered but the view does not show it,
 suspect the view before the pipeline behind it.
+
+A log line supports a Cause only if it was written while the failure was on
+screen. Match its timestamp to the failing step in `actions.log`, and look for
+the line that undoes it (`Disposed`, `stopped`) between the two.
 
 The harness is part of the configuration, not a neutral window onto the
 product. A launcher that forces a setting, a web server standing in for the

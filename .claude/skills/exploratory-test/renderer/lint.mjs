@@ -178,6 +178,9 @@ export function lintReport(markdown, ledger, { fileExists } = {}) {
 		if (!/^\s*Evidence:/.test(line) && /(^|[^[(])`shots\/[^`]+`/.test(line)) {
 			problems.push(`report: cite shots as [shots/<file>](shots/<file>), not in backticks: "${line.trim().slice(0, 60)}"`);
 		}
+		// A URL or shell variable in place of shots/ renders as a broken image.
+		const image = [...line.matchAll(/\]\(([^)\s]+\.(?:png|jpe?g|gif|webp))\)/gi)].map(m => m[1]).find(p => !p.startsWith('shots/'));
+		if (image) { problems.push(`report: link screenshots as shots/<file>, not ${image}`); }
 	}
 	// Only citations: a Run details line may name the workspace path.
 	const ABSOLUTE = /^`?(\/|~\/)/;
