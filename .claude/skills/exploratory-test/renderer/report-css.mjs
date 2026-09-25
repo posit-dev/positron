@@ -760,7 +760,9 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .fn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .fv-panel{position:relative;width:min(960px,100%);max-height:100%;display:flex;flex-direction:column;border-radius:12px;overflow:hidden;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow)}
 .fv-h{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 16px;border-bottom:1px solid var(--hairline);background:var(--thead)}
-.fv-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--ink)}
+.fv-n{min-width:0;display:flex;white-space:nowrap;font-family:var(--mono);font-size:13px;font-weight:500;color:var(--ink)}
+.fv-dir{min-width:0;overflow:hidden;text-overflow:ellipsis;font-weight:400;color:var(--faint)}
+.fv-f{flex:none}
 .fv-m{white-space:nowrap;font-size:12px;color:var(--faint)}
 .fv-acts{flex:none;margin-left:auto;display:flex;align-items:center;gap:2px}
 .fv-b{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:0;border-radius:6px;background:transparent;color:var(--muted);font:500 12.5px var(--sans);cursor:pointer;text-decoration:none}

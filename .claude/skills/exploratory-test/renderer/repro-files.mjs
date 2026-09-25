@@ -156,7 +156,10 @@ export function resolveFiles(entries, readFile) {
 	return (entries ?? []).map(e => {
 		const bytes = readFile ? readFile(e.path) : null;
 		const ext = extOf(e.path);
-		const base = { ...e, name: basename(e.path), id: makeId(e.path, taken), ext, type: TYPE[ext] ?? (ext ? ext.toUpperCase() : 'File') };
+		// `rel` is where the file goes in the workspace; `dir` is its folder there, if any.
+		const rel = e.path.replace(/^files\//, '');
+		const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/') + 1) : '';
+		const base = { ...e, name: basename(e.path), rel, dir, id: makeId(e.path, taken), ext, type: TYPE[ext] ?? (ext ? ext.toUpperCase() : 'File') };
 		if (!bytes) {
 			return { ...base, kind: 'missing' };
 		}
@@ -234,12 +237,17 @@ export function linkFilePaths(html, files) {
 	}).join('');
 }
 
-/** The file name as a link that opens the viewer; plain code when the file is not there. */
-export function fileChip(f) {
+/**
+ * The file name as a link that opens the viewer; plain code when the file is
+ * not there. `{ path: true }` labels it with its folder in the workspace too,
+ * for a list where the reader has to know where each file goes.
+ */
+export function fileChip(f, { path = false } = {}) {
+	const label = escapeHtml(path ? f.rel : f.name);
 	if (f.kind === 'missing') {
-		return `<code>${escapeHtml(f.name)}</code>`;
+		return `<code>${label}</code>`;
 	}
-	return `<a class="fn" href="${escapeHtml(f.path)}" data-file="${f.id}" title="Open ${escapeHtml(f.path.replace(/^files\//, ''))}">${escapeHtml(f.name)}</a>`;
+	return `<a class="fn" href="${escapeHtml(f.path)}" data-file="${f.id}" title="Open ${escapeHtml(f.rel)}">${label}</a>`;
 }
 
 /**
@@ -336,10 +344,10 @@ export function renderFileViewers(files) {
 		} else {
 			body = '<p class="fv-note">Binary file: not shown. Download to open it.</p>';
 		}
-		return `<div class="lb fv" id="${f.id}" role="dialog" aria-modal="true" aria-label="${escapeHtml(f.name)}" hidden>
+		return `<div class="lb fv" id="${f.id}" role="dialog" aria-modal="true" aria-label="${escapeHtml(f.rel)}" hidden>
 <button type="button" class="lb-backdrop" tabindex="-1" aria-label="Close"></button>
 <div class="fv-panel">
-<div class="fv-h"><span class="fv-n" title="${escapeHtml(f.path)}">${escapeHtml(f.name)}</span><span class="fv-m">${escapeHtml(metaText(f))}</span>`
+<div class="fv-h"><span class="fv-n" title="${escapeHtml(f.rel)}">${f.dir ? `<span class="fv-dir">${escapeHtml(f.dir)}</span>` : ''}<span class="fv-f">${escapeHtml(f.name)}</span></span><span class="fv-m">${escapeHtml(metaText(f))}</span>`
 			+ `<span class="fv-acts">${copy}${download}<button type="button" class="lb-close" aria-label="Close">${ICON.close}</button></span></div>
 ${body}
 </div>
@@ -353,7 +361,7 @@ export function renderTestFilesPart(files) {
 		return null;
 	}
 	const sep = ' <span class="log-sep" aria-hidden="true">&middot;</span> ';
-	const rows = files.map(f => `<li>${fileChip(f)}`
+	const rows = files.map(f => `<li>${fileChip(f, { path: true })}`
 		+ [escapeHtml(metaText(f)), f.descHtml, f.usesHtml].filter(Boolean).map(t => `${sep}<span class="log-note">${t}</span>`).join('')
 		+ '</li>');
 	return {

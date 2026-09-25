@@ -272,3 +272,17 @@ test('table: a TSV splits on tabs, and a quoted field may span lines', () => {
 	assert.match(v, /<tr><td>1<\/td><td>two\nlines<\/td><\/tr>/);
 	assert.doesNotMatch(v, /Showing the first/);
 });
+
+test('files: a nested file shows its workspace folder in the viewer and Test files, and its name on the card', () => {
+	const html = renderWith('files/ws-off/.vscode/settings.json', Buffer.from('{ "quarto.embeddedLanguageFeatures.native": false }\n'), 'settings.json');
+	const id = 'file-ws-off-vscode-settings-json';
+	assert.match(card(html, 1), new RegExp(`<a class="fn" href="files/ws-off/\\.vscode/settings\\.json" data-file="${id}" title="Open ws-off/\\.vscode/settings\\.json">settings\\.json</a> open`));
+	const v = viewer(html, id);
+	assert.match(v, /aria-label="ws-off\/\.vscode\/settings\.json" hidden>/);
+	assert.match(v, /<span class="fv-n" title="ws-off\/\.vscode\/settings\.json"><span class="fv-dir">ws-off\/\.vscode\/<\/span><span class="fv-f">settings\.json<\/span><\/span>/);
+	assert.match(v, /download="settings\.json"/);
+	const folds = html.slice(html.indexOf('id="run-details"'));
+	assert.match(folds, new RegExp(`<li><a class="fn" href="files/ws-off/\\.vscode/settings\\.json" data-file="${id}"[^>]*>ws-off/\\.vscode/settings\\.json</a>`));
+	// A file at the top of files/ has no folder to show.
+	assert.doesNotMatch(viewer(html, 'file-slow-py'), /fv-dir/);
+});
