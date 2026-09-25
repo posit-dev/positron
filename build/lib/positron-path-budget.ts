@@ -82,12 +82,10 @@ export function describeBudget(): string {
  * The budgets do not count the gzip copies that the web server builds add. See
  * `isGzipCopy` in positron-check-path-lengths.ts.
  *
- * The largest count so far is 30,933, in the win32-x64 build of #16185. That
- * build still had positron-catalog-explorer (4,140 files), which #16214 removed,
- * and shipped express in positron-proxy (755 files, 7 now) and
- * positron-pdf-server (956 files, 408 now), so the expected count is about 25,500.
+ * The expected count is about 22,400; the budget leaves about 10% headroom
+ * above it.
  */
-export const EXTENSIONS_FILE_COUNT_BUDGET = 28_000;
+export const EXTENSIONS_FILE_COUNT_BUDGET = 24_500;
 
 /**
  * File-count budget for an extension that `EXTENSION_FILE_COUNT_BUDGETS` does not
@@ -110,7 +108,6 @@ export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map
 	['copilot', 8_500], // 7,728
 	['positron-python', 6_350], // 5,219; 5,784 on win32-x64
 	['positron-data-driver-snowflake', 5_050], // 4,590
-	['positron-data-driver-databricks', 3_460], // 3,145
 	['positron-data-driver-odbc', 550], // 493
 	['positron-data-driver-sqlite', 540], // 448; 489 on win32-x64
 	['positron-pdf-server', 450], // 408 after bundling express; 956 before

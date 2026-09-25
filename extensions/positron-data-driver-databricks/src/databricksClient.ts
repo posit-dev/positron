@@ -114,7 +114,13 @@ export type DatabricksSdkClientFactory = () => Promise<IDatabricksSdkClient>;
  * Exported for unit tests, which assert the lazy import yields a constructible client.
  */
 export const defaultClientFactory: DatabricksSdkClientFactory = async () => {
-	const { DBSQLClient } = await import('@databricks/sql');
+	// @databricks/sql is bundled behind a shim module (src/databricksSdk.ts)
+	// that is its own esbuild entry point, so the packaged extension loads the
+	// bundled copy with a relative dynamic import rather than resolving the
+	// package from node_modules, which does not ship. The shim is CommonJS
+	// with `export =`, so the namespace a dynamic import() yields carries the
+	// module object on `default`.
+	const { DBSQLClient } = (await import('./databricksSdk.js')).default;
 	// DBSQLClient's connect() takes a discriminated union of auth shapes that this file assembles
 	// dynamically (see connectionOptions), so the boundary is cast to the narrower local interface.
 	return new DBSQLClient() as unknown as IDatabricksSdkClient;

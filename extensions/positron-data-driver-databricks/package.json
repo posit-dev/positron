@@ -19,9 +19,10 @@
   },
   "contributes": {},
   "dependencies": {
-    "@databricks/sql": "^2.0.0"
+    "lz4-napi": "^2.9.0"
   },
   "devDependencies": {
+    "@databricks/sql": "^2.0.0",
     "@types/mocha": "^9.1.0",
     "positron-data-explorer-formatting": "file:../positron-data-explorer-formatting",
     "positron-data-explorer-protocol": "file:../positron-data-explorer-protocol",
