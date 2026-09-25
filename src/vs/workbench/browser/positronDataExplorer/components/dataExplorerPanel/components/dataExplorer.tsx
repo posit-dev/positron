@@ -75,11 +75,11 @@ export const DataExplorer = () => {
 	// come and go with the message: taking the row away would resize the grid below it, and that
 	// resize starts a profile load of its own, which cancels the retry partway.
 	//
-	// A collapsed panel shows none of it: the column is animated down to nothing, and a notice left
-	// in it paints its icon in the sliver beside the splitter. Collapsing resizes the grid anyway,
-	// so leaving the row in place would not spare a retry that was running.
-	const summaryNotice = !columnsCollapsed &&
-		(summaryProfilesFailure !== undefined || summaryProfilesRetrying);
+	// Collapsing the panel hides the notice (see summary-collapsed in dataExplorer.css) rather than
+	// removing its row: a notice left visible paints its icon in the sliver beside the splitter, but
+	// taking the row away would make the grid jump partway through the collapse animation, and
+	// putting it back on expand would resize the grid.
+	const summaryNotice = summaryProfilesFailure !== undefined || summaryProfilesRetrying;
 
 	// Track whether the summary panel has anything to show yet, and whether its summary statistics
 	// failed to compute. Until the panel has anything it paints a progress indicator, and there is
@@ -378,7 +378,8 @@ export const DataExplorer = () => {
 				{ 'summary-on-left': layout === PositronDataExplorerLayout.SummaryOnLeft },
 				{ 'summary-on-right': layout === PositronDataExplorerLayout.SummaryOnRight },
 				{ 'summary-loading': summaryLoading },
-				{ 'summary-showing-notice': summaryNotice }
+				{ 'summary-showing-notice': summaryNotice },
+				{ 'summary-collapsed': columnsCollapsed }
 			)}
 		>
 			<div ref={columnNameExemplarRef} className='column-name-exemplar' />

@@ -138,6 +138,16 @@
 	grid-row: summary-notice / span 1;
 }
 
+/*
+ * A collapsed summary panel hides its notice but keeps the notice's row, so collapsing and expanding
+ * never change the height left for the summary grid. Visible, the notice's icon would paint in the
+ * sliver of the collapsed column beside the splitter.
+ */
+.data-explorer-panel .data-explorer.summary-on-left.summary-collapsed .left-column > .summary-profiles-notice,
+.data-explorer-panel .data-explorer.summary-on-right.summary-collapsed .right-column > .summary-profiles-notice {
+	visibility: hidden;
+}
+
 .data-explorer-panel .data-explorer .right-column .data-grid-container {
 	/* min-height: 0 allows the data grid to shrink properly when the panel is resized */
 	min-height: 0;

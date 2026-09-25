@@ -456,7 +456,18 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 				*/}
 				{(profile.discovered && profile.description) || profile.driverMetadata.name}
 			</div>
-			{entry.instance && (
+			{profile.discovered && (
+				// Marks a connection the machine's own configuration provides rather than one the
+				// user saved, so it is clear why it is there and why it offers Save over Remove.
+				<div
+					aria-label={discoveredLabel}
+					className='data-connection-entry-discovered'
+					title={discoveredLabel}
+				>
+					{localize('positron.dataConnections.discoveredBadge', "Detected")}
+				</div>
+			)}
+			{entry.instance ? (
 				// Shown whenever the profile has a live connection, including while the entry is
 				// collapsed -- collapsing does not necessarily disconnect, so this is how the user
 				// tells a live connection from a saved-but-closed one.
@@ -466,21 +477,10 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 					role='img'
 					title={connectedLabel}
 				/>
-			)}
-			{profile.discovered && (
-				// Marks a connection the machine's own configuration provides rather than one the
-				// user saved, so it is clear why it is there and why it offers Save over Remove.
-				//
-				// Last before the actions button, so the badge holds the same column on every row
-				// it appears on. Placing it before the connected dot instead would indent it by the
-				// dot's width on connected rows alone, breaking the column the eye reads down.
-				<div
-					aria-label={discoveredLabel}
-					className='data-connection-entry-discovered'
-					title={discoveredLabel}
-				>
-					{localize('positron.dataConnections.discoveredBadge', "Detected")}
-				</div>
+			) : (
+				// Every row reserves the dot's slot, so the dot and the badge before it each hold
+				// one column down the pane whether or not a given row is connected.
+				<div aria-hidden='true' className='data-connection-entry-connected disconnected' />
 			)}
 			<button
 				ref={actionsButtonRef}

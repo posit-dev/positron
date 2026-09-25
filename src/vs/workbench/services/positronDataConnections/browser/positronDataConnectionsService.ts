@@ -108,6 +108,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// _refreshDiscoveredProfiles.
 	private _discoveredProfiles: IDataConnectionProfile[] = [];
 
+	// Incremented on every _refreshDiscoveredProfiles call, so a refresh that finishes after a
+	// newer one started discards its results rather than overwriting the newer ones.
+	private _discoveryGeneration = 0;
+
 	// The secret parameter values of the discovered connections, keyed by discovered profile id.
 	// The discovery-time analogue of secret storage: a driver's discoverConnections may report a
 	// value its mechanism declares secret (e.g. a password embedded in a connection string), and
@@ -786,6 +790,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * whose discovery throws should not take the other drivers' discoveries down with it.
 	 */
 	private async _refreshDiscoveredProfiles(): Promise<void> {
+		const generation = ++this._discoveryGeneration;
 		const drivers = this.driverManager.getDrivers();
 		const results = await Promise.all(drivers.map(async driver => {
 			try {
@@ -829,6 +834,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 				return [];
 			}
 		}));
+
+		// A newer refresh started while this one awaited the drivers; its results are the current
+		// ones.
+		if (generation !== this._discoveryGeneration) {
+			return;
+		}
 
 		const discoveries = results.flat();
 		this._discoveredProfiles = discoveries.map(discovery => discovery.profile);

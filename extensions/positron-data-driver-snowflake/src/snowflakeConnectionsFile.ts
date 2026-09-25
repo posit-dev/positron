@@ -50,28 +50,35 @@ export function parseConnectionsFile(content: string): Record<string, SnowflakeC
 }
 
 /**
- * Reads and parses the connections file, returning an empty map when the file is missing or cannot be
- * read or parsed. Callers treat "no connections" and "no file" the same way (the mechanism simply
- * offers nothing), so read/parse failures are swallowed rather than surfaced here.
+ * Reads and parses the connections file, returning an empty map when the file does not exist.
+ * Callers treat "no connections" and "no file" the same way (the mechanism simply offers nothing).
+ *
+ * A file that exists but cannot be read or parsed throws instead. A TOML typo, or a file caught
+ * half-written, is not the same as a file with no connections in it: treating it as empty would
+ * drop every connection the file defines until the next good read.
  */
-export function readConnectionsFile(filePath: string = connectionsFilePath()): Record<string, SnowflakeConnectionsFileEntry> {
+export function readConnectionsFile(filePath: string): Record<string, SnowflakeConnectionsFileEntry> {
+	let content: string;
 	try {
-		return parseConnectionsFile(readFileSync(filePath, 'utf-8'));
-	} catch {
-		return {};
+		content = readFileSync(filePath, 'utf-8');
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+			return {};
+		}
+		throw err;
 	}
+	return parseConnectionsFile(content);
 }
 
 /**
  * Whether two readings of the file define the same connections.
  *
- * Used to tell a real edit from a file event that changed nothing. Re-registering the driver
- * disposes every open Snowflake connection, so it happens only when the named connections -- or the
- * values behind them -- actually changed.
+ * Used to tell a real edit from a file event that changed nothing, so the pane is only asked to
+ * refresh the driver when the named connections -- or the values behind them -- actually changed.
  *
  * @param a One reading.
  * @param b The other.
- * @returns True when re-registering the driver for `b` would offer exactly what `a` offered.
+ * @returns True when a driver updated with `b` would offer exactly what `a` offered.
  */
 export function isSameConnectionsFile(
 	a: Record<string, SnowflakeConnectionsFileEntry>,
