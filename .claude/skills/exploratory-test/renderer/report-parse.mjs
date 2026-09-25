@@ -987,8 +987,10 @@ export function parseLedger(markdown) {
 			const name = field[1].toLowerCase();
 			if (name === 'status') {
 				cur.status = /fail/i.test(field[2]) ? 'fail' : 'pass';
-				const n = /finding\s*(\d+)/i.exec(field[2]);
-				cur.finding = n ? Number(n[1]) : null;
+				// "Finding 1, Finding 2" and "Findings 1, 2" both name two.
+				cur.findings = [...field[2].matchAll(/findings?\s*(\d+(?:\s*(?:,|and|&)\s*(?:finding\s*)?\d+)*)/gi)]
+					.flatMap(m => m[1].match(/\d+/g).map(Number));
+				cur.finding = cur.findings[0] ?? null;
 			} else if (name === 'result') {
 				cur.result = field[2].trim();
 			}
@@ -1023,6 +1025,7 @@ export function parseLedger(markdown) {
 			resultHtml: inline(sentenceCase(s.result)),
 			status: s.status || (steps.some(st => st.result === 'fail') ? 'fail' : 'pass'),
 			finding,
+			findings: s.findings ?? [],
 			shot: null,
 			pre: s.pre.map(p => ({ nameHtml: inline(p.name), from: p.from, howHtml: inline(p.how) })),
 			steps,

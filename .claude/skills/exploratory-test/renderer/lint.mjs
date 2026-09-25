@@ -126,7 +126,7 @@ function lintReproScenario(findings, scenarios) {
 		if (!whole.length) {
 			const ids = owners.filter(o => cited.some(shot => o.shots.has(shot))).map(o => o.s.id);
 			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and other runs go under Evidence as a Variant`);
-		} else if (!whole.some(s => s.finding === f.n || s.steps.some(st => st.finding === f.n))) {
+		} else if (!whole.some(s => s.findings.includes(f.n) || s.steps.some(st => st.finding === f.n))) {
 			problems.push(`report: Finding ${f.n}'s steps come from ${whole.map(s => s.id).join(' or ')}, whose Status does not name Finding ${f.n}`);
 		}
 	}
