@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { RSession } from '../session';
 import { delay } from '../util';
-import { toDisposable } from './kit-disposables';
+import { disposeAllQuietly, toDisposable } from './kit-disposables';
 import { ArkLsp } from '../lsp';
 import { currentTestName } from './mocha-setup';
 
@@ -37,17 +37,6 @@ export async function startR(sessionName?: string): Promise<[RSession, vscode.Di
 
 	sessionName = currentTestName ? `Test: ${currentTestName}` : sessionName || 'Tests';
 	const session = await positron.runtime.startLanguageRuntime(info!.runtimeId, sessionName) as RSession;
-	positron.runtime.focusSession(session.metadata.sessionId);
-
-	const lspReady = session.waitLsp();
-	const lspTimeout = (async () => {
-		await delay(5000);
-	})();
-
-	const lsp = await Promise.race([lspReady, lspTimeout]);
-	if (!lsp) {
-		throw new Error('Timeout while waiting for LSP to be ready');
-	}
 
 	const disposable = toDisposable(async () => {
 		// This avoids RPC errors in Positron clients when session is disposed too soon:
@@ -62,7 +51,29 @@ export async function startR(sessionName?: string): Promise<[RSession, vscode.Di
 		}
 	});
 
+	let lsp: ArkLsp;
+	try {
+		positron.runtime.focusSession(session.metadata.sessionId);
+		lsp = await waitLspOrThrow(session);
+	} catch (err) {
+		await disposeAllQuietly([disposable]);
+		throw err;
+	}
+
 	return [session, disposable, lsp];
+}
+
+async function waitLspOrThrow(session: RSession): Promise<ArkLsp> {
+	const lspReady = session.waitLsp();
+	const lspTimeout = (async () => {
+		await delay(5000);
+	})();
+
+	const lsp = await Promise.race([lspReady, lspTimeout]);
+	if (!lsp) {
+		throw new Error('Timeout while waiting for LSP to be ready');
+	}
+	return lsp;
 }
 
 /**
