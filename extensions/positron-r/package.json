@@ -1116,9 +1116,8 @@
     "compile-syntax": "ts-node scripts/compile-syntax.ts",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
+    "pretest": "npm run compile",
     "postinstall": "ts-node scripts/post-install.ts",
-    "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
@@ -1129,11 +1128,8 @@
     "@types/node": "18.x",
     "@types/split2": "^4.2.2",
     "@types/which": "^3.0.0",
-    "@typescript-eslint/eslint-plugin": "^5.12.1",
-    "@typescript-eslint/parser": "^5.12.1",
     "@vscode/test-electron": "^2.1.2",
     "decompress": "^4.2.1",
-    "eslint": "^8.9.0",
     "glob": "^7.2.0",
     "mocha": "^11.8.0",
     "ts-node": "^10.9.1",
