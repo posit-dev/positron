@@ -185,6 +185,19 @@ describe('CanvasFolderSwitcher', () => {
 			expect(calls.filter(call => call.startsWith('main.'))).toEqual([]);
 		});
 
+		it('a runtime shutdown that never settles is refused after a bounded wait', async () => {
+			vi.useFakeTimers();
+			try {
+				const { switcher, calls } = build({ deleteSession: () => new Promise<boolean>(() => { }) });
+				const result = expect(switcher.switchFolder(TARGET.fsPath)).rejects.toThrow('The R session did not shut down in time. Try again.');
+				await vi.advanceTimersByTimeAsync(10_000);
+				await result;
+				expect(calls.filter(call => call.startsWith('main.'))).toEqual([]);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
 		it('a session that turned busy after an earlier shutdown is refused instead of prompted for', async () => {
 			let state = RuntimeState.Idle;
 			const late = stubInterface<ILanguageRuntimeSession>({ sessionId: 'R-id', dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'R' }), getRuntimeState: () => state });
