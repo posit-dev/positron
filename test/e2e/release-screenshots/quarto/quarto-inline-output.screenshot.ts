@@ -6,7 +6,7 @@
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { test } from '../../tests/quarto/_test.setup';
-import { captureFullWindow } from '../_helpers/screenshot-utils';
+import { captureRegion } from '../_helpers/screenshot-utils';
 import { hideDataGridCursor, prepareForScreenshot, setScreenshotWindowSize } from '../_helpers/layout-utils';
 
 // Built via array+join because the project hygiene hook rejects source lines with
@@ -22,8 +22,9 @@ const PENGUINS_QMD = [
 	'from plotnine.data import penguins',
 	'penguins = penguins.dropna()',
 	'(',
-	'\tggplot(penguins, aes("flipper_length_mm", "bill_length_mm", color="species"))',
-	'\t+ geom_point()',
+	'\tggplot(penguins)',
+	'\t+ aes("flipper_length_mm", "bill_length_mm")',
+	'\t+ geom_point(aes(color="species"))',
 	'\t+ theme_minimal()',
 	'\t+ theme(figure_size=(6, 3))',
 	')',
@@ -50,7 +51,7 @@ test.describe('Release Screenshots - Quarto Inline Output', () => {
 	test('Release Screenshot - quarto-inline-output.png', async ({ app, page, openFile, python }) => {
 		const { editors, inlineQuarto, hotKeys } = app.workbench;
 
-		await setScreenshotWindowSize(app, { width: 1050, height: 860 });
+		await setScreenshotWindowSize(app, { width: 700, height: 860 });
 
 		writeFileSync(join(app.workspacePathOrFolder, 'penguins.qmd'), PENGUINS_QMD);
 		await openFile('penguins.qmd');
@@ -70,6 +71,16 @@ test.describe('Release Screenshots - Quarto Inline Output', () => {
 		// capture screenshot
 		await hideDataGridCursor(page);
 		await prepareForScreenshot(app, page);
-		await captureFullWindow(page, 'quarto-inline-output.png');
+		// crop to the activity bar and editor, omitting the title bar, panel, and status bar
+		const editorBox = await page.locator('.part.editor').boundingBox();
+		if (!editorBox) {
+			throw new Error('Could not measure editor part');
+		}
+		await captureRegion(page, 'quarto-inline-output.png', {
+			x: 0,
+			y: Math.floor(editorBox.y),
+			width: Math.ceil(editorBox.x + editorBox.width),
+			height: Math.ceil(editorBox.height),
+		});
 	});
 });
