@@ -40,9 +40,12 @@ export const GET_CANVAS_FOLDERS_COMMAND_ID = 'positron.experimental.getCanvasFol
  * How long one session's shutdown may take behind the curtains. A kernel can
  * exit without answering the shutdown request (the supervisor then drops the
  * request unanswered), and a shutdown can hang in the extension; without a
- * bound the user would be stuck behind inert curtains.
+ * bound the user would be stuck behind inert curtains. Matches the runtime
+ * service's own wait for a session to end (a later end already fails
+ * `deleteSession`), so Canvas is back before its 10 s "not responding"
+ * prompt picks a visible window to render in.
  */
-const SESSION_SHUTDOWN_TIMEOUT = 10_000;
+const SESSION_SHUTDOWN_TIMEOUT = 5_000;
 
 /**
  * Opens another folder in the Canvas window: an ordinary folder load into

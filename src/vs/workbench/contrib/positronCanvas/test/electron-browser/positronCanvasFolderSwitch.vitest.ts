@@ -190,7 +190,7 @@ describe('CanvasFolderSwitcher', () => {
 			try {
 				const { switcher, calls } = build({ deleteSession: () => new Promise<boolean>(() => { }) });
 				const result = expect(switcher.switchFolder(TARGET.fsPath)).rejects.toThrow('The R session did not shut down in time. Try again.');
-				await vi.advanceTimersByTimeAsync(10_000);
+				await vi.advanceTimersByTimeAsync(5_000);
 				await result;
 				expect(calls.filter(call => call.startsWith('main.'))).toEqual([]);
 			} finally {
