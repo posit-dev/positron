@@ -1327,6 +1327,21 @@ test('parseReport only takes a PR line that is a real owner/repo#number', () => 
 	assert.equal(parseReport(md('## Findings', '', 'PR: posit-dev/positron#1')).pr, undefined);
 });
 
+test('finding: a shot a step cites reaches the gallery even when no Evidence bullet names it', () => {
+	const html = renderReportHtml(md(
+		'## Findings', '', '| # | Finding | Severity | Impact | Reproduction |', '|---|---|---|---|---|', '| 1 | a claim | major | blocks | 1/1 |', '',
+		'### Finding 1: a claim', '', '**Repro** -- starting state: the panel closed', '',
+		'1. VERIFY the panel opens -> PASS', '   Evidence: S01-01.png',
+		'2. Click Retry.',
+		'3. VERIFY it loads -> FAIL - Finding 1', '   Observed: empty', '   Evidence: S01-03.png', '',
+		'**Evidence**', '', '- [shots/S01-03.png](shots/S01-03.png) -- Step 3: empty panel',
+	));
+	const card = html.slice(html.indexOf('<article id="f1"'), html.indexOf('</article>', html.indexOf('<article id="f1"')));
+	const tiles = [...card.matchAll(/<figure><a class="shot" id="shot-f1-(\d)" href="([^"]+)"[^>]*data-step="([^"]+)"/g)].map(m => [m[1], m[2], m[3]]);
+	assert.deepEqual(tiles, [['1', 'shots/S01-01.png', 'Step 1'], ['2', 'shots/S01-03.png', 'Step 3']]);
+	assert.match(card, /<li id="f1-s1">[\s\S]*?data-open="shot-f1-1"/);
+});
+
 // S08, S09, S01 and S04 of a real ledger: two failing scenarios, two passing.
 const TYPED = readFileSync(new URL('./fixtures/typed-steps.md', import.meta.url), 'utf8');
 

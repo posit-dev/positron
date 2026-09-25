@@ -1193,12 +1193,6 @@ export function parseReport(markdown, { ledger } = {}) {
 				});
 			}
 		}
-		// Screenshots in step order, so the gallery reads like the repro; logs and
-		// notes keep their order after them. Sort is stable.
-		const shots = parsed.evidence.filter(e => e.kind === 'shot')
-			.sort((a, b) => (a.step?.order ?? Number.MAX_SAFE_INTEGER) - (b.step?.order ?? Number.MAX_SAFE_INTEGER));
-		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
-
 		// The starting state and the configuration line are both answers to
 		// "what has to be true before step 1", so they render as one list.
 		const preconditions = [parsed.reproStart, parsed.preconditions]
@@ -1211,6 +1205,20 @@ export function parseReport(markdown, { ledger } = {}) {
 		steps.forEach((step, k) => step.evidence.forEach(e => {
 			if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
 		}));
+		// A shot a step cites is evidence whether or not a bullet repeats it, so
+		// every check's picture reaches the gallery.
+		const cited = new Set(parsed.evidence.filter(e => e.kind === 'shot').map(e => e.file));
+		for (const step of steps) {
+			for (const e of step.evidence.filter(e => !cited.has(e.file))) {
+				cited.add(e.file);
+				parsed.evidence.push({ kind: 'shot', src: e.href, file: e.file, caption: plainText(step.md) });
+			}
+		}
+		// Screenshots in step order, so the gallery reads like the repro; logs and
+		// notes keep their order after them. Sort is stable.
+		const order = e => (stepOf.get(e.file) ?? e.step)?.order ?? Number.MAX_SAFE_INTEGER;
+		const shots = parsed.evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b));
+		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
 
 		return {
 			n: start.n,
