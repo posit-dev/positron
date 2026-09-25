@@ -148,7 +148,7 @@ PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
 - logs/<file> | <what wrote it> | <errors it holds, or "no errors">
 
 ## Files
-- files/<path> | <what it is, in a phrase; where it came from if copied> | <scenario IDs> · <Finding N, if any>
+- files/<path> | <what it is, in a phrase; where it came from if copied> | <scenario IDs>; <Finding N, if any>
 
 ---
 
@@ -193,7 +193,8 @@ Steps:
   there.
 - `## Logs` has one line per file you copied into `logs/`, written at the end,
   with the errors in it ("2 errors, both in Finding 1", "no errors"). An error
-  no check is tied to is counted here and nowhere else.
+  no check is tied to is counted here and nowhere else. Only what the app or
+  an interpreter wrote goes here; a script or file you made is a test file.
 - `## Files` has one line per file in `files/`, added when you save it: every
   test file, and nothing else.
 - `Preconditions:` is everything a scenario needs before step 1, one bullet

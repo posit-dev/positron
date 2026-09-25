@@ -88,11 +88,15 @@ function inline(text) {
 	return marked.parseInline(String(text ?? '').trim());
 }
 
+/** The text escaped HTML stands for: the entities marked and escapeHtml write. */
+export function unescapeHtml(html) {
+	return String(html ?? '')
+		.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+}
+
 /** Inline markdown as plain text, for attributes such as a caption or label. */
 function plainText(text) {
-	return inline(text).replace(/<[^>]*>/g, '')
-		.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&')
-		.trim();
+	return unescapeHtml(inline(text).replace(/<[^>]*>/g, '')).trim();
 }
 
 /** Block markdown to HTML, for a run of lines that may hold lists or code. */

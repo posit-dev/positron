@@ -17,7 +17,7 @@ Run: 2026-09-22 14:05-14:31 - Explore: Opus 5.5 - Verify: Sonnet 5
 
 ## Files
 (Every file a scenario used, saved as it was when used. Rendered as Test files in Run details.)
-- files/slow.py | Python helper that builds the slow sources | S04, S08, S09 · Findings 1, 2
+- files/slow.py | Python helper that builds the slow sources | S04, S08, S09; Findings 1, 2
 
 ---
 
@@ -48,7 +48,7 @@ Status: pass
 Result: Sparklines land about 2 per 4 s, loading dots in the rest, pause at about 30 s
 
 Preconditions:
-- `slow.py` loaded | | files/slow.py · Run `%run -i slow.py`. `make_slow()` makes each value's hash sleep, standing in for a large or remote table.
+- `slow.py` loaded | | files/slow.py, then run `%run -i slow.py`. `make_slow()` makes each value's hash sleep, standing in for a large or remote table.
 
 Steps:
 1. Run `slow = make_slow(ncols=20, delay=0.002)` (about 2 s per column), then `%view slow`.
@@ -62,7 +62,7 @@ Status: fail - Finding 1
 Result: Fails 3/3
 
 Preconditions:
-- `slow.py` loaded | | files/slow.py · Run `%run -i slow.py`. `make_slow()` makes each value's hash sleep, standing in for a large or remote table.
+- `slow.py` loaded | | files/slow.py, then run `%run -i slow.py`. `make_slow()` makes each value's hash sleep, standing in for a large or remote table.
 
 Steps:
 1. Run `one12 = make_slow(ncols=1, nrows=1000, delay=0.012)`. One string column whose frequency table takes about 13 s.
@@ -85,7 +85,7 @@ Status: fail - Finding 2
 Result: Loads off-screen columns
 
 Preconditions:
-- `slow.py` loaded | | files/slow.py · Run `%run -i slow.py`. `make_slow()` makes each value's hash sleep, standing in for a large or remote table.
+- `slow.py` loaded | | files/slow.py, then run `%run -i slow.py`. `make_slow()` makes each value's hash sleep, standing in for a large or remote table.
 
 Steps:
 1. Run `slow80 = make_slow(ncols=80, nrows=1000, delay=0.002)`, then `%view slow80`.

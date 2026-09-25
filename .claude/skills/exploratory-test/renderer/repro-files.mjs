@@ -9,12 +9,14 @@
 // the file's text. The text is embedded in the page, so Copy and Download keep
 // working when only the HTML is forwarded; `files/<path>` is the fallback.
 
-import { escapeHtml, basename } from './report-parse.mjs';
+import { escapeHtml, unescapeHtml, basename } from './report-parse.mjs';
 
 // The viewer shows this many lines; Download has the rest.
 export const PREVIEW_LINES = 400;
 // Text over this size is not embedded: Download links the file instead.
 export const EMBED_BYTES = 200 * 1024;
+// A table shows this many data rows under its header.
+export const PREVIEW_ROWS = 20;
 
 const TYPE = {
 	qmd: 'Quarto', rmd: 'R Markdown', ipynb: 'Notebook', py: 'Python', r: 'R', jl: 'Julia',
@@ -94,6 +96,41 @@ function parseNotebook(text) {
 }
 
 /**
+ * A delimited file as its header, its first rows, and how many data rows it
+ * has. Quoted fields may hold the delimiter, a doubled quote or a newline.
+ */
+function parseTable(text, delimiter) {
+	const records = [];
+	let record = [];
+	let field = '';
+	let quoted = false;
+	for (let i = 0; i < text.length; i++) {
+		const ch = text[i];
+		if (quoted) {
+			if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+			else if (ch === '"') { quoted = false; }
+			else { field += ch; }
+		} else if (ch === '"' && field === '') {
+			quoted = true;
+		} else if (ch === delimiter) {
+			record.push(field); field = '';
+		} else if (ch === '\n' || ch === '\r') {
+			if (ch === '\r' && text[i + 1] === '\n') { i++; }
+			record.push(field); field = '';
+			records.push(record); record = [];
+		} else {
+			field += ch;
+		}
+	}
+	if (field !== '' || record.length) { record.push(field); records.push(record); }
+	if (!records.length) {
+		return null;
+	}
+	const [header, ...rows] = records;
+	return { header, rows: rows.slice(0, PREVIEW_ROWS), rowCount: rows.length };
+}
+
+/**
  * The cells as Jupytext's percent format, which reads as a script: code as is,
  * markdown commented out, each under its `# %%` marker.
  */
@@ -133,6 +170,7 @@ export function resolveFiles(entries, readFile) {
 			kind: 'text',
 			// A notebook shows as its cells; one that does not parse shows as text.
 			notebook: ext === 'ipynb' ? parseNotebook(text) : null,
+			table: ext === 'csv' || ext === 'tsv' ? parseTable(text, ext === 'tsv' ? '\t' : ',') : null,
 			size: bytes.length,
 			lineCount: text === '' ? 0 : lines.length,
 			preview: lines.slice(0, PREVIEW_LINES),
@@ -163,8 +201,12 @@ function metaText(f) {
 		const n = f.notebook.cells.length;
 		return `${f.type} \u00b7 ${n} ${n === 1 ? 'cell' : 'cells'}`;
 	}
-	if (f.kind === 'text') { return `${f.type} · ${f.lineCount} ${f.lineCount === 1 ? 'line' : 'lines'}`; }
-	if (f.kind === 'binary') { return `${f.type} · ${sizeText(f.size)}`; }
+	if (f.table) {
+		const n = f.table.rowCount;
+		return `${f.type} \u00b7 ${n.toLocaleString('en-US')} ${n === 1 ? 'row' : 'rows'}`;
+	}
+	if (f.kind === 'text') { return `${f.type} \u00b7 ${f.lineCount} ${f.lineCount === 1 ? 'line' : 'lines'}`; }
+	if (f.kind === 'binary') { return `${f.type} \u00b7 ${sizeText(f.size)}`; }
 	return f.type;
 }
 
@@ -209,15 +251,14 @@ export function linkFiles(html, files) {
 	if (!files.length) {
 		return html;
 	}
-	const unescape = t => t.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 	return String(html ?? '')
 		.replace(/<a href="(files\/[^"]+)"[^>]*>[\s\S]*?<\/a>/g, (whole, href) => {
-			const f = findFile(files, unescape(href));
+			const f = findFile(files, unescapeHtml(href));
 			return f ? fileChip(f) : whole;
 		})
 		.replace(/<code>([^<]+)<\/code>/g, (whole, name) => {
 			// Only a span that is a name and nothing else; a listed file of any type.
-			const t = unescape(name).trim();
+			const t = unescapeHtml(name).trim();
 			const f = /^[\w./-]+$/.test(t) ? findFile(files, t) : null;
 			return f ? fileChip(f) : whole;
 		});
@@ -262,6 +303,16 @@ function renderCells(nb) {
 	return `<div class="fv-cells">${shown.join('')}</div>${more}`;
 }
 
+/** A table's header and first rows, with the total when there are more. */
+function renderTable(t) {
+	const cells = (tag, row) => row.map(c => `<${tag}>${escapeHtml(c)}</${tag}>`).join('');
+	const more = t.rowCount > t.rows.length
+		? `<p class="fv-note">Showing the first ${t.rows.length} of ${t.rowCount.toLocaleString('en-US')} rows. Download for the full file.</p>`
+		: '';
+	return `<div class="fv-table"><table><thead><tr>${cells('th', t.header)}</tr></thead>`
+		+ `<tbody>${t.rows.map(r => `<tr>${cells('td', r)}</tr>`).join('')}</tbody></table></div>${more}`;
+}
+
 /** One viewer per saved file, hidden until its name is clicked. */
 export function renderFileViewers(files) {
 	return files.filter(f => f.kind !== 'missing').map(f => {
@@ -273,6 +324,8 @@ export function renderFileViewers(files) {
 		let body;
 		if (f.notebook) {
 			body = renderCells(f.notebook);
+		} else if (f.table) {
+			body = renderTable(f.table);
 		} else if (f.kind === 'text') {
 			// Each line keeps its newline, so selecting and copying from the panel
 			// gives the file's lines back.

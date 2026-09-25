@@ -777,6 +777,10 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .fv-ct{padding:10px 16px 0 52px;font-size:11.5px;font-weight:500;color:var(--faint)}
 .fv-markdown .fv-src{color:var(--body)}
 .fn-view{white-space:nowrap}
+.fv-table{flex:1 1 auto;min-height:0;overflow:auto}
+.fv-table table{border-collapse:collapse;font-family:var(--mono);font-size:12.5px;line-height:1.5;color:var(--code-text)}
+.fv-table th,.fv-table td{padding:6px 14px;text-align:left;white-space:pre;border-bottom:1px solid var(--hairline)}
+.fv-table th{position:sticky;top:0;background:var(--thead);font-weight:500;color:var(--ink)}
 .fv-note{margin:0;padding:10px 16px;border-top:1px solid var(--hairline);font-size:13px;color:var(--muted)}
 
 /* Back to top */

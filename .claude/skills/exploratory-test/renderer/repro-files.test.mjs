@@ -53,7 +53,7 @@ function promptText(html, n) {
 test('files: the ledger reads its Files section', () => {
 	const { files } = parseLedger(LEDGER);
 	assert.deepEqual(files.map(f => [f.path, f.desc, f.uses]), [
-		['files/slow.py', 'Python helper that builds the slow sources', 'S04, S08, S09 · Findings 1, 2'],
+		['files/slow.py', 'Python helper that builds the slow sources', 'S04, S08, S09; Findings 1, 2'],
 	]);
 });
 
@@ -68,7 +68,7 @@ test('files: the viewer shows every line numbered, with Copy and Download, and s
 	const html = render();
 	const v = viewer(html, 'file-slow-py');
 	assert.match(v, /role="dialog" aria-modal="true" aria-label="slow\.py" hidden>/);
-	assert.match(v, /<span class="fv-m">Python · 15 lines<\/span>/);
+	assert.match(v, /<span class="fv-m">Python \u00b7 15 lines<\/span>/);
 	assert.equal(v.match(/<span class="l">/g).length, 15);
 	assert.match(v, /<button type="button" class="fv-b f-copy" data-src="src-file-slow-py">/);
 	assert.match(v, /<a class="fv-b f-dl" href="files\/slow\.py" download="slow\.py" data-src="src-file-slow-py">/);
@@ -103,7 +103,7 @@ test('files: a listed file that is missing renders as code, with no viewer and n
 test('files: a binary file downloads but is not shown or copied', () => {
 	const html = renderWith('files/data.parquet', Buffer.from([0x50, 0x41, 0x52, 0x31, 0, 0, 0x50]));
 	const v = viewer(html, 'file-data-parquet');
-	assert.match(v, /Parquet · 7 B/);
+	assert.match(v, /Parquet \u00b7 7 B/);
 	assert.match(v, /Binary file: not shown/);
 	assert.doesNotMatch(v, /f-copy|data-src/);
 	assert.match(v, /<a class="fv-b f-dl" href="files\/data\.parquet" download="data\.parquet">/);
@@ -112,7 +112,7 @@ test('files: a binary file downloads but is not shown or copied', () => {
 
 test('files: a long file previews its first lines; one over the cap is not embedded', () => {
 	const long = Buffer.from(Array.from({ length: PREVIEW_LINES + 50 }, (_, i) => `x${i}`).join('\n') + '\n');
-	const v = viewer(renderWith('files/long.csv', long), 'file-long-csv');
+	const v = viewer(renderWith('files/long.txt', long), 'file-long-txt');
 	assert.equal(v.match(/<span class="l">/g).length, PREVIEW_LINES);
 	assert.match(v, new RegExp(`Showing the first ${PREVIEW_LINES} of ${PREVIEW_LINES + 50} lines`));
 	assert.match(v, /f-copy/);
@@ -136,7 +136,7 @@ test('files: Run details lists every test file by its name, with type, use and f
 	const html = render();
 	const folds = html.slice(html.indexOf('id="run-details"'));
 	assert.ok(folds.includes('<div class="fold-label">Test files</div>'));
-	assert.match(folds, /<li><a class="fn" href="files\/slow\.py"[^>]*>slow\.py<\/a> <span class="log-sep" aria-hidden="true">&middot;<\/span> <span class="log-note">Python · 15 lines<\/span>.*Python helper that builds the slow sources.*S04, S08, S09 · Findings 1, 2<\/span><\/li>/);
+	assert.match(folds, /<li><a class="fn" href="files\/slow\.py"[^>]*>slow\.py<\/a> <span class="log-sep" aria-hidden="true">&middot;<\/span> <span class="log-note">Python \u00b7 15 lines<\/span>.*Python helper that builds the slow sources.*S04, S08, S09; Findings 1, 2<\/span><\/li>/);
 });
 
 test('files: nothing about files renders when the ledger lists none', () => {
@@ -156,7 +156,7 @@ test('lint: the fixture saves and lists every file it names', () => {
 
 test('lint: a file a setup names but nobody saved is one line naming every setup that needs it', () => {
 	// A run that saved nothing: no Files section, and no files/ path in its preconditions.
-	const ledger = LEDGER.replace(/## Files[\s\S]*?\n---/, '---').replaceAll('files/slow.py · ', '');
+	const ledger = LEDGER.replace(/## Files[\s\S]*?\n---/, '---').replaceAll('files/slow.py, then run', 'Run');
 	assert.deepEqual(fileProblems(REPORT, ledger, { list: () => [] }), [
 		'slow.py is named by Finding 1, Finding 2, S04, S08, S09 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger',
 	]);
@@ -208,7 +208,7 @@ const NOTEBOOK = Buffer.from(JSON.stringify({
 test('notebook: the viewer shows cells with their type, not the JSON, and leaves outputs out', () => {
 	const html = renderWith('files/load.ipynb', NOTEBOOK);
 	const v = viewer(html, 'file-load-ipynb');
-	assert.match(v, /<span class="fv-m">Notebook · 3 cells<\/span>/);
+	assert.match(v, /<span class="fv-m">Notebook \u00b7 3 cells<\/span>/);
 	assert.deepEqual([...v.matchAll(/<div class="fv-ct">([^<]+)<\/div>/g)].map(m => m[1]), ['Markdown', 'Python', 'Python']);
 	assert.equal(v.match(/<div class="fv-cell fv-code">/g).length, 2);
 	// Numbered per cell: the code cell's blank line is its own line.
@@ -222,7 +222,7 @@ test('notebook: an R kernel labels its code cells R, and a file that is not a no
 	const r = Buffer.from(JSON.stringify({ cells: [{ cell_type: 'code', source: 'x <- 1' }], metadata: { kernelspec: { language: 'R' } } }));
 	assert.match(viewer(renderWith('files/r.ipynb', r), 'file-r-ipynb'), /<div class="fv-ct">R<\/div>/);
 	const broken = viewer(renderWith('files/bad.ipynb', Buffer.from('{ "cells": [\n')), 'file-bad-ipynb');
-	assert.match(broken, /Notebook · 1 line/);
+	assert.match(broken, /Notebook \u00b7 1 line/);
 	assert.doesNotMatch(broken, /fv-cell/);
 });
 
@@ -244,10 +244,31 @@ test('notebook: the agent prompt carries the cells as a percent-format script', 
 test('coverage: a precondition popover links the file it names, and its code name opens it too', () => {
 	const html = render();
 	const cov = html.slice(html.indexOf('id="coverage"'), html.indexOf('id="run-details"'));
-	assert.match(cov, /<span class="pre-i"><b><a class="fn" href="files\/slow\.py" data-file="file-slow-py"[^>]*>slow\.py<\/a> loaded<\/b><a class="fn-view" href="files\/slow\.py" data-file="file-slow-py">view slow\.py<\/a> · Run <code>%run -i slow\.py<\/code>/);
+	assert.match(cov, /<span class="pre-i"><b><a class="fn" href="files\/slow\.py" data-file="file-slow-py"[^>]*>slow\.py<\/a> loaded<\/b><a class="fn-view" href="files\/slow\.py" data-file="file-slow-py">view slow\.py<\/a>, then run <code>%run -i slow\.py<\/code>/);
 	// Nothing to open, nothing linked.
 	const bare = render({ readFile: () => null });
 	const cov2 = bare.slice(bare.indexOf('id="coverage"'), bare.indexOf('id="run-details"'));
 	assert.doesNotMatch(cov2, /fn-view|class="fn"/);
-	assert.match(cov2, /files\/slow\.py · Run/);
+	assert.match(cov2, /files\/slow\.py, then run/);
+});
+
+test('table: a CSV shows its header and first rows, with the total, and copies as the raw file', () => {
+	const rows = Array.from({ length: 1234 }, (_, i) => `${i},"v, ${i}","say ""hi"""`);
+	const csv = Buffer.from(['id,label,quote', ...rows].join('\n') + '\n');
+	const html = renderWith('files/data.csv', csv);
+	const v = viewer(html, 'file-data-csv');
+	assert.match(v, /<span class="fv-m">CSV · 1,234 rows<\/span>/);
+	assert.match(v, /<thead><tr><th>id<\/th><th>label<\/th><th>quote<\/th><\/tr><\/thead>/);
+	assert.equal(v.match(/<tr><td>/g).length, 20);
+	// Quoted delimiters and doubled quotes are one field.
+	assert.match(v, /<tr><td>0<\/td><td>v, 0<\/td><td>say &quot;hi&quot;<\/td><\/tr>/);
+	assert.match(v, /Showing the first 20 of 1,234 rows\. Download for the full file\./);
+	assert.ok(embedded(html, 'file-data-csv').equals(csv));
+});
+
+test('table: a TSV splits on tabs, and a quoted field may span lines', () => {
+	const v = viewer(renderWith('files/t.tsv', Buffer.from('a\tb\r\n1\t"two\nlines"\r\n')), 'file-t-tsv');
+	assert.match(v, /TSV · 1 row</);
+	assert.match(v, /<tr><td>1<\/td><td>two\nlines<\/td><\/tr>/);
+	assert.doesNotMatch(v, /Showing the first/);
 });
