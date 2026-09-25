@@ -159,6 +159,17 @@ suite('positron-check-path-lengths file counts', () => {
 			{ message: '3 file count(s) in the packaged tree are over budget: extensions/ (15 of 14), big (11 of 10), small (3 of 2)' });
 	});
 
+	test('POSITRON_IGNORE_FILE_BUDGET makes a count over budget a warning', () => {
+		const tight: IFileCountBudgets = { total: 14, default: 2, byExtension: new Map([['big', 10]]) };
+
+		process.env['POSITRON_IGNORE_FILE_BUDGET'] = '1';
+		try {
+			assert.strictEqual(countFiles(appRoot, 'Resources/app/extensions', tight).offenders.length, 3);
+		} finally {
+			delete process.env['POSITRON_IGNORE_FILE_BUDGET'];
+		}
+	});
+
 	test('leaves gzip copies and source maps out of the budgets, but counts a .gz file that has no original', () => {
 		const gzipRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-file-counts-gzip-'));
 		try {

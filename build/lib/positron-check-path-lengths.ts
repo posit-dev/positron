@@ -282,6 +282,9 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+/** Set this environment variable to make an over-budget file count a warning. */
+const IGNORE_FILE_BUDGET = 'POSITRON_IGNORE_FILE_BUDGET';
+
 /** Logs the file-count result. Returns an error message when a count is over budget. */
 function reportFileCounts(result: IFileCountResult, budgets: IFileCountBudgets): string | undefined {
 	const { shipped, extensions, unbudgeted, byExtension, offenders } = result;
@@ -313,13 +316,20 @@ function reportFileCounts(result: IFileCountResult, budgets: IFileCountBudgets):
 		return undefined;
 	}
 
-	fancyLog.error(`${offenders.length} file count(s) are over budget:`);
+	const ignoreBudget = !!process.env[IGNORE_FILE_BUDGET];
+	const log = ignoreBudget ? fancyLog.warn : fancyLog.error;
+	log(`${offenders.length} file count(s) are over budget:`);
 	for (const offender of offenders) {
-		fancyLog.error(`  ${ansiColors.yellow(formatCount(offender.files))} of ${formatCount(offender.budget)}  ${offender.name}`);
+		log(`  ${ansiColors.yellow(formatCount(offender.files))} of ${formatCount(offender.budget)}  ${offender.name}`);
 	}
-	fancyLog.error('Bundle the dependencies that caused the growth, or leave out files that no code loads.');
-	fancyLog.error('A new extension over the default budget needs its own entry.');
-	fancyLog.error('See build/lib/positron-path-budget.ts and posit-dev/positron#16025.');
+	log('Bundle the dependencies that caused the growth, or leave out files that no code loads.');
+	log('A new extension over the default budget needs its own entry.');
+	log('See build/lib/positron-path-budget.ts and posit-dev/positron#16025.');
+
+	if (ignoreBudget) {
+		log(`${IGNORE_FILE_BUDGET} is set, so the build continues anyway.`);
+		return undefined;
+	}
 
 	return `${offenders.length} file count(s) in the packaged tree are over budget: `
 		+ offenders.map(offender => `${offender.name} (${offender.files} of ${offender.budget})`).join(', ');
@@ -329,7 +339,9 @@ function reportFileCounts(result: IFileCountResult, budgets: IFileCountBudgets):
  * Fails the build when an extension, or `extensions/` as a whole, ships more
  * files than its budget, and, with `pathLengths`, when a path is too long for a
  * Windows per-user install or auto-update. Both results are logged before the
- * function throws, so that one build shows every problem.
+ * function throws, so that one build shows every problem. With
+ * `POSITRON_IGNORE_FILE_BUDGET` set, a file count over budget is only a
+ * warning.
  *
  * `appRoot` must be the directory that matches the Windows install directory.
  * The paths that this function measures are then the paths that Inno Setup
