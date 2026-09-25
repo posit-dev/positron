@@ -280,10 +280,21 @@ suite('providerCatalog', () => {
 		writeConfig(configPath, { anthropic: { enabled: false } });
 		await initProviderCatalog(context, { configPath });
 
-		await saveProviderEnabled('anthropic', true, true, { configPath });
+		const wrote = await saveProviderEnabled('anthropic', true, true, { configPath });
 
 		const written = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 		assert.strictEqual(written.providers.anthropic.enabled, false, 'onlyIfUnset must not overwrite an existing value');
+		assert.strictEqual(getCachedProvider('anthropic')?.enabled, false);
+		assert.strictEqual(wrote, false, 'a skipped write must report itself, so callers can log what they did');
+	});
+
+	test('saveProviderEnabled reports a write it did perform', async () => {
+		writeConfig(configPath, {});
+		await initProviderCatalog(context, { configPath });
+
+		const wrote = await saveProviderEnabled('anthropic', false, true, { configPath });
+
+		assert.strictEqual(wrote, true);
 		assert.strictEqual(getCachedProvider('anthropic')?.enabled, false);
 	});
 
