@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildVerifyPrompt, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { buildVerifyPrompt, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -146,6 +146,15 @@ test('parseVerdicts reads the machine-readable line', () => {
 	const v = parseVerdicts('preamble\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nprose');
 	assert.equal(v.get(1), 'confirmed');
 	assert.equal(v.get(2), 'disputed');
+});
+
+test('fromVerdictLine drops the notes before the VERDICTS line', () => {
+	const reply = 'No conflicting evidence. I have enough to finalize.\n\nVERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.';
+	assert.equal(fromVerdictLine(reply), 'VERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.');
+	assert.equal(fromVerdictLine('VERDICTS: 1=CONFIRMED\nwhy'), 'VERDICTS: 1=CONFIRMED\nwhy');
+	// No verdict line: keep everything, since the prose is all the reviewer gets.
+	assert.equal(fromVerdictLine('just prose'), 'just prose');
+	assert.equal(fromVerdictLine(null), null);
 });
 
 test('parseVerdicts returns empty when the line is absent', () => {

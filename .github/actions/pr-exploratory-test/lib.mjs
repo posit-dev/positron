@@ -173,6 +173,19 @@ export function renderCostFooter(passes, maxTurns) {
 }
 
 /**
+ * The verifier's reply from its VERDICTS line on. Its final message can open
+ * with notes to itself, which would otherwise lead the Verification details.
+ */
+export function fromVerdictLine(text) {
+	if (typeof text !== 'string') {
+		return text;
+	}
+	const lines = text.split('\n');
+	const at = lines.findIndex(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
+	return at > 0 ? lines.slice(at).join('\n') : text;
+}
+
+/**
  * Parses the verifier's machine-readable verdict line.
  *
  * Expects `VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE` anywhere in the text.

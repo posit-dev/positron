@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { buildVerifyPrompt, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
+import { buildVerifyPrompt, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
@@ -156,7 +156,7 @@ async function verifyReport() {
 			writeFileSync(join(WORK_DIR, 'verify-cost.json'), JSON.stringify(verifyCost, null, 2));
 		}
 	}
-	return chunks.length ? chunks[chunks.length - 1] : null;
+	return chunks.length ? fromVerdictLine(chunks[chunks.length - 1]) : null;
 }
 
 async function main() {
