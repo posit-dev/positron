@@ -2148,12 +2148,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
-	 * Keep a cancelled barrier after a terminal exit so sends still reject.
-	 * The socket's `onclose` can run after `onExited()`; replacing the barrier
-	 * then would leave later sends waiting forever. Only `restart()` replaces it.
+	 * Preserve closed barriers so existing waiters remain reachable by
+	 * `open()` and `cancel()`.
+	 *
+	 * Preserve cancelled barriers so sends still reject if the socket's
+	 * `onclose()` runs after `onExited()`. Only `connect()` and `restart()`
+	 * replace a cancelled barrier.
 	 */
 	private closeConnectedBarrier() {
-		if (!this._connected.isCancelled()) {
+		if (this._connected.isOpen()) {
 			this._connected = new Barrier();
 		}
 	}

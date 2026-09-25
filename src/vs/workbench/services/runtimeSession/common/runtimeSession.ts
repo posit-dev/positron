@@ -37,6 +37,16 @@ import { resolveNotebookWorkingDirectory } from '../../../contrib/notebook/commo
 import { isEqual } from '../../../../base/common/resources.js';
 
 /**
+ * Give runtimes time for cleanup such as R's `.Last` and Python's `atexit`
+ * before forcing a quit. The shutdown and force-quit grace periods total less
+ * than the 10 seconds before `waitForShutdown()` offers a manual forced quit.
+ */
+export const SHUTDOWN_GRACE_MS = 6_000;
+
+
+export const FORCE_QUIT_GRACE_MS = 3_000;
+
+/**
  * Get a map key corresponding to a session.
  *
  * @returns A composite of the session mode, runtime ID, and notebook URI - assuming that there
@@ -618,32 +628,82 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`No active session '${session.sessionId}'`);
 		}
 
-		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
-		// generates some Console output that must finish before starting up a new runtime:
+		// `RuntimeState.Exited` can precede final console output. Wait for
+		// `onDidEndSession()` before starting another runtime, and keep this
+		// listener across both attempts so an exit between them is not missed.
 		const disposables = activeSession.register(new DisposableStore());
-		const promise = new Promise<void>((resolve, reject) => {
-			disposables.add(session.onDidEndSession((exit) => {
-				disposables.dispose();
+		let hasEnded = false;
+		const ended = new Promise<void>(resolve => {
+			disposables.add(session.onDidEndSession(() => {
+				hasEnded = true;
 				resolve();
 			}));
-			disposables.add(disposableTimeout(() => {
-				disposables.dispose();
-				reject(new Error(`Timed out waiting for runtime ` +
-					`${formatLanguageRuntimeSession(session)} to finish exiting.`));
-			}, 5000));
 		});
 
-		// Ask the runtime to shut down.
 		try {
-			await session.shutdown(exitReason);
-		} catch (error) {
-			disposables.dispose();
-			throw error;
-		}
+			// Escalate if shutdown never completes or the runtime fails to exit,
+			// rather than leaving `deleteSession()` waiting indefinitely.
+			try {
+				if (await this.runAndWaitForEndSession(
+					ended, () => session.shutdown(exitReason), SHUTDOWN_GRACE_MS)) {
+					return;
+				}
+				this._logService.warn(
+					`${formatLanguageRuntimeSession(session)} did not exit within ` +
+					`${SHUTDOWN_GRACE_MS}ms of a shutdown request; forcing it to quit.`);
+			} catch (error) {
+				this._logService.warn(
+					`Failed to shut down ${formatLanguageRuntimeSession(session)}: ${error}; ` +
+					`forcing it to quit.`);
+			}
 
-		// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
-		// (whichever comes first)
-		await promise;
+			// Do not force a session that ended while the shutdown wait settled.
+			if (hasEnded) {
+				return;
+			}
+
+			// `Exited` can precede `onDidEndSession()`. Wait for the end event
+			// without forcing a process that has already exited.
+			const force = session.getRuntimeState() === RuntimeState.Exited ?
+				async () => { } :
+				() => session.forceQuit();
+
+			if (!await this.runAndWaitForEndSession(ended, force, FORCE_QUIT_GRACE_MS)) {
+				throw new Error(`Timed out waiting for runtime ` +
+					`${formatLanguageRuntimeSession(session)} to finish exiting, ` +
+					`even after forcing it to quit.`);
+			}
+		} finally {
+			disposables.dispose();
+		}
+	}
+
+	/**
+	 * Return `true` when `ended` resolves, even if `action` is still pending.
+	 * Return `false` on timeout, or reject if `action` fails first.
+	 */
+	private async runAndWaitForEndSession(
+		ended: Promise<void>,
+		action: () => Thenable<void>,
+		timeoutMs: number): Promise<boolean> {
+
+		const disposables = new DisposableStore();
+		try {
+			return await new Promise<boolean>((resolve, reject) => {
+				ended.then(() => resolve(true));
+				disposables.add(disposableTimeout(() => resolve(false), timeoutMs));
+
+				void (async () => {
+					try {
+						await action();
+					} catch (error) {
+						reject(error);
+					}
+				})();
+			});
+		} finally {
+			disposables.dispose();
+		}
 	}
 
 	/**
@@ -1397,6 +1457,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`Cannot delete session because its runtime was not found.`);
 		}
 
+		let shutdownError: unknown;
 		const runtimeState = session.getRuntimeState();
 		if (runtimeState !== RuntimeState.Exited) {
 			if (runtimeState === RuntimeState.Busy) {
@@ -1416,7 +1477,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				runtimeState === RuntimeState.Idle ||
 				runtimeState === RuntimeState.Ready) {
 				// If the runtime is in a state where it can be shut down, do so.
-				await this.shutdownRuntimeSession(session, RuntimeExitReason.Shutdown);
+				try {
+					await this.shutdownRuntimeSession(session, RuntimeExitReason.Shutdown);
+				} catch (error) {
+					// Remove the session even if its runtime cannot exit. Leaving it
+					// registered lets R's language server manager deactivate other
+					// consoles when it tries to activate this unusable one. Rethrow
+					// after removal so callers still see the shutdown failure.
+					shutdownError = error;
+				}
 			} else if (
 				runtimeState === RuntimeState.Uninitialized ||
 				runtimeState === RuntimeState.Initializing ||
@@ -1452,6 +1521,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
 			this._onDidDeleteRuntimeSessionEmitter.fire(sessionId);
 
+		}
+
+		if (shutdownError !== undefined) {
+			this._logService.warn(`Session ${sessionId} has been deleted, but its runtime failed to exit: ${shutdownError}`);
+			throw shutdownError;
 		}
 
 		this._logService.debug(`Session ${sessionId} has been deleted`);
@@ -2493,6 +2567,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// for the purposes of waiting for the session to exit.
 			disposables.add(session.onDidEndSession(() => {
 				if (targetStates.includes(RuntimeState.Exited)) {
+					completeStateChange();
+				}
+			}));
+
+			// `deleteSession()` can remove a session whose runtime never exited.
+			// Stop waiting for a state change once there is nothing left to watch.
+			disposables.add(this.onDidDeleteRuntimeSession(sessionId => {
+				if (sessionId === session.sessionId) {
 					completeStateChange();
 				}
 			}));

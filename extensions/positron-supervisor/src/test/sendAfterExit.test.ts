@@ -69,6 +69,24 @@ suite('Sends after kernel exit', () => {
 		}
 	});
 
+	test('rejects a waiting send when the barrier closed again before the kernel exited', async () => {
+		const session = createSession();
+		markConnected(session);
+		try {
+			const offline = { kind: 'kernel', status: { status: positron.RuntimeState.Offline, reason: 'test' } };
+			session.handleMessage(offline);
+			const sent = session.sendCommand(newCommand());
+
+			// Replacing the closed barrier here would leave `sent` pending after exit.
+			session.handleMessage(offline);
+			markExited(session);
+
+			await assert.rejects(settled(sent), /the kernel has exited/);
+		} finally {
+			session.dispose();
+		}
+	});
+
 	test('rejects sends once the session is transferred to another client', async () => {
 		const session = createSession();
 		markConnected(session);
