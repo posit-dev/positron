@@ -23,7 +23,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { SnowflakeConnection } from './snowflakeConnection.js';
 import { SnowflakeConnectionOptions } from './snowflakeClient.js';
-import { SnowflakeConnectionsFileEntry, readConnectionsFile } from './snowflakeConnectionsFile.js';
+import { displayPath, SnowflakeConnectionsFileEntry, readConnectionsFile } from './snowflakeConnectionsFile.js';
 import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandler.js';
 
 /** The id of the external-browser (interactive SSO) connection mechanism. */
@@ -556,12 +556,13 @@ export function createSnowflakeDriver(
 		],
 	};
 
-	// Connections File: reuse a named connection already configured in
-	// ~/.snowflake/connections.toml. Only offered when the file defines at least one connection.
+	// Connections File: reuse a named connection already configured in connections.toml. Only
+	// offered when the file defines at least one connection. The description names the file that was
+	// actually read, which is not ~/.snowflake/connections.toml when $SNOWFLAKE_HOME is set.
 	const connectionsFileMechanism = (connectionNames: string[]): positron.DataConnectionMechanism | undefined => connectionNames.length > 0 ? {
 		id: CONNECTIONS_FILE_MECHANISM_ID,
 		label: vscode.l10n.t('Connections File'),
-		description: vscode.l10n.t('Reuse a named connection from your ~/.snowflake/connections.toml file.'),
+		description: vscode.l10n.t('Reuse a named connection from {0}.', displayPath(filePath)),
 		parameters: [
 			{
 				id: 'connectionName',

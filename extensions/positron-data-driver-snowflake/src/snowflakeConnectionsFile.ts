@@ -33,6 +33,18 @@ export function connectionsFilePath(): string {
 }
 
 /**
+ * Shortens a path under the user's home directory to a leading `~`, for showing the connections file
+ * in the connect dialog. A path elsewhere -- which is what $SNOWFLAKE_HOME usually points at -- is
+ * shown in full, since that is the only form that says where the file actually is.
+ */
+export function displayPath(filePath: string): string {
+	const home = os.homedir();
+	return filePath.startsWith(home + path.sep)
+		? `~${filePath.slice(home.length)}`
+		: filePath;
+}
+
+/**
  * Parses connections.toml content into a map of connection name to its raw entry, preserving file
  * order. Only top-level tables (objects) are treated as connections; any stray scalar keys are
  * ignored.
