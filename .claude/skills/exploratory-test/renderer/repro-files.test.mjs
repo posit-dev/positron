@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { parseLedger } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
 import { lintReport } from './lint.mjs';
-import { PREVIEW_LINES, EMBED_BYTES } from './repro-files.mjs';
+import { PREVIEW_LINES, EMBED_BYTES, findFile } from './repro-files.mjs';
 
 const DIR = new URL('./fixtures/logs-run/', import.meta.url);
 const REPORT = readFileSync(new URL('report.md', DIR), 'utf8');
@@ -171,6 +171,13 @@ test('lint: Files and files/ have to agree', () => {
 		.includes('ledger: ## Files lists slow.py; save it under files/ and list that path'));
 });
 
+test('lint: a bare name two saved files share is flagged, not linked to the first', () => {
+	const ledger = LEDGER.replace('- files/slow.py |', '- files/a/slow.py | copy | S04\n- files/b/slow.py |').replaceAll('files/slow.py, then run', 'Run');
+	const problems = fileProblems(REPORT, ledger, { exists: () => true, list: () => ['files/a/slow.py', 'files/b/slow.py'] });
+	assert.ok(problems.includes('Finding 1 names slow.py, which matches files/a/slow.py and files/b/slow.py; name it by its files/ path'));
+	assert.ok(!problems.some(p => /not saved/.test(p)));
+});
+
 test('lint: setting keys, the app\'s own config files and prose are not test files', () => {
 	const report = REPORT.replace('**Repro** -- starting state: `slow.py` loaded',
 		'**Repro** -- starting state: `positron.r.interpreters.default` set in user settings.json, R 4.5.2 running, and `slow.py` loaded');
@@ -233,6 +240,13 @@ test('notebook: the viewer stops at the preview budget and says how many cells i
 	assert.match(v, /Showing the first 3 of 5 cells\. Download for the full notebook\./);
 });
 
+test('notebook: a last cell cut at the budget still gets a notice', () => {
+	const cells = Array.from({ length: 3 }, (_, i) => ({ cell_type: 'code', source: Array.from({ length: 150 }, (_, j) => `x${i}_${j} = 1\n`) }));
+	const v = viewer(renderWith('files/cut.ipynb', Buffer.from(JSON.stringify({ cells, metadata: {} }))), 'file-cut-ipynb');
+	assert.equal(v.match(/<div class="fv-cell /g).length, 3);
+	assert.match(v, new RegExp(`Showing the first ${PREVIEW_LINES} lines\\. Download for the full notebook\\.`));
+});
+
 test('notebook: the agent prompt carries the cells as a percent-format script', () => {
 	const text = promptText(renderWith('files/load.ipynb', NOTEBOOK), 1);
 	assert.ok(text.includes([
@@ -285,4 +299,11 @@ test('files: a nested file shows its workspace folder in the viewer and Test fil
 	assert.match(folds, new RegExp(`<li><a class="fn" href="files/ws-off/\\.vscode/settings\\.json" data-file="${id}"[^>]*>ws-off/\\.vscode/settings\\.json</a>`));
 	// A file at the top of files/ has no folder to show.
 	assert.doesNotMatch(viewer(html, 'file-slow-py'), /fv-dir/);
+});
+
+test('findFile: a bare name resolves only when one saved file has it', () => {
+	const files = [{ path: 'files/a/app.py', name: 'app.py' }, { path: 'files/b/app.py', name: 'app.py' }, { path: 'files/x.R', name: 'x.R' }];
+	assert.equal(findFile(files, 'app.py'), null);
+	assert.equal(findFile(files, 'files/b/app.py'), files[1]);
+	assert.equal(findFile(files, 'x.R'), files[2]);
 });

@@ -11,7 +11,7 @@
  * can check, returned as one line each for the agent to fix and re-render.
  */
 
-import { isDefaultsOnly, isNewTestFile, parseLedger, parseReport } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport } from './report-parse.mjs';
 import { FILE_NAME, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -126,7 +126,8 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 		}
 	}
 	const listed = new Set(files.map(f => f.path));
-	// A path under files/ named anywhere is a file the reader will look for.
+	// A path under files/ named in prose is a file the reader will look for.
+	// Code blocks don't count: they may quote a file's own contents.
 	// Only one with an extension: "files/lines" in a sentence is prose.
 	const named = new Set();
 	for (const { line } of [...prose(markdown), ...prose(ledger)]) {
@@ -146,6 +147,11 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 			// "user settings.json" is the app's own file; the setting goes in the step.
 			// A files/ path is the rule above's.
 			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/')) { continue; }
+			const same = files.filter(f => basename(f.path) === basename(m[1]));
+			if (same.length > 1) {
+				problems.push(`${where} names ${m[1]}, which matches ${same.map(f => f.path).join(' and ')}; name it by its files/ path`);
+				continue;
+			}
 			const at = unsaved.get(m[1]) ?? [];
 			if (!at.includes(where)) { at.push(where); }
 			unsaved.set(m[1], at);

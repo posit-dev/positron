@@ -549,7 +549,7 @@ function readSourceBlock(lines, from) {
 		body.push(first);
 		for (k++; k < lines.length; k++) {
 			body.push(lines[k]);
-			const close = /^\s*(`{3,}|~{3,})\s*$/.exec(lines[k]);
+			const close = /^ {0,3}(`{3,}|~{3,})\s*$/.exec(lines[k]);
 			if (close && close[1][0] === fence[1][0] && close[1].length >= fence[1].length) { k++; break; }
 		}
 		return { text: outdent(body).join('\n'), end: k };

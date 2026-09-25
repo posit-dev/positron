@@ -187,9 +187,9 @@ export function resolveFiles(entries, readFile) {
 export function findFile(files, ref) {
 	const r = String(ref ?? '').trim().replace(/^\.\//, '');
 	const bare = r.replace(/^files\//, '');
+	const byName = files.filter(f => f.name === basename(bare));
 	return files.find(f => f.path === r || f.path === `files/${bare}`)
-		?? files.find(f => f.name === basename(bare))
-		?? null;
+		?? (byName.length === 1 ? byName[0] : null);
 }
 
 /** Every entry a piece of markdown names, by its path or file name, in list order. */
@@ -299,15 +299,17 @@ function numbered(lines) {
 function renderCells(nb) {
 	let budget = PREVIEW_LINES;
 	const shown = [];
+	let cut = false;
 	for (const c of nb.cells) {
 		if (budget <= 0) { break; }
 		const lines = c.lines.slice(0, budget);
 		budget -= lines.length;
+		cut = lines.length < c.lines.length;
 		shown.push(`<div class="fv-cell fv-${c.kind}"><div class="fv-ct">${escapeHtml(c.label)}</div>${numbered(lines)}</div>`);
 	}
-	const more = nb.cells.length > shown.length || budget < 0
+	const more = nb.cells.length > shown.length
 		? `<p class="fv-note">Showing the first ${shown.length} of ${nb.cells.length} cells. Download for the full notebook.</p>`
-		: '';
+		: cut ? `<p class="fv-note">Showing the first ${PREVIEW_LINES} lines. Download for the full notebook.</p>` : '';
 	return `<div class="fv-cells">${shown.join('')}</div>${more}`;
 }
 

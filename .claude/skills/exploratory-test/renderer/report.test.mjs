@@ -1707,3 +1707,14 @@ test('parseReport: a heading inside an indented code block does not end the sect
 	assert.equal(findings[0].steps.length, 1);
 	assert.match(findings[0].preconditions[0], /<pre><code>## Setup\nx &lt;- 1\n<\/code><\/pre>/);
 });
+
+test('parseReport: a fence marker indented four spaces does not close the Repro block', () => {
+	const { findings } = parseReport([
+		'# Exploratory test: x', '', '## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | one | minor |', '',
+		'### Finding 1: one', '', '**Repro** -- starting state: this file', '',
+		'```md', 'a', '    ```', 'b', '```', '', '1. Open it.', '',
+	].join('\n'));
+	assert.equal(findings[0].steps.length, 1);
+	assert.match(findings[0].preconditions[0], /a\n {4}```\nb/);
+});

@@ -218,6 +218,9 @@ async function main() {
 			maxTurns: MAX_TURNS,
 			// Summarized display returns the notes the model writes between tool
 			// calls, which otherwise arrive as empty thinking blocks.
+			// gate.mjs and the analyzers still disable thinking for claude-code#63192
+			// (a cancelled parallel tool batch wedges the session on a repeating 400).
+			// If a run wedges that way, disable it here too.
 			thinking: { type: 'adaptive', display: 'summarized' },
 			...(EFFORT ? { effort: EFFORT } : {}),
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
