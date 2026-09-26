@@ -15,6 +15,7 @@ Name | Type | Description | Notes
 **process_id** | **number** | The server\&#39;s operating system process identifier | [default to undefined]
 **started** | **string** | An ISO 8601 timestamp of when the server was started | [default to undefined]
 **server_id** | **string** | A unique identifier generated when the server starts. Clients can compare this against a previously observed value to detect that they are talking to a different server instance (e.g. one that was restarted), and therefore that any persisted bearer token may be stale. | [optional] [default to undefined]
+**mcp** | [**McpStatus**](McpStatus.md) |  | [optional] [default to undefined]
 
 ## Example
 
@@ -32,6 +33,7 @@ const instance: ServerStatus = {
     process_id,
     started,
     server_id,
+    mcp,
 };
 ```
 

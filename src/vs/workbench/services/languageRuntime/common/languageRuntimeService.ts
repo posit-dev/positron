@@ -267,6 +267,32 @@ export interface ILanguageRuntimeMessageInput extends ILanguageRuntimeMessage {
 	execution_count: number;
 }
 
+/**
+ * ILanguageRuntimeMessageExecutionRequested is an ILanguageRuntimeMessage
+ * announcing that code was submitted to the runtime by something other than
+ * Positron, such as an external coding agent working through Positron's MCP
+ * server.
+ *
+ * Its `parent_id` is the ID of the announced execution, which every message the
+ * execution produces also carries. The runtime protocol carries no provenance
+ * of its own, so without this message foreign code appears in the Console
+ * unattributed and does not drive its busy state.
+ */
+export interface ILanguageRuntimeMessageExecutionRequested extends ILanguageRuntimeMessage {
+	/** The code that is about to run. */
+	code: string;
+
+	/**
+	 * Who asked for the execution. `source` holds a `CodeAttributionSource`
+	 * value, typed as a string so this layer needn't depend on the Console
+	 * layer that owns the attribution vocabulary.
+	 */
+	attribution: {
+		source: string;
+		metadata?: Record<string, unknown>;
+	};
+}
+
 /** LanguageRuntimePrompt is a LanguageRuntimeMessage representing a prompt for input */
 export interface ILanguageRuntimeMessagePrompt extends ILanguageRuntimeMessage {
 	/** The prompt text */
@@ -710,6 +736,12 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a request to update an output */
 	UpdateOutput = 'update_output',
+
+	/**
+	 * A message announcing that something other than Positron submitted code
+	 * to the runtime, sent before the code's echo and output arrive.
+	 */
+	ExecutionRequested = 'execution_requested',
 }
 
 /**

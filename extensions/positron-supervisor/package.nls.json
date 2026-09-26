@@ -33,6 +33,12 @@
 	"command.positron.supervisor.category": "Kernel Supervisor",
 	"command.showKernelSupervisorLog.title": "Show the Kernel Supervisor Log",
 	"command.showRunningSupervisors.title": "Show Running Kernel Supervisors",
+	"command.showCurrentSupervisor.title": "Show Kernel Supervisor",
 	"command.reconnectSession.title": "Reconnect the Current Session",
-	"command.restartSupervisor.title": "Restart the Kernel Supervisor"
+	"command.restartSupervisor.title": "Restart the Kernel Supervisor",
+	"command.positron.mcp.category": "Positron MCP",
+	"command.copyConnectionDetails.title": "Copy Connection Details",
+	"command.configureAgent.title": "Add to Coding Agent",
+	"command.showConnectedAgents.title": "Show Connected Agents",
+	"mcp.positronSessions.label": "Positron Sessions"
 }

@@ -12,6 +12,7 @@ import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../languageRu
  * in sync.
  */
 export const enum CodeAttributionSource {
+	Agent = 'agent',
 	Assistant = 'assistant',
 	Extension = 'extension',
 	Interactive = 'interactive',

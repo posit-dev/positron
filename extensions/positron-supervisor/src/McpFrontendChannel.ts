@@ -1,0 +1,388 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as vscode from 'vscode';
+import * as positron from 'positron';
+import WebSocket from 'ws';
+
+import { McpClient } from './kcclient/api';
+import { createWebSocket } from './NamedPipeHttpAgent';
+import { budgetCommandResult } from './mcpCommandResult';
+import { checkCommandArgs } from './mcpCommandArgs';
+import { summarizeError } from './util';
+
+/**
+ * The request the supervisor's `get_plot` tool sends for the Plots pane's
+ * current plot. Mirrors `CURRENT_PLOT_COMMAND` in kcserver's MCP handler.
+ */
+const CURRENT_PLOT_COMMAND = 'positron.mcp.getCurrentPlot';
+
+/** How long to wait before the first reconnect attempt. */
+const RECONNECT_DELAY_MS = 1000;
+
+/** The longest we back off between reconnect attempts. */
+const MAX_RECONNECT_DELAY_MS = 30_000;
+
+/** How long to coalesce catalog refreshes triggered by extension changes. */
+const CATALOG_REFRESH_DEBOUNCE_MS = 500;
+
+/**
+ * One argument of a Positron command, as the supervisor's MCP server publishes
+ * it. Mirrors `AgentCommandArg` in `kcshared::mcp_frontend`.
+ */
+interface ChannelCommandArg {
+	name: string;
+	description?: string;
+	required: boolean;
+	schema?: object;
+}
+
+/** A Positron command agents may run. Mirrors `AgentCommand` in `kcshared`. */
+interface ChannelCommand {
+	id: string;
+	description: string;
+	args: ChannelCommandArg[];
+	returns?: string;
+}
+
+/**
+ * A request from the supervisor to run a Positron command on an agent's behalf.
+ * Mirrors `CommandRequest` in `kcshared::mcp_frontend`.
+ */
+interface CommandRequest {
+	kind: 'command_request';
+	id: string;
+	command_id: string;
+	args: unknown[];
+	agent: { name?: string; version?: string };
+}
+
+/**
+ * The agents connected to the workspace, sent when the channel opens and
+ * whenever one connects or disconnects. Mirrors `ClientsChanged` in
+ * `kcshared::mcp_frontend`.
+ */
+interface ClientsChanged {
+	kind: 'clients_changed';
+	clients: McpClient[];
+}
+
+/** Messages the supervisor sends over the channel. */
+type ServerFrontendMessage = CommandRequest | ClientsChanged;
+
+/**
+ * Connects this window to the supervisor's MCP server over a WebSocket,
+ * publishing what only Positron knows -- its command catalog, the sessions it
+ * holds, its foreground session, and whether the user is looking at it -- and
+ * running the commands agents ask for.
+ *
+ * A supervisor can be shared by every window of a Positron server, so an agent
+ * must not be able to run code in a window the user cannot see. Sessions we
+ * start name us as they are created; the session list we publish here covers
+ * the rest, such as sessions that were already running when the user turned MCP
+ * on. The supervisor caches what we send, so the scoping survives us going
+ * away.
+ *
+ * The channel is not required for the supervisor's kernel tools, which work
+ * whether or not a window is connected. It is required for the command tools,
+ * so it reconnects on its own until disposed.
+ */
+export class McpFrontendChannel implements vscode.Disposable {
+	private _socket: WebSocket | undefined;
+
+	/** Cleared on dispose so a pending reconnect does not resurrect us. */
+	private _disposed = false;
+
+	/** The delay before the next reconnect attempt; grows on each failure. */
+	private _reconnectDelayMs = RECONNECT_DELAY_MS;
+
+	private _reconnectTimer: NodeJS.Timeout | undefined;
+
+	private _catalogRefreshTimer: NodeJS.Timeout | undefined;
+
+	private readonly _disposables: vscode.Disposable[] = [];
+
+	/**
+	 * @param _uri The WebSocket URI of this frontend's channel.
+	 * @param _headers Headers carrying the supervisor API bearer token.
+	 * @param _log Writes a line to the Kernel Supervisor output channel.
+	 * @param _sessionIds The sessions this window holds. Read on every send
+	 *  rather than cached, so a channel that opens long after the window did
+	 *  still reports the sessions it already has.
+	 * @param _onClientsChanged Called with the agents connected to the
+	 *  workspace whenever the supervisor reports them, and with none when the
+	 *  channel closes, since the list can no longer be vouched for.
+	 */
+	constructor(
+		private readonly _uri: string,
+		private readonly _headers: { [key: string]: string },
+		private readonly _log: (message: string) => void,
+		private readonly _sessionIds: () => string[],
+		private readonly _onClientsChanged: (clients: McpClient[]) => void = () => { },
+	) {
+		this._disposables.push(positron.runtime.onDidChangeForegroundSession(sessionId => {
+			this.send({ kind: 'foreground_changed', session_id: sessionId });
+			// Sessions usually take the foreground as they start, and give it
+			// up as they exit, so this is also the cheapest moment to notice
+			// that the set we hold has changed.
+			this.sendSessions();
+		}));
+
+		// Several windows onto one workspace share a registration, so the
+		// supervisor needs to know which of them the user is looking at in
+		// order to send an agent's IDE commands somewhere visible.
+		this._disposables.push(vscode.window.onDidChangeWindowState(state => {
+			if (state.focused) {
+				this.send({ kind: 'focused' });
+			}
+		}));
+
+		// The catalog grows and shrinks with the installed extensions, since
+		// extensions contribute agent-compatible commands. Re-read it when the
+		// extension set changes, coalescing the burst of events an install
+		// produces.
+		this._disposables.push(vscode.extensions.onDidChange(() => {
+			this.scheduleCatalogRefresh();
+		}));
+
+		this.connect();
+	}
+
+	public dispose() {
+		this._disposed = true;
+		if (this._reconnectTimer) {
+			clearTimeout(this._reconnectTimer);
+			this._reconnectTimer = undefined;
+		}
+		if (this._catalogRefreshTimer) {
+			clearTimeout(this._catalogRefreshTimer);
+			this._catalogRefreshTimer = undefined;
+		}
+		this._disposables.forEach(disposable => disposable.dispose());
+		this._disposables.length = 0;
+		this._socket?.close();
+		this._socket = undefined;
+	}
+
+	/** Open the channel, retrying with backoff until disposed. */
+	private connect(): void {
+		if (this._disposed) {
+			return;
+		}
+
+		const socket = createWebSocket(this._uri, undefined, { headers: this._headers });
+		this._socket = socket;
+
+		socket.onopen = () => {
+			this._reconnectDelayMs = RECONNECT_DELAY_MS;
+			this._log('Connected to the MCP frontend channel');
+			this.sayHello();
+		};
+
+		socket.onmessage = (event: WebSocket.MessageEvent) => {
+			this.handleMessage(event.data.toString());
+		};
+
+		socket.onerror = (event: WebSocket.ErrorEvent) => {
+			// A failure to connect is followed by a close, which schedules the
+			// retry; this only records why.
+			this._log(`MCP frontend channel error: ${event.message}`);
+		};
+
+		socket.onclose = () => {
+			if (this._socket !== socket) {
+				return;
+			}
+			this._socket = undefined;
+			this._onClientsChanged([]);
+			this.scheduleReconnect();
+		};
+	}
+
+	/** Retry the connection after a growing delay. */
+	private scheduleReconnect(): void {
+		if (this._disposed || this._reconnectTimer) {
+			return;
+		}
+		const delay = this._reconnectDelayMs;
+		this._reconnectDelayMs = Math.min(delay * 2, MAX_RECONNECT_DELAY_MS);
+		this._reconnectTimer = setTimeout(() => {
+			this._reconnectTimer = undefined;
+			this.connect();
+		}, delay);
+	}
+
+	/**
+	 * Tell the supervisor which sessions this window holds. Call this whenever
+	 * the window gains or loses one.
+	 */
+	public sessionsChanged(): void {
+		this.sendSessions();
+	}
+
+	/**
+	 * Announce ourselves: the command catalog, the sessions we hold, the one
+	 * agents should target by default, and whether the user is looking at us.
+	 */
+	private async sayHello(): Promise<void> {
+		const [commands, foreground] = await Promise.all([
+			this.readCatalog(),
+			positron.runtime.getForegroundSession(),
+		]);
+		this.send({
+			kind: 'hello',
+			positron_version: positron.version,
+			commands,
+			session_ids: this._sessionIds(),
+			foreground_session_id: foreground?.metadata.sessionId,
+			focused: vscode.window.state.focused,
+		});
+	}
+
+	/** Push the current session set. */
+	private sendSessions(): void {
+		this.send({ kind: 'sessions_changed', session_ids: this._sessionIds() });
+	}
+
+	/** Re-read the catalog and push it, coalescing bursts of changes. */
+	private scheduleCatalogRefresh(): void {
+		if (this._catalogRefreshTimer) {
+			clearTimeout(this._catalogRefreshTimer);
+		}
+		this._catalogRefreshTimer = setTimeout(async () => {
+			this._catalogRefreshTimer = undefined;
+			this.send({ kind: 'commands_changed', commands: await this.readCatalog() });
+		}, CATALOG_REFRESH_DEBOUNCE_MS);
+	}
+
+	/**
+	 * The commands agents may run in this window, in the shape the supervisor
+	 * caches and searches.
+	 *
+	 * Disabled commands are included: the supervisor's cache has to stay valid
+	 * while the window is away, and a command's precondition depends on UI
+	 * state that changes far too often to publish. An agent that runs a
+	 * currently disabled command gets a `disabled` reason back.
+	 */
+	private async readCatalog(): Promise<ChannelCommand[]> {
+		try {
+			const commands = await positron.ai.getAgentAllowedCommands({ includeDisabled: true });
+			return commands.map(command => ({
+				id: command.id,
+				description: command.description ?? '',
+				args: (command.args ?? []).map(arg => ({
+					name: arg.name,
+					description: arg.description,
+					required: arg.required ?? true,
+					schema: arg.schema,
+				})),
+				returns: command.returns,
+			}));
+		} catch (err) {
+			this._log(`Failed to read the agent command catalog: ${summarizeError(err)}`);
+			return [];
+		}
+	}
+
+	/** Route a frame from the supervisor. */
+	private handleMessage(text: string): void {
+		let message: ServerFrontendMessage;
+		try {
+			message = JSON.parse(text);
+		} catch (err) {
+			this._log(`Unreadable frame on the MCP frontend channel: ${summarizeError(err)}`);
+			return;
+		}
+		switch (message.kind) {
+			case 'command_request':
+				this.runCommand(message);
+				break;
+			case 'clients_changed':
+				this._onClientsChanged(message.clients);
+				break;
+			default:
+				// A newer supervisor may send frames we don't know; ignore them
+				// rather than dropping the channel.
+				break;
+		}
+	}
+
+	/**
+	 * Run a Positron command on an agent's behalf and report the outcome.
+	 *
+	 * Failures are answered, never thrown: the supervisor is holding an agent's
+	 * tool call open waiting for this reply.
+	 */
+	private async runCommand(request: CommandRequest): Promise<void> {
+		const agent = request.agent.name ?? 'unknown agent';
+		const started = Date.now();
+		try {
+			if (request.command_id === CURRENT_PLOT_COMMAND) {
+				// A data URI, which would not survive the command result budget.
+				const uri = await positron.ai.getCurrentPlotUri();
+				this.send({ kind: 'command_reply', id: request.id, ok: true, result: uri ?? null });
+				return;
+			}
+			// A command that is not in the catalog is left for the call below
+			// to report.
+			const command = (await this.readCatalog()).find(c => c.id === request.command_id);
+			const invalid = command && checkCommandArgs(command.args, request.args);
+			if (invalid) {
+				this._log(`MCP command '${request.command_id}' for ${agent} was refused: ${invalid}`);
+				this.send({
+					kind: 'command_reply',
+					id: request.id,
+					ok: false,
+					reason: 'invalid-args',
+					message: invalid,
+				});
+				return;
+			}
+			const result = await positron.ai.validateAndExecuteCommand(
+				request.command_id, request.args);
+			const elapsed = Date.now() - started;
+			if (result.ok) {
+				this._log(
+					`MCP command '${request.command_id}' for ${agent} succeeded in ${elapsed}ms`);
+				this.send({
+					kind: 'command_reply',
+					id: request.id,
+					ok: true,
+					result: budgetCommandResult(result.result),
+				});
+			} else {
+				this._log(`MCP command '${request.command_id}' for ${agent} failed in ` +
+					`${elapsed}ms: ${result.reason}`);
+				// `precondition` is a raw context-key expression; it would tell
+				// an agent nothing it can act on, so it is not passed along.
+				this.send({
+					kind: 'command_reply',
+					id: request.id,
+					ok: false,
+					reason: result.reason,
+					message: result.message,
+				});
+			}
+		} catch (err) {
+			const message = summarizeError(err);
+			this._log(`MCP command '${request.command_id}' for ${agent} threw: ${message}`);
+			this.send({
+				kind: 'command_reply',
+				id: request.id,
+				ok: false,
+				reason: 'error',
+				message,
+			});
+		}
+	}
+
+	/** Send a frame, dropping it when the channel is not open. */
+	private send(message: object): void {
+		if (this._socket?.readyState !== WebSocket.OPEN) {
+			return;
+		}
+		this._socket.send(JSON.stringify(message));
+	}
+}

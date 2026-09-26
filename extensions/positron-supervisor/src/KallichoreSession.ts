@@ -35,7 +35,7 @@ import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
 import { Client } from './Client';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { SocketSession } from './ws/SocketSession';
-import { KernelOutputMessage } from './ws/KernelMessage';
+import { KernelExecutionRequestedMessage, KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeAxiosError } from './util';
 import { AdoptedSession } from './AdoptedSession';
@@ -398,8 +398,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Create the session in on the Kallichore server.
 	 *
 	 * @param kernelSpec The Jupyter kernel spec to use for the session
+	 * @param mcpWorkspaceId This window's MCP workspace, when it has registered
+	 *  one. It makes the session that workspace's: agents attached to another
+	 *  workspace cannot see it or run code in it.
 	 */
-	public async create(kernelSpec: JupyterKernelSpec) {
+	public async create(kernelSpec: JupyterKernelSpec, mcpWorkspaceId?: string) {
 		if (!this._new) {
 			throw new Error(`Session ${this.metadata.sessionId} already exists`);
 		}
@@ -503,7 +506,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			username: os.userInfo().username,
 			interrupt_mode: interruptMode,
 			connection_timeout: connectionTimeout,
-			protocol_version: kernelSpec.kernel_protocol_version
+			protocol_version: kernelSpec.kernel_protocol_version,
+			workspace_id: mcpWorkspaceId
 		};
 		await this._api.newSession(session);
 
@@ -863,11 +867,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
 
-		// `cellId` is passed separately as Jupyter message metadata (not as
-		// part of the request body), following the JupyterLab/ipykernel
-		// convention. Ark uses this for breakpoint injection to identify
-		// notebook cell executions.
-		const { cellId, ...positronMetadata } = executionMetadata ?? {};
+		// `cellId` and `attributionSource` are passed separately as Jupyter
+		// message metadata (not as part of the request body), following the
+		// JupyterLab/ipykernel convention. Ark uses `cellId` for breakpoint
+		// injection to identify notebook cell executions; the supervisor
+		// records `attributionSource` in the session's execution history.
+		const { cellId, attributionSource, ...positronMetadata } = executionMetadata ?? {};
 
 		// If a code location or execution metadata is provided, include it in the request
 		if (codeLocation || Object.keys(positronMetadata).length > 0) {
@@ -891,7 +896,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// other statement without a value. For `Unprocessed` code the
 		// completeness check above already established acceptance (rejecting on
 		// incomplete/cancelled). The reply is logged out of band.
-		const execute = new ExecuteRequest(id, request, cellId as string);
+		const execute = new ExecuteRequest(id, request, cellId as string, attributionSource as string);
 		this.sendRequest(execute).then((reply) => {
 			this.log(`Execution result: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
 		}).catch((err) => {
@@ -2059,6 +2064,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._canConnect = false;
 		} else if (data.hasOwnProperty('exited')) {
 			this.onExited(data.exited);
+		} else if (data.hasOwnProperty('executionRequested')) {
+			const requested = data as KernelExecutionRequestedMessage;
+			this._messages.onExecutionRequested(requested.executionRequested);
 		}
 	}
 

@@ -77,6 +77,17 @@ export interface INotebookCellDTO {
 }
 
 /**
+ * Data transfer object for notebook cell output information.
+ * Supports both text and binary (image) outputs.
+ */
+export interface INotebookCellOutputDTO {
+	/** MIME type of the output (e.g., 'text/plain', 'image/png') */
+	mimeType: string;
+	/** Output data - plain text for text outputs, base64 encoded for images */
+	data: string;
+}
+
+/**
  * Data transfer object for notebook context information.
  * Used to pass notebook state to extensions (e.g., the AI assistant).
  */

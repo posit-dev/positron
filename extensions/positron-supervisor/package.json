@@ -166,6 +166,12 @@
         "shortTitle": "%command.showRunningSupervisors.title%"
       },
       {
+        "command": "positron.supervisor.showCurrentSupervisor",
+        "category": "%command.positron.supervisor.category%",
+        "title": "%command.showCurrentSupervisor.title%",
+        "shortTitle": "%command.showCurrentSupervisor.title%"
+      },
+      {
         "command": "positron.supervisor.reconnectSession",
         "category": "%command.positron.supervisor.category%",
         "title": "%command.reconnectSession.title%",
@@ -177,6 +183,31 @@
         "category": "%command.positron.supervisor.category%",
         "title": "%command.restartSupervisor.title%",
         "shortTitle": "%command.restartSupervisor.title%"
+      },
+      {
+        "command": "positron.mcp.copyConnectionDetails",
+        "category": "%command.positron.mcp.category%",
+        "title": "%command.copyConnectionDetails.title%",
+        "shortTitle": "%command.copyConnectionDetails.title%"
+      },
+      {
+        "command": "positron.mcp.configureAgent",
+        "category": "%command.positron.mcp.category%",
+        "title": "%command.configureAgent.title%",
+        "shortTitle": "%command.configureAgent.title%"
+      },
+      {
+        "command": "positron.mcp.showConnectedAgents",
+        "category": "%command.positron.mcp.category%",
+        "title": "%command.showConnectedAgents.title%",
+        "shortTitle": "%command.showConnectedAgents.title%"
+      }
+    ],
+    "mcpServerDefinitionProviders": [
+      {
+        "id": "positron-sessions",
+        "label": "%mcp.positronSessions.label%",
+        "when": "config.ai.enabled && config.ai.mcp.enabled"
       }
     ]
   },

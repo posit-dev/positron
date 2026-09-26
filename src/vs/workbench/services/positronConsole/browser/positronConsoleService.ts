@@ -46,7 +46,7 @@ import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
@@ -90,6 +90,23 @@ const formatTimestamp = (timestamp: Date) => {
 	const toTwoDigits = (v: number) => v < 10 ? `0${v}` : v;
 	const toFourDigits = (v: number) => v < 10 ? `000${v}` : v < 1000 ? `0${v}` : v;
 	return `${toTwoDigits(timestamp.getHours())}:${toTwoDigits(timestamp.getMinutes())}:${toTwoDigits(timestamp.getSeconds())}.${toFourDigits(timestamp.getMilliseconds())}`;
+};
+
+/**
+ * Names who ran an execution the Console did not submit, for the label shown
+ * above the code in the Console.
+ *
+ * @param attribution The attribution from the runtime's execution announcement.
+ * @returns A display label naming the origin of the code.
+ */
+const describeExecutionAttribution = (
+	attribution: ILanguageRuntimeMessageExecutionRequested['attribution']
+) => {
+	const agentName = attribution.metadata?.agentName;
+	if (typeof agentName === 'string' && agentName) {
+		return agentName;
+	}
+	return localize('positron.console.externalAgent', "External agent");
 };
 
 /**
@@ -1218,6 +1235,23 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * in the console.
 	 */
 	private _externalExecutionIds: Set<string> = new Set<string>();
+
+	/**
+	 * Labels naming who ran an external execution, keyed by execution ID. Set
+	 * when the runtime announces an execution it did not receive from us (see
+	 * the `onDidReceiveRuntimeMessageExecutionRequested` handler) and read when
+	 * the runtime echoes the code, so the echoed input carries the label. An
+	 * entry is dropped when its execution goes idle.
+	 */
+	private _externalExecutionLabels: Map<string, string> = new Map<string, string>();
+
+	/**
+	 * Announced external executions the runtime has not yet echoed, in the
+	 * order they were announced. The supervisor runs executions in the order
+	 * it receives them, so any still here when a later one starts were
+	 * discarded -- by an interrupt, say -- and will never run.
+	 */
+	private _announcedExecutionIds: string[] = [];
 
 	/**
 	 * Queue of pending code fragments waiting to be executed.
@@ -2924,6 +2958,33 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	}
 
 	/**
+	 * Removes the provisional inputs of announced executions that were
+	 * discarded before they could run.
+	 *
+	 * @param startedId The execution whose code the runtime has just echoed.
+	 */
+	private dropDiscardedExecutions(startedId: string) {
+		const index = this._announcedExecutionIds.indexOf(startedId);
+		if (index < 0) {
+			return;
+		}
+		const discarded = this._announcedExecutionIds.slice(0, index);
+		this._announcedExecutionIds = this._announcedExecutionIds.slice(index + 1);
+		for (const id of discarded) {
+			const activity = this._runtimeItemActivities.get(id);
+			if (activity) {
+				this._runtimeItems.splice(this._runtimeItems.indexOf(activity), 1);
+				this._runtimeItemActivities.delete(id);
+			}
+			this._externalExecutionIds.delete(id);
+			this._externalExecutionLabels.delete(id);
+		}
+		if (discarded.length > 0) {
+			this._onDidChangeRuntimeItemsEmitter.fire();
+		}
+	}
+
+	/**
 	 * Marks the Input activity item that matches the given parent ID as busy or
 	 * not busy.
 	 *
@@ -3289,6 +3350,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 				);
 			}
 
+			this.dropDiscardedExecutions(languageRuntimeMessageInput.parent_id);
+
 			// Add or update the runtime item activity.
 			this.addOrUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
@@ -3299,7 +3362,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 					ActivityItemInputState.Executing,
 					session.dynState.inputPrompt,
 					session.dynState.continuationPrompt,
-					languageRuntimeMessageInput.code
+					languageRuntimeMessageInput.code,
+					this._externalExecutionLabels.get(languageRuntimeMessageInput.parent_id)
 				)
 			);
 
@@ -3321,6 +3385,69 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 					code: languageRuntimeMessageInput.code,
 					attribution: {
 						source: CodeAttributionSource.Interactive,
+					},
+					runtimeName: this._runtimeMetadata.runtimeName,
+					mode: RuntimeCodeExecutionMode.Interactive,
+					errorBehavior: RuntimeErrorBehavior.Continue
+				});
+			}
+		}));
+
+		// Add the onDidReceiveRuntimeMessageExecutionRequested event handler.
+		// The runtime sends this when something other than Positron submits
+		// code -- today, an external coding agent working through the kernel
+		// supervisor's MCP server. It arrives before the input echo and output
+		// it explains, which is the only chance we get to attribute them.
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageExecutionRequested(message => {
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessageExecutionRequested', message) +
+					'\nCode:\n' +
+					message.code
+				);
+			}
+
+			const label = describeExecutionAttribution(message.attribution);
+			this._externalExecutionLabels.set(message.parent_id, label);
+
+			// Track the execution so the Console's busy state and executing
+			// indicator follow it, as they do for our own submissions.
+			this._externalExecutionIds.add(message.parent_id);
+			this._announcedExecutionIds.push(message.parent_id);
+
+			// Show the code right away, provisionally. The runtime does not
+			// echo it until the kernel picks it up, which can be a while when
+			// the agent's code queues behind something else; the echo then
+			// replaces this item.
+			this.addOrUpdateRuntimeItemActivity(
+				message.parent_id,
+				new ActivityItemInput(
+					message.parent_id,
+					message.parent_id,
+					new Date(message.when),
+					ActivityItemInputState.Provisional,
+					session.dynState.inputPrompt,
+					session.dynState.continuationPrompt,
+					message.code,
+					label
+				)
+			);
+
+			// Report the execution so it reaches the Console's history and any
+			// onDidExecuteCode consumer, just like code we submitted ourselves.
+			// An agent's evaluation is shown but, like the kernel's own
+			// history, leaves the Console's history alone.
+			const languageId = this.session?.runtimeMetadata?.languageId;
+			if (languageId && message.attribution.metadata?.tool !== 'evaluate_code') {
+				this._onDidExecuteCodeEmitter.fire({
+					executionId: message.parent_id,
+					sessionId: this.sessionId,
+					languageId,
+					code: message.code,
+					attribution: {
+						source: message.attribution.source as CodeAttributionSource,
+						metadata: message.attribution.metadata,
 					},
 					runtimeName: this._runtimeMetadata.runtimeName,
 					mode: RuntimeCodeExecutionMode.Interactive,
@@ -3511,6 +3638,7 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 						this.markInputBusyState(languageRuntimeMessageState.parent_id, false);
 						// This external execution ID has completed, so we can remove it.
 						this._externalExecutionIds.delete(languageRuntimeMessageState.parent_id);
+						this._externalExecutionLabels.delete(languageRuntimeMessageState.parent_id);
 						// Safeguard: when returning to Ready after a console
 						// execution, ensure all previous items that were marked
 						// as executing are marked as completed so that the

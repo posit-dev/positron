@@ -97,6 +97,10 @@ export interface ActiveSession {
      * The path to the Unix domain socket used to send/receive data from the session, if applicable
      */
     'socket_path'?: string;
+    /**
+     * The last few executions the session ran, oldest first. The full history is available from the session\'s history endpoint.
+     */
+    'history'?: Array<ExecutionHistoryEntry>;
 }
 
 
@@ -260,6 +264,53 @@ export interface ExecuteRequest {
     'timeout_seconds'?: number;
 }
 /**
+ * The error an execution raised
+ */
+export interface ExecutionError {
+    /**
+     * The error\'s name, such as its exception class
+     */
+    'name': string;
+    /**
+     * The error message
+     */
+    'message': string;
+    /**
+     * The traceback, one frame or line per item
+     */
+    'traceback': Array<string>;
+}
+/**
+ * Code a session ran and what it produced. Input and output are clipped to a few kilobytes each, keeping their beginning and end.
+ */
+export interface ExecutionHistoryEntry {
+    /**
+     * The code that was run
+     */
+    'input': string;
+    /**
+     * The text the code produced: standard output and error, displays, and the result, in the order they arrived
+     */
+    'output': string;
+    'error'?: ExecutionError;
+    /**
+     * A Unix timestamp in milliseconds indicating when the code was sent to the kernel
+     */
+    'timestamp': number;
+    /**
+     * What submitted the code, when known, such as \'agent\', \'interactive\', or \'script\'
+     */
+    'source'?: string;
+    /**
+     * The name of the agent that submitted the code, when it was an agent
+     */
+    'agent'?: string;
+    /**
+     * Whether any part of the entry was clipped
+     */
+    'truncated': boolean;
+}
+/**
  * The execution queue for a session
  */
 export interface ExecutionQueue {
@@ -288,6 +339,102 @@ export const InterruptMode = {
 export type InterruptMode = typeof InterruptMode[keyof typeof InterruptMode];
 
 
+/**
+ * An agent connected to a workspace through the stdio bridge
+ */
+export interface McpClient {
+    /**
+     * Identifies the client within its workspace
+     */
+    'id': number;
+    /**
+     * The agent\'s name, from the MCP clientInfo
+     */
+    'name'?: string;
+    /**
+     * The agent\'s version, from the MCP clientInfo
+     */
+    'version'?: string;
+    /**
+     * The process ID of the bridge
+     */
+    'pid'?: number;
+    /**
+     * The bridge\'s working directory, normally the agent\'s
+     */
+    'working_directory'?: string;
+    /**
+     * The session the client is running inside, for a client in a kernel
+     */
+    'session_id'?: string;
+    /**
+     * When the client connected
+     */
+    'connected_at': string;
+}
+export interface McpStatus {
+    /**
+     * Whether the MCP listener is running
+     */
+    'active': boolean;
+    /**
+     * The port the MCP listener is bound to, or 0 when inactive
+     */
+    'port': number;
+    /**
+     * The number of MCP tool calls served since the listener started
+     */
+    'request_count': number;
+    'workspaces': Array<McpWorkspaceStatus>;
+}
+export interface McpWorkspace {
+    /**
+     * The workspace\'s ID; supply it again to re-register after a reconnect
+     */
+    'workspace_id': string;
+    /**
+     * The bearer token agents present to the MCP server. Scoped to this workspace and distinct from the supervisor API token.
+     */
+    'token': string;
+    /**
+     * The TCP port the MCP listener is bound to on 127.0.0.1
+     */
+    'port': number;
+    /**
+     * The full MCP endpoint URL agents should connect to. Unique to this workspace, so an agent configured with it can only reach this workspace\'s sessions.
+     */
+    'url': string;
+}
+export interface McpWorkspaceRegistration {
+    /**
+     * A previously issued workspace ID. Omit to have the server generate one from the display name.
+     */
+    'workspace_id'?: string;
+    /**
+     * A human-readable name for the workspace, normally the folder the user has open. Shown in logs and status, and used to build the workspace ID.
+     */
+    'display_name': string;
+    /**
+     * The TCP port the MCP listener should bind. Used only when the listener isn\'t running yet, and ignored when the port is unavailable.
+     */
+    'preferred_port'?: number;
+    /**
+     * A bearer token the server issued for this workspace before. Supplying it again keeps the token agents are configured with valid across a restart of the server, which holds no state of its own. Omit it to have the server issue one, and ignored unless it is well formed.
+     */
+    'token'?: string;
+}
+export interface McpWorkspaceStatus {
+    'id': string;
+    'display_name': string;
+    /**
+     * Whether any of the workspace\'s windows is currently connected
+     */
+    'connected': boolean;
+    /**
+     * The agents connected to the workspace through the stdio bridge
+     */
+    'clients': Array<McpClient>;
+}
 export interface ModelError {
     'code': string;
     'message': string;
@@ -349,6 +496,10 @@ export interface NewSession {
      * The command or script to run before starting the session
      */
     'startup_environment_arg'?: string;
+    /**
+     * The MCP workspace creating the session, if the client has registered one. The session belongs to that workspace: agents reach it through that workspace\'s MCP endpoint and no other.
+     */
+    'workspace_id'?: string;
 }
 
 
@@ -451,6 +602,7 @@ export interface ServerStatus {
      * A unique identifier generated when the server starts. Clients can compare this against a previously observed value to detect that they are talking to a different server instance (e.g. one that was restarted), and therefore that any persisted bearer token may be stale.
      */
     'server_id'?: string;
+    'mcp'?: McpStatus;
 }
 export interface SessionList {
     'total': number;
@@ -722,6 +874,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Removes the workspace and invalidates its token. When the last workspace is removed the MCP listener stops and its port is released.
+         * @summary Deregister a Positron workspace
+         * @param {string} workspaceId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deregisterMcpWorkspace: async (workspaceId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'workspaceId' is not null or undefined
+            assertParamExists('deregisterMcpWorkspace', 'workspaceId', workspaceId)
+            const localVarPath = `/mcp/workspaces/{workspace_id}`
+                .replace(`{${"workspace_id"}}`, encodeURIComponent(String(workspaceId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Execute code and return results
          * @param {string} sessionId 
@@ -802,6 +988,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             // verify required parameter 'sessionId' is not null or undefined
             assertParamExists('getSession', 'sessionId', sessionId)
             const localVarPath = `/sessions/{session_id}`
+                .replace(`{${"session_id"}}`, encodeURIComponent(String(sessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+         * @summary Get the session\'s execution history
+         * @param {string} sessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getSessionHistory: async (sessionId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'sessionId' is not null or undefined
+            assertParamExists('getSessionHistory', 'sessionId', sessionId)
+            const localVarPath = `/sessions/{session_id}/history`
                 .replace(`{${"session_id"}}`, encodeURIComponent(String(sessionId)));
             // use dummy base URL string because the URL constructor only accepts absolute URLs.
             const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
@@ -924,6 +1144,40 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
+         * Opens the bidirectional channel over which a window pushes its workspace\'s command catalog and foreground session, and over which the supervisor brokers agent command requests.
+         * @summary Upgrade to a WebSocket carrying the MCP frontend channel
+         * @param {string} workspaceId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        mcpWorkspaceChannel: async (workspaceId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'workspaceId' is not null or undefined
+            assertParamExists('mcpWorkspaceChannel', 'workspaceId', workspaceId)
+            const localVarPath = `/mcp/workspaces/{workspace_id}/channel`
+                .replace(`{${"workspace_id"}}`, encodeURIComponent(String(workspaceId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @summary Create a new session
          * @param {NewSession} newSession 
@@ -953,6 +1207,42 @@ export const DefaultApiAxiosParamCreator = function (configuration?: Configurati
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(newSession, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
+         * @summary Register a Positron workspace with the MCP server
+         * @param {McpWorkspaceRegistration} mcpWorkspaceRegistration 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        registerMcpWorkspace: async (mcpWorkspaceRegistration: McpWorkspaceRegistration, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'mcpWorkspaceRegistration' is not null or undefined
+            assertParamExists('registerMcpWorkspace', 'mcpWorkspaceRegistration', mcpWorkspaceRegistration)
+            const localVarPath = `/mcp/workspaces`;
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(mcpWorkspaceRegistration, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -1203,6 +1493,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Removes the workspace and invalidates its token. When the last workspace is removed the MCP listener stops and its port is released.
+         * @summary Deregister a Positron workspace
+         * @param {string} workspaceId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deregisterMcpWorkspace(workspaceId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deregisterMcpWorkspace(workspaceId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.deregisterMcpWorkspace']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Execute code and return results
          * @param {string} sessionId 
@@ -1239,6 +1542,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getSession(sessionId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.getSession']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+         * @summary Get the session\'s execution history
+         * @param {string} sessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getSessionHistory(sessionId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<ExecutionHistoryEntry>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getSessionHistory(sessionId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.getSessionHistory']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -1280,6 +1596,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Opens the bidirectional channel over which a window pushes its workspace\'s command catalog and foreground session, and over which the supervisor brokers agent command requests.
+         * @summary Upgrade to a WebSocket carrying the MCP frontend channel
+         * @param {string} workspaceId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async mcpWorkspaceChannel(workspaceId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.mcpWorkspaceChannel(workspaceId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.mcpWorkspaceChannel']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @summary Create a new session
          * @param {NewSession} newSession 
@@ -1290,6 +1619,19 @@ export const DefaultApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.newSession(newSession, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['DefaultApi.newSession']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
+         * @summary Register a Positron workspace with the MCP server
+         * @param {McpWorkspaceRegistration} mcpWorkspaceRegistration 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async registerMcpWorkspace(mcpWorkspaceRegistration: McpWorkspaceRegistration, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<McpWorkspace>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.registerMcpWorkspace(mcpWorkspaceRegistration, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['DefaultApi.registerMcpWorkspace']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -1417,6 +1759,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.deleteSession(sessionId, options).then((request) => request(axios, basePath));
         },
         /**
+         * Removes the workspace and invalidates its token. When the last workspace is removed the MCP listener stops and its port is released.
+         * @summary Deregister a Positron workspace
+         * @param {string} workspaceId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deregisterMcpWorkspace(workspaceId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.deregisterMcpWorkspace(workspaceId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Execute code and return results
          * @param {string} sessionId 
@@ -1445,6 +1797,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         getSession(sessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<ActiveSession> {
             return localVarFp.getSession(sessionId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+         * @summary Get the session\'s execution history
+         * @param {string} sessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getSessionHistory(sessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<ExecutionHistoryEntry>> {
+            return localVarFp.getSessionHistory(sessionId, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -1476,6 +1838,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.listSessions(options).then((request) => request(axios, basePath));
         },
         /**
+         * Opens the bidirectional channel over which a window pushes its workspace\'s command catalog and foreground session, and over which the supervisor brokers agent command requests.
+         * @summary Upgrade to a WebSocket carrying the MCP frontend channel
+         * @param {string} workspaceId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        mcpWorkspaceChannel(workspaceId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.mcpWorkspaceChannel(workspaceId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @summary Create a new session
          * @param {NewSession} newSession 
@@ -1484,6 +1856,16 @@ export const DefaultApiFactory = function (configuration?: Configuration, basePa
          */
         newSession(newSession: NewSession, options?: RawAxiosRequestConfig): AxiosPromise<NewSession200Response> {
             return localVarFp.newSession(newSession, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
+         * @summary Register a Positron workspace with the MCP server
+         * @param {McpWorkspaceRegistration} mcpWorkspaceRegistration 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        registerMcpWorkspace(mcpWorkspaceRegistration: McpWorkspaceRegistration, options?: RawAxiosRequestConfig): AxiosPromise<McpWorkspace> {
+            return localVarFp.registerMcpWorkspace(mcpWorkspaceRegistration, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -1598,6 +1980,17 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
+     * Removes the workspace and invalidates its token. When the last workspace is removed the MCP listener stops and its port is released.
+     * @summary Deregister a Positron workspace
+     * @param {string} workspaceId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public deregisterMcpWorkspace(workspaceId: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).deregisterMcpWorkspace(workspaceId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @summary Execute code and return results
      * @param {string} sessionId 
@@ -1628,6 +2021,17 @@ export class DefaultApi extends BaseAPI {
      */
     public getSession(sessionId: string, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).getSession(sessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns the executions the session has run, oldest first. Only the most recent 100 are kept.
+     * @summary Get the session\'s execution history
+     * @param {string} sessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public getSessionHistory(sessionId: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).getSessionHistory(sessionId, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -1663,6 +2067,17 @@ export class DefaultApi extends BaseAPI {
     }
 
     /**
+     * Opens the bidirectional channel over which a window pushes its workspace\'s command catalog and foreground session, and over which the supervisor brokers agent command requests.
+     * @summary Upgrade to a WebSocket carrying the MCP frontend channel
+     * @param {string} workspaceId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public mcpWorkspaceChannel(workspaceId: string, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).mcpWorkspaceChannel(workspaceId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @summary Create a new session
      * @param {NewSession} newSession 
@@ -1671,6 +2086,17 @@ export class DefaultApi extends BaseAPI {
      */
     public newSession(newSession: NewSession, options?: RawAxiosRequestConfig) {
         return DefaultApiFp(this.configuration).newSession(newSession, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Registers (or re-registers) a workspace and starts the MCP listener if it isn\'t already running. Re-registering with a known workspace ID returns the same bearer token, so agents launched from terminals that outlived the window keep working. The server keeps no state across restarts, so a caller that wants the token to outlive the server supplies the one it was issued before.
+     * @summary Register a Positron workspace with the MCP server
+     * @param {McpWorkspaceRegistration} mcpWorkspaceRegistration 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     */
+    public registerMcpWorkspace(mcpWorkspaceRegistration: McpWorkspaceRegistration, options?: RawAxiosRequestConfig) {
+        return DefaultApiFp(this.configuration).registerMcpWorkspace(mcpWorkspaceRegistration, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

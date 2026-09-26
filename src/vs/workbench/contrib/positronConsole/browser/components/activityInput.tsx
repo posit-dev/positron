@@ -207,6 +207,23 @@ export const ActivityInput = (props: ActivityInputProps) => {
 	);
 
 	/**
+	 * Attribution component. Names who ran the code when it was not the user,
+	 * so agent-run code is not mistaken for the user's own.
+	 * @returns The rendered component, or null for the user's own input.
+	 */
+	const Attribution = () => {
+		if (!props.activityItemInput.attributionLabel) {
+			return null;
+		}
+		return (
+			<div className='attribution'>
+				<span className='codicon codicon-sparkle' />
+				{props.activityItemInput.attributionLabel}
+			</div>
+		);
+	};
+
+	/**
 	 * Prompt component.
 	 * @param index The prompt index.
 	 * @returns The rendered component.
@@ -228,6 +245,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		return (
 			<div className={classNames}>
 				<div className='progress-bar' />
+				<Attribution />
 				{colorizedOutputLines.map((outputLine, index) =>
 					<div key={`outputLine-${index}`}>
 						<Prompt index={index} />
@@ -244,6 +262,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 		return (
 			<div className={classNames}>
 				<div className='progress-bar' />
+				<Attribution />
 				{props.activityItemInput.codeOutputLines.map((outputLine, index) =>
 					<div key={outputLine.id}>
 						<Prompt index={index} />

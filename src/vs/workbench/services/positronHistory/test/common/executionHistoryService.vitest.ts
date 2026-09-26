@@ -475,6 +475,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	readonly onDidEncounterStartupFailure = new Emitter<any>().event;
 	readonly onDidCreateClientInstance = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessageClearOutput = new Emitter<any>().event;
+	readonly onDidReceiveRuntimeMessageExecutionRequested = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessagePrompt = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeClientEvent = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessagePromptConfig = new Emitter<void>().event;

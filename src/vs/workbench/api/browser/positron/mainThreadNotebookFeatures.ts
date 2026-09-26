@@ -8,24 +8,20 @@ import { MainPositronContext, MainThreadNotebookFeaturesShape, INotebookCellOutp
 import { INotebookCellDTO, INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 import { IPositronNotebookService } from '../../../contrib/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance, NotebookOperationType } from '../../../contrib/positronNotebook/browser/IPositronNotebookInstance.js';
-import { IPositronNotebookCell, CellSelectionStatus, IPositronNotebookCodeCell } from '../../../contrib/positronNotebook/browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getNotebookInstanceFromActiveEditorPane, getUnsupportedNotebookEditorMessage } from '../../../contrib/positronNotebook/browser/notebookUtils.js';
-import { CellSelectionType, getSelectedCells } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
+import { getSelectedCells } from '../../../contrib/positronNotebook/browser/selectionMachine.js';
 import { URI } from '../../../../base/common/uri.js';
-import { CellKind, CellEditType, ICellDto2 } from '../../../contrib/notebook/common/notebookCommon.js';
+import { CellEditType } from '../../../contrib/notebook/common/notebookCommon.js';
 import { cellToCellDtoForRestore } from '../../../contrib/positronNotebook/browser/cellClipboardUtils.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { encodeBase64 } from '../../../../base/common/buffer.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { isImageMimeType, isTextBasedMimeType } from '../../../contrib/positronNotebook/browser/notebookMimeUtils.js';
-import { isSvgMimeType } from '../../../services/positronPlots/common/imageDataUrl.js';
-import { rasterizeSvgToPng } from '../../../contrib/positronNotebook/browser/svgToPng.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_NOTEBOOK_ASSISTANT_AUTO_FOLLOW_KEY } from '../../../contrib/positronNotebook/common/positronNotebookConfig.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { EditorsOrder } from '../../../common/editor.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID } from '../../../contrib/positronNotebook/common/positronNotebookCommon.js';
+import { addNotebookCell, collectCellOutputDTOs, deleteNotebookCells, mapCellToDTO, runNotebookCells, updateNotebookCellContent } from '../../../contrib/positronNotebook/browser/notebookAgentOperations.js';
 
 /**
  * Main thread implementation of notebook features for extension host communication.
@@ -44,52 +40,6 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		// No initialization needed
-	}
-
-	/**
-	 * Helper function to map a cell to DTO
-	 * @param cell The cell to map
-	 * @returns The cell DTO with status information
-	 */
-	private mapCellToDTO(cell: IPositronNotebookCell): INotebookCellDTO {
-		const cellId = cell.uri.toString();
-		const isCodeCell = cell.isCodeCell();
-		const isMarkdownCell = cell.isMarkdownCell();
-		const cellOutputs = isCodeCell ? cell.outputs.get() : [];
-
-		// Map selection status: 'editing' -> 'active', others map directly
-		const rawSelectionStatus = cell.selectionStatus.get();
-		const selectionStatus = rawSelectionStatus === CellSelectionStatus.Editing
-			? 'active'
-			: rawSelectionStatus === CellSelectionStatus.Selected
-				? 'selected'
-				: 'unselected';
-
-		const baseDTO: INotebookCellDTO = {
-			id: cellId,
-			index: cell.index,
-			type: cell.kind === CellKind.Code ? NotebookCellType.Code : NotebookCellType.Markdown,
-			content: cell.getContent(),
-			hasOutput: cellOutputs.length > 0,
-			selectionStatus
-		};
-
-		// Add execution-related fields only for code cells
-		if (isCodeCell) {
-			const codeCell = cell as IPositronNotebookCodeCell;
-			baseDTO.executionStatus = codeCell.executionStatus.get();
-			baseDTO.executionOrder = codeCell.lastExecutionOrder.get();
-			baseDTO.lastRunSuccess = codeCell.lastRunSuccess.get();
-			baseDTO.lastExecutionDuration = codeCell.lastExecutionDuration.get();
-			baseDTO.lastRunEndTime = codeCell.lastRunEndTime.get();
-		}
-
-		// Add editorShown for markdown cells
-		if (isMarkdownCell) {
-			baseDTO.editorShown = cell.editorShown.get();
-		}
-
-		return baseDTO;
 	}
 
 	/**
@@ -131,11 +81,11 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const selectedCells: INotebookCellDTO[] = [];
 		const selectedCellsList = getSelectedCells(selectionState);
 		for (const cell of selectedCellsList) {
-			selectedCells.push(this.mapCellToDTO(cell));
+			selectedCells.push(mapCellToDTO(cell));
 		}
 
 		// Include all cells - filtering will be done on the extension side
-		const allCells = cells.map(cell => this.mapCellToDTO(cell));
+		const allCells = cells.map(cell => mapCellToDTO(cell));
 
 		// Get runtime state from the session service
 		const notebookUri = instance.uri;
@@ -168,7 +118,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 		const cellDTOs: INotebookCellDTO[] = [];
 
 		for (const cell of cells) {
-			cellDTOs.push(this.mapCellToDTO(cell));
+			cellDTOs.push(mapCellToDTO(cell));
 		}
 
 		return cellDTOs;
@@ -191,7 +141,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			return undefined;
 		}
 
-		return this.mapCellToDTO(cells[cellIndex]);
+		return mapCellToDTO(cells[cellIndex]);
 	}
 
 	/**
@@ -205,25 +155,10 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
-		const cells = instance.cells.get();
-		const cellsToRun = cellIndices
-			.filter(index => index >= 0 && index < cells.length)
-			.map(index => cells[index]);
-
-		if (cellsToRun.length === 0) {
+		const ranCells = await runNotebookCells(instance, cellIndices);
+		if (ranCells.length === 0) {
 			throw new Error(`No cells found with indices: ${cellIndices.join(', ')}`);
 		}
-
-		// Select the last cell in the range (somewhat arbitrary)
-		const lastCell = cellsToRun[cellsToRun.length - 1];
-		lastCell.select(CellSelectionType.Normal);
-
-		await instance.runCells(cellsToRun);
-
-		// Notify about assistant cell modification for follow mode
-		// Use the last cell that was actually run (from filtered cellsToRun),
-		// not the original cellIndices array which may contain invalid indices
-		await instance.handleAssistantCellModification(lastCell.index);
 	}
 
 	/**
@@ -240,17 +175,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
-		const cellKind = type === NotebookCellType.Code ? CellKind.Code : CellKind.Markup;
-
-		// Mark this as an assistant operation to prevent automatic selection/scrolling.
-		// The follow mode will control reveal behavior based on user preferences.
-		instance.setCurrentOperation(NotebookOperationType.AssistantAdd);
-		instance.addCell(cellKind, index, false, content);
-
-		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(index, 'add');
-
-		return index;
+		return addNotebookCell(instance, type, index, content);
 	}
 
 	/**
@@ -293,41 +218,10 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
-		const cells = instance.cells.get();
-
-		// Validate all indices first
-		const cellsToDelete: IPositronNotebookCell[] = [];
-		const cellDataForSentinels: Array<{ index: number; data: ICellDto2 }> = [];
-
-		for (const cellIndex of cellIndices) {
-			if (cellIndex < 0 || cellIndex >= cells.length) {
-				throw new Error(`Cell not found at index: ${cellIndex}`);
-			}
-
-			const cell = cells[cellIndex];
-			cellsToDelete.push(cell);
-
-			// Capture complete cell data before deletion
-			const cellData = cellToCellDtoForRestore(cell);
-			cellDataForSentinels.push({ index: cellIndex, data: cellData });
+		const result = await deleteNotebookCells(instance, cellIndices);
+		if (!result.ok) {
+			throw new Error(result.error);
 		}
-
-		// Sort indices in descending order for sentinel creation
-		// (higher indices first so they don't shift during deletion)
-		cellDataForSentinels.sort((a, b) => b.index - a.index);
-
-		// Delete all cells at once (more efficient)
-		instance.deleteCells(cellsToDelete);
-
-		// Create individual sentinels for each deleted cell
-		// Process in descending order to maintain correct positions
-		for (const { index, data } of cellDataForSentinels) {
-			instance.addDeletionSentinel(index, data);
-		}
-
-		// Notify about assistant modification
-		const lowestIndex = Math.min(...cellIndices);
-		await instance.handleAssistantCellModification(lowestIndex, 'delete');
 	}
 
 	/**
@@ -342,50 +236,10 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`No notebook found with URI: ${notebookUri}`);
 		}
 
-		const cells = instance.cells.get();
-		if (cellIndex < 0 || cellIndex >= cells.length) {
-			throw new Error(`Cell not found at index: ${cellIndex}`);
+		const result = await updateNotebookCellContent(instance, cellIndex, content);
+		if (!result.ok) {
+			throw new Error(result.error);
 		}
-
-		const cell = cells[cellIndex];
-
-		// Get the cell's model to access its properties
-		const cellModel = cell.model;
-
-		// Use the notebook text model's applyEdits to replace the cell content
-		// This preserves all other cell properties (language, outputs, metadata, etc.)
-		const textModel = this._getTextModel(instance, notebookUri);
-
-		const computeUndoRedo = !instance.isReadOnly || textModel.viewType === 'interactive';
-
-		// Mark this as an assistant operation to prevent automatic selection/scrolling.
-		// The follow mode will control reveal behavior based on user preferences.
-		instance.setCurrentOperation(NotebookOperationType.AssistantEdit);
-
-		textModel.applyEdits([
-			{
-				editType: CellEditType.Replace,
-				index: cellIndex,
-				count: 1,
-				cells: [
-					{
-						source: content,
-						language: cellModel.language,
-						mime: cellModel.mime,
-						cellKind: cellModel.cellKind,
-						outputs: cellModel.outputs.map(output => ({
-							outputId: output.outputId,
-							outputs: output.outputs
-						})),
-						metadata: cellModel.metadata,
-						internalMetadata: cellModel.internalMetadata
-					}
-				]
-			}
-		], true, undefined, () => undefined, undefined, computeUndoRedo);
-
-		// Notify about assistant cell modification for follow mode
-		await instance.handleAssistantCellModification(cellIndex, 'modify');
 	}
 
 	/**
@@ -410,80 +264,7 @@ export class MainThreadNotebookFeatures implements MainThreadNotebookFeaturesSha
 			throw new Error(`Cell not found at index: ${cellIndex}`);
 		}
 
-		const cell = cells[cellIndex];
-
-		// Only code cells have outputs
-		if (!cell.isCodeCell()) {
-			return [];
-		}
-
-		// Get outputs from the observable
-		const outputs = cell.outputs.get();
-
-		// Convert outputs to structured DTOs
-		const outputDTOs: INotebookCellOutputDTO[] = [];
-		for (const output of outputs) {
-			// Items within one output are alternative representations of the same
-			// data. When a binary image representation already exists, don't also
-			// rasterize an SVG sibling into a duplicate image; it stays raw text.
-			const hasRasterImageSibling = output.outputs.some(item => isImageMimeType(item.mime));
-			for (const item of output.outputs) {
-				const mimeType = item.mime;
-
-				// Handle stderr outputs with prefix
-				if (mimeType === 'application/vnd.code.notebook.stderr') {
-					outputDTOs.push({
-						mimeType: mimeType,
-						data: `[stderr] ${item.data.toString()}`
-					});
-				}
-				// Rasterize SVG outputs to PNG so assistants can attach them as images;
-				// model providers reject image/svg+xml. Fall back to the raw SVG text
-				// when rasterization fails (#12096).
-				else if (isSvgMimeType(mimeType) && !hasRasterImageSibling) {
-					const svgText = item.data.toString();
-					const pngData = await rasterizeSvgToPng(svgText);
-					if (pngData !== undefined) {
-						outputDTOs.push({
-							mimeType: 'image/png',
-							data: pngData
-						});
-					} else {
-						this._logService.warn('Failed to rasterize SVG notebook output to PNG. Returning raw SVG text.');
-						outputDTOs.push({
-							mimeType: mimeType,
-							data: svgText
-						});
-					}
-				}
-				// Handle image MIME types - base64 encode
-				else if (isImageMimeType(mimeType)) {
-					const base64Data = encodeBase64(item.data);
-					outputDTOs.push({
-						mimeType: mimeType,
-						data: base64Data
-					});
-				}
-				// Handle text-based MIME types - convert to string
-				else if (isTextBasedMimeType(mimeType)) {
-					outputDTOs.push({
-						mimeType: mimeType,
-						data: item.data.toString()
-					});
-				}
-				// Unknown MIME type - log warning and default to base64 encoding (safer for unknown binary data)
-				else {
-					this._logService.warn(`Unknown MIME type "${mimeType}" in notebook cell output. Defaulting to base64 encoding.`);
-					const base64Data = encodeBase64(item.data);
-					outputDTOs.push({
-						mimeType: mimeType,
-						data: base64Data
-					});
-				}
-			}
-		}
-
-		return outputDTOs;
+		return collectCellOutputDTOs(cells[cellIndex], this._logService, { textOnly: false });
 	}
 
 	/**
