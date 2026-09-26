@@ -209,6 +209,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  *   - `.tab-header .session-name`                (console session tab)
  *   - `.positron-notebook-kernel-status-badge`   (Positron notebook kernel chip)
  *   - `a.kernel-label`                           (VS Code Jupyter notebook kernel chip)
+ *   - `[data-testid="quarto-kernel-status"]`     (Quarto inline output kernel chip)
  *
  * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
  * the rewrite before the screenshot fires.
@@ -221,6 +222,7 @@ export async function overrideRuntimeLabel(page: Page, displayVersion: string = 
 			'.tab-header .session-name',
 			'.positron-notebook-kernel-status-badge',
 			'a.kernel-label',
+			'[data-testid="quarto-kernel-status"]',
 		];
 		const PATTERN = /Python\s+[\d.]+\s+\([^)]+\)/g;
 		const REPLACEMENT = `Python ${displayVersion} (Venv: .venv)`;
