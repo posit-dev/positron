@@ -40,8 +40,10 @@ on:
   issue_comment:
     types: [created]
 
+# id-token is granted only to publish, the one job that assumes an AWS role.
+# Every other job reads untrusted input, and an OIDC token there could assume
+# the report bucket's role.
 permissions:
-  id-token: write
   contents: read
   packages: read
 
@@ -172,7 +174,6 @@ jobs:
         needs.membership.outputs.ok == 'true') }}
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
     outputs:
       testable: ${{ steps.gate.outputs.testable }}
@@ -337,10 +338,13 @@ jobs:
       group: pr-exploratory-${{ github.event.issue.number || inputs.ref }}-${{ matrix.model }}
       cancel-in-progress: true
     # Read-only on purpose: this job runs PR code and an agent with a shell, and
-    # GITHUB_TOKEN is in their environment. ack and report do the writing.
+    # GITHUB_TOKEN is in their environment. ack and report do the writing, and
+    # publish does the S3 upload, so no id-token either.
+    permissions:
+      contents: read
+      packages: read
     outputs:
       outcome: ${{ steps.explore.outputs.outcome }}
-      report_base_url: ${{ steps.s3-upload.outcome == 'success' && steps.rundir.outputs.report_base_url || '' }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -362,6 +366,17 @@ jobs:
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    # The e2e lane's database, reachable from the container at host "postgres".
+    services:
+      postgres:
+        image: ghcr.io/posit-dev/positron-postgres:24.18.0
+        credentials:
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+        env:
+          POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          POSTGRES_DB: postgres
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0
@@ -514,11 +529,14 @@ jobs:
           test -d out || { echo "out/ missing -- compile did not run"; exit 1; }
           echo "out/ present, $(find out -name '*.js' | wc -l) js files"
 
+      # publish re-derives the same directory from these inputs, so change
+      # them in both places.
       - name: Allocate report dir
         uses: ./.harness/.github/actions/gen-report-dir
         with:
           prefix: exploratory-report
           identifier: ${{ matrix.model }}
+          arch: x64
           skip-summary: "true"
 
       - name: Allocate run directory
@@ -528,7 +546,6 @@ jobs:
           set -euo pipefail
           echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
           echo "REPORT_BASE_URL=${REPORT_URL%/index.html}" >> "$GITHUB_ENV"
-          echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
           mkdir -p /tmp/exploratory-run/shots
 
       - name: Load secret
@@ -563,6 +580,36 @@ jobs:
             echo "cdpPort missing from launch.sh output"; exit 1;
           }
           echo "CDP_PORT=$CDP_PORT" >> "$GITHUB_ENV"
+
+      # Loaded after the launch, so the app starts signed in to Anthropic only
+      # and the explorer signs in to anything else itself. The same items the
+      # e2e lane uses; the redact step below lists every one of them.
+      - name: Load test credentials
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          MS_FOUNDRY_KEY: "op://Positron/MS-Foundry-East2TestAI/credential"
+          MS_FOUNDRY_BASE_URL: "op://Positron/MS-Foundry-East2TestAI/hostname"
+          SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
+
+      - name: Export database credentials
+        shell: bash
+        env:
+          E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+          E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+          DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+        run: |
+          set -euo pipefail
+          for NAME in E2E_POSTGRES_USER E2E_POSTGRES_PASSWORD SNOWFLAKE_ACCOUNT SNOWFLAKE_USER SNOWFLAKE_PASSWORD DATABRICKS_WORKSPACE DATABRICKS_PAT; do
+            echo "$NAME=${!NAME}" >> "$GITHUB_ENV"
+          done
 
       - name: Attach Playwright
         shell: bash
@@ -625,7 +672,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for NAME in ANTHROPIC_KEY GITHUB_TOKEN; do
+          for NAME in ANTHROPIC_KEY GITHUB_TOKEN OPENAI_KEY MS_FOUNDRY_KEY SNOWFLAKE_API_KEY SNOWFLAKE_PASSWORD DATABRICKS_PAT E2E_POSTGRES_PASSWORD; do
             test -n "${!NAME:-}" || continue
             for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
               [ -d "$DIR" ] || continue
@@ -635,38 +682,6 @@ jobs:
               done || true
             done
           done
-
-      - name: Stage publishable run directory
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf /tmp/exploratory-publish
-          mkdir -p /tmp/exploratory-publish
-          if [ -d /tmp/exploratory-run ]; then
-            cp -a /tmp/exploratory-run/. /tmp/exploratory-publish/
-            rm -f /tmp/exploratory-publish/actions.log
-            # The raw log tree stays in the artifact: the page lists it unlinked,
-            # and the curated files beside it are what a reader opens.
-            rm -rf /tmp/exploratory-publish/logs/all
-          fi
-
-      - name: Upload run directory to S3
-        id: s3-upload
-        if: always()
-        continue-on-error: true
-        uses: ./.harness/.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-          source-dir: /tmp/exploratory-publish
-
-      - name: Warn if S3 upload failed
-        if: always() && steps.s3-upload.outcome != 'success'
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload run directory
         if: always()
@@ -685,12 +700,101 @@ jobs:
             !/tmp/exploratory-workspace/**/renv/library/**
           if-no-files-found: warn
 
+  # Uploads each model's run directory to the public CDN. A job of its own so
+  # the AWS role, and the id-token that assumes it, never share a runner with
+  # the PR's code or the agent. It reads only the artifact explore left, which
+  # was redacted before upload.
+  publish:
+    name: publish (${{ matrix.model }})
+    needs: [membership, worthiness, explore]
+    if: always() && needs.explore.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      report_base_url: ${{ steps.s3-upload.outcome == 'success' && steps.url.outputs.report_base_url || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors explore's matrix; keep the two in step.
+        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
+          || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+          || fromJSON('["opus"]') }}
+    steps:
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download run directory
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: exploratory-run-${{ matrix.model }}
+          path: /tmp/run-artifact
+
+      # The same inputs as explore's, so the same directory the report and
+      # step summary already link to.
+      - name: Allocate report dir
+        uses: ./.harness/.github/actions/gen-report-dir
+        with:
+          prefix: exploratory-report
+          identifier: ${{ matrix.model }}
+          arch: x64
+          skip-summary: "true"
+
+      - name: Record report URL
+        id: url
+        shell: bash
+        run: echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
+
+      # The artifact nests the run dir when code.log or the workspace was
+      # uploaded too, and puts it at the root when neither was.
+      - name: Stage publishable run directory
+        if: steps.download.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/run-artifact
+          [ -d "$SRC/exploratory-run" ] && SRC="$SRC/exploratory-run"
+          rm -rf /tmp/exploratory-publish
+          mkdir -p /tmp/exploratory-publish
+          cp -a "$SRC/." /tmp/exploratory-publish/
+          rm -f /tmp/exploratory-publish/actions.log
+          # The raw log tree stays in the artifact: the page lists it unlinked,
+          # and the curated files beside it are what a reader opens.
+          rm -rf /tmp/exploratory-publish/logs/all
+
+      - name: Upload run directory to S3
+        id: s3-upload
+        if: steps.download.outcome == 'success'
+        continue-on-error: true
+        uses: ./.harness/.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          source-dir: /tmp/exploratory-publish
+
+      - name: Warn if S3 upload failed
+        if: always() && steps.s3-upload.outcome != 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
+
   # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
   # for the same reason as ack. always(): a failed build must still replace
   # "running" with the truth.
   report:
     name: report
-    needs: [membership, worthiness, ack, explore]
+    needs: [membership, worthiness, ack, explore, publish]
     if: always() && needs.membership.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -742,7 +846,7 @@ jobs:
           outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
           decline-reason: ${{ needs.worthiness.outputs.reason }}
           work-dir: ${{ env.WORK_DIR }}
-          report-base-url: ${{ needs.explore.outputs.report_base_url }}
+          report-base-url: ${{ needs.publish.outputs.report_base_url }}
           pr-number: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}

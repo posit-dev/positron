@@ -328,12 +328,15 @@ export const ENVIRONMENT = [
 	'- Python and R, several versions of each, including a conda Python and a venv at `/root/.venv`.',
 	'- Positron Assistant signed in with Anthropic.',
 	'- Open internet: extensions, PyPI and CRAN install normally.',
+	'- A Postgres server at host `postgres`, port 5432, database `periodic`, as `$E2E_POSTGRES_USER` / `$E2E_POSTGRES_PASSWORD`.',
+	'- Snowflake as `$SNOWFLAKE_ACCOUNT` / `$SNOWFLAKE_USER` / `$SNOWFLAKE_PASSWORD`, and Databricks as `$DATABRICKS_WORKSPACE` / `$DATABRICKS_PAT`.',
+	'- Assistant keys for other providers, not signed in: OpenAI `$OPENAI_KEY`, Microsoft Foundry `$MS_FOUNDRY_KEY` at `$MS_FOUNDRY_BASE_URL`, Snowflake Cortex `$SNOWFLAKE_API_KEY` with `$SNOWFLAKE_ACCOUNT`, Databricks `$DATABRICKS_PAT` with `$DATABRICKS_WORKSPACE`.',
 	'',
 	'Not available, and not installable in this run:',
 	'- Positron Web or server mode (no license), and any browser other than the Electron app.',
 	'- Remote SSH, WSL, a Jupyter server, Posit Workbench and Posit Connect: they need a Docker host or a license this container has not got.',
-	'- Database connections: no Postgres service, no Redshift network, no Snowflake or Databricks credentials.',
-	'- Assistant providers other than Anthropic: no OpenAI, Microsoft Foundry, Bedrock, Snowflake Cortex, Databricks or Posit AI sign-in.',
+	'- Redshift (private network) and any database not listed above.',
+	'- Bedrock and Posit AI sign-in.',
 	'- Windows and macOS.',
 ].join('\n');
 
