@@ -5,10 +5,12 @@
 
 // Renders a local run's report.md as index.html beside it, the same page CI
 // publishes. Usage:
-//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--no-agent-prompts]
+//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--no-agent-prompts] [--base <url> --out <file>]
 // The flags record the explore agent's run on the Run tile, as CI's cost
 // footer does. Given --duration-ms, they replace the report's footer lines.
 // --no-agent-prompts leaves out the findings' copy-for-agent buttons.
+// --base renders the page for where it will be published, so issues link back
+// to it; --out writes that page elsewhere, leaving the local one as it is.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -25,11 +27,13 @@ const { values: flags, positionals } = parseArgs({
 		turns: { type: 'string' },
 		'no-agent-prompts': { type: 'boolean' },
 		check: { type: 'boolean' },
+		base: { type: 'string' },
+		out: { type: 'string' },
 	},
 });
 const input = positionals[0];
 if (!input) {
-	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--no-agent-prompts] [--check]');
+	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
 	process.exit(1);
 }
 
@@ -94,7 +98,7 @@ if (flags['duration-ms']) {
 	writeFileSync(input, markdown);
 }
 
-const out = join(dir, 'index.html');
+const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 // The run directory is made when the run starts. A filesystem with no birth
 // time reports the epoch, and the footer falls back to now.
 const born = statSync(dir).birthtime;
@@ -102,7 +106,7 @@ writeFileSync(out, renderReportHtml(markdown, {
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
 	// Evidence in the prompt has to open from wherever it is pasted.
-	base: dir,
+	base: flags.base || dir,
 	fileExists,
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,
