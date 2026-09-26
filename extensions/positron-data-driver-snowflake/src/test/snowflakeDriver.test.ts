@@ -5,10 +5,12 @@
 
 import * as assert from 'assert';
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
 import { defaultConnectionFactory, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
 import { createDatabaseNode, createSchemaNode } from '../snowflakeNodes.js';
 import { parseSnowflakeAccount } from '../snowflakeDriver.js';
+import { isWorkbenchManaged } from '../workbenchCredentials.js';
 
 // Default config for tests -- not used to connect, just to construct.
 const TEST_CONFIG: SnowflakeConnectionConfig = {
@@ -458,6 +460,35 @@ suite('Snowflake Reconnecting Client', () => {
 		assert.strictEqual(connections[1].connectCount, 1, 'the replacement connection should be connected');
 	});
 
+	test('fetches the token from the provider on every connect and reconnect', async () => {
+		// A Workbench-managed token is rotated externally, so each connection the client builds must
+		// carry the token current at that moment rather than the one captured at construction.
+		const tokens = ['token-1', 'token-2'];
+		const seenTokens: Array<string | undefined> = [];
+		const seenProviders: Array<unknown> = [];
+		const { factory: inner, connections } = makeFactory([
+			() => { throw new Error('Connection terminated unexpectedly'); },
+			() => ({ rows: [{ ok: true }] }),
+		]);
+		const factory: SnowflakeConnectionFactory = async options => {
+			seenTokens.push(options.token);
+			seenProviders.push(options.tokenProvider);
+			return inner(options);
+		};
+		const client = new SnowflakeClient({
+			...OPTIONS,
+			authenticator: 'OAUTH',
+			tokenProvider: async () => tokens.shift()!,
+		}, factory);
+
+		await client.connect();
+		await client.query('SELECT 1');
+
+		assert.strictEqual(connections.length, 2);
+		assert.deepStrictEqual(seenTokens, ['token-1', 'token-2']);
+		assert.deepStrictEqual(seenProviders, [undefined, undefined], 'the provider itself must not reach the SDK options');
+	});
+
 	test('does not reconnect on a non-connection error', async () => {
 		const sqlError = Object.assign(new Error('SQL compilation error: invalid identifier'), { code: '000904' });
 		const { factory, connections } = makeFactory([() => { throw sqlError; }]);
@@ -643,6 +674,28 @@ suite('Snowflake Account Parsing', () => {
 			parseSnowflakeAccount('https://app.snowflake.com/duloftf/posit_software_pbc_dev/'),
 			'DULOFTF-POSIT_SOFTWARE_PBC_DEV'
 		);
+	});
+});
+
+suite('Workbench Managed Credentials Detection', () => {
+	// The helper is shared verbatim with the Databricks driver (a vitest guard keeps the copies
+	// identical), so these cases cover both.
+	const workbenchEnv = { RS_SERVER_URL: 'https://workbench.example.com/', SNOWFLAKE_HOME: '/home/u/.local/share/posit-workbench/snowflake' };
+
+	test('requires a Workbench web session and a Workbench-managed credential path', () => {
+		assert.deepStrictEqual({
+			workbench: isWorkbenchManaged('SNOWFLAKE_HOME', workbenchEnv, vscode.UIKind.Web),
+			desktop: isWorkbenchManaged('SNOWFLAKE_HOME', workbenchEnv, vscode.UIKind.Desktop),
+			notWorkbench: isWorkbenchManaged('SNOWFLAKE_HOME', { SNOWFLAKE_HOME: workbenchEnv.SNOWFLAKE_HOME }, vscode.UIKind.Web),
+			userHome: isWorkbenchManaged('SNOWFLAKE_HOME', { ...workbenchEnv, SNOWFLAKE_HOME: '/home/u/.snowflake' }, vscode.UIKind.Web),
+			unset: isWorkbenchManaged('DATABRICKS_CONFIG_FILE', workbenchEnv, vscode.UIKind.Web),
+		}, {
+			workbench: true,
+			desktop: false,
+			notWorkbench: false,
+			userHome: false,
+			unset: false,
+		});
 	});
 });
 

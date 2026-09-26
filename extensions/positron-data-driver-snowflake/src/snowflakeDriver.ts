@@ -5,6 +5,9 @@
 
 // The Snowflake data connection driver. It offers several auth mechanisms, all backed by
 // snowflake-sdk:
+//   - Workbench Managed Credentials: on Posit Workbench, the OAuth token Workbench provisions for the
+//     session, read through the Authentication extension at connect time (authenticator OAUTH).
+//     Offered only when Workbench is supplying that credential.
 //   - External Browser: interactive single sign-on (authenticator EXTERNALBROWSER); the SDK opens the
 //     system browser to complete the identity-provider handshake.
 //   - Connections File: reuse a named connection from ~/.snowflake/connections.toml, whose own
@@ -25,7 +28,10 @@ import { SnowflakeConnection } from './snowflakeConnection.js';
 import { SnowflakeConnectionOptions } from './snowflakeClient.js';
 import { SnowflakeConnectionsFileEntry, listConnectionNames, readConnectionsFile } from './snowflakeConnectionsFile.js';
 import { SnowflakeDataExplorerRpcHandler } from './snowflakeDataExplorerRpcHandler.js';
+import { isWorkbenchManaged, resolveManagedCredential } from './workbenchCredentials.js';
 
+/** The id of the mechanism that uses the credentials Posit Workbench provisions for the session. */
+const WORKBENCH_MECHANISM_ID = 'workbench-oauth';
 /** The id of the external-browser (interactive SSO) connection mechanism. */
 const EXTERNAL_BROWSER_MECHANISM_ID = 'externalbrowser';
 /** The id of the mechanism that reuses a named connection from ~/.snowflake/connections.toml. */
@@ -37,6 +43,12 @@ const KEYPAIR_MECHANISM_ID = 'keypair';
 /** The id of the OAuth client-credentials (machine-to-machine) connection mechanism. */
 const OAUTH_CC_MECHANISM_ID = 'oauth-client-credentials';
 
+/** The Authentication extension's provider id for the Workbench-managed Snowflake credential. */
+const SNOWFLAKE_AUTH_PROVIDER_ID = 'snowflake-cortex';
+/** The environment variable Workbench points at its managed Snowflake credential directory. */
+const SNOWFLAKE_MANAGED_ENV_VAR = 'SNOWFLAKE_HOME';
+/** The snowflake-sdk authenticator constant for a pre-issued OAuth access token. */
+const AUTHENTICATOR_OAUTH = 'OAUTH';
 /** The snowflake-sdk authenticator constant for interactive external-browser SSO. */
 const AUTHENTICATOR_EXTERNAL_BROWSER = 'EXTERNALBROWSER';
 /** The snowflake-sdk authenticator constant for key-pair auth. */
@@ -316,6 +328,54 @@ function generateConnectionsFileCode(languageId: string, connectionName: string)
 	}];
 }
 
+/**
+ * The name of the connection Workbench provisions in its managed connections.toml, for generated code
+ * that references it by name. Honors the connector's own default-connection override and otherwise
+ * uses the name Workbench conventionally writes.
+ */
+function workbenchConnectionName(): string {
+	return process.env.SNOWFLAKE_DEFAULT_CONNECTION_NAME?.trim() || 'workbench';
+}
+
+/**
+ * Generates connection code for the Workbench-managed mechanism. Neither snippet embeds a credential:
+ * snowflake-connector-python reads the Workbench-provisioned connections.toml via `connection_name`,
+ * and odbc::snowflake() detects Workbench managed credentials on its own. Only the optional session
+ * settings are inlined.
+ */
+function generateWorkbenchCode(languageId: string, params: positron.DataConnectionParameterValues): positron.ConnectionCodeVariant[] {
+	const common = commonFields(params);
+	switch (languageId) {
+		case 'python': {
+			const args = [`connection_name="${escapeDoubleQuoted(workbenchConnectionName())}"`];
+			if (common.warehouse) { args.push(`warehouse="${escapeDoubleQuoted(common.warehouse)}"`); }
+			if (common.database) { args.push(`database="${escapeDoubleQuoted(common.database)}"`); }
+			if (common.schema) { args.push(`schema="${escapeDoubleQuoted(common.schema)}"`); }
+			if (common.role) { args.push(`role="${escapeDoubleQuoted(common.role)}"`); }
+			return [{
+				id: 'snowflake-connector-python',
+				label: 'snowflake.connector',
+				code: `import snowflake.connector\n\nconn = snowflake.connector.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
+			}];
+		}
+		case 'r': {
+			const args = ['odbc::snowflake()'];
+			if (common.warehouse) { args.push(`warehouse = "${escapeDoubleQuoted(common.warehouse)}"`); }
+			if (common.database) { args.push(`database = "${escapeDoubleQuoted(common.database)}"`); }
+			if (common.schema) { args.push(`schema = "${escapeDoubleQuoted(common.schema)}"`); }
+			if (common.role) { args.push(`role = "${escapeDoubleQuoted(common.role)}"`); }
+			return [{
+				id: 'dbi',
+				label: 'DBI',
+				// R does not allow a trailing comma, so join the arguments with commas.
+				code: `library(DBI)\n\ncon <- dbConnect(\n${args.map(arg => `\t${arg}`).join(',\n')}\n)\n`,
+			}];
+		}
+		default:
+			return [];
+	}
+}
+
 /** Generates the connection code variants for the given language and normalized fields. */
 function generateConnectionCodeForFields(languageId: string, fields: SnowflakeCodegenFields | undefined): positron.ConnectionCodeVariant[] {
 	if (!fields) {
@@ -375,6 +435,21 @@ function tomlConnectionEntry(name: string): SnowflakeConnectionsFileEntry {
 	return entry;
 }
 
+/**
+ * Builds the normalized snowflake-sdk connection options for the Workbench-managed mechanism. The
+ * account is read together with the token from the credential Workbench provisions, and the token is
+ * re-read on every (re)connect so Workbench's rotations are picked up.
+ */
+async function workbenchConnectionOptions(params: positron.DataConnectionParameterValues): Promise<SnowflakeConnectionOptions> {
+	const { locator, tokenProvider } = await resolveManagedCredential(SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake', parseSnowflakeAccount);
+	return {
+		account: locator,
+		authenticator: AUTHENTICATOR_OAUTH,
+		tokenProvider,
+		...commonFields(params),
+	};
+}
+
 /** Builds the normalized snowflake-sdk connection options for a mechanism's parameter values. */
 function connectionOptions(mechanismId: string, params: positron.DataConnectionParameterValues): SnowflakeConnectionOptions {
 	if (mechanismId === CONNECTIONS_FILE_MECHANISM_ID) {
@@ -427,6 +502,11 @@ function connectionOptions(mechanismId: string, params: positron.DataConnectionP
  * the first missing one.
  */
 function validateRequired(mechanismId: string, params: positron.DataConnectionParameterValues): void {
+	// The Workbench-managed mechanism has no required parameters: account and token both come from
+	// the credential Workbench provisions.
+	if (mechanismId === WORKBENCH_MECHANISM_ID) {
+		return;
+	}
 	// The connections-file mechanism takes a connection name rather than an account and its own
 	// credentials; everything else is read from connections.toml at connect time.
 	if (mechanismId === CONNECTIONS_FILE_MECHANISM_ID) {
@@ -488,6 +568,19 @@ export function createSnowflakeDriver(
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'snowflake.svg');
 	const iconSvg = readFileSync(iconPath, 'utf-8');
+
+	// Workbench Managed Credentials: the token Posit Workbench provisions for this session. Nothing to
+	// fill in beyond the optional session settings. Whether Workbench supplies the credential is fixed
+	// by the session's environment, so it is decided once here; the credential itself is read lazily
+	// at connect time.
+	const workbenchMechanism: positron.DataConnectionMechanism | undefined = isWorkbenchManaged(SNOWFLAKE_MANAGED_ENV_VAR) ? {
+		id: WORKBENCH_MECHANISM_ID,
+		label: vscode.l10n.t('Workbench Managed Credentials'),
+		description: vscode.l10n.t('Connect with the Snowflake credentials Posit Workbench provisioned for this session.'),
+		parameters: [
+			...commonParameters(),
+		],
+	} : undefined;
 
 	const userParameter = (required: boolean): positron.DataConnectionParameter => ({
 		id: 'user',
@@ -626,6 +719,11 @@ export function createSnowflakeDriver(
 	if (connectionsFileMechanism) {
 		mechanisms.splice(1, 0, connectionsFileMechanism);
 	}
+	// The Workbench-managed credential leads when present: it is the one the session was provisioned
+	// with and it needs no input.
+	if (workbenchMechanism) {
+		mechanisms.unshift(workbenchMechanism);
+	}
 
 	return {
 		id: 'positron-data-driver-snowflake',
@@ -636,11 +734,17 @@ export function createSnowflakeDriver(
 		mechanisms,
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			validateRequired(mechanismId, params);
-			const connection = new SnowflakeConnection(connectionOptions(mechanismId, params), dataExplorerHandler, logger);
+			const options = mechanismId === WORKBENCH_MECHANISM_ID
+				? await workbenchConnectionOptions(params)
+				: connectionOptions(mechanismId, params);
+			const connection = new SnowflakeConnection(options, dataExplorerHandler, logger);
 			await connection.connect();
 			return connection;
 		},
 		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
+			if (mechanismId === WORKBENCH_MECHANISM_ID) {
+				return generateWorkbenchCode(languageId, params);
+			}
 			if (mechanismId === CONNECTIONS_FILE_MECHANISM_ID) {
 				return generateConnectionsFileCode(languageId, params.connectionName as string);
 			}

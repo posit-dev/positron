@@ -5,14 +5,18 @@
 
 // The Databricks data connection driver. It offers the three auth mechanisms Databricks documents for
 // SQL clients, all backed by @databricks/sql:
+//   - Workbench Managed Credentials: on Posit Workbench, the OAuth credential Workbench provisions for
+//     the session, read through the Authentication extension at connect time and sent as a bearer
+//     token. The workspace host comes with the credential, so only the HTTP path is asked for. Offered
+//     only when Workbench is supplying that credential.
 //   - Personal Access Token (PAT): a token minted in the workspace, sent as a bearer token.
 //   - OAuth User-to-Machine (U2M): interactive sign-in; the SDK opens the system browser and
 //     completes the authorization-code flow on a loopback redirect.
 //   - OAuth Machine-to-Machine (M2M): a service principal's client id and secret, exchanged for a
 //     token with no user interaction.
-// Every mechanism takes the same two locators -- the workspace hostname and the compute resource's
-// HTTP path -- plus the same optional session settings (catalog, schema), and hands off to the same
-// reconnecting DatabricksClient.
+// Every mechanism takes the compute resource's HTTP path and the same optional session settings
+// (catalog, schema) -- plus, except for the Workbench credential, the workspace hostname -- and hands
+// off to the same reconnecting DatabricksClient.
 
 import { readFileSync } from 'fs';
 import * as path from 'path';
@@ -21,7 +25,14 @@ import * as vscode from 'vscode';
 import { DatabricksConnection } from './databricksConnection.js';
 import { DatabricksAuthType, DatabricksConnectionOptions } from './databricksClient.js';
 import { DatabricksDataExplorerRpcHandler } from './databricksDataExplorerRpcHandler.js';
+import { getManagedCredential, isWorkbenchManaged, resolveManagedCredential } from './workbenchCredentials.js';
 
+/** The id of the mechanism that uses the credentials Posit Workbench provisions for the session. */
+const WORKBENCH_MECHANISM_ID = 'workbench-oauth';
+/** The Authentication extension's provider id for the Workbench-managed Databricks credential. */
+const DATABRICKS_AUTH_PROVIDER_ID = 'databricks';
+/** The environment variable Workbench points at its managed Databricks config file. */
+const DATABRICKS_MANAGED_ENV_VAR = 'DATABRICKS_CONFIG_FILE';
 /** The id of the personal-access-token connection mechanism. */
 const PAT_MECHANISM_ID = 'pat';
 /** The id of the OAuth user-to-machine (interactive browser) connection mechanism. */
@@ -171,9 +182,11 @@ function httpPathParameter(): positron.DataConnectionParameter {
 
 /** Normalized fields for generating connection code, tagged by the mechanism that produced them. */
 interface DatabricksCodegenFields extends DatabricksCommonFields {
-	mechanism: typeof PAT_MECHANISM_ID | typeof OAUTH_U2M_MECHANISM_ID | typeof OAUTH_M2M_MECHANISM_ID;
+	mechanism: typeof WORKBENCH_MECHANISM_ID | typeof PAT_MECHANISM_ID | typeof OAUTH_U2M_MECHANISM_ID | typeof OAUTH_M2M_MECHANISM_ID;
 	host: string;
 	httpPath: string;
+	/** The Databricks config profile Workbench provisions (Workbench mechanism). */
+	profile?: string;
 	token?: string;
 	clientId?: string;
 	clientSecret?: string;
@@ -189,6 +202,13 @@ function renderPythonCode(fields: DatabricksCodegenFields): positron.ConnectionC
 	];
 
 	switch (fields.mechanism) {
+		case WORKBENCH_MECHANISM_ID:
+			// The SDK's Config reads the Workbench-provisioned profile and hands the connector a
+			// credentials provider, so no credential is embedded.
+			imports.push('from databricks.sdk.core import Config');
+			prelude.push(`config = Config(profile="${escapeDoubleQuoted(fields.profile ?? '')}")`);
+			args.push('credentials_provider=lambda: config.authenticate');
+			break;
 		case PAT_MECHANISM_ID:
 			if (fields.token) { args.push(`access_token="${escapeDoubleQuoted(fields.token)}"`); }
 			break;
@@ -244,7 +264,8 @@ function renderRCode(fields: DatabricksCodegenFields): positron.ConnectionCodeVa
 		// user name "token".
 		args.push('uid = "token"', `pwd = "${escapeDoubleQuoted(fields.token)}"`);
 	}
-	// With no credentials supplied, odbc::databricks() runs the interactive OAuth (U2M) flow itself.
+	// With no credentials supplied, odbc::databricks() detects Workbench managed credentials, and
+	// otherwise runs the interactive OAuth (U2M) flow itself.
 	if (fields.catalog) { args.push(`catalog = "${escapeDoubleQuoted(fields.catalog)}"`); }
 	if (fields.schema) { args.push(`schema = "${escapeDoubleQuoted(fields.schema)}"`); }
 
@@ -276,6 +297,10 @@ function codegenFields(mechanismId: string, params: positron.DataConnectionParam
 				return undefined;
 			}
 			return { mechanism: PAT_MECHANISM_ID, host, httpPath, ...common, token: params.token };
+		case WORKBENCH_MECHANISM_ID:
+			// The credential comes from the profile Workbench provisions; the host is the one it was
+			// issued for.
+			return { mechanism: WORKBENCH_MECHANISM_ID, host, httpPath, ...common, profile: workbenchProfileName() };
 		case OAUTH_U2M_MECHANISM_ID:
 			// Only the locators are needed; the browser sign-in establishes the identity.
 			return { mechanism: OAUTH_U2M_MECHANISM_ID, host, httpPath, ...common };
@@ -291,6 +316,14 @@ function codegenFields(mechanismId: string, params: positron.DataConnectionParam
 		default:
 			return undefined;
 	}
+}
+
+/**
+ * The Databricks config profile Workbench provisions, for generated code that references it by name.
+ * Honors the SDK's own profile override and otherwise uses the name Workbench conventionally writes.
+ */
+function workbenchProfileName(): string {
+	return process.env.DATABRICKS_CONFIG_PROFILE?.trim() || 'workbench';
 }
 
 /**
@@ -317,6 +350,23 @@ function generateConnectionCodeForFields(languageId: string, fields: DatabricksC
 		default:
 			return [];
 	}
+}
+
+/**
+ * Builds the normalized connection options for the Workbench-managed mechanism. The workspace host is
+ * read together with the token from the credential Workbench provisions. The token is sent as a
+ * bearer token, like a PAT, and re-read whenever the SDK's cached one nears expiry so Workbench's
+ * rotations are picked up mid-session.
+ */
+async function workbenchConnectionConfig(params: positron.DataConnectionParameterValues): Promise<DatabricksConnectionOptions> {
+	const { locator, tokenProvider } = await resolveManagedCredential(DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', parseDatabricksHost);
+	return {
+		host: locator,
+		httpPath: parseDatabricksHttpPath(params.httpPath as string),
+		authType: 'pat',
+		tokenProvider,
+		...commonFields(params),
+	};
 }
 
 /** Builds the normalized connection options for a mechanism's parameter values. */
@@ -352,13 +402,17 @@ function connectionConfig(mechanismId: string, params: positron.DataConnectionPa
  * the first missing one.
  */
 export function validateRequired(mechanismId: string, params: positron.DataConnectionParameterValues): void {
-	if (!isNonEmptyString(params.host)) {
+	// The Workbench-managed mechanism gets its token and host from the credential Workbench
+	// provisions; only the compute resource's HTTP path is asked for.
+	if (mechanismId !== WORKBENCH_MECHANISM_ID && !isNonEmptyString(params.host)) {
 		throw new Error(vscode.l10n.t('Server Hostname is required'));
 	}
 	if (!isNonEmptyString(params.httpPath)) {
 		throw new Error(vscode.l10n.t('HTTP Path is required'));
 	}
 	switch (mechanismId) {
+		case WORKBENCH_MECHANISM_ID:
+			break;
 		case PAT_MECHANISM_ID:
 			if (!isNonEmptyString(params.token)) {
 				throw new Error(vscode.l10n.t('Access Token is required'));
@@ -394,6 +448,20 @@ export function createDatabricksDriver(
 	// Load the SVG icon once at registration time.
 	const iconPath = path.join(context.extensionPath, 'media', 'logo', 'databricks.svg');
 	const iconSvg = readFileSync(iconPath, 'utf-8');
+
+	// Workbench Managed Credentials: the credential Posit Workbench provisions for this session. Its
+	// workspace host comes with it, so only the compute resource's HTTP path is asked for. Whether
+	// Workbench supplies the credential is fixed by the session's environment, so it is decided once
+	// here; the credential itself is read lazily at connect time.
+	const workbenchMechanism: positron.DataConnectionMechanism | undefined = isWorkbenchManaged(DATABRICKS_MANAGED_ENV_VAR) ? {
+		id: WORKBENCH_MECHANISM_ID,
+		label: vscode.l10n.t('Workbench Managed Credentials'),
+		description: vscode.l10n.t('Connect with the Databricks credentials Posit Workbench provisioned for this session.'),
+		parameters: [
+			httpPathParameter(),
+			...commonParameters(),
+		],
+	} : undefined;
 
 	// Personal Access Token: a token minted in the workspace, sent as a bearer token.
 	const patMechanism: positron.DataConnectionMechanism = {
@@ -457,6 +525,11 @@ export function createDatabricksDriver(
 	// Dialog order: the token flow leads (it needs no identity-provider round-trip), then interactive
 	// sign-in, then the service-principal flow.
 	const mechanisms = [patMechanism, u2mMechanism, m2mMechanism];
+	// The Workbench-managed credential leads when present: it is the one the session was provisioned
+	// with and it needs no credential input.
+	if (workbenchMechanism) {
+		mechanisms.unshift(workbenchMechanism);
+	}
 
 	return {
 		id: 'positron-data-driver-databricks',
@@ -467,11 +540,25 @@ export function createDatabricksDriver(
 		mechanisms,
 		async connect(mechanismId: string, params: positron.DataConnectionParameterValues): Promise<positron.DataConnection> {
 			validateRequired(mechanismId, params);
-			const connection = new DatabricksConnection(connectionConfig(mechanismId, params), dataExplorerHandler, logger);
+			const config = mechanismId === WORKBENCH_MECHANISM_ID
+				? await workbenchConnectionConfig(params)
+				: connectionConfig(mechanismId, params);
+			const connection = new DatabricksConnection(config, dataExplorerHandler, logger);
 			await connection.connect();
 			return connection;
 		},
 		async generateConnectionCode(mechanismId: string, languageId: string, params: positron.DataConnectionParameterValues): Promise<positron.ConnectionCodeVariant[]> {
+			if (mechanismId === WORKBENCH_MECHANISM_ID) {
+				// The workspace host has no form field; it is the one Workbench's credential was issued
+				// for. With no credential to read, there is no code to generate.
+				let host: string;
+				try {
+					host = (await getManagedCredential(DATABRICKS_AUTH_PROVIDER_ID, 'Databricks')).locator;
+				} catch {
+					return [];
+				}
+				return generateConnectionCode(mechanismId, languageId, { ...params, host });
+			}
 			return generateConnectionCode(mechanismId, languageId, params);
 		},
 	};
