@@ -63,6 +63,63 @@ function decodeHtmlEntities(text: string): string {
 	});
 }
 
+// Tags beyond basicMarkupHtmlTags that Jupyter and Marimo render in notebooks.
+const notebookExtraHtmlTags = [
+	'article', 'aside', 'fieldset', 'footer', 'header', 'legend', 'main', 'nav', 'section',
+];
+
+const notebookSanitizerConfig = (() => {
+	const baseAttributes = allowedMarkdownHtmlAttributes.filter(attr =>
+		typeof attr === 'string' || attr.attributeName !== 'style'
+	);
+	return {
+		allowedTags: { override: [...allowedMarkdownHtmlTags, ...notebookExtraHtmlTags] },
+		allowedAttributes: {
+			override: [...baseAttributes, 'id', 'open', 'style']
+		},
+		allowedLinkProtocols: { override: ['http', 'https'] as readonly string[] },
+		allowedMediaProtocols: { override: ['http', 'https', 'data'] as readonly string[] },
+		allowRelativeLinkPaths: true,
+		allowRelativeMediaPaths: true,
+	};
+})();
+
+function sanitizeHtmlToReactElements(html: string): React.ReactElement[] {
+	const tempContainer = document.createElement('div');
+	safeSetInnerHtml(tempContainer, html, notebookSanitizerConfig);
+	return convertDomChildrenToReact(tempContainer, {
+		img: DeferredImage,
+		a: NotebookLink,
+	});
+}
+
+// Attributes safe to forward on grouped block-level HTML elements.
+// Event handlers (on*) are always blocked; data-* and aria-* are allowed by prefix.
+const SAFE_BLOCK_ELEMENT_ATTRS = new Set([
+	'class', 'dir', 'id', 'lang', 'open', 'role', 'style', 'tabindex', 'title',
+]);
+
+function sanitizeHtmlTagAttributes(attrString: string): Record<string, any> {
+	const props: Record<string, any> = {};
+	if (!attrString?.trim()) {
+		return props;
+	}
+	const re = /([\w-]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|(\S+)))?/g;
+	let m;
+	while ((m = re.exec(attrString)) !== null) {
+		const name = m[1].toLowerCase();
+		if (name.startsWith('on')) {
+			continue;
+		}
+		if (!SAFE_BLOCK_ELEMENT_ATTRS.has(name) && !name.startsWith('data-') && !name.startsWith('aria-')) {
+			continue;
+		}
+		const value = m[2] ?? m[3] ?? m[4] ?? true;
+		props[name === 'class' ? 'className' : name] = value;
+	}
+	return props;
+}
+
 /**
  * Type that supports both Marked tokens and KaTeX "tokens"
  * for the purposes of rendering.
@@ -171,52 +228,47 @@ function SyntaxHighlightedCode({
  * @returns React element wrapped in .raw-html-content div
  */
 function RawHtml({ html }: { html: string }) {
-	const reactElements = React.useMemo(() => {
-		// Filter out the restrictive style rule from allowed markdown attributes list
-		const baseAttributes = allowedMarkdownHtmlAttributes.filter(attr =>
-			typeof attr === 'string' || attr.attributeName !== 'style'
-		);
-
-		// Configure sanitizer to allow remote images, local links, and inline styles
-		const notebookSanitizerConfig = {
-			allowedTags: {
-				override: allowedMarkdownHtmlTags
-			},
-			allowedAttributes: {
-				override: [
-					...baseAttributes,
-					'id',  // Allow id attribute for anchor link targets
-					'style' // Allow style attribute for inline styles
-				]
-			},
-			allowedLinkProtocols: {
-				override: ['http', 'https'] as readonly string[]
-			},
-			allowedMediaProtocols: {
-				override: ['http', 'https', 'data'] as readonly string[]
-			},
-			allowRelativeLinkPaths: true,
-			allowRelativeMediaPaths: true
-		};
-
-		const tempContainer = document.createElement('div');
-		// Parse the HTML into the container element safely
-		safeSetInnerHtml(tempContainer, html, notebookSanitizerConfig);
-		// Convert DOM to React with component overrides.
-		// This ensures that <img> tags become DeferredImage components
-		// and <a> tags become NotebookLink components.
-		return convertDomChildrenToReact(
-			tempContainer,
-			{
-				img: DeferredImage,
-				a: NotebookLink,
-			}
-		);
-	}, [html]);
-
-	// Wrap in div for CSS targeting to prevent overflow issues with raw HTML content
+	const reactElements = React.useMemo(() => sanitizeHtmlToReactElements(html), [html]);
 	return <div className='raw-html-content'>{reactElements}</div>;
 }
+
+// --- Block-level HTML grouping helpers ---
+// When marked encounters blank lines inside block-level HTML elements like
+// <details>, it splits the content into separate tokens. These helpers detect
+// opening/closing pairs and re-group the intermediate tokens so they render
+// as children of a single React element.
+
+const GROUPABLE_HTML_TAGS = new Set([
+	'article', 'aside', 'blockquote', 'details', 'div', 'dl',
+	'fieldset', 'figure', 'footer', 'header', 'main', 'nav',
+	'ol', 'section', 'table', 'ul',
+]);
+
+const OPENING_TAG_RE = /^<([a-z][\w-]*)\b([^>]*)>/i;
+
+function hasClosingTag(html: string, tagName: string): boolean {
+	return new RegExp(`</${tagName}\\s*>`, 'i').test(html);
+}
+
+function findClosingTokenIndex(tokens: ExtendedToken[], startIndex: number, tagName: string): number {
+	const openRe = new RegExp(`<${tagName}\\b`, 'gi');
+	const closeRe = new RegExp(`</${tagName}\\s*>`, 'gi');
+	let depth = 1;
+	for (let i = startIndex + 1; i < tokens.length; i++) {
+		const token = tokens[i];
+		if (token.type === 'html') {
+			openRe.lastIndex = 0;
+			closeRe.lastIndex = 0;
+			depth += (token.text.match(openRe) || []).length;
+			depth -= (token.text.match(closeRe) || []).length;
+			if (depth <= 0) {
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
 
 /**
  * Renderer that converts Marked tokens to React elements. Most tokens map
@@ -246,15 +298,67 @@ export class TokenMarkdownRenderer {
 		// collision-safe anchor IDs for cross-token references.
 		const footnoteDefinitions = this.collectFootnoteContext(tokens);
 
-		// Second pass: render all tokens. Definition tokens produce empty
-		// fragments since they are grouped into the section appended below.
-		const elements = tokens.map((token, i) => this.renderToken(token, `token-${i}`));
+		// Second pass: render all tokens, re-grouping split block-level HTML
+		// pairs (e.g. <details>…</details> separated by blank lines).
+		// Definition tokens produce empty fragments since they are grouped
+		// into the section appended below.
+		const elements = this.renderTokensWithGrouping(tokens);
 
 		if (footnoteDefinitions.length > 0) {
 			elements.push(this.renderFootnoteSection(footnoteDefinitions));
 		}
 
 		return elements;
+	}
+
+	private renderTokensWithGrouping(tokens: ExtendedToken[]): React.ReactElement[] {
+		const elements: React.ReactElement[] = [];
+		let i = 0;
+		while (i < tokens.length) {
+			const token = tokens[i];
+			if (token.type === 'html') {
+				const openMatch = token.text.match(OPENING_TAG_RE);
+				if (openMatch && GROUPABLE_HTML_TAGS.has(openMatch[1].toLowerCase()) && !hasClosingTag(token.text, openMatch[1])) {
+					const tagName = openMatch[1].toLowerCase();
+					const closeIndex = findClosingTokenIndex(tokens, i, tagName);
+					if (closeIndex > i) {
+						elements.push(this.renderGroupedHtmlBlock(tokens, i, closeIndex, tagName, openMatch[2]));
+						i = closeIndex + 1;
+						continue;
+					}
+				}
+			}
+			elements.push(this.renderToken(token, `token-${i}`));
+			i++;
+		}
+		return elements;
+	}
+
+	private renderGroupedHtmlBlock(
+		tokens: ExtendedToken[],
+		openIndex: number,
+		closeIndex: number,
+		tagName: string,
+		attrString: string
+	): React.ReactElement {
+		const openToken = tokens[openIndex] as marked.Tokens.HTML;
+		const key = `grouped-${tagName}-${openIndex}`;
+		const attrs = sanitizeHtmlTagAttributes(attrString);
+
+		const innerOpenHtml = openToken.text
+			.replace(new RegExp(`^<${tagName}\\b[^>]*>`, 'i'), '')
+			.trim();
+
+		const children: React.ReactNode[] = [];
+
+		if (innerOpenHtml) {
+			children.push(...sanitizeHtmlToReactElements(innerOpenHtml));
+		}
+
+		const intermediateTokens = tokens.slice(openIndex + 1, closeIndex);
+		children.push(...this.renderTokensWithGrouping(intermediateTokens));
+
+		return React.createElement(tagName, { ...attrs, key }, ...children);
 	}
 
 	/**
