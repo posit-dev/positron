@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnectionsConfiguration.js';
 import { quoteCompactToken } from '../../../services/positronDataConnections/common/dataConnectionCompactFormat.js';
 import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
-import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionNodeStep, IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionSchemaSummary, IDataConnectionSchemaSummaryOptions, summarizeDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 
@@ -609,12 +609,76 @@ export async function getDataConnectionSchema(
 	return summarizeDataConnectionSchema(target.instance.connectionHandle, args);
 }
 
+/**
+ * Arguments for the reveal command: which connection, and the path of the row within it.
+ */
+export interface IDataConnectionRevealCommandArgs {
+	profileId?: string;
+	path?: IDataConnectionNodeStep[];
+}
+
+/**
+ * Narrows the reveal command's arguments, which arrive untyped.
+ *
+ * This command is reachable from a `command:` link in any document, not just the SQL editor links
+ * it exists for, so the shape is checked rather than trusted. Nothing here can do damage -- the
+ * worst a malformed request achieves is selecting the wrong row of the user's own pane -- but a
+ * command that throws on a hand-written link is still a bug.
+ * @param args The raw command arguments.
+ */
+function parseRevealArgs(args: unknown): { profileId: string; path: IDataConnectionNodeStep[] } | undefined {
+	if (typeof args !== 'object' || args === null) {
+		return undefined;
+	}
+
+	const { profileId, path } = args as IDataConnectionRevealCommandArgs;
+	if (typeof profileId !== 'string' || !profileId || !Array.isArray(path)) {
+		return undefined;
+	}
+
+	const steps: IDataConnectionNodeStep[] = [];
+	for (const step of path) {
+		if (typeof step?.kind !== 'string' || typeof step?.name !== 'string' || !step.name) {
+			return undefined;
+		}
+		steps.push({ kind: step.kind, name: step.name });
+	}
+	return { profileId, path: steps };
+}
+
+/**
+ * Reveals a table, view or column in the Data Connections pane: opens the view, expands down to
+ * the row and selects it.
+ *
+ * Exists for the document links the SQL language server puts on table and column names, so that
+ * ctrl/cmd-clicking a name in a query shows where it lives.
+ * @param accessor The services accessor.
+ * @param args Which connection and which row; see {@link IDataConnectionRevealCommandArgs}.
+ */
+export async function revealDataConnectionNode(accessor: ServicesAccessor, args: unknown): Promise<void> {
+	if (!isDataConnectionsCommandEnabled(accessor.get(IConfigurationService))) {
+		return;
+	}
+
+	const request = parseRevealArgs(args);
+	if (request === undefined) {
+		accessor.get(ILogService).warn('[DataConnections] revealNode: malformed arguments.');
+		return;
+	}
+
+	await accessor.get(IPositronDataConnectionsService).revealNode(request);
+}
+
 // The ids of the three payload commands. One command per payload, matching every other
 // agentCompatible command in the workbench, so each carries its own argument schema and each shows
 // up on its own in the positron-commands skill's reference file (#15343).
 export const GET_CONNECTIONS_COMMAND_ID = 'positronDataConnections.getConnections';
 export const GET_CONNECTION_CODE_COMMAND_ID = 'positronDataConnections.getConnectionCode';
 export const GET_SCHEMA_COMMAND_ID = 'positronDataConnections.getSchema';
+
+// The id of the reveal command. Followed from a `command:` document link, so the id is part of
+// the contract with the SQL extension (see extensions/positron-sql/src/links.ts).
+export const REVEAL_NODE_COMMAND_ID = 'positronDataConnections.revealNode';
 
 // Registered through CommandsRegistry rather than registerAction2, so no payload command takes a
 // Command Palette slot: running one would show the user nothing, since the return value is for a
@@ -669,6 +733,46 @@ CommandsRegistry.registerCommand({
 			},
 		}],
 		returns: 'The profileId, plus the connection code per language under languages[<languageId>].code and the variable that code binds under .variableName. The code is meant to be run verbatim, and omits every parameter the connection stores as a secret -- so code for a connection with a stored password needs the user to supply it before it will run. When there is no code to give, an object with available: false and a reason of \'disabled\', \'not-found\', \'no-driver\', or \'no-code\' -- the last of which also lists supportedLanguageIds, in case the language asked for was simply the wrong one.',
+	},
+});
+
+// Not agentCompatible: this moves the user's UI rather than reporting anything, so there is no
+// payload for an agent to read and nothing it should be doing with the pane's selection.
+CommandsRegistry.registerCommand({
+	id: REVEAL_NODE_COMMAND_ID,
+	handler: revealDataConnectionNode,
+	metadata: {
+		description: localize(
+			'positron.dataConnections.revealNode.description',
+			"Reveal a table, view or column in the Data Connections pane."
+		),
+		args: [{
+			name: 'args',
+			description: 'Which connection, and the path of the row within it.',
+			schema: {
+				type: 'object',
+				required: ['profileId', 'path'],
+				properties: {
+					profileId: {
+						type: 'string',
+						description: 'The profile whose tree holds the row. Its connection must be open.',
+					},
+					path: {
+						type: 'array',
+						description: 'The row\'s path from the connection down, as {kind, name} steps.'
+							+ ' Grouping rows such as "Tables" are left out.',
+						items: {
+							type: 'object',
+							required: ['kind', 'name'],
+							properties: {
+								kind: { type: 'string' },
+								name: { type: 'string' },
+							},
+						},
+					},
+				},
+			},
+		}],
 	},
 });
 

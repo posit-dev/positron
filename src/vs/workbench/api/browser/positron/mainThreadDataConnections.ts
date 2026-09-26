@@ -4,10 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../contrib/positronDataConnections/browser/positronDataConnectionsConfiguration.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk, walkDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDataConnectionSummaryDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -119,10 +123,97 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 */
 	constructor(
 		extHostContext: IExtHostContext,
-		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService
+		@IPositronDataConnectionsService private readonly _dataConnectionsService: IPositronDataConnectionsService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@ILogService private readonly _logService: ILogService,
 	) {
 		// Get the ext host proxy so adapters can call back for connect/getChildren/etc.
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostDataConnections);
+
+		// Both events, because either can change what getConnections would answer: instances are
+		// the connections that are live, profiles are the connections that exist at all.
+		const notify = () => this._proxy.$onDidChangeDataConnections();
+		this._disposableStore.add(this._dataConnectionsService.onDidChangeInstances(notify));
+		this._disposableStore.add(this._dataConnectionsService.onDidChangeProfiles(notify));
+	}
+
+	/**
+	 * Returns the connections the user has configured, live or not.
+	 */
+	async $getDataConnections(): Promise<IDataConnectionSummaryDTO[]> {
+		if (!this._isEnabled()) {
+			// An empty list and a disabled feature look the same to the caller, so the difference
+			// is recorded here. Otherwise an extension reporting "no connections" is unexplainable
+			// from the logs.
+			this._logService.trace('[DataConnections] getConnections: the feature is disabled.');
+			return [];
+		}
+		const live = new Set(
+			this._dataConnectionsService.getInstances().map(instance => instance.profileId),
+		);
+		return this._dataConnectionsService.getProfiles().map(profile => ({
+			profileId: profile.id,
+			name: profile.connectionName,
+			driverId: profile.driverMetadata.id,
+			driverName: profile.driverMetadata.name,
+			connected: live.has(profile.id),
+		}));
+	}
+
+	/**
+	 * Opens the user's connection for a profile, if it is not already open.
+	 *
+	 * The service's connect is idempotent, so a profile that is already connected costs a lookup
+	 * rather than a reconnect. The instance it returns is deliberately dropped: this exists so an
+	 * extension can ask for a connection to be opened, not so it can hold one.
+	 */
+	async $openDataConnection(profileId: string): Promise<boolean> {
+		if (!this._isEnabled()) {
+			this._logService.trace('[DataConnections] openConnection: the feature is disabled.');
+			return false;
+		}
+		if (!this._dataConnectionsService.getProfile(profileId)) {
+			// Nothing to open. A stale id is ordinary -- a caller may have recorded a profile the
+			// user has since removed -- so this is not an error, just a no.
+			this._logService.warn(`[DataConnections] openConnection: no profile ${profileId}.`);
+			return false;
+		}
+		await this._dataConnectionsService.connect(profileId);
+		return true;
+	}
+
+	/**
+	 * Reads one live connection's schema tree.
+	 *
+	 * The walk rather than the rendered summary: an extension navigates the schema (a SQL editor
+	 * resolving a table to its columns), so it wants the tree. The compact lines are for Assistant.
+	 *
+	 * The instance's own handle is used without being registered in `_connectionHandles`: that map
+	 * is what `$releaseConnectionViaService` frees, and this connection belongs to the user rather
+	 * than to the calling extension.
+	 */
+	async $getDataConnectionSchema(
+		profileId: string,
+		options: IDataConnectionSchemaSummaryOptions,
+	): Promise<IDataConnectionSchemaWalk | undefined> {
+		if (!this._isEnabled()) {
+			this._logService.trace('[DataConnections] getSchema: the feature is disabled.');
+			return undefined;
+		}
+		const instance = this._dataConnectionsService.getInstanceForProfile(profileId);
+		if (!instance) {
+			this._logService.warn(`[DataConnections] getSchema: profile ${profileId} has no live connection.`);
+			return undefined;
+		}
+		const walk = await walkDataConnectionSchema(instance.connectionHandle, options);
+		if (walk.truncated) {
+			this._logService.trace(`[DataConnections] getSchema: profile ${profileId} was truncated by the caller's bounds.`);
+		}
+		return walk;
+	}
+
+	private _isEnabled(): boolean {
+		return this._configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true;
 	}
 
 	/**
