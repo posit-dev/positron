@@ -469,8 +469,9 @@ test('renderSummaryTarget leaves the PR off when there is none', () => {
 	assert.equal(renderSummaryTarget('', 'o/r', ''), '');
 });
 
-test('renderSummaryTarget adds the focus on one line when given', () => {
-	assert.equal(renderSummaryTarget('main', 'o/r', '', ' the plots pane\n\nzoom '), '`main`\n\n**Focus:** the plots pane zoom\n\n');
+test('renderSummaryTarget leads with the focus, on one line, when given', () => {
+	assert.equal(renderSummaryTarget('main', 'o/r', '', ' the plots pane\n\nzoom '), 'the plots pane zoom · `main`\n\n');
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', '12', 'zoom'), 'zoom · PR [#12](https://github.com/o/r/pull/12) · `fix/x`\n\n');
 	assert.equal(renderSummaryTarget('main', 'o/r', '', '  \n'), '`main`\n\n');
 });
 

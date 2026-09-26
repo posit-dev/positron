@@ -320,11 +320,11 @@ export function isProductPath(path) {
  * without opening its report. The PR part is left off when there is none.
  */
 export function renderSummaryTarget(branch, repo, number, focus) {
-	const parts = repo && /^\d+$/.test(String(number ?? '')) ? [`PR [#${number}](https://github.com/${repo}/pull/${number})`] : [];
-	if (branch) { parts.push(`\`${branch}\``); }
-	const target = parts.length ? `${parts.join(' · ')}\n\n` : '';
 	const asked = String(focus ?? '').replace(/\s+/g, ' ').trim();
-	return asked ? `${target}**Focus:** ${asked}\n\n` : target;
+	const parts = asked ? [asked] : [];
+	if (repo && /^\d+$/.test(String(number ?? ''))) { parts.push(`PR [#${number}](https://github.com/${repo}/pull/${number})`); }
+	if (branch) { parts.push(`\`${branch}\``); }
+	return parts.length ? `${parts.join(' · ')}\n\n` : '';
 }
 
 /**
