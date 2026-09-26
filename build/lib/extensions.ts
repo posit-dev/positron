@@ -318,7 +318,6 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-data-driver-pins',
 			'positron-data-driver-postgresql',
 			'positron-data-driver-redshift',
-			'positron-data-driver-snowflake',
 			'positron-data-driver-sqlite'
 		];
 
@@ -368,7 +367,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 
 		// Stream the files sequentially rather than eagerly opening a read
 		// stream for every file up front. Extensions with npm dependencies
-		// (e.g. positron-data-driver-snowflake, which bundles @azure/msal-node)
+		// (e.g. positron-data-driver-databricks, which bundles @azure/msal-node)
 		// enumerate thousands of node_modules files here; opening a descriptor
 		// for all of them at once exhausts the open-file limit and fails the
 		// Windows build with EMFILE. createSequentialFileStream opens one file

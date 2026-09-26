@@ -119,11 +119,15 @@ const ASYNC_AUTHENTICATORS = new Set(['OAUTH_CLIENT_CREDENTIALS', 'OAUTH_AUTHORI
  * Exported for unit tests, which assert the lazy import yields a constructible connection.
  */
 export const defaultConnectionFactory: SnowflakeConnectionFactory = async options => {
-	// snowflake-sdk is CommonJS with no `exports` map, so Node's ESM loader cannot detect its named
-	// exports: the namespace a dynamic import() yields carries the module object on `default` and
-	// nothing else. @types/snowflake-sdk declares the package ESM-shaped, so reaching for
+	// snowflake-sdk is bundled behind a shim module (src/snowflakeSdk.ts) that
+	// is its own esbuild entry point, so the packaged extension loads the
+	// bundled copy with a relative dynamic import rather than resolving the
+	// package from node_modules, which does not ship. snowflake-sdk is
+	// CommonJS with no `exports` map, so the namespace a dynamic import()
+	// yields carries the module object on `default` and nothing else.
+	// @types/snowflake-sdk declares the package ESM-shaped, so reaching for
 	// `createConnection` on the namespace type-checks but is undefined at runtime.
-	const snowflake = (await import('snowflake-sdk')).default;
+	const snowflake = (await import('./snowflakeSdk.js')).default;
 	// createConnection returns @types/snowflake-sdk's Connection, whose execute signature is narrower
 	// than the simplified ISnowflakeSdkConnection this file declares (see that interface's comment).
 	// Cast at the SDK boundary since the two execute shapes aren't structurally assignable.
