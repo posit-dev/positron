@@ -321,8 +321,8 @@ export function isProductPath(path) {
  */
 export function renderSummaryTarget(branch, repo, number, focus) {
 	const asked = String(focus ?? '').replace(/\s+/g, ' ').trim();
-	const parts = asked ? [asked] : [];
-	if (repo && /^\d+$/.test(String(number ?? ''))) { parts.push(`PR [#${number}](https://github.com/${repo}/pull/${number})`); }
+	const parts = repo && /^\d+$/.test(String(number ?? '')) ? [`PR [#${number}](https://github.com/${repo}/pull/${number})`] : [];
+	if (asked) { parts.push(asked); }
 	if (branch) { parts.push(`\`${branch}\``); }
 	return parts.length ? `${parts.join(' · ')}\n\n` : '';
 }
