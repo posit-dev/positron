@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { buildVerifyPrompt, buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
+import { buildVerifyPrompt, buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -82,6 +82,14 @@ const CI_TAIL = `
 You are running inside a GitHub Actions container. ${CI_OVERRIDES.length} override${CI_OVERRIDES.length === 1 ? '' : 's'} to the skill above:
 
 ${CI_OVERRIDES_LIST}
+
+## What this container has
+
+${ENVIRONMENT}
+
+A path that needs something on the not-available list is the environment, not a finding. Test what you can reach without it -- the UI up to that point, the error a user gets when it is unreachable -- and list the rest as dropped with the missing piece named.
+
+## The running app
 
 Positron is already launched and a Playwright session named \`positron\` is attached to it on CDP port ${CDP_PORT}. Use it for anything the running app can show you.
 

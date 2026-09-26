@@ -316,6 +316,28 @@ export function isProductPath(path) {
 }
 
 /**
+ * What the explore job provides, shown to both the gate and the explorer. The
+ * e2e lanes reach far more (service containers, Tailscale, Docker hosts,
+ * licenses, provider keys); without this list the gate waves through changes
+ * only reachable there and the explorer files the missing service as a bug.
+ * Keep it in step with test-exploratory.yml's explore job.
+ */
+export const ENVIRONMENT = [
+	'Available in this run:',
+	'- Positron desktop (Electron) on Linux, compiled from the branch, in a disposable container you run as root.',
+	'- Python and R, several versions of each, including a conda Python and a venv at `/root/.venv`.',
+	'- Positron Assistant signed in with Anthropic.',
+	'- Open internet: extensions, PyPI and CRAN install normally.',
+	'',
+	'Not available, and not installable in this run:',
+	'- Positron Web or server mode (no license), and any browser other than the Electron app.',
+	'- Remote SSH, WSL, a Jupyter server, Posit Workbench and Posit Connect: they need a Docker host or a license this container has not got.',
+	'- Database connections: no Postgres service, no Redshift network, no Snowflake or Databricks credentials.',
+	'- Assistant providers other than Anthropic: no OpenAI, Microsoft Foundry, Bedrock, Snowflake Cortex, Databricks or Posit AI sign-in.',
+	'- Windows and macOS.',
+].join('\n');
+
+/**
  * The step summary's first line: what was tested, so a run is identifiable
  * without opening its report. The PR part is left off when there is none.
  */

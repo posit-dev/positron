@@ -471,11 +471,9 @@ jobs:
           sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
           stat $ELECTRON_ROOT/chrome-sandbox
 
-      - name: Setup E2E Test Environment
-        uses: ./.harness/.github/actions/setup-test-env
-        with:
-          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
+      # No setup-test-env: nothing here runs the e2e suite, and its QA AWS role
+      # would sit in the agent's environment for no use. The S3 upload assumes
+      # its own role after the agent has finished.
 
       - name: Install jq
         shell: bash
@@ -618,20 +616,24 @@ jobs:
           # The PR link in the summary and the report header. No PR, no link.
           pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
 
-      # The app and the agent both hold the key, and everything below is
+      # The app and the agent both hold these, and everything below is
       # published: the run directory to a public CDN, the rest as an artifact.
-      - name: Redact the API key from run output
+      # List every secret the agent's environment carries, including any
+      # credential added to this job later.
+      - name: Redact secrets from run output
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${ANTHROPIC_KEY:-}" || exit 0
-          for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
-            [ -d "$DIR" ] || continue
-            grep -rlIF -- "$ANTHROPIC_KEY" "$DIR" 2>/dev/null | while IFS= read -r FILE; do
-              echo "Redacting key from $FILE"
-              perl -pi -e 's/\Q$ENV{ANTHROPIC_KEY}\E/[REDACTED]/g' "$FILE"
-            done || true
+          for NAME in ANTHROPIC_KEY GITHUB_TOKEN; do
+            test -n "${!NAME:-}" || continue
+            for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
+              [ -d "$DIR" ] || continue
+              grep -rlIF -- "${!NAME}" "$DIR" 2>/dev/null | while IFS= read -r FILE; do
+                echo "Redacting $NAME from $FILE"
+                SECRET="${!NAME}" perl -pi -e 's/\Q$ENV{SECRET}\E/[REDACTED]/g' "$FILE"
+              done || true
+            done
           done
 
       - name: Stage publishable run directory
