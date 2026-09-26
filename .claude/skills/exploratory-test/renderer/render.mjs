@@ -40,7 +40,7 @@ if (!existsSync(join(here, 'node_modules', 'marked'))) {
 }
 const { renderReportHtml, linkedLogs } = await import('./html.mjs');
 const { modelDisplayName, parseReport } = await import('./report-parse.mjs');
-const { lintReport } = await import('./lint.mjs');
+const { lintReport, untaggedShots } = await import('./lint.mjs');
 
 let markdown = readFileSync(input, 'utf8');
 // Coverage is built from the run's ledger when it wrote one.
@@ -95,6 +95,9 @@ if (flags['duration-ms']) {
 }
 
 const out = join(dir, 'index.html');
+// The run directory is made when the run starts. A filesystem with no birth
+// time reports the epoch, and the footer falls back to now.
+const born = statSync(dir).birthtime;
 writeFileSync(out, renderReportHtml(markdown, {
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
@@ -102,6 +105,7 @@ writeFileSync(out, renderReportHtml(markdown, {
 	base: dir,
 	fileExists,
 	readFile,
+	startedAt: born.getTime() > 0 ? born : undefined,
 }));
 console.log(out);
 
@@ -120,6 +124,8 @@ const missingFiles = parsed.files.map(f => f.path).filter(p => !fileExists(p));
 if (missingFiles.length) {
 	console.error(`missing test files, listed in ## Files but not beside the report:\n${missingFiles.map(p => `  ${p}`).join('\n')}`);
 }
-if (missing.length || missingFiles.length) {
+// Evidence groups by step, so a shot with none has nowhere to go; lint names it.
+const untagged = untaggedShots(parsed.findings);
+if (missing.length || missingFiles.length || untagged.length) {
 	process.exit(1);
 }

@@ -14,6 +14,8 @@ import { renderReportHtml, linkedLogs } from '../../../.claude/skills/explorator
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 import { buildVerifyPrompt, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
 
+// Dates the report footer's copyright.
+const STARTED_AT = new Date();
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
@@ -349,6 +351,7 @@ async function main() {
 				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
 				fileExists,
 				readFile,
+				startedAt: STARTED_AT,
 			}));
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const parsed = parseReport(reportMarkdown, { ledger });
