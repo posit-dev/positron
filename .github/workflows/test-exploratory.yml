@@ -736,6 +736,7 @@ jobs:
             !/tmp/exploratory-workspace/**/__pycache__/**
             !/tmp/exploratory-workspace/**/renv/library/**
           if-no-files-found: warn
+          retention-days: 3
 
   # Uploads each model's run directory to the public CDN. A job of its own so
   # the AWS role, and the id-token that assumes it, never share a runner with
