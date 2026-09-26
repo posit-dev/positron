@@ -399,6 +399,9 @@ jobs:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     # The e2e lane's database, reachable from the container at host "postgres".
+    # Its login is a fixed test value, not the e2e secret: the database lives
+    # only for this job, and Positron's connection form shows the password
+    # unmasked, so it ends up in screenshots redaction cannot reach.
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres:24.18.0
@@ -406,8 +409,9 @@ jobs:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
         env:
-          POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          # Match E2E_POSTGRES_USER / E2E_POSTGRES_PASSWORD in the job env below.
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: exploratory-test
           POSTGRES_DB: postgres
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -416,6 +420,8 @@ jobs:
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       RETICULATE_PYTHON: /root/.venv/bin/python
+      E2E_POSTGRES_USER: e2e
+      E2E_POSTGRES_PASSWORD: exploratory-test
     steps:
       # The SHA membership or dispatch-ref pinned, so a push after the gate is
       # not tested.
@@ -631,8 +637,6 @@ jobs:
       - name: Export database credentials
         shell: bash
         env:
-          E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
-          E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
@@ -640,7 +644,7 @@ jobs:
           DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
         run: |
           set -euo pipefail
-          for NAME in E2E_POSTGRES_USER E2E_POSTGRES_PASSWORD SNOWFLAKE_ACCOUNT SNOWFLAKE_USER SNOWFLAKE_PASSWORD DATABRICKS_WORKSPACE DATABRICKS_PAT; do
+          for NAME in SNOWFLAKE_ACCOUNT SNOWFLAKE_USER SNOWFLAKE_PASSWORD DATABRICKS_WORKSPACE DATABRICKS_PAT; do
             echo "$NAME=${!NAME}" >> "$GITHUB_ENV"
           done
 
@@ -705,7 +709,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for NAME in ANTHROPIC_KEY GITHUB_TOKEN OPENAI_KEY MS_FOUNDRY_KEY SNOWFLAKE_API_KEY SNOWFLAKE_PASSWORD DATABRICKS_PAT E2E_POSTGRES_PASSWORD; do
+          for NAME in ANTHROPIC_KEY GITHUB_TOKEN OPENAI_KEY MS_FOUNDRY_KEY SNOWFLAKE_API_KEY SNOWFLAKE_PASSWORD DATABRICKS_PAT; do
             test -n "${!NAME:-}" || continue
             for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
               [ -d "$DIR" ] || continue
