@@ -13,6 +13,12 @@ on:
         required: false
         default: "main"
         type: string
+      # Replaces the branch diff as the target and skips the worthiness check.
+      focus:
+        description: "Test focus"
+        required: false
+        default: ""
+        type: string
       # The option text is also the value the explore matrix compares.
       model:
         description: "Model"
@@ -28,12 +34,6 @@ on:
         required: false
         default: true
         type: boolean
-      focus:
-        # Replaces the branch diff as the target and skips the worthiness check.
-        description: "What to test (optional)"
-        required: false
-        default: ""
-        type: string
   # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
   # code, so the membership job is the entire defence. See its comment.
