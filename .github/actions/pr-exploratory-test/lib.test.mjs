@@ -469,6 +469,11 @@ test('renderSummaryTarget leaves the PR off when there is none', () => {
 	assert.equal(renderSummaryTarget('', 'o/r', ''), '');
 });
 
+test('renderSummaryTarget adds the focus on one line when given', () => {
+	assert.equal(renderSummaryTarget('main', 'o/r', '', ' the plots pane\n\nzoom '), '`main`\n\n**Focus:** the plots pane zoom\n\n');
+	assert.equal(renderSummaryTarget('main', 'o/r', '', '  \n'), '`main`\n\n');
+});
+
 // run.mjs and gate.mjs run only in CI and no test imports them.
 test('every script in the action parses', async () => {
 	const { spawnSync } = await import('node:child_process');

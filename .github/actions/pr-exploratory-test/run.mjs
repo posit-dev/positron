@@ -372,7 +372,7 @@ async function main() {
 	}
 
 	if (STEP_SUMMARY) {
-		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER) + summary);
+		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER, FOCUS) + summary);
 	}
 	// The full report still goes to the action log. It is the one copy that
 	// survives an artifact upload or a CDN publish that did not happen.

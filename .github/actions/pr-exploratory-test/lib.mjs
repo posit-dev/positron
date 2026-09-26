@@ -319,10 +319,12 @@ export function isProductPath(path) {
  * The step summary's first line: what was tested, so a run is identifiable
  * without opening its report. The PR part is left off when there is none.
  */
-export function renderSummaryTarget(branch, repo, number) {
+export function renderSummaryTarget(branch, repo, number, focus) {
 	const parts = repo && /^\d+$/.test(String(number ?? '')) ? [`PR [#${number}](https://github.com/${repo}/pull/${number})`] : [];
 	if (branch) { parts.push(`\`${branch}\``); }
-	return parts.length ? `${parts.join(' · ')}\n\n` : '';
+	const target = parts.length ? `${parts.join(' · ')}\n\n` : '';
+	const asked = String(focus ?? '').replace(/\s+/g, ' ').trim();
+	return asked ? `${target}**Focus:** ${asked}\n\n` : target;
 }
 
 /**
