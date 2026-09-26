@@ -4,23 +4,31 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch to explore."
+        description: "Branch to explore"
         required: true
         type: string
+      # Set it when the ref's PR targets a release branch.
       base:
-        description: "Branch the ref is diffed against. Set it when the ref's PR targets a release branch."
+        description: "Base branch"
         required: false
         default: "main"
         type: string
-      model:
-        description: "Model to explore with. 'both' runs opus and sonnet in parallel."
+      # Replaces the branch diff as the target and skips the worthiness check.
+      focus:
+        description: "Test focus"
         required: false
-        default: "opus"
+        default: ""
+        type: string
+      # The option text is also the value the explore matrix compares.
+      model:
+        description: "Model"
+        required: false
+        default: "Opus"
         type: choice
         options:
-          - opus
-          - sonnet
-          - both
+          - Opus
+          - Sonnet
+          - Both (Opus + Sonnet)
       worthiness_check:
         description: "Worthiness check"
         required: false
@@ -32,8 +40,10 @@ on:
   issue_comment:
     types: [created]
 
+# id-token is granted only to publish, the one job that assumes an AWS role.
+# Every other job reads untrusted input, and an OIDC token there could assume
+# the report bucket's role.
 permissions:
-  id-token: write
   contents: read
   packages: read
 
@@ -154,16 +164,16 @@ jobs:
     name: worthiness
     needs: [membership]
     # Runs on every /test (there is no input to turn it off there) and on a
-    # dispatch that leaves it on. Behind membership on a comment, because it
-    # checks out the PR and gives an agent a shell in it. always(): membership
-    # is skipped on dispatch.
+    # dispatch that leaves it on and names no focus: the gate rules on the
+    # diff, and a named feature is the person's call. Behind membership on a
+    # comment, because it checks out the PR and gives an agent a shell in it.
+    # always(): membership is skipped on dispatch.
     if: >-
       ${{ always() &&
-      ((github.event_name == 'workflow_dispatch' && inputs.worthiness_check) ||
+      ((github.event_name == 'workflow_dispatch' && inputs.worthiness_check && inputs.focus == '') ||
         needs.membership.outputs.ok == 'true') }}
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
     outputs:
       testable: ${{ steps.gate.outputs.testable }}
@@ -328,10 +338,13 @@ jobs:
       group: pr-exploratory-${{ github.event.issue.number || inputs.ref }}-${{ matrix.model }}
       cancel-in-progress: true
     # Read-only on purpose: this job runs PR code and an agent with a shell, and
-    # GITHUB_TOKEN is in their environment. ack and report do the writing.
+    # GITHUB_TOKEN is in their environment. ack and report do the writing, and
+    # publish does the S3 upload, so no id-token either.
+    permissions:
+      contents: read
+      packages: read
     outputs:
       outcome: ${{ steps.explore.outputs.outcome }}
-      report_base_url: ${{ steps.s3-upload.outcome == 'success' && steps.rundir.outputs.report_base_url || '' }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -341,7 +354,8 @@ jobs:
         # dispatch input inside the document it was about to parse, which only
         # held because `type: choice` happens to constrain the value.
         # On a comment, membership's model is already checked to opus or sonnet.
-        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
+        # == ignores case, so the dispatch's "Sonnet" matches 'sonnet'.
+        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
           || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
           || fromJSON('["opus"]') }}
     timeout-minutes: 90
@@ -352,6 +366,17 @@ jobs:
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    # The e2e lane's database, reachable from the container at host "postgres".
+    services:
+      postgres:
+        image: ghcr.io/posit-dev/positron-postgres:24.18.0
+        credentials:
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+        env:
+          POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          POSTGRES_DB: postgres
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0
@@ -461,11 +486,9 @@ jobs:
           sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
           stat $ELECTRON_ROOT/chrome-sandbox
 
-      - name: Setup E2E Test Environment
-        uses: ./.harness/.github/actions/setup-test-env
-        with:
-          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
+      # No setup-test-env: nothing here runs the e2e suite, and its QA AWS role
+      # would sit in the agent's environment for no use. The S3 upload assumes
+      # its own role after the agent has finished.
 
       - name: Install jq
         shell: bash
@@ -506,10 +529,14 @@ jobs:
           test -d out || { echo "out/ missing -- compile did not run"; exit 1; }
           echo "out/ present, $(find out -name '*.js' | wc -l) js files"
 
+      # publish re-derives the same directory from these inputs, so change
+      # them in both places.
       - name: Allocate report dir
         uses: ./.harness/.github/actions/gen-report-dir
         with:
-          identifier: exploratory-${{ matrix.model }}
+          prefix: exploratory-report
+          identifier: ${{ matrix.model }}
+          arch: x64
           skip-summary: "true"
 
       - name: Allocate run directory
@@ -519,11 +546,22 @@ jobs:
           set -euo pipefail
           echo "EXPLORE_DIR=/tmp/exploratory-run" >> "$GITHUB_ENV"
           echo "REPORT_BASE_URL=${REPORT_URL%/index.html}" >> "$GITHUB_ENV"
-          echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
           mkdir -p /tmp/exploratory-run/shots
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Launch Positron
         shell: bash
+        env:
+          # Assistant reads provider keys from the environment, so the app
+          # starts signed in and the explorer can exercise it.
+          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
         run: |
           set -euo pipefail
           LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
@@ -543,6 +581,36 @@ jobs:
           }
           echo "CDP_PORT=$CDP_PORT" >> "$GITHUB_ENV"
 
+      # Loaded after the launch, so the app starts signed in to Anthropic only
+      # and the explorer signs in to anything else itself. The same items the
+      # e2e lane uses; the redact step below lists every one of them.
+      - name: Load test credentials
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          MS_FOUNDRY_KEY: "op://Positron/MS-Foundry-East2TestAI/credential"
+          MS_FOUNDRY_BASE_URL: "op://Positron/MS-Foundry-East2TestAI/hostname"
+          SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
+
+      - name: Export database credentials
+        shell: bash
+        env:
+          E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+          E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+          DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+        run: |
+          set -euo pipefail
+          for NAME in E2E_POSTGRES_USER E2E_POSTGRES_PASSWORD SNOWFLAKE_ACCOUNT SNOWFLAKE_USER SNOWFLAKE_PASSWORD DATABRICKS_WORKSPACE DATABRICKS_PAT; do
+            echo "$NAME=${!NAME}" >> "$GITHUB_ENV"
+          done
+
       - name: Attach Playwright
         shell: bash
         run: |
@@ -554,14 +622,6 @@ jobs:
           test -n "$TITLE" || { echo "document.title is empty"; exit 1; }
           npx @playwright/cli -s=positron screenshot --filename="$EXPLORE_DIR/attach-proof.png"
           test -s "$EXPLORE_DIR/attach-proof.png" || { echo "screenshot empty"; exit 1; }
-
-      - name: Load secret
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       # A dispatched run has no PR in its event. Find the ref's open PR so the
       # summary and report can link it; none found just means no link.
@@ -599,40 +659,29 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
+          focus: ${{ inputs.focus }}
           # The PR link in the summary and the report header. No PR, no link.
           pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
 
-      - name: Stage publishable run directory
+      # The app and the agent both hold these, and everything below is
+      # published: the run directory to a public CDN, the rest as an artifact.
+      # List every secret the agent's environment carries, including any
+      # credential added to this job later.
+      - name: Redact secrets from run output
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf /tmp/exploratory-publish
-          mkdir -p /tmp/exploratory-publish
-          if [ -d /tmp/exploratory-run ]; then
-            cp -a /tmp/exploratory-run/. /tmp/exploratory-publish/
-            rm -f /tmp/exploratory-publish/actions.log
-            # The raw log tree stays in the artifact: the page lists it unlinked,
-            # and the curated files beside it are what a reader opens.
-            rm -rf /tmp/exploratory-publish/logs/all
-          fi
-
-      - name: Upload run directory to S3
-        id: s3-upload
-        if: always()
-        continue-on-error: true
-        uses: ./.harness/.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          report-dir: ${{ env.REPORT_DIR }}
-          source-dir: /tmp/exploratory-publish
-
-      - name: Warn if S3 upload failed
-        if: always() && steps.s3-upload.outcome != 'success'
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
+          for NAME in ANTHROPIC_KEY GITHUB_TOKEN OPENAI_KEY MS_FOUNDRY_KEY SNOWFLAKE_API_KEY SNOWFLAKE_PASSWORD DATABRICKS_PAT E2E_POSTGRES_PASSWORD; do
+            test -n "${!NAME:-}" || continue
+            for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
+              [ -d "$DIR" ] || continue
+              grep -rlIF -- "${!NAME}" "$DIR" 2>/dev/null | while IFS= read -r FILE; do
+                echo "Redacting $NAME from $FILE"
+                SECRET="${!NAME}" perl -pi -e 's/\Q$ENV{SECRET}\E/[REDACTED]/g' "$FILE"
+              done || true
+            done
+          done
 
       - name: Upload run directory
         if: always()
@@ -651,12 +700,101 @@ jobs:
             !/tmp/exploratory-workspace/**/renv/library/**
           if-no-files-found: warn
 
+  # Uploads each model's run directory to the public CDN. A job of its own so
+  # the AWS role, and the id-token that assumes it, never share a runner with
+  # the PR's code or the agent. It reads only the artifact explore left, which
+  # was redacted before upload.
+  publish:
+    name: publish (${{ matrix.model }})
+    needs: [membership, worthiness, explore]
+    if: always() && needs.explore.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      report_base_url: ${{ steps.s3-upload.outcome == 'success' && steps.url.outputs.report_base_url || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors explore's matrix; keep the two in step.
+        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
+          || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+          || fromJSON('["opus"]') }}
+    steps:
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download run directory
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: exploratory-run-${{ matrix.model }}
+          path: /tmp/run-artifact
+
+      # The same inputs as explore's, so the same directory the report and
+      # step summary already link to.
+      - name: Allocate report dir
+        uses: ./.harness/.github/actions/gen-report-dir
+        with:
+          prefix: exploratory-report
+          identifier: ${{ matrix.model }}
+          arch: x64
+          skip-summary: "true"
+
+      - name: Record report URL
+        id: url
+        shell: bash
+        run: echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
+
+      # The artifact nests the run dir when code.log or the workspace was
+      # uploaded too, and puts it at the root when neither was.
+      - name: Stage publishable run directory
+        if: steps.download.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/run-artifact
+          [ -d "$SRC/exploratory-run" ] && SRC="$SRC/exploratory-run"
+          rm -rf /tmp/exploratory-publish
+          mkdir -p /tmp/exploratory-publish
+          cp -a "$SRC/." /tmp/exploratory-publish/
+          rm -f /tmp/exploratory-publish/actions.log
+          # The raw log tree stays in the artifact: the page lists it unlinked,
+          # and the curated files beside it are what a reader opens.
+          rm -rf /tmp/exploratory-publish/logs/all
+
+      - name: Upload run directory to S3
+        id: s3-upload
+        if: steps.download.outcome == 'success'
+        continue-on-error: true
+        uses: ./.harness/.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
+          source-dir: /tmp/exploratory-publish
+
+      - name: Warn if S3 upload failed
+        if: always() && steps.s3-upload.outcome != 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
+
   # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
   # for the same reason as ack. always(): a failed build must still replace
   # "running" with the truth.
   report:
     name: report
-    needs: [membership, worthiness, ack, explore]
+    needs: [membership, worthiness, ack, explore, publish]
     if: always() && needs.membership.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -708,7 +846,7 @@ jobs:
           outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
           decline-reason: ${{ needs.worthiness.outputs.reason }}
           work-dir: ${{ env.WORK_DIR }}
-          report-base-url: ${{ needs.explore.outputs.report_base_url }}
+          report-base-url: ${{ needs.publish.outputs.report_base_url }}
           pr-number: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}

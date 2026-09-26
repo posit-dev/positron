@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildVerifyPrompt, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { buildVerifyPrompt, buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -93,15 +93,15 @@ test('resolveReport returns null when the file is absent and no message looks li
 
 test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'),
-		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'),
+		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
 test('buildShotsBaseUrl trims exactly one trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu/'),
-		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu/'),
+		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
@@ -260,7 +260,7 @@ const SUMMARY_MD = [
 
 test('renderStepSummary is a tally and two links, and nothing else', () => {
 	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run');
-	assert.match(summary, /^\*\*5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
+	assert.match(summary, /^\*\*1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
 	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
 	assert.match(summary, /\[Agent Report\]\(https:\/\/cdn\.example\/run\/report\.md\)/);
 	// The body of the report belongs on its own page, not pasted in here.
@@ -275,7 +275,7 @@ test('renderStepSummary is a tally and two links, and nothing else', () => {
 
 test('renderStepSummary counts the table when the report wrote up no blocks', () => {
 	// Only finding 1 has a block; the severities all come from the table.
-	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*5 findings/);
+	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*1 major/);
 });
 
 test('renderStepSummary omits a breakdown it cannot read', () => {
@@ -367,7 +367,7 @@ test('renderPrComment carries the marker and a run or report link in every state
 
 test('renderPrComment on a finished run is a title, the tally and the report link', () => {
 	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
 test('renderPrComment running state names the head and links the run', () => {
@@ -388,7 +388,7 @@ test('renderPrComment points at the artifact when the upload failed', () => {
 
 test('renderPrComment flags a partial run that still wrote a report', () => {
 	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /^5 findings \u00b7/m);
+	assert.match(body, /^1 major \u00b7/m);
 	assert.match(body, /turn cap/);
 });
 
@@ -469,6 +469,12 @@ test('renderSummaryTarget leaves the PR off when there is none', () => {
 	assert.equal(renderSummaryTarget('', 'o/r', ''), '');
 });
 
+test('renderSummaryTarget puts the focus, on one line, before the branch', () => {
+	assert.equal(renderSummaryTarget('main', 'o/r', '', ' the plots pane\n\nzoom '), 'the plots pane zoom · `main`\n\n');
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', '12', 'zoom'), 'PR [#12](https://github.com/o/r/pull/12) · zoom · `fix/x`\n\n');
+	assert.equal(renderSummaryTarget('main', 'o/r', '', '  \n'), '`main`\n\n');
+});
+
 // run.mjs and gate.mjs run only in CI and no test imports them.
 test('every script in the action parses', async () => {
 	const { spawnSync } = await import('node:child_process');
@@ -497,4 +503,18 @@ test('buildVerifyPrompt fills verifier.md with the run paths and diff range', ()
 test('buildVerifyPrompt throws when the template and its values drift apart', () => {
 	assert.throws(() => buildVerifyPrompt(`${VERIFIER}\n{{NEW_THING}}`, RUN), /no value for \{\{NEW_THING\}\}/);
 	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
+});
+
+test('buildTaskLine targets the diff when no focus is given', () => {
+	for (const focus of ['', '  \n ', undefined]) {
+		const line = buildTaskLine(focus);
+		assert.match(line, /^Read the diff/);
+		assert.doesNotMatch(line, /asked you to test/);
+	}
+});
+
+test('buildTaskLine quotes a multi-line focus and makes it the target', () => {
+	const line = buildTaskLine('  the plots pane\n\nwith a dark theme  ');
+	assert.match(line, /asked you to test this:\n\n> the plots pane\n>\n> with a dark theme\n\n/);
+	assert.match(line, /The diff is context/);
 });

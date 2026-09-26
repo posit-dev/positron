@@ -316,11 +316,38 @@ export function isProductPath(path) {
 }
 
 /**
+ * What the explore job provides, shown to both the gate and the explorer. The
+ * e2e lanes reach far more (service containers, Tailscale, Docker hosts,
+ * licenses, provider keys); without this list the gate waves through changes
+ * only reachable there and the explorer files the missing service as a bug.
+ * Keep it in step with test-exploratory.yml's explore job.
+ */
+export const ENVIRONMENT = [
+	'Available in this run:',
+	'- Positron desktop (Electron) on Linux, compiled from the branch, in a disposable container you run as root.',
+	'- Python and R, several versions of each, including a conda Python and a venv at `/root/.venv`.',
+	'- Positron Assistant signed in with Anthropic.',
+	'- Open internet: extensions, PyPI and CRAN install normally.',
+	'- A Postgres server at host `postgres`, port 5432, database `periodic`, as `$E2E_POSTGRES_USER` / `$E2E_POSTGRES_PASSWORD`.',
+	'- Snowflake as `$SNOWFLAKE_ACCOUNT` / `$SNOWFLAKE_USER` / `$SNOWFLAKE_PASSWORD`, and Databricks as `$DATABRICKS_WORKSPACE` / `$DATABRICKS_PAT`.',
+	'- Assistant keys for other providers, not signed in: OpenAI `$OPENAI_KEY`, Microsoft Foundry `$MS_FOUNDRY_KEY` at `$MS_FOUNDRY_BASE_URL`, Snowflake Cortex `$SNOWFLAKE_API_KEY` with `$SNOWFLAKE_ACCOUNT`, Databricks `$DATABRICKS_PAT` with `$DATABRICKS_WORKSPACE`.',
+	'',
+	'Not available, and not installable in this run:',
+	'- Positron Web or server mode (no license), and any browser other than the Electron app.',
+	'- Remote SSH, WSL, a Jupyter server, Posit Workbench and Posit Connect: they need a Docker host or a license this container has not got.',
+	'- Redshift (private network) and any database not listed above.',
+	'- Bedrock and Posit AI sign-in.',
+	'- Windows and macOS.',
+].join('\n');
+
+/**
  * The step summary's first line: what was tested, so a run is identifiable
  * without opening its report. The PR part is left off when there is none.
  */
-export function renderSummaryTarget(branch, repo, number) {
+export function renderSummaryTarget(branch, repo, number, focus) {
+	const asked = String(focus ?? '').replace(/\s+/g, ' ').trim();
 	const parts = repo && /^\d+$/.test(String(number ?? '')) ? [`PR [#${number}](https://github.com/${repo}/pull/${number})`] : [];
+	if (asked) { parts.push(asked); }
 	if (branch) { parts.push(`\`${branch}\``); }
 	return parts.length ? `${parts.join(' · ')}\n\n` : '';
 }
@@ -341,20 +368,22 @@ export function renderSummaryTarget(branch, repo, number) {
  * run is on the report's own Run tile; repeating either on the job page is a
  * second thing to read before getting to the one that matters.
  */
-/** The finding count and its per-severity breakdown; `breakdown` is '' with no findings. */
+/**
+ * The per-severity breakdown ("2 moderate · 3 minor"). The total only shows
+ * when there is nothing to break down: no findings, or none with a severity.
+ */
 function tallyFindings(markdown) {
 	const { findingCount, severityCounts } = parseReport(markdown);
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
 		.map(severity => `${severityCounts[severity]} ${severity}`)
 		.join(' \u00b7 ');
-	const count = findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
-	return { count, breakdown };
+	if (breakdown) { return breakdown; }
+	return findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
 }
 
 export function renderStepSummary(markdown, baseUrl) {
-	const { count, breakdown } = tallyFindings(markdown);
-	const tally = breakdown ? `${count} \u00b7 ${breakdown}` : count;
+	const tally = tallyFindings(markdown);
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
@@ -401,8 +430,7 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
 	if (markdown && (state === 'complete' || state === 'partial')) {
-		const { count, breakdown } = tallyFindings(markdown);
-		const lines = [breakdown ? `${count} \u00b7 ${breakdown}` : count];
+		const lines = [tallyFindings(markdown)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
 		return comment(lines);
@@ -431,4 +459,24 @@ export function withPrLine(markdown, repo, number) {
 	}
 	lines.splice(meta + 1, 0, '', `PR: ${repo}#${number}`);
 	return lines.join('\n');
+}
+
+/**
+ * The brief's opening instruction. With no focus the target is the diff; a
+ * focus is what the person asked to test, so it replaces the diff as the
+ * target and the diff stays in the brief as context.
+ */
+export function buildTaskLine(focus) {
+	const asked = String(focus ?? '').trim();
+	if (!asked) {
+		return 'Read the diff to work out what the change is meant to do as a user would describe it, and what its blast radius is. Then explore that, as a user, and report genuine problems.';
+	}
+	const quoted = asked.split('\n').map(l => `> ${l}`.trimEnd()).join('\n');
+	return [
+		'The person who started this run asked you to test this:',
+		'',
+		quoted,
+		'',
+		'Explore that, and its blast radius, as a user, and report genuine problems. The diff is context for what this branch changed, not the target; test what they named even where the diff does not touch it.',
+	].join('\n');
 }
