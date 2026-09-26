@@ -4,30 +4,33 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch to explore."
+        description: "Branch to explore"
         required: true
         type: string
+      # Set it when the ref's PR targets a release branch.
       base:
-        description: "Branch the ref is diffed against. Set it when the ref's PR targets a release branch."
+        description: "Base branch"
         required: false
         default: "main"
         type: string
+      # The option text is also the value the explore matrix compares.
       model:
-        description: "Model to explore with. 'both' runs opus and sonnet in parallel."
+        description: "Model"
         required: false
-        default: "opus"
+        default: "Opus"
         type: choice
         options:
-          - opus
-          - sonnet
-          - both
+          - Opus
+          - Sonnet
+          - Both (Opus + Sonnet)
       worthiness_check:
         description: "Worthiness check"
         required: false
         default: true
         type: boolean
       focus:
-        description: "What to test, in your own words. Replaces the branch diff as the target and skips the worthiness check. Empty tests the diff."
+        # Replaces the branch diff as the target and skips the worthiness check.
+        description: "What to test (optional)"
         required: false
         default: ""
         type: string
@@ -347,7 +350,8 @@ jobs:
         # dispatch input inside the document it was about to parse, which only
         # held because `type: choice` happens to constrain the value.
         # On a comment, membership's model is already checked to opus or sonnet.
-        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
+        # == ignores case, so the dispatch's "Sonnet" matches 'sonnet'.
+        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
           || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
           || fromJSON('["opus"]') }}
     timeout-minutes: 90
