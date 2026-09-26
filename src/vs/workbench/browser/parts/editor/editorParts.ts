@@ -30,6 +30,9 @@ import { IStatusbarService } from '../../../services/statusbar/browser/statusbar
 import { mainWindow } from '../../../../base/browser/window.js';
 import { IModalEditorPartOptions } from '../../../../platform/editor/common/editor.js';
 import { EditorPartModalVisibleContext } from '../../../common/contextkeys.js';
+// --- Start Positron ---
+import { shouldRestoreAuxiliaryEditorPart } from './positronEditorPartsRestore.js';
+// --- End Positron ---
 
 interface IEditorPartsUIState {
 	readonly auxiliary: IAuxiliaryEditorPartState[];
@@ -525,6 +528,13 @@ export class EditorParts extends MultiWindowParts<EditorPart, IEditorPartsMement
 
 			// Create auxiliary editor parts
 			for (const auxiliaryEditorPartState of state.auxiliary) {
+				// --- Start Positron ---
+				// Not a Canvas window; see positronEditorPartsRestore.ts. The MRU
+				// below then falls back to part order.
+				if (!shouldRestoreAuxiliaryEditorPart(auxiliaryEditorPartState)) {
+					continue;
+				}
+				// --- End Positron ---
 				auxiliaryEditorPartPromises.push(this.createAuxiliaryEditorPart(auxiliaryEditorPartState));
 			}
 

@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { prepareMoveCopyEditors } from '../../../browser/parts/editor/editor.js';
 import { IAuxiliaryWindowService } from '../../../services/auxiliaryWindow/browser/auxiliaryWindowService.js';
@@ -26,6 +27,28 @@ export function mergeCanvasGroupIntoIde(group: IEditorGroup, target: IEditorGrou
 	}
 }
 
+/**
+ * Holds (see `IPositronCanvasService.holdRestoredWindow`) every auxiliary
+ * window opened from now until layout restore completes: exactly the windows
+ * `EditorParts.restoreState` brings back, which appear natively visible
+ * while the startup curtain covers only the main window. Stops listening at
+ * `whenRestored`, before Canvas entry may open a window of its own, and on
+ * dispose. Call from the Canvas startup boot before restore begins.
+ */
+export function holdRestoredAuxiliaryWindows(
+	auxiliaryWindowService: Pick<IAuxiliaryWindowService, 'onDidOpenAuxiliaryWindow'>,
+	editorGroupsService: Pick<IEditorGroupsService, 'whenRestored'>,
+	hold: (windowId: number) => Promise<void>,
+	logService: ILogService
+): IDisposable {
+	const disposables = new DisposableStore();
+	disposables.add(auxiliaryWindowService.onDidOpenAuxiliaryWindow(({ window }) => {
+		hold(window.window.vscodeWindowId).catch(error => logService.error('[canvas] Could not hold a restored window', error));
+	}));
+	editorGroupsService.whenRestored.then(() => disposables.dispose(), () => disposables.dispose());
+	return disposables;
+}
+
 export interface ICanvasRestoreSweepServices {
 	readonly auxiliaryWindowService: IAuxiliaryWindowService;
 	readonly editorGroupsService: IEditorGroupsService;
@@ -34,9 +57,10 @@ export interface ICanvasRestoreSweepServices {
 }
 
 /**
- * Layout restore brings back a dedicated Canvas window whenever the previous
- * session quit in Canvas mode; a window not presenting Canvas must not sit
- * next to one. Merge its Canvas back into the IDE as an inline tab (the
+ * A window not presenting Canvas must not sit next to a dedicated Canvas
+ * window. Layout restore no longer brings one back
+ * (positronEditorPartsRestore.ts); this catches any other that outlived
+ * Canvas mode. Merge its Canvas back into the IDE as an inline tab (the
  * conversation survives; the emptied window closes itself). Recognized by
  * the `lockCompact` trait, which only Canvas mode sets; a Canvas the user
  * popped out by hand lacks it and is left alone. Idempotent.

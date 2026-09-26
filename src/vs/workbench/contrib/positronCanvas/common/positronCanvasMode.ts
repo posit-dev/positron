@@ -82,6 +82,22 @@ export function shouldStartInCanvasMode(signals: ICanvasStartSignals): boolean {
 }
 
 /**
+ * Whether a starting window should put the Canvas startup curtain up at all:
+ * every case that boots into Canvas, plus one that will not. An explicit
+ * `--canvas` ask (a Canvas folder open from another window lands here) that
+ * only the `ai.enabled` switch vetoes gets the curtain too, so the veto is
+ * shown as a startup failure with Retry / Open Positron rather than as a
+ * plain IDE and a toast. The entry itself still refuses; AI is never enabled
+ * against the setting. Other vetoes keep their notification: another window
+ * presenting Canvas is not a failure, and an ineligible workspace has
+ * nothing a Retry could fix.
+ */
+export function shouldPresentCanvasStartup(signals: ICanvasStartSignals): boolean {
+	return shouldStartInCanvasMode(signals)
+		|| (signals.canvasFlag && !signals.aiEnabled && !signals.engagedElsewhere && signals.workspaceEligible);
+}
+
+/**
  * How an attempt to enter Canvas mode ended. Data rather than an exception so
  * every caller (curtain, palette action, forwarded launch, the assistant over
  * the command seam) can present each non-entry case with the right copy.

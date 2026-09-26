@@ -48,6 +48,84 @@ Registered by the assistant, called by Positron:
   Renaming the channel on the assistant side silently reroutes Show Logs to
   the window log until the constant catches up.
 
+## Opening another folder from Canvas (experimental)
+
+Two `positron.experimental.*` commands back Posit Assistant's Canvas
+workspace picker. They are experimental because their shape may still
+change with the picker; the assistant degrades to a static workspace name
+when they are absent.
+
+- `positron.experimental.getCanvasFolders(): Promise<string[]>` - the local
+  folders in the recently opened list, most recent first, as absolute paths.
+- `positron.experimental.switchCanvasFolder(absolutePath: string): Promise<void>`
+  - loads `absolutePath` into the Canvas window and boots that load into
+  Canvas. This is an ordinary folder load, not an in-place switch: the
+  window's document is replaced the way File > Open Folder replaces it, so
+  the new folder gets fresh storage, backups, extension hosts, and runtime
+  sessions, and Canvas goes away and comes back.
+
+What the caller can rely on:
+
+- The initial preflight changes nothing. Every refusal there rejects with a
+  localized, user-presentable message and leaves sessions, storage and
+  windows as they were: AI disabled, Canvas not presenting, a remote or
+  multi-root source, a relative path, a missing or non-folder path, a
+  folder already open in another window (checked on the logical and the
+  physical path, so a symlink alias cannot slip past), an untrusted
+  destination (both paths again; the trust prompt renders in the hidden IDE
+  and is refused rather than asked), unsaved editors, or a runtime session
+  that is busy or not settled (starting, restarting, exiting, offline,
+  interrupting). Requesting the current folder through any name is a no-op.
+- Then the runtime sessions are shut down one by one, from the live list,
+  in at most two passes. A refusal after that point (a session that turned
+  busy or arrived meanwhile, a shutdown that failed or was declined, the
+  folder changing, an unload veto) also rejects with a localized message,
+  but it is not a no-op: sessions already shut down stay shut down, and the
+  message names the session that stopped the request, not the ones already
+  gone. The folder itself, its storage and its Canvas mode flag are untouched.
+- The promise resolves when the main process has accepted the window's
+  unload and started loading the new folder. The calling extension host
+  disappears with the old document, so the caller cannot await Canvas
+  readiness in the new folder and should not treat a missing response as a
+  failure.
+- On rejection while this window is alive, Canvas is put back as it was on
+  screen: its window shown, the IDE window hidden again, the loading cards
+  gone. "As it was" means the presentation, not the runtime state (see the
+  previous point). If Canvas was closed or exited while that was happening,
+  the IDE the close or exit revealed stays visible instead.
+- If the load fails after the unload was already accepted (the window's
+  workbench has shut down by then; a backup or profile setup error), the
+  main process reloads the window into the folder it came from, as the
+  IDE, since nothing is left in that document to present the failure.
+
+What the user sees: a loading card over Canvas and over the IDE window, the
+covered IDE window shown and the Canvas window put away, then the ordinary
+window load (a plain themed background instead of the IDE layout skeleton),
+then the new folder's own Canvas startup curtain (`CanvasStartupBoot`) with
+its Retry / Open Positron / Show Logs / Quit. A Canvas startup failure in
+the new folder is therefore the existing startup failure, not a switch
+failure; Open Positron lands in the new folder. That includes a new folder
+whose own settings turn `ai.enabled` off: the explicit Canvas intent still
+puts the curtain up, and the entry fails into its card
+(`shouldPresentCanvasStartup`); AI is not enabled against the setting.
+
+Mode persistence: the folder being left stops relaunching into Canvas (its
+stored intent is removed inside the accepted load's state save, and only
+for a load; quitting or closing in Canvas keeps it), and the new folder
+records Canvas mode as any successful Canvas entry does. The load carries a
+one-use `--canvas` intent (`CanvasLaunchWindowAssigner`); an explicit
+`canvas.openOnStartup: false` on the destination still yields Canvas for
+that one load, and a later ordinary relaunch follows the setting.
+
+Where the pieces live: `electron-browser/positronCanvasFolderSwitch.ts`
+(commands and preflight), `IPositronCanvasService.openFolderWithLoadingPresentation`
+(presentation and shutdown bookkeeping), `platform/workspaces/*/positronFolderWorkspace.ts`
+(the resolver and the main-process open seam on the `workspaces` channel), and
+`platform/windows/electron-main/positronCanvasFolderOpen.ts` (the three
+routing decisions `IOpenConfiguration.positronCanvasFolderOpen` adds to the
+ordinary open: exact target, no reuse of a window already on the folder,
+awaited unload).
+
 ## Loading surfaces
 
 Two deliberate layers, not duplication:

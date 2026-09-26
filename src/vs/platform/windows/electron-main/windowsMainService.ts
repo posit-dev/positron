@@ -54,6 +54,7 @@ import { IUserDataProfile } from '../../userDataProfile/common/userDataProfile.j
 import { IPolicyService } from '../../policy/common/policy.js';
 // --- Start Positron ---
 import { CanvasLaunchWindowAssigner } from '../../launch/common/positronCanvasLaunch.js';
+import { assertCanvasFolderOpenTarget, loadCanvasFolderWindow, rejectCanvasFolderOpenCollision } from './positronCanvasFolderOpen.js';
 import { IPositronStandaloneModeMainService } from '../../positronStandaloneMode/common/positronStandaloneMode.js';
 // --- End Positron ---
 import { IUserDataProfilesMainService } from '../../userDataProfile/electron-main/userDataProfile.js';
@@ -87,6 +88,10 @@ interface IOpenBrowserWindowOptions {
 	readonly emptyWindowBackupInfo?: IEmptyWindowBackupInfo;
 	readonly forceProfile?: string;
 	readonly forceTempProfile?: boolean;
+	// --- Start Positron ---
+	/** See `IOpenConfiguration.positronCanvasFolderOpen`. */
+	readonly positronCanvasFolderOpen?: ISingleFolderWorkspaceIdentifier;
+	// --- End Positron ---
 }
 
 interface IPathResolveOptions {
@@ -375,6 +380,12 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		// Identify things to open from open config
 		const pathsToOpen = await this.getPathsToOpen(openConfig);
 		this.logService.trace('windowsManager#open pathsToOpen', pathsToOpen);
+		// --- Start Positron ---
+		// A Canvas folder open must land exactly the requested folder in the
+		// requesting window; it rejects rather than falling back to another
+		// window. No-op for every other open.
+		assertCanvasFolderOpenTarget(openConfig, pathsToOpen, typeof openConfig.contextWindowId === 'number' ? this.getWindowById(openConfig.contextWindowId) : undefined);
+		// --- End Positron ---
 		for (const path of pathsToOpen) {
 			if (isSingleFolderWorkspacePathToOpen(path)) {
 				if (openConfig.addMode) {
@@ -690,6 +701,11 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 
 			// Check for existing instances
 			const windowsOnFolderPath = coalesce(allFoldersToOpen.map(folderToOpen => findWindowOnWorkspaceOrFolder(this.getWindows(), folderToOpen.workspace.uri)));
+			// --- Start Positron ---
+			// A Canvas folder open must load, not focus a window that already
+			// shows the folder. No-op for every other open.
+			rejectCanvasFolderOpenCollision(openConfig, windowsOnFolderPath);
+			// --- End Positron ---
 			if (windowsOnFolderPath.length > 0) {
 				const windowOnFolderPath = windowsOnFolderPath[0];
 				const filesToOpenInWindow = isEqualAuthority(filesToOpen?.remoteAuthority, windowOnFolderPath.remoteAuthority) ? filesToOpen : undefined;
@@ -835,7 +851,10 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			filesToOpen,
 			windowToUse,
 			forceProfile: openConfig.forceProfile,
-			forceTempProfile: openConfig.forceTempProfile
+			forceTempProfile: openConfig.forceTempProfile,
+			// --- Start Positron ---
+			positronCanvasFolderOpen: openConfig.positronCanvasFolderOpen
+			// --- End Positron ---
 		});
 	}
 
@@ -1719,6 +1738,34 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		// Update window identifier and session now
 		// that we have the window object in hand.
 		configuration.windowId = window.id;
+
+		// --- Start Positron ---
+		// A Canvas folder open awaits the unload's answer: a veto rejects the
+		// open instead of being swallowed by the scheduled `.then` below, and
+		// the open resolves only once the new load is under way. Every other
+		// open keeps the upstream scheduling.
+		if (options.positronCanvasFolderOpen) {
+			await loadCanvasFolderWindow(
+				window,
+				options.windowToUse?.id,
+				() => this.lifecycleMainService.unload(window, UnloadReason.LOAD),
+				() => this.doOpenInBrowserWindow(window, configuration, options, defaultProfile),
+				() => {
+					this.logService.error(`[canvas] Loading ${options.positronCanvasFolderOpen?.uri.fsPath} into window ${window.id} failed after its unload was accepted; reloading it into its current folder`);
+					window.reload();
+				},
+				() => {
+					const canLoad = !this.lifecycleMainService.quitRequested && !!window.win && !window.win.isDestroyed();
+					if (!canLoad) {
+						this.logService.info(`[canvas] Not loading ${options.positronCanvasFolderOpen?.uri.fsPath} into window ${window.id}: a quit or close took over its unload`);
+					}
+					return canLoad;
+				}
+			);
+
+			return window;
+		}
+		// --- End Positron ---
 
 		// If the window was already loaded, make sure to unload it
 		// first and only load the new configuration if that was
