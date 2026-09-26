@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
-import { PositronHelpComm, ShowHelpEvent } from './positronHelpComm.js';
+import { HelpTopicSuggestion, PositronHelpComm, ShowHelpEvent } from './positronHelpComm.js';
 
 /**
  * A help client instance.
@@ -44,6 +44,14 @@ export class HelpClientInstance extends Disposable {
 	 */
 	async showHelpTopic(topic: string): Promise<boolean> {
 		return this._comm.showHelpTopic(topic);
+	}
+
+	searchHelp(query: string): Promise<boolean> {
+		return this._comm.searchHelp(query);
+	}
+
+	getHelpTopics(): Promise<HelpTopicSuggestion[]> {
+		return this._comm.getHelpTopics();
 	}
 
 	onDidEmitHelpContent: Event<ShowHelpEvent>;

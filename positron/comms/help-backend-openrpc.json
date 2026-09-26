@@ -24,6 +24,67 @@
 					"description": "Whether the topic was found and shown. Topics are shown via a Show Help notification."
 				}
 			}
+		},
+		{
+			"name": "search_help",
+			"summary": "Search the active interpreter's help system.",
+			"description": "Searches interpreter-wide help and displays the resulting page via a Show Help notification.",
+			"params": [
+				{
+					"name": "query",
+					"description": "The help query to search for",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "boolean",
+					"description": "Whether the search results page was shown."
+				}
+			}
+		},
+		{
+			"name": "get_help_topics",
+			"summary": "List help topics for autocomplete.",
+			"description": "Returns interpreter-wide help topics that can be offered as search suggestions.",
+			"params": [],
+			"result": {
+				"schema": {
+					"type": "array",
+					"description": "Help topic suggestions.",
+					"items": {
+						"$ref": "#/components/schemas/help_topic_suggestion"
+					}
+				}
+			}
 		}
-	]
+	],
+	"components": {
+		"schemas": {
+			"help_topic_suggestion": {
+				"type": "object",
+				"description": "A help topic offered as an autocomplete suggestion.",
+				"properties": {
+					"label": {
+						"type": "string",
+						"description": "The topic label shown to the user."
+					},
+					"topic": {
+						"type": "string",
+						"description": "The exact topic value used to open help."
+					},
+					"detail": {
+						"type": "string",
+						"description": "Optional context such as the package containing the topic."
+					}
+				},
+				"required": [
+					"label",
+					"topic"
+				]
+			}
+		}
+	}
 }

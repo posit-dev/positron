@@ -2,3 +2,87 @@
  *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+.help-search {
+	position: relative;
+	display: flex;
+	align-items: center;
+	width: 100%;
+	max-width: 240px;
+	height: 24px;
+	box-sizing: border-box;
+	border: 1px solid var(--vscode-positronActionBar-textInputBorder);
+	border-radius: 4px;
+	background: var(--vscode-positronActionBar-textInputBackground);
+}
+
+.help-search:focus-within {
+	border-color: var(--vscode-focusBorder);
+}
+
+.help-search > .codicon {
+	margin-left: 6px;
+	opacity: 0.7;
+}
+
+.help-search input {
+	min-width: 0;
+	flex: 1;
+	padding: 3px 5px;
+	border: 0;
+	outline: 0;
+	color: var(--vscode-positronActionBar-foreground);
+	background: transparent;
+}
+
+.help-search input::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.help-search > button,
+.help-search-suggestions > button {
+	border: 0;
+	color: inherit;
+	background: transparent;
+}
+
+.help-search > button {
+	display: flex;
+	padding: 3px;
+	margin-right: 2px;
+	cursor: pointer;
+}
+
+.help-search-suggestions {
+	position: absolute;
+	z-index: 40;
+	top: calc(100% + 2px);
+	left: 0;
+	right: 0;
+	max-height: 320px;
+	overflow-y: auto;
+	padding: 3px 0;
+	border: 1px solid var(--vscode-editorSuggestWidget-border);
+	background: var(--vscode-editorSuggestWidget-background);
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow);
+}
+
+.help-search-suggestions > button {
+	display: flex;
+	width: 100%;
+	padding: 3px 7px;
+	cursor: pointer;
+	text-align: left;
+	justify-content: space-between;
+}
+
+.help-search-suggestions > button:hover,
+.help-search-suggestions > button.active {
+	color: var(--vscode-editorSuggestWidget-selectedForeground);
+	background: var(--vscode-editorSuggestWidget-selectedBackground);
+}
+
+.help-search-suggestions .detail {
+	margin-left: 8px;
+	opacity: 0.7;
+}
