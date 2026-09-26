@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildVerifyPrompt, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { buildVerifyPrompt, buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -93,15 +93,15 @@ test('resolveReport returns null when the file is absent and no message looks li
 
 test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'),
-		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'),
+		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
 test('buildShotsBaseUrl trims exactly one trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu/'),
-		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu/'),
+		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
@@ -497,4 +497,18 @@ test('buildVerifyPrompt fills verifier.md with the run paths and diff range', ()
 test('buildVerifyPrompt throws when the template and its values drift apart', () => {
 	assert.throws(() => buildVerifyPrompt(`${VERIFIER}\n{{NEW_THING}}`, RUN), /no value for \{\{NEW_THING\}\}/);
 	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
+});
+
+test('buildTaskLine targets the diff when no focus is given', () => {
+	for (const focus of ['', '  \n ', undefined]) {
+		const line = buildTaskLine(focus);
+		assert.match(line, /^Read the diff/);
+		assert.doesNotMatch(line, /asked you to test/);
+	}
+});
+
+test('buildTaskLine quotes a multi-line focus and makes it the target', () => {
+	const line = buildTaskLine('  the plots pane\n\nwith a dark theme  ');
+	assert.match(line, /asked you to test this:\n\n> the plots pane\n>\n> with a dark theme\n\n/);
+	assert.match(line, /The diff is context/);
 });

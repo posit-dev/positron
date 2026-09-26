@@ -432,3 +432,23 @@ export function withPrLine(markdown, repo, number) {
 	lines.splice(meta + 1, 0, '', `PR: ${repo}#${number}`);
 	return lines.join('\n');
 }
+
+/**
+ * The brief's opening instruction. With no focus the target is the diff; a
+ * focus is what the person asked to test, so it replaces the diff as the
+ * target and the diff stays in the brief as context.
+ */
+export function buildTaskLine(focus) {
+	const asked = String(focus ?? '').trim();
+	if (!asked) {
+		return 'Read the diff to work out what the change is meant to do as a user would describe it, and what its blast radius is. Then explore that, as a user, and report genuine problems.';
+	}
+	const quoted = asked.split('\n').map(l => `> ${l}`.trimEnd()).join('\n');
+	return [
+		'The person who started this run asked you to test this:',
+		'',
+		quoted,
+		'',
+		'Explore that, and its blast radius, as a user, and report genuine problems. The diff is context for what this branch changed, not the target; test what they named even where the diff does not touch it.',
+	].join('\n');
+}

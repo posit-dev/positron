@@ -26,6 +26,11 @@ on:
         required: false
         default: true
         type: boolean
+      focus:
+        description: "What to test, in your own words. Replaces the branch diff as the target and skips the worthiness check. Empty tests the diff."
+        required: false
+        default: ""
+        type: string
   # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
   # code, so the membership job is the entire defence. See its comment.
@@ -68,6 +73,7 @@ jobs:
       head_ref: ${{ steps.check.outputs.head_ref }}
       base_ref: ${{ steps.check.outputs.base_ref }}
       model: ${{ steps.check.outputs.model }}
+      focus: ${{ steps.check.outputs.focus }}
     steps:
       - name: Mint org-scoped App token
         id: app-token
@@ -105,9 +111,20 @@ jobs:
           # a typo is visible.
           arg=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print tolower($2); exit }')
           case "$arg" in
-            opus|sonnet) model=$arg ;;
-            *) model=opus ;;
+            opus|sonnet) model=$arg; skip=2 ;;
+            *) model=opus; skip=1 ;;
           esac
+
+          # Everything after the command (and the model, if given) is the
+          # focus, including later lines: "/test sonnet the plots pane".
+          focus=$(printf '%s\n' "$BODY" | tr -d '\r' | awk -v skip="$skip" '
+            !started && NF {
+              started = 1
+              for (i = 0; i < skip; i++) sub(/^[ \t]*[^ \t]+/, "")
+              sub(/^[ \t]+/, "")
+            }
+            started { print }
+          ' | sed '/./,$!d')
 
           # Active member: 200 {"state":"active"}. Non-member: 404, empty
           # stdout. Pending invite: "pending", which does not count.
@@ -141,9 +158,13 @@ jobs:
             echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
             echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
             echo "model=$model"
+            # Random delimiter: the focus is comment text and must not be able
+            # to close the heredoc and set other outputs.
+            delim="FOCUS_$(openssl rand -hex 16)"
+            printf 'focus<<%s\n%s\n%s\n' "$delim" "$focus" "$delim"
             echo "ok=true"
           } >> "$GITHUB_OUTPUT"
-          echo "Membership gate: ok (model=$model)"
+          echo "Membership gate: ok (model=$model, focus: ${focus:-none})"
 
   # Decides whether the change is worth testing, before anything is built. Not
   # to be confused with `membership`, which decides who may run this at all.
@@ -154,13 +175,14 @@ jobs:
     name: worthiness
     needs: [membership]
     # Runs on every /test (there is no input to turn it off there) and on a
-    # dispatch that leaves it on. Behind membership on a comment, because it
-    # checks out the PR and gives an agent a shell in it. always(): membership
-    # is skipped on dispatch.
+    # dispatch that leaves it on, unless a focus names what to test: the gate
+    # rules on the diff, and a named feature is the person's call. Behind
+    # membership on a comment, because it checks out the PR and gives an agent
+    # a shell in it. always(): membership is skipped on dispatch.
     if: >-
       ${{ always() &&
-      ((github.event_name == 'workflow_dispatch' && inputs.worthiness_check) ||
-        needs.membership.outputs.ok == 'true') }}
+      ((github.event_name == 'workflow_dispatch' && inputs.worthiness_check && inputs.focus == '') ||
+        (needs.membership.outputs.ok == 'true' && needs.membership.outputs.focus == '')) }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -509,7 +531,8 @@ jobs:
       - name: Allocate report dir
         uses: ./.harness/.github/actions/gen-report-dir
         with:
-          identifier: exploratory-${{ matrix.model }}
+          prefix: exploratory-report
+          identifier: ${{ matrix.model }}
           skip-summary: "true"
 
       - name: Allocate run directory
@@ -522,8 +545,20 @@ jobs:
           echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
           mkdir -p /tmp/exploratory-run/shots
 
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
       - name: Launch Positron
         shell: bash
+        env:
+          # Assistant reads provider keys from the environment, so the app
+          # starts signed in and the explorer can exercise it.
+          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
         run: |
           set -euo pipefail
           LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
@@ -554,14 +589,6 @@ jobs:
           test -n "$TITLE" || { echo "document.title is empty"; exit 1; }
           npx @playwright/cli -s=positron screenshot --filename="$EXPLORE_DIR/attach-proof.png"
           test -s "$EXPLORE_DIR/attach-proof.png" || { echo "screenshot empty"; exit 1; }
-
-      - name: Load secret
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
-        env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       # A dispatched run has no PR in its event. Find the ref's open PR so the
       # summary and report can link it; none found just means no link.
@@ -599,8 +626,25 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
+          focus: ${{ inputs.focus || needs.membership.outputs.focus }}
           # The PR link in the summary and the report header. No PR, no link.
           pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
+
+      # The app and the agent both hold the key, and everything below is
+      # published: the run directory to a public CDN, the rest as an artifact.
+      - name: Redact the API key from run output
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ANTHROPIC_KEY:-}" || exit 0
+          for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
+            [ -d "$DIR" ] || continue
+            grep -rlIF -- "$ANTHROPIC_KEY" "$DIR" 2>/dev/null | while IFS= read -r FILE; do
+              echo "Redacting key from $FILE"
+              perl -pi -e 's/\Q$ENV{ANTHROPIC_KEY}\E/[REDACTED]/g' "$FILE"
+            done || true
+          done
 
       - name: Stage publishable run directory
         if: always()

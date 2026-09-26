@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { buildVerifyPrompt, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
+import { buildVerifyPrompt, buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -28,6 +28,8 @@ const BRANCH = mustEnv('BRANCH');
 const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
+// What the person asked to test; empty tests the diff.
+const FOCUS = process.env.FOCUS || '';
 // Unset leaves each model at its own default effort.
 const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
@@ -185,7 +187,7 @@ async function main() {
 		'',
 		'## Your task',
 		'',
-		'Read the diff to work out what the change is meant to do as a user would describe it, and what its blast radius is. Then explore that, as a user, and report genuine problems.',
+		buildTaskLine(FOCUS),
 		'',
 		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
 		'',
