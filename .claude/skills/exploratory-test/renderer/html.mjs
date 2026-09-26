@@ -951,7 +951,7 @@ function renderCoverage(report, options = {}) {
 		: '';
 
 	return `<section id="coverage" class="section">
-<div class="section-head"><h2 class="section-label">Coverage</h2></div>
+<div class="section-head"><h2 class="section-label">Exploratory Coverage</h2></div>
 ${report.scopeHtml ? `<p class="card-summary">${report.scopeHtml}</p>` : ''}
 <div class="cf" role="group" aria-label="Filter scenarios">
 ${radios}

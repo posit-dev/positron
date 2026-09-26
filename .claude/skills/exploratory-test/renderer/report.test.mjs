@@ -528,7 +528,7 @@ test('renderReportHtml counts each coverage kind on its filter tab', () => {
 	assert.match(html, /<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-i" class="cf-radio"><input type="radio" name="cf" id="cf-p" class="cf-radio"><input type="radio" name="cf" id="cf-n" class="cf-radio">\n<div class="cf-tabs">/);
 	// One table: no subheadings, no dashed second table.
 	assert.doesNotMatch(html, /cov-title|panel dashed|cov-group/);
-	assert.match(html, /<div class="section-head"><h2 class="section-label">Coverage<\/h2><\/div>/);
+	assert.match(html, /<div class="section-head"><h2 class="section-label">Exploratory Coverage<\/h2><\/div>/);
 });
 
 test('renderReportHtml omits a filter tab with no rows, but never All', () => {
