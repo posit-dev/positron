@@ -569,7 +569,7 @@ function issueStep(step, observed) {
  * The finding as a GitHub issue body, for an engineer rather than an agent:
  * loosely Positron's issue template, from the same parsed fields as the card.
  * No severity or status, which triage sets; no instructions, and no local path.
- * Screenshots are listed, not embedded, because CI storage expires.
+ * Evidence is a pointer to the report, not a list: its file names open nothing here.
  * `trim` (0 to ISSUE_TRIMS.length) drops that many of ISSUE_TRIMS, least
  * needed first, for a body too long for the new-issue link.
  */
@@ -619,10 +619,7 @@ export function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	};
 	const errors = errorOutput(f, p => p, clip);
 	section('Error messages', !errors ? 'None recorded by the run.' : drop.has('errors') ? `In the ${by} report for this run.` : errors);
-	const evidence = evidenceItems(f, p => p, e => e.file);
-	section('Evidence', evidence && (drop.has('evidence')
-		? `Screenshots and logs are in the ${by} report for this run.`
-		: `Screenshots and logs are in the ${by} report for this run:\n${evidence}`));
+	section('Evidence', evidenceItems(f, p => p, e => e.file) && `Screenshots and logs are in the ${by} report for this run.`);
 
 	if (t.cause && !drop.has('cause')) {
 		fold('Likely cause (hypothesis, not verified)', capitalize(t.cause));
@@ -648,7 +645,7 @@ function issueHref(title, body) {
 
 // What a body too long for the link gives up, in order: each is on the report,
 // and what is left is the repro an engineer files from.
-const ISSUE_TRIMS = ['fileText', 'evidence', 'regression', 'cause', 'errors'];
+const ISSUE_TRIMS = ['fileText', 'regression', 'cause', 'errors'];
 
 /**
  * The new-issue link for a finding, as `{ href, text, copy }`. The body goes in

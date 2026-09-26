@@ -1861,7 +1861,8 @@ test('issue: the body follows the template and leaves out what triage sets', () 
 	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
 	assert.doesNotMatch(body, /^\s*Log:/m);
 	assert.match(body, /## Error messages\n```\nError: get_column_profiles timed out/);
-	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run:\n- 09-one12-unavailable\.png/m);
+	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run\.$/m);
+	assert.doesNotMatch(body, /09-one12-unavailable\.png/);
 	// The bullets say what they are.
 	assert.doesNotMatch(body, /Preconditions/);
 	assert.match(body, /## Steps to reproduce\n- `slow\.py` \(below\) loaded[^\n]*\n\n1\. /);
@@ -1887,7 +1888,7 @@ test('issue: the likely cause folds as a hypothesis, and a local run links no re
 	assert.match(body, /<details><summary>[^<]*hypothesis[^<]*<\/summary>\n\nThe timeout was cut to 10 s\.\n\n<\/details>/);
 	assert.match(body, /^<sub>Reported by exploratory test /);
 	assert.doesNotMatch(body, /\/runs\/r1/);
-	assert.match(body, /^Screenshots and logs are in the exploratory test report for this run:$/m);
+	assert.match(body, /^Screenshots and logs are in the exploratory test report for this run\.$/m);
 	assert.match(body, /\*\*Positron and OS:\*\* {2}\nNot recorded\n/);
 });
 
@@ -1948,7 +1949,7 @@ test('issue: a body too long for the link drops sections least needed first, and
 	const body = url.searchParams.get('body');
 	assert.ok(url.href.length <= 8000);
 	assert.doesNotMatch(issueAnchor(html, 1), /data-issue=/);
-	// Dropped in order up to the cause: files, the evidence list, the regression test, the cause.
+	// Dropped in order up to the cause: files, the regression test, the cause.
 	assert.doesNotMatch(body, /Likely cause|Regression test|<summary>slow\.py/);
 	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run\.$/m);
 	// Not reached: the repro and the error output stay.
