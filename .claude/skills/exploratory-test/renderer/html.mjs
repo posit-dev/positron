@@ -570,9 +570,11 @@ function issueStep(step, observed) {
  * loosely Positron's issue template, from the same parsed fields as the card.
  * No severity or status, which triage sets; no instructions, and no local path.
  * Screenshots are listed, not embedded, because CI storage expires.
- * `fileText: false` swaps each saved file's text for where to find it.
+ * `trim` (0 to ISSUE_TRIMS.length) drops that many of ISSUE_TRIMS, least
+ * needed first, for a body too long for the new-issue link.
  */
-export function buildIssueBody(f, report, options = {}, { fileText = true } = {}) {
+export function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
+	const drop = new Set(ISSUE_TRIMS.slice(0, trim));
 	const t = f.text;
 	const [branch, sha] = report.chips;
 	const url = reportUrl(options.base);
@@ -615,19 +617,22 @@ export function buildIssueBody(f, report, options = {}, { fileText = true } = {}
 		const lines = raw.split('\n');
 		return lines.length > ISSUE_ERROR_LINES ? [...lines.slice(0, ISSUE_ERROR_LINES), '    \u2026'].join('\n') : raw;
 	};
-	section('Error messages', errorOutput(f, p => p, clip) || 'None recorded by the run.');
+	const errors = errorOutput(f, p => p, clip);
+	section('Error messages', !errors ? 'None recorded by the run.' : drop.has('errors') ? `In the ${by} report for this run.` : errors);
 	const evidence = evidenceItems(f, p => p, e => e.file);
-	section('Evidence', evidence && `Screenshots and logs are in the ${by} report for this run:\n${evidence}`);
+	section('Evidence', evidence && (drop.has('evidence')
+		? `Screenshots and logs are in the ${by} report for this run.`
+		: `Screenshots and logs are in the ${by} report for this run:\n${evidence}`));
 
-	if (t.cause) {
+	if (t.cause && !drop.has('cause')) {
 		fold('Likely cause (hypothesis, not verified)', capitalize(t.cause));
 	}
 	const regression = regressionTest(f);
-	if (regression) {
+	if (regression && !drop.has('regression')) {
 		fold(regression.heading, regression.body);
 	}
 	for (const file of files) {
-		const source = fileText ? fileSource(file) : null;
+		const source = drop.has('fileText') ? null : fileSource(file);
 		if (source) {
 			fold(escapeHtml(file.name), fenced(source.text, source.lang));
 		} else {
@@ -641,15 +646,20 @@ function issueHref(title, body) {
 	return `${ISSUE_NEW_URL}?title=${encodeURIComponent(title)}&labels=exploratory${body === undefined ? '' : `&body=${encodeURIComponent(body)}`}`;
 }
 
+// What a body too long for the link gives up, in order: each is on the report,
+// and what is left is the repro an engineer files from.
+const ISSUE_TRIMS = ['fileText', 'evidence', 'regression', 'cause', 'errors'];
+
 /**
  * The new-issue link for a finding, as `{ href, text, copy }`. The body goes in
- * the link when it fits, first with the saved files' text and then without.
- * When neither fits, the link carries the title alone and `copy` is set: the
- * page copies `text`, the full body, on click instead.
+ * the link with as few of ISSUE_TRIMS dropped as it takes to fit. When even the
+ * shortest does not fit, the link carries the title alone and `copy` is set:
+ * the page copies `text`, the full body, on click instead.
  */
 export function issueLink(f, report, options = {}) {
 	const full = buildIssueBody(f, report, options);
-	for (const text of [full, buildIssueBody(f, report, options, { fileText: false })]) {
+	for (let trim = 0; trim <= ISSUE_TRIMS.length; trim++) {
+		const text = trim ? buildIssueBody(f, report, options, { trim }) : full;
 		const href = issueHref(f.title, text);
 		if (href.length <= ISSUE_URL_MAX) {
 			return { href, text, copy: false };

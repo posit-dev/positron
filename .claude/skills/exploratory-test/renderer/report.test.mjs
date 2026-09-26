@@ -1941,6 +1941,22 @@ test('issue: a body too long for the link drops the file text, then falls back t
 	assert.match(src, /,5000\)/);
 });
 
+test('issue: a body too long for the link drops sections least needed first, and keeps the repro', () => {
+	const long = LOGS_REPORT.replace(/^\*\*Expected:\*\* /m, `**Cause:** ${'long hypothesis. '.repeat(400)}\n\n**Expected:** `);
+	const html = renderReportHtml(long, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const url = issueUrl(html, 1);
+	const body = url.searchParams.get('body');
+	assert.ok(url.href.length <= 8000);
+	assert.doesNotMatch(issueAnchor(html, 1), /data-issue=/);
+	// Dropped in order up to the cause: files, the evidence list, the regression test, the cause.
+	assert.doesNotMatch(body, /Likely cause|Regression test|<summary>slow\.py/);
+	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run\.$/m);
+	// Not reached: the repro and the error output stay.
+	assert.match(body, /## Steps to reproduce/);
+	assert.match(body, /## Actual\nThe summary never loads/);
+	assert.doesNotMatch(body, /## Error messages\n(?:In the|None recorded)/);
+});
+
 test('issue: a saved script cannot end the embedded block early', () => {
 	const html = renderReportHtml(md([
 		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
