@@ -260,7 +260,7 @@ const SUMMARY_MD = [
 
 test('renderStepSummary is a tally and two links, and nothing else', () => {
 	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run');
-	assert.match(summary, /^\*\*5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
+	assert.match(summary, /^\*\*1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
 	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
 	assert.match(summary, /\[Agent Report\]\(https:\/\/cdn\.example\/run\/report\.md\)/);
 	// The body of the report belongs on its own page, not pasted in here.
@@ -275,7 +275,7 @@ test('renderStepSummary is a tally and two links, and nothing else', () => {
 
 test('renderStepSummary counts the table when the report wrote up no blocks', () => {
 	// Only finding 1 has a block; the severities all come from the table.
-	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*5 findings/);
+	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*1 major/);
 });
 
 test('renderStepSummary omits a breakdown it cannot read', () => {
@@ -367,7 +367,7 @@ test('renderPrComment carries the marker and a run or report link in every state
 
 test('renderPrComment on a finished run is a title, the tally and the report link', () => {
 	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
 test('renderPrComment running state names the head and links the run', () => {
@@ -388,7 +388,7 @@ test('renderPrComment points at the artifact when the upload failed', () => {
 
 test('renderPrComment flags a partial run that still wrote a report', () => {
 	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /^5 findings \u00b7/m);
+	assert.match(body, /^1 major \u00b7/m);
 	assert.match(body, /turn cap/);
 });
 

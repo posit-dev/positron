@@ -343,20 +343,22 @@ export function renderSummaryTarget(branch, repo, number, focus) {
  * run is on the report's own Run tile; repeating either on the job page is a
  * second thing to read before getting to the one that matters.
  */
-/** The finding count and its per-severity breakdown; `breakdown` is '' with no findings. */
+/**
+ * The per-severity breakdown ("2 moderate · 3 minor"). The total only shows
+ * when there is nothing to break down: no findings, or none with a severity.
+ */
 function tallyFindings(markdown) {
 	const { findingCount, severityCounts } = parseReport(markdown);
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
 		.map(severity => `${severityCounts[severity]} ${severity}`)
 		.join(' \u00b7 ');
-	const count = findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
-	return { count, breakdown };
+	if (breakdown) { return breakdown; }
+	return findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
 }
 
 export function renderStepSummary(markdown, baseUrl) {
-	const { count, breakdown } = tallyFindings(markdown);
-	const tally = breakdown ? `${count} \u00b7 ${breakdown}` : count;
+	const tally = tallyFindings(markdown);
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
@@ -403,8 +405,7 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
 	if (markdown && (state === 'complete' || state === 'partial')) {
-		const { count, breakdown } = tallyFindings(markdown);
-		const lines = [breakdown ? `${count} \u00b7 ${breakdown}` : count];
+		const lines = [tallyFindings(markdown)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
 		return comment(lines);
