@@ -78,6 +78,7 @@ echo 'stderr value' >&2
 			'-p',
 			'2200',
 			'-T',
+			'--',
 			'remote-user@original-alias',
 			'printf command',
 		]);

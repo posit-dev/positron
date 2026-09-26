@@ -63,6 +63,7 @@ export default class NativeSSHConnection implements SSHTransport {
 			'-T',
 			'-o', 'ExitOnForwardFailure=yes',
 			...forwardArgs,
+			'--',
 			this.target(),
 		];
 
@@ -114,7 +115,7 @@ export default class NativeSSHConnection implements SSHTransport {
 	}
 
 	private runCommand(command: string, tester?: (stdout: string, stderr: string) => boolean): Promise<SSHCommandResult> {
-		const args = [...this.connectionArgs(), '-T', this.target(), command];
+		const args = [...this.connectionArgs(), '-T', '--', this.target(), command];
 		this.options.logger.trace(`Spawning native SSH command: ${this.options.executable} ${args.slice(0, -1).join(' ')}`);
 
 		return new Promise((resolve, reject) => {
