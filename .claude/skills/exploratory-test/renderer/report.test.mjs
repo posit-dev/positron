@@ -1496,6 +1496,12 @@ test('ledger: Coverage and the Scenarios tile come from the ledger, not the repo
 	assert.doesNotMatch(cov, /Everything in scope was exercised/);
 });
 
+test('ledger: a finding row links every finding its steps failed on, not just its first', () => {
+	const ledger = LEDGER.replace('5. VERIFY The summary loads after Retry. -> FAIL - Finding 1', '5. VERIFY The summary loads after Retry. -> FAIL - Finding 2');
+	const cov = coverageOf(renderReportHtml(TYPED, { ledger }));
+	assert.match(cov, /<a href="#f1" class="cv-f">Finding 1<\/a> &middot; <a href="#f2" class="cv-f">Finding 2<\/a> &middot; Fails 3\/3/);
+});
+
 test('ledger: an expanded row shows P plus short names, with the how-to in a popover', () => {
 	const cov = coverageOf(renderReportHtml(TYPED, { ledger: LEDGER }));
 	const row = /<details class="cv cf-r cf-p" id="cv-row-5">[\s\S]*?<\/details>/.exec(cov)[0];
