@@ -10,7 +10,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
+import { renderReportHtml, linkedLogs, skillVersion } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 import { buildVerifyPrompt, buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome, ENVIRONMENT } from './lib.mjs';
 
@@ -362,6 +362,7 @@ async function main() {
 				ledger,
 				// Evidence in the prompt has to open from wherever it is pasted.
 				base: REPORT_BASE_URL || WORK_DIR,
+				skillVersion: skillVersion(),
 				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
 				fileExists,
 				readFile,

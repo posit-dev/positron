@@ -61,6 +61,8 @@ test('uploads a redacted copy, rendered for its URL, without actions.log or the 
 	// The uploaded page links its issues back to itself; the local one is left alone.
 	assert.ok(readFileSync(join(out, 'index.html'), 'utf8').includes(encodeURIComponent(`(${url}/index.html#f1)`)));
 	assert.equal(readFileSync(join(run, 'index.html'), 'utf8'), '<p>local page</p>');
+	// So does its feedback: only a published page asks for it.
+	assert.ok(readFileSync(join(out, 'index.html'), 'utf8').includes(`entry.1746253506=${encodeURIComponent(`${url}/index.html#f1`)}&amp;`));
 	assert.equal(readFileSync(join(out, 'logs/9222-renderer.log'), 'utf8'), 'curated [REDACTED]\n');
 	assert.ok(existsSync(join(out, 'shots/S01-01.png')));
 	assert.ok(!existsSync(join(out, 'actions.log')));

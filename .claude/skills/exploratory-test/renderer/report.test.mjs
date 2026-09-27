@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { modelDisplayName, parseLedger, parseReport, parseSystemLine, safeUrl } from './report-parse.mjs';
-import { renderReportHtml } from './html.mjs';
+import { renderReportHtml, skillVersion } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
 function md(...body) {
@@ -1974,4 +1974,54 @@ test('issue: icons rest until their own button is hovered', () => {
 	assert.match(html, /\.gh-btn\{[^}]*color:var\(--cp-rest\)/);
 	assert.match(html, /\.gh-btn:hover\{color:var\(--ink\);background:var\(--cp-hover-bg\)\}/);
 	assert.match(html, /\.gh-btn\+\.cp-btn\{margin-left:-19px\}/);
+});
+
+/** Each feedback link's pre-filled answers, by form question. */
+function feedbackAnswers(html, cls) {
+	const hrefs = cls === 'fb-top'
+		? [...html.matchAll(/<a class="fb-top" href="([^"]+)"/g)].map(m => m[1])
+		: [...html.matchAll(/<div class="fb" [^>]*>(.*?)<\/div>/g)].flatMap(m => [...m[1].matchAll(/href="([^"]+)"/g)].map(h => h[1]));
+	return hrefs.map(href => {
+		const url = new URL(href.replace(/&amp;/g, '&'));
+		assert.equal(`${url.origin}${url.pathname}`, 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform');
+		return {
+			report: url.searchParams.get('entry.1746253506'),
+			version: url.searchParams.get('entry.1873070470'),
+			on: url.searchParams.get('entry.857252905'),
+			verdict: url.searchParams.get('entry.427792690'),
+		};
+	});
+}
+
+test('feedback: a published page asks about each finding, and the verdicts match the form exactly', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1/', skillVersion: 'abc1234' });
+	const answers = feedbackAnswers(html, 'fb');
+	const verdicts = ['Real issue', 'Not a bug', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
+	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(verdict =>
+		({ report: `https://cdn.example/run1/index.html#f${n}`, version: 'abc1234', on: 'A finding', verdict }))));
+	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
+	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
+	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
+	// The row closes its card: after Suggested tests, before the card ends.
+	assert.match(html, /<div class="fb" role="group" aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
+});
+
+test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: 'abc1234' });
+	assert.deepEqual(feedbackAnswers(html, 'fb-top'),
+		[{ report: 'https://cdn.example/run1/index.html', version: 'abc1234', on: 'The whole report', verdict: null }]);
+	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
+});
+
+test('feedback: a local page, which only has a path, asks for none', () => {
+	for (const base of [undefined, '/Users/someone/run1', 'run1']) {
+		const html = renderReportHtml(FULL, { base, skillVersion: 'abc1234' });
+		assert.doesNotMatch(html, /docs\.google\.com|class="fb[ "]|class="fb-top"/, `base: ${base}`);
+	}
+});
+
+test('feedback: a missing skill version is sent as unknown, never blank', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1' });
+	assert.ok(feedbackAnswers(html, 'fb-top').every(a => a.version === 'unknown'));
+	assert.match(skillVersion(), /^([0-9a-f]{7,}|unknown)$/);
 });

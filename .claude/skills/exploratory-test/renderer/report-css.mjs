@@ -366,6 +366,17 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .switch button[aria-pressed="true"]:hover{background:var(--switch-on-bg);color:var(--switch-on-icon)}
 .switch button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 
+/* Posit team feedback: pre-filled Google Form links, on a published page only.
+   The header button sits left of the switch, so the eyebrow keeps clear of both. */
+.fb{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:16px;border-top:1px solid var(--hairline)}
+.fb-q{font-size:13px;font-weight:600;color:var(--body);margin-right:6px}
+.fb a{font-size:12.5px;font-weight:500;line-height:1.2;padding:5px 11px;border-radius:999px;border:1px solid var(--dash);background:transparent;color:var(--body);text-decoration:none;transition:color .15s ease,border-color .15s ease}
+.fb a:hover,.fb a:focus-visible{color:var(--link);border-color:var(--link);outline:none}
+.fb-top{position:absolute;top:-4px;right:78px;display:inline-flex;align-items:center;gap:6px;height:38px;box-sizing:border-box;padding:0 14px;border:1px solid var(--switch-border);border-radius:999px;background:var(--switch-bg);color:var(--body);font-size:13px;font-weight:500;text-decoration:none;z-index:2;transition:color .15s ease,border-color .15s ease}
+.fb-top:hover,.fb-top:focus-visible{color:var(--ink);border-color:var(--hover-border);outline:none}
+.head:has(.fb-top) .eyebrow{padding-right:232px}
+@media (prefers-reduced-motion:reduce){.fb a,.fb-top{transition:none}}
+
 /* One tooltip style for the whole page: tiles, theme switch, back to top. */
 .tip{position:relative}
 .tip::after{content:attr(data-tip);position:absolute;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;letter-spacing:0;text-transform:none;pointer-events:none;opacity:0;transition:opacity .15s ease;z-index:3}
@@ -858,5 +869,9 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.rate,.status{text-align:left;justify-content:flex-start}
 	.to-top{right:16px;bottom:16px}
 	h1.title{font-size:28px}
+	/* Icon only on a phone: the label would push the chips into a narrow column. */
+	.fb-top{width:38px;padding:0;justify-content:center}
+	.fb-top-label{display:none}
+	.head:has(.fb-top) .eyebrow{padding-right:128px}
 }
 `;

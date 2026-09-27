@@ -14,7 +14,9 @@
 
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { resolve as resolvePath } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { dirname, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
@@ -45,6 +47,7 @@ const ICON = {
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
 	briefcase: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M3 12.5h18"></path><path d="M11 12.5v1.5h2v-1.5"></path></svg>',
+	speech: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.2c0-.9.7-1.7 1.7-1.7h7.6c.9 0 1.7.8 1.7 1.7v5.1c0 .9-.8 1.7-1.7 1.7H7l-3 2.5V11h.2c-.9 0-1.7-.8-1.7-1.7z"></path></svg>',
 	party: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4.5-12 7.5 7.5z"></path><path d="M7 16l1.5 1.5"></path><path d="M14 4.5c.5 1-.2 2 .3 3"></path><path d="M19.5 10c-1-.5-2 .2-3-.3"></path><path d="M17 3v2"></path><path d="M21 7h-2"></path><circle cx="20" cy="3.5" r=".6" fill="currentColor"></circle><circle cx="12" cy="3" r=".6" fill="currentColor"></circle><circle cx="21" cy="12.5" r=".6" fill="currentColor"></circle></svg>',
 };
 
@@ -521,6 +524,66 @@ function reportUrl(base) {
 	return /^https?:\/\//i.test(base ?? '') ? `${base.replace(/\/+$/, '')}/index.html` : null;
 }
 
+// Posit team feedback goes to a Google Form that accepts Posit accounts only,
+// so its links are safe on a public page. The form is pre-filled by entry ID.
+const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform?usp=pp_url';
+const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470', on: 'entry.857252905', verdict: 'entry.427792690' };
+// The button's label, then the form's option text. Google silently drops a
+// multiple-choice value that does not match its option exactly, apostrophe
+// included, so these are copied from the form rather than from the labels.
+const FEEDBACK_VERDICTS = [
+	['Real issue', 'Real issue'],
+	['Not a bug', 'Not a bug'],
+	['Not worth reporting', 'Real, but not worth reporting'],
+	['Couldn&rsquo;t tell', 'Couldn\'t tell from the report'],
+];
+
+/**
+ * The skill's version for the feedback form: the last commit that touched the
+ * skill. CI checks the skill out shallowly, where that is the harness commit.
+ */
+export function skillVersion() {
+	try {
+		const out = execFileSync('git', ['log', '-1', '--format=%h', '--', '..'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+		return out || 'unknown';
+	} catch {
+		return 'unknown';
+	}
+}
+
+/** A pre-filled form link: for a finding when given a verdict, for the whole report otherwise. */
+function feedbackHref(report, version, verdict) {
+	const values = [
+		[FEEDBACK_ENTRY.report, report],
+		[FEEDBACK_ENTRY.version, version || 'unknown'],
+		[FEEDBACK_ENTRY.on, verdict ? 'A finding' : 'The whole report'],
+		...(verdict ? [[FEEDBACK_ENTRY.verdict, verdict]] : []),
+	];
+	return FEEDBACK_FORM_URL + values.map(([entry, value]) => `&${entry}=${encodeURIComponent(value)}`).join('');
+}
+
+// Only a published page asks for feedback, so every answer points at a report
+// someone can open. A local page has only a path, which is never sent.
+function renderFeedbackRow(f, options) {
+	const url = reportUrl(options.base);
+	if (!url) {
+		return '';
+	}
+	const links = FEEDBACK_VERDICTS.map(([label, verdict]) =>
+		`<a href="${escapeHtml(feedbackHref(`${url}#f${f.n}`, options.skillVersion, verdict))}" target="_blank" rel="noopener">${label}</a>`);
+	return `<div class="fb" role="group" aria-label="Posit team feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
+}
+
+function renderFeedbackButton(options) {
+	const url = reportUrl(options.base);
+	if (!url) {
+		return '';
+	}
+	return `<a class="fb-top" href="${escapeHtml(feedbackHref(url, options.skillVersion))}" target="_blank" rel="noopener"`
+		+ ' title="Posit team feedback on this report (opens a Posit-only form)" aria-label="Give feedback (opens a Posit-only form)">'
+		+ `${ICON.speech}<span class="fb-top-label">Give feedback</span></a>`;
+}
+
 /** Positron and OS, then the session, each value on its own line under its label. */
 function systemDetails(report) {
 	const env = report.environment.map(l => l.trim().replace(/^[-*]\s+/, '')).filter(Boolean);
@@ -793,12 +856,13 @@ function renderFindingCard(f, report, options) {
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
+	const feedback = renderFeedbackRow(f, options);
 	// A saved file the card names opens its viewer. Not the prompt block: that
 	// is raw text, and it carries the files itself.
 	const files = options.files ?? [];
 
 	if (f.proseHtml) {
-		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${promptBlock}</article>`;
+		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${feedback}${promptBlock}</article>`;
 	}
 
 	const observedExpected = (f.observedHtml || f.expectedHtml)
@@ -836,6 +900,7 @@ ${observedExpected}
 ${repro}
 ${renderEvidence(f)}
 ${details}`, files)}
+${feedback}
 ${promptBlock}
 </article>`;
 }
@@ -1229,6 +1294,7 @@ export function renderReportHtml(markdown, options = {}) {
 <main class="wrap">
 
 <header class="head">
+${renderFeedbackButton(options)}
 <nav class="switch" aria-label="Report theme">
 <button type="button" class="tip" data-theme="professional" data-tip="Professional" aria-label="Switch to Professional" aria-pressed="true">${ICON.briefcase}</button>
 <button type="button" class="tip" data-theme="party" data-tip="Party" aria-label="Switch to Party" aria-pressed="false">${ICON.party}</button>
