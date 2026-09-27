@@ -539,16 +539,19 @@ const FEEDBACK_VERDICTS = [
 ];
 
 /**
- * The skill's version for the feedback form, from the `version:` in SKILL.md's
- * frontmatter. Given the text for a test; read beside the renderer otherwise.
+ * The skill's version as the report shows it, `v` then the `version:` in
+ * SKILL.md's frontmatter: the footer and the feedback form carry the same
+ * string. Null when there is none. Given the text for a test; read beside the
+ * renderer otherwise.
  */
 export function skillVersion(skillMd) {
 	try {
 		const text = skillMd ?? readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'SKILL.md'), 'utf8');
 		const front = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? '';
-		return /^\s+version:\s*["']?([^"'\s]+)["']?\s*$/m.exec(front)?.[1] ?? 'unknown';
+		const version = /^\s+version:\s*["']?v?([^"'\s]+)["']?\s*$/m.exec(front)?.[1];
+		return version ? `v${version}` : null;
 	} catch {
-		return 'unknown';
+		return null;
 	}
 }
 
@@ -556,7 +559,7 @@ export function skillVersion(skillMd) {
 function feedbackHref(report, version, verdict) {
 	const values = [
 		[FEEDBACK_ENTRY.report, report],
-		[FEEDBACK_ENTRY.version, version || 'unknown'],
+		[FEEDBACK_ENTRY.version, version ?? 'unknown'],
 		[FEEDBACK_ENTRY.on, verdict ? 'A finding' : 'The whole report'],
 		...(verdict ? [[FEEDBACK_ENTRY.verdict, verdict]] : []),
 	];
@@ -1110,8 +1113,9 @@ ${report.verification.bodyHtml}
  * The copyright under it is dated by the run, not the render, so re-rendering
  * an old run keeps its year.
  */
-function renderSignature(startedAt = new Date(), skillUrl = SKILL_URL) {
-	const name = 'exploratory-test &#8599;';
+function renderSignature(startedAt = new Date(), version = null, skillUrl = SKILL_URL) {
+	// Read like a package name. Left out, never blank, when there is no version.
+	const name = `exploratory-test ${version ? `<span class="sig-ver">${escapeHtml(version)}</span> ` : ''}&#8599;`;
 	const link = `<a class="sig-link" href="${escapeHtml(skillUrl)}" target="_blank" rel="noreferrer">${name}</a>`;
 
 	// A top-down bug: a solid body, six hairline legs and two feelers.
@@ -1316,7 +1320,7 @@ ${linkFiles(renderCoverage(report, options), options.files)}
 
 ${renderFolds(report, options)}
 
-${renderSignature(options.startedAt)}
+${renderSignature(options.startedAt, options.skillVersion)}
 
 </main>
 <div class="lb" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot" hidden>
