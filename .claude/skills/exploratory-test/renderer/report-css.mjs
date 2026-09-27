@@ -125,6 +125,7 @@ const PROFESSIONAL = `
 	--rt-tag-ink: #3D4148;
 	--code-blk-border: transparent;
 	--code-cp-hover-bg: rgba(28,31,35,.06);
+	--code-chip-hover-bg: #E5E2DA;
 	--cp-rest: #C4C0B6;
 	--cp-hover-bg: #F6F5F1;
 	--toast-bg: #1C1F23;
@@ -266,6 +267,7 @@ const PARTY = `
 	--rt-tag-ink: #F5F1FF;
 	--code-blk-border: #2A2250;
 	--code-cp-hover-bg: rgba(245,241,255,.08);
+	--code-chip-hover-bg: #3A3070;
 	--cp-rest: #4E4580;
 	--cp-hover-bg: #2A2250;
 	--toast-bg: #241D42;
@@ -499,6 +501,13 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .code-cp{position:absolute;top:7px;right:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;padding:0;border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
 .code-blk:hover .code-cp,.code-blk:focus-within .code-cp,.code-cp.is-copied{opacity:1}
 .code-cp:hover{color:var(--ink);background:var(--code-cp-hover-bg)}
+/* Inline code in Reproduce: click to copy. The ordinary pointer, not the copy
+   cursor, and a tooltip above the chip that turns green once it has copied. */
+code.cc{position:relative;cursor:pointer;transition:background-color .15s ease}
+code.cc:hover{background:var(--code-chip-hover-bg)}
+code.cc:hover::after,code.cc.is-copied::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:5}
+code.cc.is-copied::after{color:var(--pass-fill)}
+@media (prefers-reduced-motion:reduce){code.cc{transition:none}}
 .code-cp:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
 .code-cp:hover::after,.code-cp:focus-visible::after,.code-cp.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .code-cp .cp-ok{display:none}

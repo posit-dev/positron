@@ -230,6 +230,16 @@ function withCodeCopy(html) {
 }
 
 /**
+ * Inline code becomes click-to-copy: Reproduce is full of short commands people
+ * run one at a time. Code blocks are left alone, since they have a Copy button,
+ * and so is a file chip, which linkFiles has already made a link.
+ */
+function copyableCode(html) {
+	return html.split(/(<pre[\s\S]*?<\/pre>)/).map((part, i) =>
+		i % 2 ? part : part.replace(/<code>/g, '<code class="cc" data-tip="Copy">')).join('');
+}
+
+/**
  * One step as an `<li>`: an action is plain text; a verify is in ink with its
  * PASS or FAIL beside it, or nothing when the run never recorded one.
  */
@@ -896,8 +906,9 @@ function renderFindingCard(f, report, options) {
 		? '<div class="repro-group steps"><div class="repro-label">Steps</div>'
 		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1) : '' })).join('\n')}</ol></div>`
 		: '';
+	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
-		? `<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`
+		? copyableCode(linkFiles(`<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`, files))
 		: '';
 
 	const details = renderCardDetails(f, report, options);
@@ -1244,6 +1255,20 @@ var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){d
 if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
 else{fallback();}});});`;
 
+// Inline code in Reproduce: a click copies the chip. A drag-selection is left
+// alone, so the usual copy still takes just what was selected. Not a control:
+// no tab stop, since keyboard users select and copy as they already do.
+const CODE_CHIP_SCRIPT = `document.querySelectorAll('code.cc').forEach(function(c){var t;
+c.addEventListener('click',function(){if(window.getSelection&&String(window.getSelection())){return;}
+var text=c.textContent;
+function done(){c.classList.add('is-copied');c.dataset.tip='Copied';clearTimeout(t);
+t=setTimeout(function(){c.classList.remove('is-copied');c.dataset.tip='Copy';},1200);}
+function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
+else{fallback();}});});`;
+
 // A link too long for GitHub opens the form with the title only, so the click
 // copies the description as well and says so. Only pages with such a link ship this.
 const ISSUE_SCRIPT = `(function(){var toast=document.createElement('div');toast.className='gh-toast';toast.setAttribute('role','status');
@@ -1349,7 +1374,8 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	// Code blocks in steps have copy buttons even when agent prompts are off.
 	const copy = prompts || page.includes('class="code-cp"');
 	const issue = page.includes(' data-issue="');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}</body>
+	const codeCopy = page.includes('<code class="cc"');
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }

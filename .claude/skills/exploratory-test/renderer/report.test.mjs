@@ -2046,3 +2046,26 @@ test('the footer names the version the feedback links send, with a v, published 
 	assert.match(renderReportHtml(FULL), /<a class="sig-link" [^>]*>exploratory-test &#8599;<\/a>/);
 	assert.doesNotMatch(renderReportHtml(FULL), /sig-ver/);
 });
+
+test('code copy: inline code in Reproduce copies on click, and nothing else does', () => {
+	const html = renderReportHtml(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro** -- starting state: a Python console.', '',
+		'**Preconditions:** `slow.py` loaded with `%run -i slow.py`.', '',
+		'1. Run `%view df`.', '',
+		'   ```python', '   df.head()', '   ```', '',
+		'2. Verify the grid shows `df`. -> FAIL (finding 1)', '',
+		'**Observed:** the grid showed `None`.',
+	].join('\n')));
+	const chips = [...html.matchAll(/<code class="cc" data-tip="Copy">([^<]*)<\/code>/g)].map(m => m[1]);
+	assert.deepEqual(chips, ['slow.py', '%run -i slow.py', '%view df', 'df']);
+	// A code block keeps its own Copy button; Observed is prose, not a command.
+	assert.match(html, /<pre><code class="language-python">df\.head\(\)<\/code><\/pre>/);
+	assert.match(html, /<div class="oe-label">Observed<\/div><p>the grid showed <code>None<\/code>/);
+	assert.match(html, /code\.cc'\)\.forEach/);
+});
+
+test('code copy: a page with no inline code in Reproduce ships no script for it', () => {
+	assert.doesNotMatch(renderReportHtml(md('Nothing to reproduce.')), /code\.cc'\)\.forEach/);
+});
