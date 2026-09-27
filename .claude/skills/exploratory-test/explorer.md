@@ -217,6 +217,13 @@ Steps:
   gap that deserves more than a phrase, such as an untested mechanism that
   probably shares a fault with a tested one, gets it in the reason. There is no
   follow-up list.
+- Don't list a surface only because this environment can't reach it; every run
+  shares those limits, so the row says nothing about this change. List it when
+  the change could behave differently there: code specific to that surface
+  (a `browser/` or `electron-*/` split, server or remote code), or behavior
+  that works differently on it, such as file dialogs, the clipboard or windows
+  on the web. Otherwise, testing where you are covers it. The same holds for
+  `Not exercised`.
 
 **Steps.** Record them as you run them, not afterwards, in this grammar, in the
 ledger and in a finding:
