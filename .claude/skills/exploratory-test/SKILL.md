@@ -42,8 +42,11 @@ The agent cannot do this itself, because it does not see its own totals.
 ## Present it, then offer to publish
 
 Give the user the result, the findings table, and the `index.html` path. Then
-ask whether to publish the report to share it. Say that anyone with the link
-can open it, and that text files are redacted but screenshots are not, so they
-should skim the screenshots first. Publish only on a yes:
+ask, in these words:
+
+> Publish this report to share it?
+> (Anyone with the link can view it. Screenshots aren't redacted.)
+
+Publish only on a yes:
 `bash <base>/renderer/publish.sh <run dir>`. It prints the report URL; give it
 to the user. If it says there are no AWS credentials, relay its sign-in hint.
