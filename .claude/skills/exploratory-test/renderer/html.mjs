@@ -14,8 +14,8 @@
 
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { execFileSync } from 'node:child_process';
-import { dirname, resolve as resolvePath } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
@@ -539,13 +539,14 @@ const FEEDBACK_VERDICTS = [
 ];
 
 /**
- * The skill's version for the feedback form: the last commit that touched the
- * skill. CI checks the skill out shallowly, where that is the harness commit.
+ * The skill's version for the feedback form, from the `version:` in SKILL.md's
+ * frontmatter. Given the text for a test; read beside the renderer otherwise.
  */
-export function skillVersion() {
+export function skillVersion(skillMd) {
 	try {
-		const out = execFileSync('git', ['log', '-1', '--format=%h', '--', '..'], { cwd: dirname(fileURLToPath(import.meta.url)), encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
-		return out || 'unknown';
+		const text = skillMd ?? readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'SKILL.md'), 'utf8');
+		const front = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? '';
+		return /^\s+version:\s*["']?([^"'\s]+)["']?\s*$/m.exec(front)?.[1] ?? 'unknown';
 	} catch {
 		return 'unknown';
 	}

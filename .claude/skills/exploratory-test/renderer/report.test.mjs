@@ -2023,5 +2023,8 @@ test('feedback: a local page, which only has a path, asks for none', () => {
 test('feedback: a missing skill version is sent as unknown, never blank', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1' });
 	assert.ok(feedbackAnswers(html, 'fb-top').every(a => a.version === 'unknown'));
-	assert.match(skillVersion(), /^([0-9a-f]{7,}|unknown)$/);
+	// Read from SKILL.md's frontmatter, never from the body.
+	assert.match(skillVersion(), /^\d+\.\d+/);
+	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: "2.3"\n---\n'), '2.3');
+	assert.equal(skillVersion('---\nname: x\n---\n\nversion: 9.9\n'), 'unknown');
 });
