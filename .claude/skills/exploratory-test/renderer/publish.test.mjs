@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,13 +17,18 @@ const SECRET = 'sk-test-not-a-real-key-1234';
 // A copy of the logs-run fixture, with a secret in a log, a leftover local page,
 // and the files CI keeps out. A stub aws fails sts when told to, and on s3 cp
 // copies what it was given.
-function fixture({ signedIn = true } = {}) {
+function fixture({ signedIn = true, page = true, report = true } = {}) {
 	const dir = mkdtempSync(join(tmpdir(), 'publish-'));
 	const run = join(dir, 'run');
 	cpSync(fileURLToPath(new URL('./fixtures/logs-run/', import.meta.url)), run, { recursive: true });
 	mkdirSync(join(run, 'logs/all/9222'), { recursive: true });
 	mkdirSync(join(run, 'shots'));
-	writeFileSync(join(run, 'index.html'), '<p>local page</p>');
+	if (page) {
+		writeFileSync(join(run, 'index.html'), '<p>local page</p>');
+	}
+	if (!report) {
+		rmSync(join(run, 'report.md'));
+	}
 	writeFileSync(join(run, 'actions.log'), 'actions\n');
 	writeFileSync(join(run, 'logs/all/9222/renderer.log'), 'raw\n');
 	writeFileSync(join(run, 'logs/9222-renderer.log'), `curated ${SECRET}\n`);
@@ -65,5 +70,18 @@ test('refuses without AWS credentials, and says how to sign in', () => {
 	const { r, out } = fixture({ signedIn: false });
 	assert.equal(r.status, 1);
 	assert.match(r.stderr, /aws sso login/);
+	assert.ok(!existsSync(out));
+});
+
+test('publishes a run that was never rendered locally: the page is rendered for its URL anyway', () => {
+	const { r, out } = fixture({ page: false });
+	assert.equal(r.status, 0, r.stderr);
+	assert.ok(existsSync(join(out, 'index.html')));
+});
+
+test('refuses a run with no report, before checking credentials', () => {
+	const { r, out } = fixture({ report: false });
+	assert.equal(r.status, 1);
+	assert.match(r.stderr, /no report\.md/);
 	assert.ok(!existsSync(out));
 });

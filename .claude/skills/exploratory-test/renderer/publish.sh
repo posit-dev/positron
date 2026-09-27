@@ -21,7 +21,8 @@ AWS=${AWS_CLI:-aws}
 BUCKET=positron-test-reports
 CDN=https://d38p2avprg8il3.cloudfront.net
 
-[ -f "$RUN/index.html" ] || { echo "publish: no index.html in $RUN; render the report first." >&2; exit 1; }
+# The page is rendered here, for its URL, so only the report has to exist.
+[ -f "$RUN/report.md" ] || { echo "publish: no report.md in $RUN." >&2; exit 1; }
 
 if ! "$AWS" sts get-caller-identity >/dev/null 2>&1; then
 	echo "publish: no AWS credentials. Run 'aws sso login' (with AWS_PROFILE set to a profile that can write to $BUCKET) and try again." >&2
@@ -42,10 +43,12 @@ node "$(dirname "$0")/render.mjs" "$RUN/report.md" --base "$CDN/$DIR" --out "$ST
 for NAME in $(compgen -e | grep -Ei '(KEY|TOKEN|SECRET|PASSWORD|PAT)$' || true); do
 	VALUE=${!NAME:-}
 	[ ${#VALUE} -ge 8 ] || continue
-	grep -rlIF -- "$VALUE" "$STAGE" 2>/dev/null | while IFS= read -r FILE; do
+	# No match is not a failure; a file that cannot be redacted stops the upload.
+	{ grep -rlIF -- "$VALUE" "$STAGE" 2>/dev/null || true; } | while IFS= read -r FILE; do
 		echo "Redacting $NAME from ${FILE#"$STAGE"/}"
-		SECRET="$VALUE" perl -pi -e 's/\Q$ENV{SECRET}\E/[REDACTED]/g' "$FILE"
-	done || true
+		SECRET="$VALUE" perl -pi -e 's/\Q$ENV{SECRET}\E/[REDACTED]/g' "$FILE" \
+			|| { echo "publish: could not redact $NAME from ${FILE#"$STAGE"/}; nothing was uploaded." >&2; exit 1; }
+	done
 done
 
 "$AWS" s3 cp "$STAGE/." "s3://$BUCKET/$DIR" --recursive --region us-east-1 --only-show-errors
