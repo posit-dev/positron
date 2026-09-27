@@ -527,7 +527,7 @@ function reportUrl(base) {
 // Posit team feedback goes to a Google Form that accepts Posit accounts only,
 // so its links are safe on a public page. The form is pre-filled by entry ID.
 const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform?usp=pp_url';
-const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470', on: 'entry.857252905', verdict: 'entry.427792690' };
+const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470', on: 'entry.857252905', finding: 'entry.890833928', verdict: 'entry.427792690' };
 // The button's label, then the form's option text. Google silently drops a
 // multiple-choice value that does not match its option exactly, apostrophe
 // included, so these are copied from the form rather than from the labels.
@@ -555,13 +555,17 @@ export function skillVersion(skillMd) {
 	}
 }
 
-/** A pre-filled form link: for a finding when given a verdict, for the whole report otherwise. */
-function feedbackHref(report, version, verdict) {
+/**
+ * A pre-filled form link: for a finding when given one, for the whole report
+ * otherwise. The finding is shown above its verdict, so the form says which
+ * one it asks about.
+ */
+function feedbackHref(report, version, finding, verdict) {
 	const values = [
 		[FEEDBACK_ENTRY.report, report],
 		[FEEDBACK_ENTRY.version, version ?? 'unknown'],
-		[FEEDBACK_ENTRY.on, verdict ? 'A finding' : 'The whole report'],
-		...(verdict ? [[FEEDBACK_ENTRY.verdict, verdict]] : []),
+		[FEEDBACK_ENTRY.on, finding ? 'A finding' : 'The whole report'],
+		...(finding ? [[FEEDBACK_ENTRY.finding, `Finding ${finding.n} \u00B7 ${finding.title}`], [FEEDBACK_ENTRY.verdict, verdict]] : []),
 	];
 	return FEEDBACK_FORM_URL + values.map(([entry, value]) => `&${entry}=${encodeURIComponent(value)}`).join('');
 }
@@ -574,7 +578,7 @@ function renderFeedbackRow(f, options) {
 		return '';
 	}
 	const links = FEEDBACK_VERDICTS.map(([label, verdict]) =>
-		`<a href="${escapeHtml(feedbackHref(`${url}#f${f.n}`, options.skillVersion, verdict))}" target="_blank" rel="noopener">${label}</a>`);
+		`<a href="${escapeHtml(feedbackHref(`${url}#f${f.n}`, options.skillVersion, f, verdict))}" target="_blank" rel="noopener">${label}</a>`);
 	return `<div class="fb" role="group" aria-label="Posit team feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 

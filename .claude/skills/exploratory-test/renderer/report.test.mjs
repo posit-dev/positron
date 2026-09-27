@@ -1988,6 +1988,7 @@ function feedbackAnswers(html, cls) {
 			report: url.searchParams.get('entry.1746253506'),
 			version: url.searchParams.get('entry.1873070470'),
 			on: url.searchParams.get('entry.857252905'),
+			finding: url.searchParams.get('entry.890833928'),
 			verdict: url.searchParams.get('entry.427792690'),
 		};
 	});
@@ -1996,9 +1997,11 @@ function feedbackAnswers(html, cls) {
 test('feedback: a published page asks about each finding, and the verdicts match the form exactly', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1/', skillVersion: 'v1.2' });
 	const answers = feedbackAnswers(html, 'fb');
+	const titles = parseReport(FULL).findings.map(f => f.title);
+	assert.equal(titles[0], 'a longer claim');
 	const verdicts = ['Real issue', 'Not a bug', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
 	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(verdict =>
-		({ report: `https://cdn.example/run1/index.html#f${n}`, version: 'v1.2', on: 'A finding', verdict }))));
+		({ report: `https://cdn.example/run1/index.html#f${n}`, version: 'v1.2', on: 'A finding', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
 	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
 	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
@@ -2009,7 +2012,7 @@ test('feedback: a published page asks about each finding, and the verdicts match
 test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: 'v1.2' });
 	assert.deepEqual(feedbackAnswers(html, 'fb-top'),
-		[{ report: 'https://cdn.example/run1/index.html', version: 'v1.2', on: 'The whole report', verdict: null }]);
+		[{ report: 'https://cdn.example/run1/index.html', version: 'v1.2', on: 'The whole report', finding: null, verdict: null }]);
 	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
 });
 
