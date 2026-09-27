@@ -539,9 +539,9 @@ const FEEDBACK_VERDICTS = [
 ];
 
 /**
- * The skill's version as the report shows it, `v` then the `version:` in
- * SKILL.md's frontmatter: the footer and the feedback form carry the same
- * string. Null when there is none. Given the text for a test; read beside the
+ * The skill's version, the `version:` in SKILL.md's frontmatter, as the
+ * feedback form gets it: `1.0`, which the footer shows as `v1.0`. Null when
+ * there is none. Given the text for a test; read beside the
  * renderer otherwise.
  */
 export function skillVersion(skillMd) {
@@ -549,7 +549,7 @@ export function skillVersion(skillMd) {
 		const text = skillMd ?? readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'SKILL.md'), 'utf8');
 		const front = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? '';
 		const version = /^\s+version:\s*["']?v?([^"'\s]+)["']?\s*$/m.exec(front)?.[1];
-		return version ? `v${version}` : null;
+		return version ?? null;
 	} catch {
 		return null;
 	}
@@ -1119,7 +1119,7 @@ ${report.verification.bodyHtml}
  */
 function renderSignature(startedAt = new Date(), version = null, skillUrl = SKILL_URL) {
 	// Read like a package name. Left out, never blank, when there is no version.
-	const name = `exploratory-test ${version ? `<span class="sig-ver">${escapeHtml(version)}</span> ` : ''}&#8599;`;
+	const name = `exploratory-test ${version ? `<span class="sig-ver">v${escapeHtml(version)}</span> ` : ''}&#8599;`;
 	const link = `<a class="sig-link" href="${escapeHtml(skillUrl)}" target="_blank" rel="noreferrer">${name}</a>`;
 
 	// A top-down bug: a solid body, six hairline legs and two feelers.

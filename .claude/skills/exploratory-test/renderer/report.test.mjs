@@ -1995,13 +1995,13 @@ function feedbackAnswers(html, cls) {
 }
 
 test('feedback: a published page asks about each finding, and the verdicts match the form exactly', () => {
-	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1/', skillVersion: 'v1.2' });
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1/', skillVersion: '1.2' });
 	const answers = feedbackAnswers(html, 'fb');
 	const titles = parseReport(FULL).findings.map(f => f.title);
 	assert.equal(titles[0], 'a longer claim');
 	const verdicts = ['Real issue', 'Not a bug', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
 	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(verdict =>
-		({ report: `https://cdn.example/run1/index.html#f${n}`, version: 'v1.2', on: 'A finding', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
+		({ report: `https://cdn.example/run1/index.html#f${n}`, version: '1.2', on: 'A finding', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
 	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
 	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
@@ -2010,15 +2010,15 @@ test('feedback: a published page asks about each finding, and the verdicts match
 });
 
 test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
-	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: 'v1.2' });
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
 	assert.deepEqual(feedbackAnswers(html, 'fb-top'),
-		[{ report: 'https://cdn.example/run1/index.html', version: 'v1.2', on: 'The whole report', finding: null, verdict: null }]);
+		[{ report: 'https://cdn.example/run1/index.html', version: '1.2', on: 'The whole report', finding: null, verdict: null }]);
 	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
 });
 
 test('feedback: a local page, which only has a path, asks for none', () => {
 	for (const base of [undefined, '/Users/someone/run1', 'run1']) {
-		const html = renderReportHtml(FULL, { base, skillVersion: 'v1.2' });
+		const html = renderReportHtml(FULL, { base, skillVersion: '1.2' });
 		assert.doesNotMatch(html, /docs\.google\.com|class="fb[ "]|class="fb-top"/, `base: ${base}`);
 	}
 });
@@ -2028,20 +2028,20 @@ test('feedback: a missing skill version is sent as unknown, never blank', () => 
 	assert.ok(feedbackAnswers(html, 'fb-top').every(a => a.version === 'unknown'));
 });
 
-test('skillVersion reads SKILL.md\'s frontmatter, never its body, and prefixes a v', () => {
-	assert.match(skillVersion(), /^v\d+\.\d+/);
-	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: "2.3"\n---\n'), 'v2.3');
-	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: v2.3\n---\n'), 'v2.3');
+test('skillVersion reads SKILL.md\'s frontmatter, never its body, with no v', () => {
+	assert.match(skillVersion(), /^\d+\.\d+/);
+	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: "2.3"\n---\n'), '2.3');
+	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: v2.3\n---\n'), '2.3');
 	assert.equal(skillVersion('---\nname: x\n---\n\nversion: 9.9\n'), null);
 });
 
-test('the footer names the version the feedback links send, published or not', () => {
+test('the footer names the version the feedback links send, with a v, published or not', () => {
 	for (const base of ['https://cdn.example/run1', '/tmp/run1']) {
-		const html = renderReportHtml(FULL, { base, skillVersion: 'v1.2' });
+		const html = renderReportHtml(FULL, { base, skillVersion: '1.2' });
 		assert.match(html, /<a class="sig-link" [^>]*>exploratory-test <span class="sig-ver">v1\.2<\/span> &#8599;<\/a>/);
 	}
-	const published = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: 'v1.2' });
-	assert.ok(feedbackAnswers(published, 'fb').every(a => a.version === 'v1.2'));
+	const published = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	assert.ok(feedbackAnswers(published, 'fb').every(a => a.version === '1.2'));
 	// No version: the name alone, with no empty span and no placeholder.
 	assert.match(renderReportHtml(FULL), /<a class="sig-link" [^>]*>exploratory-test &#8599;<\/a>/);
 	assert.doesNotMatch(renderReportHtml(FULL), /sig-ver/);
