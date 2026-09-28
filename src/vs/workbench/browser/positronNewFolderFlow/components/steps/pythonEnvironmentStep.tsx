@@ -31,6 +31,11 @@ import { uvInterpretersToDropdownItems } from '../../utilities/uvUtils.js';
 import { PathDisplay } from '../pathDisplay.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { URI } from '../../../../../base/common/uri.js';
+
+// Where the Conda callout sends users who do not have Conda installed.
+const CONDA_INSTALL_DOCS_URL = 'https://www.anaconda.com/docs/getting-started/installation';
 
 // NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
 // changes. See src/vs/workbench/browser/positronNewFolderFlow/components/steps/rConfigurationStep.tsx
@@ -309,48 +314,139 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		}
 	};
 
-	// The "not installed" notice for the selected environment provider, shown under the provider
-	// dropdown: a missing tool is a fact about the provider just picked, not about the version list.
-	// uv can install itself, so it carries an action; conda has no equivalent command to offer.
-	const providerInstallWarning = () => {
-		if (context.usesUvEnv && isUvInstalled === false) {
+	// Handler for the View log link. Opens the Python output channel, where the installer's
+	// output is logged.
+	const onViewUvInstallLog = () => {
+		void services.commandService.executeCommand('python.viewOutput');
+	};
+
+	// Handler for the How to install Conda link. Conda has no installer to run from here, so the
+	// callout points to its install docs instead.
+	const onOpenCondaInstallDocs = () => {
+		void services.openerService.open(URI.parse(CONDA_INSTALL_DOCS_URL), { openExternal: true });
+	};
+
+	// The uv install callout, shown under the provider dropdown while uv is missing. One callout
+	// owns both the problem and the action: its title states the problem, its body says what the
+	// button will run, and the button carries the install's progress and retry. Once an install
+	// started here succeeds, it collapses to a one-line confirmation. The title and body stay put
+	// while the install runs, so a quick install only changes the button.
+	const uvInstallCallout = () => {
+		if (isUvInstalled === false) {
+			const failed = uvInstallError !== undefined;
 			return (
-				<FlowFormattedText
-					type={FlowFormattedTextType.Warning}
-				>
-					<span>
-						{uvInstallError ?? localize(
-							'pythonEnvironmentSubStep.feedback.uvNotInstalled',
-							"uv is not installed"
-						)}
-					</span>
-					<span aria-hidden='true' className='install-uv-separator'>&middot;</span>
-					{/* Inert while the request is out, but still labelled "Install uv": the request */}
-					{/* starts by asking the user to confirm, and nothing installs until they do. */}
+				<div className={positronClassNames('provider-callout', { failed })}>
+					<span
+						aria-hidden='true'
+						className={`provider-callout-icon codicon codicon-${failed ? 'error' : 'warning'}`}
+					/>
+					<div className='provider-callout-text'>
+						<div className='provider-callout-title'>
+							{failed ?
+								localize(
+									'pythonEnvironmentSubStep.uvCallout.failedTitle',
+									"uv could not be installed"
+								) :
+								localize(
+									'pythonEnvironmentSubStep.feedback.uvNotInstalled',
+									"uv is not installed"
+								)
+							}
+						</div>
+						<div>
+							{failed ?
+								uvInstallError :
+								localize(
+									'pythonEnvironmentSubStep.uvCallout.body',
+									"Install downloads and runs the official installer script from astral.sh."
+								)
+							}
+						</div>
+						{failed &&
+							<Button
+								className='provider-callout-link'
+								onPressed={onViewUvInstallLog}
+							>
+								{localize(
+									'pythonEnvironmentSubStep.uvCallout.viewLog',
+									"View log"
+								)}
+							</Button>
+						}
+					</div>
+					{/* Inert while the install runs, but still focusable, so keyboard focus stays */}
+					{/* on the button instead of dropping to the top of the dialog. */}
 					<Button
 						ariaDisabled={uvInstallPending}
-						className='install-uv-button'
+						className={positronClassNames('dialog-button', 'install-uv-button', { default: !failed })}
 						onPressed={onInstallUv}
 					>
-						{localize(
-							'pythonEnvironmentSubStep.feedback.installUv',
-							"Install uv"
-						)}
+						{uvInstallPending ?
+							<>
+								<span aria-hidden='true' className='codicon codicon-loading codicon-modifier-spin' />
+								{localize(
+									'pythonEnvironmentSubStep.uvCallout.installing',
+									"Installing..."
+								)}
+							</> :
+							failed ?
+								<>
+									<span aria-hidden='true' className='codicon codicon-refresh' />
+									{localize(
+										'pythonEnvironmentSubStep.uvCallout.tryAgain',
+										"Try again"
+									)}
+								</> :
+								localize(
+									'pythonEnvironmentSubStep.feedback.installUv',
+									"Install uv"
+								)
+						}
 					</Button>
-				</FlowFormattedText>
+				</div>
+			);
+		}
+
+		return undefined;
+	};
+
+	// The "not installed" notice for the selected environment provider, shown under the provider
+	// dropdown: a missing tool is a fact about the provider just picked, not about the version list.
+	// uv's notice is the install callout above, since uv can install itself; Conda has no
+	// equivalent command to offer, so its callout links to the install docs instead.
+	const providerInstallWarning = () => {
+		if (context.usesUvEnv) {
+			// Rendered whenever uv is the provider, even when empty, so the live region is already
+			// in the page when its content changes and screen readers announce the change.
+			return (
+				<div aria-live='polite' role='status'>
+					{uvInstallCallout()}
+				</div>
 			);
 		}
 
 		if (context.usesCondaEnv && isCondaInstalled === false) {
 			return (
-				<FlowFormattedText
-					type={FlowFormattedTextType.Warning}
-				>
-					{localize(
-						'pythonEnvironmentSubStep.feedback.condaNotInstalled',
-						"Conda is not installed"
-					)}
-				</FlowFormattedText>
+				<div className='provider-callout'>
+					<span aria-hidden='true' className='provider-callout-icon codicon codicon-warning' />
+					<div className='provider-callout-text'>
+						<div className='provider-callout-title'>
+							{localize(
+								'pythonEnvironmentSubStep.feedback.condaNotInstalled',
+								"Conda is not installed"
+							)}
+						</div>
+						<Button
+							className='provider-callout-link'
+							onPressed={onOpenCondaInstallDocs}
+						>
+							{localize(
+								'pythonEnvironmentSubStep.condaCallout.installDocs',
+								"How to install Conda"
+							)}
+						</Button>
+					</div>
+				</div>
 			);
 		}
 

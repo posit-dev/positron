@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Other dependencies.
-import { localize } from '../../../nls.js';
 import { NewFolderFlowContextProvider, useNewFolderFlowContext } from './newFolderFlowContext.js';
 import { NewFolderFlowState } from './newFolderFlowState.js';
 import { NewFolderFlowStepContainer } from './newFolderFlowStepContainer.js';
-import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
+import { FlowDialogProvider } from './components/flowStep.js';
 import { NewFolderConfiguration } from '../../services/positronNewFolder/common/positronNewFolder.js';
 import { NewFolderFlowStep } from './interfaces/newFolderFlowEnums.js';
 import { showChooseNewFolderWindowModalDialog } from './chooseNewFolderWindowModalDialog.js';
@@ -147,15 +146,16 @@ const NewFolderFlowModalDialog = (props: NewFolderFlowModalDialogProps) => {
 		props.renderer.dispose();
 	};
 
-	// Render.
+	// Render. Each step renders its own dialog, sized to the step's content.
 	return (
-		<PositronModalDialog
-			height={580}
-			renderer={props.renderer} title={localize('positron.newFolderFromTemplate', "New Folder From Template")}
-			width={700}
-			onCancel={cancelHandler}
+		<FlowDialogProvider
+			dialog={{
+				renderer: props.renderer,
+				width: 700,
+				onCancel: cancelHandler,
+			}}
 		>
 			<NewFolderFlowStepContainer accept={acceptHandler} cancel={cancelHandler} />
-		</PositronModalDialog>
+		</FlowDialogProvider>
 	);
 };

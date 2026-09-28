@@ -17,7 +17,7 @@ import { useNewFolderFlowContext } from '../../newFolderFlowContext.js';
 import { NewFolderFlowStep } from '../../interfaces/newFolderFlowEnums.js';
 import { NewFolderFlowStepProps } from '../../interfaces/newFolderFlowStepProps.js';
 import { FolderTemplate } from '../../../../services/positronNewFolder/common/positronNewFolder.js';
-import { OKCancelBackNextActionBar } from '../../../positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
+import { PositronFlowStep } from '../flowStep.js';
 
 /**
  * Generates a default folder name in kebab case based on the provided project type.
@@ -72,36 +72,32 @@ export const FolderTemplateStep = (props: PropsWithChildren<NewFolderFlowStepPro
 
 	// Render.
 	return (
-		<div className='folder-template-selection-step'>
-			<div
-				className='folder-template-selection-step-title'
-				id='folder-template-selection-step-title'
-			>
-				{(() =>
-					localize(
-						'positron.folderTemplate',
-						"Folder Template"
-					))()}
+		<PositronFlowStep
+			cancelButtonConfig={{
+				onClick: props.cancel,
+			}}
+			nextButtonConfig={{
+				onClick: nextStep,
+				disable: !selectedTemplateType,
+			}}
+			title={localize(
+				'positron.folderTemplate',
+				"Folder Template"
+			)}
+			titleId='folder-template-selection-step-title'
+		>
+			<div className='folder-template-selection-step'>
+				<FolderTemplateGroup
+					describedBy='folder-template-selection-step-description'
+					folderTemplates={context.availableFolderTemplates}
+					labelledBy='folder-template-selection-step-title'
+					name='templateType'
+					selectedFolderTemplate={selectedTemplateType}
+					onSelectionChanged={(templateType) =>
+						setSelectedTemplateType(templateType)
+					}
+				/>
 			</div>
-			<FolderTemplateGroup
-				describedBy='folder-template-selection-step-description'
-				folderTemplates={context.availableFolderTemplates}
-				labelledBy='folder-template-selection-step-title'
-				name='templateType'
-				selectedFolderTemplate={selectedTemplateType}
-				onSelectionChanged={(templateType) =>
-					setSelectedTemplateType(templateType)
-				}
-			/>
-			<OKCancelBackNextActionBar
-				cancelButtonConfig={{
-					onClick: props.cancel,
-				}}
-				nextButtonConfig={{
-					onClick: nextStep,
-					disable: !selectedTemplateType,
-				}}
-			/>
-		</div>
+		</PositronFlowStep>
 	);
 };

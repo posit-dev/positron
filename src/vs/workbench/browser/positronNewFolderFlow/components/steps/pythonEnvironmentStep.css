@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box .flow-step .env-provider-selection {
+.positron-dynamic-modal-dialog-box .flow-step .env-provider-selection {
 	display: flex;
 	flex-direction: column;
 
@@ -12,24 +12,70 @@
 	gap: 8px;
 }
 
-.positron-modal-dialog-box .flow-step .install-uv-separator,
-.positron-modal-dialog-box .flow-step .install-uv-button {
-	/* The row holds a message this step does not control the length of. Left shrinkable, the
-	separator and the link give way before the message wraps, splitting the link across lines. */
+/* The callout for a missing environment provider (uv's install offer, Conda's install docs link).
+Tinted from the theme's warning and error colors rather than fixed colors, so it reads in light,
+dark, and high contrast themes. Only the icon and border take the
+tint's color; the text keeps the dialog foreground, since warning yellow fails text contrast on light
+backgrounds. */
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout {
+	--_provider-callout-tone: var(--vscode-editorWarning-foreground);
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding: 10px 12px;
+	border-radius: 3px;
+	border: 1px solid color-mix(in srgb, var(--_provider-callout-tone) 45%, transparent);
+	background: color-mix(in srgb, var(--_provider-callout-tone) 10%, transparent);
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout.failed {
+	--_provider-callout-tone: var(--vscode-editorError-foreground);
+}
+
+/* High contrast themes draw edges with solid borders and no fills. */
+.hc-black .positron-dynamic-modal-dialog-box .flow-step .provider-callout,
+.hc-light .positron-dynamic-modal-dialog-box .flow-step .provider-callout {
+	background: none;
+	border-color: var(--_provider-callout-tone);
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-icon {
+	align-self: flex-start;
+	margin-top: 1px;
+	color: var(--_provider-callout-tone);
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-text {
+	display: flex;
+	flex-grow: 1;
+	min-width: 0;
+	gap: 2px;
+	flex-direction: column;
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-title {
+	font-weight: 600;
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .install-uv-button {
+	gap: 6px;
 	flex-shrink: 0;
+	padding: 4px 12px;
 	white-space: nowrap;
 }
 
-.positron-modal-dialog-box .flow-step .install-uv-separator {
-	/* Overrides the 2px flex gap the warning row uses, which crowds a separator. */
-	margin: 0 3px;
-
-	/* The separator is punctuation, not part of the warning, so it does not take the warning color
-	it would otherwise inherit from the row. */
-	color: var(--vscode-descriptionForeground);
+/* Codicons in the button (the spinner, the retry arrow) take the button's text color. */
+.positron-dynamic-modal-dialog-box .flow-step .install-uv-button .codicon {
+	color: inherit;
 }
 
-.positron-modal-dialog-box .flow-step .install-uv-button {
+.positron-dynamic-modal-dialog-box .flow-step .install-uv-button.disabled {
+	cursor: default;
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-link {
+	align-self: flex-start;
+	margin-top: 2px;
 	padding: 0;
 
 	/* Without padding, the shared focus ring would sit against the text. */
@@ -38,15 +84,10 @@
 	text-decoration: underline;
 
 	/* The user agent stylesheet sets font-size on <button>, which beats inheritance and
-	leaves the link smaller than the warning text it sits beside. */
+	leaves the link smaller than the text it sits beside. */
 	font: inherit;
 }
 
-.positron-modal-dialog-box .flow-step .install-uv-button:hover:not(.disabled) {
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-link:hover {
 	color: var(--vscode-textLink-activeForeground);
-}
-
-.positron-modal-dialog-box .flow-step .install-uv-button.disabled {
-	color: var(--vscode-disabledForeground);
-	text-decoration: none;
 }

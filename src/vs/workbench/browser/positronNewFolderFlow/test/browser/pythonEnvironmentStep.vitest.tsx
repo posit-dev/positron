@@ -15,11 +15,15 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { FolderTemplate } from '../../../../services/positronNewFolder/common/positronNewFolder.js';
 import { NewFolderFlowContextProvider, useNewFolderFlowContext } from '../../newFolderFlowContext.js';
 import { NewFolderFlowStep } from '../../interfaces/newFolderFlowEnums.js';
 import { PythonEnvironmentStep } from '../../components/steps/pythonEnvironmentStep.js';
+import { FlowDialogProvider } from '../../components/flowStep.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 const UV_PROVIDER = { id: 'uv-id', name: 'uv', description: 'Creates a uv environment' };
 const CONDA_PROVIDER = { id: 'conda-id', name: 'Conda', description: 'Creates a Conda environment' };
@@ -65,12 +69,22 @@ function renderStep(
 			parentFolder={URI.file('/Users/astrid/projects')}
 		>
 			<SelectPythonTemplate onState={state => ctx.disposables.add(state)} />
-			<PythonEnvironmentStep
-				accept={vi.fn()}
-				back={vi.fn()}
-				cancel={vi.fn()}
-				next={vi.fn()}
-			/>
+			{/* The step renders into a dialog, which reaches into its renderer only for key and */}
+			{/* resize events. */}
+			<FlowDialogProvider
+				dialog={{
+					renderer: stubInterface<PositronModalReactRenderer>({ onKeyDown: Event.None, onResize: Event.None }),
+					width: 700,
+					onCancel: vi.fn(),
+				}}
+			>
+				<PythonEnvironmentStep
+					accept={vi.fn()}
+					back={vi.fn()}
+					cancel={vi.fn()}
+					next={vi.fn()}
+				/>
+			</FlowDialogProvider>
 		</NewFolderFlowContextProvider>
 	);
 }
@@ -149,7 +163,7 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(screen.queryByText('No versions found.')).not.toBeInTheDocument();
 	});
 
-	it('replaces the button with the Python versions after installing', async () => {
+	it('removes the callout and shows the Python versions after installing', async () => {
 		const user = userEvent.setup();
 		const { executeCommand } = renderUvStep({ ok: true });
 
@@ -158,6 +172,7 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(executeCommand).toHaveBeenCalledWith('python.ensureUvInstalled');
 		await waitFor(() => expect(screen.queryByText('uv is not installed')).not.toBeInTheDocument());
 		expect(screen.queryByRole('button', { name: 'Install uv' })).not.toBeInTheDocument();
+		expect(screen.queryByText('uv is installed')).not.toBeInTheDocument();
 		expect(await screen.findByText('Select a Python version')).toBeInTheDocument();
 	});
 
@@ -171,21 +186,25 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(await installButton()).toBeInTheDocument();
 	});
 
-	it('does not claim to be installing while consent is still being asked', async () => {
+	it('shows the install running on the button alone, which stays focusable', async () => {
 		const user = userEvent.setup();
-		// The command does not resolve until the consent prompt is answered, so an unresolved
-		// promise stands in for the moment that prompt is on screen.
-		let answerPrompt!: (result: unknown) => void;
-		renderUvStep(new Promise((resolve) => { answerPrompt = resolve; }));
+		// An unresolved promise stands in for the installer still running.
+		let finishInstall!: (result: unknown) => void;
+		renderUvStep(new Promise((resolve) => { finishInstall = resolve; }));
 
 		await user.click(await installButton());
 
-		// Nothing is installing yet, so the button must not say it is; it is only inert because
-		// the question it raised is still open.
-		expect(screen.queryByRole('button', { name: 'Installing uv...' })).not.toBeInTheDocument();
-		expect(await installButton()).toHaveAttribute('aria-disabled', 'true');
+		// Inert but not disabled: a disabled button drops keyboard focus to the top of the dialog.
+		const installing = await screen.findByRole('button', { name: 'Installing...' });
+		expect(installing).toHaveAttribute('aria-disabled', 'true');
+		expect(installing).toBeEnabled();
+		// The title and body stay put, so a quick install does not flash the callout's text.
+		expect(screen.getByText('uv is not installed')).toBeInTheDocument();
+		expect(screen.getByText(
+			'Install downloads and runs the official installer script from astral.sh.'
+		)).toBeInTheDocument();
 
-		answerPrompt({ ok: false });
+		finishInstall({ ok: false });
 	});
 
 	it('drops the failure message when the provider changes, since nothing was attempted there', async () => {
@@ -204,13 +223,18 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(screen.queryByText('Failed to install uv.')).not.toBeInTheDocument();
 	});
 
-	it('reports why the install failed', async () => {
+	it('reports why the install failed, with a retry and a way to the log', async () => {
 		const user = userEvent.setup();
-		renderUvStep({ ok: false, error: 'uv was not found after installing it.' });
+		const { executeCommand } = renderUvStep({ ok: false, error: 'uv was not found after installing it.' });
 
 		await user.click(await installButton());
 
-		expect(await screen.findByText('uv was not found after installing it.')).toBeInTheDocument();
+		expect(await screen.findByText('uv could not be installed')).toBeInTheDocument();
+		expect(screen.getByText('uv was not found after installing it.')).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+
+		await user.click(screen.getByRole('button', { name: 'View log' }));
+		expect(executeCommand).toHaveBeenCalledWith('python.viewOutput');
 	});
 });
 
@@ -221,7 +245,7 @@ describe('PythonEnvironmentStep uv install', () => {
  * resolves itself to control when it answers.
  * @param versions The Python versions Conda offers once it is installed.
  */
-function condaContainer(condaInstalled: boolean | Promise<boolean>, versions: string[]) {
+function condaContainer(condaInstalled: boolean | Promise<boolean>, versions: string[], open = vi.fn(async () => true)) {
 	const executeCommand = vi.fn(async (commandId: string) => {
 		switch (commandId) {
 			case 'python.getCreateEnvironmentProviders':
@@ -241,11 +265,13 @@ function condaContainer(condaInstalled: boolean | Promise<boolean>, versions: st
 			executeCommand: executeCommand as unknown as ICommandService['executeCommand'],
 		})
 		.stub(ILanguageRuntimeService, RUNTIME_SERVICE_STUB)
+		.stub(IOpenerService, { open })
 		.build();
 }
 
 describe('PythonEnvironmentStep Conda not installed', () => {
-	const ctx = condaContainer(false, []);
+	const open = vi.fn(async () => true);
+	const ctx = condaContainer(false, [], open);
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	it('says Conda is missing, next to the provider, rather than claiming no providers were found', async () => {
@@ -257,6 +283,18 @@ describe('PythonEnvironmentStep Conda not installed', () => {
 		expect(screen.queryByText(
 			'No interpreters available since no environment providers were found.'
 		)).not.toBeInTheDocument();
+	});
+
+	it('links to the Conda install docs, since there is no installer to run from here', async () => {
+		const user = userEvent.setup();
+		renderStep(rtl, ctx);
+
+		await user.click(await screen.findByRole('button', { name: 'How to install Conda' }));
+
+		expect(open).toHaveBeenCalledWith(
+			URI.parse('https://www.anaconda.com/docs/getting-started/installation'),
+			{ openExternal: true }
+		);
 	});
 
 	it('names the blocker in the version dropdown rather than reporting an empty search', async () => {

@@ -8,9 +8,8 @@ import './chooseNewFolderWindowModalDialog.css';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
-import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
-import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
-import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
+import { TwoButtonFooter } from '../positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
+import { PositronDynamicModalDialog } from '../positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 
 /**
@@ -59,51 +58,41 @@ interface ChooseNewFolderWindowModalDialogProps {
  * @returns The rendered component.
  */
 const ChooseNewFolderWindowModalDialog = (props: ChooseNewFolderWindowModalDialogProps) => {
-	// Button configuration.
-	const newWindowButtonConfig = {
-		title: localize('positron.newFolder.whereToOpen.newWindow', "New Window"),
-		onClick: () => props.onWindowSelected(true)
-	};
-	const currentWindowButtonConfig = {
-		title: localize('positron.newFolder.whereToOpen.currentWindow', "Current Window"),
-		onClick: () => props.onWindowSelected(false)
-	};
-	const defaultButtonConfig = props.preferNewWindow ? newWindowButtonConfig : currentWindowButtonConfig;
-	const otherButtonConfig = props.preferNewWindow ? currentWindowButtonConfig : newWindowButtonConfig;
+	// The window the user prefers is the primary button, so Enter opens the folder there.
+	const newWindowTitle = localize('positron.newFolder.whereToOpen.newWindow', "New Window");
+	const currentWindowTitle = localize('positron.newFolder.whereToOpen.currentWindow', "Current Window");
 
-	// Render.
+	// Render. There is no cancel: the folder already exists, so the only question left is where
+	// to open it.
 	return (
-		<PositronModalDialog
-			height={220}
-			renderer={props.renderer}
-			title={(() =>
-				localize(
-					'positron.newFolderCreated',
-					'New Folder Created'
-				))()}
-			width={500}
-		>
-			<div className='choose-new-folder-window-modal-dialog'>
-				<VerticalStack>
+		<PositronDynamicModalDialog
+			content={
+				<div className='choose-new-folder-window-modal-dialog'>
 					<code>{props.folderName}</code>
 					<div>
-						{(() =>
-							localize(
-								'positron.newFolderCreated.whereToOpen',
-								"The folder has been created. Where would you like to open it?"
-							))()}
+						{localize(
+							'positron.newFolderCreated.whereToOpen',
+							"The folder has been created. Where would you like to open it?"
+						)}
 					</div>
 					{/* TODO: add checkbox to save the user's selection to preferences */}
-				</VerticalStack>
-				<div className='folder-window-action-bar top-separator'>
-					<Button className='button action-bar-button' onPressed={otherButtonConfig.onClick}>
-						{otherButtonConfig.title}
-					</Button>
-					<Button className='button action-bar-button default' onPressed={defaultButtonConfig.onClick}>
-						{defaultButtonConfig.title}
-					</Button>
 				</div>
-			</div>
-		</PositronModalDialog>
+			}
+			footer={
+				<TwoButtonFooter
+					primaryButtonTitle={props.preferNewWindow ? newWindowTitle : currentWindowTitle}
+					secondaryButtonTitle={props.preferNewWindow ? currentWindowTitle : newWindowTitle}
+					topBorder={true}
+					onPrimaryButton={() => props.onWindowSelected(props.preferNewWindow)}
+					onSecondaryButton={() => props.onWindowSelected(!props.preferNewWindow)}
+				/>
+			}
+			renderer={props.renderer}
+			title={localize(
+				'positron.newFolderCreated',
+				'New Folder Created'
+			)}
+			width={500}
+		/>
 	);
 };
