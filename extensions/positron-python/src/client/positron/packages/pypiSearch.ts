@@ -87,6 +87,14 @@ async function getPyPIIndex(): Promise<PyPIIndex> {
     return pypiIndexInFlight;
 }
 
+interface PyPIExistsCacheEntry {
+    exists: boolean;
+    checkedAt: number;
+}
+
+/** Cached exact-name existence answers, keyed by canonical name. */
+const pypiExistsCache = new Map<string, PyPIExistsCacheEntry>();
+
 /**
  * Clear the cached PyPI index and exact-name answers. Intended for unit tests,
  * which share the module-level caches across cases and need a clean slate per
@@ -105,14 +113,6 @@ export function resetPyPICachesForTests(): void {
 export function canonicalizePyPIName(name: string): string {
     return name.replace(/[-_.]+/g, '-').toLowerCase();
 }
-
-interface PyPIExistsCacheEntry {
-    exists: boolean;
-    checkedAt: number;
-}
-
-/** Cached exact-name existence answers, keyed by canonical name. */
-const pypiExistsCache = new Map<string, PyPIExistsCacheEntry>();
 
 /**
  * Whether a project with this exact (PEP 503 normalized) name exists on PyPI.
