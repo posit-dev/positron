@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs, skillVersion } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
@@ -375,6 +376,24 @@ async function main() {
 	} else {
 		summary = `## Exploratory test: no report\n\nThe agent produced no report. Check the action logs.\n\n${footer()}\n`;
 	}
+
+	// One line per run that GitHub keeps for 90 days, after the artifact is
+	// gone: stats.mjs reads it back to compare skill versions.
+	const stats = buildStats({
+		where: 'ci',
+		date: STARTED_AT.toISOString(),
+		run: process.env.GITHUB_RUN_ID,
+		version: skillVersion(),
+		model: cost.model,
+		turns: cost.num_turns,
+		maxTurns: MAX_TURNS,
+		costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) || null,
+		durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) || null,
+		parsed: reportMarkdown ? parseReport(reportMarkdown) : null,
+		checks: readChecks(WORK_DIR),
+	});
+	writeFileSync(join(WORK_DIR, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
+	console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);
 
 	if (STEP_SUMMARY) {
 		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER, FOCUS) + summary);

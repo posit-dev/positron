@@ -50,6 +50,7 @@ if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules'
 const { renderReportHtml, linkedLogs, skillVersion } = await import('./html.mjs');
 const { modelDisplayName, parseReport } = await import('./report-parse.mjs');
 const { lintReport, untaggedShots } = await import('./lint.mjs');
+const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
 
 let markdown = readFileSync(input, 'utf8');
 // Coverage is built from the run's ledger when it wrote one.
@@ -70,8 +71,14 @@ const repoRoot = (() => {
 	try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
 })();
 const repoFileExists = repoRoot ? path => existsSync(join(repoRoot, path)) : undefined;
+// The explorer's own checks are counted, to see what the prose did not teach;
+// the renders the harness does afterwards (the Run tile's, a publish's) are not.
+const byExplorer = !flags['duration-ms'] && !flags.out && !flags.base;
 const printProblems = () => {
 	const problems = lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists });
+	if (byExplorer) {
+		recordCheck(dir, problems);
+	}
 	if (problems.length) {
 		console.error(`format problems:\n${problems.map(p => `  ${p}`).join('\n')}`);
 	}
@@ -127,9 +134,25 @@ console.log(out);
 // Printed, not fatal: the page still renders. Fix each line and render again.
 printProblems();
 
+const parsed = parseReport(markdown, { ledger });
+
+// The Run tile's render is the run's last: record its stats, as CI's run.mjs does.
+if (flags['duration-ms']) {
+	writeFileSync(join(dir, 'stats.json'), `${JSON.stringify(buildStats({
+		where: 'local',
+		date: (born.getTime() > 0 ? born : new Date()).toISOString(),
+		version: skillVersion(),
+		model: flags.model,
+		// A subagent's tool_uses, which is what the footer calls turns here.
+		turns: flags.turns ? Number(flags.turns) : null,
+		durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0),
+		parsed,
+		checks: readChecks(dir),
+	}), null, 2)}\n`);
+}
+
 // A listed log that was never copied is a dead link; the page shows it unlinked,
 // and the run fails so it gets copied rather than shipped.
-const parsed = parseReport(markdown, { ledger });
 const missing = linkedLogs(parsed).filter(p => !fileExists(p));
 if (missing.length) {
 	console.error(`missing log files, listed but not beside the report:\n${missing.map(p => `  ${p}`).join('\n')}`);
