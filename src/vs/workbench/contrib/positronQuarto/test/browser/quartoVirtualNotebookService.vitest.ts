@@ -414,7 +414,7 @@ describe('QuartoVirtualNotebookService', () => {
 		expect({
 			notebookUri: service.getNotebookUri(source.uri),
 			// Registering the type writes to profile storage, so a user who
-			// never enables the setting should accumulate nothing.
+			// turns the setting off should accumulate nothing.
 			typeRegistered: contributedTypes.has(QUARTO_CELLS_VIEW_TYPE),
 		}).toEqual({
 			notebookUri: undefined,

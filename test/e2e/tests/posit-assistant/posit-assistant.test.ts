@@ -19,14 +19,22 @@ test.describe('Posit Assistant', {
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
 		test.describe(provider, () => {
 			test.beforeAll(async function ({ app, settings }) {
+				// Ensure we're running the latest Posit Assistant dev build.
+				// Enables the auto dev-build update check, triggers the check,
+				// and accepts the resulting "Update Now" / "Reload" toasts.
+				//
+				// This must run before sign-in. With the key already saved, the
+				// reload makes the assistant check credentials while the new
+				// extension host is still starting; on web that check can exceed
+				// the assistant's 500ms cap, and the provider is then cached with
+				// no models, so the model picker never renders. Signing in after
+				// the reload is a credentials change on a running host, which
+				// forces a fresh model listing.
+				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 				await app.workbench.modelProviderModal.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
-				// Ensure we're running the latest Posit Assistant dev build.
-				// Enables the auto dev-build update check, triggers the check,
-				// and accepts the resulting "Update Now" / "Reload" toasts.
-				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
 			});
 
 			test(`${provider} - Open Posit Assistant and verify welcome page`, async function ({ app }) {

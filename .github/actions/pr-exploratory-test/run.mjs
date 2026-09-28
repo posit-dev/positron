@@ -3,30 +3,45 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Drives the Claude Agent SDK to run the exploratory-testing skill against a
+// Drives the Claude Agent SDK to run the exploratory-test skill against a
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { readFileSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { renderReportHtml } from './html.mjs';
-import { resolveReport, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, runOutcome } from './lib.mjs';
+import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { renderReportHtml, linkedLogs, skillVersion } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
+import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
+import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
+import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, ENVIRONMENT } from './lib.mjs';
 
+// Dates the report footer's copyright.
+const STARTED_AT = new Date();
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
-const SKILL_PATH = mustEnv('SKILL_PATH');
+const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
+// Beside explorer.md, so both prompts come from the harness checkout rather
+// than the branch under test, which may not have this file yet.
+const VERIFIER_PATH = join(dirname(EXPLORER_PATH), 'verifier.md');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
 const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
+// What the person asked to test; empty tests the diff.
+const FOCUS = process.env.FOCUS || '';
+// Unset leaves each model at its own default effort.
+const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
 // The verify pass never drives the app, so it needs far fewer turns than the
 // run it checks; two trial passes used 22 and 26 tool calls.
 const VERIFY_MODEL = process.env.VERIFY_MODEL || 'sonnet';
 const VERIFY_MAX_TURNS = parsePosIntEnv('VERIFY_MAX_TURNS', 60, process.env.VERIFY_MAX_TURNS);
 const VERIFY_ENABLED = process.env.VERIFY !== 'false';
+// Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
+const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
 // The verification bills separately from the explore pass, so its cost record
 // outlives the function that produces it.
 let verifyCost = buildCostRecord(null);
@@ -49,19 +64,15 @@ function mustEnv(name) {
 	return v;
 }
 
-// Base overrides always apply; the screenshot-linking override is appended
-// only when a CDN base URL is actually configured, so an empty
-// REPORT_BASE_URL never puts an unusable "published at ``" sentence into the
-// prompt (see buildShotsBaseUrl in lib.mjs).
+// Shots stay relative (`shots/<file>`): index.html and report.md are
+// published beside shots/, so they resolve without a base URL in the prompt.
+const RENDER_PATH = fileURLToPath(new URL('../../../.claude/skills/exploratory-test/renderer/render.mjs', import.meta.url));
 const CI_OVERRIDES = [
-	'**You are the tester.** Ignore "Run it in a subagent". Do not delegate; do the exploring yourself.',
-	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\` and \`actions.log\` directly in it and screenshots in \`${WORK_DIR}/shots/\`.`,
+		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it, screenshots in \`${WORK_DIR}/shots/\`, and the files your scenarios use in \`${WORK_DIR}/files/\` (the skill's Test files rule).`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
-	`**Keep the logs of any instance you launch.** \`stop.sh\` takes the run directory with it, and \`code.log\` is the only record of what the app did. Copy it to \`${WORK_DIR}/logs/<cdp-port>-code.log\` before you stop that instance. A finding whose log was deleted cannot be checked by the person reading the report, and the container is destroyed at job end anyway, so there is nothing to tidy up for.`,
+	`**Keep the logs in \`${WORK_DIR}/logs/\`.** Follow the skill's Logs section for the pre-launched instance and any you launch. The pre-launched instance's run directory is the only one under \`/tmp/positron-dev-launch/\` when you start, so note it before you launch another. Copy an instance's logs before you stop it: \`stop.sh\` takes its run directory with it. A finding whose log was deleted cannot be checked by the person reading the report.`,
+	`**Do not render the report; check it.** The workflow renders \`index.html\` itself once verification has been added. Instead of the skill's render step, run \`node ${RENDER_PATH} --check "${WORK_DIR}/report.md"\`, fix every line it prints, and run it again until it prints none.`,
 ];
-if (REPORT_BASE_URL) {
-	CI_OVERRIDES.push(`**Link screenshots with their public URL.** The run directory is published at \`${REPORT_BASE_URL}\`. Where the skill says to cite a shot as \`[shots/<file>](shots/<file>)\`, write \`[shots/<file>](${REPORT_BASE_URL}/shots/<file>)\` instead, and embed with \`![](${REPORT_BASE_URL}/shots/<file>)\`. A relative path is unreachable to anyone reading the report outside this container.`);
-}
 const CI_OVERRIDES_LIST = CI_OVERRIDES.map((text, i) => `${i + 1}. ${text}`).join('\n');
 
 const CI_TAIL = `
@@ -74,9 +85,19 @@ You are running inside a GitHub Actions container. ${CI_OVERRIDES.length} overri
 
 ${CI_OVERRIDES_LIST}
 
+## What this container has
+
+${ENVIRONMENT}
+
+A path that needs something on the not-available list is the environment, not a finding. Test what you can reach without it -- the UI up to that point, the error a user gets when it is unreachable -- and list the rest as dropped with the missing piece named.
+
+Everything you write here is published: the skill's Credentials section applies to every key listed above.
+
+## The running app
+
 Positron is already launched and a Playwright session named \`positron\` is attached to it on CDP port ${CDP_PORT}. Use it for anything the running app can show you.
 
-When you need a state the running app cannot reach -- a tool absent at startup, a cold cache, a fresh profile -- launch your own instance rather than bending this one. \`launch.sh\` picks free ports and its own run directory, so it runs alongside this one safely. Attach it under a different session name and leave the \`positron\` session alone. Stop the instances you launched once you are done with them; never stop this one. Record any instance you launched in Run setup.
+When you need a state the running app cannot reach -- a tool absent at startup, a cold cache, a fresh profile -- launch your own instance rather than bending this one. \`launch.sh\` picks free ports and its own run directory, so it runs alongside this one safely. Attach it under a different session name and leave the \`positron\` session alone. Stop the instances you launched once you are done with them; never stop this one. Record any instance you launched under State manipulation in Run details.
 
 ## Cold start
 
@@ -123,39 +144,9 @@ Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full comman
 // Takes no report: the verifier is pointed at report.md on disk rather than
 // handed its text, so that it reads the same bytes the reviewer will.
 async function verifyReport() {
-	const prompt = [
-		'You are verifying an exploratory-testing report written by a different agent. Decide, for each finding, whether it is a genuine product defect. Be adversarial: the report is a claim, not evidence.',
-		'',
-		`Report: \`${join(WORK_DIR, 'report.md')}\``,
-		`The reporting agent's own action log, with timestamps: \`${join(WORK_DIR, 'actions.log')}\``,
-		`Repository: \`${REPO_ROOT}\`. Read files at a ref with \`git show <ref>:<path>\`. Do not modify anything.`,
-		'',
-		`See the change under test with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA}\`.`,
-		'',
-		'For EACH finding, answer these three questions explicitly:',
-		'',
-		"1. Does the code support the report's stated cause hypothesis? Read the files it names and quote the lines that confirm or contradict it.",
-		'2. Could anything the reporting agent did to its own test environment produce the reported symptom? Read the action log and Run details for how it set the machine up, then ask whether that setup, rather than the product, explains what it saw.',
-		'3. Is the `Introduced?` value consistent with the diff? A defect in code the diff did not touch is not introduced by this change, though it may be newly reachable because of it.',
-		'',
-		'Then give a verdict per finding: CONFIRMED, FALSE POSITIVE, or UNRESOLVED (say what evidence is missing).',
-		'',
-		'Also flag any place where the report asserts a check it could not have performed as described.',
-		'',
-		'Start your reply with a single machine-readable line, exactly this shape, one entry per finding in the table:',
-		'',
-		'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE',
-		'',
-		'It is read to annotate the findings table, so use only CONFIRMED, FALSE POSITIVE or UNRESOLVED, and number the findings as the table does.',
-		'',
-		'Then keep it short. The table column is what a reviewer reads; this section is for what the column cannot say.',
-		'',
-		'- A finding you CONFIRM gets one line: what convinced you.',
-		'- A finding you dispute or cannot resolve gets a short paragraph: the evidence that contradicts it, or what is missing.',
-		'- End with one line naming anything the report claimed but could not have checked, or `No process issues.`',
-		'',
-		'No preamble, no restating the finding, no summary of the report. Do not write any files.',
-	].join('\n');
+	const prompt = buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
+		workDir: WORK_DIR, repoRoot: REPO_ROOT, baseSha: BASE_SHA, headSha: HEAD_SHA,
+	});
 
 	const chunks = [];
 	for await (const message of query({
@@ -165,7 +156,7 @@ async function verifyReport() {
 			cwd: REPO_ROOT,
 			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
 			maxTurns: VERIFY_MAX_TURNS,
-			thinking: { type: 'disabled' },
+			effort: 'medium',
 			stderr: data => process.stderr.write(`[verify stderr] ${data}`),
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
@@ -181,13 +172,13 @@ async function verifyReport() {
 			writeFileSync(join(WORK_DIR, 'verify-cost.json'), JSON.stringify(verifyCost, null, 2));
 		}
 	}
-	return chunks.length ? chunks[chunks.length - 1] : null;
+	return chunks.length ? fromVerdictLine(chunks[chunks.length - 1]) : null;
 }
 
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
 
-	const systemPrompt = readFileSync(SKILL_PATH, 'utf8') + CI_TAIL;
+	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 
 	const userPrompt = [
 		'# Brief',
@@ -208,14 +199,14 @@ async function main() {
 		'',
 		'## Your task',
 		'',
-		'Read the diff to work out what the change is meant to do as a user would describe it, and what its blast radius is. Then explore that, as a user, and report genuine problems.',
+		buildTaskLine(FOCUS),
 		'',
 		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
 		'',
 		'Write the report to `report.md` in the run directory. Return a two or three line summary and nothing else.',
 	].join('\n');
 
-	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} maxTurns=${MAX_TURNS}`);
+	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS}`);
 	console.log(`[exploratory] user prompt:\n${userPrompt}`);
 
 	const assistantMessages = [];
@@ -241,12 +232,13 @@ async function main() {
 			// refusal to start is indistinguishable from a crash.
 			stderr: data => process.stderr.write(`[claude-code stderr] ${data}`),
 			maxTurns: MAX_TURNS,
-			// Extended thinking is disabled. With thinking on (the adaptive
-			// default), cancelling a parallel tool-call batch corrupts the
-			// in-flight thinking blocks and wedges the session with a repeating
-			// 400 ("thinking blocks ... cannot be modified", claude-code#63192).
-			// The report is built from text blocks only, so no output is lost.
-			thinking: { type: 'disabled' },
+			// Summarized display returns the notes the model writes between tool
+			// calls, which otherwise arrive as empty thinking blocks.
+			// gate.mjs and the analyzers still disable thinking for claude-code#63192
+			// (a cancelled parallel tool batch wedges the session on a repeating 400).
+			// If a run wedges that way, disable it here too.
+			thinking: { type: 'adaptive', display: 'summarized' },
+			...(EFFORT ? { effort: EFFORT } : {}),
 			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
 		},
 	})) {
@@ -254,6 +246,10 @@ async function main() {
 			messageCount++;
 			const content = message.message?.content || [];
 			const textBlocks = content.filter(b => b.type === 'text').map(b => b.text);
+			const notes = content.filter(b => b.type === 'thinking' && b.thinking).map(b => b.thinking);
+			if (notes.length) {
+				console.log(`[msg ${messageCount}] note: ${notes.join(' ').slice(0, 500)}`);
+			}
 			const toolUses = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, 200)})`);
 			if (textBlocks.length) {
 				const joined = textBlocks.join('\n');
@@ -289,7 +285,8 @@ async function main() {
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
 	], MAX_TURNS);
-	const report = resolveReport(fileReport, assistantMessages);
+	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
+	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
 	// Read by the workflow to choose the final reaction and the PR comment.
 	// Written before anything below can exit, so a run with no report still
@@ -297,6 +294,31 @@ async function main() {
 	if (process.env.GITHUB_OUTPUT) {
 		appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${runOutcome({ report, numTurns: cost.num_turns, maxTurns: MAX_TURNS })}\n`);
 	}
+	const nearCap = turnCapWarning({ numTurns: cost.num_turns, maxTurns: MAX_TURNS });
+	if (nearCap) {
+		console.log(nearCap);
+	}
+
+	// One line per run that GitHub keeps for 90 days, after the artifact is
+	// gone: stats.mjs reads it back to compare skill versions. Written before
+	// the page, which links stats.json from Run details.
+	const recordStats = markdown => {
+		const stats = buildStats({
+			where: 'ci',
+			date: STARTED_AT.toISOString(),
+			run: process.env.GITHUB_RUN_ID,
+			version: skillVersion(),
+			model: cost.model,
+			turns: cost.num_turns,
+			maxTurns: MAX_TURNS,
+			costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) || null,
+			durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) || null,
+			parsed: markdown ? parseReport(markdown) : null,
+			checks: readChecks(WORK_DIR),
+		});
+		writeFileSync(join(WORK_DIR, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
+		console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);
+	};
 
 	// What goes in report.md, and what goes in the job summary. They used to be
 	// the same string: the summary is a signpost now, and the report is the
@@ -307,8 +329,9 @@ async function main() {
 		// The report opens with its own "# Exploratory test: ..." heading, so a
 		// wrapper heading here would render two titles. The partial and
 		// no-report branches below still need one: they have no report to
-		// supply it.
-		if (!(typeof fileReport === 'string' && fileReport.trim().length > 0)) {
+		// supply it. Written when the reply was the only copy, or the PR line
+		// changed it.
+		if (report !== fileReport) {
 			writeFileSync(join(WORK_DIR, 'report.md'), report);
 		}
 
@@ -330,31 +353,42 @@ async function main() {
 			}
 		}
 
-		// The column is what a reviewer scanning the table actually sees; the
-		// section below carries the reasoning. Annotation is best effort and
-		// never removes a row, because a wrong FALSE POSITIVE that deleted a
-		// real finding would be invisible to everyone.
-		// Collapsed, and last: the Verified column is what a reviewer reads, and
-		// this is the reasoning behind it. A failed pass stays open, because
-		// "these findings are unreviewed" is not a detail to hide behind a
-		// click. The blank lines around the markdown are load bearing.
-		const preamble = 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.';
-		const section = verifyFailed
-			? `## Verification\n\n${verdicts}\n`
-			: `<details>\n<summary>Verification details</summary>\n\n${preamble}\n\n${verdicts}\n\n</details>\n`;
-		const reviewed = verdicts
-			? `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n${section}`
-			: report;
+		// Annotation is best effort and never removes a row, because a wrong
+		// FALSE POSITIVE that deleted a real finding would be invisible to
+		// everyone. Shared with local runs through finish.mjs.
+		const reviewed = verdicts ? applyVerification(report, verdicts, { failed: verifyFailed }) : report;
 		reportMarkdown = `${reviewed}\n\n${footer()}\n`;
 		// Written with the footer: report.md is published to the CDN on its own,
 		// where the step summary's copy of the cost is not reachable.
 		writeFileSync(join(WORK_DIR, 'report.md'), reportMarkdown);
+		recordStats(reportMarkdown);
 		// index.html is what the published run directory's URL already points at,
 		// and a rendered page is easier to read than raw markdown with absolute
 		// image URLs in it. The markdown stays: the verification pass reads it,
 		// and a file you can grep is worth keeping.
 		try {
-			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown));
+			const ledgerPath = join(WORK_DIR, 'ledger.md');
+			const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
+			const fileExists = path => existsSync(join(WORK_DIR, path));
+			const readFile = path => (fileExists(path) && statSync(join(WORK_DIR, path)).isFile() ? readFileSync(join(WORK_DIR, path)) : null);
+			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown, {
+				agentPrompts: AGENT_PROMPTS,
+				// Coverage is built from the run's ledger when it wrote one.
+				ledger,
+				// Evidence in the prompt has to open from wherever it is pasted.
+				base: REPORT_BASE_URL || WORK_DIR,
+				skillVersion: skillVersion(),
+				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
+				fileExists,
+				readFile,
+				startedAt: STARTED_AT,
+			}));
+			// Warned rather than failed: the page still renders, with the missing files unlinked.
+			const parsed = parseReport(reportMarkdown, { ledger });
+			const missing = [...linkedLogs(parsed), ...parsed.files.map(f => f.path)].filter(p => !fileExists(p));
+			if (missing.length) {
+				console.error(`[report] WARN: files listed but not in the run directory: ${missing.join(', ')}`);
+			}
 		} catch (err) {
 			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
 		}
@@ -365,8 +399,12 @@ async function main() {
 		summary = `## Exploratory test: no report\n\nThe agent produced no report. Check the action logs.\n\n${footer()}\n`;
 	}
 
+	if (!report) {
+		recordStats(null);
+	}
+
 	if (STEP_SUMMARY) {
-		appendFileSync(STEP_SUMMARY, summary);
+		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER, FOCUS) + summary);
 	}
 	// The full report still goes to the action log. It is the one copy that
 	// survives an artifact upload or a CDN publish that did not happen.

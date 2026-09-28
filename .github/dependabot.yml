@@ -10,9 +10,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-  - package-ecosystem: "npm"
-    directory: "/extensions/markdown-language-features"
-    schedule:
-      interval: "daily"
-    allow:
-      - dependency-name: "@vscode/markdown-editor"
+  # --- Start Positron ---
+  # Upstream bumps @vscode/markdown-editor daily; we take it via upstream merges instead.
+  # - package-ecosystem: "npm"
+  #   directory: "/extensions/markdown-language-features"
+  #   schedule:
+  #     interval: "daily"
+  #   allow:
+  #     - dependency-name: "@vscode/markdown-editor"
+  # --- End Positron ---

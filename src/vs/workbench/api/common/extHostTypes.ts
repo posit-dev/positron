@@ -647,6 +647,10 @@ export enum InlineCompletionDisplayLocationKind {
 export enum ViewColumn {
 	Active = -1,
 	Beside = -2,
+	// --- Start Positron ---
+	// Adding ViewColumn.Modal ahead of microsoft/vscode#307838 landing upstream; see positron#16082.
+	Modal = -4,
+	// --- End Positron ---
 	One = 1,
 	Two = 2,
 	Three = 3,
