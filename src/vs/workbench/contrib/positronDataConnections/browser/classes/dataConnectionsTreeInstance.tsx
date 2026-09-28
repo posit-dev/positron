@@ -15,6 +15,8 @@ import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/posi
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
+import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
@@ -187,10 +189,15 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// _scrollToCursorWhenLaidOut.
 	private readonly _pendingScrollToCursor = this._register(new MutableDisposable());
 
+	// Shared by every row so moving between rows' buttons re-hovers instantly, and so a row
+	// unmounting doesn't dispose a manager (which hides every hover in the workbench).
+	private readonly _hoverManager: PositronActionBarHoverManager;
+
 	constructor(
 		private readonly _service: IPositronDataConnectionsService,
 		private readonly _configurationService: IConfigurationService,
 		private readonly _notificationService: INotificationService,
+		hoverService: IHoverService,
 	) {
 		super({
 			rowHeight: ROW_HEIGHT,
@@ -201,6 +208,8 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			getReloadKey: node => reloadKey(node.data),
 			renderNode: (visible, context) => this._renderRow(visible, context),
 		});
+
+		this._hoverManager = this._register(new PositronActionBarHoverManager(true, _configurationService, hoverService));
 
 		// When profiles or instances change, rebuild roots so each entry sees its current
 		// connected/disconnected state. setRoots is sync and preserves existing expansion /
@@ -714,7 +723,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		switch (data.kind) {
 			case 'entry':
 				// Entries are roots, so no ancestor can be refreshing them out from under the row.
-				return <DataConnectionEntryRow entry={data.entry} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
+				return <DataConnectionEntryRow entry={data.entry} hoverManager={this._hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 			case 'dto':
 				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 		}

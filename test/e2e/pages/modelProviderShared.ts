@@ -151,8 +151,8 @@ export function providerRequiresBaseUrl(provider: ModelProvider): boolean {
 }
 
 export function getProviderBaseUrlEnvVarName(provider: ModelProvider): string {
-	// Databricks reuses the workspace URL the catalog-explorer tests already run
-	// against, rather than introducing a DATABRICKS_BASE_URL alias for it.
+	// Databricks reuses the workspace URL the posit-assistant Databricks API-key test
+	// already runs against, rather than introducing a DATABRICKS_BASE_URL alias for it.
 	if (provider.toLowerCase() === 'databricks') {
 		return 'DATABRICKS_WORKSPACE';
 	}

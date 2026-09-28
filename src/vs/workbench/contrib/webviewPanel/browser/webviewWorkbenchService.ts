@@ -10,7 +10,7 @@ import { isCancellationError } from '../../../../base/common/errors.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Iterable } from '../../../../base/common/iterator.js';
 import { combinedDisposable, Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
-import { EditorActivation } from '../../../../platform/editor/common/editor.js';
+import { EditorActivation, IModalEditorPartOptions } from '../../../../platform/editor/common/editor.js';
 import { createDecorator, IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { GroupIdentifier } from '../../../common/editor.js';
@@ -25,6 +25,13 @@ import { WebviewIconPath, WebviewInput, WebviewInputInitInfo } from './webviewEd
 export interface IWebViewShowOptions {
 	readonly group?: IEditorGroup | GroupIdentifier | ACTIVE_GROUP_TYPE | SIDE_GROUP_TYPE;
 	readonly preserveFocus?: boolean;
+	// --- Start Positron ---
+	// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
+	// Reuses IModalEditorPartOptions directly (narrowed to `size`, the only field reachable
+	// from an extension) rather than inventing a separate shape -- passed straight through to
+	// IEditorOptions.modal below with no reshaping needed.
+	readonly modal?: Pick<IModalEditorPartOptions, 'size'>;
+	// --- End Positron ---
 }
 
 export const IWebviewWorkbenchService = createDecorator<IWebviewWorkbenchService>('webviewEditorService');
@@ -285,7 +292,11 @@ export class WebviewEditorService extends Disposable implements IWebviewWorkbenc
 			preserveFocus: showOptions.preserveFocus,
 			// preserve pre 1.38 behaviour to not make group active when preserveFocus: true
 			// but make sure to restore the editor to fix https://github.com/microsoft/vscode/issues/79633
-			activation: showOptions.preserveFocus ? EditorActivation.RESTORE : undefined
+			activation: showOptions.preserveFocus ? EditorActivation.RESTORE : undefined,
+			// --- Start Positron ---
+			// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
+			modal: showOptions.modal
+			// --- End Positron ---
 		}, showOptions.group);
 		return webviewInput;
 	}

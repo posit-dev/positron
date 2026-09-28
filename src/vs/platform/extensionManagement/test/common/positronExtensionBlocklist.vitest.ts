@@ -19,6 +19,7 @@ describe('positronExtensionBlocklist', () => {
 		// ruff 2026.64.0 depends on ms-python.vscode-python-envs; nothing in Positron provides it (#15118)
 		expect(isUnsatisfiableDependency('ms-python.vscode-python-envs')).toBe(true);
 		expect(isUnsatisfiableDependency('reditorsupport.r')).toBe(true);
+		expect(isUnsatisfiableDependency('reditorsupport.r-syntax')).toBe(true);
 	});
 
 	it('should treat non-blocked dependencies as satisfiable', () => {

@@ -76,10 +76,10 @@ test.describe('Posit Assistant - Databricks OAuth', {
 });
 
 // WIN covers the Windows lane and, because the e2e-macOS-ci project greps /@:win/, the
-// macOS one too. Both already export DATABRICKS_WORKSPACE and DATABRICKS_PAT for the
-// catalog-explorer suite, so the API-key case runs there for free. The OAuth case stays
-// off those lanes deliberately: it would need the Okta secrets added to two more
-// workflows and would put two more consumers on the shared TOTP.
+// macOS one too. Both workflows export DATABRICKS_WORKSPACE and DATABRICKS_PAT for this
+// API-key case. The OAuth case stays off those lanes deliberately: it would need the
+// Okta secrets added to two more workflows and would put two more consumers on the
+// shared TOTP.
 test.describe('Posit Assistant - Databricks API Key', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
@@ -88,8 +88,8 @@ test.describe('Posit Assistant - Databricks API Key', {
 			'Databricks API key sign-in requires DATABRICKS_WORKSPACE and DATABRICKS_PAT');
 
 		// DATABRICKS_PAT / DATABRICKS_WORKSPACE, resolved by the page object from the
-		// provider's env var names. Both are already present in the desktop lanes for
-		// the catalog-explorer suite.
+		// provider's env var names. Both are exported by the desktop lanes specifically
+		// for this test.
 		await app.workbench.modelProviderModal.loginModelProvider(provider, {
 			authMethod: 'apiKey',
 		});

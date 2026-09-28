@@ -11,6 +11,7 @@ export const POSITRON_BLOCKED_EXTENSIONS: readonly string[] = [
 	'ikuyadeu.r',
 	'reditorsupport.r-lsp',
 	'reditorsupport.r',
+	'reditorsupport.r-syntax',
 	'rdebugger.r-debugger',
 	'mikhail-arkhipov.r',
 	'vscode.r',

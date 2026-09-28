@@ -28,11 +28,6 @@ on:
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: true
-      allow_soft_fail:
-        required: false
-        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
-        type: boolean
-        default: false
       install_mode:
         required: false
         description: "Workbench install mode: 'ci' for latest daily, 'ci-stable' for the last stable release."
@@ -109,10 +104,6 @@ jobs:
       POSIT_WORKBENCH_PASSWORD: ${{ secrets.WB_PASSWORD }}
       WB_PASSWORD: ${{ secrets.WB_PASSWORD }}
       CONNECT_BOOTSTRAP_SECRETKEY: ${{ secrets.CONNECT_BOOTSTRAP_SECRETKEY }}
-      # Databricks workspace + PAT for the catalog-explorer suite, which types them into the
-      # Add Catalog Provider prompts. Same repo secrets the Linux desktop lanes export.
-      DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
-      DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
       HOME: /home/runner
       AWS_S3_BUCKET: positron-test-reports
       R_LIBS_SITE: /usr/local/lib/R/site-library
@@ -168,13 +159,6 @@ jobs:
           SNOWFLAKE_ACCOUNT: "op://Positron/Snowflake-WB-Auto/account"
           SNOWFLAKE_CLIENT_ID: "op://Positron/Snowflake-WB-Auto/client-id"
           SNOWFLAKE_CLIENT_SECRET: "op://Positron/Snowflake-WB-Auto/client-secret"
-          # Login for the catalog-explorer Snowflake case, which writes them into a connections.toml.
-          # The password is a programmatic access token on the shared IDE service account (Snowflake
-          # retired the legacy SVC_WORKBENCH_TEST_USER on 2026-09-22). It expires 2027-09-22; rotate
-          # it in Snowflake and update the 1Password field. The Session Credentials widget itself
-          # signs in through Okta with the IDE_SERVICE_ACCOUNT_* values above.
-          SNOWFLAKE_USERNAME: "op://Positron/RStudioIDE_Service_Account/snowflake-login-name"
-          SNOWFLAKE_PASSWORD: "op://Positron/RStudioIDE_Service_Account/snowflake-pat"
           AZURE_SERVICE_PRINCIPAL_CLIENT_SECRET: "op://Positron/RStudioIDE_Service_Account/azure-service-principal-client-secret"
           WORKBENCH_LICENSE: "op://Positron/Workbench-lic-WB-Auto/notesPlain"
           CONNECT_LICENSE: "op://Positron/Connect-lic-WB-Auto/notesPlain"

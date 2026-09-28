@@ -1,0 +1,81 @@
+name: "Exploratory Test: Checks"
+
+# Runs the exploratory-test skill's own tests on a PR that changes the skill or
+# the action that runs it in CI, and checks the skill's version was bumped when
+# the agent's instructions changed. Nothing else in CI runs these tests.
+#
+# Plain `pull_request`: no secrets and a read-only token, so a fork PR is safe.
+
+on:
+  pull_request:
+    paths:
+      - ".claude/skills/exploratory-test/**"
+      - ".github/actions/pr-exploratory-test/**"
+      - ".github/workflows/exploratory-test-checks.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # The PR's merge commit, with its first parent (the base branch) for the
+      # version check. Sparse: the tests need only these folders.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          sparse-checkout: |
+            .nvmrc
+            .claude/skills/exploratory-test
+            .github/actions/pr-exploratory-test
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # Feedback is grouped by this version, so a change to what the agent is
+      # told has to land under a new one.
+      - name: Check the skill version was bumped
+        shell: bash
+        run: |
+          SKILL=.claude/skills/exploratory-test
+          version() { sed -n '/^---$/,/^---$/p' | sed -nE 's/^[[:space:]]+version:[[:space:]]*"?([^"[:space:]]+)"?.*$/\1/p'; }
+          # run.mjs and lib.mjs build the prompt CI gives the explorer.
+          ACTION=.github/actions/pr-exploratory-test
+          CHANGED=$(git diff --name-only HEAD^1 HEAD -- "$SKILL/SKILL.md" "$SKILL/explorer.md" "$SKILL/verifier.md" "$ACTION/run.mjs" "$ACTION/lib.mjs")
+          if [ -z "$CHANGED" ]; then
+            echo "The agent's instructions did not change."
+            exit 0
+          fi
+          BEFORE=$(git show "HEAD^1:$SKILL/SKILL.md" 2>/dev/null | version || true)
+          AFTER=$(version < "$SKILL/SKILL.md")
+          echo "Changed: $(tr '\n' ' ' <<< "$CHANGED")"
+          echo "Version: ${BEFORE:-none} -> ${AFTER:-none}"
+          if [ -z "$AFTER" ]; then
+            echo "::error file=$SKILL/SKILL.md::SKILL.md has no metadata.version."
+            exit 1
+          fi
+          if [ -n "$BEFORE" ] && [ "$BEFORE" = "$AFTER" ]; then
+            echo "::error file=$SKILL/SKILL.md::The agent's instructions changed, so bump metadata.version in SKILL.md (now $AFTER)."
+            exit 1
+          fi
+
+      - name: Install the renderer's dependencies
+        working-directory: .claude/skills/exploratory-test/renderer
+        run: npm ci --no-audit --no-fund
+
+      - name: Test the renderer
+        working-directory: .claude/skills/exploratory-test/renderer
+        run: node --test
+
+      - name: Test the action
+        working-directory: .github/actions/pr-exploratory-test
+        run: node --test

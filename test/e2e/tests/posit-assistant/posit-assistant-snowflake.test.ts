@@ -32,8 +32,8 @@ test.use({
 const HELLO_PROMPT = 'Reply with only the word hello.';
 
 // WIN covers the Windows lane and, because the e2e-macOS-ci project greps /@:win/, the
-// macOS one too. Unlike Databricks -- which rides on the DATABRICKS_* vars those lanes
-// already export for the catalog-explorer suite -- Snowflake had no credentials there, so
+// macOS one too. Unlike Databricks -- which shares its DATABRICKS_* vars with the API-key
+// case in posit-assistant-databricks.test.ts -- Snowflake had no credentials there, so
 // SNOWFLAKE_ACCOUNT and SNOWFLAKE_API_KEY were added to both workflows for this test.
 test.describe('Posit Assistant - Snowflake Cortex API Key', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],

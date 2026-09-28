@@ -400,6 +400,10 @@ export interface ServerConfiguration {
      */
     'resource_sample_interval_ms'?: number;
     /**
+     * Whether the resource usage reported for a session includes the usage of its child processes. When false, only the session\'s own process is measured.
+     */
+    'resource_include_children'?: boolean;
+    /**
      * The current log level
      */
     'log_level'?: ServerConfigurationLogLevelEnum;

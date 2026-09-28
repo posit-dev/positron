@@ -71,11 +71,6 @@ on:
         description: "Whether to skip the extensions tests."
         type: boolean
         default: false
-      allow_soft_fail:
-        required: false
-        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
-        type: boolean
-        default: false
       max_failures:
         required: false
         description: "Maximum number of test failures before aborting. Should be calculated as: base_max_failures / number_of_shards (e.g., 10 / 4 = 3 for 4 shards)."
@@ -109,8 +104,8 @@ jobs:
       # into the modal alongside SNOWFLAKE_API_KEY (loaded from 1Password below). The
       # Linux lanes set this from the same secret for the data-connections suite.
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      # Login + password for the catalog-explorer Snowflake case, which writes them into a
-      # connections.toml for the provider. Same secrets the Linux lanes export.
+      # Username/password sign-in for connections-snowflake.test.ts's Snowflake Connection
+      # suite. Same secrets the Linux lanes export.
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       # Consumed by the Postgres e2e tests (connections-postgres / data-connections postgres).
@@ -635,7 +630,6 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           USE_KEY: true
-          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: false # prevent reporting individual shard results to github summary
           ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
@@ -831,15 +825,7 @@ jobs:
             exit 1
           fi
 
-          EXTRA_ARGS=""
-          if [[ "${{ inputs.allow_soft_fail }}" != "true" ]]; then
-            echo "SOFT-FAIL DISABLED: standard test failure behavior"
-            EXTRA_ARGS="--no-soft-fail"
-          else
-            echo "SOFT-FAIL ENABLED: soft-fail tests won't fail the job"
-          fi
-
-          node scripts/check-soft-fail-failures.js "$JSON_REPORT" $EXTRA_ARGS
+          node scripts/check-e2e-failures.js "$JSON_REPORT"
 
           # Fail if we're missing reports from any shards (even if all available tests passed)
           if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then

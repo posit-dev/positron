@@ -4,43 +4,207 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch to explore."
+        description: "Branch to explore"
         required: true
         type: string
-      model:
-        description: "Model to explore with. 'both' runs opus and sonnet in parallel."
+      # Set it when the ref's PR targets a release branch.
+      base:
+        description: "Base branch"
         required: false
-        default: "opus"
+        default: "main"
+        type: string
+      # Replaces the branch diff as the target and skips the worthiness check.
+      focus:
+        description: "Test focus"
+        required: false
+        default: ""
+        type: string
+      # The option text is also the value the explore matrix compares.
+      model:
+        description: "Model"
+        required: false
+        default: "Opus"
         type: choice
         options:
-          - opus
-          - sonnet
-          - both
-      enable_gate:
-        description: "Let a pre-flight pass decline the run when the change cannot be exercised here"
+          - Opus
+          - Sonnet
+          - Both (Opus + Sonnet)
+      worthiness_check:
+        description: "Worthiness check"
         required: false
-        default: false
+        default: true
         type: boolean
+  # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
+  # file with full secrets, and the explore job builds and executes the PR's
+  # code, so the membership job is the entire defence. See its comment.
+  issue_comment:
+    types: [created]
 
+# id-token is granted only to publish, the one job that assumes an AWS role.
+# Every other job reads untrusted input, and an OIDC token there could assume
+# the report bucket's role.
 permissions:
-  id-token: write
   contents: read
   packages: read
 
-concurrency:
-  group: pr-exploratory-${{ inputs.ref }}
-  cancel-in-progress: true
-
 jobs:
-  # Runs before anything is built. The explore job needs a compile, an Xvfb, a
-  # launch and a Playwright attach; a change this pass declines should not pay
-  # for twenty minutes of 8-core runner first. One gate serves every matrix leg.
-  gate:
-    name: gate
-    if: ${{ inputs.enable_gate }}
+  # Decides who may run this. Not to be confused with `worthiness`, which
+  # decides whether a change is worth testing.
+  #
+  # issue_comment runs in base-repo context with full secrets, even for fork
+  # PRs, and explore compiles and runs the PR head. PETE also mounts the PR
+  # read-only; that layer is not available here, since running the PR's code is
+  # the point. So BOTH the commenter and the PR author must be active
+  # positron-dev members: an outsider cannot bait a member into commenting
+  # `/test` on their PR. Fails closed on any error.
+  membership:
+    name: membership
+    # Cheap prefilter so ordinary comments do not start a runner. startsWith,
+    # not contains: contains fires on a comment that merely mentions /test.
+    if: >-
+      github.event_name == 'issue_comment' &&
+      github.event.issue.pull_request != null &&
+      (startsWith(github.event.comment.body, '/test') ||
+        startsWith(github.event.comment.body, '/exploratory-test'))
+    runs-on: ubuntu-latest
+    # Reads membership with the App token below and the PR with GITHUB_TOKEN.
+    # No write access on the one job that runs for every matching comment,
+    # which is also why a blocked caller gets silence rather than a rejection.
+    permissions:
+      pull-requests: read
+    outputs:
+      ok: ${{ steps.check.outputs.ok }}
+      head_sha: ${{ steps.check.outputs.head_sha }}
+      head_ref: ${{ steps.check.outputs.head_ref }}
+      base_ref: ${{ steps.check.outputs.base_ref }}
+      model: ${{ steps.check.outputs.model }}
+    steps:
+      - name: Mint org-scoped App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          owner: posit-dev
+
+      - name: Check command and membership
+        id: check
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPO_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.issue.number }}
+          BODY: ${{ github.event.comment.body }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          PR_AUTHOR: ${{ github.event.issue.user.login }}
+        run: |
+          set -uo pipefail
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+
+          # The prefilter matched a prefix, so "/testing" got this far. Only the
+          # exact command counts: the first word of the first non-blank line.
+          # /exploratory-test is an alias that matches the skill's name.
+          # Web UI comments use CRLF, so drop the CR or "/test\r" never matches.
+          first=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print $1; exit }')
+          if [ "$first" != "/test" ] && [ "$first" != "/exploratory-test" ]; then
+            echo "Not a /test command (first word: '$first')"
+            exit 0
+          fi
+
+          # Optional second word picks the model. Only the literal names pass;
+          # anything else runs the default, and the comment names the model so
+          # a typo is visible.
+          arg=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print tolower($2); exit }')
+          case "$arg" in
+            opus|sonnet) model=$arg ;;
+            *) model=opus ;;
+          esac
+
+          # Active member: 200 {"state":"active"}. Non-member: 404, empty
+          # stdout. Pending invite: "pending", which does not count.
+          is_member() {
+            local state
+            state=$(gh api "orgs/posit-dev/teams/positron-dev/memberships/$1" --jq '.state' 2>/dev/null)
+            [ "$state" = "active" ]
+          }
+
+          if ! is_member "$COMMENTER" || ! is_member "$PR_AUTHOR"; then
+            echo "Membership gate: blocked (commenter=$COMMENTER, author=$PR_AUTHOR)"
+            exit 0
+          fi
+
+          # Authoring a PR is not controlling its head: a fork's owner can push
+          # after a member comments. Only an open PR whose head is in this repo,
+          # where pushing already takes write access. Pin the SHA here, so a
+          # later push does not change what explore checks out.
+          if ! pr=$(GH_TOKEN="$REPO_TOKEN" gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"); then
+            echo "Membership gate: could not read PR #${PR_NUMBER}"
+            exit 0
+          fi
+          state=$(jq -r '.state' <<<"$pr")
+          head_repo=$(jq -r '.head.repo.full_name' <<<"$pr")
+          if [ "$state" != "open" ] || [ "$head_repo" != "$GITHUB_REPOSITORY" ]; then
+            echo "Membership gate: blocked (state=$state, head repo=$head_repo)"
+            exit 0
+          fi
+          {
+            echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
+            echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
+            echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
+            echo "model=$model"
+            echo "ok=true"
+          } >> "$GITHUB_OUTPUT"
+          echo "Membership gate: ok (model=$model)"
+
+  # The dispatch path's counterpart to membership's branch check. Dispatching
+  # already takes write access, so there is no team lookup, but `ref` must be a
+  # branch of this repo: refs/pull/N/head and bare SHAs also reach a fork PR's
+  # code, which the comment path refuses. Pins the SHA, so worthiness and
+  # explore test the same commit whatever is pushed meanwhile.
+  dispatch-ref:
+    name: dispatch-ref
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
+      contents: read
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      - name: Resolve branch
+        id: resolve
+        env:
+          REF: ${{ inputs.ref }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Exact name only: git ls-remote patterns match any ref that ends in them.
+          sha=$(git ls-remote "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "refs/heads/${REF}" \
+            | awk -v want="refs/heads/${REF}" '$2 == want { print $1 }')
+          if [ -z "$sha" ]; then
+            echo "::error::'${REF}' is not a branch of ${GITHUB_REPOSITORY}. Pass a branch name; fork PRs, refs/pull/* and SHAs are refused."
+            exit 1
+          fi
+          echo "Exploring ${REF} at ${sha}"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+  # Decides whether the change is worth testing, before anything is built. Not
+  # to be confused with `membership`, which decides who may run this at all.
+  # The explore job needs a compile, an Xvfb, a launch and a Playwright attach;
+  # a change this pass declines should not pay for twenty minutes of 8-core
+  # runner first. One pass serves every matrix leg.
+  worthiness:
+    name: worthiness
+    needs: [membership, dispatch-ref]
+    # Runs on every /test (there is no input to turn it off there) and on a
+    # dispatch that leaves it on and names no focus: the gate rules on the
+    # diff, and a named feature is the person's call. Behind membership on a
+    # comment, because it checks out the PR and gives an agent a shell in it.
+    # always(): membership is skipped on dispatch, and dispatch-ref on a comment.
+    if: >-
+      ${{ always() &&
+      ((github.event_name == 'workflow_dispatch' && needs.dispatch-ref.outputs.sha != '' && inputs.worthiness_check && inputs.focus == '') ||
+        needs.membership.outputs.ok == 'true') }}
+    runs-on: ubuntu-latest
+    permissions:
       contents: read
     outputs:
       testable: ${{ steps.gate.outputs.testable }}
@@ -49,7 +213,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref || github.ref_name }}
+          ref: ${{ needs.dispatch-ref.outputs.sha || needs.membership.outputs.head_sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -67,21 +231,29 @@ jobs:
           path: .harness
           sparse-checkout: |
             .github/actions
-            .claude/skills/exploratory-testing
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
       - name: Resolve diff base
         id: base
         shell: bash
+        env:
+          BASE_REF: ${{ inputs.base || needs.membership.outputs.base_ref || 'main' }}
         run: |
           set -euo pipefail
-          BASE=$(git merge-base origin/main HEAD)
+          if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
+            echo "::error::Base branch '$BASE_REF' not found on origin"
+            exit 1
+          fi
+          BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           {
             echo "diff_stat<<DIFFEOF"
-            git --no-pager diff "$BASE"...HEAD --stat
+            # Full paths: the default width elides the src/ or test/ prefix
+            # the gate most needs to see.
+            git --no-pager diff "$BASE"...HEAD --stat=1000
             echo "DIFFEOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -102,8 +274,8 @@ jobs:
           # gate mode does not read the skill, but the harness copy is the one
           # this job means either way; leaving it to default would quietly point
           # at the branch under test the day gate mode does read it.
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
-          branch: ${{ inputs.ref || github.ref_name }}
+          explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
+          branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -126,12 +298,85 @@ jobs:
             printf '\n_gate: $%s_\n' "${COST:-?}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # The write half of a /test, split from explore so the job that runs PR code
+  # never holds a write token. Runs alongside explore, so the commenter sees
+  # the run was picked up before the slow build.
+  ack:
+    name: ack
+    needs: [membership]
+    if: needs.membership.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      reaction_id: ${{ steps.react.outputs.reaction_id }}
+      comment_id: ${{ steps.running.outputs.comment-id }}
+    steps:
+      - name: Acknowledge /test
+        id: react
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          REACTION_ID=$(gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content=eyes --jq '.id' 2>/dev/null) || echo "Failed to add reaction (non-fatal)"
+          echo "reaction_id=${REACTION_ID}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      # One comment per /test, under the command that asked for it. report
+      # turns it into this run's result; earlier runs' results stay put.
+      - name: Post running comment
+        id: running
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: running
+          model: ${{ needs.membership.outputs.model }}
+          pr-number: ${{ github.event.issue.number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.membership.outputs.head_sha }}
+
   explore:
     name: explore (${{ matrix.model }})
-    needs: [gate]
-    # always(): the gate is skipped when it is off, and a skipped need would
-    # otherwise skip this job too. Only an explicit false stops the run.
-    if: ${{ always() && needs.gate.outputs.testable != 'false' }}
+    needs: [worthiness, membership, dispatch-ref]
+    # always(): every need is skipped on some path (worthiness when off,
+    # membership on dispatch, dispatch-ref on a comment), and a skipped need
+    # would otherwise skip this job.
+    # On a comment, only an explicit ok=true from membership runs it, so a
+    # failed or cancelled membership job runs nothing.
+    if: >-
+      ${{ always() &&
+      needs.worthiness.outputs.testable != 'false' &&
+      ((github.event_name == 'workflow_dispatch' && needs.dispatch-ref.outputs.sha != '') || needs.membership.outputs.ok == 'true') }}
+    # Job-level, not workflow-level: every comment on every PR starts a run of
+    # this workflow, and a workflow-level group would let any of them cancel an
+    # in-flight /test. Per model, so the two legs of `Both (Opus + Sonnet)` do
+    # not cancel each other.
+    concurrency:
+      group: pr-exploratory-${{ github.event.issue.number || inputs.ref }}-${{ matrix.model }}
+      cancel-in-progress: true
+    # Read-only on purpose: this job runs PR code and an agent with a shell, and
+    # GITHUB_TOKEN is in their environment. ack and report do the writing, and
+    # publish does the S3 upload, so no id-token either.
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      outcome: ${{ steps.explore.outputs.outcome }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -140,8 +385,10 @@ jobs:
         # Every branch is a literal. Building the JSON with format() put a
         # dispatch input inside the document it was about to parse, which only
         # held because `type: choice` happens to constrain the value.
-        model: ${{ (inputs.model || 'opus') == 'both' && fromJSON('["opus","sonnet"]')
-          || (inputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+        # On a comment, membership's model is already checked to opus or sonnet.
+        # == ignores case, so the dispatch's "Sonnet" matches 'sonnet'.
+        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
+          || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
           || fromJSON('["opus"]') }}
     timeout-minutes: 90
     runs-on: ubuntu-latest-8x
@@ -151,6 +398,21 @@ jobs:
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    # The e2e lane's database, reachable from the container at host "postgres".
+    # Its login is a fixed test value, not the e2e secret: the database lives
+    # only for this job, and Positron's connection form shows the password
+    # unmasked, so it ends up in screenshots redaction cannot reach.
+    services:
+      postgres:
+        image: ghcr.io/posit-dev/positron-postgres:24.18.0
+        credentials:
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+        env:
+          # Match E2E_POSTGRES_USER / E2E_POSTGRES_PASSWORD in the job env below.
+          POSTGRES_USER: e2e
+          POSTGRES_PASSWORD: exploratory-test
+          POSTGRES_DB: postgres
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0
@@ -158,10 +420,14 @@ jobs:
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
       RETICULATE_PYTHON: /root/.venv/bin/python
+      E2E_POSTGRES_USER: e2e
+      E2E_POSTGRES_PASSWORD: exploratory-test
     steps:
+      # The SHA membership or dispatch-ref pinned, so a push after the gate is
+      # not tested.
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.ref }}
+          ref: ${{ needs.dispatch-ref.outputs.sha || needs.membership.outputs.head_sha }}
           fetch-depth: 0
           submodules: recursive
           persist-credentials: false
@@ -180,20 +446,28 @@ jobs:
           path: .harness
           sparse-checkout: |
             .github/actions
-            .claude/skills/exploratory-testing
+            .claude/skills/exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
       - name: Resolve diff base
         id: base
         shell: bash
+        env:
+          # The PR's own target, so a PR into a release branch is not diffed
+          # against everything main has gained since the branch was cut.
+          BASE_REF: ${{ inputs.base || needs.membership.outputs.base_ref || 'main' }}
         run: |
           set -euo pipefail
-          # fetch-depth: 0 fetched all branches, so origin/main is present.
-          BASE=$(git merge-base origin/main HEAD)
+          # fetch-depth: 0 fetched all branches, so origin/$BASE_REF is present.
+          if ! git rev-parse --verify --quiet "origin/$BASE_REF" >/dev/null; then
+            echo "::error::Base branch '$BASE_REF' not found on origin"
+            exit 1
+          fi
+          BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          echo "Diff base: $BASE"
+          echo "Diff base: $BASE (origin/$BASE_REF)"
           git --no-pager diff "$BASE"...HEAD --stat
           {
             echo "diff_stat<<DIFFEOF"
@@ -251,11 +525,9 @@ jobs:
           sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
           stat $ELECTRON_ROOT/chrome-sandbox
 
-      - name: Setup E2E Test Environment
-        uses: ./.harness/.github/actions/setup-test-env
-        with:
-          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
+      # No setup-test-env: nothing here runs the e2e suite, and its QA AWS role
+      # would sit in the agent's environment for no use. The S3 upload assumes
+      # its own role after the agent has finished.
 
       - name: Install jq
         shell: bash
@@ -296,13 +568,18 @@ jobs:
           test -d out || { echo "out/ missing -- compile did not run"; exit 1; }
           echo "out/ present, $(find out -name '*.js' | wc -l) js files"
 
+      # publish re-derives the same directory from these inputs, so change
+      # them in both places.
       - name: Allocate report dir
         uses: ./.harness/.github/actions/gen-report-dir
         with:
-          identifier: exploratory-${{ matrix.model }}
+          prefix: exploratory-report
+          identifier: ${{ matrix.model }}
+          arch: x64
           skip-summary: "true"
 
       - name: Allocate run directory
+        id: rundir
         shell: bash
         run: |
           set -euo pipefail
@@ -310,8 +587,20 @@ jobs:
           echo "REPORT_BASE_URL=${REPORT_URL%/index.html}" >> "$GITHUB_ENV"
           mkdir -p /tmp/exploratory-run/shots
 
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
       - name: Launch Positron
         shell: bash
+        env:
+          # Assistant reads provider keys from the environment, so the app
+          # starts signed in and the explorer can exercise it.
+          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
         run: |
           set -euo pipefail
           LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
@@ -331,6 +620,34 @@ jobs:
           }
           echo "CDP_PORT=$CDP_PORT" >> "$GITHUB_ENV"
 
+      # Loaded after the launch, so the app starts signed in to Anthropic only
+      # and the explorer signs in to anything else itself. The same items the
+      # e2e lane uses; the redact step below lists every one of them.
+      - name: Load test credentials
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          OPENAI_KEY: "op://Positron/OpenAI/credential"
+          MS_FOUNDRY_KEY: "op://Positron/MS-Foundry-East2TestAI/credential"
+          MS_FOUNDRY_BASE_URL: "op://Positron/MS-Foundry-East2TestAI/hostname"
+          SNOWFLAKE_API_KEY: "op://Positron/Snowflake-API-key/credential"
+
+      - name: Export database credentials
+        shell: bash
+        env:
+          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          DATABRICKS_WORKSPACE: ${{ secrets.DATABRICKS_WORKSPACE }}
+          DATABRICKS_PAT: ${{ secrets.DATABRICKS_PAT }}
+        run: |
+          set -euo pipefail
+          for NAME in SNOWFLAKE_ACCOUNT SNOWFLAKE_USER SNOWFLAKE_PASSWORD DATABRICKS_WORKSPACE DATABRICKS_PAT; do
+            echo "$NAME=${!NAME}" >> "$GITHUB_ENV"
+          done
+
       - name: Attach Playwright
         shell: bash
         run: |
@@ -343,43 +660,189 @@ jobs:
           npx @playwright/cli -s=positron screenshot --filename="$EXPLORE_DIR/attach-proof.png"
           test -s "$EXPLORE_DIR/attach-proof.png" || { echo "screenshot empty"; exit 1; }
 
-      - name: Load secret
-        uses: 1password/load-secrets-action@v5
-        with:
-          export-env: true
+      # A dispatched run has no PR in its event. Find the ref's open PR so the
+      # summary and report can link it; none found just means no link.
+      - name: Find the ref's PR
+        id: pr
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        shell: bash
         env:
-          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+          REF: ${{ inputs.ref }}
+        run: |
+          node -e '
+            const [owner] = process.env.GITHUB_REPOSITORY.split("/");
+            const q = new URLSearchParams({ head: `${owner}:${process.env.REF}`, state: "open" });
+            fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/pulls?${q}`, {
+              headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
+            }).then(r => r.json()).then(prs => {
+              const n = Array.isArray(prs) && prs[0]?.number;
+              console.log(n ? `PR #${n}` : "no open PR");
+              if (n) require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `number=${n}\n`);
+            });
+          '
 
       - name: Explore
+        id: explore
         uses: ./.harness/.github/actions/pr-exploratory-test
         with:
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          skill-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-testing/SKILL.md
+          explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
-          branch: ${{ inputs.ref }}
+          branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
+          focus: ${{ inputs.focus }}
+          # The PR link in the summary and the report header. No PR, no link.
+          pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
 
-      - name: Stage publishable run directory
+      # The app and the agent both hold these, and everything below is
+      # published: the run directory to a public CDN, the rest as an artifact.
+      # The names come from scan-shots.mjs, as a local publish's do: every
+      # variable ending in KEY, TOKEN, SECRET, PASSWORD or PAT, and the ones it
+      # lists by name. A credential added to this job later needs either a name
+      # like that or a line in its OTHER_NAMES. The Postgres login is a fixed
+      # test value, and redacting "exploratory-test" would mangle the report.
+      - name: Redact secrets from run output
         if: always()
         shell: bash
         run: |
           set -euo pipefail
+          for NAME in $(env -u E2E_POSTGRES_PASSWORD node .harness/.claude/skills/exploratory-test/renderer/scan-shots.mjs --names); do
+            VALUE=${!NAME:-}
+            # Short values would redact common words.
+            [ ${#VALUE} -ge 8 ] || continue
+            for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
+              [ -d "$DIR" ] || continue
+              # The uploads run even if this step fails, so a file that
+              # cannot be redacted is removed rather than left in place.
+              { grep -rlIF -- "${!NAME}" "$DIR" 2>/dev/null || true; } | while IFS= read -r FILE; do
+                echo "Redacting $NAME from $FILE"
+                SECRET="${!NAME}" perl -pi -e 's/\Q$ENV{SECRET}\E/[REDACTED]/g' "$FILE" \
+                  || { echo "::warning::Could not redact $NAME from $FILE; removed it."; rm -f "$FILE"; }
+              done
+            done
+          done
+
+      # The explorer blurs a key before it takes a screenshot. This reads each
+      # one, paints over any secret still showing, and removes a shot it cannot
+      # clean, as a text file that cannot be redacted is. The Postgres login
+      # is a fixed test value the connection form shows on purpose, so it is
+      # left out. A scan that cannot run removes every screenshot rather than
+      # publish ones nobody checked.
+      - name: Paint secrets out of screenshots
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          RENDERER=.harness/.claude/skills/exploratory-test/renderer
+          # Explore installs these; a job that failed before it did has not.
+          [ -d "$RENDERER/node_modules/tesseract.js" ] || npm --prefix "$RENDERER" ci --no-audit --no-fund
+          for DIR in /tmp/exploratory-run /tmp/exploratory-workspace; do
+            [ -d "$DIR" ] || continue
+            if ! env -u E2E_POSTGRES_PASSWORD node "$RENDERER/scan-shots.mjs" "$DIR" --remove; then
+              echo "::warning::The screenshot scan did not run on $DIR; removing every screenshot in it."
+              find "$DIR" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -delete
+            fi
+          done
+
+      - name: Upload run directory
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: exploratory-run-${{ matrix.model }}
+          # The workspace as the run left it, a fallback for a test file the
+          # agent did not save to files/. Artifact only, not the published page.
+          # Hidden entries (.venv, .git) are already left out by default.
+          path: |
+            /tmp/exploratory-run
+            /tmp/positron-dev-launch/*/code.log
+            /tmp/exploratory-workspace
+            !/tmp/exploratory-workspace/**/node_modules/**
+            !/tmp/exploratory-workspace/**/__pycache__/**
+            !/tmp/exploratory-workspace/**/renv/library/**
+          if-no-files-found: warn
+          retention-days: 3
+
+  # Uploads each model's run directory to the public CDN. A job of its own so
+  # the AWS role, and the id-token that assumes it, never share a runner with
+  # the PR's code or the agent. It reads only the artifact explore left, which
+  # was redacted before upload.
+  publish:
+    name: publish (${{ matrix.model }})
+    needs: [membership, worthiness, explore]
+    if: always() && needs.explore.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      report_base_url: ${{ steps.s3-upload.outcome == 'success' && steps.url.outputs.report_base_url || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Mirrors explore's matrix; keep the two in step.
+        model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
+          || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
+          || fromJSON('["opus"]') }}
+    steps:
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download run directory
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: exploratory-run-${{ matrix.model }}
+          path: /tmp/run-artifact
+
+      # The same inputs as explore's, so the same directory the report and
+      # step summary already link to.
+      - name: Allocate report dir
+        uses: ./.harness/.github/actions/gen-report-dir
+        with:
+          prefix: exploratory-report
+          identifier: ${{ matrix.model }}
+          arch: x64
+          skip-summary: "true"
+
+      - name: Record report URL
+        id: url
+        shell: bash
+        run: echo "report_base_url=${REPORT_URL%/index.html}" >> "$GITHUB_OUTPUT"
+
+      # The artifact nests the run dir when code.log or the workspace was
+      # uploaded too, and puts it at the root when neither was.
+      - name: Stage publishable run directory
+        if: steps.download.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          SRC=/tmp/run-artifact
+          [ -d "$SRC/exploratory-run" ] && SRC="$SRC/exploratory-run"
           rm -rf /tmp/exploratory-publish
           mkdir -p /tmp/exploratory-publish
-          if [ -d /tmp/exploratory-run ]; then
-            cp -a /tmp/exploratory-run/. /tmp/exploratory-publish/
-            rm -f /tmp/exploratory-publish/actions.log
-          fi
+          cp -a "$SRC/." /tmp/exploratory-publish/
+          rm -f /tmp/exploratory-publish/actions.log
+          # The raw log tree stays in the artifact: the page lists it unlinked,
+          # and the curated files beside it are what a reader opens.
+          rm -rf /tmp/exploratory-publish/logs/all
 
       - name: Upload run directory to S3
         id: s3-upload
-        if: always()
+        if: steps.download.outcome == 'success'
         continue-on-error: true
         uses: ./.harness/.github/actions/upload-report-to-s3
         with:
@@ -394,12 +857,86 @@ jobs:
           set -euo pipefail
           echo "**WARNING: the S3 upload failed. Screenshot links in the report above will 404. The full run directory is still in the workflow artifact.**" >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Upload run directory
-        if: always()
-        uses: actions/upload-artifact@v7
+  # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
+  # for the same reason as ack. always(): a failed build must still replace
+  # "running" with the truth.
+  report:
+    name: report
+    needs: [membership, worthiness, ack, explore, publish]
+    if: always() && needs.membership.outputs.ok == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Check out the harness
+        uses: actions/checkout@v7
         with:
-          name: exploratory-run-${{ matrix.model }}
-          path: |
-            /tmp/exploratory-run
-            /tmp/positron-dev-launch/*/code.log
-          if-no-files-found: warn
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Download run directory
+        continue-on-error: true
+        uses: actions/download-artifact@v7
+        with:
+          name: exploratory-run-${{ needs.membership.outputs.model }}
+          path: /tmp/run-artifact
+
+      # The artifact root is the common parent of what matched, so the run dir
+      # is nested when code.log or the workspace was uploaded too and at the
+      # root when neither was.
+      - name: Locate run directory
+        run: |
+          if [ -d /tmp/run-artifact/exploratory-run ]; then
+            echo "WORK_DIR=/tmp/run-artifact/exploratory-run" >> "$GITHUB_ENV"
+          else
+            echo "WORK_DIR=/tmp/run-artifact" >> "$GITHUB_ENV"
+          fi
+
+      # Links only when the upload succeeded, so the comment never points at a
+      # CDN page that 404s; the run link still reaches the artifact.
+      - name: Post result comment
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: result
+          model: ${{ needs.membership.outputs.model }}
+          # Empty when ack could not post; comment mode then posts a new one.
+          comment-id: ${{ needs.ack.outputs.comment_id }}
+          # A declined run never reaches explore; say so rather than "failed".
+          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
+          decline-reason: ${{ needs.worthiness.outputs.reason }}
+          work-dir: ${{ env.WORK_DIR }}
+          report-base-url: ${{ needs.publish.outputs.report_base_url }}
+          pr-number: ${{ github.event.issue.number }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.membership.outputs.head_sha }}
+
+      # rocket only when the agent finished on its own, +1 when the gate
+      # declined. A partial run (turn cap) and a hard failure both get confused.
+      - name: Finalize reaction
+        if: needs.ack.outputs.reaction_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
+          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
+        run: |
+          gh api --method DELETE \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
+            || echo "Failed to remove eyes reaction (non-fatal)"
+          case "$OUTCOME" in
+            complete) FINAL=rocket ;;
+            declined) FINAL=+1 ;;
+            *) FINAL=confused ;;
+          esac
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions" \
+            -f content="$FINAL" || echo "Failed to add ${FINAL} reaction (non-fatal)"
