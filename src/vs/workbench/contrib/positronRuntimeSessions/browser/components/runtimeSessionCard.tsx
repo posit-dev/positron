@@ -83,6 +83,7 @@ export const RuntimeSessionCard = (props: runtimeSessionCardProps) => {
 					</div>
 					<div className='runtime-started-reason'>
 						{props.session.metadata.startReason}
+						{props.session.metadata.startReasonId && ` [${props.session.metadata.startReasonId}]`}
 					</div>
 					<div className='runtime-path'>
 						{getRuntimeDisplayPath(props.session.runtimeMetadata)}
