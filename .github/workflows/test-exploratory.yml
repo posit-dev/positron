@@ -3,9 +3,12 @@ name: "Test: Exploratory"
 on:
   workflow_dispatch:
     inputs:
+      # main against main has no diff, so a run of it needs a Test focus;
+      # without one the worthiness check declines it.
       ref:
         description: "Branch to explore"
         required: true
+        default: "main"
         type: string
       # Set it when the ref's PR targets a release branch.
       base:
