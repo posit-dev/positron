@@ -120,6 +120,19 @@ export const { onCreateEnvironmentStarted, onCreateEnvironmentExited, isCreating
 
 // --- Start Positron ---
 /**
+ * The registered providers, with uv first when it is installed. The registration order is fixed at
+ * activation, and uv can be installed after that (the New Folder flow's Install uv button).
+ */
+async function getRankedProviders(): Promise<readonly CreateEnvironmentProvider[]> {
+    const providers = [..._createEnvironmentProviders.getAll()];
+    const uvIndex = providers.findIndex((p) => p.id === UV_PROVIDER_ID);
+    if (uvIndex > 0 && (await isUvInstalled())) {
+        providers.unshift(...providers.splice(uvIndex, 1));
+    }
+    return providers;
+}
+
+/**
  * Handles the result of installPythonViaUv by registering the runtime and showing errors.
  * Returns the runtime ID if successful, undefined otherwise.
  */
@@ -312,8 +325,9 @@ export async function registerCreateEnvironmentFeatures(
                         throw err;
                     }
                 } else {
-                    const providers = _createEnvironmentProviders.getAll();
                     // --- Start Positron ---
+                    // const providers = _createEnvironmentProviders.getAll();
+                    const providers = await getRankedProviders();
                     // register new path
                     const env = await handleCreateEnvironmentCommand(providers, options);
                     if (env?.path) {
@@ -330,8 +344,8 @@ export async function registerCreateEnvironmentFeatures(
             await executeCommand(Commands.Create_Environment);
         }),
         // --- Start Positron ---
-        registerCommand(Commands.Get_Create_Environment_Providers, () => {
-            const providers = _createEnvironmentProviders.getAll();
+        registerCommand(Commands.Get_Create_Environment_Providers, async () => {
+            const providers = await getRankedProviders();
             return getCreateEnvironmentProviders(providers);
         }),
         registerCommand(Commands.Create_Environment_And_Register, (options: CreateEnvironmentAndRegisterOptions) => {
@@ -488,7 +502,10 @@ export function buildEnvironmentCreationApi(): ProposedCreateEnvironmentAPI {
         createEnvironment: async (
             options?: CreateEnvironmentOptions | undefined,
         ): Promise<CreateEnvironmentResult | undefined> => {
-            const providers = _createEnvironmentProviders.getAll();
+            // --- Start Positron ---
+            // const providers = _createEnvironmentProviders.getAll();
+            const providers = await getRankedProviders();
+            // --- End Positron ---
             try {
                 return await handleCreateEnvironmentCommand(providers, options);
             } catch (err) {
