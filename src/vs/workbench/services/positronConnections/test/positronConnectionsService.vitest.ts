@@ -14,6 +14,9 @@ import { ISecretStorageService } from '../../../../platform/secrets/common/secre
 import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
 import { startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../platform/configuration/test/common/testConfigurationService.js';
+import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 
 
 describe('Positron - Connections Service', () => {
@@ -21,6 +24,8 @@ describe('Positron - Connections Service', () => {
 	const ctx = createTestContainer()
 		.withRuntimeServices()
 		.stub(ISecretStorageService, new TestSecretStorageService())
+		// The Connections pane is the alternative to Data Connections, so it only runs with that off.
+		.stub(IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': false }))
 		.build();
 	let connectionsService: IPositronConnectionsService;
 
@@ -121,6 +126,30 @@ describe('Positron - Connections Service', () => {
 		await waitUntilOk(() => {
 			expect(instanceEntriesChangedSpy).toHaveBeenCalledTimes(1);
 		});
+	});
+
+	it('Ignores runtime connections when Data Connections is enabled', async () => {
+		const dataConnectionsInstantiationService = ctx.disposables.add(ctx.instantiationService.createChild(new ServiceCollection(
+			[IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': true })]
+		)));
+		const dataConnectionsModeService = ctx.disposables.add(dataConnectionsInstantiationService.createInstance(
+			PositronConnectionsService
+		));
+
+		const session = ctx.disposables.add(await createSession());
+		const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, {
+			name: 'test-connection',
+			language_id: 'test',
+			code: 'hello world'
+		}));
+		client.rpcHandler = async () => ({ 'data': { 'result': true } });
+
+		// The service with Data Connections off sees the same session events, so once it has picked
+		// up the connection, the other service has had its chance to as well.
+		await waitUntilOk(() => {
+			expect(connectionsService.getConnections().length).toBe(1);
+		});
+		expect(dataConnectionsModeService.getConnections()).toEqual([]);
 	});
 
 	describe('Driver Manager', () => {

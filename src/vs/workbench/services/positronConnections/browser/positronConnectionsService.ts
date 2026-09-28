@@ -18,6 +18,13 @@ import { ISecretStorageService } from '../../../../platform/secrets/common/secre
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+
+// The Data Connections feature flag. When it is on, the Data Connections panel replaces this
+// service's Connections pane, so this service leaves runtime connections alone. Must match
+// POSITRON_DATA_CONNECTIONS_ENABLED_KEY in positronDataConnectionsConfiguration.ts, which sits in
+// the contrib layer and cannot be imported here.
+const DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';
 
 export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -39,10 +46,18 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		@IViewsService private readonly viewsService: IViewsService,
 		@ILogService public readonly logService: ILogService,
 		@INotificationService private readonly notificationService: INotificationService,
+		@IConfigurationService configurationService: IConfigurationService,
 	) {
 		super();
 
 		this.driverManager = this._register(new PositronConnectionsDriverManager(this));
+
+		// With the Data Connections feature on, the Connections pane is not registered, so there is
+		// nowhere to show connections. Read once, like the pane's own registration: toggling the
+		// setting requires a reload.
+		if (configurationService.getValue<boolean>(DATA_CONNECTIONS_ENABLED_KEY) !== false) {
+			return;
+		}
 
 		// Whenever a session starts, we'll register an observer that will create a ConnectionsInstance
 		// whenever a new connections client is created by the backend.

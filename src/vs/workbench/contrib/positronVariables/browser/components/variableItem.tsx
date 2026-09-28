@@ -24,6 +24,7 @@ import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Event } from '../../../../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../positronDataConnections/browser/positronDataConnectionsConfiguration.js';
 
 /**
  * Formats a size for display.
@@ -141,6 +142,13 @@ export const VariableItem = (props: VariableItemProps) => {
 		return () => disposableStore.dispose();
 	}, [props.variableItem]);
 
+	// A connection's viewer is the Connections pane, which is not registered when the Data
+	// Connections feature replaces it.
+	const hasViewer = props.variableItem.hasViewer && !(
+		props.variableItem.kind === 'connection' &&
+		services.configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== false
+	);
+
 	/**
 	 * Opens a viewer for the variable item, or activates the existing viewer
 	 * if one is already open.
@@ -170,7 +178,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		e.stopPropagation();
 
 		// If the variable item has a viewer, launch it.
-		if (props.variableItem.hasViewer) {
+		if (hasViewer) {
 			openVariableItemViewer(props.variableItem);
 		}
 	};
@@ -278,7 +286,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		const actions: IAction[] = [];
 
 		// If this is a table, add an action to view it.
-		if (!props.disabled && props.variableItem.hasViewer) {
+		if (!props.disabled && hasViewer) {
 			actions.push({
 				id: POSITRON_VARIABLES_VIEW,
 				label: viewLabel(props.variableItem),
@@ -396,7 +404,7 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @returns The rendered component.
 	 */
 	const RightColumn = () => {
-		if (!props.disabled && props.variableItem.hasViewer) {
+		if (!props.disabled && hasViewer) {
 			let icon = 'codicon codicon-open-preview';
 			if (isViewLoading) {
 				icon = 'codicon codicon-notebook-state-pending';

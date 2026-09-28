@@ -10,8 +10,13 @@
 // matching `onView:` activation event, since it sits in the services layer and cannot import this.
 export const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
 
-// Configuration key that gates the Positron Data Connections feature. Shared by
+// Configuration key that switches between the Positron Data Connections feature (true) and the older
+// Connections pane (false). Shared by
 // positronDataConnections.contribution.ts (registers the setting and the view),
+// positronConnections.contribution.ts (registers the older pane only when this is off),
+// variableItem.tsx (hides "View Connection" in the Variables pane when this is on),
+// positronConnectionsService.ts (stops handling runtime connections when this is on; it sits in the
+// services layer and cannot import this, so it carries its own copy of the key),
 // positronDataConnectionsCommands.ts (the command payloads report nothing when this is off, so the
 // commands stay registered and Assistant-side feature-detection is a simple getCommands() check),
 // and positronDataConnectionsInspectActions.ts (the Command Palette entries' precondition).
