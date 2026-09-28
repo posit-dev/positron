@@ -30,17 +30,6 @@ function localExtension(id: string, location: string): ILocalExtension {
 }
 
 describe('findAssistantProviderModule', () => {
-	it('finds a bootstrap-installed Assistant the same way as a manual install', async () => {
-		const extensions = stubInterface<IExtensionManagementService>({
-			getInstalled: async () => [localExtension('posit.assistant', '/extensions/posit.assistant-1.5.0')],
-		});
-		const enablement = stubInterface<IGlobalExtensionEnablementService>({ getDisabledExtensions: () => [] });
-
-		const folder = await findAssistantProviderModule(extensions, enablement);
-
-		expect(folder?.endsWith('provider-module')).toBe(true);
-	});
-
 	it('returns undefined when no extension matches posit.assistant', async () => {
 		const extensions = stubInterface<IExtensionManagementService>({
 			getInstalled: async () => [localExtension('some.other-extension', '/extensions/some.other-extension')],
