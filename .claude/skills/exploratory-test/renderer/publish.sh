@@ -11,8 +11,10 @@
 # for its URL, so its issues link back to it; actions.log and the raw log tree
 # stay local, as in CI; and the value of every environment variable
 # whose name ends in KEY, TOKEN, SECRET, PASSWORD or PAT, or that CI's run holds
-# under another name, is replaced in text files. Screenshots are not redacted. Needs AWS credentials that can write to
-# the bucket (AWS_PROFILE is honored); AWS_CLI overrides the aws binary.
+# under another name, is replaced in text files. Screenshots cannot be redacted,
+# so scan-shots.mjs reads them, and one that shows a value stops the upload.
+# Needs AWS credentials that can write to the bucket (AWS_PROFILE is honored);
+# AWS_CLI overrides the aws binary.
 
 set -euo pipefail
 
@@ -35,7 +37,8 @@ DIR="exploratory-report-local-$(date -u +%Y%m%d-%H%M%S)-$(openssl rand -hex 4)"
 STAGE=$(mktemp -d "${TMPDIR:-/tmp}/exploratory-publish.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT
 cp -a "$RUN/." "$STAGE/"
-rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html"
+# The verifier's prompt names local paths, and its reply is in the report already.
+rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html" "$STAGE/verify-prompt.md" "$STAGE/verify-reply.md"
 # From the run directory, whose logs and start time the page reads. The render
 # exits non-zero for a listed file that is missing, to fail the run that wrote
 # it; the page is written first and shows that file unlinked, so publishing
@@ -45,11 +48,9 @@ node "$(dirname "$0")/render.mjs" "$RUN/report.md" --base "$CDN/$DIR" --out "$ST
 [ -s "$STAGE/index.html" ] || { echo "publish: the report did not render; nothing was uploaded." >&2; exit 1; }
 
 # Names only: a value is never printed. Short values would redact common words.
-# The credentials test-exploratory.yml redacts whose names end otherwise are
-# listed by name: widening the pattern to USER or URL would catch $USER too.
-OTHER_NAMES="MS_FOUNDRY_BASE_URL SNOWFLAKE_ACCOUNT SNOWFLAKE_USER DATABRICKS_WORKSPACE"
-# shellcheck disable=SC2086 # the list is split on purpose
-for NAME in $({ compgen -e | grep -Ei '(KEY|TOKEN|SECRET|PASSWORD|PAT)$'; printf '%s\n' $OTHER_NAMES; } | sort -u); do
+# scan-shots.mjs owns the list, so text and screenshots are checked for the same
+# names.
+for NAME in $(node "$(dirname "$0")/scan-shots.mjs" --names); do
 	VALUE=${!NAME:-}
 	[ ${#VALUE} -ge 8 ] || continue
 	# No match is not a failure; a file that cannot be redacted stops the upload.
@@ -59,6 +60,15 @@ for NAME in $({ compgen -e | grep -Ei '(KEY|TOKEN|SECRET|PASSWORD|PAT)$'; printf
 			|| { echo "publish: could not redact $NAME from ${FILE#"$STAGE"/}; nothing was uploaded." >&2; exit 1; }
 	done
 done
+
+# Last, on the redacted copy: the scan names the shot, never the value.
+SCAN=0
+node "$(dirname "$0")/scan-shots.mjs" "$STAGE" || SCAN=$?
+case $SCAN in
+	0) ;;
+	1) echo "publish: a screenshot shows a credential; nothing was uploaded. Blur or retake it, then publish again." >&2; exit 1 ;;
+	*) echo "publish: the screenshot scan did not run; nothing was uploaded." >&2; exit 1 ;;
+esac
 
 "$AWS" s3 cp "$STAGE/." "s3://$BUCKET/$DIR" --recursive --region us-east-1 --only-show-errors
 echo "$CDN/$DIR/index.html"

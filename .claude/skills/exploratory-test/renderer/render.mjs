@@ -37,9 +37,10 @@ if (!input) {
 	process.exit(1);
 }
 
-// A fresh checkout has never installed the renderer's dependencies, and it
-// needs `marked`. Imported after the install so it can resolve.
-if (!existsSync(join(here, 'node_modules', 'marked'))) {
+// A fresh checkout has never installed the renderer's dependencies, and an
+// older install can predate one. Imported after the install so they resolve.
+const { dependencies } = JSON.parse(readFileSync(join(here, 'package.json'), 'utf8'));
+if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules', name)))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
 const { renderReportHtml, linkedLogs, skillVersion } = await import('./html.mjs');

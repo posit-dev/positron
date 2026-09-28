@@ -5,7 +5,7 @@ disable-model-invocation: true
 metadata:
   # Bump when the agent is told something new: this file, explorer.md or
   # verifier.md. Feedback is grouped by it, so a renderer change does not count.
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Exploratory testing
@@ -38,7 +38,19 @@ from there.
 Running it in a subagent keeps screenshots, snapshots, and dead ends out of the
 session you are working in.
 
-When the agent finishes, put its run on the report's Run tile, as CI does. The
+## Verify, then render
+
+When the agent finishes, have a second agent check its findings, as CI does.
+With the diff range you gave the explorer, run:
+`node <base>/renderer/finish.mjs prompt <run dir> --repo <checkout> --base <base sha> --head <head sha>`.
+If it prints `no findings`, skip to the render. Otherwise it prints the path of
+a prompt file. Spawn a fresh agent with `subagent_type: "general-purpose"` and
+`model: "sonnet"`, tell it to read that file and do what it says, and save its
+reply exactly as returned to `<run dir>/verify-reply.md`. Then run
+`node <base>/renderer/finish.mjs apply <run dir> <run dir>/verify-reply.md`.
+The verdicts are advisory: do not edit them or drop a finding over them.
+
+Then put the explore run on the report's Run tile, as CI does. The explorer's
 completion notice carries `duration_ms` and `tool_uses`; re-render with them:
 `node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses>`.
 The agent cannot do this itself, because it does not see its own totals.
@@ -49,8 +61,10 @@ Give the user the result, the findings table, and the `index.html` path. Then
 ask, in these words:
 
 > Publish this report to share it?
-> (Anyone with the link can view it. Screenshots aren't redacted.)
+> (Anyone with the link can view it. Screenshots are checked for keys, not blurred.)
 
 Publish only on a yes:
 `bash <base>/renderer/publish.sh <run dir>`. It prints the report URL; give it
 to the user. If it says there are no AWS credentials, relay its sign-in hint.
+If it stops on a screenshot that shows a credential, name the shot and leave
+the report unpublished.

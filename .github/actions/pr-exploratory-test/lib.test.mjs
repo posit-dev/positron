@@ -5,8 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { buildVerifyPrompt, buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -127,68 +126,6 @@ test('parsePosIntEnv falls back to the default for "0"', () => {
 
 test('parsePosIntEnv falls back to the default for a non-numeric string', () => {
 	assert.equal(parsePosIntEnv('MAX_TURNS', 200, 'abc'), 200);
-});
-
-const TABLE = [
-	'# Exploratory test: something',
-	'',
-	'## Findings',
-	'',
-	'| # | Finding | Severity | Impact | Reproduction |',
-	'|---|---------|----------|--------|--------------|',
-	'| 1 | first claim | major | blocks completion | 3/3 |',
-	'| 2 | second claim | minor | cosmetic | 2/2 |',
-	'',
-	'### 1. first claim',
-].join('\n');
-
-test('parseVerdicts reads the machine-readable line', () => {
-	const v = parseVerdicts('preamble\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nprose');
-	assert.equal(v.get(1), 'confirmed');
-	assert.equal(v.get(2), 'disputed');
-});
-
-test('fromVerdictLine drops the notes before the VERDICTS line', () => {
-	const reply = 'No conflicting evidence. I have enough to finalize.\n\nVERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.';
-	assert.equal(fromVerdictLine(reply), 'VERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.');
-	assert.equal(fromVerdictLine('VERDICTS: 1=CONFIRMED\nwhy'), 'VERDICTS: 1=CONFIRMED\nwhy');
-	// No verdict line: keep everything, since the prose is all the reviewer gets.
-	assert.equal(fromVerdictLine('just prose'), 'just prose');
-	assert.equal(fromVerdictLine(null), null);
-});
-
-test('parseVerdicts returns empty when the line is absent', () => {
-	assert.equal(parseVerdicts('no verdict line here').size, 0);
-	assert.equal(parseVerdicts(null).size, 0);
-});
-
-test('annotateFindingsTable adds a verdict per row', () => {
-	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE'));
-	assert.match(out, /\| # \| Finding \| Severity \| Impact \| Reproduction \| Verified \|/);
-	assert.match(out, /\| 1 \| first claim .* \| confirmed \|/);
-	assert.match(out, /\| 2 \| second claim .* \| disputed \|/);
-});
-
-test('annotateFindingsTable marks rows the verifier did not rule on', () => {
-	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED'));
-	assert.match(out, /\| 2 \| second claim .* \| - \|/);
-});
-
-test('annotateFindingsTable leaves a report it cannot parse untouched', () => {
-	const noTable = '# Report\n\n## Findings\n\nNo findings.\n';
-	assert.equal(annotateFindingsTable(noTable, parseVerdicts('VERDICTS: 1=CONFIRMED')), noTable);
-	assert.equal(annotateFindingsTable(TABLE, new Map()), TABLE);
-});
-
-test('hasFindings distinguishes a populated table from an empty one', () => {
-	assert.equal(hasFindings(TABLE), true);
-	assert.equal(hasFindings('## Findings\n\nNo findings.\n'), false);
-	assert.equal(hasFindings([
-		'| # | Finding | Severity |',
-		'|---|---------|----------|',
-		'| - | none | - |',
-	].join('\n')), false);
-	assert.equal(hasFindings(null), false);
 });
 
 test('parseGate reads a bail-out with its blocker', () => {
@@ -354,6 +291,17 @@ test('runOutcome is no-report when the agent stopped early without one', () => {
 	assert.equal(runOutcome({ report: null, numTurns: null, maxTurns: 200 }), 'no-report');
 });
 
+test('turnCapWarning warns from 80% of the cap up to, but not at, the cap', () => {
+	assert.equal(turnCapWarning({ numTurns: 159, maxTurns: 200 }), null);
+	assert.match(turnCapWarning({ numTurns: 160, maxTurns: 200 }), /^::warning .*Used 160 of 200 turns/);
+	assert.match(turnCapWarning({ numTurns: 199, maxTurns: 200 }), /Used 199 of 200/);
+	// At the cap the run is partial, which already says so.
+	assert.equal(turnCapWarning({ numTurns: 200, maxTurns: 200 }), null);
+	// Scales with a MAX_TURNS override.
+	assert.match(turnCapWarning({ numTurns: 40, maxTurns: 50 }), /Used 40 of 50/);
+	assert.equal(turnCapWarning({ numTurns: null, maxTurns: 200 }), null);
+});
+
 const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
@@ -484,25 +432,6 @@ test('every script in the action parses', async () => {
 		const r = spawnSync(process.execPath, ['--check', new URL(f, dir).pathname], { encoding: 'utf8' });
 		assert.equal(r.status, 0, `${f}: ${r.stderr}`);
 	}
-});
-
-const VERIFIER = readFileSync(new URL('../../../.claude/skills/exploratory-test/verifier.md', import.meta.url), 'utf8');
-const RUN = { workDir: '/tmp/run', repoRoot: '/repo', baseSha: 'aaaa1111', headSha: 'bbbb2222' };
-
-test('buildVerifyPrompt fills verifier.md with the run paths and diff range', () => {
-	const prompt = buildVerifyPrompt(VERIFIER, RUN);
-	assert.doesNotMatch(prompt, /\{\{/);
-	assert.match(prompt, /^You are verifying an exploratory-test report/);
-	assert.match(prompt, /Report: `\/tmp\/run\/report\.md`/);
-	assert.match(prompt, /`\/tmp\/run\/files\/`/);
-	assert.match(prompt, /git -C \/repo diff aaaa1111\.\.\.bbbb2222/);
-	// parseVerdicts reads this line from the reply, so the example has to survive.
-	assert.match(prompt, /\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n/);
-});
-
-test('buildVerifyPrompt throws when the template and its values drift apart', () => {
-	assert.throws(() => buildVerifyPrompt(`${VERIFIER}\n{{NEW_THING}}`, RUN), /no value for \{\{NEW_THING\}\}/);
-	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
 });
 
 test('buildTaskLine targets the diff when no focus is given', () => {
