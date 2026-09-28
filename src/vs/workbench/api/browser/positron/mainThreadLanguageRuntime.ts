@@ -2005,9 +2005,9 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to select a previously registered language runtime
-	$selectLanguageRuntime(runtimeId: string): Promise<void> {
+	$selectLanguageRuntime(runtimeId: string, extensionId: string): Promise<void> {
 		return this._runtimeSessionService.selectRuntime(
-			runtimeId, createSessionStartReason(SessionStartReason.ExtensionApi));
+			runtimeId, createSessionStartReason(SessionStartReason.ExtensionApi, { extension: extensionId }));
 	}
 
 	// Called by the extension host to get a list of all registered runtimes
@@ -2026,7 +2026,8 @@ export class MainThreadLanguageRuntime
 		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		notebookUri: URI | undefined): Promise<string> {
+		notebookUri: URI | undefined,
+		extensionId: string): Promise<string> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
@@ -2036,7 +2037,7 @@ export class MainThreadLanguageRuntime
 			sessionName,
 			sessionMode,
 			uri,
-			createSessionStartReason(SessionStartReason.ExtensionApi),
+			createSessionStartReason(SessionStartReason.ExtensionApi, { extension: extensionId }),
 			RuntimeStartMode.Starting,
 			true);
 

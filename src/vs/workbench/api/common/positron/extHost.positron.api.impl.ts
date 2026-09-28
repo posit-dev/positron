@@ -148,7 +148,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.getNotebookSession(notebookUri);
 			},
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
-				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId);
+				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId, extension.identifier.value);
 			},
 			startLanguageRuntime(runtimeId: string,
 				sessionName: string,
@@ -163,7 +163,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.startLanguageRuntime(runtimeId,
 					sessionName,
 					sessionMode,
-					notebookUri);
+					notebookUri,
+					extension.identifier.value);
 			},
 			interruptSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.interruptSession(sessionId);

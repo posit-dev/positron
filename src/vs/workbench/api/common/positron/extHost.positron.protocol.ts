@@ -87,8 +87,8 @@ export interface IRuntimePickerItem {
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
-	$selectLanguageRuntime(runtimeId: string): Promise<void>;
-	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
+	$selectLanguageRuntime(runtimeId: string, extensionId: string): Promise<void>;
+	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined, extensionId: string): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
 	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>): Promise<string>;
