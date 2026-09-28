@@ -147,8 +147,11 @@ export interface IViewerActOutcome {
 export interface IViewerActResult {
 	/** What the action did, for the agent. */
 	readonly message: string;
-	/** A snapshot of the page once the app has settled after the action. */
-	readonly snapshot: IViewerSnapshot;
+	/**
+	 * A snapshot of the page once the app has settled after the action, unless
+	 * one couldn't be taken; the message then says why.
+	 */
+	readonly snapshot?: IViewerSnapshot;
 	/** Whether the app was still busy when the wait for it to settle ran out. */
 	readonly timedOut: boolean;
 	/** Whether the Viewer had to be revealed to act on it. */

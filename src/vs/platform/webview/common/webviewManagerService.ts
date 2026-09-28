@@ -39,6 +39,18 @@ export interface WebviewFrameId {
 }
 
 /**
+ * Whether two frame IDs are for the same frame. Going to another document can
+ * give a frame new process and routing IDs, but not a new place in the frame
+ * tree.
+ */
+export function isSameWebviewFrame(a: WebviewFrameId, b: WebviewFrameId): boolean {
+	if (a.frameTreeNodeId !== undefined && b.frameTreeNodeId !== undefined) {
+		return a.frameTreeNodeId === b.frameTreeNodeId;
+	}
+	return a.processId === b.processId && a.routingId === b.routingId;
+}
+
+/**
  * An event fired when a frame navigates to a new URL.
  */
 export interface FrameNavigationEvent {

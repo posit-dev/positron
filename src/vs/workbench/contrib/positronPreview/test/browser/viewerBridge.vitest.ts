@@ -425,13 +425,17 @@ describe('act', () => {
 		return keys;
 	}
 
-	/** Stubs Shiny's slider and dropdown widgets, and the inputs its server received. */
-	function stubShiny({ serverUpdates = true } = {}): void {
-		const inputValues: Record<string, unknown> = { bins: 30, color: 'steelblue' };
+	/**
+	 * Stubs Shiny's slider and dropdown widgets, and the inputs its server
+	 * received. With `range`, the slider has two handles (from 30, to 40).
+	 */
+	function stubShiny({ serverUpdates = true, range = false } = {}): void {
+		const inputValues: Record<string, unknown> = { bins: range ? [30, 40] : 30, color: 'steelblue' };
 		const result = { from: 30, min: 1, max: 50 };
 		const slider = { result, update: ({ from }: { from: number }) => result.from = Math.min(50, Math.max(1, from)) };
+		const sendSlider = () => inputValues.bins = range ? [result.from, 40] : result.from;
 		Object.assign(win, {
-			jQuery: () => ({ data: () => slider, trigger: () => serverUpdates && (inputValues.bins = result.from) }),
+			jQuery: () => ({ data: () => slider, trigger: () => serverUpdates && sendSlider() }),
 			Shiny: { shinyapp: { $inputValues: inputValues } },
 		});
 		let color = 'steelblue';
@@ -521,6 +525,32 @@ describe('act', () => {
 		});
 	});
 
+	it('moves a right-to-left slider, whose arrow keys work the other way round', async () => {
+		const bridge = load('<span role="slider" id="bins" aria-label="Bins" aria-valuenow="20" aria-valuemin="1" aria-valuemax="50"></span>');
+		const keys = makeSlider(byId('bins'), { step: -1 });
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '23' }, QUICK);
+
+		expect({ message: outcome.message, value: byId('bins').getAttribute('aria-valuenow'), keys }).toEqual({
+			message: 'Set the slider "Bins" to 23.',
+			value: '23',
+			keys: ['PageUp', 'ArrowRight', ...Array(4).fill('ArrowLeft')],
+		});
+	});
+
+	it('reads a slider\'s value from its text when it has no aria-valuenow', async () => {
+		const bridge = load('<span role="slider" id="wait" aria-label="Wait" aria-valuetext="20 minutes" aria-valuemin="1" aria-valuemax="50"></span>');
+		const slider = byId('wait');
+		slider.addEventListener('keydown', event => {
+			const deltas: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1 };
+			slider.setAttribute('aria-valuetext', `${parseFloat(slider.getAttribute('aria-valuetext')!) + (deltas[(event as KeyboardEvent).key] ?? 0)} minutes`);
+		});
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '22' }, QUICK);
+
+		expect({ message: outcome.message, shown: slider.getAttribute('aria-valuetext') }).toEqual({ message: 'Set the slider "Wait" to 22.', shown: '22 minutes' });
+	});
+
 	it('stops a slider at the closest value its steps allow, and says so', async () => {
 		const bridge = load('<span role="slider" id="n" aria-label="Sample size" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100"></span>');
 		makeSlider(byId('n'), { step: 5 });
@@ -565,6 +595,14 @@ describe('act', () => {
 		expect(messages).toEqual(['Set the slider "Number of bins:" to 10.', 'Picked "seagreen" in the combobox "Bar color:".']);
 	});
 
+	it('checks the from handle of a two-handle Shiny slider, which the server gets as [from, to]', async () => {
+		const bridge = load(SHINY_APP, () => stubShiny({ range: true }));
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '20' }, QUICK);
+
+		expect(outcome.message).toBe('Set the slider "Number of bins:" to 20.');
+	});
+
 	it('says when a Shiny app\'s server didn\'t get the value the page shows', async () => {
 		const bridge = load(SHINY_APP, () => stubShiny({ serverUpdates: false }));
 
@@ -600,6 +638,37 @@ describe('act', () => {
 		expect(outcome.message).toBe('Picked "darkorange" in the combobox "Bar color".');
 		await expect(bridge.act({ kind: 'select', ref: 'e1', value: 'purple' }, QUICK))
 			.rejects.toThrow('Picked "purple" in the combobox "Bar color", but it shows "darkorange".');
+	});
+
+	it('picks the combobox option with exactly the text, not the first one that contains it', async () => {
+		const bridge = load('<label for="color">Bar color</label><input id="color" role="combobox" aria-controls="list" value="steelblue"><div role="listbox" id="list"></div>');
+		const input = byId('color') as HTMLInputElement;
+		const list = byId('list');
+		// Like Streamlit's selectbox: typing filters the list, and clicking an option picks it.
+		input.addEventListener('input', () => list.replaceChildren(...['dark green', 'green']
+			.filter(text => text.includes(input.value))
+			.map(text => {
+				const option = win.document.createElement('div');
+				option.setAttribute('role', 'option');
+				option.textContent = text;
+				option.addEventListener('click', () => input.value = text);
+				return option;
+			})));
+
+		const outcome = await bridge.act({ kind: 'select', ref: 'e1', value: 'green' }, QUICK);
+
+		expect({ message: outcome.message, value: input.value }).toEqual({ message: 'Picked "green" in the combobox "Bar color".', value: 'green' });
+		await expect(bridge.act({ kind: 'select', ref: 'e1', value: 'gree' }, QUICK))
+			.rejects.toThrow('The combobox "Bar color" has no option "gree" (options with that text: "dark green", "green").');
+	});
+
+	it('keeps free text filled into a combobox that only suggests options', async () => {
+		const bridge = load('<input id="search" role="combobox" aria-label="Search" aria-controls="hints"><div role="listbox" id="hints"><div role="option">Old Faithful dataset</div></div>');
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: 'Old' }, QUICK);
+
+		expect({ message: outcome.message, value: (byId('search') as HTMLInputElement).value })
+			.toEqual({ message: 'Filled the combobox "Search" with "Old".', value: 'Old' });
 	});
 
 	it('opens a popup dropdown and clicks the option in it', async () => {
@@ -642,6 +711,27 @@ describe('act', () => {
 		const outcome = await bridge.act({ kind: 'scroll', ref: 'e1' }, QUICK);
 
 		expect(outcome.message).toBe('Scrolled the button "Go" into view.');
+	});
+
+	it('scrolls a control\'s own scrolling area or the page, never an unrelated one', async () => {
+		const bridge = load('<button>Go</button><div id="table" style="overflow-y: auto; height: 100px"></div>');
+		// A scrolling area elsewhere on the page, which the button isn't in.
+		const table = byId('table');
+		Object.defineProperties(table, { scrollHeight: { value: 1000 }, clientHeight: { value: 100 }, scrollTop: { value: 0, writable: true } });
+
+		const outcome = await bridge.act({ kind: 'scroll', ref: 'e1', dy: 300 }, QUICK);
+
+		expect({ tableTop: table.scrollTop, page: outcome.message.includes('the page') }).toEqual({ tableTop: 0, page: true });
+	});
+
+	it('waits for text that only the snapshot sees, such as in a shadow root', async () => {
+		const bridge = load('<div id="host"></div>');
+		const shadow = byId('host').attachShadow({ mode: 'open' });
+		win.setTimeout(() => shadow.innerHTML = '<p>Done: 42 rows</p>', 50);
+
+		const outcome = await bridge.act({ kind: 'wait', for: 'text', text: 'Done', timeoutMs: 2000 }, QUICK);
+
+		expect(outcome.message).toMatch(/^The text "Done" is on the page/);
 	});
 
 	it('waits for text to show up on the page', async () => {

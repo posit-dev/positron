@@ -223,21 +223,26 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 
 	/**
 	 * Finds the frame with the given ID. A frame that goes to another document
-	 * can get new process and routing IDs, so look for the frame now at its
-	 * place in the frame tree first.
+	 * can get new process and routing IDs, and the old frame is detached while
+	 * its page unloads. Then look for the frame now at its place in the frame
+	 * tree.
 	 *
 	 * @param frameId The ID of the frame.
 	 */
 	private findFrame(frameId: WebviewFrameId): WebFrameMain | undefined {
+		const frame = webFrameMain.fromId(frameId.processId, frameId.routingId);
+		if (frame && !frame.detached) {
+			return frame;
+		}
 		if (frameId.frameTreeNodeId !== undefined) {
 			for (const contents of webContents.getAllWebContents()) {
-				const frame = contents.mainFrame.framesInSubtree.find(f => f.frameTreeNodeId === frameId.frameTreeNodeId);
-				if (frame) {
-					return frame;
+				const current = contents.mainFrame.framesInSubtree.find(f => f.frameTreeNodeId === frameId.frameTreeNodeId);
+				if (current) {
+					return current;
 				}
 			}
 		}
-		return webFrameMain.fromId(frameId.processId, frameId.routingId) ?? undefined;
+		return undefined;
 	}
 
 	/**

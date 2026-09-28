@@ -48,7 +48,7 @@ import { FromWebviewMessage, KeyEvent, ToWebviewMessage, WebViewDragEvent } from
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { VSBuffer } from '../../../../base/common/buffer.js';
-import { FrameNavigationEvent, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
+import { FrameNavigationEvent, isSameWebviewFrame, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { FileAccess } from '../../../../base/common/network.js';
@@ -385,12 +385,8 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 			if (!this._frameId) {
 				return;
 			}
-			// Going to another document can give the frame new process and
-			// routing IDs; its place in the frame tree stays the same.
-			const sameFrame = this._frameId.frameTreeNodeId !== undefined ?
-				evt.frameId.frameTreeNodeId === this._frameId.frameTreeNodeId :
-				evt.frameId.processId === this._frameId.processId && evt.frameId.routingId === this._frameId.routingId;
-			if (sameFrame) {
+			// Going to another document can give the frame new IDs; follow it.
+			if (isSameWebviewFrame(evt.frameId, this._frameId)) {
 				this._frameId = evt.frameId;
 
 				// Insert the `webview-events.js` script into the frame

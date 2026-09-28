@@ -66,6 +66,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	// The longest an action waits, well within the service's timeout for a call.
 	const MAX_WAIT_MS = 15_000;
 	const SLIDER_TIME_MS = 8_000;
+	const COMBOBOX_LIST_MS = 1_500;
 
 	const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'HEAD', 'META', 'LINK']);
 	// 'listbox' is deliberately absent: its options are the things to act on
@@ -756,7 +757,22 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 
 	const sleep = (ms: number) => new Promise<void>(resolve => win.setTimeout(resolve, ms));
 	const quote = (s: string) => JSON.stringify(s);
-	const focus = (el: Element) => (el as HTMLElement).focus?.({ preventScroll: true });
+	// Focus and blur as a user's would. When the window isn't focused, as is
+	// common while an agent works, the browser moves focus but sends no focus
+	// or blur events, so send them: frameworks that track focus (Streamlit's
+	// react-aria) must see the same focus as the page.
+	const hasFocus = (el: Element) => (el.getRootNode() as Document | ShadowRoot).activeElement === el;
+	function focus(el: Element): void {
+		if (hasFocus(el)) {
+			return;
+		}
+		(el as HTMLElement).focus?.({ preventScroll: true });
+		if (!el.ownerDocument.hasFocus()) {
+			const view = viewOf(el);
+			el.dispatchEvent(new view.FocusEvent('focus'));
+			el.dispatchEvent(new view.FocusEvent('focusin', { bubbles: true }));
+		}
+	}
 	const scrollToCenter = (el: Element) => el.scrollIntoView?.({ block: 'center', inline: 'nearest' });
 	const waitTimeout = (ms: unknown, fallback: number) => typeof ms === 'number' && ms >= 0 ? Math.min(ms, MAX_WAIT_MS) : fallback;
 	// Values match as text, or as numbers when both are numbers ("10" and "10.0").
@@ -800,17 +816,20 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	// Pointer and mouse events in the order a real pointer sends them, at the
 	// middle of the element. The enter events don't bubble.
 	const HOVER_EVENTS = ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove'];
-	function sendPointer(el: Element, types: readonly string[]): void {
+	// Returns whether the page let the last event's default action happen.
+	function sendPointer(el: Element, types: readonly string[]): boolean {
 		const view = viewOf(el);
 		const rect = el.getBoundingClientRect();
 		const init: MouseEventInit = {
 			bubbles: true, cancelable: true, composed: true, view,
 			clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2,
 		};
+		let allowed = true;
 		for (const type of types) {
 			const Ctor = type.startsWith('pointer') ? view.PointerEvent : view.MouseEvent;
-			el.dispatchEvent(new Ctor(type, type.endsWith('enter') ? { ...init, bubbles: false } : init));
+			allowed = el.dispatchEvent(new Ctor(type, type.endsWith('enter') ? { ...init, bubbles: false } : init));
 		}
+		return allowed;
 	}
 
 	function pressKey(el: Element, key: string): void {
@@ -830,12 +849,14 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		el.dispatchEvent(new view.Event('input', { bubbles: true }));
 	}
 
-	// Sends the events of leaving a control. el.blur() fires nothing when the
-	// window isn't focused, as is common while an agent works.
+	// Leaves a control, as a user moving on would.
 	function leave(el: Element): void {
-		const view = viewOf(el);
-		el.dispatchEvent(new view.FocusEvent('blur'));
-		el.dispatchEvent(new view.FocusEvent('focusout', { bubbles: true }));
+		if (!el.ownerDocument.hasFocus() || !hasFocus(el)) {
+			const view = viewOf(el);
+			el.dispatchEvent(new view.FocusEvent('blur'));
+			el.dispatchEvent(new view.FocusEvent('focusout', { bubbles: true }));
+		}
+		(el as HTMLElement).blur?.();
 	}
 
 	// Frameworks that apply text when it's committed (Streamlit, Dash's
@@ -860,20 +881,29 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 
 	/** Throws if a Shiny app's server didn't receive what the page shows. */
 	function checkShiny(el: Element, expected: string | readonly string[], what: string): void {
+		// Shiny sends dates as ISO strings, whatever the page shows (dateInput's
+		// format, a date slider's timestamps), so there's nothing to compare.
+		if (el.closest('.shiny-date-input, .shiny-date-range-input') || /^date/.test((el as HTMLElement).dataset?.dataType ?? '')) {
+			return;
+		}
 		const server = shinyValue(el);
 		if (server === undefined || server === null) {
 			return;
 		}
-		const received = Array.isArray(server) ? server.map(String) : [String(server)];
+		let received = Array.isArray(server) ? server.map(String) : [String(server)];
 		const shown = typeof expected === 'string' ? [expected] : expected;
+		// A two-handle slider sends [from, to]; an agent sets from.
+		if (isShinySlider(el) && shown.length === 1 && received.length === 2) {
+			received = received.slice(0, 1);
+		}
 		if (!sameValues(received, shown)) {
 			throw new Error(`The ${what} shows ${quote(shown.join(', '))} on the page, but the Shiny app received ${quote(received.join(', '))}.`);
 		}
 	}
 
-	function noOption(what: string, wanted: string, options: readonly string[]): Error {
+	function noOption(what: string, wanted: string, options: readonly string[], listLabel = 'its options'): Error {
 		const listed = options.slice(0, MAX_OPTIONS).map(quote).join(', ') + (options.length > MAX_OPTIONS ? ', ...' : '');
-		return new Error(`The ${what} has no option ${quote(wanted)}${options.length ? ` (its options: ${listed})` : ''}.`);
+		return new Error(`The ${what} has no option ${quote(wanted)}${options.length ? ` (${listLabel}: ${listed})` : ''}.`);
 	}
 
 	function oneValueOnly(what: string, count: number): Error {
@@ -897,8 +927,11 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		const checkedState = () => role !== 'checkbox' && role !== 'switch' ? undefined :
 			el.tagName === 'INPUT' ? (el as HTMLInputElement).checked : el.getAttribute('aria-checked') === 'true';
 		const before = checkedState();
-		sendPointer(el, [...HOVER_EVENTS, 'pointerdown', 'mousedown']);
-		focus(el);
+		// Pressing moves focus, unless the page stops it (react-aria's options
+		// do, to keep focus in their combobox).
+		if (sendPointer(el, [...HOVER_EVENTS, 'pointerdown', 'mousedown'])) {
+			focus(el);
+		}
 		sendPointer(el, ['pointerup', 'mouseup']);
 		if (typeof (el as HTMLElement).click === 'function') {
 			(el as HTMLElement).click();
@@ -933,11 +966,16 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			throw new Error('fill needs a value, as a string.');
 		}
 		// An agent may well fill a dropdown; that's picking an option.
-		if (selectizeOf(el) || el.tagName === 'SELECT' || isPopupSelect(el) || isComboboxInput(el)) {
+		if (selectizeOf(el) || el.tagName === 'SELECT' || isPopupSelect(el)) {
 			return select(el, value);
 		}
 		const what = describe(el);
 		checkUsable(el, what);
+		// A combobox can be a list to pick from or a text box with suggestions:
+		// pick the option with this text if there is one, or else keep the text.
+		if (isComboboxInput(el)) {
+			return selectInCombobox(el as HTMLInputElement, value, what, true);
+		}
 		if (isShinySlider(el)) {
 			return setShinySlider(el as HTMLInputElement, value, what);
 		}
@@ -1004,8 +1042,18 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	async function setSlider(el: Element, value: string, what: string): Promise<ActStep> {
 		const target = toNumber(value, what);
 		const input = el.tagName === 'INPUT' ? el as HTMLInputElement : undefined;
-		const read = () => Number(input ? input.value : el.getAttribute('aria-valuenow'));
+		const read = () => {
+			if (input) {
+				return Number(input.value);
+			}
+			// Some sliders only give their value as text, such as "20 minutes".
+			const now = el.getAttribute('aria-valuenow');
+			return now !== null ? Number(now) : parseFloat(el.getAttribute('aria-valuetext') ?? '');
+		};
 		const before = read();
+		if (Number.isNaN(before)) {
+			throw new Error(`The ${what} doesn't say what its value is, so it can't be set.`);
+		}
 		scrollToCenter(el);
 		focus(el);
 		// Presses a key and waits for the widget to show its new value.
@@ -1021,6 +1069,10 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		const deadline = Date.now() + SLIDER_TIME_MS;
 		let current = before;
 		let usePageKeys = true;
+		// In a right-to-left slider the left and right arrows swap roles.
+		let increase = 'ArrowRight';
+		let decrease = 'ArrowLeft';
+		let swapped = false;
 		while (current !== target && el.isConnected) {
 			if (Date.now() > deadline) {
 				throw new Error(`Gave up moving the ${what}: it's at ${current}, not ${target}.`);
@@ -1028,16 +1080,26 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			const up = target > current;
 			if (usePageKeys) {
 				const next = await step(up ? 'PageUp' : 'PageDown');
-				// No page keys, or a jump past the target: go on with arrow keys.
-				if (next === current || (up ? next > target : next < target)) {
+				// No page keys, keys that go the other way, or a jump past the
+				// target: go on with arrow keys.
+				if (next === current || next > current !== up || (up ? next > target : next < target)) {
 					usePageKeys = false;
 				}
 				current = next;
 				continue;
 			}
-			const next = await step(up ? 'ArrowRight' : 'ArrowLeft');
+			const next = await step(up ? increase : decrease);
 			if (next === current) {
 				break; // the end of its range
+			}
+			if (next > current !== up) {
+				if (swapped) {
+					throw new Error(`Gave up moving the ${what}: its arrow keys don't move it toward ${target}.`);
+				}
+				[increase, decrease] = [decrease, increase];
+				swapped = true;
+				current = next;
+				continue;
 			}
 			current = next;
 			if (up ? current > target : current < target) {
@@ -1073,7 +1135,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			throw oneValueOnly(what, wanted.length);
 		}
 		if (isComboboxInput(el)) {
-			return selectInCombobox(el as HTMLInputElement, wanted[0], what);
+			return selectInCombobox(el as HTMLInputElement, wanted[0], what, false);
 		}
 		if (isPopupSelect(el)) {
 			return selectInPopup(el, wanted[0], what);
@@ -1148,18 +1210,71 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		};
 	}
 
+	/**
+	 * The options a combobox is showing: those in the list it controls, or
+	 * else the ones that weren't on the page before it was typed into.
+	 */
+	function comboboxOptions(el: Element, before: ReadonlySet<Element>): Element[] {
+		const listId = (el.getAttribute('aria-controls') || el.getAttribute('aria-owns') || '').split(/\s+/)[0];
+		const list = listId ? rootOf(el).getElementById(listId) : null;
+		const options = list ? [...list.querySelectorAll('[role="option"]')] :
+			[...doc.querySelectorAll('[role="option"]')].filter(o => !before.has(o));
+		return options.filter(o => renderStateOf(o, false) === 'shown');
+	}
+
 	// ARIA comboboxes (Streamlit's selectbox): type the option to filter the
-	// list, then pick the first match with the keyboard.
-	async function selectInCombobox(el: HTMLInputElement, wanted: string, what: string): Promise<ActStep> {
+	// list, then click the option with exactly that text. The keyboard would
+	// pick the first match, which can be another option that contains the
+	// text. With freeText (a fill), text that matches no option is kept, as
+	// in a search box with suggestions.
+	async function selectInCombobox(el: HTMLInputElement, wanted: string, what: string, freeText: boolean): Promise<ActStep> {
+		const before = new Set(doc.querySelectorAll('[role="option"]'));
 		scrollToCenter(el);
 		focus(el);
 		setNativeValue(el, wanted);
-		await sleep(300);
-		pressKey(el, 'ArrowDown');
-		await sleep(150);
-		pressKey(el, 'Enter');
-		// Leaving puts back the real choice if nothing matched the typed text.
-		leave(el);
+		// The list can take a moment to show the options for the text (Streamlit
+		// takes about a third of a second when it reopens). Some comboboxes
+		// only open their list for Down, as the ARIA pattern has it (Streamlit's,
+		// before its first use), so press it if nothing shows.
+		let options: Element[] = [];
+		let match: Element | undefined;
+		let opened = false;
+		for (const start = Date.now(); !match && Date.now() - start < COMBOBOX_LIST_MS;) {
+			await sleep(100);
+			options = comboboxOptions(el, before);
+			match = options.find(o => textOf(o) === wanted);
+			if (!match && !options.length && !opened && Date.now() - start >= 400) {
+				pressKey(el, 'ArrowDown');
+				opened = true;
+			}
+		}
+		if (match) {
+			click(match);
+		} else if (freeText) {
+			commit(el);
+			return {
+				done: `Filled the ${what} with ${quote(wanted)}.`,
+				check: () => {
+					if (el.value !== wanted) {
+						throw new Error(`Filled the ${what}, but it shows ${quote(el.value)}, not ${quote(wanted)}.`);
+					}
+					return `Filled the ${what} with ${quote(wanted)}.`;
+				},
+			};
+		} else if (options.length) {
+			pressKey(el, 'Escape');
+			leave(el);
+			throw noOption(what, wanted, options.map(o => textOf(o)), 'options with that text');
+		} else {
+			// No list to read: take the first match with the keyboard, and check it below.
+			if (!opened) {
+				pressKey(el, 'ArrowDown');
+				await sleep(150);
+			}
+			pressKey(el, 'Enter');
+			// Leaving puts back the real choice if nothing matched the typed text.
+			leave(el);
+		}
 		return {
 			done: picked([wanted], what),
 			check: () => {
@@ -1241,7 +1356,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			}
 		}
 		const page = doc.scrollingElement ?? doc.documentElement;
-		if (page.scrollHeight > page.clientHeight + 1 || page.scrollWidth > page.clientWidth + 1) {
+		// A control with no scrolling area of its own scrolls with the page.
+		if (el || page.scrollHeight > page.clientHeight + 1 || page.scrollWidth > page.clientWidth + 1) {
 			return page;
 		}
 		// Streamlit scrolls an inner element, not the page; take the biggest area that scrolls.
@@ -1291,8 +1407,12 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			}
 			const limit = waitTimeout(timeoutMs, 10_000);
 			const start = Date.now();
-			const pageText = () => (doc.body as HTMLElement | null)?.innerText ?? '';
-			while (!pageText().includes(text)) {
+			const inPageText = () => ((doc.body as HTMLElement | null)?.innerText ?? '').includes(text);
+			// The snapshot also reads shadow roots, same-origin frames and canvas
+			// fallback content, which innerText leaves out. It costs more, so
+			// check it less often.
+			const inSnapshot = () => snapshot({ maxChars: Number.MAX_SAFE_INTEGER }).text.includes(quote(text).slice(1, -1));
+			for (let tick = 0; !inPageText() && !(tick % 5 === 0 && inSnapshot()); tick++) {
 				if (Date.now() - start >= limit) {
 					throw new Error(`The text ${quote(text)} didn't show up on the page within ${limit} ms.`);
 				}

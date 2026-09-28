@@ -185,15 +185,23 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		// hide or move its controls at a hidden web Viewer's 300x150.
 		const revealed = await this.showViewer(preview);
 		const outcome = await withTimeout(preview.webview.runBridge('act', action), ACT_TIMEOUT_MS,
-			'The page in the Viewer stopped responding during the action.');
-		if (outcome.navigated) {
-			await this.waitForNewPage(preview);
+			'The page in the Viewer stopped responding during the action, which may have been taken. Take a snapshot before trying it again.');
+		// The action has been taken. From here on, report a problem in the
+		// result rather than reject, which would read as the action failing
+		// and could lead an agent to take it again.
+		try {
+			if (outcome.navigated) {
+				await this.waitForNewPage(preview);
+			}
+			// The action may have led the app to open something else in the Viewer.
+			const current = this.readablePreview();
+			const snapshot = await withBridgeTimeout(current.webview.runBridge('snapshot', snapshotOptions));
+			const message = current === preview ? outcome.message : `${outcome.message} The Viewer now shows other content.`;
+			return { message, snapshot: { ...snapshot, url: cleanUrl(snapshot.url) }, timedOut: outcome.timedOut, revealed };
+		} catch (error) {
+			const reason = error instanceof Error ? error.message : String(error);
+			return { message: `${outcome.message} There's no snapshot of the page after it: ${reason}`, timedOut: outcome.timedOut, revealed };
 		}
-		// The action may have led the app to open something else in the Viewer.
-		const current = this.readablePreview();
-		const snapshot = await withBridgeTimeout(current.webview.runBridge('snapshot', snapshotOptions));
-		const message = current === preview ? outcome.message : `${outcome.message} The Viewer now shows other content.`;
-		return { message, snapshot: { ...snapshot, url: cleanUrl(snapshot.url) }, timedOut: outcome.timedOut, revealed };
 	}
 
 	/**

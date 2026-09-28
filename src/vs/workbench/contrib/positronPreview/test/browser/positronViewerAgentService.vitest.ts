@@ -37,6 +37,8 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	actOutcome: IViewerActOutcome = { message: 'Clicked the button "Go".', navigated: false, timedOut: false };
 	/** When set, the action fails with this, as when a control is disabled. */
 	actError: Error | undefined;
+	/** When set, snapshots fail with this, as when the page stops responding. */
+	snapshotError: Error | undefined;
 
 	constructor(size = { width: 600, height: 400 }, onDidLoad: Event<string> = Event.None) {
 		super(stubInterface<IOverlayWebview>({
@@ -57,6 +59,9 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 		}
 		if (method === 'act' && this.actError) {
 			throw this.actError;
+		}
+		if (method === 'snapshot' && this.snapshotError) {
+			throw this.snapshotError;
 		}
 		const results: { [K in keyof IViewerBridge]: ViewerBridgeResult<K> } = {
 			waitForIdle: { waitedMs: 0, timedOut: false },
@@ -265,6 +270,19 @@ describe('PositronViewerAgentService', () => {
 		await createService().viewerAct({ kind: 'click', ref: 'e1' });
 
 		expect(webview.calls).toEqual(['viewport', 'act', 'viewport', 'waitForIdle', 'snapshot']);
+	});
+
+	it('reports an action it took even when there\'s no snapshot after it, so the agent doesn\'t take it again', async () => {
+		const webview = showUrl();
+		webview.snapshotError = new Error('The page in the Viewer stopped responding.');
+
+		const result = await createService().viewerAct({ kind: 'click', ref: 'e1' });
+
+		expect(result).toEqual({
+			message: 'Clicked the button "Go". There\'s no snapshot of the page after it: The page in the Viewer stopped responding.',
+			timedOut: false,
+			revealed: false,
+		});
 	});
 
 	it('passes on why an action couldn\'t be taken', async () => {

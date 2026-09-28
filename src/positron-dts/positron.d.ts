@@ -4402,8 +4402,13 @@ declare module 'positron' {
 		export interface ViewerActResult {
 			/** What the action did. */
 			message: string;
-			/** A snapshot of the page once the app has settled after the action. */
-			snapshot: ViewerSnapshot;
+			/**
+			 * A snapshot of the page once the app has settled after the action,
+			 * unless one couldn't be taken; the message then says why. Once the
+			 * action has been taken, problems are reported here rather than by
+			 * rejecting, so an agent doesn't take the action again.
+			 */
+			snapshot?: ViewerSnapshot;
 			/** Whether the app was still busy when the wait for it to settle ran out. */
 			timedOut: boolean;
 			/** Whether the Viewer had to be revealed to act on it. */
