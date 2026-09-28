@@ -3715,6 +3715,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// command causes the runtime to crash).
 			this.clearExecutingActivityInputs();
 
+			// A dying kernel can flush buffered output after its exit notification.
+			// Clear these IDs so late output is appended at the tail instead of
+			// mutating the old rendered item in console history.
+			this._runtimeItemActivities.clear();
+
 			// Dispose of the runtime event handlers.
 			this._runtimeDisposableStore.clear();
 		} else {
