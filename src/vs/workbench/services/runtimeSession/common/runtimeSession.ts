@@ -28,6 +28,7 @@ import { toUtcDay } from '../../../../platform/update/common/positronUpdateUtils
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
+import { IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, recreateInterpreterVariant } from '../../languageRuntime/common/interpreterDefinitions.js';
 import { IConfigurationResolverService } from '../../configurationResolver/common/configurationResolver.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -1719,7 +1720,23 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			try {
 				// Attempt to validate the metadata. Note that this can throw if the metadata
 				// is invalid!
-				const validated = await sessionManager.validateMetadata(metadata);
+				let validated = await sessionManager.validateMetadata(metadata);
+
+				// A stored interpreter variant validates as the runtime it derives from;
+				// rebuild the variant from the current interpreters.definitions setting.
+				if (metadata.interpreterDefinition) {
+					const variant = recreateInterpreterVariant(
+						this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY),
+						validated,
+						metadata.interpreterDefinition);
+					if (!variant) {
+						throw new Error(localize(
+							'positron.runtime.definitions.missing',
+							"The interpreter \"{0}\" is no longer defined in the interpreters.definitions setting.",
+							metadata.interpreterDefinition));
+					}
+					validated = variant;
+				}
 
 				// Did the validator change the runtime ID? If so, we're starting a different
 				// runtime than the one that we were asked for.
