@@ -79,8 +79,8 @@ export function describeBudget(): string {
  * budget to within about 10% of the new count. Do not raise a budget to make a
  * new dependency fit; bundle the dependency instead.
  *
- * The budgets do not count the gzip copies that the web server builds add. See
- * `isGzipCopy` in positron-check-path-lengths.ts.
+ * The budgets do not count gzip copies or source maps, which only some builds
+ * ship. See `isUnbudgeted` in positron-check-path-lengths.ts.
  *
  * The largest count so far is 30,933, in the win32-x64 build of #16185. That
  * build still had positron-catalog-explorer (4,140 files), which #16214 removed,

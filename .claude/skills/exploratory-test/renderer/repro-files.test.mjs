@@ -59,7 +59,7 @@ test('files: the ledger reads its Files section', () => {
 
 test('files: a saved file named in a finding opens its viewer; a command naming it stays code', () => {
 	const c = card(render(), 1);
-	assert.match(c, /<a class="fn" href="files\/slow\.py" data-file="file-slow-py" title="Open slow\.py">slow\.py<\/a> loaded with <code>%run -i slow\.py<\/code>/);
+	assert.match(c, /<a class="fn" href="files\/slow\.py" data-file="file-slow-py" title="Open slow\.py">slow\.py<\/a> loaded with <code class="cc" data-tip="Copy">%run -i slow\.py<\/code>/);
 	// Copy and Download live in the viewer, never on the card.
 	assert.doesNotMatch(c, /f-copy|f-dl/);
 });
@@ -94,7 +94,8 @@ test('files: the embedded source is the file byte for byte', () => {
 
 test('files: a listed file that is missing renders as code, with no viewer and no dead link', () => {
 	const html = render({ readFile: () => null });
-	assert.match(card(html, 1), /<code>slow\.py<\/code> loaded/);
+	// Plain code, which Reproduce then makes copyable like any other.
+	assert.match(card(html, 1), /<code class="cc" data-tip="Copy">slow\.py<\/code> loaded/);
 	assert.equal(viewer(html, 'file-slow-py'), null);
 	assert.doesNotMatch(html, /href="files\//);
 	assert.doesNotMatch(html, /function text\(id\)/);

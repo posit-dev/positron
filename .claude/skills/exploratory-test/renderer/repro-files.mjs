@@ -393,6 +393,20 @@ export function promptFilesSection(files, markdown, where, fence) {
 	}).join('\n\n');
 }
 
+/**
+ * A saved file's text and fence language, for an issue to fold in; null for a
+ * binary file, a missing one, or text too large to embed. A notebook is its
+ * cells in percent format.
+ */
+export function fileSource(f) {
+	if (f.notebook) {
+		return { text: notebookScript(f.notebook), lang: FENCE[f.notebook.lang] ?? f.notebook.lang };
+	}
+	return f.kind === 'text' && f.text !== null
+		? { text: f.text.replace(/\n$/, ''), lang: FENCE[f.ext] ?? f.ext }
+		: null;
+}
+
 /** Copy, Download, and the viewer's open and close. */
 export const FILE_SCRIPT = `(function(){
 function text(id){var el=document.getElementById(id);if(!el){return null;}

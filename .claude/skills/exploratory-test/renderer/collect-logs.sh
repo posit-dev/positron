@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# ---------------------------------------------------------------------------------------------
+# Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+# ---------------------------------------------------------------------------------------------
+
 # Copies one instance's logs into a run's logs/ folder before stop.sh deletes
 # them, and prints each copy with its error count for the ledger's ## Logs.
 #

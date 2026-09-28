@@ -5,5 +5,8 @@
 	"description": "Renders an exploratory-test report.md as the HTML page CI publishes. Shared by local skill runs and the pr-exploratory-test action.",
 	"dependencies": {
 		"marked": "^12.0.2"
+	},
+	"devDependencies": {
+		"@jridgewell/trace-mapping": "0.3.31"
 	}
 }

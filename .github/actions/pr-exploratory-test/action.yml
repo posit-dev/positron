@@ -46,6 +46,10 @@ inputs:
     description: "Anthropic model identifier (a tier alias like 'opus' always resolves to the latest)"
     required: false
     default: "opus"
+  focus:
+    description: "Explore mode: what the person asked to test. Replaces the diff as the target; empty tests the diff."
+    required: false
+    default: ""
   effort:
     description: "Effort level for the explore pass (low, medium, high, xhigh, max). Empty uses the model's default."
     required: false
@@ -151,6 +155,7 @@ runs:
         BASE_SHA: ${{ inputs.base-sha }}
         HEAD_SHA: ${{ inputs.head-sha }}
         MODEL: ${{ inputs.model }}
+        FOCUS: ${{ inputs.focus }}
         EFFORT: ${{ inputs.effort }}
         MAX_TURNS: ${{ inputs.max-turns }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}

@@ -2,6 +2,10 @@
 name: exploratory-test
 description: "Explore a running Positron instance as a real user to find genuine problems in a change you just made. Use when asked to exploratorily test, QA, manually test, or poke at a branch, PR, or feature through the real UI. This is discovery testing against the live app to find bugs, NOT writing automated tests; use author-e2e-tests or author-vitest-tests for that. Worth its cost for a user-visible behavior change, not for a refactor or a typo fix. Only runs when a person invokes it explicitly."
 disable-model-invocation: true
+metadata:
+  # Bump when the agent is told something new: this file, explorer.md or
+  # verifier.md. Feedback is grouped by it, so a renderer change does not count.
+  version: "1.0"
 ---
 
 # Exploratory testing
@@ -38,3 +42,15 @@ When the agent finishes, put its run on the report's Run tile, as CI does. The
 completion notice carries `duration_ms` and `tool_uses`; re-render with them:
 `node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses>`.
 The agent cannot do this itself, because it does not see its own totals.
+
+## Present it, then offer to publish
+
+Give the user the result, the findings table, and the `index.html` path. Then
+ask, in these words:
+
+> Publish this report to share it?
+> (Anyone with the link can view it. Screenshots aren't redacted.)
+
+Publish only on a yes:
+`bash <base>/renderer/publish.sh <run dir>`. It prints the report URL; give it
+to the user. If it says there are no AWS credentials, relay its sign-in hint.
