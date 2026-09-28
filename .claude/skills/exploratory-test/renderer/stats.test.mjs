@@ -120,7 +120,7 @@ test('render.mjs counts the explorer\'s checks, not the harness\'s renders, and 
 		assert.equal(stats.checks.rounds, 2);
 		assert.match(stats.version, /^\d+\.\d+$/);
 		// The page is written after stats.json, so Run details links it.
-		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /2 rounds &middot; \d+ problems? on the first check &middot; <a href="stats.json">raw stats<\/a>/);
+		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /format check 2 times\. The first time, it found .*<a href="stats.json">Raw stats<\/a>/);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}

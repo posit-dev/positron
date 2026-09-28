@@ -1093,12 +1093,18 @@ function renderFormatChecks(options) {
 	if (!checks) {
 		return '';
 	}
-	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-	const raw = options.fileExists?.('stats.json') ? ' &middot; <a href="stats.json">raw stats</a>' : '';
+	const times = checks.rounds === 1 ? 'once' : `${checks.rounds} times`;
+	const found = checks.first.problems;
+	const problems = `${found} problem${found === 1 ? '' : 's'}`;
+	const outcome = checks.last === 0 ? 'which it fixed before finishing' : `and ${checks.last} were still there at the end`;
+	const sentence = found === 0
+		? `The explorer ran the report's format check ${times}. The first time, it found no problems.`
+		: `The explorer ran the report's format check ${times}. The first time, it found ${problems}, shown below, ${outcome}. These show which of the skill's instructions it didn't follow on its first try.`;
+	const raw = options.fileExists?.('stats.json') ? ' <a href="stats.json">Raw stats</a>' : '';
 	const rules = Object.entries(checks.first.rules).sort((a, b) => b[1] - a[1])
 		.map(([rule, n]) => `<li><span class="num">${n}&times;</span> ${escapeHtml(rule)}</li>`).join('');
 	return '<div class="fold-part"><div class="fold-label">Format checks</div>'
-		+ `<div class="format-checks">${plural(checks.rounds, 'round')} &middot; ${plural(checks.first.problems, 'problem')} on the first check${raw}</div>`
+		+ `<div class="format-checks">${escapeHtml(sentence)}${raw}</div>`
 		+ (rules ? `<ul class="format-rules">${rules}</ul>` : '')
 		+ '</div>';
 }

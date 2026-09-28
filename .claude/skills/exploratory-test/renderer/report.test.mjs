@@ -1707,10 +1707,15 @@ test('Run details shows the explorer\'s format checks, with the rules its first 
 		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(checks) : null),
 		fileExists: p => p === 'stats.json',
 	});
-	assert.match(html, /<div class="fold-label">Format checks<\/div><div class="format-checks">2 rounds &middot; 3 problems on the first check &middot; <a href="stats.json">raw stats<\/a><\/div>/);
+	assert.match(html, /<div class="fold-label">Format checks<\/div><div class="format-checks">The explorer ran the report's format check 2 times\. The first time, it found 3 problems, shown below, which it fixed before finishing\. These show which of the skill's instructions it didn't follow on its first try\. <a href="stats.json">Raw stats<\/a><\/div>/);
 	// Most frequent first, escaped.
 	assert.match(html, /<ul class="format-rules"><li><span class="num">2&times;<\/span> report: finding # Reproduction must be N\/M, got &quot;…&quot;<\/li><li><span class="num">1&times;<\/span> report: leave a blank line after &lt;\/summary&gt;<\/li><\/ul>/);
 	assert.doesNotMatch(renderReportHtml(LOGS_REPORT), /Format checks/);
+	// One clean check, and a run that stopped with problems left.
+	const once = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from(JSON.stringify({ problems: 0, rules: {} })) });
+	assert.match(once, /format check once\. The first time, it found no problems\./);
+	const left = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from([{ problems: 1, rules: { a: 1 } }, { problems: 1, rules: { a: 1 } }].map(c => JSON.stringify(c)).join('\n')) });
+	assert.match(left, /it found 1 problem, shown below, and 1 were still there at the end\./);
 });
 
 test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {
