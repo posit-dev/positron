@@ -423,6 +423,11 @@ test('renderSummaryTarget puts the focus, on one line, before the branch', () =>
 	assert.equal(renderSummaryTarget('main', 'o/r', '', '  \n'), '`main`\n\n');
 });
 
+test('renderSummaryTarget ends with the time limit when the run had one', () => {
+	assert.equal(renderSummaryTarget('main', 'o/r', '', 'data explorer', 10), 'data explorer · `main` · 10 min\n\n');
+	assert.equal(renderSummaryTarget('main', 'o/r', '', 'data explorer', null), 'data explorer · `main`\n\n');
+});
+
 // run.mjs and gate.mjs run only in CI and no test imports them.
 test('every script in the action parses', async () => {
 	const { spawnSync } = await import('node:child_process');
@@ -470,6 +475,7 @@ test('the brief states the budget, and the wrap-up window', () => {
 	assert.match(line, new RegExp(`${WRAP_UP_MINUTES} more minutes`));
 	assert.match(line, /Not run/);
 	assert.match(line, /Keep exploring until you are told time is up/);
+	assert.match(line, /use all of yours for exploring/);
 });
 
 test('timeUpHook gives the time left before the deadline, then tells every tool result time is up, calling onTimeUp once', async () => {
