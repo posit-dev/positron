@@ -285,7 +285,10 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	for (const n of blockNumbers) { if (!tableNumbers.has(n)) { problems.push(`report: Finding ${n} has a block but no table row`); } }
 	const needs = [];
 	blocks.forEach((b, j) => {
-		const end = blocks[j + 1]?.k ?? lines.length;
+		// The last finding ends where Run details or Verification details starts:
+		// the verifier's reply can say "same as Finding 1" about the report.
+		const next = lines.findIndex(({ line }, k) => k > b.k && /^(<details>|## )/.test(line));
+		const end = blocks[j + 1]?.k ?? (next === -1 ? lines.length : next);
 		const body = lines.slice(b.k + 1, end).map(l => l.line);
 		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
 			needs.push([`Finding ${b.n}`, l]);

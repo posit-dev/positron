@@ -226,3 +226,13 @@ test('a finding screenshot with no step is a format problem', () => {
 		assert.ok(!lint(shot(caption)).some(p => /has no step/.test(p)), caption);
 	}
 });
+
+test('a finding ends where Run details or the verification starts', () => {
+	const verified = REPORT.replace('</details>\n', '</details>\n\n<details>\n<summary>Verification details</summary>\n\n3. Same as Finding 1: a note from the verifier.\n\n</details>\n');
+	assert.match(verified, /Same as Finding 1: a note from the verifier/);
+	assert.deepEqual(lintReport(verified, LEDGER).filter(p => /points at another finding/.test(p)), []);
+	// Inside a finding it is still a problem.
+	const pointing = REPORT.replace('1. Click Retry.', '1. Same as Finding 1: click Retry.');
+	assert.match(pointing, /1\. Same as Finding 1: click Retry\./);
+	assert.equal(lintReport(pointing, LEDGER).filter(p => /points at another finding/.test(p)).length, 1);
+});
