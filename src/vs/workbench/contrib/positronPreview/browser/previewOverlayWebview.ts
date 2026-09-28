@@ -35,15 +35,15 @@ export class PreviewOverlayWebview extends Disposable {
 	constructor(public readonly webview: IOverlayWebview) {
 		super();
 		this._register(webview);
+		// The script that reports loads runs in the app's page, so an empty title
+		// means the page has none.
 		this._register(webview.onDidLoad(title => {
-			if (title) {
-				this._title = title;
-			}
+			this._title = title || undefined;
 		}));
 	}
 
 	/**
-	 * The title of the page last loaded in the webview, if it had one.
+	 * The title of the page loaded in the webview, if it has one.
 	 */
 	public get title(): string | undefined {
 		return this._title;
@@ -60,12 +60,23 @@ export class PreviewOverlayWebview extends Disposable {
 	/**
 	 * Loads a URI in the internal webview.
 	 *
-	 * This is overridden in the Electron implementation to use the webview's
-	 * `loadUri` method, which has native support for loading URIs.
-	 *
 	 * @param uri The URI to load
 	 */
 	public loadUri(uri: URI): void {
+		// Forget the last page's title; the new page reports its own when it loads.
+		this._title = undefined;
+		this.loadUriInWebview(uri);
+	}
+
+	/**
+	 * Loads a URI in the internal webview, in an iframe.
+	 *
+	 * This is overridden in the Electron implementation to use the webview's
+	 * `setUri` method, which has native support for loading URIs.
+	 *
+	 * @param uri The URI to load
+	 */
+	protected loadUriInWebview(uri: URI): void {
 		// This Preview pane HTML is roughly equivalent to src/vs/workbench/contrib/positronHelp/browser/resources/help.html
 		// for the Help pane.
 		this.webview.setHtml(`

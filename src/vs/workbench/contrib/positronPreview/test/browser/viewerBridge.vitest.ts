@@ -144,6 +144,33 @@ describe('createViewerBridge', () => {
 		`);
 	});
 
+	it('names a control from its other labels when aria-labelledby names nothing', () => {
+		const text = snapshotText(`
+			<span role="slider" aria-labelledby="missing" aria-label="Bins" aria-valuenow="5" aria-valuemin="1" aria-valuemax="50"></span>
+			<label for="title">Plot title</label><input id="title" aria-labelledby="also-missing" value="Old Faithful">`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- slider "Bins" [ref=e1] value=5 min=1 max=50
+			- textbox "Plot title" [ref=e2] value="Old Faithful""
+		`);
+	});
+
+	it('marks disabled controls', () => {
+		// The bridge checks :disabled, which in browsers also covers controls in a
+		// disabled <fieldset>. happy-dom's :disabled only reads the element's own
+		// attribute, so that case was checked in Chromium instead.
+		const text = snapshotText(`
+			<button disabled>Apply</button><input aria-label="Name" disabled>
+			<span role="button" aria-disabled="true">Undo</span><button>Reset</button>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- button "Apply" [ref=e1] disabled
+			- textbox "Name" [ref=e2] value="" disabled
+			- button "Undo" [ref=e3] disabled
+			- button "Reset" [ref=e4]"
+		`);
+	});
+
 	it('summarizes tables one row per line and walks rows that hold controls', () => {
 		const text = snapshotText(`
 			<table>
@@ -178,6 +205,18 @@ describe('createViewerBridge', () => {
 			  - row "1"
 			  - row "2""
 		`);
+	});
+
+	it('doesn\'t count empty rows toward the cap', () => {
+		// 60 data rows, each followed by an empty spacer row.
+		const rows = Array.from({ length: 60 }, (_, i) => `<tr><td>${i}</td></tr><tr><td></td></tr>`).join('');
+		const lines = snapshotText(`<table>${rows}</table>`).split('\n');
+
+		expect({ lines: lines.length, lastRow: lines.at(-2), more: lines.at(-1) }).toEqual({
+			lines: 52,
+			lastRow: '  - row "49"',
+			more: '  - text "(up to 21 more rows)"',
+		});
 	});
 
 	it('keeps visible content inside a visibility:hidden element', () => {

@@ -6,7 +6,7 @@
 // modern-screenshot is bundled as an ESM package dependency and loaded through
 // the workbench's import map (see build/npm/build-esm-package-dependencies.ts).
 // eslint-disable-next-line local/code-import-patterns, local/code-amd-node-module
-import { domToCanvas } from 'modern-screenshot';
+import { createContext, destroyContext, domToCanvas } from 'modern-screenshot';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 
 /**
@@ -76,37 +76,48 @@ async function encodePng(
 /**
  * Rebuilds a screenshot of what's on screen in an app's window from the page's
  * content, with modern-screenshot. Used in web builds, where the Viewer's app
- * frame is same-origin with Positron but there's no native capture. Nothing is
- * injected into the app: the library runs in Positron's page and reads the
- * app's document.
+ * frame is same-origin with Positron but there's no native capture. The
+ * library runs in Positron's page and reads the app's document; the only thing
+ * it adds to the app's page is a hidden sandbox frame while it works.
  *
  * WebGL canvases that don't keep their drawing buffer come out blank, and
  * images from other hosts without CORS headers come out as placeholders.
+ * Elements with `position: fixed` move with the content when the page is
+ * scrolled, so they can come out in the wrong place.
  *
  * @param appWindow The app's window.
  * @param targetWindow The window to create canvases in.
  */
 export async function captureDomScreenshot(appWindow: Window, targetWindow: Window): Promise<IViewerCapture> {
-	// Capture the whole page and then crop it to the viewport. Give the root at
-	// least the viewport's size: Streamlit's <html> is 0 px tall, because
-	// everything in it is absolutely positioned.
-	const root = appWindow.document.documentElement;
-	const viewportWidth = appWindow.innerWidth;
-	const viewportHeight = appWindow.innerHeight;
-	const page = await domToCanvas(root, {
+	// Render just the viewport. restoreScrollPosition shifts the content of
+	// every scrolled element, the page itself included, so the part of the page
+	// on screen lands at the top left. (Rendering the whole page and cropping it
+	// at the scroll position would shift it twice, and a long page can go over
+	// the browser's canvas size limit.) Streamlit's <html> is 0 px tall, because
+	// everything in it is absolutely positioned, so the size has to be given.
+	const width = appWindow.innerWidth;
+	const height = appWindow.innerHeight;
+	// Make the context here rather than letting domToCanvas make one, so that
+	// the sandbox frame is removed from the app's page even if the capture fails.
+	const context = await createContext(appWindow.document.documentElement, {
 		scale: 1,
-		width: Math.max(root.scrollWidth, viewportWidth),
-		height: Math.max(root.scrollHeight, viewportHeight),
+		width,
+		height,
 		timeout: 10_000,
 		fetch: { placeholderImage: PLACEHOLDER_IMAGE },
-		// Keep the scroll positions of scrolling areas inside the page
+		// Also keeps the scroll positions of scrolling areas inside the page
 		// (Streamlit scrolls an inner element, not the window).
 		features: { restoreScrollPosition: true },
 		// No backgroundColor: it paints over the page's own background. The
 		// image goes onto white in encodePng instead.
 	});
-	const crop = { x: appWindow.scrollX, y: appWindow.scrollY, width: viewportWidth, height: viewportHeight };
-	return { ...await encodePng(page, crop, viewportWidth, viewportHeight, targetWindow), method: 'dom' };
+	try {
+		const page = await domToCanvas(context);
+		const crop = { x: 0, y: 0, width: page.width, height: page.height };
+		return { ...await encodePng(page, crop, width, height, targetWindow), method: 'dom' };
+	} finally {
+		destroyContext(context);
+	}
 }
 
 /**

@@ -27,7 +27,7 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 	 *
 	 * @param uri The URI to open in the preview
 	 */
-	public override loadUri(uri: URI): void {
+	protected override loadUriInWebview(uri: URI): void {
 		// Load the URI in the webview. We can set the URI directly in Electron
 		// mode instead of building an HTML string with an iframe.
 		//

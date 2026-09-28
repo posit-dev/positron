@@ -9,7 +9,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { PreviewSourceType } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { IPositronViewerAgentService, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, ViewerContentKind } from '../common/positronViewerAgent.js';
+import { IPositronViewerAgentService, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerContentKind } from '../common/positronViewerAgent.js';
 import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewUrl, QUERY_NONCE_PARAMETER } from './previewUrl.js';
@@ -21,6 +21,13 @@ import { PreviewWebview } from './previewWebview.js';
  * example because they navigated away mid-call.
  */
 const BRIDGE_CALL_TIMEOUT_MS = 20_000;
+
+/**
+ * The longest a screenshot may take. In web builds it's rebuilt from the page,
+ * which means fetching the page's images and fonts, each with its own 10
+ * second timeout.
+ */
+const CAPTURE_TIMEOUT_MS = 30_000;
 
 /**
  * How long to wait for the app to take its full size after the Viewer is
@@ -48,15 +55,22 @@ function uriToString(uri: URI): string {
 }
 
 /**
- * Rejects if a call into the app's page doesn't finish in time.
+ * Rejects with `message` if `promise` doesn't settle within `timeoutMs`.
  */
-async function withBridgeTimeout<T>(promise: Promise<T>): Promise<T> {
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
 	let timedOut = false;
-	const result = await raceTimeout(promise, BRIDGE_CALL_TIMEOUT_MS, () => timedOut = true);
+	const result = await raceTimeout(promise, timeoutMs, () => timedOut = true);
 	if (timedOut) {
-		throw new Error('The page in the Viewer stopped responding.');
+		throw new Error(message);
 	}
 	return result as T;
+}
+
+/**
+ * Rejects if a call into the app's page doesn't finish in time.
+ */
+function withBridgeTimeout<T>(promise: Promise<T>): Promise<T> {
+	return withTimeout(promise, BRIDGE_CALL_TIMEOUT_MS, 'The page in the Viewer stopped responding.');
 }
 
 /**
@@ -129,6 +143,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		// still rendering comes back empty.
 		await withBridgeTimeout(preview.webview.runBridge('waitForIdle'));
 		const snapshot = await withBridgeTimeout(preview.webview.runBridge('snapshot', options));
+		this.checkStillShowing(preview);
 		return { ...snapshot, url: cleanUrl(snapshot.url) };
 	}
 
@@ -138,7 +153,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 
 		// Make sure the page can be reached before changing the user's layout,
 		// so a call that would fail anyway doesn't reveal the Viewer for nothing.
-		await withBridgeTimeout(preview.webview.runBridge('viewport'));
+		const viewport = await withBridgeTimeout(preview.webview.runBridge('viewport'));
 
 		// The Viewer has to be showing: Desktop captures the screen, and in web
 		// builds a hidden Viewer's frame shrinks to 300x150, so the app lays
@@ -147,10 +162,13 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		if (revealed) {
 			await this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, false);
 		}
-		await this.waitForLayout(preview);
+		// Once revealed, the app has to lay itself out again, so measure again.
+		await this.waitForLayout(preview, revealed ? undefined : viewport);
 		await withBridgeTimeout(preview.webview.runBridge('waitForIdle'));
 
-		const capture = await preview.webview.captureScreenshot();
+		const capture = await withTimeout(preview.webview.captureScreenshot(), CAPTURE_TIMEOUT_MS,
+			'Taking the screenshot of the Viewer took too long.');
+		this.checkStillShowing(preview);
 		return { mimeType: 'image/png', ...capture, revealed };
 	}
 
@@ -179,15 +197,28 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	}
 
 	/**
+	 * Throws if the Viewer moved on to other content during a call, which
+	 * would otherwise return the old content as what's showing.
+	 */
+	private checkStillShowing(preview: PreviewWebview): void {
+		if (this._previewService.activePreviewWebview !== preview) {
+			throw new Error('The Viewer\'s content changed while it was being read. Try again.');
+		}
+	}
+
+	/**
 	 * Waits until the app's viewport matches the Viewer's size on screen.
 	 * Throws if it hasn't after LAYOUT_TIMEOUT_MS, rather than capturing the
 	 * app at the wrong size.
+	 *
+	 * @param firstViewport The app's viewport, if it was just measured.
 	 */
-	private async waitForLayout(preview: PreviewWebview): Promise<void> {
+	private async waitForLayout(preview: PreviewWebview, firstViewport?: IViewerViewport): Promise<void> {
 		const deadline = Date.now() + LAYOUT_TIMEOUT_MS;
+		let viewport = firstViewport;
 		for (; ;) {
 			const rect = preview.webview.webview.container.getBoundingClientRect();
-			const viewport = await withBridgeTimeout(preview.webview.runBridge('viewport'));
+			viewport ??= await withBridgeTimeout(preview.webview.runBridge('viewport'));
 			const laidOut = rect.width > 0 && rect.height > 0 &&
 				Math.abs(viewport.width - rect.width) <= 2 && Math.abs(viewport.height - rect.height) <= 2;
 			if (laidOut) {
@@ -201,6 +232,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 					`not the Viewer's ${Math.round(rect.width)}x${Math.round(rect.height)}, so a screenshot would be wrong. Try again in a moment.`);
 			}
 			await timeout(100);
+			viewport = undefined;
 		}
 	}
 }

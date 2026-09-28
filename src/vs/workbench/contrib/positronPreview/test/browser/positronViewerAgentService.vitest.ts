@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
@@ -32,18 +32,20 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	viewport: IViewerViewport = { width: 600, height: 400 };
 	/** When set, every bridge call fails with this, as when the page can't be reached. */
 	bridgeError: Error | undefined;
+	/** Runs during the capture, to change what the Viewer shows mid-call. */
+	onCapture: (() => void) | undefined;
 
-	constructor(size = { width: 600, height: 400 }) {
+	constructor(size = { width: 600, height: 400 }, onDidLoad: Event<string> = Event.None) {
 		super(stubInterface<IOverlayWebview>({
 			onDidNavigate: Event.None,
 			onDidDispose: Event.None,
-			onDidLoad: Event.None,
+			onDidLoad,
 			dispose: () => { },
 			container: stubInterface<HTMLElement>({ getBoundingClientRect: () => new DOMRect(0, 0, size.width, size.height) }),
 		}));
 	}
 
-	override loadUri(): void { }
+	protected override loadUriInWebview(): void { }
 
 	override async runBridge<M extends keyof IViewerBridge>(method: M, ..._args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
 		this.calls.push(method);
@@ -60,6 +62,7 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 
 	override async captureScreenshot(): Promise<IViewerCapture> {
 		this.calls.push('capture');
+		this.onCapture?.();
 		return { data: VSBuffer.fromString('png'), width: 600, height: 400, method: 'dom' };
 	}
 }
@@ -120,6 +123,25 @@ describe('PositronViewerAgentService', () => {
 		});
 	});
 
+	it('reports the title of the page showing now, not of an earlier page', () => {
+		const didLoad = ctx.disposables.add(new Emitter<string>());
+		const webview = showUrl(new FakePreviewOverlayWebview(undefined, didLoad.event));
+		const service = createService();
+		const titles: (string | undefined)[] = [];
+
+		didLoad.fire('Old Faithful');
+		titles.push(service.getViewerInfo().title);
+		// A page with no title.
+		didLoad.fire('');
+		titles.push(service.getViewerInfo().title);
+		// A new page that hasn't finished loading.
+		didLoad.fire('Old Faithful');
+		webview.loadUri(URI.parse('http://localhost:8000/other'));
+		titles.push(service.getViewerInfo().title);
+
+		expect(titles).toEqual(['Old Faithful', undefined, undefined]);
+	});
+
 	it('refuses every call when AI features are turned off', async () => {
 		configurationService.setUserConfiguration('ai.enabled', false);
 		showUrl();
@@ -157,9 +179,31 @@ describe('PositronViewerAgentService', () => {
 		const screenshot = await createService().getViewerScreenshot();
 
 		expect(openView).not.toHaveBeenCalled();
-		expect(webview.calls).toEqual(['viewport', 'viewport', 'waitForIdle', 'capture']);
+		expect(webview.calls).toEqual(['viewport', 'waitForIdle', 'capture']);
 		expect({ mimeType: screenshot.mimeType, method: screenshot.method, revealed: screenshot.revealed })
 			.toEqual({ mimeType: 'image/png', method: 'dom', revealed: false });
+	});
+
+	it('fails rather than return a screenshot of content the Viewer has moved on from', async () => {
+		const webview = showUrl();
+		webview.onCapture = () => showUrl();
+
+		await expect(createService().getViewerScreenshot()).rejects.toThrow('The Viewer\'s content changed while it was being read.');
+	});
+
+	it('fails rather than capture forever', async () => {
+		vi.useFakeTimers();
+		try {
+			const webview = showUrl();
+			webview.captureScreenshot = () => new Promise<IViewerCapture>(() => { });
+
+			const screenshot = createService().getViewerScreenshot();
+			const failed = expect(screenshot).rejects.toThrow('Taking the screenshot of the Viewer took too long.');
+			await vi.advanceTimersByTimeAsync(31_000);
+			await failed;
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('leaves a hidden Viewer alone when the page can\'t be reached', async () => {

@@ -112,6 +112,8 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 		],
 		// Also pure ESM; rebuilds screenshots of the Viewer for agents in web builds.
 		'modern-screenshot': [
+			'createContext',
+			'destroyContext',
 			'domToCanvas',
 		],
 	};

@@ -282,13 +282,17 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		const labelledBy = el.getAttribute('aria-labelledby');
 		if (labelledBy) {
 			// Per the accessible-name rules, a self-reference contributes the element's own aria-label.
-			return clean(labelledBy.split(/\s+/).map(id => {
+			const label = clean(labelledBy.split(/\s+/).map(id => {
 				const ref = root.getElementById(id);
 				if (!ref) {
 					return '';
 				}
 				return ref === el ? el.getAttribute('aria-label') || '' : textOf(ref, 200, fallback);
 			}).join(' '));
+			// When the ids name nothing (yet), fall through to the other sources.
+			if (label) {
+				return label;
+			}
 		}
 		const aria = el.getAttribute('aria-label');
 		if (aria) {
@@ -387,7 +391,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			p.push(`value=${JSON.stringify([...select.selectedOptions].map(o => o.text.trim()).join(', '))}`);
 			p.push(`options=${JSON.stringify([...select.options].slice(0, MAX_OPTIONS).map(o => o.text.trim()))}`);
 		}
-		if (input.disabled || el.getAttribute('aria-disabled') === 'true') {
+		// :disabled also covers controls in a disabled <fieldset>.
+		if (el.matches(':disabled') || el.getAttribute('aria-disabled') === 'true') {
 			p.push('disabled');
 		}
 		return p.join(' ');
@@ -517,17 +522,19 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 				continue;
 			}
 			if (listed === MAX_ROWS_PER_TABLE) {
-				// The rest weren't checked, and some may be hidden.
+				// The rest weren't checked, and some may be hidden or empty.
 				push(state, `${pad}- text "(up to ${rows.length - i} more rows)"`);
 				return;
 			}
-			listed++;
 			if (row.querySelector(INTERACTIVE_SELECTOR)) {
+				listed++;
 				walkChildren(state, row, indent + 1, fallback);
 				continue;
 			}
 			const cells = cellsOf(row).map(cell => textOf(cell, 100, fallback));
+			// Empty rows (spacers, separators) add nothing, so they don't count.
 			if (cells.some(text => text)) {
+				listed++;
 				push(state, `${pad}- row ${JSON.stringify(cells.join(' | '))}`);
 			}
 		}
