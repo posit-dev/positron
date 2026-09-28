@@ -18,6 +18,7 @@ import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreInstances } from './KallichoreInstances.js';
+import { applyInterpreterDefinition, InterpreterDefinition } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 
@@ -1334,6 +1335,24 @@ export class KCApi implements PositronSupervisorApi {
 		kernel: JupyterKernelSpec,
 		dynState: positron.LanguageRuntimeDynState,
 		_extra?: JupyterKernelExtra | undefined): Promise<JupyterLanguageRuntimeSession> {
+
+		// Apply the interpreters.definitions entry this runtime is a variant of.
+		// Read at session start so edits to the setting apply without a reload.
+		if (runtimeMetadata.interpreterDefinition) {
+			const definition = vscode.workspace.getConfiguration('interpreters')
+				.get<InterpreterDefinition[]>('definitions', [])
+				.find(d => d.language === runtimeMetadata.languageId && d.label === runtimeMetadata.interpreterDefinition);
+			if (!definition) {
+				throw new Error(vscode.l10n.t(
+					'The interpreter "{0}" is no longer defined in the interpreters.definitions setting.',
+					runtimeMetadata.interpreterDefinition));
+			}
+			if (definition.startupScript && process.platform === 'win32') {
+				this.log(`Ignoring startupScript for "${definition.label}": startup scripts are not supported on Windows`);
+			}
+			this.log(`Applying interpreter definition "${definition.label}" (env: ${Object.keys(definition.env ?? {}).join(', ') || 'none'})`);
+			kernel = applyInterpreterDefinition(kernel, definition, process.platform);
+		}
 
 		// Ensure the server is started before trying to create the session
 		await this.ensureStarted();
