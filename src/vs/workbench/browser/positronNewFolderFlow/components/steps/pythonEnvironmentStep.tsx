@@ -194,23 +194,25 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 					<FlowFormattedText
 						type={FlowFormattedTextType.Info}
 					>
-						{localize(
-							'pythonEnvironmentSubStep.feedback',
-							"The environment will be created at "
-						)}
-						<PathDisplay
-							maxLength={65}
-							pathComponents={
-								locationForNewEnv(
-									context.parentFolder.path,
-									context.folderName,
-									envProviderNameForId(envProviderId, envProviders!),
-									envName
-								)
-							}
-							pathService={context.services.pathService}
-						/>
-
+						{/* One span, so the path wraps with the sentence instead of beside it. */}
+						<span>
+							{localize(
+								'pythonEnvironmentSubStep.feedback',
+								"The environment will be created at "
+							)}
+							<PathDisplay
+								maxLength={65}
+								pathComponents={
+									locationForNewEnv(
+										context.parentFolder.path,
+										context.folderName,
+										envProviderNameForId(envProviderId, envProviders!),
+										envName
+									)
+								}
+								pathService={context.services.pathService}
+							/>
+						</span>
 					</FlowFormattedText>
 				);
 			}
