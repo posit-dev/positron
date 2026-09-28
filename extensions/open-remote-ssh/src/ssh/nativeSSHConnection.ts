@@ -165,7 +165,8 @@ export default class NativeSSHConnection implements SSHTransport {
 	}
 
 	private connectionArgs(): string[] {
-		const args = ['-o', `ConnectTimeout=${this.options.connectTimeout}`];
+		// There is no terminal to answer prompts, so fail instead of waiting on one.
+		const args = ['-o', 'BatchMode=yes', '-o', `ConnectTimeout=${this.options.connectTimeout}`];
 		if (this.options.configFile) {
 			args.push('-F', this.options.configFile);
 		}

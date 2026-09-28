@@ -72,6 +72,8 @@ echo 'stderr value' >&2
 		expect(result).toEqual({ stdout: 'stdout value\n', stderr: 'stderr value\n' });
 		expect(fs.readFileSync(argsFile, 'utf8').trim().split('\n')).toEqual([
 			'-o',
+			'BatchMode=yes',
+			'-o',
 			'ConnectTimeout=2',
 			'-F',
 			'/tmp/custom ssh config',
