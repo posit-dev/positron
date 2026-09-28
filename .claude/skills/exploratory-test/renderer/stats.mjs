@@ -68,6 +68,7 @@ export function summarizeChecks(text) {
 		rounds: checks.length,
 		first: { problems: checks[0].problems, rules: checks[0].rules ?? {} },
 		last: checks.at(-1).problems,
+		lastRules: checks.at(-1).rules ?? {},
 	};
 }
 

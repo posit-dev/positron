@@ -1698,26 +1698,38 @@ test('logs: render.mjs fails the run when a listed log was not copied', () => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-test('Run details shows the explorer\'s format checks, with the rules its first check found and a link to stats.json', () => {
-	const checks = [
-		{ problems: 3, rules: { 'report: leave a blank line after </summary>': 1, 'report: finding # Reproduction must be N/M, got "…"': 2 } },
-		{ problems: 0, rules: {} },
-	].map(c => JSON.stringify(c)).join('\n');
-	const html = renderReportHtml(LOGS_REPORT, {
-		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(checks) : null),
+test('Run details shows the explorer\'s format checks, with the rules it did not fix marked', () => {
+	const page = checks => renderReportHtml(LOGS_REPORT, {
+		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(checks.map(c => JSON.stringify(c)).join('\n')) : null),
 		fileExists: p => p === 'stats.json',
 	});
-	assert.match(html, /<div class="fold-label">Format checks<\/div><div class="format-checks">The explorer ran the report's format check 2 times\. The first time, it found 3 problems, shown below, which it fixed before finishing\. These show which of the skill's instructions it didn't follow on its first try\. <a href="stats.json">Raw stats<\/a><\/div>/);
-	// Most frequent first, escaped.
-	assert.match(html, /<ul class="format-rules"><li><span class="num">2&times;<\/span> report: finding # Reproduction must be N\/M, got &quot;…&quot;<\/li><li><span class="num">1&times;<\/span> report: leave a blank line after &lt;\/summary&gt;<\/li><\/ul>/);
-	assert.doesNotMatch(renderReportHtml(LOGS_REPORT), /Format checks/);
-	// One clean check, and a run that stopped with problems left.
-	const once = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from(JSON.stringify({ problems: 0, rules: {} })) });
+	const blank = 'report: leave a blank line after </summary>';
+	const repro = 'report: finding # Reproduction must be N/M, got "…"';
+	const shot = 'ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own';
+
+	// Of three: the blank line fixed, one of two Reproductions left, and a
+	// screenshot rule that broke after the first check.
+	const html = page([
+		{ problems: 3, rules: { [blank]: 1, [repro]: 2 } },
+		{ problems: 2, rules: { [repro]: 1, [shot]: 1 } },
+	]);
+	assert.match(html, /<div class="format-checks">The explorer ran the report's format check 2 times\. The first time, it found 3 problems\. They show which of the skill's instructions it didn't follow on its first try\. <a href="stats.json">Raw stats<\/a><\/div>/);
+	// Not fixed first, escaped, then the fixed one with no mark.
+	assert.match(html, new RegExp([
+		'<ul class="format-rules">',
+		'<li><span class="num">2&times;</span> report: finding # Reproduction must be N/M, got &quot;…&quot; <span class="not-fixed">1 not fixed</span></li>',
+		'<li><span class="num">1&times;</span> ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own <span class="not-fixed">not fixed</span></li>',
+		'<li><span class="num">1&times;</span> report: leave a blank line after &lt;/summary&gt;</li>',
+		'</ul>',
+	].join('').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+	// All fixed: nothing marked.
+	assert.doesNotMatch(page([{ problems: 2, rules: { [blank]: 2 } }, { problems: 0, rules: {} }]), /class="not-fixed"/);
+	// One clean check: the sentence, and no list.
+	const once = page([{ problems: 0, rules: {} }]);
 	assert.match(once, /format check once\. The first time, it found no problems\./);
-	const left = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from([{ problems: 3, rules: { a: 3 } }, { problems: 1, rules: { a: 1 } }].map(c => JSON.stringify(c)).join('\n')) });
-	assert.match(left, /The first time, it found 3 problems, shown below\. Its last check still found 1\. These show/);
-	const single = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from([{ problems: 1, rules: { a: 1 } }, { problems: 0, rules: {} }].map(c => JSON.stringify(c)).join('\n')) });
-	assert.match(single, /it found 1 problem, shown below, which it fixed before finishing\. These show/);
+	assert.doesNotMatch(once, /<ul class="format-rules">/);
+	assert.doesNotMatch(renderReportHtml(LOGS_REPORT), /Format checks/);
 });
 
 test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {

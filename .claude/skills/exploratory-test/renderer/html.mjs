@@ -1095,19 +1095,28 @@ function renderFormatChecks(options) {
 	}
 	const times = checks.rounds === 1 ? 'once' : `${checks.rounds} times`;
 	const found = checks.first.problems;
-	const problems = `${found} problem${found === 1 ? '' : 's'}`;
-	// The last check records a count, not which problems: one still there may
-	// be new, so it is reported as what that check found, not as unfixed.
-	const outcome = checks.last === 0 ? ', which it fixed before finishing.' : `. Its last check still found ${checks.last}.`;
+	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 	const sentence = found === 0
 		? `The explorer ran the report's format check ${times}. The first time, it found no problems.`
-		: `The explorer ran the report's format check ${times}. The first time, it found ${problems}, shown below${outcome} These show which of the skill's instructions it didn't follow on its first try.`;
+		: `The explorer ran the report's format check ${times}. The first time, it found ${plural(found, 'problem')}. They show which of the skill's instructions it didn't follow on its first try.`;
 	const raw = options.fileExists?.('stats.json') ? ' <a href="stats.json">Raw stats</a>' : '';
-	const rules = Object.entries(checks.first.rules).sort((a, b) => b[1] - a[1])
-		.map(([rule, n]) => `<li><span class="num">${n}&times;</span> ${escapeHtml(rule)}</li>`).join('');
+	// Compared rule by rule with the last check. A rule it still found is marked
+	// not fixed, with how many when only some were; a rule that broke after the
+	// first check is listed too. Those lead, so they stand out.
+	const first = checks.first.rules;
+	const last = checks.lastRules ?? {};
+	const rows = [...new Set([...Object.keys(first), ...Object.keys(last)])].map(rule => {
+		const before = first[rule] ?? 0;
+		const after = last[rule] ?? 0;
+		const shown = before || after;
+		return { rule, shown, after, tag: after === 0 ? '' : after < shown ? `${after} not fixed` : 'not fixed' };
+	}).sort((a, b) => (b.after > 0) - (a.after > 0) || b.shown - a.shown);
+	const list = rows.length
+		? `<ul class="format-rules">${rows.map(r => `<li><span class="num">${r.shown}&times;</span> ${escapeHtml(r.rule)}${r.tag ? ` <span class="not-fixed">${r.tag}</span>` : ''}</li>`).join('')}</ul>`
+		: '';
 	return '<div class="fold-part"><div class="fold-label">Format checks</div>'
 		+ `<div class="format-checks">${escapeHtml(sentence)}${raw}</div>`
-		+ (rules ? `<ul class="format-rules">${rules}</ul>` : '')
+		+ list
 		+ '</div>';
 }
 
