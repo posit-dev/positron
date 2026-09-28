@@ -327,12 +327,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		}
 	}, [isUvInstalled, uvPythonVersionInfo]);
 
-	// Handler for the View log link. Opens the Python output channel, where the installer's
-	// output is logged.
-	const onViewUvInstallLog = () => {
-		void services.commandService.executeCommand('python.viewOutput');
-	};
-
 	// Handler for the How to install Conda link. Conda has no installer to run from here, so the
 	// callout points to its install docs instead.
 	const onOpenCondaInstallDocs = () => {
@@ -372,17 +366,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 								)
 							}
 						</div>
-						{failed &&
-							<Button
-								className='provider-callout-link'
-								onPressed={onViewUvInstallLog}
-							>
-								{localize(
-									'pythonEnvironmentSubStep.uvCallout.viewLog',
-									"View log"
-								)}
-							</Button>
-						}
 					</div>
 					{/* Inert while the install runs, but still focusable, so keyboard focus stays */}
 					{/* on the button instead of dropping to the top of the dialog. */}

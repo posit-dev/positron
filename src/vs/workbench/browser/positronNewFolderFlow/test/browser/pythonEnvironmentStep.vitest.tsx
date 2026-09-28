@@ -225,18 +225,15 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(screen.queryByText('Failed to install uv.')).not.toBeInTheDocument();
 	});
 
-	it('reports why the install failed, with a retry and a way to the log', async () => {
+	it('reports why the install failed, with a retry', async () => {
 		const user = userEvent.setup();
-		const { executeCommand } = renderUvStep({ ok: false, error: 'uv was not found after installing it.' });
+		renderUvStep({ ok: false, error: 'uv was not found after installing it.' });
 
 		await user.click(await installButton());
 
 		expect(await screen.findByText('uv could not be installed')).toBeInTheDocument();
 		expect(screen.getByText('uv was not found after installing it.')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
-
-		await user.click(screen.getByRole('button', { name: 'View log' }));
-		expect(executeCommand).toHaveBeenCalledWith('python.viewOutput');
 	});
 });
 

@@ -177,8 +177,8 @@ export async function ensureUvInstalled(
 
 /**
  * Like ensureUvInstalled, but shows an "Installing uv" notification for as long as the
- * installer runs. Meant for the New Folder flow, which reports the outcome itself but only
- * learns it once the command returns.
+ * installer runs. Meant for callers that have no UI of their own for the install, such as
+ * the New Folder flow, which only learns the outcome once the command returns.
  *
  * The notification opens only after the user has consented, so nothing claims to be
  * installing while the consent prompt is on screen. It is a notification rather than a
@@ -209,7 +209,16 @@ export async function ensureUvInstalledWithProgress(options?: { consented?: bool
         finishInstall?.();
     }
 
-    // No error notification: the caller shows the failure, with a way to the log, in its own UI.
+    // The step below this only has room to say that the install failed. The notification is what
+    // carries the way to find out why, through its Show logs button, which is why the flow does not
+    // have to grow a log affordance of its own. A declined install has no error and shows nothing.
+    if (!result.ok && result.error) {
+        // Deliberately not awaited: the notification stays until the user dismisses it, and
+        // awaiting it would hold this command open, leaving the step that called it stuck showing
+        // an install still in progress.
+        void showUvInstallError(result.error);
+    }
+
     return result;
 }
 
