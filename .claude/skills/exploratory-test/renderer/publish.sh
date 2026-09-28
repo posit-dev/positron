@@ -10,8 +10,8 @@
 # Uploads a redacted copy, never the run directory itself: the page re-rendered
 # for its URL, so its issues link back to it; actions.log and the raw log tree
 # stay local, as in CI; and the value of every environment variable
-# whose name ends in KEY, TOKEN, SECRET, PASSWORD or PAT is replaced in text
-# files. Screenshots are not redacted. Needs AWS credentials that can write to
+# whose name ends in KEY, TOKEN, SECRET, PASSWORD or PAT, or that CI's run holds
+# under another name, is replaced in text files. Screenshots are not redacted. Needs AWS credentials that can write to
 # the bucket (AWS_PROFILE is honored); AWS_CLI overrides the aws binary.
 
 set -euo pipefail
@@ -45,7 +45,11 @@ node "$(dirname "$0")/render.mjs" "$RUN/report.md" --base "$CDN/$DIR" --out "$ST
 [ -s "$STAGE/index.html" ] || { echo "publish: the report did not render; nothing was uploaded." >&2; exit 1; }
 
 # Names only: a value is never printed. Short values would redact common words.
-for NAME in $(compgen -e | grep -Ei '(KEY|TOKEN|SECRET|PASSWORD|PAT)$' || true); do
+# The credentials test-exploratory.yml redacts whose names end otherwise are
+# listed by name: widening the pattern to USER or URL would catch $USER too.
+OTHER_NAMES="MS_FOUNDRY_BASE_URL SNOWFLAKE_ACCOUNT SNOWFLAKE_USER DATABRICKS_WORKSPACE"
+# shellcheck disable=SC2086 # the list is split on purpose
+for NAME in $({ compgen -e | grep -Ei '(KEY|TOKEN|SECRET|PASSWORD|PAT)$'; printf '%s\n' $OTHER_NAMES; } | sort -u); do
 	VALUE=${!NAME:-}
 	[ ${#VALUE} -ge 8 ] || continue
 	# No match is not a failure; a file that cannot be redacted stops the upload.

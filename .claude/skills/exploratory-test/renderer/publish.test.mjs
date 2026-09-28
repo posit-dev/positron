@@ -17,7 +17,7 @@ const SECRET = 'sk-test-not-a-real-key-1234';
 // A copy of the logs-run fixture, with a secret in a log, a leftover local page,
 // and the files CI keeps out. A stub aws fails sts when told to, and on s3 cp
 // copies what it was given.
-function fixture({ signedIn = true, page = true, report = true, missingLog = false } = {}) {
+function fixture({ signedIn = true, page = true, report = true, missingLog = false, env = {}, write = {} } = {}) {
 	const dir = mkdtempSync(join(tmpdir(), 'publish-'));
 	const run = join(dir, 'run');
 	cpSync(fileURLToPath(new URL('./fixtures/logs-run/', import.meta.url)), run, { recursive: true });
@@ -28,6 +28,9 @@ function fixture({ signedIn = true, page = true, report = true, missingLog = fal
 	}
 	if (!report) {
 		rmSync(join(run, 'report.md'));
+	}
+	for (const [path, text] of Object.entries(write)) {
+		writeFileSync(join(run, path), text);
 	}
 	if (missingLog) {
 		rmSync(join(run, 'logs/44987-app.log'));
@@ -45,7 +48,7 @@ function fixture({ signedIn = true, page = true, report = true, missingLog = fal
 		`cp -a "\${3%/.}" '${out}'`,
 	].join('\n'));
 	chmodSync(aws, 0o755);
-	const r = spawnSync('bash', [script, run], { env: { ...process.env, AWS_CLI: aws, FAKE_API_KEY: SECRET }, encoding: 'utf8' });
+	const r = spawnSync('bash', [script, run], { env: { ...process.env, AWS_CLI: aws, FAKE_API_KEY: SECRET, ...env }, encoding: 'utf8' });
 	return { r, run, out, dest: () => readFileSync(join(dir, 'dest'), 'utf8').trim() };
 }
 
@@ -95,4 +98,14 @@ test('publishes a run with a listed log missing, as a run downloaded from the CD
 	assert.match(r.stderr, /logs\/44987-app\.log/);
 	// Freshly rendered, not the local page copied across.
 	assert.notEqual(readFileSync(join(out, 'index.html'), 'utf8'), '<p>local page</p>');
+});
+
+test('redacts the credentials CI holds under names the pattern misses', () => {
+	const env = { SNOWFLAKE_USER: 'snow-user-4242', SNOWFLAKE_ACCOUNT: 'acct-9876.us-east-1', DATABRICKS_WORKSPACE: 'https://dbc-1234.cloud.databricks.com', MS_FOUNDRY_BASE_URL: 'foundry-5678.example.net' };
+	const { r, out } = fixture({ env, write: { 'logs/db.log': `${Object.values(env).join('\n')}\n` } });
+	assert.equal(r.status, 0, r.stderr);
+	assert.equal(readFileSync(join(out, 'logs/db.log'), 'utf8'), '[REDACTED]\n'.repeat(4));
+	for (const name of Object.keys(env)) {
+		assert.match(r.stdout, new RegExp(`^Redacting ${name} from logs/db\\.log$`, 'm'));
+	}
 });
