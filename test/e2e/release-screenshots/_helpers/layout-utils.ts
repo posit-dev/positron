@@ -133,8 +133,9 @@ export async function hideDataGridCursor(page: Page): Promise<void> {
 }
 
 /**
- * Hide the text-insertion caret in any focused input. The blinking cursor
- * causes pixel differences between runs and is not meaningful in a screenshot.
+ * Hide the text-insertion caret in any focused input or Monaco editor. The
+ * blinking cursor causes pixel differences between runs and is not meaningful
+ * in a screenshot.
  */
 export async function hideCaret(page: Page): Promise<void> {
 	await page.evaluate(() => {
@@ -144,7 +145,10 @@ export async function hideCaret(page: Page): Promise<void> {
 		}
 		const style = document.createElement('style');
 		style.id = ID;
-		style.textContent = '* { caret-color: transparent !important; }';
+		style.textContent = [
+			'* { caret-color: transparent !important; }',
+			'.monaco-editor .cursors-layer > .cursor { visibility: hidden !important; }',
+		].join('\n');
 		document.head.appendChild(style);
 	});
 }
