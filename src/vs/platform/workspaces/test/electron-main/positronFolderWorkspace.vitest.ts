@@ -20,6 +20,25 @@ import { getSingleFolderWorkspaceIdentifier } from '../../node/workspaces.js';
 
 const posixOnly = it.skipIf(process.platform === 'win32');
 
+/**
+ * `value` with every URI replaced by its string form, for comparing by value:
+ * a URI that has been stringified carries a cached copy of the string, which
+ * a deep equality would otherwise count (it does on Linux, where the
+ * workspace id and path comparisons stringify).
+ */
+function withUriStrings(value: unknown): unknown {
+	if (URI.isUri(value)) {
+		return value.toString();
+	}
+	if (Array.isArray(value)) {
+		return value.map(withUriStrings);
+	}
+	if (value && typeof value === 'object') {
+		return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, withUriStrings(entry)]));
+	}
+	return value;
+}
+
 describe('Canvas folder open (main process)', () => {
 	let root: string;
 	let target: string;
@@ -68,14 +87,14 @@ describe('Canvas folder open (main process)', () => {
 	describe('resolveCanvasFolder', () => {
 		it('returns the identifier of the path as given and changes nothing', async () => {
 			const before = { ...config };
-			await expect(resolveCanvasFolder(window, [window], URI.file(target))).resolves.toEqual({ workspace: await identityOf(target), physicalUri: URI.file(target) });
+			expect(withUriStrings(await resolveCanvasFolder(window, [window], URI.file(target)))).toEqual(withUriStrings({ workspace: await identityOf(target), physicalUri: URI.file(target) }));
 			expect(config).toEqual(before);
 		});
 
 		posixOnly('keeps an alias as the identity and reports where it leads', async () => {
 			const alias = join(root, 'link');
 			await fs.symlink(target, alias);
-			await expect(resolveCanvasFolder(window, [window], URI.file(alias))).resolves.toEqual({ workspace: await identityOf(alias), physicalUri: URI.file(target) });
+			expect(withUriStrings(await resolveCanvasFolder(window, [window], URI.file(alias)))).toEqual(withUriStrings({ workspace: await identityOf(alias), physicalUri: URI.file(target) }));
 		});
 
 		it('gives a trailing separator the same identifier as the bare path', async () => {
@@ -115,20 +134,20 @@ describe('Canvas folder open (main process)', () => {
 		});
 
 		it('accepts the folder the window itself already shows', async () => {
-			await expect(resolveCanvasFolder(window, [window], URI.file(root))).resolves.toEqual({ workspace: window.openedWorkspace, physicalUri: URI.file(root) });
+			expect(withUriStrings(await resolveCanvasFolder(window, [window], URI.file(root)))).toEqual(withUriStrings({ workspace: window.openedWorkspace, physicalUri: URI.file(root) }));
 		});
 
 		posixOnly('returns the current identifier when the current folder is requested through an alias', async () => {
 			const alias = join(root, 'self');
 			await fs.symlink(root, alias);
-			await expect(resolveCanvasFolder(window, [window], URI.file(alias))).resolves.toEqual({ workspace: window.openedWorkspace, physicalUri: URI.file(root) });
+			expect(withUriStrings(await resolveCanvasFolder(window, [window], URI.file(alias)))).toEqual(withUriStrings({ workspace: window.openedWorkspace, physicalUri: URI.file(root) }));
 		});
 
 		it('skips a peer window whose folder cannot be read', async () => {
 			const unreadable = join(root, 'unreadable');
 			await fs.mkdir(unreadable);
 			const other = await createWindow(2, unreadable);
-			await expect(resolveCanvasFolder(window, [window, other], URI.file(target), fsUnreadableAt(unreadable))).resolves.toEqual({ workspace: await identityOf(target), physicalUri: URI.file(target) });
+			expect(withUriStrings(await resolveCanvasFolder(window, [window, other], URI.file(target), fsUnreadableAt(unreadable)))).toEqual(withUriStrings({ workspace: await identityOf(target), physicalUri: URI.file(target) }));
 		});
 
 		it.each<[string, Partial<ICodeWindow> | undefined]>([
@@ -172,14 +191,14 @@ describe('Canvas folder open (main process)', () => {
 
 			expect(open).toHaveBeenCalledTimes(1);
 			const request: IOpenConfiguration = open.mock.calls[0][0];
-			expect({ ...request, cli: undefined }).toEqual({
+			expect(withUriStrings({ ...request, cli: undefined })).toEqual(withUriStrings({
 				context: OpenContext.API,
 				contextWindowId: 1,
 				urisToOpen: [{ folderUri: (await identityOf(target)).uri }],
 				forceReuseWindow: true,
 				cli: undefined,
 				positronCanvasFolderOpen: await identityOf(target)
-			});
+			}));
 			expect(request.cli).toEqual({
 				...before,
 				_: [],
