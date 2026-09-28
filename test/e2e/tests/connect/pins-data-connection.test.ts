@@ -8,7 +8,6 @@ import { test, tags } from '../_test.setup.js';
 
 test.use({
 	suiteId: __filename,
-	enableDataConnections: true,
 });
 
 const connectionName = 'e2e Connect Pins';

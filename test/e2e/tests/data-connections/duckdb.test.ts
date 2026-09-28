@@ -8,7 +8,6 @@ import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	enableDataConnections: true,
 });
 
 const connectionName = 'duckdbOrders';
