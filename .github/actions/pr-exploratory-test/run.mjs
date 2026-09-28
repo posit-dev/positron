@@ -224,8 +224,8 @@ async function main() {
 	// approaching the cap.
 	let messageCount = 0;
 
-	// With a time limit: a hook tells the agent when its time is up, and the
-	// query is aborted WRAP_UP_MINUTES later if it is still going.
+	// With a time limit: a hook tells the agent the time left, then when its
+	// time is up, and the query is aborted WRAP_UP_MINUTES later if it is still going.
 	const abortController = new AbortController();
 	let hardStop;
 	let timeLimitOptions = {};

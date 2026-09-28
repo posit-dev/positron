@@ -300,7 +300,13 @@ export function parseTimeLimit(raw) {
 
 /** The brief's line for a run with a time limit. The hook enforces it, so the agent must not pace itself: it has no clock and quits early. */
 export function buildTimeBudgetLine(minutes) {
-	return `**You have ${minutes} minutes to explore.** Keep exploring until you are told time is up; don't stop on your own estimate of the time. Then stop, finish the ledger with what you didn't reach under Not run, write the report and check it. You have ${WRAP_UP_MINUTES} more minutes for that before the run is stopped.`;
+	return `**You have ${minutes} minutes to explore.** Keep exploring until you are told time is up; don't stop on your own estimate of the time. Each tool result shows the time left. Then stop, finish the ledger with what you didn't reach under Not run, write the report and check it. You have ${WRAP_UP_MINUTES} more minutes for that before the run is stopped.`;
+}
+
+/** What the agent is told on each tool result before its time is up: it has no clock, and guesses short without one. */
+export function timeLeftMessage(ms) {
+	const seconds = Math.ceil(ms / 1000);
+	return `Time left to explore: ${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, '0')}s.`;
 }
 
 /** What the agent is told on each tool result once its time is up. */
@@ -309,16 +315,18 @@ export function timeUpMessage(minutes) {
 }
 
 /**
- * A PostToolUse (and PostToolUseFailure) hook that, once `deadline` has passed,
- * appends the time-up message to every tool result, so the agent learns it
- * from what it reads next rather than being cut off mid-step. `onTimeUp` is
+ * A PostToolUse (and PostToolUseFailure) hook that appends the time left to
+ * every tool result and, once `deadline` has passed, the time-up message, so
+ * the agent learns it from what it reads next rather than being cut off
+ * mid-step. `onTimeUp` is
  * called the first time. `now` is the clock, for tests.
  */
 export function timeUpHook({ deadline, minutes, now = Date.now, onTimeUp = () => {} }) {
 	let told = false;
 	return async input => {
-		if (now() < deadline) {
-			return {};
+		const left = deadline - now();
+		if (left > 0) {
+			return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: timeLeftMessage(left) } };
 		}
 		if (!told) {
 			told = true;
