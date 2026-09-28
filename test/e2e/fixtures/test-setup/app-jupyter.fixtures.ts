@@ -103,7 +103,10 @@ export async function JupyterApp(
 			// Log out
 			await app.positJupyter.lab.logout();
 		} catch (error) {
-			console.warn('Failed to stop Jupyter session:', error);
+			// Do not rethrow: this runs from the app fixture's teardown and would mask the test's own
+			// failure. A server left stopping here surfaces as the next worker's sign-in landing on
+			// the hub's "Your server is stopping" page, which `openPositron()` waits out.
+			console.error('Failed to stop Jupyter session; the next worker may find the server still stopping:', error);
 		}
 
 		await app.stopExternalServer();

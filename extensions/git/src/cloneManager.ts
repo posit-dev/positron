@@ -20,6 +20,12 @@ export interface CloneOptions {
 	ref?: string;
 	recursive?: boolean;
 	postCloneAction?: ApiPostCloneAction;
+	// --- Start Positron ---
+	// The folder name to clone into, instead of one derived from the repository URL. Supplied by
+	// Positron's "New Folder from Git" dialog, which collects the name from the user.
+	// See: https://github.com/posit-dev/positron/issues/16077
+	targetName?: string;
+	// --- End Positron ---
 }
 
 export class CloneManager {
@@ -67,7 +73,11 @@ export class CloneManager {
 		return this.cloneRepository(url, options.parentPath, options);
 	}
 
-	private async cloneRepository(url: string, parentPath?: string, options: { recursive?: boolean; ref?: string; postCloneAction?: ApiPostCloneAction } = {}): Promise<string | undefined> {
+	// --- Start Positron ---
+	// targetName added to the options; see the note on CloneOptions.
+	// private async cloneRepository(url: string, parentPath?: string, options: { recursive?: boolean; ref?: string; postCloneAction?: ApiPostCloneAction } = {}): Promise<string | undefined> {
+	private async cloneRepository(url: string, parentPath?: string, options: { recursive?: boolean; ref?: string; postCloneAction?: ApiPostCloneAction; targetName?: string } = {}): Promise<string | undefined> {
+		// --- End Positron ---
 		if (!parentPath) {
 			const config = workspace.getConfiguration('git');
 			let defaultCloneDirectory = config.get<string>('defaultCloneDirectory') || os.homedir();
@@ -107,7 +117,11 @@ export class CloneManager {
 
 			const repositoryPath = await window.withProgress(
 				opts,
-				(progress, token) => this.model.git.clone(url!, { parentPath: parentPath!, progress, recursive: options.recursive, ref: options.ref }, token)
+				// --- Start Positron ---
+				// targetName passed through; see the note on CloneOptions.
+				// (progress, token) => this.model.git.clone(url!, { parentPath: parentPath!, progress, recursive: options.recursive, ref: options.ref }, token)
+				(progress, token) => this.model.git.clone(url!, { parentPath: parentPath!, targetName: options.targetName, progress, recursive: options.recursive, ref: options.ref }, token)
+				// --- End Positron ---
 			);
 
 			await this.doPostCloneAction(repositoryPath, options.postCloneAction);

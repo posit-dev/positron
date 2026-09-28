@@ -14,15 +14,17 @@ test.use({
 const connectionName = 'driverLoggingSQLite';
 
 // The display name each driver registers via `registerDriver`. Waiting for all eight provider
-// cards to render is proof that every driver's activation has run past the point where it could
+// rows to render is proof that every driver's activation has run past the point where it could
 // have logged illegally, not just that the extension host has started loading the module: for
 // seven of the eight, `registerDriver` is the last statement in `activate()`. ODBC registers its
 // drivers and then installs watchers on the machine's ODBC configuration files, which log when a
-// file changes and not when the watcher is set up, so its card means the same thing.
+// file changes and not when the watcher is set up, so its row means the same thing.
 //
-// Only the generic 'ODBC' card is listed. That extension also registers one driver per recognized
-// database whose ODBC driver is installed, so the rest of its cards depend on what the machine has
-// configured -- nothing a test can wait for.
+// Only the generic 'ODBC' driver is listed. That extension also registers one driver per recognized
+// database whose ODBC driver is installed, so the rest of its rows depend on what the machine has
+// configured -- nothing a test can wait for. Those per-database drivers never duplicate a name in
+// this list: `odbcDatabases.ts` marks the five that would collide (PostgreSQL, Redshift, Snowflake,
+// Databricks, SQLite) `registerDriver: false` for exactly that reason.
 const allDriverNames = ['DuckDB', 'Databricks', 'ODBC', 'PostgreSQL', 'Posit Connect Pins', 'Redshift', 'SQLite', 'Snowflake'];
 
 test.describe('Data connection driver logging', {
@@ -40,18 +42,25 @@ test.describe('Data connection driver logging', {
 		await dataConnections.openDataConnectionsView();
 
 		// Extension activation is asynchronous, so reading the channel list right after the pane
-		// opens would race it. Opening "Add Connection" and waiting for every provider's card
+		// opens would race it. Opening "Add Connection" and waiting for every provider's row
 		// guarantees each driver's activate() has finished (registerDriver is its last call)
 		// before the channel list is read below.
 		await dataConnections.clickAddConnection();
 		for (const name of allDriverNames) {
-			await expect(dataConnections.dialog.locator('.driver-card').filter({ hasText: name })).toBeVisible();
+			await dataConnections.expectProviderVisible(name);
 		}
-		await dataConnections.dialog.getByRole('button', { name: 'Cancel' }).click();
+		// The provider list has no footer; the title bar's close button dismisses it.
+		await dataConnections.dialog.getByRole('button', { name: 'Close', exact: true }).click();
 		await expect(dataConnections.dialog).toBeHidden();
 
+		// ODBC is the one exception to the invariant this test checks: it also logs at registration
+		// time when it drops a data source whose driver cannot be resolved, so its channel may
+		// already exist depending on this machine's own ODBC configuration -- not something this
+		// test controls or should assert either way. Every other driver must still have logged
+		// nothing, which is the general lazy-channel guarantee this test exists to catch a
+		// regression in.
 		const channels = await app.workbench.output.getChannelNamesContaining('Data Connections:');
-		expect(channels).toEqual([]);
+		expect(channels.filter(name => name !== 'Data Connections: ODBC')).toEqual([]);
 	});
 
 	test('creates the driver channel once a connection is made', async function ({ app }) {

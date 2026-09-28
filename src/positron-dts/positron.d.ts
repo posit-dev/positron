@@ -701,6 +701,15 @@ declare module 'positron' {
 		/** The runtime's source or origin; e.g. PyEnv, System, Homebrew, Conda, etc. */
 		runtimeSource: string;
 
+		/**
+		 * How useful this runtime's source is to the user, lowest first; used to
+		 * order the source headings in the interpreter picker. Sources left
+		 * unranked are listed after ranked ones.
+		 * The scale is shared by every extension that contributes runtimes for a
+		 * language, so ranking one source and not another mixes them up.
+		 */
+		runtimeSourceOrder?: number;
+
 		/** The free-form, user-friendly name of the language this runtime can execute; e.g. "R" */
 		languageName: string;
 
@@ -3443,8 +3452,10 @@ declare module 'positron' {
 		 *
 		 * @param method The method name.
 		 * @param params An object of named parameters for `method`.
+		 * @param options Optional options for the call. `sessionId` identifies the calling kernel
+		 *   session, e.g. so console-aware methods can be scoped to that session's own console.
 		 */
-		export function call(method: string, params: Record<string, any>): Thenable<any>;
+		export function call(method: string, params: Record<string, any>, options?: { sessionId?: string }): Thenable<any>;
 
 		/**
 		 * Retrieve last active editor context.

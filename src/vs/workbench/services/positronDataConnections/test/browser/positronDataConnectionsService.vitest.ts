@@ -901,4 +901,28 @@ describe('PositronDataConnectionsService', () => {
 			await expect(service.getDisplayParameterValues(gone)).resolves.toEqual({ dsn: 'Pagila' });
 		});
 	});
+	describe('revealing a connection in the pane', () => {
+		it('hands the request over exactly once', () => {
+			service.revealConnection('conn-1');
+
+			// Whichever tree gets there first takes it -- one being built as the pane renders, or
+			// one already listening. It has to be cleared on the way out, or every tree built
+			// afterwards would re-reveal a connection the user has long since moved on from.
+			expect(service.takePendingRevealConnection()).toBe('conn-1');
+			expect(service.takePendingRevealConnection()).toBeUndefined();
+		});
+
+		it('records the request before announcing it', () => {
+			// The announcement carries nothing: a listener reads the profile back from the service,
+			// so the request has to be recorded by the time the event fires.
+			let takenWhileFiring: string | undefined;
+			ctx.disposables.add(service.onDidRequestRevealConnection(() => {
+				takenWhileFiring = service.takePendingRevealConnection();
+			}));
+
+			service.revealConnection('conn-1');
+
+			expect(takenWhileFiring).toBe('conn-1');
+		});
+	});
 });

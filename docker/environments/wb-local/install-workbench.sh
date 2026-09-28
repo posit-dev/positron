@@ -132,68 +132,109 @@ source "$(dirname "${BASH_SOURCE[0]}")/workbench-local-lib.sh"
 # no package names at all, so every install afterwards fails with the equally
 # misleading "'jq' not found in package names". Putting the system bin
 # directories first is the entire fix; verified against this image.
-#
-# --force-resolution because sysvinit-tools, which supplies the startproc and
-# killproc the SUSE init scripts call, conflicts with the
-# busybox-sysvinit-tools the image ships. Nothing on the image requires the
-# busybox variant and it provides a strict subset (pidof, killall5, fsync,
-# usleep -- no startproc), so having zypper resolve the conflict by replacing it
-# is the outcome we want, not one we are tolerating.
 wb_zypper() {
     sudo env PATH="/usr/sbin:/usr/bin:/sbin:/bin" zypper --non-interactive "$@"
 }
 
-# Stop rserver and *verify* it exited. Do not trust `rstudio-server stop`'s exit
-# status: on EL9 the init script's status check uses `pidof -c`, which cannot see
-# rserver inside a container, so the stop short-circuits to a silent no-op and
-# still returns 0. Signal directly, poll, then escalate -- a settled rserver
-# exits on TERM in about a second, but one left wedged by a bad restart has been
-# observed surviving 30s of TERM.
-stop_rserver() {
-    sudo rstudio-server stop >/dev/null 2>&1 || true
-    pgrep -x rserver >/dev/null 2>&1 || return 0
-    echo "Stopping rserver..."
-    sudo pkill -x rserver 2>/dev/null || true
+# --- Service management: supervisord ------------------------------------------
+#
+# rserver and the session launcher run under supervisord, the way Posit's own
+# Workbench container images run them: both rstudio/rstudio-docker-products and
+# its successor posit-dev/images-workbench run `rserver --server-daemonize 0`
+# and the launcher binary as supervisord programs. It replaced the packaged
+# init scripts, which do not work in a container without systemd. EL9's status
+# check uses `pidof -c` and SUSE's uses `checkproc`, and neither can see rserver
+# here, so `stop` was a silent no-op and `restart` started a SECOND rserver that
+# wedged on nginx "Address already in use"; EL9's launcher script never started
+# anything at all. supervisord tracks its children by pid, so start, stop and
+# status mean what they say on every OS, and a crashed rserver comes back on
+# its own instead of failing every test after it.
+#
+# One complete config at /etc/supervisord.conf on every OS, rather than a
+# drop-in under each distro's include dir (Ubuntu /etc/supervisor/conf.d,
+# Rocky /etc/supervisord.d/*.ini, openSUSE /etc/supervisord.d/*.conf). That
+# path is first in supervisorctl's default search order on all three, so a bare
+# `sudo supervisorctl <verb>` works from the CI action, the tests and a shell
+# without anyone having to know where the config lives. The socket and pidfile
+# names are ours rather than the defaults so the Ubuntu package's own instance
+# (its postinst starts one on the distro config) can never be mistaken for, or
+# stop, this one.
+SUPERVISOR_CONF=/etc/supervisord.conf
+SUPERVISOR_SOCKET=/var/run/supervisor-workbench.sock
+LAUNCHER_SOCKET=/var/run/rstudio-server/rserver-launcher.socket
+RSERVER_WRAPPER=/usr/local/bin/rserver-foreground
+
+# True if our supervisord is up and answering on its socket. Judged by the
+# output (a pid) rather than the exit status: older supervisorctl builds exit 0
+# on a refused connection.
+supervisor_running() {
+    sudo supervisorctl -c "${SUPERVISOR_CONF}" pid 2>/dev/null | grep -qE '^[0-9]+$'
+}
+
+# Signal a process, poll for it to exit, escalate to KILL. The arguments are
+# the pgrep/pkill selector. A settled rserver exits on TERM in about a second,
+# but one left wedged by a bad restart has been observed surviving 30s of TERM.
+stop_process() {
+    local label="$1"; shift
     local i
+    pgrep "$@" >/dev/null 2>&1 || return 0
+    echo "Stopping ${label}..."
+    sudo pkill "$@" 2>/dev/null || true
     for i in $(seq 1 15); do
-        pgrep -x rserver >/dev/null 2>&1 || return 0
+        pgrep "$@" >/dev/null 2>&1 || return 0
         sleep 1
     done
-    echo "rserver did not exit on TERM - sending KILL..."
-    sudo pkill -KILL -x rserver 2>/dev/null || true
+    echo "${label} did not exit on TERM - sending KILL..."
+    sudo pkill -KILL "$@" 2>/dev/null || true
     for i in $(seq 1 5); do
-        pgrep -x rserver >/dev/null 2>&1 || return 0
+        pgrep "$@" >/dev/null 2>&1 || return 0
         sleep 1
     done
-    log_error "rserver still running after KILL"
+    log_error "${label} still running after KILL"
     return 1
 }
 
-# Start the session launcher, then rserver. Order matters: rserver's
-# LauncherClient::initialize() fails with ENOENT and rserver shuts itself down if
-# /var/run/rstudio-server/rserver-launcher.socket does not exist yet, so wait for
-# the socket rather than for the process.
-LAUNCHER_SOCKET=/var/run/rstudio-server/rserver-launcher.socket
-# Leading [/] so the pattern cannot match a shell whose own command line quotes
-# it -- see the same note in workbench-local.sh.
-LAUNCHER_PGREP='[/]usr/lib/rstudio-server/bin/rstudio-launcher'
+# Stop every Workbench process, however it was started, and verify it exited.
+# Three sources to cover: our supervisord (a --reinstall over a running stack),
+# the daemons the Ubuntu .deb's postinst starts through its init scripts, and
+# anything either left orphaned. The init scripts' exit status is worthless
+# here (see above), so after asking them, verify by signal.
+#
+# Both selectors match on the full binary path with `-f`, which for rserver
+# also catches its rserver-http (nginx front end) and rserver-monitor children
+# -- an orphaned rserver-http keeps :8787 and answers 502 while the next rserver
+# fails to bind, forever. (`-x rserver` would miss them, and `-x` cannot match
+# the launcher at all: comm truncates it to "rstudio-launche".) The leading [/]
+# keeps the pattern from matching a shell whose own command line quotes it.
+stop_workbench() {
+    if supervisor_running; then
+        sudo supervisorctl -c "${SUPERVISOR_CONF}" stop all >/dev/null 2>&1 || true
+    fi
+    if [ -x /etc/init.d/rstudio-server ]; then
+        sudo /etc/init.d/rstudio-server stop >/dev/null 2>&1 || true
+    fi
+    if [ -x /etc/init.d/rstudio-launcher ]; then
+        sudo /etc/init.d/rstudio-launcher stop >/dev/null 2>&1 || true
+    fi
+    stop_process rserver -f '[/]usr/lib/rstudio-server/bin/rserver'
+    stop_process rstudio-launcher -f '[/]usr/lib/rstudio-server/bin/rstudio-launcher'
+}
 
 # Create the runtime directory the launcher binds its socket in, owned by the
 # user the launcher runs as.
 #
 # rserver creates /var/run/rstudio-server itself at startup and gives it to the
-# server-user -- but we have to start the LAUNCHER first, because rserver shuts
-# itself down if the launcher socket is missing. The launcher drops privileges to
-# that same server-user before binding, so on a fresh container it finds a
+# server-user -- but the LAUNCHER starts first, because rserver shuts itself
+# down if the launcher socket is missing. The launcher drops privileges to that
+# same server-user before binding, so on a fresh container it finds a
 # root-owned (or absent) directory and dies immediately:
 #
 #   ERROR system error 13 (Permission denied)
 #     [stream: /var/run/rstudio-server/rserver-launcher.socket]
 #
 # and then rserver has no socket to connect to, so :8787 never comes up at all.
-# Nothing else creates this directory in a container: the rpm ships no
-# tmpfiles.d config, and neither the systemd units nor the SysV scripts make it
-# -- the same class of gap as the missing init scripts.
+# Nothing else creates this directory in a container: the packages ship no
+# tmpfiles.d config, and neither the systemd units nor the SysV scripts make it.
 #
 # Mode 1777 and the ownership are what a successful rserver start produces, so
 # this is not a loosening; it is doing early what rserver would have done later.
@@ -208,85 +249,153 @@ prepare_runtime_dir() {
     fi
 }
 
+# Write the supervisord config and the rserver wrapper it runs. Idempotent, so
+# a --reinstall simply rewrites them.
+write_supervisor_config() {
+    local launcher_home
+    # Without a HOME the launcher warns that it is unset and that plugins may
+    # inherit an incorrect one. Use the rstudio-server account's own home,
+    # creating it if the package did not.
+    launcher_home="$(getent passwd rstudio-server | cut -d: -f6)"
+    launcher_home="${launcher_home:-/home/rstudio-server}"
+    sudo mkdir -p "${launcher_home}" /var/log/supervisor
+    sudo chown rstudio-server:rstudio-server "${launcher_home}"
+
+    # rserver's LauncherClient::initialize() fails with ENOENT and rserver shuts
+    # itself down if the launcher socket does not exist yet, and supervisord
+    # starts programs in priority order without waiting for them to be ready.
+    # So rserver runs through this wrapper, which waits for the socket first.
+    # If the launcher never comes up the wrapper falls through, rserver exits,
+    # and supervisord's autorestart keeps retrying -- visible as BACKOFF in
+    # `supervisorctl status` rather than as a silent absence.
+    sudo tee "${RSERVER_WRAPPER}" >/dev/null <<EOF
+#!/bin/bash
+# Written by install-workbench.sh. Waits for the session launcher's socket,
+# then runs rserver in the foreground for supervisord.
+for _ in \$(seq 1 90); do
+    [ -S ${LAUNCHER_SOCKET} ] && break
+    sleep 1
+done
+exec /usr/lib/rstudio-server/bin/rserver --server-daemonize 0
+EOF
+    sudo chmod 755 "${RSERVER_WRAPPER}"
+
+    # autorestart=true on both, unlike Posit's images, which use false plus an
+    # event listener that takes the whole container down when a program exits.
+    # That is right under Kubernetes and wrong here, where a test run should
+    # survive an rserver crash.
+    #
+    # stopasgroup/killasgroup on rstudio-server so rserver-http and
+    # rserver-monitor go with rserver (see stop_workbench for why an orphaned
+    # rserver-http matters). Not on the launcher: sessions are its children,
+    # and a launcher restart should not also be a session kill. stopwaitsecs=30
+    # because a wedged rserver has survived 30s of TERM before; supervisord
+    # escalates to KILL for us after that.
+    sudo tee "${SUPERVISOR_CONF}" >/dev/null <<EOF
+; Written by install-workbench.sh -- runs Posit Workbench for the e2e stack.
+[unix_http_server]
+file=${SUPERVISOR_SOCKET}
+chmod=0700
+
+[supervisord]
+user=root
+logfile=/var/log/supervisor/supervisord.log
+pidfile=/var/run/supervisor-workbench.pid
+childlogdir=/var/log/supervisor
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix://${SUPERVISOR_SOCKET}
+
+; The launcher does not daemonize, so it runs as-is. It drops privileges to
+; server-user itself (launcher.local.conf sets unprivileged=1).
+[program:rstudio-launcher]
+command=/usr/lib/rstudio-server/bin/rstudio-launcher
+priority=10
+autorestart=true
+startsecs=3
+stopwaitsecs=30
+environment=HOME="${launcher_home}"
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/rstudio-launcher.log
+stdout_logfile_maxbytes=20MB
+stdout_logfile_backups=2
+
+[program:rstudio-server]
+command=${RSERVER_WRAPPER}
+priority=20
+autorestart=true
+startsecs=5
+startretries=20
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=30
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/rstudio-server.log
+stdout_logfile_maxbytes=20MB
+stdout_logfile_backups=2
+EOF
+}
+
+# Everything worth knowing when :8787 does not answer. The HTTP code is the
+# discriminator worth having: 502 means an orphaned rserver-http is still
+# holding the port with no rserver behind it, 000 means nothing is listening at
+# all, and those point at different bugs.
+dump_workbench_state() {
+    echo "--- supervisorctl status ---"
+    sudo supervisorctl -c "${SUPERVISOR_CONF}" status 2>&1 || true
+    echo "--- curl (code 000 = nothing listening) ---"
+    curl -s -o /dev/null -w "http_code=%{http_code}\n" --max-time 5 http://localhost:8787 || true
+    echo "--- launcher socket ---"
+    ls -la "${LAUNCHER_SOCKET}" 2>&1 || true
+    # Match on args, not comm: openSUSE's supervisord runs as a plain python3
+    # script, so its comm is "python3" and a comm match would hide it.
+    echo "--- processes ---"
+    ps -eo pid,ppid,etime,args | grep -E "rserver|rstudio|supervisord" | grep -v grep || echo "(none)"
+    echo "--- supervisor logs (tail) ---"
+    sudo tail -n 40 /var/log/supervisor/*.log 2>/dev/null || echo "(absent)"
+    echo "--- rserver.log (tail) ---"
+    sudo tail -n 40 /var/log/rstudio/rstudio-server/rserver.log 2>/dev/null || echo "(absent)"
+    echo "--- launcher logs (tail) ---"
+    sudo tail -n 30 /var/log/rstudio/launcher/* 2>/dev/null || echo "(absent)"
+}
+
+# Bring Workbench up under supervisord and wait for :8787 to answer.
+#
+# Fatal on failure, not accumulated: everything after this point is guaranteed
+# to fail, and a bare ":8787 never answered" from a later step, once the
+# container is gone, is close to undiagnosable. Dump what we know first.
 start_workbench() {
     local i
-    if [ "${WB_FAMILY}" != "debian" ]; then
-        prepare_runtime_dir
-        # How the launcher gets started depends on the family, because only one of
-        # the two rpm init scripts is usable in this container. Keep this in step
-        # with wb_ensure_workbench in workbench-local.sh, which has to make the
-        # same choice from the host side.
-        if ! pgrep -f "${LAUNCHER_PGREP}" >/dev/null 2>&1; then
-            echo "Starting rstudio-launcher..."
-            sudo rm -f "${LAUNCHER_SOCKET}"
-            if [ "${WB_FAMILY}" = "suse" ]; then
-                # SUSE's script works: `startproc -s -q` on the launcher binary,
-                # which brings the socket up in about a second. Use the packaged
-                # path rather than hand-detaching the binary -- an earlier
-                # revision of this ran the redhat branch below on SUSE too, "for
-                # one code path", and the socket never appeared at all on the CI
-                # runner while working locally. Whatever the direct start needs
-                # that it did not get there, the init script does not need it.
-                #
-                # `|| true` because startproc's exit status is as unreliable here
-                # as the rest: it reports failure whenever it cannot match the
-                # process through /proc/<pid>/exe (which is how it behaves under
-                # Rosetta) while having started the launcher perfectly well. The
-                # socket check below is the real verdict.
-                sudo /etc/init.d/rstudio-launcher start || true
-            else
-                # The rstudio-launcher script the rpm ships is unusable on EL9:
-                # its install guard tests $rserver, which that script never
-                # defines (so start silently exits 0); it passes
-                # --name/--pidfiles/--stop to `daemon`, none of which EL9's
-                # initscripts supports; and the launcher does not self-daemonize
-                # the way rserver does, so a plain `daemon` call would block
-                # forever. Start it directly instead.
-                sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
-                    >/var/log/rstudio-launcher.stdout.log 2>&1 &
-            fi
-        fi
-        # Generous cap because this exits as soon as the socket shows up: a couple
-        # of seconds natively, longer in an emulated container (openSUSE on Apple
-        # Silicon, which has no arm64 Workbench package).
-        for i in $(seq 1 90); do
-            [ -S "${LAUNCHER_SOCKET}" ] && break
-            sleep 1
-        done
-        if [ ! -S "${LAUNCHER_SOCKET}" ]; then
-            # Fatal, not accumulated: rserver calls LauncherClient::initialize()
-            # at startup and shuts itself down with ENOENT when this socket is
-            # missing, so everything after this point is guaranteed to fail. It
-            # used to be a log_error, and the install went on to "complete" with a
-            # warning -- then the real damage surfaced minutes later as a bare
-            # ":8787 never answered" from a different step, which is a much harder
-            # thing to read. Dump what we know before giving up.
-            log_error "rstudio-launcher socket never appeared at ${LAUNCHER_SOCKET}"
-            echo "--- rstudio-launcher processes ---"
-            pgrep -af "${LAUNCHER_PGREP}" || echo "(none running)"
-            echo "--- /var/log/rstudio-launcher.stdout.log ---"
-            sudo tail -50 /var/log/rstudio-launcher.stdout.log 2>/dev/null || echo "(absent)"
-            echo "--- /var/log/rstudio/launcher ---"
-            sudo tail -n 50 /var/log/rstudio/launcher/* 2>/dev/null || echo "(absent)"
-            echo ""
-            echo "Aborting: rserver cannot start without the launcher socket."
-            exit 1
+    prepare_runtime_dir
+    write_supervisor_config
+    if supervisor_running; then
+        # Already up from an earlier install on this container (--reinstall):
+        # pick up the rewritten config and start the programs under it.
+        sudo supervisorctl -c "${SUPERVISOR_CONF}" reread >/dev/null 2>&1 || true
+        sudo supervisorctl -c "${SUPERVISOR_CONF}" update >/dev/null 2>&1 || true
+        sudo supervisorctl -c "${SUPERVISOR_CONF}" start all || true
+    else
+        # A stale socket or pidfile left by a stopped container is fine: a
+        # fresh supervisord unlinks and rewrites both.
+        if ! sudo supervisord -c "${SUPERVISOR_CONF}"; then
+            log_error "supervisord failed to start"
         fi
     fi
-    # Judge the start by whether rserver is running, not by the init script's
-    # exit status, which is not trustworthy in a container on either rpm OS:
-    # EL9's checks with `pidof -c` and SUSE's with `checkproc`, and neither can
-    # see rserver here. On openSUSE this was observed printing
-    # "Starting rstudio-server ..failed" and exiting non-zero while rserver was
-    # up and :8787 was serving 302 -- checkproc matches through
-    # /proc/<pid>/exe, which is not readable for a process running under
-    # Rosetta. `pgrep -x` reads comm instead and is correct in both cases.
-    sudo rstudio-server start || true
-    for i in $(seq 1 30); do
-        pgrep -x rserver >/dev/null 2>&1 && return 0
+    # Generous cap because this returns as soon as :8787 answers: several
+    # seconds natively, longer in an emulated container (openSUSE on Apple
+    # Silicon, which has no arm64 Workbench package).
+    for i in $(seq 1 120); do
+        curl -s -o /dev/null http://localhost:8787 && return 0
         sleep 1
     done
-    log_error "Failed to start RStudio server (rserver is not running)"
+    log_error "Workbench is not serving on :8787"
+    dump_workbench_state
+    echo ""
+    echo "Aborting: Workbench did not come up under supervisord."
+    exit 1
 }
 
 # Initial parameter setup - auto-detect architecture if not set
@@ -310,8 +419,7 @@ WB_PKG_EXT="$(wb_os_pkg_ext "${WB_OS}")"
 # The OS-specific steps below branch on the *family* (debian|redhat|suse), not
 # the OS. Both rpm families need the same handling in most places and differ in
 # only a few, so a family branch keeps each step to the distinctions that are
-# real. It is also the name of the extras/init.d/<family> directory the package
-# ships, which the SysV install below relies on.
+# real.
 WB_FAMILY="$(wb_os_family "${WB_OS}")"
 
 # User configuration with defaults that can be overridden by environment variables
@@ -321,31 +429,28 @@ Q_GID=${Q_GID:-1100}
 Q_GROUP=${Q_GROUP:-"user1g"}
 WB_PASSWORD=${WB_PASSWORD:-"testpassword"}
 
-# Install required packages early so we have jq for URL fetching
+# Install required packages early so we have jq for URL fetching. supervisor
+# runs Workbench (see start_workbench); it is installed here, in the flow, rather
+# than baked into the images, because those images also serve the desktop e2e
+# lanes, which have no use for it.
 echo "Installing required packages (${WB_OS})..."
 case "${WB_FAMILY}" in
     redhat)
-        # initscripts provides /etc/rc.d/init.d/functions, which the SysV scripts
-        # the Workbench rpm ships in extras/init.d/redhat/ source on line 8. The
-        # rpm's postinst installs systemd units instead of those scripts, and this
-        # container has no systemd, so we copy them in by hand after the install
-        # below.
-        if ! sudo dnf install -y acl jq curl initscripts; then
-            log_error "Failed to install required packages (acl, jq, curl, initscripts)"
+        # supervisor comes from EPEL, which the rocky_9 image already enables.
+        if ! sudo dnf install -y acl jq curl supervisor; then
+            log_error "Failed to install required packages (acl, jq, curl, supervisor)"
         fi
         ;;
     suse)
-        # Same reason as redhat, different providers: the SysV scripts in
-        # extras/init.d/suse/ source /etc/rc.status (from aaa_base, already on the
-        # image) and call startproc/killproc, which come from sysvinit-tools. The
-        # image ships neither acl (setfacl, needed below) nor jq (needed by the
-        # URL resolution above), so both are real installs here rather than the
-        # no-op reinstalls the other two OSes get.
+        # The image ships neither acl (setfacl, needed below) nor jq (needed by
+        # the URL resolution above), so these are real installs here rather than
+        # the no-op reinstalls the other two OSes get. supervisor is in the main
+        # Leap repository.
         if ! wb_zypper --gpg-auto-import-keys refresh; then
             log_error "Failed to refresh zypper repositories"
         fi
-        if ! wb_zypper install --force-resolution acl jq curl sysvinit-tools; then
-            log_error "Failed to install required packages (acl, jq, curl, sysvinit-tools)"
+        if ! wb_zypper install acl jq curl supervisor; then
+            log_error "Failed to install required packages (acl, jq, curl, supervisor)"
         fi
         ;;
     *)
@@ -358,9 +463,16 @@ case "${WB_FAMILY}" in
         if ! sudo apt-get update; then
             log_error "Failed to update package lists after adding universe"
         fi
-        if ! sudo apt-get install -y acl jq curl; then
-            log_error "Failed to install required packages (acl, jq, curl)"
+        if ! sudo apt-get install -y acl jq curl supervisor; then
+            log_error "Failed to install required packages (acl, jq, curl, supervisor)"
         fi
+        # The .deb's postinst starts a supervisord on the distro config
+        # (/etc/supervisor/supervisord.conf, nothing in its conf.d). We run our
+        # own from /etc/supervisord.conf instead (see start_workbench), so stop
+        # that instance rather than leave two supervisords in the container. Its
+        # init script stops by its own pidfile, so this cannot touch ours on a
+        # --reinstall.
+        sudo service supervisor stop >/dev/null 2>&1 || true
         ;;
 esac
 
@@ -441,8 +553,11 @@ if ! curl -fL ${WB_URL} --output "workbench.${WB_PKG_EXT}"; then
     log_error "Failed to download Workbench from ${WB_URL}"
 fi
 
-# Install Workbench
+# Install Workbench. Stop anything already running first: on a --reinstall the
+# package's prerm/postinst would otherwise run its init scripts against the
+# supervised processes, which those scripts cannot see, and start a duplicate.
 echo "Installing Workbench..."
+stop_workbench
 case "${WB_FAMILY}" in
     redhat)
         if ! sudo dnf install -y "./workbench.${WB_PKG_EXT}"; then
@@ -467,25 +582,6 @@ case "${WB_FAMILY}" in
 esac
 
 if [ "${WB_FAMILY}" != "debian" ]; then
-    # Both rpm packages' postinst installs systemd units, so /etc/init.d stays
-    # empty and `rstudio-server start` has nothing to run. Each package also
-    # ships the SysV scripts the Ubuntu .deb installs for us, in a directory
-    # named for the family (verified: extras/init.d/{debian,redhat,suse} all
-    # exist); copy those into place so the start/stop paths below (and
-    # wb_ensure_workbench) work on every OS.
-    INIT_SRC="/usr/lib/rstudio-server/extras/init.d/${WB_FAMILY}"
-    if [ -d "${INIT_SRC}" ]; then
-        sudo cp "${INIT_SRC}/rstudio-server" /etc/init.d/
-        sudo cp "${INIT_SRC}/rstudio-launcher" /etc/init.d/
-        sudo chmod +x /etc/init.d/rstudio-server /etc/init.d/rstudio-launcher
-    else
-        log_error "Workbench rpm did not ship ${INIT_SRC} (no SysV scripts to install)"
-    fi
-    # Without this the launcher warns that HOME is unset and that plugins may
-    # inherit an incorrect one.
-    sudo mkdir -p /home/rstudio-server
-    sudo chown rstudio-server:rstudio-server /home/rstudio-server
-
     # Give PAM sessions a PATH that includes /usr/local/bin.
     #
     # rserver launches sessions through PAM, which builds a fresh environment
@@ -529,9 +625,12 @@ sudo setfacl -m u:${Q_USER}:x /root
 sudo setfacl -R -m u:${Q_USER}:rx /root/.venv /root/.pyenv
 sudo setfacl -R -m d:u:${Q_USER}:rx /root/.venv /root/.pyenv
 
-# Update positron-server
+# Update positron-server. The Ubuntu .deb's postinst has just started rserver
+# and the launcher through its init scripts; stop them (and verify) before
+# touching the install they are serving. supervisord takes over in
+# start_workbench below.
 echo "Updating positron-server..."
-stop_rserver
+stop_workbench
 
 cd /usr/lib/rstudio-server/bin/
 
@@ -605,8 +704,8 @@ else
     echo "No --credentials specified - skipping data source configuration"
 fi
 
-# Start the launcher (Rocky only) and RStudio server
-echo "Starting RStudio server..."
+# Start the launcher and rserver under supervisord
+echo "Starting Workbench..."
 start_workbench
 
 # Ensure (fetch once) + export CONNECT_TOKEN for subsequent steps/tests

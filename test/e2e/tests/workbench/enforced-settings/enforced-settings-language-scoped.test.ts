@@ -120,14 +120,16 @@ test.describe('Workbench: Language-scoped enforced settings', {
 			await fs.promises.rm(tmpDir, { recursive: true, force: true });
 		}
 
-		// Restart rstudio-server so the new profile + enforced settings take effect.
+		// Restart rserver so the new profile + enforced settings take effect. Workbench runs
+		// under supervisord in the test container (see install-workbench.sh); the launcher is
+		// left alone since only rserver reads these files.
 		// New Positron sessions launched after this will have POSITRON_ENFORCED_SETTINGS set.
 		await runDockerCommand(
-			`docker exec test sudo rstudio-server restart`,
+			`docker exec test sudo supervisorctl restart rstudio-server`,
 			'Restart rstudio-server'
 		);
 
-		// `rstudio-server restart` returns before the server is accepting connections again;
+		// `supervisorctl restart` returns before the server is accepting connections again;
 		// poll until the dashboard responds from the host.
 		await waitForRStudioServerReady();
 
@@ -172,7 +174,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 			'Restore original profiles file'
 		);
 		await runDockerCommand(
-			`docker exec test sudo rstudio-server restart`,
+			`docker exec test sudo supervisorctl restart rstudio-server`,
 			'Restart rstudio-server to drop enforced settings'
 		);
 
@@ -327,7 +329,7 @@ type RunDockerCommand = (command: string, description: string) => Promise<{ stdo
  * Poll rstudio-server until the login page is reachable *from the host* (the same network
  * path the browser uses), returning a 2xx/3xx.
  *
- * `rstudio-server restart` returns before the listener is back, so navigating immediately
+ * `supervisorctl restart rstudio-server` returns before the listener is back, so navigating immediately
  * yields ERR_CONNECTION_RESET. Probing via `docker exec ... curl localhost:8787` only proves
  * the in-container loopback is up; on Docker Desktop the host-side port-forward can lag that
  * by several seconds, so the probe reports ready while the browser still hits a dead
@@ -382,7 +384,7 @@ async function waitForAirExtensionInstalled(runDockerCommand: RunDockerCommand, 
 }
 
 /**
- * Re-establish a live dashboard connection after `rstudio-server restart`.
+ * Re-establish a live dashboard connection after `supervisorctl restart rstudio-server`.
  *
  * The restart leaves the already-open page unable to recover on its own: the HTTP front-end
  * answers (waitForRStudioServerReady passes) before the backend can accept the homepage's

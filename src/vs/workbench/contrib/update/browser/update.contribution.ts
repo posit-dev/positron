@@ -18,7 +18,7 @@ import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js'
 import product from '../../../../platform/product/common/product.js';
 import { IUpdateService, StateType } from '../../../../platform/update/common/update.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { isWindows } from '../../../../base/common/platform.js';
+import { isWindows, isMacintosh } from '../../../../base/common/platform.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { mnemonicButtonLabel } from '../../../../base/common/labels.js';
 import { ShowCurrentReleaseNotesActionId, ShowCurrentReleaseNotesFromCurrentFileActionId } from '../common/update.js';
@@ -31,6 +31,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 // eslint-disable-next-line no-duplicate-imports
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 // eslint-disable-next-line no-duplicate-imports
 import { storeLastUpdateVersion } from './update.js';
 // eslint-disable-next-line no-duplicate-imports
@@ -141,7 +142,12 @@ export class CheckForUpdateAction extends Action2 {
 			title: localize2('checkForUpdates', 'Check for Updates...'),
 			category: { value: product.nameShort, original: product.nameShort },
 			f1: true,
-			precondition: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Idle),
+			// --- Start Positron ---
+			// Also allowed while an update is pending: the service then re-checks the feed for a
+			// build newer than the one already downloaded.
+			// precondition: CONTEXT_UPDATE_STATE.isEqualTo(StateType.Idle),
+			precondition: ContextKeyExpr.or(CONTEXT_UPDATE_STATE.isEqualTo(StateType.Idle), CONTEXT_UPDATE_STATE.isEqualTo(StateType.Ready)),
+			// --- End Positron ---
 		});
 	}
 
@@ -325,6 +331,54 @@ class DeveloperSetLastUpdateVersion extends Action2 {
 }
 
 registerAction2(DeveloperSetLastUpdateVersion);
+
+if (isMacintosh || isWindows) {
+	/**
+	 * Stages the build advertised by an arbitrary feed document as the pending update, so the
+	 * "newer build shipped while an update was pending" flow can be tested against the real
+	 * channel feed without waiting for two builds to publish: stage an older, still-hosted build
+	 * here, then let the pending update re-check the channel feed and overwrite it.
+	 */
+	class DeveloperStagePendingUpdate extends Action2 {
+		constructor() {
+			super({
+				id: 'update.stagePendingUpdate',
+				title: localize2('stagePendingUpdate', 'Stage Pending Update from Feed URL...'),
+				category: Categories.Developer,
+				f1: true,
+				// From Ready the staged build replaces the pending one.
+				precondition: ContextKeyExpr.or(CONTEXT_UPDATE_STATE.isEqualTo(StateType.Idle), CONTEXT_UPDATE_STATE.isEqualTo(StateType.Ready))
+			});
+		}
+
+		async run(accessor: ServicesAccessor): Promise<void> {
+			const updateService = accessor.get(IUpdateService);
+			const quickInputService = accessor.get(IQuickInputService);
+			const productService = accessor.get(IProductService);
+
+			const feedUrl = await quickInputService.input({
+				prompt: localize('stagePendingUpdatePrompt', "URL of a releases.json document advertising the build to stage as the pending update"),
+				placeHolder: isWindows
+					? `${productService.updateUrl}/dailies/win/x86_64/${productService.target}-releases.json`
+					: `${productService.updateUrl}/dailies/mac/arm64/releases.json`,
+				validateInput: async value => {
+					try {
+						new URL(value);
+						return undefined;
+					} catch {
+						return localize('stagePendingUpdateInvalidUrl', "Enter a valid URL");
+					}
+				}
+			});
+
+			if (feedUrl) {
+				await updateService._stageUpdateFromFeed(feedUrl);
+			}
+		}
+	}
+
+	registerAction2(DeveloperStagePendingUpdate);
+}
 // --- End Positron ---
 
 registerAction2(class ShowUpdateInfoAction extends Action2 {

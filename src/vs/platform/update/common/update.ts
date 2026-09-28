@@ -133,5 +133,10 @@ export interface IUpdateService {
 	updateActiveLanguages(languages: string[]): void;
 	getReleaseNotes(version?: string): Promise<string>;
 	resetTelemetryId(): void;
+	/**
+	 * Developer hook: stage the build advertised by the given feed document as the pending
+	 * update, as if the regular check had found and downloaded it.
+	 */
+	_stageUpdateFromFeed(feedUrl: string): Promise<void>;
 	// --- End Positron ---
 }

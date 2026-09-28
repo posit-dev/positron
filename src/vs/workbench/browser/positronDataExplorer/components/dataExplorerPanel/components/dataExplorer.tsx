@@ -24,6 +24,7 @@ import { ColumnWidthCalculators } from '../../../../../services/positronDataExpl
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { SummaryRowActionBar } from './summaryRowActionBar/summaryRowActionBar.js';
+import { SummaryProfilesNotice } from './summaryProfilesNotice/summaryProfilesNotice.js';
 import { createBareFontInfoFromRawSettings } from '../../../../../../editor/common/config/fontInfoFromSettings.js';
 
 /**
@@ -56,6 +57,49 @@ export const DataExplorer = () => {
 	const [columnsWidth, setColumnsWidth] = useState(0);
 	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
 	const [columnsCollapsed, setColumnsCollapsed] = useState(context.instance.isSummaryCollapsed);
+	const [summaryLoading, setSummaryLoading] = useState(
+		() => context.instance.tableSchemaDataGridInstance.loading
+	);
+	const [summaryProfilesFailure, setSummaryProfilesFailure] = useState(
+		() => context.instance.tableSchemaDataGridInstance.columnProfilesFailure
+	);
+	const [summaryProfilesPartial, setSummaryProfilesPartial] = useState(
+		() => context.instance.tableSchemaDataGridInstance.columnProfilesPartial
+	);
+	const [summaryProfilesRetrying, setSummaryProfilesRetrying] = useState(
+		() => context.instance.tableSchemaDataGridInstance.columnProfilesRetrying
+	);
+
+	// The summary panel's notice row, which reports that the summaries could not be calculated and
+	// stays put for as long as a retry of them is running. It has to survive the retry rather than
+	// come and go with the message: taking the row away would resize the grid below it, and that
+	// resize starts a profile load of its own, which cancels the retry partway.
+	const summaryNotice = summaryProfilesFailure !== undefined || summaryProfilesRetrying;
+
+	// Track whether the summary panel has anything to show yet, and whether its summary statistics
+	// failed to compute. Until the panel has anything it paints a progress indicator, and there is
+	// nothing for its action bar to sort or filter -- so the action bar and the row it occupies both
+	// come away, which is also what keeps the panel's indicator level with the data grid's rather
+	// than 36px below it.
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Pick up where the instance stands now, in case it changed before this ran, and follow it
+		// from here.
+		const summaryInstance = context.instance.tableSchemaDataGridInstance;
+		const readSummaryInstance = () => {
+			setSummaryLoading(summaryInstance.loading);
+			setSummaryProfilesFailure(summaryInstance.columnProfilesFailure);
+			setSummaryProfilesPartial(summaryInstance.columnProfilesPartial);
+			setSummaryProfilesRetrying(summaryInstance.columnProfilesRetrying);
+		};
+		readSummaryInstance();
+		disposableStore.add(summaryInstance.onDidUpdate(readSummaryInstance));
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [context.instance.tableSchemaDataGridInstance]);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {
@@ -327,7 +371,9 @@ export const DataExplorer = () => {
 			className={positronClassNames(
 				'data-explorer',
 				{ 'summary-on-left': layout === PositronDataExplorerLayout.SummaryOnLeft },
-				{ 'summary-on-right': layout === PositronDataExplorerLayout.SummaryOnRight }
+				{ 'summary-on-right': layout === PositronDataExplorerLayout.SummaryOnRight },
+				{ 'summary-loading': summaryLoading },
+				{ 'summary-showing-notice': summaryNotice }
 			)}
 		>
 			<div ref={columnNameExemplarRef} className='column-name-exemplar' />
@@ -335,9 +381,17 @@ export const DataExplorer = () => {
 			<div ref={sortIndexExemplarRef} className='sort-index-exemplar' />
 
 			<div ref={leftColumnRef} className='left-column'>
-				{layout === PositronDataExplorerLayout.SummaryOnLeft &&
+				{layout === PositronDataExplorerLayout.SummaryOnLeft && !summaryLoading &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
+					/>
+				}
+				{layout === PositronDataExplorerLayout.SummaryOnLeft && summaryNotice &&
+					<SummaryProfilesNotice
+						failure={summaryProfilesFailure}
+						instance={context.instance.tableSchemaDataGridInstance}
+						partial={summaryProfilesPartial}
+						retrying={summaryProfilesRetrying}
 					/>
 				}
 				<div className='data-grid-container'>
@@ -375,9 +429,17 @@ export const DataExplorer = () => {
 				<div className='collapsed-right-spacer' />
 			}
 			<div ref={rightColumnRef} className='right-column'>
-				{layout !== PositronDataExplorerLayout.SummaryOnLeft &&
+				{layout !== PositronDataExplorerLayout.SummaryOnLeft && !summaryLoading &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
+					/>
+				}
+				{layout !== PositronDataExplorerLayout.SummaryOnLeft && summaryNotice &&
+					<SummaryProfilesNotice
+						failure={summaryProfilesFailure}
+						instance={context.instance.tableSchemaDataGridInstance}
+						partial={summaryProfilesPartial}
+						retrying={summaryProfilesRetrying}
 					/>
 				}
 				<div className='data-grid-container'>

@@ -48,11 +48,6 @@ on:
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: true
-      allow_soft_fail:
-        required: false
-        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
-        type: boolean
-        default: false
       enable_diagnostic_logging:
         required: false
         description: "Enable diagnostic logging (free memory, process list, CPU usage) at the end of each test."
@@ -205,7 +200,6 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CONNECT_API_KEY: ${{ secrets.CONNECT_API_KEY }}
           PW_JSON_FILE: test-results/debian.json
-          ALLOW_SOFT_FAIL: ${{ inputs.allow_soft_fail }}
           GH_SUMMARY_REPORT: true
           ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
@@ -226,13 +220,7 @@ jobs:
 
           # Run the Playwright test command directly using eval
           echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          if [[ "$ALLOW_SOFT_FAIL" == "true" ]]; then
-            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10 || true
-
-            node ./scripts/check-soft-fail-failures.js "${PW_JSON_FILE}"
-          else
-            eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
-          fi
+          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}

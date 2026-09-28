@@ -187,6 +187,11 @@ describe('selectNewLanguageRuntime', () => {
 		return runtimeService.getRegisteredRuntime(metadata.runtimeId) ?? metadata;
 	}
 
+	/** The separator labels of the built picker, which are the environment type headings. */
+	function separatorLabels(): string[] {
+		return pick.items.filter(item => item.type === 'separator').map(item => item.label ?? '');
+	}
+
 	function pickItemById(id: string): IQuickPickItem | undefined {
 		return pick.items.find(
 			(item): item is IQuickPickItem => item.type !== 'separator' && item.id === id,
@@ -360,6 +365,53 @@ describe('selectNewLanguageRuntime', () => {
 			);
 			expect(item?.detail).toBe('/opt/python/bin/python3');
 			expect(pick.matchOnDetail).toBe(true);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('orders the environment type headings by runtimeSourceOrder, not registration order', async () => {
+			// Registration order is discovery order, which varies run to run, so the
+			// extension ranks its sources instead and the picker sorts by that rank.
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeSource: 'Pyenv' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-system', runtimeSource: 'System', runtimeSourceOrder: 30 }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeSourceOrder: 20 }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-uv', runtimeSource: 'uv', runtimeSourceOrder: 10 }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(separatorLabels()).toEqual(['Suggested', 'uv', 'Conda', 'System']);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('lists unranked environment types after ranked ones, in registration order', async () => {
+			// Registered Other before Mystery on purpose: that order is the reverse of
+			// alphabetical, so the assertion can only pass if the unranked sources kept
+			// their registration order rather than being sorted by label.
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeSource: 'Pyenv' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-other', runtimeSource: 'Other' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-mystery', runtimeSource: 'Mystery' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-conda', runtimeSource: 'Conda', runtimeSourceOrder: 20 }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(separatorLabels()).toEqual(['Suggested', 'Conda', 'Other', 'Mystery']);
+			pick.cancel(QuickInputHideReason.Gesture);
+			await promise;
+		});
+
+		it('ranks a source by its best-ranked runtime when only some carry a rank', async () => {
+			// An extension can rank some of a source's runtimes and not others, and they
+			// register in no guaranteed order. The source must follow the rank it does
+			// have rather than whichever runtime happened to be registered last.
+			await registerRuntime(makeRuntime({ runtimeId: 'py-pref', runtimeSource: 'Pyenv' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-sys-fresh', runtimeSource: 'System', runtimeSourceOrder: 30 }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-sys-cached', runtimeSource: 'System' }));
+			await registerRuntime(makeRuntime({ runtimeId: 'py-global', runtimeSource: 'Global', runtimeSourceOrder: 40 }));
+
+			const promise = runPicker();
+			await waitUntilOpened();
+			expect(separatorLabels()).toEqual(['Suggested', 'System', 'Global']);
 			pick.cancel(QuickInputHideReason.Gesture);
 			await promise;
 		});

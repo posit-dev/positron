@@ -10,7 +10,8 @@ import * as playwright from '@playwright/test';
 import { ApplicationOptions, copyFixtureFile, Quality, getRandomUserDataDir, Browser, StorageFile } from '../../infra';
 import { ROOT_PATH, TEMP_DIR } from './constants';
 import { copyUserSettings } from './shared-utils.js';
-import { resolveTraceSnapshots, shouldUseCustomTracing } from './reporting.fixtures.js';
+import { shouldUseCustomTracing } from './reporting.fixtures.js';
+import { resolveTraceSnapshots } from './trace-snapshots.js';
 import { isMemoryScenario } from '../../utils/memory/scenarios.js';
 import { GC_TARGETS } from '../../utils/memory/gc.js';
 

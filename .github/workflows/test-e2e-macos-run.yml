@@ -76,8 +76,8 @@ jobs:
       # into the modal alongside SNOWFLAKE_API_KEY (loaded from 1Password below). The
       # Linux lanes set this from the same secret for the data-connections suite.
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      # Login + password for the catalog-explorer Snowflake case, which writes them into a
-      # connections.toml for the provider. Same secrets the Linux lanes export.
+      # Username/password sign-in for connections-snowflake.test.ts's Snowflake Connection
+      # suite. Same secrets the Linux lanes export.
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       LANG: "en_US.UTF-8"
@@ -439,6 +439,11 @@ jobs:
         uses: ./.github/actions/gen-report-dir
         with:
           identifier: ${{ inputs.project }}
+          # This job runs on a fixed `macos-latest` runner, so its own
+          # runner.arch is not the arch under test. test-full-suite.yml calls this
+          # workflow twice with the same `project` and only `arch` differing, so
+          # without this the two runs' reports overwrite each other in S3.
+          arch: ${{ inputs.arch }}
 
       - name: Download all blob reports
         uses: actions/download-artifact@v8
@@ -520,7 +525,7 @@ jobs:
             exit 1
           fi
 
-          node scripts/check-soft-fail-failures.js "$JSON_REPORT" --no-soft-fail
+          node scripts/check-e2e-failures.js "$JSON_REPORT"
 
           # Fail if we're missing reports from any shards (even if all available tests passed)
           if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then

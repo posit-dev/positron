@@ -152,102 +152,37 @@ wb_installed() {
 	docker exec test bash -c 'test -f /usr/lib/rstudio-server/bin/positron-server/new/product.json || test -f /usr/lib/rstudio-server/bin/positron-server/product.json' 2>/dev/null
 }
 
-# pgrep pattern for the session launcher. The leading [/] is load-bearing: these
-# checks run as `docker exec test bash -c "... pgrep -f <pattern> ..."`, and a
-# plain path would match the wrapper shell's OWN command line, so the launcher
-# would always look alive -- even when it is dead, which is exactly the state
-# this function exists to repair. Verified: the plain form returns a pid for a
-# launcher path that does not exist at all. (Also note pgrep -x cannot be used
-# with the full name: Linux truncates comm to 15 chars, so it reads
-# "rstudio-launche".)
-WB_LAUNCHER_PGREP='[/]usr/lib/rstudio-server/bin/rstudio-launcher'
-WB_LAUNCHER_SOCKET=/var/run/rstudio-server/rserver-launcher.socket
-
-# The container's command is a sleep loop, and the rstudio services are started
-# by the installer -- not the container entrypoint. After a stop/start the
-# container comes back up but none of them do, so :8787 is dead (or, with only
-# rserver up, "Unable to contact session launcher"). Bring them back in the
-# order rserver requires: the launcher must be running first, or rserver can't
-# reach it and shuts itself down. No-op when both are already healthy (a plain
-# re-run of `npm run pwb`).
+# The container's command is a sleep loop, and Workbench runs under a
+# supervisord that the installer starts -- not the container entrypoint. After a
+# stop/start the container comes back up with none of it running, so :8787 is
+# dead. Start supervisord again (its config starts the launcher and then rserver,
+# in that order; see install-workbench.sh), or, if it is already up, make sure
+# both programs are. No-op when everything is healthy (a plain re-run of
+# `npm run pwb`).
+#
+# No `-c` on supervisorctl: the installer writes the config to
+# /etc/supervisord.conf, which is first in supervisorctl's default search order
+# on all three OSes -- so this same bare command works here, in the CI action,
+# in the tests and in a shell.
 wb_ensure_workbench() {
-	local launcher rserver
-	docker exec test bash -c "pgrep -f '${WB_LAUNCHER_PGREP}' >/dev/null 2>&1" && launcher=1 || launcher=0
-	docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1' && rserver=1 || rserver=0
-	[ "$launcher" = 1 ] && [ "$rserver" = 1 ] && return 0
-	# Clean ordered (re)start: stop rserver, bring up the launcher, then rserver.
-	#
-	# Stop by signal and verify. `rstudio-server stop` returns 0 without doing
-	# anything on Rocky (its status check uses `pidof -c`, blind inside a
-	# container), so trusting it here used to leave the old rserver running and
-	# the start below would add a SECOND one, which then spun forever failing to
-	# bind :8787.
-	docker exec test bash -c 'sudo rstudio-server stop' >/dev/null 2>&1 || true
-	docker exec test bash -c '
-		pgrep -x rserver >/dev/null 2>&1 || exit 0
-		sudo pkill -x rserver 2>/dev/null || true
-		for _ in $(seq 1 15); do pgrep -x rserver >/dev/null 2>&1 || exit 0; sleep 1; done
-		sudo pkill -KILL -x rserver 2>/dev/null || true
-	' >/dev/null 2>&1 || true
-	local i family
-	family="$(wb_os_family "${WB_OS}")"
-	# Branch exactly as install-workbench.sh's start_workbench does. These two
-	# must agree: the installer's first start and this restart-after-container-stop
-	# path have to bring the launcher up the same way, or a stack that installed
-	# fine comes back broken after `npm run pwb -- stop && npm run pwb`. They
-	# diverged once (this side used the init script on SUSE while the installer
-	# hand-detached the binary), and it cost a CI run to notice.
-	if [ "$family" != "debian" ]; then
-		# EL9's packaged rstudio-launcher script is broken (see
-		# install-workbench.sh), so there the binary is started directly. SUSE's
-		# works, so use it. Either way wait for the socket, not the process --
-		# rserver shuts itself down if the socket is missing.
-		#
-		# Reuse $launcher from above rather than re-checking here. The direct-start
-		# command string necessarily contains the launcher's real path, and a pgrep
-		# in the SAME string would match this very wrapper shell -- the bracket
-		# trick only hides the pattern's own text, not a second, literal copy of
-		# the path beside it. That mistake silently skipped the start and left the
-		# stale socket in place, which the wait below then accepted. Removing the
-		# socket first is what makes that wait mean something.
-		# Same prerequisite the installer's prepare_runtime_dir handles: the
-		# launcher binds its socket as the server-user, and nothing in a
-		# container creates this directory with that ownership. Needed here too
-		# because a container restart can leave it reset.
-		docker exec test bash -c '
-			su="$(awk -F= "/^server-user=/{print \$2}" /etc/rstudio/launcher.conf 2>/dev/null | tr -d "[:space:]")"
-			sudo install -d -m 1777 -o "${su:-rstudio-server}" -g "${su:-rstudio-server}" /var/run/rstudio-server
-		' >/dev/null 2>&1 || true
-		if [ "$launcher" != 1 ]; then
-			if [ "$family" = "suse" ]; then
-				docker exec test bash -c "
-					sudo rm -f ${WB_LAUNCHER_SOCKET}
-					sudo /etc/init.d/rstudio-launcher start
-				" >/dev/null 2>&1 || true
-			else
-				docker exec test bash -c "
-					sudo rm -f ${WB_LAUNCHER_SOCKET}
-					sudo nohup setsid /usr/lib/rstudio-server/bin/rstudio-launcher \
-						>/var/log/rstudio-launcher.stdout.log 2>&1 &
-				" >/dev/null 2>&1 || true
-			fi
-		fi
-		for i in $(seq 1 30); do
-			docker exec test bash -c "test -S ${WB_LAUNCHER_SOCKET}" >/dev/null 2>&1 && break
-			sleep 1
-		done
+	local i
+	# Judged by the output (a pid), not the exit status: older supervisorctl
+	# builds exit 0 on a refused connection.
+	if docker exec test bash -c "sudo supervisorctl pid 2>/dev/null | grep -qE '^[0-9]+$'" >/dev/null 2>&1; then
+		# `start all` on an already-running program reports "already started"
+		# and exits non-zero; that is the healthy case, hence the || true.
+		docker exec test bash -c 'sudo supervisorctl start all' >/dev/null 2>&1 || true
 	else
-		docker exec test bash -c 'sudo /etc/init.d/rstudio-launcher start' >/dev/null 2>&1 || true
-		for i in $(seq 1 10); do
-			docker exec test bash -c "pgrep -f '${WB_LAUNCHER_PGREP}' >/dev/null 2>&1" && break
-			sleep 1
-		done
+		docker exec test bash -c 'sudo supervisord -c /etc/supervisord.conf' >/dev/null 2>&1 || true
 	fi
-	docker exec test bash -c 'sudo rstudio-server start' >/dev/null 2>&1 || true
-	# Wait until :8787 actually accepts connections, not just until the process
-	# exists -- rserver binds the port a few seconds after it starts.
-	for i in $(seq 1 20); do
-		docker exec test bash -c 'curl -s -o /dev/null http://localhost:8787' >/dev/null 2>&1 && return 0
+	# Wait until :8787 actually accepts connections AND supervisord has promoted
+	# rstudio-server to RUNNING. Both, because they do not coincide: rserver's
+	# nginx front end can be answering while supervisord still reports STARTING
+	# (it waits startsecs before promoting), and wb_print_ready reads that state
+	# -- so waiting on the port alone had it announce "not running" for a
+	# Workbench that was fine.
+	for i in $(seq 1 60); do
+		docker exec test bash -c 'sudo supervisorctl status rstudio-server 2>/dev/null | grep -q RUNNING && curl -s -o /dev/null http://localhost:8787' >/dev/null 2>&1 && return 0
 		sleep 1
 	done
 }
@@ -693,8 +628,8 @@ wb_credentials_type() {
 
 # Clean post-startup summary, with the same labels install-workbench.sh prints
 # so a resume reads the same as a fresh install. The header reflects real
-# readiness: this image's init script has no 'status' verb, so we check for the
-# running rserver process directly.
+# readiness: supervisord's view of the rstudio-server program, which it tracks
+# by pid, so it cannot be fooled the way the packaged init scripts' status was.
 wb_print_ready() {
 	local v wb pos src creds
 	v="$(wb_versions)"
@@ -703,11 +638,11 @@ wb_print_ready() {
 	src="$(wb_source_build)"
 	creds="$(wb_credentials_type)"
 	echo ''
-	if docker exec test bash -c 'pgrep -x rserver >/dev/null 2>&1'; then
+	if docker exec test bash -c 'sudo supervisorctl status rstudio-server 2>/dev/null | grep -q RUNNING'; then
 		# allow-any-unicode-next-line
 		echo "Workbench ready ✅"
 	else
-		echo "Workbench installed -- rstudio-server not running (run: docker exec test sudo rstudio-server restart)"
+		echo "Workbench installed -- rstudio-server not running (run: docker exec test sudo supervisorctl start all)"
 	fi
 	printf 'OS:                  %s\n' "$(wb_running_os)"
 	printf 'Positron version:    %s\n' "$pos"

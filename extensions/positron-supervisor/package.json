@@ -126,6 +126,12 @@
           "maximum": 60000,
           "description": "%configuration.resourceUsagePollInterval.description%"
         },
+        "kernelSupervisor.resourceUsageIncludeChildren": {
+          "scope": "window",
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.resourceUsageIncludeChildren.description%"
+        },
         "kernelSupervisor.transport": {
           "scope": "machine",
           "type": "string",
@@ -183,13 +189,12 @@
     "@types/mocha": "^9.1.0",
     "@types/tail": "^2.2.3",
     "@types/ws": "^8.5.12",
-    "mocha": "^9.2.1",
     "ts-node": "^10.9.1",
     "decompress": "^4.2.1"
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.68"
+      "kallichore": "0.1.69"
     }
   },
   "extensionDependencies": [

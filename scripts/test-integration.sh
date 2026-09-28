@@ -402,12 +402,6 @@ run_extension_suite npm run test-extension -- -l positron-skills
 kill_app
 
 echo
-echo "### Positron Catalog Explorer tests"
-echo
-run_extension_suite npm run test-extension -- -l positron-catalog-explorer
-kill_app
-
-echo
 echo "### Positron Code Cells tests"
 echo
 run_extension_suite npm run test-extension -- -l positron-code-cells
@@ -466,6 +460,12 @@ echo
 echo "### Positron Connect Pins data connection tests"
 echo
 run_extension_suite npm run test-extension -- -l positron-data-driver-pins
+kill_app
+
+echo
+echo "### Positron ODBC data connection tests"
+echo
+run_extension_suite npm run test-extension -- -l positron-data-driver-odbc
 kill_app
 
 echo

@@ -450,6 +450,81 @@ describe('baselineToSnapshot activation_event', () => {
 	});
 });
 
+describe('baselineToSnapshot extension_heap', () => {
+	// Typed off the response rather than asserted, so an unrecognized status is
+	// still a legal value here (the wire field is a plain string) while a
+	// misspelled key still fails to compile.
+	type BaselineExtensionHeap = NonNullable<(BaselineResponse & { found: true })['snapshot']['extension_heap']>;
+
+	const withHeap = (extension_heap: BaselineExtensionHeap): BaselineResponse => ({
+		found: true, ...baselineProvenance,
+		snapshot: {
+			tree_total_pss_bytes: 1, settle_ms: 1, processes: [], extensions: [],
+			extension_heap
+		}
+	});
+
+	test('maps an ok breakdown, so the extension table has something to diff against', () => {
+		const mapped = baselineToSnapshot(withHeap({
+			status: 'ok',
+			pid: 4242,
+			reachable_bytes: 300,
+			unattributed_bytes: 100,
+			extensions: [{ extension_id: 'posit.assistant', retained_bytes: 200 }]
+		}), 'idle');
+		expect(mapped?.extensionHeapStatus).toBe('ok');
+		expect(mapped?.extensionHeapPid).toBe(4242);
+		expect(mapped?.extensionHeap).toEqual({
+			reachableBytes: 300,
+			unattributedBytes: 100,
+			extensions: [{ extensionId: 'posit.assistant', retainedBytes: 200 }]
+		});
+	});
+
+	// A baseline stored before the API returned the field, which is every
+	// baseline until the route ships it. Undefined, not an empty breakdown: an
+	// empty one would diff every extension as a full-size gain.
+	test('leaves the breakdown undefined when the response carries no extension_heap', () => {
+		const mapped = baselineToSnapshot({
+			found: true, ...baselineProvenance,
+			snapshot: { tree_total_pss_bytes: 1, settle_ms: 1, processes: [], extensions: [] }
+		}, 'idle');
+		expect(mapped?.extensionHeap).toBeUndefined();
+		expect(mapped?.extensionHeapStatus).toBeUndefined();
+	});
+
+	test('keeps a failed status without inventing byte counts for it', () => {
+		const mapped = baselineToSnapshot(withHeap({
+			status: 'capture_failed'
+		}), 'idle');
+		expect(mapped?.extensionHeapStatus).toBe('capture_failed');
+		expect(mapped?.extensionHeap).toBeUndefined();
+	});
+
+	// The same rule the response's process_role gets: a value the server adds
+	// before the client knows it must not become an invalid union member that
+	// falls through every switch downstream.
+	test('drops a status the client does not know rather than passing it through', () => {
+		const mapped = baselineToSnapshot(withHeap({
+			status: 'quantum_failed'
+		}), 'idle');
+		expect(mapped?.extensionHeapStatus).toBeUndefined();
+		expect(mapped?.extensionHeap).toBeUndefined();
+	});
+
+	// `ok` with no numbers is a contradiction, the mirror of the one
+	// buildExtensionHeap refuses to publish. Trust the status, drop the
+	// half-breakdown: a partial one would diff against zeroes.
+	test('drops an ok breakdown whose numbers are missing', () => {
+		const mapped = baselineToSnapshot(withHeap({
+			status: 'ok',
+			extensions: [{ extension_id: 'posit.assistant', retained_bytes: 200 }]
+		}), 'idle');
+		expect(mapped?.extensionHeapStatus).toBe('ok');
+		expect(mapped?.extensionHeap).toBeUndefined();
+	});
+});
+
 describe('baseline query', () => {
 	test('sends lane and container_image', () => {
 		expect(baselineQuery('idle', 'server', 'ghcr.io/x:1'))

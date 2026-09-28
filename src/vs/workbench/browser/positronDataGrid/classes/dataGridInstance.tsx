@@ -852,6 +852,11 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
 
 	/**
+	 * The onDidRequestFocus event emitter.
+	 */
+	private readonly _onDidRequestFocusEmitter = this._register(new Emitter<void>);
+
+	/**
 	 * The onDidChangeColumnSorting event emitter.
 	 */
 	private readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>);
@@ -1247,6 +1252,17 @@ export abstract class DataGridInstance extends Disposable {
 	abstract get rows(): number;
 
 	/**
+	 * Gets a value which indicates whether the grid does not yet know enough to lay itself out
+	 * correctly. While this is true the grid paints an indeterminate progress indicator instead of
+	 * its headers, corners and rows, rather than painting them from information it would have to
+	 * guess at and then correct. Grids whose layout information arrives asynchronously override
+	 * this; for the rest, there is never a moment when it isn't known.
+	 */
+	get loading(): boolean {
+		return false;
+	}
+
+	/**
 	 * Gets the scroll width.
 	 */
 	get scrollWidth() {
@@ -1453,6 +1469,12 @@ export abstract class DataGridInstance extends Disposable {
 	readonly onDidUpdate = this._onDidUpdateEmitter.event;
 
 	/**
+	 * onDidRequestFocus event. Fired by requestFocus; the view rendering the grid answers it by
+	 * taking keyboard focus.
+	 */
+	readonly onDidRequestFocus = this._onDidRequestFocusEmitter.event;
+
+	/**
 	 * onDidChangeColumnSorting event.
 	 */
 	readonly onDidChangeColumnSorting = this._onDidChangeColumnSortingEmitter.event;
@@ -1474,6 +1496,17 @@ export abstract class DataGridInstance extends Disposable {
 	//#endregion Public Events
 
 	//#region Public Methods
+
+	/**
+	 * Asks the view rendering this grid to take keyboard focus, so that the cursor row reads as
+	 * focused and the arrow keys move it. The counterpart to setFocused, which reports the focus
+	 * the user gave the grid themselves: this is for the times something else puts the user's
+	 * attention on a row -- a reveal from elsewhere in the workbench, say -- and the focus has to
+	 * follow it. Does nothing when no view is currently rendering the grid.
+	 */
+	requestFocus() {
+		this._onDidRequestFocusEmitter.fire();
+	}
 
 	/**
 	 * Sets the focused state of the data grid.
@@ -2286,26 +2319,39 @@ export abstract class DataGridInstance extends Disposable {
 		// Initialize the scroll offset updated flag.
 		let scrollOffsetUpdated = false;
 
+		// Each axis is adjusted only when it has an extent to scroll within. An axis of zero
+		// length makes every entry read as past the end, so the arithmetic below would scroll the
+		// content out of the viewport that eventually arrives -- and nothing corrects that
+		// afterwards, since an offset is in bounds while the extent is zero (see
+		// maximumVerticalScrollOffset) and setSize re-clamps only when the size actually changes.
+		// The result is a grid that comes up scrolled past its content and looks empty. The two
+		// axes are guarded separately because they are independently zero: a collapsed view pane
+		// has its full width and no height, and a grid is laid out a frame after it mounts.
+
 		// If the column isn't visible, adjust the horizontal scroll offset to scroll to it.
-		if (columnLayoutEntry.start < this._horizontalScrollOffset) {
-			this._horizontalScrollOffset = columnLayoutEntry.start;
-			scrollOffsetUpdated = true;
-		} else if (columnLayoutEntry.end > this._horizontalScrollOffset + this.layoutWidth) {
-			this._horizontalScrollOffset = columnIndex === this.columns - 1 ?
-				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset :
-				this._horizontalScrollOffset = columnLayoutEntry.end - this.layoutWidth;
-			scrollOffsetUpdated = true;
+		if (this.layoutWidth > 0) {
+			if (columnLayoutEntry.start < this._horizontalScrollOffset) {
+				this._horizontalScrollOffset = columnLayoutEntry.start;
+				scrollOffsetUpdated = true;
+			} else if (columnLayoutEntry.end > this._horizontalScrollOffset + this.layoutWidth) {
+				this._horizontalScrollOffset = columnIndex === this.columns - 1 ?
+					this._horizontalScrollOffset = this.maximumHorizontalScrollOffset :
+					this._horizontalScrollOffset = columnLayoutEntry.end - this.layoutWidth;
+				scrollOffsetUpdated = true;
+			}
 		}
 
 		// If the row isn't visible, adjust the vertical scroll offset to scroll to it.
-		if (rowLayoutEntry.start < this._verticalScrollOffset) {
-			this._verticalScrollOffset = rowLayoutEntry.start;
-			scrollOffsetUpdated = true;
-		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
-			this._verticalScrollOffset = rowIndex === this._rowLayoutManager.lastIndex ?
-				this._verticalScrollOffset = this.maximumVerticalScrollOffset :
-				this._verticalScrollOffset = rowLayoutEntry.end - this.layoutHeight;
-			scrollOffsetUpdated = true;
+		if (this.layoutHeight > 0) {
+			if (rowLayoutEntry.start < this._verticalScrollOffset) {
+				this._verticalScrollOffset = rowLayoutEntry.start;
+				scrollOffsetUpdated = true;
+			} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
+				this._verticalScrollOffset = rowIndex === this._rowLayoutManager.lastIndex ?
+					this._verticalScrollOffset = this.maximumVerticalScrollOffset :
+					this._verticalScrollOffset = rowLayoutEntry.end - this.layoutHeight;
+				scrollOffsetUpdated = true;
+			}
 		}
 
 		// If scroll offset was updated, fetch data and fire the onDidUpdate event.
@@ -2335,6 +2381,12 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
+		// If there is no horizontal extent to scroll within, return. See scrollToCell, which
+		// guards the same arithmetic for the same reason.
+		if (this.layoutWidth <= 0) {
+			return;
+		}
+
 		// If the column isn't visible, scroll to it.
 		if (columnLayoutEntry.start < this._horizontalScrollOffset) {
 			await this.setHorizontalScrollOffset(columnLayoutEntry.start);
@@ -2350,6 +2402,12 @@ export abstract class DataGridInstance extends Disposable {
 	async scrollToRow(rowIndex: number) {
 		// If the row is pinned, return.
 		if (this._rowLayoutManager.isPinnedIndex(rowIndex)) {
+			return;
+		}
+
+		// If there is no vertical extent to scroll within, return. See scrollToCell, which guards
+		// the same arithmetic for the same reason.
+		if (this.layoutHeight <= 0) {
 			return;
 		}
 

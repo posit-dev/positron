@@ -195,7 +195,6 @@ jobs:
       display_name: "electron"
       install_undetectable_interpreters: true
       install_license: false
-      allow_soft_fail: false
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
@@ -214,7 +213,6 @@ jobs:
       grep: ${{ inputs.grep || '' }}
       project: "e2e-windows"
       display_name: "electron-win"
-      allow_soft_fail: false
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
@@ -268,7 +266,6 @@ jobs:
       display_name: "chromium"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       upload_logs: false
       shards: 4
       matrix: '{"shard":[1,2,3,4]}'
@@ -289,7 +286,6 @@ jobs:
       display_name: "chromium (rocky)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-suse:
@@ -306,7 +302,6 @@ jobs:
       display_name: "chromium (suse)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-sles:
@@ -323,7 +318,6 @@ jobs:
       display_name: "chromium (sles)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-chromium-debian:
@@ -340,7 +334,6 @@ jobs:
       display_name: "chromium (debian)"
       install_undetectable_interpreters: true
       install_license: true
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   build-workbench:
@@ -352,6 +345,16 @@ jobs:
     with:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
 
+  # The four Workbench lanes below run strictly one after another (Ubuntu ->
+  # Rocky -> openSUSE -> stable): the managed-credential shards all sign in with
+  # the same service-account TOTP secret, and overlapping sign-ins burn the same
+  # OTP window. The ordering lives in `needs`; a concurrency group would not
+  # work, since it holds only one pending entry and cancels the rest outright.
+  # Same shape as positron-builds' test-e2e-release.yml.
+  #
+  # The chained lanes check the build result explicitly rather than using
+  # `!failure()`: that would also fire when the lane ahead failed, and a failing
+  # lane should not stop the ones behind it. Cancelling the run still should.
   e2e-workbench:
     name: e2e
     needs: [build-workbench]
@@ -364,33 +367,16 @@ jobs:
       display_name: "workbench"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
-      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
-
-  e2e-workbench-stable:
-    name: e2e
-    needs: [build-workbench]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_stable) }}
-    uses: ./.github/workflows/test-e2e-workbench-linux.yml
-    secrets: inherit
-    with:
-      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
-      grep: "@:workbench"
-      display_name: "workbench-stable"
-      install_license: false
-      upload_logs: false
-      allow_soft_fail: false
-      install_mode: "ci-stable"
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   # Same test set as the workbench lane, run against a Rocky Linux 9 container.
-  # A separate job so the two OSes run in parallel. `grep` is pinned to
-  # "@:workbench" rather than the run's grep input: @:workbench-rocky selects the
-  # lane, never individual tests, so no test carries it.
+  # `grep` is pinned to "@:workbench" rather than the run's grep input:
+  # @:workbench-rocky selects the lane, never individual tests, so no test
+  # carries it.
   e2e-workbench-rocky:
     name: e2e
-    needs: [build-workbench]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_rocky) }}
+    needs: [build-workbench, e2e-workbench]
+    if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_rocky) }}
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit
     with:
@@ -400,7 +386,6 @@ jobs:
       display_name: "workbench-rocky"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   # Same test set again, on an openSUSE Leap 15.6 container. `grep` is pinned to
@@ -410,8 +395,8 @@ jobs:
   # which is why there is no separate condition for it here.
   e2e-workbench-suse:
     name: e2e
-    needs: [build-workbench]
-    if: ${{ !failure() && !cancelled() && (github.event_name == 'schedule' || inputs.run_e2e_workbench_suse) }}
+    needs: [build-workbench, e2e-workbench-rocky]
+    if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_suse) }}
     uses: ./.github/workflows/test-e2e-workbench-linux.yml
     secrets: inherit
     with:
@@ -421,7 +406,21 @@ jobs:
       display_name: "workbench-suse"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
+      enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
+
+  e2e-workbench-stable:
+    name: e2e
+    needs: [build-workbench, e2e-workbench-suse]
+    if: ${{ !cancelled() && needs.build-workbench.result == 'success' && (github.event_name == 'schedule' || inputs.run_e2e_workbench_stable) }}
+    uses: ./.github/workflows/test-e2e-workbench-linux.yml
+    secrets: inherit
+    with:
+      commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
+      grep: "@:workbench"
+      display_name: "workbench-stable"
+      install_license: false
+      upload_logs: false
+      install_mode: "ci-stable"
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   e2e-pyrefly:
@@ -454,7 +453,6 @@ jobs:
       commit: ${{ inputs.commit != 'latest' && inputs.commit || '' }}
       display_name: "connect"
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   build-jupyter:
@@ -478,7 +476,6 @@ jobs:
       display_name: "jupyter"
       install_license: true
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   build-remote-ssh:
@@ -501,7 +498,6 @@ jobs:
       grep: ${{ inputs.grep || '@:remote-ssh' }}
       display_name: "remote-ssh"
       upload_logs: false
-      allow_soft_fail: false
       enable_diagnostic_logging: ${{ inputs.enable_diagnostic_logging }}
 
   unit-tests:

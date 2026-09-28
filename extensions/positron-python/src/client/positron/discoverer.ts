@@ -15,6 +15,7 @@ import { PythonEnvironment } from '../pythonEnvironments/info';
 import { createPythonRuntimeMetadata } from './runtime';
 import {
     comparePythonVersionDescending,
+    getEnvironmentTypeRank,
     isProblematicCondaEnvironment,
 } from '../interpreter/configuration/environmentTypeComparer';
 import { shouldIncludeInterpreter } from './interpreterSettings';
@@ -145,8 +146,14 @@ function filterInterpreters(interpreters: PythonEnvironment[]): PythonEnvironmen
     });
 }
 
-// Returns a sorted copy of the array of Python environments, in descending order
-function sortInterpreters(
+/**
+ * Returns a sorted copy of the array of Python environments: the preferred interpreter first,
+ * then by environment type, then by descending Python version.
+ *
+ * This is the yield order only. It does not decide the picker's heading order -- runtimes are also
+ * registered one at a time as discovery finds them, so the picker sorts by `runtimeSourceOrder`.
+ */
+export function sortInterpreters(
     interpreters: PythonEnvironment[],
     preferredInterpreter: PythonEnvironment | undefined,
 ): PythonEnvironment[] {
@@ -156,6 +163,12 @@ function sortInterpreters(
         if (preferredInterpreter) {
             if (preferredInterpreter.id === a.id) return -1;
             if (preferredInterpreter.id === b.id) return 1;
+        }
+
+        // Compare environment types, most to least useful
+        const envTypeComparison = getEnvironmentTypeRank(a.envType) - getEnvironmentTypeRank(b.envType);
+        if (envTypeComparison !== 0) {
+            return envTypeComparison;
         }
 
         // Compare versions in descending order

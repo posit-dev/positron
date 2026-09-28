@@ -66,8 +66,14 @@ export const RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT = 1;
  * written by older builds may still carry a `~`-shortened `runtimePath` and
  * no `runtimeDisplayPath`; bumping the version forces those entries to be
  * discarded and rediscovered rather than replayed as-is.
+ *
+ * v4: entries carry `runtimeSourceOrder`, and earlier builds wrote it on a
+ * different numeric scale. The picker compares those numbers across entries,
+ * so a replayed entry from an older scale sorts against a freshly discovered
+ * one and both orderings are wrong. Changing an extension's rank values means
+ * bumping this version.
  */
-export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 3;
+export const RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION = 4;
 
 /**
  * Storage key under which all cache state is persisted. Embeds the schema

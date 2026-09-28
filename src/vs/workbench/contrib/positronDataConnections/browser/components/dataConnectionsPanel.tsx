@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { NewDataConnectionFlow } from '../dialogs/newDataConnectionFlow.js';
 import { PositronTree } from '../../../../browser/positronTree/positronTree.js';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { DataConnectionsTreeInstance } from '../classes/dataConnectionsTreeInstance.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
@@ -28,21 +29,37 @@ const kPaddingLeft = 8;
 const kPaddingRight = 8;
 
 /**
+ * DataConnectionsPanelProps interface.
+ */
+interface DataConnectionsPanelProps {
+	// The container hosting this component, whose onFocused event says when the view has taken
+	// focus and the tree should have it.
+	readonly reactComponentContainer: IReactComponentContainer;
+}
+
+/**
  * DataConnectionsPanel component. Hosts the data connections tree -- active instances are
  * shown first (expandable to schemas / tables via the connection's handle), then persisted
  * profiles (leaves; "connect to use" runs through each profile's actions menu).
  */
-export const DataConnectionsPanel = () => {
+export const DataConnectionsPanel = (props: DataConnectionsPanelProps) => {
 	// Context.
-	const { configurationService, positronDataConnectionsService } = usePositronReactServicesContext();
+	const { configurationService, hoverService, notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 
 	// Tree instance. Constructed once per mount; the instance subscribes to the service's
 	// onDidChangeInstances / onDidChangeProfiles internally and pushes new roots itself, so
 	// no React effect is needed to keep it in sync.
-	const [treeInstance] = useState(() => new DataConnectionsTreeInstance(positronDataConnectionsService, configurationService));
+	const [treeInstance] = useState(() => new DataConnectionsTreeInstance(positronDataConnectionsService, configurationService, notificationService, hoverService));
 
 	// Dispose the tree instance on unmount.
 	useEffect(() => () => treeInstance.dispose(), [treeInstance]);
+
+	// Hand the view's focus to the tree. Focusing a view means focusing what is in it: left on the
+	// view itself, focus draws a rectangle around the whole panel and the arrow keys do nothing.
+	useEffect(() => {
+		const disposable = props.reactComponentContainer.onFocused(() => treeInstance.requestFocus());
+		return () => disposable.dispose();
+	}, [props.reactComponentContainer, treeInstance]);
 
 	// Left action bar actions.
 	const leftActions: DynamicActionBarAction[] = [];

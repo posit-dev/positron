@@ -86,6 +86,20 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	private _initialLoadComplete = false;
 
+	/**
+	 * Whether the layout entries have been applied, which is what tells the panel it knows how many
+	 * rows it has -- one per column of the table -- and so has something it can lay out.
+	 */
+	private _layoutEntriesApplied = false;
+
+	/**
+	 * Whether the initial load failed. The panel still has no layout entries, but going on waiting
+	 * for entries that are not coming would leave a progress indicator turning forever -- and would
+	 * keep the action bar, and with it search and sort, out of the panel. So it paints what it has
+	 * instead. Cleared when becoming visible retries the load.
+	 */
+	private _initialLoadFailed = false;
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -209,6 +223,16 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	get rows() {
 		return this._tableSummaryCache.columns;
+	}
+
+	/**
+	 * Gets a value which indicates whether the panel does not yet know enough to lay itself out
+	 * correctly. It has one row per column of the table, so it can't lay out until it knows how many
+	 * columns there are -- which on a slow backend means waiting on the table's shape, or on the
+	 * search that stands in for it while a search or a sort is applied.
+	 */
+	override get loading() {
+		return !this._layoutEntriesApplied && !this._initialLoadFailed;
 	}
 
 	/**
@@ -468,6 +492,55 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets a value which indicates whether the backend failed to deliver column profiles, so no
+	 * column will get a summary until the user retries or the source comes back.
+	 */
+	get columnProfilesFailed() {
+		return this._tableSummaryCache.columnProfilesFailed;
+	}
+
+	/**
+	 * Gets why the backend failed to deliver column profiles, or undefined if it hasn't.
+	 */
+	get columnProfilesFailure() {
+		return this._tableSummaryCache.columnProfilesFailure;
+	}
+
+	/**
+	 * Gets a value which indicates whether the failure left some columns summarized and others not.
+	 */
+	get columnProfilesPartial() {
+		return this._tableSummaryCache.columnProfilesPartial;
+	}
+
+	/**
+	 * Gets a value which indicates whether a retry of the column profiles is running.
+	 */
+	get columnProfilesRetrying() {
+		return this._tableSummaryCache.columnProfilesRetrying;
+	}
+
+	/**
+	 * Retries the column profiles for the columns currently in view after a failure.
+	 */
+	async retryColumnProfiles(): Promise<void> {
+		await this._tableSummaryCache.retryColumnProfiles(
+			this._rowLayoutManager.getLayoutIndexes(
+				this.verticalScrollOffset,
+				this.layoutHeight,
+				OVERSCAN_FACTOR
+			)
+		);
+
+		// Catch up on what moved while the retry ran. Scrolling and resizing hold off their own
+		// profile pass for the length of a retry rather than cancelling it, so the columns the
+		// user landed on are asked about here instead -- from where the panel is now, not where it
+		// was when they pressed the button. Costs nothing if it didn't move, and asks for nothing
+		// if the retry failed, since a failed panel holds off passes of its own accord.
+		await this.fetchData(false);
+	}
+
+	/**
 	 * Gets the column profile null percent for the specified column index.
 	 * @param columnIndex The column index.
 	 * @returns The column profile null percent for the specified column index
@@ -617,10 +690,24 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Initial load: first time becoming visible, no data loaded yet.
 		if (!this._initialLoadComplete) {
 			this._initialLoadComplete = true;
+			this._initialLoadFailed = false;
 			this._pendingSchemaUpdate = false;
 			this._pendingDataUpdate = false;
-			await this.updateLayoutEntries();
-			await this.fetchData(true);
+			try {
+				await this.updateLayoutEntries();
+				await this.fetchData(true);
+			} catch (error) {
+				// The load didn't finish, so let becoming visible again retry it. Nothing else
+				// would ask for the panel's rows -- the caller only logs what comes out of here.
+				this._initialLoadComplete = false;
+
+				// Stop waiting on a load that isn't coming back, and repaint so the panel comes
+				// out from behind the progress indicator with its action bar.
+				this._initialLoadFailed = true;
+				this.fireOnDidUpdateEvent();
+
+				throw error;
+			}
 			return;
 		}
 
@@ -705,6 +792,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._rowLayoutManager.setEntries(combinedEntries.length, undefined, combinedEntries);
 		}
 
+		// The panel now knows how many rows it has, which is everything it needs to lay itself out.
+		// Until this point it has nothing it can paint, so it shows a progress indicator instead.
+		const layoutEntriesWereApplied = this._layoutEntriesApplied;
+		this._layoutEntriesApplied = true;
+
 		// Ensures the user is not scrolled off the screen
 		// For example: this can happen if the user is scrolled to the end of the table,
 		// adds a search filter, which results in a single entry. We need to reset the
@@ -713,6 +805,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._verticalScrollOffset = 0;
 		} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
 			this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+		}
+
+		// Announce coming out of the progress indicator ourselves rather than leaving it to the
+		// cache update that normally follows: a table with no columns has no rows to fetch, so
+		// fetchData returns without touching the cache and the indicator would turn forever.
+		if (!layoutEntriesWereApplied) {
+			this.fireOnDidUpdateEvent();
 		}
 	}
 

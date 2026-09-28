@@ -21,9 +21,7 @@ test.describe('Sessions: Rename', {
 		await hotKeys.closeSecondarySidebar();
 	});
 
-	test('Validate can rename sessions and name persists', {
-		tag: process.platform === 'win32' ? [tags.SOFT_FAIL] : [] //only soft fail on windows since this is marked as critical and only flakey on windows.
-	}, async function ({ sessions, hotKeys }) {
+	test('Validate can rename sessions and name persists', async function ({ sessions, hotKeys }) {
 		const [pySession, pySessionAlt, rSession, rSessionAlt] = await sessions.start(['python', 'pythonAlt', 'r', 'rAlt']);
 
 		// Rename sessions

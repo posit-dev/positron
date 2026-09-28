@@ -32,6 +32,15 @@ nobody meanwhile. Full evidence in
 `test-e2e-rocky.yml` still pins `positron-rocky8:24.15.0`; repointing it is a
 separate PR.
 
+**Superseded (2026-09): the init-script machinery this plan built is gone.**
+`install-workbench.sh` now runs rserver and the launcher under supervisord on
+every OS (see the README's "Workbench runs under supervisord"), so the SysV
+script copying, the `initscripts` / `sysvinit-tools` installs, the direct
+`nohup setsid` launcher start and the signal-and-escalate restart described
+below are history. The EL9 findings are kept because they explain *why* the
+packaged scripts cannot be used in a container, not because any of it still
+runs.
+
 ## Target: Rocky 9, not Rocky 8
 
 We already have `docker/images/rocky_8/` (published as

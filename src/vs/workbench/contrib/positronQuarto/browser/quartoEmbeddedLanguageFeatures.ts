@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { onUnexpectedExternalError } from '../../../../base/common/errors.js';
+import { toErrorMessage } from '../../../../base/common/errorMessage.js';
+import { isCancellationError, onUnexpectedExternalError } from '../../../../base/common/errors.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { assertType } from '../../../../base/common/types.js';
 import { Constants } from '../../../../base/common/uint.js';
@@ -29,6 +30,7 @@ import {
 	IStatementRange,
 	Location,
 	LocationLink,
+	ProviderResult,
 	SignatureHelpContext,
 	SignatureHelpProvider,
 	SignatureHelpResult,
@@ -235,6 +237,12 @@ export abstract class QuartoEmbeddedProvider {
 	) { }
 
 	/**
+	 * The rejections already warned about, so a provider that is failing on
+	 * every request does not fill the log with the same line.
+	 */
+	private readonly _reportedRejections = new Set<string>();
+
+	/**
 	 * Record that a request was answered from a cell rather than by the Quarto
 	 * extension's virtual documents.
 	 *
@@ -319,6 +327,40 @@ export abstract class QuartoEmbeddedProvider {
 	}
 
 	/**
+	 * Ask one downstream provider, treating a rejection as "no answer".
+	 *
+	 * More than one client can be registered on a cell, and one of them may never
+	 * have synced the document: Ark answers "Can't find document" for those. A
+	 * rejection that escaped this would end the whole request, leaving the
+	 * provider behind it, which does hold the document, unasked.
+	 *
+	 * Cancellation is the caller giving up on the whole request rather than one
+	 * provider failing its part, so it still propagates.
+	 */
+	protected async _ask<T>(feature: string, request: () => ProviderResult<T>): Promise<T | undefined> {
+		try {
+			const result = await request();
+			return result ?? undefined;
+		} catch (error) {
+			if (isCancellationError(error)) {
+				throw error;
+			}
+			// A provider that rejects once usually rejects every time, which for
+			// completion is once per keystroke. Repeats go to trace instead.
+			const key = `${feature}:${toErrorMessage(error)}`;
+			if (this._reportedRejections.has(key)) {
+				if (this._tracing) {
+					this._logService.trace(`[QuartoEmbedded] a ${feature} provider rejected again`, error);
+				}
+			} else {
+				this._reportedRejections.add(key);
+				this._logService.warn(`[QuartoEmbedded] a ${feature} provider rejected; asking the next one`, error);
+			}
+			return undefined;
+		}
+	}
+
+	/**
 	 * The characters the servers behind the open cells want to be woken for.
 	 *
 	 * The suggest widget reads trigger characters from the providers registered
@@ -389,7 +431,8 @@ class QuartoEmbeddedCompletionProvider extends QuartoEmbeddedProvider implements
 		this._traceForwarded('completion', span, downstream);
 
 		for (const provider of downstream) {
-			const result = await provider.provideCompletionItems(textModel, cellPosition, context, token);
+			const result = await this._ask('completion',
+				() => provider.provideCompletionItems(textModel, cellPosition, context, token));
 			if (!result) {
 				continue;
 			}
@@ -449,7 +492,8 @@ class QuartoEmbeddedHoverProvider extends QuartoEmbeddedProvider implements Hove
 		this._traceForwarded('hover', span, downstream);
 
 		for (const provider of downstream) {
-			const result = await provider.provideHover(textModel, cellPosition, token);
+			const result = await this._ask('hover',
+				() => provider.provideHover(textModel, cellPosition, token));
 			if (result) {
 				return result.range ? { ...result, range: cellRangeToSource(span, result.range) } : result;
 			}
@@ -503,7 +547,8 @@ class QuartoEmbeddedSignatureHelpProvider extends QuartoEmbeddedProvider impleme
 		const { textModel, position: cellPosition } = resolved;
 
 		for (const provider of this._downstream(this._languageFeatures.signatureHelpProvider, textModel)) {
-			const result = await provider.provideSignatureHelp(textModel, cellPosition, token, context);
+			const result = await this._ask('signature help',
+				() => provider.provideSignatureHelp(textModel, cellPosition, token, context));
 			if (result) {
 				return result;
 			}
@@ -531,7 +576,8 @@ class QuartoEmbeddedDefinitionProvider extends QuartoEmbeddedProvider implements
 		this._traceForwarded('definition', span, downstream);
 
 		for (const provider of downstream) {
-			const result = await provider.provideDefinition(textModel, cellPosition, token);
+			const result = await this._ask('definition',
+				() => provider.provideDefinition(textModel, cellPosition, token));
 			if (!result) {
 				continue;
 			}
@@ -693,7 +739,8 @@ class QuartoEmbeddedStatementRangeProvider extends QuartoEmbeddedProvider implem
 		this._traceForwarded('statement range', span, downstream);
 
 		for (const provider of downstream) {
-			const result = await provider.provideStatementRange(textModel, cellPosition, token);
+			const result = await this._ask('statement range',
+				() => provider.provideStatementRange(textModel, cellPosition, token));
 			if (result) {
 				return mapStatementRange(span, result);
 			}
@@ -722,7 +769,8 @@ class QuartoEmbeddedHelpTopicProvider extends QuartoEmbeddedProvider implements 
 		this._traceForwarded('help topic', span, downstream);
 
 		for (const provider of downstream) {
-			const result = await provider.provideHelpTopic(textModel, cellPosition, token);
+			const result = await this._ask('help topic',
+				() => provider.provideHelpTopic(textModel, cellPosition, token));
 			// An empty topic is not a topic. Returning it opens Help on nothing
 			// rather than letting the next provider answer.
 			if (result) {

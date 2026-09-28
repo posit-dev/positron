@@ -1,0 +1,87 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * Sits in the summary column's notice row, between the action bar and the column list, and keeps
+ * that bar's height so the two read as one stack of chrome above the columns. The row itself, and
+ * this notice's placement into it, are in dataExplorer.css with the rest of that grid.
+ *
+ * Keeps the panel's own background rather than a warning fill: nothing is broken and nothing is
+ * waiting on the user, so this reports at the weight of a caption, not an alert. It also clips:
+ * the column it lives in is narrow and resizable, and a notice that spilled out of it would paint
+ * over the data grid alongside.
+ */
+.summary-profiles-notice {
+	z-index: 1;
+	height: 36px;
+	min-width: 0;
+	display: flex;
+	overflow: hidden;
+	padding: 0 10px;
+	position: relative;
+	align-items: center;
+	box-sizing: border-box;
+	background-color: var(--vscode-positronDataExplorer-background);
+	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
+}
+
+/*
+ * The three parts are spaced individually rather than by one gap on the row. The icon stands apart
+ * from the sentence, but Retry follows it at the width of a single space, so the line reads as one
+ * sentence with a link at the end of it rather than as two separate things.
+ */
+.summary-profiles-notice .codicon-warning,
+.summary-profiles-notice .codicon-loading {
+	flex: 0 0 auto;
+	font-size: 14px;
+	margin-right: 6px;
+}
+
+.summary-profiles-notice .codicon-warning {
+	color: var(--vscode-notificationsWarningIcon-foreground);
+}
+
+.summary-profiles-notice .codicon-loading {
+	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * As elsewhere in this panel: the part that repeats for as long as the wait lasts comes away, and
+ * the mark is left standing. The line beside it already says what is happening.
+ */
+@media (prefers-reduced-motion: reduce) {
+	.summary-profiles-notice .codicon-loading {
+		animation: none;
+	}
+}
+
+/*
+ * Wrapping stays allowed even though only one line is ever visible. Forbidding it would make the
+ * whole sentence the element's minimum width, which the column's intrinsic track would then have
+ * to honor -- the notice would set the panel's width instead of fitting inside it.
+ */
+.summary-profiles-notice .message {
+	min-width: 0;
+	overflow: hidden;
+	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * A link rather than a push button. The column list below is already a dense field of controls,
+ * and a filled button would outrank every one of them for an action the user is unlikely to need
+ * twice.
+ */
+.summary-profiles-notice .retry-button {
+	flex: 0 0 auto;
+	padding: 0 2px;
+	margin-left: 2px;
+	font-size: inherit;
+	text-decoration: underline;
+	color: var(--vscode-textLink-foreground);
+}
+
+.summary-profiles-notice .retry-button:hover {
+	color: var(--vscode-textLink-activeForeground);
+}

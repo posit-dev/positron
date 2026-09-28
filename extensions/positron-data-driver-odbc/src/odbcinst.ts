@@ -39,9 +39,6 @@ export interface OdbcDsnEntry {
 	/** The DSN name, which is what `DSN=` in a connection string refers to. */
 	readonly name: string;
 
-	/** The DSN's `Description`, when it declares one. */
-	readonly description?: string;
-
 	/** The name of the ODBC driver this DSN uses, from its `Driver` key. */
 	readonly driverName?: string;
 
@@ -58,10 +55,37 @@ export interface OdbcDsnEntry {
  */
 export type OdbcConfigScope = 'user' | 'system';
 
+/** Why a data source found in the configuration was not offered. */
+export type OdbcSkipReason = 'missing-library' | 'unregistered-driver';
+
+/**
+ * A data source that was found but left out, and why. Reported as data rather than logged, so
+ * this module stays a pure function over its host and the caller decides whether to say anything.
+ */
+export interface OdbcSkippedDsn {
+	/** The DSN name, as written in odbc.ini or in the registry. */
+	readonly name: string;
+
+	/** Which rule dropped it. */
+	readonly reason: OdbcSkipReason;
+
+	/**
+	 * The library path that does not exist ('missing-library'), or the driver name that nothing
+	 * is registered under ('unregistered-driver').
+	 */
+	readonly detail: string;
+}
+
 /** The discovered ODBC configuration. */
 export interface OdbcConfiguration {
 	readonly drivers: readonly OdbcDriverEntry[];
 	readonly dsns: readonly OdbcDsnEntry[];
+
+	/**
+	 * Data sources that were found but not offered, because their ODBC driver could not be
+	 * resolved. Reported so the log can explain a DSN that is missing from the pane.
+	 */
+	readonly skippedDsns: readonly OdbcSkippedDsn[];
 
 	/** The files and registry keys the configuration was read from, in order. For logging. */
 	readonly sources: readonly string[];
@@ -225,13 +249,34 @@ export function resolveUnixConfigPaths(host: IOdbcConfigHost): {
 /**
  * Reads the ODBC configuration for this machine.
  *
- * Entries whose driver library no longer exists are dropped: a driver uninstalled without its
- * odbcinst.ini entry being cleaned up is common, and offering it would produce a connection that
- * can only fail. DSNs are kept even when their driver is missing, so the pane can explain why one
- * it used to be able to reach no longer works.
+ * Entries whose driver library no longer exists are dropped, drivers and data sources alike: a
+ * driver uninstalled or moved without its ini entry being cleaned up is common, and offering
+ * either would produce a connection that can only fail. A data source is dropped on the same
+ * grounds when its `Driver` names nothing registered. What was dropped is reported in
+ * `skippedDsns` rather than logged here, so this stays a pure function over its host.
  */
 export function discoverOdbcConfiguration(host: IOdbcConfigHost): OdbcConfiguration {
 	return host.platform === 'win32' ? discoverWindows(host) : discoverUnix(host);
+}
+
+/**
+ * Whether two discoveries found the same drivers and data sources, and dropped the same ones.
+ *
+ * `sources` is left out on purpose. It lists every file that could be read, so an ini file that
+ * appears empty changes it without changing anything that can be connected to. unixODBC creates
+ * an empty `~/.odbc.ini` on the first connection attempt when there is none, and treating that as
+ * a change would re-register the drivers and break the connection that caused it.
+ *
+ * @param a One discovery.
+ * @param b The other.
+ * @returns True when re-registering the drivers for `b` would change nothing `a` registered.
+ */
+export function isSameConfiguration(a: OdbcConfiguration, b: OdbcConfiguration): boolean {
+	// Both sides are built by the same code in the same order, so a structural comparison of the
+	// serialized form is exact.
+	const connectable = (config: OdbcConfiguration) =>
+		JSON.stringify({ drivers: config.drivers, dsns: config.dsns, skippedDsns: config.skippedDsns });
+	return connectable(a) === connectable(b);
 }
 
 function discoverUnix(host: IOdbcConfigHost): OdbcConfiguration {
@@ -266,16 +311,19 @@ function discoverUnix(host: IOdbcConfigHost): OdbcConfiguration {
 	readInto(dsnSections, paths.systemDsns, 'system');
 	readInto(dsnSections, paths.userDsns, 'user');
 
+	// Whether any driver is registered, not whether a driver file was readable: unixODBC installs
+	// commonly ship an empty odbcinst.ini, or one holding only [ODBC], which says no more about the
+	// driver manager's real configuration than finding no file at all.
 	const drivers = buildDrivers(host, driverSections);
-	const dsns = buildDsns(dsnSections);
+	const { dsns, skipped } = buildDsns(host, dsnSections, driverSections, driverSections.size > 0);
 
-	return { drivers, dsns, sources };
+	return { drivers, dsns, skippedDsns: skipped, sources };
 }
 
 function discoverWindows(host: IOdbcConfigHost): OdbcConfiguration {
 	const registry = host.readRegistry();
 	if (registry === undefined) {
-		return { drivers: [], dsns: [], sources: [] };
+		return { drivers: [], dsns: [], skippedDsns: [], sources: [] };
 	}
 
 	const driverSections = new Map<string, { section: Record<string, string>; scope: OdbcConfigScope }>();
@@ -299,9 +347,14 @@ function discoverWindows(host: IOdbcConfigHost): OdbcConfiguration {
 		}
 	}
 
+	// A registry read that found no drivers at all is the Windows equivalent of reading no
+	// odbcinst.ini, so an unrecognized driver name is not held against the DSN.
+	const { dsns, skipped } = buildDsns(host, dsnSections, driverSections, driverSections.size > 0);
+
 	return {
 		drivers: buildDrivers(host, driverSections),
-		dsns: buildDsns(dsnSections),
+		dsns,
+		skippedDsns: skipped,
 		sources: ['HKLM\\SOFTWARE\\ODBC\\ODBCINST.INI', 'HKLM\\SOFTWARE\\ODBC\\ODBC.INI', 'HKCU\\SOFTWARE\\ODBC\\ODBC.INI'],
 	};
 }
@@ -339,20 +392,142 @@ function buildDrivers(
 	return drivers.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * Whether a DSN's `Driver` value names a library file rather than an odbcinst.ini section.
+ *
+ * Only an absolute path counts. unixODBC treats any other DSN `Driver` value as a driver name, a
+ * bare `libmyodbc.so` included, so that is how findDsnDriverProblem looks it up.
+ *
+ * Both separators are checked whatever platform this runs on, because a Windows registry snapshot
+ * is parsed on the developer's machine and in CI as readily as on Windows.
+ */
+export function isLibraryPath(value: string): boolean {
+	return path.posix.isAbsolute(value) || path.win32.isAbsolute(value);
+}
+
+/**
+ * Whether a bare (non-absolute) value looks like a shared-library filename rather than an ODBC
+ * driver name, judging by extension alone. An odbcinst.ini section is essentially never named
+ * "something.so", so the extension is enough to tell them apart.
+ *
+ * unixODBC hands a library value to dlopen(), which resolves a bare filename against the dynamic
+ * linker's own search path (LD_LIBRARY_PATH, ld.so.cache). This module has no way to reproduce that
+ * search, so whether such a library exists cannot be checked here.
+ *
+ * A `.so` may carry a version suffix (`libodbcpsql.so.2`), the usual Linux soname convention, so
+ * that is matched too.
+ */
+export function looksLikeLibraryFilename(value: string): boolean {
+	return /\.(so(\.\d+)*|dylib|dll)$/i.test(value);
+}
+
+/**
+ * Looks a driver section up by name, case-insensitively, as ODBC compares driver names.
+ *
+ * driverSections is keyed on the section name exactly as written, so a user file re-registering a
+ * driver under different casing than the system file (e.g. "postgresql unicode" over "PostgreSQL
+ * Unicode") does not overwrite the system entry's Map key the way a same-case override would --
+ * both survive as separate entries, with the system one inserted first. A plain first-match scan
+ * would therefore return the stale system entry every time, silently defeating the override. A
+ * user-scope match is preferred whenever one exists, to honor the same shadowing every other
+ * precedence check in this module gives it -- see OdbcConfigScope.
+ */
+function findDriverSection(
+	driverSections: Map<string, { section: Record<string, string>; scope: OdbcConfigScope }>,
+	name: string
+): Record<string, string> | undefined {
+	const wanted = name.toLowerCase();
+	let systemMatch: Record<string, string> | undefined;
+	for (const [candidate, { section, scope }] of driverSections) {
+		if (candidate.toLowerCase() !== wanted) {
+			continue;
+		}
+		if (scope === 'user') {
+			return section;
+		}
+		systemMatch ??= section;
+	}
+	return systemMatch;
+}
+
+/**
+ * Decides whether a DSN can reach an ODBC driver at all, returning the reason it cannot when it
+ * cannot. This is the DSN-side counterpart of the library check buildDrivers applies to drivers.
+ *
+ * The bias throughout is toward keeping the DSN. This decides whether a row disappears from the
+ * pane, and a data source wrongly hidden is a worse failure than a visible one that errors when
+ * the user opens it.
+ *
+ * @param host The config host, for the library existence check.
+ * @param dsn The DSN's attributes, keys already lowercased.
+ * @param driverSections Every odbcinst.ini section, before buildDrivers dropped any, so a DSN
+ * naming an uninstalled driver is reported as the missing library rather than as an unknown name.
+ * @param sawDriverConfig Whether any driver is registered in what was read. When none is, an
+ * unrecognized name says more about our search path than about the DSN: see SYSTEM_CONFIG_DIRS on
+ * why unixODBC's SYSCONFDIR can sit outside it.
+ * @returns The reason to drop the DSN, or undefined to keep it.
+ */
+function findDsnDriverProblem(
+	host: IOdbcConfigHost,
+	dsn: Record<string, string>,
+	driverSections: Map<string, { section: Record<string, string>; scope: OdbcConfigScope }>,
+	sawDriverConfig: boolean
+): { reason: OdbcSkipReason; detail: string } | undefined {
+	const declared = dsn['driver']?.trim();
+	if (declared === undefined || declared.length === 0) {
+		// Nothing declared, so nothing to rule out. The driver manager may still resolve this
+		// through a default; that is its business.
+		return undefined;
+	}
+
+	if (isLibraryPath(declared)) {
+		return host.exists(declared) ? undefined : { reason: 'missing-library', detail: declared };
+	}
+
+	const section = findDriverSection(driverSections, declared);
+	if (section === undefined) {
+		return sawDriverConfig ? { reason: 'unregistered-driver', detail: declared } : undefined;
+	}
+
+	// Only an absolute path can be existence-checked. A registered driver naming its own library by
+	// a bare filename is trusted, since unixODBC does load that one, through the dynamic linker's
+	// search path (see looksLikeLibraryFilename).
+	const libraryPath = section['driver'];
+	if (libraryPath !== undefined && isLibraryPath(libraryPath) && !host.exists(libraryPath)) {
+		return { reason: 'missing-library', detail: libraryPath };
+	}
+
+	return undefined;
+}
+
 function buildDsns(
-	sections: Map<string, { section: Record<string, string>; scope: OdbcConfigScope }>
-): OdbcDsnEntry[] {
+	host: IOdbcConfigHost,
+	sections: Map<string, { section: Record<string, string>; scope: OdbcConfigScope }>,
+	driverSections: Map<string, { section: Record<string, string>; scope: OdbcConfigScope }>,
+	sawDriverConfig: boolean
+): { dsns: OdbcDsnEntry[]; skipped: OdbcSkippedDsn[] } {
 	const dsns: OdbcDsnEntry[] = [];
+	const skipped: OdbcSkippedDsn[] = [];
+
 	for (const [name, { section, scope }] of sections) {
+		const problem = findDsnDriverProblem(host, section, driverSections, sawDriverConfig);
+		if (problem !== undefined) {
+			skipped.push({ name, reason: problem.reason, detail: problem.detail });
+			continue;
+		}
+
 		dsns.push({
 			name,
-			description: section['description'],
 			driverName: section['driver'],
 			scope,
 			attributes: section,
 		});
 	}
-	return dsns.sort((a, b) => a.name.localeCompare(b.name));
+
+	return {
+		dsns: dsns.sort((a, b) => a.name.localeCompare(b.name)),
+		skipped: skipped.sort((a, b) => a.name.localeCompare(b.name)),
+	};
 }
 
 // --- Summaries ---
@@ -360,8 +535,11 @@ function buildDsns(
 /**
  * Builds a one-line summary of where a DSN points, for the pane to show beneath its name (e.g.
  * "localhost:5432/pagila"). DSN attribute names are not standardized across ODBC drivers, so each
- * field is looked up under the several spellings drivers actually use. Returns undefined when the
- * DSN declares nothing recognizable.
+ * field is looked up under the several spellings drivers actually use.
+ *
+ * Returns undefined when the DSN declares no endpoint at all. The DSN's own Description is not
+ * used as a fallback: the summary answers where the data source points, and a description does
+ * not. The caller says so explicitly instead.
  */
 export function summarizeDsn(dsn: OdbcDsnEntry): string | undefined {
 	const attribute = (...keys: string[]): string | undefined => {
@@ -385,5 +563,5 @@ export function summarizeDsn(dsn: OdbcDsnEntry): string | undefined {
 	if (endpoint !== undefined && database !== undefined) {
 		return `${endpoint}/${database}`;
 	}
-	return endpoint ?? database ?? dsn.description;
+	return endpoint ?? database;
 }

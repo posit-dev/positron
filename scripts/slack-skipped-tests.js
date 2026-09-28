@@ -11,10 +11,6 @@ const slackSkippedTests = (slackWebhookUrl) => {
 			'grep -r --include \\*.test.ts -E "describe\\.skip|test\\.skip" test/e2e/tests | sed \'s/\\.test\\.ts.*$/.test.ts/\' || true'
 		).toString().trim();
 
-		const softFailedTests = execSync(
-			'grep -r --include \\*.test.ts -E "tags\\.SOFT_FAIL" test/e2e/tests | sed \'s/\\.test\\.ts.*$/.test.ts/\' || true'
-		).toString().trim();
-
 		const slackMessage = {
 			attachments: [
 				{
@@ -23,20 +19,12 @@ const slackSkippedTests = (slackWebhookUrl) => {
 					pretext: ':skipping: *Skipped Tests*',
 					text: skippedTests === '' ? 'There are no skipped tests. :tada:' : skippedTests,
 				},
-				{
-					mrkdwn_in: ['text'],
-					color: softFailedTests === '' ? '#CCCCCC' : 'warning',
-					pretext: ':wrenchin: *Soft-Failed Tests*',
-					text: softFailedTests === '' ? 'There are no soft-failed tests. :tada:' : softFailedTests,
-				},
 			],
 		};
 
-		console.log('\nskipped tests:')
+		console.log('\nskipped tests:');
 		console.log(skippedTests);
-		console.log('\nsoft failed tests:')
-		console.log(softFailedTests);
-		console.log('')
+		console.log('');
 
 		// if no webhook URL is provided, just print the message and exit (most likely a dry run)
 		if (!slackWebhookUrl) {

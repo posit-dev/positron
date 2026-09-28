@@ -140,13 +140,15 @@ runs:
           chown -R rstudio-server:rstudio-server /usr/lib/rstudio-server/bin/positron-server/new
         "
 
-        # Restart so rserver picks up our build, then confirm Workbench is still
-        # serving. The init script's exit status is not a reliable signal on
-        # either rpm OS: EL9's status check uses `pidof -c` and SUSE's uses
-        # `checkproc`, and neither sees rserver inside a container -- so a
-        # restart that worked can still print "failed", and on SUSE exit
-        # non-zero, which would fail this step for no reason. Ask :8787 instead,
-        # which is the thing the tests actually depend on.
+        # Restart rserver so it picks up our build, then confirm Workbench is
+        # still serving. The installer runs Workbench under supervisord (see
+        # install-workbench.sh), and its config is at /etc/supervisord.conf,
+        # first in supervisorctl's default search path, so no -c is needed.
+        # `supervisorctl restart` returns once the new process has stayed up for
+        # its startsecs, which is before rserver accepts connections -- so ask
+        # :8787, which is the thing the tests actually depend on. Only rserver
+        # is restarted: the launcher does not need the new build, and restarting
+        # it would also kill every session.
         #
         # On failure, dump state rather than just the verdict. A bare ":8787 never
         # answered" is close to undiagnosable after the fact, and the container is
@@ -155,20 +157,24 @@ runs:
         # no rserver behind it, connection-refused means nothing is listening at
         # all, and those point at different bugs.
         docker exec test /bin/bash -c '
-          sudo rstudio-server restart || true
+          sudo supervisorctl restart rstudio-server || true
           for i in $(seq 1 60); do
             curl -sf -o /dev/null http://localhost:8787 && exit 0
             sleep 1
           done
           echo "Workbench is not serving on :8787 after the build swap" >&2
+          echo "--- supervisorctl status ---"
+          sudo supervisorctl status 2>&1 || true
           echo "--- curl (code 000 = nothing listening) ---"
           curl -s -o /dev/null -w "http_code=%{http_code}\n" --max-time 5 http://localhost:8787 || true
           echo "--- listeners on :8787 ---"
           (ss -lntp 2>/dev/null || netstat -lntp 2>/dev/null) | grep 8787 || echo "(none)"
           echo "--- rserver processes ---"
-          ps -eo pid,ppid,etime,comm | grep -E "rserver|rstudio" || echo "(none)"
+          ps -eo pid,ppid,etime,args | grep -E "rserver|rstudio|supervisord" | grep -v grep || echo "(none)"
           echo "--- launcher socket ---"
           ls -la /var/run/rstudio-server/rserver-launcher.socket 2>&1 || true
+          echo "--- supervisor logs (tail) ---"
+          sudo tail -n 40 /var/log/supervisor/*.log 2>/dev/null || echo "(absent)"
           echo "--- rserver.log (tail) ---"
           sudo tail -n 60 /var/log/rstudio/rstudio-server/rserver.log 2>/dev/null || echo "(absent)"
           echo "--- rserver-http-error.log (tail) ---"

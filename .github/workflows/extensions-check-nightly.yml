@@ -62,6 +62,13 @@ jobs:
           POSITRON_R_ALT_VER_SEL: 4.4.2
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           EXTENSIONS_FAIL_ON_MISMATCH: true
+          # pyrefly is blocked from installing in every other e2e run because
+          # its language server is expensive. This check never opens a Python
+          # file or a notebook, so nothing activates it -- it only needs the
+          # extension on disk to compare versions. Allowing it here is what
+          # lets pyrefly be detected like any other bootstrap extension
+          # instead of being bumped unconditionally every night.
+          ALLOW_PYREFLY: 'true'
         run: |
           echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null"
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
@@ -191,11 +198,9 @@ jobs:
           if [ "$TEST_RESULT" = "failure" ] && [ -s mismatched-extensions.txt ]; then
             read -ra MISMATCHED <<< "$(cat mismatched-extensions.txt)"
           fi
-          # meta.pyrefly is optional in the test, so bump it every run to catch silent drift.
-          CANDIDATES=(meta.pyrefly "${MISMATCHED[@]}")
           EXTENSIONS_TO_BUMP=()
           HELD_BACK=()
-          for ext in "${CANDIDATES[@]}"; do
+          for ext in "${MISMATCHED[@]}"; do
             if [[ " $FLAGGED " == *" $ext "* ]]; then
               HELD_BACK+=("$ext")
             else

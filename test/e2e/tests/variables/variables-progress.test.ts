@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect, tags } from '../_test.setup';
+import { Console } from '../../pages/console.js';
 
 test.use({
 	suiteId: __filename
@@ -21,10 +22,10 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 
 		const session1 = await sessions.start('r');
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-		await app.workbench.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
-		await app.workbench.console.pasteCodeToConsole('Sys.sleep(20)', true);
-
 		const { variables, modals, console } = app.workbench;
+
+		await console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
+		await startLongComputation(console);
 
 		await expect(async () => {
 			expect(await variables.hasProgressBar()).toBe(false);
@@ -53,7 +54,7 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 
 		await sessions.select(session2.id);
 		await console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
-		await console.pasteCodeToConsole('Sys.sleep(20)', true);
+		await startLongComputation(console);
 
 		// Now click delete all variables an expect the progress bar to appear
 		await variables.clickDeleteAllVariables();
@@ -84,3 +85,19 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 
 	});
 });
+
+/**
+ * Start a long computation and wait until the kernel has actually begun
+ * running it. Pressing Enter returns before the execute request reaches the
+ * kernel, and the console's Interrupt button shows as soon as the code is
+ * submitted, so neither proves the kernel is busy. The clear request sent by
+ * Delete All Variables must queue behind the sleep: against an idle kernel it
+ * completes too fast for the progress bar to appear. The marker printed by
+ * `cat` is emitted by the kernel itself, so once it is visible the sleep is
+ * running. The marker is built from two strings so the echoed input line does
+ * not also match it.
+ */
+async function startLongComputation(console: Console) {
+	await console.pasteCodeToConsole('cat("started", "sleeping\\n"); Sys.sleep(20)', true);
+	await console.waitForConsoleContents('started sleeping');
+}

@@ -15,7 +15,7 @@ test.use({
 // to the installed python path
 
 test.describe('Reticulate', {
-	tag: [tags.RETICULATE, tags.WEB, tags.SOFT_FAIL],
+	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test('R - Verify Reticulate Restart', {
 		tag: [tags.RETICULATE, tags.CONSOLE]

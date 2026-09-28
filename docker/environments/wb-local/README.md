@@ -142,10 +142,28 @@ npm run pwb -- --os=opensuse15 --workbench=daily --positron=daily
 The OSes differ in more than the base image, and all of it is handled for you.
 Both rpm OSes install a `.rpm` instead of a `.deb` with `apt` -- Rocky from the
 feed's `rhel9` entries with `dnf`, openSUSE from its `opensuse15` entries with
-`zypper`. Each rpm's postinst installs systemd units, and these containers have
-no systemd, so the installer copies the SysV init scripts the package ships (from
-`extras/init.d/<family>/`) into `/etc/init.d/` and starts the session launcher
-directly -- the launcher script Posit ships is unusable on EL9.
+`zypper`.
+
+### Workbench runs under supervisord
+
+On every OS the installer runs rserver and the session launcher under
+supervisord (from Ubuntu universe, EPEL on Rocky, and the main openSUSE repo),
+the same way Posit's own Workbench container images run them. These containers
+have no systemd, and the SysV init scripts the packages ship cannot see their
+own processes inside a container: `stop` was a silent no-op and `restart`
+produced a second rserver wedged on "Address already in use". supervisord
+tracks its children by pid, so the usual verbs mean what they say, and a
+crashed rserver restarts on its own. The config is at `/etc/supervisord.conf`,
+which `supervisorctl` finds without `-c`:
+
+```bash
+docker exec test sudo supervisorctl status
+docker exec test sudo supervisorctl restart rstudio-server   # what the CI action and the enforced-settings test do
+docker exec test sudo supervisorctl start all                # what `npm run pwb` does after a container stop/start
+```
+
+Restarting `rstudio-launcher` also ends every running session, so restart
+`rstudio-server` alone unless the launcher is what you are testing.
 
 ### openSUSE runs emulated on Apple Silicon
 
