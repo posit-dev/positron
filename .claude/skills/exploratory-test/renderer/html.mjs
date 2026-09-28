@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
+import { CHECKS_FILE, summarizeChecks } from './stats.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
 
@@ -1081,6 +1082,49 @@ function runFiles(report, options) {
 	return parts;
 }
 
+/**
+ * How much format fixing the explorer did before its report linted clean, from
+ * the checks it recorded: rounds, and the rules its first check found broken.
+ * The rules say what the skill's prose did not get across.
+ */
+function renderFormatChecks(options) {
+	const text = options.readFile?.(CHECKS_FILE);
+	const checks = summarizeChecks(text ? String(text) : '');
+	if (!checks) {
+		return '';
+	}
+	const times = checks.rounds === 1 ? 'once' : `${checks.rounds} times`;
+	const found = checks.first.problems;
+	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+	const sentence = found === 0
+		? `The explorer ran the report's format check ${times}. The first time, it found no problems.`
+		: `The explorer ran the report's format check ${times}. The first time, it found ${plural(found, 'problem')}:`;
+	const raw = options.fileExists?.('stats.json') ? '<div class="format-raw"><a href="stats.json">Raw stats</a></div>' : '';
+	// Compared rule by rule with the last check: fixed, not fixed, or both with
+	// counts when only some were. A rule that broke after the first check is
+	// listed too. The ones not fixed lead, so they stand out.
+	const first = checks.first.rules;
+	const last = checks.lastRules ?? {};
+	const rows = [...new Set([...Object.keys(first), ...Object.keys(last)])].map(rule => {
+		const before = first[rule] ?? 0;
+		const after = last[rule] ?? 0;
+		const shown = before || after;
+		const fixed = before - Math.min(before, after);
+		const tags = after === 0
+			? ['<span class="fixed">fixed</span>']
+			: [...(fixed ? [`<span class="fixed">${fixed} fixed</span>`] : []), `<span class="not-fixed">${fixed ? `${after} not fixed` : 'not fixed'}</span>`];
+		return { rule, shown, after, tags: tags.join(' ') };
+	}).sort((a, b) => (b.after > 0) - (a.after > 0) || b.shown - a.shown);
+	const list = rows.length
+		? `<ul class="format-rules">${rows.map(r => `<li><span class="num">${r.shown}&times;</span> ${escapeHtml(r.rule)} ${r.tags}</li>`).join('')}</ul>`
+		: '';
+	return '<div class="fold-part"><div class="fold-label">Format checks</div>'
+		+ `<div class="format-checks">${escapeHtml(sentence)}</div>`
+		+ list
+		+ raw
+		+ '</div>';
+}
+
 function renderFolds(report, options = {}) {
 	const folds = [];
 	// Files sit after what the run did and before how the build was proved.
@@ -1088,10 +1132,11 @@ function renderFolds(report, options = {}) {
 	const at = written.findIndex(s => /^branch verification$/i.test(s.title));
 	const files = runFiles(report, options);
 	const details = at === -1 ? [...written, ...files] : [...written.slice(0, at), ...files, ...written.slice(at)];
-	if (details.length || hasCost(report)) {
-		const titles = [...(hasCost(report) ? ['Agents'] : []), ...details.map(s => s.title)];
+	const formatChecks = renderFormatChecks(options);
+	if (details.length || hasCost(report) || formatChecks) {
+		const titles = [...(hasCost(report) ? ['Agents'] : []), ...(formatChecks ? ['Format checks'] : []), ...details.map(s => s.title)];
 		const hint = titles.map((t, i) => (i === 0 ? t : t.toLowerCase())).join(', ');
-		const body = renderAgents(report) + details
+		const body = renderAgents(report) + formatChecks + details
 			.map(s => `<div class="fold-part"><div class="fold-label">${escapeHtml(s.title)}</div>${s.html}</div>`)
 			.join('');
 		folds.push(`<details id="run-details">

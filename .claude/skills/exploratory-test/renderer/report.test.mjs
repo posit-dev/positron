@@ -1698,6 +1698,67 @@ test('logs: render.mjs fails the run when a listed log was not copied', () => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
+test('Run details shows the explorer\'s format checks, with the rules it did not fix marked', () => {
+	const page = checks => renderReportHtml(LOGS_REPORT, {
+		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(checks.map(c => JSON.stringify(c)).join('\n')) : null),
+		fileExists: p => p === 'stats.json',
+	});
+	const blank = 'report: leave a blank line after </summary>';
+	const repro = 'report: finding # Reproduction must be N/M, got "…"';
+	const shot = 'ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own';
+
+	// Of three: the blank line fixed, one of two Reproductions left, and a
+	// screenshot rule that broke after the first check.
+	const html = page([
+		{ problems: 3, rules: { [blank]: 1, [repro]: 2 } },
+		{ problems: 2, rules: { [repro]: 1, [shot]: 1 } },
+	]);
+	assert.match(html, /<div class="format-checks">The explorer ran the report's format check 2 times\. The first time, it found 3 problems:<\/div><ul class="format-rules">/);
+	assert.match(html, /<\/ul><div class="format-raw"><a href="stats.json">Raw stats<\/a><\/div>/);
+	// Not fixed first, escaped, then the fixed one; a partial fix shows both counts.
+	assert.match(html, new RegExp([
+		'<ul class="format-rules">',
+		'<li><span class="num">2&times;</span> report: finding # Reproduction must be N/M, got &quot;…&quot; <span class="fixed">1 fixed</span> <span class="not-fixed">1 not fixed</span></li>',
+		'<li><span class="num">1&times;</span> ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own <span class="not-fixed">not fixed</span></li>',
+		'<li><span class="num">1&times;</span> report: leave a blank line after &lt;/summary&gt; <span class="fixed">fixed</span></li>',
+		'</ul>',
+	].join('').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+	// All fixed: every rule marked fixed, none not fixed.
+	const clean = page([{ problems: 2, rules: { [blank]: 2 } }, { problems: 0, rules: {} }]);
+	assert.match(clean, /report: leave a blank line after &lt;\/summary&gt; <span class="fixed">fixed<\/span>/);
+	assert.doesNotMatch(clean, /class="not-fixed"/);
+	// One clean check: the sentence, and no list.
+	const once = page([{ problems: 0, rules: {} }]);
+	assert.match(once, /format check once\. The first time, it found no problems\./);
+	assert.doesNotMatch(once, /<ul class="format-rules">/);
+	assert.doesNotMatch(renderReportHtml(LOGS_REPORT), /Format checks/);
+});
+
+test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.md');
+	const render = args => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, ...args], { encoding: 'utf8' });
+	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142']);
+	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '180000', '--verify-turns', '24']);
+	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
+	assert.deepEqual(footer, ['_explore: Opus 5.5 | 142 turns | 25m_', '_verify: Sonnet 5 | 24 turns | 3m_', '_total: 28m_']);
+	const { cost } = parseReport(readFileSync(report, 'utf8'));
+	assert.deepEqual(cost.passes.map(p => p.label), ['explore', 'verify']);
+	assert.equal(cost.duration, '28m');
+	rmSync(dir, { recursive: true, force: true });
+});
+
+test('render.mjs keeps a verify pass that took under a millisecond', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.md');
+	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, '--duration-ms', '60000', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '0']);
+	assert.match(readFileSync(report, 'utf8'), /_verify: Sonnet 5 \| <1m_\n_total: 1m_\n$/);
+	rmSync(dir, { recursive: true, force: true });
+});
+
 test('modelDisplayName reads a model id the way the report names it', () => {
 	assert.equal(modelDisplayName('claude-opus-5-5'), 'Opus 5.5');
 	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');

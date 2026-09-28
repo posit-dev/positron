@@ -702,15 +702,20 @@ jobs:
 
       # The app and the agent both hold these, and everything below is
       # published: the run directory to a public CDN, the rest as an artifact.
-      # List every secret the agent's environment carries, including any
-      # credential added to this job later.
+      # The names come from scan-shots.mjs, as a local publish's do: every
+      # variable ending in KEY, TOKEN, SECRET, PASSWORD or PAT, and the ones it
+      # lists by name. A credential added to this job later needs either a name
+      # like that or a line in its OTHER_NAMES. The Postgres login is a fixed
+      # test value, and redacting "exploratory-test" would mangle the report.
       - name: Redact secrets from run output
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          for NAME in ANTHROPIC_KEY GITHUB_TOKEN OPENAI_KEY MS_FOUNDRY_KEY MS_FOUNDRY_BASE_URL SNOWFLAKE_API_KEY SNOWFLAKE_ACCOUNT SNOWFLAKE_USER SNOWFLAKE_PASSWORD DATABRICKS_WORKSPACE DATABRICKS_PAT; do
-            test -n "${!NAME:-}" || continue
+          for NAME in $(env -u E2E_POSTGRES_PASSWORD node .harness/.claude/skills/exploratory-test/renderer/scan-shots.mjs --names); do
+            VALUE=${!NAME:-}
+            # Short values would redact common words.
+            [ ${#VALUE} -ge 8 ] || continue
             for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
               [ -d "$DIR" ] || continue
               # The uploads run even if this step fails, so a file that
@@ -721,6 +726,28 @@ jobs:
                   || { echo "::warning::Could not redact $NAME from $FILE; removed it."; rm -f "$FILE"; }
               done
             done
+          done
+
+      # The explorer blurs a key before it takes a screenshot. This reads each
+      # one, paints over any secret still showing, and removes a shot it cannot
+      # clean, as a text file that cannot be redacted is. The Postgres login
+      # is a fixed test value the connection form shows on purpose, so it is
+      # left out. A scan that cannot run removes every screenshot rather than
+      # publish ones nobody checked.
+      - name: Paint secrets out of screenshots
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          RENDERER=.harness/.claude/skills/exploratory-test/renderer
+          # Explore installs these; a job that failed before it did has not.
+          [ -d "$RENDERER/node_modules/tesseract.js" ] || npm --prefix "$RENDERER" ci --no-audit --no-fund
+          for DIR in /tmp/exploratory-run /tmp/exploratory-workspace; do
+            [ -d "$DIR" ] || continue
+            if ! env -u E2E_POSTGRES_PASSWORD node "$RENDERER/scan-shots.mjs" "$DIR" --remove; then
+              echo "::warning::The screenshot scan did not run on $DIR; removing every screenshot in it."
+              find "$DIR" -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) -delete
+            fi
           done
 
       - name: Upload run directory
