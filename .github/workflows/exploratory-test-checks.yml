@@ -48,7 +48,9 @@ jobs:
         run: |
           SKILL=.claude/skills/exploratory-test
           version() { sed -n '/^---$/,/^---$/p' | sed -nE 's/^[[:space:]]+version:[[:space:]]*"?([^"[:space:]]+)"?.*$/\1/p'; }
-          CHANGED=$(git diff --name-only HEAD^1 HEAD -- "$SKILL/SKILL.md" "$SKILL/explorer.md" "$SKILL/verifier.md")
+          # run.mjs and lib.mjs build the prompt CI gives the explorer.
+          ACTION=.github/actions/pr-exploratory-test
+          CHANGED=$(git diff --name-only HEAD^1 HEAD -- "$SKILL/SKILL.md" "$SKILL/explorer.md" "$SKILL/verifier.md" "$ACTION/run.mjs" "$ACTION/lib.mjs")
           if [ -z "$CHANGED" ]; then
             echo "The agent's instructions did not change."
             exit 0

@@ -47,6 +47,7 @@ const REPORT = template(/^# Exploratory test:/);
 const TABLE = template(/^\| # \| Finding \|/);
 const FINDING = template(/^### Finding N:/);
 const LEDGER = template(/^# Test ledger/);
+const GRAMMAR = template(/^N\. <action text>$/);
 
 // Placeholders whose value the parser or lint reads. Every other placeholder
 // is prose to them and gets filler text. An array is used up in order.
@@ -95,6 +96,8 @@ function fill(text, shots) {
 		.replace(/\[([^\]\n]*<[^\]\n]*)\](?!\()/g, '')
 		// One screenshot per check, never cited twice, as explorer.md requires.
 		.replace(/\[shots\/<file>\]\(shots\/<file>\)/g, `[shots/${shots.at(-1)}](shots/${shots.at(-1)})`)
+		// The embedded shot is the one that shows the failure best: the last check's.
+		.replace(/!\[\]\(shots\/<file>\)/g, `![](shots/${shots.at(-1)})`)
 		.replace(/Step <N>:/g, 'Step 4:')
 		.replace(/logs\/<file>/g, 'logs/renderer.log')
 		.replace(/Evidence: <file>/g, () => {
@@ -158,4 +161,23 @@ test('explorer.md ledger template parses into its scenarios, files and not-run l
 	]);
 	assert.deepEqual(parsed.files.map(f => f.path), ['files/data.csv']);
 	assert.equal(parsed.notExercised.length, 1, 'a Not run entry');
+});
+
+/** A step line's shape: placeholders, optional parts and numbers made uniform. */
+function shape(line) {
+	return line
+		.replace(/\[[^\]\n]*<[^\]\n]*\](?!\()/g, '')
+		.replace(/<[^<>]+>/g, '<>')
+		.replace(/^\d+\./, 'N.')
+		.replace(/Finding (\d+|[NK])\b/g, 'Finding X')
+		.trimEnd();
+}
+
+test('explorer.md step grammar matches the steps its ledger template writes', () => {
+	// The grammar block is a third copy of the step lines; it is not filled in
+	// and parsed like the templates, so it is held to the ledger's shape instead.
+	const ledgerLines = new Set(LEDGER.split('\n').map(shape));
+	for (const line of GRAMMAR.split('\n').filter(l => l.trim())) {
+		assert.ok(ledgerLines.has(shape(line)), `the grammar's "${line.trim()}" has no line of the same shape in the ledger template`);
+	}
 });

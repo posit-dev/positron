@@ -5,9 +5,10 @@
 
 // Renders a local run's report.md as index.html beside it, the same page CI
 // publishes. Usage:
-//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--no-agent-prompts] [--base <url> --out <file>]
-// The flags record the explore agent's run on the Run tile, as CI's cost
-// footer does. Given --duration-ms, they replace the report's footer lines.
+//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>]
+//     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>] [--no-agent-prompts] [--base <url> --out <file>]
+// The flags record the explore agent's run, and the verifier's when there was
+// one, on the Run tile, as CI's cost footer does. Given --duration-ms, they replace the report's footer lines.
 // --no-agent-prompts leaves out the findings' copy-for-agent buttons.
 // --base renders the page for where it will be published, so issues link back
 // to it; --out writes that page elsewhere, leaving the local one as it is.
@@ -25,6 +26,9 @@ const { values: flags, positionals } = parseArgs({
 		model: { type: 'string' },
 		'duration-ms': { type: 'string' },
 		turns: { type: 'string' },
+		'verify-model': { type: 'string' },
+		'verify-duration-ms': { type: 'string' },
+		'verify-turns': { type: 'string' },
 		'no-agent-prompts': { type: 'boolean' },
 		check: { type: 'boolean' },
 		base: { type: 'string' },
@@ -33,7 +37,7 @@ const { values: flags, positionals } = parseArgs({
 });
 const input = positionals[0];
 if (!input) {
-	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
+	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
 	process.exit(1);
 }
 
@@ -85,13 +89,17 @@ if (flags.check) {
 if (flags['duration-ms']) {
 	// Written here rather than by the action's renderCostFooter (lib.mjs):
 	// a local run has no bill, and that footer drops any pass without one.
-	const minutes = Math.round(Number(flags['duration-ms']) / 60000);
-	const bits = [
-		modelDisplayName(flags.model),
-		flags.turns && `${flags.turns} turns`,
-		minutes === 0 ? '<1m' : `${minutes}m`,
-	].filter(Boolean);
-	const footer = `_explore: ${bits.join(' | ')}_`;
+	const time = ms => {
+		const minutes = Math.round(ms / 60000);
+		return minutes === 0 ? '<1m' : `${minutes}m`;
+	};
+	const line = (label, model, turns, ms) => `_${label}: ${[modelDisplayName(model), turns && `${turns} turns`, time(ms)].filter(Boolean).join(' | ')}_`;
+	const explore = Number(flags['duration-ms']);
+	const verify = Number(flags['verify-duration-ms']);
+	// The total covers both passes, as CI's does; with one pass there is none.
+	const footer = verify
+		? [line('explore', flags.model, flags.turns, explore), line('verify', flags['verify-model'], flags['verify-turns'], verify), `_total: ${time(explore + verify)}_`].join('\n')
+		: line('explore', flags.model, flags.turns, explore);
 	// Re-rendering must not stack a second footer under the first; only the
 	// labels a footer is written with, so a body line like `_note: x_` survives.
 	const body = markdown.split('\n').filter(l => !/^_(explore|verify|total):.*_$/.test(l.trim())).join('\n').trimEnd();

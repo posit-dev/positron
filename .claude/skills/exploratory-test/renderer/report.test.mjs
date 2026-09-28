@@ -1698,6 +1698,21 @@ test('logs: render.mjs fails the run when a listed log was not copied', () => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
+test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.md');
+	const render = args => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, ...args], { encoding: 'utf8' });
+	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142']);
+	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '180000', '--verify-turns', '24']);
+	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
+	assert.deepEqual(footer, ['_explore: Opus 5.5 | 142 turns | 25m_', '_verify: Sonnet 5 | 24 turns | 3m_', '_total: 28m_']);
+	const { cost } = parseReport(readFileSync(report, 'utf8'));
+	assert.deepEqual(cost.passes.map(p => p.label), ['explore', 'verify']);
+	assert.equal(cost.duration, '28m');
+	rmSync(dir, { recursive: true, force: true });
+});
+
 test('modelDisplayName reads a model id the way the report names it', () => {
 	assert.equal(modelDisplayName('claude-opus-5-5'), 'Opus 5.5');
 	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');
