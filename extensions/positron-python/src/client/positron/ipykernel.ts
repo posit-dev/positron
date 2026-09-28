@@ -11,6 +11,7 @@ import { IServiceContainer } from '../ioc/types';
 import { PythonEnvironment } from '../pythonEnvironments/info';
 import { IWorkspaceService } from '../common/application/types';
 import { IPythonExecutionFactory } from '../common/process/types';
+import { getArchitectureFromInfo } from '../common/process/internal/scripts/architecture';
 import { traceWarn } from '../logging';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { Architecture } from '../common/utils/platform';
@@ -45,11 +46,18 @@ export interface IpykernelBundle {
     /** If bundling is disabled, the reason for it. */
     disabledReason?: string;
 
-    /** Paths to be appended to the PYTHONPATH environment variable in this order, if bundling is enabled. */
+    /** Paths to be added to Python's import path in this order, if bundling is enabled. */
     paths?: string[];
 
     /** The detected interpreter architecture (freshly queried on ARM64 systems). */
     architecture?: Architecture;
+}
+
+/** Interpreter information supplied by a host embedding Python, such as reticulate. */
+export interface EmbeddedPythonInterpreter {
+    version: { major: number; minor: number };
+    implementation: string;
+    architecture: string;
 }
 
 /**
@@ -58,15 +66,16 @@ export interface IpykernelBundle {
  * @param interpreter The interpreter to check.
  * @param serviceContainer The service container to use for dependency injection.
  * @param resource The resource to scope setting to.
+ * @param embeddedInterpreter Information from the host process instead of a separately launched Python.
  */
 export async function getIpykernelBundle(
     interpreter: PythonEnvironment,
     serviceContainer: IServiceContainer,
     resource?: vscode.Uri,
+    embeddedInterpreter?: EmbeddedPythonInterpreter,
 ): Promise<IpykernelBundle> {
     // Get the required services.
     const workspaceService = serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-    const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
 
     // Check if bundling ipykernel is enabled for the resource.
     const useBundledIpykernel = workspaceService
@@ -78,8 +87,12 @@ export async function getIpykernelBundle(
 
     // Check if ipykernel is bundled for the interpreter version.
     // (defined in scripts/pip-compile-ipykernel.py).
-    if (interpreter.version?.major !== 3 || ![9, 10, 11, 12, 13, 14].includes(interpreter.version?.minor)) {
-        return { disabledReason: `unsupported interpreter version: ${interpreter.version?.raw}` };
+    const { version } = embeddedInterpreter ?? interpreter;
+    if (version?.major !== 3 || ![9, 10, 11, 12, 13, 14].includes(version?.minor)) {
+        const rawVersion = embeddedInterpreter
+            ? `${embeddedInterpreter.version.major}.${embeddedInterpreter.version.minor}`
+            : interpreter.version?.raw;
+        return { disabledReason: `unsupported interpreter version: ${rawVersion}` };
     }
 
     // Get fresh interpreter information if implementation or architecture is not available.
@@ -92,7 +105,17 @@ export async function getIpykernelBundle(
     let { implementation, architecture } = interpreter;
     const systemArch = os.arch();
     const architectureMismatchPossible = systemArch === 'arm64';
-    if (
+    if (embeddedInterpreter) {
+        // Embedded Python must use the host architecture. A separate launch of
+        // a universal2 executable can select a different architecture.
+        implementation = embeddedInterpreter.implementation;
+        architecture = getArchitectureFromInfo(embeddedInterpreter);
+        if (architecture !== Architecture.arm64 && architecture !== Architecture.x64) {
+            return {
+                disabledReason: `unsupported embedded interpreter architecture: ${embeddedInterpreter.architecture}`,
+            };
+        }
+    } else if (
         implementation === undefined ||
         architecture === undefined ||
         architecture === Architecture.Unknown ||
@@ -102,6 +125,7 @@ export async function getIpykernelBundle(
         // the interpreter runs correctly, so probe them through the activated
         // environment (which applies the module startup command); other
         // interpreters can be probed directly.
+        const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
         const pythonExecutionService = moduleMetadataMap.has(interpreter.path)
             ? await pythonExecutionFactory.createActivatedEnvironment({
                   resource,
@@ -122,10 +146,9 @@ export async function getIpykernelBundle(
         return { disabledReason: `unsupported interpreter implementation: ${implementation}` };
     }
 
-    // Append the bundle paths (defined in gulpfile.js) to the PYTHONPATH environment variable.
-    // Use the interpreter's architecture, not the system architecture, to select the correct bundle.
+    // Select bundle paths (defined in gulpfile.js) for the interpreter's architecture.
     const arch = getArchString(architecture, interpreter.path);
-    const cpxSpecifier = `cp${interpreter.version.major}${interpreter.version.minor}`;
+    const cpxSpecifier = `cp${version.major}${version.minor}`;
 
     // On macOS, packages have different wheel availability:
     // - cpx packages (pyzmq): Only have universal2 wheels, stored in universal2/cpXX

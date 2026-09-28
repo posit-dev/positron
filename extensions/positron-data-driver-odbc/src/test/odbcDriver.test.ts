@@ -42,6 +42,7 @@ const CONFIG: OdbcConfiguration = {
 		driverEntry('MySQL ODBC 8.0 ANSI Driver'),
 	],
 	dsns: [dsnEntry('Pagila', 'PostgreSQL Unicode', { servername: 'localhost', port: '5432', database: 'pagila' })],
+	skippedDsns: [],
 	sources: ['/etc/odbcinst.ini'],
 };
 
@@ -158,7 +159,7 @@ suite('createOdbcDrivers', () => {
 	});
 
 	test('offers only the connection-string mechanism when nothing was discovered', () => {
-		const drivers = createOdbcDrivers(testContext(), { drivers: [], dsns: [], sources: [] }, noopHost);
+		const drivers = createOdbcDrivers(testContext(), { drivers: [], dsns: [], skippedDsns: [], sources: [] }, noopHost);
 
 		assert.deepStrictEqual(
 			drivers.map(driver => ({ id: driver.id, mechanisms: driver.mechanisms.map(m => m.id) })),
@@ -190,6 +191,30 @@ suite('createOdbcDrivers', () => {
 		);
 	});
 
+	test('describes a data source that declares no endpoint as unconfigured', async () => {
+		// Homebrew's psqlodbc writes a DSN with a Driver, a Description, and nothing else. Its
+		// driver resolves, so the DSN is offered -- but the row has to say it points nowhere, or it
+		// reads exactly like a configured one. The Description must not stand in: it says what the
+		// driver is, not where the data source is.
+		const stub = dsnEntry('PostgreSQL Driver', 'PostgreSQL Unicode', { description: 'PostgreSQL ODBC driver' });
+		const config: OdbcConfiguration = {
+			drivers: [driverEntry('PostgreSQL Unicode')],
+			dsns: [stub],
+			skippedDsns: [],
+			sources: ['/opt/homebrew/etc/odbc.ini'],
+		};
+
+		const [generic] = createOdbcDrivers(testContext(), config, noopHost);
+
+		assert.deepStrictEqual(await generic.discoverConnections!(), [{
+			id: 'odbc-dsn:PostgreSQL Driver',
+			name: 'PostgreSQL Driver',
+			description: 'No server configured',
+			mechanismId: 'dsn',
+			parameters: { dsn: 'PostgreSQL Driver' },
+		}]);
+	});
+
 	test('offers no Port field for SQL Server, whose driver has no Port keyword', async () => {
 		// Microsoft's driver takes the port inside Server (`Server=myhost,1433`) and has no Port
 		// connection-string keyword, so offering one would emit an attribute it ignores and produce
@@ -198,6 +223,7 @@ suite('createOdbcDrivers', () => {
 		const config: OdbcConfiguration = {
 			drivers: [driverEntry('ODBC Driver 18 for SQL Server'), driverEntry('MySQL ODBC 8.0 Unicode Driver')],
 			dsns: [],
+			skippedDsns: [],
 			sources: [],
 		};
 		const drivers = createOdbcDrivers(testContext(), config, noopHost);

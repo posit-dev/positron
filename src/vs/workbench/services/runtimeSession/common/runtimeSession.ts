@@ -1765,8 +1765,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				metadata = validated;
 				this._startingConsolesByRuntimeId.set(metadata.runtimeId, validated);
 			} catch (err) {
-				// Clear this from the set of starting consoles.
-				this._startingConsolesByRuntimeId.delete(metadata.runtimeId);
+				startPromise.error(err);
+				this.clearStartingSessionMaps(sessionMode, metadata, notebookUri);
 
 				// Log the error and re-throw it.
 				this._logService.error(

@@ -147,7 +147,7 @@ export interface QuartoCodeCell {
 	readonly options: string;
 
 	/**
-	 * SHA-256 hash of cell content (first 16 chars).
+	 * SHA-1 hash of cell content (first 16 chars).
 	 * Used for cache matching and cell identification across edits.
 	 */
 	readonly contentHash: string;

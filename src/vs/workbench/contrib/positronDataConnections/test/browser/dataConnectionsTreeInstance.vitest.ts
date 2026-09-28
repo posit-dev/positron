@@ -9,6 +9,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -180,7 +181,9 @@ describe('DataConnectionsTreeInstance', () => {
 		configurationService = new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
-		})
+		}),
+		// Set to make the service's connect() reject, standing in for a driver that fails to open.
+		connectError?: Error
 	) {
 		// One leaf under the connection, so a test has a real non-entry node to act on. Its node id is
 		// DTO_ID below.
@@ -201,21 +204,26 @@ describe('DataConnectionsTreeInstance', () => {
 		// as the interface, where they are plain functions rather than mocks).
 		const disconnect = vi.fn(async () => { });
 		const disconnectWhenUnused = vi.fn();
+		const notificationError = vi.fn<INotificationService['error']>();
+		const notificationService = stubInterface<INotificationService>({ error: notificationError });
 
 		let liveInstance = connected ? instance : undefined;
 		const service = stubInterface<IPositronDataConnectionsService>({
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
+			// No reveal request is outstanding in these tests; the tree takes one on construction.
+			onDidRequestRevealConnection: Event.None,
+			takePendingRevealConnection: () => undefined,
 			getAllProfiles: () => [profile, ...discoveredProfiles],
 			getInstanceForProfile: () => liveInstance,
-			connect: async () => instance,
+			connect: connectError ? async () => { throw connectError; } : async () => instance,
 			disconnect,
 			disconnectWhenUnused,
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
-		const tree = new DataConnectionsTreeInstance(service, configurationService);
+		const tree = new DataConnectionsTreeInstance(service, configurationService, notificationService);
 		ctx.disposables.add(tree);
 
 		const setConnected = (nowConnected: boolean) => {
@@ -223,7 +231,7 @@ describe('DataConnectionsTreeInstance', () => {
 			onDidChangeInstances.fire(nowConnected ? [instance] : []);
 		};
 
-		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused };
+		return { tree, service, getChildren, setConnected, disconnect, disconnectWhenUnused, notificationError };
 	}
 
 	/**
@@ -240,6 +248,8 @@ describe('DataConnectionsTreeInstance', () => {
 		showSingleSchema = false
 	) {
 		const nodeGetChildren = vi.fn(async (nodeHandle: number) => childrenOf(nodeHandle));
+		const notificationError = vi.fn<INotificationService['error']>();
+		const notificationService = stubInterface<INotificationService>({ error: notificationError });
 
 		// One instance per profile, each with its own connection handle, so node ids stay distinct
 		// across connections the way they do in the real service.
@@ -259,9 +269,13 @@ describe('DataConnectionsTreeInstance', () => {
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
+			// No reveal request is outstanding in these tests; the tree takes one on construction.
+			onDidRequestRevealConnection: Event.None,
+			takePendingRevealConnection: () => undefined,
 			getAllProfiles: () => profiles,
 			getInstanceForProfile: (profileId: string) => instances.get(profileId),
 			connect: async (profileId: string) => instances.get(profileId)!,
+			disconnect: vi.fn(async () => { }),
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
@@ -269,9 +283,9 @@ describe('DataConnectionsTreeInstance', () => {
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
 			'dataConnections.tree.showSingleSchema': showSingleSchema,
-		}));
+		}), notificationService);
 		ctx.disposables.add(tree);
-		return { tree, nodeGetChildren };
+		return { tree, nodeGetChildren, notificationError };
 	}
 
 	/** A node DTO, defaulting to an expandable, non-previewable one. */
@@ -634,5 +648,261 @@ describe('DataConnectionsTreeInstance', () => {
 			expanded: tree.isExpanded(ENTRY_ID),
 			expandState: tree.visibleNodes[0].expandState,
 		}).toEqual({ expanded: false, expandState: 'collapsed' });
+	});
+
+	it('reports a notification when connecting an entry fails, alongside the tree\'s own error state', async () => {
+		const connectError = new Error('boom');
+		const { tree, notificationError } = createTree(false, [], undefined, connectError);
+		await tree.refresh();
+
+		await tree.expand(ENTRY_ID);
+
+		expect({
+			notified: notificationError.mock.calls,
+			expandState: tree.visibleNodes[0].expandState,
+		}).toEqual({
+			notified: [['Could not expand \'Test Connection\': boom']],
+			expandState: 'error',
+		});
+	});
+
+	it('reports a notification when fetching a node\'s children fails, alongside the tree\'s own error state', async () => {
+		const nodeError = new Error('boom');
+		const { tree, notificationError } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+			nodeHandle => { if (nodeHandle === 1) { throw nodeError; } return []; }
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		await tree.expand('dto:1:1');
+
+		expect({
+			notified: notificationError.mock.calls,
+			expandState: tree.visibleNodes[1].expandState,
+		}).toEqual({
+			notified: [['Could not expand \'Tables\': boom']],
+			expandState: 'error',
+		});
+	});
+
+	it('reports a connection that fails on Refresh once, however many times Refresh is pressed', async () => {
+		const { tree, getChildren, notificationError } = createTree();
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		// The server has gone away since the connection opened. Pressing Refresh again while the
+		// first is running joins it, so it must not add a second notification for the same failure.
+		getChildren.mockRejectedValue(new Error('server gone'));
+		await Promise.all([tree.reloadAll(), tree.reloadAll()]);
+
+		expect({
+			notified: notificationError.mock.calls,
+			expandState: tree.visibleNodes[0].expandState,
+		}).toEqual({
+			notified: [['Could not expand \'Test Connection\': server gone']],
+			expandState: 'error',
+		});
+	});
+
+	it('does not notify for a branch that fails while a reload restores it, leaving it collapsed', async () => {
+		// The base leaves a restored branch that fails collapsed and unloaded rather than in the error
+		// state, so the user sees no error on it until they expand it themselves. A notification here
+		// would report an error the tree is not showing.
+		let tablesFail = false;
+		const { tree, notificationError } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+			nodeHandle => {
+				if (nodeHandle === 1 && tablesFail) {
+					throw new Error('boom');
+				}
+				return [];
+			}
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		await tree.expand('dto:1:1');
+
+		tablesFail = true;
+		await tree.reloadAll();
+
+		expect({
+			notified: notificationError.mock.calls,
+			tablesExpanded: tree.isExpanded('dto:1:1'),
+		}).toEqual({ notified: [], tablesExpanded: false });
+	});
+
+	it('does not notify for a fetch the user abandoned by disconnecting', async () => {
+		// Disconnecting kills the handle the fetch is running against, so the fetch rejects after the
+		// row it was for has already left the tree. Reporting that would name a row that is gone,
+		// for a failure the user caused on purpose.
+		const { tree, nodeGetChildren, notificationError } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
+			() => []
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+
+		let rejectTables: (error: Error) => void = () => { };
+		nodeGetChildren.mockReturnValueOnce(new Promise((_, reject) => { rejectTables = reject; }));
+		const expanding = tree.expand('dto:1:1');
+		await tree.disconnectEntry(ENTRY_ID);
+		rejectTables(new Error('connection handle is closed'));
+		await expanding;
+
+		expect(notificationError.mock.calls).toEqual([]);
+	});
+});
+
+describe('DataConnectionsTreeInstance reveal', () => {
+	const ctx = createTestContainer().build();
+
+	// The tree's id for the single profile these tests use.
+	const ENTRY_ID = 'entry:conn-1';
+
+	const profile = createProfile();
+
+	// The service's nudge that a connection is waiting to be shown. The profile itself always comes
+	// from takePendingRevealConnection, so the two ways a tree can hear about a request -- being
+	// built while one is outstanding, and one arriving while it is alive -- run the same path.
+	const onDidRequestRevealConnection = new Emitter<void>();
+
+	/**
+	 * Builds a tree over one connected profile, with `pendingReveal` outstanding on its service.
+	 * The request is handed over the way the real service hands it over: once, to whoever asks
+	 * first. `requestReveal` puts a new one up and nudges the tree, standing in for a press of the
+	 * database file page's button while the pane is already open.
+	 */
+	function createTree({ pendingReveal, connected = true, profilesAbove = 0 }: {
+		pendingReveal?: string;
+		connected?: boolean;
+		profilesAbove?: number;
+	} = {}) {
+		let pending = pendingReveal;
+
+		const instance = stubInterface<IDataConnectionInstance>({
+			id: 'instance-1',
+			profileId: profile.id,
+			connectionHandle: stubInterface<IDataConnectionHandle>({
+				handle: 1,
+				getChildren: async () => [{
+					nodeHandle: 7,
+					name: 'flights',
+					kind: 'table',
+					hasGetChildren: false,
+					hasPreview: true,
+				}],
+			}),
+		});
+
+		// Connecting is what opening an entry does when it isn't live yet, which is the state the
+		// database file page's button finds a saved connection in.
+		let liveInstance = connected ? instance : undefined;
+		const connect = vi.fn(async () => {
+			liveInstance = instance;
+			return instance;
+		});
+
+		// The profile to reveal sits last, so a tree laid out shorter than its rows has to scroll
+		// to bring it into view.
+		const filler = Array.from({ length: profilesAbove },
+			(_, index) => createProfile({ id: `filler-${index}` }));
+
+		const service = stubInterface<IPositronDataConnectionsService>({
+			onDidChangeProfiles: Event.None,
+			onDidChangeInstances: Event.None,
+			onDidChangeDiscoveredProfiles: Event.None,
+			onDidRequestRevealConnection: onDidRequestRevealConnection.event,
+			takePendingRevealConnection: () => {
+				const taken = pending;
+				pending = undefined;
+				return taken;
+			},
+			getAllProfiles: () => [...filler, profile],
+			getInstanceForProfile: (profileId: string) => profileId === profile.id ? liveInstance : undefined,
+			connect,
+			cancelDisconnectWhenUnused: vi.fn(),
+		});
+
+		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
+			'workbench.tree.indent': 16,
+			'dataConnections.tree.indent': 0,
+		}), stubInterface<INotificationService>({ error: vi.fn() }));
+		ctx.disposables.add(tree);
+
+		// The tree asks the view rendering it to take keyboard focus, which is the part of a reveal
+		// that puts the arrow keys on the revealed row. Counted here because there is no view.
+		let focusRequests = 0;
+		ctx.disposables.add(tree.onDidRequestFocus(() => focusRequests++));
+
+		return {
+			tree,
+			connect,
+			focusRequested: () => focusRequests > 0,
+			requestReveal: (profileId: string) => {
+				pending = profileId;
+				onDidRequestRevealConnection.fire();
+			},
+		};
+	}
+
+	/** Waits for the connection to be open, selected, under the cursor, and holding focus. */
+	async function expectRevealed(
+		{ tree, focusRequested }: { tree: DataConnectionsTreeInstance; focusRequested: () => boolean }
+	) {
+		await vi.waitFor(() => expect({
+			expanded: tree.isExpanded(ENTRY_ID),
+			selected: tree.getSelectedNode()?.id,
+			cursor: tree.focusedId,
+			focusRequested: focusRequested(),
+		}).toEqual({
+			expanded: true,
+			selected: ENTRY_ID,
+			cursor: ENTRY_ID,
+			focusRequested: true,
+		}));
+	}
+
+	it('takes a reveal request outstanding when the tree is built', async () => {
+		// The pane is opened first and its tree is built a moment later, so a request made in
+		// between has nothing listening for it; the tree has to pick it up on the way up.
+		const revealed = createTree({ pendingReveal: 'conn-1' });
+
+		await expectRevealed(revealed);
+	});
+
+	it('reveals a connection requested while the tree is alive', async () => {
+		const revealed = createTree();
+		await revealed.tree.refresh();
+		expect(revealed.tree.isExpanded(ENTRY_ID)).toBe(false);
+
+		revealed.requestReveal('conn-1');
+
+		await expectRevealed(revealed);
+	});
+
+	it('connects a connection that is not live when it is revealed', async () => {
+		// The state the page's Open Data Connection button finds a saved connection in: known, but
+		// not open. Opening the entry is what connects it, which is what makes its tables browsable.
+		const revealed = createTree({ connected: false, pendingReveal: 'conn-1' });
+
+		await expectRevealed(revealed);
+
+		expect(revealed.connect).toHaveBeenCalledWith('conn-1');
+		expect(revealed.tree.visibleNodes.some(visible =>
+			visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'flights')).toBe(true);
+	});
+
+	it('scrolls the revealed connection into view once the tree has been laid out', async () => {
+		// A reveal lands while the pane is still coming up, so the tree has no viewport to scroll
+		// within yet. The scroll has to wait for one rather than being dropped -- or, worse, being
+		// computed against a zero height, which scrolls the rows off the top.
+		const revealed = createTree({ pendingReveal: 'conn-1', profilesAbove: 30 });
+		await expectRevealed(revealed);
+		expect(revealed.tree.verticalScrollOffset).toBe(0);
+
+		await revealed.tree.setSize(300, 100);
+
+		await vi.waitFor(() => expect(revealed.tree.verticalScrollOffset).toBeGreaterThan(0));
 	});
 });

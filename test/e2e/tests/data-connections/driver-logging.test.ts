@@ -50,8 +50,14 @@ test.describe('Data connection driver logging', {
 		await dataConnections.dialog.getByRole('button', { name: 'Cancel' }).click();
 		await expect(dataConnections.dialog).toBeHidden();
 
+		// ODBC is the one exception to the invariant this test checks: it also logs at registration
+		// time when it drops a data source whose driver cannot be resolved, so its channel may
+		// already exist depending on this machine's own ODBC configuration -- not something this
+		// test controls or should assert either way. Every other driver must still have logged
+		// nothing, which is the general lazy-channel guarantee this test exists to catch a
+		// regression in.
 		const channels = await app.workbench.output.getChannelNamesContaining('Data Connections:');
-		expect(channels).toEqual([]);
+		expect(channels.filter(name => name !== 'Data Connections: ODBC')).toEqual([]);
 	});
 
 	test('creates the driver channel once a connection is made', async function ({ app }) {

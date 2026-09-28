@@ -34,6 +34,34 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	// Fires when the discovered data connections change.
 	onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]>;
 
+	// Fires when a connection should be shown in the Data Connections pane. A nudge, not the
+	// request itself: the profile to show comes from takePendingRevealConnection, so the tree
+	// honors a request the same way whether it was already listening or has just been built.
+	onDidRequestRevealConnection: Event<void>;
+
+	/**
+	 * Asks the Data Connections pane to show a connection: select it, and open it so its contents
+	 * can be browsed. Called by anything outside the pane that has just put the user's attention on
+	 * one connection in particular -- the database file editor, after creating or opening one.
+	 *
+	 * Revealing the connection does not open the pane; a caller that needs the pane open does that
+	 * first (IViewsService.openView) and then calls this. Because the pane's tree is built as the
+	 * pane renders, which happens after openView resolves, the request is also recorded for a tree
+	 * that appears in a moment -- see {@link takePendingRevealConnection} -- so a caller doesn't
+	 * have to race it.
+	 * @param profileId The id of the profile to show.
+	 */
+	revealConnection(profileId: string): void;
+
+	/**
+	 * Takes the outstanding reveal request, if there is one, clearing it. Called by the pane's tree
+	 * when it is built, so a request made while the pane was still opening is honored by the tree
+	 * that arrives rather than lost. Subsequent requests reach a live tree through
+	 * {@link onDidRequestRevealConnection} instead.
+	 * @returns The id of the profile to show, or undefined if no request is outstanding.
+	 */
+	takePendingRevealConnection(): string | undefined;
+
 	/**
 	 * Gets the connections drivers report as already configured on this machine (e.g. ODBC data
 	 * sources), as ephemeral profiles. These are not persisted and are never returned by

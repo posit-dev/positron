@@ -391,6 +391,13 @@ jobs:
           "r_alt_version=$oldrel2" >> $env:GITHUB_OUTPUT
           rig add $release
           rig default $release
+          # Ask for pak explicitly. A real `rig add` installs pak as a side
+          # effect, but since rig 0.10.0 `rig add` skips the whole install --
+          # pak included -- when the requested version is already present, and
+          # the windows-2025 image ships R 4.6.1, the very version the
+          # r-release lookup resolves. `rig system add-pak` is idempotent, so
+          # it is a no-op when rig did install pak.
+          rig system add-pak
           rig ls
 
       - name: Stage R DESCRIPTION file
@@ -422,8 +429,7 @@ jobs:
           # RSQLite). A dated snapshot keeps metadata and binaries consistent.
           PPM_REPO: https://packagemanager.posit.co/cran/2026-06-30
         run: |
-          # pak is provided by rig (rig installs it on `rig add`), so there's no
-          # need to install it explicitly -- the macOS lane relies on the same.
+          # pak is installed by the `rig system add-pak` above.
           Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
 
       - name: Save R packages cache

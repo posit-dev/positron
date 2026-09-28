@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -117,6 +117,32 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		return this._activeConsoleSessionId !== undefined
 			? this._consoleEditorsBySessionId.get(this._activeConsoleSessionId)?.value
 			: undefined;
+	}
+
+	/**
+	 * The session id of the active console, if any.
+	 */
+	get activeConsoleSessionId(): string | undefined {
+		return this._activeConsoleSessionId;
+	}
+
+	/**
+	 * The console input editor for a session, if that console's input is currently mounted.
+	 */
+	consoleEditorForSession(sessionId: string): vscode.TextEditor | undefined {
+		return this._consoleEditorsBySessionId.get(sessionId)?.value;
+	}
+
+	/**
+	 * The session whose console input was the most recently focused text editor, or `undefined`
+	 * when a source editor was focused more recently. Gates console-aware RPCs (the rstudioapi
+	 * editor context shim) to the calling kernel's own console.
+	 *
+	 * Read on demand rather than cached: this is main-thread focus state, and the console the
+	 * user last focused can change between calls.
+	 */
+	getConsoleInputFocusedLastSessionId(): Promise<string | undefined> {
+		return this._proxy.$getConsoleInputFocusedLastSessionId();
 	}
 
 	/**

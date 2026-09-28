@@ -54,11 +54,21 @@ node "$SKILL_DIR/scripts/e2e-gather-run-info.js" <RUN_URL>
 Output JSON contains:
 - `repo`, `runId` - parsed from URL
 - `run` - metadata (name, conclusion, html_url, head_sha, branch)
-- `failedJobs` - array of `{id, name, isE2e}` for all failed jobs
+- `failedJobs` - array of `{id, name, isE2e, steps}` for all failed jobs
 - `nonE2eJobLogs` - map of job ID to failure log excerpts (for non-e2e jobs)
 - `artifacts` - sorted list of blob report artifact names
 - `projects` - unique project names extracted from artifacts (e.g., `e2e-chromium`, `e2e-windows`)
 - `commit` - `{message, author, files}` for the head commit
+
+**Read `failedJobs[].steps` before you touch any test evidence.** A job keeps running past a failed step whenever the later steps carry their own `if:` conditions, so a job can fail to install R and still run the whole R suite against a half-provisioned runner -- and the Playwright report shows only that the tests failed. Each job's `steps` gives:
+
+- `testStep` - the step that ran the Playwright suite, with its `conclusion`. A `skipped` conclusion means that shard's tests **never ran** -- report it as missing coverage, not as a failure (there will be no blob report for it either).
+- `failedBeforeTest` - steps that failed BEFORE it, each with a `log` tail. **This is the smoking gun**: any non-empty list means that job's tests ran against a broken environment.
+- `skippedAfterFailure` - steps skipped after the first pre-test failure (a lead, not a verdict -- GitHub does not say why a step was skipped)
+- `failedAfterTest` - post-processing failures (report upload, etc.)
+- `failedUnpositioned` - failed steps in a job with no identifiable test step (a shard-aggregator job's "Check test results" gate). These are a consequence of the shard failures, not a cause -- do not read them as setup failures.
+
+The script also prints a `WARNING: <job> ran its tests after a failed setup step: ...` line to stderr for each affected job, so the signal is visible without re-reading the JSON. The [analysis rubric](rubric.md) section "Check the job's own setup steps before blaming the product" has the decision rule -- including why you must NOT group such a failure with the same test failing on a platform whose setup was clean.
 
 Use `projects` to determine what to process:
 - If projects list is non-empty -> use **Path A** (positron repo flow) for each project
@@ -184,6 +194,8 @@ Include a **History** line in each failure's analysis, e.g.:
 For each failure (or group of related failures), apply the shared **[analysis rubric](rubric.md)** to determine its root-cause category, a 1-2 sentence evidence-based explanation, and a suggested action. `rubric.md` is the single source of truth for the root-cause categories, the evidence-reading order (screenshots, trace timeline, test source, and the error-context page snapshot -- read FIRST for any locator/visibility/attribute/text failure), the locator-drift-vs-product-regression decision, historical-data interpretation, and head-commit correlation. The **same file is injected verbatim into the analyzer Action's system prompt**, so local skill runs and the Action reason identically -- edit the rubric there, not here.
 
 Include a **Commit** line in the detailed analysis when the head commit is relevant (per the rubric), e.g. "Commit: modified `notebookCellList.ts` (notebook cell rendering) -- **plausible cause**" or "Commit: no files related to this test's feature area -- unlikely cause".
+
+When a failure's job had a pre-test setup failure (`failedBeforeTest` from Step 1), include a **Setup** line naming the step, e.g. "Setup: job step #23 `Install R 4.4.0` failed and `Install R packages for 4.4.0` was skipped -- this job's R tests ran without a working R". Lead with it: it determines the root cause and the owner before any other evidence matters.
 
 ### Additional repo context
 

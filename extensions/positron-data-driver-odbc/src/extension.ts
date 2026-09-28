@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { createNodeConfigHost } from './odbcConfigHost';
 import { OdbcDataExplorerRpcHandler } from './odbcDataExplorerRpcHandler';
 import { createOdbcDrivers } from './odbcDriver';
-import { discoverOdbcConfiguration, IOdbcConfigHost, resolveUnixConfigPaths } from './odbcinst';
+import { discoverOdbcConfiguration, IOdbcConfigHost, isSameConfiguration, OdbcConfiguration, resolveUnixConfigPaths } from './odbcinst';
 
 /**
  * Activates the extension by discovering the machine's ODBC configuration and registering a driver
@@ -34,6 +34,11 @@ export function activate(context: vscode.ExtensionContext) {
 	// shutdown and would accumulate a stale registration on every reload.
 	let registrations: vscode.Disposable[] = [];
 
+	// What the current registrations were built from, to tell a real change from a file event that
+	// changed nothing. Re-registering disposes every open ODBC connection, so it happens only when
+	// the drivers or data sources actually changed.
+	let registered: OdbcConfiguration | undefined;
+
 	/**
 	 * Rebuilds the registered drivers from the machine's current ODBC configuration.
 	 *
@@ -42,15 +47,31 @@ export function activate(context: vscode.ExtensionContext) {
 	 * extension's output channel for every user who opens the pane, including those who never use
 	 * ODBC. The logger is lazy precisely so that channel appears only once ODBC is actually used --
 	 * on a configuration change, or on a connection.
+	 *
+	 * A registration that dropped a data source reports it whichever way this is set: a DSN missing
+	 * from the pane with nothing to explain it is worse than a channel appearing early, and only a
+	 * machine with a broken ODBC entry reaches that path.
 	 */
 	const register = (log: boolean) => {
+		const config = discoverOdbcConfiguration(host);
+		if (registered !== undefined && isSameConfiguration(registered, config)) {
+			logger.info('ODBC drivers and data sources are unchanged; keeping the open connections.');
+			return;
+		}
+		registered = config;
+
 		for (const registration of registrations) {
 			registration.dispose();
 		}
 
-		const config = discoverOdbcConfiguration(host);
-		if (log) {
+		if (log || config.skippedDsns.length > 0) {
 			logger.info(`Discovered ${config.drivers.length} ODBC driver(s) and ${config.dsns.length} data source(s) from: ${config.sources.join(', ') || '(no configuration found)'}`);
+
+			for (const skipped of config.skippedDsns) {
+				logger.warn(skipped.reason === 'missing-library'
+					? `Skipped data source '${skipped.name}': its ODBC driver library does not exist at ${skipped.detail}.`
+					: `Skipped data source '${skipped.name}': no ODBC driver named '${skipped.detail}' is registered on this computer.`);
+			}
 		}
 
 		registrations = createOdbcDrivers(context, config, dataExplorerHandler, logger)
@@ -105,7 +126,7 @@ function watchConfiguration(
 		const watcher = vscode.workspace.createFileSystemWatcher(
 			new vscode.RelativePattern(vscode.Uri.file(path.dirname(filePath)), path.basename(filePath)));
 		const reload = () => {
-			logger.info(`ODBC configuration changed (${filePath}); reloading drivers.`);
+			logger.info(`ODBC configuration file changed (${filePath}).`);
 			onChange();
 		};
 		watcher.onDidCreate(reload);

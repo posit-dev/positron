@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { CancellationToken, CancellationTokenSource } from '../../../../../base/common/cancellation.js';
-import { errorHandler } from '../../../../../base/common/errors.js';
+import { CancellationError, errorHandler } from '../../../../../base/common/errors.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { Position } from '../../../../../editor/common/core/position.js';
 import { IRange } from '../../../../../editor/common/core/range.js';
@@ -103,7 +103,11 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 	 * cell's own. Nothing does that in production, which is why forwarding cannot
 	 * loop there, but it is what makes the recursion guard observable.
 	 */
-	function createFeatures(options: { alwaysFindCell?: IQuartoVirtualCell; cells?: IQuartoVirtualCell[] } = {}): void {
+	function createFeatures(options: {
+		alwaysFindCell?: IQuartoVirtualCell;
+		cells?: IQuartoVirtualCell[];
+		logService?: ILogService;
+	} = {}): void {
 		const cells = options.cells ?? [cell];
 		virtualNotebooksStub = stubInterface<IQuartoVirtualNotebookService>({
 			whenReady: () => Promise.resolve(),
@@ -121,7 +125,8 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 				cells.some(c => c.cellUri.toString() === uri.toString()) ? SOURCE_URI : undefined,
 		});
 		ctx.disposables.add(new QuartoEmbeddedLanguageFeatures(
-			virtualNotebooksStub, languageFeatures, configurationService, new NullLogService()));
+			virtualNotebooksStub, languageFeatures, configurationService,
+			options.logService ?? new NullLogService()));
 	}
 
 	function completionProvider(): CompletionItemProvider {
@@ -1102,6 +1107,200 @@ describe('QuartoEmbeddedLanguageFeatures', () => {
 
 		expect({ result, forwarded: calls.includes('statement:called') })
 			.toEqual({ result: undefined, forwarded: false });
+	});
+
+	it('asks the next statement range provider when the first rejects', async () => {
+		// A session's client can be registered on a cell it never synced, and Ark
+		// rejects those requests with "Can't find document". Letting that end the
+		// request means the provider behind it, which does hold the document, is
+		// never asked. The registry breaks score ties by registration time,
+		// latest first, so the rejecting one is registered last to go first.
+		ctx.disposables.add(languageFeatures.statementRangeProvider.register({ language: 'r' }, {
+			provideStatementRange: (): IStatementRange => {
+				calls.push('statement:answering');
+				return {
+					kind: StatementRangeKind.Success,
+					range: { startLineNumber: 1, startColumn: 1, endLineNumber: 2, endColumn: 7 },
+				};
+			},
+		} satisfies StatementRangeProvider));
+		ctx.disposables.add(languageFeatures.statementRangeProvider.register({ language: 'r' }, {
+			provideStatementRange: (): IStatementRange => {
+				calls.push('statement:rejecting');
+				throw new Error("Can't find document");
+			},
+		} satisfies StatementRangeProvider));
+		createFeatures();
+
+		const provider = languageFeatures.statementRangeProvider.ordered(sourceModel)[0];
+		const result = await provider.provideStatementRange(sourceModel, IN_CELL, CancellationToken.None);
+
+		expect({ asked: calls.filter(c => c.startsWith('statement:')), result }).toEqual({
+			asked: ['statement:rejecting', 'statement:answering'],
+			result: {
+				kind: StatementRangeKind.Success,
+				range: { startLineNumber: 4, startColumn: 1, endLineNumber: 5, endColumn: 7 },
+			},
+		});
+	});
+
+	it('asks the next completion provider when the first rejects', async () => {
+		registerCompletions('answering', [suggestion('from-answering', 1)]);
+		ctx.disposables.add(languageFeatures.completionProvider.register({ language: 'r' }, {
+			_debugDisplayName: 'rejecting',
+			provideCompletionItems: () => {
+				calls.push('rejecting:asked');
+				return Promise.reject(new Error("Can't find document"));
+			},
+		}));
+		createFeatures();
+
+		const result = await completionProvider().provideCompletionItems(
+			sourceModel, IN_CELL, { triggerKind: 0 }, CancellationToken.None);
+
+		expect({
+			rejectingAsked: calls.includes('rejecting:asked'),
+			labels: result?.suggestions.map(s => s.label),
+		}).toEqual({ rejectingAsked: true, labels: ['from-answering'] });
+	});
+
+	// The four loops below share `_ask` with the two above, so these do not test
+	// it again. They test that each loop goes through it: a call site that asks
+	// its provider directly is the regression, and it looks like working code.
+
+	it('asks the next hover provider when the first rejects', async () => {
+		ctx.disposables.add(languageFeatures.hoverProvider.register({ language: 'r' }, {
+			provideHover: (): Hover => ({ contents: [{ value: 'from-answering' }] }),
+		} satisfies HoverProvider));
+		ctx.disposables.add(languageFeatures.hoverProvider.register({ language: 'r' }, {
+			provideHover: () => {
+				throw new Error("Can't find document");
+			},
+		} satisfies HoverProvider));
+		createFeatures();
+
+		const provider = languageFeatures.hoverProvider.ordered(sourceModel)[0];
+		const result = await provider.provideHover(sourceModel, IN_CELL, CancellationToken.None);
+
+		expect((result as Hover)?.contents).toEqual([{ value: 'from-answering' }]);
+	});
+
+	it('asks the next signature help provider when the first rejects', async () => {
+		ctx.disposables.add(languageFeatures.signatureHelpProvider.register({ language: 'r' }, {
+			provideSignatureHelp: (): SignatureHelpResult => ({
+				value: {
+					signatures: [{ label: 'from-answering', parameters: [] }],
+					activeSignature: 0,
+					activeParameter: 0,
+				},
+				dispose: () => { },
+			}),
+		} satisfies SignatureHelpProvider));
+		ctx.disposables.add(languageFeatures.signatureHelpProvider.register({ language: 'r' }, {
+			provideSignatureHelp: () => {
+				throw new Error("Can't find document");
+			},
+		} satisfies SignatureHelpProvider));
+		createFeatures();
+
+		const provider = languageFeatures.signatureHelpProvider.ordered(sourceModel)[0];
+		const result = await provider.provideSignatureHelp(
+			sourceModel, IN_CELL, CancellationToken.None,
+			{ triggerKind: 1, isRetrigger: false });
+
+		expect(result?.value.signatures[0].label).toBe('from-answering');
+	});
+
+	it('asks the next definition provider when the first rejects', async () => {
+		ctx.disposables.add(languageFeatures.definitionProvider.register({ language: 'r' }, {
+			provideDefinition: (): LocationLink[] => [{
+				uri: CELL_URI,
+				range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 2 },
+			}],
+		} satisfies DefinitionProvider));
+		ctx.disposables.add(languageFeatures.definitionProvider.register({ language: 'r' }, {
+			provideDefinition: () => {
+				throw new Error("Can't find document");
+			},
+		} satisfies DefinitionProvider));
+		createFeatures();
+
+		const provider = languageFeatures.definitionProvider.ordered(sourceModel)[0];
+		const result = await provider.provideDefinition(sourceModel, IN_CELL, CancellationToken.None);
+
+		expect(result).toEqual([{
+			uri: SOURCE_URI,
+			range: { startLineNumber: 4, startColumn: 1, endLineNumber: 4, endColumn: 2 },
+		}]);
+	});
+
+	it('asks the next help topic provider when the first rejects', async () => {
+		ctx.disposables.add(languageFeatures.helpTopicProvider.register({ language: 'r' }, {
+			provideHelpTopic: () => 'mean',
+		} satisfies HelpTopicProvider));
+		ctx.disposables.add(languageFeatures.helpTopicProvider.register({ language: 'r' }, {
+			provideHelpTopic: () => {
+				throw new Error("Can't find document");
+			},
+		} satisfies HelpTopicProvider));
+		createFeatures();
+
+		const provider = languageFeatures.helpTopicProvider.ordered(sourceModel)[0];
+
+		expect(await provider.provideHelpTopic(sourceModel, IN_CELL, CancellationToken.None)).toBe('mean');
+	});
+
+	it('warns once about a provider that rejects every request', async () => {
+		// A client that is rejecting usually rejects every request, and for
+		// completion that is one per keystroke, so warning each time would bury
+		// the rest of the log.
+		const warnings: string[] = [];
+		const logService = new class extends NullLogService {
+			override warn(message: string): void {
+				warnings.push(message);
+			}
+		}();
+		registerCompletions('answering', [suggestion('from-answering', 1)]);
+		ctx.disposables.add(languageFeatures.completionProvider.register({ language: 'r' }, {
+			_debugDisplayName: 'rejecting',
+			provideCompletionItems: () => Promise.reject(new Error("Can't find document")),
+		}));
+		createFeatures({ logService });
+
+		await completionProvider().provideCompletionItems(
+			sourceModel, IN_CELL, { triggerKind: 0 }, CancellationToken.None);
+		await completionProvider().provideCompletionItems(
+			sourceModel, IN_CELL, { triggerKind: 0 }, CancellationToken.None);
+
+		expect(warnings).toEqual([
+			'[QuartoEmbedded] a completion provider rejected; asking the next one',
+		]);
+	});
+
+	it('lets a cancellation end the request instead of asking the next provider', async () => {
+		// Cancellation is the caller giving up on the whole request, not one
+		// provider failing its part of it, so it must not be swallowed.
+		ctx.disposables.add(languageFeatures.statementRangeProvider.register({ language: 'r' }, {
+			provideStatementRange: (): IStatementRange => {
+				calls.push('statement:second');
+				return {
+					kind: StatementRangeKind.Success,
+					range: { startLineNumber: 1, startColumn: 1, endLineNumber: 1, endColumn: 7 },
+				};
+			},
+		} satisfies StatementRangeProvider));
+		ctx.disposables.add(languageFeatures.statementRangeProvider.register({ language: 'r' }, {
+			provideStatementRange: (): IStatementRange => {
+				throw new CancellationError();
+			},
+		} satisfies StatementRangeProvider));
+		createFeatures();
+
+		const provider = languageFeatures.statementRangeProvider.ordered(sourceModel)[0];
+
+		await expect(provider.provideStatementRange(sourceModel, IN_CELL, CancellationToken.None))
+			.rejects.toBeInstanceOf(CancellationError);
+		expect(calls).not.toContain('statement:second');
 	});
 
 	it('forwards a help topic and returns it as given', async () => {

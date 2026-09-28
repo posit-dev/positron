@@ -1030,7 +1030,12 @@ export class CommandCenter {
 	}
 
 	@command('git.clone')
-	async clone(url?: string, parentPath?: string, options?: { ref?: string; postCloneAction?: 'none' }): Promise<string | undefined> {
+	// --- Start Positron ---
+	// Accept a targetName so Positron's "New Folder from Git" dialog can clone into a folder named
+	// something other than the repository. See https://github.com/posit-dev/positron/issues/16077
+	// async clone(url?: string, parentPath?: string, options?: { ref?: string; postCloneAction?: 'none' }): Promise<string | undefined> {
+	async clone(url?: string, parentPath?: string, options?: { ref?: string; postCloneAction?: 'none'; targetName?: string }): Promise<string | undefined> {
+		// --- End Positron ---
 		return this.cloneManager.clone(url, { parentPath, ...options });
 	}
 
