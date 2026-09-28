@@ -16,6 +16,6 @@ run({
 	srcDir,
 	outdir: outDir,
 	additionalOptions: {
-		external: ['vscode', 'positron', 'express'],
+		external: ['vscode', 'positron'],
 	},
 }, process.argv);

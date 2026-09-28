@@ -10,14 +10,14 @@ PR: posit-dev/positron#1234
 
 ## Findings
 
-| # | Finding | Severity | Impact | Introduced? | Reproduction |
-|---|---------|----------|--------|-------------|--------------|
-| 1 | A column over 10 s never loads, and Retry cannot help | major | summary never appears | yes | 3/3 |
-| 2 | Continue loads off-screen columns, not the visible ones | moderate | visible columns stay empty | yes | 2/2 |
+| # | Finding | Severity | Impact | Reproduction |
+|---|---------|----------|--------|--------------|
+| 1 | A column over 10 s never loads, and Retry cannot help | major | summary never appears | 3/3 |
+| 2 | Continue loads off-screen columns, not the visible ones | moderate | visible columns stay empty | 2/2 |
 
 ### Finding 1: A column over 10 s never loads, and Retry cannot help
 
-> **Confirmed** | Reproduced **3/3** | **Introduced by this change**
+> **Confirmed** | Reproduced **3/3**
 
 **Repro** -- starting state: `slow.py` loaded with `%run -i slow.py`.
 
@@ -46,7 +46,7 @@ PR: posit-dev/positron#1234
 
 ### Finding 2: Continue loads off-screen columns, not the visible ones
 
-> **Confirmed** | Reproduced **2/2** | **Introduced by this change**
+> **Confirmed** | Reproduced **2/2**
 
 **Repro** -- starting state: `slow.py` loaded with `%run -i slow.py`.
 

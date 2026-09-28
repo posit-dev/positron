@@ -8,6 +8,37 @@
 
 import { modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 
+/**
+ * The verify pass's prompt: verifier.md with the run's paths and diff range
+ * filled in. A placeholder with no value, or a value with no placeholder,
+ * throws, so the template and this list cannot drift apart quietly.
+ */
+export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha }) {
+	const values = {
+		REPORT: `${workDir}/report.md`,
+		ACTIONS_LOG: `${workDir}/actions.log`,
+		LEDGER: `${workDir}/ledger.md`,
+		FILES: `${workDir}/files/`,
+		REPO: repoRoot,
+		DIFF: `${baseSha}...${headSha}`,
+	};
+	const used = new Set();
+	const missing = new Set();
+	const prompt = String(template).replace(/\{\{(\w+)\}\}/g, (whole, key) => {
+		if (!(key in values)) {
+			missing.add(key);
+			return whole;
+		}
+		used.add(key);
+		return values[key];
+	});
+	const unused = Object.keys(values).filter(k => !used.has(k));
+	if (missing.size || unused.length) {
+		throw new Error(`verifier.md placeholders out of step: ${[...[...missing].map(k => `no value for {{${k}}}`), ...unused.map(k => `{{${k}}} not in the template`)].join(', ')}`);
+	}
+	return prompt.trim();
+}
+
 /** Pick the latest assistant message that looks like the report. */
 export function pickReport(messages) {
 	for (let i = messages.length - 1; i >= 0; i--) {
@@ -139,6 +170,19 @@ export function renderCostFooter(passes, maxTurns) {
 		lines.push(`_total: ${bits.join(' | ')}_`);
 	}
 	return lines.join('\n');
+}
+
+/**
+ * The verifier's reply from its VERDICTS line on. Its final message can open
+ * with notes to itself, which would otherwise lead the Verification details.
+ */
+export function fromVerdictLine(text) {
+	if (typeof text !== 'string') {
+		return text;
+	}
+	const lines = text.split('\n');
+	const at = lines.findIndex(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
+	return at > 0 ? lines.slice(at).join('\n') : text;
 }
 
 /**

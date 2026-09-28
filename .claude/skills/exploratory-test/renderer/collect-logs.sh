@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+# ---------------------------------------------------------------------------------------------
+# Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+# ---------------------------------------------------------------------------------------------
+
 # Copies one instance's logs into a run's logs/ folder before stop.sh deletes
 # them, and prints each copy with its error count for the ledger's ## Logs.
 #
@@ -46,13 +51,14 @@ else
 fi
 
 # "<Language> <version> Console.log", named by language unless two share one.
+# The ${a[@]+...} guards keep bash 3.2 under set -u from failing on an empty array.
 shopt -s nullglob
 consoles=("$T"/window1/exthost/positron.positron-supervisor/*" Console.log")
-for f in "${consoles[@]}"; do
+for f in ${consoles[@]+"${consoles[@]}"}; do
 	base=$(basename "$f" " Console.log")
 	lang=$(echo "${base%% *}" | tr '[:upper:]' '[:lower:]')
 	n=0
-	for g in "${consoles[@]}"; do
+	for g in ${consoles[@]+"${consoles[@]}"}; do
 		[[ "$(basename "$g" | cut -d' ' -f1 | tr '[:upper:]' '[:lower:]')" == "$lang" ]] && n=$((n + 1))
 	done
 	if [[ $n -gt 1 ]]; then
@@ -63,7 +69,7 @@ for f in "${consoles[@]}"; do
 	fi
 done
 
-for name in "${copied[@]}"; do
+for name in ${copied[@]+"${copied[@]}"}; do
 	errors=$(grep -ci '\[error\]' "$L/$name" || true)
 	echo "logs/$name | $errors [error] lines"
 done

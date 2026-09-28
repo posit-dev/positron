@@ -10,7 +10,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { modelDisplayName, parseLedger, parseReport, safeUrl } from './report-parse.mjs';
+import { modelDisplayName, parseLedger, parseReport, parseSystemLine, safeUrl } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
 
 /** A minimal report with one of everything the template lays out. */
@@ -162,58 +162,15 @@ test('parseReport accepts both finding heading shapes', () => {
 	assert.equal(r.findings[1].title, 'a second claim');
 });
 
-test('parseReport takes origin from the table: New, Pre-existing, Exposed, and Not checked only when blank', () => {
-	const r = parseReport(FULL);
-	assert.equal(r.findings[0].origin.label, 'New');
-	assert.equal(r.findings[1].origin.label, 'Pre-existing');
-
-	const origin = (value, strip = '') => parseReport(md([
-		'## Findings', '',
-		'| # | Finding | Severity | Introduced? |',
-		'|---|---|---|---|',
-		`| 1 | a claim | minor | ${value} |`,
-		'', '### Finding 1: a claim', '', strip, '', 'prose.',
-	].join('\n'))).findings[0].origin;
-	assert.equal(origin('yes').label, 'New');
-	assert.equal(origin('no').label, 'Pre-existing');
-	assert.equal(origin('exposed').label, 'Exposed');
-	// `unclear` is the old name for `exposed`; earlier reports keep rendering.
-	assert.equal(origin('unclear').label, 'Exposed');
-	assert.equal(origin('').label, 'Not checked');
-	assert.equal(origin('maybe').label, 'Not checked');
-	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Introduced by this change**').label, 'New');
-	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Pre-existing**').label, 'Pre-existing');
-	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Exposed by this change**').label, 'Exposed');
-	assert.equal(origin('', '> **Confirmed** | Reproduced **2/2** | **Origin unclear**').label, 'Exposed');
-});
-
-test('the Findings table puts Origin beside Severity, one plain style for every label, with tooltips', () => {
+test('the Findings table has no Origin, and an old Introduced? column or origin strip renders nothing', () => {
+	// FULL still carries both, as reports written before Origin was dropped do.
 	const html = renderReportHtml(FULL);
 	const head = /<div class="row row-head findings-grid">(.*?)<\/div>/.exec(html)[1];
 	assert.deepEqual([...head.matchAll(/<span[^>]*>([^<]*)<\/span>/g)].map(m => m[1]),
-		['Severity', 'Origin', 'Finding and impact', 'Reproduced', 'Status']);
-	assert.match(head, /<span class="org-tip" tabindex="0" data-tip="Judged from the diff: does the code each finding blames come from this change\?">Origin<\/span>/);
-	// Rows are links, so each cell's tooltip is a native title rather than a focusable element.
-	assert.match(html, /<span class="origin-cell"><span class="org" title="New: the code this finding blames was added or changed in this diff\.">New<\/span><\/span>/);
-	assert.match(html, /<span class="org" title="Pre-existing: the code this finding blames predates this diff\.">Pre-existing<\/span>/);
-	assert.match(html, /\.findings-grid\{grid-template-columns:110px 96px minmax\(0,1fr\) 90px 110px\}/);
-	assert.match(html, /\.org\{color:inherit;font-weight:inherit\}/);
-	assert.doesNotMatch(html, /\.org[^{]*\.new|origin-cell\.new/);
-	// The card's label is not inside a link, so it takes focus and shows its tooltip on hover or focus.
-	assert.match(html, /<span class="org org-tip" tabindex="0" data-tip="New: the code this finding blames was added or changed in this diff\.">New<\/span>/);
-	assert.match(html, /\.org-tip:hover::after,\.org-tip:focus-visible::after\{content:attr\(data-tip\)/);
-});
-
-test('the prompt gives the origin label and its reason', () => {
-	const prompt = value => promptText(renderReportHtml(md([
-		'## Findings', '',
-		'| # | Finding | Severity | Introduced? |',
-		'|---|---|---|---|',
-		`| 1 | a claim | minor | ${value} |`,
-		'', '### Finding 1: a claim', '', 'prose.',
-	].join('\n'))), 1);
-	assert.match(prompt('exposed'), /^Origin: Exposed \(the broken code predates this diff, but this change made it reachable or changed the timing\)$/m);
-	assert.match(prompt(''), /^Origin: Not checked \(the run didn't record it\)$/m);
+		['Severity', 'Finding and impact', 'Reproduced', 'Status']);
+	assert.match(html, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 90px 110px\}/);
+	assert.doesNotMatch(html, /class="org|origin-cell|\.org\{|>Pre-existing<|>New</);
+	assert.doesNotMatch(promptText(html, 1), /^(Origin|Introduced)/m);
 });
 
 test('parseReport breaks a finding into its labelled parts', () => {
@@ -400,7 +357,8 @@ test('renderReportHtml shows each screenshot once, under Evidence', () => {
 	const card = html.slice(html.indexOf('<article id="f1"'), html.indexOf('<article id="f2"'));
 	// The embedded shot used to be rendered beside Reproduce as well.
 	assert.equal((card.match(/<img src="[^"]*01-stuck\.png"/g) || []).length, 1);
-	assert.ok(card.indexOf('01-stuck.png') > card.indexOf('>Evidence<'));
+	// The issue link carries the file name too, so look past the header.
+	assert.ok(card.indexOf('01-stuck.png', card.indexOf('</header>')) > card.indexOf('>Evidence<'));
 	assert.doesNotMatch(card.slice(card.indexOf('>Reproduce<'), card.indexOf('>Evidence<')), /<img /);
 });
 
@@ -617,6 +575,13 @@ test('renderReportHtml links the signature to the skill that wrote the report', 
 	assert.match(html, /<a class="sig-link" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/main\/\.claude\/skills\/exploratory-test\/SKILL\.md" target="_blank" rel="noreferrer">exploratory-test &#8599;<\/a>/);
 	// The placeholder it replaced is gone.
 	assert.doesNotMatch(html, /data-skill-url/);
+});
+
+test('renderReportHtml dates the copyright by the run, not the render', () => {
+	const html = renderReportHtml(FULL, { startedAt: new Date(2031, 0, 5) });
+	// Fine print directly under the credit, in the same footer.
+	assert.match(html, /Generated by <a class="sig-link"[^\n]*<\/p>\n<p class="sig-legal">&copy; 2031 Posit Software, PBC<\/p>\n<\/footer>/);
+	assert.match(renderReportHtml(FULL), new RegExp(`&copy; ${new Date().getFullYear()} Posit Software, PBC`));
 });
 
 test('renderReportHtml keeps the signature legible without animation', () => {
@@ -927,7 +892,6 @@ test('renderReportHtml writes each finding as an agent prompt, from the parsed f
 		'',
 		'Status: Confirmed',
 		'Reproduced: 3/3',
-		'Origin: New (the blamed code was added or changed in this diff)',
 		'',
 		'### Impact',
 		'Blocks completion',
@@ -960,7 +924,7 @@ test('renderReportHtml writes each finding as an agent prompt, from the parsed f
 		'Please investigate this finding using the repository and the evidence above.',
 	].join('\n'));
 	// One button per card, last in the meta row, pointing at its own block.
-	assert.match(html, /<span class="group context">[\s\S]*?<\/span><button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><\/div>/);
+	assert.match(html, /<span class="group context">[\s\S]*?<\/span><a class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><\/div>/);
 	assert.match(html, /document\.querySelectorAll\('\.cp-btn,\.code-cp'\)/);
 });
 
@@ -1001,7 +965,10 @@ test('renderReportHtml emits inline scripts that parse, cut where the HTML parse
 
 test('renderReportHtml renders no prompt buttons, blocks or script when agent prompts are off', () => {
 	const html = renderReportHtml(FULL, { agentPrompts: false });
-	assert.doesNotMatch(html, /cp-btn"|text\/plain|querySelectorAll\('\.cp-btn,\.code-cp'\)/);
+	assert.doesNotMatch(html, /cp-btn"|id="prompt-f|querySelectorAll\('\.cp-btn,\.code-cp'\)/);
+	// Filing an issue does not depend on the prompts.
+	assert.match(html, /<a class="gh-btn"[^>]*>[\s\S]*?<\/a><\/div>/);
+	assert.match(html, /<script type="text\/plain" id="issue-f1">/);
 });
 
 test('renderReportHtml greens only the check beside Confirmed in the findings table', () => {
@@ -1027,9 +994,9 @@ test('renderReportHtml mutes the Show all row and only recolours it on hover', (
 /** A finding with every collapsed row, step-tagged shots, and a Steps column. */
 const RICH = md([
 	'## Findings', '',
-	'| # | Finding | Severity | Introduced? | Reproduction |', '|---|---|---|---|---|',
-	'| 1 | a claim | major | yes | 3/3 |',
-	'| 2 | b claim | minor | no | 1/1 |',
+	'| # | Finding | Severity | Reproduction |', '|---|---|---|---|',
+	'| 1 | a claim | major | 3/3 |',
+	'| 2 | b claim | minor | 1/1 |',
 	'',
 	'### 1. A column never loads, and Retry cannot help',
 	'',
@@ -1127,6 +1094,20 @@ test('renderReportHtml ends a card with closed rows: error, cause, regression te
 	assert.match(c, /Likely cause<span class="lc-tail"> &middot; Hypothesis<\/span>/);
 	assert.match(c, /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
 	assert.doesNotMatch(c, /class="cause"/);
+});
+
+test('the regression test follows the verdict: hidden when disputed, caveated when unresolved', () => {
+	const verdict = word => RICH
+		.replace('| # | Finding | Severity | Reproduction |', '| # | Finding | Severity | Reproduction | Verified |')
+		.replace('|---|---|---|---|', '|---|---|---|---|---|')
+		.replace('| 1 | a claim | major | 3/3 |', `| 1 | a claim | major | 3/3 | ${word} |`);
+	const disputed = renderReportHtml(verdict('disputed'));
+	assert.doesNotMatch(card(disputed, 1), /lc regtest/);
+	assert.doesNotMatch(promptText(disputed, 1), /### Regression test/);
+	const unresolved = renderReportHtml(verdict('unresolved'));
+	assert.match(card(unresolved, 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases \u00b7 finding unresolved<\/span>/);
+	assert.match(promptText(unresolved, 1), /^### Regression test \(suggestion; the verifier left this finding unresolved\)$/m);
+	assert.match(card(renderReportHtml(verdict('confirmed')), 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
 });
 
 test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
@@ -1355,6 +1336,21 @@ test('parseReport only takes a PR line that is a real owner/repo#number', () => 
 	assert.equal(pr('PR: none'), undefined);
 	// A PR mentioned in a finding is not the report's PR.
 	assert.equal(parseReport(md('## Findings', '', 'PR: posit-dev/positron#1')).pr, undefined);
+});
+
+test('finding: a shot a step cites reaches the gallery even when no Evidence bullet names it', () => {
+	const html = renderReportHtml(md(
+		'## Findings', '', '| # | Finding | Severity | Impact | Reproduction |', '|---|---|---|---|---|', '| 1 | a claim | major | blocks | 1/1 |', '',
+		'### Finding 1: a claim', '', '**Repro** -- starting state: the panel closed', '',
+		'1. VERIFY the panel opens -> PASS', '   Evidence: S01-01.png',
+		'2. Click Retry.',
+		'3. VERIFY it loads -> FAIL - Finding 1', '   Observed: empty', '   Evidence: S01-03.png', '',
+		'**Evidence**', '', '- [shots/S01-03.png](shots/S01-03.png) -- Step 3: empty panel',
+	));
+	const card = html.slice(html.indexOf('<article id="f1"'), html.indexOf('</article>', html.indexOf('<article id="f1"')));
+	const tiles = [...card.matchAll(/<figure><a class="shot" id="shot-f1-(\d)" href="([^"]+)"[^>]*data-step="([^"]+)"/g)].map(m => [m[1], m[2], m[3]]);
+	assert.deepEqual(tiles, [['1', 'shots/S01-01.png', 'Step 1'], ['2', 'shots/S01-03.png', 'Step 3']]);
+	assert.match(card, /<li id="f1-s1">[\s\S]*?data-open="shot-f1-1"/);
 });
 
 // S08, S09, S01 and S04 of a real ledger: two failing scenarios, two passing.
@@ -1622,7 +1618,7 @@ const logsHtml = (options = {}) => renderReportHtml(LOGS_REPORT, { ledger: LOGS_
 
 test('logs: the ledger reads its Logs section and a Log field with the stack under it', () => {
 	const ledger = parseLedger(LOGS_LEDGER);
-	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log', 'logs/slow.py']);
+	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log']);
 	assert.equal(ledger.logs[0].source, 'Positron window (renderer and dev-tools console)');
 	const step = ledger.exercised.find(r => r.id === 'S08').steps[2];
 	assert.equal(step.error.source, 'logs/44987-app.log:1182');
@@ -1666,7 +1662,7 @@ test('logs: Run details lists the ledger and one row per log, before Branch veri
 	const html = logsHtml();
 	const folds = html.slice(html.indexOf('id="run-details"'));
 	const labels = [...folds.matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]);
-	assert.deepEqual(labels, ['Agents', 'Change under test', 'Environment', 'State manipulation', 'Test ledger', 'Logs', 'Branch verification']);
+	assert.deepEqual(labels, ['Agents', 'Change under test', 'Environment', 'State manipulation', 'Test ledger', 'Logs', 'Test files', 'Branch verification']);
 	assert.match(folds, /recorded as the run went: <a href="ledger\.md" class="log-file">ledger\.md<\/a>/);
 	const rows = /<ul class="log-list">([\s\S]*?)<\/ul>/.exec(folds)[1].match(/<li>/g);
 	assert.equal(rows.length, parseLedger(LOGS_LEDGER).logs.length);
@@ -1710,7 +1706,6 @@ test('derived: a finding with no status strip takes its state from the table row
 	const [f] = parseReport(bare).findings;
 	assert.equal(f.confirmed, 'Confirmed');
 	assert.equal(f.reproduced, '3/3');
-	assert.equal(f.origin.kind, 'new');
 	const unproven = parseReport(bare.replace(/\| 3\/3 \|/, '| 0/3 |')).findings[0];
 	assert.equal(unproven.confirmed, 'Unproven');
 });
@@ -1725,4 +1720,235 @@ test('derived: Run details shows the ledger Environment after Change under test'
 	const sections = parseReport(own, { ledger: LEDGER }).runDetails;
 	assert.equal(sections.filter(s => s.title === 'Environment').length, 1);
 	assert.match(env(sections).html, /mine/);
+});
+
+test('parseReport: a heading inside an indented code block does not end the section', () => {
+	const { findings } = parseReport([
+		'# Exploratory test: x', '', '## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | one | minor |', '| 2 | two | minor |', '',
+		'### Finding 1: one', '', '**Repro** -- starting state: this file', '', '    ## Setup', '    x <- 1', '', '1. Open it.', '',
+		'### Finding 2: two', '', '**Repro** -- starting state: nothing', '', '1. Open it.', '',
+	].join('\n'));
+	assert.deepEqual(findings.map(f => f.n), [1, 2]);
+	assert.equal(findings[0].steps.length, 1);
+	assert.match(findings[0].preconditions[0], /<pre><code>## Setup\nx &lt;- 1\n<\/code><\/pre>/);
+});
+
+test('parseReport: a fence marker indented four spaces does not close the Repro block', () => {
+	const { findings } = parseReport([
+		'# Exploratory test: x', '', '## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | one | minor |', '',
+		'### Finding 1: one', '', '**Repro** -- starting state: this file', '',
+		'```md', 'a', '    ```', 'b', '```', '', '1. Open it.', '',
+	].join('\n'));
+	assert.equal(findings[0].steps.length, 1);
+	assert.match(findings[0].preconditions[0], /a\n {4}```\nb/);
+});
+
+const STACKED = md([
+	'## Findings', '',
+	'| # | Finding | Severity | Reproduction |', '|---|---|---|---|',
+	'| 1 | a claim | major | 3/3 |',
+	'',
+	'### Finding 1: A column never loads',
+	'',
+	'**Repro**',
+	'',
+	'1. Open it.',
+	'2. Wait.',
+	'3. VERIFY a notice offers Retry -> PASS',
+	'4. Click Retry.',
+	'5. VERIFY it loads -> FAIL (finding 1)',
+	'',
+	'**Evidence**',
+	'',
+	'- [shots/a.png](shots/a.png) -- Step 3: after Retry',
+	'- [shots/c.png](shots/c.png) -- Step 5: still empty',
+	'- [shots/b.png](shots/b.png) -- Step 3: the notice again',
+].join('\n'));
+
+test('renderReportHtml stacks the screenshots of one step into one tile', () => {
+	const c = card(renderReportHtml(STACKED), 1);
+	const tiles = c.match(/<figure>/g) ?? [];
+	assert.equal(tiles.length, 2);
+	// The stack opens its first shot and says how many it holds.
+	assert.match(c, /<a class="shot stk" id="shot-f1-1" href="shots\/a\.png" data-lb="f1-g1"[^>]*aria-label="Step 3: 2 screenshots, view full size">/);
+	assert.match(c, /<span class="shot-step" aria-hidden="true">Step 3<span class="shot-n">2<\/span><\/span>/);
+	// The rest of the stack stays reachable by id, in the stack's own group.
+	assert.match(c, /<a class="shot" id="shot-f1-2" href="shots\/b\.png" data-lb="f1-g1"[^>]*hidden><\/a>/);
+	// A step with one shot renders as before, with no count.
+	assert.match(c, /<a class="shot" id="shot-f1-3" href="shots\/c\.png" data-lb="f1-g2"[^>]*aria-label="Step 5 screenshot, view full size: Still empty">/);
+	assert.doesNotMatch(c.slice(c.indexOf('id="shot-f1-3"')), /shot-n/);
+	// The step icon still opens the step's first shot.
+	assert.match(c, /data-open="shot-f1-1" aria-label="2 screenshots for this step"/);
+});
+
+test('renderReportHtml pages a stack in the lightbox without wrapping', () => {
+	const html = renderReportHtml(STACKED);
+	assert.match(html, /<div class="lb-img"><img alt="">\n<button type="button" class="lb-nav lb-prev" hidden>/);
+	assert.match(html, /function show\(i\)\{if\(i<0\|\|i>=group\.length\)\{return;\}/);
+	assert.match(html, /pos\.textContent=\(at\+1\)\+' \/ '\+group\.length/);
+	assert.match(html, /<\/div>\n<span class="lb-pos" hidden><\/span>\n<button type="button" class="lb-close"/);
+	assert.doesNotMatch(html, /lb-dots/);
+	assert.doesNotMatch(html, /\.shot\.stk::after/);
+	assert.match(html, /a\.shot\[hidden\]\{display:none\}/);
+});
+
+// ---- File a GitHub issue --------------------------------------------------
+
+const issueBlock = (html, n) => {
+	const m = new RegExp(`<script type="text/plain" id="issue-f${n}">([\\s\\S]*?)</script>`).exec(html);
+	return m ? m[1] : null;
+};
+const issueAnchor = (html, n) => new RegExp(`<a class="gh-btn"[^>]*aria-label="File a GitHub issue for finding ${n} [^"]*">`).exec(html)?.[0];
+const unescapeHtml = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, '\'').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const issueUrl = (html, n) => new URL(unescapeHtml(/href="([^"]*)"/.exec(issueAnchor(html, n))[1]));
+// What the page's copy handler hands the clipboard.
+const issueCopied = (html, n) => issueBlock(html, n).replace(/<\\(?=\/script|!--)/gi, '<');
+const logsRead = p => {
+	try { return readFileSync(new URL(p, LOGS_DIR)); } catch { return null; }
+};
+const logsIssueHtml = (options = {}) => logsHtml({ base: 'https://cdn.example/run1', readFile: logsRead, ...options });
+
+test('issue: one button per card, directly before Copy prompt', () => {
+	for (const html of [renderReportHtml(FULL), logsIssueHtml()]) {
+		for (const card of html.split('<article id="f').slice(1)) {
+			assert.equal((card.match(/class="gh-btn"/g) || []).length, 1);
+			assert.match(card, /<\/svg><\/a><button type="button" class="cp-btn"/);
+		}
+	}
+	const off = renderReportHtml(FULL, { agentPrompts: false });
+	assert.match(off, /class="gh-btn"[^>]*>[\s\S]*?<\/a><\/div>/);
+});
+
+test('issue: the link opens a blank bug form titled as the card, with the embedded text as its body', () => {
+	const html = logsIssueHtml();
+	for (const n of [1, 2]) {
+		const title = unescapeHtml(new RegExp(`<article id="f${n}"[\\s\\S]*?<h2 class="card-title">([^<]*)</h2>`).exec(html)[1]);
+		const url = issueUrl(html, n);
+		assert.equal(`${url.origin}${url.pathname}`, 'https://github.com/posit-dev/positron/issues/new');
+		assert.equal(url.searchParams.get('title'), title);
+		assert.equal(url.searchParams.get('labels'), 'exploratory');
+		assert.equal(url.searchParams.get('template'), null);
+		assert.equal(url.searchParams.get('body'), issueCopied(html, n));
+		assert.ok(url.href.length <= 8000);
+		assert.match(issueAnchor(html, n), / target="_blank" rel="noopener" data-tip="File a GitHub issue"/);
+		assert.doesNotMatch(issueAnchor(html, n), /data-issue/);
+	}
+});
+
+test('issue: the body follows the template and leaves out what triage sets', () => {
+	const body = issueCopied(logsIssueHtml(), 1);
+	const headings = [...body.matchAll(/^## (.+)$/gm)].map(m => m[1]);
+	assert.deepEqual(headings, ['System details', 'Describe the issue', 'Steps to reproduce', 'Expected', 'Actual', 'Error messages', 'Evidence']);
+	assert.match(body, /^<sub>Reported by \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) of #1234 \(`[^`]+` @ `[0-9a-f]+`\)<\/sub>\n/);
+	assert.ok(body.includes([
+		'**Positron and OS:**  ',
+		'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)  ',
+		'Ubuntu 22.04, Linux x64',
+		'',
+		'**Session:**  ',
+		'Python 3.10.12 with pandas, polars, duckdb and pyarrow',
+	].join('\n')));
+	assert.doesNotMatch(body, /Code - OSS|Please investigate|### Context|!\[|Severity|Status:|Reproduced|Major|Coverage/i);
+	assert.match(body, /^- `slow\.py` \(below\) loaded/m);
+	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
+	assert.doesNotMatch(body, /^\s*Log:/m);
+	assert.match(body, /## Error messages\n```\nError: get_column_profiles timed out/);
+	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run:\n- 09-one12-unavailable\.png/m);
+	// The bullets say what they are.
+	assert.doesNotMatch(body, /Preconditions/);
+	assert.match(body, /## Steps to reproduce\n- `slow\.py` \(below\) loaded[^\n]*\n\n1\. /);
+	assert.match(body, /<details><summary>slow\.py<\/summary>\n\n```python\n# slow\.py/);
+	assert.doesNotMatch(body, /\/runs\/|\/tmp\//);
+});
+
+test('issue: an error longer than six lines is clipped, and a run without one says so', () => {
+	const long = LOGS_REPORT.replace(/(\n\s+at TableSummaryCache\.retryColumnProfiles[^\n]*)/, '$1$1$1$1$1');
+	const body = issueCopied(renderReportHtml(long, { ledger: LOGS_LEDGER, readFile: logsRead }), 1);
+	const fence = /## Error messages\n```\n([\s\S]*?)\n```/.exec(body)[1].split('\n');
+	assert.equal(fence.length, 7);
+	assert.equal(fence.at(-1), '    …');
+	assert.match(issueCopied(renderReportHtml(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Observed:** nothing.',
+	].join('\n'))), 1), /## Error messages\nNone recorded by the run\./);
+});
+
+test('issue: the likely cause folds as a hypothesis, and a local run links no report', () => {
+	const html = renderReportHtml(FULL, { base: '/runs/r1' });
+	const body = issueCopied(html, 1);
+	assert.match(body, /<details><summary>[^<]*hypothesis[^<]*<\/summary>\n\nThe timeout was cut to 10 s\.\n\n<\/details>/);
+	assert.match(body, /^<sub>Reported by exploratory test /);
+	assert.doesNotMatch(body, /\/runs\/r1/);
+	assert.match(body, /^Screenshots and logs are in the exploratory test report for this run:$/m);
+	assert.match(body, /\*\*Positron and OS:\*\* {2}\nNot recorded\n/);
+});
+
+test('issue: parseSystemLine reads the ledger line, and "not recorded" where it says so', () => {
+	assert.deepEqual(parseSystemLine('- Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).'),
+		{ positron: 'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)', os: 'Ubuntu 22.04, Linux x64' });
+	assert.deepEqual(parseSystemLine('Positron 2026.9.1 build 3, a release build of 0123abcd99 (Code - OSS 1.104.0), on macOS 15.1 (Darwin arm64)'),
+		{ positron: 'Positron 2026.9.1 build 3 (release build of `0123abcd99`)', os: 'macOS 15.1, Darwin arm64' });
+	assert.deepEqual(parseSystemLine('- Positron not recorded, on not recorded.'), { positron: 'Positron not recorded', os: 'OS not recorded' });
+	assert.equal(parseSystemLine('- Positron (pre-launched, CDP 44987), workspace /tmp/x.'), null);
+});
+
+test('issue: a body too long for the link drops the file text, then falls back to copying', () => {
+	const big = p => p.endsWith('slow.py') ? Buffer.from(`x = 1\n`.repeat(2000)) : logsRead(p);
+	const dropped = logsIssueHtml({ readFile: big });
+	const url = issueUrl(dropped, 1);
+	assert.ok(url.href.length <= 8000);
+	assert.match(url.searchParams.get('body'), /^`slow\.py` is in the report's `files\/` folder\.$/m);
+	assert.doesNotMatch(url.searchParams.get('body'), /<summary>slow\.py/);
+	assert.doesNotMatch(dropped, /data-issue=/);
+
+	const huge = LOGS_REPORT.replace(/^\*\*Observed:\*\* /m, `**Observed:** ${'very long. '.repeat(900)}`);
+	const html = renderReportHtml(huge, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const anchor = issueAnchor(html, 1);
+	const fallback = issueUrl(html, 1);
+	assert.equal(fallback.searchParams.get('body'), null);
+	assert.equal(fallback.searchParams.get('labels'), 'exploratory');
+	assert.match(anchor, / data-issue="issue-f1"/);
+	// The copy holds everything, file text included.
+	assert.match(issueCopied(html, 1), /<summary>slow\.py<\/summary>/);
+
+	// Run the page's handler against a stub DOM: a click copies the text and shows the toast.
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('gh-toast'));
+	assert.ok(src);
+	assert.ok(!logsIssueHtml().includes('gh-toast\''));
+	const el = () => ({ classList: { add(c) { this.on = c; }, remove() { this.on = null; } }, setAttribute() {}, appendChild() {}, querySelector: () => ({}) });
+	const toast = el();
+	let handler, copied;
+	const link = { dataset: { issue: 'issue-f1' }, addEventListener: (_, fn) => { handler = fn; } };
+	const document = {
+		createElement: () => toast, body: { appendChild() {} },
+		querySelectorAll: () => [link],
+		getElementById: id => id === 'issue-f1' ? { textContent: unescapeHtml(issueBlock(html, 1)) } : null,
+	};
+	const navigator = { clipboard: { writeText: t => { copied = t; return { then: ok => ok() }; } } };
+	new Function('document', 'navigator', 'window', 'setTimeout', 'clearTimeout', src)(document, navigator, { isSecureContext: true }, () => 0, () => {});
+	handler();
+	assert.equal(copied, issueCopied(html, 1));
+	assert.equal(toast.classList.on, 'show');
+	assert.match(src, /Description copied\. Paste it into the issue on GitHub\./);
+	assert.match(src, /,5000\)/);
+});
+
+test('issue: a saved script cannot end the embedded block early', () => {
+	const html = renderReportHtml(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '', '**Observed:** the tag `</script>` and `<!--` ended the block.',
+	].join('\n')));
+	assert.doesNotMatch(issueBlock(html, 1), /<\/script|<!--/i);
+	assert.match(issueCopied(html, 1), /`<\/script>` and `<!--`/);
+	assert.match(issueUrl(html, 1).searchParams.get('body'), /`<\/script>` and `<!--`/);
+});
+
+test('issue: icons rest until their own button is hovered', () => {
+	const html = renderReportHtml(FULL);
+	assert.doesNotMatch(html, /\.card:hover \.cp-btn|\.card:hover \.gh-btn/);
+	assert.match(html, /\.gh-btn\{[^}]*color:var\(--cp-rest\)/);
+	assert.match(html, /\.gh-btn:hover\{color:var\(--ink\);background:var\(--cp-hover-bg\)\}/);
+	assert.match(html, /\.gh-btn\+\.cp-btn\{margin-left:-19px\}/);
 });
