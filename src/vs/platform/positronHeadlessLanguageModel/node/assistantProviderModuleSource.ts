@@ -11,27 +11,22 @@ import { ExtensionType } from '../../extensions/common/extensions.js';
 const ASSISTANT_EXTENSION_ID = 'posit.assistant';
 const PROVIDER_MODULE_FOLDER = 'provider-module';
 
-/** Where to find Assistant's provider module on disk, or why there isn't one. */
-export type AssistantProviderModuleSource =
-	| { readonly folder: string; readonly enabled: true }
-	| { readonly folder: string; readonly enabled: false };
-
 /**
  * Finds posit.assistant's installed provider module folder, purely from
  * on-disk install and enablement records -- no extension host involved.
- * Returns undefined when the extension isn't installed.
+ * Returns undefined when the extension isn't installed or is disabled.
  */
 export async function findAssistantProviderModule(
 	extensions: IExtensionManagementService,
 	enablement: IGlobalExtensionEnablementService,
-): Promise<AssistantProviderModuleSource | undefined> {
+): Promise<string | undefined> {
 	const installed = await extensions.getInstalled(ExtensionType.User);
 	const assistant = installed.find(extension => areSameExtensions(extension.identifier, { id: ASSISTANT_EXTENSION_ID }));
 	if (!assistant) {
 		return undefined;
 	}
-
-	const folder = join(assistant.location.fsPath, 'dist', PROVIDER_MODULE_FOLDER);
-	const disabled = enablement.getDisabledExtensions().some(id => areSameExtensions(id, { id: ASSISTANT_EXTENSION_ID }));
-	return disabled ? { folder, enabled: false } : { folder, enabled: true };
+	if (enablement.getDisabledExtensions().some(id => areSameExtensions(id, { id: ASSISTANT_EXTENSION_ID }))) {
+		return undefined;
+	}
+	return join(assistant.location.fsPath, 'dist', PROVIDER_MODULE_FOLDER);
 }

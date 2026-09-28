@@ -55,8 +55,8 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 	}
 
 	private async loadModule() {
-		const source = await findAssistantProviderModule(this._extensions, this._enablement);
-		return loadProviderModule(source, this._logService);
+		const folder = await findAssistantProviderModule(this._extensions, this._enablement);
+		return loadProviderModule(folder, this._logService);
 	}
 
 	async getProviderMappings(): Promise<IProviderMapping[]> {

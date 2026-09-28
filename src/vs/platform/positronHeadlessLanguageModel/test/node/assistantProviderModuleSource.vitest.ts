@@ -36,10 +36,9 @@ describe('findAssistantProviderModule', () => {
 		});
 		const enablement = stubInterface<IGlobalExtensionEnablementService>({ getDisabledExtensions: () => [] });
 
-		const source = await findAssistantProviderModule(extensions, enablement);
+		const folder = await findAssistantProviderModule(extensions, enablement);
 
-		expect(source?.enabled).toBe(true);
-		expect(source?.folder.endsWith('provider-module')).toBe(true);
+		expect(folder?.endsWith('provider-module')).toBe(true);
 	});
 
 	it('returns undefined when no extension matches posit.assistant', async () => {
@@ -48,12 +47,12 @@ describe('findAssistantProviderModule', () => {
 		});
 		const enablement = stubInterface<IGlobalExtensionEnablementService>({ getDisabledExtensions: () => [] });
 
-		const source = await findAssistantProviderModule(extensions, enablement);
+		const folder = await findAssistantProviderModule(extensions, enablement);
 
-		expect(source).toBeUndefined();
+		expect(folder).toBeUndefined();
 	});
 
-	it('reports disabled when the global enablement service lists posit.assistant', async () => {
+	it('returns undefined when the global enablement service lists posit.assistant as disabled', async () => {
 		const extensions = stubInterface<IExtensionManagementService>({
 			getInstalled: async () => [localExtension('posit.assistant', '/extensions/posit.assistant-1.5.0')],
 		});
@@ -61,9 +60,9 @@ describe('findAssistantProviderModule', () => {
 			getDisabledExtensions: () => [{ id: 'posit.assistant' }],
 		});
 
-		const source = await findAssistantProviderModule(extensions, enablement);
+		const folder = await findAssistantProviderModule(extensions, enablement);
 
-		expect(source?.enabled).toBe(false);
+		expect(folder).toBeUndefined();
 	});
 
 	it('falls back to the built-in copy when a real install has no provider-module folder yet', async () => {
@@ -77,8 +76,8 @@ describe('findAssistantProviderModule', () => {
 		const enablement = stubInterface<IGlobalExtensionEnablementService>({ getDisabledExtensions: () => [] });
 		const logService = stubInterface<ILogService>({ info: vi.fn(), warn: vi.fn(), debug: vi.fn() });
 
-		const source = await findAssistantProviderModule(extensions, enablement);
-		const loaded = await loadProviderModule(source, logService);
+		const folder = await findAssistantProviderModule(extensions, enablement);
+		const loaded = await loadProviderModule(folder, logService);
 
 		expect(loaded.ProviderRegistry).toBeDefined();
 		expect((logService.warn as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toMatch(/Ignoring/);

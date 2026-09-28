@@ -45,8 +45,8 @@ export class AiProviderCatalog extends Disposable implements IAiProviderCatalog 
 
 	private async loadModule(): Promise<ProviderModule> {
 		this._providerModule ??= (async () => {
-			const source = await findAssistantProviderModule(this._extensions, this._enablement);
-			return loadProviderModule(source, this._logService);
+			const folder = await findAssistantProviderModule(this._extensions, this._enablement);
+			return loadProviderModule(folder, this._logService);
 		})();
 		return this._providerModule;
 	}

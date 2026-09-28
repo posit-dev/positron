@@ -30,7 +30,7 @@ describe('loadProviderModule', () => {
 		const dir = fs.mkdtempSync(join(os.tmpdir(), 'provider-module-'));
 		const logService = testLogger();
 
-		const loaded = await loadProviderModule({ folder: dir, enabled: true }, logService);
+		const loaded = await loadProviderModule(dir, logService);
 
 		expect(loaded.ProviderRegistry).toBeDefined();
 		expect((logService.warn as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toMatch(/Ignoring/);
@@ -40,14 +40,5 @@ describe('loadProviderModule', () => {
 	it('rejects a module missing an expected export', () => {
 		const incomplete: Partial<ProviderModule> = { ProviderRegistry: class { } };
 		expect(() => assertProviderModuleShape(incomplete)).toThrow(/missing export\(s\).*registerAllProviders/);
-	});
-
-	it('falls back to the built-in copy when Assistant is disabled', async () => {
-		const logService = testLogger();
-
-		const loaded = await loadProviderModule({ folder: '/unused', enabled: false }, logService);
-
-		expect(loaded.ProviderRegistry).toBeDefined();
-		expect((logService.info as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]).toMatch(/disabled/);
 	});
 });

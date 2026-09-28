@@ -7,7 +7,6 @@ import { access } from 'fs/promises';
 import { pathToFileURL } from 'url';
 import { join } from '../../../base/common/path.js';
 import { ILogService } from '../../log/common/log.js';
-import { AssistantProviderModuleSource } from './assistantProviderModuleSource.js';
 
 /**
  * The ai-provider-bridge and ai-config/node surface the engine and catalog
@@ -27,10 +26,10 @@ export type ProviderModule = typeof import('ai-provider-bridge')
  * expected export. Never throws.
  */
 export async function loadProviderModule(
-	source: AssistantProviderModuleSource | undefined,
+	folder: string | undefined,
 	logService: ILogService,
 ): Promise<ProviderModule> {
-	const assistantModule = await tryLoadAssistantModule(source, logService);
+	const assistantModule = folder ? await tryLoadAssistantModule(folder, logService) : undefined;
 	if (assistantModule) {
 		logService.info('[provider-module] Using Posit Assistant\'s provider module');
 		return assistantModule;
@@ -38,20 +37,8 @@ export async function loadProviderModule(
 	return loadBuiltinProviderModule();
 }
 
-async function tryLoadAssistantModule(
-	source: AssistantProviderModuleSource | undefined,
-	logService: ILogService,
-): Promise<ProviderModule | undefined> {
-	if (!source) {
-		logService.debug('[provider-module] Posit Assistant is not installed; using the built-in copy');
-		return undefined;
-	}
-	if (!source.enabled) {
-		logService.info('[provider-module] Posit Assistant is disabled; using the built-in copy');
-		return undefined;
-	}
-
-	const entryPoint = join(source.folder, 'index.js');
+async function tryLoadAssistantModule(folder: string, logService: ILogService): Promise<ProviderModule | undefined> {
+	const entryPoint = join(folder, 'index.js');
 	try {
 		await access(entryPoint);
 		const loaded = await import(pathToFileURL(entryPoint).href) as Partial<ProviderModule>;
