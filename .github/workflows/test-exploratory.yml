@@ -29,11 +29,6 @@ on:
           - Opus
           - Sonnet
           - Both (Opus + Sonnet)
-      worthiness_check:
-        description: "Worthiness check"
-        required: false
-        default: true
-        type: boolean
       # Minutes to explore; the agent is told when they are up and stopped 10
       # minutes later. Setup and the build are not counted. 15 is about the
       # least that yields a useful run.
@@ -42,6 +37,11 @@ on:
         required: false
         default: ""
         type: string
+      worthiness_check:
+        description: "Worthiness check"
+        required: false
+        default: true
+        type: boolean
   # `/test` (or `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
   # code, so the membership job is the entire defence. See its comment.
