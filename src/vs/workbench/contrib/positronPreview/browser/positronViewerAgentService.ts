@@ -136,6 +136,10 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		this.checkEnabled();
 		const preview = this.readablePreview();
 
+		// Make sure the page can be reached before changing the user's layout,
+		// so a call that would fail anyway doesn't reveal the Viewer for nothing.
+		await withBridgeTimeout(preview.webview.runBridge('viewport'));
+
 		// The Viewer has to be showing: Desktop captures the screen, and in web
 		// builds a hidden Viewer's frame shrinks to 300x150, so the app lays
 		// itself out at that size.
@@ -175,8 +179,9 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	}
 
 	/**
-	 * Waits until the app's viewport matches the Viewer's size on screen, or
-	 * LAYOUT_TIMEOUT_MS passes.
+	 * Waits until the app's viewport matches the Viewer's size on screen.
+	 * Throws if it hasn't after LAYOUT_TIMEOUT_MS, rather than capturing the
+	 * app at the wrong size.
 	 */
 	private async waitForLayout(preview: PreviewWebview): Promise<void> {
 		const deadline = Date.now() + LAYOUT_TIMEOUT_MS;
@@ -192,7 +197,8 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 				if (rect.width === 0 || rect.height === 0) {
 					throw new Error('The Viewer has no room on screen to show its content.');
 				}
-				return;
+				throw new Error(`The page in the Viewer is laid out at ${viewport.width}x${viewport.height}, ` +
+					`not the Viewer's ${Math.round(rect.width)}x${Math.round(rect.height)}, so a screenshot would be wrong. Try again in a moment.`);
 			}
 			await timeout(100);
 		}

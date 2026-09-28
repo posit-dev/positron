@@ -167,7 +167,23 @@ describe('createViewerBridge', () => {
 		const lines = snapshotText(`<table>${rows}</table>`).split('\n');
 
 		expect(lines.length).toBe(52);
-		expect(lines.at(-1)).toBe('  - text "(10 more rows)"');
+		expect(lines.at(-1)).toBe('  - text "(up to 10 more rows)"');
+	});
+
+	it('skips hidden rows without counting them toward the cap', () => {
+		const rows = Array.from({ length: 3 }, (_, i) => `<tr${i === 0 ? ' style="display: none"' : ''}><td>${i}</td></tr>`).join('');
+
+		expect(snapshotText(`<table>${rows}</table>`)).toMatchInlineSnapshot(`
+			"- table
+			  - row "1"
+			  - row "2""
+		`);
+	});
+
+	it('keeps visible content inside a visibility:hidden element', () => {
+		// visibility:hidden hides the element's own content, but a descendant can make itself visible.
+		expect(snapshotText('<div style="visibility: hidden">Hidden text<button style="visibility: visible">Shown</button></div>'))
+			.toBe('- button "Shown" [ref=e1]');
 	});
 
 	it('reads the accessible table inside a canvas (Streamlit st.dataframe)', () => {
@@ -265,6 +281,23 @@ describe('createViewerBridge', () => {
 		expect(createViewerBridge(win).snapshot().text).toBe('- button "Inside" [ref=e1]');
 	});
 
+	it('walks into open shadow roots inside same-origin iframes', () => {
+		const win = loadApp('');
+		const inner = win.document.createElement('iframe');
+		win.document.body.appendChild(inner);
+		const innerDoc = inner.contentDocument!;
+		const wrapper = innerDoc.createElement('div');
+		innerDoc.body.appendChild(wrapper);
+		const host = innerDoc.createElement('my-widget');
+		wrapper.appendChild(host);
+		host.attachShadow({ mode: 'open' }).innerHTML = '<button>Inside</button>';
+
+		expect(createViewerBridge(win).snapshot().text).toMatchInlineSnapshot(`
+			"- iframe
+			  - button "Inside" [ref=e1]"
+		`);
+	});
+
 	it('limits the snapshot to a selector', () => {
 		expect(snapshotText('<h1>Title</h1><div id="part"><button>Go</button></div>', { selector: '#part' }))
 			.toBe('- button "Go" [ref=e1]');
@@ -283,6 +316,13 @@ describe('createViewerBridge', () => {
 		expect(snapshot.truncated).toBe(true);
 		expect(snapshot.text.length).toBeLessThanOrEqual(100);
 		expect(snapshot.text.split('\n').at(-1)).toMatch(/^- button "Button \d+" \[ref=e\d+\]$/);
+	});
+
+	it('says when nothing fits in maxChars, instead of calling the page empty', () => {
+		const snapshot = createViewerBridge(loadApp('<h1>A heading far longer than the budget</h1>')).snapshot({ maxChars: 10 });
+
+		expect({ text: snapshot.text, truncated: snapshot.truncated })
+			.toEqual({ text: '(nothing fits in maxChars=10; ask for more)', truncated: true });
 	});
 
 	it('says when the page is empty', () => {

@@ -30,6 +30,8 @@ import { IViewerBridge, IViewerViewport } from '../../common/positronViewerAgent
 class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	readonly calls: string[] = [];
 	viewport: IViewerViewport = { width: 600, height: 400 };
+	/** When set, every bridge call fails with this, as when the page can't be reached. */
+	bridgeError: Error | undefined;
 
 	constructor(size = { width: 600, height: 400 }) {
 		super(stubInterface<IOverlayWebview>({
@@ -45,6 +47,9 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 
 	override async runBridge<M extends keyof IViewerBridge>(method: M, ..._args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
 		this.calls.push(method);
+		if (this.bridgeError) {
+			throw this.bridgeError;
+		}
 		const results: { [K in keyof IViewerBridge]: ViewerBridgeResult<K> } = {
 			waitForIdle: { waitedMs: 0, timedOut: false },
 			snapshot: { text: '- button "Go" [ref=e1]', url: 'http://localhost:8000/?_positronRender=3', title: 'App', truncated: false },
@@ -152,9 +157,35 @@ describe('PositronViewerAgentService', () => {
 		const screenshot = await createService().getViewerScreenshot();
 
 		expect(openView).not.toHaveBeenCalled();
-		expect(webview.calls).toEqual(['viewport', 'waitForIdle', 'capture']);
+		expect(webview.calls).toEqual(['viewport', 'viewport', 'waitForIdle', 'capture']);
 		expect({ mimeType: screenshot.mimeType, method: screenshot.method, revealed: screenshot.revealed })
 			.toEqual({ mimeType: 'image/png', method: 'dom', revealed: false });
+	});
+
+	it('leaves a hidden Viewer alone when the page can\'t be reached', async () => {
+		const webview = showUrl();
+		viewerVisible = false;
+		webview.bridgeError = new Error('Agents can\'t read this kind of Viewer content yet, or it hasn\'t loaded.');
+
+		await expect(createService().getViewerScreenshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet');
+		expect(openView).not.toHaveBeenCalled();
+	});
+
+	it('fails rather than capture an app that never takes the Viewer\'s size', async () => {
+		vi.useFakeTimers();
+		try {
+			const webview = showUrl();
+			// Stuck at the size of a hidden Viewer's frame in web builds.
+			webview.viewport = { width: 300, height: 150 };
+
+			const screenshot = createService().getViewerScreenshot();
+			const failed = expect(screenshot).rejects.toThrow('The page in the Viewer is laid out at 300x150, not the Viewer\'s 600x400');
+			await vi.advanceTimersByTimeAsync(4000);
+			await failed;
+			expect(webview.calls).not.toContain('capture');
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('reveals a hidden Viewer, without focus, and waits for the app to take its size', async () => {
@@ -172,6 +203,6 @@ describe('PositronViewerAgentService', () => {
 
 		expect(openView).toHaveBeenCalledWith('workbench.panel.positronPreview', false);
 		expect(screenshot.revealed).toBe(true);
-		expect(webview.calls).toEqual(['viewport', 'waitForIdle', 'capture']);
+		expect(webview.calls).toEqual(['viewport', 'viewport', 'waitForIdle', 'capture']);
 	});
 });

@@ -107,10 +107,6 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		layout?: { title?: string | { text?: string } };
 	}
 
-	// Refs from the latest snapshot. A new snapshot replaces them; a page load
-	// creates a new bridge, so refs never survive navigation.
-	let refs = new Map<string, WeakRef<Element>>();
-
 	const clean = (s: string | null | undefined, max = 100): string => {
 		const text = (s || '').replace(/\s+/g, ' ').trim();
 		return text.length > max ? text.slice(0, max - 3) + '...' : text;
@@ -170,36 +166,50 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return true;
 	};
 
-	function isHidden(el: Element, fallback: boolean): boolean {
+	/**
+	 * Whether an element shows on the page: `hidden` (nothing in it renders),
+	 * `invisible` (visibility: hidden, so the element's own content doesn't
+	 * show but a descendant can make itself visible again), or `shown`.
+	 */
+	function renderStateOf(el: Element, fallback: boolean): 'hidden' | 'invisible' | 'shown' {
 		if ((el as HTMLElement).hidden || el.getAttribute('aria-hidden') === 'true') {
-			return true;
+			return 'hidden';
 		}
 		const style = viewOf(el).getComputedStyle(el);
-		if (style.display === 'none' || style.visibility === 'hidden') {
-			return true;
+		if (style.display === 'none') {
+			return 'hidden';
 		}
 		// Canvas fallback content is never rendered, so it has no layout to check.
-		return !fallback && el.getClientRects().length === 0 && style.display !== 'contents';
+		if (!fallback && el.getClientRects().length === 0 && style.display !== 'contents') {
+			return 'hidden';
+		}
+		return style.visibility === 'hidden' || style.visibility === 'collapse' ? 'invisible' : 'shown';
 	}
 
-	// Every element with an open shadow root, plus its ancestors (across shadow
-	// boundaries). Selectors don't reach into shadow roots, so these are the
-	// elements whose content a `querySelector` check would miss.
-	function findShadowHosts(): Set<Element> {
-		const marked = new Set<Element>();
-		const visit = (scope: Document | ShadowRoot) => {
-			for (const el of scope.querySelectorAll('*')) {
-				if (!el.shadowRoot) {
-					continue;
-				}
-				for (let a: Element | null = el; a && !marked.has(a); a = a.parentElement ?? (a.getRootNode() as ShadowRoot).host ?? null) {
-					marked.add(a);
-				}
-				visit(el.shadowRoot);
+	// Adds every element under `root` (and `root` itself) that has an open
+	// shadow root, plus its ancestors across shadow boundaries. Selectors don't
+	// reach into shadow roots, so these are the elements whose content a
+	// `querySelector` check would miss. Only `root`'s subtree is scanned, so a
+	// snapshot of part of the page doesn't pay for the whole document.
+	function addShadowHosts(marked: Set<Element>, root: Element): void {
+		const mark = (host: Element) => {
+			for (let a: Element | null = host; a && !marked.has(a); a = a.parentElement ?? (a.getRootNode() as ShadowRoot).host ?? null) {
+				marked.add(a);
 			}
 		};
-		visit(doc);
-		return marked;
+		const visit = (scope: Element | ShadowRoot) => {
+			for (const el of scope.querySelectorAll('*')) {
+				if (el.shadowRoot) {
+					mark(el);
+					visit(el.shadowRoot);
+				}
+			}
+		};
+		if (root.shadowRoot) {
+			mark(root);
+			visit(root.shadowRoot);
+		}
+		visit(root);
 	}
 
 	// The elements that render in place of `el`'s children: an open shadow
@@ -415,10 +425,10 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (name) {
 			line += ` ${JSON.stringify(name)}`;
 		}
-		let ref: string | undefined;
+		// Refs number the controls in order. Resolving a ref back to its element
+		// comes with the actions (click, fill, ...), which aren't built yet.
 		if (interactive) {
-			ref = `e${state.nextRef}`;
-			line += ` [ref=${ref}]`;
+			line += ` [ref=e${state.nextRef}]`;
 		}
 		if (props) {
 			line += ` ${props}`;
@@ -426,9 +436,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (!push(state, line)) {
 			return false;
 		}
-		if (ref) {
+		if (interactive) {
 			state.nextRef++;
-			refs.set(ref, new WeakRef(el));
 		}
 		return true;
 	}
@@ -499,13 +508,20 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			return;
 		}
 		const pad = '  '.repeat(indent + 1);
-		const rows = rowsOf(el).filter(row => !isHidden(row, fallback));
+		const rows = rowsOf(el);
+		let listed = 0;
 		for (let i = 0; i < rows.length && !state.truncated; i++) {
-			if (i === MAX_ROWS_PER_TABLE) {
-				push(state, `${pad}- text "(${rows.length - i} more rows)"`);
+			const row = rows[i];
+			// Checked one row at a time, so a long table costs only the rows it lists.
+			if (renderStateOf(row, fallback) !== 'shown') {
+				continue;
+			}
+			if (listed === MAX_ROWS_PER_TABLE) {
+				// The rest weren't checked, and some may be hidden.
+				push(state, `${pad}- text "(up to ${rows.length - i} more rows)"`);
 				return;
 			}
-			const row = rows[i];
+			listed++;
 			if (row.querySelector(INTERACTIVE_SELECTOR)) {
 				walkChildren(state, row, indent + 1, fallback);
 				continue;
@@ -553,7 +569,12 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			return;
 		}
 
-		if (isHidden(el, fallback)) {
+		const renderState = renderStateOf(el, fallback);
+		if (renderState === 'hidden') {
+			return;
+		}
+		if (renderState === 'invisible') {
+			walkChildren(state, el, indent, fallback);
 			return;
 		}
 
@@ -582,6 +603,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 					// cross-origin
 				}
 				if (inner) {
+					// A same-origin frame is its own document, so scan it for shadow hosts too.
+					addShadowHosts(state.shadowHosts, inner);
 					walk(state, inner, childIndent, false);
 				} else if (emitted) {
 					push(state, `${'  '.repeat(childIndent)}- text "(cross-origin frame, not readable)"`);
@@ -628,19 +651,26 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (!root) {
 			throw new Error(`Nothing in the Viewer matches the selector ${JSON.stringify(options.selector)}.`);
 		}
-		refs = new Map();
 		const state: WalkState = {
 			lines: [],
 			interactiveOnly: !!options.interactiveOnly,
 			maxChars: options.maxChars && options.maxChars > 0 ? options.maxChars : DEFAULT_MAX_CHARS,
-			shadowHosts: findShadowHosts(),
+			shadowHosts: new Set(),
 			chars: 0,
 			truncated: false,
 			nextRef: 1,
 		};
+		addShadowHosts(state.shadowHosts, root);
 		walk(state, root, 0, false);
+		let text = state.lines.join('\n');
+		if (!text) {
+			// Say why there's nothing: an empty page, or a first line too long for maxChars.
+			text = state.truncated
+				? `(nothing fits in maxChars=${state.maxChars}; ask for more)`
+				: state.interactiveOnly ? '(no controls)' : '(no content)';
+		}
 		return {
-			text: state.lines.join('\n') || (state.interactiveOnly ? '(no controls)' : '(no content)'),
+			text,
 			url: win.location.href,
 			title: doc.title,
 			truncated: state.truncated,

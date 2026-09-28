@@ -5,6 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
+import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { SerializableObjectWithBuffers } from '../../../../services/extensions/common/proxyIdentifier.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { ExtHostCommands } from '../../../common/extHostCommands.js';
@@ -19,6 +21,31 @@ function createFeatures(): ExtHostAiFeatures {
 		stubInterface<IExtHostWorkspace>(),
 	);
 }
+
+describe('ExtHostAiFeatures Viewer screenshots', () => {
+	beforeEach(() => {
+		ensureNoLeakedDisposables();
+	});
+
+	it('hands out the PNG bytes as their own buffer, not a view into the RPC message', async () => {
+		// After the RPC, the image is a view into the whole message buffer.
+		const message = new Uint8Array([9, 9, 1, 2, 3, 9]);
+		const features = new ExtHostAiFeatures(
+			SingleProxyRPCProtocol({
+				$getViewerScreenshot: async () => new SerializableObjectWithBuffers({
+					mimeType: 'image/png', width: 1, height: 1, method: 'native', revealed: false,
+					data: VSBuffer.wrap(message.subarray(2, 5)),
+				}),
+			}),
+			stubInterface<ExtHostCommands>(),
+			stubInterface<IExtHostWorkspace>(),
+		);
+
+		const { data } = await features.getViewerScreenshot();
+
+		expect({ bytes: [...data], bufferLength: data.buffer.byteLength }).toEqual({ bytes: [1, 2, 3], bufferLength: 3 });
+	});
+});
 
 describe('ExtHostAiFeatures skill roots', () => {
 	beforeEach(() => {
