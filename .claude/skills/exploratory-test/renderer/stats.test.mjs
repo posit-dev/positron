@@ -76,6 +76,9 @@ test('buildStats counts findings and verdicts from the parsed report', () => {
 	assert.equal(stats.findings, 3);
 	assert.deepEqual(stats.verdicts, { confirmed: 1, disputed: 1 });
 	assert.equal(stats.costUsd, 3.76);
+	assert.equal(stats.timeLimit, null);
+	const limited = buildStats({ where: 'ci', parsed: null, timeLimit: { minutes: 20, reached: true, stopped: false } });
+	assert.deepEqual(limited.timeLimit, { minutes: 20, reached: true, stopped: false });
 });
 
 test('statsFromLog reads the line run.mjs prints, from a timestamped job log', () => {

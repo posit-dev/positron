@@ -268,15 +268,64 @@ export function renderStepSummary(markdown, baseUrl) {
 export const COMMENT_MARKER = '<!-- exploratory-test -->';
 
 /**
- * How the explore pass ended. `partial` wins over a written report: a run cut
- * off at the turn cap covered less than it meant to, and a reviewer should
- * know that before trusting a short findings list.
+ * How the explore pass ended. `partial` and `timed-out` win over a written
+ * report: a run cut off at the turn cap or the time limit covered less than it
+ * meant to, and a reviewer should know that before trusting a short findings
+ * list. A run that finished writing up after being told time was up is
+ * `complete`: it stopped where it was asked to.
  */
-export function runOutcome({ report, numTurns, maxTurns }) {
+export function runOutcome({ report, numTurns, maxTurns, timedOut = false }) {
+	if (timedOut) {
+		return 'timed-out';
+	}
 	if (typeof numTurns === 'number' && numTurns >= maxTurns) {
 		return 'partial';
 	}
 	return report ? 'complete' : 'no-report';
+}
+
+/** How long a run has to write up after it is told time is up, before it is stopped. */
+export const WRAP_UP_MINUTES = 10;
+
+/**
+ * The time limit, in whole minutes, from a dispatch input or a `/test 20m`
+ * word: `20`, `20m` or empty. Null when there is none or it is not a positive
+ * whole number, which runs without a limit rather than failing the run.
+ */
+export function parseTimeLimit(raw) {
+	const m = /^\s*(\d+)\s*m?\s*$/i.exec(String(raw ?? ''));
+	const minutes = m ? Number(m[1]) : NaN;
+	return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
+}
+
+/** The brief's line for a run with a time limit: the budget, known up front, shapes the plan. */
+export function buildTimeBudgetLine(minutes) {
+	return `**You have ${minutes} minutes to explore.** Size your scenarios to fit, and list what you would test next under Not run. You will be told when time is up; then stop exploring, finish the ledger, write the report and check it. You have ${WRAP_UP_MINUTES} more minutes for that before the run is stopped.`;
+}
+
+/** What the agent is told on each tool result once its time is up. */
+export function timeUpMessage(minutes) {
+	return `Time is up: your ${minutes} minutes for exploring have run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.md and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
+}
+
+/**
+ * A PostToolUse (and PostToolUseFailure) hook that, once `deadline` has passed,
+ * appends the time-up message to every tool result, so the agent learns it
+ * from what it reads next rather than being cut off mid-step. `onTimeUp` is
+ * called the first time. `now` is the clock, for tests.
+ */
+export function timeUpHook({ deadline, minutes, now = Date.now, onTimeUp = () => {} }) {
+	let told = false;
+	return async input => {
+		if (now() < deadline) {
+			return {};
+		}
+		if (!told) {
+			told = true;
+			onTimeUp();
+		}
+		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: timeUpMessage(minutes) } };
+	};
 }
 
 /**
@@ -311,15 +360,17 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 	if (state === 'declined') {
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
-	if (markdown && (state === 'complete' || state === 'partial')) {
+	if (markdown && (state === 'complete' || state === 'partial' || state === 'timed-out')) {
 		const lines = [tallyFindings(markdown)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
+		if (state === 'timed-out') { lines.push('_Partial run: the agent was stopped at its time limit, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
 		return comment(lines);
 	}
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
-		: state === 'no-report' ? 'The agent finished without writing a report.'
-			: 'The run failed before the agent produced a report.';
+		: state === 'timed-out' ? 'The agent was stopped at its time limit before writing a report.'
+			: state === 'no-report' ? 'The agent finished without writing a report.'
+				: 'The run failed before the agent produced a report.';
 	return comment([why, run]);
 }
 

@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, buildTimeBudgetLine, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -446,4 +446,49 @@ test('buildTaskLine quotes a multi-line focus and makes it the target', () => {
 	const line = buildTaskLine('  the plots pane\n\nwith a dark theme  ');
 	assert.match(line, /asked you to test this:\n\n> the plots pane\n>\n> with a dark theme\n\n/);
 	assert.match(line, /The diff is context/);
+});
+
+test('parseTimeLimit takes whole minutes, as 20 or 20m, and ignores anything else', () => {
+	assert.equal(parseTimeLimit('20'), 20);
+	assert.equal(parseTimeLimit(' 15m '), 15);
+	assert.equal(parseTimeLimit('30M'), 30);
+	for (const raw of ['', undefined, null, '0', '-5', '2.5', '20min', 'm20', 'twenty']) {
+		assert.equal(parseTimeLimit(raw), null, String(raw));
+	}
+});
+
+test('runOutcome is timed-out when the hard stop fired, whatever else is true', () => {
+	assert.equal(runOutcome({ report: '# r', numTurns: 50, maxTurns: 200, timedOut: true }), 'timed-out');
+	assert.equal(runOutcome({ report: null, numTurns: null, maxTurns: 200, timedOut: true }), 'timed-out');
+	// Told to wrap up and did: complete.
+	assert.equal(runOutcome({ report: '# r', numTurns: 50, maxTurns: 200, timedOut: false }), 'complete');
+});
+
+test('the brief states the budget, and the wrap-up window', () => {
+	const line = buildTimeBudgetLine(20);
+	assert.match(line, /^\*\*You have 20 minutes to explore\.\*\*/);
+	assert.match(line, new RegExp(`${WRAP_UP_MINUTES} more minutes`));
+	assert.match(line, /Not run/);
+});
+
+test('timeUpHook says nothing before the deadline, then tells every tool result, calling onTimeUp once', async () => {
+	let clock = 1000;
+	let calls = 0;
+	const hook = timeUpHook({ deadline: 2000, minutes: 20, now: () => clock, onTimeUp: () => calls++ });
+	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), {});
+	clock = 2000;
+	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: timeUpMessage(20) } });
+	// A failed tool call gets it too, under its own event name.
+	assert.equal((await hook({ hook_event_name: 'PostToolUseFailure' })).hookSpecificOutput.hookEventName, 'PostToolUseFailure');
+	assert.equal(calls, 1);
+	assert.match(timeUpMessage(20), /Stop exploring now\..*Not run.*report\.md/);
+});
+
+test('renderPrComment says when a run was stopped at its time limit', () => {
+	const md = ['| # | Finding | Severity |', '|---|---|---|', '| 1 | x | minor |'].join('\n');
+	const withReport = renderPrComment({ state: 'timed-out', markdown: md, baseUrl: 'https://cdn/x', runUrl: 'https://run', headSha: 'abc1234' });
+	assert.match(withReport, /_Partial run: the agent was stopped at its time limit, so coverage is incomplete\._/);
+	assert.match(withReport, /View report/);
+	const without = renderPrComment({ state: 'timed-out', markdown: null, runUrl: 'https://run', headSha: 'abc1234' });
+	assert.match(without, /The agent was stopped at its time limit before writing a report\./);
 });
