@@ -298,9 +298,9 @@ export function parseTimeLimit(raw) {
 	return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
 }
 
-/** The brief's line for a run with a time limit: the budget, known up front, shapes the plan. */
+/** The brief's line for a run with a time limit. The hook enforces it, so the agent must not pace itself: it has no clock and quits early. */
 export function buildTimeBudgetLine(minutes) {
-	return `**You have ${minutes} minutes to explore.** Size your scenarios to fit, and list what you would test next under Not run. You will be told when time is up; then stop exploring, finish the ledger, write the report and check it. You have ${WRAP_UP_MINUTES} more minutes for that before the run is stopped.`;
+	return `**You have ${minutes} minutes to explore.** Keep exploring until you are told time is up; don't stop on your own estimate of the time. Then stop, finish the ledger with what you didn't reach under Not run, write the report and check it. You have ${WRAP_UP_MINUTES} more minutes for that before the run is stopped.`;
 }
 
 /** What the agent is told on each tool result once its time is up. */

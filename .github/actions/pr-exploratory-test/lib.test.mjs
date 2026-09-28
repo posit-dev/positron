@@ -469,6 +469,7 @@ test('the brief states the budget, and the wrap-up window', () => {
 	assert.match(line, /^\*\*You have 20 minutes to explore\.\*\*/);
 	assert.match(line, new RegExp(`${WRAP_UP_MINUTES} more minutes`));
 	assert.match(line, /Not run/);
+	assert.match(line, /Keep exploring until you are told time is up/);
 });
 
 test('timeUpHook says nothing before the deadline, then tells every tool result, calling onTimeUp once', async () => {
