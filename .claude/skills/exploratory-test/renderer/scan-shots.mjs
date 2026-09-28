@@ -155,6 +155,23 @@ function wordSpan(words, value) {
 	return best;
 }
 
+/** Fewer characters of a key's end, beside it, are left alone. */
+const EDGE = 3;
+
+/**
+ * Whether a word ends with how the key starts, or starts with how it ends, by
+ * at least three characters: the text OCR glued to the key, such as the
+ * `https://eas` of a URL whose secret starts at its host.
+ */
+function touchesEdge(piece, key) {
+	for (let k = Math.min(piece.length, key.length); k >= EDGE; k--) {
+		if (piece.endsWith(key.slice(0, k)) || piece.startsWith(key.slice(-k))) {
+			return true;
+		}
+	}
+	return false;
+}
+
 /**
  * The boxes to paint in one shot, from OCR's lines and words: every word that
  * shows a secret, or failing that the shortest run of words that does. Then,
@@ -185,12 +202,19 @@ export function boxesToPaint(lines, secrets) {
 			hitLines.add(line);
 		}
 		if (hitLines.size) {
+			const piece = w => fold(w.text).replace(/[^a-z0-9]/g, '');
 			for (const line of lines) {
-				for (const w of line.words) {
-					if (sharesStretch(fold(w.text).replace(/[^a-z0-9]/g, ''), key, !hitLines.has(line))) {
+				const painted = line.words.map(w => sharesStretch(piece(w), key, !hitLines.has(line))
+					|| (hitLines.has(line) && (showsValue(w.text, value) || boxes.includes(w.bbox))));
+				// A word right beside a painted one that carries the key's first or
+				// last characters: one run left `https://eas` readable this way.
+				const beside = line.words.map((w, i) => !painted[i] && hitLines.has(line)
+					&& (painted[i - 1] || painted[i + 1]) && touchesEdge(piece(w), key));
+				line.words.forEach((w, i) => {
+					if (painted[i] || beside[i]) {
 						boxes.push(w.bbox);
 					}
-				}
+				});
 			}
 		}
 	}

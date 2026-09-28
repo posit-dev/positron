@@ -96,7 +96,7 @@ test('boxesToPaint paints the words a split key is in, not the rest of the line'
 	assert.deepEqual(boxesToPaint([line([{ text: 'nothing', bbox: box(0, 0, 9, 9) }])], SECRETS), []);
 });
 
-test('boxesToPaint paints the pieces OCR split a URL into, even misread, but not the path after it', () => {
+test('boxesToPaint paints the pieces OCR split a URL into, even misread, and the end glued to its path', () => {
 	// From a CI run: the field showed the URL whole, OCR split it into three
 	// words and read `https://` as `hitps:/`, and only the middle got painted.
 	const url = 'https://east2testaiqzv-resource.services.ai.azure.com';
@@ -109,8 +109,27 @@ test('boxesToPaint paints the pieces OCR split a URL into, even misread, but not
 		const boxes = boxesToPaint([field], [{ name: 'MS_FOUNDRY_BASE_URL', value }]);
 		assert.ok(boxes.some(b => b.x0 === 0), `the start, misread, for ${value}`);
 		assert.ok(boxes.some(b => b.x0 === 112), `the middle, for ${value}`);
-		assert.ok(!boxes.some(b => b.x0 === 322), `not the path, which is not the secret, for ${value}`);
+		// `e.com` is the key's end, so the word it shares with the path goes too.
+		assert.ok(boxes.some(b => b.x0 === 322), `the end, glued to the path, for ${value}`);
 	}
+});
+
+test('boxesToPaint paints the word beside a match that carries the key\'s first or last characters', () => {
+	// From the confirmation run: the secret starts at the host, OCR read
+	// `https://eas` as one word, and only three of its characters are the key's.
+	const host = 'east2testaiqzv-resource.services.ai.azure.com';
+	const field = line([
+		{ text: 'Base', bbox: box(0, 0, 30, 10) },
+		{ text: 'https://eas', bbox: box(40, 0, 110, 10) },
+		{ text: host.slice(3), bbox: box(112, 0, 400, 10) },
+	]);
+	const boxes = boxesToPaint([field], [{ name: 'MS_FOUNDRY_BASE_URL', value: host }]);
+	assert.ok(boxes.some(b => b.x0 === 112), 'the match');
+	assert.ok(boxes.some(b => b.x0 === 40), 'the word beside it, which ends with the key\'s start');
+	assert.ok(!boxes.some(b => b.x0 === 0), 'not an ordinary word beside that');
+	// Beside a match but sharing nothing with the key's ends: left alone.
+	const plain = line([{ text: 'URL:', bbox: box(0, 0, 30, 10) }, { text: host, bbox: box(40, 0, 400, 10) }]);
+	assert.deepEqual(boxesToPaint([plain], [{ name: 'X', value: host }]).map(b => b.x0), [40]);
 });
 
 test('boxesToPaint takes a piece only from the start or end of a key, not its middle', () => {
