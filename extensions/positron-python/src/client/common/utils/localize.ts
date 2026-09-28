@@ -694,10 +694,10 @@ export namespace CreateEnv {
         export const selectDepSource = l10n.t('Select which dependencies to install');
 
         export const uvSyncMessage = l10n.t(
-            'This project has a uv.lock file but no virtual environment. Use uv to sync a virtual environment?',
+            'This project has a uv.lock file but no virtual environment. Use `uv sync` to set up a virtual environment?',
         );
         export const pixiInstallMessage = l10n.t(
-            'This project has a pixi.lock file but no environment. Use pixi to install it?',
+            'This project has a pixi.lock file but no dedicated environment. Use `pixi install` to create one?',
         );
         export const pixiNotInstalledMessage = l10n.t(
             'This project has a pixi.lock file, but pixi is not installed. Install pixi to create its environment.',
