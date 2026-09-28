@@ -2067,7 +2067,7 @@ test('feedback: a published page asks about each finding, and the verdicts match
 	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
 	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
-	assert.match(html, />Enhancement idea<\/a>/);
+	assert.match(html, />Enhancement<\/a>/);
 	// The row closes its card: after Suggested tests, before the card ends.
 	assert.match(html, /<div class="fb" role="group" aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
 });
