@@ -1713,18 +1713,21 @@ test('Run details shows the explorer\'s format checks, with the rules it did not
 		{ problems: 3, rules: { [blank]: 1, [repro]: 2 } },
 		{ problems: 2, rules: { [repro]: 1, [shot]: 1 } },
 	]);
-	assert.match(html, /<div class="format-checks">The explorer ran the report's format check 2 times\. The first time, it found 3 problems\. They show which of the skill's instructions it didn't follow on its first try\. <a href="stats.json">Raw stats<\/a><\/div>/);
-	// Not fixed first, escaped, then the fixed one with no mark.
+	assert.match(html, /<div class="format-checks">The explorer ran the report's format check 2 times\. The first time, it found 3 problems:<\/div><ul class="format-rules">/);
+	assert.match(html, /<\/ul><div class="format-raw"><a href="stats.json">Raw stats<\/a><\/div>/);
+	// Not fixed first, escaped, then the fixed one; a partial fix shows both counts.
 	assert.match(html, new RegExp([
 		'<ul class="format-rules">',
-		'<li><span class="num">2&times;</span> report: finding # Reproduction must be N/M, got &quot;…&quot; <span class="not-fixed">1 not fixed</span></li>',
+		'<li><span class="num">2&times;</span> report: finding # Reproduction must be N/M, got &quot;…&quot; <span class="fixed">1 fixed</span> <span class="not-fixed">1 not fixed</span></li>',
 		'<li><span class="num">1&times;</span> ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own <span class="not-fixed">not fixed</span></li>',
-		'<li><span class="num">1&times;</span> report: leave a blank line after &lt;/summary&gt;</li>',
+		'<li><span class="num">1&times;</span> report: leave a blank line after &lt;/summary&gt; <span class="fixed">fixed</span></li>',
 		'</ul>',
 	].join('').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
-	// All fixed: nothing marked.
-	assert.doesNotMatch(page([{ problems: 2, rules: { [blank]: 2 } }, { problems: 0, rules: {} }]), /class="not-fixed"/);
+	// All fixed: every rule marked fixed, none not fixed.
+	const clean = page([{ problems: 2, rules: { [blank]: 2 } }, { problems: 0, rules: {} }]);
+	assert.match(clean, /report: leave a blank line after &lt;\/summary&gt; <span class="fixed">fixed<\/span>/);
+	assert.doesNotMatch(clean, /class="not-fixed"/);
 	// One clean check: the sentence, and no list.
 	const once = page([{ problems: 0, rules: {} }]);
 	assert.match(once, /format check once\. The first time, it found no problems\./);

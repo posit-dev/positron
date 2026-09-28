@@ -1098,25 +1098,30 @@ function renderFormatChecks(options) {
 	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 	const sentence = found === 0
 		? `The explorer ran the report's format check ${times}. The first time, it found no problems.`
-		: `The explorer ran the report's format check ${times}. The first time, it found ${plural(found, 'problem')}. They show which of the skill's instructions it didn't follow on its first try.`;
-	const raw = options.fileExists?.('stats.json') ? ' <a href="stats.json">Raw stats</a>' : '';
-	// Compared rule by rule with the last check. A rule it still found is marked
-	// not fixed, with how many when only some were; a rule that broke after the
-	// first check is listed too. Those lead, so they stand out.
+		: `The explorer ran the report's format check ${times}. The first time, it found ${plural(found, 'problem')}:`;
+	const raw = options.fileExists?.('stats.json') ? '<div class="format-raw"><a href="stats.json">Raw stats</a></div>' : '';
+	// Compared rule by rule with the last check: fixed, not fixed, or both with
+	// counts when only some were. A rule that broke after the first check is
+	// listed too. The ones not fixed lead, so they stand out.
 	const first = checks.first.rules;
 	const last = checks.lastRules ?? {};
 	const rows = [...new Set([...Object.keys(first), ...Object.keys(last)])].map(rule => {
 		const before = first[rule] ?? 0;
 		const after = last[rule] ?? 0;
 		const shown = before || after;
-		return { rule, shown, after, tag: after === 0 ? '' : after < shown ? `${after} not fixed` : 'not fixed' };
+		const fixed = before - Math.min(before, after);
+		const tags = after === 0
+			? ['<span class="fixed">fixed</span>']
+			: [...(fixed ? [`<span class="fixed">${fixed} fixed</span>`] : []), `<span class="not-fixed">${fixed ? `${after} not fixed` : 'not fixed'}</span>`];
+		return { rule, shown, after, tags: tags.join(' ') };
 	}).sort((a, b) => (b.after > 0) - (a.after > 0) || b.shown - a.shown);
 	const list = rows.length
-		? `<ul class="format-rules">${rows.map(r => `<li><span class="num">${r.shown}&times;</span> ${escapeHtml(r.rule)}${r.tag ? ` <span class="not-fixed">${r.tag}</span>` : ''}</li>`).join('')}</ul>`
+		? `<ul class="format-rules">${rows.map(r => `<li><span class="num">${r.shown}&times;</span> ${escapeHtml(r.rule)} ${r.tags}</li>`).join('')}</ul>`
 		: '';
 	return '<div class="fold-part"><div class="fold-label">Format checks</div>'
-		+ `<div class="format-checks">${escapeHtml(sentence)}${raw}</div>`
+		+ `<div class="format-checks">${escapeHtml(sentence)}</div>`
 		+ list
+		+ raw
 		+ '</div>';
 }
 

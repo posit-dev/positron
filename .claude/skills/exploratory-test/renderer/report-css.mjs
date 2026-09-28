@@ -749,7 +749,10 @@ span.rt-file{color:var(--body)}
 .format-checks{font-size:14px;line-height:1.5;color:var(--body)}
 .format-rules{margin:2px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:var(--muted)}
 .format-rules .num{color:var(--body)}
-.format-rules .not-fixed{display:inline-block;margin-left:6px;padding:0 6px;border-radius:4px;font-size:11px;font-weight:600;line-height:18px;background:var(--major-bg);color:var(--major-text)}
+.format-rules .fixed,.format-rules .not-fixed{display:inline-block;margin-left:4px;padding:0 6px;border-radius:4px;font-size:11px;font-weight:600;line-height:18px}
+.format-rules .fixed{background:var(--pass-bg);color:var(--pass-text)}
+.format-raw{font-size:13px}
+.format-rules .not-fixed{background:var(--major-bg);color:var(--major-text)}
 .agents-row{display:grid;grid-template-columns:90px 110px 70px 1fr;gap:12px;padding:6px 0;border-bottom:1px solid var(--hairline);font-size:14px;line-height:1.5;color:var(--body)}
 .agents-row.agents-head{padding:0 0 4px;font-size:12px;color:var(--muted)}
 .agents-row.agents-total{border-bottom:0;color:var(--ink);font-weight:500}
