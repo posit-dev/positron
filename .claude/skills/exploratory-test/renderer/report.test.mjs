@@ -528,7 +528,7 @@ test('renderReportHtml counts each coverage kind on its filter tab', () => {
 	assert.match(html, /<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-i" class="cf-radio"><input type="radio" name="cf" id="cf-p" class="cf-radio"><input type="radio" name="cf" id="cf-n" class="cf-radio">\n<div class="cf-tabs">/);
 	// One table: no subheadings, no dashed second table.
 	assert.doesNotMatch(html, /cov-title|panel dashed|cov-group/);
-	assert.match(html, /<div class="section-head"><h2 class="section-label">Coverage<\/h2><\/div>/);
+	assert.match(html, /<div class="section-head"><h2 class="section-label">Exploratory Coverage<\/h2><\/div>/);
 });
 
 test('renderReportHtml omits a filter tab with no rows, but never All', () => {
@@ -1496,6 +1496,12 @@ test('ledger: Coverage and the Scenarios tile come from the ledger, not the repo
 	assert.doesNotMatch(cov, /Everything in scope was exercised/);
 });
 
+test('ledger: a finding row links every finding its steps failed on, not just its first', () => {
+	const ledger = LEDGER.replace('5. VERIFY The summary loads after Retry. -> FAIL - Finding 1', '5. VERIFY The summary loads after Retry. -> FAIL - Finding 2');
+	const cov = coverageOf(renderReportHtml(TYPED, { ledger }));
+	assert.match(cov, /<a href="#f1" class="cv-f">Finding 1<\/a> &middot; <a href="#f2" class="cv-f">Finding 2<\/a> &middot; Fails 3\/3/);
+});
+
 test('ledger: an expanded row shows P plus short names, with the how-to in a popover', () => {
 	const cov = coverageOf(renderReportHtml(TYPED, { ledger: LEDGER }));
 	const row = /<details class="cv cf-r cf-p" id="cv-row-5">[\s\S]*?<\/details>/.exec(cov)[0];
@@ -1855,7 +1861,8 @@ test('issue: the body follows the template and leaves out what triage sets', () 
 	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
 	assert.doesNotMatch(body, /^\s*Log:/m);
 	assert.match(body, /## Error messages\n```\nError: get_column_profiles timed out/);
-	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run:\n- 09-one12-unavailable\.png/m);
+	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run\.$/m);
+	assert.doesNotMatch(body, /09-one12-unavailable\.png/);
 	// The bullets say what they are.
 	assert.doesNotMatch(body, /Preconditions/);
 	assert.match(body, /## Steps to reproduce\n- `slow\.py` \(below\) loaded[^\n]*\n\n1\. /);
@@ -1881,7 +1888,7 @@ test('issue: the likely cause folds as a hypothesis, and a local run links no re
 	assert.match(body, /<details><summary>[^<]*hypothesis[^<]*<\/summary>\n\nThe timeout was cut to 10 s\.\n\n<\/details>/);
 	assert.match(body, /^<sub>Reported by exploratory test /);
 	assert.doesNotMatch(body, /\/runs\/r1/);
-	assert.match(body, /^Screenshots and logs are in the exploratory test report for this run:$/m);
+	assert.match(body, /^Screenshots and logs are in the exploratory test report for this run\.$/m);
 	assert.match(body, /\*\*Positron and OS:\*\* {2}\nNot recorded\n/);
 });
 
@@ -1933,6 +1940,22 @@ test('issue: a body too long for the link drops the file text, then falls back t
 	assert.equal(toast.classList.on, 'show');
 	assert.match(src, /Description copied\. Paste it into the issue on GitHub\./);
 	assert.match(src, /,5000\)/);
+});
+
+test('issue: a body too long for the link drops sections least needed first, and keeps the repro', () => {
+	const long = LOGS_REPORT.replace(/^\*\*Expected:\*\* /m, `**Cause:** ${'long hypothesis. '.repeat(400)}\n\n**Expected:** `);
+	const html = renderReportHtml(long, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const url = issueUrl(html, 1);
+	const body = url.searchParams.get('body');
+	assert.ok(url.href.length <= 8000);
+	assert.doesNotMatch(issueAnchor(html, 1), /data-issue=/);
+	// Dropped in order up to the cause: files, the regression test, the cause.
+	assert.doesNotMatch(body, /Likely cause|Regression test|<summary>slow\.py/);
+	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run\.$/m);
+	// Not reached: the repro and the error output stay.
+	assert.match(body, /## Steps to reproduce/);
+	assert.match(body, /## Actual\nThe summary never loads/);
+	assert.doesNotMatch(body, /## Error messages\n(?:In the|None recorded)/);
 });
 
 test('issue: a saved script cannot end the embedded block early', () => {

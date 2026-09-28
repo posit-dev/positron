@@ -38,3 +38,15 @@ When the agent finishes, put its run on the report's Run tile, as CI does. The
 completion notice carries `duration_ms` and `tool_uses`; re-render with them:
 `node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses>`.
 The agent cannot do this itself, because it does not see its own totals.
+
+## Present it, then offer to publish
+
+Give the user the result, the findings table, and the `index.html` path. Then
+ask, in these words:
+
+> Publish this report to share it?
+> (Anyone with the link can view it. Screenshots aren't redacted.)
+
+Publish only on a yes:
+`bash <base>/renderer/publish.sh <run dir>`. It prints the report URL; give it
+to the user. If it says there are no AWS credentials, relay its sign-in hint.
