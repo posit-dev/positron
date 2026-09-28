@@ -17,7 +17,7 @@ const SECRET = 'sk-test-not-a-real-key-1234';
 // A copy of the logs-run fixture, with a secret in a log, a leftover local page,
 // and the files CI keeps out. A stub aws fails sts when told to, and on s3 cp
 // copies what it was given.
-function fixture({ signedIn = true, page = true, report = true } = {}) {
+function fixture({ signedIn = true, page = true, report = true, missingLog = false } = {}) {
 	const dir = mkdtempSync(join(tmpdir(), 'publish-'));
 	const run = join(dir, 'run');
 	cpSync(fileURLToPath(new URL('./fixtures/logs-run/', import.meta.url)), run, { recursive: true });
@@ -28,6 +28,9 @@ function fixture({ signedIn = true, page = true, report = true } = {}) {
 	}
 	if (!report) {
 		rmSync(join(run, 'report.md'));
+	}
+	if (missingLog) {
+		rmSync(join(run, 'logs/44987-app.log'));
 	}
 	writeFileSync(join(run, 'actions.log'), 'actions\n');
 	writeFileSync(join(run, 'logs/all/9222/renderer.log'), 'raw\n');
@@ -84,4 +87,12 @@ test('refuses a run with no report, before checking credentials', () => {
 	assert.equal(r.status, 1);
 	assert.match(r.stderr, /no report\.md/);
 	assert.ok(!existsSync(out));
+});
+
+test('publishes a run with a listed log missing, as a run downloaded from the CDN is, and says which', () => {
+	const { r, out } = fixture({ missingLog: true });
+	assert.equal(r.status, 0, r.stderr);
+	assert.match(r.stderr, /logs\/44987-app\.log/);
+	// Freshly rendered, not the local page copied across.
+	assert.notEqual(readFileSync(join(out, 'index.html'), 'utf8'), '<p>local page</p>');
 });

@@ -35,9 +35,14 @@ DIR="exploratory-report-local-$(date -u +%Y%m%d-%H%M%S)-$(openssl rand -hex 4)"
 STAGE=$(mktemp -d "${TMPDIR:-/tmp}/exploratory-publish.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT
 cp -a "$RUN/." "$STAGE/"
-rm -rf "$STAGE/actions.log" "$STAGE/logs/all"
-# From the run directory, whose logs and start time the page reads.
-node "$(dirname "$0")/render.mjs" "$RUN/report.md" --base "$CDN/$DIR" --out "$STAGE/index.html" >/dev/null
+rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html"
+# From the run directory, whose logs and start time the page reads. The render
+# exits non-zero for a listed file that is missing, to fail the run that wrote
+# it; the page is written first and shows that file unlinked, so publishing
+# goes ahead as long as there is a page. A run downloaded from the CDN always
+# lacks logs/all, which CI never uploads.
+node "$(dirname "$0")/render.mjs" "$RUN/report.md" --base "$CDN/$DIR" --out "$STAGE/index.html" >/dev/null || true
+[ -s "$STAGE/index.html" ] || { echo "publish: the report did not render; nothing was uploaded." >&2; exit 1; }
 
 # Names only: a value is never printed. Short values would redact common words.
 for NAME in $(compgen -e | grep -Ei '(KEY|TOKEN|SECRET|PASSWORD|PAT)$' || true); do
