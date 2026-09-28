@@ -19,6 +19,7 @@ import { IViewsService } from '../../../../services/views/common/viewsService.js
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IAgentAllowedCommandsService } from '../../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
+import { IPositronViewerAgentService } from '../../../../contrib/positronPreview/common/positronViewerAgent.js';
 import { ExtHostAiFeaturesShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { MainThreadAiFeatures } from '../../../browser/positron/mainThreadAiFeatures.js';
 
@@ -84,6 +85,7 @@ describe('MainThreadAiFeatures', () => {
 			stubInterface<IFileService>({}),
 			stubInterface<IAgentAllowedCommandsService>({}),
 			aiProviderService,
+			stubInterface<IPositronViewerAgentService>({}),
 		));
 
 		// Let the whenInitialized microtask (which captures the enablement baseline) settle.

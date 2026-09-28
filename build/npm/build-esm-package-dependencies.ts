@@ -110,6 +110,10 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 			'CONFIG_KEY_OVERRIDES',
 			'shapeCredentials',
 		],
+		// Also pure ESM; rebuilds screenshots of the Viewer for agents in web builds.
+		'modern-screenshot': [
+			'domToCanvas',
+		],
 	};
 
 	// Derive entry points from the export map keys.

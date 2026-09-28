@@ -1195,5 +1195,8 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 		// The default implementation doesn't support executing scripts
 		return Promise.resolve(undefined);
 	}
+	public getContentFrameId(): WebviewFrameId | undefined {
+		return this._frameId;
+	}
 	// --- End Positron ---
 }

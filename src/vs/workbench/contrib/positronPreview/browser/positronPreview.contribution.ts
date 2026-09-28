@@ -22,6 +22,12 @@ import { PositronOpenUrlInViewerAction } from './positronPreviewActions.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { isWeb } from '../../../../base/common/platform.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IPositronViewerAgentService } from '../common/positronViewerAgent.js';
+import { PositronViewerAgentService } from './positronViewerAgentService.js';
+
+// Register the service that gives AI agents read access to the Viewer.
+registerSingleton(IPositronViewerAgentService, PositronViewerAgentService, InstantiationType.Delayed);
 
 // The Positron preview view icon.
 const positronPreviewViewIcon = registerIcon('positron-preview-view-icon', Codicon.positronPreviewView, nls.localize('positronPreviewViewIcon', 'View icon of the Positron preview view.'));

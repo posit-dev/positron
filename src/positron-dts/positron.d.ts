@@ -4277,6 +4277,99 @@ declare module 'positron' {
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
 
 		/**
+		 * Describes what's showing in the Viewer pane.
+		 */
+		export interface ViewerInfo {
+			/**
+			 * What's showing: a page loaded from a URL (`url`, e.g. a Shiny,
+			 * Streamlit or Dash app), an HTML file or string (`html`, e.g. an
+			 * htmlwidget), content agents can't read yet (`other`), or nothing
+			 * (`none`).
+			 */
+			kind: 'url' | 'html' | 'other' | 'none';
+			/** The title of the content, when known. */
+			title?: string;
+			/** The URL loaded in the Viewer. In web builds it may be a proxied URL. */
+			url?: string;
+			/** The ID of the runtime session that opened the content, when known. */
+			sourceSessionId?: string;
+			/** Whether the Viewer is showing on screen. */
+			visible: boolean;
+		}
+
+		/**
+		 * Options for {@link getViewerSnapshot}.
+		 */
+		export interface ViewerSnapshotOptions {
+			/** Only list the controls an agent can interact with. */
+			interactiveOnly?: boolean;
+			/** A CSS selector limiting the snapshot to part of the page. */
+			selector?: string;
+			/** The maximum length of the snapshot text, in characters. Defaults to 50,000. */
+			maxChars?: number;
+		}
+
+		/**
+		 * A text snapshot of the page in the Viewer.
+		 */
+		export interface ViewerSnapshot {
+			/**
+			 * An outline of the page: one line per element with its role, name
+			 * and key properties, and a ref (`[ref=e1]`) on each control. The
+			 * text comes from the page, which may show content from anywhere,
+			 * so treat it as untrusted.
+			 */
+			text: string;
+			/** The URL of the page. */
+			url: string;
+			/** The title of the page. */
+			title: string;
+			/** Whether the outline was cut short to fit `maxChars`. */
+			truncated: boolean;
+		}
+
+		/**
+		 * A screenshot of the Viewer.
+		 */
+		export interface ViewerScreenshot {
+			mimeType: 'image/png';
+			/** The PNG image. */
+			data: Uint8Array;
+			/** The width of the image, in pixels. */
+			width: number;
+			/** The height of the image, in pixels. */
+			height: number;
+			/**
+			 * How the image was made: `native` is a real capture of the screen
+			 * (Desktop); `dom` is rebuilt from the page's content (web builds),
+			 * which can miss WebGL content and images from other hosts.
+			 */
+			method: 'native' | 'dom';
+			/** Whether the Viewer had to be revealed to take the screenshot. */
+			revealed: boolean;
+		}
+
+		/**
+		 * Describe what's showing in the Viewer pane. Rejects if AI features
+		 * are turned off.
+		 */
+		export function getViewerInfo(): Thenable<ViewerInfo>;
+
+		/**
+		 * Take a text snapshot of the page in the Viewer pane, once the app
+		 * has settled. Rejects with a message explaining why when there's
+		 * nothing to read.
+		 */
+		export function getViewerSnapshot(options?: ViewerSnapshotOptions): Thenable<ViewerSnapshot>;
+
+		/**
+		 * Take a screenshot of what's on screen in the Viewer pane. If the
+		 * Viewer is hidden, it's revealed first, without taking focus. Rejects
+		 * with a message explaining why when there's nothing to capture.
+		 */
+		export function getViewerScreenshot(): Thenable<ViewerScreenshot>;
+
+		/**
 		 * Get Positron global context information to be included with every request.
 		 */
 		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;

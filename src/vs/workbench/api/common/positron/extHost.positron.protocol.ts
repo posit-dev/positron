@@ -32,6 +32,7 @@ import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ITextModel } from '../../../../editor/common/model.js';
 import { Event } from '../../../../base/common/event.js';
 import { IThreeButtonModalDialogPromptOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions } from '../../../contrib/positronPreview/common/positronViewerAgent.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -435,6 +436,9 @@ export interface MainThreadAiFeaturesShape {
 	$registerChatAgent(agentData: IChatAgentData): Thenable<void>;
 	$unregisterChatAgent(id: string): void;
 	$getCurrentPlotUri(): Promise<string | undefined>;
+	$getViewerInfo(): Promise<IViewerInfo>;
+	$getViewerSnapshot(options?: IViewerSnapshotOptions): Promise<IViewerSnapshot>;
+	$getViewerScreenshot(): Promise<SerializableObjectWithBuffers<IViewerScreenshot>>;
 	$getPositronChatContext(request: IChatRequestData): Thenable<IPositronChatContext>;
 	$generateAssistantPrompt(request: IGenerateAssistantPromptRequest): Thenable<string>;
 	$responseProgress(sessionResource: URI, dto: IChatProgressDto): void;

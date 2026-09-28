@@ -26,6 +26,8 @@ import { PromptRenderer } from '../../../contrib/positronAssistant/browser/promp
 import { getPositronContextPrompts } from '../../../contrib/positronAssistant/browser/prompts/positronContextPrompts.js';
 import { getForegroundSessionInfo } from '../../../contrib/positronAssistant/browser/prompts/promptSessions.js';
 import * as xml from '../../../contrib/positronAssistant/common/xml.js';
+import { IPositronViewerAgentService, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions } from '../../../contrib/positronPreview/common/positronViewerAgent.js';
+import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAiFeatures)
 export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeaturesShape {
@@ -46,6 +48,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		@IFileService private readonly _fileService: IFileService,
 		@IAgentAllowedCommandsService private readonly _agentAllowedCommandsService: IAgentAllowedCommandsService,
 		@IAiProviderService private readonly _aiProviderService: IAiProviderService,
+		@IPositronViewerAgentService private readonly _positronViewerAgentService: IPositronViewerAgentService,
 	) {
 		super();
 		// Create the proxy for the extension host.
@@ -116,6 +119,27 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	async $getCurrentPlotUri(): Promise<string | undefined> {
 		return this._positronAssistantService.getCurrentPlotUri();
+	}
+
+	/**
+	 * Describe what's showing in the Viewer pane.
+	 */
+	async $getViewerInfo(): Promise<IViewerInfo> {
+		return this._positronViewerAgentService.getViewerInfo();
+	}
+
+	/**
+	 * Take a text snapshot of the page in the Viewer pane.
+	 */
+	async $getViewerSnapshot(options?: IViewerSnapshotOptions): Promise<IViewerSnapshot> {
+		return this._positronViewerAgentService.getViewerSnapshot(options);
+	}
+
+	/**
+	 * Take a screenshot of the Viewer pane.
+	 */
+	async $getViewerScreenshot(): Promise<SerializableObjectWithBuffers<IViewerScreenshot>> {
+		return new SerializableObjectWithBuffers(await this._positronViewerAgentService.getViewerScreenshot());
 	}
 
 	/**

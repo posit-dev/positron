@@ -448,6 +448,13 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 		}
 		return Promise.resolve(undefined);
 	}
+
+	/**
+	 * Gets the frame showing a URI loaded with setUri (Electron only).
+	 */
+	getContentFrameId(): WebviewFrameId | undefined {
+		return this._webview.value?.getContentFrameId();
+	}
 	// --- End Positron ---
 
 	private _withWebview(f: (webview: IWebview) => void): void {

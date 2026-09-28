@@ -504,6 +504,15 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
+			getViewerInfo(): Thenable<positron.ai.ViewerInfo> {
+				return extHostAiFeatures.getViewerInfo();
+			},
+			getViewerSnapshot(options?: positron.ai.ViewerSnapshotOptions): Thenable<positron.ai.ViewerSnapshot> {
+				return extHostAiFeatures.getViewerSnapshot(options);
+			},
+			getViewerScreenshot(): Thenable<positron.ai.ViewerScreenshot> {
+				return extHostAiFeatures.getViewerScreenshot();
+			},
 			showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
 				return extHostAiFeatures.showLanguageModelConfig(options);
 			},
