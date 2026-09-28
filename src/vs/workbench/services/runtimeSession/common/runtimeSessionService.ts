@@ -963,8 +963,7 @@ export interface IRuntimeSessionService {
 	 * @param runtimeId The runtime identifier of the runtime to start.
 	 * @param sessionName A human-readable (displayed) name for the session to start.
 	 * @param sessionMode The mode of the session to start.
-	 * @param source The source of the request to start the runtime, for debugging purposes
-	 *  (not displayed to the user)
+	 * @param source Why the runtime is being started, with a description for logs
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
@@ -978,7 +977,7 @@ export interface IRuntimeSessionService {
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
-		source: string,
+		source: IRuntimeSessionStartReason,
 		startMode: RuntimeStartMode,
 		activate: boolean,
 		options?: IStartNewRuntimeSessionOptions): Promise<string>;
@@ -1013,7 +1012,7 @@ export interface IRuntimeSessionService {
 	 * Automatically starts a runtime.
 	 *
 	 * @param runtime The runtime to start.
-	 * @param source The source of the request to start the runtime.
+	 * @param source Why the runtime is being started, with a description for logs.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
 	 *
@@ -1022,17 +1021,17 @@ export interface IRuntimeSessionService {
 	 */
 	autoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
-		source: string,
+		source: IRuntimeSessionStartReason,
 		activate: boolean): Promise<string>;
 
 	/**
 	 * Selects a previously registered runtime as the active runtime.
 	 *
 	 * @param runtimeId The identifier of the runtime to select.
-	 * @param source The source of the request to select the runtime, for debugging purposes.
+	 * @param source Why the runtime is being selected, with a description for logs.
 	 * @param notebookUri The URI of the notebook selecting the runtime, if any.
 	 */
-	selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void>;
+	selectRuntime(runtimeId: string, source: IRuntimeSessionStartReason, notebookUri?: URI): Promise<void>;
 
 	deleteSession(sessionId: string): Promise<boolean>;
 

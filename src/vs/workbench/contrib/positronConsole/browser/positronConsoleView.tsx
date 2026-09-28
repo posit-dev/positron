@@ -24,7 +24,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronConsole } from './positronConsole.js';
-import { IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, RuntimeStartMode, SessionStartReason } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasonLabels.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -357,7 +358,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 					runtime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined,
-					'User selected runtime',
+					createSessionStartReason(SessionStartReason.UserSelectedRuntime),
 					RuntimeStartMode.Starting,
 					true,
 					{ userSelected: true }

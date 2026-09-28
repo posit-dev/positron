@@ -9,7 +9,7 @@ import { DisposableStore, toDisposable } from '../../../../../base/common/lifecy
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILanguageRuntimeMessageError, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeOnlineState, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, SessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
@@ -223,6 +223,9 @@ describe('Positron - RuntimeNotebookKernel', () => {
 			runEndTime: expect.any(Number),
 			lastRunSuccess: true,
 		});
+
+		expect(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri)?.metadata.startReasonId)
+			.toBe(SessionStartReason.NotebookCellsExecuted);
 	});
 
 	it('single cell executes unsuccessfully on error message', async () => {
@@ -734,6 +737,9 @@ describe('Positron - RuntimeNotebookKernel - executeCodeInCell', () => {
 			runEndTime: expect.any(Number),
 			lastRunSuccess: true,
 		});
+
+		expect(runtimeSessionService.getNotebookSessionForNotebookUri(notebookDocument.uri)?.metadata.startReasonId)
+			.toBe(SessionStartReason.NotebookCodeFragmentExecuted);
 	});
 
 	it('queues behind an in-flight cell execution', async () => {
