@@ -18,6 +18,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
+import { CHECKS_FILE, summarizeChecks } from './stats.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
 
@@ -1081,6 +1082,27 @@ function runFiles(report, options) {
 	return parts;
 }
 
+/**
+ * How much format fixing the explorer did before its report linted clean, from
+ * the checks it recorded: rounds, and the rules its first check found broken.
+ * The rules say what the skill's prose did not get across.
+ */
+function renderFormatChecks(options) {
+	const text = options.readFile?.(CHECKS_FILE);
+	const checks = summarizeChecks(text ? String(text) : '');
+	if (!checks) {
+		return '';
+	}
+	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+	const raw = options.fileExists?.('stats.json') ? ' &middot; <a href="stats.json">raw stats</a>' : '';
+	const rules = Object.entries(checks.first.rules).sort((a, b) => b[1] - a[1])
+		.map(([rule, n]) => `<li><span class="num">${n}&times;</span> ${escapeHtml(rule)}</li>`).join('');
+	return '<div class="fold-part"><div class="fold-label">Format checks</div>'
+		+ `<div class="format-checks">${plural(checks.rounds, 'round')} &middot; ${plural(checks.first.problems, 'problem')} on the first check${raw}</div>`
+		+ (rules ? `<ul class="format-rules">${rules}</ul>` : '')
+		+ '</div>';
+}
+
 function renderFolds(report, options = {}) {
 	const folds = [];
 	// Files sit after what the run did and before how the build was proved.
@@ -1088,10 +1110,11 @@ function renderFolds(report, options = {}) {
 	const at = written.findIndex(s => /^branch verification$/i.test(s.title));
 	const files = runFiles(report, options);
 	const details = at === -1 ? [...written, ...files] : [...written.slice(0, at), ...files, ...written.slice(at)];
-	if (details.length || hasCost(report)) {
-		const titles = [...(hasCost(report) ? ['Agents'] : []), ...details.map(s => s.title)];
+	const formatChecks = renderFormatChecks(options);
+	if (details.length || hasCost(report) || formatChecks) {
+		const titles = [...(hasCost(report) ? ['Agents'] : []), ...(formatChecks ? ['Format checks'] : []), ...details.map(s => s.title)];
 		const hint = titles.map((t, i) => (i === 0 ? t : t.toLowerCase())).join(', ');
-		const body = renderAgents(report) + details
+		const body = renderAgents(report) + formatChecks + details
 			.map(s => `<div class="fold-part"><div class="fold-label">${escapeHtml(s.title)}</div>${s.html}</div>`)
 			.join('');
 		folds.push(`<details id="run-details">

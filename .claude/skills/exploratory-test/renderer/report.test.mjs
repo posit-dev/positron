@@ -1698,6 +1698,21 @@ test('logs: render.mjs fails the run when a listed log was not copied', () => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
+test('Run details shows the explorer\'s format checks, with the rules its first check found and a link to stats.json', () => {
+	const checks = [
+		{ problems: 3, rules: { 'report: leave a blank line after </summary>': 1, 'report: finding # Reproduction must be N/M, got "…"': 2 } },
+		{ problems: 0, rules: {} },
+	].map(c => JSON.stringify(c)).join('\n');
+	const html = renderReportHtml(LOGS_REPORT, {
+		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(checks) : null),
+		fileExists: p => p === 'stats.json',
+	});
+	assert.match(html, /<div class="fold-label">Format checks<\/div><div class="format-checks">2 rounds &middot; 3 problems on the first check &middot; <a href="stats.json">raw stats<\/a><\/div>/);
+	// Most frequent first, escaped.
+	assert.match(html, /<ul class="format-rules"><li><span class="num">2&times;<\/span> report: finding # Reproduction must be N\/M, got &quot;…&quot;<\/li><li><span class="num">1&times;<\/span> report: leave a blank line after &lt;\/summary&gt;<\/li><\/ul>/);
+	assert.doesNotMatch(renderReportHtml(LOGS_REPORT), /Format checks/);
+});
+
 test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
 	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });

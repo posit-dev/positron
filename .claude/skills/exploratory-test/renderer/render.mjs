@@ -114,10 +114,29 @@ if (flags['duration-ms']) {
 	writeFileSync(input, markdown);
 }
 
-const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 // The run directory is made when the run starts. A filesystem with no birth
 // time reports the epoch, and the footer falls back to now.
 const born = statSync(dir).birthtime;
+
+const parsed = parseReport(markdown, { ledger });
+
+// The Run tile's render is the run's last: record its stats, as CI's run.mjs
+// does, before the page is written, so the page can link them.
+if (flags['duration-ms']) {
+	writeFileSync(join(dir, 'stats.json'), `${JSON.stringify(buildStats({
+		where: 'local',
+		date: (born.getTime() > 0 ? born : new Date()).toISOString(),
+		version: skillVersion(),
+		model: flags.model,
+		// A subagent's tool_uses, which is what the footer calls turns here.
+		turns: flags.turns ? Number(flags.turns) : null,
+		durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0),
+		parsed,
+		checks: readChecks(dir),
+	}), null, 2)}\n`);
+}
+
+const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 writeFileSync(out, renderReportHtml(markdown, {
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
@@ -133,23 +152,6 @@ console.log(out);
 
 // Printed, not fatal: the page still renders. Fix each line and render again.
 printProblems();
-
-const parsed = parseReport(markdown, { ledger });
-
-// The Run tile's render is the run's last: record its stats, as CI's run.mjs does.
-if (flags['duration-ms']) {
-	writeFileSync(join(dir, 'stats.json'), `${JSON.stringify(buildStats({
-		where: 'local',
-		date: (born.getTime() > 0 ? born : new Date()).toISOString(),
-		version: skillVersion(),
-		model: flags.model,
-		// A subagent's tool_uses, which is what the footer calls turns here.
-		turns: flags.turns ? Number(flags.turns) : null,
-		durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0),
-		parsed,
-		checks: readChecks(dir),
-	}), null, 2)}\n`);
-}
 
 // A listed log that was never copied is a dead link; the page shows it unlinked,
 // and the run fails so it gets copied rather than shipped.

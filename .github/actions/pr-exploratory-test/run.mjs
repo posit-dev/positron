@@ -299,6 +299,27 @@ async function main() {
 		console.log(nearCap);
 	}
 
+	// One line per run that GitHub keeps for 90 days, after the artifact is
+	// gone: stats.mjs reads it back to compare skill versions. Written before
+	// the page, which links stats.json from Run details.
+	const recordStats = markdown => {
+		const stats = buildStats({
+			where: 'ci',
+			date: STARTED_AT.toISOString(),
+			run: process.env.GITHUB_RUN_ID,
+			version: skillVersion(),
+			model: cost.model,
+			turns: cost.num_turns,
+			maxTurns: MAX_TURNS,
+			costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) || null,
+			durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) || null,
+			parsed: markdown ? parseReport(markdown) : null,
+			checks: readChecks(WORK_DIR),
+		});
+		writeFileSync(join(WORK_DIR, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
+		console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);
+	};
+
 	// What goes in report.md, and what goes in the job summary. They used to be
 	// the same string: the summary is a signpost now, and the report is the
 	// thing it points at.
@@ -340,6 +361,7 @@ async function main() {
 		// Written with the footer: report.md is published to the CDN on its own,
 		// where the step summary's copy of the cost is not reachable.
 		writeFileSync(join(WORK_DIR, 'report.md'), reportMarkdown);
+		recordStats(reportMarkdown);
 		// index.html is what the published run directory's URL already points at,
 		// and a rendered page is easier to read than raw markdown with absolute
 		// image URLs in it. The markdown stays: the verification pass reads it,
@@ -377,23 +399,9 @@ async function main() {
 		summary = `## Exploratory test: no report\n\nThe agent produced no report. Check the action logs.\n\n${footer()}\n`;
 	}
 
-	// One line per run that GitHub keeps for 90 days, after the artifact is
-	// gone: stats.mjs reads it back to compare skill versions.
-	const stats = buildStats({
-		where: 'ci',
-		date: STARTED_AT.toISOString(),
-		run: process.env.GITHUB_RUN_ID,
-		version: skillVersion(),
-		model: cost.model,
-		turns: cost.num_turns,
-		maxTurns: MAX_TURNS,
-		costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) || null,
-		durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) || null,
-		parsed: reportMarkdown ? parseReport(reportMarkdown) : null,
-		checks: readChecks(WORK_DIR),
-	});
-	writeFileSync(join(WORK_DIR, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
-	console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);
+	if (!report) {
+		recordStats(null);
+	}
 
 	if (STEP_SUMMARY) {
 		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER, FOCUS) + summary);
