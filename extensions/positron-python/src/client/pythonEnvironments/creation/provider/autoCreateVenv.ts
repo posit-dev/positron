@@ -6,12 +6,11 @@
 import * as path from 'path';
 import * as os from 'os';
 import { CancellationToken, QuickPickItem, WorkspaceFolder } from 'vscode';
-import { execObservable } from '../../../common/process/rawProcessApis';
 import { createDeferred } from '../../../common/utils/async';
 import { CreateEnv } from '../../../common/utils/localize';
 import { traceError, traceLog } from '../../../logging';
 import { CreateEnvironmentProgress } from '../types';
-import { isUvInstalled } from '../../common/environmentManagers/uv';
+import { execObservableLocatedUv, isUvInstalled } from '../../common/environmentManagers/uv';
 import { executeCommand } from '../../../common/vscodeApis/commandApis';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { showQuickPickWithBack } from '../../../common/vscodeApis/windowApis';
@@ -124,7 +123,7 @@ async function runSingleInstall(args: string[], workspace: WorkspaceFolder, toke
     const deferred = createDeferred<void>();
     const outputLines: string[] = [];
     traceLog('Running uv dep install: ', ['uv', ...args]);
-    const { proc, out, dispose } = execObservable('uv', args, {
+    const { proc, out, dispose } = await execObservableLocatedUv(args, {
         mergeStdOutErr: true,
         token,
         cwd: workspace.uri.fsPath,

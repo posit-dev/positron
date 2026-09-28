@@ -14,6 +14,8 @@ import { isTestExecution, MINIMUM_PYTHON_VERSION, MAXIMUM_PYTHON_VERSION_EXCLUSI
 import { getPyvenvConfigPathsFrom, isVenvEnvironment } from './simplevirtualenvs';
 import { splitLines } from '../../../common/stringUtils';
 import { CreateEnv } from '../../../common/utils/localize';
+import { execObservable } from '../../../common/process/rawProcessApis';
+import { ObservableExecutionResult, SpawnOptions } from '../../../common/process/types';
 
 /** Regex to extract version from uv python list output (e.g., "cpython-3.14.0a5-macos-aarch64-none") */
 export const UV_VERSION_REGEX = /cpython-(\d+\.\d+\.\d+(?:a|b|rc)?\d*)/i;
@@ -32,11 +34,7 @@ export function isVersionPrerelease(version: string): boolean {
  * tokens we parse in ANSI escape codes and corrupts them. `--color never` overrides
  * those env vars. See uvPackageManager, which passes the same flag to `uv pip` commands.
  */
-export function execUv(
-    command: string,
-    args: string[],
-    options: Parameters<typeof exec>[2] = {},
-): ReturnType<typeof exec> {
+function execUv(command: string, args: string[], options: Parameters<typeof exec>[2] = {}): ReturnType<typeof exec> {
     return exec(command, ['--color', 'never', ...args], options);
 }
 
@@ -234,15 +232,32 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
 }
 
 /**
- * The command to spawn uv with, as located by the probe: either `uv` when it is on PATH, or an
- * absolute path when it is only in one of the known install locations. Callers that shell out to
- * uv must use this rather than the bare string, or they fail with ENOENT against a uv installed
- * during this session, which lands outside the PATH the extension host was launched with.
- * @returns The command, or undefined when no uv could be found.
+ * Runs a uv subcommand with the uv located by the probe: `uv` when it is on PATH, or an absolute
+ * path when it is only in one of the known install locations. A uv installed this session lands
+ * outside the PATH the extension host was launched with, so spawning the bare name would ENOENT.
+ * @throws When no uv could be found.
  */
-export async function getUvCommand(): Promise<string | undefined> {
+export async function execLocatedUv(args: string[], options: Parameters<typeof exec>[2] = {}): ReturnType<typeof exec> {
+    return execUv(await getLocatedUvCommand(), args, options);
+}
+
+/**
+ * Streaming counterpart of execLocatedUv, for callers that log uv's output as it runs.
+ * @throws When no uv could be found.
+ */
+export async function execObservableLocatedUv(
+    args: string[],
+    options: SpawnOptions = {},
+): Promise<ObservableExecutionResult<string>> {
+    return execObservable(await getLocatedUvCommand(), ['--color', 'never', ...args], options);
+}
+
+async function getLocatedUvCommand(): Promise<string> {
     const uvUtils = await UvUtils.getUvUtils();
-    return uvUtils?.command;
+    if (!uvUtils) {
+        throw new Error('Could not find the uv executable.');
+    }
+    return uvUtils.command;
 }
 
 /**
@@ -314,17 +329,12 @@ export async function getUvPythonVersionInfo(
     requestedVersion: string,
     options?: GetUvPythonVersionInfoOptions,
 ): Promise<UvPythonVersionInfo | undefined> {
-    const uvUtils = await UvUtils.getUvUtils();
-    if (!uvUtils) {
-        return undefined;
-    }
-
     try {
         // Use `uv python list VERSION` to see available versions
         // Output format:
         //   cpython-3.15.0a6-macos-aarch64-none    <download available>
         //   cpython-3.13.7-macos-aarch64-none     /usr/local/bin/python3.13 -> ...
-        const result = await execUv(uvUtils.command, ['python', 'list', requestedVersion], { throwOnStdErr: false });
+        const result = await execLocatedUv(['python', 'list', requestedVersion], { throwOnStdErr: false });
         const output = result?.stdout.trim();
 
         if (!output) {
@@ -392,14 +402,9 @@ export async function getUvPythonVersionInfo(
  * @returns true if the update succeeded, false otherwise
  */
 export async function updateUv(): Promise<boolean> {
-    const uvUtils = await UvUtils.getUvUtils();
-    if (!uvUtils) {
-        return false;
-    }
-
     try {
         traceVerbose('Running uv self update...');
-        await execUv(uvUtils.command, ['self', 'update'], { throwOnStdErr: false });
+        await execLocatedUv(['self', 'update'], { throwOnStdErr: false });
         traceVerbose('uv self update completed successfully');
         return true;
     } catch (ex) {
@@ -414,14 +419,9 @@ export async function updateUv(): Promise<boolean> {
  * @returns true if the installation succeeded, false otherwise
  */
 export async function installUvPython(version: string): Promise<boolean> {
-    const uvUtils = await UvUtils.getUvUtils();
-    if (!uvUtils) {
-        return false;
-    }
-
     try {
         traceVerbose(`Running uv python install ${version}...`);
-        await execUv(uvUtils.command, ['python', 'install', version], { throwOnStdErr: false });
+        await execLocatedUv(['python', 'install', version], { throwOnStdErr: false });
         traceVerbose(`uv python install ${version} completed successfully`);
         return true;
     } catch (ex) {
@@ -511,11 +511,6 @@ export interface UvAvailablePython {
  * @returns Array of available Python versions, sorted by version descending
  */
 export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]> {
-    const uvUtils = await UvUtils.getUvUtils();
-    if (!uvUtils) {
-        return [];
-    }
-
     try {
         // Use `uv python list` to get available versions
         // Output format:
@@ -530,7 +525,7 @@ export async function getAvailablePythonVersions(): Promise<UvAvailablePython[]>
         const args = isWindowsArm64()
             ? ['python', 'list', '--managed-python', '--all-arches']
             : ['python', 'list', '--managed-python'];
-        const result = await execUv(uvUtils.command, args, { throwOnStdErr: false });
+        const result = await execLocatedUv(args, { throwOnStdErr: false });
         const output = result?.stdout.trim();
 
         if (!output) {

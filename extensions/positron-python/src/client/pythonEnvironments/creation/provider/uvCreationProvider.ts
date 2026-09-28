@@ -6,7 +6,6 @@
 import * as os from 'os';
 import { CancellationToken, ProgressLocation, WorkspaceFolder } from 'vscode';
 import { Commands, PVSC_EXTENSION_ID } from '../../../common/constants';
-import { execObservable } from '../../../common/process/rawProcessApis';
 import { createDeferred } from '../../../common/utils/async';
 import { Common, CreateEnv } from '../../../common/utils/localize';
 import { traceError, traceInfo, traceLog, traceWarn } from '../../../logging';
@@ -26,9 +25,9 @@ import {
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
 import {
+    execObservableLocatedUv,
     getAvailablePythonVersions,
     getStablePythonAfterUpdate,
-    getUvCommand,
     getUvPythonVersionInfo,
     isUvInstalled,
 } from '../../common/environmentManagers/uv';
@@ -47,18 +46,12 @@ export async function createUvVenv(
     progress.report({
         message: CreateEnv.Venv.creating,
     });
-    // Not the bare name: a uv installed this session sits in ~/.local/bin, off the extension
-    // host's PATH, so spawning `uv` would ENOENT on the install this flow just performed.
-    const command = await getUvCommand();
-    if (command === undefined) {
-        throw new Error('Could not find the uv executable. See Output > Python for more info.');
-    }
     const targetDir = envName ?? '.venv';
     const argv = ['venv', targetDir, '--no-project', '--seed', '-p', version];
 
     const deferred = createDeferred<string | undefined>();
-    traceLog('Running uv venv creation script: ', [command, ...argv]);
-    const { proc, out, dispose } = execObservable(command, argv, {
+    traceLog('Running uv venv creation script: ', ['uv', ...argv]);
+    const { proc, out, dispose } = await execObservableLocatedUv(argv, {
         mergeStdOutErr: true,
         token,
         cwd: workspace.uri.fsPath,

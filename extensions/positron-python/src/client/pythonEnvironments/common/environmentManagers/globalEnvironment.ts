@@ -8,7 +8,7 @@ import { untildify } from '../../../common/helpers';
 import { getEnvironmentVariable, getUserHomeDir } from '../../../common/utils/platform';
 import * as fsapi from '../../../common/platform/fs-paths';
 import { traceError, traceInfo } from '../../../logging';
-import { execUv } from './uv';
+import { execLocatedUv } from './uv';
 import { executeCommand } from '../../../common/vscodeApis/commandApis';
 import { Common, GlobalEnvironment } from '../../../common/utils/localize';
 import { showThreeButtonModalDialogPrompt } from '../../../positron/positronApis';
@@ -118,9 +118,9 @@ export async function createGlobalEnvironment(base: string): Promise<GlobalEnvir
         // --seed installs pip/setuptools for compatibility. --no-project matches the
         // workspace flow in uvCreationProvider and keeps whatever pyproject.toml happens
         // to sit above the extension host's cwd from constraining the environment.
-        await execUv('uv', ['venv', venvDir, '--no-project', '--seed', '-p', base], { throwOnStdErr: false });
+        await execLocatedUv(['venv', venvDir, '--no-project', '--seed', '-p', base], { throwOnStdErr: false });
 
-        // execUv resolves on a nonzero exit when throwOnStdErr is false, so a
+        // execLocatedUv resolves on a nonzero exit when throwOnStdErr is false, so a
         // resolved call is not proof that uv built anything. The interpreter
         // existing on disk is.
         if (!(await fsapi.pathExists(pythonPath))) {

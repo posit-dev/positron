@@ -31,8 +31,9 @@
 
 .positron-modal-dialog-box .flow-step .install-uv-button {
 	padding: 0;
-	border: none;
-	background: none;
+
+	/* Without padding, the shared focus ring would sit against the text. */
+	outline-offset: 2px;
 	color: var(--vscode-textLink-foreground);
 	text-decoration: underline;
 

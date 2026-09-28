@@ -645,7 +645,7 @@ export namespace CreateEnv {
         export const creating = l10n.t('Creating conda environment...');
         // --- Start Positron ---
         // export const providerDescription = l10n.t('Creates a `.conda` Conda environment in the current workspace');
-        export const providerDescription = l10n.t('Use a Python version, downloaded by conda if needed');
+        export const providerDescription = l10n.t('Use conda to create the environment and install Python if needed');
         // --- End Positron ---
 
         export const recreate = l10n.t('Delete and Recreate');
@@ -661,7 +661,7 @@ export namespace CreateEnv {
 
     // --- Start Positron ---
     export namespace Uv {
-        export const providerDescription = l10n.t('Use a Python version, downloaded by uv if needed');
+        export const providerDescription = l10n.t('Use uv to create the environment and install Python if needed');
         export const updatingUv = l10n.t('Updating uv...');
         export const updateUv = l10n.t('Update uv');
         export const proceedAnyway = l10n.t('Proceed Anyway');

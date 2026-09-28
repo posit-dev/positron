@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execUv } from './uv';
+import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execLocatedUv } from './uv';
 import { Commands } from '../../../common/constants';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
@@ -224,15 +224,13 @@ async function installPythonVersionAndGetPath(version: string, identifier?: stri
     traceInfo(`Installing Python ${version} via uv...`);
 
     try {
-        // Use exec directly instead of installUvPython to avoid cache issues
-        // when uv was just installed in the same session.
         // On Windows ARM64, use the full identifier to ensure we get ARM64 builds.
         // See: https://github.com/astral-sh/uv/issues/12906
         const installTarget = identifier ?? version;
-        await execUv('uv', ['python', 'install', installTarget], { throwOnStdErr: false });
+        await execLocatedUv(['python', 'install', installTarget], { throwOnStdErr: false });
 
         // Get the path to the installed Python
-        const result = await execUv('uv', ['python', 'find', version], { throwOnStdErr: false });
+        const result = await execLocatedUv(['python', 'find', version], { throwOnStdErr: false });
         const pythonPath = result?.stdout.trim();
 
         if (pythonPath) {

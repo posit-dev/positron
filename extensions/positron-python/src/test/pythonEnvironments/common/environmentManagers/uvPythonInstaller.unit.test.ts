@@ -674,6 +674,7 @@ suite('UV Python Installer Tests', () => {
         let deleteEnvironmentStub: sinon.SinonStub;
         let getVenvExecutableStub: sinon.SinonStub;
         let promptForGlobalEnvironmentStub: sinon.SinonStub;
+        let execLocatedUvStub: sinon.SinonStub;
 
         const mockProgress = {
             report: sinon.stub(),
@@ -708,6 +709,11 @@ suite('UV Python Installer Tests', () => {
             deleteEnvironmentStub = sinon.stub(venvUtils, 'deleteEnvironment').resolves(true);
             // Stub getAvailablePythonVersions from uv module
             getAvailablePythonVersionsStub = sinon.stub(uv, 'getAvailablePythonVersions');
+            // Locating uv is the helper's job, covered in its own tests. Here it just spawns, so the
+            // exec calls these tests sequence are not interleaved with location probes.
+            execLocatedUvStub = sinon
+                .stub(uv, 'execLocatedUv')
+                .callsFake(async (args, options) => fileUtils.exec('uv', ['--color', 'never', ...args], options));
             // Stub refreshEnvironments to avoid actual environment refresh
             sinon.stub(apiInternal, 'refreshEnvironments').resolves();
             sinon.stub(logging, 'traceInfo');
@@ -1298,9 +1304,9 @@ suite('UV Python Installer Tests', () => {
             assert.strictEqual(result.pythonPath, getExpectedGlobalEnvPython());
         });
 
-        test('Passes --color never to uv install and find so the parsed path is not ANSI-wrapped', async () => {
-            // uv honors FORCE_COLOR/CLICOLOR_FORCE even when piped (both common in CI); the flag
-            // keeps `uv python find` output free of the escape codes we parse as the interpreter path.
+        test('Runs uv install, find, and venv through the located uv', async () => {
+            // A uv installed this session is off the extension host's PATH, so none of these may
+            // spawn the bare name.
             isUvInstalledStub.resolves(true);
             getAvailablePythonVersionsStub.resolves([
                 { version: '3.13', isInstalled: false, identifier: 'cpython-3.13.1-macos-aarch64-none' },
@@ -1313,14 +1319,9 @@ suite('UV Python Installer Tests', () => {
 
             await installPythonViaUv();
 
-            assert.ok(
-                execStub.calledWith('uv', ['--color', 'never', 'python', 'install', '3.13'], { throwOnStdErr: false }),
-                'uv python install should be invoked with --color never',
-            );
-            assert.ok(
-                execStub.calledWith('uv', ['--color', 'never', 'python', 'find', '3.13'], { throwOnStdErr: false }),
-                'uv python find should be invoked with --color never',
-            );
+            assert.ok(execLocatedUvStub.calledWith(['python', 'install', '3.13']));
+            assert.ok(execLocatedUvStub.calledWith(['python', 'find', '3.13']));
+            assert.ok(execLocatedUvStub.calledWith(sinon.match((args: string[]) => args[0] === 'venv')));
         });
 
         test('Falls back to base Python when global venv creation fails', async () => {
