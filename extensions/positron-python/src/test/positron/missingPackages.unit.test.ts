@@ -72,6 +72,15 @@ suite('listMissingPythonPackages', () => {
         };
     }
 
+    function makeResolvingManager(existing: string[]): IPackageManager {
+        return {
+            resolvePackageName: sinon
+                .stub()
+                .callsFake((name: string) => Promise.resolve(existing.includes(name) ? name : undefined)),
+            searchPackages: sinon.stub().rejects(new Error('fuzzy search must not be used')),
+        } as unknown as IPackageManager;
+    }
+
     test('offers only missing imports that resolve to an installable distribution', async () => {
         const session = makeSession(['requests', 'garfblatz']);
         // requests resolves on PyPI; garfblatz does not (so it is never offered).
@@ -144,6 +153,39 @@ suite('listMissingPythonPackages', () => {
         });
 
         expect(callMethod.calledOnceWith('getMissingImports', ['helper'], [expectedRoot])).to.be.true;
+    });
+
+    test('resolves through resolvePackageName and never runs a fuzzy search', async () => {
+        const session = makeSession(['requests', 'garfblatz']);
+        const manager = makeResolvingManager(['requests']);
+
+        const result = await listMissingPythonPackages(session, manager, { code: 'import requests' });
+
+        expect(result).to.deep.equal([{ name: 'requests', referencedName: undefined }]);
+        expect((manager.searchPackages as sinon.SinonStub).called).to.be.false;
+    });
+
+    test('tries the curated alias first through resolvePackageName and keeps its casing', async () => {
+        const session = makeSession(['PIL']);
+        const manager = makeResolvingManager(['Pillow']);
+
+        const result = await listMissingPythonPackages(session, manager, { code: 'from PIL import Image' });
+
+        expect(result).to.deep.equal([{ name: 'Pillow', referencedName: 'PIL' }]);
+        expect((manager.resolvePackageName as sinon.SinonStub).firstCall.args[0]).to.equal('Pillow');
+    });
+
+    test('does not offer a package when resolvePackageName fails', async () => {
+        const session = makeSession(['requests']);
+        const manager = {
+            resolvePackageName: sinon.stub().rejects(new Error('HTTP 503')),
+            searchPackages: sinon.stub().rejects(new Error('fuzzy search must not be used')),
+        } as unknown as IPackageManager;
+
+        const result = await listMissingPythonPackages(session, manager, { code: 'import requests' });
+
+        expect(result).to.deep.equal([]);
+        expect((manager.searchPackages as sinon.SinonStub).called).to.be.false;
     });
 
     test('returns empty when there are no imports', async () => {

@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPackageManager, PackageSession } from './packages/types';
+import { canonicalizePyPIName } from './packages/pypiSearch';
 import { IMPORT_TO_DISTRIBUTION } from './pythonImportAliases';
 
 /**
@@ -70,11 +71,6 @@ export function pythonMissingPackageProbe(errorMessage: string): string | undefi
     return name ? `import ${name}` : undefined;
 }
 
-/** PEP 503 canonicalization: lowercase and collapse runs of `-_.` to a dash. */
-function canonicalizeName(name: string): string {
-    return name.replace(/[-_.]+/g, '-').toLowerCase();
-}
-
 /**
  * Analyzes Python code and returns the packages it references that are not
  * importable in this session AND that resolve to an installable distribution.
@@ -119,12 +115,12 @@ export async function listMissingPythonPackages(
         }
         const installName = await resolveInstallName(module, packageManager, token);
         if (installName) {
-            const canonical = canonicalizeName(installName);
+            const canonical = canonicalizePyPIName(installName);
             if (!seen.has(canonical)) {
                 seen.add(canonical);
                 result.push({
                     name: installName,
-                    referencedName: canonicalizeName(module) !== canonical ? module : undefined,
+                    referencedName: canonicalizePyPIName(module) !== canonical ? module : undefined,
                 });
             }
         }
@@ -170,23 +166,26 @@ function candidateDistributions(module: string): string[] {
 
 /**
  * Returns the repository's exact (canonicalized) name match for a query, or
- * undefined. A search failure (e.g. a transient network error) is treated as no
- * match so we never offer a package we could not install.
+ * undefined. Uses the manager's exact-name lookup when it has one, so a yes/no
+ * question never pays for a fuzzy search (for PyPI, a download of the full
+ * project index). A lookup failure (e.g. a transient network error) is treated
+ * as no match so we never offer a package we could not install.
  */
 async function searchExact(
     query: string,
     packageManager: IPackageManager,
     token?: vscode.CancellationToken,
 ): Promise<string | undefined> {
-    let matches: positron.LanguageRuntimePackage[];
     try {
-        matches = await packageManager.searchPackages(query, token);
+        if (packageManager.resolvePackageName) {
+            return await packageManager.resolvePackageName(query, token);
+        }
+        const matches = await packageManager.searchPackages(query, token);
+        const canonical = canonicalizePyPIName(query);
+        return matches.find((pkg) => canonicalizePyPIName(pkg.name) === canonical)?.name;
     } catch {
         return undefined;
     }
-    const canonical = canonicalizeName(query);
-    const exact = matches.find((pkg) => canonicalizeName(pkg.name) === canonical);
-    return exact?.name;
 }
 
 /**

@@ -19,10 +19,10 @@ function createAbortSignal(token?: vscode.CancellationToken): AbortSignal | unde
 }
 
 /**
- * How long the cached PyPI project index stays fresh before it is refetched.
- * The simple index is multiple MB and changes slowly, so an hour is plenty;
- * within a session a user almost never needs newly published packages to
- * appear mid-search.
+ * How long a cached PyPI answer stays fresh before it is refetched: both the
+ * full project index and exact-name existence checks. The simple index is
+ * multiple MB and changes slowly, so an hour is plenty; within a session a
+ * user almost never needs newly published packages to appear.
  */
 const PYPI_INDEX_TTL_MS = 60 * 60 * 1000;
 
@@ -88,12 +88,67 @@ async function getPyPIIndex(): Promise<PyPIIndex> {
 }
 
 /**
- * Clear the cached PyPI index. Intended for unit tests, which share the
- * module-level cache across cases and need a clean slate per test.
+ * Clear the cached PyPI index and exact-name answers. Intended for unit tests,
+ * which share the module-level caches across cases and need a clean slate per
+ * test.
  */
-export function resetPyPIIndexCacheForTests(): void {
+export function resetPyPICachesForTests(): void {
     pypiIndexCache = undefined;
     pypiIndexInFlight = undefined;
+    pypiExistsCache.clear();
+}
+
+/**
+ * PEP 503 name normalization: lowercase and collapse runs of `-`, `_`, and `.`
+ * to a single dash. Names that normalize the same refer to the same project.
+ */
+export function canonicalizePyPIName(name: string): string {
+    return name.replace(/[-_.]+/g, '-').toLowerCase();
+}
+
+interface PyPIExistsCacheEntry {
+    exists: boolean;
+    checkedAt: number;
+}
+
+/** Cached exact-name existence answers, keyed by canonical name. */
+const pypiExistsCache = new Map<string, PyPIExistsCacheEntry>();
+
+/**
+ * Whether a project with this exact (PEP 503 normalized) name exists on PyPI.
+ *
+ * Uses `HEAD /simple/<name>/`, which answers without a body. A GET of the same
+ * URL returns every file of the project (about 2.8 MB for numpy), and the full
+ * simple index is about 10 MB compressed, so neither suits a yes/no question.
+ * Only 2xx and 404 are answers and only answers are cached; any other status or
+ * a network failure throws, so callers can tell "missing" from "unknown".
+ */
+export async function pypiPackageExists(name: string, token?: vscode.CancellationToken): Promise<boolean> {
+    const canonical = canonicalizePyPIName(name);
+    const cached = pypiExistsCache.get(canonical);
+    if (cached && Date.now() - cached.checkedAt < PYPI_INDEX_TTL_MS) {
+        return cached.exists;
+    }
+
+    let response: Response;
+    try {
+        response = await fetch(`https://pypi.org/simple/${encodeURIComponent(canonical)}/`, {
+            method: 'HEAD',
+            signal: createAbortSignal(token),
+        });
+    } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') {
+            throw new vscode.CancellationError();
+        }
+        throw e;
+    }
+
+    if (response.status !== 404 && !response.ok) {
+        throw new Error(`Could not look up '${name}' on PyPI (HTTP ${response.status}).`);
+    }
+    const exists = response.ok;
+    pypiExistsCache.set(canonical, { exists, checkedAt: Date.now() });
+    return exists;
 }
 
 /**
