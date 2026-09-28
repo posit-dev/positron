@@ -1435,10 +1435,11 @@ export function parseReport(markdown, { ledger } = {}) {
 		environment: fromLedger?.environment ?? [],
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass
-		// only matters for a report written before the total carried one.
+		// only matters for a report written before the total carried one. A run
+		// with one pass, such as one with no findings to verify, writes no total.
 		cost: {
 			passes: billed,
-			total: total?.cost ?? null,
+			total: total?.cost ?? (billed.length === 1 ? billed[0].cost : null),
 			duration: total?.duration ?? main?.duration ?? null,
 		},
 	};

@@ -290,6 +290,13 @@ test('parseReport reads each cost pass and the total', () => {
 	assert.equal(cost.passes[0].maxTurns, '200');
 });
 
+test('parseReport takes the one pass as the total when there was nothing to verify', () => {
+	const { cost } = parseReport('# Exploratory test: x\n\n_explore: Opus 5.5 | $0.55 | 18/200 turns | 3m_\n');
+	assert.equal(cost.total, '$0.55');
+	assert.equal(cost.duration, '3m');
+	assert.match(renderReportHtml('# Exploratory test: x\n\n_explore: Opus 5.5 | $0.55 | 18/200 turns | 3m_\n'), /<span class="tile-num">3m<\/span><span class="unit">\$0\.55<\/span>/);
+});
+
 test('renderReportHtml ships both themes, defaulting to Professional', () => {
 	const html = renderReportHtml(FULL);
 	assert.match(html, /<html lang="en" data-theme="professional">/);
