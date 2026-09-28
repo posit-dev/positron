@@ -74,6 +74,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [runtimeAttached, setRuntimeAttached] = useState(props.positronConsoleInstance.runtimeAttached);
 	const [, setIgnoreNextScrollEvent, ignoreNextScrollEventRef] = useStateRef(false);
 	const [disconnected, setDisconnected] = useState(false);
+	const [exiting, setExiting] = useState(props.positronConsoleInstance.state === PositronConsoleState.Exiting);
+	const [showExitingBanner, setShowExitingBanner] = useState(false);
 
 	// Whether the "Submitting..." + Cancel overlay should be shown. Set 1000ms
 	// after a submission starts (and only if it is still in progress), cleared
@@ -188,6 +190,18 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const scrollVertically = (y: number) => {
 		consoleInstanceRef.current.scrollTo(consoleInstanceRef.current.scrollLeft, y);
 	};
+
+	// The prompt hides immediately on exit. We don't show the delay only the
+	// banner right away to avoid flashes during routine restarts and shutdowns.
+	useEffect(() => {
+		setShowExitingBanner(false);
+		if (!exiting) {
+			return;
+		}
+
+		const timer = setTimeout(() => setShowExitingBanner(true), 500);
+		return () => clearTimeout(timer);
+	}, [exiting, props.positronConsoleInstance]);
 
 	/**
 	 * Gets the selection.
@@ -306,6 +320,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		));
 
 		// Add the onDidChangeState event handler.
+		setDisconnected(props.positronConsoleInstance.state === PositronConsoleState.Disconnected);
+		setExiting(props.positronConsoleInstance.state === PositronConsoleState.Exiting);
 		disposableStore.add(props.positronConsoleInstance.onDidChangeState(state => {
 			if (state === PositronConsoleState.Starting) {
 				// Scroll to bottom when restarting
@@ -314,6 +330,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			}
 
 			setDisconnected(state === PositronConsoleState.Disconnected);
+			setExiting(state === PositronConsoleState.Exiting);
 		}));
 
 		// Add the onDidChangeTrace event handler.
@@ -776,9 +793,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				<ConsoleInstanceItems
 					consoleInputWidth={consoleInputWidth}
 					disconnected={disconnected}
+					exiting={exiting}
 					fontInfo={fontInfo}
 					positronConsoleInstance={props.positronConsoleInstance}
 					runtimeAttached={runtimeAttached}
+					showExitingBanner={exiting && showExitingBanner}
 					trace={trace}
 					onSelectAll={() => selectAllRuntimeItems()}
 				/>

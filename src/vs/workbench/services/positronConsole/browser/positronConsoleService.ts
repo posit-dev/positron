@@ -606,6 +606,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					positronConsoleInstance.setState(PositronConsoleState.Offline);
 					break;
 
+				// Hide the prompt during restart teardown. `RuntimeState.Restarting` bypasses
+				// `RuntimeState.Exiting`, although it can run a hanging `.Last`-style hook.
+				case RuntimeState.Restarting:
 				case RuntimeState.Exiting:
 					positronConsoleInstance.setState(PositronConsoleState.Exiting);
 					break;
