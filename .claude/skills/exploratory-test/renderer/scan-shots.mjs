@@ -210,9 +210,14 @@ export function boxesToPaint(lines, secrets) {
 				// last characters: one run left `https://eas` readable this way.
 				const beside = line.words.map((w, i) => !painted[i] && hitLines.has(line)
 					&& (painted[i - 1] || painted[i + 1]) && touchesEdge(piece(w), key));
+				// A word beside a match is painted through to the match: OCR can box
+				// glued text too narrowly, and one run left `s://eas` between a box
+				// over `http` and the match.
 				line.words.forEach((w, i) => {
-					if (painted[i] || beside[i]) {
+					if (painted[i]) {
 						boxes.push(w.bbox);
+					} else if (beside[i]) {
+						boxes.push(union([w.bbox, line.words[painted[i + 1] ? i + 1 : i - 1].bbox]));
 					}
 				});
 			}

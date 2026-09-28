@@ -110,7 +110,7 @@ test('boxesToPaint paints the pieces OCR split a URL into, even misread, and the
 		assert.ok(boxes.some(b => b.x0 === 0), `the start, misread, for ${value}`);
 		assert.ok(boxes.some(b => b.x0 === 112), `the middle, for ${value}`);
 		// `e.com` is the key's end, so the word it shares with the path goes too.
-		assert.ok(boxes.some(b => b.x0 === 322), `the end, glued to the path, for ${value}`);
+		assert.ok(boxes.some(b => b.x0 <= 322 && b.x1 >= 420), `the end, glued to the path, for ${value}`);
 	}
 });
 
@@ -125,11 +125,23 @@ test('boxesToPaint paints the word beside a match that carries the key\'s first 
 	]);
 	const boxes = boxesToPaint([field], [{ name: 'MS_FOUNDRY_BASE_URL', value: host }]);
 	assert.ok(boxes.some(b => b.x0 === 112), 'the match');
-	assert.ok(boxes.some(b => b.x0 === 40), 'the word beside it, which ends with the key\'s start');
+	assert.ok(boxes.some(b => b.x0 === 40 && b.x1 >= 112), 'the word beside it, which ends with the key\'s start, through to the match');
 	assert.ok(!boxes.some(b => b.x0 === 0), 'not an ordinary word beside that');
 	// Beside a match but sharing nothing with the key's ends: left alone.
 	const plain = line([{ text: 'URL:', bbox: box(0, 0, 30, 10) }, { text: host, bbox: box(40, 0, 400, 10) }]);
 	assert.deepEqual(boxesToPaint([plain], [{ name: 'X', value: host }]).map(b => b.x0), [40]);
+});
+
+test('boxesToPaint paints through a gap OCR left by boxing a glued word too narrowly', () => {
+	// From run 36460815103: OCR boxed `https://eas` over `http` alone, and the
+	// painted boxes left `s://eas` readable between them.
+	const host = 'east2testaiqzv-resource.services.ai.azure.com';
+	const field = line([
+		{ text: 'https://eas', bbox: box(516, 0, 551, 10) },
+		{ text: host.slice(3), bbox: box(603, 0, 913, 10) },
+	]);
+	const boxes = boxesToPaint([field], [{ name: 'MS_FOUNDRY_BASE_URL', value: host }]);
+	assert.ok(boxes.some(b => b.x0 <= 516 && b.x1 >= 603), JSON.stringify(boxes));
 });
 
 test('boxesToPaint takes a piece only from the start or end of a key, not its middle', () => {
