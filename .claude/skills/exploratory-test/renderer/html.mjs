@@ -1096,10 +1096,12 @@ function renderFormatChecks(options) {
 	const times = checks.rounds === 1 ? 'once' : `${checks.rounds} times`;
 	const found = checks.first.problems;
 	const problems = `${found} problem${found === 1 ? '' : 's'}`;
-	const outcome = checks.last === 0 ? 'which it fixed before finishing' : `and ${checks.last} were still there at the end`;
+	// The last check records a count, not which problems: one still there may
+	// be new, so it is reported as what that check found, not as unfixed.
+	const outcome = checks.last === 0 ? ', which it fixed before finishing.' : `. Its last check still found ${checks.last}.`;
 	const sentence = found === 0
 		? `The explorer ran the report's format check ${times}. The first time, it found no problems.`
-		: `The explorer ran the report's format check ${times}. The first time, it found ${problems}, shown below, ${outcome}. These show which of the skill's instructions it didn't follow on its first try.`;
+		: `The explorer ran the report's format check ${times}. The first time, it found ${problems}, shown below${outcome} These show which of the skill's instructions it didn't follow on its first try.`;
 	const raw = options.fileExists?.('stats.json') ? ' <a href="stats.json">Raw stats</a>' : '';
 	const rules = Object.entries(checks.first.rules).sort((a, b) => b[1] - a[1])
 		.map(([rule, n]) => `<li><span class="num">${n}&times;</span> ${escapeHtml(rule)}</li>`).join('');

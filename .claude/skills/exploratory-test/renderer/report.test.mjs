@@ -1714,8 +1714,10 @@ test('Run details shows the explorer\'s format checks, with the rules its first 
 	// One clean check, and a run that stopped with problems left.
 	const once = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from(JSON.stringify({ problems: 0, rules: {} })) });
 	assert.match(once, /format check once\. The first time, it found no problems\./);
-	const left = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from([{ problems: 1, rules: { a: 1 } }, { problems: 1, rules: { a: 1 } }].map(c => JSON.stringify(c)).join('\n')) });
-	assert.match(left, /it found 1 problem, shown below, and 1 were still there at the end\./);
+	const left = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from([{ problems: 3, rules: { a: 3 } }, { problems: 1, rules: { a: 1 } }].map(c => JSON.stringify(c)).join('\n')) });
+	assert.match(left, /The first time, it found 3 problems, shown below\. Its last check still found 1\. These show/);
+	const single = renderReportHtml(LOGS_REPORT, { readFile: () => Buffer.from([{ problems: 1, rules: { a: 1 } }, { problems: 0, rules: {} }].map(c => JSON.stringify(c)).join('\n')) });
+	assert.match(single, /it found 1 problem, shown below, which it fixed before finishing\. These show/);
 });
 
 test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {
