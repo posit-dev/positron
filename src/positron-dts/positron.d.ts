@@ -2385,12 +2385,19 @@ declare module 'positron' {
 		 * one the user saves becomes an ordinary saved connection from then on (and is no longer
 		 * shown as discovered).
 		 *
-		 * Called when the driver registers and whenever the set of registered drivers changes, so a
-		 * driver whose discoveries change should re-register to have them re-read.
+		 * Called when the driver registers, whenever the set of registered drivers changes, and
+		 * whenever the driver fires {@link DataConnectionDriver.onDidChange}.
 		 *
 		 * @returns The connections found on this machine, or an empty array if there are none.
 		 */
 		discoverConnections?(): Thenable<DiscoveredDataConnection[]>;
+
+		/**
+		 * Fires when the driver's `mechanisms` or its discovered connections have changed. Positron
+		 * then re-reads the driver's metadata and calls `discoverConnections` again. Unlike
+		 * re-registering the driver, this leaves the driver's open connections in place.
+		 */
+		onDidChange?: vscode.Event<void>;
 	}
 
 	/**
