@@ -135,6 +135,23 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 		});
 	}, [props.width]);
 
+	// Content can grow after the dialog is placed (a section appears, a message wraps), which
+	// would push the footer off screen. Move the dialog up just enough to keep its bottom visible.
+	useEffect(() => {
+		const dialogBox = dialogBoxRef.current;
+		const resizeObserver = new ResizeObserver(() => {
+			setDialogBoxState(prevDialogBoxState => {
+				const maxTop = dialogContainerRef.current.clientHeight - dialogBox.offsetHeight - kGutter;
+				if (!hasBeenPositioned.current || prevDialogBoxState.dragging || prevDialogBoxState.top <= maxTop) {
+					return prevDialogBoxState;
+				}
+				return { ...prevDialogBoxState, top: Math.max(maxTop, kGutter) };
+			});
+		});
+		resizeObserver.observe(dialogBox);
+		return () => resizeObserver.disconnect();
+	}, []);
+
 	// Escape cancels and Tab stays inside the dialog. Enter belongs to the <form> below: with the
 	// focus on a control inside it, the browser answers Enter by clicking the form's submit button.
 	// Letting the hook act on the key too would fire two different things for one keystroke.

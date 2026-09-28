@@ -7,7 +7,7 @@
 import './pythonEnvironmentStep.css';
 
 // React.
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { useNewFolderFlowContext } from '../../newFolderFlowContext.js';
@@ -68,6 +68,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	const [isUvInstalled, setIsUvInstalled] = useState(context.isUvInstalled);
 	const [uvInstallPending, setUvInstallPending] = useState(false);
 	const [uvInstallError, setUvInstallError] = useState<string | undefined>(undefined);
+	const versionDropdownRef = useRef<HTMLButtonElement>(null);
+	const focusVersionsAfterInstall = useRef(false);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -305,7 +307,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		setUvInstallError(undefined);
 		try {
 			const result = await context.installUv();
-			if (!result.ok) {
+			if (result.ok) {
+				focusVersionsAfterInstall.current = true;
+			} else {
 				// No error means nothing was attempted; leave the step as it was.
 				setUvInstallError(result.error);
 			}
@@ -313,6 +317,15 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			setUvInstallPending(false);
 		}
 	};
+
+	// The focused Install uv button unmounts once uv is installed. Hand focus to the version
+	// dropdown, the next thing to fill in, once the refreshed versions have enabled it.
+	useEffect(() => {
+		if (focusVersionsAfterInstall.current && isUvInstalled && uvPythonVersionInfo?.versions.length) {
+			focusVersionsAfterInstall.current = false;
+			versionDropdownRef.current?.focus();
+		}
+	}, [isUvInstalled, uvPythonVersionInfo]);
 
 	// Handler for the View log link. Opens the Python output channel, where the installer's
 	// output is logged.
@@ -699,6 +712,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 				titleId='pythonEnvironment-interpreterOrVersion'
 			>
 				<DropDownListBox
+					ref={versionDropdownRef}
 					createItem={(item) => (
 						<InterpreterEntry
 							interpreterInfo={item.options.value}

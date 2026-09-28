@@ -141,6 +141,27 @@ describe('PositronDynamicModalDialog', () => {
 		expect(onDefaultButton).not.toHaveBeenCalled();
 	});
 
+	it('moves up to keep its bottom on screen when its content grows', () => {
+		// happy-dom does no layout, so the heights are supplied and the resize is fired by hand.
+		let dialogHeight = 300;
+		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(800);
+		vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => dialogHeight);
+		let onResize: ResizeObserverCallback = () => undefined;
+		vi.stubGlobal('ResizeObserver', class {
+			constructor(callback: ResizeObserverCallback) { onResize = callback; }
+			observe() { }
+			disconnect() { }
+		});
+		renderDialog();
+		expect(screen.getByRole('dialog')).toHaveStyle({ top: '250px' });
+
+		dialogHeight = 700;
+		act(() => onResize([], stubInterface<ResizeObserver>({})));
+
+		// 800 tall container, 700 tall dialog, 40px gutter: the bottom sits at the gutter.
+		expect(screen.getByRole('dialog')).toHaveStyle({ top: '60px' });
+	});
+
 	it('does not mark a dialog nested when it replaces one in the same commit', () => {
 		// A multi-step flow renders a different component per step, each with its own dialog, so the
 		// incoming dialog mounts and the outgoing one unmounts in the same commit. If the incoming

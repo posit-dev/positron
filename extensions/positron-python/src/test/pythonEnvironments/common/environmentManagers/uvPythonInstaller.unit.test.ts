@@ -304,40 +304,18 @@ suite('UV Python Installer Tests', () => {
             verify(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).never();
         });
 
-        test('Shows the failure with a way to reach the logs', async () => {
-            // The step that called this can only say that the install failed, so the notification
-            // is what carries the route to the reason.
+        test('Leaves reporting a failure to the caller', async () => {
+            // The New Folder flow shows the failure and a way to the log in its own callout, so a
+            // notification here would report it a second time, over the dialog.
             isUvInstalledStub.resolves(false);
             consent(InterpreterQuickPickList.UvInstall.confirmUvInstallYes);
             execStub.resolves({ stdout: '', stderr: 'mkdtemp failed: Permission denied' });
-            when(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).thenResolve(undefined);
 
             assert.deepStrictEqual(await ensureUvInstalledWithProgress(), {
                 ok: false,
                 error: InterpreterQuickPickList.UvInstall.uvInstallFailed,
             });
-            verify(
-                mockedVSCodeNamespaces.window!.showErrorMessage(
-                    InterpreterQuickPickList.UvInstall.uvInstallFailed,
-                    Common.showLogs,
-                ),
-            ).once();
-        });
-
-        test('Returns without waiting for the failure notification to be dismissed', async () => {
-            // The notification lives until the user dismisses it. Waiting on it would leave the
-            // step that called this showing an install that has already finished.
-            isUvInstalledStub.resolves(false);
-            consent(InterpreterQuickPickList.UvInstall.confirmUvInstallYes);
-            execStub.resolves({ stdout: '', stderr: 'mkdtemp failed: Permission denied' });
-            when(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).thenReturn(
-                new Promise(() => undefined) as any,
-            );
-
-            assert.deepStrictEqual(await ensureUvInstalledWithProgress(), {
-                ok: false,
-                error: InterpreterQuickPickList.UvInstall.uvInstallFailed,
-            });
+            verify(mockedVSCodeNamespaces.window!.showErrorMessage(anything(), anything())).never();
         });
 
         test('Declining shows no error notification', async () => {

@@ -173,6 +173,9 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(screen.queryByRole('button', { name: 'Install uv' })).not.toBeInTheDocument();
 		expect(screen.queryByText('uv is installed')).not.toBeInTheDocument();
 		expect(await screen.findByText('Select a Python version')).toBeInTheDocument();
+		// The focused Install uv button is gone, so focus moves to the next thing to fill in.
+		const versionDropdown = within(screen.getByText('Python Version').closest<HTMLElement>('.flow-sub-step')!).getByRole('button');
+		await waitFor(() => expect(versionDropdown).toHaveFocus());
 	});
 
 	it('keeps the offer in place when the user declines the install', async () => {
