@@ -23,13 +23,19 @@ export interface IInterpreterDefinition {
 }
 
 /**
- * Drop incomplete entries and all but the first entry for each language and label.
+ * Drop malformed or incomplete entries and all but the first entry for each
+ * language and label. Setting values are not type-checked when read, so a
+ * hand-edited value can be any JSON.
  */
 function validDefinitions(definitions: readonly IInterpreterDefinition[] | undefined): IInterpreterDefinition[] {
+	const isText = (value: unknown) => typeof value === 'string' && value.length > 0;
 	const seen = new Set<string>();
-	return (definitions ?? []).filter(d => {
+	return (Array.isArray(definitions) ? definitions : []).filter(d => {
+		if (!d || !isText(d.language) || !isText(d.path) || !isText(d.label)) {
+			return false;
+		}
 		const key = `${d.language}\0${d.label}`;
-		if (!d.language || !d.path || !d.label || seen.has(key)) {
+		if (seen.has(key)) {
 			return false;
 		}
 		seen.add(key);

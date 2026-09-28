@@ -81,9 +81,14 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Re-derive interpreter variants when their definitions change.
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(INTERPRETER_DEFINITIONS_KEY)) {
-				for (const runtime of this.registeredRuntimes.filter(r => !r.interpreterDefinition)) {
-					this._unregisterVariants(runtime.runtimeId);
-					this._registerVariants(runtime);
+				const definitions = this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY);
+				for (const runtime of this.registeredRuntimes) {
+					if (!runtime.interpreterDefinition) {
+						this._registerVariants(runtime);
+					} else if (!getMatchingDefinitions(definitions, runtime).some(d => d.label === runtime.interpreterDefinition)) {
+						// Also covers variants registered directly (restored or validated) before their base.
+						this.unregisterRuntime(runtime.runtimeId);
+					}
 				}
 			}
 		}));
@@ -203,20 +208,24 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	}
 
 	/**
-	 * Register a variant of a runtime for each interpreter definition that matches it.
+	 * Register a variant of a runtime for each interpreter definition that
+	 * matches it, and unregister its variants that no longer match. Variants
+	 * that are unchanged stay registered.
 	 */
 	private _registerVariants(base: ILanguageRuntimeMetadata): void {
 		if (base.interpreterDefinition) {
 			return;
 		}
 		const definitions = this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY);
-		const variantIds = getMatchingDefinitions(definitions, base).map(definition => {
-			const variant = createInterpreterVariant(base, definition);
+		const variants = getMatchingDefinitions(definitions, base).map(definition => createInterpreterVariant(base, definition));
+		const variantIds = variants.map(variant => variant.runtimeId);
+		const staleIds = (this._variantIdsByBaseId.get(base.runtimeId) ?? []).filter(id => !variantIds.includes(id));
+		this._variantIdsByBaseId.set(base.runtimeId, variantIds);
+		for (const staleId of staleIds) {
+			this.unregisterRuntime(staleId);
+		}
+		for (const variant of variants) {
 			this.registerRuntime(variant);
-			return variant.runtimeId;
-		});
-		if (variantIds.length > 0) {
-			this._variantIdsByBaseId.set(base.runtimeId, variantIds);
 		}
 	}
 

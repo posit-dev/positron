@@ -44,6 +44,15 @@ describe('getMatchingDefinitions', () => {
 	it('returns nothing when the setting is unset', () => {
 		expect(getMatchingDefinitions(undefined, base)).toEqual([]);
 	});
+
+	it('ignores malformed setting values instead of throwing', () => {
+		// Setting values are not type-checked when read, so model what a user can actually write.
+		const malformed = (value: unknown) => value as IInterpreterDefinition[];
+		expect([
+			getMatchingDefinitions(malformed(xx), base),
+			getMatchingDefinitions(malformed([null, 'r', { ...xx, path: 42 }, xx]), base),
+		]).toEqual([[], [xx]]);
+	});
 });
 
 describe('createInterpreterVariant', () => {

@@ -189,6 +189,37 @@ describe('Positron - LanguageRuntimeService', () => {
 
 			expect(service.registeredRuntimes.map(m => m.runtimeName)).toEqual(['R 4.4.3', 'Renamed']);
 		});
+
+		it('removes a variant registered before its base when its definition is deleted', async () => {
+			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+			// Restore and validation register a stored variant directly, before its base.
+			service.registerRuntime(createInterpreterVariant(r, definition));
+
+			await configurationService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, []);
+			configurationService.onDidChangeConfigurationEmitter.fire(
+				stubInterface<IConfigurationChangeEvent>({
+					affectsConfiguration: (key: string) => key === INTERPRETER_DEFINITIONS_KEY,
+				})
+			);
+
+			expect(service.registeredRuntimes).toEqual([]);
+		});
+
+		it('keeps an unchanged variant registered when the setting changes', async () => {
+			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+			service.registerRuntime(r);
+			const unregistered: string[] = [];
+			ctx.disposables.add(service.onDidUnregisterRuntime(id => unregistered.push(id)));
+
+			await configurationService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [definition, { ...definition, label: 'Second' }]);
+			configurationService.onDidChangeConfigurationEmitter.fire(
+				stubInterface<IConfigurationChangeEvent>({
+					affectsConfiguration: (key: string) => key === INTERPRETER_DEFINITIONS_KEY,
+				})
+			);
+
+			expect([unregistered, service.registeredRuntimes.map(m => m.runtimeName)]).toEqual([[], ['R 4.4.3', 'R 4.4.3 (XX libs)', 'Second']]);
+		});
 	});
 
 	describe('onDidUnregisterRuntime', () => {
