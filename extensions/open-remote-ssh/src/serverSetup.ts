@@ -11,7 +11,6 @@ import * as crypto from 'crypto';
 import Log from './common/logger';
 import { getVSCodeServerConfig } from './serverConfig';
 import SSHTransport from './ssh/sshTransport';
-import SSHConnection from './ssh/sshConnection';
 import { appendSshEnvironmentParam, buildEnvironmentProbeCommand, detectSshEnvironment, parseEnvironmentProbeOutput, SshEnvironment } from './common/sshEnvironment';
 
 export interface ServerInstallOptions {
@@ -62,7 +61,7 @@ const SSH_ENVIRONMENT_LABELS: Record<SshEnvironment, string> = {
  * Never throws: a host whose shell rejects the probe is simply unidentified, and
  * must still be able to connect.
  */
-async function probeSshEnvironment(conn: SSHConnection, logger: Log): Promise<SshEnvironment | undefined> {
+async function probeSshEnvironment(conn: SSHTransport, logger: Log): Promise<SshEnvironment | undefined> {
 	try {
 		const result = await conn.exec(buildEnvironmentProbeCommand());
 		const setVariables = parseEnvironmentProbeOutput(result.stdout);
