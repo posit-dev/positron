@@ -15,6 +15,7 @@ import { IConfigurationRegistry, Extensions as ConfigurationExtensions, Configur
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
+import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY } from './interpreterDefinitions.js';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -43,6 +44,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// Cached user home path (remote-aware). Populated eagerly in the constructor
 	// so registerRuntime can run synchronously.
 	private _cachedUserHome: string | undefined;
+
+	// Variant runtime IDs (from interpreters.definitions) by the ID of the runtime they derive from
+	private readonly _variantIdsByBaseId = new Map<string, string[]>();
 
 	//#endregion Private Properties
 
@@ -73,6 +77,16 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._pathService.userHome({ preferLocal: false }).then(uri => {
 			this._cachedUserHome = uri.fsPath;
 		});
+
+		// Re-derive interpreter variants when their definitions change.
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(INTERPRETER_DEFINITIONS_KEY)) {
+				for (const runtime of this.registeredRuntimes.filter(r => !r.interpreterDefinition)) {
+					this._unregisterVariants(runtime.runtimeId);
+					this._registerVariants(runtime);
+				}
+			}
+		}));
 	}
 
 	/**
@@ -169,6 +183,8 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Logging.
 		this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(metadata)} successfully registered.`);
 
+		this._registerVariants(enriched);
+
 		return this._register(toDisposable(() => {
 			this.unregisterRuntime(metadata.runtimeId);
 		}));
@@ -182,6 +198,36 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	unregisterRuntime(runtimeId: string): void {
 		if (this._registeredRuntimesByRuntimeId.delete(runtimeId)) {
 			this._onDidUnregisterRuntimeEmitter.fire(runtimeId);
+		}
+		this._unregisterVariants(runtimeId);
+	}
+
+	/**
+	 * Register a variant of a runtime for each interpreter definition that matches it.
+	 */
+	private _registerVariants(base: ILanguageRuntimeMetadata): void {
+		if (base.interpreterDefinition) {
+			return;
+		}
+		const definitions = this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY);
+		const variantIds = getMatchingDefinitions(definitions, base).map(definition => {
+			const variant = createInterpreterVariant(base, definition);
+			this.registerRuntime(variant);
+			return variant.runtimeId;
+		});
+		if (variantIds.length > 0) {
+			this._variantIdsByBaseId.set(base.runtimeId, variantIds);
+		}
+	}
+
+	/**
+	 * Unregister the variants derived from a runtime.
+	 */
+	private _unregisterVariants(baseId: string): void {
+		const variantIds = this._variantIdsByBaseId.get(baseId) ?? [];
+		this._variantIdsByBaseId.delete(baseId);
+		for (const variantId of variantIds) {
+			this.unregisterRuntime(variantId);
 		}
 	}
 
@@ -298,6 +344,44 @@ configurationRegistry.registerConfiguration({
 			description: nls.localize(
 				'positron.runtime.unsavedScriptsDirectory',
 				"Directory for temporary files created when running unsaved scripts. When empty, the workspace root is used (or the system temporary directory when no workspace is open)."),
+			tags: ['interpreterSettings']
+		},
+		[INTERPRETER_DEFINITIONS_KEY]: {
+			scope: ConfigurationScope.MACHINE,
+			type: 'array',
+			default: [],
+			markdownDescription: nls.localize(
+				'positron.runtime.definitions',
+				"Additional interpreters based on ones Positron has already found, each with its own environment variables and startup script. The original interpreter stays available. `path` must match the interpreter path shown in the interpreter picker exactly. Can only be set in user or remote settings."),
+			items: {
+				type: 'object',
+				required: ['language', 'path', 'label'],
+				additionalProperties: false,
+				properties: {
+					language: {
+						type: 'string',
+						enum: ['r', 'python'],
+						description: nls.localize('positron.runtime.definitions.language', "The language of the interpreter.")
+					},
+					path: {
+						type: 'string',
+						description: nls.localize('positron.runtime.definitions.path', "Path of the interpreter this is based on, as shown in the interpreter picker.")
+					},
+					label: {
+						type: 'string',
+						description: nls.localize('positron.runtime.definitions.label', "The name shown for this interpreter. Must be unique for each language.")
+					},
+					env: {
+						type: 'object',
+						additionalProperties: { type: 'string' },
+						description: nls.localize('positron.runtime.definitions.env', "Environment variables to set for this interpreter.")
+					},
+					startupScript: {
+						type: 'string',
+						description: nls.localize('positron.runtime.definitions.startupScript', "Shell script to source before starting this interpreter. Not supported on Windows.")
+					},
+				}
+			},
 			tags: ['interpreterSettings']
 		},
 		'interpreters.discoveryCache.enabled': {

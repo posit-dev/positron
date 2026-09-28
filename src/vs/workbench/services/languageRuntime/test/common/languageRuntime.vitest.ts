@@ -11,10 +11,11 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { LanguageRuntimeService } from '../../common/languageRuntime.js';
+import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY } from '../../common/interpreterDefinitions.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
 
 const TEST_USER_HOME = URI.file('/home/testuser');
@@ -134,6 +135,59 @@ describe('Positron - LanguageRuntimeService', () => {
 			const system = makeTestMetadata({ runtimeId: 'tilde-2', runtimePath: '/usr/bin/R' });
 			languageRuntimeService.registerRuntime(system);
 			expect(languageRuntimeService.registeredRuntimes[1].runtimeDisplayPath).toBe('/usr/bin/R');
+		});
+	});
+
+	describe('interpreter definitions', () => {
+		const configurationService = new TestConfigurationService();
+		const ctx = createTestContainer()
+			.withRuntimeServices()
+			.stub(ILogService, new NullLogger())
+			.stub(IConfigurationService, configurationService)
+			.stub(IPathService, pathServiceStub)
+			.build();
+
+		const r = makeTestMetadata({ runtimeId: 'r-base', languageId: 'r', runtimePath: '/opt/R/4.4.3/bin/R', runtimeName: 'R 4.4.3', cacheable: true });
+		const definition = { language: 'r', path: '/opt/R/4.4.3/bin/R', label: 'R 4.4.3 (XX libs)', env: { R_LIBS_SITE: '/xx' } };
+
+		beforeEach(async () => {
+			await configurationService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [definition]);
+		});
+
+		it('registers a variant next to the base runtime, and unregisters it with the base', () => {
+			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+
+			service.registerRuntime(r);
+
+			expect(service.registeredRuntimes.map(m => [m.runtimeName, m.interpreterDefinition, m.cacheable])).toEqual([
+				['R 4.4.3', undefined, true],
+				['R 4.4.3 (XX libs)', 'R 4.4.3 (XX libs)', false],
+			]);
+
+			service.unregisterRuntime('r-base');
+			expect(service.registeredRuntimes).toEqual([]);
+		});
+
+		it('does not derive a variant from a variant', () => {
+			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+
+			service.registerRuntime(createInterpreterVariant(r, definition));
+
+			expect(service.registeredRuntimes.length).toBe(1);
+		});
+
+		it('re-derives variants when the setting changes', async () => {
+			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+			service.registerRuntime(r);
+
+			await configurationService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [{ ...definition, label: 'Renamed' }]);
+			configurationService.onDidChangeConfigurationEmitter.fire(
+				stubInterface<IConfigurationChangeEvent>({
+					affectsConfiguration: (key: string) => key === INTERPRETER_DEFINITIONS_KEY,
+				})
+			);
+
+			expect(service.registeredRuntimes.map(m => m.runtimeName)).toEqual(['R 4.4.3', 'Renamed']);
 		});
 	});
 
