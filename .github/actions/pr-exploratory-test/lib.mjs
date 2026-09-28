@@ -8,37 +8,6 @@
 
 import { modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 
-/**
- * The verify pass's prompt: verifier.md with the run's paths and diff range
- * filled in. A placeholder with no value, or a value with no placeholder,
- * throws, so the template and this list cannot drift apart quietly.
- */
-export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha }) {
-	const values = {
-		REPORT: `${workDir}/report.md`,
-		ACTIONS_LOG: `${workDir}/actions.log`,
-		LEDGER: `${workDir}/ledger.md`,
-		FILES: `${workDir}/files/`,
-		REPO: repoRoot,
-		DIFF: `${baseSha}...${headSha}`,
-	};
-	const used = new Set();
-	const missing = new Set();
-	const prompt = String(template).replace(/\{\{(\w+)\}\}/g, (whole, key) => {
-		if (!(key in values)) {
-			missing.add(key);
-			return whole;
-		}
-		used.add(key);
-		return values[key];
-	});
-	const unused = Object.keys(values).filter(k => !used.has(k));
-	if (missing.size || unused.length) {
-		throw new Error(`verifier.md placeholders out of step: ${[...[...missing].map(k => `no value for {{${k}}}`), ...unused.map(k => `{{${k}}} not in the template`)].join(', ')}`);
-	}
-	return prompt.trim();
-}
-
 /** Pick the latest assistant message that looks like the report. */
 export function pickReport(messages) {
 	for (let i = messages.length - 1; i >= 0; i--) {
@@ -170,106 +139,6 @@ export function renderCostFooter(passes, maxTurns) {
 		lines.push(`_total: ${bits.join(' | ')}_`);
 	}
 	return lines.join('\n');
-}
-
-/**
- * The verifier's reply from its VERDICTS line on. Its final message can open
- * with notes to itself, which would otherwise lead the Verification details.
- */
-export function fromVerdictLine(text) {
-	if (typeof text !== 'string') {
-		return text;
-	}
-	const lines = text.split('\n');
-	const at = lines.findIndex(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
-	return at > 0 ? lines.slice(at).join('\n') : text;
-}
-
-/**
- * Parses the verifier's machine-readable verdict line.
- *
- * Expects `VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE` anywhere in the text.
- * Returns a Map of finding number to a short word for the table cell.
- */
-export function parseVerdicts(text) {
-	const out = new Map();
-	if (typeof text !== 'string') {
-		return out;
-	}
-	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
-	if (!line) {
-		return out;
-	}
-	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
-		const m = part.trim().match(/^(\d+)\s*=\s*(.+)$/);
-		if (!m) {
-			continue;
-		}
-		const verdict = m[2].trim().toUpperCase();
-		const word = verdict.startsWith('CONFIRMED') ? 'confirmed'
-			: verdict.startsWith('FALSE') ? 'disputed'
-				: verdict.startsWith('UNRESOLVED') ? 'unresolved'
-					: null;
-		if (word) {
-			out.set(Number(m[1]), word);
-		}
-	}
-	return out;
-}
-
-/**
- * Appends a `Verified` column to the findings table.
- *
- * Best effort by design: the table is written by an agent, and its shape has
- * drifted before. Anything unexpected returns the report untouched so a
- * cosmetic column can never cost the report its findings. The verdicts are
- * appended in full below regardless, so nothing is lost when this bails.
- */
-export function annotateFindingsTable(report, verdicts) {
-	if (typeof report !== 'string' || !(verdicts instanceof Map) || verdicts.size === 0) {
-		return report;
-	}
-	const lines = report.split('\n');
-	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
-	if (header === -1 || !/^\|[\s:|-]+\|$/.test(lines[header + 1] || '')) {
-		return report;
-	}
-	lines[header] = `${lines[header].replace(/\s*$/, '')} Verified |`;
-	lines[header + 1] = `${lines[header + 1].replace(/\s*$/, '')}---|`;
-	for (let i = header + 2; i < lines.length; i++) {
-		if (!lines[i].startsWith('|')) {
-			break;
-		}
-		const n = Number((lines[i].match(/^\|\s*(\d+)\s*\|/) || [])[1]);
-		lines[i] = `${lines[i].replace(/\s*$/, '')} ${verdicts.get(n) || '-'} |`;
-	}
-	return lines.join('\n');
-}
-
-/**
- * True when the report has a findings table with at least one numbered row.
- *
- * A run that found nothing has nothing to verify, and asking anyway produced a
- * page of prose auditing claims nobody disputed.
- */
-export function hasFindings(report) {
-	if (typeof report !== 'string') {
-		return false;
-	}
-	const lines = report.split('\n');
-	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
-	if (header === -1) {
-		return false;
-	}
-	for (let i = header + 2; i < lines.length; i++) {
-		if (!lines[i].startsWith('|')) {
-			return false;
-		}
-		if (/^\|\s*\d+\s*\|/.test(lines[i])) {
-			return true;
-		}
-	}
-	return false;
 }
 
 /**
@@ -408,6 +277,19 @@ export function runOutcome({ report, numTurns, maxTurns }) {
 		return 'partial';
 	}
 	return report ? 'complete' : 'no-report';
+}
+
+/**
+ * A workflow warning for a run that finished close to the turn cap, or null.
+ * No run has reached the cap yet (185 of 200 was the most), so this is how a
+ * trend toward it shows up before one ends partial. A run at the cap is left
+ * to `partial`, which already says so.
+ */
+export function turnCapWarning({ numTurns, maxTurns }) {
+	if (typeof numTurns !== 'number' || numTurns >= maxTurns || numTurns < maxTurns * 0.8) {
+		return null;
+	}
+	return `::warning title=Exploratory run near the turn cap::Used ${numTurns} of ${maxTurns} turns. A run that reaches the cap can end without a report.`;
 }
 
 /**

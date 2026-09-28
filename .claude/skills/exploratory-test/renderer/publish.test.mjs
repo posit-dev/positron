@@ -17,7 +17,7 @@ const SECRET = 'sk-test-not-a-real-key-1234';
 // A copy of the logs-run fixture, with a secret in a log, a leftover local page,
 // and the files CI keeps out. A stub aws fails sts when told to, and on s3 cp
 // copies what it was given.
-function fixture({ signedIn = true, page = true, report = true, missingLog = false, env = {}, write = {} } = {}) {
+function fixture({ signedIn = true, page = true, report = true, missingLog = false, leakShot = false, env = {}, write = {} } = {}) {
 	const dir = mkdtempSync(join(tmpdir(), 'publish-'));
 	const run = join(dir, 'run');
 	cpSync(fileURLToPath(new URL('./fixtures/logs-run/', import.meta.url)), run, { recursive: true });
@@ -38,7 +38,11 @@ function fixture({ signedIn = true, page = true, report = true, missingLog = fal
 	writeFileSync(join(run, 'actions.log'), 'actions\n');
 	writeFileSync(join(run, 'logs/all/9222/renderer.log'), 'raw\n');
 	writeFileSync(join(run, 'logs/9222-renderer.log'), `curated ${SECRET}\n`);
-	writeFileSync(join(run, 'shots/S01-01.png'), 'png');
+	// A real image: the upload stops on a shot the scan cannot read.
+	cpSync(fileURLToPath(new URL('./fixtures/shots/clean.png', import.meta.url)), join(run, 'shots/S01-01.png'));
+	if (leakShot) {
+		cpSync(fileURLToPath(new URL(`./fixtures/shots/${leakShot}`, import.meta.url)), join(run, `shots/S02-01${leakShot.slice(leakShot.lastIndexOf('.'))}`));
+	}
 	const out = join(dir, 'uploaded');
 	const aws = join(dir, 'aws');
 	writeFileSync(aws, [
@@ -110,4 +114,25 @@ test('redacts the credentials CI holds under names the pattern misses', () => {
 	for (const name of Object.keys(env)) {
 		assert.match(r.stdout, new RegExp(`^Redacting ${name} from logs/db\\.log$`, 'm'));
 	}
+});
+
+// The value leak.png and leak.jpg show; see scan-shots.test.mjs.
+const SHOWN = 'exploratoryfixtureQ7mZ2xK9pL4vR8tNw3';
+
+test('paints a credential out of a screenshot and publishes, leaving the local shot as it was', () => {
+	const { r, run, out } = fixture({ leakShot: 'leak.png', env: { EXAMPLE_TOKEN: SHOWN } });
+	assert.equal(r.status, 0, r.stderr);
+	assert.match(r.stdout, /painted over EXAMPLE_TOKEN in shots\/S02-01\.png/);
+	assert.notDeepEqual(readFileSync(join(out, 'shots/S02-01.png')), readFileSync(join(run, 'shots/S02-01.png')));
+	assert.deepEqual(readFileSync(join(run, 'shots/S02-01.png')), readFileSync(fileURLToPath(new URL('./fixtures/shots/leak.png', import.meta.url))));
+	assert.doesNotMatch(r.stdout + r.stderr, new RegExp(SHOWN));
+});
+
+test('refuses a run with a screenshot it cannot paint, naming the shot and never the value', () => {
+	const { r, out } = fixture({ leakShot: 'leak.jpg', env: { EXAMPLE_TOKEN: SHOWN } });
+	assert.equal(r.status, 1);
+	assert.match(r.stderr, /shots\/S02-01\.jpg shows EXAMPLE_TOKEN/);
+	assert.match(r.stderr, /nothing was uploaded/);
+	assert.doesNotMatch(r.stdout + r.stderr, new RegExp(SHOWN));
+	assert.ok(!existsSync(out));
 });

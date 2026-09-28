@@ -467,7 +467,7 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 					{localize('positron.dataConnections.discoveredBadge', "Detected")}
 				</div>
 			)}
-			{entry.instance && (
+			{entry.instance ? (
 				// Shown whenever the profile has a live connection, including while the entry is
 				// collapsed -- collapsing does not necessarily disconnect, so this is how the user
 				// tells a live connection from a saved-but-closed one.
@@ -477,6 +477,10 @@ export const DataConnectionEntryRow = ({ entry, hoverManager, onDisconnect, onMe
 					role='img'
 					title={connectedLabel}
 				/>
+			) : (
+				// Every row reserves the dot's slot, so the dot and the badge before it each hold
+				// one column down the pane whether or not a given row is connected.
+				<div aria-hidden='true' className='data-connection-entry-connected disconnected' />
 			)}
 			<button
 				ref={actionsButtonRef}

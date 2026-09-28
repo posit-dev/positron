@@ -67,25 +67,19 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		this._drivers.set(driver.id, driver);
 		this._driverConnections.set(driver.id, new Set());
 
-		// Convert the driver's public API shape into a serializable DTO. Base64-encode the SVG so
-		// the UI can use it directly in <img> src attributes.
-		const metadata: IDataConnectionDriverMetadataDTO = {
-			id: driver.id,
-			name: driver.name,
-			description: driver.description,
-			iconSvg: btoa(driver.iconSvg),
-			mechanisms: driver.mechanisms.map(m => ({
-				id: m.id,
-				label: m.label,
-				description: m.description,
-				parameters: m.parameters.map(p => this._convertParameter(p)),
-			})),
-			supportedLanguageIds: driver.supportedLanguageIds,
-		};
+		this._proxy.$registerDataConnectionDriver(driver.id, this._driverMetadata(driver));
 
-		this._proxy.$registerDataConnectionDriver(driver.id, metadata);
+		// A driver that changes in place has its metadata re-sent under the same id. The main
+		// thread replaces the driver without touching its open connections, and re-reads its
+		// discoveries.
+		const changeListener = driver.onDidChange?.(() => {
+			if (this._drivers.get(driver.id) === driver) {
+				this._proxy.$registerDataConnectionDriver(driver.id, this._driverMetadata(driver));
+			}
+		});
 
 		return new Disposable(() => {
+			changeListener?.dispose();
 			this._drivers.delete(driver.id);
 
 			// Release all connections created by this driver.
@@ -303,6 +297,26 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 	}
 
 	// --- Private helpers ---
+
+	/**
+	 * Converts the driver's public API shape into a serializable DTO. Base64-encodes the SVG so the
+	 * UI can use it directly in <img> src attributes.
+	 */
+	private _driverMetadata(driver: positron.DataConnectionDriver): IDataConnectionDriverMetadataDTO {
+		return {
+			id: driver.id,
+			name: driver.name,
+			description: driver.description,
+			iconSvg: btoa(driver.iconSvg),
+			mechanisms: driver.mechanisms.map(m => ({
+				id: m.id,
+				label: m.label,
+				description: m.description,
+				parameters: m.parameters.map(p => this._convertParameter(p)),
+			})),
+			supportedLanguageIds: driver.supportedLanguageIds,
+		};
+	}
 
 	/**
 	 * Releases a connection handle, its node map, and removes it from driver tracking so it is no

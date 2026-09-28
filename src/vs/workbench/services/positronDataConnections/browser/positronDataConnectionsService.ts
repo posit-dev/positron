@@ -108,6 +108,10 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// _refreshDiscoveredProfiles.
 	private _discoveredProfiles: IDataConnectionProfile[] = [];
 
+	// Incremented on every _refreshDiscoveredProfiles call, so a refresh that finishes after a
+	// newer one started discards its results rather than overwriting the newer ones.
+	private _discoveryGeneration = 0;
+
 	// The secret parameter values of the discovered connections, keyed by discovered profile id.
 	// The discovery-time analogue of secret storage: a driver's discoverConnections may report a
 	// value its mechanism declares secret (e.g. a password embedded in a connection string), and
@@ -786,6 +790,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * whose discovery throws should not take the other drivers' discoveries down with it.
 	 */
 	private async _refreshDiscoveredProfiles(): Promise<void> {
+		const generation = ++this._discoveryGeneration;
 		const drivers = this.driverManager.getDrivers();
 		const results = await Promise.all(drivers.map(async driver => {
 			try {
@@ -830,6 +835,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			}
 		}));
 
+		// A newer refresh started while this one awaited the drivers; its results are the current
+		// ones.
+		if (generation !== this._discoveryGeneration) {
+			return;
+		}
+
 		const discoveries = results.flat();
 		this._discoveredProfiles = discoveries.map(discovery => discovery.profile);
 		this._discoveredSecretValues = new Map(discoveries
@@ -838,6 +849,33 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		this._logService.trace(`[DataConnections] Discovered ${this._discoveredProfiles.length} connection(s) across ${drivers.length} driver(s)`);
 		this._backfillDiscoveredFromIds();
 		this._onDidChangeDiscoveredProfilesEmitter.fire([...this.getDiscoveredProfiles()]);
+		await this._disconnectVanishedDiscoveries();
+	}
+
+	/**
+	 * Closes any live connection whose profile no longer exists -- a discovered connection the user
+	 * had open, whose entry was then renamed or removed from the file it was discovered in.
+	 *
+	 * The row goes away with the discovery, and the row is the only place to disconnect from, so a
+	 * session left open here is one the user cannot reach or close. Closing it is also what the user
+	 * asked for: the connection they opened is the entry that is now gone.
+	 */
+	private async _disconnectVanishedDiscoveries(): Promise<void> {
+		// Resolved against the unfiltered discoveries, the same way getProfile resolves them: a
+		// discovery the user has saved is filtered out of getDiscoveredProfiles but still backs the
+		// instance opened from it.
+		const vanished = this._instances.filter(instance =>
+			!this._profiles.some(profile => profile.id === instance.profileId)
+			&& !this._discoveredProfiles.some(profile => profile.id === instance.profileId));
+
+		await Promise.all(vanished.map(async instance => {
+			this._logService.info(`[DataConnections] Disconnecting instance ${instance.id}: its discovered profile ${instance.profileId} is no longer reported`);
+			try {
+				await this.disconnect(instance.profileId);
+			} catch (err) {
+				this._logService.error(`[DataConnections] Failed to disconnect vanished profile ${instance.profileId}: ${err}`);
+			}
+		}));
 	}
 
 	/**
