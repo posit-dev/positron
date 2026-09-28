@@ -753,6 +753,12 @@ declare module 'positron' {
 		 * (i.e. not a venv, renv library, pyenv/asdf shim, or proxy/remote runtime).
 		 */
 		cacheable?: boolean;
+
+		/**
+		 * When set, this runtime is a variant of another runtime, created from the
+		 * `interpreters.definitions` entry with this label.
+		 */
+		interpreterDefinition?: string;
 	}
 
 	/**
