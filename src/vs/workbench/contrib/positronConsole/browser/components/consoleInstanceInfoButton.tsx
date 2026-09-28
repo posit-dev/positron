@@ -22,6 +22,7 @@ import { PositronModalPopup } from '../../../../browser/positronComponents/posit
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getSessionStartReasonLabel } from '../../../../services/runtimeSession/common/sessionStartReasonLabels.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
@@ -98,7 +99,7 @@ interface ConsoleInstanceInfoModalPopupProps {
 	session: ILanguageRuntimeSession;
 }
 
-const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
+export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
 	const [channels, setChannels] = useState<LanguageRuntimeSessionChannel[]>([]);
 
@@ -137,6 +138,8 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		return () => { active = false; };
 	}, [props.session]);
 
+	const startReasonLabel = getSessionStartReasonLabel(props.session.metadata);
+
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
 		props.renderer.dispose();
@@ -168,6 +171,12 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 							'positron.console.info.state', 'State: {0}',
 							sessionState)}
 						</p>
+						{startReasonLabel &&
+							<p className='line' data-testid='session-start-reason'>{localize(
+								'positron.console.info.startReason', 'Start Reason: {0}',
+								startReasonLabel)}
+							</p>
+						}
 					</div>
 					<div className='top-separator'>
 						<p className='line' data-testid='session-path'>{localize(
