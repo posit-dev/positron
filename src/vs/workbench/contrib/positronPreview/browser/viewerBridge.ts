@@ -7,7 +7,7 @@
 // didn't build and has no element references into, so it has to use selectors.
 /* eslint-disable no-restricted-syntax */
 
-import type { IViewerBridge, IViewerIdleOptions, IViewerIdleResult, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport } from '../common/positronViewerAgent.js';
+import type { IViewerActOutcome, IViewerBridge, IViewerIdleOptions, IViewerIdleResult, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerAction } from '../common/positronViewerAgent.js';
 
 /**
  * The name of the global that caches the bridge in the app's window on
@@ -63,6 +63,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	const MAX_ROWS_PER_TABLE = 50;
 	const MAX_OPTIONS = 20;
 	const DEFAULT_MAX_CHARS = 50_000;
+	// The longest an action waits, well within the service's timeout for a call.
+	const MAX_WAIT_MS = 15_000;
+	const SLIDER_TIME_MS = 8_000;
 
 	const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'HEAD', 'META', 'LINK']);
 	// 'listbox' is deliberately absent: its options are the things to act on
@@ -86,16 +89,28 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		readonly shadowHosts: Set<Element>;
 		chars: number;
 		truncated: boolean;
-		nextRef: number;
 	}
 
+	// A control keeps its ref for as long as it's on the page, so refs from any
+	// snapshot stay good until the app re-renders the control.
+	const refElements = new Map<string, WeakRef<Element>>();
+	const elementRefs = new WeakMap<Element, string>();
+	let nextRef = 1;
+
 	// The widgets' own objects, which frameworks keep on the element or behind jQuery.
-	interface IonRangeSliderData { result?: { from?: number; min?: number; max?: number } }
-	interface JQueryLike { data(key: string): IonRangeSliderData | undefined }
+	interface IonRangeSliderData {
+		result?: { from?: number; min?: number; max?: number };
+		update?(options: { from: number }): void;
+	}
+	interface JQueryLike {
+		data(key: string): IonRangeSliderData | undefined;
+		trigger?(event: string): void;
+	}
 	interface SelectizeLike {
 		options: Record<string, Record<string, unknown>>;
-		settings: { valueField: string };
+		settings: { valueField: string; labelField?: string; maxItems?: number | null };
 		getValue(): string | string[];
+		setValue(value: string | string[]): void;
 	}
 	interface PlotlyTraceLike { type?: string; name?: string }
 	interface PlotlyPointLike { p?: unknown; s?: unknown; x?: unknown; y?: unknown; trace?: PlotlyTraceLike }
@@ -430,10 +445,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (name) {
 			line += ` ${JSON.stringify(name)}`;
 		}
-		// Refs number the controls in order. Resolving a ref back to its element
-		// comes with the actions (click, fill, ...), which aren't built yet.
-		if (interactive) {
-			line += ` [ref=e${state.nextRef}]`;
+		const ref = interactive ? elementRefs.get(el) ?? `e${nextRef}` : undefined;
+		if (ref) {
+			line += ` [ref=${ref}]`;
 		}
 		if (props) {
 			line += ` ${props}`;
@@ -441,8 +455,11 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (!push(state, line)) {
 			return false;
 		}
-		if (interactive) {
-			state.nextRef++;
+		// Only controls that made it into a snapshot get a ref.
+		if (ref && !elementRefs.has(el)) {
+			elementRefs.set(el, ref);
+			refElements.set(ref, new WeakRef(el));
+			nextRef++;
 		}
 		return true;
 	}
@@ -665,8 +682,13 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			shadowHosts: new Set(),
 			chars: 0,
 			truncated: false,
-			nextRef: 1,
 		};
+		// Forget the refs of controls that are gone for good.
+		for (const [ref, element] of refElements) {
+			if (!element.deref()) {
+				refElements.delete(ref);
+			}
+		}
 		addShadowHosts(state.shadowHosts, root);
 		walk(state, root, 0, false);
 		let text = state.lines.join('\n');
@@ -720,5 +742,609 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return { width: win.innerWidth, height: win.innerHeight };
 	}
 
-	return { snapshot, waitForIdle, viewport };
+	// --- Actions -------------------------------------------------------------
+
+	/** What an action did, before the app has settled. */
+	interface ActStep {
+		/** What was done, for when the result can't be checked (the page went away). */
+		readonly done: string;
+		/** Checks the action took, once the app has settled, and says what happened. Throws if it didn't take. */
+		readonly check?: () => string;
+		/** Set when the action was itself a wait, so there's no need to wait again. */
+		readonly waited?: IViewerIdleResult;
+	}
+
+	const sleep = (ms: number) => new Promise<void>(resolve => win.setTimeout(resolve, ms));
+	const quote = (s: string) => JSON.stringify(s);
+	const focus = (el: Element) => (el as HTMLElement).focus?.({ preventScroll: true });
+	const scrollToCenter = (el: Element) => el.scrollIntoView?.({ block: 'center', inline: 'nearest' });
+	const waitTimeout = (ms: unknown, fallback: number) => typeof ms === 'number' && ms >= 0 ? Math.min(ms, MAX_WAIT_MS) : fallback;
+	// Values match as text, or as numbers when both are numbers ("10" and "10.0").
+	const sameValue = (a: string, b: string) => a === b || (a.trim() !== '' && b.trim() !== '' && Number(a) === Number(b));
+	const sameValues = (a: readonly string[], b: readonly string[]) => a.length === b.length && a.every((v, i) => sameValue(v, b[i]));
+	const isComboboxInput = (el: Element) => el.tagName === 'INPUT' && el.getAttribute('role') === 'combobox';
+
+	/** How to refer to a control in messages: its role and name, as in a snapshot. */
+	function describe(el: Element): string {
+		const widget = isShinySlider(el) ? 'slider' : selectizeOf(el) ? 'combobox' : undefined;
+		const role = widget ?? roleOf(el) ?? el.tagName.toLowerCase();
+		const name = widget ? labelFor(el, false) : nameOf(el, role, false);
+		return name ? `${role} ${quote(name)}` : role;
+	}
+
+	/** Finds the control for a ref from a snapshot. */
+	function resolve(ref: unknown): Element {
+		if (typeof ref !== 'string' || !ref) {
+			throw new Error('This action needs the ref of a control from a snapshot, such as "e3".');
+		}
+		const el = refElements.get(ref)?.deref();
+		if (!el) {
+			throw new Error(`There's no control ${ref} on this page. Take a new snapshot and use a ref from it.`);
+		}
+		if (!el.isConnected) {
+			throw new Error(`The control ${ref} is gone from the page, probably because the app redrew it. Take a new snapshot and use a ref from it.`);
+		}
+		return el;
+	}
+
+	/** Throws if a control can't be used right now. Framework widgets hide their real inputs, so skip those. */
+	function checkUsable(el: Element, what: string): void {
+		if (el.matches(':disabled') || el.getAttribute('aria-disabled') === 'true') {
+			throw new Error(`The ${what} is disabled.`);
+		}
+		if (!isShinySlider(el) && !selectizeOf(el) && typeof el.checkVisibility === 'function' && !el.checkVisibility({ visibilityProperty: true })) {
+			throw new Error(`The ${what} is hidden right now. Take a new snapshot to see what's showing.`);
+		}
+	}
+
+	// Pointer and mouse events in the order a real pointer sends them, at the
+	// middle of the element. The enter events don't bubble.
+	const HOVER_EVENTS = ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove'];
+	function sendPointer(el: Element, types: readonly string[]): void {
+		const view = viewOf(el);
+		const rect = el.getBoundingClientRect();
+		const init: MouseEventInit = {
+			bubbles: true, cancelable: true, composed: true, view,
+			clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2,
+		};
+		for (const type of types) {
+			const Ctor = type.startsWith('pointer') ? view.PointerEvent : view.MouseEvent;
+			el.dispatchEvent(new Ctor(type, type.endsWith('enter') ? { ...init, bubbles: false } : init));
+		}
+	}
+
+	function pressKey(el: Element, key: string): void {
+		const view = viewOf(el);
+		const code = /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : /^[0-9]$/.test(key) ? `Digit${key}` : key;
+		for (const type of ['keydown', 'keyup']) {
+			el.dispatchEvent(new view.KeyboardEvent(type, { key, code, bubbles: true, cancelable: true, composed: true }));
+		}
+	}
+
+	// Sets a value with the native setter from the element's own prototype, so
+	// React's value tracking sees the change (Streamlit, Dash).
+	function setNativeValue(el: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+		const view = viewOf(el);
+		const proto = el.tagName === 'TEXTAREA' ? view.HTMLTextAreaElement.prototype : view.HTMLInputElement.prototype;
+		Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, value);
+		el.dispatchEvent(new view.Event('input', { bubbles: true }));
+	}
+
+	// Sends the events of leaving a control. el.blur() fires nothing when the
+	// window isn't focused, as is common while an agent works.
+	function leave(el: Element): void {
+		const view = viewOf(el);
+		el.dispatchEvent(new view.FocusEvent('blur'));
+		el.dispatchEvent(new view.FocusEvent('focusout', { bubbles: true }));
+	}
+
+	// Frameworks that apply text when it's committed (Streamlit, Dash's
+	// debounce) listen for change or focusout. Deliberately not Enter: inside a
+	// Streamlit form, Enter submits the whole form.
+	function commit(el: Element): void {
+		el.dispatchEvent(new (viewOf(el).Event)('change', { bubbles: true }));
+		leave(el);
+	}
+
+	/** What Shiny's server last received for an input, when the page is a Shiny app. */
+	function shinyValue(el: Element): unknown {
+		const values = (viewOf(el) as unknown as { Shiny?: { shinyapp?: { $inputValues?: Record<string, unknown> } } })
+			.Shiny?.shinyapp?.$inputValues;
+		if (!values || !el.id) {
+			return undefined;
+		}
+		// Keys can carry a type, as in "go:shiny.action".
+		const key = Object.keys(values).find(k => k === el.id || k.startsWith(`${el.id}:`));
+		return key === undefined ? undefined : values[key];
+	}
+
+	/** Throws if a Shiny app's server didn't receive what the page shows. */
+	function checkShiny(el: Element, expected: string | readonly string[], what: string): void {
+		const server = shinyValue(el);
+		if (server === undefined || server === null) {
+			return;
+		}
+		const received = Array.isArray(server) ? server.map(String) : [String(server)];
+		const shown = typeof expected === 'string' ? [expected] : expected;
+		if (!sameValues(received, shown)) {
+			throw new Error(`The ${what} shows ${quote(shown.join(', '))} on the page, but the Shiny app received ${quote(received.join(', '))}.`);
+		}
+	}
+
+	function noOption(what: string, wanted: string, options: readonly string[]): Error {
+		const listed = options.slice(0, MAX_OPTIONS).map(quote).join(', ') + (options.length > MAX_OPTIONS ? ', ...' : '');
+		return new Error(`The ${what} has no option ${quote(wanted)}${options.length ? ` (its options: ${listed})` : ''}.`);
+	}
+
+	function oneValueOnly(what: string, count: number): Error {
+		return new Error(`The ${what} takes one value, not ${count}.`);
+	}
+
+	function toNumber(value: string, what: string): number {
+		const n = Number(value);
+		if (value.trim() === '' || !Number.isFinite(n)) {
+			throw new Error(`The ${what} takes a number, not ${quote(value)}.`);
+		}
+		return n;
+	}
+
+	function click(el: Element): ActStep {
+		const what = describe(el);
+		checkUsable(el, what);
+		scrollToCenter(el);
+		// A checkbox's or switch's state, to check that the click toggled it.
+		const role = roleOf(el);
+		const checkedState = () => role !== 'checkbox' && role !== 'switch' ? undefined :
+			el.tagName === 'INPUT' ? (el as HTMLInputElement).checked : el.getAttribute('aria-checked') === 'true';
+		const before = checkedState();
+		sendPointer(el, [...HOVER_EVENTS, 'pointerdown', 'mousedown']);
+		focus(el);
+		sendPointer(el, ['pointerup', 'mouseup']);
+		if (typeof (el as HTMLElement).click === 'function') {
+			(el as HTMLElement).click();
+		} else {
+			sendPointer(el, ['click']); // SVG elements
+		}
+		return {
+			done: `Clicked the ${what}.`,
+			check: () => {
+				const after = checkedState();
+				if (after === undefined || !el.isConnected) {
+					return `Clicked the ${what}.`;
+				}
+				if (after === before) {
+					throw new Error(`Clicked the ${what}, but it's still ${after ? 'checked' : 'unchecked'}.`);
+				}
+				return `Clicked the ${what}; it's now ${after ? 'checked' : 'unchecked'}.`;
+			},
+		};
+	}
+
+	function hover(el: Element): ActStep {
+		const what = describe(el);
+		checkUsable(el, what);
+		scrollToCenter(el);
+		sendPointer(el, HOVER_EVENTS);
+		return { done: `Hovered over the ${what}.` };
+	}
+
+	async function fill(el: Element, value: unknown): Promise<ActStep> {
+		if (typeof value !== 'string') {
+			throw new Error('fill needs a value, as a string.');
+		}
+		// An agent may well fill a dropdown; that's picking an option.
+		if (selectizeOf(el) || el.tagName === 'SELECT' || isPopupSelect(el) || isComboboxInput(el)) {
+			return select(el, value);
+		}
+		const what = describe(el);
+		checkUsable(el, what);
+		if (isShinySlider(el)) {
+			return setShinySlider(el as HTMLInputElement, value, what);
+		}
+		const role = roleOf(el);
+		if (role === 'slider') {
+			return setSlider(el, value, what);
+		}
+		const isText = role === 'textbox' || role === 'searchbox';
+		if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (isText || role === 'spinbutton'))) {
+			const input = el as HTMLInputElement;
+			if (input.readOnly) {
+				throw new Error(`The ${what} is read-only.`);
+			}
+			scrollToCenter(input);
+			focus(input);
+			setNativeValue(input, value);
+			commit(input);
+			return {
+				done: `Filled the ${what} with ${quote(value)}.`,
+				check: () => {
+					if (!(role === 'spinbutton' ? sameValue(input.value, value) : input.value === value)) {
+						throw new Error(`Filled the ${what}, but it shows ${quote(input.value)}, not ${quote(value)}.`);
+					}
+					checkShiny(input, input.value, what);
+					return `Filled the ${what} with ${quote(value)}.`;
+				},
+			};
+		}
+		throw new Error(`Can't fill the ${what}. fill works on text boxes, number boxes, sliders and dropdowns.`);
+	}
+
+	/** Says where a slider ended up. Throws if it didn't move. */
+	function sliderResult(el: Element, what: string, before: number, target: number, final: number): string {
+		if (final !== target && final === before) {
+			throw new Error(`The ${what} stays at ${final}; it can't be set to ${target}.`);
+		}
+		checkShiny(el, String(final), what);
+		return final === target ? `Set the ${what} to ${final}.` : `Set the ${what} to ${final}, the closest it goes to ${target}.`;
+	}
+
+	// Shiny's sliderInput (ion.rangeSlider) hides its real input; go through the widget.
+	function setShinySlider(el: HTMLInputElement, value: string, what: string): ActStep {
+		const target = toNumber(value, what);
+		const jQuery = (viewOf(el) as unknown as { jQuery?: (el: Element) => JQueryLike }).jQuery;
+		const slider = jQuery?.(el).data('ionRangeSlider');
+		if (!jQuery || !slider?.update || !slider.result) {
+			throw new Error(`The ${what} isn't ready yet. Try again in a moment.`);
+		}
+		const result = slider.result;
+		const before = Number(result.from);
+		slider.update({ from: target });
+		jQuery(el).trigger?.('change');
+		return {
+			done: `Set the ${what} to ${target}.`,
+			check: () => sliderResult(el, what, before, target, Number(result.from)),
+		};
+	}
+
+	// Sliders are moved through their own keyboard handling, which tells the
+	// server (react-aria's in Streamlit, which wraps a hidden range input, and
+	// Radix's in Dash). Setting the value directly would move the slider on the
+	// page without telling the server. Only a plain range input, which doesn't
+	// move for synthetic keys, gets its value set.
+	async function setSlider(el: Element, value: string, what: string): Promise<ActStep> {
+		const target = toNumber(value, what);
+		const input = el.tagName === 'INPUT' ? el as HTMLInputElement : undefined;
+		const read = () => Number(input ? input.value : el.getAttribute('aria-valuenow'));
+		const before = read();
+		scrollToCenter(el);
+		focus(el);
+		// Presses a key and waits for the widget to show its new value.
+		const step = async (key: string): Promise<number> => {
+			const from = read();
+			pressKey(el, key);
+			for (let waited = 0; waited < 300 && read() === from; waited += 20) {
+				await sleep(20);
+			}
+			return read();
+		};
+		// Page keys cover the distance quickly; arrow keys finish the job.
+		const deadline = Date.now() + SLIDER_TIME_MS;
+		let current = before;
+		let usePageKeys = true;
+		while (current !== target && el.isConnected) {
+			if (Date.now() > deadline) {
+				throw new Error(`Gave up moving the ${what}: it's at ${current}, not ${target}.`);
+			}
+			const up = target > current;
+			if (usePageKeys) {
+				const next = await step(up ? 'PageUp' : 'PageDown');
+				// No page keys, or a jump past the target: go on with arrow keys.
+				if (next === current || (up ? next > target : next < target)) {
+					usePageKeys = false;
+				}
+				current = next;
+				continue;
+			}
+			const next = await step(up ? 'ArrowRight' : 'ArrowLeft');
+			if (next === current) {
+				break; // the end of its range
+			}
+			current = next;
+			if (up ? current > target : current < target) {
+				break; // its steps don't land on the target
+			}
+		}
+		if (input && current === before && target !== before) {
+			setNativeValue(input, String(target));
+			commit(input);
+		}
+		return {
+			done: `Set the ${what} to ${target}.`,
+			check: () => sliderResult(el, what, before, target, read()),
+		};
+	}
+
+	async function select(el: Element, value: unknown): Promise<ActStep> {
+		const wanted = typeof value === 'string' ? [value] :
+			Array.isArray(value) && value.length > 0 && value.every(v => typeof v === 'string') ? value as string[] : undefined;
+		if (!wanted) {
+			throw new Error('select needs a value: the text or value of an option, or a list of them.');
+		}
+		const what = describe(el);
+		checkUsable(el, what);
+		const selectize = selectizeOf(el);
+		if (selectize) {
+			return selectInSelectize(el, selectize, wanted, what);
+		}
+		if (el.tagName === 'SELECT') {
+			return selectInSelect(el as HTMLSelectElement, wanted, what);
+		}
+		if (wanted.length > 1) {
+			throw oneValueOnly(what, wanted.length);
+		}
+		if (isComboboxInput(el)) {
+			return selectInCombobox(el as HTMLInputElement, wanted[0], what);
+		}
+		if (isPopupSelect(el)) {
+			return selectInPopup(el, wanted[0], what);
+		}
+		// Lists of options (Dash's radio items and checklists) have no ref of their own; their options do.
+		throw new Error(`Can't select in the ${what}. select works on dropdowns; to pick an option in a list, click the option.`);
+	}
+
+	const picked = (wanted: readonly string[], what: string) => `Picked ${quote(wanted.join(', '))} in the ${what}.`;
+	const notPicked = (wanted: readonly string[], what: string, shown: string) =>
+		new Error(`Picked ${quote(wanted.join(', '))} in the ${what}, but it shows ${quote(shown)}.`);
+
+	// Shiny's selectInput (selectize) hides its real <select>; go through the widget.
+	function selectInSelectize(el: Element, selectize: SelectizeLike, wanted: readonly string[], what: string): ActStep {
+		const { valueField, labelField = 'label', maxItems } = selectize.settings;
+		const options = Object.values(selectize.options);
+		const values = wanted.map(w => {
+			const option = options.find(o => String(o[valueField]) === w) ?? options.find(o => String(o[labelField]) === w);
+			if (!option) {
+				throw noOption(what, w, options.map(o => String(o[labelField] ?? o[valueField])));
+			}
+			return String(option[valueField]);
+		});
+		const single = maxItems === 1;
+		if (single && values.length > 1) {
+			throw oneValueOnly(what, values.length);
+		}
+		selectize.setValue(single ? values[0] : values);
+		return {
+			done: picked(wanted, what),
+			check: () => {
+				const current = selectize.getValue();
+				const shown = (Array.isArray(current) ? current : [current]).filter(v => v !== '');
+				if (!sameValues(shown, values)) {
+					throw notPicked(wanted, what, shown.join(', '));
+				}
+				checkShiny(el, single ? values[0] : values, what);
+				return picked(wanted, what);
+			},
+		};
+	}
+
+	function selectInSelect(el: HTMLSelectElement, wanted: readonly string[], what: string): ActStep {
+		if (!el.multiple && wanted.length > 1) {
+			throw oneValueOnly(what, wanted.length);
+		}
+		const options = [...el.options];
+		const chosen = wanted.map(w => {
+			const option = options.find(o => o.value === w) ?? options.find(o => o.text.trim() === w);
+			if (!option) {
+				throw noOption(what, w, options.map(o => o.text.trim()));
+			}
+			return option;
+		});
+		for (const option of options) {
+			option.selected = chosen.includes(option);
+		}
+		const view = viewOf(el);
+		el.dispatchEvent(new view.Event('input', { bubbles: true }));
+		el.dispatchEvent(new view.Event('change', { bubbles: true }));
+		const values = chosen.map(o => o.value);
+		return {
+			done: picked(wanted, what),
+			check: () => {
+				const shown = options.filter(o => o.selected);
+				if (!sameValues(shown.map(o => o.value), values)) {
+					throw notPicked(wanted, what, shown.map(o => o.text.trim()).join(', '));
+				}
+				checkShiny(el, el.multiple ? values : values[0], what);
+				return picked(wanted, what);
+			},
+		};
+	}
+
+	// ARIA comboboxes (Streamlit's selectbox): type the option to filter the
+	// list, then pick the first match with the keyboard.
+	async function selectInCombobox(el: HTMLInputElement, wanted: string, what: string): Promise<ActStep> {
+		scrollToCenter(el);
+		focus(el);
+		setNativeValue(el, wanted);
+		await sleep(300);
+		pressKey(el, 'ArrowDown');
+		await sleep(150);
+		pressKey(el, 'Enter');
+		// Leaving puts back the real choice if nothing matched the typed text.
+		leave(el);
+		return {
+			done: picked([wanted], what),
+			check: () => {
+				// Streamlit 1.5x leaves the input empty and names the choice in its label.
+				if (el.value !== wanted && !labelFor(el, false).includes(`Selected ${wanted}.`)) {
+					throw notPicked([wanted], what, el.value);
+				}
+				return picked([wanted], what);
+			},
+		};
+	}
+
+	// Buttons that open a listbox popup (Dash's dcc.Dropdown): open it, then
+	// click the option. The popup's options are the ones that weren't on the
+	// page before it opened.
+	async function selectInPopup(el: Element, wanted: string, what: string): Promise<ActStep> {
+		const before = new Set(doc.querySelectorAll('[role="option"]'));
+		const newOptions = () => [...doc.querySelectorAll('[role="option"]')]
+			.filter(o => !before.has(o) && renderStateOf(o, false) === 'shown');
+		click(el);
+		await sleep(300);
+		let options = newOptions();
+		let match = options.find(o => textOf(o) === wanted);
+		// Searching filters the list, so name the options from before it.
+		const seen = options.map(o => textOf(o));
+		if (!match) {
+			// Long or virtualized lists: type into the popup's search box to bring the option into view.
+			const search = options[0]?.closest('[role="dialog"], [data-state="open"]')
+				?.querySelector<HTMLInputElement>('input[type="search"], input[type="text"]');
+			if (search) {
+				focus(search);
+				setNativeValue(search, wanted);
+				await sleep(300);
+				options = newOptions();
+				match = options.find(o => textOf(o) === wanted);
+			}
+		}
+		if (!match) {
+			pressKey(el, 'Escape');
+			throw noOption(what, wanted, seen);
+		}
+		click(match);
+		return {
+			done: picked([wanted], what),
+			check: () => {
+				if (!textOf(el).includes(wanted)) {
+					throw notPicked([wanted], what, textOf(el));
+				}
+				return picked([wanted], what);
+			},
+		};
+	}
+
+	function press(key: unknown, ref: unknown): ActStep {
+		if (typeof key !== 'string' || !key) {
+			throw new Error('press needs a key, such as "Enter", "Escape" or "ArrowDown".');
+		}
+		const el = ref === undefined || ref === null ? undefined : resolve(ref);
+		if (el) {
+			checkUsable(el, describe(el));
+			focus(el);
+		}
+		pressKey(el ?? doc.activeElement ?? doc.body ?? doc.documentElement, key);
+		return { done: `Pressed ${key}${el ? ` in the ${describe(el)}` : ''}.` };
+	}
+
+	const canScroll = (el: Element): boolean => {
+		const style = viewOf(el).getComputedStyle(el);
+		const scrolls = (overflow: string) => overflow === 'auto' || overflow === 'scroll' || overflow === 'overlay';
+		return (scrolls(style.overflowY) && el.scrollHeight > el.clientHeight + 1) ||
+			(scrolls(style.overflowX) && el.scrollWidth > el.clientWidth + 1);
+	};
+
+	/** The scrolling area to scroll: the control's nearest one, or the page's. */
+	function scrollerFor(el: Element | undefined): Element {
+		for (let a = el?.parentElement; a; a = a.parentElement) {
+			if (canScroll(a)) {
+				return a;
+			}
+		}
+		const page = doc.scrollingElement ?? doc.documentElement;
+		if (page.scrollHeight > page.clientHeight + 1 || page.scrollWidth > page.clientWidth + 1) {
+			return page;
+		}
+		// Streamlit scrolls an inner element, not the page; take the biggest area that scrolls.
+		let best: Element | undefined;
+		for (const candidate of doc.body?.querySelectorAll('*') ?? []) {
+			if (canScroll(candidate) && (!best || candidate.clientWidth * candidate.clientHeight > best.clientWidth * best.clientHeight)) {
+				best = candidate;
+			}
+		}
+		return best ?? page;
+	}
+
+	function scroll(ref: unknown, dx: unknown, dy: unknown): ActStep {
+		const el = ref === undefined || ref === null ? undefined : resolve(ref);
+		const x = typeof dx === 'number' ? dx : 0;
+		const y = typeof dy === 'number' ? dy : 0;
+		if (el && !x && !y) {
+			const what = describe(el);
+			scrollToCenter(el);
+			return { done: `Scrolled the ${what} into view.` };
+		}
+		const scroller = scrollerFor(el);
+		const area = scroller === (doc.scrollingElement ?? doc.documentElement) ? 'the page' : 'the scrolling area';
+		const before = { left: scroller.scrollLeft, top: scroller.scrollTop };
+		scroller.scrollLeft += x;
+		// With no distance, scroll down most of a screenful.
+		scroller.scrollTop += x || y ? y : Math.round(scroller.clientHeight * 0.8);
+		const position = () => `it's now ${Math.round(scroller.scrollTop)} px down, of ${Math.max(0, scroller.scrollHeight - scroller.clientHeight)}` +
+			(scroller.scrollWidth > scroller.clientWidth ? `, and ${Math.round(scroller.scrollLeft)} px across, of ${scroller.scrollWidth - scroller.clientWidth}` : '');
+		return {
+			done: `Scrolled ${area}.`,
+			check: () => scroller.scrollLeft === before.left && scroller.scrollTop === before.top ?
+				`Nothing moved: ${area} can't scroll any further that way (${position()}).` :
+				`Scrolled ${area}; ${position()}.`,
+		};
+	}
+
+	async function wait(kind: unknown, text: unknown, timeoutMs: unknown): Promise<ActStep> {
+		if (kind === 'idle') {
+			const waited = await waitForIdle({ timeoutMs: waitTimeout(timeoutMs, 5000) });
+			const done = waited.timedOut ? `The app was still busy after ${waited.waitedMs} ms.` : `The app settled after ${waited.waitedMs} ms.`;
+			return { done, waited };
+		}
+		if (kind === 'text') {
+			if (typeof text !== 'string' || !text) {
+				throw new Error('Waiting for text needs the text to wait for.');
+			}
+			const limit = waitTimeout(timeoutMs, 10_000);
+			const start = Date.now();
+			const pageText = () => (doc.body as HTMLElement | null)?.innerText ?? '';
+			while (!pageText().includes(text)) {
+				if (Date.now() - start >= limit) {
+					throw new Error(`The text ${quote(text)} didn't show up on the page within ${limit} ms.`);
+				}
+				await sleep(100);
+			}
+			return { done: `The text ${quote(text)} is on the page (after ${Date.now() - start} ms).` };
+		}
+		throw new Error('A wait needs "for": "idle" or "text".');
+	}
+
+	function perform(action: ViewerAction): ActStep | Promise<ActStep> {
+		switch (action.kind) {
+			case 'click': return click(resolve(action.ref));
+			case 'hover': return hover(resolve(action.ref));
+			case 'fill': return fill(resolve(action.ref), action.value);
+			case 'select': return select(resolve(action.ref), action.value);
+			case 'press': return press(action.key, action.ref);
+			case 'scroll': return scroll(action.ref, action.dx, action.dy);
+			case 'wait': return wait(action.for, action.text, action.timeoutMs);
+			// Actions arrive from extensions, so the kind can be anything.
+			default: throw new Error(`Unknown action ${quote(String((action as { kind?: unknown }).kind))}. Use click, hover, fill, select, press, scroll or wait.`);
+		}
+	}
+
+	// Takes an action, waits for the app to settle, then checks the action took.
+	// Like snapshot()'s options, the arguments can arrive as null on Desktop.
+	async function act(action: ViewerAction | null, idle?: IViewerIdleOptions | null): Promise<IViewerActOutcome> {
+		if (!action || typeof action !== 'object') {
+			throw new Error('An action needs a kind: click, hover, fill, select, press, scroll or wait.');
+		}
+		// A link or a form can take the page to another document. Report that
+		// rather than wait on a page that's going away.
+		let navigated = false;
+		let onPageHide = () => { };
+		const pageHidden = new Promise<undefined>(resolve => {
+			onPageHide = () => {
+				navigated = true;
+				resolve(undefined);
+			};
+		});
+		win.addEventListener('pagehide', onPageHide);
+		try {
+			const step = await perform(action);
+			const settled = step.waited ?? await Promise.race([waitForIdle(idle), pageHidden]);
+			if (navigated) {
+				return { message: `${step.done} The page went to another address.`, navigated, timedOut: false };
+			}
+			return { message: step.check?.() ?? step.done, navigated, timedOut: settled?.timedOut ?? false };
+		} finally {
+			win.removeEventListener('pagehide', onPageHide);
+		}
+	}
+
+	return { snapshot, waitForIdle, viewport, act };
 }

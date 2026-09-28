@@ -9,7 +9,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { PreviewSourceType } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { IPositronViewerAgentService, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerContentKind } from '../common/positronViewerAgent.js';
+import { IPositronViewerAgentService, IViewerActResult, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerAction, ViewerContentKind } from '../common/positronViewerAgent.js';
 import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { PreviewHtml } from './previewHtml.js';
 import { PreviewUrl, QUERY_NONCE_PARAMETER } from './previewUrl.js';
@@ -28,6 +28,23 @@ const BRIDGE_CALL_TIMEOUT_MS = 20_000;
  * second timeout.
  */
 const CAPTURE_TIMEOUT_MS = 30_000;
+
+/**
+ * The longest an action may take. The bridge gives up on its own waits (for a
+ * slider to move, for text to show up) well before this.
+ */
+const ACT_TIMEOUT_MS = 30_000;
+
+/**
+ * How long to wait for the new page after an action takes the Viewer to
+ * another address.
+ */
+const PAGE_LOAD_TIMEOUT_MS = 10_000;
+
+/**
+ * How long one try at reaching the new page may take.
+ */
+const PAGE_PING_TIMEOUT_MS = 2_000;
 
 /**
  * How long to wait for the app to take its full size after the Viewer is
@@ -151,25 +168,32 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		this.checkEnabled();
 		const preview = this.readablePreview();
 
-		// Make sure the page can be reached before changing the user's layout,
-		// so a call that would fail anyway doesn't reveal the Viewer for nothing.
-		const viewport = await withBridgeTimeout(preview.webview.runBridge('viewport'));
-
-		// The Viewer has to be showing: Desktop captures the screen, and in web
-		// builds a hidden Viewer's frame shrinks to 300x150, so the app lays
-		// itself out at that size.
-		const revealed = !this._viewsService.isViewVisible(POSITRON_PREVIEW_VIEW_ID);
-		if (revealed) {
-			await this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, false);
-		}
-		// Once revealed, the app has to lay itself out again, so measure again.
-		await this.waitForLayout(preview, revealed ? undefined : viewport);
+		// The Viewer has to be showing: Desktop captures the screen.
+		const revealed = await this.showViewer(preview);
 		await withBridgeTimeout(preview.webview.runBridge('waitForIdle'));
 
 		const capture = await withTimeout(preview.webview.captureScreenshot(), CAPTURE_TIMEOUT_MS,
 			'Taking the screenshot of the Viewer took too long.');
 		this.checkStillShowing(preview);
 		return { mimeType: 'image/png', ...capture, revealed };
+	}
+
+	async viewerAct(action: ViewerAction, snapshotOptions?: IViewerSnapshotOptions): Promise<IViewerActResult> {
+		this.checkEnabled();
+		const preview = this.readablePreview();
+		// Act on the app at the size the user sees it. A responsive app can
+		// hide or move its controls at a hidden web Viewer's 300x150.
+		const revealed = await this.showViewer(preview);
+		const outcome = await withTimeout(preview.webview.runBridge('act', action), ACT_TIMEOUT_MS,
+			'The page in the Viewer stopped responding during the action.');
+		if (outcome.navigated) {
+			await this.waitForNewPage(preview);
+		}
+		// The action may have led the app to open something else in the Viewer.
+		const current = this.readablePreview();
+		const snapshot = await withBridgeTimeout(current.webview.runBridge('snapshot', snapshotOptions));
+		const message = current === preview ? outcome.message : `${outcome.message} The Viewer now shows other content.`;
+		return { message, snapshot: { ...snapshot, url: cleanUrl(snapshot.url) }, timedOut: outcome.timedOut, revealed };
 	}
 
 	/**
@@ -194,6 +218,50 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			throw new Error('Agents can\'t read this kind of Viewer content yet.');
 		}
 		return preview;
+	}
+
+	/**
+	 * Makes sure the Viewer is showing, laid out at its size on screen,
+	 * revealing it without focus if it's hidden. In web builds a hidden
+	 * Viewer's frame shrinks to 300x150, so the app lays itself out at that
+	 * size until it's revealed.
+	 *
+	 * @returns Whether the Viewer had to be revealed.
+	 */
+	private async showViewer(preview: PreviewWebview): Promise<boolean> {
+		// Make sure the page can be reached before changing the user's layout,
+		// so a call that would fail anyway doesn't reveal the Viewer for nothing.
+		const viewport = await withBridgeTimeout(preview.webview.runBridge('viewport'));
+		const revealed = !this._viewsService.isViewVisible(POSITRON_PREVIEW_VIEW_ID);
+		if (revealed) {
+			await this._viewsService.openView(POSITRON_PREVIEW_VIEW_ID, false);
+		}
+		// Once revealed, the app has to lay itself out again, so measure again.
+		await this.waitForLayout(preview, revealed ? undefined : viewport);
+		return revealed;
+	}
+
+	/**
+	 * Waits for the page an action took the Viewer to, until it can be read
+	 * and the app has settled.
+	 */
+	private async waitForNewPage(preview: PreviewWebview): Promise<void> {
+		// Until the new page takes over, a call can go to the old one, which is
+		// going away and never answers (on Desktop). So ping the page, with a
+		// short wait for each try, until it answers.
+		const deadline = Date.now() + PAGE_LOAD_TIMEOUT_MS;
+		for (; ;) {
+			await timeout(250);
+			try {
+				await withTimeout(preview.webview.runBridge('viewport'), PAGE_PING_TIMEOUT_MS, 'The new page in the Viewer isn\'t responding.');
+				break;
+			} catch (error) {
+				if (Date.now() >= deadline) {
+					throw error;
+				}
+			}
+		}
+		await withBridgeTimeout(preview.webview.runBridge('waitForIdle'));
 	}
 
 	/**
@@ -229,7 +297,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 					throw new Error('The Viewer has no room on screen to show its content.');
 				}
 				throw new Error(`The page in the Viewer is laid out at ${viewport.width}x${viewport.height}, ` +
-					`not the Viewer's ${Math.round(rect.width)}x${Math.round(rect.height)}, so a screenshot would be wrong. Try again in a moment.`);
+					`not the Viewer's ${Math.round(rect.width)}x${Math.round(rect.height)}. Try again in a moment.`);
 			}
 			await timeout(100);
 			viewport = undefined;

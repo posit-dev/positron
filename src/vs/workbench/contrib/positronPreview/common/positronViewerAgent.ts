@@ -106,6 +106,56 @@ export interface IViewerViewport {
 }
 
 /**
+ * An action for an agent to take on the page in the Viewer. `ref` is a
+ * control's ref from a snapshot, such as `e3`.
+ * - `click` and `hover`: send the pointer and mouse events a user would.
+ * - `fill`: type into a text or number box, or move a slider, to `value`.
+ *   Dropdowns are handed on to `select`.
+ * - `select`: pick options in a dropdown, by their text or value. Several
+ *   values only work where several can be picked. To pick an option in a list
+ *   of options (radio items, checklists), click the option.
+ * - `press`: press a key (`Enter`, `Escape`, `ArrowDown`, ...) in a control,
+ *   or in whatever has focus.
+ * - `scroll`: bring a control into view, or scroll by `dx` and `dy` pixels
+ *   (the control's scrolling area, or the page's).
+ * - `wait`: wait for the app to settle, or for some text to show up.
+ */
+export type ViewerAction =
+	| { readonly kind: 'click'; readonly ref: string }
+	| { readonly kind: 'hover'; readonly ref: string }
+	| { readonly kind: 'fill'; readonly ref: string; readonly value: string }
+	| { readonly kind: 'select'; readonly ref: string; readonly value: string | readonly string[] }
+	| { readonly kind: 'press'; readonly key: string; readonly ref?: string }
+	| { readonly kind: 'scroll'; readonly ref?: string; readonly dx?: number; readonly dy?: number }
+	| { readonly kind: 'wait'; readonly for: 'idle' | 'text'; readonly text?: string; readonly timeoutMs?: number };
+
+/**
+ * What an action did, as the bridge reports it.
+ */
+export interface IViewerActOutcome {
+	/** What the action did, for the agent. */
+	readonly message: string;
+	/** Whether the page went to another document, for example by following a link. */
+	readonly navigated: boolean;
+	/** Whether the app was still busy when the wait for it to settle ran out. */
+	readonly timedOut: boolean;
+}
+
+/**
+ * The result of an action on the page in the Viewer.
+ */
+export interface IViewerActResult {
+	/** What the action did, for the agent. */
+	readonly message: string;
+	/** A snapshot of the page once the app has settled after the action. */
+	readonly snapshot: IViewerSnapshot;
+	/** Whether the app was still busy when the wait for it to settle ran out. */
+	readonly timedOut: boolean;
+	/** Whether the Viewer had to be revealed to act on it. */
+	readonly revealed: boolean;
+}
+
+/**
  * The bridge that runs against the app's window in the Viewer. See
  * `createViewerBridge`. Every argument and result is plain data, so calls can
  * cross into the app's frame on Desktop.
@@ -114,6 +164,8 @@ export interface IViewerBridge {
 	snapshot(options?: IViewerSnapshotOptions): IViewerSnapshot;
 	waitForIdle(options?: IViewerIdleOptions): Promise<IViewerIdleResult>;
 	viewport(): IViewerViewport;
+	/** Takes an action, then waits for the app to settle (`idle`) and checks the action took. */
+	act(action: ViewerAction, idle?: IViewerIdleOptions): Promise<IViewerActOutcome>;
 }
 
 export const IPositronViewerAgentService = createDecorator<IPositronViewerAgentService>('positronViewerAgentService');
@@ -142,4 +194,15 @@ export interface IPositronViewerAgentService {
 	 * Viewer first if it's hidden, without taking focus.
 	 */
 	getViewerScreenshot(): Promise<IViewerScreenshot>;
+
+	/**
+	 * Takes an action on the page in the Viewer, waits for the app to settle,
+	 * and returns a fresh snapshot. Reveals the Viewer first if it's hidden,
+	 * without taking focus. Rejects with a message the agent can act on when
+	 * the action can't be taken or doesn't take effect.
+	 *
+	 * @param action The action to take.
+	 * @param snapshotOptions Options for the snapshot taken afterwards.
+	 */
+	viewerAct(action: ViewerAction, snapshotOptions?: IViewerSnapshotOptions): Promise<IViewerActResult>;
 }

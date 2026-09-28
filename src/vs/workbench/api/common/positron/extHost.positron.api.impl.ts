@@ -513,6 +513,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getViewerScreenshot(): Thenable<positron.ai.ViewerScreenshot> {
 				return extHostAiFeatures.getViewerScreenshot();
 			},
+			viewerAct(action: positron.ai.ViewerAction, snapshotOptions?: positron.ai.ViewerSnapshotOptions): Thenable<positron.ai.ViewerActResult> {
+				return extHostAiFeatures.viewerAct(action, snapshotOptions);
+			},
 			showLanguageModelConfig(options?: positron.ai.ShowLanguageModelConfigOptions): Thenable<void> {
 				return extHostAiFeatures.showLanguageModelConfig(options);
 			},

@@ -130,6 +130,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return { ...value, data: new Uint8Array(value.data.buffer) };
 	}
 
+	async viewerAct(action: positron.ai.ViewerAction, snapshotOptions?: positron.ai.ViewerSnapshotOptions): Promise<positron.ai.ViewerActResult> {
+		return this._proxy.$viewerAct(action, snapshotOptions);
+	}
+
 	async getPositronChatContext(request: vscode.ChatRequest): Promise<IPositronChatContext> {
 		const agentRequest: IChatRequestData = {
 			location: typeConvert.ChatLocation.from(request.location),

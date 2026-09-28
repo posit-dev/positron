@@ -26,7 +26,7 @@ import { PromptRenderer } from '../../../contrib/positronAssistant/browser/promp
 import { getPositronContextPrompts } from '../../../contrib/positronAssistant/browser/prompts/positronContextPrompts.js';
 import { getForegroundSessionInfo } from '../../../contrib/positronAssistant/browser/prompts/promptSessions.js';
 import * as xml from '../../../contrib/positronAssistant/common/xml.js';
-import { IPositronViewerAgentService, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions } from '../../../contrib/positronPreview/common/positronViewerAgent.js';
+import { IPositronViewerAgentService, IViewerActResult, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, ViewerAction } from '../../../contrib/positronPreview/common/positronViewerAgent.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAiFeatures)
@@ -140,6 +140,13 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	async $getViewerScreenshot(): Promise<SerializableObjectWithBuffers<IViewerScreenshot>> {
 		return new SerializableObjectWithBuffers(await this._positronViewerAgentService.getViewerScreenshot());
+	}
+
+	/**
+	 * Take an action on the page in the Viewer pane.
+	 */
+	async $viewerAct(action: ViewerAction, snapshotOptions?: IViewerSnapshotOptions): Promise<IViewerActResult> {
+		return this._positronViewerAgentService.viewerAct(action, snapshotOptions);
 	}
 
 	/**

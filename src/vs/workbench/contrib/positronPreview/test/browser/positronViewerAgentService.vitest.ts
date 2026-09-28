@@ -21,7 +21,7 @@ import { PreviewOverlayWebview, ViewerBridgeResult } from '../../browser/preview
 import { PreviewUrl } from '../../browser/previewUrl.js';
 import { PreviewWebview } from '../../browser/previewWebview.js';
 import { IViewerCapture } from '../../browser/viewerScreenshot.js';
-import { IViewerBridge, IViewerViewport } from '../../common/positronViewerAgent.js';
+import { IViewerActOutcome, IViewerBridge, IViewerViewport } from '../../common/positronViewerAgent.js';
 
 /**
  * A preview webview whose bridge and capture are scripted by the test, and
@@ -34,6 +34,9 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	bridgeError: Error | undefined;
 	/** Runs during the capture, to change what the Viewer shows mid-call. */
 	onCapture: (() => void) | undefined;
+	actOutcome: IViewerActOutcome = { message: 'Clicked the button "Go".', navigated: false, timedOut: false };
+	/** When set, the action fails with this, as when a control is disabled. */
+	actError: Error | undefined;
 
 	constructor(size = { width: 600, height: 400 }, onDidLoad: Event<string> = Event.None) {
 		super(stubInterface<IOverlayWebview>({
@@ -52,10 +55,14 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 		if (this.bridgeError) {
 			throw this.bridgeError;
 		}
+		if (method === 'act' && this.actError) {
+			throw this.actError;
+		}
 		const results: { [K in keyof IViewerBridge]: ViewerBridgeResult<K> } = {
 			waitForIdle: { waitedMs: 0, timedOut: false },
 			snapshot: { text: '- button "Go" [ref=e1]', url: 'http://localhost:8000/?_positronRender=3', title: 'App', truncated: false },
 			viewport: this.viewport,
+			act: this.actOutcome,
 		};
 		return results[method];
 	}
@@ -150,6 +157,7 @@ describe('PositronViewerAgentService', () => {
 		expect(() => service.getViewerInfo()).toThrow(/AI features are turned off/);
 		await expect(service.getViewerSnapshot()).rejects.toThrow(/AI features are turned off/);
 		await expect(service.getViewerScreenshot()).rejects.toThrow(/AI features are turned off/);
+		await expect(service.viewerAct({ kind: 'click', ref: 'e1' })).rejects.toThrow(/AI features are turned off/);
 	});
 
 	it('explains when there is nothing to read', async () => {
@@ -230,6 +238,41 @@ describe('PositronViewerAgentService', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+
+	it('acts on a hidden Viewer after revealing it without focus, then snapshots the page', async () => {
+		const webview = showUrl();
+		viewerVisible = false;
+
+		const result = await createService().viewerAct({ kind: 'click', ref: 'e1' });
+
+		expect({ result, calls: webview.calls, reveals: openView.mock.calls }).toEqual({
+			result: {
+				message: 'Clicked the button "Go".',
+				snapshot: { text: '- button "Go" [ref=e1]', url: 'http://localhost:8000/', title: 'App', truncated: false },
+				timedOut: false,
+				revealed: true,
+			},
+			calls: ['viewport', 'viewport', 'act', 'snapshot'],
+			reveals: [['workbench.panel.positronPreview', false]],
+		});
+	});
+
+	it('waits for the new page before the snapshot when an action goes to another address', async () => {
+		const webview = showUrl();
+		webview.actOutcome = { message: 'Clicked the link "Next". The page went to another address.', navigated: true, timedOut: false };
+
+		await createService().viewerAct({ kind: 'click', ref: 'e1' });
+
+		expect(webview.calls).toEqual(['viewport', 'act', 'viewport', 'waitForIdle', 'snapshot']);
+	});
+
+	it('passes on why an action couldn\'t be taken', async () => {
+		const webview = showUrl();
+		webview.actError = new Error('The button "Off" is disabled.');
+
+		await expect(createService().viewerAct({ kind: 'click', ref: 'e2' })).rejects.toThrow('The button "Off" is disabled.');
+		expect(webview.calls).toEqual(['viewport', 'act']);
 	});
 
 	it('reveals a hidden Viewer, without focus, and waits for the app to take its size', async () => {

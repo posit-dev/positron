@@ -4370,6 +4370,60 @@ declare module 'positron' {
 		export function getViewerScreenshot(): Thenable<ViewerScreenshot>;
 
 		/**
+		 * An action to take on the page in the Viewer. `ref` is a control's
+		 * ref from a snapshot, such as `e3`; a control keeps its ref for as
+		 * long as it's on the page.
+		 * - `click` and `hover`: send the pointer and mouse events a user would.
+		 * - `fill`: type into a text or number box, or move a slider, to
+		 *   `value`. Dropdowns are handed on to `select`.
+		 * - `select`: pick options in a dropdown, by their text or value.
+		 *   Several values only work where several can be picked. To pick an
+		 *   option in a list of options (radio items, checklists), click it.
+		 * - `press`: press a key (`Enter`, `Escape`, `ArrowDown`, ...) in a
+		 *   control, or in whatever has focus.
+		 * - `scroll`: bring a control into view, or scroll by `dx` and `dy`
+		 *   pixels (the control's scrolling area, or the page's). With neither,
+		 *   scrolls the page down most of a screenful.
+		 * - `wait`: wait for the app to settle, or for `text` to show up on the
+		 *   page, for up to `timeoutMs` (at most 15 seconds).
+		 */
+		export type ViewerAction =
+			| { kind: 'click'; ref: string }
+			| { kind: 'hover'; ref: string }
+			| { kind: 'fill'; ref: string; value: string }
+			| { kind: 'select'; ref: string; value: string | string[] }
+			| { kind: 'press'; key: string; ref?: string }
+			| { kind: 'scroll'; ref?: string; dx?: number; dy?: number }
+			| { kind: 'wait'; for: 'idle' | 'text'; text?: string; timeoutMs?: number };
+
+		/**
+		 * The result of an action on the page in the Viewer.
+		 */
+		export interface ViewerActResult {
+			/** What the action did. */
+			message: string;
+			/** A snapshot of the page once the app has settled after the action. */
+			snapshot: ViewerSnapshot;
+			/** Whether the app was still busy when the wait for it to settle ran out. */
+			timedOut: boolean;
+			/** Whether the Viewer had to be revealed to act on it. */
+			revealed: boolean;
+		}
+
+		/**
+		 * Take an action on the page in the Viewer pane, as a user would, then
+		 * wait for the app to settle and return a fresh snapshot. If the Viewer
+		 * is hidden, it's revealed first, without taking focus. Rejects with a
+		 * message explaining why when the action can't be taken or doesn't take
+		 * effect, for example when a control's ref is stale or a dropdown has no
+		 * such option. Rejects if AI features are turned off.
+		 *
+		 * @param action The action to take.
+		 * @param snapshotOptions Options for the snapshot taken afterwards.
+		 */
+		export function viewerAct(action: ViewerAction, snapshotOptions?: ViewerSnapshotOptions): Thenable<ViewerActResult>;
+
+		/**
 		 * Get Positron global context information to be included with every request.
 		 */
 		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
