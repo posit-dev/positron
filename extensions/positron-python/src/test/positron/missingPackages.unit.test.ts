@@ -188,6 +188,19 @@ suite('listMissingPythonPackages', () => {
         expect((manager.searchPackages as sinon.SinonStub).called).to.be.false;
     });
 
+    test('does not fall back to the import name when the alias lookup fails', async () => {
+        const session = makeSession(['serial']);
+        const resolvePackageName = sinon.stub();
+        resolvePackageName.withArgs('pyserial').rejects(new Error('HTTP 503'));
+        resolvePackageName.withArgs('serial').resolves('serial');
+        const manager = { resolvePackageName } as unknown as IPackageManager;
+
+        const result = await listMissingPythonPackages(session, manager, { code: 'import serial' });
+
+        expect(result).to.deep.equal([]);
+        expect(resolvePackageName.calledWith('serial')).to.be.false;
+    });
+
     test('returns empty when there are no imports', async () => {
         const session = makeSession([]);
         const manager = makeManager({});

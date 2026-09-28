@@ -137,6 +137,9 @@ export async function listMissingPythonPackages(
  *
  * The alias is tried first so a well-known mismatch (`cv2` -> `opencv-python`)
  * resolves to its canonical distribution even when a same-named shim also exists.
+ * A failed lookup (e.g. a transient network error) stops the search: moving on
+ * to the next candidate could offer an unrelated distribution (`serial` instead
+ * of `pyserial`) only because the alias could not be checked.
  */
 async function resolveInstallName(
     module: string,
@@ -147,7 +150,12 @@ async function resolveInstallName(
         if (token?.isCancellationRequested) {
             return undefined;
         }
-        const resolved = await searchExact(candidate, packageManager, token);
+        let resolved: string | undefined;
+        try {
+            resolved = await searchExact(candidate, packageManager, token);
+        } catch {
+            return undefined;
+        }
         if (resolved) {
             return resolved;
         }
@@ -166,26 +174,22 @@ function candidateDistributions(module: string): string[] {
 
 /**
  * Returns the repository's exact (canonicalized) name match for a query, or
- * undefined. Uses the manager's exact-name lookup when it has one, so a yes/no
- * question never pays for a fuzzy search (for PyPI, a download of the full
- * project index). A lookup failure (e.g. a transient network error) is treated
- * as no match so we never offer a package we could not install.
+ * undefined when the repository has no such project. Uses the manager's
+ * exact-name lookup when it has one, so a yes/no question never pays for a
+ * fuzzy search (for PyPI, a download of the full project index). Throws when
+ * the lookup fails, so callers can tell "absent" from "unknown".
  */
 async function searchExact(
     query: string,
     packageManager: IPackageManager,
     token?: vscode.CancellationToken,
 ): Promise<string | undefined> {
-    try {
-        if (packageManager.resolvePackageName) {
-            return await packageManager.resolvePackageName(query, token);
-        }
-        const matches = await packageManager.searchPackages(query, token);
-        const canonical = canonicalizePyPIName(query);
-        return matches.find((pkg) => canonicalizePyPIName(pkg.name) === canonical)?.name;
-    } catch {
-        return undefined;
+    if (packageManager.resolvePackageName) {
+        return packageManager.resolvePackageName(query, token);
     }
+    const matches = await packageManager.searchPackages(query, token);
+    const canonical = canonicalizePyPIName(query);
+    return matches.find((pkg) => canonicalizePyPIName(pkg.name) === canonical)?.name;
 }
 
 /**
