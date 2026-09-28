@@ -5,8 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { buildVerifyPrompt, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -93,15 +92,15 @@ test('resolveReport returns null when the file is absent and no message looks li
 
 test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'),
-		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'),
+		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
 test('buildShotsBaseUrl trims exactly one trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu/'),
-		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu/'),
+		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
@@ -127,68 +126,6 @@ test('parsePosIntEnv falls back to the default for "0"', () => {
 
 test('parsePosIntEnv falls back to the default for a non-numeric string', () => {
 	assert.equal(parsePosIntEnv('MAX_TURNS', 200, 'abc'), 200);
-});
-
-const TABLE = [
-	'# Exploratory test: something',
-	'',
-	'## Findings',
-	'',
-	'| # | Finding | Severity | Impact | Reproduction |',
-	'|---|---------|----------|--------|--------------|',
-	'| 1 | first claim | major | blocks completion | 3/3 |',
-	'| 2 | second claim | minor | cosmetic | 2/2 |',
-	'',
-	'### 1. first claim',
-].join('\n');
-
-test('parseVerdicts reads the machine-readable line', () => {
-	const v = parseVerdicts('preamble\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nprose');
-	assert.equal(v.get(1), 'confirmed');
-	assert.equal(v.get(2), 'disputed');
-});
-
-test('fromVerdictLine drops the notes before the VERDICTS line', () => {
-	const reply = 'No conflicting evidence. I have enough to finalize.\n\nVERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.';
-	assert.equal(fromVerdictLine(reply), 'VERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.');
-	assert.equal(fromVerdictLine('VERDICTS: 1=CONFIRMED\nwhy'), 'VERDICTS: 1=CONFIRMED\nwhy');
-	// No verdict line: keep everything, since the prose is all the reviewer gets.
-	assert.equal(fromVerdictLine('just prose'), 'just prose');
-	assert.equal(fromVerdictLine(null), null);
-});
-
-test('parseVerdicts returns empty when the line is absent', () => {
-	assert.equal(parseVerdicts('no verdict line here').size, 0);
-	assert.equal(parseVerdicts(null).size, 0);
-});
-
-test('annotateFindingsTable adds a verdict per row', () => {
-	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE'));
-	assert.match(out, /\| # \| Finding \| Severity \| Impact \| Reproduction \| Verified \|/);
-	assert.match(out, /\| 1 \| first claim .* \| confirmed \|/);
-	assert.match(out, /\| 2 \| second claim .* \| disputed \|/);
-});
-
-test('annotateFindingsTable marks rows the verifier did not rule on', () => {
-	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED'));
-	assert.match(out, /\| 2 \| second claim .* \| - \|/);
-});
-
-test('annotateFindingsTable leaves a report it cannot parse untouched', () => {
-	const noTable = '# Report\n\n## Findings\n\nNo findings.\n';
-	assert.equal(annotateFindingsTable(noTable, parseVerdicts('VERDICTS: 1=CONFIRMED')), noTable);
-	assert.equal(annotateFindingsTable(TABLE, new Map()), TABLE);
-});
-
-test('hasFindings distinguishes a populated table from an empty one', () => {
-	assert.equal(hasFindings(TABLE), true);
-	assert.equal(hasFindings('## Findings\n\nNo findings.\n'), false);
-	assert.equal(hasFindings([
-		'| # | Finding | Severity |',
-		'|---|---------|----------|',
-		'| - | none | - |',
-	].join('\n')), false);
-	assert.equal(hasFindings(null), false);
 });
 
 test('parseGate reads a bail-out with its blocker', () => {
@@ -260,7 +197,7 @@ const SUMMARY_MD = [
 
 test('renderStepSummary is a tally and two links, and nothing else', () => {
 	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run');
-	assert.match(summary, /^\*\*5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
+	assert.match(summary, /^\*\*1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
 	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
 	assert.match(summary, /\[Agent Report\]\(https:\/\/cdn\.example\/run\/report\.md\)/);
 	// The body of the report belongs on its own page, not pasted in here.
@@ -275,7 +212,7 @@ test('renderStepSummary is a tally and two links, and nothing else', () => {
 
 test('renderStepSummary counts the table when the report wrote up no blocks', () => {
 	// Only finding 1 has a block; the severities all come from the table.
-	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*5 findings/);
+	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*1 major/);
 });
 
 test('renderStepSummary omits a breakdown it cannot read', () => {
@@ -354,6 +291,17 @@ test('runOutcome is no-report when the agent stopped early without one', () => {
 	assert.equal(runOutcome({ report: null, numTurns: null, maxTurns: 200 }), 'no-report');
 });
 
+test('turnCapWarning warns from 80% of the cap up to, but not at, the cap', () => {
+	assert.equal(turnCapWarning({ numTurns: 159, maxTurns: 200 }), null);
+	assert.match(turnCapWarning({ numTurns: 160, maxTurns: 200 }), /^::warning .*Used 160 of 200 turns/);
+	assert.match(turnCapWarning({ numTurns: 199, maxTurns: 200 }), /Used 199 of 200/);
+	// At the cap the run is partial, which already says so.
+	assert.equal(turnCapWarning({ numTurns: 200, maxTurns: 200 }), null);
+	// Scales with a MAX_TURNS override.
+	assert.match(turnCapWarning({ numTurns: 40, maxTurns: 50 }), /Used 40 of 50/);
+	assert.equal(turnCapWarning({ numTurns: null, maxTurns: 200 }), null);
+});
+
 const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
@@ -367,7 +315,7 @@ test('renderPrComment carries the marker and a run or report link in every state
 
 test('renderPrComment on a finished run is a title, the tally and the report link', () => {
 	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
 test('renderPrComment running state names the head and links the run', () => {
@@ -388,7 +336,7 @@ test('renderPrComment points at the artifact when the upload failed', () => {
 
 test('renderPrComment flags a partial run that still wrote a report', () => {
 	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /^5 findings \u00b7/m);
+	assert.match(body, /^1 major \u00b7/m);
 	assert.match(body, /turn cap/);
 });
 
@@ -469,6 +417,12 @@ test('renderSummaryTarget leaves the PR off when there is none', () => {
 	assert.equal(renderSummaryTarget('', 'o/r', ''), '');
 });
 
+test('renderSummaryTarget puts the focus, on one line, before the branch', () => {
+	assert.equal(renderSummaryTarget('main', 'o/r', '', ' the plots pane\n\nzoom '), 'the plots pane zoom · `main`\n\n');
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', '12', 'zoom'), 'PR [#12](https://github.com/o/r/pull/12) · zoom · `fix/x`\n\n');
+	assert.equal(renderSummaryTarget('main', 'o/r', '', '  \n'), '`main`\n\n');
+});
+
 // run.mjs and gate.mjs run only in CI and no test imports them.
 test('every script in the action parses', async () => {
 	const { spawnSync } = await import('node:child_process');
@@ -480,21 +434,16 @@ test('every script in the action parses', async () => {
 	}
 });
 
-const VERIFIER = readFileSync(new URL('../../../.claude/skills/exploratory-test/verifier.md', import.meta.url), 'utf8');
-const RUN = { workDir: '/tmp/run', repoRoot: '/repo', baseSha: 'aaaa1111', headSha: 'bbbb2222' };
-
-test('buildVerifyPrompt fills verifier.md with the run paths and diff range', () => {
-	const prompt = buildVerifyPrompt(VERIFIER, RUN);
-	assert.doesNotMatch(prompt, /\{\{/);
-	assert.match(prompt, /^You are verifying an exploratory-test report/);
-	assert.match(prompt, /Report: `\/tmp\/run\/report\.md`/);
-	assert.match(prompt, /`\/tmp\/run\/files\/`/);
-	assert.match(prompt, /git -C \/repo diff aaaa1111\.\.\.bbbb2222/);
-	// parseVerdicts reads this line from the reply, so the example has to survive.
-	assert.match(prompt, /\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n/);
+test('buildTaskLine targets the diff when no focus is given', () => {
+	for (const focus of ['', '  \n ', undefined]) {
+		const line = buildTaskLine(focus);
+		assert.match(line, /^Read the diff/);
+		assert.doesNotMatch(line, /asked you to test/);
+	}
 });
 
-test('buildVerifyPrompt throws when the template and its values drift apart', () => {
-	assert.throws(() => buildVerifyPrompt(`${VERIFIER}\n{{NEW_THING}}`, RUN), /no value for \{\{NEW_THING\}\}/);
-	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
+test('buildTaskLine quotes a multi-line focus and makes it the target', () => {
+	const line = buildTaskLine('  the plots pane\n\nwith a dark theme  ');
+	assert.match(line, /asked you to test this:\n\n> the plots pane\n>\n> with a dark theme\n\n/);
+	assert.match(line, /The diff is context/);
 });

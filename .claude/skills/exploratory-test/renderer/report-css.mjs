@@ -105,6 +105,13 @@ const PROFESSIONAL = `
 	--sig-bang: #A12C1F;
 	--sig-ok: #2F7A4F;
 	--sig-ok-glow: none;
+	--sig-legal: #A8A49A;
+	--shot-n-bg: rgba(239,237,231,.92);
+	--shot-n-text: #6A6F76;
+	--shot-n-border: rgba(28,31,35,.12);
+	--lb-nav-bg: #FFFFFF;
+	--lb-nav-border: #E7E4DC;
+	--lb-nav-text: #3D4148;
 
 	--lb-backdrop: rgba(28,31,35,.72);
 	--lb-shadow: 0 12px 40px rgba(28,31,35,.18);
@@ -118,8 +125,13 @@ const PROFESSIONAL = `
 	--rt-tag-ink: #3D4148;
 	--code-blk-border: transparent;
 	--code-cp-hover-bg: rgba(28,31,35,.06);
+	--code-chip-hover-bg: #E5E2DA;
 	--cp-rest: #C4C0B6;
 	--cp-hover-bg: #F6F5F1;
+	--toast-bg: #1C1F23;
+	--toast-text: #FFFFFF;
+	--toast-border: #1C1F23;
+	--toast-check: #8FD3A8;
 
 	--totop-bg: #FFFFFF;
 	--totop-border: #E7E4DC;
@@ -235,6 +247,13 @@ const PARTY = `
 	--sig-bang: #FF6AC1;
 	--sig-ok: #5CE1E6;
 	--sig-ok-glow: drop-shadow(0 0 4px rgba(92,225,230,.75));
+	--sig-legal: #6E66A0;
+	--shot-n-bg: rgba(42,34,80,.92);
+	--shot-n-text: #9D95C6;
+	--shot-n-border: rgba(157,149,198,.28);
+	--lb-nav-bg: #241D42;
+	--lb-nav-border: #5B4F92;
+	--lb-nav-text: #F5F1FF;
 
 	--lb-backdrop: rgba(10,7,25,.84);
 	--lb-shadow: 8px 8px 0 #0B0719;
@@ -248,8 +267,13 @@ const PARTY = `
 	--rt-tag-ink: #F5F1FF;
 	--code-blk-border: #2A2250;
 	--code-cp-hover-bg: rgba(245,241,255,.08);
+	--code-chip-hover-bg: #3A3070;
 	--cp-rest: #4E4580;
 	--cp-hover-bg: #2A2250;
+	--toast-bg: #241D42;
+	--toast-text: #F5F1FF;
+	--toast-border: #5B4F92;
+	--toast-check: #3BD69E;
 
 	--totop-bg: #1E1838;
 	--totop-border: #342A5C;
@@ -343,6 +367,17 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .switch button[aria-pressed="true"]{background:var(--switch-on-bg);color:var(--switch-on-icon);box-shadow:var(--switch-on-shadow)}
 .switch button[aria-pressed="true"]:hover{background:var(--switch-on-bg);color:var(--switch-on-icon)}
 .switch button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+/* Posit team feedback: pre-filled Google Form links, on a published page only.
+   The header button sits left of the switch, so the eyebrow keeps clear of both. */
+.fb{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:16px;border-top:1px solid var(--hairline)}
+.fb-q{font-size:13px;font-weight:600;color:var(--body);margin-right:6px}
+.fb a{font-size:12.5px;font-weight:500;line-height:1.2;padding:5px 11px;border-radius:999px;border:1px solid var(--dash);background:transparent;color:var(--body);text-decoration:none;transition:color .15s ease,border-color .15s ease}
+.fb a:hover,.fb a:focus-visible{color:var(--link);border-color:var(--link);outline:none}
+.fb-top{position:absolute;top:-4px;right:78px;display:inline-flex;align-items:center;gap:6px;height:38px;box-sizing:border-box;padding:0 14px;border:1px solid var(--switch-border);border-radius:999px;background:var(--switch-bg);color:var(--body);font-size:13px;font-weight:500;text-decoration:none;z-index:2;transition:color .15s ease,border-color .15s ease}
+.fb-top:hover,.fb-top:focus-visible{color:var(--ink);border-color:var(--hover-border);outline:none}
+.head:has(.fb-top) .eyebrow{padding-right:232px}
+@media (prefers-reduced-motion:reduce){.fb a,.fb-top{transition:none}}
 
 /* One tooltip style for the whole page: tiles, theme switch, back to top. */
 .tip{position:relative}
@@ -439,12 +474,21 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .meta .confirmed svg{align-self:center;color:var(--pass-text)}
 .meta .reproduced{color:var(--faint-rate)}
 .cp-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
-.card:hover .cp-btn{color:var(--muted)}
-/* Scoped under .card so they outrank the card-hover colour above. */
 .card .cp-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
 .card .cp-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
 .cp-btn:hover::after,.cp-btn:focus-visible::after,.cp-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .cp-btn .cp-ok{display:none}
+/* File a GitHub issue: sits just left of Copy, the pair pushed right together. */
+.gh-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px 0 -6px auto;align-self:center;position:relative;border-radius:7px;color:var(--cp-rest);text-decoration:none;transition:color .15s ease,background-color .15s ease}
+.gh-btn:last-child{margin-right:-6px}
+.gh-btn+.cp-btn{margin-left:-19px}
+.gh-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
+.gh-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
+.gh-btn:hover::after,.gh-btn:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
+.gh-toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,8px);display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;background:var(--toast-bg);color:var(--toast-text);border:1px solid var(--toast-border);font-family:var(--sans);font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.2);opacity:0;pointer-events:none;transition:opacity .15s ease,transform .15s ease;z-index:50}
+.gh-toast.show{opacity:1;transform:translate(-50%,0)}
+.gh-toast svg{color:var(--toast-check)}
+@media (prefers-reduced-motion:reduce){.gh-btn,.gh-toast{transition:none}}
 .cp-btn.is-copied{color:var(--pass-fill) !important}
 .cp-btn.is-copied .cp-ok{display:block}
 .cp-btn.is-copied .cp-ico{display:none}
@@ -457,6 +501,13 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .code-cp{position:absolute;top:7px;right:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;padding:0;border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
 .code-blk:hover .code-cp,.code-blk:focus-within .code-cp,.code-cp.is-copied{opacity:1}
 .code-cp:hover{color:var(--ink);background:var(--code-cp-hover-bg)}
+/* Inline code in Reproduce: click to copy. The ordinary pointer, not the copy
+   cursor, and a tooltip above the chip that turns green once it has copied. */
+code.cc{position:relative;cursor:pointer;transition:background-color .15s ease}
+code.cc:hover{background:var(--code-chip-hover-bg)}
+code.cc:hover::after,code.cc.is-copied::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:5}
+code.cc.is-copied::after{color:var(--pass-fill)}
+@media (prefers-reduced-motion:reduce){code.cc{transition:none}}
 .code-cp:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
 .code-cp:hover::after,.code-cp:focus-visible::after,.code-cp.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .code-cp .cp-ok{display:none}
@@ -517,6 +568,12 @@ a.shot img{transition:border-color .15s ease}
 a.shot:hover img{border-color:var(--hover-border)}
 a.shot:hover{text-decoration:none}
 a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+a.shot[hidden]{display:none}
+/* A step's several shots share one tile: one sheet peeks out behind it, into
+   the grid gap, and the tag carries the count. */
+.shot.stk>img{position:relative;z-index:2}.shot.stk .shot-step{z-index:3}
+/* The negative margins cancel the tag's padding, so the count runs flush to its edge. */
+.shot-n{display:inline-block;margin:-3px -5px -3px 5px;padding:3px 5px;border-left:1px solid var(--shot-n-border);background:var(--shot-n-bg);color:var(--shot-n-text);border-radius:0 3px 3px 0}
 /* The end of a card: closed rows, fact then hypothesis then suggestion. Solid
    for what the run saw or found, dashed for the guess. */
 .card-details{display:flex;flex-direction:column;gap:8px}
@@ -689,6 +746,13 @@ span.rt-file{color:var(--body)}
 .log-sep{color:var(--sep)}
 .log-note{color:var(--muted)}
 .agents-table{display:flex;flex-direction:column;max-width:480px}
+.format-checks{font-size:14px;line-height:1.5;color:var(--body)}
+.format-rules{margin:2px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:var(--muted)}
+.format-rules .num{color:var(--body)}
+.format-rules .fixed,.format-rules .not-fixed{display:inline-block;margin-left:4px;padding:0 6px;border-radius:4px;font-size:11px;font-weight:600;line-height:18px}
+.format-rules .fixed{background:var(--pass-bg);color:var(--pass-text)}
+.format-raw{font-size:13px}
+.format-rules .not-fixed{background:var(--major-bg);color:var(--major-text)}
 .agents-row{display:grid;grid-template-columns:90px 110px 70px 1fr;gap:12px;padding:6px 0;border-bottom:1px solid var(--hairline);font-size:14px;line-height:1.5;color:var(--body)}
 .agents-row.agents-head{padding:0 0 4px;font-size:12px;color:var(--muted)}
 .agents-row.agents-total{border-bottom:0;color:var(--ink);font-weight:500}
@@ -705,6 +769,7 @@ span.rt-file{color:var(--body)}
 footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;padding:56px 0 8px}
 .sig p{margin:0;font-family:var(--mono);font-size:11px;color:var(--faint)}
 .sig-link{color:var(--muted);text-decoration:none}
+.sig .sig-legal{margin-top:-6px;font-size:10.5px;color:var(--sig-legal)}
 .sig-link:hover{color:var(--link);text-decoration:underline}
 
 /* The performance still takes 7s; the cycle is 11. Every beat below is its old
@@ -749,6 +814,11 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .lb-backdrop{position:absolute;inset:0;border:0;padding:0;background:transparent;cursor:zoom-out}
 .lb-panel{position:relative;width:min(1040px,100%);max-height:100%;overflow:auto;padding:16px;border-radius:12px;background:var(--card);border:1px solid var(--border);box-shadow:var(--lb-shadow);display:flex;flex-direction:column;gap:12px}
 .lb-panel img{display:block;width:100%;height:auto;max-height:calc(100vh - 220px);object-fit:contain;border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 12px,var(--thumb-b) 12px 24px)}
+.lb-img{position:relative}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;padding:0;border-radius:999px;display:flex;align-items:center;justify-content:center;background:var(--lb-nav-bg);border:1px solid var(--lb-nav-border);color:var(--lb-nav-text);box-shadow:0 1px 3px rgba(0,0,0,.14);cursor:pointer}
+.lb-nav[hidden]{display:none}
+.lb-nav:focus-visible{outline:2px solid var(--focus);outline-offset:2px}.lb-prev{left:12px}.lb-next{right:12px}.lb-nav.dis{opacity:.35;pointer-events:none}
+.lb-pos{margin:0 -6px 0 auto;align-self:flex-start;line-height:1.5;font-size:14px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .lb-foot{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
 .lb-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
 .lb-cap{font-size:14px;line-height:1.5;color:var(--body)}
@@ -815,5 +885,9 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.rate,.status{text-align:left;justify-content:flex-start}
 	.to-top{right:16px;bottom:16px}
 	h1.title{font-size:28px}
+	/* Icon only on a phone: the label would push the chips into a narrow column. */
+	.fb-top{width:38px;padding:0;justify-content:center}
+	.fb-top-label{display:none}
+	.head:has(.fb-top) .eyebrow{padding-right:128px}
 }
 `;

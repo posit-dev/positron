@@ -8,37 +8,6 @@
 
 import { modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 
-/**
- * The verify pass's prompt: verifier.md with the run's paths and diff range
- * filled in. A placeholder with no value, or a value with no placeholder,
- * throws, so the template and this list cannot drift apart quietly.
- */
-export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha }) {
-	const values = {
-		REPORT: `${workDir}/report.md`,
-		ACTIONS_LOG: `${workDir}/actions.log`,
-		LEDGER: `${workDir}/ledger.md`,
-		FILES: `${workDir}/files/`,
-		REPO: repoRoot,
-		DIFF: `${baseSha}...${headSha}`,
-	};
-	const used = new Set();
-	const missing = new Set();
-	const prompt = String(template).replace(/\{\{(\w+)\}\}/g, (whole, key) => {
-		if (!(key in values)) {
-			missing.add(key);
-			return whole;
-		}
-		used.add(key);
-		return values[key];
-	});
-	const unused = Object.keys(values).filter(k => !used.has(k));
-	if (missing.size || unused.length) {
-		throw new Error(`verifier.md placeholders out of step: ${[...[...missing].map(k => `no value for {{${k}}}`), ...unused.map(k => `{{${k}}} not in the template`)].join(', ')}`);
-	}
-	return prompt.trim();
-}
-
 /** Pick the latest assistant message that looks like the report. */
 export function pickReport(messages) {
 	for (let i = messages.length - 1; i >= 0; i--) {
@@ -173,106 +142,6 @@ export function renderCostFooter(passes, maxTurns) {
 }
 
 /**
- * The verifier's reply from its VERDICTS line on. Its final message can open
- * with notes to itself, which would otherwise lead the Verification details.
- */
-export function fromVerdictLine(text) {
-	if (typeof text !== 'string') {
-		return text;
-	}
-	const lines = text.split('\n');
-	const at = lines.findIndex(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
-	return at > 0 ? lines.slice(at).join('\n') : text;
-}
-
-/**
- * Parses the verifier's machine-readable verdict line.
- *
- * Expects `VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE` anywhere in the text.
- * Returns a Map of finding number to a short word for the table cell.
- */
-export function parseVerdicts(text) {
-	const out = new Map();
-	if (typeof text !== 'string') {
-		return out;
-	}
-	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
-	if (!line) {
-		return out;
-	}
-	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
-		const m = part.trim().match(/^(\d+)\s*=\s*(.+)$/);
-		if (!m) {
-			continue;
-		}
-		const verdict = m[2].trim().toUpperCase();
-		const word = verdict.startsWith('CONFIRMED') ? 'confirmed'
-			: verdict.startsWith('FALSE') ? 'disputed'
-				: verdict.startsWith('UNRESOLVED') ? 'unresolved'
-					: null;
-		if (word) {
-			out.set(Number(m[1]), word);
-		}
-	}
-	return out;
-}
-
-/**
- * Appends a `Verified` column to the findings table.
- *
- * Best effort by design: the table is written by an agent, and its shape has
- * drifted before. Anything unexpected returns the report untouched so a
- * cosmetic column can never cost the report its findings. The verdicts are
- * appended in full below regardless, so nothing is lost when this bails.
- */
-export function annotateFindingsTable(report, verdicts) {
-	if (typeof report !== 'string' || !(verdicts instanceof Map) || verdicts.size === 0) {
-		return report;
-	}
-	const lines = report.split('\n');
-	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
-	if (header === -1 || !/^\|[\s:|-]+\|$/.test(lines[header + 1] || '')) {
-		return report;
-	}
-	lines[header] = `${lines[header].replace(/\s*$/, '')} Verified |`;
-	lines[header + 1] = `${lines[header + 1].replace(/\s*$/, '')}---|`;
-	for (let i = header + 2; i < lines.length; i++) {
-		if (!lines[i].startsWith('|')) {
-			break;
-		}
-		const n = Number((lines[i].match(/^\|\s*(\d+)\s*\|/) || [])[1]);
-		lines[i] = `${lines[i].replace(/\s*$/, '')} ${verdicts.get(n) || '-'} |`;
-	}
-	return lines.join('\n');
-}
-
-/**
- * True when the report has a findings table with at least one numbered row.
- *
- * A run that found nothing has nothing to verify, and asking anyway produced a
- * page of prose auditing claims nobody disputed.
- */
-export function hasFindings(report) {
-	if (typeof report !== 'string') {
-		return false;
-	}
-	const lines = report.split('\n');
-	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
-	if (header === -1) {
-		return false;
-	}
-	for (let i = header + 2; i < lines.length; i++) {
-		if (!lines[i].startsWith('|')) {
-			return false;
-		}
-		if (/^\|\s*\d+\s*\|/.test(lines[i])) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/**
  * Parses the gate agent's machine-readable line.
  *
  * Expects `GATE: TESTABLE` or `GATE: NOT TESTABLE - <reason>`.
@@ -316,11 +185,38 @@ export function isProductPath(path) {
 }
 
 /**
+ * What the explore job provides, shown to both the gate and the explorer. The
+ * e2e lanes reach far more (service containers, Tailscale, Docker hosts,
+ * licenses, provider keys); without this list the gate waves through changes
+ * only reachable there and the explorer files the missing service as a bug.
+ * Keep it in step with test-exploratory.yml's explore job.
+ */
+export const ENVIRONMENT = [
+	'Available in this run:',
+	'- Positron desktop (Electron) on Linux, compiled from the branch, in a disposable container you run as root.',
+	'- Python and R, several versions of each, including a conda Python and a venv at `/root/.venv`.',
+	'- Positron Assistant signed in with Anthropic.',
+	'- Open internet: extensions, PyPI and CRAN install normally.',
+	'- A Postgres server at host `postgres`, port 5432, database `periodic`, as `$E2E_POSTGRES_USER` / `$E2E_POSTGRES_PASSWORD`. That login is a fixed test value, not a secret, so connection code and forms that show it need no hiding.',
+	'- Snowflake as `$SNOWFLAKE_ACCOUNT` / `$SNOWFLAKE_USER` / `$SNOWFLAKE_PASSWORD`, and Databricks as `$DATABRICKS_WORKSPACE` / `$DATABRICKS_PAT`.',
+	'- Assistant keys for other providers, not signed in: OpenAI `$OPENAI_KEY`, Microsoft Foundry `$MS_FOUNDRY_KEY` at `$MS_FOUNDRY_BASE_URL`, Snowflake Cortex `$SNOWFLAKE_API_KEY` with `$SNOWFLAKE_ACCOUNT`, Databricks `$DATABRICKS_PAT` with `$DATABRICKS_WORKSPACE`.',
+	'',
+	'Not available, and not installable in this run:',
+	'- Positron Web or server mode (no license), and any browser other than the Electron app.',
+	'- Remote SSH, WSL, a Jupyter server, Posit Workbench and Posit Connect: they need a Docker host or a license this container has not got.',
+	'- Redshift (private network) and any database not listed above.',
+	'- Bedrock and Posit AI sign-in.',
+	'- Windows and macOS.',
+].join('\n');
+
+/**
  * The step summary's first line: what was tested, so a run is identifiable
  * without opening its report. The PR part is left off when there is none.
  */
-export function renderSummaryTarget(branch, repo, number) {
+export function renderSummaryTarget(branch, repo, number, focus) {
+	const asked = String(focus ?? '').replace(/\s+/g, ' ').trim();
 	const parts = repo && /^\d+$/.test(String(number ?? '')) ? [`PR [#${number}](https://github.com/${repo}/pull/${number})`] : [];
+	if (asked) { parts.push(asked); }
 	if (branch) { parts.push(`\`${branch}\``); }
 	return parts.length ? `${parts.join(' · ')}\n\n` : '';
 }
@@ -341,20 +237,22 @@ export function renderSummaryTarget(branch, repo, number) {
  * run is on the report's own Run tile; repeating either on the job page is a
  * second thing to read before getting to the one that matters.
  */
-/** The finding count and its per-severity breakdown; `breakdown` is '' with no findings. */
+/**
+ * The per-severity breakdown ("2 moderate · 3 minor"). The total only shows
+ * when there is nothing to break down: no findings, or none with a severity.
+ */
 function tallyFindings(markdown) {
 	const { findingCount, severityCounts } = parseReport(markdown);
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
 		.map(severity => `${severityCounts[severity]} ${severity}`)
 		.join(' \u00b7 ');
-	const count = findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
-	return { count, breakdown };
+	if (breakdown) { return breakdown; }
+	return findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
 }
 
 export function renderStepSummary(markdown, baseUrl) {
-	const { count, breakdown } = tallyFindings(markdown);
-	const tally = breakdown ? `${count} \u00b7 ${breakdown}` : count;
+	const tally = tallyFindings(markdown);
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
@@ -382,6 +280,19 @@ export function runOutcome({ report, numTurns, maxTurns }) {
 }
 
 /**
+ * A workflow warning for a run that finished close to the turn cap, or null.
+ * No run has reached the cap yet (185 of 200 was the most), so this is how a
+ * trend toward it shows up before one ends partial. A run at the cap is left
+ * to `partial`, which already says so.
+ */
+export function turnCapWarning({ numTurns, maxTurns }) {
+	if (typeof numTurns !== 'number' || numTurns >= maxTurns || numTurns < maxTurns * 0.8) {
+		return null;
+	}
+	return `::warning title=Exploratory run near the turn cap::Used ${numTurns} of ${maxTurns} turns. A run that reaches the cap can end without a report.`;
+}
+
+/**
  * The body of the PR comment: a title with the head it tested, the finding
  * tally, and a link to the report or run. A push after `/test` makes the result stale,
  * and the SHA is how a reader tells.
@@ -401,8 +312,7 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
 	if (markdown && (state === 'complete' || state === 'partial')) {
-		const { count, breakdown } = tallyFindings(markdown);
-		const lines = [breakdown ? `${count} \u00b7 ${breakdown}` : count];
+		const lines = [tallyFindings(markdown)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
 		return comment(lines);
@@ -431,4 +341,24 @@ export function withPrLine(markdown, repo, number) {
 	}
 	lines.splice(meta + 1, 0, '', `PR: ${repo}#${number}`);
 	return lines.join('\n');
+}
+
+/**
+ * The brief's opening instruction. With no focus the target is the diff; a
+ * focus is what the person asked to test, so it replaces the diff as the
+ * target and the diff stays in the brief as context.
+ */
+export function buildTaskLine(focus) {
+	const asked = String(focus ?? '').trim();
+	if (!asked) {
+		return 'Read the diff to work out what the change is meant to do as a user would describe it, and what its blast radius is. Then explore that, as a user, and report genuine problems.';
+	}
+	const quoted = asked.split('\n').map(l => `> ${l}`.trimEnd()).join('\n');
+	return [
+		'The person who started this run asked you to test this:',
+		'',
+		quoted,
+		'',
+		'Explore that, and its blast radius, as a user, and report genuine problems. The diff is context for what this branch changed, not the target; test what they named even where the diff does not touch it.',
+	].join('\n');
 }

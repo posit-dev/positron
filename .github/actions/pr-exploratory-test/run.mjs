@@ -10,10 +10,14 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderReportHtml, linkedLogs } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
+import { renderReportHtml, linkedLogs, skillVersion } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { buildVerifyPrompt, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, fromVerdictLine, parseVerdicts, annotateFindingsTable, hasFindings, renderStepSummary, renderSummaryTarget, runOutcome } from './lib.mjs';
+import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
+import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, ENVIRONMENT } from './lib.mjs';
 
+// Dates the report footer's copyright.
+const STARTED_AT = new Date();
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
@@ -26,6 +30,8 @@ const BRANCH = mustEnv('BRANCH');
 const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
+// What the person asked to test; empty tests the diff.
+const FOCUS = process.env.FOCUS || '';
 // Unset leaves each model at its own default effort.
 const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
@@ -79,9 +85,19 @@ You are running inside a GitHub Actions container. ${CI_OVERRIDES.length} overri
 
 ${CI_OVERRIDES_LIST}
 
+## What this container has
+
+${ENVIRONMENT}
+
+A path that needs something on the not-available list is the environment, not a finding. Test what you can reach without it -- the UI up to that point, the error a user gets when it is unreachable -- and list the rest as dropped with the missing piece named.
+
+Everything you write here is published: the skill's Credentials section applies to every key listed above.
+
+## The running app
+
 Positron is already launched and a Playwright session named \`positron\` is attached to it on CDP port ${CDP_PORT}. Use it for anything the running app can show you.
 
-When you need a state the running app cannot reach -- a tool absent at startup, a cold cache, a fresh profile -- launch your own instance rather than bending this one. \`launch.sh\` picks free ports and its own run directory, so it runs alongside this one safely. Attach it under a different session name and leave the \`positron\` session alone. Stop the instances you launched once you are done with them; never stop this one. Record any instance you launched in Run setup.
+When you need a state the running app cannot reach -- a tool absent at startup, a cold cache, a fresh profile -- launch your own instance rather than bending this one. \`launch.sh\` picks free ports and its own run directory, so it runs alongside this one safely. Attach it under a different session name and leave the \`positron\` session alone. Stop the instances you launched once you are done with them; never stop this one. Record any instance you launched under State manipulation in Run details.
 
 ## Cold start
 
@@ -183,7 +199,7 @@ async function main() {
 		'',
 		'## Your task',
 		'',
-		'Read the diff to work out what the change is meant to do as a user would describe it, and what its blast radius is. Then explore that, as a user, and report genuine problems.',
+		buildTaskLine(FOCUS),
 		'',
 		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
 		'',
@@ -278,6 +294,31 @@ async function main() {
 	if (process.env.GITHUB_OUTPUT) {
 		appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${runOutcome({ report, numTurns: cost.num_turns, maxTurns: MAX_TURNS })}\n`);
 	}
+	const nearCap = turnCapWarning({ numTurns: cost.num_turns, maxTurns: MAX_TURNS });
+	if (nearCap) {
+		console.log(nearCap);
+	}
+
+	// One line per run that GitHub keeps for 90 days, after the artifact is
+	// gone: stats.mjs reads it back to compare skill versions. Written before
+	// the page, which links stats.json from Run details.
+	const recordStats = markdown => {
+		const stats = buildStats({
+			where: 'ci',
+			date: STARTED_AT.toISOString(),
+			run: process.env.GITHUB_RUN_ID,
+			version: skillVersion(),
+			model: cost.model,
+			turns: cost.num_turns,
+			maxTurns: MAX_TURNS,
+			costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) || null,
+			durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) || null,
+			parsed: markdown ? parseReport(markdown) : null,
+			checks: readChecks(WORK_DIR),
+		});
+		writeFileSync(join(WORK_DIR, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
+		console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);
+	};
 
 	// What goes in report.md, and what goes in the job summary. They used to be
 	// the same string: the summary is a signpost now, and the report is the
@@ -312,25 +353,15 @@ async function main() {
 			}
 		}
 
-		// The column is what a reviewer scanning the table actually sees; the
-		// section below carries the reasoning. Annotation is best effort and
-		// never removes a row, because a wrong FALSE POSITIVE that deleted a
-		// real finding would be invisible to everyone.
-		// Collapsed, and last: the Verified column is what a reviewer reads, and
-		// this is the reasoning behind it. A failed pass stays open, because
-		// "these findings are unreviewed" is not a detail to hide behind a
-		// click. The blank lines around the markdown are load bearing.
-		const preamble = 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.';
-		const section = verifyFailed
-			? `## Verification\n\n${verdicts}\n`
-			: `<details>\n<summary>Verification details</summary>\n\n${preamble}\n\n${verdicts}\n\n</details>\n`;
-		const reviewed = verdicts
-			? `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n${section}`
-			: report;
+		// Annotation is best effort and never removes a row, because a wrong
+		// FALSE POSITIVE that deleted a real finding would be invisible to
+		// everyone. Shared with local runs through finish.mjs.
+		const reviewed = verdicts ? applyVerification(report, verdicts, { failed: verifyFailed }) : report;
 		reportMarkdown = `${reviewed}\n\n${footer()}\n`;
 		// Written with the footer: report.md is published to the CDN on its own,
 		// where the step summary's copy of the cost is not reachable.
 		writeFileSync(join(WORK_DIR, 'report.md'), reportMarkdown);
+		recordStats(reportMarkdown);
 		// index.html is what the published run directory's URL already points at,
 		// and a rendered page is easier to read than raw markdown with absolute
 		// image URLs in it. The markdown stays: the verification pass reads it,
@@ -346,9 +377,11 @@ async function main() {
 				ledger,
 				// Evidence in the prompt has to open from wherever it is pasted.
 				base: REPORT_BASE_URL || WORK_DIR,
+				skillVersion: skillVersion(),
 				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
 				fileExists,
 				readFile,
+				startedAt: STARTED_AT,
 			}));
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const parsed = parseReport(reportMarkdown, { ledger });
@@ -366,8 +399,12 @@ async function main() {
 		summary = `## Exploratory test: no report\n\nThe agent produced no report. Check the action logs.\n\n${footer()}\n`;
 	}
 
+	if (!report) {
+		recordStats(null);
+	}
+
 	if (STEP_SUMMARY) {
-		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER) + summary);
+		appendFileSync(STEP_SUMMARY, renderSummaryTarget(BRANCH, process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER, FOCUS) + summary);
 	}
 	// The full report still goes to the action log. It is the one copy that
 	// survives an artifact upload or a CDN publish that did not happen.

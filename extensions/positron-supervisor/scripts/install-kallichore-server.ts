@@ -14,13 +14,15 @@
  * releases.
  */
 
-import decompress from 'decompress';
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
 import { platform, arch } from 'os';
 import * as path from 'path';
+import { Readable } from 'stream';
+import { pipeline } from 'stream/promises';
 import { promisify } from 'util';
+import * as yauzl from 'yauzl';
 
 
 // Promisify some filesystem functions.
@@ -92,6 +94,39 @@ async function executeCommand(command: string, stdin?: string):
 			process.stdin.write(stdin);
 			process.stdin.end();
 		}
+	});
+}
+
+/**
+ * Extract every entry of a zip file into `targetDir`. Keeps the Unix file
+ * mode from the archive, so that the server binary stays executable.
+ * yauzl rejects entries with absolute paths or `..` segments.
+ */
+async function extractZip(zipPath: string, targetDir: string): Promise<void> {
+	const zipfile = await promisify<string, yauzl.Options, yauzl.ZipFile>(yauzl.open)(zipPath, { lazyEntries: true });
+	const openReadStream = promisify((entry: yauzl.Entry, callback: (err: Error | null, stream: Readable) => void) => zipfile.openReadStream(entry, callback));
+	await new Promise<void>((resolve, reject) => {
+		zipfile.on('error', reject);
+		zipfile.on('end', () => resolve());
+		zipfile.on('entry', async (entry: yauzl.Entry) => {
+			try {
+				const dest = path.join(targetDir, entry.fileName);
+				if (entry.fileName.endsWith('/')) {
+					await fs.promises.mkdir(dest, { recursive: true });
+				} else {
+					await fs.promises.mkdir(path.dirname(dest), { recursive: true });
+					await pipeline(await openReadStream(entry), fs.createWriteStream(dest));
+					// Entries made on Windows have no Unix mode.
+					const mode = (entry.externalFileAttributes >>> 16) & 0o777;
+					await fs.promises.chmod(dest, mode || 0o644);
+				}
+				zipfile.readEntry();
+			} catch (err) {
+				zipfile.close();
+				reject(err);
+			}
+		});
+		zipfile.readEntry();
 	});
 }
 
@@ -211,9 +246,8 @@ async function downloadAndReplaceKallichore(version: string,
 				const zipFileDest = path.join(kallichoreDir, 'kallichore.zip');
 				await writeFileAsync(zipFileDest, new Uint8Array(binaryData));
 
-				await decompress(zipFileDest, kallichoreDir).then(_files => {
-					console.log(`Successfully unzipped Kallichore ${version}.`);
-				});
+				await extractZip(zipFileDest, kallichoreDir);
+				console.log(`Successfully unzipped Kallichore ${version}.`);
 
 				// Clean up the zipfile.
 				await fs.promises.unlink(zipFileDest);
