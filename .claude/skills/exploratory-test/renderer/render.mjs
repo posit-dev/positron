@@ -104,7 +104,8 @@ if (flags['duration-ms']) {
 	const explore = Number(flags['duration-ms']);
 	const verify = Number(flags['verify-duration-ms']);
 	// The total covers both passes, as CI's does; with one pass there is none.
-	const footer = verify
+	// Its flag, not its value, says there was a verify pass: 0 ms is still one.
+	const footer = flags['verify-duration-ms'] !== undefined
 		? [line('explore', flags.model, flags.turns, explore), line('verify', flags['verify-model'], flags['verify-turns'], verify), `_total: ${time(explore + verify)}_`].join('\n')
 		: line('explore', flags.model, flags.turns, explore);
 	// Re-rendering must not stack a second footer under the first; only the

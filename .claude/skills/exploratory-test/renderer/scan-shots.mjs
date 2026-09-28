@@ -80,12 +80,14 @@ export function showsValue(text, value) {
 	const needle = fold(value);
 	const size = Math.min(WINDOW, needle.length);
 	const slack = Math.floor(size * 0.15);
+	// The last window is always tried: stepping can stop short of the key's
+	// end, and a field showing only its tail would be missed.
+	const starts = [];
 	for (let start = 0; start + size <= needle.length; start += Math.max(1, Math.floor(size / 4))) {
-		if (substringDistance(needle.slice(start, start + size), hay) <= slack) {
-			return true;
-		}
+		starts.push(start);
 	}
-	return false;
+	starts.push(needle.length - size);
+	return starts.some(start => substringDistance(needle.slice(start, start + size), hay) <= slack);
 }
 
 const IMAGE = /\.(png|jpe?g|webp)$/i;

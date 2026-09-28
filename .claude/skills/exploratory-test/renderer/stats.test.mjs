@@ -148,3 +148,11 @@ test('the stats command tables local runs and sums them up by version', () => {
 		rmSync(root, { recursive: true, force: true });
 	}
 });
+
+test('the stats command rejects a --limit that is not a positive whole number', () => {
+	for (const limit of ['abc', '0', '2.5']) {
+		const r = spawnSync(process.execPath, [SCRIPT, '--no-local', '--limit', limit], { encoding: 'utf8' });
+		assert.equal(r.status, 2, limit);
+		assert.match(r.stderr, /--limit must be a positive whole number/);
+	}
+});

@@ -1750,6 +1750,15 @@ test('render.mjs writes the explore and verify passes and their total, replacing
 	rmSync(dir, { recursive: true, force: true });
 });
 
+test('render.mjs keeps a verify pass that took under a millisecond', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.md');
+	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, '--duration-ms', '60000', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '0']);
+	assert.match(readFileSync(report, 'utf8'), /_verify: Sonnet 5 \| <1m_\n_total: 1m_\n$/);
+	rmSync(dir, { recursive: true, force: true });
+});
+
 test('modelDisplayName reads a model id the way the report names it', () => {
 	assert.equal(modelDisplayName('claude-opus-5-5'), 'Opus 5.5');
 	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');

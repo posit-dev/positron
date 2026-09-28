@@ -170,3 +170,22 @@ test('apply marks the findings unreviewed when the reply has no verdicts', () =>
 		}
 	}
 });
+
+test('apply refuses a reply file that is not there, and leaves the report free for a retry', () => {
+	const dir = runDir(`${TABLE}\n`);
+	try {
+		const before = readFileSync(join(dir, 'report.md'), 'utf8');
+		assert.throws(() => execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'typo.md')], { stdio: 'pipe' }), e => e.status === 2 && /reply file not found/.test(e.stderr));
+		assert.equal(readFileSync(join(dir, 'report.md'), 'utf8'), before);
+		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: 1=CONFIRMED');
+		execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')]);
+		assert.match(readFileSync(join(dir, 'report.md'), 'utf8'), /\| 1 \| first claim .* \| confirmed \|/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('isVerified ignores a Verification heading the explorer wrote itself', () => {
+	assert.ok(!isVerified(`${TABLE}\n\n## Verification\n\nChecked the build.\n`));
+	assert.ok(isVerified(applyVerification(TABLE, '_Verification did not complete._', { failed: true })));
+});

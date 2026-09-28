@@ -185,3 +185,10 @@ test('the CLI paints what it can, exits 1 on a shot it cannot, and removes that 
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test('showsValue catches a field that shows only the end of a long key', () => {
+	// 39 characters: stepping 20-character windows by 5 stops at 15, short of the tail.
+	const long = 'abcdefghij0123456789klmnopqrstuvwxyzABC';
+	assert.ok(showsValue(`value: ${long.slice(-20)}`, long));
+	assert.ok(showsValue(`value: ${long.slice(0, 20)}`, long));
+});

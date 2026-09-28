@@ -166,9 +166,12 @@ export function applyVerification(report, verdicts, { failed = false } = {}) {
 	return `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n${section}`;
 }
 
-/** True once a report carries a verification, so it is never added twice. */
+/**
+ * True once a report carries a verification, so it is never added twice. Only
+ * the sections applyVerification writes count: an explorer's own heading does not.
+ */
 export function isVerified(report) {
-	return /^<summary>Verification details<\/summary>$|^## Verification$/m.test(String(report ?? ''));
+	return /^<summary>Verification details<\/summary>$|^## Verification\n\n_Verification did not complete/m.test(String(report ?? ''));
 }
 
 const VERIFIER_PATH = fileURLToPath(new URL('../verifier.md', import.meta.url));
@@ -203,13 +206,19 @@ function main(argv) {
 		return 0;
 	}
 	if (command === 'apply') {
+		// Checked before anything is written: marking the findings unreviewed
+		// over a mistyped path would also stop a corrected retry.
+		if (!replyFile || !existsSync(replyFile)) {
+			console.error(`finish: reply file not found: ${replyFile ?? '(none given)'}`);
+			return 2;
+		}
 		if (isVerified(report)) {
 			console.error('finish: report.md is already verified');
 			return 1;
 		}
-		const reply = replyFile && existsSync(replyFile) ? readFileSync(replyFile, 'utf8').trim() : '';
-		// An empty or unreadable reply still says so, rather than leaving the
-		// findings looking reviewed.
+		const reply = readFileSync(replyFile, 'utf8').trim();
+		// An empty reply, or one with no verdicts, still says so, rather than
+		// leaving the findings looking reviewed.
 		const failed = !reply || !parseVerdicts(reply).size;
 		const verdicts = failed
 			? `_Verification did not complete${reply ? `: the reply had no VERDICTS line` : ''}. The findings above are unreviewed._${reply ? `\n\n${reply}` : ''}`

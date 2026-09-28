@@ -242,8 +242,13 @@ function main(argv) {
 			json: { type: 'boolean' },
 		},
 	});
+	const limit = Number(values.limit);
+	if (!Number.isInteger(limit) || limit < 1) {
+		console.error(`stats: --limit must be a positive whole number, got "${values.limit}"`);
+		return 2;
+	}
 	const records = [
-		...(values['no-ci'] ? [] : ciRecords({ repo: values.repo, since: values.since, limit: Number(values.limit) })),
+		...(values['no-ci'] ? [] : ciRecords({ repo: values.repo, since: values.since, limit })),
 		...(values['no-local'] ? [] : localRecords(values['local-dir'], values.since)),
 	].sort((a, b) => String(b.date).localeCompare(String(a.date)));
 	if (!records.length) {
