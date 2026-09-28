@@ -58,6 +58,10 @@ inputs:
     description: "Maximum agent turns (cost guard)"
     required: false
     default: "200"
+  time-limit:
+    description: "Explore mode: minutes to explore, as 20 or 20m. The agent is told when they are up and stopped 10 minutes later. Empty runs without a limit."
+    required: false
+    default: ""
   report-base-url:
     description: "Public CDN base URL the run directory is published under"
     required: false
@@ -158,6 +162,7 @@ runs:
         FOCUS: ${{ inputs.focus }}
         EFFORT: ${{ inputs.effort }}
         MAX_TURNS: ${{ inputs.max-turns }}
+        TIME_LIMIT: ${{ inputs.time-limit }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
         AGENT_PROMPTS: ${{ inputs.agent-prompts }}
         COMMENT_STATE: ${{ inputs.comment-state }}

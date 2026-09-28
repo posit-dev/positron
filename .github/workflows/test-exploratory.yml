@@ -3,9 +3,12 @@ name: "Test: Exploratory"
 on:
   workflow_dispatch:
     inputs:
+      # main against main has no diff, so a run of it needs a Test focus;
+      # without one the worthiness check declines it.
       ref:
         description: "Branch to explore"
         required: true
+        default: "main"
         type: string
       # Set it when the ref's PR targets a release branch.
       base:
@@ -29,6 +32,14 @@ on:
           - Opus
           - Sonnet
           - Both (Opus + Sonnet)
+      # Minutes to explore; the agent is told when they are up and stopped 10
+      # minutes later. Setup and the build are not counted. 15 is about the
+      # least that yields a useful run.
+      time_limit:
+        description: "Time limit (minutes)"
+        required: false
+        default: ""
+        type: string
       worthiness_check:
         description: "Worthiness check"
         required: false
@@ -78,6 +89,7 @@ jobs:
       head_ref: ${{ steps.check.outputs.head_ref }}
       base_ref: ${{ steps.check.outputs.base_ref }}
       model: ${{ steps.check.outputs.model }}
+      time_limit: ${{ steps.check.outputs.time_limit }}
     steps:
       - name: Mint org-scoped App token
         id: app-token
@@ -119,6 +131,10 @@ jobs:
             *) model=opus ;;
           esac
 
+          # Optional time limit anywhere after the command, as 20m. Only that
+          # exact shape counts; anything else runs without a limit.
+          time_limit=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { for (i = 2; i <= NF; i++) if (tolower($i) ~ /^[0-9]+m$/) { print tolower($i); exit } exit }')
+
           # Active member: 200 {"state":"active"}. Non-member: 404, empty
           # stdout. Pending invite: "pending", which does not count.
           is_member() {
@@ -151,9 +167,10 @@ jobs:
             echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
             echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
             echo "model=$model"
+            echo "time_limit=$time_limit"
             echo "ok=true"
           } >> "$GITHUB_OUTPUT"
-          echo "Membership gate: ok (model=$model)"
+          echo "Membership gate: ok (model=$model, time limit=${time_limit:-none})"
 
   # The dispatch path's counterpart to membership's branch check. Dispatching
   # already takes write access, so there is no team lookup, but `ref` must be a
@@ -697,6 +714,7 @@ jobs:
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
           focus: ${{ inputs.focus }}
+          time-limit: ${{ inputs.time_limit || needs.membership.outputs.time_limit }}
           # The PR link in the summary and the report header. No PR, no link.
           pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
 

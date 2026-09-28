@@ -545,6 +545,8 @@ const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470'
 const FEEDBACK_VERDICTS = [
 	['Real issue', 'Real issue'],
 	['Not a bug', 'Not a bug'],
+	// Useful, but an improvement rather than a defect: filed as `enhancement`.
+	['Enhancement', 'Enhancement idea'],
 	['Not worth reporting', 'Real, but not worth reporting'],
 	['Couldn&rsquo;t tell', 'Couldn\'t tell from the report'],
 ];

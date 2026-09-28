@@ -290,6 +290,13 @@ test('parseReport reads each cost pass and the total', () => {
 	assert.equal(cost.passes[0].maxTurns, '200');
 });
 
+test('parseReport takes the one pass as the total when there was nothing to verify', () => {
+	const { cost } = parseReport('# Exploratory test: x\n\n_explore: Opus 5.5 | $0.55 | 18/200 turns | 3m_\n');
+	assert.equal(cost.total, '$0.55');
+	assert.equal(cost.duration, '3m');
+	assert.match(renderReportHtml('# Exploratory test: x\n\n_explore: Opus 5.5 | $0.55 | 18/200 turns | 3m_\n'), /<span class="tile-num">3m<\/span><span class="unit">\$0\.55<\/span>/);
+});
+
 test('renderReportHtml ships both themes, defaulting to Professional', () => {
 	const html = renderReportHtml(FULL);
 	assert.match(html, /<html lang="en" data-theme="professional">/);
@@ -2060,12 +2067,14 @@ test('feedback: a published page asks about each finding, and the verdicts match
 	const answers = feedbackAnswers(html, 'fb');
 	const titles = parseReport(FULL).findings.map(f => f.title);
 	assert.equal(titles[0], 'a longer claim');
-	const verdicts = ['Real issue', 'Not a bug', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
+	// In the form's order, which is also the buttons'.
+	const verdicts = ['Real issue', 'Not a bug', 'Enhancement idea', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
 	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(verdict =>
 		({ report: `https://cdn.example/run1/index.html#f${n}`, version: '1.2', on: 'A finding', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
 	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
 	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
+	assert.match(html, />Enhancement<\/a>/);
 	// The row closes its card: after Suggested tests, before the card ends.
 	assert.match(html, /<div class="fb" role="group" aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
 });

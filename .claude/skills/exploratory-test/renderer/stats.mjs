@@ -81,7 +81,7 @@ export function readChecks(runDir) {
  * One run's stats record. `parsed` is parseReport's result for the finished
  * report, so findings and verdicts are counted the way the page shows them.
  */
-export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, parsed, checks }) {
+export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, parsed, checks, timeLimit }) {
 	const verdicts = {};
 	for (const f of parsed?.findings ?? []) {
 		if (f.verified) {
@@ -103,6 +103,9 @@ export function buildStats({ where, date, run, version, model, turns, maxTurns, 
 		findings: parsed?.findings?.length ?? 0,
 		verdicts,
 		checks: checks ?? null,
+		// `{ minutes, reached, stopped }`: whether time ran out, and whether the
+		// run then had to be stopped. Null without a limit.
+		timeLimit: timeLimit ?? null,
 	};
 }
 
