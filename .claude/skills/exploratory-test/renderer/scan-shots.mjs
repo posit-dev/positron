@@ -100,6 +100,31 @@ function images(dir) {
 /** Shorter pieces of a key would match ordinary words. */
 const FRAGMENT = 6;
 
+/** How long a stretch a word must share with a key to be painted as part of it. */
+const STRETCH = 8;
+
+/**
+ * Whether a word, folded to letters and digits, shares a stretch of eight
+ * characters with `key` (all of it, for a word of six or seven), allowing one
+ * misread character. With `ends`, only the key's first or last characters
+ * count: on a line of its own, a piece from the middle of a URL or a name can
+ * be an ordinary word, but the start or end of a key is how a wrap reads.
+ */
+function sharesStretch(piece, key, ends) {
+	if (piece.length < FRAGMENT) {
+		return false;
+	}
+	const size = Math.min(STRETCH, piece.length);
+	const targets = ends ? [key.slice(0, size + 1), key.slice(-(size + 1))] : [key];
+	for (let i = 0; i + size <= piece.length; i++) {
+		const stretch = piece.slice(i, i + size);
+		if (targets.some(t => substringDistance(stretch, t) <= 1)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 /** The smallest box around all of `boxes`. */
 function union(boxes) {
 	return {
@@ -130,16 +155,19 @@ function wordSpan(words, value) {
 
 /**
  * The boxes to paint in one shot, from OCR's lines and words: every word that
- * shows a secret, or failing that the shortest run of words that does, and,
- * once one is found, any word of six or more characters that is how the key
- * starts or ends, which is how a key wrapped onto a second line reads. Only
- * the ends: a piece from the middle of a URL or a name can be an ordinary word.
+ * shows a secret, or failing that the shortest run of words that does. Then,
+ * once one is found, the pieces of it OCR split off or misread, which the
+ * match alone leaves showing: on the same line, any word that shares a
+ * stretch of the key; on another, one that shares its start or end, which is
+ * how a key wrapped onto a second line reads. One run read `https://` as
+ * `hitps:/` and left the start of a URL unpainted, so the pieces allow a
+ * misread character too.
  */
 export function boxesToPaint(lines, secrets) {
 	const boxes = [];
 	for (const { value } of secrets) {
 		const key = fold(value).replace(/[^a-z0-9]/g, '');
-		let found = false;
+		const hitLines = new Set();
 		for (const line of lines) {
 			const hits = line.words.filter(w => showsValue(w.text, value));
 			const span = hits.length ? null : showsValue(line.text, value) && wordSpan(line.words, value);
@@ -152,20 +180,20 @@ export function boxesToPaint(lines, secrets) {
 			} else {
 				continue;
 			}
-			found = true;
+			hitLines.add(line);
 		}
-		if (found) {
+		if (hitLines.size) {
 			for (const line of lines) {
 				for (const w of line.words) {
-					const piece = fold(w.text).replace(/[^a-z0-9]/g, '');
-					if (piece.length >= FRAGMENT && (key.startsWith(piece) || key.endsWith(piece))) {
+					if (sharesStretch(fold(w.text).replace(/[^a-z0-9]/g, ''), key, !hitLines.has(line))) {
 						boxes.push(w.bbox);
 					}
 				}
 			}
 		}
 	}
-	return boxes;
+	// A word can qualify more than once; painting it twice changes nothing.
+	return [...new Map(boxes.map(b => [`${b.x0},${b.y0},${b.x1},${b.y1}`, b])).values()];
 }
 
 /** A PNG with each box, padded by `pad` pixels, filled solid black. */

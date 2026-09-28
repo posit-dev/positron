@@ -79,7 +79,7 @@ test('boxesToPaint takes the rest of a key that wrapped onto the next line', () 
 		line([{ text: KEY.slice(0, 26), bbox: box(0, 0, 200, 10) }]),
 		line([{ text: KEY.slice(26), bbox: box(0, 12, 80, 22) }, { text: 'Cancel', bbox: box(100, 12, 140, 22) }]),
 	], SECRETS);
-	assert.deepEqual(boxes, [box(0, 0, 200, 10), box(0, 0, 200, 10), box(0, 12, 80, 22)]);
+	assert.deepEqual(boxes, [box(0, 0, 200, 10), box(0, 12, 80, 22)]);
 });
 
 test('boxesToPaint paints the words a split key is in, not the rest of the line', () => {
@@ -94,6 +94,23 @@ test('boxesToPaint paints the words a split key is in, not the rest of the line'
 	}
 	assert.ok(boxes.every(b => b.x1 <= 280), JSON.stringify(boxes));
 	assert.deepEqual(boxesToPaint([line([{ text: 'nothing', bbox: box(0, 0, 9, 9) }])], SECRETS), []);
+});
+
+test('boxesToPaint paints the pieces OCR split a URL into, even misread, but not the path after it', () => {
+	// From a CI run: the field showed the URL whole, OCR split it into three
+	// words and read `https://` as `hitps:/`, and only the middle got painted.
+	const url = 'https://east2testaiqzv-resource.services.ai.azure.com';
+	const field = line([
+		{ text: 'hitps:/east2testa', bbox: box(0, 0, 110, 10) },
+		{ text: 'iqzv-resource.services.ai.azur', bbox: box(112, 0, 320, 10) },
+		{ text: 'e.com/openai/v1', bbox: box(322, 0, 420, 10) },
+	]);
+	for (const value of [url, url.replace('https://', '')]) {
+		const boxes = boxesToPaint([field], [{ name: 'MS_FOUNDRY_BASE_URL', value }]);
+		assert.ok(boxes.some(b => b.x0 === 0), `the start, misread, for ${value}`);
+		assert.ok(boxes.some(b => b.x0 === 112), `the middle, for ${value}`);
+		assert.ok(!boxes.some(b => b.x0 === 322), `not the path, which is not the secret, for ${value}`);
+	}
 });
 
 test('boxesToPaint takes a piece only from the start or end of a key, not its middle', () => {
