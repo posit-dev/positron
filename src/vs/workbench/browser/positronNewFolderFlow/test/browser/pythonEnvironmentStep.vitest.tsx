@@ -307,6 +307,23 @@ describe('PythonEnvironmentStep Conda not installed', () => {
 	});
 });
 
+describe('PythonEnvironmentStep Conda installed without versions', () => {
+	const ctx = condaContainer(true, []);
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	it('still reports the empty version list, since only a missing provider suppresses it', async () => {
+		renderStep(rtl, ctx);
+
+		// The provider callout only covers a provider known to be missing. An installed one that
+		// offers no versions is a different problem, and hiding this message would leave the
+		// version list empty with nothing saying why.
+		expect(await screen.findByText(
+			'No interpreters available since no environment providers were found.'
+		)).toBeInTheDocument();
+		expect(screen.queryByText('Conda is not installed')).not.toBeInTheDocument();
+	});
+});
+
 describe('PythonEnvironmentStep Conda installed', () => {
 	// The providers load one render before the install check answers, so this suite holds
 	// 'python.isCondaInstalled' open to make that in-between window observable.
