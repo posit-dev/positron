@@ -81,6 +81,96 @@ export interface ILanguageRuntimeSessionStateEvent {
 	new_state: RuntimeState;
 }
 
+/**
+ * Why a runtime session was started. The values are persisted with the session
+ * metadata and map to user-facing labels, so never rename or reuse a value;
+ * add a new member instead.
+ */
+export enum SessionStartReason {
+	/** The runtime this workspace used last was started at startup. */
+	AffiliatedRuntime = 'affiliatedRuntime',
+
+	/** The runtime this workspace used last was registered after startup. */
+	AffiliatedRuntimeRegistered = 'affiliatedRuntimeRegistered',
+
+	/** An extension asked for its runtime to start immediately at startup. */
+	ExtensionRequestedImmediateStart = 'extensionRequestedImmediateStart',
+
+	/** An extension asked for its runtime to start immediately after startup finished. */
+	ExtensionRequestedStartAfterRegistration = 'extensionRequestedStartAfterRegistration',
+
+	/** An extension recommended the runtime for this workspace. */
+	ExtensionRecommendedRuntime = 'extensionRecommendedRuntime',
+
+	/** The `interpreters.startupBehavior` setting is `always` for the language. */
+	StartupBehaviorAlways = 'startupBehaviorAlways',
+
+	/** A file in the runtime's language was opened before the runtime registered. */
+	LanguageFileOpenAtRegistration = 'languageFileOpenAtRegistration',
+
+	/** A file in the runtime's language was opened. */
+	LanguageFileOpened = 'languageFileOpened',
+
+	/** The user picked the runtime to start a console. */
+	UserSelectedRuntime = 'userSelectedRuntime',
+
+	/** The start new console session command was run with a runtime ID. */
+	NewConsoleCommand = 'newConsoleCommand',
+
+	/** The user duplicated a console session. */
+	DuplicatedConsoleSession = 'duplicatedConsoleSession',
+
+	/** The user duplicated a notebook session into a console. */
+	DuplicatedNotebookSession = 'duplicatedNotebookSession',
+
+	/** Code was sent to the console and no session for its language was running. */
+	CodeExecutedWithoutSession = 'codeExecutedWithoutSession',
+
+	/** A restart was requested for a session that had never started. */
+	RestartUninitializedSession = 'restartUninitializedSession',
+
+	/** A new folder was created with a starter notebook. */
+	NewFolderNotebook = 'newFolderNotebook',
+
+	/** A Quarto document ran code for inline output. */
+	QuartoInlineOutput = 'quartoInlineOutput',
+
+	/** Cells were run in a notebook with no session. */
+	NotebookCellsExecuted = 'notebookCellsExecuted',
+
+	/** A code fragment was run in a notebook with no session. */
+	NotebookCodeFragmentExecuted = 'notebookCodeFragmentExecuted',
+
+	/** A kernel was selected for a notebook. */
+	NotebookKernelSelected = 'notebookKernelSelected',
+
+	/** A kernel selected before its runtime registered was started once it registered. */
+	NotebookKernelSelectionDeferred = 'notebookKernelSelectionDeferred',
+
+	/** A notebook was opened as the active, pinned editor. */
+	NotebookEditorOpened = 'notebookEditorOpened',
+
+	/** A notebook whose start was deferred became the active, pinned editor. */
+	NotebookEditorActivated = 'notebookEditorActivated',
+
+	/** A kernel restart was requested for a notebook with no session. */
+	NotebookKernelRestart = 'notebookKernelRestart',
+
+	/** An extension started or selected the runtime through the Positron API. */
+	ExtensionApi = 'extensionApi',
+}
+
+/**
+ * Why a runtime session is being started; passed by callers that start one.
+ */
+export interface IRuntimeSessionStartReason {
+	/** Why the session is being started. */
+	readonly id: SessionStartReason;
+
+	/** A description of the request for logs; non-localized. */
+	readonly detail: string;
+}
+
 export interface IStartNewRuntimeSessionOptions {
 	/**
 	 * True when the user explicitly selected this runtime. Passed in a trailing
@@ -110,10 +200,16 @@ export interface IRuntimeSessionMetadata {
 	readonly createdTimestamp: number;
 
 	/**
-	 * The reason the session was started; non-localized and only used for
-	 * debugging.
+	 * A description of why the session was started; non-localized and used
+	 * for debugging.
 	 */
 	readonly startReason: string;
+
+	/**
+	 * Why the session was started. Absent for sessions persisted before start
+	 * reason IDs existed.
+	 */
+	readonly startReasonId?: SessionStartReason;
 
 	/**
 	 * True when the session is being created because the user explicitly
