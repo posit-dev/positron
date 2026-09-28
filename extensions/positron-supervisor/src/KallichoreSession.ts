@@ -1933,11 +1933,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Forces the kernel to quit immediately.
 	 */
 	async forceQuit(): Promise<void> {
+		// Preserve `Restart` while force-quitting a restarting kernel.
+		// `onExited()` must retain its websocket for the supervisor's replacement,
+		// even if `Starting` has cleared `_restarting`.
+		const previousReason = this._exitReason;
 		try {
-			this._exitReason = positron.RuntimeExitReason.ForcedQuit;
+			if (previousReason !== positron.RuntimeExitReason.Restart) {
+				this._exitReason = positron.RuntimeExitReason.ForcedQuit;
+			}
 			await this._api.killSession(this.metadata.sessionId);
 		} catch (err) {
-			this._exitReason = positron.RuntimeExitReason.Unknown;
+			this._exitReason = previousReason;
 			throw err;
 		}
 	}

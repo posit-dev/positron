@@ -854,37 +854,116 @@ describe('Positron - RuntimeSessionService', () => {
 				expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 			});
 
-			it(`restart ${mode} in '${state}' state and session never reaches ready state`, async () => {
-				// Start the session and wait for it to be ready.
+		}
+
+		// Exit handlers such as R's `.Last` can delay shutdown, so restart uses
+		// the same grace period as deletion.
+		describe(`restart ${mode} whose runtime is slow to exit`, () => {
+			afterEach(() => {
+				vi.useRealTimers();
+			});
+
+			async function startSlowRestart(shutdownBehavior: 'noExit' | 'noReply' = 'noExit') {
 				const session = await start(runtime);
 				await waitForRuntimeState(session, RuntimeState.Ready);
+				session.shutdownBehavior = shutdownBehavior;
+				const warn = vi.spyOn(ctx.instantiationService.get(INotificationService), 'warn');
 
-				// Set the state to the desired state.
-				if (session.getRuntimeState() !== state) {
-					session.setRuntimeState(state);
-				}
-
-				// Stub onDidChangeRuntimeState to never fire, causing the restart to time out.
-				// onDidChangeRuntimeState is a plain property on TestLanguageRuntimeSession (not a getter),
-				// so we assign directly on the concrete type to replace it with a no-op.
-				const sessionAsMutable = session as { onDidChangeRuntimeState: unknown };
-				const originalOnDidChangeRuntimeState = session.onDidChangeRuntimeState;
-				sessionAsMutable.onDidChangeRuntimeState = (_listener: unknown) => ({ dispose: () => { } });
-
-				// Use fake timers to avoid actually having to wait for the timeout.
 				vi.useFakeTimers();
-				const promise = expect(restartSession(session.sessionId)).rejects.toThrow(
-					`Timed out waiting for runtime ` +
-					`${formatLanguageRuntimeSession(session)} to be 'ready'.`
+				const outcome = restartSession(session.sessionId).then(
+					() => 'restarted',
+					(error: Error) => error.message,
 				);
-				await vi.advanceTimersByTimeAsync(10_000);
-				vi.useRealTimers();
-				await promise;
+				return { session, warn, outcome };
+			}
 
-				// Restore the original property.
-				sessionAsMutable.onDidChangeRuntimeState = originalOnDidChangeRuntimeState;
+			it('does not force a runtime that exits within the grace period', async () => {
+				const { session, warn, outcome } = await startSlowRestart();
+
+				await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS - 1);
+				session.setRuntimeState(RuntimeState.Exited);
+				await vi.advanceTimersByTimeAsync(1);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+					warnings: warn.mock.calls.length,
+					state: session.getRuntimeState(),
+				}).toEqual({ outcome: 'restarted', forceQuitCount: 0, warnings: 0, state: RuntimeState.Ready });
 			});
-		}
+
+			it('forces the runtime to quit and notifies when it outlasts the grace period', async () => {
+				const { session, warn, outcome } = await startSlowRestart();
+
+				// The test runtime chains zero-delay timers after a forced quit, so an
+				// extra 100 ms is needed to drain them.
+				await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + 100);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+					warnings: warn.mock.calls.map(([message]) => message),
+					state: session.getRuntimeState(),
+				}).toEqual({
+					outcome: 'restarted',
+					forceQuitCount: 1,
+					warnings: [`${session.dynState.sessionName} did not exit after a restart request and was forced to quit.`],
+					state: RuntimeState.Ready,
+				});
+			});
+
+			it('fails when even a forced quit does not end the runtime', async () => {
+				const { session, outcome } = await startSlowRestart();
+				session.exitsOnForceQuit = false;
+
+				await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + FORCE_QUIT_GRACE_MS);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+				}).toEqual({
+					outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} ` +
+						`to finish exiting, even after forcing it to quit.`,
+					forceQuitCount: 1,
+				});
+			});
+
+			it('fails once the deadlines pass even if the restart request never returns', async () => {
+				const { session, outcome } = await startSlowRestart('noReply');
+				session.exitsOnForceQuit = false;
+
+				await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + FORCE_QUIT_GRACE_MS);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+				}).toEqual({
+					outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} ` +
+						`to finish exiting, even after forcing it to quit.`,
+					forceQuitCount: 1,
+				});
+			});
+
+			it('fails when the replacement does not become ready', async () => {
+				const { session, outcome } = await startSlowRestart();
+				const runtimeInfo = session.runtimeInfo!;
+				vi.spyOn(session, 'start').mockImplementation(async () => {
+					session.setRuntimeState(RuntimeState.Starting);
+					return runtimeInfo;
+				});
+
+				session.setRuntimeState(RuntimeState.Exited);
+				await vi.advanceTimersByTimeAsync(10_000);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+				}).toEqual({
+					outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} to be 'ready'.`,
+					forceQuitCount: 0,
+				});
+			});
+		});
 
 		it(`restart ${mode} in 'uninitialized' state`, async () => {
 			// Get a session to the uninitialized state.
@@ -1785,8 +1864,7 @@ describe('Positron - RuntimeSessionService', () => {
 			}).toEqual({
 				outcome: 'deleted',
 				forceQuitCount: 1,
-				warnings: [`${session.dynState.sessionName} did not exit after a shutdown request and was forced to quit. ` +
-					`Its exit handlers may not have finished.`],
+				warnings: [`${session.dynState.sessionName} did not exit after a shutdown request and was forced to quit.`],
 				registered: false,
 			});
 		});

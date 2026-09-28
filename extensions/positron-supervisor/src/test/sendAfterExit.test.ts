@@ -143,6 +143,34 @@ suite('Sends after kernel exit', () => {
 		}
 	});
 
+	// `doRestartRuntime()` force-quits a kernel whose exit handlers, such as R's
+	// `.Last`, outlast the shutdown grace period. The replacement's `starting`
+	// status can arrive before the old kernel's exit event.
+	test('keeps the replacement connection when a restarting kernel is forced to quit', async () => {
+		const session = createSession({
+			restartSession: () => new Promise(() => { }),
+			killSession: async () => ({}),
+		});
+		markConnected(session);
+		try {
+			let exitReason: positron.RuntimeExitReason | undefined;
+			session.onDidEndSession(exit => exitReason = exit.reason);
+
+			void session.restart();
+			await session.forceQuit();
+			session.handleMessage({ kind: 'kernel', status: { status: 'exited', reason: 'child process exited' } });
+			session.handleMessage({ kind: 'kernel', status: { status: 'starting', reason: 'start API called' } });
+			session.handleMessage({ kind: 'kernel', exited: 137 });
+
+			// Classifying the old kernel's exit as terminal cancels the connection
+			// barrier and rejects commands sent to the replacement.
+			await settled(session.sendCommand(newCommand()));
+			assert.strictEqual(exitReason, positron.RuntimeExitReason.Restart);
+		} finally {
+			session.dispose();
+		}
+	});
+
 	test('accepts sends again once an exited session reconnects', async () => {
 		// `start()` revives an exited session through `connect()`, without
 		// calling `restart()`.
