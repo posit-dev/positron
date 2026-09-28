@@ -345,9 +345,11 @@ export async function registerCreateEnvironmentFeatures(
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
         registerCommand(Commands.Is_Uv_Installed, async () => await isUvInstalled()),
         registerCommand(Commands.Get_Uv_Python_Versions, async () => await getUvPythonVersions()),
+        // Called by the New Folder flow's Install uv button. The button says what will run, so
+        // pressing it is the consent, and no modal prompt opens over the flow's modal dialog.
         registerCommand(Commands.Ensure_Uv_Installed, async (): Promise<EnsureUvResult> => {
             try {
-                return await ensureUvInstalledWithProgress();
+                return await ensureUvInstalledWithProgress({ consented: true });
             } catch (error) {
                 traceError(`ensureUvInstalled command failed: ${error}`);
                 return { ok: false, error: `${error}` };

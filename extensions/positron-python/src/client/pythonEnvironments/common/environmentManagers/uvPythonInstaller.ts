@@ -136,15 +136,21 @@ export type EnsureUvResult = { ok: true } | { ok: false; error?: string };
  * @param onInstalling Called only once uv is missing and the user has consented, so
  *   callers can report progress without claiming to install uv that is already there,
  *   or to be installing while the consent prompt is still on screen.
+ * @param options.consented Skips the consent prompt, for callers whose own UI already asked. The
+ *   New Folder flow's Install uv button says what will run, so pressing it is the consent, and a
+ *   modal prompt over that modal dialog would ask twice.
  */
-export async function ensureUvInstalled(onInstalling?: () => void): Promise<EnsureUvResult> {
+export async function ensureUvInstalled(
+    onInstalling?: () => void,
+    options?: { consented?: boolean },
+): Promise<EnsureUvResult> {
     if (await isUvInstalled()) {
         return { ok: true };
     }
 
     // Consent comes before the callback: while the prompt is up nothing is installing yet,
     // and a caller that reported progress here would be claiming work the user has not agreed to.
-    if (!(await allowUvInstall())) {
+    if (!options?.consented && !(await allowUvInstall())) {
         traceInfo('User declined uv installation');
         return { ok: false };
     }
@@ -177,8 +183,10 @@ export async function ensureUvInstalled(onInstalling?: () => void): Promise<Ensu
  * The notification opens only after the user has consented, so nothing claims to be
  * installing while the consent prompt is on screen. It is a notification rather than a
  * window-level indicator because notification toasts render above Positron modal dialogs.
+ *
+ * @param options Passed through to ensureUvInstalled.
  */
-export async function ensureUvInstalledWithProgress(): Promise<EnsureUvResult> {
+export async function ensureUvInstalledWithProgress(options?: { consented?: boolean }): Promise<EnsureUvResult> {
     let finishInstall: (() => void) | undefined;
 
     let result: EnsureUvResult;
@@ -194,7 +202,7 @@ export async function ensureUvInstalledWithProgress(): Promise<EnsureUvResult> {
                 },
                 () => installing,
             );
-        });
+        }, options);
     } finally {
         // In a finally so a throw after the notification opened still closes it, rather than
         // leaving it claiming an install is running until the window is reloaded.

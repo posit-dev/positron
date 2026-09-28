@@ -114,6 +114,22 @@ suite('UV Python Installer Tests', () => {
             ).never();
         });
 
+        test('Installs without prompting when the caller already has consent', async () => {
+            // The New Folder flow's Install uv button is the consent. A modal prompt over that
+            // modal dialog would ask a second time.
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().resolves(true);
+            execStub.resolves({ stdout: UV_INSTALL_OK_MARKER, stderr: '' });
+            const onInstalling = sinon.stub();
+
+            assert.deepStrictEqual(await ensureUvInstalled(onInstalling, { consented: true }), { ok: true });
+            assert.strictEqual(onInstalling.calledOnce, true);
+            assert.strictEqual(execStub.calledOnce, true);
+            verify(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).never();
+        });
+
         test('Declining the consent prompt exits without an error', async () => {
             isUvInstalledStub.resolves(false);
             when(
@@ -264,6 +280,20 @@ suite('UV Python Installer Tests', () => {
 
             assert.deepStrictEqual(await ensureUvInstalledWithProgress(), { ok: true });
             verify(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).never();
+        });
+
+        test('Passes consent through, installing without a prompt', async () => {
+            isUvInstalledStub.onFirstCall().resolves(false);
+            isUvInstalledStub.onSecondCall().resolves(true);
+            execStub.resolves({ stdout: UV_INSTALL_OK_MARKER, stderr: '' });
+            when(mockedVSCodeNamespaces.window!.withProgress(anything(), anything())).thenCall(
+                (_options: ProgressOptions, task: any) => task({} as any, {} as any),
+            );
+
+            assert.deepStrictEqual(await ensureUvInstalledWithProgress({ consented: true }), { ok: true });
+            verify(
+                mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
+            ).never();
         });
 
         test('Does not show progress when the user declines', async () => {
