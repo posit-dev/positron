@@ -224,7 +224,6 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 	return (
 		<PositronFlowStep
 			backButtonConfig={{ onClick: props.back }}
-			cancelButtonConfig={{ onClick: props.cancel }}
 			{...okNextButtonConfig}
 			title={localize(
 				'folderNameLocationStep.title',

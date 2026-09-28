@@ -18,13 +18,10 @@ import { FooterButton } from '../../positronComponents/positronDynamicModalDialo
 import { PositronDynamicModalDialog } from '../../positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 
 /**
- * The dialog each flow step renders into. Every step is its own dynamic modal dialog, sized to its
- * content, so a step that grows (a callout appearing, a long path) grows the dialog instead of
- * overflowing a fixed height.
+ * The dialog each flow step renders into. Each step is its own dynamic dialog, sized to its content.
  */
 export interface FlowDialog {
 	renderer: PositronModalReactRenderer;
-	width: number;
 	onCancel: () => void;
 }
 
@@ -39,10 +36,13 @@ export const FlowDialogProvider = (props: PropsWithChildren<{ dialog: FlowDialog
 	</FlowDialogContext.Provider>
 );
 
+type FlowStepButtons = Pick<OKCancelBackNextActionBarProps, 'backButtonConfig' | 'nextButtonConfig' | 'okButtonConfig'>;
+
 /**
- * PositronFlowStepProps interface.
+ * PositronFlowStepProps interface. There is no Cancel button: the title bar's close button and
+ * Escape cancel the flow.
  */
-export interface PositronFlowStepProps extends OKCancelBackNextActionBarProps {
+export interface PositronFlowStepProps extends FlowStepButtons {
 	title: string;
 	/** An id for the title element, for a control inside the step to name itself by. */
 	titleId?: string;
@@ -79,7 +79,6 @@ export const PositronFlowStep = (props: PropsWithChildren<PositronFlowStepProps>
 			footer={
 				<FlowStepFooter
 					backButtonConfig={props.backButtonConfig}
-					cancelButtonConfig={props.cancelButtonConfig}
 					nextButtonConfig={props.nextButtonConfig}
 					okButtonConfig={props.okButtonConfig}
 				/>
@@ -87,19 +86,17 @@ export const PositronFlowStep = (props: PropsWithChildren<PositronFlowStepProps>
 			renderer={dialog.renderer}
 			// The step's name is the dialog's title: one line that says where the user is.
 			title={props.title}
-			width={dialog.width}
+			width={700}
 			onCancel={dialog.onCancel}
 		/>
 	);
 };
 
 /**
- * The flow step's footer: Back on the left, Next or OK on the right. There is no Cancel button:
- * the title bar's close button and Escape cancel the flow. Built from FooterButton rather than
- * ThreeButtonFooter, which cannot disable its primary button, and Next and Create stay disabled
- * until the step is complete.
+ * Back on the left, Next or OK on the right. Built from FooterButton because ThreeButtonFooter
+ * cannot disable its primary button, and Next and Create stay disabled until the step is complete.
  */
-const FlowStepFooter = (props: OKCancelBackNextActionBarProps) => {
+const FlowStepFooter = (props: FlowStepButtons) => {
 	const renderButton = (config: ActionBarButtonConfig | undefined, defaultTitle: string, primary: boolean) => {
 		if (!config) {
 			return null;
@@ -107,12 +104,11 @@ const FlowStepFooter = (props: OKCancelBackNextActionBarProps) => {
 		return (
 			<FooterButton
 				default={primary}
-				disabled={(config.disable ?? false) || (config.loading ?? false)}
+				disabled={config.disable}
 				// The primary button is the form's submit button, so Enter presses it.
 				type={primary ? 'submit' : 'button'}
 				onPressed={() => config.onClick?.()}
 			>
-				{config.loading && <span aria-hidden='true' className='codicon codicon-loading codicon-modifier-spin' />}
 				{config.title ?? defaultTitle}
 			</FooterButton>
 		);

@@ -306,7 +306,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		try {
 			const result = await context.installUv();
 			if (!result.ok) {
-				// A declined install has no error message; leave the step as it was.
+				// No error means nothing was attempted; leave the step as it was.
 				setUvInstallError(result.error);
 			}
 		} finally {
@@ -326,11 +326,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		void services.openerService.open(URI.parse(CONDA_INSTALL_DOCS_URL), { openExternal: true });
 	};
 
-	// The uv install callout, shown under the provider dropdown while uv is missing. One callout
-	// owns both the problem and the action: its title states the problem, its body says what the
-	// button will run, and the button carries the install's progress and retry. Once an install
-	// started here succeeds, it collapses to a one-line confirmation. The title and body stay put
-	// while the install runs, so a quick install only changes the button.
+	// Shown while uv is missing. The body says what the button runs, since pressing it is the
+	// consent. Only the button changes while installing, so a quick install doesn't flash the text.
 	const uvInstallCallout = () => {
 		if (isUvInstalled === false) {
 			const failed = uvInstallError !== undefined;
@@ -410,10 +407,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		return undefined;
 	};
 
-	// The "not installed" notice for the selected environment provider, shown under the provider
-	// dropdown: a missing tool is a fact about the provider just picked, not about the version list.
-	// uv's notice is the install callout above, since uv can install itself; Conda has no
-	// equivalent command to offer, so its callout links to the install docs instead.
+	// The missing-provider callout, under the provider dropdown. uv can install itself; Conda can't,
+	// so its callout links to the install docs instead.
 	const providerInstallWarning = () => {
 		if (context.usesUvEnv) {
 			// Rendered whenever uv is the provider, even when empty, so the live region is already
@@ -606,7 +601,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	return (
 		<PositronFlowStep
 			backButtonConfig={{ onClick: props.back }}
-			cancelButtonConfig={{ onClick: props.cancel }}
 			okButtonConfig={{
 				onClick: props.accept,
 				title: localize(

@@ -12,11 +12,8 @@
 	gap: 8px;
 }
 
-/* The callout for a missing environment provider (uv's install offer, Conda's install docs link).
-Tinted from the theme's warning and error colors rather than fixed colors, so it reads in light,
-dark, and high contrast themes. Only the icon and border take the
-tint's color; the text keeps the dialog foreground, since warning yellow fails text contrast on light
-backgrounds. */
+/* Only the icon and border take the warning or error tone: warning yellow fails text contrast on
+light backgrounds, so the text keeps the dialog foreground. */
 .positron-dynamic-modal-dialog-box .flow-step .provider-callout {
 	--_provider-callout-tone: var(--vscode-editorWarning-foreground);
 	display: flex;

@@ -74,7 +74,6 @@ function renderStep(
 			<FlowDialogProvider
 				dialog={{
 					renderer: stubInterface<PositronModalReactRenderer>({ onKeyDown: Event.None, onResize: Event.None }),
-					width: 700,
 					onCancel: vi.fn(),
 				}}
 			>

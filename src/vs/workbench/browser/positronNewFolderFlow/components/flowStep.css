@@ -25,11 +25,6 @@ window. The allowance covers the dialog's 40px gutters and its title bar and foo
 	align-items: center;
 }
 
-/* The loading spinner takes the button's text color. */
-.positron-dynamic-modal-dialog-box .flow-step-footer .codicon {
-	color: inherit;
-}
-
 /* The dialog's content area preserves newlines for plain-text dialogs. Flow steps lay out their own
 text, so they use normal wrapping. */
 .positron-dynamic-modal-dialog-box .flow-step {

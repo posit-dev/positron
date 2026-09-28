@@ -151,7 +151,6 @@ const NewFolderFlowModalDialog = (props: NewFolderFlowModalDialogProps) => {
 		<FlowDialogProvider
 			dialog={{
 				renderer: props.renderer,
-				width: 700,
 				onCancel: cancelHandler,
 			}}
 		>

@@ -73,9 +73,6 @@ export const FolderTemplateStep = (props: PropsWithChildren<NewFolderFlowStepPro
 	// Render.
 	return (
 		<PositronFlowStep
-			cancelButtonConfig={{
-				onClick: props.cancel,
-			}}
 			nextButtonConfig={{
 				onClick: nextStep,
 				disable: !selectedTemplateType,
