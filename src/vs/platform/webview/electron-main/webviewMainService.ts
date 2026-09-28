@@ -162,7 +162,8 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 				_isMainFrame: boolean,
 				frameProcessId: number,
 				frameRoutingId: number) => {
-				const frameId = { processId: frameProcessId, routingId: frameRoutingId };
+				const frameTreeNodeId = webFrameMain.fromId(frameProcessId, frameRoutingId)?.frameTreeNodeId;
+				const frameId = { processId: frameProcessId, routingId: frameRoutingId, frameTreeNodeId };
 				this.onFrameNavigated(frameId, url);
 			};
 			window.win!.webContents.on('did-frame-navigate', onNavigated);
@@ -213,11 +214,30 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	 * @returns The result of evaluating the code.
 	 */
 	public async executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
-		const frame = webFrameMain.fromId(frameId.processId, frameId.routingId);
+		const frame = this.findFrame(frameId);
 		if (!frame) {
 			throw new Error(`No frame found with frameId: ${JSON.stringify(frameId)}`);
 		}
 		return frame.executeJavaScript(script);
+	}
+
+	/**
+	 * Finds the frame with the given ID. A frame that goes to another document
+	 * can get new process and routing IDs, so look for the frame now at its
+	 * place in the frame tree first.
+	 *
+	 * @param frameId The ID of the frame.
+	 */
+	private findFrame(frameId: WebviewFrameId): WebFrameMain | undefined {
+		if (frameId.frameTreeNodeId !== undefined) {
+			for (const contents of webContents.getAllWebContents()) {
+				const frame = contents.mainFrame.framesInSubtree.find(f => f.frameTreeNodeId === frameId.frameTreeNodeId);
+				if (frame) {
+					return frame;
+				}
+			}
+		}
+		return webFrameMain.fromId(frameId.processId, frameId.routingId) ?? undefined;
 	}
 
 	/**

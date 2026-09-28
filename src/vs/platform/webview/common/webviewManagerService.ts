@@ -30,6 +30,12 @@ export interface WebviewFrameId {
 
 	/** The frame's routing identifier */
 	readonly routingId: number;
+
+	/**
+	 * The frame's place in the frame tree. Unlike the process and routing IDs,
+	 * it stays the same when the frame goes to another document.
+	 */
+	readonly frameTreeNodeId?: number;
 }
 
 /**

@@ -385,8 +385,14 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 			if (!this._frameId) {
 				return;
 			}
-			if (evt.frameId.processId === this._frameId.processId &&
-				evt.frameId.routingId === this._frameId.routingId) {
+			// Going to another document can give the frame new process and
+			// routing IDs; its place in the frame tree stays the same.
+			const sameFrame = this._frameId.frameTreeNodeId !== undefined ?
+				evt.frameId.frameTreeNodeId === this._frameId.frameTreeNodeId :
+				evt.frameId.processId === this._frameId.processId && evt.frameId.routingId === this._frameId.routingId;
+			if (sameFrame) {
+				this._frameId = evt.frameId;
+
 				// Insert the `webview-events.js` script into the frame
 				await this.injectJavaScript();
 
