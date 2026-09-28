@@ -728,12 +728,13 @@ jobs:
             done
           done
 
-      # A screenshot cannot be redacted, only read. One that shows a secret is
-      # removed, as a text file that cannot be redacted is. The Postgres login
+      # The explorer blurs a key before it takes a screenshot. This reads each
+      # one, paints over any secret still showing, and removes a shot it cannot
+      # clean, as a text file that cannot be redacted is. The Postgres login
       # is a fixed test value the connection form shows on purpose, so it is
       # left out. A scan that cannot run removes every screenshot rather than
       # publish ones nobody checked.
-      - name: Remove screenshots that show a secret
+      - name: Paint secrets out of screenshots
         if: always()
         shell: bash
         run: |

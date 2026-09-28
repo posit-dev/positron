@@ -61,10 +61,10 @@ Give the user the result, the findings table, and the `index.html` path. Then
 ask, in these words:
 
 > Publish this report to share it?
-> (Anyone with the link can view it. Screenshots are checked for keys, not blurred.)
+> (Anyone with the link can view it. Keys found in screenshots are painted over.)
 
 Publish only on a yes:
 `bash <base>/renderer/publish.sh <run dir>`. It prints the report URL; give it
 to the user. If it says there are no AWS credentials, relay its sign-in hint.
-If it stops on a screenshot that shows a credential, name the shot and leave
-the report unpublished.
+If it stops on a screenshot it could not paint a credential out of, name the
+shot and leave the report unpublished.

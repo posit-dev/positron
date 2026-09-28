@@ -6,6 +6,7 @@
 	"dependencies": {
 		"@tesseract.js-data/eng": "^1.0.0",
 		"marked": "^12.0.2",
+		"pngjs": "^7.0.0",
 		"tesseract.js": "^7.0.0"
 	},
 	"devDependencies": {

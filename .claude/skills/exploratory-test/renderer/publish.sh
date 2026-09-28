@@ -11,8 +11,9 @@
 # for its URL, so its issues link back to it; actions.log and the raw log tree
 # stay local, as in CI; and the value of every environment variable
 # whose name ends in KEY, TOKEN, SECRET, PASSWORD or PAT, or that CI's run holds
-# under another name, is replaced in text files. Screenshots cannot be redacted,
-# so scan-shots.mjs reads them, and one that shows a value stops the upload.
+# under another name, is replaced in text files. The explorer blurs a key before
+# it takes a screenshot; scan-shots.mjs then reads each one, paints over any key
+# still showing, and stops the upload on a shot it cannot clean.
 # Needs AWS credentials that can write to the bucket (AWS_PROFILE is honored);
 # AWS_CLI overrides the aws binary.
 
@@ -66,7 +67,7 @@ SCAN=0
 node "$(dirname "$0")/scan-shots.mjs" "$STAGE" || SCAN=$?
 case $SCAN in
 	0) ;;
-	1) echo "publish: a screenshot shows a credential; nothing was uploaded. Blur or retake it, then publish again." >&2; exit 1 ;;
+	1) echo "publish: a screenshot shows a credential that could not be painted over; nothing was uploaded. Blur or retake it, then publish again." >&2; exit 1 ;;
 	*) echo "publish: the screenshot scan did not run; nothing was uploaded." >&2; exit 1 ;;
 esac
 

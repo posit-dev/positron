@@ -3,23 +3,27 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Publishing replaces credential values in text files, but a screenshot is an
-// image, so a key the app showed on screen went out as is. This reads each
-// screenshot with OCR and reports the ones that show a credential's value.
-// It cannot blur the key out, so a match is dropped (CI) or stops the publish
-// (local), the same way a text file redaction fails on is handled.
+// The explorer blurs a key the app shows before it takes a screenshot, and
+// publishing replaces key values in text files. This is the check behind
+// both: it reads each screenshot with OCR, and where one still shows a
+// credential's value it paints over the words that show it, then reads the
+// shot again. A shot it cannot clean that way, because the key still reads or
+// the image is not a PNG, is removed (CI) or stops the publish (local), as a
+// text file redaction fails on is.
 //
 // Usage:
-//   node scan-shots.mjs <dir> [--remove]   exits 1 when a shot shows a value
+//   node scan-shots.mjs <dir> [--remove]   paints what it can; exits 1 when a
+//                                          shot still shows a value
 //   node scan-shots.mjs --names            prints the variable names it checks
 //
 // Names are printed, values never are.
 
-import { readdirSync, rmSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { availableParallelism } from 'node:os';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { PNG } from 'pngjs';
 
 /**
  * Credentials CI holds under names the suffix rule misses. Widening the rule to
@@ -93,29 +97,147 @@ function images(dir) {
 		.sort();
 }
 
-/**
- * The screenshots under `dir` that show a secret, as `{ file, names }`. A shot
- * OCR cannot read is reported too, with the name `(unreadable)`: a scan that
- * skipped it would pass a file nobody checked.
- */
-export async function scanShots(dir, secrets, recognize) {
-	// All at once: the recognizer queues them across its workers.
-	const results = await Promise.all(images(dir).map(async file => {
-		try {
-			const text = await recognize(file);
-			return { file, names: secrets.filter(s => showsValue(text, s.value)).map(s => s.name) };
-		} catch {
-			return { file, names: ['(unreadable)'] };
-		}
-	}));
-	return results.filter(r => r.names.length);
+/** Shorter pieces of a key would match ordinary words. */
+const FRAGMENT = 6;
+
+/** The smallest box around all of `boxes`. */
+function union(boxes) {
+	return {
+		x0: Math.min(...boxes.map(b => b.x0)), y0: Math.min(...boxes.map(b => b.y0)),
+		x1: Math.max(...boxes.map(b => b.x1)), y1: Math.max(...boxes.map(b => b.y1)),
+	};
 }
 
 /**
- * An OCR function backed by tesseract.js and its bundled English data, so it
+ * The shortest run of adjacent words that shows `value` together, for a key
+ * OCR split into pieces too short to match alone. OCR can join text from two
+ * panes at one height into a single line, so the line's own box can span half
+ * the window; the words the key is in cannot.
+ */
+function wordSpan(words, value) {
+	let best = null;
+	for (let i = 0; i < words.length; i++) {
+		for (let j = i; j < words.length && (!best || j - i < best.length); j++) {
+			const span = words.slice(i, j + 1);
+			if (showsValue(span.map(w => w.text).join(''), value)) {
+				best = span;
+				break;
+			}
+		}
+	}
+	return best;
+}
+
+/**
+ * The boxes to paint in one shot, from OCR's lines and words: every word that
+ * shows a secret, or failing that the shortest run of words that does, and,
+ * once one is found, any word of six or more characters that is how the key
+ * starts or ends, which is how a key wrapped onto a second line reads. Only
+ * the ends: a piece from the middle of a URL or a name can be an ordinary word.
+ */
+export function boxesToPaint(lines, secrets) {
+	const boxes = [];
+	for (const { value } of secrets) {
+		const key = fold(value).replace(/[^a-z0-9]/g, '');
+		let found = false;
+		for (const line of lines) {
+			const hits = line.words.filter(w => showsValue(w.text, value));
+			const span = hits.length ? null : showsValue(line.text, value) && wordSpan(line.words, value);
+			if (hits.length) {
+				boxes.push(...hits.map(w => w.bbox));
+			} else if (span) {
+				boxes.push(union(span.map(w => w.bbox)));
+			} else if (showsValue(line.text, value)) {
+				boxes.push(line.bbox);
+			} else {
+				continue;
+			}
+			found = true;
+		}
+		if (found) {
+			for (const line of lines) {
+				for (const w of line.words) {
+					const piece = fold(w.text).replace(/[^a-z0-9]/g, '');
+					if (piece.length >= FRAGMENT && (key.startsWith(piece) || key.endsWith(piece))) {
+						boxes.push(w.bbox);
+					}
+				}
+			}
+		}
+	}
+	return boxes;
+}
+
+/** A PNG with each box, padded by `pad` pixels, filled solid black. */
+export function paintBoxes(png, boxes, pad = 3) {
+	const image = PNG.sync.read(png);
+	for (const { x0, y0, x1, y1 } of boxes) {
+		for (let y = Math.max(0, y0 - pad); y < Math.min(image.height, y1 + pad); y++) {
+			for (let x = Math.max(0, x0 - pad); x < Math.min(image.width, x1 + pad); x++) {
+				const i = (y * image.width + x) * 4;
+				image.data[i] = image.data[i + 1] = image.data[i + 2] = 0;
+				image.data[i + 3] = 255;
+			}
+		}
+	}
+	return PNG.sync.write(image);
+}
+
+const showing = (text, secrets) => secrets.filter(s => showsValue(text, s.value)).map(s => s.name);
+
+/**
+ * Checks and cleans one shot: `clean` when it shows no secret, `painted` when
+ * painting removed every one it showed, `leak` when one still reads (or it is
+ * not a PNG, so it cannot be painted), `unreadable` when OCR failed. A shot a
+ * scan skipped would pass a file nobody checked, so unreadable counts as a leak.
+ */
+async function checkShot(file, secrets, read) {
+	let first;
+	try {
+		first = await read(file);
+	} catch {
+		return { file, names: ['(unreadable)'], status: 'unreadable' };
+	}
+	const names = showing(first.text, secrets);
+	if (!names.length) {
+		return { file, names, status: 'clean' };
+	}
+	const shown = secrets.filter(s => names.includes(s.name));
+	const boxes = /\.png$/i.test(file) ? boxesToPaint(first.lines, shown) : [];
+	if (!boxes.length) {
+		return { file, names, status: 'leak' };
+	}
+	writeFileSync(file, paintBoxes(readFileSync(file), boxes));
+	try {
+		const still = showing((await read(file)).text, shown);
+		return still.length ? { file, names: still, status: 'leak' } : { file, names, status: 'painted' };
+	} catch {
+		return { file, names, status: 'unreadable' };
+	}
+}
+
+/**
+ * Every screenshot under `dir` that showed a secret, with what became of it.
+ * Shots that showed none are left out. Painting changes the file in place, so
+ * point this at a copy when the originals matter.
+ */
+export async function scanShots(dir, secrets, read) {
+	// All at once: the reader queues them across its workers.
+	const results = await Promise.all(images(dir).map(file => checkShot(file, secrets, read)));
+	return results.filter(r => r.status !== 'clean');
+}
+
+/** OCR's lines and words, with their boxes, flattened out of its blocks. */
+function linesOf(data) {
+	return (data.blocks ?? []).flatMap(b => b.paragraphs).flatMap(p => p.lines)
+		.map(l => ({ text: l.text, bbox: l.bbox, words: l.words.map(w => ({ text: w.text, bbox: w.bbox })) }));
+}
+
+/**
+ * An OCR reader backed by tesseract.js and its bundled English data, so it
  * runs offline. A 1600x1100 shot takes about a second on one worker.
  */
-export async function createRecognizer(workers = Math.min(4, availableParallelism())) {
+export async function createReader(workers = Math.min(4, availableParallelism())) {
 	const { createScheduler, createWorker } = await import('tesseract.js');
 	const require = createRequire(import.meta.url);
 	const langPath = join(dirname(require.resolve('@tesseract.js-data/eng/package.json')), '4.0.0_best_int');
@@ -124,7 +246,10 @@ export async function createRecognizer(workers = Math.min(4, availableParallelis
 		scheduler.addWorker(await createWorker('eng', 1, { langPath, cacheMethod: 'none' }));
 	}
 	return {
-		recognize: async file => (await scheduler.addJob('recognize', file)).data.text,
+		read: async file => {
+			const { data } = await scheduler.addJob('recognize', file, {}, { text: true, blocks: true });
+			return { text: data.text, lines: linesOf(data) };
+		},
 		close: () => scheduler.terminate(),
 	};
 }
@@ -144,28 +269,33 @@ async function main(args) {
 		console.log('scan-shots: no credentials in the environment; nothing to look for.');
 		return 0;
 	}
-	const ocr = await createRecognizer();
-	let hits;
+	const ocr = await createReader();
+	let results;
 	try {
-		hits = await scanShots(dir, secrets, ocr.recognize);
+		results = await scanShots(dir, secrets, ocr.read);
 	} finally {
 		await ocr.close();
 	}
-	for (const { file, names } of hits) {
+	const remove = args.includes('--remove');
+	let leaks = 0;
+	for (const { file, names, status } of results) {
 		const where = relative(dir, file);
-		if (args.includes('--remove')) {
+		if (status === 'painted') {
+			console.log(`scan-shots: painted over ${names.join(', ')} in ${where}.`);
+		} else if (remove) {
 			rmSync(file);
-			console.log(`::warning title=Screenshot removed::${where} shows ${names.join(', ')}; removed before publishing.`);
+			console.log(`::warning title=Screenshot removed::${where} shows ${names.join(', ')} and could not be painted over; removed before publishing.`);
 		} else {
-			console.error(`scan-shots: ${where} shows ${names.join(', ')}.`);
+			leaks++;
+			console.error(`scan-shots: ${where} shows ${names.join(', ')} and could not be painted over.`);
 		}
 	}
-	console.log(`scan-shots: ${hits.length} of the screenshots under ${dir} show a credential.`);
-	return hits.length && !args.includes('--remove') ? 1 : 0;
+	console.log(`scan-shots: ${results.length} screenshots under ${dir} showed a credential; ${results.filter(r => r.status === 'painted').length} painted over.`);
+	return leaks ? 1 : 0;
 }
 
-// 1 means a shot shows a value; anything else means the scan itself failed,
-// which a caller must not report as a leak.
+// 1 means a shot still shows a value; anything else means the scan itself
+// failed, which a caller must not report as a leak.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
 	try {
 		process.exitCode = await main(process.argv.slice(2));
