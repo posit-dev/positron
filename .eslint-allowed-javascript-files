@@ -264,7 +264,6 @@ scripts/apply-test-tag-map-fixes.mjs
 scripts/check-e2e-failures.js
 scripts/derive-test-change-tags.mjs
 scripts/node_version_check.js
-scripts/slack-skipped-tests.js
 src/vs/code/browser/workbench/rsLoginCheck.js
 src/vs/workbench/contrib/webview/browser/pre/webview-events.js
 test/e2e/test-files/workspaces/dash-py-example/assets/resizing_script.js
