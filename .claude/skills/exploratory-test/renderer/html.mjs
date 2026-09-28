@@ -14,7 +14,9 @@
 
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { resolve as resolvePath } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
@@ -45,6 +47,7 @@ const ICON = {
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
 	briefcase: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M3 12.5h18"></path><path d="M11 12.5v1.5h2v-1.5"></path></svg>',
+	speech: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.2c0-.9.7-1.7 1.7-1.7h7.6c.9 0 1.7.8 1.7 1.7v5.1c0 .9-.8 1.7-1.7 1.7H7l-3 2.5V11h.2c-.9 0-1.7-.8-1.7-1.7z"></path></svg>',
 	party: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4.5-12 7.5 7.5z"></path><path d="M7 16l1.5 1.5"></path><path d="M14 4.5c.5 1-.2 2 .3 3"></path><path d="M19.5 10c-1-.5-2 .2-3-.3"></path><path d="M17 3v2"></path><path d="M21 7h-2"></path><circle cx="20" cy="3.5" r=".6" fill="currentColor"></circle><circle cx="12" cy="3" r=".6" fill="currentColor"></circle><circle cx="21" cy="12.5" r=".6" fill="currentColor"></circle></svg>',
 };
 
@@ -224,6 +227,16 @@ const CODE_COPY = '<button type="button" class="code-cp" data-tip="Copy code" ar
 function withCodeCopy(html) {
 	// Marked ends the code with a newline; drop it so a paste does not run the last line early.
 	return html.replace(/<pre>[\s\S]*?<\/pre>/g, pre => `<div class="code-blk">${pre.replace(/\n<\/code><\/pre>$/, '</code></pre>')}${CODE_COPY}</div>`);
+}
+
+/**
+ * Inline code becomes click-to-copy: Reproduce is full of short commands people
+ * run one at a time. Code blocks are left alone, since they have a Copy button,
+ * and so is a file chip, which linkFiles has already made a link.
+ */
+function copyableCode(html) {
+	return html.split(/(<pre[\s\S]*?<\/pre>)/).map((part, i) =>
+		i % 2 ? part : part.replace(/<code>/g, '<code class="cc" data-tip="Copy">')).join('');
 }
 
 /**
@@ -521,6 +534,74 @@ function reportUrl(base) {
 	return /^https?:\/\//i.test(base ?? '') ? `${base.replace(/\/+$/, '')}/index.html` : null;
 }
 
+// Posit team feedback goes to a Google Form that accepts Posit accounts only,
+// so its links are safe on a public page. The form is pre-filled by entry ID.
+const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform?usp=pp_url';
+const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470', on: 'entry.857252905', finding: 'entry.890833928', verdict: 'entry.427792690' };
+// The button's label, then the form's option text. Google silently drops a
+// multiple-choice value that does not match its option exactly, apostrophe
+// included, so these are copied from the form rather than from the labels.
+const FEEDBACK_VERDICTS = [
+	['Real issue', 'Real issue'],
+	['Not a bug', 'Not a bug'],
+	['Not worth reporting', 'Real, but not worth reporting'],
+	['Couldn&rsquo;t tell', 'Couldn\'t tell from the report'],
+];
+
+/**
+ * The skill's version, the `version:` in SKILL.md's frontmatter, as the
+ * feedback form gets it: `1.0`, which the footer shows as `v1.0`. Null when
+ * there is none. Given the text for a test; read beside the
+ * renderer otherwise.
+ */
+export function skillVersion(skillMd) {
+	try {
+		const text = skillMd ?? readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'SKILL.md'), 'utf8');
+		const front = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? '';
+		const version = /^\s+version:\s*["']?v?([^"'\s]+)["']?\s*$/m.exec(front)?.[1];
+		return version ?? null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * A pre-filled form link: for a finding when given one, for the whole report
+ * otherwise. The finding is shown above its verdict, so the form says which
+ * one it asks about.
+ */
+function feedbackHref(report, version, finding, verdict) {
+	const values = [
+		[FEEDBACK_ENTRY.report, report],
+		[FEEDBACK_ENTRY.version, version ?? 'unknown'],
+		[FEEDBACK_ENTRY.on, finding ? 'A finding' : 'The whole report'],
+		...(finding ? [[FEEDBACK_ENTRY.finding, `Finding ${finding.n} \u00B7 ${finding.title}`], [FEEDBACK_ENTRY.verdict, verdict]] : []),
+	];
+	return FEEDBACK_FORM_URL + values.map(([entry, value]) => `&${entry}=${encodeURIComponent(value)}`).join('');
+}
+
+// Only a published page asks for feedback, so every answer points at a report
+// someone can open. A local page has only a path, which is never sent.
+function renderFeedbackRow(f, options) {
+	const url = reportUrl(options.base);
+	if (!url) {
+		return '';
+	}
+	const links = FEEDBACK_VERDICTS.map(([label, verdict]) =>
+		`<a href="${escapeHtml(feedbackHref(`${url}#f${f.n}`, options.skillVersion, f, verdict))}" target="_blank" rel="noopener">${label}</a>`);
+	return `<div class="fb" role="group" aria-label="Posit team feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
+}
+
+function renderFeedbackButton(options) {
+	const url = reportUrl(options.base);
+	if (!url) {
+		return '';
+	}
+	return `<a class="fb-top" href="${escapeHtml(feedbackHref(url, options.skillVersion))}" target="_blank" rel="noopener"`
+		+ ' title="Posit team feedback on this report (opens a Posit-only form)" aria-label="Give feedback (opens a Posit-only form)">'
+		+ `${ICON.speech}<span class="fb-top-label">Give feedback</span></a>`;
+}
+
 /** Positron and OS, then the session, each value on its own line under its label. */
 function systemDetails(report) {
 	const env = report.environment.map(l => l.trim().replace(/^[-*]\s+/, '')).filter(Boolean);
@@ -793,12 +874,13 @@ function renderFindingCard(f, report, options) {
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
+	const feedback = renderFeedbackRow(f, options);
 	// A saved file the card names opens its viewer. Not the prompt block: that
 	// is raw text, and it carries the files itself.
 	const files = options.files ?? [];
 
 	if (f.proseHtml) {
-		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${promptBlock}</article>`;
+		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${feedback}${promptBlock}</article>`;
 	}
 
 	const observedExpected = (f.observedHtml || f.expectedHtml)
@@ -824,8 +906,9 @@ function renderFindingCard(f, report, options) {
 		? '<div class="repro-group steps"><div class="repro-label">Steps</div>'
 		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1) : '' })).join('\n')}</ol></div>`
 		: '';
+	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
-		? `<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`
+		? copyableCode(linkFiles(`<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`, files))
 		: '';
 
 	const details = renderCardDetails(f, report, options);
@@ -836,6 +919,7 @@ ${observedExpected}
 ${repro}
 ${renderEvidence(f)}
 ${details}`, files)}
+${feedback}
 ${promptBlock}
 </article>`;
 }
@@ -1044,8 +1128,9 @@ ${report.verification.bodyHtml}
  * The copyright under it is dated by the run, not the render, so re-rendering
  * an old run keeps its year.
  */
-function renderSignature(startedAt = new Date(), skillUrl = SKILL_URL) {
-	const name = 'exploratory-test &#8599;';
+function renderSignature(startedAt = new Date(), version = null, skillUrl = SKILL_URL) {
+	// Read like a package name. Left out, never blank, when there is no version.
+	const name = `exploratory-test ${version ? `<span class="sig-ver">v${escapeHtml(version)}</span> ` : ''}&#8599;`;
 	const link = `<a class="sig-link" href="${escapeHtml(skillUrl)}" target="_blank" rel="noreferrer">${name}</a>`;
 
 	// A top-down bug: a solid body, six hairline legs and two feelers.
@@ -1170,6 +1255,20 @@ var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){d
 if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
 else{fallback();}});});`;
 
+// Inline code in Reproduce: a click copies the chip. A drag-selection is left
+// alone, so the usual copy still takes just what was selected. Not a control:
+// no tab stop, since keyboard users select and copy as they already do.
+const CODE_CHIP_SCRIPT = `document.querySelectorAll('code.cc').forEach(function(c){var t;
+c.addEventListener('click',function(){if(window.getSelection&&String(window.getSelection())){return;}
+var text=c.textContent;
+function done(){c.classList.add('is-copied');c.dataset.tip='Copied';clearTimeout(t);
+t=setTimeout(function(){c.classList.remove('is-copied');c.dataset.tip='Copy';},1200);}
+function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
+else{fallback();}});});`;
+
 // A link too long for GitHub opens the form with the title only, so the click
 // copies the description as well and says so. Only pages with such a link ship this.
 const ISSUE_SCRIPT = `(function(){var toast=document.createElement('div');toast.className='gh-toast';toast.setAttribute('role','status');
@@ -1229,6 +1328,7 @@ export function renderReportHtml(markdown, options = {}) {
 <main class="wrap">
 
 <header class="head">
+${renderFeedbackButton(options)}
 <nav class="switch" aria-label="Report theme">
 <button type="button" class="tip" data-theme="professional" data-tip="Professional" aria-label="Switch to Professional" aria-pressed="true">${ICON.briefcase}</button>
 <button type="button" class="tip" data-theme="party" data-tip="Party" aria-label="Switch to Party" aria-pressed="false">${ICON.party}</button>
@@ -1249,7 +1349,7 @@ ${linkFiles(renderCoverage(report, options), options.files)}
 
 ${renderFolds(report, options)}
 
-${renderSignature(options.startedAt)}
+${renderSignature(options.startedAt, options.skillVersion)}
 
 </main>
 <div class="lb" id="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot" hidden>
@@ -1274,7 +1374,8 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	// Code blocks in steps have copy buttons even when agent prompts are off.
 	const copy = prompts || page.includes('class="code-cp"');
 	const issue = page.includes(' data-issue="');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}</body>
+	const codeCopy = page.includes('<code class="cc"');
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }

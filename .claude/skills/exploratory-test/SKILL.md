@@ -2,6 +2,10 @@
 name: exploratory-test
 description: "Explore a running Positron instance as a real user to find genuine problems in a change you just made. Use when asked to exploratorily test, QA, manually test, or poke at a branch, PR, or feature through the real UI. This is discovery testing against the live app to find bugs, NOT writing automated tests; use author-e2e-tests or author-vitest-tests for that. Worth its cost for a user-visible behavior change, not for a refactor or a typo fix. Only runs when a person invokes it explicitly."
 disable-model-invocation: true
+metadata:
+  # Bump when the agent is told something new: this file, explorer.md or
+  # verifier.md. Feedback is grouped by it, so a renderer change does not count.
+  version: "1.0"
 ---
 
 # Exploratory testing

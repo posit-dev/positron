@@ -42,7 +42,7 @@ if (!input) {
 if (!existsSync(join(here, 'node_modules', 'marked'))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { renderReportHtml, linkedLogs } = await import('./html.mjs');
+const { renderReportHtml, linkedLogs, skillVersion } = await import('./html.mjs');
 const { modelDisplayName, parseReport } = await import('./report-parse.mjs');
 const { lintReport, untaggedShots } = await import('./lint.mjs');
 
@@ -107,6 +107,8 @@ writeFileSync(out, renderReportHtml(markdown, {
 	agentPrompts: !flags['no-agent-prompts'],
 	// Evidence in the prompt has to open from wherever it is pasted.
 	base: flags.base || dir,
+	// Sent with feedback, which only a published page (--base) asks for.
+	skillVersion: skillVersion(),
 	fileExists,
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,
