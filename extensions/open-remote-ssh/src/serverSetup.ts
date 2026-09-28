@@ -7,9 +7,10 @@
 // which is licensed under the MIT license.
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import * as crypto from 'crypto';
 import Log from './common/logger';
-import { getVSCodeServerConfig } from './serverConfig';
+import { getVSCodeProductJson, getVSCodeServerConfig } from './serverConfig';
 import SSHTransport from './ssh/sshTransport';
 import { appendSshEnvironmentParam, buildEnvironmentProbeCommand, detectSshEnvironment, parseEnvironmentProbeOutput, SshEnvironment } from './common/sshEnvironment';
 
@@ -160,6 +161,9 @@ export async function installCodeServer(conn: SSHTransport, serverDownloadUrlTem
 	const scriptId = crypto.randomBytes(12).toString('hex');
 
 	const vscodeServerConfig = await getVSCodeServerConfig();
+	const clientCommit: string | undefined = (await getVSCodeProductJson()).commit;
+	logger.info(`Client: version ${positron.version}-${positron.buildNumber}, commit ${clientCommit}`);
+	logger.info(`Requesting server: version ${vscodeServerConfig.version}, commit ${vscodeServerConfig.commit}, quality ${vscodeServerConfig.quality}`);
 
 	// Check the remoteSSH.serverInstallPath setting
 	let serverDataFolderName = vscodeServerConfig.serverDataFolderName;
@@ -264,6 +268,11 @@ export async function installCodeServer(conn: SSHTransport, serverDownloadUrlTem
 		throw new ServerInstallError(`Couldn't install Positron server on remote server, install script returned non-zero exit status`);
 	}
 
+	logger.info(`Remote server: version ${resultMap.serverVersion}, commit ${resultMap.serverCommit}, listening on ${resultMap.listeningOn}`);
+	if (clientCommit && resultMap.serverCommit && clientCommit !== resultMap.serverCommit) {
+		logger.error(`Remote server commit ${resultMap.serverCommit} does not match client commit ${clientCommit}; the server will refuse the connection`);
+	}
+
 	const listeningOn = resultMap.listeningOn.match(/^\d+$/)
 		? parseInt(resultMap.listeningOn, 10)
 		: resultMap.listeningOn;
@@ -345,6 +354,8 @@ LISTENING_ON=
 OS_RELEASE_ID=
 ARCH=
 PLATFORM=
+SERVER_COMMIT=
+SERVER_VERSION=
 
 # Mimic output from logs of remote-ssh extension
 print_install_results_and_exit() {
@@ -357,6 +368,8 @@ print_install_results_and_exit() {
 	echo "arch==$ARCH=="
 	echo "platform==$PLATFORM=="
 	echo "tmpDir==$TMP_DIR=="
+	echo "serverCommit==$SERVER_COMMIT=="
+	echo "serverVersion==$SERVER_VERSION=="
 	${envVariables.map(envVar => `echo "${envVar}==$${envVar}=="`).join('\n')}
 	echo "${id}: end"
 	exit 0
@@ -492,6 +505,10 @@ if [[ ! -f $SERVER_SCRIPT ]]; then
 else
 	echo "Server script already installed in $SERVER_SCRIPT"
 fi
+
+# Report the identity of the installed server, which may differ from the requested one
+SERVER_COMMIT="$(grep -oE '"commit": *"[^"]*"' "$SERVER_DIR/product.json" | sed -E 's/.*"([^"]*)"$/\\1/')"
+SERVER_VERSION="$(grep -oE '"positron(Version|BuildNumber)": *("[^"]*"|[0-9]+)' "$SERVER_DIR/product.json" | sed -E 's/.*: *"?([^"]*)"?$/\\1/' | paste -sd- -)"
 
 # Try to find if server is already running
 if [[ -f $SERVER_PIDFILE ]]; then
