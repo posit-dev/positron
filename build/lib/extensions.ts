@@ -354,6 +354,10 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		}
 
 		// --- Start Positron ---
+		// esbuild writes the bundle to dist/, so nothing loads out/. It exists
+		// only when a local build daemon compiles the extension with tsc.
+		fileNames = fileNames.filter(fileName => !fileName.startsWith('out/'));
+
 		// Remove the files in the production dependencies of the extension that
 		// no code loads at runtime. These extensions ship node_modules without
 		// change, and most of them have no .vscodeignore. As a result, the
