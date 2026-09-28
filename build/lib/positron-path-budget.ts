@@ -108,19 +108,17 @@ export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map
 	['copilot', 8_500], // 7,728
 	['positron-python', 6_350], // 5,219; 5,784 on win32-x64
 	['positron-data-driver-databricks', 3_460], // 3,145
-	['positron-data-driver-odbc', 550], // 493
-	['positron-data-driver-sqlite', 540], // 448; 489 on win32-x64
+	['positron-data-driver-odbc', 515], // 467
+	['positron-data-driver-sqlite', 515], // 425; 466 on win32-x64
 	['positron-pdf-server', 450], // 407
-	['positron-data-driver-redshift', 330], // 299
-	['positron-data-driver-pins', 290], // 257
-	['positron-duckdb', 250], // 221
-	['positron-data-driver-duckdb', 230], // 207
+	['positron-data-driver-redshift', 315], // 284
+	['positron-data-driver-pins', 260], // 233
+	['positron-duckdb', 230], // 206
+	['positron-data-driver-duckdb', 215], // 192
 	['markdown-language-features', 190], // 167
 	['node_modules', 150], // 129
-	['positron-supervisor', 150], // 128
 	['theme-modern-icons', 140], // 121
-	['positron-data-driver-postgresql', 130], // 117
-	['positron-dev-containers', 130], // 111
+	['positron-data-driver-postgresql', 115], // 103
 ]);
 
 /**

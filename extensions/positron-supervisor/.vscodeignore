@@ -5,4 +5,7 @@ tsconfig*.json
 esbuild*.mts
 package-lock.json
 .gitignore
-snowflake.log
+scripts/**
+.zed/**
+justfile
+positron.json
