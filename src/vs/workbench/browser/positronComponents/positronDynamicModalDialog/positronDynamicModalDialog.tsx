@@ -8,6 +8,7 @@ import './positronDynamicModalDialog.css';
 
 // React.
 import { ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -137,16 +138,20 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 
 	// Content can grow after the dialog is placed (a section appears, a message wraps), which
 	// would push the footer off screen. Move the dialog up just enough to keep its bottom visible.
+	//
+	// The observer runs after layout and before paint. flushSync applies the new top in that same
+	// window; a plain state update would render in a later task, after a frame had already been
+	// painted with the footer past the edge.
 	useEffect(() => {
 		const dialogBox = dialogBoxRef.current;
 		const resizeObserver = new ResizeObserver(() => {
-			setDialogBoxState(prevDialogBoxState => {
+			flushSync(() => setDialogBoxState(prevDialogBoxState => {
 				const maxTop = dialogContainerRef.current.clientHeight - dialogBox.offsetHeight - kGutter;
 				if (!hasBeenPositioned.current || prevDialogBoxState.dragging || prevDialogBoxState.top <= maxTop) {
 					return prevDialogBoxState;
 				}
 				return { ...prevDialogBoxState, top: Math.max(maxTop, kGutter) };
-			});
+			}));
 		});
 		resizeObserver.observe(dialogBox);
 		return () => resizeObserver.disconnect();
