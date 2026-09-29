@@ -1501,12 +1501,12 @@ test('ledger: reads the middle-dot and arrow forms the same as ASCII', () => {
 	assert.equal(parseLedger('# Test ledger\n\n## Environment\n- x'), null);
 });
 
-test('ledger: Coverage and the Scenarios tile come from the ledger, not the report tables', () => {
+test('ledger: Coverage and the Coverage tile come from the ledger, not the report tables', () => {
 	const report = parseReport(TYPED, { ledger: LEDGER });
 	assert.deepEqual(report.scenarios, { exercised: 8, pass: 6, issues: 2, notRun: 3 });
 	const html = renderReportHtml(TYPED, { ledger: LEDGER });
 	// The tile's number is every scenario, so the legend adds up to it.
-	assert.match(html, /<span class="tile-num">11<\/span><span class="unit">total<\/span>/);
+	assert.match(html, /<div class="tile-label">Coverage<\/div><div class="tile-figure"><span class="tile-num">11<\/span><span class="unit">scenarios<\/span>/);
 	const cov = coverageOf(html);
 	// One table: no subheadings, no second table.
 	assert.doesNotMatch(cov, /Exercised|Not exercised|<h3/);

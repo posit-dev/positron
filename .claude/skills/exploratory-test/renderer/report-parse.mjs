@@ -1137,7 +1137,7 @@ function fenceMask(lines) {
 
 /**
  * Parses a report's markdown into the structure the template renders. Given
- * the run's ledger, Coverage and the Scenarios tile come from it instead of
+ * the run's ledger, Coverage and the Coverage tile come from it instead of
  * the report's Coverage tables.
  */
 export function parseReport(markdown, { ledger } = {}) {

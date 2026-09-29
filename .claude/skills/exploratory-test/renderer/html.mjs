@@ -131,16 +131,14 @@ function renderTiles(report) {
 		+ bar(findingSegments)
 		+ legend(findingSegments.map(s => ({ ...s, strong: s.count }))));
 
-	// Deliberately "Jump to Coverage", not "Jump to Scenarios": the tooltip is
-	// where the reader learns these numbers summarise the Coverage section.
 	const scenarioSegments = [
 		{ count: scenarios.pass, color: 'var(--pass-fill)', word: 'passed' },
 		{ count: scenarios.issues, color: 'var(--moderate-dot)', word: 'failed' },
 		{ count: scenarios.notRun, color: 'var(--notrun-bar)', word: 'not run' },
 	].filter(s => s.count > 0);
 	const scenariosTile = tile(hasCoverage ? '#coverage' : null, 'Jump to Coverage',
-		'<div class="tile-label">Scenarios</div>'
-		+ `<div class="tile-figure"><span class="tile-num">${scenarios.exercised + scenarios.notRun}</span><span class="unit">total</span></div>`
+		'<div class="tile-label">Coverage</div>'
+		+ `<div class="tile-figure"><span class="tile-num">${scenarios.exercised + scenarios.notRun}</span><span class="unit">scenarios</span></div>`
 		+ bar(scenarioSegments)
 		+ legend(scenarioSegments.map(s => ({ ...s, strong: s.count }))));
 
