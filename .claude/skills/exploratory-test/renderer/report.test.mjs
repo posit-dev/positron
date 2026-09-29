@@ -2074,7 +2074,7 @@ test('feedback: a published page asks about each finding, and the verdicts match
 	// In the form's order, which is also the buttons'.
 	const verdicts = ['Real issue', 'Not a bug', 'Enhancement idea', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
 	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(verdict =>
-		({ report: `https://cdn.example/run1/index.html#f${n}`, version: '1.2', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
+		({ report: `https://cdn.example/run1/index.html#f${n}`, version: 'v1.2', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
 	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
 	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
@@ -2086,7 +2086,7 @@ test('feedback: a published page asks about each finding, and the verdicts match
 test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
 	assert.deepEqual(feedbackAnswers(html, 'fb-top'),
-		[{ report: 'https://cdn.example/run1/index.html', version: '1.2', finding: null, verdict: null }]);
+		[{ report: 'https://cdn.example/run1/index.html', version: 'v1.2', finding: null, verdict: null }]);
 	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
 });
 
@@ -2359,7 +2359,7 @@ test('the footer names the version the feedback links send, with a v, published 
 		assert.match(html, /<a class="sig-link" [^>]*>exploratory-test <span class="sig-ver">v1\.2<\/span> &#8599;<\/a>/);
 	}
 	const published = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	assert.ok(feedbackAnswers(published, 'fb').every(a => a.version === '1.2'));
+	assert.ok(feedbackAnswers(published, 'fb').every(a => a.version === 'v1.2'));
 	// No version: the name alone, with no empty span and no placeholder.
 	assert.match(renderReportHtml(FULL), /<a class="sig-link" [^>]*>exploratory-test &#8599;<\/a>/);
 	assert.doesNotMatch(renderReportHtml(FULL), /sig-ver/);

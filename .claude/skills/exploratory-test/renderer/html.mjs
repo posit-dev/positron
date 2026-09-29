@@ -584,7 +584,8 @@ export function skillVersion(skillMd) {
 function feedbackValues(report, version, finding, verdict) {
 	return [
 		[FEEDBACK_ENTRY.report, report],
-		[FEEDBACK_ENTRY.version, version ?? 'unknown'],
+		// With a v, so Sheets keeps it as text: 1.10 would otherwise read as 1.1.
+		[FEEDBACK_ENTRY.version, version ? `v${version}` : 'unknown'],
 		...(finding ? [[FEEDBACK_ENTRY.finding, `Finding ${finding.n} \u00B7 ${finding.title}`], [FEEDBACK_ENTRY.verdict, verdict]] : []),
 	].map(([entry, value]) => `${entry}=${encodeURIComponent(value)}`);
 }
