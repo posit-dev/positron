@@ -537,6 +537,20 @@ export enum DataConnectionNodeKind {
 	Pin = 'pin',
 	// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
 	Version = 'version',
+	// A Snowflake semantic view (positron-data-driver-snowflake).
+	GroupSemanticViews = 'group-semantic-views',
+	SemanticView = 'semantic-view',
+	// The members of a semantic view, and the groups that hold them.
+	GroupLogicalTables = 'group-logical-tables',
+	GroupRelationships = 'group-relationships',
+	GroupFacts = 'group-facts',
+	GroupDimensions = 'group-dimensions',
+	GroupMetrics = 'group-metrics',
+	LogicalTable = 'logical-table',
+	Relationship = 'relationship',
+	Fact = 'fact',
+	Dimension = 'dimension',
+	Metric = 'metric',
 }
 
 /**

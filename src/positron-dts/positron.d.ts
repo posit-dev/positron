@@ -2463,6 +2463,26 @@ declare module 'positron' {
 		Pin = 'pin',
 		// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
 		Version = 'version',
+		// A Snowflake semantic view: a schema-level business model (logical tables, relationships,
+		// facts, dimensions, metrics) over existing tables (positron-data-driver-snowflake). It holds
+		// definitions rather than rows, so it and its members are browsable but not previewable in
+		// the Data Explorer.
+		GroupSemanticViews = 'group-semantic-views',
+		SemanticView = 'semantic-view',
+		// The members of a semantic view, and the groups that hold them. A logical table is the
+		// semantic view's alias for a base table; a relationship joins two logical tables; facts,
+		// dimensions, and metrics are named row-level expressions, grouping attributes, and
+		// aggregations.
+		GroupLogicalTables = 'group-logical-tables',
+		GroupRelationships = 'group-relationships',
+		GroupFacts = 'group-facts',
+		GroupDimensions = 'group-dimensions',
+		GroupMetrics = 'group-metrics',
+		LogicalTable = 'logical-table',
+		Relationship = 'relationship',
+		Fact = 'fact',
+		Dimension = 'dimension',
+		Metric = 'metric',
 	}
 
 	export interface DataConnectionNode {

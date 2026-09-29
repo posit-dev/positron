@@ -213,10 +213,11 @@ suite('Snowflake Driver Tests', () => {
 
 		const schemaNode = createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC');
 		const groups = await schemaNode.getChildren!();
-		assert.strictEqual(groups.length, 3);
+		assert.strictEqual(groups.length, 4);
 		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
 		assert.strictEqual(groups[1].kind, positron.DataConnectionNodeKind.GroupViews);
-		assert.strictEqual(groups[2].kind, positron.DataConnectionNodeKind.GroupStages);
+		assert.strictEqual(groups[2].kind, positron.DataConnectionNodeKind.GroupSemanticViews);
+		assert.strictEqual(groups[3].kind, positron.DataConnectionNodeKind.GroupStages);
 
 		// Tables.
 		const tables = await tablesOf(schemaNode);

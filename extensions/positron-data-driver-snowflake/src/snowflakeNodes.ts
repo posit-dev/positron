@@ -7,8 +7,8 @@
 // the active role can access, so the tree is always cross-database: the root is a "Databases" group,
 // and everything under it is enumerated with SHOW/DESCRIBE metadata commands.
 //
-// Browsing deliberately uses SHOW (SHOW TERSE DATABASES / SCHEMAS / TABLES / VIEWS, SHOW STAGES) and
-// DESCRIBE rather than SELECTs against INFORMATION_SCHEMA. INFORMATION_SCHEMA views require an active
+// Browsing deliberately uses SHOW (SHOW TERSE DATABASES / SCHEMAS / TABLES / VIEWS, SHOW SEMANTIC
+// VIEWS, SHOW STAGES) and DESCRIBE rather than SELECTs against INFORMATION_SCHEMA. INFORMATION_SCHEMA views require an active
 // warehouse (compute), so querying them fails with "No active warehouse selected in the current
 // session" whenever the connection has no warehouse -- and warehouse is an optional connection field.
 // SHOW/DESCRIBE run on the cloud-services layer and need no warehouse, so the tree expands regardless.
@@ -104,6 +104,7 @@ export function createSchemaNode(client: SnowflakeClient, host: ISnowflakePrevie
 			return [
 				createTablesGroupNode(client, host, database, schemaName),
 				createViewsGroupNode(client, host, database, schemaName),
+				createSemanticViewsGroupNode(client, host, database, schemaName),
 				createStagesGroupNode(client, database, schemaName),
 			];
 		},
@@ -138,6 +139,170 @@ function createViewsGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHo
 				.sort((a, b) => a.localeCompare(b))
 				.map(name => createRelationNode(client, host, database, schemaName, name, 'view'));
 		},
+	};
+}
+
+/**
+ * Creates the "Semantic Views" group inside a schema. Lists semantic views via `SHOW SEMANTIC VIEWS`,
+ * which, like the other SHOW commands, needs no warehouse. Semantic views are a separate object type
+ * from views -- SHOW VIEWS does not return them. A semantic view holds definitions rather than rows,
+ * so it has no Data Explorer preview of its own; the preview host is for its logical tables.
+ */
+function createSemanticViewsGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
+	return {
+		name: 'Semantic Views',
+		kind: positron.DataConnectionNodeKind.GroupSemanticViews,
+		async getChildren() {
+			const result = await client.query(`SHOW SEMANTIC VIEWS IN SCHEMA ${schemaRef(database, schemaName)}`);
+			return result.rows
+				.map(row => String(row.name))
+				.sort((a, b) => a.localeCompare(b))
+				.map(name => createSemanticViewNode(client, host, database, schemaName, name));
+		},
+	};
+}
+
+/** A member of a semantic view (logical table, relationship, fact, dimension, or metric). */
+interface ISemanticViewMember {
+	/** The member's name. */
+	name: string;
+	/** The logical table the member belongs to; unset for logical tables and view-level members. */
+	table?: string;
+	/** The member's properties (e.g. DATA_TYPE, EXPRESSION), keyed by property name. */
+	properties: Map<string, string>;
+}
+
+/** The members of a semantic view, bucketed by kind in definition order. */
+interface ISemanticViewMembers {
+	tables: ISemanticViewMember[];
+	relationships: ISemanticViewMember[];
+	facts: ISemanticViewMember[];
+	dimensions: ISemanticViewMember[];
+	metrics: ISemanticViewMember[];
+}
+
+/**
+ * Parses the rows of `DESCRIBE SEMANTIC VIEW` into members. DESCRIBE returns one row per property,
+ * with columns `object_kind`, `object_name`, `parent_entity`, `property`, and `property_value`, so a
+ * member's rows are collapsed into one entry. Rows with no object kind describe the semantic view
+ * itself (e.g. its comment) and are skipped. Exported for unit tests.
+ */
+export function parseSemanticViewDescription(rows: Record<string, unknown>[]): ISemanticViewMembers {
+	const members: ISemanticViewMembers = { tables: [], relationships: [], facts: [], dimensions: [], metrics: [] };
+	const byKey = new Map<string, ISemanticViewMember>();
+	for (const row of rows) {
+		const objectKind = row.object_kind ? String(row.object_kind) : '';
+		let bucket: ISemanticViewMember[];
+		switch (objectKind) {
+			case 'TABLE': bucket = members.tables; break;
+			case 'RELATIONSHIP': bucket = members.relationships; break;
+			case 'FACT': bucket = members.facts; break;
+			case 'DIMENSION': bucket = members.dimensions; break;
+			// Derived metrics are defined at the view level, over other metrics, rather than on a table.
+			case 'METRIC':
+			case 'DERIVED_METRIC': bucket = members.metrics; break;
+			default: continue;
+		}
+
+		const name = String(row.object_name);
+		const table = row.parent_entity ? String(row.parent_entity) : undefined;
+		const key = JSON.stringify([objectKind, table ?? null, name]);
+		let member = byKey.get(key);
+		if (!member) {
+			member = { name, table, properties: new Map() };
+			byKey.set(key, member);
+			bucket.push(member);
+		}
+		if (row.property) {
+			member.properties.set(String(row.property), row.property_value === null || row.property_value === undefined ? '' : String(row.property_value));
+		}
+	}
+	return members;
+}
+
+/**
+ * Creates a semantic view node. Expanding it runs a single `DESCRIBE SEMANTIC VIEW` and returns a
+ * group per member kind (Tables, Relationships, Facts, Dimensions, Metrics); the groups are built
+ * from that one result, so expanding them costs no further round-trips. Kinds the semantic view does
+ * not define are omitted rather than shown as empty groups.
+ *
+ * A logical table is only a name inside the semantic view and cannot be queried itself, but it
+ * aliases exactly one base table or view, so previewing it opens that base object. The node shows
+ * the base object's three-part name, so it is clear the preview is the raw base data rather than the
+ * semantic view's model of it.
+ */
+function createSemanticViewNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, schemaName: string, semanticViewName: string): positron.DataConnectionNode {
+	return {
+		name: semanticViewName,
+		kind: positron.DataConnectionNodeKind.SemanticView,
+		async getChildren() {
+			const semanticViewRef = `${schemaRef(database, schemaName)}.${quoteIdentifier(semanticViewName)}`;
+			const result = await client.query(`DESCRIBE SEMANTIC VIEW ${semanticViewRef}`);
+			const members = parseSemanticViewDescription(result.rows);
+			const K = positron.DataConnectionNodeKind;
+			return [
+				createSemanticViewMemberGroupNode('Tables', K.GroupLogicalTables, members.tables, member => createLogicalTableNode(client, host, member)),
+				createSemanticViewMemberGroupNode('Relationships', K.GroupRelationships, members.relationships, member => ({ name: member.name, kind: K.Relationship })),
+				createSemanticViewMemberGroupNode('Facts', K.GroupFacts, members.facts, member => createSemanticExpressionNode(member, K.Fact)),
+				createSemanticViewMemberGroupNode('Dimensions', K.GroupDimensions, members.dimensions, member => createSemanticExpressionNode(member, K.Dimension)),
+				createSemanticViewMemberGroupNode('Metrics', K.GroupMetrics, members.metrics, member => createSemanticExpressionNode(member, K.Metric)),
+			].filter((group): group is positron.DataConnectionNode => group !== undefined);
+		},
+	};
+}
+
+/** Creates a group of semantic view members, or undefined when there are none. */
+function createSemanticViewMemberGroupNode(
+	name: string,
+	kind: positron.DataConnectionNodeKind,
+	members: ISemanticViewMember[],
+	createMemberNode: (member: ISemanticViewMember) => positron.DataConnectionNode
+): positron.DataConnectionNode | undefined {
+	if (members.length === 0) {
+		return undefined;
+	}
+	return {
+		name,
+		kind,
+		async getChildren() {
+			return members.map(createMemberNode);
+		},
+	};
+}
+
+/**
+ * Creates a logical table node. When DESCRIBE reported the base object, the node previews it and
+ * shows its three-part name; otherwise it is a plain leaf.
+ */
+function createLogicalTableNode(client: SnowflakeClient, host: ISnowflakePreviewHost, member: ISemanticViewMember): positron.DataConnectionNode {
+	const baseDatabase = member.properties.get('BASE_TABLE_DATABASE_NAME');
+	const baseSchema = member.properties.get('BASE_TABLE_SCHEMA_NAME');
+	const baseTable = member.properties.get('BASE_TABLE_NAME');
+	if (!baseDatabase || !baseSchema || !baseTable) {
+		return { name: member.name, kind: positron.DataConnectionNodeKind.LogicalTable };
+	}
+	return {
+		name: member.name,
+		kind: positron.DataConnectionNodeKind.LogicalTable,
+		dataType: `${baseDatabase}.${baseSchema}.${baseTable}`,
+		preview() {
+			// The base object may be a table or a view; DESCRIBE does not say which. The kind only tags
+			// the dataset id -- the Snowflake preview queries both the same way -- so 'table' is safe.
+			return host.previewObject(client, baseDatabase, baseSchema, baseTable, 'table');
+		},
+	};
+}
+
+/**
+ * Creates a fact, dimension, or metric node. These are scoped to a logical table, so they are named
+ * `<table>.<name>`, which is also how a SEMANTIC_VIEW(...) query refers to them, and carry their
+ * DATA_TYPE.
+ */
+function createSemanticExpressionNode(member: ISemanticViewMember, kind: positron.DataConnectionNodeKind): positron.DataConnectionNode {
+	return {
+		name: member.table ? `${member.table}.${member.name}` : member.name,
+		kind,
+		dataType: member.properties.get('DATA_TYPE'),
 	};
 }
 

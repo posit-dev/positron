@@ -91,6 +91,34 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 		case 'version':
 			return 'history';
 
+		// A semantic view is a model layered over tables, so it gets a hierarchy glyph rather than
+		// the plain view icon. Its logical tables reuse the table icons.
+		case 'group-semantic-views':
+		case 'semantic-view':
+			return 'type-hierarchy';
+
+		case 'group-logical-tables':
+			return 'positron-db-tables';
+
+		case 'logical-table':
+			return 'positron-db-table';
+
+		case 'group-relationships':
+		case 'relationship':
+			return 'link';
+
+		case 'group-facts':
+		case 'fact':
+			return 'symbol-constant';
+
+		case 'group-dimensions':
+		case 'dimension':
+			return 'symbol-field';
+
+		case 'group-metrics':
+		case 'metric':
+			return 'graph';
+
 		case 'column':
 		case 'field':
 			return dto.isPrimaryKey ? 'positron-db-column-key' : 'positron-db-column';
@@ -101,12 +129,13 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 };
 
 /**
- * Whether a node can be opened in the Data Explorer: a previewable table, view, column, pin, or pin
- * version. The `hasPreview` gate excludes nodes the driver didn't make previewable (e.g. index-column
- * fields, or pins whose storage type isn't tabular).
+ * Whether a node can be opened in the Data Explorer: a previewable table, view, column, semantic view
+ * logical table (which opens its base table), pin, or pin version. The `hasPreview` gate excludes nodes
+ * the driver didn't make previewable (e.g. index-column fields, or pins whose storage type isn't
+ * tabular).
  */
 const canPreview = (dto: IDataConnectionNodeDTO): boolean =>
-	dto.hasPreview && (dto.kind === 'table' || dto.kind === 'view' || dto.kind === 'field' || dto.kind === 'pin' || dto.kind === 'version');
+	dto.hasPreview && (dto.kind === 'table' || dto.kind === 'view' || dto.kind === 'field' || dto.kind === 'logical-table' || dto.kind === 'pin' || dto.kind === 'version');
 
 interface DataConnectionNodeRowProps {
 	dto: IDataConnectionNodeDTO;
