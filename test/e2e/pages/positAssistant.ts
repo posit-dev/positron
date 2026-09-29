@@ -15,7 +15,8 @@ const INNER_FRAME = '#active-frame';
 const ACTIVITY_BAR_BUTTON = 'a.action-label[aria-label="Posit Assistant"]';
 
 // Header buttons
-const NEW_CHAT_BUTTON = 'button:has(svg.lucide-plus)';
+// Newer builds add conversation tabs: a "+" tab button with the same icon, and a fresh tab labelled "New conversation".
+const NEW_CHAT_BUTTON = 'button[aria-label="New conversation"]:not([role="tab"])';
 const HISTORY_BUTTON = 'button:has(svg.lucide-history)';
 const MORE_BUTTON = 'button:has(svg.lucide-ellipsis):has(.sr-only:text("More"))';
 const SETTINGS_BUTTON = 'button:has(svg.lucide-settings):has(.sr-only:text("Settings"))';

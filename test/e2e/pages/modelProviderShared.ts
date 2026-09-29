@@ -289,15 +289,25 @@ export async function completeOAuthDeviceCodeLogin(code: Code, config: OAuthDevi
 	const { headless = false } = options;
 
 	const { verificationCode } = await extractDeviceCodeFromModal(code, config);
+	await completeOAuthDeviceCodeLoginWithCode(config, verificationCode, { headless });
+}
 
-	let finalVerificationUrl = config.verificationUrl;
+/**
+ * Drives the external Posit login for a device code the caller already has,
+ * e.g. one read from the Posit Assistant provider manager webview.
+ * Pass `verificationUrl` when the auth server supplied one; otherwise it's built from the auth host.
+ */
+export async function completeOAuthDeviceCodeLoginWithCode(config: OAuthDeviceCodeConfig, verificationCode: string, options: LoginModelProviderOptions = {}, verificationUrl?: string): Promise<void> {
+	const { headless = false } = options;
+
+	let finalVerificationUrl = verificationUrl || config.verificationUrl;
 	if (!finalVerificationUrl && config.authHostEnvVar) {
 		const authHost = process.env[config.authHostEnvVar];
 		if (!authHost) {
 			throw new Error(`OAuth auth host not configured. Please set ${config.authHostEnvVar} environment variable.`);
 		}
 		const redirectPath = encodeURIComponent(`/oauth/device?user_code=${verificationCode}`);
-		finalVerificationUrl = `${authHost}/login?redirect=${redirectPath}`;
+		finalVerificationUrl = `${authHost.replace(/\/+$/, '')}/login?redirect=${redirectPath}`;
 	}
 	if (!finalVerificationUrl) {
 		throw new Error('No verification URL available for OAuth flow');
