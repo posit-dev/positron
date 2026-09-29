@@ -11,6 +11,7 @@ import { ITextModel } from '../../../../../editor/common/model.js';
 import { CodeActionContext, CodeActionTriggerType } from '../../../../../editor/common/languages.js';
 import { CodeActionKind } from '../../../../../editor/contrib/codeAction/common/types.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
@@ -67,8 +68,12 @@ describe('PositronDataExplorerCodeActionProvider', () => {
 	let session: ILanguageRuntimeSession | undefined;
 	let variablesInstances: IPositronVariablesInstance[];
 	let openViewStub: ReturnType<typeof vi.fn<(...args: unknown[]) => Promise<unknown>>>;
+	let dataConnectionsEnabled: boolean | undefined;
 
 	const ctx = createTestContainer()
+		.stub(IConfigurationService, {
+			getValue: (key: string) => key === 'dataConnections.enabled' ? dataConnectionsEnabled : undefined,
+		})
 		.stub(ILanguageService, {
 			getLanguageName: (id: string) => id === 'r' ? 'R' : id === 'python' ? 'Python' : null,
 		})
@@ -89,6 +94,7 @@ describe('PositronDataExplorerCodeActionProvider', () => {
 		session = makeSession('r');
 		variablesInstances = [makeVariablesInstance([makeVariableItem({ displayName: 'df' })])];
 		openViewStub = vi.fn().mockResolvedValue(null);
+		dataConnectionsEnabled = undefined;
 	});
 
 	const provide = (model: ITextModel, context?: Partial<CodeActionContext>) => {
@@ -129,6 +135,26 @@ describe('PositronDataExplorerCodeActionProvider', () => {
 		const result = await provide(makeModel({ word: 'df' }));
 
 		expect(result).toBeUndefined();
+	});
+
+	describe('connection variables', () => {
+		beforeEach(() => {
+			variablesInstances = [makeVariablesInstance([makeVariableItem({ displayName: 'conn', kind: 'connection' })])];
+		});
+
+		it('offers nothing when Data Connections replaces the Connections pane', async () => {
+			const result = await provide(makeModel({ word: 'conn' }));
+
+			expect(result).toBeUndefined();
+		});
+
+		it('offers the action when the Connections pane is in use', async () => {
+			dataConnectionsEnabled = false;
+
+			const result = await provide(makeModel({ word: 'conn' }));
+
+			expect(result?.actions).toHaveLength(1);
+		});
 	});
 
 	it('offers nothing when the request is scoped to an unrelated kind', async () => {

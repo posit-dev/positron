@@ -19,12 +19,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-
-// The Data Connections feature flag. When it is on, the Data Connections panel replaces this
-// service's Connections pane, so this service leaves runtime connections alone. Must match
-// POSITRON_DATA_CONNECTIONS_ENABLED_KEY in positronDataConnectionsConfiguration.ts, which sits in
-// the contrib layer and cannot be imported here.
-const DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/common/positronDataConnectionsConfiguration.js';
 
 export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -55,7 +50,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		// With the Data Connections feature on, the Connections pane is not registered, so there is
 		// nowhere to show connections. Read once, like the pane's own registration: toggling the
 		// setting requires a reload.
-		if (configurationService.getValue<boolean>(DATA_CONNECTIONS_ENABLED_KEY) !== false) {
+		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== false) {
 			return;
 		}
 

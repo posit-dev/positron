@@ -17,14 +17,13 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
-import { viewVariableItem } from '../../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
+import { canViewVariableItem, viewVariableItem } from '../../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { IPositronVariablesInstance, PositronVariablesSorting } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from '../positronVariablesIdentifiers.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Event } from '../../../../../base/common/event.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../positronDataConnections/browser/positronDataConnectionsConfiguration.js';
 
 /**
  * Formats a size for display.
@@ -142,12 +141,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		return () => disposableStore.dispose();
 	}, [props.variableItem]);
 
-	// A connection's viewer is the Connections pane, which is not registered when the Data
-	// Connections feature replaces it.
-	const hasViewer = props.variableItem.hasViewer && !(
-		props.variableItem.kind === 'connection' &&
-		services.configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== false
-	);
+	const hasViewer = canViewVariableItem(props.variableItem, services.configurationService);
 
 	/**
 	 * Opens a viewer for the variable item, or activates the existing viewer
