@@ -5,8 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
-import { useEffect } from 'react';
-import { screen, waitFor, within } from '@testing-library/react';
+import { useEffect, useState } from 'react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { URI } from '../../../../../base/common/uri.js';
 import { Event } from '../../../../../base/common/event.js';
@@ -53,8 +53,31 @@ const SelectPythonTemplate = (props: { onState: (state: IDisposable) => void }) 
 };
 
 /**
+ * Renders the step until a test hides it. Back and Next unmount the step and mount a fresh one,
+ * while the flow state lives on in the provider above, so hiding and showing it again stands in
+ * for leaving the step and coming back.
+ */
+const HideableStep = (props: { onSetShown: (setShown: (shown: boolean) => void) => void }) => {
+	const [shown, setShown] = useState(true);
+	useEffect(() => {
+		props.onSetShown(setShown);
+		// Handed to the test once, on mount.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
+	return shown ?
+		<PythonEnvironmentStep
+			accept={vi.fn()}
+			back={vi.fn()}
+			cancel={vi.fn()}
+			next={vi.fn()}
+		/> :
+		null;
+};
+
+/**
  * Renders the step on the Python environment page. Shared by both suites, which differ only in
  * which environment provider their command stub reports.
+ * @returns A function that hides or shows the step while keeping the flow state.
  */
 function renderStep(
 	rtl: ReturnType<typeof setupRTLRenderer>,
@@ -62,6 +85,8 @@ function renderStep(
 ) {
 	// The state manager reads the services singleton rather than the React context.
 	PositronReactServices.services = ctx.reactServices;
+
+	let setStepShown!: (shown: boolean) => void;
 
 	rtl.render(
 		<NewFolderFlowContextProvider
@@ -77,15 +102,11 @@ function renderStep(
 					onCancel: vi.fn(),
 				}}
 			>
-				<PythonEnvironmentStep
-					accept={vi.fn()}
-					back={vi.fn()}
-					cancel={vi.fn()}
-					next={vi.fn()}
-				/>
+				<HideableStep onSetShown={setShown => { setStepShown = setShown; }} />
 			</FlowDialogProvider>
 		</NewFolderFlowContextProvider>
 	);
+	return (shown: boolean) => act(() => setStepShown(shown));
 }
 
 // The sub step is a plain div with no role, so it is reached through its title. Scoping to it is
@@ -130,8 +151,8 @@ describe('PythonEnvironmentStep uv install', () => {
 		ctx.instantiationService.stub(ICommandService, {
 			executeCommand: executeCommand as unknown as ICommandService['executeCommand'],
 		});
-		renderStep(rtl, ctx);
-		return { executeCommand };
+		const setStepShown = renderStep(rtl, ctx);
+		return { executeCommand, setStepShown };
 	}
 
 	const installButton = () => screen.findByRole('button', { name: 'Install uv' });
@@ -207,6 +228,35 @@ describe('PythonEnvironmentStep uv install', () => {
 		)).toBeInTheDocument();
 
 		finishInstall({ ok: false });
+	});
+
+	it('still shows a running install after the user leaves the step and comes back', async () => {
+		const user = userEvent.setup();
+		let finishInstall!: (result: unknown) => void;
+		const { setStepShown } = renderUvStep(new Promise((resolve) => { finishInstall = resolve; }));
+
+		await user.click(await installButton());
+		expect(await screen.findByRole('button', { name: 'Installing...' })).toBeInTheDocument();
+		setStepShown(false);
+		setStepShown(true);
+
+		// A fresh step that offered Install uv again would let the user start a second installer.
+		expect(await screen.findByRole('button', { name: 'Installing...' })).toHaveAttribute('aria-disabled', 'true');
+		expect(screen.queryByRole('button', { name: 'Install uv' })).not.toBeInTheDocument();
+
+		finishInstall({ ok: false });
+	});
+
+	it('still shows why the install failed after the user leaves the step and comes back', async () => {
+		const user = userEvent.setup();
+		const { setStepShown } = renderUvStep({ ok: false, error: 'Failed to install uv.' });
+
+		await user.click(await installButton());
+		expect(await screen.findByText('Failed to install uv.')).toBeInTheDocument();
+		setStepShown(false);
+		setStepShown(true);
+
+		expect(await screen.findByText('Failed to install uv.')).toBeInTheDocument();
 	});
 
 	it('drops the failure message when the provider changes, since nothing was attempted there', async () => {

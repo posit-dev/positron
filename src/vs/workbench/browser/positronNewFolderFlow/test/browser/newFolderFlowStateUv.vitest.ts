@@ -122,4 +122,35 @@ describe('NewFolderFlowStateManager uv install', () => {
 		expect(result).toEqual({ ok: false, error: 'uv was not found after installing it.' });
 		expect(state.isUvInstalled).toBe(false);
 	});
+
+	it('joins a running install instead of starting a second installer', async () => {
+		// An unresolved promise stands in for the installer still running.
+		let finishInstall!: (result: unknown) => void;
+		const { state, executeCommand } = createState(new Promise(resolve => { finishInstall = resolve; }));
+		await initialized(state);
+
+		const first = state.installUv();
+		const second = state.installUv();
+		const pendingWhileRunning = state.uvInstallPending;
+		finishInstall({ ok: false });
+		await Promise.all([first, second]);
+
+		expect({
+			pendingWhileRunning,
+			pendingAfter: state.uvInstallPending,
+			installs: executeCommand.mock.calls.filter(([commandId]) => commandId === 'python.ensureUvInstalled').length,
+		}).toEqual({ pendingWhileRunning: true, pendingAfter: false, installs: 1 });
+	});
+
+	it('keeps the install error until the environment provider changes', async () => {
+		const { state } = createState({ ok: false, error: 'Failed to install uv.' });
+		await initialized(state);
+
+		await state.installUv();
+		const errorAfterInstall = state.uvInstallError;
+		state.pythonEnvProvider = 'another-provider-id';
+
+		expect({ errorAfterInstall, errorAfterProviderChange: state.uvInstallError })
+			.toEqual({ errorAfterInstall: 'Failed to install uv.', errorAfterProviderChange: undefined });
+	});
 });

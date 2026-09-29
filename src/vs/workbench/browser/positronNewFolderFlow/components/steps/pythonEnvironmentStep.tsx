@@ -66,8 +66,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	const [uvPythonVersionInfo, setUvPythonVersionInfo] = useState(context.uvPythonVersionInfo);
 	const [selectedUvPythonVersion, setSelectedUvPythonVersion] = useState(context.uvPythonVersion);
 	const [isUvInstalled, setIsUvInstalled] = useState(context.isUvInstalled);
-	const [uvInstallPending, setUvInstallPending] = useState(false);
-	const [uvInstallError, setUvInstallError] = useState<string | undefined>(undefined);
+	const [uvInstallPending, setUvInstallPending] = useState(context.uvInstallPending);
+	const [uvInstallError, setUvInstallError] = useState(context.uvInstallError);
 	const versionDropdownRef = useRef<HTMLButtonElement>(null);
 	const focusVersionsAfterInstall = useRef(false);
 
@@ -92,6 +92,8 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			setUvPythonVersionInfo(context.uvPythonVersionInfo);
 			setSelectedUvPythonVersion(context.uvPythonVersion);
 			setIsUvInstalled(context.isUvInstalled);
+			setUvInstallPending(context.uvInstallPending);
+			setUvInstallError(context.uvInstallError);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -113,13 +115,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		// when user clears the input
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [envSetupType, envProviderId, envProviders, context]);
-
-	// Clear the install error when the provider or setup type changes. The error describes an
-	// attempt made for the provider selected at the time, so on any other selection it reports a
-	// failure that did not happen there.
-	useEffect(() => {
-		setUvInstallError(undefined);
-	}, [envProviderId, envSetupType]);
 
 	// Utility functions.
 	// At least one interpreter is available.
@@ -300,21 +295,13 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		context.selectedRuntime = selectedRuntime;
 	};
 
-	// Handler for the Install uv button. On success, the flow state refreshes the uv Python
-	// versions and fires onUpdateInterpreterState, which repopulates the version dropdown.
+	// Handler for the Install uv button. The flow state tracks the install and its outcome, and
+	// fires onUpdateInterpreterState as it starts and ends, which is what updates the callout and,
+	// on success, repopulates the version dropdown.
 	const onInstallUv = async () => {
-		setUvInstallPending(true);
-		setUvInstallError(undefined);
-		try {
-			const result = await context.installUv();
-			if (result.ok) {
-				focusVersionsAfterInstall.current = true;
-			} else {
-				// No error means nothing was attempted; leave the step as it was.
-				setUvInstallError(result.error);
-			}
-		} finally {
-			setUvInstallPending(false);
+		const result = await context.installUv();
+		if (result.ok) {
+			focusVersionsAfterInstall.current = true;
 		}
 	};
 
