@@ -16,9 +16,8 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 const MAX_SCREENSHOT_WIDTH = 1280;
 
 /**
- * Stands in for images that can't be re-fetched to rebuild a screenshot
- * (images from other hosts without CORS headers), so they show as a grey box
- * instead of vanishing.
+ * Stands in for images that can't be re-fetched (from other hosts without CORS
+ * headers), so they show as a grey box instead of vanishing.
  */
 const PLACEHOLDER_IMAGE = 'data:image/svg+xml,' + encodeURIComponent(
 	'<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="100%" height="100%" fill="#ccc"/>' +
@@ -38,11 +37,9 @@ export interface IViewerCapture {
  * Draws part of an image onto white at the given size, scaled down to at most
  * MAX_SCREENSHOT_WIDTH wide, and encodes it as a PNG.
  *
- * @param source The image to draw.
  * @param crop The part of the source to draw, in the source's pixels.
  * @param width The width to draw it at, in CSS pixels.
  * @param height The height to draw it at, in CSS pixels.
- * @param targetWindow The window to create the canvas in.
  */
 async function encodePng(
 	source: CanvasImageSource,
@@ -75,26 +72,21 @@ async function encodePng(
 
 /**
  * Rebuilds a screenshot of what's on screen in an app's window from the page's
- * content, with modern-screenshot. Used in web builds, where the Viewer's app
- * frame is same-origin with Positron but there's no native capture. The
- * library runs in Positron's page and reads the app's document; the only thing
- * it adds to the app's page is a hidden sandbox frame while it works.
+ * content, with modern-screenshot, for web builds, which have no native
+ * capture. The library runs in Positron's page; all it adds to the app's page
+ * is a hidden sandbox frame while it works.
  *
- * WebGL canvases that don't keep their drawing buffer come out blank, and
- * images from other hosts without CORS headers come out as placeholders.
- * Elements with `position: fixed` move with the content when the page is
- * scrolled, so they can come out in the wrong place.
+ * WebGL canvases that don't keep their drawing buffer come out blank, images
+ * from other hosts without CORS headers come out as placeholders, and
+ * `position: fixed` elements can be misplaced when the page is scrolled.
  *
- * @param appWindow The app's window.
  * @param targetWindow The window to create canvases in.
  */
 export async function captureDomScreenshot(appWindow: Window, targetWindow: Window): Promise<IViewerCapture> {
-	// Render just the viewport. restoreScrollPosition shifts the content of
-	// every scrolled element, the page itself included, so the part of the page
-	// on screen lands at the top left. (Rendering the whole page and cropping it
-	// at the scroll position would shift it twice, and a long page can go over
-	// the browser's canvas size limit.) Streamlit's <html> is 0 px tall, because
-	// everything in it is absolutely positioned, so the size has to be given.
+	// Render just the viewport: restoreScrollPosition shifts every scrolled
+	// element's content, the page's too, so what's on screen lands at the top
+	// left (cropping a whole-page render at the scroll position would shift it
+	// twice). Give the size, because Streamlit's <html> is 0 px tall.
 	const width = appWindow.innerWidth;
 	const height = appWindow.innerHeight;
 	// Make the context here rather than letting domToCanvas make one, so that
@@ -125,7 +117,6 @@ export async function captureDomScreenshot(appWindow: Window, targetWindow: Wind
  * a screenshot at CSS pixel size, scaled down to at most MAX_SCREENSHOT_WIDTH
  * wide.
  *
- * @param png The captured PNG.
  * @param targetWindow The window the Viewer is in.
  */
 export async function scaleNativeScreenshot(png: VSBuffer, targetWindow: Window): Promise<IViewerCapture> {

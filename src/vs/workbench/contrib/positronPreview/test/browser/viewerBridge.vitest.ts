@@ -197,25 +197,15 @@ describe('createViewerBridge', () => {
 		expect(lines.at(-1)).toBe('  - text "(up to 10 more rows)"');
 	});
 
-	it('skips hidden rows without counting them toward the cap', () => {
-		const rows = Array.from({ length: 3 }, (_, i) => `<tr${i === 0 ? ' style="display: none"' : ''}><td>${i}</td></tr>`).join('');
-
-		expect(snapshotText(`<table>${rows}</table>`)).toMatchInlineSnapshot(`
-			"- table
-			  - row "1"
-			  - row "2""
-		`);
-	});
-
-	it('doesn\'t count empty rows toward the cap', () => {
-		// 60 data rows, each followed by an empty spacer row.
-		const rows = Array.from({ length: 60 }, (_, i) => `<tr><td>${i}</td></tr><tr><td></td></tr>`).join('');
+	it('doesn\'t list or count hidden and empty rows toward the cap', () => {
+		// 60 data rows, each followed by an empty row and a hidden one.
+		const rows = Array.from({ length: 60 }, (_, i) => `<tr><td>${i}</td></tr><tr><td></td></tr><tr style="display: none"><td>hidden</td></tr>`).join('');
 		const lines = snapshotText(`<table>${rows}</table>`).split('\n');
 
 		expect({ lines: lines.length, lastRow: lines.at(-2), more: lines.at(-1) }).toEqual({
 			lines: 52,
 			lastRow: '  - row "49"',
-			more: '  - text "(up to 21 more rows)"',
+			more: '  - text "(up to 32 more rows)"',
 		});
 	});
 
@@ -311,40 +301,25 @@ describe('createViewerBridge', () => {
 		`);
 	});
 
-	it('walks into open shadow roots', () => {
+	it('walks into open shadow roots, in the page and in same-origin iframes', () => {
 		const win = loadApp('');
-		const host = win.document.createElement('my-widget');
-		win.document.body.appendChild(host);
-		host.attachShadow({ mode: 'open' }).innerHTML = '<button>Inside</button>';
-
-		expect(createViewerBridge(win).snapshot().text).toBe('- button "Inside" [ref=e1]');
-	});
-
-	it('walks into open shadow roots inside same-origin iframes', () => {
-		const win = loadApp('');
-		const inner = win.document.createElement('iframe');
-		win.document.body.appendChild(inner);
-		const innerDoc = inner.contentDocument!;
-		const wrapper = innerDoc.createElement('div');
-		innerDoc.body.appendChild(wrapper);
-		const host = innerDoc.createElement('my-widget');
-		wrapper.appendChild(host);
-		host.attachShadow({ mode: 'open' }).innerHTML = '<button>Inside</button>';
+		const host = win.document.body.appendChild(win.document.createElement('my-widget'));
+		host.attachShadow({ mode: 'open' }).innerHTML = '<button>In the page</button>';
+		const innerDoc = win.document.body.appendChild(win.document.createElement('iframe')).contentDocument!;
+		const innerHost = innerDoc.body.appendChild(innerDoc.createElement('div')).appendChild(innerDoc.createElement('my-widget'));
+		innerHost.attachShadow({ mode: 'open' }).innerHTML = '<button>In the iframe</button>';
 
 		expect(createViewerBridge(win).snapshot().text).toMatchInlineSnapshot(`
-			"- iframe
-			  - button "Inside" [ref=e1]"
+			"- button "In the page" [ref=e1]
+			- iframe
+			  - button "In the iframe" [ref=e2]"
 		`);
 	});
 
-	it('limits the snapshot to a selector', () => {
-		expect(snapshotText('<h1>Title</h1><div id="part"><button>Go</button></div>', { selector: '#part' }))
-			.toBe('- button "Go" [ref=e1]');
-	});
+	it('limits the snapshot to a selector, and says when it matches nothing', () => {
+		const bridge = createViewerBridge(loadApp('<h1>Title</h1><div id="part"><button>Go</button></div>'));
 
-	it('reports a selector that matches nothing', () => {
-		const bridge = createViewerBridge(loadApp('<p>Hi</p>'));
-
+		expect(bridge.snapshot({ selector: '#part' }).text).toBe('- button "Go" [ref=e1]');
 		expect(() => bridge.snapshot({ selector: '#missing' })).toThrow('Nothing in the Viewer matches the selector "#missing".');
 	});
 
@@ -478,6 +453,16 @@ describe('act', () => {
 			outcome: { message: 'Clicked the button "Go".', navigated: false, timedOut: false },
 			events: ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'],
 		});
+	});
+
+	it('leaves focus where it is when the page cancels mousedown, as react-aria\'s options do', async () => {
+		const bridge = load('<input id="color" aria-label="Bar color"><div role="option" id="option" tabindex="-1">darkorange</div>');
+		byId('option').addEventListener('mousedown', event => event.preventDefault());
+		byId('color').focus();
+
+		await bridge.act({ kind: 'click', ref: 'e2' }, QUICK);
+
+		expect(win.document.activeElement?.id).toBe('color');
 	});
 
 	it('checks that a click toggled a checkbox', async () => {
@@ -705,14 +690,6 @@ describe('act', () => {
 		expect({ message: outcome.message, keys }).toEqual({ message: 'Pressed Enter in the textbox "Message".', keys: ['Enter/Enter'] });
 	});
 
-	it('scrolls a control into view', async () => {
-		const bridge = load('<button>Go</button>');
-
-		const outcome = await bridge.act({ kind: 'scroll', ref: 'e1' }, QUICK);
-
-		expect(outcome.message).toBe('Scrolled the button "Go" into view.');
-	});
-
 	it('scrolls a control\'s own scrolling area or the page, never an unrelated one', async () => {
 		const bridge = load('<button>Go</button><div id="table" style="overflow-y: auto; height: 100px"></div>');
 		// A scrolling area elsewhere on the page, which the button isn't in.
@@ -724,25 +701,18 @@ describe('act', () => {
 		expect({ tableTop: table.scrollTop, page: outcome.message.includes('the page') }).toEqual({ tableTop: 0, page: true });
 	});
 
-	it('waits for text that only the snapshot sees, such as in a shadow root', async () => {
-		const bridge = load('<div id="host"></div>');
+	it('waits for text to show up, including where only the snapshot sees it (a shadow root)', async () => {
+		const bridge = load('<div id="out">Loading</div><div id="host"></div>');
 		const shadow = byId('host').attachShadow({ mode: 'open' });
-		win.setTimeout(() => shadow.innerHTML = '<p>Done: 42 rows</p>', 50);
+		win.setTimeout(() => {
+			byId('out').textContent = 'Done: 42 rows';
+			shadow.innerHTML = '<p>Chart drawn</p>';
+		}, 50);
+		const waitFor = (text: string, timeoutMs = 2000) => bridge.act({ kind: 'wait', for: 'text', text, timeoutMs }, QUICK);
 
-		const outcome = await bridge.act({ kind: 'wait', for: 'text', text: 'Done', timeoutMs: 2000 }, QUICK);
-
-		expect(outcome.message).toMatch(/^The text "Done" is on the page/);
-	});
-
-	it('waits for text to show up on the page', async () => {
-		const bridge = load('<div id="out">Loading</div>');
-		win.setTimeout(() => byId('out').textContent = 'Done: 42 rows', 50);
-
-		const outcome = await bridge.act({ kind: 'wait', for: 'text', text: 'Done', timeoutMs: 2000 }, QUICK);
-
-		expect(outcome.message).toMatch(/^The text "Done" is on the page \(after \d+ ms\)\.$/);
-		await expect(bridge.act({ kind: 'wait', for: 'text', text: 'Never', timeoutMs: 100 }, QUICK))
-			.rejects.toThrow('The text "Never" didn\'t show up on the page within 100 ms.');
+		expect((await waitFor('Done')).message).toMatch(/^The text "Done" is on the page \(after \d+ ms\)\.$/);
+		expect((await waitFor('Chart drawn')).message).toMatch(/^The text "Chart drawn" is on the page/);
+		await expect(waitFor('Never', 100)).rejects.toThrow('The text "Never" didn\'t show up on the page within 100 ms.');
 	});
 
 	it('reports a page going to another address, rather than waiting on it', async () => {
@@ -805,18 +775,13 @@ describe('waitForIdle', () => {
 		frame.remove();
 	});
 
-	it('resolves once the page has been quiet', async () => {
-		const result = await createViewerBridge(win).waitForIdle({ quietMs: 20, timeoutMs: 1000 });
-
-		expect(result.timedOut).toBe(false);
-	});
-
-	it('keeps waiting while Shiny is busy', async () => {
+	it('resolves once the page has been quiet, but not while Shiny is busy', async () => {
+		const bridge = createViewerBridge(win);
+		const quiet = await bridge.waitForIdle({ quietMs: 20, timeoutMs: 1000 });
 		win.document.documentElement.classList.add('shiny-busy');
+		const busy = await bridge.waitForIdle({ quietMs: 20, timeoutMs: 200 });
 
-		const result = await createViewerBridge(win).waitForIdle({ quietMs: 20, timeoutMs: 200 });
-
-		expect(result.timedOut).toBe(true);
+		expect({ quiet: quiet.timedOut, busy: busy.timedOut }).toEqual({ quiet: false, busy: true });
 	});
 });
 
@@ -838,15 +803,7 @@ describe('viewerBridgeScript', () => {
 		return (frame.contentWindow as AppWindow).eval(script);
 	}
 
-	it('runs a bridge method inside the app frame', async () => {
-		frame.contentDocument!.body.innerHTML = '<button>Go</button>';
-
-		const result = await runInApp(viewerBridgeScript('snapshot', [{ interactiveOnly: true }]));
-
-		expect(result).toEqual({ ok: true, value: { text: '- button "Go" [ref=e1]', url: 'about:blank', title: '', truncated: false } });
-	});
-
-	it('treats a missing options argument, which arrives as null, as no options', async () => {
+	it('runs a bridge method inside the app frame, where a missing argument arrives as null', async () => {
 		frame.contentDocument!.body.innerHTML = '<button>Go</button>';
 
 		const result = await runInApp(viewerBridgeScript('snapshot', [undefined]));

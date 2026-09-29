@@ -19,9 +19,6 @@ import { captureDomScreenshot, IViewerCapture } from './viewerScreenshot.js';
  */
 const viewerBridges = new WeakMap<Document, IViewerBridge>();
 
-/**
- * The result of a call to a Viewer bridge method.
- */
 export type ViewerBridgeResult<M extends keyof IViewerBridge> = Awaited<ReturnType<IViewerBridge[M]>>;
 
 export class PreviewOverlayWebview extends Disposable {
@@ -134,9 +131,6 @@ export class PreviewOverlayWebview extends Disposable {
 	 * origin, so the bridge runs here and reaches into the app's frame
 	 * directly. Nothing is injected into the app. The Electron implementation
 	 * runs the bridge in the app's frame through the main process instead.
-	 *
-	 * @param method The bridge method to call.
-	 * @param args The method's arguments.
 	 */
 	public async runBridge<M extends keyof IViewerBridge>(method: M, ...args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
 		const appWindow = this.getAppWindow();

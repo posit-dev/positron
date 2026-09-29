@@ -118,15 +118,14 @@ describe('PositronViewerAgentService', () => {
 		return webview;
 	}
 
-	it('describes an empty Viewer', () => {
-		expect(createService().getViewerInfo()).toEqual({ kind: 'none', visible: true });
-	});
+	it('describes an empty Viewer, or an app loaded from a URL without the Viewer\'s cache-busting parameter', () => {
+		const service = createService();
+		expect(service.getViewerInfo()).toEqual({ kind: 'none', visible: true });
 
-	it('describes an app loaded from a URL, without the Viewer\'s cache-busting parameter', () => {
 		showUrl();
 		viewerVisible = false;
 
-		expect(createService().getViewerInfo()).toEqual({
+		expect(service.getViewerInfo()).toEqual({
 			kind: 'url',
 			title: undefined,
 			url: 'http://localhost:8000/',
@@ -165,16 +164,13 @@ describe('PositronViewerAgentService', () => {
 		await expect(service.viewerAct({ kind: 'click', ref: 'e1' })).rejects.toThrow(/AI features are turned off/);
 	});
 
-	it('explains when there is nothing to read', async () => {
+	it('refuses when there\'s nothing it can read: an empty Viewer, or content such as notebook renderer output', async () => {
 		const service = createService();
-
 		await expect(service.getViewerSnapshot()).rejects.toThrow('Nothing is showing in the Viewer.');
-	});
 
-	it('refuses content it can\'t read yet, such as notebook renderer output', async () => {
 		activePreview = ctx.disposables.add(new PreviewWebview('notebookRenderer', 'previewWebview.1', 'Python', new FakePreviewOverlayWebview()));
 
-		await expect(createService().getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet.');
+		await expect(service.getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet.');
 	});
 
 	it('snapshots once the app has settled', async () => {
@@ -195,6 +191,24 @@ describe('PositronViewerAgentService', () => {
 		expect(webview.calls).toEqual(['viewport', 'waitForIdle', 'capture']);
 		expect({ mimeType: screenshot.mimeType, method: screenshot.method, revealed: screenshot.revealed })
 			.toEqual({ mimeType: 'image/png', method: 'dom', revealed: false });
+	});
+
+	it('reveals a hidden Viewer, without focus, and waits for the app to take its size', async () => {
+		const webview = showUrl();
+		viewerVisible = false;
+		// The app is still laid out at the hidden Viewer's size until the first check.
+		webview.viewport = { width: 300, height: 150 };
+		openView.mockImplementationOnce(async () => {
+			viewerVisible = true;
+			webview.viewport = { width: 600, height: 400 };
+			return null;
+		});
+
+		const screenshot = await createService().getViewerScreenshot();
+
+		expect(openView).toHaveBeenCalledWith('workbench.panel.positronPreview', false);
+		expect(screenshot.revealed).toBe(true);
+		expect(webview.calls).toEqual(['viewport', 'viewport', 'waitForIdle', 'capture']);
 	});
 
 	it('fails rather than return a screenshot of content the Viewer has moved on from', async () => {
@@ -293,21 +307,4 @@ describe('PositronViewerAgentService', () => {
 		expect(webview.calls).toEqual(['viewport', 'act']);
 	});
 
-	it('reveals a hidden Viewer, without focus, and waits for the app to take its size', async () => {
-		const webview = showUrl();
-		viewerVisible = false;
-		// The app is still laid out at the hidden Viewer's size until the first check.
-		webview.viewport = { width: 300, height: 150 };
-		openView.mockImplementationOnce(async () => {
-			viewerVisible = true;
-			webview.viewport = { width: 600, height: 400 };
-			return null;
-		});
-
-		const screenshot = await createService().getViewerScreenshot();
-
-		expect(openView).toHaveBeenCalledWith('workbench.panel.positronPreview', false);
-		expect(screenshot.revealed).toBe(true);
-		expect(webview.calls).toEqual(['viewport', 'viewport', 'waitForIdle', 'capture']);
-	});
 });

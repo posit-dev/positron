@@ -10,9 +10,6 @@ import { PreviewOverlayWebview, ViewerBridgeResult } from '../browser/previewOve
 import { viewerBridgeScript } from '../browser/viewerBridge.js';
 import { IViewerCapture, scaleNativeScreenshot } from '../browser/viewerScreenshot.js';
 
-/**
- * The result of running a Viewer bridge method in the app's frame.
- */
 type ViewerBridgeScriptResult<M extends keyof IViewerBridge> =
 	{ ok: true; value: ViewerBridgeResult<M> } |
 	{ ok: false; error: string };
@@ -40,9 +37,6 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 	 * Calls a Viewer bridge method against the page showing in the webview.
 	 * On Desktop the app's frame is cross-origin from Positron, so the bridge
 	 * is sent as a script and run in that frame by the main process.
-	 *
-	 * @param method The bridge method to call.
-	 * @param args The method's arguments.
 	 */
 	public override async runBridge<M extends keyof IViewerBridge>(method: M, ...args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
 		const frameId = this.webview.getContentFrameId();

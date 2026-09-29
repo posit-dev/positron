@@ -16,9 +16,8 @@ import { PreviewUrl, QUERY_NONCE_PARAMETER } from './previewUrl.js';
 import { PreviewWebview } from './previewWebview.js';
 
 /**
- * The longest a call into the app's page may take. The bridge's own waits
- * time out well before this; it's for pages that stop responding, for
- * example because they navigated away mid-call.
+ * The longest a call into the app's page may take, for pages that stop
+ * responding. The bridge's own waits end well before this.
  */
 const BRIDGE_CALL_TIMEOUT_MS = 20_000;
 
@@ -71,9 +70,6 @@ function uriToString(uri: URI): string {
 	return cleanUrl(uri.toString(true));
 }
 
-/**
- * Rejects with `message` if `promise` doesn't settle within `timeoutMs`.
- */
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
 	let timedOut = false;
 	const result = await raceTimeout(promise, timeoutMs, () => timedOut = true);
@@ -83,16 +79,10 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
 	return result as T;
 }
 
-/**
- * Rejects if a call into the app's page doesn't finish in time.
- */
 function withBridgeTimeout<T>(promise: Promise<T>): Promise<T> {
 	return withTimeout(promise, BRIDGE_CALL_TIMEOUT_MS, 'The page in the Viewer stopped responding.');
 }
 
-/**
- * Says what kind of content a preview shows.
- */
 function contentKindOf(preview: PreviewWebview | undefined): ViewerContentKind {
 	if (!preview) {
 		return 'none';
@@ -108,7 +98,7 @@ function contentKindOf(preview: PreviewWebview | undefined): ViewerContentKind {
 }
 
 /**
- * Gives AI agents read access to the content of the Viewer pane. Agents get
+ * Lets AI agents read and act on the content of the Viewer pane. Agents get
  * it through the `positron.ai` extension API; the checks live here so every
  * caller gets them.
  */
@@ -229,10 +219,8 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	}
 
 	/**
-	 * Makes sure the Viewer is showing, laid out at its size on screen,
-	 * revealing it without focus if it's hidden. In web builds a hidden
-	 * Viewer's frame shrinks to 300x150, so the app lays itself out at that
-	 * size until it's revealed.
+	 * Makes sure the Viewer is showing and the app is laid out at its size,
+	 * revealing the Viewer without focus if it's hidden.
 	 *
 	 * @returns Whether the Viewer had to be revealed.
 	 */
@@ -250,13 +238,11 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	}
 
 	/**
-	 * Waits for the page an action took the Viewer to, until it can be read
-	 * and the app has settled.
+	 * Waits until the page an action went to can be read and has settled.
 	 */
 	private async waitForNewPage(preview: PreviewWebview): Promise<void> {
 		// Until the new page takes over, a call can go to the old one, which is
-		// going away and never answers (on Desktop). So ping the page, with a
-		// short wait for each try, until it answers.
+		// going away and never answers (on Desktop), so keep each try short.
 		const deadline = Date.now() + PAGE_LOAD_TIMEOUT_MS;
 		for (; ;) {
 			await timeout(250);

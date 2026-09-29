@@ -124,9 +124,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 	async getViewerScreenshot(): Promise<positron.ai.ViewerScreenshot> {
 		const { value } = await this._proxy.$getViewerScreenshot();
-		// Copy the bytes: after the RPC, the buffer is a view into the whole
-		// message, and callers may read its underlying ArrayBuffer. (In Node it's
-		// a Buffer, whose slice() doesn't copy, so use the Uint8Array constructor.)
+		// Copy the bytes: after the RPC they're a view into the whole message. (In
+		// Node that's a Buffer, whose slice() doesn't copy.)
 		return { ...value, data: new Uint8Array(value.data.buffer) };
 	}
 

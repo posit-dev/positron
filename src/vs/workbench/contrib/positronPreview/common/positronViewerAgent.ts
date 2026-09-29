@@ -19,7 +19,6 @@ export type ViewerContentKind = 'url' | 'html' | 'other' | 'none';
  * Describes what's showing in the Viewer.
  */
 export interface IViewerInfo {
-	/** What's showing in the Viewer. */
 	readonly kind: ViewerContentKind;
 	/** The title of the Viewer's content, when known. */
 	readonly title?: string;
@@ -48,11 +47,8 @@ export interface IViewerSnapshotOptions {
  * roles, names and key properties, and refs for the controls.
  */
 export interface IViewerSnapshot {
-	/** The outline of the page. */
 	readonly text: string;
-	/** The URL of the page. */
 	readonly url: string;
-	/** The title of the page. */
 	readonly title: string;
 	/** Whether the outline was cut short to fit `maxChars`. */
 	readonly truncated: boolean;
@@ -63,11 +59,8 @@ export interface IViewerSnapshot {
  */
 export interface IViewerScreenshot {
 	readonly mimeType: 'image/png';
-	/** The PNG image. */
 	readonly data: VSBuffer;
-	/** The width of the image, in pixels. */
 	readonly width: number;
-	/** The height of the image, in pixels. */
 	readonly height: number;
 	/**
 	 * How the image was made: `native` is a real capture of the screen;
@@ -174,8 +167,9 @@ export interface IViewerBridge {
 export const IPositronViewerAgentService = createDecorator<IPositronViewerAgentService>('positronViewerAgentService');
 
 /**
- * Gives AI agents read access to the content of the Viewer pane: what's
- * showing, a text snapshot of the page, and a screenshot.
+ * Lets AI agents read and act on the content of the Viewer pane: what's
+ * showing, a text snapshot of the page, a screenshot, and actions a user
+ * could take.
  */
 export interface IPositronViewerAgentService {
 	readonly _serviceBrand: undefined;
@@ -204,7 +198,6 @@ export interface IPositronViewerAgentService {
 	 * without taking focus. Rejects with a message the agent can act on when
 	 * the action can't be taken or doesn't take effect.
 	 *
-	 * @param action The action to take.
 	 * @param snapshotOptions Options for the snapshot taken afterwards.
 	 */
 	viewerAct(action: ViewerAction, snapshotOptions?: IViewerSnapshotOptions): Promise<IViewerActResult>;

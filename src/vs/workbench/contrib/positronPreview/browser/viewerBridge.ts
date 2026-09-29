@@ -9,10 +9,7 @@
 
 import type { IViewerActOutcome, IViewerBridge, IViewerIdleOptions, IViewerIdleResult, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerAction } from '../common/positronViewerAgent.js';
 
-/**
- * The name of the global that caches the bridge in the app's window on
- * Desktop, where each call is a separate script run in the app's frame.
- */
+/** Caches the bridge in the app's window on Desktop, where each call is a separate script. */
 const BRIDGE_GLOBAL = '__positronViewerBridge1';
 
 /**
@@ -25,8 +22,6 @@ const BRIDGE_GLOBAL = '__positronViewerBridge1';
  * @param args The method's arguments; must be JSON-serializable.
  */
 export function viewerBridgeScript(method: keyof IViewerBridge, args: readonly unknown[]): string {
-	// The bridge is sent as source, so it must not refer to anything outside
-	// its own body (see createViewerBridge).
 	return `(async () => {
 	try {
 		const bridge = window[${JSON.stringify(BRIDGE_GLOBAL)}] ??= (${createViewerBridge})(window);
@@ -52,9 +47,6 @@ export function viewerBridgeScript(method: keyof IViewerBridge, args: readonly u
  * use the app window's own constructors (`win.MutationObserver`), because in
  * web builds it runs in Positron's page but acts on the app's same-origin
  * frame, where `instanceof` checks against Positron's classes fail.
- *
- * @param win The app's window.
- * @returns The bridge.
  */
 export function createViewerBridge(win: Window & typeof globalThis): IViewerBridge {
 	const doc = win.document;
@@ -202,11 +194,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return style.visibility === 'hidden' || style.visibility === 'collapse' ? 'invisible' : 'shown';
 	}
 
-	// Adds every element under `root` (and `root` itself) that has an open
-	// shadow root, plus its ancestors across shadow boundaries. Selectors don't
-	// reach into shadow roots, so these are the elements whose content a
-	// `querySelector` check would miss. Only `root`'s subtree is scanned, so a
-	// snapshot of part of the page doesn't pay for the whole document.
+	// Marks the elements under `root` (and `root`) that have an open shadow
+	// root, and their ancestors across shadow boundaries: selectors don't reach
+	// into shadow roots, so a `querySelector` check misses these elements' content.
 	function addShadowHosts(marked: Set<Element>, root: Element): void {
 		const mark = (host: Element) => {
 			for (let a: Element | null = host; a && !marked.has(a); a = a.parentElement ?? (a.getRootNode() as ShadowRoot).host ?? null) {
@@ -305,7 +295,6 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 				}
 				return ref === el ? el.getAttribute('aria-label') || '' : textOf(ref, 200, fallback);
 			}).join(' '));
-			// When the ids name nothing (yet), fall through to the other sources.
 			if (label) {
 				return label;
 			}
@@ -384,7 +373,6 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (isPopupSelect(el)) {
 			p.push(`value=${JSON.stringify(textOf(el, 80, fallback))}`);
 		}
-		// ARIA state on custom widgets (options, toggles, disclosure buttons).
 		if (el.getAttribute('aria-selected') === 'true') {
 			p.push('selected');
 		}
@@ -550,7 +538,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 				continue;
 			}
 			const cells = cellsOf(row).map(cell => textOf(cell, 100, fallback));
-			// Empty rows (spacers, separators) add nothing, so they don't count.
+			// Empty rows (spacers) don't count toward the cap.
 			if (cells.some(text => text)) {
 				listed++;
 				push(state, `${pad}- row ${JSON.stringify(cells.join(' | '))}`);
@@ -757,10 +745,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 
 	const sleep = (ms: number) => new Promise<void>(resolve => win.setTimeout(resolve, ms));
 	const quote = (s: string) => JSON.stringify(s);
-	// Focus and blur as a user's would. When the window isn't focused, as is
-	// common while an agent works, the browser moves focus but sends no focus
-	// or blur events, so send them: frameworks that track focus (Streamlit's
-	// react-aria) must see the same focus as the page.
+	// When the window isn't focused (common while an agent works), the browser
+	// moves focus without sending focus or blur events, so send them: frameworks
+	// that track focus (Streamlit's react-aria) must agree with the page.
 	const hasFocus = (el: Element) => (el.getRootNode() as Document | ShadowRoot).activeElement === el;
 	function focus(el: Element): void {
 		if (hasFocus(el)) {
@@ -813,8 +800,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		}
 	}
 
-	// Pointer and mouse events in the order a real pointer sends them, at the
-	// middle of the element. The enter events don't bubble.
+	// Pointer and mouse events in the order a real pointer sends them.
 	const HOVER_EVENTS = ['pointerover', 'pointerenter', 'mouseover', 'mouseenter', 'pointermove', 'mousemove'];
 	// Returns whether the page let the last event's default action happen.
 	function sendPointer(el: Element, types: readonly string[]): boolean {
@@ -1034,11 +1020,10 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		};
 	}
 
-	// Sliders are moved through their own keyboard handling, which tells the
-	// server (react-aria's in Streamlit, which wraps a hidden range input, and
-	// Radix's in Dash). Setting the value directly would move the slider on the
-	// page without telling the server. Only a plain range input, which doesn't
-	// move for synthetic keys, gets its value set.
+	// Sliders are moved with their own keyboard handling, which tells the server
+	// (react-aria's in Streamlit, around a hidden range input; Radix's in Dash).
+	// Setting the value moves the slider on the page without telling the server,
+	// so only a plain range input, which ignores synthetic keys, gets it set.
 	async function setSlider(el: Element, value: string, what: string): Promise<ActStep> {
 		const target = toNumber(value, what);
 		const input = el.tagName === 'INPUT' ? el as HTMLInputElement : undefined;
@@ -1222,20 +1207,18 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return options.filter(o => renderStateOf(o, false) === 'shown');
 	}
 
-	// ARIA comboboxes (Streamlit's selectbox): type the option to filter the
-	// list, then click the option with exactly that text. The keyboard would
-	// pick the first match, which can be another option that contains the
-	// text. With freeText (a fill), text that matches no option is kept, as
-	// in a search box with suggestions.
+	// ARIA comboboxes (Streamlit's selectbox): type to filter the list, then
+	// click the option with exactly that text (the keyboard would take the first
+	// match, which can be another option containing the text). With freeText (a
+	// fill), text that matches no option is kept, as in a search box.
 	async function selectInCombobox(el: HTMLInputElement, wanted: string, what: string, freeText: boolean): Promise<ActStep> {
 		const before = new Set(doc.querySelectorAll('[role="option"]'));
 		scrollToCenter(el);
 		focus(el);
 		setNativeValue(el, wanted);
-		// The list can take a moment to show the options for the text (Streamlit
-		// takes about a third of a second when it reopens). Some comboboxes
-		// only open their list for Down, as the ARIA pattern has it (Streamlit's,
-		// before its first use), so press it if nothing shows.
+		// The list can take a moment to show (Streamlit's, about a third of a
+		// second when it reopens), and some only open for Down, as in the ARIA
+		// pattern (Streamlit's, before its first use).
 		let options: Element[] = [];
 		let match: Element | undefined;
 		let opened = false;

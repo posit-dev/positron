@@ -26,7 +26,6 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { IPositronViewerAgentService } from '../common/positronViewerAgent.js';
 import { PositronViewerAgentService } from './positronViewerAgentService.js';
 
-// Register the service that gives AI agents read access to the Viewer.
 registerSingleton(IPositronViewerAgentService, PositronViewerAgentService, InstantiationType.Delayed);
 
 // The Positron preview view icon.
