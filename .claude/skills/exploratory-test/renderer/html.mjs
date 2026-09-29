@@ -134,13 +134,13 @@ function renderTiles(report) {
 	// Deliberately "Jump to Coverage", not "Jump to Scenarios": the tooltip is
 	// where the reader learns these numbers summarise the Coverage section.
 	const scenarioSegments = [
-		{ count: scenarios.pass, color: 'var(--pass-fill)', word: 'pass' },
-		{ count: scenarios.issues, color: 'var(--moderate-dot)', word: 'issues' },
+		{ count: scenarios.pass, color: 'var(--pass-fill)', word: 'passed' },
+		{ count: scenarios.issues, color: 'var(--moderate-dot)', word: 'failed' },
 		{ count: scenarios.notRun, color: 'var(--notrun-bar)', word: 'not run' },
 	].filter(s => s.count > 0);
 	const scenariosTile = tile(hasCoverage ? '#coverage' : null, 'Jump to Coverage',
 		'<div class="tile-label">Scenarios</div>'
-		+ `<div class="tile-figure"><span class="tile-num">${scenarios.exercised}</span><span class="unit">exercised</span></div>`
+		+ `<div class="tile-figure"><span class="tile-num">${scenarios.exercised + scenarios.notRun}</span><span class="unit">total</span></div>`
 		+ bar(scenarioSegments)
 		+ legend(scenarioSegments.map(s => ({ ...s, strong: s.count }))));
 
@@ -295,9 +295,10 @@ ${head}${[...(rows.length ? rows : [renderNoFindings(report)]), renderLinkedIssu
 }
 
 /**
- * The closed "Linked issues" row under the findings: open linked issues the
- * run ran into, which are not findings, so no number, card or count; then the
- * fixes verified and the issues not seen. Nothing when it would open empty.
+ * The "Linked issues" row under the findings. It opens only onto the open
+ * linked issues the run ran into, which are not findings, so no number, card
+ * or count. The fix-verified and not-observed counts show their lists on hover.
+ * Nothing when every count is zero.
  */
 function renderLinkedIssues(report, ki) {
 	const observed = ki?.observed ?? [];
@@ -311,29 +312,36 @@ function renderLinkedIssues(report, ki) {
 		const first = o.rows[0];
 		const where = o.rows.length > 1 ? `Observed in ${o.rows.length} scenarios` : `Observed in &ldquo;${first.scenarioHtml}&rdquo;`;
 		const ev = rowId.has(first) ? ` &middot; <a class="ki-ev" href="#${rowId.get(first)}">View evidence</a>` : '';
-		const state = o.issue.state === 'closed' ? 'Closed' : 'Open';
 		return '<div class="row findings-grid ki-row">'
 			+ `<span>${o.severity ? pill(o.severity) : ''}</span>`
 			+ `<span class="finding-cell"><span class="ki-title">${escapeHtml(o.issue.title)}</span><span class="ki-sub">${where}${ev}</span></span>`
 			+ `<span class="rate">${o.rows.length}</span>`
-			+ `<span class="ki-st"><span>${state} &middot; ${kiNum(o.issue.number, ki)}</span></span></div>`;
+			+ `<span class="ki-st"><span>${kiState(o.issue)} &middot; ${kiNum(o.issue.number, ki)}</span></span></div>`;
 	});
 	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+	const cnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 	const counts = [
 		observed.length ? `${observed.length} observed` : '',
-		held.length ? `${held.length} fix verified` : '',
+		held.length ? cnt('ki-list-fix', `${held.length} fix verified`) : '',
+		unseen.length ? cnt('ki-list-no', `${unseen.length} not observed`) : '',
 	].filter(Boolean).join(dot);
-	const nums = issues => issues.map(i => kiNum(i.number, ki)).join(', ');
-	const line = [
-		held.length ? `<b>Fix verified:</b> ${nums(held.map(h => h.issue))}` : '',
-		unseen.length ? `<b>Not observed:</b> ${nums(unseen)}` : '',
-	].filter(Boolean).join(dot);
-	return '<details class="ki-grp">'
-		+ `<summary><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span>${ICON.disclose('ki-chev')}</summary>`
-		+ rows.join('')
-		+ (line ? `<div class="ki-line">${line}</div>` : '')
-		+ '</details>';
+	// Hidden sources the script copies into its panel as they are, so every
+	// title and scenario name is escaped here.
+	const item = (issue, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="${REPO_URL}/issues/${Number(issue.number)}" target="_blank" rel="noopener">#${Number(issue.number)}</a>`
+		+ `<span>${escapeHtml(issue.title)}<span class="ki-lc-m">${kiState(issue)} &middot; ${meta}</span></span></div>`;
+	const list = (id, heading, items) => items.length ? `<div class="ki-list" id="${id}" hidden><div class="ki-lc-h">${heading}</div>${items.join('')}</div>` : '';
+	const skipped = ki?.skipped ?? new Set();
+	const lists = list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in &ldquo;${h.rows[0].scenarioHtml}&rdquo;`)))
+		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : 'no scenario reached it')));
+	const head = `<span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span>`;
+	// Only observed issues need rows, so with none there is nothing to open.
+	const row = rows.length
+		? `<details class="ki-grp"><summary>${head}${ICON.disclose('ki-chev')}</summary>${rows.join('')}</details>`
+		: `<div class="ki-grp"><div class="ki-hd">${head}</div></div>`;
+	return row + lists;
 }
+
+const kiState = issue => issue.state === 'closed' ? 'Closed' : 'Open';
 
 const size14 = svg => svg.replace('width="15" height="15"', 'width="14" height="14"');
 const CODE_COPY = '<button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code">'
@@ -346,8 +354,8 @@ function withCodeCopy(html) {
 }
 
 /**
- * Inline code becomes click-to-copy: Reproduce is full of short commands people
- * run one at a time. Code blocks are left alone, since they have a Copy button,
+ * Inline code becomes click-to-copy: Reproduce and Coverage steps are full of
+ * short commands people run one at a time. Code blocks are left alone, since they have a Copy button,
  * and so is a file chip, which linkFiles has already made a link.
  */
 function copyableCode(html) {
@@ -1100,9 +1108,9 @@ function renderCoverage(report, options = {}) {
 	const total = exercised.length + notExercised.length;
 	const hidden = Math.max(0, passes.length - COVERAGE_PASSES_SHOWN);
 	const ki = options.ki;
-	// What the row showed about the linked issues, after its own result.
-	// One suffix per outcome, listing its issues: "Also observed #1, #2".
-	const kiSuffix = row => {
+	// What the row showed about the linked issues leads its result, after any
+	// finding link. One tag per outcome, listing its issues: "Also observed #1, #2".
+	const kiTags = row => {
 		const groups = new Map();
 		for (const { n, kind } of row.issues ?? []) {
 			const issue = ki?.byNumber.get(n);
@@ -1111,9 +1119,9 @@ function renderCoverage(report, options = {}) {
 					: kind === 'observed' ? 'Also observed' : kind === 'back' ? 'Regressed' : null;
 			if (label) { groups.set(label, [...(groups.get(label) ?? []), kiNum(n, ki)]); }
 		}
-		return [...groups].map(([label, nums]) => ` &middot; ${label} ${nums.join(', ')}`).join('');
+		return [...groups].map(([label, nums]) => `${label} ${nums.join(', ')}`);
 	};
-	const result = row => linkIssues(row.resultHtml, ki) + kiSuffix(row);
+	const result = (row, lead = []) => [...lead, ...kiTags(row), row.resultHtml && linkIssues(row.resultHtml, ki)].filter(Boolean).join(' &middot; ');
 	const byLedgerId = new Map(exercised.filter(r => r.id).map(r => [r.id, r]));
 
 	// A passing row's screenshot hangs off the verify step it proves rather than
@@ -1155,11 +1163,10 @@ function renderCoverage(report, options = {}) {
 	const issueRows = issues.map(row => {
 		// Every finding the row hit, not just its first: a step can fail on another.
 		const ns = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(Boolean))];
-		const link = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`).join(' &middot; ');
-		const sep = link && row.resultHtml ? ' &middot; ' : '';
+		const links = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`);
 		return `<div class="row coverage-grid cf-r cf-i" id="${rowId.get(row)}">`
 			+ scenario(row, 'issue')
-			+ `<span class="cov-result">${link}${sep}${result(row)}</span>`
+			+ `<span class="cov-result">${result(row, links)}</span>`
 			+ '<span></span></div>';
 	});
 
@@ -1169,7 +1176,7 @@ function renderCoverage(report, options = {}) {
 		const cells = scenario(row, 'pass') + `<span class="cov-result">${result(row)}</span>`;
 		// With no steps to hang it on, the screenshot is the whole expanded row.
 		const steps = row.steps.length
-			? `<ol class="steps">${row.steps.map(st => renderStep(st, { tail: st.evidence.map(e => photo(row, i, e)).join('') })).join('\n')}</ol>`
+			? copyableCode(`<ol class="steps">${row.steps.map(st => renderStep(st, { tail: st.evidence.map(e => photo(row, i, e)).join('') })).join('\n')}</ol>`)
 			: row.shot ? `<p class="cv-shot">Screenshot${photo(row, i, { href: row.shot.href, file: row.shot.label })}</p>` : '';
 		const body = preconditions(row) + steps;
 		if (body) {
@@ -1191,7 +1198,7 @@ function renderCoverage(report, options = {}) {
 	// rows and arrow keys move between tabs. A kind with no rows gets no tab.
 	const kinds = [
 		{ id: 'all', label: 'All', n: total },
-		{ id: 'i', label: 'Issues', n: issues.length },
+		{ id: 'i', label: 'Failed', n: issues.length },
 		{ id: 'p', label: 'Passed', n: passes.length },
 		{ id: 'n', label: 'Not run', n: notExercised.length },
 	].filter(k => k.id === 'all' || k.n > 0);
@@ -1510,7 +1517,7 @@ var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){d
 if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
 else{fallback();}});});`;
 
-// Inline code in Reproduce: a click copies the chip. A drag-selection is left
+// Inline code in steps: a click copies the chip. A drag-selection is left
 // alone, so the usual copy still takes just what was selected. Not a control:
 // no tab stop, since keyboard users select and copy as they already do.
 const CODE_CHIP_SCRIPT = `document.querySelectorAll('code.cc').forEach(function(c){var t;
@@ -1539,6 +1546,36 @@ ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.
 var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){show();}}
 if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(show,fallback);}
 else{fallback();}});});})();`;
+
+// The Linked issues counts open their hidden list in one floating panel: on
+// hover (it stays while the pointer is on it), keyboard focus, or tap. Enter or
+// Space pins it, Escape closes it. A click on a count never toggles the row.
+const KI_LIST_SCRIPT = `(function(){var pop=document.createElement('div');pop.className='ki-lc';pop.id='ki-lc';pop.setAttribute('role','dialog');
+document.body.appendChild(pop);var cur=null,pinned=false,t=null;
+function place(a){var r=a.getBoundingClientRect(),w=pop.offsetWidth,h=pop.offsetHeight,m=12;
+pop.style.left=Math.min(Math.max(m,r.left-12),window.innerWidth-w-m)+'px';
+var top=r.bottom+8;if(top+h>window.innerHeight-m){top=Math.max(m,r.top-h-8);}pop.style.top=top+'px';}
+function show(a,pin){clearTimeout(t);if(cur&&cur!==a){cur.setAttribute('aria-expanded','false');}
+var src=document.getElementById(a.getAttribute('aria-controls'));if(!src){return;}
+cur=a;pinned=!!pin;pop.innerHTML=src.innerHTML;pop.setAttribute('aria-label',(src.querySelector('.ki-lc-h')||{}).textContent||'');
+pop.classList.add('is-open');a.setAttribute('aria-expanded','true');place(a);}
+function hide(){clearTimeout(t);if(cur){cur.setAttribute('aria-expanded','false');}cur=null;pinned=false;pop.classList.remove('is-open');}
+function later(){clearTimeout(t);t=setTimeout(function(){if(!pinned){hide();}},150);}
+function cnt(e){return e.target.closest&&e.target.closest('.ki-cnt');}
+function inPop(e){return e.target.closest&&e.target.closest('#ki-lc');}
+document.addEventListener('mouseover',function(e){var a=cnt(e);
+if(a){if(a!==cur){show(a,false);}else{clearTimeout(t);}return;}
+if(inPop(e)){clearTimeout(t);return;}if(cur&&!pinned){later();}});
+document.addEventListener('click',function(e){var a=cnt(e);
+if(a){e.preventDefault();e.stopPropagation();if(cur===a&&pinned){hide();}else{show(a,true);}return;}
+if(cur&&!inPop(e)){hide();}},true);
+document.addEventListener('keydown',function(e){var a=cnt(e);
+if(a&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.stopPropagation();if(cur===a&&pinned){hide();}else{show(a,true);}return;}
+if(e.key==='Escape'&&cur){var back=cur;hide();back.focus();}},true);
+document.addEventListener('focusin',function(e){var a=cnt(e);
+if(a&&a.matches(':focus-visible')){show(a,false);}else if(cur&&!pinned&&!inPop(e)){hide();}});
+window.addEventListener('scroll',function(){if(cur){place(cur);}},{passive:true});
+window.addEventListener('resize',function(){if(cur){place(cur);}});})();`;
 
 // The issue preview card: on hover and keyboard focus, Escape closes it; on
 // touch the first tap previews and a second opens GitHub. A number inside a
@@ -1679,8 +1716,9 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	const issue = page.includes(' data-issue="');
 	const codeCopy = page.includes('<code class="cc"');
 	const preview = page.includes(' data-title="');
+	const lists = page.includes('<span class="ki-cnt"');
 	const feedback = page.includes('<a class="fb-top" ');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}${lists ? `<script>${KI_LIST_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }

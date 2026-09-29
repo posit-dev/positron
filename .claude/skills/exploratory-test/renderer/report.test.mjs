@@ -531,7 +531,7 @@ test('renderReportHtml counts each coverage kind on its filter tab', () => {
 	const html = renderReportHtml(FULL);
 	const tabs = html.slice(html.indexOf('<div class="cf-tabs">'), html.indexOf('<div class="panel cf-card">'));
 	const counts = [...tabs.matchAll(/<span class="cf-l">([^<]+) <span class="cf-cnt">(\d+)<\/span><\/span>/g)].map(m => `${m[1]} ${m[2]}`);
-	assert.deepEqual(counts, ['All 4', 'Issues 1', 'Passed 2', 'Not run 1']);
+	assert.deepEqual(counts, ['All 4', 'Failed 1', 'Passed 2', 'Not run 1']);
 	// A hidden semibold copy holds each tab's selected width.
 	assert.match(tabs, /<span class="cf-g" aria-hidden="true">Passed 2<\/span><\/label>/);
 	// One radio per tab, All checked, all ahead of the tabs and the card.
@@ -851,7 +851,7 @@ test('renderReportHtml writes tile legends as plain text in bar order', () => {
 	// No colour keys: each item names what it counts, split by a quiet middot.
 	assert.doesNotMatch(tiles, /class="key"/);
 	assert.match(tiles, /<span class="legend-item"><b>1<\/b> major<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> minor<\/span>/);
-	assert.match(tiles, /<b>2<\/b> pass<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> issues<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> not run/);
+	assert.match(tiles, /<b>2<\/b> passed<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> failed<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> not run/);
 });
 
 test('renderReportHtml treats a placeholder Not exercised row as an empty list', () => {
@@ -1262,7 +1262,7 @@ test('parseReport keeps the step of a shot the finding also embeds', () => {
 test('renderReportHtml opens a passing coverage row on its steps, not a finding row', () => {
 	const html = renderReportHtml(RICH);
 	const cov = html.slice(html.indexOf('id="coverage"'));
-	assert.match(cov, /<details class="cv cf-r cf-p" id="cv-row-\d+"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol class="steps"><li>Build <code>df<\/code>\.<\/li>\n<li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
+	assert.match(cov, /<details class="cv cf-r cf-p" id="cv-row-\d+"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol class="steps"><li>Build <code class="cc" data-tip="Copy">df<\/code>\.<\/li>\n<li>Run <code class="cc" data-tip="Copy">%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
 	// No steps, nothing to open.
 	assert.match(cov, /<div class="row coverage-grid cf-r cf-p" id="cv-row-\d+"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
 	// The finding link leads, and the row does not expand.
@@ -1505,11 +1505,13 @@ test('ledger: Coverage and the Scenarios tile come from the ledger, not the repo
 	const report = parseReport(TYPED, { ledger: LEDGER });
 	assert.deepEqual(report.scenarios, { exercised: 8, pass: 6, issues: 2, notRun: 3 });
 	const html = renderReportHtml(TYPED, { ledger: LEDGER });
+	// The tile's number is every scenario, so the legend adds up to it.
+	assert.match(html, /<span class="tile-num">11<\/span><span class="unit">total<\/span>/);
 	const cov = coverageOf(html);
 	// One table: no subheadings, no second table.
 	assert.doesNotMatch(cov, /Exercised|Not exercised|<h3/);
 	assert.match(cov, /cf-tab-all"><span class="cf-l">All <span class="cf-cnt">11<\/span>/);
-	assert.match(cov, /cf-tab-i"><span class="cf-l">Issues <span class="cf-cnt">2<\/span>/);
+	assert.match(cov, /cf-tab-i"><span class="cf-l">Failed <span class="cf-cnt">2<\/span>/);
 	assert.match(cov, /cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">6<\/span>/);
 	assert.match(cov, /cf-tab-n"><span class="cf-l">Not run <span class="cf-cnt">3<\/span>/);
 	// Issues in finding order, then passes in run order, then not run.
@@ -2386,7 +2388,7 @@ test('the footer names the version the feedback links send, with a v, published 
 	assert.doesNotMatch(renderReportHtml(FULL), /sig-ver/);
 });
 
-test('code copy: inline code in Reproduce copies on click, and nothing else does', () => {
+test('code copy: inline code in Reproduce copies on click, and nothing else on the card does', () => {
 	const html = renderReportHtml(md([
 		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
 		'', '### Finding 1: a claim', '',
@@ -2510,6 +2512,8 @@ const findingsOf = html => html.slice(html.indexOf('id="findings"'), html.indexO
 const kiRows = html => [...findingsOf(html).matchAll(/<div class="row findings-grid ki-row">([\s\S]*?)<\/div>/g)].map(m => m[1]);
 const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>(?=\\n)`).exec(findingsOf(html))[0];
 const linkedOf = html => /<details class="ki-grp">[\s\S]*?<\/details>/.exec(findingsOf(html))?.[0] ?? '';
+const kiList = (html, id) => new RegExp(`<div class="ki-list" id="${id}" hidden>([\\s\\S]*?)</div></div>(?=<div class="ki-list"|\\n)`).exec(findingsOf(html))?.[1] ?? '';
+const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
 test('Linked issues is one closed row under the findings, counting what is inside', () => {
 	const html = kiHtml();
@@ -2517,8 +2521,11 @@ test('Linked issues is one closed row under the findings, counting what is insid
 	const linked = linkedOf(html);
 	assert.ok(f.indexOf('<a href="#f3"') < f.indexOf('<details class="ki-grp">'), 'under the findings');
 	assert.doesNotMatch(linked, /<details class="ki-grp" open/);
-	assert.match(linked, /<summary><span class="ki-lbl"><b>Linked issues<\/b><\/span><span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span>1 fix verified<\/span><svg class="ki-chev"[^>]*>[\s\S]*?<\/svg><\/summary>/);
-	assert.doesNotMatch(f, /ki-group|ki-foot|Already filed/);
+	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+	assert.ok(linked.startsWith(`<details class="ki-grp"><summary><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">3 observed${dot}${kiCnt('ki-list-fix', '1 fix verified')}${dot}${kiCnt('ki-list-no', '1 not observed')}</span><svg class="ki-chev"`), linked.slice(0, 400));
+	assert.doesNotMatch(f, /ki-group|ki-foot|ki-line|Already filed/);
+	assert.ok(f.indexOf('</details>') < f.indexOf('id="ki-list-fix"'), 'lists sit outside the row');
+	assert.ok(html.includes("closest('.ki-cnt')"), 'list script');
 });
 
 test('Linked issues lists open observed issues by severity, unrated last, then the fixes verified and the rest', () => {
@@ -2530,16 +2537,26 @@ test('Linked issues lists open observed issues by severity, unrated last, then t
 	assert.match(twice, /<span class="ki-st"><span>Open &middot; <a class="ki-num"/);
 	assert.ok(unrated.startsWith('<span></span>'), 'no pill when the verifier gave no severity');
 	assert.doesNotMatch(unrated, /Unrated|&mdash;/);
-	const line = /<div class="ki-line">([\s\S]*?)<\/div>/.exec(linkedOf(html))[1].replace(/<a class="ki-num"[^>]*>/g, '<a>');
-	// A closed issue that came back and an issue a finding matched are findings, so neither is listed.
-	assert.equal(line, '<b>Fix verified:</b> <a>#10</a><span class="ki-dot" aria-hidden="true">&middot;</span><b>Not observed:</b> <a>#24</a>');
 });
 
-test('Linked issues leaves out zero counts, shows just its label with none, and is left out when it would open empty', () => {
+test('the fix verified and not observed lists name each issue with its state and where it stood', () => {
+	const html = kiHtml();
+	const it = (n, title, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/${n}" target="_blank" rel="noopener">#${n}</a><span>${title}<span class="ki-lc-m">${meta}</span></span>`;
+	assert.equal(kiList(html, 'ki-list-fix'), `<div class="ki-lc-h">Fix verified this run</div>${it(10, 'held', 'Open &middot; passed in &ldquo;fix one&rdquo;')}`);
+	// A closed issue that came back and an issue a finding matched are findings, so neither is listed.
+	assert.equal(kiList(html, 'ki-list-no'), `<div class="ki-lc-h">Linked to this PR, not observed</div>${it(24, 'not seen', 'Open &middot; skipped on purpose, see Coverage')}`);
+	const unseen = kiHtml({ ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') });
+	assert.match(kiList(unseen, 'ki-list-no'), /#22<\/a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; no scenario reached it<\/span>/);
+});
+
+test('Linked issues leaves out zero counts, opens only onto observed issues, and is left out with no counts', () => {
 	const noFix = kiHtml({ ledger: KI_LEDGER.replace('Issue: #10 fix held\n', '') });
-	assert.match(linkedOf(noFix), /<span class="ki-sum">3 observed<\/span>/);
-	const unseen = kiHtml({ ledger: KI_LEDGER.replace(/^Issue: #(10 fix held|2[236] observed)\n/gm, '') });
-	assert.match(linkedOf(unseen), /<b>Linked issues<\/b><\/span><span class="ki-sum"><\/span>/);
+	assert.match(linkedOf(noFix), /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span><span class="ki-cnt"[^>]*>1 not observed<\/span><\/span>/);
+	assert.doesNotMatch(findingsOf(noFix), /ki-list-fix/);
+	// Nothing observed: the same row with its counts, but nothing to open.
+	const f = findingsOf(kiHtml({ ledger: KI_LEDGER.replace(/^Issue: #2[236] observed\n/gm, '') }));
+	assert.doesNotMatch(f, /<details class="ki-grp"|ki-chev/);
+	assert.match(f, new RegExp(`<div class="ki-grp"><div class="ki-hd"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${kiCnt('ki-list-fix', '1 fix verified')}<span class="ki-dot" aria-hidden="true">&middot;</span>${kiCnt('ki-list-no', '4 not observed')}</span></div></div>`));
 	const onlyFixes = { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) };
 	assert.equal(linkedOf(kiHtml({ knownIssues: onlyFixes })), '', 'a failed fix is a finding and an unexercised one is in Coverage');
 });
@@ -2599,12 +2616,12 @@ test('the card\'s Possibly known line sits under the title, drops the finding\'s
 	assert.doesNotMatch(known(3), /Comment there instead/, 'no single issue to comment on');
 });
 
-test('Coverage marks fixes and linked issues on their rows, and adds a Not run row for an unrecorded fix', () => {
+test('Coverage leads each row\'s result with its fixes and linked issues, after any finding link, and adds a Not run row for an unrecorded fix', () => {
 	const c = coverageOf(kiHtml()).replace(/<a class="ki-num"[^>]*>/g, '<a>');
-	assert.match(c, /Jumps &middot; Fix didn&rsquo;t hold for <a>#11<\/a>/);
-	assert.match(c, /Back &middot; Regressed <a>#21<\/a>/);
-	assert.match(c, /Loads &middot; Fix verified for <a>#10<\/a> &middot; Also observed <a>#26<\/a>/);
-	assert.match(c, /Fine &middot; Also observed <a>#22<\/a>, <a>#23<\/a>, <a>#26<\/a>/);
+	assert.match(c, /Finding 1<\/a> &middot; Fix didn&rsquo;t hold for <a>#11<\/a> &middot; Jumps/);
+	assert.match(c, /Finding 2<\/a> &middot; Regressed <a>#21<\/a> &middot; Back/);
+	assert.match(c, /"cov-result">Fix verified for <a>#10<\/a> &middot; Also observed <a>#26<\/a> &middot; Loads/);
+	assert.match(c, /"cov-result">Also observed <a>#22<\/a>, <a>#23<\/a>, <a>#26<\/a> &middot; Fine/);
 	assert.match(c, /Not run<\/span> &middot; Fix for <a>#12<\/a> not exercised: desktop only/);
 	assert.match(c, /Not run<\/span> &middot; Already filed as <a>#24<\/a>/);
 	assert.match(c, /Not run<\/span> &middot; Fix for <a>#13<\/a> not exercised: the run did not record it/);
@@ -2635,11 +2652,12 @@ test('with no findings, the empty state and Linked issues show without a header,
 	assert.doesNotMatch(f, /row-head/);
 	assert.match(f, /<b>No new findings<\/b><span>All 5 exercised scenarios passed; 3 weren&rsquo;t run\. <a class="ki-ev" href="#coverage">See Coverage<\/a>/);
 	assert.ok(f.indexOf('ki-empty') < f.indexOf('ki-grp'));
-	assert.match(f, /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span>2 fix verified<\/span>/);
+	assert.match(f, /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span><span class="ki-cnt"[^>]*>2 fix verified<\/span>/);
 });
 
 test('with no findings and no linked issues, only the empty state shows', () => {
 	const f = findingsOf(renderReportHtml(NO_FINDINGS, { ledger: passing(KI_LEDGER).replace(/^Issue: .*\n/gm, '') }));
-	assert.doesNotMatch(f, /row-head|ki-grp/);
+	assert.doesNotMatch(f, /row-head|ki-grp|ki-list/);
 	assert.match(f, /ki-empty/);
+	assert.ok(!renderReportHtml(NO_FINDINGS).includes("closest('.ki-cnt')"), 'no list script');
 });

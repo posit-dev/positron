@@ -224,6 +224,7 @@ export function parseLinked(text) {
  * - `knownFixes`: `{ n, issue }` matches on a fix or a closed linked issue,
  *   which may mean the explorer missed a failed fix or a regression.
  * - `notObserved`: linked issues the run did not see, skipped ones included.
+ * - `skipped`: numbers of linked issues a Not run row skipped on purpose.
  * - `unaccounted`: fixes with no outcome in the ledger at all, so the report
  *   can still list them as not exercised.
  * - `unrated`: observed issue numbers with no severity from the verifier.
@@ -269,8 +270,12 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 		}
 	}
 	const accounted = new Set([...held.keys(), ...accountedFails]);
+	const skipped = new Set();
 	for (const row of coverage?.notExercised ?? []) {
-		for (const { n } of row.issues ?? []) { accounted.add(n); }
+		for (const { n } of row.issues ?? []) {
+			accounted.add(n);
+			if (byNumber.has(n) && byNumber.get(n).relation !== 'fixes') { skipped.add(n); }
+		}
 	}
 	// A finding never matches its own issue, and one that looks like an open
 	// linked issue stands for it, so that issue is not listed again.
@@ -310,6 +315,7 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 		similar,
 		knownFixes,
 		notObserved: issues.filter(i => i.relation !== 'fixes' && !seen.has(i.number) && !back.has(i.number) && !represented.has(i.number)),
+		skipped,
 		unaccounted: issues.filter(i => i.relation === 'fixes' && !accounted.has(i.number)),
 		unrated: observed.filter(o => !o.severity).map(o => o.issue.number),
 		byNumber,
