@@ -7,7 +7,9 @@
 import './actionBars.css';
 
 // React.
-import { FormEvent, KeyboardEvent, PropsWithChildren, useEffect, useMemo, useRef, useState } from 'react';
+import { isCancellationError } from '../../../../../base/common/errors.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { FormEvent, KeyboardEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -42,64 +44,96 @@ const kMaximumSuggestions = 50;
 
 const HelpSearch = () => {
 	const services = usePositronReactServicesContext();
-	const cache = useRef(new Map<string, HelpTopicSuggestion[]>());
+	const inFlight = useRef<{ sessionId: string; promise: Promise<HelpTopicSuggestion[]>; } | undefined>(undefined);
 	const [foregroundSession, setForegroundSession] = useState(services.runtimeSessionService.foregroundSession);
 	const [query, setQuery] = useState('');
 	const [topics, setTopics] = useState<HelpTopicSuggestion[]>([]);
 	const [focused, setFocused] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(-1);
 	const [submitting, setSubmitting] = useState(false);
+	const submission = useRef(0);
+	const [runtimeState, setRuntimeState] = useState(foregroundSession?.getRuntimeState());
 
 	useEffect(() => {
 		const disposable = services.runtimeSessionService.onDidChangeForegroundSession(session => {
 			setForegroundSession(session);
+			setRuntimeState(session?.getRuntimeState());
+			submission.current++;
+			setSubmitting(false);
 			setTopics([]);
 			setActiveIndex(-1);
 		});
 		return () => disposable.dispose();
 	}, [services.runtimeSessionService]);
 
+
 	useEffect(() => {
-		if (!focused || !foregroundSession) {
-			return;
-		}
-		const cached = cache.current.get(foregroundSession.sessionId);
-		if (cached) {
-			setTopics(cached);
+		const listener = foregroundSession?.onDidChangeRuntimeState(setRuntimeState);
+		return () => listener?.dispose();
+	}, [foregroundSession]);
+
+	useEffect(() => {
+		setTopics([]);
+		setActiveIndex(-1);
+		if (!focused || !foregroundSession || !query.trim()) {
 			return;
 		}
 		let cancelled = false;
-		void services.positronHelpService.getHelpTopics().then(result => {
-			if (!cancelled) {
-				cache.current.set(foregroundSession.sessionId, result);
-				setTopics(result);
+		let dispatched = false;
+		let timer: number | undefined;
+		const ready = () => [RuntimeState.Idle, RuntimeState.Ready].includes(foregroundSession.getRuntimeState());
+		const requestSuggestions = async () => {
+			if (cancelled || dispatched || !ready()) {
+				return;
 			}
-		}).catch(() => { /* Search remains available without suggestions. */ });
-		return () => { cancelled = true; };
-	}, [focused, foregroundSession, services.positronHelpService]);
+			if (inFlight.current?.sessionId === foregroundSession.sessionId) {
+				await inFlight.current.promise.catch(() => []);
+			}
+			if (cancelled || dispatched || !ready()) {
+				return;
+			}
+			dispatched = true;
+			const promise = services.positronHelpService.getHelpTopics(query.trim(), kMaximumSuggestions);
+			const request = { sessionId: foregroundSession.sessionId, promise };
+			inFlight.current = request;
+			try {
+				const result = await promise;
+				if (!cancelled) {
+					setTopics(result);
+				}
+			} catch {
+				// Full search remains available when suggestions fail.
+			} finally {
+				if (inFlight.current === request) {
+					inFlight.current = undefined;
+				}
+			}
+		};
+		const schedule = () => {
+			if (!dispatched) {
+				window.clearTimeout(timer);
+				timer = window.setTimeout(() => void requestSuggestions(), 200);
+			}
+		};
+		// Wait for idle if user code is running. Once dispatched, the comm's
+		// own Busy/Idle events must not trigger another identical request.
+		const listener = foregroundSession.onDidChangeRuntimeState(schedule);
+		schedule();
+		return () => {
+			cancelled = true;
+			window.clearTimeout(timer);
+			listener.dispose();
+		};
+	}, [focused, foregroundSession, query, services.positronHelpService]);
 
-	const suggestions = useMemo(() => {
-		const normalized = query.trim().toLocaleLowerCase();
-		if (!normalized) {
-			return [];
-		}
-		return topics
-			.filter(topic => topic.label.toLocaleLowerCase().includes(normalized))
-			.sort((left, right) => {
-				const leftLabel = left.label.toLocaleLowerCase();
-				const rightLabel = right.label.toLocaleLowerCase();
-				const leftRank = leftLabel === normalized ? 0 : leftLabel.startsWith(normalized) ? 1 : 2;
-				const rightRank = rightLabel === normalized ? 0 : rightLabel.startsWith(normalized) ? 1 : 2;
-				return leftRank - rightRank || leftLabel.localeCompare(rightLabel);
-			})
-			.slice(0, kMaximumSuggestions);
-	}, [query, topics]);
+	const suggestions = topics;
 
 	const runSearch = async (topic?: HelpTopicSuggestion) => {
 		const value = query.trim();
 		if ((!value && !topic) || submitting) {
 			return;
 		}
+		const currentSubmission = ++submission.current;
 		setSubmitting(true);
 		setActiveIndex(-1);
 		setFocused(false);
@@ -107,13 +141,18 @@ const HelpSearch = () => {
 			const shown = topic
 				? await services.positronHelpService.showHelpTopicForForegroundSession(topic.topic)
 				: await services.positronHelpService.searchHelp(value);
-			if (!shown) {
+			if (!shown && submission.current === currentSubmission) {
 				services.notificationService.info(localize('positronHelpSearch.unavailable', "Help search is unavailable for the active interpreter."));
 			}
 		} catch (error) {
+			if (isCancellationError(error) || submission.current !== currentSubmission) {
+				return;
+			}
 			services.notificationService.warn(localize('positronHelpSearch.error', "An error occurred while searching help: {0}", error.message));
 		} finally {
-			setSubmitting(false);
+			if (submission.current === currentSubmission) {
+				setSubmitting(false);
+			}
 		}
 	};
 
@@ -160,7 +199,12 @@ const HelpSearch = () => {
 				onFocus={() => setFocused(true)}
 				onKeyDown={onKeyDown}
 			/>
-			{query && <button aria-label={clearHelpSearch} type='button' onClick={() => setQuery('')}>
+			{submitting && <span role='status'>
+				{runtimeState === RuntimeState.Busy || runtimeState === RuntimeState.Interrupting
+					? localize('positronHelpSearch.waiting', "Waiting for interpreter…")
+					: localize('positronHelpSearch.searching', "Searching…")}
+			</span>}
+			{query && <button aria-label={clearHelpSearch} disabled={submitting} type='button' onClick={() => setQuery('')}>
 				<span className={ThemeIcon.asClassName(ThemeIcon.fromId('close'))} />
 			</button>}
 			{focused && suggestions.length > 0 && <div className='help-search-suggestions' id={listId} role='listbox'>

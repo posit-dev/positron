@@ -3,11 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DeferredPromise } from '../../../../base/common/async.js';
+import { CancellationError } from '../../../../base/common/errors.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { localize } from '../../../../nls.js';
 import { AppResourcePath, FileAccess } from '../../../../base/common/network.js';
 import { join } from '../../../../base/common/path.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -21,7 +24,7 @@ import { HelpEntry, IHelpEntry } from './helpEntry.js';
 import { ShowHelpEvent } from '../../../services/languageRuntime/common/positronHelpComm.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
-import { HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
+import { HELP_SEARCH_TIMEOUT_MS, HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
@@ -110,7 +113,7 @@ export interface IPositronHelpService {
 	searchHelp(query: string): Promise<boolean>;
 
 	/** List autocomplete topics from the foreground interpreter session. */
-	getHelpTopics(): Promise<HelpTopicSuggestion[]>;
+	getHelpTopics(query: string, limit: number): Promise<HelpTopicSuggestion[]>;
 
 	/** Show an exact topic using the foreground interpreter session. */
 	showHelpTopicForForegroundSession(topic: string): Promise<boolean>;
@@ -173,6 +176,15 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * Gets the help clients. Keyed by the runtime session ID.
 	 */
 	private readonly _helpClients = new Map<string, HelpClientInstance>();
+	private _search?: {
+		id: string;
+		sessionId: string;
+		client: HelpClientInstance;
+		completion: DeferredPromise<boolean>;
+		navigated: boolean;
+		accepted: boolean;
+	};
+
 
 	/**
 	 * The onDidFocusHelp event emitter.
@@ -265,6 +277,8 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			await this.setProxyServerStyles();
 		}));
 
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession(() => this.cancelSearch()));
+
 		// Register onDidReceiveRuntimeEvent handler.
 		this._register(
 			this._runtimeSessionService.onDidChangeRuntimeState(languageRuntimeStateEvent => {
@@ -294,12 +308,79 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		return Promise.resolve(false);
 	}
 
-	searchHelp(query: string): Promise<boolean> {
-		return this.foregroundHelpClient()?.searchHelp(query) ?? Promise.resolve(false);
+	async searchHelp(query: string): Promise<boolean> {
+		this.cancelSearch();
+		const session = this._runtimeSessionService.foregroundSession;
+		const client = this.foregroundHelpClient();
+		if (!session || !client) {
+			return false;
+		}
+		const request: NonNullable<typeof this._search> = {
+			id: generateUuid(), sessionId: session.sessionId, client,
+			completion: new DeferredPromise<boolean>(), navigated: false, accepted: false,
+		};
+		this._search = request;
+		const listeners = new DisposableStore();
+		let dispatched = false;
+		let timer: ReturnType<typeof setTimeout>;
+		const resetTimeout = () => {
+			clearTimeout(timer);
+			timer = setTimeout(() => {
+				void request.completion.error(new Error(localize('helpSearchTimeout', "Help search timed out. Try again when the interpreter is ready.")));
+			}, HELP_SEARCH_TIMEOUT_MS);
+		};
+		const dispatch = () => {
+			if (dispatched || request.completion.isSettled) {
+				return;
+			}
+			const state = session.getRuntimeState();
+			if (state !== RuntimeState.Idle && state !== RuntimeState.Ready) {
+				if (state !== RuntimeState.Busy && state !== RuntimeState.Interrupting) {
+					void request.completion.error(new CancellationError());
+				}
+				return;
+			}
+			dispatched = true;
+			resetTimeout();
+			void client.searchHelp(query, request.id).then(accepted => {
+				request.accepted = accepted;
+				if (!accepted || request.navigated) {
+					void request.completion.complete(accepted);
+				}
+			}, error => request.completion.error(error));
+		};
+		listeners.add(session.onDidChangeRuntimeState(state => {
+			if ([RuntimeState.Restarting, RuntimeState.Exiting, RuntimeState.Exited, RuntimeState.Offline].includes(state)) {
+				void request.completion.error(new CancellationError());
+			} else {
+				dispatch();
+			}
+		}));
+		resetTimeout();
+		dispatch();
+		try {
+			return await request.completion.p;
+		} finally {
+			clearTimeout(timer!);
+			listeners.dispose();
+			if (this._search === request) {
+				this._search = undefined;
+			}
+		}
 	}
 
-	getHelpTopics(): Promise<HelpTopicSuggestion[]> {
-		return this.foregroundHelpClient()?.getHelpTopics() ?? Promise.resolve([]);
+	private cancelSearch(): void {
+		const request = this._search;
+		this._search = undefined;
+		void request?.completion.error(new CancellationError());
+	}
+
+	getHelpTopics(query: string, limit: number): Promise<HelpTopicSuggestion[]> {
+		const session = this._runtimeSessionService.foregroundSession;
+		if (!session || ![RuntimeState.Idle, RuntimeState.Ready].includes(session.getRuntimeState())) {
+			return Promise.resolve([]);
+		}
+		return this.foregroundHelpClient()?.getHelpTopics(query, limit) ?? Promise.resolve([]);
 	}
 
 	showHelpTopicForForegroundSession(topic: string): Promise<boolean> {
@@ -315,6 +396,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 	 * dispose override method.
 	 */
 	public override dispose(): void {
+		this.cancelSearch();
 		// Dispose of the help entries.
 		this._helpEntries.forEach(helpEntry => helpEntry.dispose());
 
@@ -716,6 +798,9 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 			this._logService.warn(`
 			PositronHelpService already has a client for session ${sessionId}; ` +
 				`it will be replaced.`);
+			if (this._search?.sessionId === sessionId) {
+				this.cancelSearch();
+			}
 			const oldClient = this._helpClients.get(sessionId);
 			if (oldClient) {
 				oldClient.dispose();
@@ -728,13 +813,23 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 		// When the client emits help content, show it in the Help pane.
 		this._register(client.onDidEmitHelpContent(helpContent => {
-			this.handleShowHelpEvent(session, helpContent);
+			void this.handleShowHelpEvent(session, client, helpContent).catch(error => {
+				if (this._search && this._search.id === helpContent.search_id) {
+					void this._search.completion.error(error);
+				}
+				this._logService.error(error);
+			});
 		}));
 
 		// When the client closes, delete the help entries for the runtime.
 		this._register(client.onDidClose(() => {
-			this.deleteLanguageRuntimeHelpEntries(sessionId);
-			this._helpClients.delete(sessionId);
+			if (this._helpClients.get(sessionId) === client) {
+				if (this._search?.client === client) {
+					this.cancelSearch();
+				}
+				this.deleteLanguageRuntimeHelpEntries(sessionId);
+				this._helpClients.delete(sessionId);
+			}
 		}));
 	}
 
@@ -746,7 +841,23 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 	private async handleShowHelpEvent(
 		session: ILanguageRuntimeSession,
+		client: HelpClientInstance,
 		showHelpEvent: ShowHelpEvent) {
+		const current = () => this._helpClients.get(session.sessionId) === client &&
+			(!showHelpEvent.search_id || (this._search?.id === showHelpEvent.search_id &&
+				this._search.client === client && !this._search.completion.isSettled));
+		if (!current()) {
+			return;
+		}
+		const navigated = () => {
+			const request = this._search;
+			if (showHelpEvent.search_id && request?.id === showHelpEvent.search_id) {
+				request.navigated = true;
+				if (request.accepted) {
+					void request.completion.complete(true);
+				}
+			}
+		};
 
 		// Only url help events are supported.
 		if (showHelpEvent.kind !== 'url') {
@@ -766,6 +877,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 				await this._openerService.open(targetUrl.toString(), {
 					openExternal: true
 				} satisfies OpenExternalOptions);
+				navigated();
 			} catch {
 				this._notificationService.error(localize(
 					'positronHelpServiceOpenFailed',
@@ -788,19 +900,23 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 
 		// Open the help view.
 		await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
+		if (!current()) {
+			return;
+		}
 
 		// Create the help entry. The help entry resolves the proxied source URL
 		// it loads from on its own, when it loads; see resolveSourceUrl.
 		const helpEntry = this.createHelpEntry(
 			this._helpHTML,
 			session.runtimeMetadata.languageId,
-			session.runtimeMetadata.runtimeId,
+			session.sessionId,
 			session.runtimeMetadata.languageName,
 			targetUrl.toString()
 		);
 
 		// Add the help entry.
 		this.addHelpEntry(helpEntry);
+		navigated();
 
 		// Raise the onDidFocusHelp event, if we should.
 		if (showHelpEvent.focus) {

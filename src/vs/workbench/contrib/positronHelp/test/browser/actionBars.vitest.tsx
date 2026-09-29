@@ -5,19 +5,22 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Event } from '../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronHelpService } from '../../browser/positronHelpService.js';
 import { ActionBars } from '../../browser/components/actionBars.js';
 
 describe('Help ActionBars', () => {
+	let runtimeState = RuntimeState.Idle;
+	const runtimeEvents = new Emitter<RuntimeState>();
+	afterAll(() => runtimeEvents.dispose());
 	const showHelpTopicForForegroundSession = vi.fn<IPositronHelpService['showHelpTopicForForegroundSession']>().mockResolvedValue(true);
 	const searchHelp = vi.fn<IPositronHelpService['searchHelp']>().mockResolvedValue(true);
 	const getHelpTopics = vi.fn<IPositronHelpService['getHelpTopics']>().mockResolvedValue([
@@ -26,6 +29,8 @@ describe('Help ActionBars', () => {
 	]);
 	const session = stubInterface<ILanguageRuntimeSession>({
 		sessionId: 'r-session',
+		getRuntimeState: () => runtimeState,
+		onDidChangeRuntimeState: runtimeEvents.event,
 		runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'r', languageName: 'R' }),
 	});
 	const runtimeSessionService = stubInterface<IRuntimeSessionService>({
@@ -51,6 +56,7 @@ describe('Help ActionBars', () => {
 	const componentContainer = stubInterface<IReactComponentContainer>({ onSizeChanged: Event.None });
 
 	beforeEach(() => {
+		runtimeState = RuntimeState.Idle;
 		vi.clearAllMocks();
 	});
 
@@ -79,4 +85,33 @@ describe('Help ActionBars', () => {
 		expect(searchHelp).not.toHaveBeenCalled();
 		expect(screen.queryByRole('listbox')).toBeNull();
 	});
+	it('waits while busy and does not repeat requests for comm Busy/Idle events', async () => {
+		runtimeState = RuntimeState.Busy;
+		let resolve!: (topics: Awaited<ReturnType<IPositronHelpService['getHelpTopics']>>) => void;
+		getHelpTopics.mockImplementationOnce(() => {
+			runtimeState = RuntimeState.Busy;
+			runtimeEvents.fire(runtimeState);
+			return new Promise(done => { resolve = done; });
+		});
+		const user = userEvent.setup();
+		rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+		await user.type(screen.getByRole('combobox'), 'plot');
+		await new Promise(done => setTimeout(done, 250));
+		expect(getHelpTopics).not.toHaveBeenCalled();
+		act(() => {
+			runtimeState = RuntimeState.Idle;
+			runtimeEvents.fire(runtimeState);
+		});
+		await waitFor(() => expect(getHelpTopics).toHaveBeenCalledExactlyOnceWith('plot', 50));
+		await act(async () => {
+			resolve([{ label: 'plot', topic: 'graphics::plot', detail: 'graphics' }]);
+			await Promise.resolve();
+			runtimeState = RuntimeState.Idle;
+			runtimeEvents.fire(runtimeState);
+		});
+		await screen.findByRole('option', { name: /plot graphics/ });
+		await new Promise(done => setTimeout(done, 250));
+		expect(getHelpTopics).toHaveBeenCalledOnce();
+	});
+
 });

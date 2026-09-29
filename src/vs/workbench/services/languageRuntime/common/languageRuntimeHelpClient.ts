@@ -8,6 +8,8 @@ import { Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 import { HelpTopicSuggestion, PositronHelpComm, ShowHelpEvent } from './positronHelpComm.js';
 
+export const HELP_SEARCH_TIMEOUT_MS = 30_000;
+
 /**
  * A help client instance.
  */
@@ -27,7 +29,10 @@ export class HelpClientInstance extends Disposable {
 		readonly languageId: string
 	) {
 		super();
-		this._comm = new PositronHelpComm(client);
+		this._comm = new PositronHelpComm(client, {
+			search_help: { timeout: HELP_SEARCH_TIMEOUT_MS },
+			get_help_topics: { timeout: HELP_SEARCH_TIMEOUT_MS },
+		});
 		this._register(this._comm);
 
 		this.onDidEmitHelpContent = this._comm.onDidShowHelp;
@@ -46,12 +51,12 @@ export class HelpClientInstance extends Disposable {
 		return this._comm.showHelpTopic(topic);
 	}
 
-	searchHelp(query: string): Promise<boolean> {
-		return this._comm.searchHelp(query);
+	searchHelp(query: string, searchId: string): Promise<boolean> {
+		return this._comm.searchHelp(query, searchId);
 	}
 
-	getHelpTopics(): Promise<HelpTopicSuggestion[]> {
-		return this._comm.getHelpTopics();
+	getHelpTopics(query: string, limit: number): Promise<HelpTopicSuggestion[]> {
+		return this._comm.getHelpTopics(query, limit);
 	}
 
 	onDidEmitHelpContent: Event<ShowHelpEvent>;
