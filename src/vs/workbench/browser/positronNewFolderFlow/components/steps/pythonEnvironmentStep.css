@@ -66,10 +66,6 @@ light backgrounds, so the text keeps the dialog foreground. */
 	color: inherit;
 }
 
-.positron-dynamic-modal-dialog-box .flow-step .install-uv-button.disabled {
-	cursor: default;
-}
-
 .positron-dynamic-modal-dialog-box .flow-step .provider-callout-link {
 	align-self: flex-start;
 	margin-top: 2px;
