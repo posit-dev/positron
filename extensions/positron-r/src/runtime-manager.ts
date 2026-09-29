@@ -15,7 +15,7 @@ import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { getEnvironmentModulesApi } from './provider-module.js';
 import { setupArkJupyterKernel } from './kernel';
-import { getRTerminalEnvironmentMutations } from './r-process-environment';
+import { getRTerminalEnvironmentMutations, isROnPath } from './r-process-environment';
 import { RSessionManager } from './session-manager';
 
 /**
@@ -202,7 +202,12 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 		// user selected. Apply at both process creation and shell integration so
 		// the variables are present however the terminal resolves them.
 		const options = { applyAtProcessCreation: true, applyAtShellIntegration: true };
-		for (const mutation of getRTerminalEnvironmentMutations(metadataExtra)) {
+		const mutations = getRTerminalEnvironmentMutations(metadataExtra, isROnPath(metadataExtra.binpath));
+		// Drop a PATH entry left by a previously active R.
+		if (!mutations.some(mutation => mutation.name === 'PATH')) {
+			collection.delete('PATH');
+		}
+		for (const mutation of mutations) {
 			// Skip variables that already hold the desired value, to avoid
 			// needlessly marking open terminals as stale.
 			if (collection.get(mutation.name)?.value === mutation.value) {
