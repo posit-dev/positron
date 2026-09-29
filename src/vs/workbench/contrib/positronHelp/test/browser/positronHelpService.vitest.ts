@@ -49,7 +49,7 @@ describe('PositronHelpService', () => {
 		// internally and only affects the HTML the pane would render.
 		.stub(IFileService, { readFile: () => Promise.reject(new Error('not needed')) })
 		.stub(IThemeService, { onDidColorThemeChange: Event.None })
-		.stub(IRuntimeSessionService, { onDidChangeRuntimeState: Event.None })
+		.stub(IRuntimeSessionService, { onDidChangeRuntimeState: Event.None, onDidChangeForegroundSession: Event.None })
 		.build();
 
 	const createService = () =>
