@@ -13,8 +13,8 @@ import { ILogService } from '../../log/common/log.js';
 import { IAiProviderCatalog } from '../../positronAiProvider/common/aiProviderCatalog.js';
 import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../common/engine.js';
 
-/** The aggregate auth provider Assistant registers for every `providers.custom` entry. */
-const CUSTOM_PROVIDERS_AUTH_ID = 'custom-providers';
+/** The aggregate auth provider the authentication extension registers for `providers.custom` entries. */
+const CUSTOM_PROVIDERS_AUTH_ID = 'positron-custom-provider';
 
 /**
  * The Node-side egress engine: the one place that touches the provider bridge

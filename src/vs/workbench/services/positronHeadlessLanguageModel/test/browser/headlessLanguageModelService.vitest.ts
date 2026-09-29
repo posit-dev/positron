@@ -697,12 +697,12 @@ describe('HeadlessLanguageModelService', () => {
 
 	describe('custom entries', () => {
 		const customMapping: IProviderMapping = {
-			providerId: 'team-aws', authProviderId: 'custom-providers', scopes: ['team-aws'],
+			providerId: 'team-aws', authProviderId: 'positron-custom-provider', scopes: ['team-aws'],
 			credentialType: 'aws-credentials', configKey: 'team-aws',
 		};
 
 		beforeEach(() => {
-			registeredAuthProviders = new Set(['custom-providers']);
+			registeredAuthProviders = new Set(['positron-custom-provider']);
 		});
 
 		it('reads the aggregate session with the entry name as scope and shapes it from the entry\'s own connection', async () => {
@@ -711,8 +711,8 @@ describe('HeadlessLanguageModelService', () => {
 				['team-aws', { ...provider('team-aws', { aws: { region: 'eu-west-1', profile: 'team' } }), custom: true, clientKind: 'aws' }],
 			]);
 			getSessions.mockImplementationOnce(async (id: string) =>
-				id === 'custom-providers'
-					? [{ ...session('custom-providers'), accessToken: JSON.stringify({ accessKeyId: 'AK', secretAccessKey: 'SK' }) }]
+				id === 'positron-custom-provider'
+					? [{ ...session('positron-custom-provider'), accessToken: JSON.stringify({ accessKeyId: 'AK', secretAccessKey: 'SK' }) }]
 					: []);
 			const listModels = vi.fn(async () => []);
 			const service = createService(fakeEngine({ mappings: [customMapping], listModels }));
@@ -732,10 +732,10 @@ describe('HeadlessLanguageModelService', () => {
 		});
 
 		it('derives a custom Snowflake base URL from the entry\'s account', async () => {
-			const snowMapping: IProviderMapping = { providerId: 'team-snow', authProviderId: 'custom-providers', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' };
+			const snowMapping: IProviderMapping = { providerId: 'team-snow', authProviderId: 'positron-custom-provider', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' };
 			catalogSnapshot = new Map([['team-snow', { ...provider('team-snow', { snowflake: { account: 'acme-xy12345' } }), custom: true, clientKind: 'snowflake' }]]);
-			signedInAuthProviders.add('custom-providers');
-			sessionTokenOverrides.set('custom-providers', 'pat-token');
+			signedInAuthProviders.add('positron-custom-provider');
+			sessionTokenOverrides.set('positron-custom-provider', 'pat-token');
 			const listModels = vi.fn(async () => []);
 			const service = createService(fakeEngine({ mappings: [snowMapping], listModels }));
 			await service.getAvailableModels();

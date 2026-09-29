@@ -132,9 +132,9 @@ describe('getProviderMappings', () => {
 		]));
 		const mappings = await engine.getProviderMappings();
 		expect(mappings.find(m => m.providerId === 'anthropic')).toBeDefined();
-		expect(mappings.filter(m => m.authProviderId === 'custom-providers')).toEqual([
-			{ providerId: 'my-gateway', authProviderId: 'custom-providers', scopes: ['my-gateway'], credentialType: 'apikey', configKey: 'my-gateway' },
-			{ providerId: 'team-snow', authProviderId: 'custom-providers', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' },
+		expect(mappings.filter(m => m.authProviderId === 'positron-custom-provider')).toEqual([
+			{ providerId: 'my-gateway', authProviderId: 'positron-custom-provider', scopes: ['my-gateway'], credentialType: 'apikey', configKey: 'my-gateway' },
+			{ providerId: 'team-snow', authProviderId: 'positron-custom-provider', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' },
 		]);
 	});
 
