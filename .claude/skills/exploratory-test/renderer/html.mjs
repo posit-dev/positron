@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
 import { CHECKS_FILE, summarizeChecks } from './stats.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
+import { knownIssueOutcomes, openedLabel } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
 
 const ICON = {
@@ -29,6 +30,8 @@ const ICON = {
 	// The check alone carries the green, so its stroke comes from CSS rather than
 	// currentColor, which is the body-coloured word beside it.
 	statusCheck: '<svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
+	x: '<span class="ki-x"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"></path></svg></span>',
+	info: '<span class="ki-i"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2v3.6"></path><circle cx="8" cy="5" r=".7" fill="currentColor" stroke="none"></circle></svg></span>',
 	copy: '<svg class="cp-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6"></rect><path d="M3 10.5V4.1c0-.6.5-1.1 1.1-1.1h6.4"></path></svg>',
 	// The simplified bug: four legs, no centre line, drawn level with Copy's top edge.
 	bug: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
@@ -190,17 +193,85 @@ function renderAgents(report) {
 		+ rows.join('') + totalRow + '</div></div>';
 }
 
-function renderFindingsList(report) {
-	if (!report.findings.length) {
-		return '';
+/**
+ * A GitHub issue number as a link. An issue on the run's list carries what the
+ * preview card shows; the text is from GitHub, so every attribute is escaped.
+ */
+function kiNum(n, ki) {
+	return `<a class="ki-num" href="${REPO_URL}/issues/${Number(n)}" target="_blank" rel="noopener"${kiData(ki?.byNumber.get(n), ki)}>#${Number(n)}</a>`;
+}
+
+/** What the preview card shows, as escaped data attributes; empty for an issue not on the list. */
+function kiData(issue, ki) {
+	return issue
+		? ` data-state="${issue.state === 'closed' ? 'closed' : 'open'}" data-opened="${escapeHtml(openedLabel(issue.createdAt, ki.now))}"`
+		+ ` data-title="${escapeHtml(issue.title)}" data-summary="${escapeHtml(issue.summary ?? '')}"`
+		: '';
+}
+
+/** Links the listed issue numbers in rendered text, leaving tags and existing links alone. */
+function linkIssues(html, ki) {
+	if (!ki?.byNumber.size) {
+		return html;
 	}
+	let inLink = 0;
+	return html.split(/(<[^>]+>)/).map(part => {
+		if (part.startsWith('<')) {
+			inLink += /^<a\b/i.test(part) ? 1 : /^<\/a>/i.test(part) ? -1 : 0;
+			return part;
+		}
+		return inLink ? part : part.replace(/(?<![\w&#/])#(\d+)\b/g, (whole, n) => ki.byNumber.has(Number(n)) ? kiNum(Number(n), ki) : whole);
+	}).join('');
+}
+
+/** The Coverage rows in display order, and their ids, which the Findings table links to. */
+function coverageOrder(coverage) {
+	// Finding rows in finding order, then passes as they ran, then what was not
+	// run. Sort is stable, so rows citing the same finding keep their run order.
+	const isIssue = r => r.status === 'fail' || Boolean(r.finding);
+	const issues = coverage.exercised.filter(isIssue).sort((a, b) => (a.finding ?? Infinity) - (b.finding ?? Infinity));
+	const passes = coverage.exercised.filter(r => !isIssue(r));
+	const ordered = [...issues, ...passes, ...coverage.notExercised];
+	return { issues, passes, rowId: new Map(ordered.map((row, i) => [row, `cv-row-${i + 1}`])) };
+}
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+/** The row that stands in for the finding rows when there are none. */
+function renderNoFindings(report) {
+	const { exercised = 0, pass = 0, notRun = 0 } = report.scenarios ?? {};
+	const ran = !exercised ? (notRun ? 'No scenarios were exercised' : '')
+		: pass === exercised ? (exercised === 1 ? 'The one exercised scenario passed' : `All ${exercised} exercised scenarios passed`)
+			: `${pass} of ${plural(exercised, 'exercised scenario', 'exercised scenarios')} passed`;
+	const skipped = notRun ? `; ${notRun} ${notRun === 1 ? 'wasn&rsquo;t' : 'weren&rsquo;t'} run` : '';
+	const see = exercised + notRun ? ' <a class="ki-ev" href="#coverage">See Coverage</a>' : '';
+	return `<div class="ki-empty"><span class="ki-empty-ic">${ICON.check(14)}</span>`
+		+ `<span><b>No new findings</b>${ran ? `<span>${ran}${skipped}.${see}</span>` : ''}</span></div>`;
+}
+
+function renderFindingsList(report, ki = null) {
 	const rows = report.findings.map(f => {
 		const word = f.verified ?? (f.confirmed ? f.confirmed.toLowerCase() : null);
-		const status = word === 'confirmed'
+		const verdict = word === 'confirmed'
 			? `<span class="status">${ICON.statusCheck}Confirmed</span>`
 			: word
 				? `<span class="status muted">${word[0].toUpperCase()}${word.slice(1)}</span>`
 				: '<span class="status muted"></span>';
+		// Plain numbers, not links: the whole row is already a link to the card, which has them.
+		// Plain text inside the row link, but it still previews on hover.
+		const nums = issues => issues.map(i => `<span class="ki-num-t"${kiData(i, ki)}>#${i.number}</span>`).join(', ');
+		const failed = ki?.fixFailed.get(f.n);
+		const back = ki?.cameBack.get(f.n);
+		const similar = ki?.similar.get(f.n);
+		// A verdict other than Confirmed takes the label's place, so the table
+		// never says a fix failed when verify rejected the finding.
+		const label = failed ? 'Fix didn&rsquo;t hold' : back ? 'Regressed' : '';
+		const top = label && (!word || word === 'confirmed') ? `<span class="ki-reg">${ICON.x}${label}</span>` : verdict;
+		// One issue per cell: the finding's own wins over a match.
+		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
+		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : similar ? `Similar to ${first(similar)}` : '';
+		const below = issueLine ? [`<span class="ki-state">${issueLine}</span>`] : [];
+		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
 			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span>`
@@ -209,15 +280,59 @@ function renderFindingsList(report) {
 			+ `<span class="rate">${escapeHtml(f.reproduced)}</span>`
 			+ status
 			+ '</a>';
-	}).join('\n');
+	});
+
+	const head = rows.length
+		? '<div class="row row-head findings-grid"><span>Severity</span><span>Finding and impact</span><span class="right">Reproduced</span><span class="right">Status</span></div>\n'
+		: '';
 
 	return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
 <div class="panel">
-<div class="row row-head findings-grid"><span>Severity</span><span>Finding and impact</span><span class="right">Reproduced</span><span class="right">Status</span></div>
-${rows}
+${head}${[...(rows.length ? rows : [renderNoFindings(report)]), renderLinkedIssues(report, ki)].filter(Boolean).join('\n')}
 </div>
 </section>`;
+}
+
+/**
+ * The closed "Linked issues" row under the findings: open linked issues the
+ * run ran into, which are not findings, so no number, card or count; then the
+ * fixes verified and the issues not seen. Nothing when it would open empty.
+ */
+function renderLinkedIssues(report, ki) {
+	const observed = ki?.observed ?? [];
+	const held = ki?.fixesHeld ?? [];
+	const unseen = ki?.notObserved ?? [];
+	if (!observed.length && !held.length && !unseen.length) {
+		return '';
+	}
+	const { rowId } = coverageOrder(report.coverage);
+	const rows = observed.map(o => {
+		const first = o.rows[0];
+		const where = o.rows.length > 1 ? `Observed in ${o.rows.length} scenarios` : `Observed in &ldquo;${first.scenarioHtml}&rdquo;`;
+		const ev = rowId.has(first) ? ` &middot; <a class="ki-ev" href="#${rowId.get(first)}">View evidence</a>` : '';
+		const state = o.issue.state === 'closed' ? 'Closed' : 'Open';
+		return '<div class="row findings-grid ki-row">'
+			+ `<span>${o.severity ? pill(o.severity) : ''}</span>`
+			+ `<span class="finding-cell"><span class="ki-title">${escapeHtml(o.issue.title)}</span><span class="ki-sub">${where}${ev}</span></span>`
+			+ `<span class="rate">${o.rows.length}</span>`
+			+ `<span class="ki-st"><span>${state} &middot; ${kiNum(o.issue.number, ki)}</span></span></div>`;
+	});
+	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+	const counts = [
+		observed.length ? `${observed.length} observed` : '',
+		held.length ? `${held.length} fix verified` : '',
+	].filter(Boolean).join(dot);
+	const nums = issues => issues.map(i => kiNum(i.number, ki)).join(', ');
+	const line = [
+		held.length ? `<b>Fix verified:</b> ${nums(held.map(h => h.issue))}` : '',
+		unseen.length ? `<b>Not observed:</b> ${nums(unseen)}` : '',
+	].filter(Boolean).join(dot);
+	return '<details class="ki-grp">'
+		+ `<summary><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span>${ICON.disclose('ki-chev')}</summary>`
+		+ rows.join('')
+		+ (line ? `<div class="ki-line">${line}</div>` : '')
+		+ '</details>';
 }
 
 const size14 = svg => svg.replace('width="15" height="15"', 'width="14" height="14"');
@@ -666,6 +781,18 @@ export function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const at = [branch && `\`${branch}\``, sha && `\`${sha}\``].filter(Boolean).join(' @ ');
 	const of = report.pr ? `#${report.pr.number}${at ? ` (${at})` : ''}` : at;
 	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', systemDetails(report), ''];
+	// Linked both ways, so GitHub cross-references the fix and its PR.
+	const failedFixes = options.ki?.fixFailed.get(f.n);
+	const back = options.ki?.cameBack.get(f.n);
+	const pr = report.pr?.number ?? options.knownIssues?.pr;
+	const inPr = pr ? ` in #${pr}` : '';
+	const refs = issues => issues.map(i => `#${i.number}`).join(', ');
+	if (back) {
+		out.unshift(`${refs(back)} regressed${inPr}.`, '');
+	}
+	if (failedFixes) {
+		out.unshift(`The fix for ${refs(failedFixes)}${inPr} didn't hold.`, '');
+	}
 	const section = (heading, body) => {
 		if (body) {
 			out.push(`## ${heading}`, safeLinks(body), '');
@@ -850,6 +977,18 @@ function renderCardDetails(f, report, options = {}) {
 	return rows.length ? `<div class="card-details">${rows.join('')}</div>` : '';
 }
 
+/** The card's "Possibly known" line: the verifier's matches, less the finding's own issues. */
+function renderPossiblyKnown(f, ki) {
+	const known = ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
+	if (!known.length) {
+		return '';
+	}
+	const comment = known.length === 1
+		? `<span class="ki-dot" aria-hidden="true">&middot;</span><a class="ki-ev" href="${REPO_URL}/issues/${Number(known[0])}" target="_blank" rel="noopener">Comment there instead</a>`
+		: '';
+	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, ki)).join(', ')}${comment}</span></p>`;
+}
+
 function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
 	const issue = issueLink(f, report, options);
@@ -874,6 +1013,7 @@ function renderFindingCard(f, report, options) {
 
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
+		+ renderPossiblyKnown(f, options.ki)
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
@@ -938,19 +1078,26 @@ function renderCoverage(report, options = {}) {
 		return '';
 	}
 
-	// One table, in a fixed order: finding rows in finding order, then passes as
-	// they ran, then what was not run. Sort is stable, so rows citing the same
-	// finding keep their run order.
-	const isIssue = r => r.status === 'fail' || Boolean(r.finding);
-	const issues = exercised.filter(isIssue).sort((a, b) => (a.finding ?? Infinity) - (b.finding ?? Infinity));
-	const passes = exercised.filter(r => !isIssue(r));
+	// One table, in a fixed order. Rows are numbered in display order, so a
+	// precondition can link to the row of the scenario that created its state.
+	const { issues, passes, rowId } = coverageOrder(report.coverage);
 	const total = exercised.length + notExercised.length;
 	const hidden = Math.max(0, passes.length - COVERAGE_PASSES_SHOWN);
-
-	// Rows are numbered in display order, so a precondition can link to the
-	// row of the scenario that created its state.
-	const ordered = [...issues, ...passes, ...notExercised];
-	const rowId = new Map(ordered.map((row, i) => [row, `cv-row-${i + 1}`]));
+	const ki = options.ki;
+	// What the row showed about the linked issues, after its own result.
+	// One suffix per outcome, listing its issues: "Also observed #1, #2".
+	const kiSuffix = row => {
+		const groups = new Map();
+		for (const { n, kind } of row.issues ?? []) {
+			const issue = ki?.byNumber.get(n);
+			const label = !issue ? null
+				: issue.relation === 'fixes' ? (kind === 'held' ? 'Fix verified for' : 'Fix didn&rsquo;t hold for')
+					: kind === 'observed' ? 'Also observed' : kind === 'back' ? 'Regressed' : null;
+			if (label) { groups.set(label, [...(groups.get(label) ?? []), kiNum(n, ki)]); }
+		}
+		return [...groups].map(([label, nums]) => ` &middot; ${label} ${nums.join(', ')}`).join('');
+	};
+	const result = row => linkIssues(row.resultHtml, ki) + kiSuffix(row);
 	const byLedgerId = new Map(exercised.filter(r => r.id).map(r => [r.id, r]));
 
 	// A passing row's screenshot hangs off the verify step it proves rather than
@@ -996,14 +1143,14 @@ function renderCoverage(report, options = {}) {
 		const sep = link && row.resultHtml ? ' &middot; ' : '';
 		return `<div class="row coverage-grid cf-r cf-i" id="${rowId.get(row)}">`
 			+ scenario(row, 'issue')
-			+ `<span class="cov-result">${link}${sep}${row.resultHtml}</span>`
+			+ `<span class="cov-result">${link}${sep}${result(row)}</span>`
 			+ '<span></span></div>';
 	});
 
 	// A passing row opens on its preconditions and the steps that exercised it.
 	const passRows = passes.map((row, i) => {
 		const cls = `cf-r cf-p${i < COVERAGE_PASSES_SHOWN ? '' : ' cov-extra'}`;
-		const cells = scenario(row, 'pass') + `<span class="cov-result">${row.resultHtml}</span>`;
+		const cells = scenario(row, 'pass') + `<span class="cov-result">${result(row)}</span>`;
 		// With no steps to hang it on, the screenshot is the whole expanded row.
 		const steps = row.steps.length
 			? `<ol class="steps">${row.steps.map(st => renderStep(st, { tail: st.evidence.map(e => photo(row, i, e)).join('') })).join('\n')}</ol>`
@@ -1021,7 +1168,7 @@ function renderCoverage(report, options = {}) {
 	// Result and chevron columns.
 	const notRows = notExercised.map(row => `<div class="row coverage-grid cf-r cf-n" id="${rowId.get(row)}">`
 		+ scenario(row, 'none')
-		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span>${row.reasonHtml ? ` &middot; ${row.reasonHtml}` : ''}</span>`
+		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span>${row.reasonHtml ? ` &middot; ${linkIssues(row.reasonHtml, ki)}` : ''}</span>`
 		+ '</div>');
 
 	// Visually hidden radios ahead of the tabs and card, so CSS can filter the
@@ -1332,6 +1479,39 @@ var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){s
 if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(show,fallback);}
 else{fallback();}});});})();`;
 
+// The issue preview card: on hover and keyboard focus, Escape closes it; on
+// touch the first tap previews and a second opens GitHub. A number inside a
+// Findings row is a span, so it previews on mouse hover and the row click stands. Built with
+// textContent from data attributes, which hold GitHub's text.
+const KI_SCRIPT = `(function(){var ICON={open:'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6"/><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/></svg>',
+closed:'<svg aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.5 8.2l1.8 1.8 3.2-3.6"/></svg>'};
+var card=document.createElement('div');card.className='ki-card';card.id='ki-card';card.setAttribute('role','tooltip');document.body.appendChild(card);
+var cur=null,tapped=null,pointer='mouse',SEL='a.ki-num[data-title],.ki-num-t[data-title]';
+function el(tag,cls,text){var e=document.createElement(tag);if(cls){e.className=cls;}if(text!=null){e.textContent=text;}return e;}
+function find(t){return t&&t.closest?t.closest(SEL):null;}
+function build(a){var d=a.dataset,closed=d.state==='closed';card.textContent='';
+var top=el('div','ki-card-top'),s=el('span','ki-s '+(closed?'is-closed':'is-open'));
+s.innerHTML=ICON[closed?'closed':'open'];s.appendChild(document.createTextNode(' '+(closed?'Closed':'Open')));
+top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
+card.appendChild(top);card.appendChild(el('div','ki-card-t',d.title||''));
+if(d.summary){card.appendChild(el('div','ki-card-x',d.summary));}
+card.appendChild(el('div','ki-card-f','From the issue\\u2019s description'+(a.tagName!=='A'?'':' \\u00b7 '+(pointer==='touch'?'tap again':'click')+' to open on GitHub')));}
+function place(a){var r=a.getBoundingClientRect(),w=card.offsetWidth,h=card.offsetHeight,m=12;
+var left=Math.min(Math.max(m,r.left+r.width/2-w/2),window.innerWidth-w-m);
+var top=r.top-h-8;if(top<m){top=r.bottom+8;}card.style.left=left+'px';card.style.top=top+'px';}
+function show(a){if(cur&&cur!==a){cur.removeAttribute('aria-describedby');}cur=a;build(a);card.classList.add('is-open');a.setAttribute('aria-describedby','ki-card');place(a);}
+function hide(){if(cur){cur.removeAttribute('aria-describedby');}cur=null;tapped=null;card.classList.remove('is-open');}
+document.addEventListener('pointerdown',function(e){pointer=e.pointerType||'mouse';},true);
+document.addEventListener('mouseover',function(e){if(pointer==='touch'){return;}var a=find(e.target);
+if(a){if(a!==cur){show(a);}}else if(cur&&!cur.matches(':focus-visible')){hide();}});
+document.addEventListener('focusin',function(e){var a=find(e.target);if(a&&a.matches(':focus-visible')){show(a);}});
+document.addEventListener('focusout',function(e){if(cur&&e.target===cur&&pointer!=='touch'){hide();}});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&cur){hide();}});
+document.addEventListener('click',function(e){if(pointer!=='touch'){if(cur&&cur.tagName!=='A'){hide();}return;}var a=find(e.target);
+if(!a||a.tagName!=='A'){if(cur){hide();}return;}if(tapped!==a){e.preventDefault();show(a);tapped=a;}else{tapped=null;}},true);
+window.addEventListener('scroll',function(){if(cur){place(cur);}},{passive:true});
+window.addEventListener('resize',function(){if(cur){place(cur);}});})();`;
+
 /**
  * Renders the report markdown as a self-contained HTML page.
  *
@@ -1346,6 +1526,21 @@ export function renderReportHtml(markdown, options = {}) {
 	// `readFile` reads a path beside the report; the viewer, the Test files
 	// list and the prompt all show the same resolved files.
 	options = { ...options, files: resolveFiles(report.files, options.readFile) };
+	// The issues linked to the PR, fetched before the run, and what it found about each.
+	const ki = options.knownIssues?.issues?.length
+		? { ...knownIssueOutcomes(options.knownIssues, report.coverage, report.verification?.linked, new Map(report.findings.map(f => [f.n, f.known ?? []]))), now: options.startedAt ?? new Date() }
+		: null;
+	options.ki = ki;
+	// A fix the ledger says nothing about is still listed: an untested fix is never invisible.
+	for (const issue of ki?.unaccounted ?? []) {
+		report.coverage.notExercised.push({
+			id: '',
+			scenarioHtml: escapeHtml(issue.title),
+			reasonHtml: `Fix for #${issue.number} not exercised: the run did not record it`,
+			issues: [{ n: issue.number, kind: 'not-exercised' }],
+		});
+		report.scenarios.notRun++;
+	}
 	const viewers = renderFileViewers(options.files);
 	// Off for teams whose AI policy does not allow it: no buttons, no prompt
 	// blocks and no script. `base` makes relative evidence paths absolute, and
@@ -1388,7 +1583,7 @@ ${report.leadHtml ? `<p class="lead">${report.leadHtml}</p>` : ''}
 
 ${renderTiles(report)}
 
-${renderFindingsList(report)}
+${renderFindingsList(report, ki)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
@@ -1422,7 +1617,8 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	const copy = prompts || page.includes('class="code-cp"');
 	const issue = page.includes(' data-issue="');
 	const codeCopy = page.includes('<code class="cc"');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}</body>
+	const preview = page.includes(' data-title="');
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }

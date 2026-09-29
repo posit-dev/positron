@@ -66,6 +66,10 @@ inputs:
     description: "Public CDN base URL the run directory is published under"
     required: false
     default: ""
+  known-issues:
+    description: "Explore mode: path to the known-issues.json the workflow fetched for the PR. Empty runs without it."
+    required: false
+    default: ""
   agent-prompts:
     description: "Give each finding in the HTML report a button that copies it as a prompt for an agent. Set to 'false' where AI policy does not allow it."
     required: false
@@ -165,6 +169,7 @@ runs:
         TIME_LIMIT: ${{ inputs.time-limit }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
         AGENT_PROMPTS: ${{ inputs.agent-prompts }}
+        KNOWN_ISSUES: ${{ inputs.known-issues }}
         COMMENT_STATE: ${{ inputs.comment-state }}
         OUTCOME: ${{ inputs.outcome }}
         DECLINE_REASON: ${{ inputs.decline-reason }}

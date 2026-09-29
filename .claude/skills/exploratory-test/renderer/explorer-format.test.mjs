@@ -160,7 +160,7 @@ test('explorer.md ledger template parses into its scenarios, files and not-run l
 		[['action', null, null], ['verify', 'fail', 1]],
 	]);
 	assert.deepEqual(parsed.files.map(f => f.path), ['files/data.csv']);
-	assert.equal(parsed.notExercised.length, 1, 'a Not run entry');
+	assert.equal(parsed.notExercised.length, 2, 'a Not run entry and an already-filed skip');
 });
 
 /** A step line's shape: placeholders, optional parts and numbers made uniform. */

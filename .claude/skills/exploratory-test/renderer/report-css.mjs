@@ -76,6 +76,10 @@ const PROFESSIONAL = `
 	--pop-border: #E7E4DC;
 	--pop-sep: #EFEDE7;
 	--pop-shadow: 0 8px 24px rgba(28,31,35,.12);
+	--ki-closed: #8A6BBE;
+	--ki-x: #C4402B;
+	--ki-grp-hover: #F4F2EC;
+	--ki-chev-on: #6A6F76;
 
 	--label-color: var(--muted);
 	--label-ls: 0.1em;
@@ -218,6 +222,10 @@ const PARTY = `
 	--pop-border: #5B4F92;
 	--pop-sep: #342A5C;
 	--pop-shadow: 0 8px 24px rgba(0,0,0,.4);
+	--ki-closed: #B79CFF;
+	--ki-x: #FF6B8B;
+	--ki-grp-hover: #2A2250;
+	--ki-chev-on: #CFC8EA;
 
 	--label-color: #FF6AC1;
 	--label-ls: 0.14em;
@@ -429,7 +437,7 @@ a.tile:hover .tile-arrow,a.tile:focus-visible .tile-arrow{opacity:1}
 a.row:hover{text-decoration:none;color:inherit;background:var(--thead)}
 a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .row-head{padding:12px 20px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600;color:var(--muted);background:var(--thead)}
-.findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 110px}
+.findings-grid{grid-template-columns:110px minmax(0,1fr) 90px 140px}
 .coverage-grid{grid-template-columns:minmax(0,40fr) minmax(0,60fr) 12px;padding:12px 20px}
 .right{text-align:right}
 
@@ -450,6 +458,55 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
 .status-check{stroke:var(--pass-fill)}
 .status.muted{color:var(--muted)}
+
+/* Known issues: the Findings table's Status labels and closed "Linked issues"
+   row, the card's Possibly known line, GitHub issue links, and their preview card */
+.ki-title{font-size:15px;font-weight:500;color:var(--body);line-height:1.4}
+.ki-sub{font-size:13px;color:var(--muted)}
+.ki-st{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;font-size:13px;color:var(--body)}
+.ki-reg{display:inline-flex;align-items:center;gap:6px;color:var(--body);font-weight:400}
+.ki-x{display:inline-flex;color:var(--ki-x)}
+.ki-st .ki-state{font-size:12.5px;color:var(--muted)}
+.ki-grp>summary{display:grid;grid-template-columns:110px minmax(0,1fr) 12px;gap:16px;align-items:center;padding:11px 20px;background:var(--thead);border-top:1px solid var(--border);font-size:12.5px;color:var(--faint);cursor:pointer;list-style:none}
+.ki-grp>summary::-webkit-details-marker{display:none}
+.ki-grp .ki-lbl{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.ki-grp>summary b{font-weight:600;color:var(--body)}
+.ki-dot{color:var(--dot-neutral);margin:0 6px}
+.ki-grp>summary:hover{background:var(--ki-grp-hover)}
+.ki-grp>summary:hover b{color:var(--ink)}
+.ki-grp>summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+.ki-chev{color:var(--faint);transition:transform .15s ease;flex:none}
+.ki-grp[open]>summary{border-bottom:1px solid var(--hairline)}
+.ki-grp[open] .ki-chev{transform:rotate(90deg)}
+.ki-grp>summary:hover .ki-chev,.ki-grp[open] .ki-chev,.ki-grp>summary:focus-visible .ki-chev{color:var(--ki-chev-on)}
+.ki-line{padding:10px 20px;background:var(--thead);border-top:1px solid var(--hairline);font-size:12.5px;line-height:1.5;color:var(--muted)}
+.ki-line b{font-weight:500;color:var(--body)}
+@media (prefers-reduced-motion:reduce){.ki-chev{transition:none}}
+.ki-known{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
+.ki-known .ki-i{display:inline-flex;color:var(--faint)}
+/* The summary and the line draw their own top border. */
+.row:has(+ .ki-grp),.row:has(+ .ki-line){border-bottom:0}
+/* A dotted text underline, never a border: the global a:hover underline would draw a second line. */
+a.ki-num,a.ki-ev{color:var(--link);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--link) 50%,transparent);text-underline-offset:3px}
+a.ki-num,.ki-num-t{font-family:var(--mono);font-size:12px}
+.ki-num-t[data-title]:hover{text-decoration:underline dotted;text-decoration-thickness:1px}
+a.ki-num:hover,a.ki-num:focus-visible,a.ki-ev:hover,a.ki-ev:focus-visible{color:var(--link-hover);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:currentColor;outline:none}
+a.ki-num:focus-visible,a.ki-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
+.ki-empty{display:flex;align-items:flex-start;gap:12px;padding:20px}
+.ki-empty-ic{width:28px;height:28px;border-radius:50%;background:var(--pass-bg);color:var(--pass-fill);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ki-empty b{display:block;font-size:15px;font-weight:600;color:var(--ink);line-height:1.4}
+.ki-empty b+span{font-size:13px;color:var(--muted);line-height:1.5}
+.ki-card{position:fixed;z-index:60;width:340px;max-width:calc(100vw - 24px);box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:12px 14px;display:none;flex-direction:column;gap:6px;pointer-events:none;font-family:var(--sans);text-align:left}
+.ki-card.is-open{display:flex}
+.ki-card-top{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.ki-card-top .ki-s{font-weight:500}
+.ki-card-top .ki-s.is-open{color:var(--pass-fill)}
+.ki-card-top .ki-s.is-closed{color:var(--ki-closed)}
+.ki-card-top .ki-n{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
+.ki-card-top .ki-d{margin-left:auto;color:var(--faint)}
+.ki-card-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.35}
+.ki-card-x{font-size:12.5px;color:var(--body);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ki-card-f{font-size:11.5px;color:var(--faint);border-top:1px solid var(--hairline);padding-top:7px;margin-top:2px}
 
 /* Finding cards */
 .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;display:flex;flex-direction:column;gap:28px;box-shadow:var(--card-shadow);scroll-margin-top:24px}
@@ -883,6 +940,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.fv-b{padding:0 7px}
 	.card{padding:20px}
 	.rate,.status{text-align:left;justify-content:flex-start}
+	.ki-st{align-items:flex-start;text-align:left}
 	.to-top{right:16px;bottom:16px}
 	h1.title{font-size:28px}
 	/* Icon only on a phone: the label would push the chips into a narrow column. */

@@ -7,12 +7,13 @@
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs, skillVersion } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, buildTimeBudgetLine, timeUpHook, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
@@ -183,6 +184,12 @@ async function verifyReport() {
 
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
+	// Fetched by the workflow while the build ran; the verifier and renderer read it from the run directory.
+	if (process.env.KNOWN_ISSUES && existsSync(process.env.KNOWN_ISSUES)) {
+		copyFileSync(process.env.KNOWN_ISSUES, join(WORK_DIR, 'known-issues.json'));
+	}
+	const knownIssues = readKnownIssues(WORK_DIR);
+	const knownBrief = buildKnownIssuesBrief(knownIssues);
 
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 
@@ -208,6 +215,7 @@ async function main() {
 		buildTaskLine(FOCUS),
 		'',
 		...(TIME_LIMIT ? [buildTimeBudgetLine(TIME_LIMIT), ''] : []),
+		...(knownBrief ? [knownBrief, ''] : []),
 		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
 		'',
 		'Write the report to `report.md` in the run directory. Return a two or three line summary and nothing else.',
@@ -382,7 +390,10 @@ async function main() {
 		// the fallback write above.
 		let verdicts = null;
 		let verifyFailed = false;
-		if (VERIFY_ENABLED && !hasFindings(report)) {
+		// Linked issues the run ran into still need a severity.
+		const ledgerText = existsSync(join(WORK_DIR, 'ledger.md')) ? readFileSync(join(WORK_DIR, 'ledger.md'), 'utf8') : '';
+		const observed = observedLinked(knownIssues, ledgerText);
+		if (VERIFY_ENABLED && !hasFindings(report) && !observed.length) {
 			console.log('[verify] skipped: the report has no findings to verify');
 		} else if (VERIFY_ENABLED) {
 			try {
@@ -392,7 +403,10 @@ async function main() {
 				// in the summary rather than dropping it silently.
 				console.error(`[verify] failed: ${err}`);
 				verifyFailed = true;
-				verdicts = `_Verification did not complete: ${err}. The findings above are unreviewed._`;
+				verdicts = `_Verification did not complete: ${err}. ${hasFindings(report) ? 'The findings above are unreviewed.' : 'The known issues above are unrated.'}_`;
+			}
+			for (const line of verifyLogLines(knownIssues, ledgerText, verifyFailed ? '' : verdicts)) {
+				console.log(`[verify] ${line}`);
 			}
 		}
 
@@ -425,6 +439,7 @@ async function main() {
 				fileExists,
 				readFile,
 				startedAt: STARTED_AT,
+				knownIssues,
 			}));
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const parsed = parseReport(reportMarkdown, { ledger });
