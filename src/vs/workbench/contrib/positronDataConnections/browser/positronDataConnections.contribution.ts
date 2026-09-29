@@ -88,7 +88,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 	constructor(@IConfigurationService configurationService: IConfigurationService) {
 		// Check if the Positron Data Connections feature is enabled before registering the view
 		// container and view. Return early if the feature is disabled.
-		if (!configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY)) {
+		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true) {
 			return;
 		}
 

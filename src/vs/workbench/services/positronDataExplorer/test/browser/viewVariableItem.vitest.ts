@@ -154,7 +154,7 @@ describe('canViewVariableItem', () => {
 	it.each([
 		{ kind: 'table', hasViewer: true, enabled: undefined, expected: true },
 		{ kind: 'table', hasViewer: false, enabled: undefined, expected: false },
-		{ kind: 'connection', hasViewer: true, enabled: undefined, expected: false },
+		{ kind: 'connection', hasViewer: true, enabled: undefined, expected: true },
 		{ kind: 'connection', hasViewer: true, enabled: true, expected: false },
 		{ kind: 'connection', hasViewer: true, enabled: false, expected: true },
 		{ kind: 'connection', hasViewer: false, enabled: false, expected: false },

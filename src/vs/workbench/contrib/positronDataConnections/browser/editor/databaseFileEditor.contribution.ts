@@ -158,7 +158,7 @@ class DatabaseFileEditorContribution extends Disposable {
 		// The page exists to send the user to the Data Connections pane, so it is gated on the same
 		// feature flag that pane is, and read the same way: once, at startup. With the feature off,
 		// a database file opens exactly as it does today. Toggling the setting requires a reload.
-		if (!configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY)) {
+		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true) {
 			return;
 		}
 

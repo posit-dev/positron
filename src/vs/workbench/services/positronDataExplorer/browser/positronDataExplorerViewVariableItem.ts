@@ -22,7 +22,7 @@ export function canViewVariableItem(item: IVariableItem, configurationService: I
 		return false;
 	}
 	return item.kind !== 'connection' ||
-		configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === false;
+		configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true;
 }
 
 /**

@@ -94,7 +94,7 @@ describe('PositronDataExplorerCodeActionProvider', () => {
 		session = makeSession('r');
 		variablesInstances = [makeVariablesInstance([makeVariableItem({ displayName: 'df' })])];
 		openViewStub = vi.fn().mockResolvedValue(null);
-		dataConnectionsEnabled = undefined;
+		dataConnectionsEnabled = true;
 	});
 
 	const provide = (model: ITextModel, context?: Partial<CodeActionContext>) => {

@@ -50,7 +50,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		// With the Data Connections feature on, the Connections pane is not registered, so there is
 		// nowhere to show connections. Read once, like the pane's own registration: toggling the
 		// setting requires a reload.
-		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== false) {
+		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
 			return;
 		}
 

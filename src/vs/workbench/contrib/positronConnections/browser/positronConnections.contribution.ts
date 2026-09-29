@@ -28,7 +28,7 @@ class PositronConnectionsContribution implements IWorkbenchContribution {
 	 * feature is disabled.
 	 */
 	constructor(@IConfigurationService configurationService: IConfigurationService) {
-		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== false) {
+		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
 			return;
 		}
 
