@@ -7,10 +7,6 @@ import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	// The Data Connections panel is a preview feature gated behind `dataConnections.enabled`. This
-	// bakes the setting into the app (and the Workbench/Jupyter containers) at startup, since those
-	// read settings copied in at launch rather than the host settings file written at runtime.
-	enableDataConnections: true,
 });
 
 // Redshift connection details. Host/user/password come from the environment (the project's .env

@@ -10,12 +10,7 @@
 // matching `onView:` activation event, since it sits in the services layer and cannot import this.
 export const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
 
-// Configuration key that gates the Positron Data Connections feature. Shared by
-// positronDataConnections.contribution.ts (registers the setting and the view),
-// positronDataConnectionsCommands.ts (the command payloads report nothing when this is off, so the
-// commands stay registered and Assistant-side feature-detection is a simple getCommands() check),
-// and positronDataConnectionsInspectActions.ts (the Command Palette entries' precondition).
-export const POSITRON_DATA_CONNECTIONS_ENABLED_KEY = 'dataConnections.enabled';
+export { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../../services/positronDataConnections/common/positronDataConnectionsConfiguration.js';
 
 // Configuration key for the Data Connections tree's per-level indent, in pixels. Zero means "follow
 // workbench.tree.indent" -- see resolveIndentWidth in dataConnectionsTreeInstance.tsx, which reads

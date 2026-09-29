@@ -4,9 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IVariableItem } from '../../positronVariables/common/interfaces/variableItem.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/common/positronDataConnectionsConfiguration.js';
 import { IPositronDataExplorerService } from './interfaces/positronDataExplorerService.js';
+
+/**
+ * Whether the given variable item can be opened in a viewer. A connection's viewer is the older
+ * Connections pane, which is not registered when the Data Connections feature replaces it.
+ *
+ * @param item The variable item to check.
+ * @param configurationService The configuration service.
+ */
+export function canViewVariableItem(item: IVariableItem, configurationService: IConfigurationService): boolean {
+	if (!item.hasViewer) {
+		return false;
+	}
+	return item.kind !== 'connection' ||
+		configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true;
+}
 
 /**
  * Opens a Data Explorer viewer for the given variable item, or activates the
