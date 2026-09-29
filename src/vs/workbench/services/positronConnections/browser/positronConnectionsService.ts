@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
 import { ConnectionMetadata, IConnectionMetadata, IPositronConnectionInstance } from '../common/interfaces/positronConnectionsInstance.js';
@@ -18,6 +18,8 @@ import { ISecretStorageService } from '../../../../platform/secrets/common/secre
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/common/positronDataConnectionsConfiguration.js';
 
 export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -30,6 +32,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	public onDidFocus = this.onDidFocusEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
+	private readonly closeConnectionsListeners = this._register(new DisposableMap<string, DisposableStore>());
 	public readonly driverManager: PositronConnectionsDriverManager;
 
 	constructor(
@@ -39,10 +42,20 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		@IViewsService private readonly viewsService: IViewsService,
 		@ILogService public readonly logService: ILogService,
 		@INotificationService private readonly notificationService: INotificationService,
+		@IConfigurationService configurationService: IConfigurationService,
 	) {
 		super();
 
 		this.driverManager = this._register(new PositronConnectionsDriverManager(this));
+
+		// With the Data Connections feature on, the Connections pane is not registered, so there is
+		// nowhere to show runtime connections. The setting requires a reload, so it is read once.
+		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
+			this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
+				this.closeRuntimeConnections(session);
+			}));
+			return;
+		}
 
 		// Whenever a session starts, we'll register an observer that will create a ConnectionsInstance
 		// whenever a new connections client is created by the backend.
@@ -122,6 +135,30 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 
 			this.addConnection(instance);
 		});
+	}
+
+	/**
+	 * Closes the connection comms a session opens, which would otherwise stay open until the session
+	 * ends. R opens one for every odbc or DBI connection.
+	 */
+	private async closeRuntimeConnections(session: ILanguageRuntimeSession) {
+		const store = new DisposableStore();
+		store.add(session.onDidCreateClientInstance(({ client }) => {
+			if (client.getClientType() === RuntimeClientType.Connection) {
+				client.dispose();
+			}
+		}));
+		store.add(session.onDidEndSession(() => {
+			this.closeConnectionsListeners.deleteAndDispose(session.sessionId);
+		}));
+		this.closeConnectionsListeners.set(session.sessionId, store);
+
+		try {
+			const clients = await session.listClients(RuntimeClientType.Connection);
+			clients.forEach(client => client.dispose());
+		} catch (e) {
+			this.logService.error('Error while closing runtime connections', e);
+		}
 	}
 
 	attachRuntime(session: ILanguageRuntimeSession) {

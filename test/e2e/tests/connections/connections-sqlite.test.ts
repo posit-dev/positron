@@ -7,7 +7,9 @@ import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// These tests cover the older Connections pane, which Data Connections replaces by default.
+	enableDataConnections: false,
 });
 
 test.describe('SQLite DB Connection', {

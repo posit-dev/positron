@@ -6,11 +6,12 @@
 /// <reference types="vitest/globals" />
 
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IVariableItem } from '../../../positronVariables/common/interfaces/variableItem.js';
 import { IPositronDataExplorerInstance } from '../../browser/interfaces/positronDataExplorerInstance.js';
 import { IPositronDataExplorerService } from '../../browser/interfaces/positronDataExplorerService.js';
-import { viewVariableItem } from '../../browser/positronDataExplorerViewVariableItem.js';
+import { canViewVariableItem, viewVariableItem } from '../../browser/positronDataExplorerViewVariableItem.js';
 
 const SESSION_ID = 'test-session-id';
 const ITEM_ID = 'test-item-id';
@@ -144,5 +145,25 @@ describe('viewVariableItem', () => {
 
 		expect(notificationService.error).toHaveBeenCalledTimes(1);
 		expect(dataExplorerService.setInstanceForVar).not.toHaveBeenCalled();
+	});
+});
+
+describe('canViewVariableItem', () => {
+	createTestContainer().build();
+
+	it.each([
+		{ kind: 'table', hasViewer: true, enabled: undefined, expected: true },
+		{ kind: 'table', hasViewer: false, enabled: undefined, expected: false },
+		{ kind: 'connection', hasViewer: true, enabled: undefined, expected: true },
+		{ kind: 'connection', hasViewer: true, enabled: true, expected: false },
+		{ kind: 'connection', hasViewer: true, enabled: false, expected: true },
+		{ kind: 'connection', hasViewer: false, enabled: false, expected: false },
+	])('returns $expected for a $kind with hasViewer=$hasViewer when dataConnections.enabled is $enabled', ({ kind, hasViewer, enabled, expected }) => {
+		const configurationService = new TestConfigurationService(
+			enabled === undefined ? {} : { dataConnections: { enabled } },
+		);
+		const item = makeItem({ kind, hasViewer });
+
+		expect(canViewVariableItem(item, configurationService)).toBe(expected);
 	});
 });

@@ -606,6 +606,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					positronConsoleInstance.setState(PositronConsoleState.Offline);
 					break;
 
+				// Hide the prompt during restart teardown. `RuntimeState.Restarting` bypasses
+				// `RuntimeState.Exiting`, although it can run a hanging `.Last`-style hook.
+				case RuntimeState.Restarting:
 				case RuntimeState.Exiting:
 					positronConsoleInstance.setState(PositronConsoleState.Exiting);
 					break;
@@ -3714,6 +3717,11 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			// to the command that caused it to exit (for instance if the
 			// command causes the runtime to crash).
 			this.clearExecutingActivityInputs();
+
+			// A dying kernel can flush buffered output after its exit notification.
+			// Clear these IDs so late output is appended at the tail instead of
+			// mutating the old rendered item in console history.
+			this._runtimeItemActivities.clear();
 
 			// Dispose of the runtime event handlers.
 			this._runtimeDisposableStore.clear();

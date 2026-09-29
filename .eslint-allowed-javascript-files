@@ -226,6 +226,8 @@ test/unit/reporter.js
 .claude/skills/exploratory-test/renderer/report.test.mjs
 .claude/skills/exploratory-test/renderer/repro-files.mjs
 .claude/skills/exploratory-test/renderer/repro-files.test.mjs
+.claude/skills/exploratory-test/renderer/known-issues.mjs
+.claude/skills/exploratory-test/renderer/known-issues.test.mjs
 .github/actions/pr-exploratory-test/run.mjs
 .claude/skills/exploratory-test/renderer/render.mjs
 .github/actions/pr-exploratory-test/comment.mjs

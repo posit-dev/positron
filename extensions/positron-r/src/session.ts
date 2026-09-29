@@ -22,6 +22,12 @@ import { listMissingRPackages, rMissingPackageProbe } from './missingPackages';
 import { RMetadataExtra } from './r-installation';
 import { warnOnArkVersionMismatch } from './arkVersionCheck';
 
+/**
+ * Longer than the 2 seconds `ArkLsp.deactivate()` waits for the client to
+ * stop, so a normal LSP shutdown completes before kernel disposal.
+ */
+export const LSP_DISPOSE_TIMEOUT_MS = 3_000;
+
 interface RPackageInstallation {
 	packageName: string;
 	packageVersion: string;
@@ -514,17 +520,31 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		this._consoleWidthDisposable?.dispose();
 		this._consoleWidthDisposable = undefined;
 
-		await this._lsp.dispose();
-		if (this._arkComm) {
-			await this._arkComm.dispose();
-		}
-		if (this._kernel) {
-			await this._kernel.dispose();
-		}
+		// Stop the LSP first so it doesn't report the kernel's disappearance, but
+		// don't let it block kernel disposal. `ArkLsp.deactivate()` rejects when
+		// the client doesn't stop in time, and waits indefinitely on a client
+		// stuck in `Starting`, e.g. when a hung R never answers `initialize`.
+		// Both are likely when `deleteSession()` disposes a runtime that
+		// wouldn't exit, and only kernel disposal rejects its pending sends.
+		try {
+			await Promise.race([
+				this._lsp.dispose(),
+				timeout(LSP_DISPOSE_TIMEOUT_MS, 'disposing the LSP'),
+			]);
+		} catch (err) {
+			LOGGER.warn(`Failed to dispose LSP for session ${this.metadata.sessionId}: ${err}`);
+		} finally {
+			if (this._arkComm) {
+				await this._arkComm.dispose();
+			}
+			if (this._kernel) {
+				await this._kernel.dispose();
+			}
 
-		// LIFO clean up of external resources
-		while (this._disposables.length > 0) {
-			this._disposables.pop()?.dispose();
+			// LIFO clean up of external resources
+			while (this._disposables.length > 0) {
+				this._disposables.pop()?.dispose();
+			}
 		}
 	}
 

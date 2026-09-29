@@ -17,7 +17,7 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
-import { viewVariableItem } from '../../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
+import { canViewVariableItem, viewVariableItem } from '../../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { IPositronVariablesInstance, PositronVariablesSorting } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from '../positronVariablesIdentifiers.js';
@@ -141,6 +141,8 @@ export const VariableItem = (props: VariableItemProps) => {
 		return () => disposableStore.dispose();
 	}, [props.variableItem]);
 
+	const hasViewer = canViewVariableItem(props.variableItem, services.configurationService);
+
 	/**
 	 * Opens a viewer for the variable item, or activates the existing viewer
 	 * if one is already open.
@@ -170,7 +172,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		e.stopPropagation();
 
 		// If the variable item has a viewer, launch it.
-		if (props.variableItem.hasViewer) {
+		if (hasViewer) {
 			openVariableItemViewer(props.variableItem);
 		}
 	};
@@ -278,7 +280,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		const actions: IAction[] = [];
 
 		// If this is a table, add an action to view it.
-		if (!props.disabled && props.variableItem.hasViewer) {
+		if (!props.disabled && hasViewer) {
 			actions.push({
 				id: POSITRON_VARIABLES_VIEW,
 				label: viewLabel(props.variableItem),
@@ -396,7 +398,7 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * @returns The rendered component.
 	 */
 	const RightColumn = () => {
-		if (!props.disabled && props.variableItem.hasViewer) {
+		if (!props.disabled && hasViewer) {
 			let icon = 'codicon codicon-open-preview';
 			if (isViewLoading) {
 				icon = 'codicon codicon-notebook-state-pending';

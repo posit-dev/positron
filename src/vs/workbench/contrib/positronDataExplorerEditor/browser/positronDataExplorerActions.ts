@@ -12,6 +12,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { IsDevelopmentContext, IsWebContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { RemoteNameContext, ResourceContextKey } from '../../../common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
@@ -1527,6 +1528,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 		const dataExplorerService = accessor.get(IPositronDataExplorerService);
 		const notificationService = accessor.get(INotificationService);
 		const services: IDataFrameResolutionServices = {
+			configurationService: accessor.get(IConfigurationService),
 			languageService: accessor.get(ILanguageService),
 			runtimeSessionService: accessor.get(IRuntimeSessionService),
 			variablesService: accessor.get(IPositronVariablesService),

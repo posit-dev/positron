@@ -5,3 +5,4 @@ tsconfig*.json
 esbuild*.mts
 package-lock.json
 .gitignore
+snowflake.log

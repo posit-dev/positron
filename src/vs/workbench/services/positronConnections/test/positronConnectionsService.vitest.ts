@@ -14,6 +14,10 @@ import { ISecretStorageService } from '../../../../platform/secrets/common/secre
 import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
 import { startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { TestRuntimeClientInstance } from '../../languageRuntime/test/common/testRuntimeClientInstance.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../platform/configuration/test/common/testConfigurationService.js';
+import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
 
 
 describe('Positron - Connections Service', () => {
@@ -21,6 +25,8 @@ describe('Positron - Connections Service', () => {
 	const ctx = createTestContainer()
 		.withRuntimeServices()
 		.stub(ISecretStorageService, new TestSecretStorageService())
+		// The service only handles runtime connections when Data Connections is off.
+		.stub(IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': false }))
 		.build();
 	let connectionsService: IPositronConnectionsService;
 
@@ -121,6 +127,26 @@ describe('Positron - Connections Service', () => {
 		await waitUntilOk(() => {
 			expect(instanceEntriesChangedSpy).toHaveBeenCalledTimes(1);
 		});
+	});
+
+	it('Closes runtime connections when Data Connections is enabled', async () => {
+		const dataConnectionsInstantiationService = ctx.disposables.add(ctx.instantiationService.createChild(new ServiceCollection(
+			[IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': true })]
+		)));
+		const dataConnectionsModeService = ctx.disposables.add(dataConnectionsInstantiationService.createInstance(
+			PositronConnectionsService
+		));
+		const disposeSpy = vi.spyOn(TestRuntimeClientInstance.prototype, 'dispose');
+
+		const session = ctx.disposables.add(await createSession());
+		const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, {
+			name: 'test-connection',
+			language_id: 'test',
+			code: 'hello world'
+		}));
+
+		expect(disposeSpy.mock.contexts).toContain(client);
+		expect(dataConnectionsModeService.getConnections()).toEqual([]);
 	});
 
 	describe('Driver Manager', () => {

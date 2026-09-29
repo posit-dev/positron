@@ -3,9 +3,12 @@ name: "Test: Exploratory"
 on:
   workflow_dispatch:
     inputs:
+      # main against main has no diff, so a run of it needs a Test focus;
+      # without one the worthiness check declines it.
       ref:
         description: "Branch to explore"
         required: true
+        default: "main"
         type: string
       # Set it when the ref's PR targets a release branch.
       base:
@@ -29,6 +32,14 @@ on:
           - Opus
           - Sonnet
           - Both (Opus + Sonnet)
+      # Minutes to explore; the agent is told when they are up and stopped 10
+      # minutes later. Setup and the build are not counted. 15 is about the
+      # least that yields a useful run.
+      time_limit:
+        description: "Time limit (minutes)"
+        required: false
+        default: ""
+        type: string
       worthiness_check:
         description: "Worthiness check"
         required: false
@@ -78,6 +89,7 @@ jobs:
       head_ref: ${{ steps.check.outputs.head_ref }}
       base_ref: ${{ steps.check.outputs.base_ref }}
       model: ${{ steps.check.outputs.model }}
+      time_limit: ${{ steps.check.outputs.time_limit }}
     steps:
       - name: Mint org-scoped App token
         id: app-token
@@ -119,6 +131,10 @@ jobs:
             *) model=opus ;;
           esac
 
+          # Optional time limit anywhere after the command, as 20m. Only that
+          # exact shape counts; anything else runs without a limit.
+          time_limit=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { for (i = 2; i <= NF; i++) if (tolower($i) ~ /^[0-9]+m$/) { print tolower($i); exit } exit }')
+
           # Active member: 200 {"state":"active"}. Non-member: 404, empty
           # stdout. Pending invite: "pending", which does not count.
           is_member() {
@@ -151,9 +167,10 @@ jobs:
             echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
             echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
             echo "model=$model"
+            echo "time_limit=$time_limit"
             echo "ok=true"
           } >> "$GITHUB_OUTPUT"
-          echo "Membership gate: ok (model=$model)"
+          echo "Membership gate: ok (model=$model, time limit=${time_limit:-none})"
 
   # The dispatch path's counterpart to membership's branch check. Dispatching
   # already takes write access, so there is no team lookup, but `ref` must be a
@@ -475,6 +492,43 @@ jobs:
             echo "DIFFEOF"
           } >> "$GITHUB_OUTPUT"
 
+      # A dispatched run has no PR in its event. Find the ref's open PR so the
+      # summary and report can link it; none found just means no link.
+      - name: Find the ref's PR
+        id: pr
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        shell: bash
+        env:
+          REF: ${{ inputs.ref }}
+        run: |
+          node -e '
+            const [owner] = process.env.GITHUB_REPOSITORY.split("/");
+            const q = new URLSearchParams({ head: `${owner}:${process.env.REF}`, state: "open" });
+            fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/pulls?${q}`, {
+              headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
+            }).then(r => r.json()).then(prs => {
+              const n = Array.isArray(prs) && prs[0]?.number;
+              console.log(n ? `PR #${n}` : "no open PR");
+              if (n) require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `number=${n}\n`);
+            });
+          '
+
+      # Issues the PR fixes or that mention it, for the explorer's brief. Fetched
+      # before the build so the lookup is done by the time the agent starts.
+      # Best effort: any failure writes an empty list and the run goes on.
+      - name: Fetch issues linked to the PR
+        id: known
+        if: github.event.issue.number || steps.pr.outputs.number
+        continue-on-error: true
+        shell: bash
+        env:
+          PR: ${{ github.event.issue.number || steps.pr.outputs.number }}
+        run: |
+          OUT="$RUNNER_TEMP/known-issues.json"
+          node .harness/.claude/skills/exploratory-test/renderer/known-issues.mjs --pr "$PR" --out "$OUT" --repo "$GITHUB_REPOSITORY"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+
       - name: Restore caches
         id: restore-caches
         uses: ./.harness/.github/actions/restore-build-caches
@@ -660,28 +714,6 @@ jobs:
           npx @playwright/cli -s=positron screenshot --filename="$EXPLORE_DIR/attach-proof.png"
           test -s "$EXPLORE_DIR/attach-proof.png" || { echo "screenshot empty"; exit 1; }
 
-      # A dispatched run has no PR in its event. Find the ref's open PR so the
-      # summary and report can link it; none found just means no link.
-      - name: Find the ref's PR
-        id: pr
-        if: github.event_name == 'workflow_dispatch'
-        continue-on-error: true
-        shell: bash
-        env:
-          REF: ${{ inputs.ref }}
-        run: |
-          node -e '
-            const [owner] = process.env.GITHUB_REPOSITORY.split("/");
-            const q = new URLSearchParams({ head: `${owner}:${process.env.REF}`, state: "open" });
-            fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/pulls?${q}`, {
-              headers: { Authorization: `Bearer ${process.env.GITHUB_TOKEN}`, Accept: "application/vnd.github+json" },
-            }).then(r => r.json()).then(prs => {
-              const n = Array.isArray(prs) && prs[0]?.number;
-              console.log(n ? `PR #${n}` : "no open PR");
-              if (n) require("fs").appendFileSync(process.env.GITHUB_OUTPUT, `number=${n}\n`);
-            });
-          '
-
       - name: Explore
         id: explore
         uses: ./.harness/.github/actions/pr-exploratory-test
@@ -697,8 +729,10 @@ jobs:
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
           focus: ${{ inputs.focus }}
+          time-limit: ${{ inputs.time_limit || needs.membership.outputs.time_limit }}
           # The PR link in the summary and the report header. No PR, no link.
           pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
+          known-issues: ${{ steps.known.outputs.file }}
 
       # The app and the agent both hold these, and everything below is
       # published: the run directory to a public CDN, the rest as an artifact.

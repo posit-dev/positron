@@ -57,6 +57,10 @@ let markdown = readFileSync(input, 'utf8');
 const dir = dirname(resolve(input));
 const ledgerPath = join(dir, 'ledger.md');
 const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
+// Issues linked to the PR, fetched before the run by known-issues.mjs.
+const knownIssues = (() => {
+	try { return JSON.parse(readFileSync(join(dir, 'known-issues.json'), 'utf8')); } catch { return undefined; }
+})();
 const fileExists = path => existsSync(join(dir, path));
 const readFile = path => (existsSync(join(dir, path)) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null);
 // Every file saved under files/, so lint can find one the ledger never listed.
@@ -75,7 +79,7 @@ const repoFileExists = repoRoot ? path => existsSync(join(repoRoot, path)) : und
 // the renders the harness does afterwards (the Run tile's, a publish's) are not.
 const byExplorer = !flags['duration-ms'] && !flags.out && !flags.base;
 const printProblems = () => {
-	const problems = lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists });
+	const problems = lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues });
 	if (byExplorer) {
 		recordCheck(dir, problems);
 	}
@@ -148,6 +152,7 @@ writeFileSync(out, renderReportHtml(markdown, {
 	fileExists,
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,
+	knownIssues,
 }));
 console.log(out);
 

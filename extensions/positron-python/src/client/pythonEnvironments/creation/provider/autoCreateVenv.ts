@@ -4,13 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import * as os from 'os';
 import { CancellationToken, QuickPickItem, WorkspaceFolder } from 'vscode';
-import { createDeferred } from '../../../common/utils/async';
 import { CreateEnv } from '../../../common/utils/localize';
-import { traceError, traceLog } from '../../../logging';
+import { traceError } from '../../../logging';
 import { CreateEnvironmentProgress } from '../types';
-import { execObservableLocatedUv, isUvInstalled } from '../../common/environmentManagers/uv';
+import { isUvInstalled } from '../../common/environmentManagers/uv';
 import { executeCommand } from '../../../common/vscodeApis/commandApis';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { showQuickPickWithBack } from '../../../common/vscodeApis/windowApis';
@@ -18,6 +16,9 @@ import { Commands } from '../../../common/constants';
 import { getPipRequirementsFiles } from './venvUtils';
 import { UV_PROVIDER_ID } from './uvCreationProvider';
 import { hasPyprojectToml } from '../common/createEnvTriggerUtils';
+import { getVenvExecutable } from '../common/commonUtils';
+import { runUvCommand, syncUvEnv } from './autoCreateLockFileEnv';
+import { IPythonRuntimeManager } from '../../../positron/manager';
 
 export interface AutoCreateVenvContext {
     hasRequirements: boolean;
@@ -119,42 +120,6 @@ async function pickDepInstallArgs(sources: DepSource[]): Promise<string[][]> {
     return chosen.map((s) => s.args);
 }
 
-async function runSingleInstall(args: string[], workspace: WorkspaceFolder, token?: CancellationToken): Promise<void> {
-    const deferred = createDeferred<void>();
-    const outputLines: string[] = [];
-    traceLog('Running uv dep install: ', ['uv', ...args]);
-    const { proc, out, dispose } = await execObservableLocatedUv(args, {
-        mergeStdOutErr: true,
-        token,
-        cwd: workspace.uri.fsPath,
-    });
-
-    out.subscribe(
-        (value) => {
-            const output = value.out.split(/\r?\n/g).join(os.EOL);
-            outputLines.push(output);
-            traceLog(output.trimEnd());
-        },
-        (error) => {
-            traceError('Error while installing dependencies via uv: ', error);
-            deferred.reject(error);
-        },
-        () => {
-            dispose();
-            if (proc?.exitCode !== 0) {
-                const detail = outputLines.join('').trimEnd();
-                const msg = detail
-                    ? `uv pip install failed with exitCode: ${proc?.exitCode}\n${detail}`
-                    : `uv pip install failed with exitCode: ${proc?.exitCode}`;
-                deferred.reject(msg);
-            } else {
-                deferred.resolve();
-            }
-        },
-    );
-    return deferred.promise;
-}
-
 /**
  * Install dependencies into an existing uv-managed venv using `uv pip install`.
  * If `depInstallArgs` is provided, uses those directly (pre-resolved by the
@@ -177,7 +142,7 @@ export async function uvInstallDeps(
     const errors: string[] = [];
     for (const args of allArgs) {
         try {
-            await runSingleInstall(args, workspace, token);
+            await runUvCommand(args, workspace.uri.fsPath, token);
         } catch (err) {
             traceError('Failed to install dep source: ', err);
             errors.push(String(err));
@@ -199,6 +164,8 @@ export async function uvInstallDeps(
  * When the caller already knows which provider to use, it passes
  * `providerOptions` and those are used as-is. Otherwise:
  *
+ * - uv available and pyproject.toml is the only dep source: runs `uv sync`,
+ *   falling through to the next case if it fails.
  * - uv available: uses the uv provider with auto-selected Python version
  *   and dep installation.
  * - uv not available: opens the standard Create Environment wizard so the
@@ -211,6 +178,7 @@ export async function autoCreateVenvWithDeps(
     workspace: WorkspaceFolder,
     ctx: AutoCreateVenvContext,
     providerOptions?: Record<string, unknown>,
+    pythonRuntimeManager?: IPythonRuntimeManager,
 ): Promise<string | undefined> {
     // Resolve which deps to install BEFORE creating the venv,
     // so the user can cancel without a venv being created.
@@ -231,6 +199,11 @@ export async function autoCreateVenvWithDeps(
     if (providerOptions) {
         Object.assign(options, providerOptions);
     } else if (ctx.uvAvailable) {
+        // Let uv pick the interpreter so the user's uv config (e.g. python-preference) is honored.
+        const pyprojectOnly = sources.length === 1 && sources[0].label === 'pyproject.toml';
+        if (pythonRuntimeManager && pyprojectOnly && (await syncUvEnv(workspace, pythonRuntimeManager))) {
+            return getVenvExecutable(workspace);
+        }
         options.providerId = UV_PROVIDER_ID;
         options.uvPythonVersion = 'auto';
     }

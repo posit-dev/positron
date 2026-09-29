@@ -6,7 +6,7 @@ metadata:
   # Bump when the agent is told something new: this file, explorer.md,
   # verifier.md, or the prompt CI builds in pr-exploratory-test's run.mjs and
   # lib.mjs. Feedback is grouped by it, so a renderer change does not count.
-  version: "1.1"
+  version: "1.4"
 ---
 
 # Exploratory testing
@@ -28,6 +28,18 @@ checkout path, the branch, the base and head SHAs and the `git diff` that shows
 the change between them, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about.
 State intent and risk; do not state what you expect to work.
+
+If the person gave a time limit ("spend 20 minutes on it"), put it in the brief
+as minutes to explore, with how to keep to it: run `date` at the start and
+between scenarios, and when the time is up, stop exploring, list what was not
+reached under Not run, and write up. Nothing enforces it locally, as it does in
+CI, so say it plainly.
+
+When the change is a PR, fetch the issues linked to it before spawning the
+agent: `node <base>/renderer/known-issues.mjs --pr <number> --out <scratch dir>/known-issues.json`.
+Paste what it prints into the brief as it is; it tells the agent to test the
+issues the PR fixes first and to copy the file into the run directory. It
+prints nothing when there are no linked issues, and a failed fetch only warns.
 
 Resolve two absolute paths from this skill's base directory and put both in the
 brief. The branch under test may predate them, so the agent cannot find them

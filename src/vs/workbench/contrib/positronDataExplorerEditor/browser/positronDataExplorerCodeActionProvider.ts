@@ -14,6 +14,7 @@ import { CodeActionContext, CodeActionList, CodeActionProvider } from '../../../
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { CodeActionKind } from '../../../../editor/contrib/codeAction/common/types.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
@@ -47,6 +48,7 @@ export class PositronDataExplorerCodeActionProvider implements CodeActionProvide
 	readonly providedCodeActionKinds = [CodeActionKind.Refactor.value];
 
 	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IPositronVariablesService private readonly _variablesService: IPositronVariablesService,
@@ -69,6 +71,7 @@ export class PositronDataExplorerCodeActionProvider implements CodeActionProvide
 			model,
 			range.getStartPosition(),
 			{
+				configurationService: this._configurationService,
 				languageService: this._languageService,
 				runtimeSessionService: this._runtimeSessionService,
 				variablesService: this._variablesService,
