@@ -141,6 +141,20 @@ Two deliberate layers, not duplication:
 Keep the split: the curtain never talks about conversations, the webview
 never offers a way out of Canvas mode besides the top bar's Open Positron.
 
+## Layout restore at boot
+
+Editor layout restore never recreates a dedicated Canvas window (the
+`lockCompact` trait; `browser/parts/editor/positronEditorPartsRestore.ts`):
+it would be on screen, blank, before the startup curtain could cover it, and
+Canvas entry creates its own window anyway. A folder last quit in Canvas
+therefore opens as the IDE without its Canvas window, and Posit Assistant
+reopens the last conversation in a fresh panel on the next entry. While a
+window boots into Canvas, the other detached editor windows restore brings
+back are held hidden until restore completes (`holdRestoredAuxiliaryWindows`,
+`IPositronCanvasService.holdRestoredWindow`), because the curtain covers only
+the main window; exit and Open Positron show them again. The hold is issued
+from the renderer after each window opens, so a brief flash is possible.
+
 ## Workspace trust at boot
 
 The workspace trust startup prompt renders in the main window, which Canvas
