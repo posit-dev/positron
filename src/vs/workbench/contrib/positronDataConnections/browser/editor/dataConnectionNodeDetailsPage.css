@@ -283,6 +283,33 @@
 	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 }
 
+/*
+ * A group's "show in the tree" button: an icon that stays out of the way until wanted, appearing
+ * while the heading is pointed at or the button itself has keyboard focus -- the way a tree row's
+ * inline actions do.
+ */
+.data-connection-node-details-page .data-connection-node-details-reveal.positron-button {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border-radius: var(--vscode-cornerRadius-small);
+	color: var(--vscode-descriptionForeground);
+	opacity: 0;
+}
+
+.data-connection-node-details-page .data-connection-node-details-group-title:hover .data-connection-node-details-reveal.positron-button,
+.data-connection-node-details-page .data-connection-node-details-reveal.positron-button:focus-visible {
+	opacity: 1;
+}
+
+.data-connection-node-details-page .data-connection-node-details-reveal.positron-button:hover {
+	color: var(--vscode-foreground);
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
 /* A collapsible group's heading is a button that looks like the heading it replaces. */
 .data-connection-node-details-page .data-connection-node-details-group-toggle {
 	display: flex;

@@ -82,7 +82,7 @@ export type IDataConnectionNodeDetailsSectionDTO =
 	| { kind: 'properties'; title?: string; properties: { name: string; value: string }[] }
 	| { kind: 'code'; title?: string; languageId?: string; code: string }
 	| { kind: 'table'; title?: string; columns: string[]; rows: string[][] }
-	| { kind: 'group'; title: string; count?: number; collapsible?: boolean; sections: IDataConnectionNodeDetailsSectionDTO[] }
+	| { kind: 'group'; title: string; count?: number; collapsible?: boolean; treePath?: { kind: string; name: string }[]; sections: IDataConnectionNodeDetailsSectionDTO[] }
 	| { kind: 'items'; title?: string; items: IDataConnectionNodeDetailsItemDTO[]; emptyText?: string };
 
 /**

@@ -52,6 +52,7 @@ function detailsSectionToDTO(section: positron.DataConnectionNodeDetailsSection)
 				title: detailsText(section.title),
 				count: typeof section.count === 'number' ? section.count : undefined,
 				collapsible: section.collapsible === true,
+				treePath: section.treePath?.map(node => ({ kind: detailsText(node.kind), name: detailsText(node.name) })),
 				sections: section.sections.map(detailsSectionToDTO),
 			};
 		case 'items':

@@ -493,12 +493,21 @@ function relationshipItem(relationship: ISemanticViewMember): positron.DataConne
 
 /**
  * Builds a collapsible group of semantic view members for the overview, e.g. "Dimensions 4".
+ * @param title The group's heading, which is also its group node's name in the tree.
+ * @param groupKind The kind of the group's node in the tree.
+ * @param kind The kind of the members' nodes.
+ * @param members The members.
+ * @param emptyText What to show when there are none.
+ * @param treeParent The tree path, below the semantic view, of the node the group's node sits under.
+ * @param toItem Builds each member's overview item.
  */
 function semanticViewMemberGroup(
 	title: string,
+	groupKind: positron.DataConnectionNodeKind,
 	kind: positron.DataConnectionNodeKind,
 	members: ISemanticViewMember[],
 	emptyText: string,
+	treeParent: SemanticViewTreePath,
 	toItem: (member: ISemanticViewMember) => positron.DataConnectionNodeDetailsItem = member => semanticViewMemberItem(member, kind)
 ): positron.DataConnectionNodeDetailsGroupSection {
 	return {
@@ -506,9 +515,15 @@ function semanticViewMemberGroup(
 		title,
 		count: members.length,
 		collapsible: true,
+		// The Overview's groups mirror the tree's, down to their (localized) names, so each heading
+		// can show its own node in the tree.
+		treePath: [...treeParent, { kind: groupKind, name: title }],
 		sections: [{ kind: 'items', items: members.map(toItem), emptyText }],
 	};
 }
+
+/** A path to a node below a semantic view in the tree: the kind and name of each node on the way. */
+type SemanticViewTreePath = { kind: positron.DataConnectionNodeKind; name: string }[];
 
 /**
  * Formats a SHOW column value for display. Timestamps come back from the SDK as Dates.
@@ -557,11 +572,14 @@ async function semanticViewDetails(
 		overview.push({ kind: 'properties', properties });
 	}
 
+	const logicalTablesPath: SemanticViewTreePath = [{ kind: K.GroupLogicalTables, name: vscode.l10n.t('Logical Tables') }];
 	overview.push({
 		kind: 'group',
 		title: vscode.l10n.t('Logical Tables'),
 		count: members.tables.length,
+		treePath: logicalTablesPath,
 		sections: members.tables.map((table): positron.DataConnectionNodeDetailsSection => {
+			const tablePath: SemanticViewTreePath = [...logicalTablesPath, { kind: K.LogicalTable, name: table.name }];
 			const own = (bucket: ISemanticViewMember[]) => bucket.filter(member => member.table === table.name);
 			const baseDatabase = table.properties.get('BASE_TABLE_DATABASE_NAME');
 			const baseSchema = table.properties.get('BASE_TABLE_SCHEMA_NAME');
@@ -574,21 +592,22 @@ async function semanticViewDetails(
 			return {
 				kind: 'group',
 				title: table.name,
+				treePath: tablePath,
 				sections: [
 					...(tableProperties.length > 0 ? [{ kind: 'properties' as const, properties: tableProperties }] : []),
-					semanticViewMemberGroup(vscode.l10n.t('Dimensions'), K.Dimension, own(members.dimensions), vscode.l10n.t('No dimensions')),
-					semanticViewMemberGroup(vscode.l10n.t('Time Dimensions'), K.TimeDimension, own(members.timeDimensions), vscode.l10n.t('No time dimensions')),
-					semanticViewMemberGroup(vscode.l10n.t('Facts'), K.Fact, own(members.facts), vscode.l10n.t('No facts')),
-					semanticViewMemberGroup(vscode.l10n.t('Named Filters'), K.NamedFilter, own(members.namedFilters), vscode.l10n.t('No named filters')),
-					semanticViewMemberGroup(vscode.l10n.t('Metrics'), K.Metric, own(members.metrics), vscode.l10n.t('No metrics')),
+					semanticViewMemberGroup(vscode.l10n.t('Dimensions'), K.GroupDimensions, K.Dimension, own(members.dimensions), vscode.l10n.t('No dimensions'), tablePath),
+					semanticViewMemberGroup(vscode.l10n.t('Time Dimensions'), K.GroupTimeDimensions, K.TimeDimension, own(members.timeDimensions), vscode.l10n.t('No time dimensions'), tablePath),
+					semanticViewMemberGroup(vscode.l10n.t('Facts'), K.GroupFacts, K.Fact, own(members.facts), vscode.l10n.t('No facts'), tablePath),
+					semanticViewMemberGroup(vscode.l10n.t('Named Filters'), K.GroupNamedFilters, K.NamedFilter, own(members.namedFilters), vscode.l10n.t('No named filters'), tablePath),
+					semanticViewMemberGroup(vscode.l10n.t('Metrics'), K.GroupMetrics, K.Metric, own(members.metrics), vscode.l10n.t('No metrics'), tablePath),
 				],
 			};
 		}),
 	});
 	// The view-level groups sit beside Logical Tables as headings of the page, so like it they don't
 	// collapse; only the groups within a table do, as in Snowsight.
-	overview.push({ ...semanticViewMemberGroup(vscode.l10n.t('Derived Metrics'), K.Metric, members.derivedMetrics, vscode.l10n.t('No derived metrics')), collapsible: false });
-	overview.push({ ...semanticViewMemberGroup(vscode.l10n.t('Relationships'), K.Relationship, members.relationships, vscode.l10n.t('No relationships'), relationshipItem), collapsible: false });
+	overview.push({ ...semanticViewMemberGroup(vscode.l10n.t('Derived Metrics'), K.GroupDerivedMetrics, K.Metric, members.derivedMetrics, vscode.l10n.t('No derived metrics'), []), collapsible: false });
+	overview.push({ ...semanticViewMemberGroup(vscode.l10n.t('Relationships'), K.GroupRelationships, K.Relationship, members.relationships, vscode.l10n.t('No relationships'), [], relationshipItem), collapsible: false });
 
 	const definition: positron.DataConnectionNodeDetailsSection = ddl.ok
 		? { kind: 'code', languageId: 'sql', code: ddl.text }

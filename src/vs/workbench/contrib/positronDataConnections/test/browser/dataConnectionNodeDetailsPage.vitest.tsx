@@ -45,7 +45,9 @@ function semanticViewDetails(ddl: string): IDataConnectionNodeDetailsDTO {
 						title: 'REF_ENTITIES',
 						sections: [
 							{
-								kind: 'group', title: 'Dimensions', count: 1, collapsible: true, sections: [{
+								kind: 'group', title: 'Dimensions', count: 1, collapsible: true,
+								treePath: [{ kind: 'group-logical-tables', name: 'Logical Tables' }, { kind: 'logical-table', name: 'REF_ENTITIES' }, { kind: 'group-dimensions', name: 'Dimensions' }],
+								sections: [{
 									kind: 'items', title: 'Keys', emptyText: 'No dimensions', items: [
 										{ name: 'ACC_TYPE_CD', kind: 'dimension', dataType: 'VARCHAR(3)', code: 'ACC_TYPE_CD' },
 									],
@@ -227,6 +229,25 @@ describe('DataConnectionNodeDetailsPage', () => {
 				  "H4: Metrics0",
 				]
 			`);
+		});
+
+		it('shows a group\'s tree node in the pane, below this node, from its heading\'s button', async () => {
+			renderPage(semanticViewDetails('ddl'));
+			const user = userEvent.setup();
+
+			// Only groups that name a tree node get the button.
+			expect(screen.queryByRole('button', { name: 'Show Metrics in Data Connections' })).not.toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'Show Dimensions in Data Connections' }));
+
+			// Revealed without its details, so the tree takes focus: the user asked to go there.
+			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', {
+				nodePath: [
+					...TARGET.nodePath,
+					'["group-logical-tables","Logical Tables"]',
+					'["logical-table","REF_ENTITIES"]',
+					'["group-dimensions","Dimensions"]',
+				],
+			});
 		});
 
 		it('shows a group\'s count, and collapses and re-expands a collapsible group\'s contents', async () => {

@@ -894,6 +894,29 @@ suite('Snowflake Semantic Views', () => {
 			{ describes: 1, ddls: 1 });
 	});
 
+	test('each Overview heading names the tree node it stands for', async () => {
+		const semanticView = await semanticViewOf(createSemanticViewClient());
+		const details = await semanticView.getDetails!();
+
+		// Headings and their tree paths, walking Logical Tables > REF_ENTITIES > its member groups.
+		type Group = Extract<positron.DataConnectionNodeDetailsSection, { kind: 'group' }>;
+		const groups = details.tabs![0].sections.filter((section): section is Group => section.kind === 'group');
+		const [logicalTables] = groups;
+		const refEntities = logicalTables.sections[0] as Group;
+		const dimensions = refEntities.sections.find((section): section is Group => section.kind === 'group' && section.title === 'Dimensions')!;
+		const path = (group: Group) => group.treePath!.map(node => `${node.kind}:${node.name}`).join(' > ');
+
+		assert.deepStrictEqual(
+			[...groups, refEntities, dimensions].map(path),
+			[
+				'group-logical-tables:Logical Tables',
+				'group-derived-metrics:Derived Metrics',
+				'group-relationships:Relationships',
+				'group-logical-tables:Logical Tables > logical-table:REF_ENTITIES',
+				'group-logical-tables:Logical Tables > logical-table:REF_ENTITIES > group-dimensions:Dimensions',
+			]);
+	});
+
 	test('a semantic view\'s details still show the Overview when its DDL cannot be fetched', async () => {
 		const semanticView = await semanticViewOf(createSemanticViewClient('No active warehouse selected in the current session.'));
 		const details = await semanticView.getDetails!();

@@ -17,6 +17,10 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../positronDataConnectionsConfiguration.js';
+import { nodeReloadKey } from '../classes/dataConnectionNodeKey.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { kindIcon } from '../components/dataConnectionNodeRow.js';
 import { DataConnectionNodeDetailsEditorInput } from './dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsItemDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -93,10 +97,28 @@ const DataConnectionNodeDetailsItem = ({ item }: { item: IDataConnectionNodeDeta
 };
 
 /**
+ * What the page's sections can do beyond showing themselves: reveal the tree node a group stands for,
+ * with the tooltip its button shows.
+ */
+interface IDataConnectionNodeDetailsActions {
+	// Shows the tree node a group stands for, given its treePath.
+	readonly revealInTree: (treePath: readonly { kind: string; name: string }[]) => void;
+
+	// Shows the reveal buttons' tooltips.
+	readonly hoverManager: IHoverManager;
+}
+
+/**
  * DataConnectionNodeDetailsGroup component. A heading, with an optional count, over sections of its
  * own. A collapsible group's heading is a button that shows and hides them; groups start expanded.
+ * A group that stands for a tree node gets a button after its heading that shows the node in the
+ * Data Connections pane, appearing when the heading is pointed at or the button has keyboard focus.
  */
-const DataConnectionNodeDetailsGroup = ({ section, level }: { section: Extract<IDataConnectionNodeDetailsSectionDTO, { kind: 'group' }>; level: number }) => {
+const DataConnectionNodeDetailsGroup = ({ section, level, actions }: {
+	section: Extract<IDataConnectionNodeDetailsSectionDTO, { kind: 'group' }>;
+	level: number;
+	actions: IDataConnectionNodeDetailsActions;
+}) => {
 	const [expanded, setExpanded] = useState(true);
 	const Heading = `h${Math.min(level, MAX_HEADING_LEVEL)}` as 'h2' | 'h3' | 'h4';
 	const headingContent = <>
@@ -117,10 +139,21 @@ const DataConnectionNodeDetailsGroup = ({ section, level }: { section: Extract<I
 						{headingContent}
 					</button>
 				) : headingContent}
+				{section.treePath && (
+					<Button
+						ariaLabel={localize('positron.dataConnections.nodeDetails.showInTree', "Show {0} in Data Connections", section.title)}
+						className='data-connection-node-details-reveal'
+						hoverManager={actions.hoverManager}
+						tooltip={localize('positron.dataConnections.nodeDetails.showInTreeTooltip', "Show in Data Connections")}
+						onPressed={() => actions.revealInTree(section.treePath!)}
+					>
+						<span aria-hidden='true' className='codicon codicon-list-tree' />
+					</Button>
+				)}
 			</Heading>
 			{expanded && (
 				<div className='data-connection-node-details-group-content'>
-					{section.sections.map((child, index) => <DataConnectionNodeDetailsSection key={index} level={level + 1} section={child} />)}
+					{section.sections.map((child, index) => <DataConnectionNodeDetailsSection key={index} actions={actions} level={level + 1} section={child} />)}
 				</div>
 			)}
 		</section>
@@ -132,9 +165,13 @@ const DataConnectionNodeDetailsGroup = ({ section, level }: { section: Extract<I
  * its kind. The driver decides what goes in each section; this only decides how each kind looks, so
  * every driver's details read the same way.
  */
-const DataConnectionNodeDetailsSection = ({ section, level }: { section: IDataConnectionNodeDetailsSectionDTO; level: number }) => {
+const DataConnectionNodeDetailsSection = ({ section, level, actions }: {
+	section: IDataConnectionNodeDetailsSectionDTO;
+	level: number;
+	actions: IDataConnectionNodeDetailsActions;
+}) => {
 	if (section.kind === 'group') {
-		return <DataConnectionNodeDetailsGroup level={level} section={section} />;
+		return <DataConnectionNodeDetailsGroup actions={actions} level={level} section={section} />;
 	}
 
 	const content = (() => {
@@ -199,14 +236,17 @@ const DataConnectionNodeDetailsSection = ({ section, level }: { section: IDataCo
 /**
  * Renders a list of sections, or a note that there are none.
  */
-const DataConnectionNodeDetailsSections = ({ sections }: { sections: IDataConnectionNodeDetailsSectionDTO[] }) => (
+const DataConnectionNodeDetailsSections = ({ sections, actions }: {
+	sections: IDataConnectionNodeDetailsSectionDTO[];
+	actions: IDataConnectionNodeDetailsActions;
+}) => (
 	sections.length === 0 ? (
 		<div className='data-connection-node-details-empty'>
 			{localize('positron.dataConnections.nodeDetails.empty', "No details are available for this item.")}
 		</div>
 	) : (
 		<div className='data-connection-node-details-sections'>
-			{sections.map((section, index) => <DataConnectionNodeDetailsSection key={index} level={2} section={section} />)}
+			{sections.map((section, index) => <DataConnectionNodeDetailsSection key={index} actions={actions} level={2} section={section} />)}
 		</div>
 	)
 );
@@ -254,7 +294,7 @@ interface DataConnectionNodeDetailsPageProps {
  * node again in the tree updates the open tab in place (keeping the selected tab).
  */
 export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetailsPageProps) => {
-	const { configurationService, positronDataConnectionsService, viewsService } = usePositronReactServicesContext();
+	const { configurationService, hoverService, positronDataConnectionsService, viewsService } = usePositronReactServicesContext();
 	const [details, setDetails] = useState(() => input.details);
 
 	// A breadcrumb shows its node in the Data Connections pane -- the connection itself for the
@@ -266,6 +306,20 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 			nodePath: input.target.nodePath.slice(0, index),
 			openDetails: index > 0,
 		});
+	};
+
+	// A group's reveal button goes to the tree node it stands for, somewhere below this node, and
+	// leaves the user there: unlike a breadcrumb, it opens no details, so the tree takes focus.
+	const [hoverManager] = useState(() => new PositronActionBarHoverManager(true, configurationService, hoverService));
+	useEffect(() => () => hoverManager.dispose(), [hoverManager]);
+	const actions: IDataConnectionNodeDetailsActions = {
+		hoverManager,
+		revealInTree: async treePath => {
+			await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+			positronDataConnectionsService.revealConnection(input.target.profileId, {
+				nodePath: [...input.target.nodePath, ...treePath.map(node => nodeReloadKey(node.kind, node.name))],
+			});
+		},
 	};
 
 	// Code is shown in the font the user picked for the editor, as the Data Explorer and the Console
@@ -333,11 +387,11 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 					tabs={details.tabs.map((tab, index) => ({
 						id: String(index),
 						label: tab.title,
-						content: <DataConnectionNodeDetailsSections sections={tab.sections} />,
+						content: <DataConnectionNodeDetailsSections actions={actions} sections={tab.sections} />,
 					}))}
 				/>
 			) : (
-				<DataConnectionNodeDetailsSections sections={details.sections} />
+				<DataConnectionNodeDetailsSections actions={actions} sections={details.sections} />
 			)}
 		</div>
 	);

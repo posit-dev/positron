@@ -62,7 +62,7 @@ describe('ExtHostDataConnections node details', () => {
 					{ kind: 'properties', title: 5, properties: [{ name: 'Rows', value: 42 }, { name: 'Comment', value: null }] },
 					{ kind: 'table', columns: ['Name', 'Size'], rows: [['data.csv', 1024]], extra: 'dropped' },
 					{
-						kind: 'group', title: 'Metrics', count: 1, collapsible: true, sections: [{
+						kind: 'group', title: 'Metrics', count: 1, collapsible: true, treePath: [{ kind: 'group-metrics', name: 7 }], sections: [{
 							kind: 'items', emptyText: 0, items: [{ name: 'NET_REVENUE', kind: 'metric', dataType: 'NUMBER(37,4)', code: 7, internal: 'dropped' }],
 						}],
 					},
@@ -140,6 +140,12 @@ describe('ExtHostDataConnections node details', () => {
 			            },
 			          ],
 			          "title": "Metrics",
+			          "treePath": [
+			            {
+			              "kind": "group-metrics",
+			              "name": "7",
+			            },
+			          ],
 			        },
 			        {
 			          "collapsible": false,
@@ -147,6 +153,7 @@ describe('ExtHostDataConnections node details', () => {
 			          "kind": "group",
 			          "sections": [],
 			          "title": "Facts",
+			          "treePath": undefined,
 			        },
 			      ],
 			      "title": "Overview",

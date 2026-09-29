@@ -21,6 +21,7 @@ import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIO
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
 import { findParentIndex } from '../../../../browser/positronTree/classes/treeProjection.js';
+import { nodeReloadKey } from './dataConnectionNodeKey.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { openDataConnectionNodeDetails } from '../editor/dataConnectionNodeDetailsEditor.js';
 import { IDataConnectionNodeDetailsTarget } from '../editor/dataConnectionNodeDetailsEditorInput.js';
@@ -99,10 +100,7 @@ const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): 
 
 /**
  * The identity a node keeps across a refresh, used by the tree to re-expand a subtree after
- * reload. Node handles are minted from a counter on every fetch, so a node's id always changes
- * even when the node itself hasn't -- its kind and name are what actually stay the same. The pair
- * is JSON-encoded so a name that happens to contain the separator can't collide with a different
- * kind/name pair.
+ * reload: an entry's profile, or a DTO's kind and name (see nodeReloadKey).
  *
  * DTO keys deliberately don't include the originating connection handle: the tree matches a node
  * to its counterpart among its own siblings, which always come from the same connection, so a
@@ -113,7 +111,7 @@ const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): 
 export const reloadKey = (node: DataConnectionNode): string =>
 	node.kind === 'entry'
 		? entryNodeId(node.entry.profile.id)
-		: JSON.stringify([node.dto.kind, node.dto.name]);
+		: nodeReloadKey(node.dto.kind, node.dto.name);
 
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
 	id: entryNodeId(entry.profile.id),

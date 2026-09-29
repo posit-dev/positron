@@ -2613,6 +2613,14 @@ declare module 'positron' {
 		collapsible?: boolean;
 
 		/**
+		 * The tree node the group stands for, if it stands for one, as the kind and name of each node
+		 * on the way down from the node these details describe (e.g. a semantic view's "Dimensions"
+		 * group under one of its logical tables). The group's heading then shows that node in the
+		 * Data Connections pane when clicked.
+		 */
+		treePath?: { kind: DataConnectionNodeKind; name: string }[];
+
+		/**
 		 * The group's sections, shown in order.
 		 */
 		sections: DataConnectionNodeDetailsSection[];
