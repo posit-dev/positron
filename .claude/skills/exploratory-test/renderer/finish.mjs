@@ -18,6 +18,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { knownFixLines, knownIssueOutcomes, parseLinked } from './known-issues.mjs';
+import { parseLedger } from './report-parse.mjs';
 
 /**
  * The verify pass's prompt: verifier.md with the run's paths and diff range
@@ -30,6 +32,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		ACTIONS_LOG: `${workDir}/actions.log`,
 		LEDGER: `${workDir}/ledger.md`,
 		FILES: `${workDir}/files/`,
+		KNOWN_ISSUES: `${workDir}/known-issues.json`,
 		REPO: repoRoot,
 		DIFF: `${baseSha}...${headSha}`,
 	};
@@ -51,15 +54,16 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 }
 
 /**
- * The verifier's reply from its VERDICTS line on. Its final message can open
- * with notes to itself, which would otherwise lead the Verification details.
+ * The verifier's reply from its VERDICTS line on, or from its KNOWN or LINKED
+ * line if that came first. Its final message can open with notes to itself, which
+ * would otherwise lead the Verification details.
  */
 export function fromVerdictLine(text) {
 	if (typeof text !== 'string') {
 		return text;
 	}
 	const lines = text.split('\n');
-	const at = lines.findIndex(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
+	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED):/.test(l.trim().toUpperCase()));
 	return at > 0 ? lines.slice(at).join('\n') : text;
 }
 
@@ -96,15 +100,49 @@ export function parseVerdicts(text) {
 }
 
 /**
- * Appends a `Verified` column to the findings table.
+ * Parses the verifier's known-issue line.
+ *
+ * Expects `KNOWN: 2=#15102; 3=#14991,#15153` anywhere in the text. Returns a
+ * Map of finding number to the issue numbers it may duplicate. A part it
+ * cannot read is skipped, like parseVerdicts.
+ */
+export function parseKnown(text) {
+	const out = new Map();
+	if (typeof text !== 'string') {
+		return out;
+	}
+	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('KNOWN:'));
+	if (!line) {
+		return out;
+	}
+	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
+		const m = part.trim().match(/^(\d+)\s*=\s*(.+)$/);
+		const issues = m ? [...m[2].matchAll(/#(\d+)/g)].map(i => Number(i[1])) : [];
+		if (issues.length) {
+			out.set(Number(m[1]), [...new Set(issues)]);
+		}
+	}
+	return out;
+}
+
+/**
+ * Appends a `Verified` column to the findings table, and a `Known` column when
+ * the verifier matched a finding to an existing issue.
  *
  * Best effort by design: the table is written by an agent, and its shape has
  * drifted before. Anything unexpected returns the report untouched so a
  * cosmetic column can never cost the report its findings. The verdicts are
  * appended in full below regardless, so nothing is lost when this bails.
  */
-export function annotateFindingsTable(report, verdicts) {
-	if (typeof report !== 'string' || !(verdicts instanceof Map) || verdicts.size === 0) {
+export function annotateFindingsTable(report, verdicts, known = new Map()) {
+	const columns = [];
+	if (verdicts instanceof Map && verdicts.size) {
+		columns.push(['Verified', n => verdicts.get(n) || '-']);
+	}
+	if (known instanceof Map && known.size) {
+		columns.push(['Known', n => (known.get(n) || []).map(i => `#${i}`).join(', ') || '-']);
+	}
+	if (typeof report !== 'string' || !columns.length) {
 		return report;
 	}
 	const lines = report.split('\n');
@@ -112,14 +150,14 @@ export function annotateFindingsTable(report, verdicts) {
 	if (header === -1 || !/^\|[\s:|-]+\|$/.test(lines[header + 1] || '')) {
 		return report;
 	}
-	lines[header] = `${lines[header].replace(/\s*$/, '')} Verified |`;
-	lines[header + 1] = `${lines[header + 1].replace(/\s*$/, '')}---|`;
+	lines[header] = `${lines[header].replace(/\s*$/, '')}${columns.map(([name]) => ` ${name} |`).join('')}`;
+	lines[header + 1] = `${lines[header + 1].replace(/\s*$/, '')}${'---|'.repeat(columns.length)}`;
 	for (let i = header + 2; i < lines.length; i++) {
 		if (!lines[i].startsWith('|')) {
 			break;
 		}
 		const n = Number((lines[i].match(/^\|\s*(\d+)\s*\|/) || [])[1]);
-		lines[i] = `${lines[i].replace(/\s*$/, '')} ${verdicts.get(n) || '-'} |`;
+		lines[i] = `${lines[i].replace(/\s*$/, '')}${columns.map(([, cell]) => ` ${cell(n)} |`).join('')}`;
 	}
 	return lines.join('\n');
 }
@@ -150,6 +188,37 @@ export function hasFindings(report) {
 	return false;
 }
 
+/**
+ * The linked issues the ledger says the run ran into, which the verifier
+ * rates. Empty without a list or a ledger.
+ */
+export function observedLinked(knownIssues, ledger) {
+	const coverage = knownIssues?.issues?.length && parseLedger(ledger);
+	return coverage ? knownIssueOutcomes(knownIssues, coverage).observed.map(o => o.issue.number) : [];
+}
+
+/**
+ * Run-log lines about the linked issues after verify: each observed one the
+ * reply gave no severity, and each KNOWN match on a fix or a closed issue.
+ */
+export function verifyLogLines(knownIssues, ledger, reply) {
+	const coverage = knownIssues?.issues?.length && parseLedger(ledger);
+	if (!coverage) {
+		return [];
+	}
+	const ki = knownIssueOutcomes(knownIssues, coverage, parseLinked(reply), parseKnown(reply));
+	return [...ki.unrated.map(n => `Couldn't rate #${n}: verifier line missing or malformed`), ...knownFixLines(ki)];
+}
+
+/** Reads a run directory's known-issues.json, or null when there is none or it does not parse. */
+export function readKnownIssues(dir) {
+	try {
+		return JSON.parse(readFileSync(join(dir, 'known-issues.json'), 'utf8'));
+	} catch {
+		return null;
+	}
+}
+
 const PREAMBLE = 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.';
 
 /**
@@ -163,7 +232,7 @@ export function applyVerification(report, verdicts, { failed = false } = {}) {
 	const section = failed
 		? `## Verification\n\n${verdicts}\n`
 		: `<details>\n<summary>Verification details</summary>\n\n${PREAMBLE}\n\n${verdicts}\n\n</details>\n`;
-	return `${annotateFindingsTable(report, parseVerdicts(verdicts))}\n\n${section}`;
+	return `${annotateFindingsTable(report, parseVerdicts(verdicts), parseKnown(verdicts))}\n\n${section}`;
 }
 
 /**
@@ -189,8 +258,13 @@ function main(argv) {
 		return 2;
 	}
 	const report = readFileSync(reportPath, 'utf8');
+	const ledgerPath = join(dir, 'ledger.md');
+	const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : '';
+	const knownIssues = readKnownIssues(dir);
+	const observed = observedLinked(knownIssues, ledger);
 	if (command === 'prompt') {
-		if (!hasFindings(report)) {
+		// Linked issues the run ran into still need a severity.
+		if (!hasFindings(report) && !observed.length) {
 			console.log('no findings: nothing to verify');
 			return 0;
 		}
@@ -219,11 +293,16 @@ function main(argv) {
 		const reply = readFileSync(replyFile, 'utf8').trim();
 		// An empty reply, or one with no verdicts, still says so, rather than
 		// leaving the findings looking reviewed.
-		const failed = !reply || !parseVerdicts(reply).size;
+		const findings = hasFindings(report);
+		const failed = !reply || (findings && !parseVerdicts(reply).size);
+		const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
 		const verdicts = failed
-			? `_Verification did not complete${reply ? `: the reply had no VERDICTS line` : ''}. The findings above are unreviewed._${reply ? `\n\n${reply}` : ''}`
+			? `_Verification did not complete${reply ? `: the reply had no VERDICTS line` : ''}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`
 			: fromVerdictLine(reply);
 		writeFileSync(reportPath, applyVerification(report.trimEnd(), verdicts, { failed }));
+		for (const line of verifyLogLines(knownIssues, ledger, reply)) {
+			console.error(`finish: ${line}`);
+		}
 		console.log(`finish: ${failed ? 'marked unreviewed' : 'verdicts added to'} ${reportPath}`);
 		return 0;
 	}

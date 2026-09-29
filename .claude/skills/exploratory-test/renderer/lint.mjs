@@ -232,11 +232,61 @@ function ledgerPreconditions(ledger) {
  * that names them. Evidence groups by that tag, so one without it is a ledger
  * error, not a tile to show untagged.
  */
+/** The ledger's `Issue:` lines and issue-naming Not run rows, against the issues fetched for the PR. */
+function lintKnownIssues(ledger, knownIssues) {
+	const problems = [];
+	const byNumber = new Map((knownIssues?.issues ?? []).map(i => [i.number, i]));
+	let id = null;
+	for (const { line } of prose(ledger)) {
+		const head = /^##\s+(\S+)/.exec(line);
+		if (head) { id = /^S\d+$/.test(head[1]) ? head[1] : null; continue; }
+		const m = /^Issue:\s*(.*)$/.exec(line);
+		if (id && m && !/^#\d+\s+(observed|came back|fix held|fix did not hold|fix didn't hold)\s*$/i.test(m[1].trim())) {
+			problems.push(`ledger: ${id} "Issue: ${m[1].trim()}" must read "Issue: #<N> observed", "#<N> came back", "#<N> fix held" or "#<N> fix did not hold"`);
+		}
+	}
+	const parsed = parseLedger(ledger);
+	for (const s of parsed?.exercised ?? []) {
+		for (const { n, kind } of s.issues ?? []) {
+			const issue = byNumber.get(n);
+			if (!issue) {
+				problems.push(`ledger: ${s.id} names #${n}, which is not in known-issues.json; only issues linked to the PR get an Issue: line`);
+			} else if (issue.relation === 'fixes' && (kind === 'observed' || kind === 'back')) {
+				problems.push(`ledger: ${s.id} #${n} is a fix the PR claims; record "fix held" or "fix did not hold", not "${kind === 'back' ? 'came back' : 'observed'}"`);
+			} else if (issue.relation !== 'fixes' && (kind === 'held' || kind === 'failed')) {
+				problems.push(`ledger: ${s.id} #${n} is a linked issue, not one the PR fixes; record "${issue.state === 'closed' ? 'came back' : 'observed'}"`);
+			} else if (kind === 'observed' && issue.state === 'closed') {
+				problems.push(`ledger: ${s.id} #${n} is closed, so seeing it again is a finding; record "came back" with Status: FAIL`);
+			} else if (kind === 'back' && issue.state !== 'closed') {
+				problems.push(`ledger: ${s.id} #${n} is still open; record "observed", not "came back"`);
+			} else if ((kind === 'failed' || kind === 'back') && s.status !== 'fail') {
+				problems.push(`ledger: ${s.id} says ${kind === 'failed' ? `the fix for #${n} did not hold` : `#${n} came back`}, so it needs a finding and Status: FAIL`);
+			}
+		}
+	}
+	for (const r of parsed?.notExercised ?? []) {
+		for (const { n, kind } of r.issues ?? []) {
+			if (!byNumber.has(n)) {
+				problems.push(`ledger: Not run ${r.id} names #${n}, which is not in known-issues.json`);
+			} else if ((byNumber.get(n).relation === 'fixes') !== (kind === 'not-exercised')) {
+				problems.push(`ledger: Not run ${r.id} #${n}: use "Fix for #N not exercised" for a fix, "Already filed as #N" for a linked issue`);
+			}
+		}
+	}
+	const accounted = new Set([...(parsed?.exercised ?? []), ...(parsed?.notExercised ?? [])].flatMap(r => (r.issues ?? []).map(i => i.n)));
+	for (const i of byNumber.values()) {
+		if (i.relation === 'fixes' && !accounted.has(i.number)) {
+			problems.push(`ledger: the PR fixes #${i.number}; record "Issue: #${i.number} fix held" or "fix did not hold" under a scenario, or a Not run row "Fix for #${i.number} not exercised: <reason>"`);
+		}
+	}
+	return problems;
+}
+
 export function untaggedShots(findings) {
 	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !e.step).map(e => ({ n: f.n, file: e.file })));
 }
 
-export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists } = {}) {
+export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues } = {}) {
 	const problems = [];
 	const lines = prose(markdown);
 	const text = String(markdown ?? '');
@@ -357,6 +407,9 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		problems.push(...l.problems);
 		if (notExercised && !/^`?none`?\.?$/i.test(notExercised) && !l.notRun) {
 			problems.push('ledger: **Not exercised:** names surfaces, so ## Not run needs an N line for each');
+		}
+		if (knownIssues?.issues?.length) {
+			problems.push(...lintKnownIssues(ledger, knownIssues));
 		}
 	}
 	return problems;
