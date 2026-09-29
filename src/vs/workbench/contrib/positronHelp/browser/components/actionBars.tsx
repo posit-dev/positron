@@ -44,7 +44,7 @@ const kMaximumSuggestions = 50;
 
 const HelpSearch = () => {
 	const services = usePositronReactServicesContext();
-	const inFlight = useRef<{ sessionId: string; promise: Promise<HelpTopicSuggestion[]>; } | undefined>(undefined);
+	const inFlight = useRef<{ sessionId: string; promise: Promise<HelpTopicSuggestion[]> } | undefined>(undefined);
 	const [foregroundSession, setForegroundSession] = useState(services.runtimeSessionService.foregroundSession);
 	const [query, setQuery] = useState('');
 	const [topics, setTopics] = useState<HelpTopicSuggestion[]>([]);
@@ -209,14 +209,14 @@ const HelpSearch = () => {
 			</button>}
 			{focused && suggestions.length > 0 && <div className='help-search-suggestions' id={listId} role='listbox'>
 				{suggestions.map((suggestion, index) => <button
+					key={suggestion.topic}
 					aria-selected={index === activeIndex}
 					className={index === activeIndex ? 'active' : undefined}
 					id={`${listId}-${index}`}
-					key={suggestion.topic}
 					role='option'
 					type='button'
-					onMouseDown={event => event.preventDefault()}
 					onClick={() => void runSearch(suggestion)}
+					onMouseDown={event => event.preventDefault()}
 				>
 					<span>{suggestion.label}</span>
 					{suggestion.detail && <span className='detail'>{suggestion.detail}</span>}
