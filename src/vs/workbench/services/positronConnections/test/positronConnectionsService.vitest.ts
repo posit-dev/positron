@@ -25,7 +25,7 @@ describe('Positron - Connections Service', () => {
 	const ctx = createTestContainer()
 		.withRuntimeServices()
 		.stub(ISecretStorageService, new TestSecretStorageService())
-		// The Connections pane is the alternative to Data Connections, so it only runs with that off.
+		// The service only handles runtime connections when Data Connections is off.
 		.stub(IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': false }))
 		.build();
 	let connectionsService: IPositronConnectionsService;

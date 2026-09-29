@@ -16,17 +16,13 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from '../../positronDataConnections/browser/positronDataConnectionsConfiguration.js';
 
-// Workbench contribution that registers the Connections view container and view only when the
-// Data Connections feature is off; the two are alternatives, and the setting switches between them.
-// Toggling the setting requires a reload.
+/**
+ * Registers the Connections view container and view only when the Data Connections feature is off.
+ * The setting requires a reload, so it is read once here.
+ */
 class PositronConnectionsContribution implements IWorkbenchContribution {
-	// Contribution ID used for telemetry and debugging.
 	static readonly ID = 'workbench.contrib.positronConnections';
 
-	/**
-	 * Constructor that registers the Connections view container and view if the Data Connections
-	 * feature is disabled.
-	 */
 	constructor(@IConfigurationService configurationService: IConfigurationService) {
 		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
 			return;

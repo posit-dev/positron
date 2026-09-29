@@ -49,8 +49,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		this.driverManager = this._register(new PositronConnectionsDriverManager(this));
 
 		// With the Data Connections feature on, the Connections pane is not registered, so there is
-		// nowhere to show connections. Read once, like the pane's own registration: toggling the
-		// setting requires a reload.
+		// nowhere to show runtime connections. The setting requires a reload, so it is read once.
 		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
 			this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
 				this.closeRuntimeConnections(session);
@@ -139,9 +138,8 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	}
 
 	/**
-	 * Closes the connection comms a session opens, since nothing handles them when the Data
-	 * Connections feature is on. Without this, they stay open until the session ends (R opens one
-	 * for every odbc or DBI connection).
+	 * Closes the connection comms a session opens, which would otherwise stay open until the session
+	 * ends. R opens one for every odbc or DBI connection.
 	 */
 	private async closeRuntimeConnections(session: ILanguageRuntimeSession) {
 		const store = new DisposableStore();
