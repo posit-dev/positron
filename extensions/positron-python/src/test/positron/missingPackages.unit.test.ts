@@ -175,6 +175,15 @@ suite('listMissingPythonPackages', () => {
         expect((manager.resolvePackageName as sinon.SinonStub).firstCall.args[0]).to.equal('Pillow');
     });
 
+    test('offers an unaliased import under its normalized project name', async () => {
+        const session = makeSession(['flask_cors']);
+        const manager = makeResolvingManager(['flask-cors']);
+
+        const result = await listMissingPythonPackages(session, manager, { code: 'import flask_cors' });
+
+        expect(result).to.deep.equal([{ name: 'flask-cors', referencedName: undefined }]);
+    });
+
     test('does not offer a package when resolvePackageName fails', async () => {
         const session = makeSession(['requests']);
         const manager = {

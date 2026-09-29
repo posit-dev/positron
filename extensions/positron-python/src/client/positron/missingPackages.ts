@@ -165,11 +165,14 @@ async function resolveInstallName(
 
 /**
  * Candidate distribution names to try for an import name: the curated alias (if
- * any) first, then the import name itself.
+ * any) first, then the import name itself. The import name is PEP 503
+ * normalized (`flask_cors` -> `flask-cors`) because an exact-name lookup only
+ * confirms that a project exists; it does not return the published spelling.
  */
 function candidateDistributions(module: string): string[] {
     const alias = IMPORT_TO_DISTRIBUTION[module];
-    return alias ? [alias, module] : [module];
+    const normalized = canonicalizePyPIName(module);
+    return alias ? [alias, normalized] : [normalized];
 }
 
 /**
