@@ -8,15 +8,13 @@ description: >
   reading, installing or updating a session's packages, running or debugging
   a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio, marimo), reading
   the Data Connections pane -- connections code cannot see -- including a
-  live connection's tables and columns, and creating, reading, editing, or
-  running cells of a Jupyter notebook in the Positron notebook editor. Use
-  when the user wants Positron itself to act, or to know what is installed,
-  rather than to run R or Python code. Triggers: "show the variables pane",
-  "open data.csv", "what interpreters are available", "switch to my R
-  session", "my session is stuck", "is pandas installed?", "set up a Python
-  environment", "run my shiny app", "what databases am I connected to", "what
-  tables are in my warehouse", "deploy my app to Connect", "create a
-  notebook", "add a cell to this notebook", "run this notebook cell".
+  live connection's tables and columns, and creating, editing, or running
+  Jupyter notebook cells. Use when the user wants Positron itself to act, or
+  to know what is installed, rather than to run R or Python code. Triggers:
+  "show the variables pane", "open data.csv", "switch to my R session", "my
+  session is stuck", "set up a Python environment", "run my shiny app", "what
+  databases am I connected to", "deploy my app to Connect", "add a cell to
+  this notebook".
 ---
 
 # Positron IDE commands
