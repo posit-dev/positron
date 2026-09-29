@@ -388,20 +388,18 @@ function createSemanticViewNode(
 		name: semanticViewName,
 		kind: positron.DataConnectionNodeKind.SemanticView,
 		async getDetails() {
-			return semanticViewDetails(database, schemaName, showRow, describe, ddl);
+			return semanticViewDetails(showRow, describe, ddl);
 		},
 		async getChildren() {
 			const members = await describe();
-			// Unquoted, for display: where each member's details say it lives.
-			const semanticViewPath = `${database}.${schemaName}.${semanticViewName}`;
 			const K = positron.DataConnectionNodeKind;
 			return [
 				createSemanticViewMemberGroupNode(vscode.l10n.t('Logical Tables'), K.GroupLogicalTables, members.tables, table =>
-					createLogicalTableNode(client, host, table, members, semanticViewPath)),
+					createLogicalTableNode(client, host, table, members)),
 				createSemanticViewMemberGroupNode(vscode.l10n.t('Derived Metrics'), K.GroupDerivedMetrics, members.derivedMetrics, metric =>
-					createSemanticViewMemberNode(metric, K.Metric, vscode.l10n.t('Derived metric in {0}', semanticViewPath))),
+					createSemanticViewMemberNode(metric, K.Metric, vscode.l10n.t('Derived metric'))),
 				createSemanticViewMemberGroupNode(vscode.l10n.t('Relationships'), K.GroupRelationships, members.relationships, relationship =>
-					createSemanticViewMemberNode(relationship, K.Relationship, vscode.l10n.t('Relationship in {0}', semanticViewPath))),
+					createSemanticViewMemberNode(relationship, K.Relationship, vscode.l10n.t('Relationship'))),
 			];
 		},
 	};
@@ -531,15 +529,11 @@ function showValue(value: unknown): string | undefined {
  * The DDL comes from GET_DDL, a SELECT, which (unlike the SHOW and DESCRIBE commands the tree uses)
  * may need a warehouse. A connection without one still gets the Overview; the Definition says why it
  * is empty instead.
- * @param database The database the semantic view lives in.
- * @param schemaName The schema the semantic view lives in.
  * @param showRow The semantic view's row from SHOW SEMANTIC VIEWS.
  * @param describe Loads the semantic view's members (DESCRIBE SEMANTIC VIEW).
  * @param loadDdl Loads the semantic view's DDL (GET_DDL).
  */
 async function semanticViewDetails(
-	database: string,
-	schemaName: string,
 	showRow: Record<string, unknown>,
 	describe: () => Promise<ISemanticViewMembers>,
 	loadDdl: () => Promise<string>
@@ -601,7 +595,8 @@ async function semanticViewDetails(
 		: { kind: 'properties', properties: [{ name: vscode.l10n.t('Unavailable'), value: ddl.text }] };
 
 	return {
-		description: vscode.l10n.t('Semantic view in {0}', `${database}.${schemaName}`),
+		// Just what the node is: where it lives is the details editor's breadcrumbs.
+		description: vscode.l10n.t('Semantic view'),
 		sections: [],
 		tabs: [
 			{ title: vscode.l10n.t('Overview'), sections: overview },
@@ -656,7 +651,8 @@ function propertyValue(value: string): string {
  * defines a fact, dimension, filter, or metric, and usually the thing the user came to read --
  * which gets a code section of its own.
  * @param member The member.
- * @param description What and where the member is, e.g. "Metric in DB.SCHEMA.VIEW".
+ * @param description What the member is, e.g. "Metric". (Where it lives is the details editor's
+ * breadcrumbs.)
  * @param qualified Whether the member has a `<table>.<name>` qualified name. Relationships don't:
  * their parent entity is the table they join from, but they are named at the view level.
  */
@@ -695,7 +691,7 @@ function semanticViewMemberDetails(member: ISemanticViewMember, description: str
  * details. Members of a logical table are shown under it, so they go by their bare name.
  * @param member The member.
  * @param kind The node kind.
- * @param description What and where the member is, for its details, e.g. "Metric in DB.SCHEMA.VIEW".
+ * @param description What the member is, for its details, e.g. "Metric".
  */
 function createSemanticViewMemberNode(
 	member: ISemanticViewMember,
@@ -724,14 +720,12 @@ function createSemanticViewMemberNode(
  * @param host The preview host.
  * @param table The logical table.
  * @param members All of the semantic view's members, from which the table's own are picked.
- * @param semanticViewPath The semantic view's three-part name, for display.
  */
 function createLogicalTableNode(
 	client: SnowflakeClient,
 	host: ISnowflakePreviewHost,
 	table: ISemanticViewMember,
-	members: ISemanticViewMembers,
-	semanticViewPath: string
+	members: ISemanticViewMembers
 ): positron.DataConnectionNode {
 	const K = positron.DataConnectionNodeKind;
 	const own = (bucket: ISemanticViewMember[]) => bucket.filter(member => member.table === table.name);
@@ -741,19 +735,19 @@ function createLogicalTableNode(
 		async getChildren() {
 			return [
 				createSemanticViewMemberGroupNode(vscode.l10n.t('Dimensions'), K.GroupDimensions, own(members.dimensions), member =>
-					createSemanticViewMemberNode(member, K.Dimension, vscode.l10n.t('Dimension in {0}', semanticViewPath))),
+					createSemanticViewMemberNode(member, K.Dimension, vscode.l10n.t('Dimension'))),
 				createSemanticViewMemberGroupNode(vscode.l10n.t('Time Dimensions'), K.GroupTimeDimensions, own(members.timeDimensions), member =>
-					createSemanticViewMemberNode(member, K.TimeDimension, vscode.l10n.t('Time dimension in {0}', semanticViewPath))),
+					createSemanticViewMemberNode(member, K.TimeDimension, vscode.l10n.t('Time dimension'))),
 				createSemanticViewMemberGroupNode(vscode.l10n.t('Facts'), K.GroupFacts, own(members.facts), member =>
-					createSemanticViewMemberNode(member, K.Fact, vscode.l10n.t('Fact in {0}', semanticViewPath))),
+					createSemanticViewMemberNode(member, K.Fact, vscode.l10n.t('Fact'))),
 				createSemanticViewMemberGroupNode(vscode.l10n.t('Named Filters'), K.GroupNamedFilters, own(members.namedFilters), member =>
-					createSemanticViewMemberNode(member, K.NamedFilter, vscode.l10n.t('Named filter in {0}', semanticViewPath))),
+					createSemanticViewMemberNode(member, K.NamedFilter, vscode.l10n.t('Named filter'))),
 				createSemanticViewMemberGroupNode(vscode.l10n.t('Metrics'), K.GroupMetrics, own(members.metrics), member =>
-					createSemanticViewMemberNode(member, K.Metric, vscode.l10n.t('Metric in {0}', semanticViewPath))),
+					createSemanticViewMemberNode(member, K.Metric, vscode.l10n.t('Metric'))),
 			];
 		},
 		async getDetails() {
-			return semanticViewMemberDetails(table, vscode.l10n.t('Logical table in {0}', semanticViewPath), false);
+			return semanticViewMemberDetails(table, vscode.l10n.t('Logical table'), false);
 		},
 	};
 

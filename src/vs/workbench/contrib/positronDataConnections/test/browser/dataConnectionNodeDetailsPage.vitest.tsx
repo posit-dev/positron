@@ -11,6 +11,9 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IViewsService } from '../../../../services/views/common/viewsService.js';
+import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../browser/positronDataConnectionsConfiguration.js';
 import { DataConnectionNodeDetailsPage } from '../../browser/editor/dataConnectionNodeDetailsPage.js';
 import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -20,6 +23,8 @@ const TARGET = {
 	name: 'CHAOS_MODEL',
 	icon: 'type-hierarchy',
 	path: ['TestData', 'DEMO_CHAOS_DB', 'ERP_DUMP', 'CHAOS_MODEL'],
+	profileId: 'conn-1',
+	nodePath: ['["database","DEMO_CHAOS_DB"]', '["schema","ERP_DUMP"]', '["semantic-view","CHAOS_MODEL"]'],
 };
 
 // A semantic view's details, shaped the way the Snowflake driver builds them: an Overview holding a
@@ -81,11 +86,22 @@ describe('DataConnectionNodeDetailsPage', () => {
 	// the defaults, as in a fresh profile. Built before the renderer so the container's leak check
 	// runs after RTL has unmounted the page: afterEach hooks run in reverse, and the page holds its
 	// input subscription until unmount.
+	// A breadcrumb opens the pane and asks the service to reveal its node.
+	const openView = vi.fn(async () => undefined);
+	const revealConnection = vi.fn();
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IConfigurationService, new TestConfigurationService({ editor: {} }))
+		.stub(IViewsService, { openView })
+		.stub(IPositronDataConnectionsService, { revealConnection })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+	// The details' own list entries, leaving out the breadcrumbs (also a list) above them.
+	function detailItems() {
+		const breadcrumbs = screen.getByRole('navigation', { name: 'Location' });
+		return screen.getAllByRole('listitem').filter(item => !breadcrumbs.contains(item));
+	}
 
 	function renderPage(details: IDataConnectionNodeDetailsDTO) {
 		const input = ctx.disposables.add(new DataConnectionNodeDetailsEditorInput(TARGET, details));
@@ -124,6 +140,32 @@ describe('DataConnectionNodeDetailsPage', () => {
 
 			expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
 			expect(screen.getByText('SELECT 1')).toBeInTheDocument();
+		});
+
+		it('shows where the node lives as breadcrumbs, ending at the node itself', () => {
+			renderPage({ sections: [] });
+
+			const breadcrumbs = within(screen.getByRole('navigation', { name: 'Location' })).getAllByRole('listitem');
+			expect(breadcrumbs.map(crumb => crumb.textContent)).toEqual(['TestData', 'DEMO_CHAOS_DB', 'ERP_DUMP', 'CHAOS_MODEL']);
+			expect(breadcrumbs.at(-1)).toHaveAttribute('aria-current', 'location');
+			expect(breadcrumbs[0]).not.toHaveAttribute('aria-current');
+		});
+
+		it('reveals a breadcrumb\'s node in the pane, opening its details, and the connection alone for the first', async () => {
+			renderPage({ sections: [] });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'ERP_DUMP' }));
+
+			expect(openView).toHaveBeenCalledWith(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', {
+				nodePath: ['["database","DEMO_CHAOS_DB"]', '["schema","ERP_DUMP"]'],
+				openDetails: true,
+			});
+
+			await user.click(screen.getByRole('button', { name: 'TestData' }));
+
+			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', { nodePath: [], openDetails: false });
 		});
 
 		it('says so when the node has no details', () => {
@@ -211,7 +253,7 @@ describe('DataConnectionNodeDetailsPage', () => {
 		it('shows an item\'s name, description, code, and data type, and an empty group\'s placeholder', () => {
 			renderPage({ sections: [ITEMS, { kind: 'items', items: [], emptyText: 'No named filters' }] });
 
-			const metric = within(screen.getAllByRole('listitem')[2]);
+			const metric = within(detailItems()[2]);
 			expect(metric.getByText('NET_REVENUE')).toBeInTheDocument();
 			expect(metric.getByText('Realized revenue (Status 90).')).toBeInTheDocument();
 			expect(metric.getByText('SUM(X_AMT)')).toBeInTheDocument();
@@ -227,7 +269,7 @@ describe('DataConnectionNodeDetailsPage', () => {
 			const iconOf = (item: HTMLElement) =>
 				// eslint-disable-next-line no-restricted-syntax -- decorative codicon; see above
 				Array.from(item.querySelector('.data-connection-node-details-item-icon')?.classList ?? []).find(name => name.startsWith('codicon-'));
-			expect(screen.getAllByRole('listitem').map(iconOf)).toMatchInlineSnapshot(`
+			expect(detailItems().map(iconOf)).toMatchInlineSnapshot(`
 				[
 				  "codicon-symbol-string",
 				  "codicon-symbol-numeric",

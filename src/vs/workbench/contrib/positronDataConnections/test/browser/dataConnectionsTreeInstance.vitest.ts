@@ -7,6 +7,7 @@
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
@@ -17,7 +18,7 @@ import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../.
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionRevealOptions, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 // The tree's hover manager hides the hover when the tree is disposed; nothing here shows one.
 const hoverService = stubInterface<IHoverService>({ hideHover: vi.fn() });
@@ -779,26 +780,36 @@ describe('DataConnectionsTreeInstance reveal', () => {
 	 * first. `requestReveal` puts a new one up and nudges the tree, standing in for a press of the
 	 * database file page's button while the pane is already open.
 	 */
-	function createTree({ pendingReveal, connected = true, profilesAbove = 0 }: {
+	function createTree({ pendingReveal, connected = true, profilesAbove = 0, grouped = false }: {
 		pendingReveal?: string;
 		connected?: boolean;
 		profilesAbove?: number;
+		// Put the connection's table inside a Tables group, the way a real schema holds its tables,
+		// and give the table details.
+		grouped?: boolean;
 	} = {}) {
-		let pending = pendingReveal;
+		let pending: IDataConnectionRevealRequest | undefined = pendingReveal === undefined ? undefined : { profileId: pendingReveal };
 
+		const flights = {
+			nodeHandle: 7,
+			name: 'flights',
+			kind: 'table',
+			hasGetChildren: false,
+			hasPreview: true,
+			hasDetails: grouped,
+		};
 		const instance = stubInterface<IDataConnectionInstance>({
 			id: 'instance-1',
 			profileId: profile.id,
 			connectionHandle: stubInterface<IDataConnectionHandle>({
 				handle: 1,
-				getChildren: async () => [{
-					nodeHandle: 7,
-					name: 'flights',
-					kind: 'table',
-					hasGetChildren: false,
-					hasPreview: true,
-					hasDetails: false,
-				}],
+				getChildren: async () => grouped
+					? [{ nodeHandle: 6, name: 'Tables', kind: 'group-tables', hasGetChildren: true, hasPreview: false, hasDetails: false }]
+					: [flights],
+				...(grouped ? {
+					nodeGetChildren: async () => [flights],
+					nodeGetDetails: async () => ({ sections: [] }),
+				} : {}),
 			}),
 		});
 
@@ -814,6 +825,16 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		// to bring it into view.
 		const filler = Array.from({ length: profilesAbove },
 			(_, index) => createProfile({ id: `filler-${index}` }));
+
+		// Where a revealed node's details open. The editor would own the input it is handed; with no
+		// editor here, the test's store does.
+		const openEditor = vi.fn(async (input: IDisposable) => {
+			ctx.disposables.add(input);
+			return undefined;
+		});
+		// openEditor is overloaded for every kind of input; the tree only ever passes an EditorInput,
+		// so the one-signature mock stands in for all of them.
+		const editorService = stubInterface<IEditorService>({ editors: [], openEditor: openEditor as unknown as IEditorService['openEditor'] });
 
 		const service = stubInterface<IPositronDataConnectionsService>({
 			onDidChangeProfiles: Event.None,
@@ -834,7 +855,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
-		}), stubInterface<INotificationService>({ error: vi.fn() }), hoverService, stubInterface<IEditorService>());
+		}), stubInterface<INotificationService>({ error: vi.fn() }), hoverService, editorService);
 		ctx.disposables.add(tree);
 
 		// The tree asks the view rendering it to take keyboard focus, which is the part of a reveal
@@ -845,9 +866,10 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		return {
 			tree,
 			connect,
+			openEditor,
 			focusRequested: () => focusRequests > 0,
-			requestReveal: (profileId: string) => {
-				pending = profileId;
+			requestReveal: (profileId: string, options?: IDataConnectionRevealOptions) => {
+				pending = { profileId, ...options };
 				onDidRequestRevealConnection.fire();
 			},
 		};
@@ -886,6 +908,33 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		revealed.requestReveal('conn-1');
 
 		await expectRevealed(revealed);
+	});
+
+	it('goes down to a node inside a group, and opens its details, when a breadcrumb asks', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		// The node's path leaves out the Tables group, as a breadcrumb's does.
+		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'flights'])], openDetails: true });
+
+		await vi.waitFor(() => expect(revealed.openEditor).toHaveBeenCalled());
+		const selected = revealed.tree.getSelectedNode()?.data;
+		expect(selected?.kind === 'dto' ? selected.dto.name : undefined).toBe('flights');
+		// The details open in the editor the request came from, which keeps focus.
+		expect(revealed.focusRequested()).toBe(false);
+	});
+
+	it('stops at the deepest node it can still find when the path no longer matches', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'dropped_since'])] });
+
+		// Nothing below the connection matches, so the connection is where it lands; the Tables
+		// group, opened only to look, is closed again.
+		await expectRevealed(revealed);
+		expect(revealed.tree.visibleNodes.some(visible =>
+			visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'flights')).toBe(false);
 	});
 
 	it('connects a connection that is not live when it is revealed', async () => {

@@ -271,12 +271,17 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * An entry the user already has open is left expanded as it is; the selection still moves to
 	 * it, which is the part that answers "where did my connection go".
+	 *
+	 * A request with a node path goes on down to that node (see _revealNodePath) and selects it
+	 * instead, and with openDetails opens its details too. That is a breadcrumb in a details editor,
+	 * so focus is left in the editor then, rather than moved to the tree.
 	 */
 	private async _revealRequestedConnection(): Promise<void> {
-		const profileId = this._service.takePendingRevealConnection();
-		if (profileId === undefined) {
+		const request = this._service.takePendingRevealConnection();
+		if (request === undefined) {
 			return;
 		}
+		const { profileId, nodePath = [], openDetails = false } = request;
 
 		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
 		// tree through a roots refresh, and a tree built just now has no rows at all until its
@@ -296,9 +301,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			await this.expand(id);
 		}
 
-		// Located after the expand, which inserts the rows the connection holds and so moves
-		// everything below it.
-		const rowIndex = this.visibleNodes.findIndex(visible => visible.node.id === id);
+		// Located after the expands, which insert the rows each node holds and so move everything
+		// below it.
+		const targetId = nodePath.length > 0 ? await this._revealNodePath(id, nodePath) : id;
+		const rowIndex = this.visibleNodes.findIndex(visible => visible.node.id === targetId);
 		if (rowIndex === -1) {
 			return;
 		}
@@ -307,10 +313,93 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		this.selectRow(rowIndex);
 		this._scrollToCursorWhenLaidOut();
 
+		if (openDetails) {
+			// The details open where the request came from, in the editor area, which keeps focus.
+			await this.openNodeDetails(rowIndex, false);
+			return;
+		}
+
 		// Put keyboard focus on the row, not merely the selection highlight: the user pressed a
 		// button elsewhere to get here, so this is where they are now, and the arrow keys should
 		// move from this row. Harmless if the tree already has focus.
 		this.requestFocus();
+	}
+
+	/**
+	 * Opens the tree down from a node to a descendant named by its path -- the reload key of each
+	 * node on the way, leaving out the rows that only group others -- and returns the id of the
+	 * deepest node reached. That is the target itself unless the tree no longer matches the path
+	 * (something was renamed or dropped since the path was recorded), in which case it is as close
+	 * as the tree still gets.
+	 * @param startId The id of the node the path starts below (a connection's entry).
+	 * @param nodePath The reload keys of the nodes on the way down.
+	 */
+	private async _revealNodePath(startId: string, nodePath: readonly string[]): Promise<string> {
+		let currentId = startId;
+		for (const key of nodePath) {
+			const childId = await this._findChildByReloadKey(currentId, key);
+			if (childId === undefined) {
+				break;
+			}
+			currentId = childId;
+		}
+		return currentId;
+	}
+
+	/**
+	 * Finds the node with the given reload key among a node's children, expanding the node first if
+	 * need be. Rows that only group others ("Tables", "Metrics") are looked inside, since a path
+	 * leaves them out; a group opened only to look, where the node wasn't, is closed again so the
+	 * search leaves no trace but the way to the node.
+	 * @param parentId The id of the node to look under.
+	 * @param key The reload key of the node to find.
+	 * @returns The node's id, or undefined if it isn't there.
+	 */
+	private async _findChildByReloadKey(parentId: string, key: string): Promise<string | undefined> {
+		const wasExpanded = this.isExpanded(parentId);
+		if (!wasExpanded) {
+			await this.expand(parentId);
+		}
+
+		const children = this._visibleChildren(parentId);
+		const match = children.find(child => reloadKey(child.node.data) === key);
+		if (match) {
+			return match.node.id;
+		}
+
+		for (const child of children) {
+			const data = child.node.data;
+			if (data.kind === 'dto' && CONTAINER_ONLY_KINDS.has(data.dto.kind) && data.dto.hasGetChildren) {
+				const groupWasExpanded = this.isExpanded(child.node.id);
+				const found = await this._findChildByReloadKey(child.node.id, key);
+				if (found !== undefined) {
+					return found;
+				}
+				if (!groupWasExpanded) {
+					this.collapse(child.node.id);
+				}
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Gets the rows directly under an expanded node.
+	 * @param parentId The id of the node.
+	 */
+	private _visibleChildren(parentId: string): VisibleNode<DataConnectionNode>[] {
+		const parentIndex = this.visibleNodes.findIndex(visible => visible.node.id === parentId);
+		if (parentIndex === -1) {
+			return [];
+		}
+		const parentDepth = this.visibleNodes[parentIndex].depth;
+		const children: VisibleNode<DataConnectionNode>[] = [];
+		for (let index = parentIndex + 1; index < this.visibleNodes.length && this.visibleNodes[index].depth > parentDepth; index++) {
+			if (this.visibleNodes[index].depth === parentDepth + 1) {
+				children.push(this.visibleNodes[index]);
+			}
+		}
+		return children;
 	}
 
 	/**
@@ -785,18 +874,21 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	private _detailsTarget(rowIndex: number, dto: IDataConnectionNodeDTO): IDataConnectionNodeDetailsTarget {
 		const keys: string[] = [];
 		const path: string[] = [];
+		let profileId = '';
 		for (let index: number | undefined = rowIndex; index !== undefined; index = findParentIndex(this.visibleNodes, index)) {
 			const data = this.visibleNodes[index].node.data;
 			if (data.kind === 'entry') {
 				keys.unshift(reloadKey(data));
 				path.unshift(data.entry.profile.connectionName);
+				profileId = data.entry.profile.id;
 			} else if (!CONTAINER_ONLY_KINDS.has(data.dto.kind)) {
 				keys.unshift(reloadKey(data));
 				path.unshift(data.dto.name);
 			}
 		}
 
-		return { key: JSON.stringify(keys), name: dto.name, icon: kindIcon(dto), path };
+		// keys[0] is the connection's own; the node path is what lies below it.
+		return { key: JSON.stringify(keys), name: dto.name, icon: kindIcon(dto), path, profileId, nodePath: keys.slice(1) };
 	}
 
 	private _findEntryNode(id: string): { entry: DataConnectionEntry } | undefined {

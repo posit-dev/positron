@@ -16,6 +16,7 @@ import { PositronTabs } from '../../../../../base/browser/ui/positronComponents/
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
+import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../positronDataConnectionsConfiguration.js';
 import { kindIcon } from '../components/dataConnectionNodeRow.js';
 import { DataConnectionNodeDetailsEditorInput } from './dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsItemDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -253,8 +254,19 @@ interface DataConnectionNodeDetailsPageProps {
  * node again in the tree updates the open tab in place (keeping the selected tab).
  */
 export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetailsPageProps) => {
-	const { configurationService } = usePositronReactServicesContext();
+	const { configurationService, positronDataConnectionsService, viewsService } = usePositronReactServicesContext();
 	const [details, setDetails] = useState(() => input.details);
+
+	// A breadcrumb shows its node in the Data Connections pane -- the connection itself for the
+	// first, which reconnects it if need be -- and opens that node's details, when it has any, in
+	// place of these. The pane is opened without taking focus: the user is reading here.
+	const revealBreadcrumb = async (index: number) => {
+		await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+		positronDataConnectionsService.revealConnection(input.target.profileId, {
+			nodePath: input.target.nodePath.slice(0, index),
+			openDetails: index > 0,
+		});
+	};
 
 	// Code is shown in the font the user picked for the editor, as the Data Explorer and the Console
 	// show theirs. It's read into custom properties on the page, rather than applied to each code
@@ -281,13 +293,35 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 
 	return (
 		<div ref={pageRef} className='data-connection-node-details-page' style={codeFont}>
-			<div className='data-connection-node-details-header'>
-				<div className={`codicon codicon-${input.target.icon} data-connection-node-details-icon`} />
-				<div className='data-connection-node-details-heading'>
-					<h1 className='data-connection-node-details-name'>{input.target.name}</h1>
-					{details.description && (
-						<div className='data-connection-node-details-description'>{details.description}</div>
-					)}
+			<div className='data-connection-node-details-top'>
+				{/*
+				 * Where the node lives: its connection, then each node down to it, as the tree showed
+				 * them when the tab was opened. Group rows ("Tables", "Metrics") are left out, as they
+				 * are in the tab's key; they only label the rows beneath them.
+				 */}
+				<nav aria-label={localize('positron.dataConnections.nodeDetails.breadcrumbs', "Location")} className='data-connection-node-details-breadcrumbs'>
+					<ol>
+						{input.target.path.map((segment, index) => {
+							const current = index === input.target.path.length - 1;
+							return (
+								<li key={index} aria-current={current ? 'location' : undefined}>
+									{index > 0 && <span aria-hidden='true' className='codicon codicon-chevron-right data-connection-node-details-breadcrumb-separator' />}
+									<button className='data-connection-node-details-breadcrumb' onClick={() => void revealBreadcrumb(index)}>
+										{segment}
+									</button>
+								</li>
+							);
+						})}
+					</ol>
+				</nav>
+				<div className='data-connection-node-details-header'>
+					<div className={`codicon codicon-${input.target.icon} data-connection-node-details-icon`} />
+					<div className='data-connection-node-details-heading'>
+						<h1 className='data-connection-node-details-name'>{input.target.name}</h1>
+						{details.description && (
+							<div className='data-connection-node-details-description'>{details.description}</div>
+						)}
+					</div>
 				</div>
 			</div>
 			{details.tabs && details.tabs.length > 0 ? (

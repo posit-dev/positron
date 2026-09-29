@@ -26,8 +26,16 @@ export interface IDataConnectionNodeDetailsTarget {
 	readonly icon: string;
 
 	// The names on the way down to the node, from the connection to the node itself, shown as the
-	// tab's tooltip so two tabs for same-named nodes can be told apart.
+	// tab's tooltip so two tabs for same-named nodes can be told apart, and as the page's breadcrumbs.
 	readonly path: readonly string[];
+
+	// The id of the connection profile the node belongs to.
+	readonly profileId: string;
+
+	// The reload key of each node on the way down from the connection to the node itself: path
+	// without its first entry (the connection), as keys the tree can find the nodes by again. A
+	// breadcrumb reveals its node with the keys up to and including its own.
+	readonly nodePath: readonly string[];
 }
 
 /**

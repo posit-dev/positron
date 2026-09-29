@@ -38,6 +38,72 @@
 	-webkit-user-select: text;
 }
 
+/* The breadcrumbs and the header read as one block, so they sit closer than the page's sections. */
+.data-connection-node-details-page .data-connection-node-details-top {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size120);
+}
+
+/*
+ * The breadcrumbs: a quiet single line of the node's location above its name, ending in the node
+ * itself. Long paths wrap rather than truncate, so every segment stays readable and copyable.
+ */
+.data-connection-node-details-page .data-connection-node-details-breadcrumbs ol {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	row-gap: var(--vscode-spacing-size40);
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+.data-connection-node-details-page .data-connection-node-details-breadcrumbs li {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+}
+
+.data-connection-node-details-page .data-connection-node-details-breadcrumbs li[aria-current] {
+	color: var(--vscode-foreground);
+}
+
+/* A breadcrumb is a button that reads as text until pointed at, when it underlines like a link. */
+.data-connection-node-details-page .data-connection-node-details-breadcrumb {
+	padding: 0;
+	border: none;
+	border-radius: var(--vscode-cornerRadius-xSmall);
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	overflow-wrap: anywhere;
+	cursor: pointer;
+}
+
+.data-connection-node-details-page .data-connection-node-details-breadcrumb:hover {
+	color: var(--vscode-foreground);
+	text-decoration: underline;
+}
+
+/* A mouse click leaves no ring (it outranks the workbench's `button:focus`); the keyboard does. */
+.data-connection-node-details-page .data-connection-node-details-breadcrumb:focus {
+	outline: none;
+}
+
+.data-connection-node-details-page .data-connection-node-details-breadcrumb:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 1px;
+}
+
+.data-connection-node-details-page .data-connection-node-details-breadcrumb-separator {
+	margin: 0 var(--vscode-spacing-size40);
+	font-size: var(--vscode-fontSize-label1);
+}
+
 .data-connection-node-details-page .data-connection-node-details-header {
 	display: flex;
 	align-items: flex-start;
