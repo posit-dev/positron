@@ -306,6 +306,9 @@ export const PositronDynamicModalDialog = (props: PositronDynamicModalDialogProp
 					left: dialogBoxState.left,
 					top: dialogBoxState.top,
 					width: props.width,
+					// Keep the whole box, footer included, inside the gutter on a short window. The
+					// content area is the flex item that gives up the height, and it scrolls.
+					maxHeight: `calc(100% - ${kGutter * 2}px)`,
 				}}
 				tabIndex={-1}
 			>
