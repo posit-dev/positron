@@ -10,13 +10,6 @@ test.use({
 	suiteId: __filename,
 });
 
-// Quarantined: this suite drives the core "Configure LLM Providers" modal, which
-// has been removed along with the `positron.ai` provider-configuration API.
-// Provider sign-in now lives in the Posit Assistant extension's provider-manager
-// webview, which needs its own page object before these can be restored.
-test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
-
-
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic'];
 
 test.describe('Posit Assistant', {
@@ -26,7 +19,7 @@ test.describe('Posit Assistant', {
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
 		test.describe(provider, () => {
 			test.beforeAll(async function ({ app, settings }) {
-				await app.workbench.modelProviderModal.loginModelProvider(provider);
+				await app.workbench.providerManager.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');
