@@ -251,6 +251,7 @@ const withIssues = (s01, s02, notRun = '') => LEDGER
 
 test('a ledger that accounts for every linked issue is clean', () => {
 	assert.deepEqual(lintKnown(withIssues('Issue: #10 fix held\nIssue: #20 observed\n', 'Issue: #11 fix did not hold\nIssue: #21 came back\n')), []);
+	assert.deepEqual(lintKnown(withIssues('Issue: #10 fix held\nIssue: #20 observed\n', 'Issue: #11 fix didn\'t hold\nIssue: #21 came back\n')), []);
 	assert.deepEqual(lintKnown(withIssues('Issue: #10 fix held\n', '', '- N02 - x - Fix for #11 not exercised: web only\n- N03 - y - Already filed as #20\n')), []);
 });
 

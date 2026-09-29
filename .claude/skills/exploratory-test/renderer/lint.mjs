@@ -241,7 +241,7 @@ function lintKnownIssues(ledger, knownIssues) {
 		const head = /^##\s+(\S+)/.exec(line);
 		if (head) { id = /^S\d+$/.test(head[1]) ? head[1] : null; continue; }
 		const m = /^Issue:\s*(.*)$/.exec(line);
-		if (id && m && !/^#\d+\s+(observed|came back|fix held|fix did not hold)\s*$/i.test(m[1].trim())) {
+		if (id && m && !/^#\d+\s+(observed|came back|fix held|fix did not hold|fix didn't hold)\s*$/i.test(m[1].trim())) {
 			problems.push(`ledger: ${id} "Issue: ${m[1].trim()}" must read "Issue: #<N> observed", "#<N> came back", "#<N> fix held" or "#<N> fix did not hold"`);
 		}
 	}
