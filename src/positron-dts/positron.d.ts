@@ -3269,6 +3269,11 @@ declare module 'positron' {
 		 * If the session is busy, the user is asked whether it should be interrupted.
 		 * The promise resolves with `false` if the user declines to interrupt, or `true`
 		 * if the session was deleted. It can also throw e.g. if the session is not found.
+		 *
+		 * A runtime that does not exit during its shutdown grace period is forced to
+		 * quit, which can interrupt exit handlers such as R's `.Last`. If it still
+		 * does not exit, the session is deleted and the promise rejects with the
+		 * shutdown error.
 		 */
 		export function deleteSession(sessionId: string): Thenable<boolean>;
 

@@ -78,6 +78,15 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	// Track the working directory.
 	private _workingDirectory = '';
 
+	/** Distinguishes a runtime that cannot exit from one that cannot answer `shutdown()`. */
+	shutdownBehavior: 'exit' | 'noExit' | 'noReply' = 'exit';
+
+
+	exitsOnForceQuit = true;
+
+
+	forceQuitCount = 0;
+
 	readonly sessionId: string;
 
 	dynState: ILanguageRuntimeSessionState;
@@ -303,27 +312,40 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 				` (state = ${this._currentState})`);
 		}
 
+		if (this.shutdownBehavior === 'noReply') {
+			return new Promise<void>(() => { });
+		}
+
 		if (exitReason === RuntimeExitReason.Restart) {
 			this._onDidChangeRuntimeState.fire(RuntimeState.Restarting);
 		} else {
 			this._onDidChangeRuntimeState.fire(RuntimeState.Exiting);
 		}
 
-		// Complete the shutdown on the next tick, trying to match real runtime behavior.
+		if (this.shutdownBehavior === 'exit') {
+			this.exitOnNextTick(exitReason);
+		}
+	}
+
+	async forceQuit(): Promise<void> {
+		this.forceQuitCount++;
+		if (this.exitsOnForceQuit) {
+			this.exitOnNextTick(RuntimeExitReason.ForcedQuit);
+		}
+	}
+
+	// Complete the exit on the next tick, trying to match real runtime behavior.
+	private exitOnNextTick(reason: RuntimeExitReason) {
 		setTimeout(() => {
 			this._onDidChangeRuntimeState.fire(RuntimeState.Exited);
 			this._onDidEndSession.fire({
 				runtime_name: this.runtimeMetadata.runtimeName,
 				session_name: this.dynState.sessionName,
 				exit_code: 0,
-				reason: exitReason,
+				reason,
 				message: '',
 			});
 		}, 0);
-	}
-
-	async forceQuit(): Promise<void> {
-		throw new Error('Not implemented.');
 	}
 
 	showOutput(): void {
