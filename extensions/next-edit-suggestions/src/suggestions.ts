@@ -183,7 +183,7 @@ export async function generateSuggestion(
 			item.action = {
 				title: 'Learn More',
 				command: 'next-edit-suggestions.learnMore',
-				tooltip: 'Learn more about Posit AI',
+				tooltip: 'Learn more about Posit AI Pass',
 			};
 		}
 

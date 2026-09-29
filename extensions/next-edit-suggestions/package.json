@@ -1,7 +1,7 @@
 {
 	"name": "next-edit-suggestions",
 	"displayName": "Next Edit Suggestions",
-	"description": "Inline next edit suggestions powered by Posit AI",
+	"description": "Inline next edit suggestions powered by Posit AI Pass",
 	"publisher": "positron",
 	"license": "SEE LICENSE IN LICENSE",
 	"private": true,
