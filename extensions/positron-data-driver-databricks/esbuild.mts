@@ -12,16 +12,36 @@ run({
 	platform: 'node',
 	entryPoints: {
 		'extension': path.join(srcDir, 'extension.ts'),
+		// @databricks/sql bundles into its own entry point rather than into
+		// extension.js, so activation does not pay to parse the SDK. The
+		// dynamic import in databricksClient.ts loads this file on the first
+		// connection attempt instead.
+		'databricksSdk': path.join(srcDir, 'databricksSdk.ts'),
 	},
 	srcDir,
 	outdir: outDir,
 	additionalOptions: {
-		// @databricks/sql is a large package built on thrift and apache-arrow, with dynamic
-		// requires (it lazy-loads its Thrift service definitions and reads its own
-		// package.json at runtime for the driver version it reports to Databricks), which
-		// esbuild cannot bundle cleanly. Externalize it so it's loaded from node_modules at
-		// runtime; positron-data-driver-databricks is registered in extensionsWithNpmDeps
-		// (build/lib/extensions.ts) so its dependencies are packaged.
-		external: ['vscode', 'positron', '@databricks/sql'],
+		// @databricks/sql bundles cleanly: its requires are all static, and
+		// the driver version it reports to Databricks is a constant in
+		// dist/version.js. The exceptions are its two native modules:
+		//
+		// - lz4-napi decompresses LZ4-compressed results. It is a napi-rs
+		//   package that picks a per-platform .node file at runtime, so it
+		//   stays external and ships in node_modules (it is this extension's
+		//   only runtime dependency). If it fails to load, the SDK does not
+		//   ask the server for compressed results.
+		// - '../../native/kernel' is the loader for the optional Rust kernel
+		//   backend, which the SDK uses only when a client opts in with the
+		//   internal `useKernel` option. This extension never does, so the
+		//   kernel's platform binaries do not ship.
+		//
+		// './databricksSdk.js' stays external so the dynamic import in
+		// databricksClient.ts remains a real deferred load of the sibling
+		// bundle at runtime rather than being inlined into extension.js.
+		external: ['vscode', 'positron', './databricksSdk.js', 'lz4-napi', '../../native/kernel'],
+		// The SDK's dependency tree ships inside the bundle; keep the license
+		// comments its dependencies carry instead of letting minify drop
+		// them.
+		legalComments: 'eof',
 	},
 }, process.argv);

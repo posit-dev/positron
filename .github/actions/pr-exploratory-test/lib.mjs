@@ -142,93 +142,6 @@ export function renderCostFooter(passes, maxTurns) {
 }
 
 /**
- * Parses the verifier's machine-readable verdict line.
- *
- * Expects `VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE` anywhere in the text.
- * Returns a Map of finding number to a short word for the table cell.
- */
-export function parseVerdicts(text) {
-	const out = new Map();
-	if (typeof text !== 'string') {
-		return out;
-	}
-	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
-	if (!line) {
-		return out;
-	}
-	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
-		const m = part.trim().match(/^(\d+)\s*=\s*(.+)$/);
-		if (!m) {
-			continue;
-		}
-		const verdict = m[2].trim().toUpperCase();
-		const word = verdict.startsWith('CONFIRMED') ? 'confirmed'
-			: verdict.startsWith('FALSE') ? 'disputed'
-				: verdict.startsWith('UNRESOLVED') ? 'unresolved'
-					: null;
-		if (word) {
-			out.set(Number(m[1]), word);
-		}
-	}
-	return out;
-}
-
-/**
- * Appends a `Verified` column to the findings table.
- *
- * Best effort by design: the table is written by an agent, and its shape has
- * drifted before. Anything unexpected returns the report untouched so a
- * cosmetic column can never cost the report its findings. The verdicts are
- * appended in full below regardless, so nothing is lost when this bails.
- */
-export function annotateFindingsTable(report, verdicts) {
-	if (typeof report !== 'string' || !(verdicts instanceof Map) || verdicts.size === 0) {
-		return report;
-	}
-	const lines = report.split('\n');
-	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
-	if (header === -1 || !/^\|[\s:|-]+\|$/.test(lines[header + 1] || '')) {
-		return report;
-	}
-	lines[header] = `${lines[header].replace(/\s*$/, '')} Verified |`;
-	lines[header + 1] = `${lines[header + 1].replace(/\s*$/, '')}---|`;
-	for (let i = header + 2; i < lines.length; i++) {
-		if (!lines[i].startsWith('|')) {
-			break;
-		}
-		const n = Number((lines[i].match(/^\|\s*(\d+)\s*\|/) || [])[1]);
-		lines[i] = `${lines[i].replace(/\s*$/, '')} ${verdicts.get(n) || '-'} |`;
-	}
-	return lines.join('\n');
-}
-
-/**
- * True when the report has a findings table with at least one numbered row.
- *
- * A run that found nothing has nothing to verify, and asking anyway produced a
- * page of prose auditing claims nobody disputed.
- */
-export function hasFindings(report) {
-	if (typeof report !== 'string') {
-		return false;
-	}
-	const lines = report.split('\n');
-	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
-	if (header === -1) {
-		return false;
-	}
-	for (let i = header + 2; i < lines.length; i++) {
-		if (!lines[i].startsWith('|')) {
-			return false;
-		}
-		if (/^\|\s*\d+\s*\|/.test(lines[i])) {
-			return true;
-		}
-	}
-	return false;
-}
-
-/**
  * Parses the gate agent's machine-readable line.
  *
  * Expects `GATE: TESTABLE` or `GATE: NOT TESTABLE - <reason>`.
@@ -272,12 +185,41 @@ export function isProductPath(path) {
 }
 
 /**
- * The step summary's first line: what was tested, so a run is identifiable
- * without opening its report. The PR part is left off when there is none.
+ * What the explore job provides, shown to both the gate and the explorer. The
+ * e2e lanes reach far more (service containers, Tailscale, Docker hosts,
+ * licenses, provider keys); without this list the gate waves through changes
+ * only reachable there and the explorer files the missing service as a bug.
+ * Keep it in step with test-exploratory.yml's explore job.
  */
-export function renderSummaryTarget(branch, repo, number) {
+export const ENVIRONMENT = [
+	'Available in this run:',
+	'- Positron desktop (Electron) on Linux, compiled from the branch, in a disposable container you run as root.',
+	'- Python and R, several versions of each, including a conda Python and a venv at `/root/.venv`.',
+	'- Positron Assistant signed in with Anthropic.',
+	'- Open internet: extensions, PyPI and CRAN install normally.',
+	'- A Postgres server at host `postgres`, port 5432, database `periodic`, as `$E2E_POSTGRES_USER` / `$E2E_POSTGRES_PASSWORD`. That login is a fixed test value, not a secret, so connection code and forms that show it need no hiding.',
+	'- Snowflake as `$SNOWFLAKE_ACCOUNT` / `$SNOWFLAKE_USER` / `$SNOWFLAKE_PASSWORD`, and Databricks as `$DATABRICKS_WORKSPACE` / `$DATABRICKS_PAT`.',
+	'- Assistant keys for other providers, not signed in: OpenAI `$OPENAI_KEY`, Microsoft Foundry `$MS_FOUNDRY_KEY` at `$MS_FOUNDRY_BASE_URL`, Snowflake Cortex `$SNOWFLAKE_API_KEY` with `$SNOWFLAKE_ACCOUNT`, Databricks `$DATABRICKS_PAT` with `$DATABRICKS_WORKSPACE`.',
+	'',
+	'Not available, and not installable in this run:',
+	'- Positron Web or server mode (no license), and any browser other than the Electron app.',
+	'- Remote SSH, WSL, a Jupyter server, Posit Workbench and Posit Connect: they need a Docker host or a license this container has not got.',
+	'- Redshift (private network) and any database not listed above.',
+	'- Bedrock and Posit AI sign-in.',
+	'- Windows and macOS.',
+].join('\n');
+
+/**
+ * The step summary's first line: what was tested, so a run is identifiable
+ * without opening its report. The PR part is left off when there is none, and
+ * the time limit when the run had none.
+ */
+export function renderSummaryTarget(branch, repo, number, focus, timeLimit) {
+	const asked = String(focus ?? '').replace(/\s+/g, ' ').trim();
 	const parts = repo && /^\d+$/.test(String(number ?? '')) ? [`PR [#${number}](https://github.com/${repo}/pull/${number})`] : [];
+	if (asked) { parts.push(asked); }
 	if (branch) { parts.push(`\`${branch}\``); }
+	if (timeLimit) { parts.push(`${timeLimit} min`); }
 	return parts.length ? `${parts.join(' · ')}\n\n` : '';
 }
 
@@ -297,20 +239,22 @@ export function renderSummaryTarget(branch, repo, number) {
  * run is on the report's own Run tile; repeating either on the job page is a
  * second thing to read before getting to the one that matters.
  */
-/** The finding count and its per-severity breakdown; `breakdown` is '' with no findings. */
+/**
+ * The per-severity breakdown ("2 moderate · 3 minor"). The total only shows
+ * when there is nothing to break down: no findings, or none with a severity.
+ */
 function tallyFindings(markdown) {
 	const { findingCount, severityCounts } = parseReport(markdown);
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
 		.map(severity => `${severityCounts[severity]} ${severity}`)
 		.join(' \u00b7 ');
-	const count = findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
-	return { count, breakdown };
+	if (breakdown) { return breakdown; }
+	return findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
 }
 
 export function renderStepSummary(markdown, baseUrl) {
-	const { count, breakdown } = tallyFindings(markdown);
-	const tally = breakdown ? `${count} \u00b7 ${breakdown}` : count;
+	const tally = tallyFindings(markdown);
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
@@ -326,15 +270,85 @@ export function renderStepSummary(markdown, baseUrl) {
 export const COMMENT_MARKER = '<!-- exploratory-test -->';
 
 /**
- * How the explore pass ended. `partial` wins over a written report: a run cut
- * off at the turn cap covered less than it meant to, and a reviewer should
- * know that before trusting a short findings list.
+ * How the explore pass ended. `partial` and `timed-out` win over a written
+ * report: a run cut off at the turn cap or the time limit covered less than it
+ * meant to, and a reviewer should know that before trusting a short findings
+ * list. A run that finished writing up after being told time was up is
+ * `complete`: it stopped where it was asked to.
  */
-export function runOutcome({ report, numTurns, maxTurns }) {
+export function runOutcome({ report, numTurns, maxTurns, timedOut = false }) {
+	if (timedOut) {
+		return 'timed-out';
+	}
 	if (typeof numTurns === 'number' && numTurns >= maxTurns) {
 		return 'partial';
 	}
 	return report ? 'complete' : 'no-report';
+}
+
+/** How long a run has to write up after it is told time is up, before it is stopped. */
+export const WRAP_UP_MINUTES = 10;
+
+/**
+ * The time limit, in whole minutes, from a dispatch input or a `/test 20m`
+ * word: `20`, `20m` or empty. Null when there is none or it is not a positive
+ * whole number, which runs without a limit rather than failing the run.
+ */
+export function parseTimeLimit(raw) {
+	const m = /^\s*(\d+)\s*m?\s*$/i.exec(String(raw ?? ''));
+	const minutes = m ? Number(m[1]) : NaN;
+	return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
+}
+
+/** The brief's line for a run with a time limit. The hook enforces it, so the agent must not pace itself: it has no clock and quits early. */
+export function buildTimeBudgetLine(minutes) {
+	return `**You have ${minutes} minutes to explore.** Keep exploring until you are told time is up; don't stop on your own estimate of the time. Each tool result shows the time left. Writing up has its own time; use all of yours for exploring. Then stop, finish the ledger with what you didn't reach under Not run, write the report and check it. You have ${WRAP_UP_MINUTES} more minutes for that before the run is stopped.`;
+}
+
+/** What the agent is told on each tool result before its time is up: it has no clock, and guesses short without one. */
+export function timeLeftMessage(ms) {
+	const seconds = Math.ceil(ms / 1000);
+	return `Time left to explore: ${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, '0')}s.`;
+}
+
+/** What the agent is told on each tool result once its time is up. */
+export function timeUpMessage(minutes) {
+	return `Time is up: your ${minutes} minutes for exploring have run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.md and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
+}
+
+/**
+ * A PostToolUse (and PostToolUseFailure) hook that appends the time left to
+ * every tool result and, once `deadline` has passed, the time-up message, so
+ * the agent learns it from what it reads next rather than being cut off
+ * mid-step. `onTimeUp` is
+ * called the first time. `now` is the clock, for tests.
+ */
+export function timeUpHook({ deadline, minutes, now = Date.now, onTimeUp = () => {} }) {
+	let told = false;
+	return async input => {
+		const left = deadline - now();
+		if (left > 0) {
+			return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: timeLeftMessage(left) } };
+		}
+		if (!told) {
+			told = true;
+			onTimeUp();
+		}
+		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: timeUpMessage(minutes) } };
+	};
+}
+
+/**
+ * A workflow warning for a run that finished close to the turn cap, or null.
+ * No run has reached the cap yet (185 of 200 was the most), so this is how a
+ * trend toward it shows up before one ends partial. A run at the cap is left
+ * to `partial`, which already says so.
+ */
+export function turnCapWarning({ numTurns, maxTurns }) {
+	if (typeof numTurns !== 'number' || numTurns >= maxTurns || numTurns < maxTurns * 0.8) {
+		return null;
+	}
+	return `::warning title=Exploratory run near the turn cap::Used ${numTurns} of ${maxTurns} turns. A run that reaches the cap can end without a report.`;
 }
 
 /**
@@ -356,16 +370,17 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 	if (state === 'declined') {
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
-	if (markdown && (state === 'complete' || state === 'partial')) {
-		const { count, breakdown } = tallyFindings(markdown);
-		const lines = [breakdown ? `${count} \u00b7 ${breakdown}` : count];
+	if (markdown && (state === 'complete' || state === 'partial' || state === 'timed-out')) {
+		const lines = [tallyFindings(markdown)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
+		if (state === 'timed-out') { lines.push('_Partial run: the agent was stopped at its time limit, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
 		return comment(lines);
 	}
 	const why = state === 'partial' ? 'The agent hit the turn cap before writing a report.'
-		: state === 'no-report' ? 'The agent finished without writing a report.'
-			: 'The run failed before the agent produced a report.';
+		: state === 'timed-out' ? 'The agent was stopped at its time limit before writing a report.'
+			: state === 'no-report' ? 'The agent finished without writing a report.'
+				: 'The run failed before the agent produced a report.';
 	return comment([why, run]);
 }
 
@@ -387,4 +402,24 @@ export function withPrLine(markdown, repo, number) {
 	}
 	lines.splice(meta + 1, 0, '', `PR: ${repo}#${number}`);
 	return lines.join('\n');
+}
+
+/**
+ * The brief's opening instruction. With no focus the target is the diff; a
+ * focus is what the person asked to test, so it replaces the diff as the
+ * target and the diff stays in the brief as context.
+ */
+export function buildTaskLine(focus) {
+	const asked = String(focus ?? '').trim();
+	if (!asked) {
+		return 'Read the diff to work out what the change is meant to do as a user would describe it, and what its blast radius is. Then explore that, as a user, and report genuine problems.';
+	}
+	const quoted = asked.split('\n').map(l => `> ${l}`.trimEnd()).join('\n');
+	return [
+		'The person who started this run asked you to test this:',
+		'',
+		quoted,
+		'',
+		'Explore that, and its blast radius, as a user, and report genuine problems. The diff is context for what this branch changed, not the target; test what they named even where the diff does not touch it.',
+	].join('\n');
 }

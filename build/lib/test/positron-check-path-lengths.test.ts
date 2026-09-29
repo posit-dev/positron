@@ -132,7 +132,7 @@ suite('positron-check-path-lengths file counts', () => {
 		assert.deepStrictEqual(countFiles(appRoot, 'Resources/app/extensions'), {
 			shipped: { name: '', files: 17, bytes: 35 },
 			extensions: { name: 'extensions/', files: 15, bytes: 33, budget: 20 },
-			gzipCopies: { name: 'gzip copies', files: 0, bytes: 0 },
+			unbudgeted: { name: 'unbudgeted', files: 0, bytes: 0 },
 			byExtension: [
 				{
 					name: 'big', files: 11, bytes: 29, budget: 12, packages: [
@@ -159,19 +159,32 @@ suite('positron-check-path-lengths file counts', () => {
 			{ message: '3 file count(s) in the packaged tree are over budget: extensions/ (15 of 14), big (11 of 10), small (3 of 2)' });
 	});
 
-	test('leaves gzip copies out of the budgets, but counts a .gz file that has no original', () => {
+	test('POSITRON_IGNORE_FILE_BUDGET makes a count over budget a warning', () => {
+		const tight: IFileCountBudgets = { total: 14, default: 2, byExtension: new Map([['big', 10]]) };
+
+		process.env['POSITRON_IGNORE_FILE_BUDGET'] = '1';
+		try {
+			assert.strictEqual(countFiles(appRoot, 'Resources/app/extensions', tight).offenders.length, 3);
+		} finally {
+			delete process.env['POSITRON_IGNORE_FILE_BUDGET'];
+		}
+	});
+
+	test('leaves gzip copies and source maps out of the budgets, but counts a .gz file that has no original', () => {
 		const gzipRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-file-counts-gzip-'));
 		try {
 			const dir = path.join(gzipRoot, 'extensions', 'ext');
 			writeFiles(gzipRoot, 'extensions/ext', 2, 10);
 			fs.writeFileSync(path.join(dir, 'f0.js.gz'), 'x'.repeat(4));
 			fs.writeFileSync(path.join(dir, 'data.gz'), 'x'.repeat(3));
+			fs.writeFileSync(path.join(dir, 'f0.js.map'), 'x'.repeat(5));
+			fs.writeFileSync(path.join(dir, 'f1.css.map'), 'x'.repeat(6));
 
 			const result = countFiles(gzipRoot, 'extensions');
 
 			assert.deepStrictEqual(
-				{ shipped: result.shipped, extensions: result.extensions.files, ext: result.byExtension[0].files, gzipCopies: result.gzipCopies },
-				{ shipped: { name: '', files: 4, bytes: 27 }, extensions: 3, ext: 3, gzipCopies: { name: 'gzip copies', files: 1, bytes: 4 } });
+				{ shipped: result.shipped, extensions: result.extensions.files, ext: result.byExtension[0].files, unbudgeted: result.unbudgeted },
+				{ shipped: { name: '', files: 6, bytes: 38 }, extensions: 3, ext: 3, unbudgeted: { name: 'unbudgeted', files: 3, bytes: 15 } });
 		} finally {
 			fs.rmSync(gzipRoot, { recursive: true, force: true });
 		}

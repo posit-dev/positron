@@ -10,7 +10,7 @@ import { getGatewayBaseUrl, getSelectedCompletionModelId } from './config.js';
 import { getUserAgent } from './utils.js';
 import { log } from './extension.js';
 
-const PROVIDER_NAME = 'Posit AI';
+const PROVIDER_NAME = 'Posit AI Pass';
 
 const DEFAULT_COMPLETION_MODEL: CompletionModel = {
 	id: 'qwen3-8b',

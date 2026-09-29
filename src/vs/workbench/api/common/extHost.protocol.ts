@@ -35,7 +35,7 @@ import { ILocalizedString } from '../../../platform/action/common/action.js';
 import { ConfigurationTarget, IConfigurationChange, IConfigurationData, IConfigurationOverrides } from '../../../platform/configuration/common/configuration.js';
 import { LinkPresentationKind } from '../../../platform/dataChannel/common/dataChannel.js';
 import { ConfigurationScope } from '../../../platform/configuration/common/configurationRegistry.js';
-import { IEditorOptions } from '../../../platform/editor/common/editor.js';
+import { IEditorOptions, IModalEditorPartOptions } from '../../../platform/editor/common/editor.js';
 import { IExtensionIdWithVersion } from '../../../platform/extensionManagement/common/extensionStorage.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../platform/extensions/common/extensions.js';
 import * as files from '../../../platform/files/common/files.js';
@@ -1026,6 +1026,10 @@ export type WebviewHandle = string;
 export interface WebviewPanelShowOptions {
 	readonly viewColumn?: EditorGroupColumn;
 	readonly preserveFocus?: boolean;
+	// --- Start Positron ---
+	// Letting extensions size the modal editor when using ViewColumn.Modal; see positron#16082.
+	readonly modal?: Pick<IModalEditorPartOptions, 'size'>;
+	// --- End Positron ---
 }
 
 export interface WebviewExtensionDescription {

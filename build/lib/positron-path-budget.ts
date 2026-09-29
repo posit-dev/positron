@@ -79,12 +79,13 @@ export function describeBudget(): string {
  * budget to within about 10% of the new count. Do not raise a budget to make a
  * new dependency fit; bundle the dependency instead.
  *
- * The budgets do not count the gzip copies that the web server builds add. See
- * `isGzipCopy` in positron-check-path-lengths.ts.
+ * The budgets do not count gzip copies or source maps, which only some builds
+ * ship. See `isUnbudgeted` in positron-check-path-lengths.ts.
  *
- * The largest count so far is 30,933, in the win32-x64 build of #16185.
+ * The expected count is about 17,800; the budget leaves about 10% headroom
+ * above it.
  */
-export const EXTENSIONS_FILE_COUNT_BUDGET = 34_000;
+export const EXTENSIONS_FILE_COUNT_BUDGET = 19_500;
 
 /**
  * File-count budget for an extension that `EXTENSION_FILE_COUNT_BUDGETS` does not
@@ -106,13 +107,9 @@ export const DEFAULT_EXTENSION_FILE_COUNT_BUDGET = 100;
 export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map([
 	['copilot', 8_500], // 7,728
 	['positron-python', 6_350], // 5,219; 5,784 on win32-x64
-	['positron-data-driver-snowflake', 5_050], // 4,590
-	['positron-catalog-explorer', 4_560], // 4,140
-	['positron-data-driver-databricks', 3_460], // 3,145
-	['positron-pdf-server', 1_050], // 956
-	['positron-proxy', 830], // 755
 	['positron-data-driver-odbc', 550], // 493
 	['positron-data-driver-sqlite', 540], // 448; 489 on win32-x64
+	['positron-pdf-server', 450], // 407
 	['positron-data-driver-redshift', 330], // 299
 	['positron-data-driver-pins', 290], // 257
 	['positron-duckdb', 250], // 221
@@ -159,9 +156,9 @@ const EXTENSION_NODE_MODULES_EXCLUDES = [
 	'node_modules/**/*.d.ts.map',
 	// The ESM twins of `dist-cjs` in the AWS and Smithy SDKs. `@aws-sdk/*` and
 	// `@smithy/*` resolve `main` and the `node` export condition to `dist-cjs`.
-	// The only consumer is `snowflake-sdk`, which stays external to the esbuild
-	// bundle and therefore loads as CommonJS. These patterns name the two package
-	// scopes, because many other packages ship `dist-es` as their only build.
+	// The only runtime consumer would be an ESM import of the SDK, which no
+	// bundled extension does. These patterns name the two package scopes,
+	// because many other packages ship `dist-es` as their only build.
 	'node_modules/@aws-sdk/**/dist-es/**',
 	'node_modules/@smithy/**/dist-es/**',
 	// node-pre-gyp's scratch dir from a source-build fallback (e.g. odbc has

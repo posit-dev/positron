@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseVerdicts, annotateFindingsTable, hasFindings, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
+import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, buildTimeBudgetLine, timeUpHook, timeUpMessage, timeLeftMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -92,15 +92,15 @@ test('resolveReport returns null when the file is absent and no message looks li
 
 test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'),
-		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'),
+		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
 test('buildShotsBaseUrl trims exactly one trailing slash', () => {
 	assert.equal(
-		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu/'),
-		'https://d38p2avprg8il3.cloudfront.net/playwright-report-1-1-exploratory-ubuntu'
+		buildShotsBaseUrl('https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu/'),
+		'https://d38p2avprg8il3.cloudfront.net/exploratory-report-1-1-opus-ubuntu'
 	);
 });
 
@@ -126,59 +126,6 @@ test('parsePosIntEnv falls back to the default for "0"', () => {
 
 test('parsePosIntEnv falls back to the default for a non-numeric string', () => {
 	assert.equal(parsePosIntEnv('MAX_TURNS', 200, 'abc'), 200);
-});
-
-const TABLE = [
-	'# Exploratory test: something',
-	'',
-	'## Findings',
-	'',
-	'| # | Finding | Severity | Impact | Introduced? | Reproduction |',
-	'|---|---------|----------|--------|-------------|--------------|',
-	'| 1 | first claim | major | blocks completion | yes | 3/3 |',
-	'| 2 | second claim | minor | cosmetic | yes | 2/2 |',
-	'',
-	'### 1. first claim',
-].join('\n');
-
-test('parseVerdicts reads the machine-readable line', () => {
-	const v = parseVerdicts('preamble\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nprose');
-	assert.equal(v.get(1), 'confirmed');
-	assert.equal(v.get(2), 'disputed');
-});
-
-test('parseVerdicts returns empty when the line is absent', () => {
-	assert.equal(parseVerdicts('no verdict line here').size, 0);
-	assert.equal(parseVerdicts(null).size, 0);
-});
-
-test('annotateFindingsTable adds a verdict per row', () => {
-	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE'));
-	assert.match(out, /\| # \| Finding \| Severity \| Impact \| Introduced\? \| Reproduction \| Verified \|/);
-	assert.match(out, /\| 1 \| first claim .* \| confirmed \|/);
-	assert.match(out, /\| 2 \| second claim .* \| disputed \|/);
-});
-
-test('annotateFindingsTable marks rows the verifier did not rule on', () => {
-	const out = annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED'));
-	assert.match(out, /\| 2 \| second claim .* \| - \|/);
-});
-
-test('annotateFindingsTable leaves a report it cannot parse untouched', () => {
-	const noTable = '# Report\n\n## Findings\n\nNo findings.\n';
-	assert.equal(annotateFindingsTable(noTable, parseVerdicts('VERDICTS: 1=CONFIRMED')), noTable);
-	assert.equal(annotateFindingsTable(TABLE, new Map()), TABLE);
-});
-
-test('hasFindings distinguishes a populated table from an empty one', () => {
-	assert.equal(hasFindings(TABLE), true);
-	assert.equal(hasFindings('## Findings\n\nNo findings.\n'), false);
-	assert.equal(hasFindings([
-		'| # | Finding | Severity |',
-		'|---|---------|----------|',
-		'| - | none | - |',
-	].join('\n')), false);
-	assert.equal(hasFindings(null), false);
 });
 
 test('parseGate reads a bail-out with its blocker', () => {
@@ -250,7 +197,7 @@ const SUMMARY_MD = [
 
 test('renderStepSummary is a tally and two links, and nothing else', () => {
 	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run');
-	assert.match(summary, /^\*\*5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
+	assert.match(summary, /^\*\*1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
 	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
 	assert.match(summary, /\[Agent Report\]\(https:\/\/cdn\.example\/run\/report\.md\)/);
 	// The body of the report belongs on its own page, not pasted in here.
@@ -265,7 +212,7 @@ test('renderStepSummary is a tally and two links, and nothing else', () => {
 
 test('renderStepSummary counts the table when the report wrote up no blocks', () => {
 	// Only finding 1 has a block; the severities all come from the table.
-	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*5 findings/);
+	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*1 major/);
 });
 
 test('renderStepSummary omits a breakdown it cannot read', () => {
@@ -344,6 +291,17 @@ test('runOutcome is no-report when the agent stopped early without one', () => {
 	assert.equal(runOutcome({ report: null, numTurns: null, maxTurns: 200 }), 'no-report');
 });
 
+test('turnCapWarning warns from 80% of the cap up to, but not at, the cap', () => {
+	assert.equal(turnCapWarning({ numTurns: 159, maxTurns: 200 }), null);
+	assert.match(turnCapWarning({ numTurns: 160, maxTurns: 200 }), /^::warning .*Used 160 of 200 turns/);
+	assert.match(turnCapWarning({ numTurns: 199, maxTurns: 200 }), /Used 199 of 200/);
+	// At the cap the run is partial, which already says so.
+	assert.equal(turnCapWarning({ numTurns: 200, maxTurns: 200 }), null);
+	// Scales with a MAX_TURNS override.
+	assert.match(turnCapWarning({ numTurns: 40, maxTurns: 50 }), /Used 40 of 50/);
+	assert.equal(turnCapWarning({ numTurns: null, maxTurns: 200 }), null);
+});
+
 const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
@@ -357,7 +315,7 @@ test('renderPrComment carries the marker and a run or report link in every state
 
 test('renderPrComment on a finished run is a title, the tally and the report link', () => {
 	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n5 findings \u00b7 1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
 test('renderPrComment running state names the head and links the run', () => {
@@ -378,7 +336,7 @@ test('renderPrComment points at the artifact when the upload failed', () => {
 
 test('renderPrComment flags a partial run that still wrote a report', () => {
 	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
-	assert.match(body, /^5 findings \u00b7/m);
+	assert.match(body, /^1 major \u00b7/m);
 	assert.match(body, /turn cap/);
 });
 
@@ -459,6 +417,17 @@ test('renderSummaryTarget leaves the PR off when there is none', () => {
 	assert.equal(renderSummaryTarget('', 'o/r', ''), '');
 });
 
+test('renderSummaryTarget puts the focus, on one line, before the branch', () => {
+	assert.equal(renderSummaryTarget('main', 'o/r', '', ' the plots pane\n\nzoom '), 'the plots pane zoom · `main`\n\n');
+	assert.equal(renderSummaryTarget('fix/x', 'o/r', '12', 'zoom'), 'PR [#12](https://github.com/o/r/pull/12) · zoom · `fix/x`\n\n');
+	assert.equal(renderSummaryTarget('main', 'o/r', '', '  \n'), '`main`\n\n');
+});
+
+test('renderSummaryTarget ends with the time limit when the run had one', () => {
+	assert.equal(renderSummaryTarget('main', 'o/r', '', 'data explorer', 10), 'data explorer · `main` · 10 min\n\n');
+	assert.equal(renderSummaryTarget('main', 'o/r', '', 'data explorer', null), 'data explorer · `main`\n\n');
+});
+
 // run.mjs and gate.mjs run only in CI and no test imports them.
 test('every script in the action parses', async () => {
 	const { spawnSync } = await import('node:child_process');
@@ -468,4 +437,72 @@ test('every script in the action parses', async () => {
 		const r = spawnSync(process.execPath, ['--check', new URL(f, dir).pathname], { encoding: 'utf8' });
 		assert.equal(r.status, 0, `${f}: ${r.stderr}`);
 	}
+});
+
+test('buildTaskLine targets the diff when no focus is given', () => {
+	for (const focus of ['', '  \n ', undefined]) {
+		const line = buildTaskLine(focus);
+		assert.match(line, /^Read the diff/);
+		assert.doesNotMatch(line, /asked you to test/);
+	}
+});
+
+test('buildTaskLine quotes a multi-line focus and makes it the target', () => {
+	const line = buildTaskLine('  the plots pane\n\nwith a dark theme  ');
+	assert.match(line, /asked you to test this:\n\n> the plots pane\n>\n> with a dark theme\n\n/);
+	assert.match(line, /The diff is context/);
+});
+
+test('parseTimeLimit takes whole minutes, as 20 or 20m, and ignores anything else', () => {
+	assert.equal(parseTimeLimit('20'), 20);
+	assert.equal(parseTimeLimit(' 15m '), 15);
+	assert.equal(parseTimeLimit('30M'), 30);
+	for (const raw of ['', undefined, null, '0', '-5', '2.5', '20min', 'm20', 'twenty']) {
+		assert.equal(parseTimeLimit(raw), null, String(raw));
+	}
+});
+
+test('runOutcome is timed-out when the hard stop fired, whatever else is true', () => {
+	assert.equal(runOutcome({ report: '# r', numTurns: 50, maxTurns: 200, timedOut: true }), 'timed-out');
+	assert.equal(runOutcome({ report: null, numTurns: null, maxTurns: 200, timedOut: true }), 'timed-out');
+	// Told to wrap up and did: complete.
+	assert.equal(runOutcome({ report: '# r', numTurns: 50, maxTurns: 200, timedOut: false }), 'complete');
+});
+
+test('the brief states the budget, and the wrap-up window', () => {
+	const line = buildTimeBudgetLine(20);
+	assert.match(line, /^\*\*You have 20 minutes to explore\.\*\*/);
+	assert.match(line, new RegExp(`${WRAP_UP_MINUTES} more minutes`));
+	assert.match(line, /Not run/);
+	assert.match(line, /Keep exploring until you are told time is up/);
+	assert.match(line, /use all of yours for exploring/);
+});
+
+test('timeUpHook gives the time left before the deadline, then tells every tool result time is up, calling onTimeUp once', async () => {
+	let clock = 1000;
+	let calls = 0;
+	const hook = timeUpHook({ deadline: 2000, minutes: 20, now: () => clock, onTimeUp: () => calls++ });
+	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: timeLeftMessage(1000) } });
+	assert.equal(calls, 0);
+	clock = 2000;
+	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: timeUpMessage(20) } });
+	// A failed tool call gets it too, under its own event name.
+	assert.equal((await hook({ hook_event_name: 'PostToolUseFailure' })).hookSpecificOutput.hookEventName, 'PostToolUseFailure');
+	assert.equal(calls, 1);
+	assert.match(timeUpMessage(20), /Stop exploring now\..*Not run.*report\.md/);
+});
+
+test('timeLeftMessage rounds up to the second, with seconds padded', () => {
+	assert.equal(timeLeftMessage(125000), 'Time left to explore: 2m05s.');
+	assert.equal(timeLeftMessage(180000), 'Time left to explore: 3m00s.');
+	assert.equal(timeLeftMessage(400), 'Time left to explore: 0m01s.');
+});
+
+test('renderPrComment says when a run was stopped at its time limit', () => {
+	const md = ['| # | Finding | Severity |', '|---|---|---|', '| 1 | x | minor |'].join('\n');
+	const withReport = renderPrComment({ state: 'timed-out', markdown: md, baseUrl: 'https://cdn/x', runUrl: 'https://run', headSha: 'abc1234' });
+	assert.match(withReport, /_Partial run: the agent was stopped at its time limit, so coverage is incomplete\._/);
+	assert.match(withReport, /View report/);
+	const without = renderPrComment({ state: 'timed-out', markdown: null, runUrl: 'https://run', headSha: 'abc1234' });
+	assert.match(without, /The agent was stopped at its time limit before writing a report\./);
 });

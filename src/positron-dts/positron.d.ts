@@ -2385,12 +2385,19 @@ declare module 'positron' {
 		 * one the user saves becomes an ordinary saved connection from then on (and is no longer
 		 * shown as discovered).
 		 *
-		 * Called when the driver registers and whenever the set of registered drivers changes, so a
-		 * driver whose discoveries change should re-register to have them re-read.
+		 * Called when the driver registers, whenever the set of registered drivers changes, and
+		 * whenever the driver fires {@link DataConnectionDriver.onDidChange}.
 		 *
 		 * @returns The connections found on this machine, or an empty array if there are none.
 		 */
 		discoverConnections?(): Thenable<DiscoveredDataConnection[]>;
+
+		/**
+		 * Fires when the driver's `mechanisms` or its discovered connections have changed. Positron
+		 * then re-reads the driver's metadata and calls `discoverConnections` again. Unlike
+		 * re-registering the driver, this leaves the driver's open connections in place.
+		 */
+		onDidChange?: vscode.Event<void>;
 	}
 
 	/**
@@ -3262,6 +3269,11 @@ declare module 'positron' {
 		 * If the session is busy, the user is asked whether it should be interrupted.
 		 * The promise resolves with `false` if the user declines to interrupt, or `true`
 		 * if the session was deleted. It can also throw e.g. if the session is not found.
+		 *
+		 * A runtime that does not exit during its shutdown grace period is forced to
+		 * quit, which can interrupt exit handlers such as R's `.Last`. If it still
+		 * does not exit, the session is deleted and the promise rejects with the
+		 * shutdown error.
 		 */
 		export function deleteSession(sessionId: string): Thenable<boolean>;
 

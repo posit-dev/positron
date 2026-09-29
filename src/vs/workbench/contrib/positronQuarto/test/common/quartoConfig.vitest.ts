@@ -71,7 +71,7 @@ describe('usingQuartoInlineOutputAutoScroll', () => {
 });
 
 describe('usingNativeEmbeddedFeatures', () => {
-	it('defaults off and is only on when explicitly set to true', async () => {
+	it('defaults on and is only off when explicitly set to false', async () => {
 		const unset = new TestConfigurationService();
 
 		const off = new TestConfigurationService();
@@ -85,7 +85,7 @@ describe('usingNativeEmbeddedFeatures', () => {
 			off: usingNativeEmbeddedFeatures(off),
 			on: usingNativeEmbeddedFeatures(on),
 		}).toEqual({
-			unset: false,
+			unset: true,
 			off: false,
 			on: true,
 		});

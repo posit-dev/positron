@@ -84,7 +84,6 @@
 
   "extensions/open-remote-ssh/": ["@:remote-ssh"],
   "extensions/open-remote-wsl/": ["@:remote-wsl"],
-  "extensions/positron-catalog-explorer/": [],
   "extensions/positron-code-cells/": [],
   "extensions/positron-data-driver-databricks/": ["@:connections"],
   "extensions/positron-data-driver-duckdb/": ["@:connections"],
@@ -128,6 +127,7 @@
   "extensions/positron-supervisor/": ["@:sessions", "@:console", "@:interpreter"],
   "extensions/positron-zed/": [],
 
+  "src/vs/editor/contrib/documentSymbols/": ["@:outline"],
   "src/vs/editor/contrib/positronEditorActions/": ["@:editor-action-bar"],
   "src/vs/editor/contrib/positronHelp/": ["@:help"],
   "src/vs/editor/contrib/positronInputBoundaries/": ["@:console"],
