@@ -75,7 +75,6 @@ const ChooseNewFolderWindowModalDialog = (props: ChooseNewFolderWindowModalDialo
 							"The folder has been created. Where would you like to open it?"
 						)}
 					</div>
-					{/* TODO: add checkbox to save the user's selection to preferences */}
 				</div>
 			}
 			footer={
