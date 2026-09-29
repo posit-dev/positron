@@ -24,7 +24,8 @@ const PLACEHOLDER_IMAGE = 'data:image/svg+xml,' + encodeURIComponent(
 	'<text x="50%" y="55%" font-size="11" text-anchor="middle" fill="#444" font-family="sans-serif">image</text></svg>');
 
 /**
- * A screenshot of the Viewer's content, before it's described to agents.
+ * A screenshot as the webview takes it. The service adds the rest of
+ * IViewerScreenshot.
  */
 export interface IViewerCapture {
 	readonly data: VSBuffer;
@@ -71,10 +72,10 @@ async function encodePng(
 }
 
 /**
- * Rebuilds a screenshot of what's on screen in an app's window from the page's
- * content, with modern-screenshot, for web builds, which have no native
- * capture. The library runs in Positron's page; all it adds to the app's page
- * is a hidden sandbox frame while it works.
+ * Rebuilds a screenshot of what's on screen in an app's window from its DOM,
+ * for web builds, which have no native capture. modern-screenshot runs in
+ * Positron's page; all it adds to the app's page is a hidden sandbox frame
+ * while it works.
  *
  * WebGL canvases that don't keep their drawing buffer come out blank, images
  * from other hosts without CORS headers come out as placeholders, and

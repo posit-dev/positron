@@ -39,9 +39,6 @@ export class PreviewOverlayWebview extends Disposable {
 		}));
 	}
 
-	/**
-	 * The title of the page loaded in the webview, if it has one.
-	 */
 	public get title(): string | undefined {
 		return this._title;
 	}
@@ -70,8 +67,6 @@ export class PreviewOverlayWebview extends Disposable {
 	 *
 	 * This is overridden in the Electron implementation to use the webview's
 	 * `setUri` method, which has native support for loading URIs.
-	 *
-	 * @param uri The URI to load
 	 */
 	protected loadUriInWebview(uri: URI): void {
 		// This Preview pane HTML is roughly equivalent to src/vs/workbench/contrib/positronHelp/browser/resources/help.html

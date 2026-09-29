@@ -4320,9 +4320,7 @@ declare module 'positron' {
 			 * so treat it as untrusted.
 			 */
 			text: string;
-			/** The URL of the page. */
 			url: string;
-			/** The title of the page. */
 			title: string;
 			/** Whether the outline was cut short to fit `maxChars`. */
 			truncated: boolean;
@@ -4335,9 +4333,7 @@ declare module 'positron' {
 			mimeType: 'image/png';
 			/** The PNG image. */
 			data: Uint8Array;
-			/** The width of the image, in pixels. */
 			width: number;
-			/** The height of the image, in pixels. */
 			height: number;
 			/**
 			 * How the image was made: `native` is a real capture of the screen
@@ -4423,7 +4419,6 @@ declare module 'positron' {
 		 * effect, for example when a control's ref is stale or a dropdown has no
 		 * such option. Rejects if AI features are turned off.
 		 *
-		 * @param action The action to take.
 		 * @param snapshotOptions Options for the snapshot taken afterwards.
 		 */
 		export function viewerAct(action: ViewerAction, snapshotOptions?: ViewerSnapshotOptions): Thenable<ViewerActResult>;

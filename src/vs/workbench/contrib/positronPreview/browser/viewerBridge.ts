@@ -13,13 +13,10 @@ import type { IViewerActOutcome, IViewerBridge, IViewerIdleOptions, IViewerIdleR
 const BRIDGE_GLOBAL = '__positronViewerBridge1';
 
 /**
- * Returns a script that runs one bridge method in the app's own frame and
- * resolves to `{ ok: true, value }` or `{ ok: false, error }`. Used on
- * Desktop, where the Viewer's app frame is cross-origin from Positron and
- * code can only reach it through the main process.
- *
- * @param method The bridge method to call.
- * @param args The method's arguments; must be JSON-serializable.
+ * Returns a script that runs one bridge method in the app's frame and resolves
+ * to `{ ok: true, value }` or `{ ok: false, error }`. `args` must be
+ * JSON-serializable. Used on Desktop, where the app's frame is cross-origin
+ * and can only be reached through the main process.
  */
 export function viewerBridgeScript(method: keyof IViewerBridge, args: readonly unknown[]): string {
 	return `(async () => {
@@ -36,10 +33,10 @@ export function viewerBridgeScript(method: keyof IViewerBridge, args: readonly u
 }
 
 /**
- * Creates the Viewer bridge for the window of an app showing in the Viewer.
- * The bridge reads the app's page as a compact outline for agents, modeled on
- * agent-browser's and Playwright's snapshots: element roles and names, key
- * properties, and refs for the controls.
+ * Creates the Viewer bridge for the window of an app showing in the Viewer. It
+ * reads the page as an outline for agents, modeled on agent-browser's and
+ * Playwright's snapshots (roles, names, key properties, and refs for the
+ * controls), and takes actions on the controls.
  *
  * This function MUST be self-contained. On Desktop it's serialized with
  * `Function.prototype.toString` and run in the app's frame, so it can't use
@@ -195,8 +192,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	}
 
 	// Marks the elements under `root` (and `root`) that have an open shadow
-	// root, and their ancestors across shadow boundaries: selectors don't reach
-	// into shadow roots, so a `querySelector` check misses these elements' content.
+	// root, and their ancestors across shadow boundaries, since `querySelector`
+	// can't see into shadow roots.
 	function addShadowHosts(marked: Set<Element>, root: Element): void {
 		const mark = (host: Element) => {
 			for (let a: Element | null = host; a && !marked.has(a); a = a.parentElement ?? (a.getRootNode() as ShadowRoot).host ?? null) {
@@ -416,7 +413,6 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return true;
 	}
 
-	/** Removes the last line (an empty container). */
 	function pop(state: WalkState): void {
 		const line = state.lines.pop();
 		if (line !== undefined) {
@@ -835,7 +831,6 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		el.dispatchEvent(new view.Event('input', { bubbles: true }));
 	}
 
-	// Leaves a control, as a user moving on would.
 	function leave(el: Element): void {
 		if (!el.ownerDocument.hasFocus() || !hasFocus(el)) {
 			const view = viewOf(el);
@@ -1216,9 +1211,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		scrollToCenter(el);
 		focus(el);
 		setNativeValue(el, wanted);
-		// The list can take a moment to show (Streamlit's, about a third of a
-		// second when it reopens), and some only open for Down, as in the ARIA
-		// pattern (Streamlit's, before its first use).
+		// The list can take a moment to show (about 330 ms for Streamlit's when
+		// it reopens), and some only open for Down (Streamlit's, on first use).
 		let options: Element[] = [];
 		let match: Element | undefined;
 		let opened = false;
@@ -1420,7 +1414,6 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		}
 	}
 
-	// Takes an action, waits for the app to settle, then checks the action took.
 	// Like snapshot()'s options, the arguments can arrive as null on Desktop.
 	async function act(action: ViewerAction | null, idle?: IViewerIdleOptions | null): Promise<IViewerActOutcome> {
 		if (!action || typeof action !== 'object') {
