@@ -124,5 +124,15 @@ export interface IWebviewManagerService {
 	 * @returns A promise that resolves to the result of the code execution.
 	 */
 	executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any>;
+
+	/**
+	 * Gets the URL of a webview frame, as the browser has it. It follows the
+	 * page's history changes, and the page can't fake it.
+	 *
+	 * @param frameId The ID of the frame.
+	 *
+	 * @returns The frame's URL, or undefined if the frame is gone.
+	 */
+	getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined>;
 	// --- End Positron ---
 }

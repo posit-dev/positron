@@ -455,6 +455,14 @@ export class OverlayWebview extends Disposable implements IOverlayWebview {
 	getContentFrameId(): WebviewFrameId | undefined {
 		return this._webview.value?.getContentFrameId();
 	}
+
+	/**
+	 * Gets the URL of a frame inside the webview, as the browser has it
+	 * (Electron only).
+	 */
+	getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
+		return this._webview.value?.getFrameUrl(frameId) ?? Promise.resolve(undefined);
+	}
 	// --- End Positron ---
 
 	private _withWebview(f: (webview: IWebview) => void): void {

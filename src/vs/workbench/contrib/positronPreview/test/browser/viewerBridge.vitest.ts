@@ -155,6 +155,31 @@ describe('createViewerBridge', () => {
 		`);
 	});
 
+	it('keeps the text of a label tied to no control, as Dash\'s html.Label often is, unless it\'s hidden from assistive technology', () => {
+		// Streamlit hides its labels' text, and names its widgets with aria-label.
+		const text = snapshotText(`
+			<label>Fruit</label>
+			<div><button aria-haspopup="listbox"><span>Apple</span></button></div>
+			<label for="gone">Colors</label>
+			<label id="count-label">Count</label>
+			<span role="slider" aria-labelledby="count-label" aria-valuenow="3" aria-valuemin="1" aria-valuemax="9"></span>
+			<label for="title">Plot title</label><input id="title" value="Old Faithful">
+			<label><input type="checkbox"> Show table</label>
+			<div data-testid="stRadio"><label data-testid="stWidgetLabel"><span aria-hidden="true"><p>Units</p></span></label>
+				<div role="radiogroup" aria-label="Units"><div role="radio" aria-checked="true">minutes</div></div></div>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- text "Fruit"
+			- combobox [ref=e1] value="Apple"
+			- text "Colors"
+			- slider "Count" [ref=e2] value=3 min=1 max=9
+			- textbox "Plot title" [ref=e3] value="Old Faithful"
+			- checkbox "Show table" [ref=e4] unchecked
+			- radiogroup "Units"
+			  - radio "minutes" [ref=e5] checked"
+		`);
+	});
+
 	it('marks disabled controls', () => {
 		// The bridge checks :disabled, which in browsers also covers controls in a
 		// disabled <fieldset>. happy-dom's :disabled only reads the element's own
@@ -933,7 +958,7 @@ describe('viewerBridgeScript', () => {
 
 		const result = await runInApp(viewerBridgeScript('snapshot', [undefined]));
 
-		expect(result).toEqual({ ok: true, value: { text: '- button "Go" [ref=e1]', url: 'about:blank', title: '', truncated: false } });
+		expect(result).toEqual({ ok: true, value: { text: '- button "Go" [ref=e1]', title: '', truncated: false } });
 	});
 
 	it('keeps refs between runs in the app frame, so an action can use a snapshot\'s refs', async () => {

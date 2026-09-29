@@ -34,11 +34,12 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 	}
 
 	/**
-	 * Calls a Viewer bridge method against the page showing in the webview.
 	 * On Desktop the app's frame is cross-origin from Positron, so the bridge
-	 * is sent as a script and run in that frame by the main process.
+	 * is sent as a script and run in that frame by the main process. The
+	 * script runs in the page's own JavaScript world, which the page can
+	 * tamper with.
 	 */
-	public override async runBridge<M extends keyof IViewerBridge>(method: M, ...args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
+	protected override async callBridge<M extends keyof IViewerBridge>(method: M, args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
 		const frameId = this.webview.getContentFrameId();
 		if (!frameId) {
 			throw new Error('Agents can\'t read this kind of Viewer content yet, or it hasn\'t loaded.');
@@ -58,11 +59,20 @@ export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 	 * Captures what's on screen in the webview's area of the window. Anything
 	 * drawn over the Viewer, such as a menu, is captured too.
 	 */
-	public override async captureScreenshot(): Promise<IViewerCapture> {
+	protected override async capture(): Promise<IViewerCapture> {
 		const png = await this.webview.captureContentsAsPng();
 		if (!png) {
 			throw new Error('Could not capture the Viewer.');
 		}
 		return scaleNativeScreenshot(png, getWindow(this.webview.container));
+	}
+
+	/**
+	 * Gets the address of the app's frame from the main process, which
+	 * follows the page's history changes too.
+	 */
+	public override async getCurrentUrl(): Promise<string | undefined> {
+		const frameId = this.webview.getContentFrameId();
+		return frameId ? this.webview.getFrameUrl(frameId) : undefined;
 	}
 }

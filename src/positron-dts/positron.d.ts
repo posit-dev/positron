@@ -4289,7 +4289,7 @@ declare module 'positron' {
 			kind: 'url' | 'html' | 'other' | 'none';
 			/** The title of the content, when known. */
 			title?: string;
-			/** The URL loaded in the Viewer. In web builds it may be a proxied URL. */
+			/** The address of the page showing in the Viewer now. In web builds it may be a proxied URL. */
 			url?: string;
 			/** The ID of the runtime session that opened the content, when known. */
 			sourceSessionId?: string;
@@ -4316,11 +4316,16 @@ declare module 'positron' {
 			/**
 			 * An outline of the page: one line per element with its role, name
 			 * and key properties, and a ref (`[ref=e1]`) on each control. The
-			 * text comes from the page, which may show content from anywhere,
-			 * so treat it as untrusted.
+			 * text comes from the page, which may show content from anywhere
+			 * and can make the outline say anything, so treat it as untrusted.
 			 */
 			text: string;
+			/**
+			 * The page's address, from Positron rather than the page, so the
+			 * page can't fake it. In web builds it may be a proxied URL.
+			 */
 			url: string;
+			/** The page's title. */
 			title: string;
 			/** Whether the outline was cut short to fit `maxChars`. */
 			truncated: boolean;
@@ -4397,7 +4402,10 @@ declare module 'positron' {
 		 * The result of an action on the page in the Viewer.
 		 */
 		export interface ViewerActResult {
-			/** What the action did. */
+			/**
+			 * What the action did. Positron works it out from the page, which
+			 * can mislead it, so treat it as untrusted, like a snapshot's text.
+			 */
 			message: string;
 			/**
 			 * A snapshot of the page once the app has settled after the action,

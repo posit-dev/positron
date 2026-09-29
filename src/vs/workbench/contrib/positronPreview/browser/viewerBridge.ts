@@ -7,7 +7,7 @@
 // didn't build and has no element references into, so it has to use selectors.
 /* eslint-disable no-restricted-syntax */
 
-import type { IViewerActOutcome, IViewerBridge, IViewerIdleOptions, IViewerIdleResult, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerAction } from '../common/positronViewerAgent.js';
+import type { IViewerActOutcome, IViewerBridge, IViewerIdleOptions, IViewerIdleResult, IViewerSnapshotOptions, IViewerViewport, ViewerAction, ViewerBridgeSnapshot } from '../common/positronViewerAgent.js';
 
 /** Caches the bridge in the app's window on Desktop, where each call is a separate script. */
 const BRIDGE_GLOBAL = '__positronViewerBridge1';
@@ -70,6 +70,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	const TABLE_ROLES = new Set(['table', 'grid', 'treegrid']);
 	const IGNORED_ROLES = new Set(['presentation', 'none', 'generic']);
 	const HAS_STRUCTURE = 'a[href],button,input,select,textarea,img,svg,canvas,iframe,h1,h2,h3,h4,h5,h6,table,[role]';
+	// An element with any of these inside is walked, not read as one piece of
+	// text, so its parts hidden from assistive technology are left out.
+	const WALK_INTO = `${HAS_STRUCTURE},[aria-hidden="true"]`;
 
 	interface WalkState {
 		readonly lines: string[];
@@ -141,8 +144,16 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		.join(' '), 300);
 	const viewOf = (el: Element): Window & typeof globalThis => (el.ownerDocument.defaultView || win) as Window & typeof globalThis;
 	const rootOf = (el: Element): Document | ShadowRoot => el.getRootNode() as Document | ShadowRoot;
-	// Text inside a <label> that wraps a control is already that control's name.
-	const inControlLabel = (el: Element): boolean => !!el.closest('label')?.querySelector('input,select,textarea');
+	// A <label> tied to a control names it, so its text is already in the
+	// control's line. Dash's html.Label is often tied to nothing, and then its
+	// text is all that says what the control below it is.
+	const namesControl = (label: Element): boolean => {
+		const root = rootOf(label);
+		const target = label.getAttribute('for');
+		return !!label.querySelector(HAS_STRUCTURE) ||
+			!!(target && root.getElementById(target)) ||
+			!!(label.id && root.querySelector(`[aria-labelledby~="${win.CSS.escape(label.id)}"]`));
+	};
 	const labelForId = (el: Element, id: string | null | undefined): Element | null =>
 		id ? rootOf(el).querySelector(`label[for="${win.CSS.escape(id)}"]`) : null;
 
@@ -654,9 +665,10 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			return;
 		}
 
-		// No role: plain text if nothing structural is inside, otherwise descend.
-		const isLabelText = el.tagName === 'LABEL' || inControlLabel(el);
-		if (!state.shadowHosts.has(el) && !el.querySelector(HAS_STRUCTURE)) {
+		// No role: plain text if nothing structural or hidden is inside, otherwise descend.
+		const label = el.closest('label');
+		const isLabelText = !!label && namesControl(label);
+		if (!state.shadowHosts.has(el) && !el.querySelector(WALK_INTO)) {
 			if (!isLabelText) {
 				pushText(state, indent, textOf(el, 300, fallback));
 			}
@@ -670,7 +682,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 
 	// Options can arrive as null: on Desktop the arguments cross into the app's
 	// frame as JSON, where a missing argument becomes null.
-	function snapshot(options?: IViewerSnapshotOptions | null): IViewerSnapshot {
+	function snapshot(options?: IViewerSnapshotOptions | null): ViewerBridgeSnapshot {
 		options ??= {};
 		const root = options.selector ? doc.querySelector(options.selector) : doc.body || doc.documentElement;
 		if (!root) {
@@ -704,7 +716,6 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		}
 		return {
 			text,
-			url: win.location.href,
 			title: doc.title,
 			truncated: state.truncated,
 		};

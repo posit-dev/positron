@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { getWindow } from '../../../../base/browser/dom.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { externalUriToString } from '../../../../base/common/positronUtilities.js';
 import { htmlAttributeEncodeValue } from '../../../../base/common/strings.js';
@@ -21,6 +22,8 @@ const viewerBridges = new WeakMap<Document, IViewerBridge>();
 
 export type ViewerBridgeResult<M extends keyof IViewerBridge> = Awaited<ReturnType<IViewerBridge[M]>>;
 
+export const VIEWER_CONTENT_CHANGED_MESSAGE = 'The Viewer\'s content changed while it was being read. Try again.';
+
 export class PreviewOverlayWebview extends Disposable {
 
 	public onDidNavigate = this.webview.onDidNavigate;
@@ -29,9 +32,13 @@ export class PreviewOverlayWebview extends Disposable {
 
 	private _title: string | undefined;
 
+	/** Settles when the webview is disposed, as when other content replaces it in the Viewer. */
+	private readonly _disposed = new DeferredPromise<void>();
+
 	constructor(public readonly webview: IOverlayWebview) {
 		super();
 		this._register(webview);
+		this._register(webview.onDidDispose(() => this._disposed.complete()));
 		// The script that reports loads runs in the app's page, so an empty title
 		// means the page has none.
 		this._register(webview.onDidLoad(title => {
@@ -121,13 +128,54 @@ export class PreviewOverlayWebview extends Disposable {
 
 	/**
 	 * Calls a Viewer bridge method against the page showing in the webview.
-	 *
+	 */
+	public runBridge<M extends keyof IViewerBridge>(method: M, ...args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
+		return this.untilDisposed(() => this.callBridge(method, args));
+	}
+
+	/**
+	 * Takes a screenshot of what's on screen in the webview. The webview must
+	 * be showing.
+	 */
+	public captureScreenshot(): Promise<IViewerCapture> {
+		return this.untilDisposed(() => this.capture());
+	}
+
+	/**
+	 * Gets the address of the page showing in the webview, as the browser has
+	 * it, so the page can't fake it. In web builds it's read from the app's
+	 * frame; the Electron implementation asks the main process.
+	 */
+	public async getCurrentUrl(): Promise<string | undefined> {
+		try {
+			const url = this.getAppWindow().location.href;
+			// The frame is on about:blank until its page loads.
+			return url === 'about:blank' ? undefined : url;
+		} catch {
+			return undefined;
+		}
+	}
+
+	/**
+	 * Runs a call into the page, but rejects as soon as the webview is
+	 * disposed: a call into a page that's gone can go unanswered.
+	 */
+	private untilDisposed<T>(call: () => Promise<T>): Promise<T> {
+		if (this._disposed.isSettled) {
+			return Promise.reject(new Error(VIEWER_CONTENT_CHANGED_MESSAGE));
+		}
+		return Promise.race([call(), this._disposed.p.then((): never => {
+			throw new Error(VIEWER_CONTENT_CHANGED_MESSAGE);
+		})]);
+	}
+
+	/**
 	 * In web builds, the webview's frames are served from Positron's own
 	 * origin, so the bridge runs here and reaches into the app's frame
 	 * directly. Nothing is injected into the app. The Electron implementation
 	 * runs the bridge in the app's frame through the main process instead.
 	 */
-	public async runBridge<M extends keyof IViewerBridge>(method: M, ...args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
+	protected async callBridge<M extends keyof IViewerBridge>(method: M, args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
 		const appWindow = this.getAppWindow();
 		let bridge = viewerBridges.get(appWindow.document);
 		if (!bridge) {
@@ -139,11 +187,10 @@ export class PreviewOverlayWebview extends Disposable {
 	}
 
 	/**
-	 * Takes a screenshot of what's on screen in the webview. In web builds it's
-	 * rebuilt from the app's page; the Electron implementation captures the
-	 * screen instead. The webview must be showing.
+	 * In web builds, the screenshot is rebuilt from the app's page; the
+	 * Electron implementation captures the screen instead.
 	 */
-	public captureScreenshot(): Promise<IViewerCapture> {
+	protected async capture(): Promise<IViewerCapture> {
 		return captureDomScreenshot(this.getAppWindow(), getWindow(this.webview.container));
 	}
 

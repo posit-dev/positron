@@ -222,6 +222,16 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	}
 
 	/**
+	 * Gets the URL of a webview frame, as the browser has it.
+	 *
+	 * @param frameId The ID of the frame.
+	 * @returns The frame's URL, or undefined if the frame is gone.
+	 */
+	public async getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
+		return this.findFrame(frameId)?.url;
+	}
+
+	/**
 	 * Finds a frame by its ID. If the frame has gone to another document, the
 	 * saved process and routing IDs point at a gone or detached frame, so find
 	 * the frame by its place in the frame tree instead.

@@ -22,7 +22,7 @@ export interface IViewerInfo {
 	readonly kind: ViewerContentKind;
 	/** The title of the Viewer's content, when known. */
 	readonly title?: string;
-	/** The URL loaded in the Viewer. In web builds it may be a proxied URL. */
+	/** The address of the page showing in the Viewer now. In web builds it may be a proxied URL. */
 	readonly url?: string;
 	/** The ID of the runtime session that opened the content, when known. */
 	readonly sourceSessionId?: string;
@@ -47,12 +47,21 @@ export interface IViewerSnapshotOptions {
  * roles, names and key properties, and refs for the controls.
  */
 export interface IViewerSnapshot {
+	/** The outline. It comes from the page, which can make it say anything. */
 	readonly text: string;
+	/** The page's address, from Positron rather than the page, so the page can't fake it. */
 	readonly url: string;
+	/** The page's title. */
 	readonly title: string;
 	/** Whether the outline was cut short to fit `maxChars`. */
 	readonly truncated: boolean;
 }
+
+/**
+ * A snapshot as the bridge takes it, without the page's address, which
+ * Positron adds.
+ */
+export type ViewerBridgeSnapshot = Omit<IViewerSnapshot, 'url'>;
 
 /**
  * A screenshot of the Viewer's content.
@@ -127,7 +136,10 @@ export type ViewerAction =
  * What an action did, as the bridge reports it.
  */
 export interface IViewerActOutcome {
-	/** What the action did, for the agent. */
+	/**
+	 * What the action did, for the agent. The bridge works it out from the
+	 * page, which can mislead it.
+	 */
 	readonly message: string;
 	/** Whether the page went to another document, for example by following a link. */
 	readonly navigated: boolean;
@@ -158,7 +170,7 @@ export interface IViewerActResult {
  * cross into the app's frame on Desktop.
  */
 export interface IViewerBridge {
-	snapshot(options?: IViewerSnapshotOptions): IViewerSnapshot;
+	snapshot(options?: IViewerSnapshotOptions): ViewerBridgeSnapshot;
 	waitForIdle(options?: IViewerIdleOptions): Promise<IViewerIdleResult>;
 	viewport(): IViewerViewport;
 	/** Takes an action, then waits for the app to settle (`idle`) and checks the action took. */
@@ -178,7 +190,7 @@ export interface IPositronViewerAgentService {
 	/**
 	 * Describes what's showing in the Viewer.
 	 */
-	getViewerInfo(): IViewerInfo;
+	getViewerInfo(): Promise<IViewerInfo>;
 
 	/**
 	 * Takes a text snapshot of the page in the Viewer, once the app has

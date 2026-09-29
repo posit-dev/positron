@@ -1200,5 +1200,9 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 	public getContentFrameId(): WebviewFrameId | undefined {
 		return this._frameId;
 	}
+	public getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
+		// The default implementation can't reach frames by ID
+		return Promise.resolve(undefined);
+	}
 	// --- End Positron ---
 }

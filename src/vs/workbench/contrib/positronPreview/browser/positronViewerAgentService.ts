@@ -10,9 +10,10 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { PreviewSourceType } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { AI_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
-import { IPositronViewerAgentService, IViewerActResult, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerAction, ViewerContentKind } from '../common/positronViewerAgent.js';
+import { IPositronViewerAgentService, IViewerActOutcome, IViewerActResult, IViewerInfo, IViewerScreenshot, IViewerSnapshot, IViewerSnapshotOptions, IViewerViewport, ViewerAction, ViewerContentKind } from '../common/positronViewerAgent.js';
 import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { PreviewHtml } from './previewHtml.js';
+import { VIEWER_CONTENT_CHANGED_MESSAGE } from './previewOverlayWebview.js';
 import { PreviewUrl, QUERY_NONCE_PARAMETER } from './previewUrl.js';
 import { PreviewWebview } from './previewWebview.js';
 
@@ -133,7 +134,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) { }
 
-	getViewerInfo(): IViewerInfo {
+	async getViewerInfo(): Promise<IViewerInfo> {
 		this.checkEnabled();
 		const visible = this._viewsService.isViewVisible(POSITRON_PREVIEW_VIEW_ID);
 		const preview = this._previewService.activePreviewWebview;
@@ -147,7 +148,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			return {
 				kind,
 				title,
-				url: uriToString(preview.currentUri),
+				url: await this.currentUrl(preview),
 				sourceSessionId: source?.type === PreviewSourceType.Runtime ? source.id : undefined,
 				visible,
 			};
@@ -156,7 +157,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			return {
 				kind,
 				title: title || preview.html?.title || undefined,
-				url: uriToString(preview.uri),
+				url: await this.currentUrl(preview),
 				sourceSessionId: preview.sessionId || undefined,
 				visible,
 			};
@@ -170,9 +171,9 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		// Snapshot once the app has settled: a snapshot taken while Streamlit is
 		// still rendering comes back empty.
 		await withBridgeTimeout(preview.webview.runBridge('waitForIdle'));
-		const snapshot = await withBridgeTimeout(preview.webview.runBridge('snapshot', options));
+		const snapshot = await this.snapshotOf(preview, options);
 		this.checkStillShowing(preview);
-		return { ...snapshot, url: cleanUrl(snapshot.url) };
+		return snapshot;
 	}
 
 	async getViewerScreenshot(): Promise<IViewerScreenshot> {
@@ -197,8 +198,19 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			// Act on the app at the size the user sees it. A responsive app can
 			// hide or move its controls at a hidden web Viewer's 300x150.
 			const revealed = await this.showViewer(preview);
-			const outcome = await withTimeout(preview.webview.runBridge('act', action), ACT_TIMEOUT_MS,
-				'The page in the Viewer stopped responding during the action, which may have been taken. Take a snapshot before trying it again.');
+			let outcome: IViewerActOutcome;
+			let movedOn = false;
+			try {
+				outcome = await withTimeout(preview.webview.runBridge('act', action), ACT_TIMEOUT_MS,
+					'The page in the Viewer stopped responding during the action, which may have been taken. Take a snapshot before trying it again.');
+			} catch (error) {
+				if (this._previewService.activePreviewWebview === preview) {
+					throw error;
+				}
+				// Other content replaced the page, perhaps because of the action.
+				movedOn = true;
+				outcome = { message: 'The Viewer moved on to other content before the action finished, so it may have been taken.', navigated: false, timedOut: false };
+			}
 			// Before the snapshot, so it shows the page after the control loses focus.
 			restoreFocus();
 			// The action has been taken. From here on, report a problem in the
@@ -210,9 +222,12 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 				}
 				// The action may have led the app to open something else in the Viewer.
 				const current = this.readablePreview();
-				const snapshot = await withBridgeTimeout(current.webview.runBridge('snapshot', snapshotOptions));
-				const message = current === preview ? outcome.message : `${outcome.message} The Viewer now shows other content.`;
-				return { message, snapshot: { ...snapshot, url: cleanUrl(snapshot.url) }, timedOut: outcome.timedOut, revealed };
+				if (current !== preview) {
+					await this.waitForNewPage(current);
+				}
+				const snapshot = await this.snapshotOf(current, snapshotOptions);
+				const message = current === preview || movedOn ? outcome.message : `${outcome.message} The Viewer now shows other content.`;
+				return { message, snapshot, timedOut: outcome.timedOut, revealed };
 			} catch (error) {
 				const reason = error instanceof Error ? error.message : String(error);
 				return { message: `${outcome.message} There's no snapshot of the page after it: ${reason}`, timedOut: outcome.timedOut, revealed };
@@ -247,6 +262,30 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	}
 
 	/**
+	 * Takes a snapshot of the page. Its address comes from Positron, not from
+	 * the bridge, which on Desktop runs in the page and so can be faked.
+	 */
+	private async snapshotOf(preview: PreviewWebview, options?: IViewerSnapshotOptions): Promise<IViewerSnapshot> {
+		const { text, title, truncated } = await withBridgeTimeout(preview.webview.runBridge('snapshot', options));
+		return { text, url: await this.currentUrl(preview) ?? '', title, truncated };
+	}
+
+	/**
+	 * Gets the address of the page showing in the Viewer, as the browser has
+	 * it, or else the one Positron last loaded.
+	 */
+	private async currentUrl(preview: PreviewWebview): Promise<string | undefined> {
+		const url = await preview.webview.getCurrentUrl();
+		if (url) {
+			return cleanUrl(url);
+		}
+		if (preview instanceof PreviewUrl) {
+			return uriToString(preview.currentUri);
+		}
+		return preview instanceof PreviewHtml ? uriToString(preview.uri) : undefined;
+	}
+
+	/**
 	 * Makes sure the Viewer is showing and the app is laid out at its size,
 	 * revealing the Viewer without focus if it's hidden.
 	 *
@@ -266,7 +305,8 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	}
 
 	/**
-	 * Waits until the page an action went to can be read and has settled.
+	 * Waits until the page in `preview` can be read and has settled: one an
+	 * action went to, or content that opened in the Viewer during the action.
 	 */
 	private async waitForNewPage(preview: PreviewWebview): Promise<void> {
 		// Until the new page takes over, a call can go to the old one, which is
@@ -274,6 +314,10 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 		const deadline = Date.now() + PAGE_LOAD_TIMEOUT_MS;
 		for (; ;) {
 			await timeout(250);
+			if (this._previewService.activePreviewWebview !== preview) {
+				// Other content replaced the page; the snapshot is of that instead.
+				return;
+			}
 			try {
 				await withTimeout(preview.webview.runBridge('viewport'), PAGE_PING_TIMEOUT_MS, 'The new page in the Viewer isn\'t responding.');
 				break;
@@ -292,7 +336,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	 */
 	private checkStillShowing(preview: PreviewWebview): void {
 		if (this._previewService.activePreviewWebview !== preview) {
-			throw new Error('The Viewer\'s content changed while it was being read. Try again.');
+			throw new Error(VIEWER_CONTENT_CHANGED_MESSAGE);
 		}
 	}
 

@@ -18,21 +18,27 @@ import { IViewsService } from '../../../../services/views/common/viewsService.js
 import { IOverlayWebview } from '../../../webview/browser/webview.js';
 import { IPositronPreviewService } from '../../browser/positronPreviewSevice.js';
 import { PositronViewerAgentService } from '../../browser/positronViewerAgentService.js';
+import { PreviewHtml } from '../../browser/previewHtml.js';
 import { PreviewOverlayWebview, ViewerBridgeResult } from '../../browser/previewOverlayWebview.js';
 import { PreviewUrl } from '../../browser/previewUrl.js';
 import { PreviewWebview } from '../../browser/previewWebview.js';
 import { IViewerCapture } from '../../browser/viewerScreenshot.js';
-import { IViewerActOutcome, IViewerBridge, IViewerViewport } from '../../common/positronViewerAgent.js';
+import { IViewerActOutcome, IViewerBridge, IViewerViewport, ViewerBridgeSnapshot } from '../../common/positronViewerAgent.js';
 
 /** An overlay webview whose container is a real element, so it can hold focus. */
 function fakeOverlayWebview(size: { width: number; height: number }, onDidLoad: Event<string>): IOverlayWebview {
 	const container = mainWindow.document.body.appendChild(mainWindow.document.createElement('div'));
 	container.getBoundingClientRect = () => new DOMRect(0, 0, size.width, size.height);
+	const onDidDispose = new Emitter<void>();
 	return stubInterface<IOverlayWebview>({
 		onDidNavigate: Event.None,
-		onDidDispose: Event.None,
+		onDidDispose: onDidDispose.event,
 		onDidLoad,
-		dispose: () => container.remove(),
+		dispose: () => {
+			onDidDispose.fire();
+			onDidDispose.dispose();
+			container.remove();
+		},
 		container,
 	});
 }
@@ -55,6 +61,11 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	actError: Error | undefined;
 	/** When set, snapshots fail with this, as when the page stops responding. */
 	snapshotError: Error | undefined;
+	snapshotResult: ViewerBridgeSnapshot = { text: '- button "Go" [ref=e1]', title: 'App', truncated: false };
+	/** When set, calls to this bridge method never answer, as for a page that's gone. */
+	hang: keyof IViewerBridge | undefined;
+	/** The address the browser has for the page, if the page has loaded. */
+	pageUrl: string | undefined;
 
 	constructor(size = { width: 600, height: 400 }, onDidLoad: Event<string> = Event.None) {
 		super(fakeOverlayWebview(size, onDidLoad));
@@ -62,7 +73,7 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 
 	protected override loadUriInWebview(): void { }
 
-	override async runBridge<M extends keyof IViewerBridge>(method: M, ..._args: Parameters<IViewerBridge[M]>): Promise<ViewerBridgeResult<M>> {
+	protected override async callBridge<M extends keyof IViewerBridge>(method: M): Promise<ViewerBridgeResult<M>> {
 		this.calls.push(method);
 		if (this.bridgeError) {
 			throw this.bridgeError;
@@ -76,19 +87,26 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 		if (method === 'snapshot' && this.snapshotError) {
 			throw this.snapshotError;
 		}
+		if (method === this.hang) {
+			return new Promise<never>(() => { });
+		}
 		const results: { [K in keyof IViewerBridge]: ViewerBridgeResult<K> } = {
 			waitForIdle: { waitedMs: 0, timedOut: false },
-			snapshot: { text: '- button "Go" [ref=e1]', url: 'http://localhost:8000/?_positronRender=3', title: 'App', truncated: false },
+			snapshot: this.snapshotResult,
 			viewport: this.viewport,
 			act: this.actOutcome,
 		};
 		return results[method];
 	}
 
-	override async captureScreenshot(): Promise<IViewerCapture> {
+	protected override async capture(): Promise<IViewerCapture> {
 		this.calls.push('capture');
 		this.onCapture?.();
 		return { data: VSBuffer.fromString('png'), width: 600, height: 400, method: 'dom' };
+	}
+
+	override async getCurrentUrl(): Promise<string | undefined> {
+		return this.pageUrl;
 	}
 }
 
@@ -131,14 +149,20 @@ describe('PositronViewerAgentService', () => {
 		return webview;
 	}
 
-	it('describes an empty Viewer, or an app loaded from a URL without the Viewer\'s cache-busting parameter', () => {
+	/** Opens other content in the Viewer, disposing what was there, as the preview service does. */
+	function replaceContent(): FakePreviewOverlayWebview {
+		activePreview?.dispose();
+		return showUrl();
+	}
+
+	it('describes an empty Viewer, or an app loaded from a URL without the Viewer\'s cache-busting parameter', async () => {
 		const service = createService();
-		expect(service.getViewerInfo()).toEqual({ kind: 'none', visible: true });
+		expect(await service.getViewerInfo()).toEqual({ kind: 'none', visible: true });
 
 		showUrl();
 		viewerVisible = false;
 
-		expect(service.getViewerInfo()).toEqual({
+		expect(await service.getViewerInfo()).toEqual({
 			kind: 'url',
 			title: undefined,
 			url: 'http://localhost:8000/',
@@ -147,21 +171,41 @@ describe('PositronViewerAgentService', () => {
 		});
 	});
 
-	it('reports the title of the page showing now, not of an earlier page', () => {
+	it('reports the address the page is at now, for an app or an HTML file, and in snapshots, where a page can\'t fake it', async () => {
+		const service = createService();
+		const app = showUrl();
+		app.pageUrl = 'http://localhost:8000/nav.html?_positronRender=0';
+		const appUrl = (await service.getViewerInfo()).url;
+		const file = new FakePreviewOverlayWebview();
+		activePreview = ctx.disposables.add(new PreviewHtml('r-1', 'previewHtml.1', file, URI.parse('http://localhost:8001/odd.html')));
+		file.pageUrl = 'http://localhost:8001/nav.html';
+		const fileUrl = (await service.getViewerInfo()).url;
+		// As from a page that defined the bridge's global before Positron did.
+		const forged = { text: '- button "Transfer" [ref=e1]', title: 'Bank', truncated: false, url: 'https://bank.example/' };
+		file.snapshotResult = forged;
+
+		expect({ appUrl, fileUrl, snapshot: await service.getViewerSnapshot() }).toEqual({
+			appUrl: 'http://localhost:8000/nav.html',
+			fileUrl: 'http://localhost:8001/nav.html',
+			snapshot: { text: '- button "Transfer" [ref=e1]', url: 'http://localhost:8001/nav.html', title: 'Bank', truncated: false },
+		});
+	});
+
+	it('reports the title of the page showing now, not of an earlier page', async () => {
 		const didLoad = ctx.disposables.add(new Emitter<string>());
 		const webview = showUrl(new FakePreviewOverlayWebview(undefined, didLoad.event));
 		const service = createService();
 		const titles: (string | undefined)[] = [];
 
 		didLoad.fire('Old Faithful');
-		titles.push(service.getViewerInfo().title);
+		titles.push((await service.getViewerInfo()).title);
 		// A page with no title.
 		didLoad.fire('');
-		titles.push(service.getViewerInfo().title);
+		titles.push((await service.getViewerInfo()).title);
 		// A new page that hasn't finished loading.
 		didLoad.fire('Old Faithful');
 		webview.loadUri(URI.parse('http://localhost:8000/other'));
-		titles.push(service.getViewerInfo().title);
+		titles.push((await service.getViewerInfo()).title);
 
 		expect(titles).toEqual(['Old Faithful', undefined, undefined]);
 	});
@@ -171,7 +215,7 @@ describe('PositronViewerAgentService', () => {
 		showUrl();
 		const service = createService();
 
-		expect(() => service.getViewerInfo()).toThrow(/AI features are turned off/);
+		await expect(service.getViewerInfo()).rejects.toThrow(/AI features are turned off/);
 		await expect(service.getViewerSnapshot()).rejects.toThrow(/AI features are turned off/);
 		await expect(service.getViewerScreenshot()).rejects.toThrow(/AI features are turned off/);
 		await expect(service.viewerAct({ kind: 'click', ref: 'e1' })).rejects.toThrow(/AI features are turned off/);
@@ -227,6 +271,16 @@ describe('PositronViewerAgentService', () => {
 		webview.onCapture = () => showUrl();
 
 		await expect(createService().getViewerScreenshot()).rejects.toThrow('The Viewer\'s content changed while it was being read.');
+	});
+
+	it('fails at once when other content replaces the page during a call, rather than wait on a page that\'s gone', async () => {
+		const webview = showUrl();
+		webview.hang = 'waitForIdle';
+
+		const snapshot = createService().getViewerSnapshot();
+		replaceContent();
+
+		await expect(snapshot).rejects.toThrow('The Viewer\'s content changed while it was being read. Try again.');
 	});
 
 	it('fails rather than capture forever', async () => {
@@ -295,6 +349,26 @@ describe('PositronViewerAgentService', () => {
 		await createService().viewerAct({ kind: 'click', ref: 'e1' });
 
 		expect(webview.calls).toEqual(['viewport', 'act', 'viewport', 'waitForIdle', 'snapshot']);
+	});
+
+	it('reports an action cut short by other content replacing the page, and snapshots that content once it has loaded', async () => {
+		const webview = showUrl();
+		webview.hang = 'act';
+		// As when a button has the app open something else in the Viewer.
+		let next: FakePreviewOverlayWebview | undefined;
+		webview.onAct = () => next = replaceContent();
+
+		const result = await createService().viewerAct({ kind: 'click', ref: 'e1' });
+
+		expect({ result, calls: next?.calls }).toEqual({
+			result: {
+				message: 'The Viewer moved on to other content before the action finished, so it may have been taken.',
+				snapshot: { text: '- button "Go" [ref=e1]', url: 'http://localhost:8000/', title: 'App', truncated: false },
+				timedOut: false,
+				revealed: false,
+			},
+			calls: ['viewport', 'waitForIdle', 'snapshot'],
+		});
 	});
 
 	it('reports an action it took even when there\'s no snapshot after it, so the agent doesn\'t take it again', async () => {
