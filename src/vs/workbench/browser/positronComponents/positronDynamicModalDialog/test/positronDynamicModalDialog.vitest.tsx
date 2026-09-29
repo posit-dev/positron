@@ -21,6 +21,10 @@ describe('PositronDynamicModalDialog', () => {
 	// they register the unmount that setupRTLRenderer would otherwise register.
 	afterEach(cleanup);
 
+	// restoreMocks undoes vi.spyOn but not vi.stubGlobal, so a stubbed ResizeObserver would
+	// otherwise outlive the test that installed it.
+	afterEach(() => vi.unstubAllGlobals());
+
 	let resize: Emitter<UIEvent>;
 	let keyDown: Emitter<KeyboardEvent>;
 
