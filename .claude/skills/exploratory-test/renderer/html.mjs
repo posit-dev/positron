@@ -535,10 +535,18 @@ function reportUrl(base) {
 	return /^https?:\/\//i.test(base ?? '') ? `${base.replace(/\/+$/, '')}/index.html` : null;
 }
 
-// Posit team feedback goes to a Google Form that accepts Posit accounts only,
-// so its links are safe on a public page. The form is pre-filled by entry ID.
-const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform?usp=pp_url';
-const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470', on: 'entry.857252905', finding: 'entry.890833928', verdict: 'entry.427792690' };
+// Posit team feedback: one Google Form per finding, one for the whole report,
+// each pre-filled by entry ID. The finding form takes anyone, since a
+// background submit cannot tell when Google refuses a signed-out reader.
+const FEEDBACK_FORM_URL = {
+	finding: 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform?usp=pp_url',
+	report: 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform?usp=pp_url',
+};
+const FEEDBACK_SUBMIT_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/formResponse';
+const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470', finding: 'entry.890833928', verdict: 'entry.427792690' };
+// A random ID kept per browser, so a count can take each browser's latest
+// answer: collecting email would stop a background submit.
+const FEEDBACK_ID_ENTRY = 'entry.1280428395';
 // The button's label, then the form's option text. Google silently drops a
 // multiple-choice value that does not match its option exactly, apostrophe
 // included, so these are copied from the form rather than from the labels.
@@ -569,30 +577,38 @@ export function skillVersion(skillMd) {
 }
 
 /**
- * A pre-filled form link: for a finding when given one, for the whole report
- * otherwise. The finding is shown above its verdict, so the form says which
- * one it asks about.
+ * A pre-filled link to the finding form when given a finding, to the report
+ * form otherwise. The finding is shown above its verdict, so the form says
+ * which one it asks about.
  */
-function feedbackHref(report, version, finding, verdict) {
-	const values = [
+function feedbackValues(report, version, finding, verdict) {
+	return [
 		[FEEDBACK_ENTRY.report, report],
-		[FEEDBACK_ENTRY.version, version ?? 'unknown'],
-		[FEEDBACK_ENTRY.on, finding ? 'A finding' : 'The whole report'],
+		// With a v, so Sheets keeps it as text: 1.10 would otherwise read as 1.1.
+		[FEEDBACK_ENTRY.version, version ? `v${version}` : 'unknown'],
 		...(finding ? [[FEEDBACK_ENTRY.finding, `Finding ${finding.n} \u00B7 ${finding.title}`], [FEEDBACK_ENTRY.verdict, verdict]] : []),
-	];
-	return FEEDBACK_FORM_URL + values.map(([entry, value]) => `&${entry}=${encodeURIComponent(value)}`).join('');
+	].map(([entry, value]) => `${entry}=${encodeURIComponent(value)}`);
+}
+
+function feedbackHref(report, version, finding, verdict) {
+	return FEEDBACK_FORM_URL[finding ? 'finding' : 'report'] + feedbackValues(report, version, finding, verdict).map(v => `&${v}`).join('');
 }
 
 // Only a published page asks for feedback, so every answer points at a report
 // someone can open. A local page has only a path, which is never sent.
+// A verdict's `href` is the pre-filled form, for "Add a note" and a modified
+// click; `data-submit` records it in one click.
 function renderFeedbackRow(f, options) {
 	const url = reportUrl(options.base);
 	if (!url) {
 		return '';
 	}
-	const links = FEEDBACK_VERDICTS.map(([label, verdict]) =>
-		`<a href="${escapeHtml(feedbackHref(`${url}#f${f.n}`, options.skillVersion, f, verdict))}" target="_blank" rel="noopener">${label}</a>`);
-	return `<div class="fb" role="group" aria-label="Posit team feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
+	const report = `${url}#f${f.n}`;
+	const links = FEEDBACK_VERDICTS.map(([label, verdict]) => {
+		const submit = `${FEEDBACK_SUBMIT_URL}?${feedbackValues(report, options.skillVersion, f, verdict).join('&')}&submit=Submit`;
+		return `<a href="${escapeHtml(feedbackHref(report, options.skillVersion, f, verdict))}" data-submit="${escapeHtml(submit)}" data-verdict="${escapeHtml(verdict)}" target="_blank" rel="noopener">${label}</a>`;
+	});
+	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Posit team feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 
 function renderFeedbackButton(options) {
@@ -1285,6 +1301,51 @@ stops[(i+(e.shiftKey?-1:1)+stops.length)%stops.length].focus();}});
 }
 })();`;
 
+// Forms open in one reused pop-up, which keeps its opener so a second click can
+// reload it; a blocked pop-up falls back to a tab. A verdict is sent in a hidden
+// frame instead. Only the verdict string is stored, and the row is rebuilt from
+// the page's own links, since every report on the CDN shares one localStorage.
+const CARET = '<svg class="fb-car" aria-hidden="true" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>';
+const FEEDBACK_SCRIPT = `(function(){var NAME='exploratory-feedback',W=680,H=820,current=null;
+function open(href){
+if(current&&!current.closed){try{current.location.href=href;current.focus();return;}catch(e){}}
+var w=Math.min(W,(screen.availWidth||W)-40),h=Math.min(H,(screen.availHeight||H)-80);
+var left=Math.round((window.screenX||0)+Math.max(0,((window.outerWidth||w)-w)/2));
+var top=Math.round((window.screenY||0)+Math.max(0,((window.outerHeight||h)-h)/3));
+var win=window.open('',NAME,'popup,width='+w+',height='+h+',left='+left+',top='+top);
+if(!win){window.open(href,'_blank','noopener');return;}
+win.location.href=href;win.focus();current=win;}
+function key(row){return 'fb:'+row.dataset.report+'#'+row.dataset.finding;}
+function get(k){try{return localStorage.getItem(k);}catch(e){return null;}}
+function put(k,v){try{if(v){localStorage.setItem(k,v);}else{localStorage.removeItem(k);}}catch(e){}}
+function verdicts(row){return Array.prototype.slice.call(row.querySelectorAll('a[data-verdict]'));}
+var id=get('fb:id');if(!/^[0-9a-f]{12}$/.test(id||'')){id=Array.prototype.map.call(crypto.getRandomValues(new Uint8Array(6)),function(x){return (x<16?'0':'')+x.toString(16);}).join('');put('fb:id',id);}
+Array.prototype.slice.call(document.querySelectorAll('a[data-verdict]')).forEach(function(a){var add='&${FEEDBACK_ID_ENTRY}='+id;a.href+=add;a.dataset.submit+=add;});
+function send(url){var f=document.createElement('iframe');f.hidden=true;f.setAttribute('aria-hidden','true');f.tabIndex=-1;f.src=url;
+document.body.appendChild(f);setTimeout(function(){f.remove();},30000);}
+function el(tag,cls,text){var e=document.createElement(tag);e.className=cls;e.textContent=text||'';e.setAttribute('data-answer','');return e;}
+function answer(row,a){var done=el('button','fb-done tip');done.type='button';done.setAttribute('data-tip','Change answer');
+done.setAttribute('aria-label','Your answer: '+a.textContent+'. Change answer');
+done.innerHTML='${ICON.check(12)}<span></span>${CARET}';done.querySelector('span').textContent=a.textContent;
+var note=el('a','fb-act fb-note','Add a note');note.href=a.href;note.target='_blank';note.rel='noopener';
+verdicts(row).forEach(function(b){b.hidden=true;});
+[done,note].forEach(function(e){row.appendChild(e);});
+return note;}
+function reset(row){Array.prototype.slice.call(row.querySelectorAll('[data-answer]')).forEach(function(e){e.remove();});
+verdicts(row).forEach(function(b){b.hidden=false;});}
+Array.prototype.slice.call(document.querySelectorAll('.fb[data-finding]')).forEach(function(row){var v=get(key(row));if(!v){return;}
+var a=verdicts(row).filter(function(b){return b.dataset.verdict===v;})[0];
+if(a){answer(row,a);}else{put(key(row),null);}});
+document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target:null;if(!t){return;}
+var change=t.closest('.fb-done');
+if(change){var row=change.closest('.fb');put(key(row),null);reset(row);verdicts(row)[0].focus();return;}
+var a=t.closest('.fb a, a.fb-top');
+if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey){return;}
+e.preventDefault();
+if(a.dataset.submit){var r=a.closest('.fb');send(a.dataset.submit);put(key(r),a.dataset.verdict);answer(r,a).focus();return;}
+open(a.href);});
+})();`;
+
 // One handler for every copy button. Only a copy that worked says "Copied".
 const COPY_SCRIPT = `document.querySelectorAll('.cp-btn,.code-cp').forEach(function(b){var t,tip=b.dataset.tip;
 b.addEventListener('click',function(){var text;
@@ -1422,7 +1483,8 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	const copy = prompts || page.includes('class="code-cp"');
 	const issue = page.includes(' data-issue="');
 	const codeCopy = page.includes('<code class="cc"');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}</body>
+	const feedback = page.includes('<a class="fb-top" ');
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }
