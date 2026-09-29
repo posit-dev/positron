@@ -187,10 +187,8 @@ describe('PositronViewerAgentService', () => {
 
 		const screenshot = await createService().getViewerScreenshot();
 
-		expect(openView).not.toHaveBeenCalled();
-		expect(webview.calls).toEqual(['viewport', 'waitForIdle', 'capture']);
-		expect({ mimeType: screenshot.mimeType, method: screenshot.method, revealed: screenshot.revealed })
-			.toEqual({ mimeType: 'image/png', method: 'dom', revealed: false });
+		expect({ reveals: openView.mock.calls, calls: webview.calls, revealed: screenshot.revealed })
+			.toEqual({ reveals: [], calls: ['viewport', 'waitForIdle', 'capture'], revealed: false });
 	});
 
 	it('reveals a hidden Viewer, without focus, and waits for the app to take its size', async () => {

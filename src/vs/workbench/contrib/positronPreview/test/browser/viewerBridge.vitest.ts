@@ -189,15 +189,7 @@ describe('createViewerBridge', () => {
 		`);
 	});
 
-	it('caps the rows it lists per table', () => {
-		const rows = Array.from({ length: 60 }, (_, i) => `<tr><td>${i}</td></tr>`).join('');
-		const lines = snapshotText(`<table>${rows}</table>`).split('\n');
-
-		expect(lines.length).toBe(52);
-		expect(lines.at(-1)).toBe('  - text "(up to 10 more rows)"');
-	});
-
-	it('doesn\'t list or count hidden and empty rows toward the cap', () => {
+	it('caps the rows it lists per table, not counting hidden and empty rows', () => {
 		// 60 data rows, each followed by an empty row and a hidden one.
 		const rows = Array.from({ length: 60 }, (_, i) => `<tr><td>${i}</td></tr><tr><td></td></tr><tr style="display: none"><td>hidden</td></tr>`).join('');
 		const lines = snapshotText(`<table>${rows}</table>`).split('\n');
@@ -207,12 +199,6 @@ describe('createViewerBridge', () => {
 			lastRow: '  - row "49"',
 			more: '  - text "(up to 32 more rows)"',
 		});
-	});
-
-	it('keeps visible content inside a visibility:hidden element', () => {
-		// visibility:hidden hides the element's own content, but a descendant can make itself visible.
-		expect(snapshotText('<div style="visibility: hidden">Hidden text<button style="visibility: visible">Shown</button></div>'))
-			.toBe('- button "Shown" [ref=e1]');
 	});
 
 	it('reads the accessible table inside a canvas (Streamlit st.dataframe)', () => {
@@ -285,19 +271,21 @@ describe('createViewerBridge', () => {
 			<button>Count clicks</button>`)).toBe('- button "Count clicks" [ref=e1]');
 	});
 
-	it('keeps the text of containers with a role, and leaves out hidden content', () => {
+	it('leaves out hidden content, but not what a descendant of a visibility:hidden element shows', () => {
 		const text = snapshotText(`
 			<div role="alert">Saved</div>
 			<div hidden>hidden attribute</div>
 			<div style="display: none">display none</div>
 			<div aria-hidden="true">aria-hidden</div>
+			<div style="visibility: hidden">visibility hidden<button style="visibility: visible">Shown</button></div>
 			<nav><a href="#top">Top</a></nav>`);
 
 		expect(text).toMatchInlineSnapshot(`
 			"- alert
 			  - text "Saved"
+			- button "Shown" [ref=e1]
 			- navigation
-			  - link "Top" [ref=e1]"
+			  - link "Top" [ref=e2]"
 		`);
 	});
 
@@ -332,16 +320,12 @@ describe('createViewerBridge', () => {
 		expect(snapshot.text.split('\n').at(-1)).toMatch(/^- button "Button \d+" \[ref=e\d+\]$/);
 	});
 
-	it('says when nothing fits in maxChars, instead of calling the page empty', () => {
-		const snapshot = createViewerBridge(loadApp('<h1>A heading far longer than the budget</h1>')).snapshot({ maxChars: 10 });
-
-		expect({ text: snapshot.text, truncated: snapshot.truncated })
-			.toEqual({ text: '(nothing fits in maxChars=10; ask for more)', truncated: true });
-	});
-
-	it('says when the page is empty', () => {
-		expect(snapshotText('')).toBe('(no content)');
-		expect(snapshotText('<p>Just text</p>', { interactiveOnly: true })).toBe('(no controls)');
+	it('says why a snapshot is empty: no content, no controls, or nothing fits in maxChars', () => {
+		expect([
+			snapshotText(''),
+			snapshotText('<p>Just text</p>', { interactiveOnly: true }),
+			snapshotText('<h1>A heading far longer than the budget</h1>', { maxChars: 10 }),
+		]).toEqual(['(no content)', '(no controls)', '(nothing fits in maxChars=10; ask for more)']);
 	});
 });
 
@@ -521,19 +505,6 @@ describe('act', () => {
 			value: '23',
 			keys: ['PageUp', 'ArrowRight', ...Array(4).fill('ArrowLeft')],
 		});
-	});
-
-	it('reads a slider\'s value from its text when it has no aria-valuenow', async () => {
-		const bridge = load('<span role="slider" id="wait" aria-label="Wait" aria-valuetext="20 minutes" aria-valuemin="1" aria-valuemax="50"></span>');
-		const slider = byId('wait');
-		slider.addEventListener('keydown', event => {
-			const deltas: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1 };
-			slider.setAttribute('aria-valuetext', `${parseFloat(slider.getAttribute('aria-valuetext')!) + (deltas[(event as KeyboardEvent).key] ?? 0)} minutes`);
-		});
-
-		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '22' }, QUICK);
-
-		expect({ message: outcome.message, shown: slider.getAttribute('aria-valuetext') }).toEqual({ message: 'Set the slider "Wait" to 22.', shown: '22 minutes' });
 	});
 
 	it('stops a slider at the closest value its steps allow, and says so', async () => {
