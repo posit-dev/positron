@@ -6,7 +6,7 @@
 import * as nls from '../../../../nls.js';
 import { DeferredPromise, disposableTimeout } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { Disposable, DisposableStore, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -35,6 +35,25 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IPathService } from '../../path/common/pathService.js';
 import { resolveNotebookWorkingDirectory } from '../../../contrib/notebook/common/notebookWorkingDirectoryUtils.js';
 import { isEqual } from '../../../../base/common/resources.js';
+
+/**
+ * Give runtimes time for cleanup such as R's `.Last` and Python's `atexit`
+ * before a shutdown times out.
+ *
+ * With `forceQuitOnTimeout`, the shutdown and force-quit grace periods total
+ * less than the 10 seconds before `waitForShutdown()` offers a manual forced
+ * quit, so a cleanup that outlasts them is killed without asking the user.
+ * Only `deleteSession()` requests this behavior.
+ */
+export const SHUTDOWN_GRACE_MS = 6_000;
+
+
+export const FORCE_QUIT_GRACE_MS = 3_000;
+
+interface IShutdownRuntimeSessionOptions {
+	/** Whether a timeout triggers `forceQuit()`. */
+	readonly forceQuitOnTimeout?: boolean;
+}
 
 /**
  * Get a map key corresponding to a session.
@@ -589,20 +608,27 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param session The session to shutdown.
 	 * @param exitReason The reason for shutting down the session.
+	 * @param options How to handle a runtime that does not exit in time.
 	 * @returns Promise that resolves when the session has been shutdown.
 	 */
 	private async shutdownRuntimeSession(
-		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
+		session: ILanguageRuntimeSession,
+		exitReason: RuntimeExitReason,
+		options: IShutdownRuntimeSessionOptions = {}): Promise<void> {
 		// See if we are already shutting down this session. If we
 		// are, return the promise that resolves when the runtime is shut down.
 		// This makes it possible for multiple requests to shut down the same
 		// session to be coalesced.
+		//
+		// Coalesced requests use the first request's options. `deleteSession()` can
+		// therefore unregister a session without force-quitting it when it joins a
+		// non-forcing shutdown.
 		const sessionId = session.metadata.sessionId;
 		const shuttingDownPromise = this._shuttingDownRuntimesBySessionId.get(sessionId);
 		if (shuttingDownPromise) {
 			return shuttingDownPromise;
 		}
-		const shutdownPromise = this.doShutdownRuntimeSession(session, exitReason)
+		const shutdownPromise = this.doShutdownRuntimeSession(session, exitReason, options)
 			.finally(() => this._shuttingDownRuntimesBySessionId.delete(sessionId));
 
 		this._shuttingDownRuntimesBySessionId.set(sessionId, shutdownPromise);
@@ -611,39 +637,108 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	private async doShutdownRuntimeSession(
-		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
+		session: ILanguageRuntimeSession,
+		exitReason: RuntimeExitReason,
+		options: IShutdownRuntimeSessionOptions): Promise<void> {
 
 		const activeSession = this._activeSessionsBySessionId.get(session.sessionId);
 		if (!activeSession) {
 			throw new Error(`No active session '${session.sessionId}'`);
 		}
 
-		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
-		// generates some Console output that must finish before starting up a new runtime:
+		// `RuntimeState.Exited` can precede final console output. Wait for
+		// `onDidEndSession()` before starting another runtime, and keep this
+		// listener across both attempts so an exit between them is not missed.
 		const disposables = activeSession.register(new DisposableStore());
-		const promise = new Promise<void>((resolve, reject) => {
-			disposables.add(session.onDidEndSession((exit) => {
-				disposables.dispose();
+		let hasEnded = false;
+		const ended = new Promise<void>(resolve => {
+			disposables.add(session.onDidEndSession(() => {
+				hasEnded = true;
 				resolve();
 			}));
-			disposables.add(disposableTimeout(() => {
-				disposables.dispose();
-				reject(new Error(`Timed out waiting for runtime ` +
-					`${formatLanguageRuntimeSession(session)} to finish exiting.`));
-			}, 5000));
 		});
 
-		// Ask the runtime to shut down.
 		try {
-			await session.shutdown(exitReason);
-		} catch (error) {
-			disposables.dispose();
-			throw error;
-		}
+			if (!options.forceQuitOnTimeout) {
+				if (!await this.runAndWaitForEndSession(
+					ended, () => session.shutdown(exitReason), SHUTDOWN_GRACE_MS)) {
+					throw new Error(`Timed out waiting for runtime ` +
+						`${formatLanguageRuntimeSession(session)} to finish exiting.`);
+				}
+				return;
+			}
 
-		// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
-		// (whichever comes first)
-		await promise;
+			// `deleteSession()` force-quits after a shutdown failure or timeout so it
+			// can remove a session whose runtime will not exit.
+			try {
+				if (await this.runAndWaitForEndSession(
+					ended, () => session.shutdown(exitReason), SHUTDOWN_GRACE_MS)) {
+					return;
+				}
+				this._logService.warn(
+					`${formatLanguageRuntimeSession(session)} did not exit within ` +
+					`${SHUTDOWN_GRACE_MS}ms of a shutdown request, forcing it to quit.`);
+			} catch (error) {
+				this._logService.warn(
+					`Failed to shut down ${formatLanguageRuntimeSession(session)}: ${error}, ` +
+					`forcing it to quit.`);
+			}
+
+			// Do not force a session that ended while the shutdown wait settled.
+			if (hasEnded) {
+				return;
+			}
+
+			// `Exited` can precede `onDidEndSession()`. Wait for the end event
+			// without forcing a process that has already exited.
+			const force = session.getRuntimeState() === RuntimeState.Exited ?
+				async () => { } :
+				() => {
+					// Killing the runtime can cut exit handlers such as `.Last` short,
+					// so tell the user rather than only logging it.
+					this._notificationService.warn(localize(
+						'positron.runtimeSession.forcedQuitOnDelete',
+						"{0} did not exit after a shutdown request and was forced to quit.",
+						session.dynState.sessionName));
+					return session.forceQuit();
+				};
+
+			if (!await this.runAndWaitForEndSession(ended, force, FORCE_QUIT_GRACE_MS)) {
+				throw new Error(`Timed out waiting for runtime ` +
+					`${formatLanguageRuntimeSession(session)} to finish exiting, ` +
+					`even after forcing it to quit.`);
+			}
+		} finally {
+			disposables.dispose();
+		}
+	}
+
+	/**
+	 * Return `true` when `ended` resolves, even if `action` is still pending.
+	 * Return `false` on timeout, or reject if `action` fails first.
+	 */
+	private async runAndWaitForEndSession(
+		ended: Promise<void>,
+		action: () => Thenable<void>,
+		timeoutMs: number): Promise<boolean> {
+
+		const disposables = new DisposableStore();
+		try {
+			return await new Promise<boolean>((resolve, reject) => {
+				ended.then(() => resolve(true));
+				disposables.add(disposableTimeout(() => resolve(false), timeoutMs));
+
+				void (async () => {
+					try {
+						await action();
+					} catch (error) {
+						reject(error);
+					}
+				})();
+			});
+		} finally {
+			disposables.dispose();
+		}
 	}
 
 	/**
@@ -1252,7 +1347,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			session.metadata.sessionMode, session.runtimeMetadata.runtimeId, session.metadata.notebookUri);
 		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
 		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
-			return startingRuntimePromise.p.then(() => { });
+			await startingRuntimePromise.p;
+			return;
 		}
 
 		const activeSession = this._activeSessionsBySessionId.get(session.sessionId);
@@ -1276,36 +1372,93 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this.setStartingSessionMaps(
 			session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
 
-		// Mark the session as ready when it reaches the ready state,
-		// or after a timeout.
-		awaitStateChange(activeSession, [RuntimeState.Ready], 10)
-			.then(() => {
-				this.clearStartingSessionMaps(
-					session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
-				startPromise.complete(session.sessionId);
-			})
-			.catch((err) => {
-				startPromise.error(err);
-				this.clearStartingSessionMaps(
-					session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
-			});
-
-		// Ask the runtime to restart.
-		try {
-			// Restart the working directory in the same directory as the session.
-			if (session.getRuntimeState() === RuntimeState.Exited) {
-				// Do a start, behind the scenes
-				await session.start();
-			} else {
-				await session.restart(activeSession.workingDirectory);
+		const restartDisposables = activeSession.register(new DisposableStore());
+		const settle = (error?: Error) => {
+			if (startPromise.isSettled) {
+				return;
 			}
-		} catch (err) {
-			startPromise.error(err);
+			restartDisposables.dispose();
 			this.clearStartingSessionMaps(
 				session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+			if (error) {
+				startPromise.error(error);
+			} else {
+				startPromise.complete(session.sessionId);
+			}
+		};
+
+		// Exit handlers such as R's `.Last` leave a runtime reporting its
+		// pre-restart state until it exits. Match `deleteSession()`: force quit
+		// after `SHUTDOWN_GRACE_MS`, then give the supervisor's replacement 10
+		// seconds to reach `Ready`.
+		const deadline = restartDisposables.add(new MutableDisposable());
+		let oldRuntimeExited = false;
+		const onOldRuntimeExited = () => {
+			if (oldRuntimeExited) {
+				return;
+			}
+			oldRuntimeExited = true;
+			deadline.value = disposableTimeout(() => settle(new Error(
+				`Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} to be 'ready'.`)),
+				10_000);
+		};
+		const forceQuit = async () => {
+			this._logService.warn(
+				`${formatLanguageRuntimeSession(session)} did not exit within ` +
+				`${SHUTDOWN_GRACE_MS}ms of a restart request, forcing it to quit.`);
+			this._notificationService.warn(localize(
+				'positron.runtimeSession.forcedQuitOnRestart',
+				"{0} did not exit after a restart request and was forced to quit.",
+				session.dynState.sessionName));
+			deadline.value = disposableTimeout(() => settle(new Error(
+				`Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} ` +
+				`to finish exiting, even after forcing it to quit.`)),
+				FORCE_QUIT_GRACE_MS);
+			try {
+				await session.forceQuit();
+			} catch (err) {
+				settle(err);
+			}
+		};
+
+		restartDisposables.add(session.onDidChangeRuntimeState(state => {
+			if (state === RuntimeState.Ready) {
+				settle();
+			} else if (state === RuntimeState.Exited) {
+				onOldRuntimeExited();
+			}
+		}));
+		restartDisposables.add(this.onDidDeleteRuntimeSession(sessionId => {
+			if (sessionId === session.sessionId) {
+				settle(new Error(`Session ${formatLanguageRuntimeSession(session)} ` +
+					`was deleted while restarting.`));
+			}
+		}));
+
+		if (session.getRuntimeState() === RuntimeState.Exited) {
+			onOldRuntimeExited();
+		} else {
+			deadline.value = disposableTimeout(forceQuit, SHUTDOWN_GRACE_MS);
 		}
 
-		return startPromise.p.then(() => { });
+		// Ask the runtime to restart. Don't await the request here: it can outlast
+		// the deadlines above, or never return, and only `startPromise` reports
+		// the outcome to callers. A failed request still fails the restart.
+		void (async () => {
+			try {
+				// Restart the working directory in the same directory as the session.
+				if (session.getRuntimeState() === RuntimeState.Exited) {
+					// Do a start, behind the scenes
+					await session.start();
+				} else {
+					await session.restart(activeSession.workingDirectory);
+				}
+			} catch (err) {
+				settle(err);
+			}
+		})();
+
+		await startPromise.p;
 	}
 
 	/**
@@ -1397,6 +1550,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`Cannot delete session because its runtime was not found.`);
 		}
 
+		let shutdownError: unknown;
 		const runtimeState = session.getRuntimeState();
 		if (runtimeState !== RuntimeState.Exited) {
 			if (runtimeState === RuntimeState.Busy) {
@@ -1416,7 +1570,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				runtimeState === RuntimeState.Idle ||
 				runtimeState === RuntimeState.Ready) {
 				// If the runtime is in a state where it can be shut down, do so.
-				await this.shutdownRuntimeSession(session, RuntimeExitReason.Shutdown);
+				try {
+					await this.shutdownRuntimeSession(
+						session, RuntimeExitReason.Shutdown, { forceQuitOnTimeout: true });
+				} catch (error) {
+					// Remove the session even if its runtime cannot exit. Leaving it
+					// registered lets R's language server manager deactivate other
+					// consoles when it tries to activate this unusable one. Rethrow
+					// after removal so callers still see the shutdown failure.
+					shutdownError = error;
+				}
 			} else if (
 				runtimeState === RuntimeState.Uninitialized ||
 				runtimeState === RuntimeState.Initializing ||
@@ -1452,6 +1615,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
 			this._onDidDeleteRuntimeSessionEmitter.fire(sessionId);
 
+		}
+
+		if (shutdownError !== undefined) {
+			this._logService.warn(`Session ${sessionId} has been deleted, but its runtime failed to exit: ${shutdownError}`);
+			throw shutdownError;
 		}
 
 		this._logService.debug(`Session ${sessionId} has been deleted`);
@@ -2493,6 +2661,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// for the purposes of waiting for the session to exit.
 			disposables.add(session.onDidEndSession(() => {
 				if (targetStates.includes(RuntimeState.Exited)) {
+					completeStateChange();
+				}
+			}));
+
+			// `deleteSession()` can remove a session whose runtime never exited.
+			// Stop waiting for a state change once there is nothing left to watch.
+			disposables.add(this.onDidDeleteRuntimeSession(sessionId => {
+				if (sessionId === session.sessionId) {
 					completeStateChange();
 				}
 			}));

@@ -84,6 +84,7 @@ export const FOUNDRY_ASSISTANT_SETTINGS = {
  *
  * Mirrors the host-side `beforeApp` fixture: when a suite opts into the legacy
  * (VS Code) notebook editor, the Positron notebook editor is disabled; when a
+ * suite opts into the older Connections pane, Data Connections is disabled; when a
  * suite opts into the Foundry assistant, its settings are merged in. Returns
  * `undefined` when there is nothing to override.
  */
@@ -92,8 +93,8 @@ export function dockerSettingsOverrides(opts: { useLegacyNotebookEditor?: boolea
 	if (opts.useLegacyNotebookEditor) {
 		overrides['positron.notebook.enabled'] = false;
 	}
-	if (opts.enableDataConnections) {
-		overrides['dataConnections.enabled'] = true;
+	if (opts.enableDataConnections === false) {
+		overrides['dataConnections.enabled'] = false;
 	}
 	if (opts.enableFoundryAssistant) {
 		Object.assign(overrides, FOUNDRY_ASSISTANT_SETTINGS);

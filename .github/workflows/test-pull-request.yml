@@ -85,7 +85,6 @@ jobs:
       install_license: false
       upload_logs: false
       workers: 2
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-windows-electron:
@@ -98,7 +97,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "electron-win"
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-ubuntu-browser:
@@ -113,7 +111,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-rocky-electron:
@@ -127,7 +124,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-rocky-chromium:
@@ -142,7 +138,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-suse-electron:
@@ -156,7 +151,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-suse-chromium:
@@ -171,7 +165,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-sles-electron:
@@ -185,7 +178,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-sles-chromium:
@@ -200,7 +192,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-debian-electron:
@@ -214,7 +205,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-debian-chromium:
@@ -229,7 +219,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: true
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-pyrefly:
@@ -266,7 +255,6 @@ jobs:
       display_name: "workbench"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   # Same test set as the workbench lane, run against a Rocky Linux 9 container.
@@ -284,7 +272,6 @@ jobs:
       display_name: "workbench-rocky"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   # Same test set again, on an openSUSE Leap 15.6 container. `grep` is pinned to
@@ -303,7 +290,6 @@ jobs:
       display_name: "workbench-suse"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   e2e-workbench-stable:
@@ -316,7 +302,6 @@ jobs:
       display_name: "workbench-stable"
       install_license: false
       upload_logs: false
-      allow_soft_fail: false
       install_mode: "ci-stable"
     secrets: inherit
 
@@ -337,7 +322,6 @@ jobs:
       display_name: "jupyter"
       install_license: true
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   build-remote-ssh:
@@ -356,7 +340,6 @@ jobs:
       grep: ${{ needs.pr-tags.outputs.tags }}
       display_name: "remote-ssh"
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   build-connect:
@@ -374,7 +357,6 @@ jobs:
     with:
       display_name: "connect"
       upload_logs: false
-      allow_soft_fail: false
     secrets: inherit
 
   unit-tests:

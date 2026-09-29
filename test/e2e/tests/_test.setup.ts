@@ -50,7 +50,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	useLegacyNotebookEditor: [false, { scope: 'worker', option: true }],
 
-	enableDataConnections: [false, { scope: 'worker', option: true }],
+	enableDataConnections: [true, { scope: 'worker', option: true }],
 
 	enableFoundryAssistant: [false, { scope: 'worker', option: true }],
 
@@ -149,12 +149,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 				await settingsFile.append({ 'positron.notebook.enabled': false });
 			}
 
-			if (enableDataConnections) {
-				// The Data Connections panel is a preview feature gated behind this
-				// setting, which requires a reload to take effect. Enable it before the
-				// app starts so no reload is needed. Suites opt in with
-				// `test.use({ enableDataConnections: true })`.
-				await settingsFile.append({ 'dataConnections.enabled': true });
+			if (!enableDataConnections) {
+				// These tests exercise the older Connections pane. The Data Connections
+				// panel is now the default and the setting requires a reload to take
+				// effect, so disable it before the app starts to avoid waiting for a
+				// window reload. Suites opt in with
+				// `test.use({ enableDataConnections: false })`.
+				await settingsFile.append({ 'dataConnections.enabled': false });
 			}
 
 			if (enableFoundryAssistant) {

@@ -7,7 +7,6 @@ import { expect, test, tags } from '../_test.setup.js';
 
 test.use({
 	suiteId: __filename,
-	enableDataConnections: true,
 });
 
 // Opt-in remote smoke test: point the pins driver at a real Connect server (e.g. pub.demo.posit.team)

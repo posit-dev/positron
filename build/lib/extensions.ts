@@ -311,17 +311,13 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		// packaged. This list is used to determine which extensions
 		// should be packaged with the Npm strategy.
 		const extensionsWithNpmDeps = [
-			'positron-proxy',
 			'positron-duckdb',
-			'positron-catalog-explorer',
-			'positron-pdf-server',
 			'positron-data-driver-databricks',
 			'positron-data-driver-duckdb',
 			'positron-data-driver-odbc',
 			'positron-data-driver-pins',
 			'positron-data-driver-postgresql',
 			'positron-data-driver-redshift',
-			'positron-data-driver-snowflake',
 			'positron-data-driver-sqlite'
 		];
 
@@ -357,6 +353,10 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		}
 
 		// --- Start Positron ---
+		// esbuild writes the bundle to dist/, so nothing loads out/. It exists
+		// only when a local build daemon compiles the extension with tsc.
+		fileNames = fileNames.filter(fileName => !fileName.startsWith('out/'));
+
 		// Remove the files in the production dependencies of the extension that
 		// no code loads at runtime. These extensions ship node_modules without
 		// change, and most of them have no .vscodeignore. As a result, the
@@ -371,7 +371,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 
 		// Stream the files sequentially rather than eagerly opening a read
 		// stream for every file up front. Extensions with npm dependencies
-		// (e.g. positron-data-driver-snowflake, which bundles @azure/msal-node)
+		// (e.g. positron-data-driver-databricks, which bundles @azure/msal-node)
 		// enumerate thousands of node_modules files here; opening a descriptor
 		// for all of them at once exhausts the open-file limit and fails the
 		// Windows build with EMFILE. createSequentialFileStream opens one file

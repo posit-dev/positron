@@ -1,0 +1,11 @@
+src/**
+out/**
+tsconfig*.json
+**/*.tsbuildinfo
+esbuild*.mts
+package-lock.json
+.gitignore
+scripts/**
+.zed/**
+justfile
+positron.json

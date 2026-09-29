@@ -8,8 +8,9 @@
 // decline should not pay for any of it.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { execFileSync } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
-import { buildCostRecord, parsePosIntEnv, parseGate } from './lib.mjs';
+import { buildCostRecord, ENVIRONMENT, isProductPath, parsePosIntEnv, parseGate } from './lib.mjs';
 
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const BASE_SHA = mustEnv('BASE_SHA');
@@ -49,6 +50,15 @@ function emit(testable, reason) {
  * explore anyway: a gate whose own bugs skip runs is worse than no gate.
  */
 async function main() {
+	// Free, and not up to the model: a diff with no product file in it has
+	// nothing to explore.
+	const files = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--name-only', `${BASE_SHA}...${HEAD_SHA}`], { encoding: 'utf8' })
+		.split('\n').filter(Boolean);
+	if (files.length && !files.some(isProductPath)) {
+		emit('false', `Only tests, docs or CI files changed (${files.length} files); nothing a user can see.`);
+		return;
+	}
+
 	const prompt = [
 		'Decide whether a change is worth exploratory testing in this environment, and answer in one line.',
 		'',
@@ -62,11 +72,12 @@ async function main() {
 		'',
 		'Ignore any files under `.github/` and `.claude/`: this harness merges its own CI and skill files into the branch it tests, so they are in every diff and are never the change under test.',
 		'',
-		'This runs in a Linux container with a built Positron, Python and R available, and no network restrictions. There is no Windows, no macOS, and no access to external services that are not already reachable.',
+		ENVIRONMENT,
 		'',
 		'Answer NOT TESTABLE only when you can name the blocker:',
 		'- a dependency the change needs is not released or not pinned here, so the new behavior cannot run;',
 		'- the changed code path only runs on a platform this container is not;',
+		'- the changed behavior is reachable only through something listed as not available above. A change that also touches UI or error handling reachable without it is TESTABLE;',
 		'- the diff changes nothing a user can observe (a refactor, a comment, tests or docs only).',
 		'',
 		'Awkward is not the same as impossible. A tool that has to be removed, a cache that has to be cleared, a window that has to be reloaded, a host that has to be blocked: that is the work, not a reason to decline it. If you are unsure, answer TESTABLE.',

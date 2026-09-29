@@ -9,7 +9,6 @@ import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	enableDataConnections: true,
 });
 
 const connectionName = 'orders';

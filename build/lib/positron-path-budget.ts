@@ -67,6 +67,60 @@ export function describeBudget(): string {
 }
 
 /**
+ * File-count budget for the whole `extensions/` directory of the packaged tree.
+ *
+ * File count hurts an install on a network filesystem, independent of byte size.
+ * Extension scans at startup, installs, upgrades, backups, and antivirus scans
+ * all scale with it. Posit Workbench runs the server build on such filesystems.
+ * See https://github.com/posit-dev/positron/issues/16025.
+ *
+ * Each budget is the count that ships today plus about 10%, taken from the
+ * platform with the most files. When a change shrinks an extension, lower its
+ * budget to within about 10% of the new count. Do not raise a budget to make a
+ * new dependency fit; bundle the dependency instead.
+ *
+ * The budgets do not count gzip copies or source maps, which only some builds
+ * ship. See `isUnbudgeted` in positron-check-path-lengths.ts.
+ *
+ * The expected count is about 17,200; the budget leaves about 10% headroom
+ * above it.
+ */
+export const EXTENSIONS_FILE_COUNT_BUDGET = 19_000;
+
+/**
+ * File-count budget for an extension that `EXTENSION_FILE_COUNT_BUDGETS` does not
+ * name. An extension that grows past it must get its own entry, so that the
+ * growth is a reviewed change.
+ */
+export const DEFAULT_EXTENSION_FILE_COUNT_BUDGET = 100;
+
+/**
+ * File-count budgets for the extensions that ship more than
+ * `DEFAULT_EXTENSION_FILE_COUNT_BUDGET` files. The key is the directory name
+ * inside `extensions/`. `node_modules` is the dependency tree that the extensions
+ * share.
+ *
+ * The comment on each entry is the count in the 2026.10.0-85 darwin-arm64
+ * release. A second count in the comment is from a platform with more files,
+ * and the budget comes from that count.
+ */
+export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map([
+	['copilot', 8_500], // 7,728
+	['positron-python', 6_350], // 5,219; 5,784 on win32-x64
+	['positron-data-driver-odbc', 515], // 467
+	['positron-data-driver-sqlite', 515], // 425; 466 on win32-x64
+	['positron-pdf-server', 450], // 407
+	['positron-data-driver-redshift', 315], // 284
+	['positron-data-driver-pins', 260], // 233
+	['positron-duckdb', 230], // 206
+	['positron-data-driver-duckdb', 215], // 192
+	['markdown-language-features', 190], // 167
+	['node_modules', 150], // 129
+	['theme-modern-icons', 140], // 121
+	['positron-data-driver-postgresql', 115], // 103
+]);
+
+/**
  * Glob patterns for the files that reach the packaged tree but that no code loads
  * at runtime. Each pattern matches a path relative to an extension directory.
  *
@@ -100,9 +154,9 @@ const EXTENSION_NODE_MODULES_EXCLUDES = [
 	'node_modules/**/*.d.ts.map',
 	// The ESM twins of `dist-cjs` in the AWS and Smithy SDKs. `@aws-sdk/*` and
 	// `@smithy/*` resolve `main` and the `node` export condition to `dist-cjs`.
-	// The only consumer is `snowflake-sdk`, which stays external to the esbuild
-	// bundle and therefore loads as CommonJS. These patterns name the two package
-	// scopes, because many other packages ship `dist-es` as their only build.
+	// The only runtime consumer would be an ESM import of the SDK, which no
+	// bundled extension does. These patterns name the two package scopes,
+	// because many other packages ship `dist-es` as their only build.
 	'node_modules/@aws-sdk/**/dist-es/**',
 	'node_modules/@smithy/**/dist-es/**',
 	// node-pre-gyp's scratch dir from a source-build fallback (e.g. odbc has

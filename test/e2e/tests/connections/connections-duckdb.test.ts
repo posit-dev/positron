@@ -9,7 +9,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// These tests cover the older Connections pane, which Data Connections replaces by default.
+	enableDataConnections: false,
 });
 
 const randomText = Math.random().toString(36).substring(7);
@@ -31,7 +33,7 @@ function configurePasswordStore() {
 
 
 test.describe('DuckDB Connection', {
-	tag: [tags.WEB, tags.CONNECTIONS, tags.WIN, tags.SOFT_FAIL]
+	tag: [tags.WEB, tags.CONNECTIONS, tags.WIN]
 }, () => {
 
 	test.beforeAll(async function ({ app }) {

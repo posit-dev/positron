@@ -22,11 +22,6 @@ on:
         description: "Whether or not to upload e2e test logs."
         type: boolean
         default: true
-      allow_soft_fail:
-        required: false
-        description: "Whether to allow tests marked with :soft-fail to fail without failing the job."
-        type: boolean
-        default: false
       commit:
         description: "Commit SHA to test"
         required: false

@@ -4,7 +4,7 @@
 	"type": "module",
 	"description": "GH composite action that runs the e2e failure analysis skill via the Claude Agent SDK.",
 	"dependencies": {
-		"@anthropic-ai/claude-agent-sdk": "^0.2.128",
+		"@anthropic-ai/claude-agent-sdk": "^0.2.141",
 		"@playwright/test": "^1.58.2"
 	}
 }

@@ -220,7 +220,10 @@ async function activateLegacy(ext: ExtensionState, startupStopWatch: StopWatch):
                 });
             disposables.push(terminalProvider);
 
-            registerCreateEnvironmentTriggers(disposables);
+            registerCreateEnvironmentTriggers(
+                disposables,
+                serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager),
+            );
             initializePersistentStateForTriggers(ext.context);
         }
     }

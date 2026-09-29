@@ -76,8 +76,8 @@ jobs:
       # into the modal alongside SNOWFLAKE_API_KEY (loaded from 1Password below). The
       # Linux lanes set this from the same secret for the data-connections suite.
       SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-      # Login + password for the catalog-explorer Snowflake case, which writes them into a
-      # connections.toml for the provider. Same secrets the Linux lanes export.
+      # Username/password sign-in for connections-snowflake.test.ts's Snowflake Connection
+      # suite. Same secrets the Linux lanes export.
       SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
       SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
       LANG: "en_US.UTF-8"
@@ -242,52 +242,41 @@ jobs:
           cp test/e2e/test-files/DESCRIPTION DESCRIPTION
           Rscript -e "options(pak.install_binary = TRUE, repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE)"
 
+      # Call the pyenv interpreters by absolute path. The repo's .python-version
+      # pins 3.12, which is not installed here, so the pyenv shims silently fall
+      # back to the runner's Python 3.14 (see posit-dev/positron-builds#1167).
       - name: Install pyenv and Python
         run: |
           brew install pyenv
           export PYENV_ROOT="$HOME/.pyenv"
-          export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init --path)"
-          eval "$(pyenv init -)"
           pyenv install 3.10.10
           pyenv install 3.11.0
           pyenv global 3.10.10
 
       - name: Install Python dependencies
         run: |
-          export PYENV_ROOT="$HOME/.pyenv"
-          export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init --path)"
-          eval "$(pyenv init -)"
-          pyenv global 3.10.10
+          PY="$HOME/.pyenv/versions/3.10.10/bin/python"
+          "$PY" -c 'import sys; assert sys.version.startswith("3.10.10"), sys.executable; print(sys.executable)'
           cp test/e2e/test-files/requirements.txt requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          "$PY" -m pip install --upgrade pip
+          "$PY" -m pip install -r requirements.txt
 
       # The Intel runner is slow enough that the first matplotlib import in a
       # test can spend 10-30s building the font cache and trip a test timeout.
       - name: Pre-warm matplotlib font cache
         if: ${{ inputs.arch == 'x64' }}
         run: |
-          export PYENV_ROOT="$HOME/.pyenv"
-          export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init --path)"
-          eval "$(pyenv init -)"
-          python -c "import matplotlib.pyplot as plt; plt.figure()"
+          "$HOME/.pyenv/versions/3.10.10/bin/python" -c "import matplotlib.pyplot as plt; plt.figure()"
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
       - name: Install ipykernel for 3.11.0
         run: |
-          export PYENV_ROOT="$HOME/.pyenv"
-          export PATH="$PYENV_ROOT/bin:$PATH"
-          eval "$(pyenv init --path)"
-          eval "$(pyenv init -)"
-          pyenv global 3.11.0
-          python -m pip install --upgrade pip
-          python -m pip install ipykernel
-          pyenv global 3.10.10
+          PY="$HOME/.pyenv/versions/3.11.0/bin/python"
+          "$PY" -c 'import sys; assert sys.version.startswith("3.11.0"), sys.executable; print(sys.executable)'
+          "$PY" -m pip install --upgrade pip
+          "$PY" -m pip install ipykernel
 
       # Unlike `choco install`, `brew install` does exit non-zero when it fails,
       # so there is no silent-success hazard here. The retry is for transient
@@ -525,7 +514,7 @@ jobs:
             exit 1
           fi
 
-          node scripts/check-soft-fail-failures.js "$JSON_REPORT" --no-soft-fail
+          node scripts/check-e2e-failures.js "$JSON_REPORT"
 
           # Fail if we're missing reports from any shards (even if all available tests passed)
           if [[ "${{ steps.verify-reports.outputs.missing_reports }}" == "true" ]]; then

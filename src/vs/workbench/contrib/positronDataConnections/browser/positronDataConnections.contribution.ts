@@ -28,10 +28,10 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	properties: {
 		[POSITRON_DATA_CONNECTIONS_ENABLED_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
 				'positron.dataConnections.enabled',
-				'Enable the Data Connections panel. Requires a reload to take effect. Can be set per workspace.'
+				"Controls which connections experience is used. When enabled, the Data Connections pane connects to databases directly, without a Python or R session. When disabled, the older Connections pane is used instead, which shows connections opened from code in a Python or R session. Requires a reload to take effect. Can be set per workspace."
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,
@@ -88,7 +88,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 	constructor(@IConfigurationService configurationService: IConfigurationService) {
 		// Check if the Positron Data Connections feature is enabled before registering the view
 		// container and view. Return early if the feature is disabled.
-		if (!configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY)) {
+		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true) {
 			return;
 		}
 
