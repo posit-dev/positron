@@ -36,20 +36,47 @@
 					"schema": {
 						"type": "string"
 					}
+				},
+				{
+					"name": "search_id",
+					"required": true,
+					"description": "Opaque identifier supplied by the frontend for this UI search. Echo it in the resulting Show Help notification.",
+					"schema": {
+						"type": "string"
+					}
 				}
 			],
 			"result": {
 				"schema": {
 					"type": "boolean",
-					"description": "Whether the search results page was shown."
+					"description": "Whether the search results navigation was requested. This does not confirm that the frontend displayed or finished loading the page."
 				}
 			}
 		},
 		{
 			"name": "get_help_topics",
-			"summary": "List help topics for autocomplete.",
-			"description": "Returns interpreter-wide help topics that can be offered as search suggestions.",
-			"params": [],
+			"summary": "Find help topics for autocomplete.",
+			"description": "Returns at most limit matching help topic suggestions, filtered and ranked by the backend. An empty query returns no suggestions.",
+			"params": [
+				{
+					"name": "query",
+					"required": true,
+					"description": "The text to match against help topic labels.",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "limit",
+					"required": true,
+					"description": "Maximum number of suggestions to return, from 1 to 50.",
+					"schema": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 50
+					}
+				}
+			],
 			"result": {
 				"schema": {
 					"type": "array",
