@@ -4372,9 +4372,10 @@ declare module 'positron' {
 		 * - `click` and `hover`: send the pointer and mouse events a user would.
 		 * - `fill`: type into a text or number box, or move a slider, to
 		 *   `value`. Dropdowns are handed on to `select`.
-		 * - `select`: pick options in a dropdown, by their text or value.
-		 *   Several values only work where several can be picked. To pick an
-		 *   option in a list of options (radio items, checklists), click it.
+		 * - `select`: pick options in a dropdown, by their text or value. In
+		 *   one where several can be picked, the values given replace what was
+		 *   picked; elsewhere, give one value. To pick an option in a list of
+		 *   options (radio items, checklists), click it.
 		 * - `press`: press a key (`Enter`, `Escape`, `ArrowDown`, ...) in a
 		 *   control, or in whatever has focus.
 		 * - `scroll`: bring a control into view, or scroll by `dx` and `dy`

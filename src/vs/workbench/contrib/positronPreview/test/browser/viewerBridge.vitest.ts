@@ -578,6 +578,81 @@ describe('act', () => {
 			.rejects.toThrow('The slider "Number of bins:" shows "10" on the page, but the Shiny app received "30".');
 	});
 
+	/**
+	 * Loads a Shiny dateInput with a stub of its datepicker, which refuses the
+	 * dates in `refuses` (as for dates the app disabled), and of the input
+	 * values Shiny has sent. Returns what Shiny sent for the date.
+	 */
+	function loadShinyDate({ serverUpdates = true, refuses = [] as string[] } = {}): { bridge: IViewerBridge; sent: () => unknown } {
+		const inputValues: Record<string, unknown> = { 'day:shiny.date': '2026-01-10' };
+		const bridge = load(`<div id="day" class="shiny-date-input"><label id="day-label" for="day">Day</label>
+			<input id="day-input" type="text" aria-labelledby="day-label" data-min-date="2026-01-01" data-max-date="2026-12-31" value="2026-01-10"></div>`, () => {
+			const input = byId('day-input') as HTMLInputElement;
+			let date: Date | null = new win.Date(Date.UTC(2026, 0, 10));
+			const bsDatepicker = (method: string, value?: Date) => {
+				if (method === 'getUTCDate') {
+					return date;
+				}
+				const iso = value!.toISOString().slice(0, 10);
+				date = refuses.includes(iso) ? null : value!;
+				input.value = date ? iso : '';
+				if (serverUpdates) {
+					inputValues['day:shiny.date'] = date ? iso : null;
+				}
+				return undefined;
+			};
+			Object.assign(win, {
+				jQuery: () => ({ data: () => undefined, bsDatepicker }),
+				Shiny: { shinyapp: { $inputValues: inputValues } },
+			});
+		});
+		return { bridge, sent: () => inputValues['day:shiny.date'] };
+	}
+
+	it('sets a Shiny date through its datepicker, and checks the server got it', async () => {
+		const { bridge, sent } = loadShinyDate();
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '2026-02-03' }, QUICK);
+		const shown = (byId('day-input') as HTMLInputElement).value;
+		const unsent = loadShinyDate({ serverUpdates: false }).bridge.act({ kind: 'fill', ref: 'e1', value: '2026-02-03' }, QUICK);
+
+		expect({ message: outcome.message, shown, sent: sent() }).toEqual({ message: 'Set the textbox "Day" to 2026-02-03.', shown: '2026-02-03', sent: '2026-02-03' });
+		await expect(unsent).rejects.toThrow('The textbox "Day" shows 2026-02-03 on the page, but the Shiny app received "2026-01-10".');
+	});
+
+	it('refuses dates a Shiny date input won\'t take, and leaves its date as it was', async () => {
+		const { bridge, sent } = loadShinyDate({ refuses: ['2026-07-04'] });
+
+		const errors: string[] = [];
+		for (const value of ['02/03/2026', '2026-02-30', '2027-01-01', '2026-07-04']) {
+			errors.push(await bridge.act({ kind: 'fill', ref: 'e1', value }, QUICK).then(() => 'ok', (error: Error) => error.message));
+		}
+
+		expect({ errors, shown: (byId('day-input') as HTMLInputElement).value, sent: sent() }).toEqual({
+			errors: [
+				'The textbox "Day" takes a date as YYYY-MM-DD, such as 2026-02-03, not "02/03/2026".',
+				'The textbox "Day" takes a date as YYYY-MM-DD, such as 2026-02-03, not "2026-02-30".',
+				'The textbox "Day" takes dates from 2026-01-01 to 2026-12-31, not 2027-01-01.',
+				'The textbox "Day" doesn\'t take 2026-07-04, so it\'s back to 2026-01-10.',
+			],
+			shown: '2026-01-10',
+			sent: '2026-01-10',
+		});
+	});
+
+	it('says when a Shiny app has disconnected from its server, and won\'t act on it', async () => {
+		const bridge = load(`${SHINY_APP}<div id="shiny-disconnected-overlay"></div>`, () => stubShiny());
+
+		const click = await bridge.act({ kind: 'click', ref: 'e4' }, QUICK).then(() => 'ok', (error: Error) => error.message);
+		const wait = await bridge.act({ kind: 'wait', for: 'idle' }, QUICK);
+
+		expect({ first: bridge.snapshot().text.split('\n')[0], click, wait: wait.message }).toEqual({
+			first: '(The Shiny app has disconnected from its server, so its controls do nothing. Run the app again.)',
+			click: 'The Shiny app in the Viewer has disconnected from its server, so the action would do nothing. Run the app again, then take a new snapshot.',
+			wait: expect.stringMatching(/^The app settled/),
+		});
+	});
+
 	it('picks an option in a native select by its text or value, and lists the options when none match', async () => {
 		const bridge = load('<label for="color">Bar color</label><select id="color"><option value="blue">Steel blue</option><option value="orange">Dark orange</option></select>');
 
@@ -637,6 +712,73 @@ describe('act', () => {
 
 		expect({ message: outcome.message, value: (byId('search') as HTMLInputElement).value })
 			.toEqual({ message: 'Filled the combobox "Search" with "Old".', value: 'Old' });
+	});
+
+	/**
+	 * Loads a stub of Streamlit's multiselect: typing lists the options not yet
+	 * picked that contain the text (or "No results"), and picks show as tags,
+	 * hidden from assistive technology, with a remove button.
+	 */
+	function loadMultiSelect(picked: readonly string[]): IViewerBridge {
+		return load(`<div data-testid="stMultiSelect"><div data-testid="stMultiSelectTagsContainer">
+			<span role="group" aria-hidden="true" id="tags"></span><input id="colors" role="combobox" aria-label="Colors" aria-controls="list"></div></div>
+			<div role="listbox" id="list" aria-multiselectable="true"></div>`, () => {
+			const input = byId('colors') as HTMLInputElement;
+			const list = byId('list');
+			const tags = byId('tags');
+			const addTag = (value: string) => {
+				const tag = tags.appendChild(win.document.createElement('span'));
+				tag.dataset.tag = '';
+				tag.setAttribute('aria-label', value);
+				tag.textContent = value;
+				const remove = tag.appendChild(win.document.createElement('button'));
+				remove.setAttribute('aria-label', `Remove ${value}`);
+				remove.addEventListener('click', () => tag.remove());
+			};
+			picked.forEach(addTag);
+			input.addEventListener('input', () => {
+				const taken = picks();
+				const matches = ['Red', 'Green', 'Blue'].filter(o => !taken.includes(o) && o.toLowerCase().includes(input.value.toLowerCase()));
+				list.replaceChildren(...(matches.length ? matches : ['No results']).map(text => {
+					const option = win.document.createElement('div');
+					option.setAttribute('role', 'option');
+					option.textContent = text;
+					if (matches.length) {
+						option.setAttribute('aria-selected', 'false');
+						option.addEventListener('click', () => {
+							addTag(text);
+							input.value = '';
+							list.replaceChildren();
+						});
+					}
+					return option;
+				}));
+			});
+		});
+	}
+	const picks = () => [...byId('tags').children].map(tag => tag.getAttribute('aria-label'));
+
+	it('makes the values given the picks of a Streamlit multiselect, and shows them in snapshots', async () => {
+		const bridge = loadMultiSelect(['Green']);
+
+		const both = await bridge.act({ kind: 'select', ref: 'e1', value: ['Red', 'Blue'] }, QUICK);
+		const line = bridge.snapshot({ interactiveOnly: true }).text;
+		const one = await bridge.act({ kind: 'fill', ref: 'e1', value: 'Blue' }, QUICK);
+
+		expect({ both: both.message, line, one: one.message, picks: picks() }).toEqual({
+			both: 'Picked "Red, Blue" in the combobox "Colors".',
+			line: '- combobox "Colors" [ref=e1] value="" selected=["Red","Blue"]',
+			one: 'Picked "Blue" in the combobox "Colors".',
+			picks: ['Blue'],
+		});
+	});
+
+	it('leaves a Streamlit multiselect as it was when a value isn\'t one of its options', async () => {
+		const bridge = loadMultiSelect(['Blue']);
+
+		await expect(bridge.act({ kind: 'select', ref: 'e1', value: ['Green', 'Purple'] }, QUICK))
+			.rejects.toThrow('The combobox "Colors" has no option "Purple".');
+		expect(picks()).toEqual(['Blue']);
 	});
 
 	it('opens a popup dropdown and clicks the option in it', async () => {

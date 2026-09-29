@@ -95,6 +95,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	interface JQueryLike {
 		data(key: string): IonRangeSliderData | undefined;
 		trigger?(event: string): void;
+		// Shiny's bootstrap-datepicker, renamed so it doesn't clash with others.
+		bsDatepicker?(method: 'setUTCDate' | 'getUTCDate', date?: Date): unknown;
 	}
 	interface SelectizeLike {
 		options: Record<string, Record<string, unknown>>;
@@ -148,6 +150,16 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	const isShinySlider = (el: Element): boolean => el.tagName === 'INPUT' && el.classList.contains('js-range-slider');
 	const selectizeOf = (el: Element): SelectizeLike | undefined =>
 		el.tagName === 'SELECT' ? (el as unknown as { selectize?: SelectizeLike }).selectize : undefined;
+	const isShinyDateInput = (el: Element): boolean => el.tagName === 'INPUT' && !!el.closest('.shiny-date-input, .shiny-date-range-input');
+	// Streamlit's multiselect shows its picks as tags, hidden from assistive
+	// technology, beside its combobox.
+	const tagValue = (tag: Element) => tag.getAttribute('aria-label') ?? textOf(tag);
+	const multiSelectTags = (el: Element): string[] | undefined => {
+		const box = el.tagName === 'INPUT' && el.getAttribute('role') === 'combobox' ? el.closest('[data-testid="stMultiSelect"]') : null;
+		return box ? [...box.querySelectorAll('[data-tag]')].map(tagValue) : undefined;
+	};
+	// Shiny covers the page with this overlay when the app's server has gone.
+	const shinyDisconnected = (): boolean => !!doc.getElementById('shiny-disconnected-overlay');
 	const isWidgetChrome = (el: Element): boolean => el.classList.contains('irs') ||
 		el.classList.contains('selectize-control') ||
 		// Streamlit's Deploy / main-menu toolbar, and the hover toolbars on charts and dataframes.
@@ -366,6 +378,10 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		}
 		if (role === 'combobox' && isInput) {
 			p.push(`value=${JSON.stringify(clean(input.value, 80))}`);
+			const tags = multiSelectTags(el);
+			if (tags) {
+				p.push(`selected=${JSON.stringify(tags)}`);
+			}
 		}
 		if (isPopupSelect(el)) {
 			p.push(`value=${JSON.stringify(textOf(el, 80, fallback))}`);
@@ -683,6 +699,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 				? `(nothing fits in maxChars=${state.maxChars}; ask for more)`
 				: state.interactiveOnly ? '(no controls)' : '(no content)';
 		}
+		if (shinyDisconnected()) {
+			text = `(The Shiny app has disconnected from its server, so its controls do nothing. Run the app again.)\n${text}`;
+		}
 		return {
 			text,
 			url: win.location.href,
@@ -864,8 +883,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 
 	/** Throws if a Shiny app's server didn't receive what the page shows. */
 	function checkShiny(el: Element, expected: string | readonly string[], what: string): void {
-		// Shiny sends dates as ISO strings, whatever the page shows (dateInput's
-		// format, a date slider's timestamps), so there's nothing to compare.
+		// A date slider sends timestamps, whatever the page shows; setShinyDate
+		// checks dateInput itself.
 		if (el.closest('.shiny-date-input, .shiny-date-range-input') || /^date/.test((el as HTMLElement).dataset?.dataType ?? '')) {
 			return;
 		}
@@ -949,11 +968,14 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			throw new Error('fill needs a value, as a string.');
 		}
 		// An agent may well fill a dropdown; that's picking an option.
-		if (selectizeOf(el) || el.tagName === 'SELECT' || isPopupSelect(el)) {
+		if (selectizeOf(el) || el.tagName === 'SELECT' || isPopupSelect(el) || multiSelectTags(el)) {
 			return select(el, value);
 		}
 		const what = describe(el);
 		checkUsable(el, what);
+		if (isShinyDateInput(el)) {
+			return setShinyDate(el as HTMLInputElement, value, what);
+		}
 		// A combobox can be a list to pick from or a text box with suggestions:
 		// pick the option with this text if there is one, or else keep the text.
 		if (isComboboxInput(el)) {
@@ -997,6 +1019,53 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		}
 		checkShiny(el, String(final), what);
 		return final === target ? `Set the ${what} to ${final}.` : `Set the ${what} to ${final}, the closest it goes to ${target}.`;
+	}
+
+	// Shiny's dateInput and dateRangeInput (bootstrap-datepicker) read the date
+	// from the widget, which ignores text set on the input; go through the widget.
+	function setShinyDate(el: HTMLInputElement, value: string, what: string): ActStep {
+		const target = value.trim();
+		const parts = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/.exec(target)?.groups;
+		// The widget only takes a Date from its own window.
+		const date = parts && new (viewOf(el).Date)(Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day)));
+		if (!date || date.toISOString().slice(0, 10) !== target) {
+			throw new Error(`The ${what} takes a date as YYYY-MM-DD, such as 2026-02-03, not ${quote(value)}.`);
+		}
+		// The widget would clear the input, and send the server no date, for one outside min and max.
+		const { minDate: min, maxDate: max } = el.dataset;
+		if ((min && target < min) || (max && target > max)) {
+			const range = min && max ? `from ${min} to ${max}` : min ? `from ${min} on` : `up to ${max}`;
+			throw new Error(`The ${what} takes dates ${range}, not ${target}.`);
+		}
+		const widget = (viewOf(el) as unknown as { jQuery?: (el: Element) => JQueryLike }).jQuery?.(el);
+		if (!widget?.bsDatepicker) {
+			throw new Error(`The ${what} isn't ready yet. Try again in a moment.`);
+		}
+		const datepicker = (method: 'setUTCDate' | 'getUTCDate', d?: Date) => widget.bsDatepicker!(method, d);
+		const isoOf = (d: unknown) => d instanceof viewOf(el).Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : undefined;
+		const previous = datepicker('getUTCDate');
+		datepicker('setUTCDate', date);
+		const container = el.closest('.shiny-date-input, .shiny-date-range-input')!;
+		return {
+			done: `Set the ${what} to ${target}.`,
+			check: () => {
+				if (isoOf(datepicker('getUTCDate')) !== target) {
+					// It also refuses dates the app disabled. Put the old date back, so the action doesn't take.
+					const old = isoOf(previous);
+					if (old) {
+						datepicker('setUTCDate', previous as Date);
+					}
+					throw new Error(`The ${what} doesn't take ${target}${old ? `, so it's back to ${old}` : ''}.`);
+				}
+				// A dateRangeInput sends [start, end].
+				const server = shinyValue(container);
+				const received = Array.isArray(server) ? server[[...container.querySelectorAll('input')].indexOf(el)] : server;
+				if (received !== undefined && received !== null && String(received) !== target) {
+					throw new Error(`The ${what} shows ${target} on the page, but the Shiny app received ${quote(String(received))}.`);
+				}
+				return `Set the ${what} to ${target}.`;
+			},
+		};
 	}
 
 	// Shiny's sliderInput (ion.rangeSlider) hides its real input; go through the widget.
@@ -1113,6 +1182,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (el.tagName === 'SELECT') {
 			return selectInSelect(el as HTMLSelectElement, wanted, what);
 		}
+		if (multiSelectTags(el)) {
+			return selectInMultiSelect(el as HTMLInputElement, wanted, what);
+		}
 		if (wanted.length > 1) {
 			throw oneValueOnly(what, wanted.length);
 		}
@@ -1204,11 +1276,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		return options.filter(o => renderStateOf(o, false) === 'shown');
 	}
 
-	// ARIA comboboxes (Streamlit's selectbox): type to filter the list, then
-	// click the option with exactly that text (the keyboard would take the first
-	// match, which can be another option containing the text). With freeText (a
-	// fill), text that matches no option is kept, as in a search box.
-	async function selectInCombobox(el: HTMLInputElement, wanted: string, what: string, freeText: boolean): Promise<ActStep> {
+	/** Types into a combobox and waits for its list to show an option with exactly that text. */
+	async function typeInCombobox(el: HTMLInputElement, wanted: string): Promise<{ options: Element[]; match?: Element; opened: boolean }> {
 		const before = new Set(doc.querySelectorAll('[role="option"]'));
 		scrollToCenter(el);
 		focus(el);
@@ -1227,6 +1296,15 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 				opened = true;
 			}
 		}
+		return { options, match, opened };
+	}
+
+	// ARIA comboboxes (Streamlit's selectbox): type to filter the list, then
+	// click the option with exactly that text (the keyboard would take the first
+	// match, which can be another option containing the text). With freeText (a
+	// fill), text that matches no option is kept, as in a search box.
+	async function selectInCombobox(el: HTMLInputElement, wanted: string, what: string, freeText: boolean): Promise<ActStep> {
+		const { options, match, opened } = await typeInCombobox(el, wanted);
 		if (match) {
 			click(match);
 		} else if (freeText) {
@@ -1262,6 +1340,53 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 					throw notPicked([wanted], what, el.value);
 				}
 				return picked([wanted], what);
+			},
+		};
+	}
+
+	// Streamlit's multiselect: the values given become the picks. Pick each
+	// missing value from the list, then remove the others with their tags' buttons.
+	async function selectInMultiSelect(el: HTMLInputElement, wanted: readonly string[], what: string): Promise<ActStep> {
+		const picks = () => multiSelectTags(el) ?? [];
+		const box = el.closest('[data-testid="stMultiSelect"]')!;
+		const remove = async (value: string) => {
+			const button = [...box.querySelectorAll('[data-tag]')].find(tag => tagValue(tag) === value)?.querySelector('button');
+			if (!button) {
+				throw new Error(`Can't remove ${quote(value)} from the ${what}.`);
+			}
+			click(button);
+			await sleep(150);
+		};
+		const added: string[] = [];
+		for (const value of wanted.filter(v => !picks().includes(v))) {
+			const { options, match } = await typeInCombobox(el, value);
+			if (!match) {
+				pressKey(el, 'Escape');
+				setNativeValue(el, '');
+				// Leave the picks as they were.
+				for (const v of added) {
+					await remove(v);
+				}
+				// Streamlit also lists "No results" and "Select 2 matches" as options.
+				const real = options.filter(o => o.hasAttribute('aria-selected') && !o.getAttribute('data-key')?.startsWith('__'));
+				throw noOption(what, value, real.map(o => textOf(o)), 'options with that text');
+			}
+			click(match);
+			await sleep(150);
+			added.push(value);
+		}
+		for (const extra of picks().filter(v => !wanted.includes(v))) {
+			await remove(extra);
+		}
+		pressKey(el, 'Escape');
+		return {
+			done: picked(wanted, what),
+			check: () => {
+				const shown = picks();
+				if (shown.length !== wanted.length || !wanted.every(v => shown.includes(v))) {
+					throw notPicked(wanted, what, shown.join(', '));
+				}
+				return picked(wanted, what);
 			},
 		};
 	}
@@ -1420,6 +1545,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	async function act(action: ViewerAction | null, idle?: IViewerIdleOptions | null): Promise<IViewerActOutcome> {
 		if (!action || typeof action !== 'object') {
 			throw new Error('An action needs a kind: click, hover, fill, select, press, scroll or wait.');
+		}
+		if (shinyDisconnected() && action.kind !== 'wait' && action.kind !== 'scroll') {
+			throw new Error('The Shiny app in the Viewer has disconnected from its server, so the action would do nothing. Run the app again, then take a new snapshot.');
 		}
 		// A link or a form can take the page to another document. Report that
 		// rather than wait on a page that's going away.
