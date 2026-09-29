@@ -1304,6 +1304,7 @@ stops[(i+(e.shiftKey?-1:1)+stops.length)%stops.length].focus();}});
 // reload it; a blocked pop-up falls back to a tab. A verdict is sent in a hidden
 // frame instead. Only the verdict string is stored, and the row is rebuilt from
 // the page's own links, since every report on the CDN shares one localStorage.
+const CARET = '<svg class="fb-car" aria-hidden="true" width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>';
 const FEEDBACK_SCRIPT = `(function(){var NAME='exploratory-feedback',W=680,H=820,current=null;
 function open(href){
 if(current&&!current.closed){try{current.location.href=href;current.focus();return;}catch(e){}}
@@ -1322,12 +1323,12 @@ Array.prototype.slice.call(document.querySelectorAll('a[data-verdict]')).forEach
 function send(url){var f=document.createElement('iframe');f.hidden=true;f.setAttribute('aria-hidden','true');f.tabIndex=-1;f.src=url;
 document.body.appendChild(f);setTimeout(function(){f.remove();},30000);}
 function el(tag,cls,text){var e=document.createElement(tag);e.className=cls;e.textContent=text||'';e.setAttribute('data-answer','');return e;}
-function answer(row,a){var done=el('span','fb-done');done.innerHTML='${ICON.check(12)}';done.appendChild(document.createTextNode(a.textContent));
+function answer(row,a){var done=el('button','fb-done tip');done.type='button';done.setAttribute('data-tip','Change answer');
+done.setAttribute('aria-label','Your answer: '+a.textContent+'. Change answer');
+done.innerHTML='${ICON.check(12)}<span></span>${CARET}';done.querySelector('span').textContent=a.textContent;
 var note=el('a','fb-act fb-note','Add a note');note.href=a.href;note.target='_blank';note.rel='noopener';
-var dot=el('span','fb-dot','\\u00B7');dot.setAttribute('aria-hidden','true');
-var change=el('button','fb-act fb-change','Change');change.type='button';
 verdicts(row).forEach(function(b){b.hidden=true;});
-[done,note,dot,change].forEach(function(e){row.appendChild(e);});
+[done,note].forEach(function(e){row.appendChild(e);});
 return note;}
 function reset(row){Array.prototype.slice.call(row.querySelectorAll('[data-answer]')).forEach(function(e){e.remove();});
 verdicts(row).forEach(function(b){b.hidden=false;});}
@@ -1335,7 +1336,7 @@ Array.prototype.slice.call(document.querySelectorAll('.fb[data-finding]')).forEa
 var a=verdicts(row).filter(function(b){return b.dataset.verdict===v;})[0];
 if(a){answer(row,a);}else{put(key(row),null);}});
 document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target:null;if(!t){return;}
-var change=t.closest('.fb-change');
+var change=t.closest('.fb-done');
 if(change){var row=change.closest('.fb');put(key(row),null);reset(row);verdicts(row)[0].focus();return;}
 var a=t.closest('.fb a, a.fb-top');
 if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey){return;}

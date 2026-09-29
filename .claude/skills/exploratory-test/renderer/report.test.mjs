@@ -2186,10 +2186,11 @@ function feedbackDom(html, storage) {
 		return (!tag || el.tag === tag) && (!cls || el.classList.includes(cls)) && (!data || data in el.dataset);
 	});
 	class El {
-		constructor(tag, parent) { this.tag = tag; this.parent = parent; this.children = []; this.dataset = {}; this.className = ''; this.textContent = ''; this.hidden = false; }
+		constructor(tag, parent) { this.tag = tag; this.parent = parent; this.children = []; this.dataset = {}; this.attrs = {}; this.className = ''; this.textContent = ''; this.hidden = false; }
 		get classList() { return this.className.split(/\s+/); }
-		set innerHTML(v) { this.html = v; }
-		setAttribute(k, v) { if (k.startsWith('data-')) { this.dataset[k.slice(5)] = v; } }
+		// Only the empty span the answer pill's label goes in becomes an element.
+		set innerHTML(v) { this.html = v; if (v.includes('<span></span>')) { this.appendChild(new El('span', this)); } }
+		setAttribute(k, v) { this.attrs[k] = v; if (k.startsWith('data-')) { this.dataset[k.slice(5)] = v; } }
 		appendChild(c) { c.parent = this; this.children.push(c); return c; }
 		remove() { this.parent.children = this.parent.children.filter(c => c !== this); }
 		focus() { page.focused = this; }
@@ -2260,7 +2261,12 @@ test('feedback: a verdict click records it in one click and shows the answer, re
 	assert.equal(frame.hidden, true);
 	timers.forEach(fn => fn());
 	assert.deepEqual(sends(), []);
-	assert.equal(rows[1].label, 'Is this finding right?|Not a bug|Add a note|·|Change');
+	assert.equal(rows[1].label, 'Is this finding right?|Not a bug|Add a note');
+	const pill = rows[1].querySelector('.fb-done');
+	assert.equal(pill.tag, 'button');
+	assert.equal(pill.attrs['aria-label'], 'Your answer: Not a bug. Change answer');
+	assert.equal(pill.dataset.tip, 'Change answer');
+	assert.match(pill.html, /class="fb-car"/);
 	assert.equal(rows[0].label.split('|').length, 6, 'the other finding is untouched');
 	assert.deepEqual([...storage.map].filter(([k]) => k !== 'fb:id'), [['fb:https://cdn.example/run1/index.html#f2', 'Not a bug']]);
 	const note = rows[1].querySelector('.fb-note');
@@ -2272,13 +2278,13 @@ test('feedback: a verdict click records it in one click and shows the answer, re
 
 	// A reload shows the answer again, without submitting.
 	const again = feedbackDom(html, storage);
-	assert.equal(again.rows[1].label, 'Is this finding right?|Not a bug|Add a note|·|Change');
+	assert.equal(again.rows[1].label, 'Is this finding right?|Not a bug|Add a note');
 	assert.deepEqual(again.opens, []);
 
 	assert.deepEqual(again.sends(), []);
 
-	// Change forgets it and brings the buttons back, sending nothing.
-	again.click(again.rows[1].querySelector('.fb-change'));
+	// Clicking the answer forgets it and brings the buttons back, sending nothing.
+	again.click(again.rows[1].querySelector('.fb-done'));
 	assert.equal(again.rows[1].label, 'Is this finding right?|Real issue|Not a bug|Enhancement|Not worth reporting|Couldn’t tell');
 	assert.deepEqual([...storage.map.keys()], ['fb:id']);
 	assert.equal(again.page.focused, again.verdict(again.rows[1], 'Real issue'));
@@ -2303,7 +2309,7 @@ test('feedback: a modified click opens the form without recording, and blocked s
 	const blocked = feedbackDom(html, throwing);
 	blocked.click(blocked.verdict(blocked.rows[0], 'Real issue'));
 	assert.equal(blocked.sends().length, 1);
-	assert.match(blocked.rows[0].label, /\|Real issue\|Add a note\|/);
+	assert.equal(blocked.rows[0].label, 'Is this finding right?|Real issue|Add a note');
 
 	// A stored value that is not one of the page's verdicts is dropped, never shown.
 	const planted = memoryStorage();
