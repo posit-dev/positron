@@ -449,6 +449,18 @@ describe('act', () => {
 		expect(win.document.activeElement?.id).toBe('color');
 	});
 
+	it('focuses a control again after Positron has taken focus back from the page', async () => {
+		const bridge = load('<input id="name" aria-label="Name">');
+		byId('name').focus();
+		// The input is still the page's active element, but the page lost focus and it was blurred.
+		win.document.hasFocus = () => false;
+		const events = recordEvents(byId('name'), ['focus']);
+
+		await bridge.act({ kind: 'click', ref: 'e1' }, QUICK);
+
+		expect(events).toContain('focus');
+	});
+
 	it('checks that a click toggled a checkbox', async () => {
 		const bridge = load('<label><input type="checkbox"> Show table</label><label><input type="checkbox" id="locked"> Locked</label>');
 		byId('locked').addEventListener('click', event => event.preventDefault());

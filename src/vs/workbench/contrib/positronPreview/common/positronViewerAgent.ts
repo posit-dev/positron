@@ -194,9 +194,9 @@ export interface IPositronViewerAgentService {
 
 	/**
 	 * Takes an action on the page in the Viewer, waits for the app to settle,
-	 * and returns a fresh snapshot. Reveals the Viewer first if it's hidden,
-	 * without taking focus. Rejects with a message the agent can act on when
-	 * the action can't be taken or doesn't take effect.
+	 * and returns a fresh snapshot. Reveals the Viewer first if it's hidden, and
+	 * leaves keyboard focus where the user had it. Rejects with a message the
+	 * agent can act on when the action can't be taken or doesn't take effect.
 	 *
 	 * @param snapshotOptions Options for the snapshot taken afterwards.
 	 */

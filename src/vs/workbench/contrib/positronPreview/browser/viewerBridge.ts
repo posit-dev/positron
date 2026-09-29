@@ -746,7 +746,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	// that track focus (Streamlit's react-aria) must agree with the page.
 	const hasFocus = (el: Element) => (el.getRootNode() as Document | ShadowRoot).activeElement === el;
 	function focus(el: Element): void {
-		if (hasFocus(el)) {
+		// A control stays the page's active element when Positron takes focus
+		// back after an action, but it has been blurred, so focus it again.
+		if (hasFocus(el) && el.ownerDocument.hasFocus()) {
 			return;
 		}
 		(el as HTMLElement).focus?.({ preventScroll: true });

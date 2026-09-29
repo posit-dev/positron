@@ -76,10 +76,16 @@ export class WebviewFindWidget extends SimpleFindWidget {
 
 	// --- Start Positron
 	// Added keepSelection = true.
+	// Focus the webview only if the find widget was showing. Releasing a webview
+	// hides its find widget either way, which took focus from wherever the user
+	// was, for example when an agent revealed the Viewer.
 	public override hide(animated = true, keepSelection = false) {
+		const wasVisible = this.isVisible();
 		super.hide(animated);
 		this._delegate.stopFind(keepSelection);
-		this._delegate.focus();
+		if (wasVisible) {
+			this._delegate.focus();
+		}
 	}
 	// --- End Positron
 

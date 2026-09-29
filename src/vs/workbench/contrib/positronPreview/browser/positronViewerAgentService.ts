@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { getActiveElement, isHTMLElement } from '../../../../base/browser/dom.js';
 import { raceTimeout, timeout } from '../../../../base/common/async.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -81,6 +82,26 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: s
 
 function withBridgeTimeout<T>(promise: Promise<T>): Promise<T> {
 	return withTimeout(promise, BRIDGE_CALL_TIMEOUT_MS, 'The page in the Viewer stopped responding.');
+}
+
+/**
+ * Notes where keyboard focus is, and returns a function that takes it back out
+ * of `container` if it has moved in since. Acting on a control in the app's
+ * page focuses the Viewer, which would send what the user types to the app.
+ */
+function keepFocusOutOf(container: HTMLElement): () => void {
+	const focused = getActiveElement();
+	return () => {
+		const active = container.ownerDocument.activeElement;
+		if (!active || !container.contains(active) || (focused && container.contains(focused))) {
+			return;
+		}
+		if (isHTMLElement(focused) && focused.isConnected && focused !== focused.ownerDocument.body) {
+			focused.focus();
+		} else if (isHTMLElement(active)) {
+			active.blur();
+		}
+	};
 }
 
 function contentKindOf(preview: PreviewWebview | undefined): ViewerContentKind {
@@ -171,26 +192,33 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 	async viewerAct(action: ViewerAction, snapshotOptions?: IViewerSnapshotOptions): Promise<IViewerActResult> {
 		this.checkEnabled();
 		const preview = this.readablePreview();
-		// Act on the app at the size the user sees it. A responsive app can
-		// hide or move its controls at a hidden web Viewer's 300x150.
-		const revealed = await this.showViewer(preview);
-		const outcome = await withTimeout(preview.webview.runBridge('act', action), ACT_TIMEOUT_MS,
-			'The page in the Viewer stopped responding during the action, which may have been taken. Take a snapshot before trying it again.');
-		// The action has been taken. From here on, report a problem in the
-		// result rather than reject, which would read as the action failing
-		// and could lead an agent to take it again.
+		const restoreFocus = keepFocusOutOf(preview.webview.webview.container);
 		try {
-			if (outcome.navigated) {
-				await this.waitForNewPage(preview);
+			// Act on the app at the size the user sees it. A responsive app can
+			// hide or move its controls at a hidden web Viewer's 300x150.
+			const revealed = await this.showViewer(preview);
+			const outcome = await withTimeout(preview.webview.runBridge('act', action), ACT_TIMEOUT_MS,
+				'The page in the Viewer stopped responding during the action, which may have been taken. Take a snapshot before trying it again.');
+			// Before the snapshot, so it shows the page after the control loses focus.
+			restoreFocus();
+			// The action has been taken. From here on, report a problem in the
+			// result rather than reject, which would read as the action failing
+			// and could lead an agent to take it again.
+			try {
+				if (outcome.navigated) {
+					await this.waitForNewPage(preview);
+				}
+				// The action may have led the app to open something else in the Viewer.
+				const current = this.readablePreview();
+				const snapshot = await withBridgeTimeout(current.webview.runBridge('snapshot', snapshotOptions));
+				const message = current === preview ? outcome.message : `${outcome.message} The Viewer now shows other content.`;
+				return { message, snapshot: { ...snapshot, url: cleanUrl(snapshot.url) }, timedOut: outcome.timedOut, revealed };
+			} catch (error) {
+				const reason = error instanceof Error ? error.message : String(error);
+				return { message: `${outcome.message} There's no snapshot of the page after it: ${reason}`, timedOut: outcome.timedOut, revealed };
 			}
-			// The action may have led the app to open something else in the Viewer.
-			const current = this.readablePreview();
-			const snapshot = await withBridgeTimeout(current.webview.runBridge('snapshot', snapshotOptions));
-			const message = current === preview ? outcome.message : `${outcome.message} The Viewer now shows other content.`;
-			return { message, snapshot: { ...snapshot, url: cleanUrl(snapshot.url) }, timedOut: outcome.timedOut, revealed };
-		} catch (error) {
-			const reason = error instanceof Error ? error.message : String(error);
-			return { message: `${outcome.message} There's no snapshot of the page after it: ${reason}`, timedOut: outcome.timedOut, revealed };
+		} finally {
+			restoreFocus();
 		}
 	}
 

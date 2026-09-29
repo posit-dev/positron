@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { mainWindow } from '../../../../../base/browser/window.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -23,6 +24,19 @@ import { PreviewWebview } from '../../browser/previewWebview.js';
 import { IViewerCapture } from '../../browser/viewerScreenshot.js';
 import { IViewerActOutcome, IViewerBridge, IViewerViewport } from '../../common/positronViewerAgent.js';
 
+/** An overlay webview whose container is a real element, so it can hold focus. */
+function fakeOverlayWebview(size: { width: number; height: number }, onDidLoad: Event<string>): IOverlayWebview {
+	const container = mainWindow.document.body.appendChild(mainWindow.document.createElement('div'));
+	container.getBoundingClientRect = () => new DOMRect(0, 0, size.width, size.height);
+	return stubInterface<IOverlayWebview>({
+		onDidNavigate: Event.None,
+		onDidDispose: Event.None,
+		onDidLoad,
+		dispose: () => container.remove(),
+		container,
+	});
+}
+
 /**
  * A preview webview whose bridge and capture are scripted by the test, and
  * which records what the service asked for.
@@ -34,6 +48,8 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	bridgeError: Error | undefined;
 	/** Runs during the capture, to change what the Viewer shows mid-call. */
 	onCapture: (() => void) | undefined;
+	/** Runs during the action, as the page does when it focuses a control. */
+	onAct: (() => void) | undefined;
 	actOutcome: IViewerActOutcome = { message: 'Clicked the button "Go".', navigated: false, timedOut: false };
 	/** When set, the action fails with this, as when a control is disabled. */
 	actError: Error | undefined;
@@ -41,13 +57,7 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	snapshotError: Error | undefined;
 
 	constructor(size = { width: 600, height: 400 }, onDidLoad: Event<string> = Event.None) {
-		super(stubInterface<IOverlayWebview>({
-			onDidNavigate: Event.None,
-			onDidDispose: Event.None,
-			onDidLoad,
-			dispose: () => { },
-			container: stubInterface<HTMLElement>({ getBoundingClientRect: () => new DOMRect(0, 0, size.width, size.height) }),
-		}));
+		super(fakeOverlayWebview(size, onDidLoad));
 	}
 
 	protected override loadUriInWebview(): void { }
@@ -57,8 +67,11 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 		if (this.bridgeError) {
 			throw this.bridgeError;
 		}
-		if (method === 'act' && this.actError) {
-			throw this.actError;
+		if (method === 'act') {
+			this.onAct?.();
+			if (this.actError) {
+				throw this.actError;
+			}
 		}
 		if (method === 'snapshot' && this.snapshotError) {
 			throw this.snapshotError;
@@ -295,6 +308,24 @@ describe('PositronViewerAgentService', () => {
 			timedOut: false,
 			revealed: false,
 		});
+	});
+
+	it('gives keyboard focus back when an action focuses a control in the page, but not if the user was in the Viewer', async () => {
+		const consoleInput = mainWindow.document.body.appendChild(mainWindow.document.createElement('input'));
+		const webview = showUrl();
+		const control = webview.webview.container.appendChild(mainWindow.document.createElement('button'));
+		webview.onAct = () => control.focus();
+		const service = createService();
+		const focused = () => mainWindow.document.activeElement === consoleInput ? 'console' : mainWindow.document.activeElement === control ? 'viewer' : 'elsewhere';
+
+		consoleInput.focus();
+		await service.viewerAct({ kind: 'click', ref: 'e1' });
+		const afterAct = focused();
+		control.focus();
+		await service.viewerAct({ kind: 'click', ref: 'e1' });
+		consoleInput.remove();
+
+		expect([afterAct, focused()]).toEqual(['console', 'viewer']);
 	});
 
 	it('passes on why an action couldn\'t be taken', async () => {

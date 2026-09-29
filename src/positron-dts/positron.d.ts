@@ -4414,10 +4414,11 @@ declare module 'positron' {
 		/**
 		 * Take an action on the page in the Viewer pane, as a user would, then
 		 * wait for the app to settle and return a fresh snapshot. If the Viewer
-		 * is hidden, it's revealed first, without taking focus. Rejects with a
-		 * message explaining why when the action can't be taken or doesn't take
-		 * effect, for example when a control's ref is stale or a dropdown has no
-		 * such option. Rejects if AI features are turned off.
+		 * is hidden, it's revealed first. Keyboard focus stays where the user
+		 * had it. Rejects with a message explaining why when the action can't
+		 * be taken or doesn't take effect, for example when a control's ref is
+		 * stale or a dropdown has no such option. Rejects if AI features are
+		 * turned off.
 		 *
 		 * @param snapshotOptions Options for the snapshot taken afterwards.
 		 */
