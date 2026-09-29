@@ -8,7 +8,9 @@
 import { act, screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
-import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
+import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { DataConnectionNodeDetailsPage } from '../../browser/editor/dataConnectionNodeDetailsPage.js';
 import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -75,13 +77,18 @@ const ITEMS: IDataConnectionNodeDetailsSectionDTO = {
 };
 
 describe('DataConnectionNodeDetailsPage', () => {
-	// Registered before the renderer so its leak check runs after RTL has unmounted the page:
-	// afterEach hooks run in reverse, and the page holds its input subscription until unmount.
-	const disposables = ensureNoLeakedDisposables();
-	const rtl = setupRTLRenderer();
+	// The page reads the editor font from the configuration service; an empty editor section means
+	// the defaults, as in a fresh profile. Built before the renderer so the container's leak check
+	// runs after RTL has unmounted the page: afterEach hooks run in reverse, and the page holds its
+	// input subscription until unmount.
+	const ctx = createTestContainer()
+		.withReactServices()
+		.stub(IConfigurationService, new TestConfigurationService({ editor: {} }))
+		.build();
+	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
 	function renderPage(details: IDataConnectionNodeDetailsDTO) {
-		const input = disposables.add(new DataConnectionNodeDetailsEditorInput(TARGET, details));
+		const input = ctx.disposables.add(new DataConnectionNodeDetailsEditorInput(TARGET, details));
 		rtl.render(<DataConnectionNodeDetailsPage input={input} />);
 		return input;
 	}

@@ -113,8 +113,13 @@
 	border-radius: var(--vscode-cornerRadius-medium);
 	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, transparent);
 	background-color: var(--vscode-textCodeBlock-background);
-	font-family: var(--vscode-editor-font-family);
-	font-size: var(--vscode-editor-font-size);
+	font-family: var(--_data-connection-node-details-code-font-family, monospace);
+	font-size: var(--_data-connection-node-details-code-font-size);
+	font-weight: var(--_data-connection-node-details-code-font-weight);
+	font-feature-settings: var(--_data-connection-node-details-code-font-feature-settings);
+	font-variation-settings: var(--_data-connection-node-details-code-font-variation-settings);
+	letter-spacing: var(--_data-connection-node-details-code-letter-spacing);
+	line-height: var(--_data-connection-node-details-code-line-height);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }
@@ -318,8 +323,12 @@
 	border-radius: var(--vscode-cornerRadius-small);
 	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
 	background-color: var(--vscode-textCodeBlock-background);
-	font-family: var(--vscode-editor-font-family);
-	font-size: var(--vscode-editor-font-size);
+	font-family: var(--_data-connection-node-details-code-font-family, monospace);
+	font-size: var(--_data-connection-node-details-code-font-size);
+	font-weight: var(--_data-connection-node-details-code-font-weight);
+	font-feature-settings: var(--_data-connection-node-details-code-font-feature-settings);
+	font-variation-settings: var(--_data-connection-node-details-code-font-variation-settings);
+	letter-spacing: var(--_data-connection-node-details-code-letter-spacing);
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 }

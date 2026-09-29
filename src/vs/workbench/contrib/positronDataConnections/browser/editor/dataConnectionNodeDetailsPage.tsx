@@ -7,12 +7,15 @@
 import './dataConnectionNodeDetailsPage.css';
 
 // React.
-import { useEffect, useState } from 'react';
+import { CSSProperties, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { PositronTabs } from '../../../../../base/browser/ui/positronComponents/tabs/positronTabs.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { kindIcon } from '../components/dataConnectionNodeRow.js';
 import { DataConnectionNodeDetailsEditorInput } from './dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsItemDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
@@ -208,6 +211,35 @@ const DataConnectionNodeDetailsSections = ({ sections }: { sections: IDataConnec
 );
 
 /**
+ * The page's style: the user's editor font, carried as custom properties for the code blocks and
+ * code chips to pick up (see the page's CSS). The rest of the page stays in the workbench font.
+ */
+interface CodeFontCSSProperties extends CSSProperties {
+	'--_data-connection-node-details-code-font-family'?: string;
+	'--_data-connection-node-details-code-font-size'?: string;
+	'--_data-connection-node-details-code-font-weight'?: string;
+	'--_data-connection-node-details-code-font-feature-settings'?: string;
+	'--_data-connection-node-details-code-font-variation-settings'?: string;
+	'--_data-connection-node-details-code-letter-spacing'?: string;
+	'--_data-connection-node-details-code-line-height'?: string;
+}
+
+/**
+ * Builds the page's code-font custom properties from the editor's font info.
+ */
+function codeFontStyle(fontInfo: FontInfo): CodeFontCSSProperties {
+	return {
+		'--_data-connection-node-details-code-font-family': fontInfo.getMassagedFontFamily(),
+		'--_data-connection-node-details-code-font-size': `${fontInfo.fontSize}px`,
+		'--_data-connection-node-details-code-font-weight': fontInfo.fontWeight,
+		'--_data-connection-node-details-code-font-feature-settings': fontInfo.fontFeatureSettings,
+		'--_data-connection-node-details-code-font-variation-settings': fontInfo.fontVariationSettings,
+		'--_data-connection-node-details-code-letter-spacing': `${fontInfo.letterSpacing}px`,
+		'--_data-connection-node-details-code-line-height': `${fontInfo.lineHeight}px`,
+	};
+}
+
+/**
  * DataConnectionNodeDetailsPageProps interface.
  */
 interface DataConnectionNodeDetailsPageProps {
@@ -221,7 +253,25 @@ interface DataConnectionNodeDetailsPageProps {
  * node again in the tree updates the open tab in place (keeping the selected tab).
  */
 export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetailsPageProps) => {
+	const { configurationService } = usePositronReactServicesContext();
 	const [details, setDetails] = useState(() => input.details);
+
+	// Code is shown in the font the user picked for the editor, as the Data Explorer and the Console
+	// show theirs. It's read into custom properties on the page, rather than applied to each code
+	// element, so one listener serves every code block and chip; and read again whenever an editor
+	// font setting changes. (--vscode-editor-font-family is only defined inside webviews, so the CSS
+	// can't use it here.)
+	const pageRef = useRef<HTMLDivElement>(null);
+	const [codeFont, setCodeFont] = useState<CodeFontCSSProperties>(() =>
+		codeFontStyle(FontConfigurationManager.getFontInfo(configurationService, 'editor')));
+	useEffect(() => {
+		const disposable = configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('editor')) {
+				setCodeFont(codeFontStyle(FontConfigurationManager.getFontInfo(configurationService, 'editor', pageRef.current ?? undefined)));
+			}
+		});
+		return () => disposable.dispose();
+	}, [configurationService]);
 
 	useEffect(() => {
 		setDetails(input.details);
@@ -230,7 +280,7 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 	}, [input]);
 
 	return (
-		<div className='data-connection-node-details-page'>
+		<div ref={pageRef} className='data-connection-node-details-page' style={codeFont}>
 			<div className='data-connection-node-details-header'>
 				<div className={`codicon codicon-${input.target.icon} data-connection-node-details-icon`} />
 				<div className='data-connection-node-details-heading'>
