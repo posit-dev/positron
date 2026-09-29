@@ -149,6 +149,7 @@
   "src/vs/platform/positronMemoryUsage/": ["@:variables"],
   "src/vs/platform/positronStandaloneMode/": [],
   "src/vs/platform/update/": ["@:update"],
+  "src/vs/platform/webview/": ["@:viewer"],
   "src/vs/workbench/browser/actions/": [],
   "src/vs/workbench/browser/actions/positronActions.ts": ["@:new-folder-flow"],
   "src/vs/workbench/browser/parts/": [],
