@@ -59,7 +59,7 @@ suite('model / getLLMConfiguration', () => {
 		assert.ok(config);
 		assert.strictEqual(config!.modelId, 'model-a');
 		assert.strictEqual(config!.modelDisplayName, 'Model A');
-		assert.strictEqual(config!.providerDisplayName, 'Posit AI');
+		assert.strictEqual(config!.providerDisplayName, 'Posit AI Pass');
 		assert.strictEqual(config!.endpointPath, '/a/predict');
 		assert.strictEqual(config!.baseUrl, BASE_URL);
 		assert.strictEqual(config!.accessToken, 'tok');
