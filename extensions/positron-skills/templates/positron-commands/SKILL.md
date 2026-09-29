@@ -1,19 +1,19 @@
 ---
 name: positron-commands
 description: >
-  Running Positron IDE commands: changing the window layout, focusing panes
-  (Console, Variables, Plots, Help, Packages), clearing the console, opening a
-  file or data file in the right editor, showing an HTML file or URL in the Viewer,
-  discovering interpreters, listing, switching, starting, restarting or
-  interrupting sessions, setting up Python, reading, installing or updating a
-  session's packages, running or debugging a web app (Shiny, Flask, Dash,
-  Streamlit, FastAPI, Gradio, marimo), and reading the Data Connections pane,
-  including a live connection's tables and columns. Use when the user
-  wants Positron itself to act, or to know what is installed, rather than to
-  run R or Python code. Triggers: "show the variables pane", "open data.csv",
-  "show this HTML in the Viewer", "what interpreters are available", "switch
-  to my R session", "my session is stuck", "is pandas installed?", "set up a
-  Python environment", "run my shiny app", "what tables are in my warehouse",
+  Running Positron IDE commands: changing the window layout, focusing panes,
+  clearing the console, opening a file or data file in the right editor,
+  showing an HTML file or URL in the Viewer, discovering interpreters,
+  listing, switching, starting, restarting or interrupting sessions, setting
+  up Python, reading, installing or updating a session's packages, running or
+  debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
+  marimo), and reading the Data Connections pane, including a live
+  connection's tables and columns. Use when the user wants Positron itself to
+  act, or to know what is installed, rather than to run R or Python code.
+  Triggers: "show the variables pane", "open data.csv", "show this HTML in
+  the Viewer", "what interpreters are available", "switch to my R session",
+  "my session is stuck", "is pandas installed?", "set up a Python
+  environment", "run my shiny app", "what tables are in my warehouse",
   "deploy my app to Connect".
 ---
 
