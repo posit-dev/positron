@@ -140,6 +140,14 @@ suite('Canvas folder open routing', () => {
 			assert.deepStrictEqual(calls, ['unload', 'load', 'recover']);
 		});
 
+		test('a load that fails after a close destroyed the window does not reload it', async () => {
+			const { calls, unload, recover } = recorder();
+			let alive = true;
+			const load = () => { calls.push('load'); alive = false; return Promise.reject(new Error('window destroyed')); };
+			await assert.rejects(loadCanvasFolderWindow(window(1), 1, unload(false), load, recover, () => alive), /window destroyed/);
+			assert.deepStrictEqual(calls, ['unload', 'load']);
+		});
+
 		test('a load that fails with no unload behind it has nothing to recover', async () => {
 			const { calls, unload, recover, alive } = recorder();
 			await assert.rejects(loadCanvasFolderWindow(window(1, { isReady: false }), 1, unload(false), () => { calls.push('load'); return Promise.reject(new Error('backup home unavailable')); }, recover, alive), /backup home unavailable/);
@@ -152,7 +160,7 @@ suite('Canvas folder open routing', () => {
 			assert.deepStrictEqual(calls, ['unload']);
 		});
 
-		test('a quit or close arriving during the pending unload skips the load', async () => {
+		test('a quit arriving during the pending unload skips the load', async () => {
 			const { calls, load, recover } = recorder();
 			const unloadAnswer = new DeferredPromise<boolean>();
 			let alive = true;

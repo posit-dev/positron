@@ -90,8 +90,10 @@ export function rejectCanvasFolderOpenCollision(openConfig: IOpenConfiguration, 
  * The unload is shared: a quit or window close requested while it is
  * pending coalesces onto it and proceeds once it resolves. `canLoad`
  * (no quit requested, native window still there) is asked after the
- * unload resolves; when it says no, the load is skipped and the quit or
- * close goes ahead, rather than navigating a window that is on its way out.
+ * unload resolves; for a quit it says no, the load is skipped and the quit
+ * goes ahead. A close tears the window down only after this await, so the
+ * load starts and the close then wins. `canLoad` is asked again before
+ * `recover`, so a window that close destroyed is not reloaded.
  */
 export async function loadCanvasFolderWindow(
 	window: ICanvasFolderOpenWindow | undefined,
@@ -114,7 +116,7 @@ export async function loadCanvasFolderWindow(
 	try {
 		await load();
 	} catch (error) {
-		if (unloaded) {
+		if (unloaded && canLoad()) {
 			recover();
 		}
 		throw error;
