@@ -14,6 +14,7 @@ import { ISecretStorageService } from '../../../../platform/secrets/common/secre
 import { createTestContainer } from '../../../../test/vitest/positronTestContainer.js';
 import { startTestLanguageRuntimeSession } from '../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeClientType } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { TestRuntimeClientInstance } from '../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
@@ -128,13 +129,14 @@ describe('Positron - Connections Service', () => {
 		});
 	});
 
-	it('Ignores runtime connections when Data Connections is enabled', async () => {
+	it('Closes runtime connections when Data Connections is enabled', async () => {
 		const dataConnectionsInstantiationService = ctx.disposables.add(ctx.instantiationService.createChild(new ServiceCollection(
 			[IConfigurationService, new TestConfigurationService({ 'dataConnections.enabled': true })]
 		)));
 		const dataConnectionsModeService = ctx.disposables.add(dataConnectionsInstantiationService.createInstance(
 			PositronConnectionsService
 		));
+		const disposeSpy = vi.spyOn(TestRuntimeClientInstance.prototype, 'dispose');
 
 		const session = ctx.disposables.add(await createSession());
 		const client = ctx.disposables.add(await session.createClient(RuntimeClientType.Connection, {
@@ -142,13 +144,8 @@ describe('Positron - Connections Service', () => {
 			language_id: 'test',
 			code: 'hello world'
 		}));
-		client.rpcHandler = async () => ({ 'data': { 'result': true } });
 
-		// The service with Data Connections off sees the same session events, so once it has picked
-		// up the connection, the other service has had its chance to as well.
-		await waitUntilOk(() => {
-			expect(connectionsService.getConnections().length).toBe(1);
-		});
+		expect(disposeSpy.mock.contexts).toContain(client);
 		expect(dataConnectionsModeService.getConnections()).toEqual([]);
 	});
 

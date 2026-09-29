@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
 import { ConnectionMetadata, IConnectionMetadata, IPositronConnectionInstance } from '../common/interfaces/positronConnectionsInstance.js';
@@ -32,6 +32,7 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 	public onDidFocus = this.onDidFocusEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
+	private readonly closeConnectionsListeners = this._register(new DisposableMap<string, DisposableStore>());
 	public readonly driverManager: PositronConnectionsDriverManager;
 
 	constructor(
@@ -51,6 +52,9 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 		// nowhere to show connections. Read once, like the pane's own registration: toggling the
 		// setting requires a reload.
 		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true) {
+			this._register(this.runtimeSessionService.onDidStartRuntime((session) => {
+				this.closeRuntimeConnections(session);
+			}));
 			return;
 		}
 
@@ -132,6 +136,31 @@ export class PositronConnectionsService extends Disposable implements IPositronC
 
 			this.addConnection(instance);
 		});
+	}
+
+	/**
+	 * Closes the connection comms a session opens, since nothing handles them when the Data
+	 * Connections feature is on. Without this, they stay open until the session ends (R opens one
+	 * for every odbc or DBI connection).
+	 */
+	private async closeRuntimeConnections(session: ILanguageRuntimeSession) {
+		const store = new DisposableStore();
+		store.add(session.onDidCreateClientInstance(({ client }) => {
+			if (client.getClientType() === RuntimeClientType.Connection) {
+				client.dispose();
+			}
+		}));
+		store.add(session.onDidEndSession(() => {
+			this.closeConnectionsListeners.deleteAndDispose(session.sessionId);
+		}));
+		this.closeConnectionsListeners.set(session.sessionId, store);
+
+		try {
+			const clients = await session.listClients(RuntimeClientType.Connection);
+			clients.forEach(client => client.dispose());
+		} catch (e) {
+			this.logService.error('Error while closing runtime connections', e);
+		}
 	}
 
 	attachRuntime(session: ILanguageRuntimeSession) {
