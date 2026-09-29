@@ -93,9 +93,15 @@ def test_pydoc_server_styling(running_help_service: HelpService):
     assert "#ee77aa" not in html
 
 
-def show_help_event(content: str, kind=ShowHelpKind.Url, *, focus=True):
+def show_help_event(content: str, kind=ShowHelpKind.Url, *, focus=True, search_id=None):
     return json_rpc_notification(
-        HelpFrontendEvent.ShowHelp.value, {"kind": kind, "focus": focus, "content": content}
+        HelpFrontendEvent.ShowHelp.value,
+        {
+            "kind": kind,
+            "focus": focus,
+            "content": content,
+            **({"search_id": search_id} if search_id is not None else {}),
+        },
     )
 
 
@@ -343,39 +349,72 @@ def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
 def test_handle_search_help(help_comm, mock_pydoc_thread) -> None:
     msg = json_rpc_request(
         HelpBackendRequest.SearchHelp,
-        {"query": "linear model"},
+        {"query": "linear model", "search_id": "search-test"},
         comm_id="dummy_comm_id",
     )
     help_comm.handle_msg(msg)
 
     assert help_comm.messages == [
+        show_help_event(f"{mock_pydoc_thread.url}search?key=linear+model", search_id="search-test"),
         json_rpc_response(result=True),
-        show_help_event(f"{mock_pydoc_thread.url}search?key=linear+model"),
     ]
 
 
-def test_handle_get_help_topics(help_comm, monkeypatch) -> None:
-    scanner = Mock()
+def test_handle_get_help_topics(help_comm, help_service, monkeypatch) -> None:
+    from positron.help_index import Index, Topic
 
-    def scan(callback, _key, *, onerror):
-        assert callable(onerror)
-        callback(None, "example.__init__", "Example package")
-        callback(None, "example.tools", "Example tools")
-
-    scanner.run.side_effect = scan
-    monkeypatch.setattr(pydoc, "ModuleScanner", lambda: scanner)
+    index = Index(
+        (
+            Topic("example", "package", "fixture", "Example package"),
+            Topic("example.tools", "module", "fixture", "Example tools"),
+        ),
+        (),
+    )
+    monkeypatch.setattr(help_service._help_index, "get", lambda: index)  # noqa: SLF001
     msg = json_rpc_request(
         HelpBackendRequest.GetHelpTopics,
-        {},
+        {"query": "example", "limit": 1},
         comm_id="dummy_comm_id",
     )
     help_comm.handle_msg(msg)
-
     assert help_comm.messages == [
         json_rpc_response(
             result=[
                 {"label": "example", "topic": "example", "detail": None},
-                {"label": "example.tools", "topic": "example.tools", "detail": None},
             ]
         )
     ]
+
+
+def test_search_requires_server(help_service, help_comm):
+    assert help_service.search_help("example", "search-test") is False
+    assert help_comm.messages == []
+
+
+def test_search_page_does_not_import_packages(
+    running_help_service, help_comm, tmp_path, monkeypatch
+):
+    import sys
+
+    from positron.help_index import LoadedSnapshot
+
+    package = tmp_path / "unloaded_help_fixture"
+    package.mkdir()
+    (package / "__init__.py").write_text(
+        '"""Quasar <script>summary</script>."""\nraise RuntimeError("must not import")\n'
+    )
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: LoadedSnapshot((), ())
+    )
+    assert (
+        running_help_service.get_help_topics("unloaded_help_fixture", 1)[0].topic
+        == "unloaded_help_fixture"
+    )
+    assert running_help_service.search_help("Quasar", "import-free-test")
+    url = help_comm.messages[-1]["data"]["params"]["content"]
+    with urlopen(url) as response:
+        html = response.read().decode("utf-8")
+    assert "unloaded_help_fixture.html" in html
+    assert "&lt;script&gt;summary&lt;/script&gt;" in html
+    assert "unloaded_help_fixture" not in sys.modules
