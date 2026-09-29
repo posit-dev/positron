@@ -252,6 +252,7 @@ const viewsContribution: IJSONSchema = {
 		// --- Start Positron ---
 		'connections': {
 			description: localize('views.connections', "Contributes views to Connections container in the Auxiliary sidebar"),
+			deprecationMessage: localize('positron.views.connections.deprecated', "The Connections container exists only when the `dataConnections.enabled` setting is false. Contribute views to your own view container instead."),
 		},
 		// --- End Positron ---
 	},
