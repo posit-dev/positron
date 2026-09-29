@@ -62,7 +62,7 @@ class HelpBackendRequest(str, enum.Enum):
     # Search the active interpreter's help system.
     SearchHelp = "search_help"
 
-    # List help topics for autocomplete.
+    # Find help topics for autocomplete.
     GetHelpTopics = "get_help_topics"
 
 
@@ -111,6 +111,10 @@ class SearchHelpParams(BaseModel):
         description="The help query to search for",
     )
 
+    search_id: StrictStr = Field(
+        description="Opaque identifier supplied by the frontend for this UI search. Echo it in the resulting Show Help notification.",
+    )
+
 
 class SearchHelpRequest(BaseModel):
     """
@@ -132,11 +136,30 @@ class SearchHelpRequest(BaseModel):
     )
 
 
+class GetHelpTopicsParams(BaseModel):
+    """
+    Returns at most limit matching help topic suggestions, filtered and
+    ranked by the backend. An empty query returns no suggestions.
+    """
+
+    query: StrictStr = Field(
+        description="The text to match against help topic labels.",
+    )
+
+    limit: StrictInt = Field(
+        description="Maximum number of suggestions to return, from 1 to 50.",
+    )
+
+
 class GetHelpTopicsRequest(BaseModel):
     """
-    Returns interpreter-wide help topics that can be offered as search
-    suggestions.
+    Returns at most limit matching help topic suggestions, filtered and
+    ranked by the backend. An empty query returns no suggestions.
     """
+
+    params: GetHelpTopicsParams = Field(
+        description="Parameters to the GetHelpTopics method",
+    )
 
     method: Literal[HelpBackendRequest.GetHelpTopics] = Field(
         description="The JSON-RPC method name (get_help_topics)",
@@ -184,6 +207,10 @@ class ShowHelpParams(BaseModel):
         description="Whether to focus the Help pane when the content is displayed.",
     )
 
+    search_id: Optional[StrictStr] = Field(
+        description="Identifier of the UI search that requested this navigation, if any. Omit for console help and other help navigation. The frontend ignores identifiers that are no longer current.",
+    )
+
 
 HelpTopicSuggestion.update_forward_refs()
 
@@ -194,6 +221,8 @@ ShowHelpTopicRequest.update_forward_refs()
 SearchHelpParams.update_forward_refs()
 
 SearchHelpRequest.update_forward_refs()
+
+GetHelpTopicsParams.update_forward_refs()
 
 GetHelpTopicsRequest.update_forward_refs()
 
