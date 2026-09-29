@@ -9,9 +9,9 @@ It deliberately does not run custom import hooks or package initialization.
 
 from __future__ import annotations
 
+import ast
 import io
 import os
-import pydoc
 import sys
 import tokenize
 import zipfile
@@ -317,7 +317,7 @@ class Discovery:
                 )
                 return None
             encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
-            return pydoc.source_synopsis(io.StringIO(data.decode(encoding)))
+            return _source_summary(data.decode(encoding))
         except (
             OSError,
             SyntaxError,
@@ -333,6 +333,25 @@ class Discovery:
 
     def track(self, path: Path) -> None:
         self.fingerprints[path] = _fingerprint(path)
+
+
+def _source_summary(source: str) -> str | None:
+    """Read the first string expression without executing or parsing the module body."""
+    parts = []
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(source).readline):
+            if token.type == tokenize.STRING or (
+                token.type == tokenize.OP and token.string in ("(", ")")
+            ):
+                parts.append(token.string)
+            elif token.type == tokenize.NEWLINE:
+                value = ast.literal_eval("".join(parts))
+                return value.strip().split("\n")[0].strip() if isinstance(value, str) else None
+            elif token.type not in (tokenize.COMMENT, tokenize.NL):
+                return None
+    except (tokenize.TokenError, SyntaxError, ValueError):
+        return None
+    return None
 
 
 def _fingerprint(path: Path) -> tuple | None:
