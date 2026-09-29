@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ClientKind, ModelInfoLike, ResolvedProviderId } from 'ai-config/node';
+import type { ModelInfoLike, ResolvedProviderId, SupportedCustomClientKind } from 'ai-config/node';
 import type { Logger, ModelMessage, ProviderId, ProviderRegistry } from 'ai-provider-bridge';
 import { AsyncIterableObject } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
@@ -80,15 +80,15 @@ export class HeadlessLanguageModelEngine extends Disposable implements IHeadless
 
 	/**
 	 * Custom entries the headless service can serve, each with the mapping it
-	 * will resolve credentials through. An entry with no kind, or a kind that has
-	 * no headless mapping, is left out; the bridge's registrar table is the only
-	 * other kind check.
+	 * will resolve credentials through. An entry without a supported custom kind,
+	 * or whose kind has no headless mapping, is left out.
 	 */
-	private async customEntries(): Promise<{ id: ResolvedProviderId; clientKind: string; mapping: IProviderMapping }[]> {
+	private async customEntries(): Promise<{ id: ResolvedProviderId; clientKind: SupportedCustomClientKind; mapping: IProviderMapping }[]> {
 		const { customProviderAuthMapping } = await import('ai-provider-bridge/credential-shaping');
 		const { LOCAL_PROVIDER_IDS } = await import('ai-provider-bridge');
+		const { isSupportedCustomClientKind } = await import('ai-config');
 		return (await this._catalog.getCatalog()).flatMap(entry => {
-			if (entry.custom !== true || !entry.clientKind) {
+			if (entry.custom !== true || !entry.clientKind || !isSupportedCustomClientKind(entry.clientKind)) {
 				return [];
 			}
 			const mapping = (LOCAL_PROVIDER_IDS as readonly string[]).includes(entry.clientKind)
@@ -110,7 +110,7 @@ export class HeadlessLanguageModelEngine extends Disposable implements IHeadless
 		return new AsyncIterableObject<string>(async (emitter) => {
 			const registry = await this._registry.get();
 			const clientKind = (await this.customEntries()).find(entry => entry.id === request.providerId)?.clientKind;
-			const client = registry.getClientForProviderOrKind(request.providerId, request.credentials, clientKind as ClientKind | undefined);
+			const client = registry.getClientForProviderOrKind(request.providerId, request.credentials, clientKind);
 			if (!client) {
 				throw new Error(`No client for provider ${request.providerId}`);
 			}
