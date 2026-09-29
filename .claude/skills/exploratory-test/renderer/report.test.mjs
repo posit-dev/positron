@@ -2044,18 +2044,22 @@ test('issue: icons rest until their own button is hovered', () => {
 	assert.match(html, /\.gh-btn\+\.cp-btn\{margin-left:-19px\}/);
 });
 
-/** Each feedback link's pre-filled answers, by form question. */
+const FINDING_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform';
+const REPORT_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform';
+
+/** Each feedback link's pre-filled answers, by form question; a finding row goes to the finding form, the header button to the report form. */
 function feedbackAnswers(html, cls) {
 	const hrefs = cls === 'fb-top'
 		? [...html.matchAll(/<a class="fb-top" href="([^"]+)"/g)].map(m => m[1])
 		: [...html.matchAll(/<div class="fb" [^>]*>(.*?)<\/div>/g)].flatMap(m => [...m[1].matchAll(/href="([^"]+)"/g)].map(h => h[1]));
 	return hrefs.map(href => {
 		const url = new URL(href.replace(/&amp;/g, '&'));
-		assert.equal(`${url.origin}${url.pathname}`, 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform');
+		assert.equal(`${url.origin}${url.pathname}`, cls === 'fb-top' ? REPORT_FORM : FINDING_FORM);
+		// The "Feedback on" question is gone from both forms.
+		assert.equal(url.searchParams.has('entry.857252905'), false);
 		return {
 			report: url.searchParams.get('entry.1746253506'),
 			version: url.searchParams.get('entry.1873070470'),
-			on: url.searchParams.get('entry.857252905'),
 			finding: url.searchParams.get('entry.890833928'),
 			verdict: url.searchParams.get('entry.427792690'),
 		};
@@ -2070,19 +2074,19 @@ test('feedback: a published page asks about each finding, and the verdicts match
 	// In the form's order, which is also the buttons'.
 	const verdicts = ['Real issue', 'Not a bug', 'Enhancement idea', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
 	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(verdict =>
-		({ report: `https://cdn.example/run1/index.html#f${n}`, version: '1.2', on: 'A finding', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
+		({ report: `https://cdn.example/run1/index.html#f${n}`, version: '1.2', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
 	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
 	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
 	assert.match(html, />Enhancement<\/a>/);
 	// The row closes its card: after Suggested tests, before the card ends.
-	assert.match(html, /<div class="fb" role="group" aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
+	assert.match(html, /<div class="fb" role="group" [^>]*aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
 });
 
 test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
 	assert.deepEqual(feedbackAnswers(html, 'fb-top'),
-		[{ report: 'https://cdn.example/run1/index.html', version: '1.2', on: 'The whole report', finding: null, verdict: null }]);
+		[{ report: 'https://cdn.example/run1/index.html', version: '1.2', finding: null, verdict: null }]);
 	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
 });
 
@@ -2091,6 +2095,244 @@ test('feedback: a local page, which only has a path, asks for none', () => {
 		const html = renderReportHtml(FULL, { base, skillVersion: '1.2' });
 		assert.doesNotMatch(html, /docs\.google\.com|class="fb[ "]|class="fb-top"/, `base: ${base}`);
 	}
+});
+
+/** Runs the page's feedback script against a stub window; returns a click dispatcher and the window.open calls. */
+function feedbackPopup(html, { blocked = false } = {}) {
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('exploratory-feedback'));
+	assert.ok(src);
+	const opens = [];
+	let handler;
+	const popup = { closed: false, location: { href: '' }, focused: 0, focus() { this.focused++; } };
+	const window = {
+		screenX: 100, screenY: 50, outerWidth: 1400, outerHeight: 1000,
+		open: (url, name, features) => { opens.push({ url, name, features }); return blocked || name === '_blank' ? null : popup; },
+	};
+	const document = { querySelectorAll: () => [], addEventListener: (type, fn) => { assert.equal(type, 'click'); handler = fn; } };
+	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, window, { availWidth: 1440, availHeight: 900 }, null, () => {});
+	const click = (href, mods = {}) => {
+		const a = { href, dataset: {} };
+		const e = { button: 0, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, target: { closest: sel => sel === '.fb a, a.fb-top' ? a : null }, ...mods };
+		handler(e);
+		return e.defaultPrevented;
+	};
+	return { click, opens, popup };
+}
+
+test('feedback: a plain click opens the form in one reused pop-up over the report', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	// The links still work with script off.
+	assert.ok([...html.matchAll(/<a (?:class="fb-top" )?href="https:\/\/docs\.google\.com[^>]*>/g)].every(m => / target="_blank" rel="noopener"/.test(m[0])));
+	const { click, opens, popup } = feedbackPopup(html);
+	assert.equal(click('https://forms.example/finding'), true);
+	// 680 x 820, which fits the 1440 x 900 screen; centred across, a third of the way down.
+	assert.deepEqual(opens, [{ url: '', name: 'exploratory-feedback', features: 'popup,width=680,height=820,left=460,top=110' }]);
+	assert.doesNotMatch(opens[0].features, /noopener/);
+	assert.equal(popup.location.href, 'https://forms.example/finding');
+	assert.equal(click('https://forms.example/report'), true);
+	assert.equal(opens.length, 1);
+	assert.equal(popup.location.href, 'https://forms.example/report');
+	assert.equal(popup.focused, 2);
+	// Once it is closed, the next click opens a new one.
+	popup.closed = true;
+	click('https://forms.example/finding');
+	assert.equal(opens.length, 2);
+});
+
+test('feedback: a modified or middle click keeps the link\'s own behaviour, and a blocked pop-up falls back to a tab', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const { click, opens } = feedbackPopup(html);
+	for (const mods of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+		assert.equal(click('https://forms.example/finding', mods), false, JSON.stringify(mods));
+	}
+	assert.equal(opens.length, 0);
+	const blocked = feedbackPopup(html, { blocked: true });
+	assert.equal(blocked.click('https://forms.example/finding'), true);
+	assert.deepEqual(blocked.opens.map(o => [o.url, o.name, o.features]).at(-1), ['https://forms.example/finding', '_blank', 'noopener']);
+	// A local page has no feedback links, so no script for them.
+	assert.doesNotMatch(renderReportHtml(FULL, { skillVersion: '1.2' }), /exploratory-feedback/);
+});
+
+test('feedback: each verdict also carries its one-click submit address, with the same answers', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const rows = [...html.matchAll(/<div class="fb" ([^>]*)>(.*?)<\/div>/g)];
+	assert.equal(rows.length, 2);
+	assert.match(rows[1][1], /^role="group" aria-live="polite" data-report="https:\/\/cdn\.example\/run1\/index\.html" data-finding="f2" /);
+	for (const [, , inner] of rows) {
+		const links = [...inner.matchAll(/<a href="([^"]+)" data-submit="([^"]+)" data-verdict="([^"]+)"/g)];
+		assert.equal(links.length, 5);
+		for (const [, href, submit, verdict] of links) {
+			const form = new URL(href.replace(/&amp;/g, '&'));
+			const one = new URL(submit.replace(/&amp;/g, '&'));
+			// The address that worked when tried by hand: no usp, and a Submit.
+			assert.equal(`${one.origin}${one.pathname}`, FINDING_FORM.replace(/viewform$/, 'formResponse'));
+			assert.equal(one.searchParams.get('submit'), 'Submit');
+			assert.equal(one.searchParams.has('usp'), false);
+			assert.equal(one.searchParams.get('entry.427792690'), verdict.replace(/&#39;/g, '\''));
+			for (const entry of ['entry.1746253506', 'entry.1873070470', 'entry.890833928', 'entry.427792690']) {
+				assert.equal(one.searchParams.get(entry), form.searchParams.get(entry), entry);
+			}
+		}
+	}
+});
+
+/** A fake DOM, just enough for the feedback script: a page of rows built from the rendered HTML. */
+function feedbackDom(html, storage) {
+	const matches = (el, sel) => sel.split(', ').some(one => {
+		if (one === '.fb a') {
+			return el.tag === 'a' && !!el.parent?.closest('.fb');
+		}
+		const [, tag, cls, data] = /^(a|button|span|div)?(?:\.([\w-]+))?(?:\[data-([\w-]+)\])?$/.exec(one) ?? [];
+		return (!tag || el.tag === tag) && (!cls || el.classList.includes(cls)) && (!data || data in el.dataset);
+	});
+	class El {
+		constructor(tag, parent) { this.tag = tag; this.parent = parent; this.children = []; this.dataset = {}; this.className = ''; this.textContent = ''; this.hidden = false; }
+		get classList() { return this.className.split(/\s+/); }
+		set innerHTML(v) { this.html = v; }
+		setAttribute(k, v) { if (k.startsWith('data-')) { this.dataset[k.slice(5)] = v; } }
+		appendChild(c) { c.parent = this; this.children.push(c); return c; }
+		remove() { this.parent.children = this.parent.children.filter(c => c !== this); }
+		focus() { page.focused = this; }
+		all() { return this.children.flatMap(c => [c, ...c.all()]); }
+		querySelectorAll(sel) { return this.all().filter(e => matches(e, sel)); }
+		querySelector(sel) { return this.querySelectorAll(sel)[0] ?? null; }
+		closest(sel) { for (let e = this; e && e.tag; e = e.parent) { if (matches(e, sel)) { return e; } } return null; }
+		get text() { return this.textContent + this.children.map(c => c.text).join(''); }
+		get label() { return this.children.filter(c => !c.hidden).map(c => c.text).join('|'); }
+	}
+	const page = new El('body', null);
+	for (const [, attrs, inner] of html.matchAll(/<div class="fb" ([^>]*)>(.*?)<\/div>/g)) {
+		const row = page.appendChild(new El('div', page));
+		row.className = 'fb';
+		for (const [, k, v] of attrs.matchAll(/(data-[\w-]+)="([^"]*)"/g)) { row.setAttribute(k, v); }
+		const q = row.appendChild(new El('span', row)); q.className = 'fb-q'; q.textContent = 'Is this finding right?';
+		for (const [, href, submit, verdict, label] of inner.matchAll(/<a href="([^"]+)" data-submit="([^"]+)" data-verdict="([^"]+)"[^>]*>([^<]+)<\/a>/g)) {
+			const a = row.appendChild(new El('a', row));
+			a.href = href.replace(/&amp;/g, '&');
+			a.setAttribute('data-submit', submit.replace(/&amp;/g, '&'));
+			a.setAttribute('data-verdict', verdict.replace(/&#39;/g, '\''));
+			a.textContent = label.replace('&rsquo;', '’');
+		}
+	}
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('exploratory-feedback'));
+	const opens = [];
+	let handler;
+	const popup = { closed: false, location: {}, focus() {} };
+	Object.defineProperty(popup.location, 'href', { set(v) { opens.push(v); } });
+	const body = new El('body', null);
+	const timers = [];
+	const document = {
+		body,
+		querySelectorAll: sel => page.querySelectorAll(sel),
+		createElement: tag => new El(tag, null),
+		createTextNode: text => Object.assign(new El('#text', null), { textContent: text }),
+		addEventListener: (_, fn) => { handler = fn; },
+	};
+	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, { open: () => popup }, {}, storage, fn => timers.push(fn));
+	const rows = page.children;
+	// The hidden frames a verdict click loads, which record it with no window.
+	const sends = () => body.children.map(f => f.src);
+	const click = (el, mods = {}) => {
+		const e = { button: 0, target: el, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...mods };
+		handler(e);
+		return e.defaultPrevented;
+	};
+	const verdict = (row, name) => row.children.find(c => c.dataset.verdict === name);
+	return { page, rows, click, opens, sends, body, timers, verdict };
+}
+
+function memoryStorage() {
+	const map = new Map();
+	return { map, getItem: k => map.get(k) ?? null, setItem: (k, v) => map.set(k, String(v)), removeItem: k => map.delete(k) };
+}
+
+test('feedback: a verdict click records it in one click and shows the answer, remembered on reload', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const storage = memoryStorage();
+	const { rows, click, opens, sends, body, timers, verdict, page } = feedbackDom(html, storage);
+	const pick = verdict(rows[1], 'Not a bug');
+	assert.equal(click(pick), true);
+	// No window: the verdict goes in a hidden frame, which is removed later.
+	assert.deepEqual(opens, []);
+	assert.deepEqual(sends(), [pick.dataset.submit]);
+	const [frame] = body.children;
+	assert.equal(frame.tag, 'iframe');
+	assert.equal(frame.hidden, true);
+	timers.forEach(fn => fn());
+	assert.deepEqual(sends(), []);
+	assert.equal(rows[1].label, 'Is this finding right?|Not a bug|Add a note|·|Change');
+	assert.equal(rows[0].label.split('|').length, 6, 'the other finding is untouched');
+	assert.deepEqual([...storage.map].filter(([k]) => k !== 'fb:id'), [['fb:https://cdn.example/run1/index.html#f2', 'Not a bug']]);
+	const note = rows[1].querySelector('.fb-note');
+	assert.equal(page.focused, note);
+	// Add a note opens the pre-filled form, and records nothing more.
+	assert.equal(note.href, pick.href);
+	click(note);
+	assert.deepEqual(opens, [pick.href]);
+
+	// A reload shows the answer again, without submitting.
+	const again = feedbackDom(html, storage);
+	assert.equal(again.rows[1].label, 'Is this finding right?|Not a bug|Add a note|·|Change');
+	assert.deepEqual(again.opens, []);
+
+	assert.deepEqual(again.sends(), []);
+
+	// Change forgets it and brings the buttons back, sending nothing.
+	again.click(again.rows[1].querySelector('.fb-change'));
+	assert.equal(again.rows[1].label, 'Is this finding right?|Real issue|Not a bug|Enhancement|Not worth reporting|Couldn’t tell');
+	assert.deepEqual([...storage.map.keys()], ['fb:id']);
+	assert.equal(again.page.focused, again.verdict(again.rows[1], 'Real issue'));
+	assert.deepEqual(again.sends(), []);
+	// Picking again sends the new verdict.
+	const other = again.verdict(again.rows[1], 'Real issue');
+	again.click(other);
+	assert.deepEqual(again.sends(), [other.dataset.submit]);
+});
+
+test('feedback: a modified click opens the form without recording, and blocked storage only loses the memory', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const storage = memoryStorage();
+	const { rows, click, opens, sends, verdict } = feedbackDom(html, storage);
+	assert.equal(click(verdict(rows[0], 'Real issue'), { metaKey: true }), false);
+	assert.deepEqual(opens, []);
+	assert.deepEqual(sends(), []);
+	assert.deepEqual([...storage.map.keys()], ['fb:id']);
+	assert.equal(rows[0].label.split('|').length, 6);
+
+	const throwing = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() { throw new Error('blocked'); } };
+	const blocked = feedbackDom(html, throwing);
+	blocked.click(blocked.verdict(blocked.rows[0], 'Real issue'));
+	assert.equal(blocked.sends().length, 1);
+	assert.match(blocked.rows[0].label, /\|Real issue\|Add a note\|/);
+
+	// A stored value that is not one of the page's verdicts is dropped, never shown.
+	const planted = memoryStorage();
+	planted.setItem('fb:https://cdn.example/run1/index.html#f1', '<img src=x onerror=alert(1)>');
+	const p = feedbackDom(html, planted);
+	assert.equal(p.rows[0].label.split('|').length, 6);
+	assert.deepEqual([...planted.map.keys()], ['fb:id']);
+});
+
+test('feedback: every finding answer from a browser carries the same random ID, kept across reloads', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const ids = links => links.flatMap(a => [a.href, a.dataset.submit]).map(u => new URL(u).searchParams.getAll('entry.1280428395'));
+	const storage = memoryStorage();
+	const first = feedbackDom(html, storage);
+	const links = first.rows.flatMap(r => r.querySelectorAll('a[data-verdict]'));
+	const [[id]] = ids(links);
+	assert.match(id, /^[0-9a-f]{12}$/);
+	assert.ok(ids(links).every(v => v.length === 1 && v[0] === id), 'once per link, the same everywhere');
+	assert.equal(storage.getItem('fb:id'), id);
+	const again = feedbackDom(html, storage);
+	assert.ok(ids(again.rows.flatMap(r => r.querySelectorAll('a[data-verdict]'))).every(v => v[0] === id));
+	// A different browser gets its own; one that cannot store gets one per page.
+	assert.notEqual(ids(feedbackDom(html, memoryStorage()).rows[0].querySelectorAll('a[data-verdict]'))[0][0], id);
+	// A stored value that is not an ID is replaced.
+	const planted = memoryStorage();
+	planted.setItem('fb:id', '&entry.427792690=Not%20a%20bug');
+	const p = feedbackDom(html, planted);
+	assert.match(planted.getItem('fb:id'), /^[0-9a-f]{12}$/);
+	assert.ok(ids(p.rows[0].querySelectorAll('a[data-verdict]')).every(v => v[0] === planted.getItem('fb:id')));
 });
 
 test('feedback: a missing skill version is sent as unknown, never blank', () => {

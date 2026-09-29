@@ -141,6 +141,7 @@ const PROFESSIONAL = `
 
 	--switch-bg: #FFFFFF;
 	--switch-border: #E7E4DC;
+	--fb-done-bg: rgba(46,107,94,.08);
 	--switch-on-bg: #F6F5F1;
 	--switch-on-icon: #2B2F35;
 	--switch-on-shadow: inset 0 0 0 1px #E7E4DC;
@@ -283,6 +284,7 @@ const PARTY = `
 
 	--switch-bg: #1E1838;
 	--switch-border: #342A5C;
+	--fb-done-bg: rgba(92,225,230,.10);
 	--switch-on-bg: #FF6AC1;
 	--switch-on-icon: #15102B;
 	--switch-on-shadow: 0 0 12px rgba(255,106,193,.45);
@@ -377,6 +379,11 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .fb-top{position:absolute;top:-4px;right:78px;display:inline-flex;align-items:center;gap:6px;height:38px;box-sizing:border-box;padding:0 14px;border:1px solid var(--switch-border);border-radius:999px;background:var(--switch-bg);color:var(--body);font-size:13px;font-weight:500;text-decoration:none;z-index:2;transition:color .15s ease,border-color .15s ease}
 .fb-top:hover,.fb-top:focus-visible{color:var(--ink);border-color:var(--hover-border);outline:none}
 .head:has(.fb-top) .eyebrow{padding-right:232px}
+/* A recorded verdict, then quiet actions to add a note or change it. */
+.fb-done{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;line-height:1.2;padding:5px 11px;border-radius:999px;border:1px solid var(--link);color:var(--link);background:var(--fb-done-bg)}
+.fb .fb-act{font:500 12.5px/1.2 var(--sans);margin-left:4px;padding:5px 2px;border:0;border-bottom:1px dashed transparent;border-radius:0;background:none;color:var(--muted);cursor:pointer;text-decoration:none}
+.fb .fb-act:hover,.fb .fb-act:focus-visible{color:var(--link);border-bottom-color:currentColor;outline:none}
+.fb-dot{color:var(--divider)}
 @media (prefers-reduced-motion:reduce){.fb a,.fb-top{transition:none}}
 
 /* One tooltip style for the whole page: tiles, theme switch, back to top. */
