@@ -428,7 +428,11 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 				if (rendererCommit && myCommit) {
 					// Running in the built version where commits are defined
 					if (rendererCommit !== myCommit) {
-						return rejectWebSocketConnection(`Client refused: version mismatch`);
+						// --- Start Positron ---
+						// Report both commits so the mismatch can be diagnosed from the client
+						// return rejectWebSocketConnection(`Client refused: version mismatch`);
+						return rejectWebSocketConnection(`Client refused: version mismatch (server expected commit ${myCommit}, client sent commit ${rendererCommit})`);
+						// --- End Positron ---
 					}
 				}
 
