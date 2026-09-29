@@ -21,8 +21,15 @@ export interface ActivityOutputStreamProps {
  * @returns The rendered component.
  */
 export const ActivityOutputStream = (props: ActivityOutputStreamProps) => {
+	const outputLines = props.activityItemStream.outputLines;
+
+	// Skip chunks without output runs to avoid blank rows in the transcript.
+	if (!outputLines.some(line => line.outputRuns.length)) {
+		return null;
+	}
+
 	// Render.
 	return (
-		<ConsoleOutputLines outputLines={props.activityItemStream.outputLines} />
+		<ConsoleOutputLines outputLines={outputLines} />
 	);
 };
