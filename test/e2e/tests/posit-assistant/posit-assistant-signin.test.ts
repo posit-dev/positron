@@ -9,19 +9,12 @@ import { ModelProvider } from '../../pages/modelProviderShared';
 test.use({
 	suiteId: __filename,
 	// Launch the app with the auto-sign-in env vars unset so the API-key providers
-	// start disconnected and the test genuinely drives the modal's connect flow
+	// start disconnected and the test genuinely drives the provider manager's connect flow
 	// (typing ANTHROPIC_KEY / OPENAI_KEY) instead of finding them already signed in.
 	// AWS Bedrock keeps its environment credential chain (it has no key to type and
 	// authenticates from the environment by design).
 	extraEnv: { ANTHROPIC_API_KEY: undefined, OPENAI_API_KEY: undefined },
 });
-
-// Quarantined: this suite drives the core "Configure LLM Providers" modal, which
-// has been removed along with the `positron.ai` provider-configuration API.
-// Provider sign-in now lives in the Posit Assistant extension's provider-manager
-// webview, which needs its own page object before these can be restored.
-test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
-
 
 // Whatever goes wrong in this suite, do not reach for a window reload. A restarted
 // extension host re-probes the cloud credential-chain metadata endpoints (AWS/Azure
@@ -48,7 +41,7 @@ test.describe('Posit Assistant Sign-in', {
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {
-			await app.workbench.modelProviderModal.loginModelProvider(provider);
+			await app.workbench.providerManager.loginModelProvider(provider);
 
 			try {
 				await app.workbench.positAssistant.open();
@@ -69,7 +62,7 @@ test.describe('Posit Assistant Sign-in', {
 				const responseText = await app.workbench.positAssistant.getLastResponseText();
 				test.expect(responseText.length).toBeGreaterThan(0);
 			} finally {
-				await app.workbench.modelProviderModal.logoutModelProvider(provider);
+				await app.workbench.providerManager.logoutModelProvider(provider);
 			}
 		});
 	}
