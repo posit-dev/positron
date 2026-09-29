@@ -62,7 +62,7 @@ export type DataConnectionParameterValuesDTO = Record<string, string | number | 
 
 /**
  * Serializable node returned from getChildren calls. Each node gets a handle
- * so the main thread can call back for child expansion and preview.
+ * so the main thread can call back for child expansion, preview, and details.
  */
 export interface IDataConnectionNodeDTO {
 	nodeHandle: number;
@@ -72,6 +72,46 @@ export interface IDataConnectionNodeDTO {
 	isPrimaryKey?: boolean;
 	hasGetChildren: boolean;
 	hasPreview: boolean;
+	hasDetails: boolean;
+}
+
+/**
+ * Serializable section of a node's details. Mirrors positron.DataConnectionNodeDetailsSection.
+ */
+export type IDataConnectionNodeDetailsSectionDTO =
+	| { kind: 'properties'; title?: string; properties: { name: string; value: string }[] }
+	| { kind: 'code'; title?: string; languageId?: string; code: string }
+	| { kind: 'table'; title?: string; columns: string[]; rows: string[][] }
+	| { kind: 'group'; title: string; count?: number; collapsible?: boolean; sections: IDataConnectionNodeDetailsSectionDTO[] }
+	| { kind: 'items'; title?: string; items: IDataConnectionNodeDetailsItemDTO[]; emptyText?: string };
+
+/**
+ * Serializable item in a node's details. Mirrors positron.DataConnectionNodeDetailsItem.
+ */
+export interface IDataConnectionNodeDetailsItemDTO {
+	name: string;
+	kind?: string; // DataConnectionNodeKind value
+	dataType?: string;
+	description?: string;
+	code?: string;
+}
+
+/**
+ * Serializable tab of a node's details. Mirrors positron.DataConnectionNodeDetailsTab.
+ */
+export interface IDataConnectionNodeDetailsTabDTO {
+	title: string;
+	sections: IDataConnectionNodeDetailsSectionDTO[];
+}
+
+/**
+ * Serializable details of a node, returned from getDetails calls. Mirrors
+ * positron.DataConnectionNodeDetails.
+ */
+export interface IDataConnectionNodeDetailsDTO {
+	description?: string;
+	sections: IDataConnectionNodeDetailsSectionDTO[];
+	tabs?: IDataConnectionNodeDetailsTabDTO[];
 }
 
 /**

@@ -9,7 +9,7 @@ import { ReactNode } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
-import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
+import { DataConnectionNodeRow, kindIcon } from '../components/dataConnectionNodeRow.js';
 import { MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
@@ -20,6 +20,10 @@ import { PositronActionBarHoverManager } from '../../../../../platform/positronA
 import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
+import { findParentIndex } from '../../../../browser/positronTree/classes/treeProjection.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { openDataConnectionNodeDetails } from '../editor/dataConnectionNodeDetailsEditor.js';
+import { IDataConnectionNodeDetailsTarget } from '../editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
@@ -198,6 +202,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		private readonly _configurationService: IConfigurationService,
 		private readonly _notificationService: INotificationService,
 		hoverService: IHoverService,
+		private readonly _editorService: IEditorService,
 	) {
 		super({
 			rowHeight: ROW_HEIGHT,
@@ -720,13 +725,78 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			return this.holdFocusAppearance();
 		};
 
+		// Bound to the row's index at render time, like the callbacks above.
+		const onOpenDetails = (pinned: boolean) => this.openNodeDetails(context.index, pinned);
+
 		switch (data.kind) {
 			case 'entry':
 				// Entries are roots, so no ancestor can be refreshing them out from under the row.
 				return <DataConnectionEntryRow entry={data.entry} hoverManager={this._hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 			case 'dto':
-				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
+				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onOpenDetails={onOpenDetails} onRefresh={onRefresh} />;
 		}
+	}
+
+	/**
+	 * Enter commits the selection (see the base class) and, on a node that has details, opens its
+	 * details editor -- the keyboard counterpart of single-clicking the row. openNodeDetails does
+	 * nothing for a node without details.
+	 */
+	override async onEnterKey(): Promise<void> {
+		await super.onEnterKey();
+		await this.openNodeDetails(this.cursorRowIndex, false);
+	}
+
+	/**
+	 * Opens the details editor for the node at a row, fetching its details from the driver. Does
+	 * nothing for a row that has no details, or one on its way out under an ancestor's refresh
+	 * (its handle may already be dead).
+	 * @param rowIndex The index of the row.
+	 * @param pinned Whether to open the tab pinned rather than in preview mode.
+	 */
+	async openNodeDetails(rowIndex: number, pinned: boolean): Promise<void> {
+		const visible = this.visibleNodes[rowIndex];
+		if (visible === undefined || visible.stale || visible.node.data.kind !== 'dto' || !visible.node.data.dto.hasDetails) {
+			return;
+		}
+
+		const { dto, handle } = visible.node.data;
+		try {
+			const details = await handle.nodeGetDetails(dto.nodeHandle);
+			await openDataConnectionNodeDetails(this._editorService, this._detailsTarget(rowIndex, dto), details, pinned);
+		} catch (error) {
+			this._notificationService.error(localize(
+				'positron.dataConnections.showDetailsFailed',
+				"Could not show the details of '{0}': {1}",
+				dto.name,
+				error instanceof Error ? error.message : String(error)
+			));
+		}
+	}
+
+	/**
+	 * Builds the details target for the DTO node at a row by walking up to its connection entry.
+	 * Group rows ("Tables", "Metrics") are left out of both the key and the path: they only label
+	 * the rows under them, and the kind in each node's reload key already tells same-named
+	 * siblings of different kinds apart.
+	 * @param rowIndex The index of the row.
+	 * @param dto The DTO node at the row.
+	 */
+	private _detailsTarget(rowIndex: number, dto: IDataConnectionNodeDTO): IDataConnectionNodeDetailsTarget {
+		const keys: string[] = [];
+		const path: string[] = [];
+		for (let index: number | undefined = rowIndex; index !== undefined; index = findParentIndex(this.visibleNodes, index)) {
+			const data = this.visibleNodes[index].node.data;
+			if (data.kind === 'entry') {
+				keys.unshift(reloadKey(data));
+				path.unshift(data.entry.profile.connectionName);
+			} else if (!CONTAINER_ONLY_KINDS.has(data.dto.kind)) {
+				keys.unshift(reloadKey(data));
+				path.unshift(data.dto.name);
+			}
+		}
+
+		return { key: JSON.stringify(keys), name: dto.name, icon: kindIcon(dto), path };
 	}
 
 	private _findEntryNode(id: string): { entry: DataConnectionEntry } | undefined {

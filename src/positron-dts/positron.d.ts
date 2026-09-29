@@ -2470,18 +2470,24 @@ declare module 'positron' {
 		GroupSemanticViews = 'group-semantic-views',
 		SemanticView = 'semantic-view',
 		// The members of a semantic view, and the groups that hold them. A logical table is the
-		// semantic view's alias for a base table; a relationship joins two logical tables; facts,
-		// dimensions, and metrics are named row-level expressions, grouping attributes, and
-		// aggregations.
+		// semantic view's alias for a base table, and holds that table's dimensions (grouping
+		// attributes), time dimensions (date and time attributes), facts (row-level expressions),
+		// named filters (reusable conditions), and metrics (aggregations). A relationship joins two
+		// logical tables, and a derived metric is a view-level metric built from other metrics.
 		GroupLogicalTables = 'group-logical-tables',
 		GroupRelationships = 'group-relationships',
 		GroupFacts = 'group-facts',
 		GroupDimensions = 'group-dimensions',
+		GroupTimeDimensions = 'group-time-dimensions',
+		GroupNamedFilters = 'group-named-filters',
 		GroupMetrics = 'group-metrics',
+		GroupDerivedMetrics = 'group-derived-metrics',
 		LogicalTable = 'logical-table',
 		Relationship = 'relationship',
 		Fact = 'fact',
 		Dimension = 'dimension',
+		TimeDimension = 'time-dimension',
+		NamedFilter = 'named-filter',
 		Metric = 'metric',
 	}
 
@@ -2522,6 +2528,208 @@ declare module 'positron' {
 		 * still in use.
 		 */
 		preview?(): Thenable<string | void>;
+
+		/**
+		 * Describe this node in detail. Positron shows the result in a details editor when the user
+		 * clicks the node, so implement this for nodes whose definition is worth reading on its own
+		 * (e.g. a semantic view metric's expression, or a stage's location).
+		 *
+		 * The result is a snapshot: Positron fetches it when the editor opens, and again when the
+		 * user clicks the node again.
+		 */
+		getDetails?(): Thenable<DataConnectionNodeDetails>;
+	}
+
+	/**
+	 * The details of a data connection node, shown in the details editor. The node's own name and
+	 * kind head the editor; this supplies what goes beneath them.
+	 */
+	export interface DataConnectionNodeDetails {
+		/**
+		 * A short line saying what and where the node is, shown under its name
+		 * (e.g. "Metric in DEMO_DB.PUBLIC.SALES_MODEL").
+		 */
+		description?: string;
+
+		/**
+		 * The sections of the details, shown in order. Ignored when `tabs` is set.
+		 */
+		sections: DataConnectionNodeDetailsSection[];
+
+		/**
+		 * The details split into tabs (e.g. an Overview and a Definition), for nodes with more to
+		 * show than reads well on one page. When set, the editor shows a tab strip over these in
+		 * place of `sections`.
+		 */
+		tabs?: DataConnectionNodeDetailsTab[];
+	}
+
+	/**
+	 * A tab of a data connection node's details.
+	 */
+	export interface DataConnectionNodeDetailsTab {
+		/**
+		 * The tab's name.
+		 */
+		title: string;
+
+		/**
+		 * The tab's sections, shown in order.
+		 */
+		sections: DataConnectionNodeDetailsSection[];
+	}
+
+	/**
+	 * A section of a data connection node's details.
+	 */
+	export type DataConnectionNodeDetailsSection =
+		| DataConnectionNodeDetailsPropertiesSection
+		| DataConnectionNodeDetailsCodeSection
+		| DataConnectionNodeDetailsTableSection
+		| DataConnectionNodeDetailsGroupSection
+		| DataConnectionNodeDetailsItemsSection;
+
+	/**
+	 * A heading over sections of its own, which may themselves be groups (e.g. "Logical Tables",
+	 * holding a group per table, each holding its "Dimensions"). Nested groups are shown at
+	 * successively smaller heading levels.
+	 */
+	export interface DataConnectionNodeDetailsGroupSection {
+		kind: 'group';
+
+		/**
+		 * The group's heading.
+		 */
+		title: string;
+
+		/**
+		 * A count shown beside the heading (e.g. how many items the group holds).
+		 */
+		count?: number;
+
+		/**
+		 * Whether the user can collapse the group. Collapsible groups start expanded.
+		 */
+		collapsible?: boolean;
+
+		/**
+		 * The group's sections, shown in order.
+		 */
+		sections: DataConnectionNodeDetailsSection[];
+	}
+
+	/**
+	 * A list of named things (e.g. a semantic view's dimensions), each with an optional data type,
+	 * description, and snippet of code.
+	 */
+	export interface DataConnectionNodeDetailsItemsSection {
+		kind: 'items';
+
+		/**
+		 * The section's heading, if it has one.
+		 */
+		title?: string;
+
+		/**
+		 * The items, shown in order.
+		 */
+		items: DataConnectionNodeDetailsItem[];
+
+		/**
+		 * What to show when there are no items (e.g. "No dimensions").
+		 */
+		emptyText?: string;
+	}
+
+	/**
+	 * An item in a data connection node's details.
+	 */
+	export interface DataConnectionNodeDetailsItem {
+		/**
+		 * The item's name.
+		 */
+		name: string;
+
+		/**
+		 * The kind of node the item is, which picks its icon.
+		 */
+		kind?: DataConnectionNodeKind;
+
+		/**
+		 * The item's data type, shown beside its name.
+		 */
+		dataType?: string;
+
+		/**
+		 * A sentence or two about the item (e.g. its comment).
+		 */
+		description?: string;
+
+		/**
+		 * A snippet of code that defines the item (e.g. its SQL expression).
+		 */
+		code?: string;
+	}
+
+	/**
+	 * A section of name/value pairs (e.g. Data Type: NUMBER(38,0)).
+	 */
+	export interface DataConnectionNodeDetailsPropertiesSection {
+		kind: 'properties';
+
+		/**
+		 * The section's heading, if it has one.
+		 */
+		title?: string;
+
+		/**
+		 * The properties, shown in order.
+		 */
+		properties: { name: string; value: string }[];
+	}
+
+	/**
+	 * A section holding a block of code (e.g. a metric's SQL expression, or an object's DDL).
+	 */
+	export interface DataConnectionNodeDetailsCodeSection {
+		kind: 'code';
+
+		/**
+		 * The section's heading, if it has one.
+		 */
+		title?: string;
+
+		/**
+		 * The language of the code (e.g. 'sql').
+		 */
+		languageId?: string;
+
+		/**
+		 * The code.
+		 */
+		code: string;
+	}
+
+	/**
+	 * A section holding a small table (e.g. the files in a stage).
+	 */
+	export interface DataConnectionNodeDetailsTableSection {
+		kind: 'table';
+
+		/**
+		 * The section's heading, if it has one.
+		 */
+		title?: string;
+
+		/**
+		 * The column headings.
+		 */
+		columns: string[];
+
+		/**
+		 * The rows, each holding one value per column.
+		 */
+		rows: string[][];
 	}
 
 	/**

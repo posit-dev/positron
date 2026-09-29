@@ -8,6 +8,7 @@
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
@@ -58,7 +59,7 @@ function dtoNode(
 ): DataConnectionNode {
 	return {
 		kind: 'dto',
-		dto: { nodeHandle: 99, hasGetChildren: true, hasPreview: false, ...dto },
+		dto: { nodeHandle: 99, hasGetChildren: true, hasPreview: false, hasDetails: false, ...dto },
 		handle: createHandle(handle),
 	};
 }
@@ -197,6 +198,7 @@ describe('DataConnectionsTreeInstance', () => {
 			kind: 'table',
 			hasGetChildren: false,
 			hasPreview: true,
+			hasDetails: false,
 		}]);
 		const instance = stubInterface<IDataConnectionInstance>({
 			id: 'instance-1',
@@ -227,7 +229,7 @@ describe('DataConnectionsTreeInstance', () => {
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
-		const tree = new DataConnectionsTreeInstance(service, configurationService, notificationService, hoverService);
+		const tree = new DataConnectionsTreeInstance(service, configurationService, notificationService, hoverService, stubInterface<IEditorService>());
 		ctx.disposables.add(tree);
 
 		const setConnected = (nowConnected: boolean) => {
@@ -287,14 +289,14 @@ describe('DataConnectionsTreeInstance', () => {
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
 			'dataConnections.tree.showSingleSchema': showSingleSchema,
-		}), notificationService, hoverService);
+		}), notificationService, hoverService, stubInterface<IEditorService>());
 		ctx.disposables.add(tree);
 		return { tree, nodeGetChildren, notificationError };
 	}
 
 	/** A node DTO, defaulting to an expandable, non-previewable one. */
 	function nodeDto(overrides: Partial<IDataConnectionNodeDTO> & Pick<IDataConnectionNodeDTO, 'nodeHandle' | 'name' | 'kind'>): IDataConnectionNodeDTO {
-		return { hasGetChildren: true, hasPreview: false, ...overrides };
+		return { hasGetChildren: true, hasPreview: false, hasDetails: false, ...overrides };
 	}
 
 	/** The visible rows as name / breadcrumb prefix / expanded triples. */
@@ -795,6 +797,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 					kind: 'table',
 					hasGetChildren: false,
 					hasPreview: true,
+					hasDetails: false,
 				}],
 			}),
 		});
@@ -831,7 +834,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
-		}), stubInterface<INotificationService>({ error: vi.fn() }), hoverService);
+		}), stubInterface<INotificationService>({ error: vi.fn() }), hoverService, stubInterface<IEditorService>());
 		ctx.disposables.add(tree);
 
 		// The tree asks the view rendering it to take keyboard focus, which is the part of a reveal

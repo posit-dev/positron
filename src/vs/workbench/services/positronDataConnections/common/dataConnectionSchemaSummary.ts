@@ -31,7 +31,10 @@ export const CONTAINER_ONLY_KINDS = new Set([
 	'group-relationships',
 	'group-facts',
 	'group-dimensions',
+	'group-time-dimensions',
+	'group-named-filters',
 	'group-metrics',
+	'group-derived-metrics',
 ]);
 
 // Node kinds whose children are files rather than schema, and so are summarized as leaves: the walk

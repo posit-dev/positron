@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -42,6 +42,7 @@ describe('DataConnectionNodeRow', () => {
 			kind: 'table',
 			hasGetChildren: false,
 			hasPreview: true,
+			hasDetails: false,
 			...overrides,
 		};
 	}
@@ -65,6 +66,7 @@ describe('DataConnectionNodeRow', () => {
 				handle={handle}
 				stale={stale}
 				onMenuOpening={onMenuOpening}
+				onOpenDetails={vi.fn(async () => { })}
 				onRefresh={onRefresh}
 			/>
 		);
@@ -197,5 +199,46 @@ describe('DataConnectionNodeRow', () => {
 		const { call } = await rightClickRow(createDto({ hasGetChildren: true }));
 
 		expect(call.anchorPoint).toEqual({ clientX: expect.any(Number), clientY: expect.any(Number) });
+	});
+	describe('details', () => {
+		function renderRow(dto: IDataConnectionNodeDTO, onOpenDetails: (pinned: boolean) => Promise<void>) {
+			rtl.render(
+				<DataConnectionNodeRow
+					dto={dto}
+					handle={stubInterface<IDataConnectionHandle>({ handle: 1 })}
+					stale={false}
+					onMenuOpening={() => ({ dispose: () => { } })}
+					onOpenDetails={onOpenDetails}
+					onRefresh={vi.fn()}
+				/>
+			);
+			return { rowText: screen.getByText(dto.name), user: userEvent.setup() };
+		}
+
+		it('keeps the details tab open on a double-click that lands while the first click is still fetching', async () => {
+			// The first (preview-mode) open doesn't settle until released, as with a slow connection.
+			let releaseFirstOpen!: () => void;
+			const onOpenDetails = vi.fn((pinned: boolean) => pinned
+				? Promise.resolve()
+				: new Promise<void>(resolve => { releaseFirstOpen = resolve; }));
+			const { rowText, user } = renderRow(createDto({ kind: 'metric', name: 'NET_REVENUE', hasPreview: false, hasDetails: true }), onOpenDetails);
+
+			await user.dblClick(rowText);
+			expect(onOpenDetails.mock.calls).toEqual([[false]]);
+
+			await act(async () => releaseFirstOpen());
+
+			expect(onOpenDetails.mock.calls).toEqual([[false], [true]]);
+		});
+
+		it('opens a previewable node\'s details, not the Data Explorer, on double-click', async () => {
+			const onOpenDetails = vi.fn(async () => { });
+			const { rowText, user } = renderRow(createDto({ kind: 'logical-table', name: 'REF_ENTITIES', hasPreview: true, hasDetails: true }), onOpenDetails);
+
+			await user.dblClick(rowText);
+
+			expect(onOpenDetails).toHaveBeenLastCalledWith(true);
+			expect(previewNode).not.toHaveBeenCalled();
+		});
 	});
 });

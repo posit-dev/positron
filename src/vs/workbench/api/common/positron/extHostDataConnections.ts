@@ -5,8 +5,81 @@
 
 import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
-import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { Disposable } from '../extHostTypes.js';
+
+/**
+ * Coerces a value from a driver to a string. A driver can easily hand back a number or a null
+ * straight from a query result.
+ */
+function detailsText(value: unknown): string {
+	return value === null || value === undefined ? '' : String(value);
+}
+
+/**
+ * Coerces an optional value from a driver to a string, keeping it absent when the driver left it out
+ * (or sent a null).
+ */
+function optionalDetailsText(value: unknown): string | undefined {
+	return value === null || value === undefined ? undefined : String(value);
+}
+
+/**
+ * Converts a section of a driver's node details into a DTO, recursing into groups. Only the known
+ * fields are copied, and every value is coerced to the type the wire promises, so a driver can't put
+ * an unexpected shape on the wire for the editor to trip over.
+ */
+function detailsSectionToDTO(section: positron.DataConnectionNodeDetailsSection): IDataConnectionNodeDetailsSectionDTO {
+	switch (section.kind) {
+		case 'properties':
+			return {
+				kind: 'properties',
+				title: optionalDetailsText(section.title),
+				properties: section.properties.map(property => ({ name: detailsText(property.name), value: detailsText(property.value) })),
+			};
+		case 'code':
+			return { kind: 'code', title: optionalDetailsText(section.title), languageId: optionalDetailsText(section.languageId), code: detailsText(section.code) };
+		case 'table':
+			return {
+				kind: 'table',
+				title: optionalDetailsText(section.title),
+				columns: section.columns.map(detailsText),
+				rows: section.rows.map(row => row.map(detailsText)),
+			};
+		case 'group':
+			return {
+				kind: 'group',
+				title: detailsText(section.title),
+				count: typeof section.count === 'number' ? section.count : undefined,
+				collapsible: section.collapsible === true,
+				sections: section.sections.map(detailsSectionToDTO),
+			};
+		case 'items':
+			return {
+				kind: 'items',
+				title: optionalDetailsText(section.title),
+				emptyText: optionalDetailsText(section.emptyText),
+				items: section.items.map(item => ({
+					name: detailsText(item.name),
+					kind: optionalDetailsText(item.kind),
+					dataType: optionalDetailsText(item.dataType),
+					description: optionalDetailsText(item.description),
+					code: optionalDetailsText(item.code),
+				})),
+			};
+	}
+}
+
+/**
+ * Converts a driver's node details into a DTO. See detailsSectionToDTO.
+ */
+function detailsToDTO(details: positron.DataConnectionNodeDetails): IDataConnectionNodeDetailsDTO {
+	return {
+		description: optionalDetailsText(details.description),
+		sections: details.sections.map(detailsSectionToDTO),
+		tabs: details.tabs?.map(tab => ({ title: detailsText(tab.title), sections: tab.sections.map(detailsSectionToDTO) })),
+	};
+}
 
 /**
  * Extension host implementation for the `positron.dataConnections` API namespace.
@@ -291,6 +364,19 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		return typeof datasetId === 'string' ? datasetId : undefined;
 	}
 
+	/** Gets a node's details, for the details editor. */
+	async $nodeGetDetails(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO> {
+		const nodeMap = this._nodes.get(connectionHandle);
+		if (!nodeMap) {
+			throw new Error(`Connection handle ${connectionHandle} not found`);
+		}
+		const node = nodeMap.get(nodeHandle);
+		if (!node || !node.getDetails) {
+			throw new Error(`Node handle ${nodeHandle} does not support getDetails`);
+		}
+		return detailsToDTO(await node.getDetails());
+	}
+
 	/** Frees a connection handle and all its associated node handles. */
 	$releaseConnection(connectionHandle: number): void {
 		this._releaseConnectionHandle(connectionHandle);
@@ -348,6 +434,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 				isPrimaryKey: node.isPrimaryKey,
 				hasGetChildren: !!node.getChildren,
 				hasPreview: !!node.preview,
+				hasDetails: !!node.getDetails,
 			};
 		});
 	}
@@ -470,6 +557,15 @@ class ExtHostDataConnectionProxy implements positron.DataConnection {
 		if (dto.hasPreview) {
 			node.preview = async () => {
 				return this._proxy.$nodePreviewViaService(this._connectionHandle, dto.nodeHandle);
+			};
+		}
+
+		if (dto.hasDetails) {
+			node.getDetails = async () => {
+				// The DTO is the API shape except that item kinds cross the wire as plain strings;
+				// they are DataConnectionNodeKind values, as the node's own kind above is.
+				const details = await this._proxy.$nodeGetDetailsViaService(this._connectionHandle, dto.nodeHandle);
+				return details as positron.DataConnectionNodeDetails;
 			};
 		}
 

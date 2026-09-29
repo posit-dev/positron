@@ -545,11 +545,16 @@ export enum DataConnectionNodeKind {
 	GroupRelationships = 'group-relationships',
 	GroupFacts = 'group-facts',
 	GroupDimensions = 'group-dimensions',
+	GroupTimeDimensions = 'group-time-dimensions',
+	GroupNamedFilters = 'group-named-filters',
 	GroupMetrics = 'group-metrics',
+	GroupDerivedMetrics = 'group-derived-metrics',
 	LogicalTable = 'logical-table',
 	Relationship = 'relationship',
 	Fact = 'fact',
 	Dimension = 'dimension',
+	TimeDimension = 'time-dimension',
+	NamedFilter = 'named-filter',
 	Metric = 'metric',
 }
 

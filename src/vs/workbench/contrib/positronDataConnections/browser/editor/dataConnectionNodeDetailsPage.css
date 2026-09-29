@@ -1,0 +1,325 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * The data connection node details page. A calm, document-like reading surface: a header naming
+ * the node, then its sections top to bottom at a readable measure. Text is selectable, since the
+ * point of the page is often to copy something out of it (an expression, a location).
+ */
+
+.data-connection-node-details-editor-container {
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+}
+
+/*
+ * The container takes focus so the editor has somewhere to put it (see focus()), which the page
+ * does not need to show. Anchored on `.monaco-workbench` and the tabindex so it outranks the
+ * workbench's `[tabindex="-1"]:focus` outline (style.css), which would otherwise ring the whole
+ * editor on every click.
+ */
+.monaco-workbench .data-connection-node-details-editor-container[tabindex="-1"]:focus {
+	outline: none;
+}
+
+.data-connection-node-details-page {
+	box-sizing: border-box;
+	max-width: 900px;
+	padding: var(--vscode-spacing-size240) var(--vscode-spacing-size320);
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size240);
+	color: var(--vscode-editor-foreground);
+	font-size: var(--vscode-fontSize-body1);
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+.data-connection-node-details-page .data-connection-node-details-header {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size120);
+}
+
+.data-connection-node-details-page .data-connection-node-details-icon {
+	/* Sized to sit on the heading's first line. */
+	font-size: 24px;
+	line-height: 32px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.data-connection-node-details-page .data-connection-node-details-heading {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size40);
+	min-width: 0;
+}
+
+.data-connection-node-details-page .data-connection-node-details-name {
+	margin: 0;
+	font-size: var(--vscode-fontSize-heading2);
+	font-weight: var(--vscode-fontWeight-semiBold);
+	line-height: 32px;
+	overflow-wrap: anywhere;
+}
+
+.data-connection-node-details-page .data-connection-node-details-description,
+.data-connection-node-details-page .data-connection-node-details-empty {
+	color: var(--vscode-descriptionForeground);
+	overflow-wrap: anywhere;
+}
+
+.data-connection-node-details-page .data-connection-node-details-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size80);
+}
+
+.data-connection-node-details-page .data-connection-node-details-section-title {
+	margin: 0;
+	font-size: var(--vscode-fontSize-heading3);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+/* Properties: a two-column grid of names and values, names in the quieter color. */
+.data-connection-node-details-page .data-connection-node-details-properties {
+	margin: 0;
+	display: grid;
+	grid-template-columns: max-content minmax(0, 1fr);
+	column-gap: var(--vscode-spacing-size240);
+	row-gap: var(--vscode-spacing-size60);
+}
+
+.data-connection-node-details-page .data-connection-node-details-property {
+	display: contents;
+}
+
+.data-connection-node-details-page .data-connection-node-details-property dt {
+	color: var(--vscode-descriptionForeground);
+}
+
+.data-connection-node-details-page .data-connection-node-details-property dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+/* Code: the editor's own font on a recessed inner surface. */
+.data-connection-node-details-page .data-connection-node-details-code {
+	margin: 0;
+	padding: var(--vscode-spacing-size120);
+	border-radius: var(--vscode-cornerRadius-medium);
+	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, transparent);
+	background-color: var(--vscode-textCodeBlock-background);
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+/* Table: hairline row dividers, headings in the quieter color. */
+.data-connection-node-details-page .data-connection-node-details-table {
+	border-collapse: collapse;
+	width: 100%;
+}
+
+.data-connection-node-details-page .data-connection-node-details-table th,
+.data-connection-node-details-page .data-connection-node-details-table td {
+	padding: var(--vscode-spacing-size40) var(--vscode-spacing-size120) var(--vscode-spacing-size40) 0;
+	text-align: left;
+	vertical-align: top;
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+}
+
+.data-connection-node-details-page .data-connection-node-details-table th {
+	color: var(--vscode-descriptionForeground);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+/* The sections of a page or tab, and of a group, stacked with room between them. */
+.data-connection-node-details-page .data-connection-node-details-sections {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size240);
+}
+
+.data-connection-node-details-page .positron-tabs-panel {
+	padding-top: var(--vscode-spacing-size200);
+}
+
+/*
+ * Groups. A top-level group reads as a chapter (heading ramp, hairline beneath); nested groups step
+ * down the type ramp and sit closer, so the hierarchy is carried by type and spacing rather than by
+ * indentation alone.
+ */
+.data-connection-node-details-page .data-connection-node-details-group {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size120);
+}
+
+.data-connection-node-details-page .data-connection-node-details-group-content {
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size160);
+}
+
+.data-connection-node-details-page .data-connection-node-details-group-title {
+	margin: 0;
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	font-weight: var(--vscode-fontWeight-semiBold);
+}
+
+.data-connection-node-details-page .data-connection-node-details-group.level-2 > .data-connection-node-details-group-title {
+	padding-bottom: var(--vscode-spacing-size80);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+	font-size: var(--vscode-fontSize-heading2);
+}
+
+.data-connection-node-details-page .data-connection-node-details-group.level-3 > .data-connection-node-details-group-title,
+.data-connection-node-details-page .data-connection-node-details-group.level-4 > .data-connection-node-details-group-title {
+	font-size: var(--vscode-fontSize-heading3);
+}
+
+/* Beneath a level-3 heading (e.g. a logical table), its groups are indented under it. */
+.data-connection-node-details-page .data-connection-node-details-group.level-3 > .data-connection-node-details-group-content {
+	padding-left: var(--vscode-spacing-size240);
+}
+
+.data-connection-node-details-page .data-connection-node-details-group.level-4 > .data-connection-node-details-group-title {
+	color: var(--vscode-descriptionForeground);
+}
+
+/*
+ * A collapsible group's contents hang under its heading: past the chevron (a 16px glyph and the
+ * heading's gap), so they start under the heading's text, then one step further, so they read as
+ * belonging to it rather than as more headings.
+ */
+.data-connection-node-details-page .data-connection-node-details-group.collapsible > .data-connection-node-details-group-content {
+	padding-left: calc(16px + var(--vscode-spacing-size80) + var(--vscode-spacing-size160));
+}
+
+/*
+ * A collapsible group's heading carries a hairline across the page beneath it, as in Snowsight,
+ * marking where the group's contents begin.
+ */
+.data-connection-node-details-page .data-connection-node-details-group.collapsible > .data-connection-node-details-group-title {
+	padding-bottom: var(--vscode-spacing-size80);
+	border-bottom: var(--vscode-strokeThickness) solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+}
+
+/* A collapsible group's heading is a button that looks like the heading it replaces. */
+.data-connection-node-details-page .data-connection-node-details-group-toggle {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	padding: 0;
+	border: none;
+	border-radius: var(--vscode-cornerRadius-small);
+	background: none;
+	color: inherit;
+	font: inherit;
+	cursor: pointer;
+}
+
+/* A mouse click leaves no ring (it outranks the workbench's `button:focus`); the keyboard does. */
+.data-connection-node-details-page .data-connection-node-details-group-toggle:focus {
+	outline: none;
+}
+
+.data-connection-node-details-page .data-connection-node-details-group-toggle:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+/* The count beside a group heading: a quiet pill on the regular weight. */
+.data-connection-node-details-page .data-connection-node-details-count {
+	padding: 0 var(--vscode-spacing-size60);
+	border-radius: var(--vscode-cornerRadius-circle);
+	background-color: var(--vscode-badge-background);
+	color: var(--vscode-badge-foreground);
+	font-size: var(--vscode-fontSize-label2);
+	font-weight: var(--vscode-fontWeight-regular);
+	line-height: 16px;
+}
+
+/* Items: a name line, then the description and code beneath it, aligned past the icon. */
+.data-connection-node-details-page .data-connection-node-details-items {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: flex;
+	flex-direction: column;
+	gap: var(--vscode-spacing-size120);
+}
+
+.data-connection-node-details-page .data-connection-node-details-item {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--vscode-spacing-size40);
+}
+
+.data-connection-node-details-page .data-connection-node-details-item-heading {
+	display: flex;
+	align-items: center;
+	gap: var(--vscode-spacing-size80);
+	min-width: 0;
+}
+
+.data-connection-node-details-page .data-connection-node-details-item-icon {
+	flex-shrink: 0;
+	color: var(--vscode-descriptionForeground);
+}
+
+.data-connection-node-details-page .data-connection-node-details-item-name {
+	font-weight: var(--vscode-fontWeight-semiBold);
+	overflow-wrap: anywhere;
+}
+
+.data-connection-node-details-page .data-connection-node-details-item-type {
+	color: var(--vscode-descriptionForeground);
+	font-size: var(--vscode-fontSize-label1);
+}
+
+/* The description and definition line up under the name, past the icon (16px glyph + the gap). */
+.data-connection-node-details-page .data-connection-node-details-item-description,
+.data-connection-node-details-page .data-connection-node-details-item-definition {
+	margin-left: calc(16px + var(--vscode-spacing-size80));
+}
+
+/* The code chip and the data type, read together as the item's definition. */
+.data-connection-node-details-page .data-connection-node-details-item-definition {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--vscode-spacing-size80);
+	max-width: calc(100% - 16px - var(--vscode-spacing-size80));
+}
+
+.data-connection-node-details-page .data-connection-node-details-item-separator {
+	color: var(--vscode-descriptionForeground);
+}
+
+.data-connection-node-details-page .data-connection-node-details-item-description {
+	color: var(--vscode-descriptionForeground);
+	overflow-wrap: anywhere;
+}
+
+/* The item's code: an inline chip rather than a block, since it is usually a short expression. */
+.data-connection-node-details-page .data-connection-node-details-item-code {
+	max-width: 100%;
+	box-sizing: border-box;
+	padding: var(--vscode-spacing-size20) var(--vscode-spacing-size80);
+	border-radius: var(--vscode-cornerRadius-small);
+	border: var(--vscode-strokeThickness) solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+	background-color: var(--vscode-textCodeBlock-background);
+	font-family: var(--vscode-editor-font-family);
+	font-size: var(--vscode-editor-font-size);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
