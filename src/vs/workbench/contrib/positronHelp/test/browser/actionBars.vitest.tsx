@@ -68,7 +68,7 @@ describe('Help ActionBars', () => {
 		await user.type(input, 'linear model{Enter}');
 
 		expect(searchHelp).toHaveBeenCalledWith('linear model');
-		expect(input.closest('.positron-action-bar')?.querySelector('[aria-label="Previous topic"]')).not.toBeNull();
+		expect(input.closest('.positron-action-bar')).toContainElement(screen.getByRole('button', { name: 'Previous topic' }));
 	});
 
 	it('offers interpreter topics and opens a selected suggestion', async () => {
@@ -83,7 +83,7 @@ describe('Help ActionBars', () => {
 
 		expect(showHelpTopicForForegroundSession).toHaveBeenCalledWith('graphics::plot');
 		expect(searchHelp).not.toHaveBeenCalled();
-		expect(screen.queryByRole('listbox')).toBeNull();
+		expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 	});
 	it('waits while busy and does not repeat requests for comm Busy/Idle events', async () => {
 		runtimeState = RuntimeState.Busy;
@@ -109,7 +109,7 @@ describe('Help ActionBars', () => {
 			runtimeState = RuntimeState.Idle;
 			runtimeEvents.fire(runtimeState);
 		});
-		await screen.findByRole('option', { name: /plot graphics/ });
+		expect(await screen.findByRole('option', { name: /plot graphics/ })).toBeInTheDocument();
 		await new Promise(done => setTimeout(done, 250));
 		expect(getHelpTopics).toHaveBeenCalledOnce();
 	});

@@ -21,14 +21,13 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IOpenerService, OpenExternalOptions } from '../../../../platform/opener/common/opener.js';
 import { WebviewThemeDataProvider } from '../../webview/browser/themeing.js';
 import { HelpEntry, IHelpEntry } from './helpEntry.js';
-import { ShowHelpEvent } from '../../../services/languageRuntime/common/positronHelpComm.js';
+import { HelpTopicSuggestion, ShowHelpEvent } from '../../../services/languageRuntime/common/positronHelpComm.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService, createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { HELP_SEARCH_TIMEOUT_MS, HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronDocsService } from '../../../services/positronDocs/browser/positronDocsService.js';
-import { HelpTopicSuggestion } from '../../../services/languageRuntime/common/positronHelpComm.js';
 
 /**
  * The help HTML file path.
