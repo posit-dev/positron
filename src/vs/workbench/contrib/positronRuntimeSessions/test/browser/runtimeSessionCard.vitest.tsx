@@ -54,14 +54,17 @@ describe('RuntimeSessionCard', () => {
 
 		// The detail already starts with the English label, so the label is
 		// not shown separately.
-		expect(screen.getAllByText(/This workspace's last used interpreter/)).toEqual([
-			screen.getByText('This workspace\'s last used interpreter was restored at startup (language: python) [affiliatedRuntime]'),
+		expect(screen.getAllByText(/Start Reason/).map(el => el.textContent)).toEqual([
+			'Start Reason: This workspace\'s last used interpreter was restored at startup (language: python)',
+			'Start Reason ID: affiliatedRuntime',
 		]);
 	});
 
 	it('shows only the detail when the session has no start reason ID', () => {
 		renderCard('Affiliated Python runtime for workspace');
 
-		expect(screen.getByText('Affiliated Python runtime for workspace')).toBeInTheDocument();
+		expect(screen.getAllByText(/Start Reason/).map(el => el.textContent)).toEqual([
+			'Start Reason: Affiliated Python runtime for workspace',
+		]);
 	});
 });
