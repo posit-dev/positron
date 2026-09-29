@@ -9,19 +9,12 @@ import { connectToRemoteHost, sshKeyscan } from './connect';
 test.use({
 	suiteId: __filename,
 	// Launch the client with the auto-sign-in env var unset so Anthropic starts
-	// disconnected and the test genuinely drives the modal's connect flow instead
+	// disconnected and the test genuinely drives the provider manager's connect flow instead
 	// of finding the provider already signed in. This does not starve the test of a
-	// key: the modal types `ANTHROPIC_KEY`, which the lane loads separately (see
+	// key: the provider manager types `ANTHROPIC_KEY`, which the lane loads separately (see
 	// .github/workflows/test-e2e-remote-ssh-ubuntu.yml).
 	extraEnv: { ANTHROPIC_API_KEY: undefined },
 });
-
-// Quarantined: this suite drives the core "Configure LLM Providers" modal, which
-// has been removed along with the `positron.ai` provider-configuration API.
-// Provider sign-in now lives in the Posit Assistant extension's provider-manager
-// webview, which needs its own page object before these can be restored.
-test.skip(true, 'Provider sign-in moved to the Posit Assistant provider manager; awaiting a page object for it.');
-
 
 // Only the remote-ssh tag: the lane that runs this suite is the one that
 // extracts a real REH tarball into the docker host, which is what makes the test
@@ -52,7 +45,7 @@ test.describe('Remote SSH: Posit Assistant', {
 
 		const { sshWorkbench } = await connectToRemoteHost(app);
 
-		await sshWorkbench.modelProviderModal.loginModelProvider('anthropic');
+		await sshWorkbench.providerManager.loginModelProvider('anthropic');
 
 		try {
 			await sshWorkbench.positAssistant.open();
@@ -69,7 +62,7 @@ test.describe('Remote SSH: Posit Assistant', {
 			const responseText = await sshWorkbench.positAssistant.getLastResponseText();
 			expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await sshWorkbench.modelProviderModal.logoutModelProvider('anthropic');
+			await sshWorkbench.providerManager.logoutModelProvider('anthropic');
 		}
 	});
 });
