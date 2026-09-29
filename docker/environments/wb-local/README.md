@@ -64,6 +64,8 @@ Two things behave differently than on macOS or Linux:
 | `npm run pwb -- --reinstall` | Re-run the pickers and reinstall, to switch Positron/Workbench versions. |
 | `npm run pwb -- --credentials=<type>` | Install with a managed data-source connection: `databricks`, `snowflake`, or `azure`. See [Managed credentials](#managed-credentials). |
 | `npm run pwb -- --workbench=<release\|daily\|URL> --positron=<release\|daily\|TAG>` | Skip the version pickers. Required when there is no TTY (agents, CI, piped runs). See [Non-interactive runs](#non-interactive-runs). |
+| `npm run pwb -- --positron-build=<run\|file>` | Swap a Positron Workbench build from a GitHub Actions run, or a local tarball, in place of the official one. See [Testing a Positron build](#testing-a-positron-build). |
+| `npm run pwb -- --vsix=<file>` | Install an extension `.vsix` for `user1`. Repeatable. |
 | `npm run pwb -- --ttl N` | Set the auto-stop to N minutes; `--no-ttl` disables it. |
 | `npm run pwb -- status` | Containers, installed versions, and URLs. |
 | `npm run pwb -- logs [svc]` | Tail logs: `rserver` (default), `connect`, or a container name. |
@@ -113,6 +115,67 @@ installing whichever build happened to be listed first.
 Note that the e2e suites which exercise newer Positron features (for example
 Data Connections) need `--positron=daily`; a release build can be too old and the
 test fails on a missing UI element rather than anything real.
+
+## Testing a Positron build
+
+To try a branch in Workbench, swap its build in over the official Positron:
+
+```bash
+npm run pwb -- --positron-build=<run ID or run URL>
+npm run pwb -- --positron-build=path/to/positron-workbench-linux-x64-branch.tar.gz
+```
+
+Workbench runs a separate flavor of Positron, the `vscode-reh-web-pwb-linux-<arch>`
+build, which has to be built on Linux. It also needs Workbench's license key
+swapped in, or Workbench rejects it and every session exits at startup. The CI
+workflow `build-workbench-linux.yml` does both, so the easy way to get a build of
+a branch is to let CI make it. Either:
+
+- put `@:workbench` in a PR's description, and every push builds it, along with
+  running that lane's e2e tests, or
+- start the full-suite workflow on the branch with only the Workbench lane on:
+
+  ```bash
+  gh workflow run test-full-suite.yml --ref <branch> -f run_e2e_linux=false -f run_e2e_windows=false -f run_e2e_browser=false -f run_ext_host_tests=false -f run_e2e_workbench=true
+  ```
+
+Then pass that run's ID or URL once its build job has finished. The Workbench e2e
+tests that follow can be cancelled; the build is uploaded already. CI keeps the
+artifact for 1 day, so the download is kept in
+`docker/environments/wb-local/.builds` (the latest one only) for re-applying after
+a `down` or `--reinstall`. A run URL can name any repo, so a positron-builds
+release run works too.
+
+The build goes where the installer put Positron, and `status` shows it as
+`Positron build`. It stays through `stop` and restarts; `--reinstall` or `down`
+puts an official Positron back. Before touching the stack the script checks that
+the download is a Workbench build for the container's architecture, and it warns
+if the build still has the default license key.
+
+### On Apple Silicon
+
+CI builds the Workbench tarball for linux-x64 only, so it does not run in the
+arm64 container an Apple Silicon Mac gets by default. Switch the stack to an
+emulated amd64 container by adding this to `.env`:
+
+```bash
+WB_CONTAINER_ARCH=amd64
+```
+
+That recreates the container, so the next run reinstalls, and everything is
+slower under emulation (as with `--os=opensuse15`). Keep it in `.env` rather
+than setting it for one run: a run without it recreates the container at arm64
+again. A positron-builds release run has an arm64 build and needs none of this.
+
+### Extensions
+
+`--vsix=<file>` installs an extension for `user1` with Positron's own CLI, the
+same path as **Extensions: Install from VSIX**. Repeat it to install several.
+Reload an open session to pick it up.
+
+After a Positron build changes, its first session reinstalls the extensions it
+bundles, and a bundled copy newer than yours replaces it. The script warns when
+that would happen; start one session, then run the same `--vsix` again.
 
 ## Choosing the OS
 
@@ -222,6 +285,24 @@ install; re-run with `--reinstall --credentials=<type>` to switch.
 
 - **"Forbidden" on first login**: clear the `vscode-tkn` cookie for `localhost`
   and refresh.
+- **Every Positron session exits about 35 seconds after it starts**, with a
+  "Session Exited" dialog: check the launcher log for
+  `checkExited ... [description: End of file]`:
+
+  ```bash
+  docker exec test bash -c 'grep checkExited /var/log/rstudio/launcher/rstudio-local-launcher-*.log | tail -3'
+  ```
+
+  That is the Workbench launcher giving up on a session that is still running,
+  not a Positron failure. It happened with Workbench `2026.10.0-daily+140` and
+  was gone in `+190`. A bare `npm run pwb` resumes whatever Workbench was installed
+  and never updates it, so reinstall with a current one:
+  `npm run pwb -- --reinstall --workbench=daily --positron=daily` (then re-apply
+  any `--positron-build`).
+- **A custom build's sessions exit right away**, and the session output
+  (`/var/lib/rstudio-launcher/Local/output/user1/*.stderr`) says
+  `Invalid license key; signature is invalid`: the build still has the default
+  license key. See [Testing a Positron build](#testing-a-positron-build).
 - **One stack at a time** (`container_name: test`). To compare two Workbench
   versions, `down` one and bring up the other.
 - **Apple Silicon**: the Connect service runs emulated (amd64) and is slow to
