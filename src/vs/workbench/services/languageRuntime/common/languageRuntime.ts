@@ -361,7 +361,7 @@ configurationRegistry.registerConfiguration({
 			default: [],
 			markdownDescription: nls.localize(
 				'positron.runtime.definitions',
-				"Additional interpreters based on ones Positron has already found, each with its own environment variables and startup script. The original interpreter stays available. `path` must match the interpreter path shown in the interpreter picker exactly. Can only be set in user or remote settings."),
+				"Additional interpreters based on ones Positron has already found, each with its own environment variables and startup script. The original interpreter stays available. `path` must be the absolute runtime path; do not use shortened display paths such as `~`. Can only be set in user or remote settings."),
 			items: {
 				type: 'object',
 				required: ['language', 'path', 'label'],
@@ -374,7 +374,7 @@ configurationRegistry.registerConfiguration({
 					},
 					path: {
 						type: 'string',
-						description: nls.localize('positron.runtime.definitions.path', "Path of the interpreter this is based on, as shown in the interpreter picker.")
+						description: nls.localize('positron.runtime.definitions.path', "Absolute runtime path of the interpreter this is based on. Do not use shortened display paths such as ~.")
 					},
 					label: {
 						type: 'string',
