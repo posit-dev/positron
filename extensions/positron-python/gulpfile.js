@@ -372,20 +372,26 @@ async function bundleIPykernel() {
         // Install into a shared 'universal2' directory.
         fancyLog(`Bundling cpx requirements for macOS: ${ansiColors.cyan('universal2')}`);
         for (const { directory, pythonVersion, abi } of cpxInstalls) {
-            await pipInstall([
-                '--target',
-                `./python_files/lib/ipykernel/universal2/${directory}`,
-                '--implementation',
-                'cp',
-                '--python-version',
-                pythonVersion,
-                '--abi',
-                abi,
-                '--platform',
-                'macosx_10_15_universal2',
-                '-r',
-                './python_files/ipykernel_requirements/cpx-requirements.txt',
-            ]);
+            try {
+                await pipInstall([
+                    '--target',
+                    `./python_files/lib/ipykernel/universal2/${directory}`,
+                    '--implementation',
+                    'cp',
+                    '--python-version',
+                    pythonVersion,
+                    '--abi',
+                    abi,
+                    '--platform',
+                    'macosx_10_15_universal2',
+                    '-r',
+                    './python_files/ipykernel_requirements/cpx-requirements.txt',
+                ]);
+            } catch (error) {
+                // Some packages may not have wheels for all Python versions on all platforms
+                // Log the error but continue with other versions.
+                fancyLog.warn(`Skipping ${directory} for macOS universal2: ${error.message}`);
+            }
         }
     } else if (platform === 'win32') {
         // Windows: Bundle both x64 and arm64 since Windows ARM64 can run x64 Python via emulation.
@@ -414,20 +420,27 @@ async function bundleIPykernel() {
 
             // CPython 3.x requirements (specific to platform, architecture, and Python version).
             for (const { directory, pythonVersion, abi } of cpxInstalls) {
-                await pipInstall([
-                    '--target',
-                    `./python_files/lib/ipykernel/${arch}/${directory}`,
-                    '--implementation',
-                    'cp',
-                    '--python-version',
-                    pythonVersion,
-                    '--abi',
-                    abi,
-                    '--platform',
-                    getPlatformTag(arch),
-                    '-r',
-                    './python_files/ipykernel_requirements/cpx-requirements.txt',
-                ]);
+                try {
+                    await pipInstall([
+                        '--target',
+                        `./python_files/lib/ipykernel/${arch}/${directory}`,
+                        '--implementation',
+                        'cp',
+                        '--python-version',
+                        pythonVersion,
+                        '--abi',
+                        abi,
+                        '--platform',
+                        getPlatformTag(arch),
+                        '-r',
+                        './python_files/ipykernel_requirements/cpx-requirements.txt',
+                    ]);
+                } catch (error) {
+                    // Some packages may not have wheels for all Python versions on all platforms
+                    // (e.g., pyzmq 27.1.0 doesn't have cp310 wheels on Windows).
+                    // Log the error but continue with other versions.
+                    fancyLog.warn(`Skipping ${directory} for ${arch}: ${error.message}`);
+                }
             }
         }
     } else {
@@ -455,18 +468,24 @@ async function bundleIPykernel() {
 
         // CPython 3.x requirements (specific to architecture and Python version).
         for (const { directory, pythonVersion, abi } of cpxInstalls) {
-            await pipInstall([
-                '--target',
-                `./python_files/lib/ipykernel/${arch}/${directory}`,
-                '--implementation',
-                'cp',
-                '--python-version',
-                pythonVersion,
-                '--abi',
-                abi,
-                '-r',
-                './python_files/ipykernel_requirements/cpx-requirements.txt',
-            ]);
+            try {
+                await pipInstall([
+                    '--target',
+                    `./python_files/lib/ipykernel/${arch}/${directory}`,
+                    '--implementation',
+                    'cp',
+                    '--python-version',
+                    pythonVersion,
+                    '--abi',
+                    abi,
+                    '-r',
+                    './python_files/ipykernel_requirements/cpx-requirements.txt',
+                ]);
+            } catch (error) {
+                // Some packages may not have wheels for all Python versions on all platforms
+                // Log the error but continue with other versions.
+                fancyLog.warn(`Skipping ${directory} for ${arch}: ${error.message}`);
+            }
         }
     }
 }

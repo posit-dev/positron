@@ -15,7 +15,7 @@ import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/r
 import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
-import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, buildTimeBudgetLine, timeUpHook, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -36,8 +36,8 @@ const FOCUS = process.env.FOCUS || '';
 // Unset leaves each model at its own default effort.
 const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
-// Minutes of exploring, or null for no limit. The agent is told when they are
-// up and stopped WRAP_UP_MINUTES later.
+// Minutes of exploring, or null for no limit. The agent is not told the limit,
+// only when it is up, and is stopped WRAP_UP_MINUTES later.
 const TIME_LIMIT = parseTimeLimit(process.env.TIME_LIMIT);
 // Set when the hard stop fires, so the outcome and stats can say so.
 let timedOut = false;
@@ -214,7 +214,6 @@ async function main() {
 		'',
 		buildTaskLine(FOCUS),
 		'',
-		...(TIME_LIMIT ? [buildTimeBudgetLine(TIME_LIMIT), ''] : []),
 		...(knownBrief ? [knownBrief, ''] : []),
 		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
 		'',
@@ -232,8 +231,8 @@ async function main() {
 	// approaching the cap.
 	let messageCount = 0;
 
-	// With a time limit: a hook tells the agent the time left, then when its
-	// time is up, and the query is aborted WRAP_UP_MINUTES later if it is still going.
+	// With a time limit: a hook tells the agent when its time is up, and the
+	// query is aborted WRAP_UP_MINUTES later if it is still going.
 	const abortController = new AbortController();
 	let hardStop;
 	let timeLimitOptions = {};
@@ -246,7 +245,16 @@ async function main() {
 				console.log(`[exploratory] time limit: ${TIME_LIMIT}m are up; told the agent to wrap up`);
 			},
 		});
-		timeLimitOptions = { hooks: { PostToolUse: [{ hooks: [hook] }], PostToolUseFailure: [{ hooks: [hook] }] } };
+		// Logged on its first call, so a run shows the hook is wired up at all.
+		let hookCalled = false;
+		const logged = async input => {
+			if (!hookCalled) {
+				hookCalled = true;
+				console.log(`[exploratory] time limit: hook active on ${input.hook_event_name}`);
+			}
+			return hook(input);
+		};
+		timeLimitOptions = { hooks: { PostToolUse: [{ hooks: [logged] }], PostToolUseFailure: [{ hooks: [logged] }] } };
 		hardStop = setTimeout(() => {
 			timedOut = true;
 			console.log(`[exploratory] time limit: stopping the agent ${WRAP_UP_MINUTES}m after its time was up`);

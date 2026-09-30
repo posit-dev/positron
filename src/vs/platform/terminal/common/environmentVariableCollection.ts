@@ -107,7 +107,13 @@ export class MergedEnvironmentVariableCollection implements IMergedEnvironmentVa
 	}
 
 	private _encodeColons(value: string): string {
-		return value.replaceAll(':', '\\x3a');
+		// --- Start Positron ---
+		// Encode backslashes too, since the shell integration scripts decode
+		// with `echo -e`, which would otherwise interpret sequences such as
+		// `\b` in Windows paths.
+		// return value.replaceAll(':', '\\x3a');
+		return value.replaceAll('\\', '\\x5c').replaceAll(':', '\\x3a');
+		// --- End Positron ---
 	}
 
 	private blockPythonActivationVar(variable: string, extensionIdentifier: string): boolean {

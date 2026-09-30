@@ -2,3 +2,5 @@
 .env
 # Auto-stop timer bookkeeping
 .ttl.pid
+# Positron builds downloaded by --positron-build
+.builds/

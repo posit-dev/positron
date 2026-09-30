@@ -872,8 +872,25 @@ export function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	return out.join('\n').trimEnd();
 }
 
+/**
+ * The claim with its first letter lowercased, unless its first word is a name:
+ * a single letter other than A (R), a word with more capitals or digits (PyPI), or one the
+ * finding's own text capitalizes mid-sentence (the Quarto preview).
+ */
+function lowerFirstWord(claim, f) {
+	const word = /^[A-Z][A-Za-z0-9'-]*/.exec(claim)?.[0];
+	if (!word || (word.length === 1 && word !== 'A') || /[A-Z0-9]/.test(word.slice(1))) {
+		return claim;
+	}
+	const prose = Object.values(f.text ?? {}).flat().join(' ').replace(/`[^`]*`/g, '');
+	if (new RegExp(`[a-z,;]\\s+${word}\\b`).test(prose)) {
+		return claim;
+	}
+	return word[0].toLowerCase() + claim.slice(1);
+}
+
 function issueHref(title, body) {
-	return `${ISSUE_NEW_URL}?title=${encodeURIComponent(title)}&labels=exploratory${body === undefined ? '' : `&body=${encodeURIComponent(body)}`}`;
+	return `${ISSUE_NEW_URL}?title=${encodeURIComponent(title)}&labels=ai-discovered${body === undefined ? '' : `&body=${encodeURIComponent(body)}`}`;
 }
 
 // What a body too long for the link gives up, in order: each is on the report,
@@ -887,15 +904,17 @@ const ISSUE_TRIMS = ['fileText', 'regression', 'cause', 'errors'];
  * the page copies `text`, the full body, on click instead.
  */
 export function issueLink(f, report, options = {}) {
+	// Positron issues are titled `<Feature>: <description>`.
+	const title = f.feature ? `${f.feature}: ${lowerFirstWord(f.title, f)}` : f.title;
 	const full = buildIssueBody(f, report, options);
 	for (let trim = 0; trim <= ISSUE_TRIMS.length; trim++) {
 		const text = trim ? buildIssueBody(f, report, options, { trim }) : full;
-		const href = issueHref(f.title, text);
+		const href = issueHref(title, text);
 		if (href.length <= ISSUE_URL_MAX) {
 			return { href, text, copy: false };
 		}
 	}
-	return { href: issueHref(f.title), text: full, copy: true };
+	return { href: issueHref(title), text: full, copy: true };
 }
 
 // A plain link, so it works without JavaScript; the reader files the issue on GitHub with their own account.
@@ -1005,10 +1024,7 @@ function renderPossiblyKnown(f, ki) {
 	if (!known.length) {
 		return '';
 	}
-	const comment = known.length === 1
-		? `<span class="ki-dot" aria-hidden="true">&middot;</span><a class="ki-ev" href="${REPO_URL}/issues/${Number(known[0])}" target="_blank" rel="noopener">Comment there instead</a>`
-		: '';
-	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, ki)).join(', ')}${comment}</span></p>`;
+	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, ki)).join(', ')}</span></p>`;
 }
 
 function renderFindingCard(f, report, options) {
