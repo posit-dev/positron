@@ -4527,9 +4527,13 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			for (const runtimeItem of droppedRuntimeItems) {
 				if (runtimeItem instanceof RuntimeItemActivity) {
 					this._runtimeItemActivities.delete(runtimeItem.id);
-				} else if (runtimeItem === this._runtimeItemPendingInput) {
-					this._runtimeItemPendingInput = undefined;
 				}
+			}
+
+			// Keep pending input visible even when it falls outside the budget, so queued code
+			// is not silently hidden from the user while it waits to run.
+			if (this._runtimeItemPendingInput && droppedRuntimeItems.includes(this._runtimeItemPendingInput)) {
+				this._runtimeItems.unshift(this._runtimeItemPendingInput);
 			}
 		}
 	}
