@@ -1,0 +1,7 @@
+{
+	"displayName": "SQL",
+	"description": "SQL support for Positron, including sending statements from an editor to the Console.",
+	"configuration.title": "SQL",
+	"configuration.dialect.generic": "Generic",
+	"configuration.dialect.description": "The SQL dialect used to parse `.sql` files. Affects which quoting styles are accepted when a statement is split. Generic accepts a superset of most dialects."
+}
