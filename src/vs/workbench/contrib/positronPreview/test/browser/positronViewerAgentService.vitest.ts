@@ -378,7 +378,7 @@ describe('PositronViewerAgentService', () => {
 		const result = await createService().viewerAct({ kind: 'click', ref: 'e1' });
 
 		expect(result).toEqual({
-			message: 'Clicked the button "Go". There\'s no snapshot of the page after it: The page in the Viewer stopped responding.',
+			message: 'Clicked the button "Go". There\'s no outline of the page after it: The page in the Viewer stopped responding.',
 			timedOut: false,
 			revealed: false,
 		});

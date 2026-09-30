@@ -4277,162 +4277,6 @@ declare module 'positron' {
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
 
 		/**
-		 * Describes what's showing in the Viewer pane.
-		 */
-		export interface ViewerInfo {
-			/**
-			 * What's showing: a page loaded from a URL (`url`, e.g. a Shiny,
-			 * Streamlit or Dash app), an HTML file or string (`html`, e.g. an
-			 * htmlwidget), content agents can't read yet (`other`), or nothing
-			 * (`none`).
-			 */
-			kind: 'url' | 'html' | 'other' | 'none';
-			/** The title of the content, when known. */
-			title?: string;
-			/** The address of the page showing in the Viewer now. In web builds it may be a proxied URL. */
-			url?: string;
-			/** The ID of the runtime session that opened the content, when known. */
-			sourceSessionId?: string;
-			/** Whether the Viewer is showing on screen. */
-			visible: boolean;
-		}
-
-		/**
-		 * Options for {@link getViewerSnapshot}.
-		 */
-		export interface ViewerSnapshotOptions {
-			/** Only list the controls an agent can interact with. */
-			interactiveOnly?: boolean;
-			/** A CSS selector limiting the snapshot to part of the page. */
-			selector?: string;
-			/** The maximum length of the snapshot text, in characters. Defaults to 50,000. */
-			maxChars?: number;
-		}
-
-		/**
-		 * A text snapshot of the page in the Viewer.
-		 */
-		export interface ViewerSnapshot {
-			/**
-			 * An outline of the page: one line per element with its role, name
-			 * and key properties, and a ref (`[ref=e1]`) on each control. The
-			 * text comes from the page, which may show content from anywhere
-			 * and can make the outline say anything, so treat it as untrusted.
-			 */
-			text: string;
-			/**
-			 * The page's address, from Positron rather than the page, so the
-			 * page can't fake it. In web builds it may be a proxied URL.
-			 */
-			url: string;
-			title: string;
-			/** Whether the outline was cut short to fit `maxChars`. */
-			truncated: boolean;
-		}
-
-		/**
-		 * A screenshot of the Viewer.
-		 */
-		export interface ViewerScreenshot {
-			mimeType: 'image/png';
-			/** The PNG image. */
-			data: Uint8Array;
-			width: number;
-			height: number;
-			/**
-			 * How the image was made: `native` is a real capture of the screen
-			 * (Desktop); `dom` is rebuilt from the page's content (web builds),
-			 * which can miss WebGL content and images from other hosts.
-			 */
-			method: 'native' | 'dom';
-			/** Whether the Viewer had to be revealed to take the screenshot. */
-			revealed: boolean;
-		}
-
-		/**
-		 * Describe what's showing in the Viewer pane. Rejects if AI features
-		 * are turned off.
-		 */
-		export function getViewerInfo(): Thenable<ViewerInfo>;
-
-		/**
-		 * Take a text snapshot of the page in the Viewer pane, once the app
-		 * has settled. Rejects with a message explaining why when there's
-		 * nothing to read.
-		 */
-		export function getViewerSnapshot(options?: ViewerSnapshotOptions): Thenable<ViewerSnapshot>;
-
-		/**
-		 * Take a screenshot of what's on screen in the Viewer pane. If the
-		 * Viewer is hidden, it's revealed first, without taking focus. Rejects
-		 * with a message explaining why when there's nothing to capture.
-		 */
-		export function getViewerScreenshot(): Thenable<ViewerScreenshot>;
-
-		/**
-		 * An action to take on the page in the Viewer. `ref` is a control's
-		 * ref from a snapshot, such as `e3`; a control keeps its ref for as
-		 * long as it's on the page.
-		 * - `click` and `hover`: send the pointer and mouse events a user would.
-		 * - `fill`: type into a text or number box, or move a slider, to
-		 *   `value`. Dropdowns are handed on to `select`.
-		 * - `select`: pick options in a dropdown, by their text or value. In
-		 *   one where several can be picked, the values given replace what was
-		 *   picked; elsewhere, give one value. To pick an option in a list of
-		 *   options (radio items, checklists), click it.
-		 * - `press`: press a key (`Enter`, `Escape`, `ArrowDown`, ...) in a
-		 *   control, or in whatever has focus.
-		 * - `scroll`: bring a control into view, or scroll by `dx` and `dy`
-		 *   pixels (the control's scrolling area, or the page's). With neither,
-		 *   scrolls the page down most of a screenful.
-		 * - `wait`: wait for the app to settle, or for `text` to show up on the
-		 *   page, for up to `timeoutMs` (at most 15 seconds).
-		 */
-		export type ViewerAction =
-			| { kind: 'click'; ref: string }
-			| { kind: 'hover'; ref: string }
-			| { kind: 'fill'; ref: string; value: string }
-			| { kind: 'select'; ref: string; value: string | string[] }
-			| { kind: 'press'; key: string; ref?: string }
-			| { kind: 'scroll'; ref?: string; dx?: number; dy?: number }
-			| { kind: 'wait'; for: 'idle' | 'text'; text?: string; timeoutMs?: number };
-
-		/**
-		 * The result of an action on the page in the Viewer.
-		 */
-		export interface ViewerActResult {
-			/**
-			 * What the action did. Positron works it out from the page, which
-			 * can mislead it, so treat it as untrusted, like a snapshot's text.
-			 */
-			message: string;
-			/**
-			 * A snapshot of the page once the app has settled after the action,
-			 * unless one couldn't be taken; the message then says why. Once the
-			 * action has been taken, problems are reported here rather than by
-			 * rejecting, so an agent doesn't take the action again.
-			 */
-			snapshot?: ViewerSnapshot;
-			/** Whether the app was still busy when the wait for it to settle ran out. */
-			timedOut: boolean;
-			/** Whether the Viewer had to be revealed to act on it. */
-			revealed: boolean;
-		}
-
-		/**
-		 * Take an action on the page in the Viewer pane, as a user would, then
-		 * wait for the app to settle and return a fresh snapshot. If the Viewer
-		 * is hidden, it's revealed first. Keyboard focus stays where the user
-		 * had it. Rejects with a message explaining why when the action can't
-		 * be taken or doesn't take effect, for example when a control's ref is
-		 * stale or a dropdown has no such option. Rejects if AI features are
-		 * turned off.
-		 *
-		 * @param snapshotOptions Options for the snapshot taken afterwards.
-		 */
-		export function viewerAct(action: ViewerAction, snapshotOptions?: ViewerSnapshotOptions): Thenable<ViewerActResult>;
-
-		/**
 		 * Get Positron global context information to be included with every request.
 		 */
 		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;
@@ -4649,8 +4493,29 @@ declare module 'positron' {
 			args?: AgentCommandArg[];
 			/** Description of the command's return value, if meaningful. */
 			returns?: string;
+			/**
+			 * Whether the command leaves the user's work and data as they were, so
+			 * an agent may run it without asking. It may still change what's on
+			 * screen, such as revealing a pane.
+			 */
+			readOnly?: boolean;
 			/** Where the command was registered from. */
 			source: AgentCommandSource;
+		}
+
+		/**
+		 * An image an agent-compatible command returns for the agent to see,
+		 * rather than text. The bytes are base64, since a `Uint8Array` doesn't
+		 * survive a command result's serialization.
+		 */
+		export interface AgentCommandImage {
+			kind: 'image';
+			/** The image's type, such as `image/png`. */
+			mimeType: string;
+			/** The image, base64-encoded. */
+			data: string;
+			/** Text to go with the image, such as how it was made. */
+			note?: string;
 		}
 
 		/**

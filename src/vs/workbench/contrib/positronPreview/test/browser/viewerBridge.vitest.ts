@@ -704,7 +704,7 @@ describe('act', () => {
 
 		expect({ first: bridge.snapshot().text.split('\n')[0], click, wait: wait.message }).toEqual({
 			first: '(The Shiny app has disconnected from its server, so its controls do nothing. Run the app again.)',
-			click: 'The Shiny app in the Viewer has disconnected from its server, so the action would do nothing. Run the app again, then take a new snapshot.',
+			click: 'The Shiny app in the Viewer has disconnected from its server, so the action would do nothing. Run the app again, then read the page.',
 			wait: expect.stringMatching(/^The app settled/),
 		});
 	});
@@ -934,10 +934,10 @@ describe('act', () => {
 			bridge.act({ kind: 'click', ref }, QUICK).then(() => 'ok', (error: Error) => error.message)));
 
 		expect(errors).toEqual([
-			'The control e1 is gone from the page, probably because the app redrew it. Take a new snapshot and use a ref from it.',
+			'The control e1 is gone from the page, probably because the app redrew it. Read the page again and use a ref from it.',
 			'The button "Off" is disabled.',
-			'The button "Later hidden" is hidden right now. Take a new snapshot to see what\'s showing.',
-			'There\'s no control e99 on this page. Take a new snapshot and use a ref from it.',
+			'The button "Later hidden" is hidden right now. Read the page again to see what\'s showing.',
+			'There\'s no control e99 on this page. Read the page again and use a ref from it.',
 		]);
 	});
 

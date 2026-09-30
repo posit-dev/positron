@@ -121,7 +121,7 @@ function contentKindOf(preview: PreviewWebview | undefined): ViewerContentKind {
 
 /**
  * Lets AI agents read and act on the content of the Viewer pane. Agents get
- * it through the `positron.ai` extension API; the checks live here so every
+ * it through the positronViewer.* commands; the checks live here so every
  * caller gets them.
  */
 export class PositronViewerAgentService implements IPositronViewerAgentService {
@@ -202,7 +202,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 			let movedOn = false;
 			try {
 				outcome = await withTimeout(preview.webview.runBridge('act', action), ACT_TIMEOUT_MS,
-					'The page in the Viewer stopped responding during the action, which may have been taken. Take a snapshot before trying it again.');
+					'The page in the Viewer stopped responding during the action, which may have been taken. Read the page before trying it again.');
 			} catch (error) {
 				if (this._previewService.activePreviewWebview === preview) {
 					throw error;
@@ -230,7 +230,7 @@ export class PositronViewerAgentService implements IPositronViewerAgentService {
 				return { message, snapshot, timedOut: outcome.timedOut, revealed };
 			} catch (error) {
 				const reason = error instanceof Error ? error.message : String(error);
-				return { message: `${outcome.message} There's no snapshot of the page after it: ${reason}`, timedOut: outcome.timedOut, revealed };
+				return { message: `${outcome.message} There's no outline of the page after it: ${reason}`, timedOut: outcome.timedOut, revealed };
 			}
 		} finally {
 			restoreFocus();

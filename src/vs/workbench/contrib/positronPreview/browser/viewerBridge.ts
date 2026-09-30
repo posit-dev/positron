@@ -833,14 +833,14 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	/** Finds the control for a ref from a snapshot. */
 	function resolve(ref: unknown): Element {
 		if (typeof ref !== 'string' || !ref) {
-			throw new Error('This action needs the ref of a control from a snapshot, such as "e3".');
+			throw new Error('This action needs the ref of a control from an outline of the page, such as "e3".');
 		}
 		const el = refElements.get(ref)?.deref();
 		if (!el) {
-			throw new Error(`There's no control ${ref} on this page. Take a new snapshot and use a ref from it.`);
+			throw new Error(`There's no control ${ref} on this page. Read the page again and use a ref from it.`);
 		}
 		if (!el.isConnected) {
-			throw new Error(`The control ${ref} is gone from the page, probably because the app redrew it. Take a new snapshot and use a ref from it.`);
+			throw new Error(`The control ${ref} is gone from the page, probably because the app redrew it. Read the page again and use a ref from it.`);
 		}
 		return el;
 	}
@@ -851,7 +851,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			throw new Error(`The ${what} is disabled.`);
 		}
 		if (!isShinySlider(el) && !selectizeOf(el) && typeof el.checkVisibility === 'function' && !el.checkVisibility({ visibilityProperty: true })) {
-			throw new Error(`The ${what} is hidden right now. Take a new snapshot to see what's showing.`);
+			throw new Error(`The ${what} is hidden right now. Read the page again to see what's showing.`);
 		}
 	}
 
@@ -1601,7 +1601,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			throw new Error('An action needs a kind: click, hover, fill, select, press, scroll or wait.');
 		}
 		if (shinyDisconnected() && action.kind !== 'wait' && action.kind !== 'scroll') {
-			throw new Error('The Shiny app in the Viewer has disconnected from its server, so the action would do nothing. Run the app again, then take a new snapshot.');
+			throw new Error('The Shiny app in the Viewer has disconnected from its server, so the action would do nothing. Run the app again, then read the page.');
 		}
 		// A link or a form can take the page to another document. Report that
 		// rather than wait on a page that's going away.

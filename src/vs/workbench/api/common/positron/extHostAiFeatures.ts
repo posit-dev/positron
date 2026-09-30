@@ -114,25 +114,6 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$getCurrentPlotUri();
 	}
 
-	async getViewerInfo(): Promise<positron.ai.ViewerInfo> {
-		return this._proxy.$getViewerInfo();
-	}
-
-	async getViewerSnapshot(options?: positron.ai.ViewerSnapshotOptions): Promise<positron.ai.ViewerSnapshot> {
-		return this._proxy.$getViewerSnapshot(options);
-	}
-
-	async getViewerScreenshot(): Promise<positron.ai.ViewerScreenshot> {
-		const { value } = await this._proxy.$getViewerScreenshot();
-		// Copy the bytes: after the RPC they're a view into the whole message. (In
-		// Node that's a Buffer, whose slice() doesn't copy.)
-		return { ...value, data: new Uint8Array(value.data.buffer) };
-	}
-
-	async viewerAct(action: positron.ai.ViewerAction, snapshotOptions?: positron.ai.ViewerSnapshotOptions): Promise<positron.ai.ViewerActResult> {
-		return this._proxy.$viewerAct(action, snapshotOptions);
-	}
-
 	async getPositronChatContext(request: vscode.ChatRequest): Promise<IPositronChatContext> {
 		const agentRequest: IChatRequestData = {
 			location: typeConvert.ChatLocation.from(request.location),

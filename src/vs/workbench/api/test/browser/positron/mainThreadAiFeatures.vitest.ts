@@ -18,8 +18,7 @@ import { ILanguageModelsService } from '../../../../contrib/chat/common/language
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
-import { IAgentAllowedCommandsService } from '../../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
-import { IPositronViewerAgentService } from '../../../../contrib/positronPreview/common/positronViewerAgent.js';
+import { IAgentAllowedCommandsService, IAgentCommandDescriptor } from '../../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
 import { ExtHostAiFeaturesShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { MainThreadAiFeatures } from '../../../browser/positron/mainThreadAiFeatures.js';
 
@@ -50,7 +49,7 @@ describe('MainThreadAiFeatures', () => {
 	 * enablement baseline snapshot is captured before the test fires any catalog changes.
 	 * Pass a pending `whenInitialized` to drive the pre-initialization timing yourself.
 	 */
-	async function createMainThread(initialCatalog: IResolvedProviderData[], whenInitialized: Promise<void> = Promise.resolve()): Promise<MainThreadAiFeatures> {
+	async function createMainThread(initialCatalog: IResolvedProviderData[], whenInitialized: Promise<void> = Promise.resolve(), agentCommands: IAgentCommandDescriptor[] = []): Promise<MainThreadAiFeatures> {
 		catalog = initialCatalog;
 		onDidChangeProviders = disposables.add(new Emitter<IProviderCatalogChangeData>());
 		onChangeProviderConfig = disposables.add(new Emitter<never>());
@@ -83,9 +82,8 @@ describe('MainThreadAiFeatures', () => {
 			stubInterface<IViewsService>({}),
 			stubInterface<IRuntimeSessionService>({}),
 			stubInterface<IFileService>({}),
-			stubInterface<IAgentAllowedCommandsService>({}),
+			stubInterface<IAgentAllowedCommandsService>({ getAgentAllowedCommands: () => agentCommands }),
 			aiProviderService,
-			stubInterface<IPositronViewerAgentService>({}),
 		));
 
 		// Let the whenInitialized microtask (which captures the enablement baseline) settle.
@@ -94,6 +92,17 @@ describe('MainThreadAiFeatures', () => {
 
 		return mainThread;
 	}
+
+	it('$getAgentAllowedCommands passes on which commands are read-only', async () => {
+		const mainThread = await createMainThread([], undefined, [
+			{ id: 'test.reads', readOnly: true, source: { type: 'builtin' } },
+			{ id: 'test.writes', source: { type: 'builtin' } },
+		]);
+
+		const commands = await mainThread.$getAgentAllowedCommands();
+
+		expect(commands.map(c => [c.id, c.readOnly])).toEqual([['test.reads', true], ['test.writes', undefined]]);
+	});
 
 	it('$isProviderEnabled waits for initialization then reads the catalog', async () => {
 		const mainThread = await createMainThread([resolvedProvider('copilot', true)]);

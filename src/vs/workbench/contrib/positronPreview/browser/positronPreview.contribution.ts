@@ -25,6 +25,7 @@ import { isWeb } from '../../../../base/common/platform.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IPositronViewerAgentService } from '../common/positronViewerAgent.js';
 import { PositronViewerAgentService } from './positronViewerAgentService.js';
+import './positronViewerAgentCommands.js';
 
 registerSingleton(IPositronViewerAgentService, PositronViewerAgentService, InstantiationType.Delayed);
 

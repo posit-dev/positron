@@ -78,6 +78,12 @@ land in the Data Explorer. Read it **before** opening anything -- it documents
 the one command that opens a known path, and names the similar-looking ids that
 open a file picker instead and hand the task back to the user.
 
+**Viewer** -- [references/viewer.md]({{skill_dir}}/references/viewer.md)
+Read when you need to see or use what's in the Viewer pane: to check that an app
+you started is up and what it shows, to read an htmlwidget or report, or to
+click, fill in or pick options in an app the user wants tested. Read it
+**before** telling the user you can't see the Viewer.
+
 **Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
 Read when the user asks what interpreters are available, wants the registered
 interpreters listed (Python, R, or another language), or needs Positron to
