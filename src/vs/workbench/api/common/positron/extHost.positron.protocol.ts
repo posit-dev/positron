@@ -13,7 +13,8 @@ import { IEditorContext } from '../../../services/frontendMethods/common/editorC
 import { IPackageRepositoryRequest, IPackageRepositoryResponse } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { IRange } from '../../../../editor/common/core/range.js';
-import { INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
+import { INotebookCellOutputDTO, INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
+export type { INotebookCellOutputDTO };
 import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
@@ -477,17 +478,6 @@ export interface ExtHostPlotsServiceShape {
 	$onDidChangePlotsRenderSettings(settings: PlotRenderSettings): void;
 }
 
-
-/**
- * Data transfer object for notebook cell output information.
- * Supports both text and binary (image) outputs.
- */
-export interface INotebookCellOutputDTO {
-	/** MIME type of the output (e.g., 'text/plain', 'image/png') */
-	mimeType: string;
-	/** Output data - plain text for text outputs, base64 encoded for images */
-	data: string;
-}
 
 /**
  * Interface that the main process exposes to the extension host for notebook features.

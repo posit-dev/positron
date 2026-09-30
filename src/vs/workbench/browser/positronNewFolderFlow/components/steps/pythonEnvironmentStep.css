@@ -1,0 +1,86 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-dynamic-modal-dialog-box .flow-step .env-provider-selection {
+	display: flex;
+	flex-direction: column;
+
+	/* Tighter than the sub step's 16px so the install offer reads as belonging to the dropdown
+	above it rather than to the environment name field below. */
+	gap: 8px;
+}
+
+/* Only the icon and border take the warning or error tone: warning yellow fails text contrast on
+light backgrounds, so the text keeps the dialog foreground. */
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout {
+	--_provider-callout-tone: var(--vscode-editorWarning-foreground);
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	padding: 10px 12px;
+	border-radius: 3px;
+	border: 1px solid color-mix(in srgb, var(--_provider-callout-tone) 45%, transparent);
+	background: color-mix(in srgb, var(--_provider-callout-tone) 10%, transparent);
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout.failed {
+	--_provider-callout-tone: var(--vscode-editorError-foreground);
+}
+
+/* High contrast themes draw edges with solid borders and no fills. */
+.hc-black .positron-dynamic-modal-dialog-box .flow-step .provider-callout,
+.hc-light .positron-dynamic-modal-dialog-box .flow-step .provider-callout {
+	background: none;
+	border-color: var(--_provider-callout-tone);
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-icon {
+	align-self: flex-start;
+	margin-top: 1px;
+	color: var(--_provider-callout-tone);
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-text {
+	display: flex;
+	flex-grow: 1;
+	min-width: 0;
+	gap: 2px;
+	flex-direction: column;
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-title {
+	font-weight: 600;
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .install-uv-button {
+	gap: 6px;
+	flex-shrink: 0;
+	padding: 4px 12px;
+	white-space: nowrap;
+}
+
+/* Codicons in the button (the spinner, the retry arrow) take the button's text color. */
+.positron-dynamic-modal-dialog-box .flow-step .install-uv-button .codicon {
+	color: inherit;
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-link {
+	align-self: flex-start;
+	margin-top: 2px;
+	padding: 0;
+
+	/* Without padding, the shared focus ring would sit against the text. */
+	outline-offset: 2px;
+	color: var(--vscode-textLink-foreground);
+	text-decoration: underline;
+
+	/* The user agent stylesheet sets font-size on <button>, which beats inheritance and
+	leaves the link smaller than the text it sits beside. */
+	font: inherit;
+}
+
+.positron-dynamic-modal-dialog-box .flow-step .provider-callout-link:hover {
+	color: var(--vscode-textLink-activeForeground);
+}

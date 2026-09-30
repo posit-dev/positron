@@ -20,6 +20,7 @@
 	"githubIssues.issueCompletions.enabled": false,
 	"posit.assistant.sidebarView": true,
 	"assistant.sidebarView": true,
+	"assistant.experimentalFeatures": true,
 	"shiny.previewType": "internal",
 	"terminal.integrated.gpuAcceleration": "off",
 	"console.showNotebookConsoleActions": true

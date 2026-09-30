@@ -76,6 +76,7 @@ export enum LanguageRuntimeMessageType {
     DebugReply = 'debug_reply',
     IPyWidget = 'ipywidget',
     UpdateOutput = 'update_output',
+    ExecutionRequested = 'execution_requested',
 }
 
 export enum LanguageRuntimeStreamName {

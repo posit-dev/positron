@@ -33,6 +33,7 @@ suite('uv Creation provider tests', () => {
     let uvProvider: CreateEnvironmentProvider;
     let progressMock: typemoq.IMock<CreateEnvironmentProgress>;
     let isUvInstalledStub: sinon.SinonStub;
+    let execObservableLocatedUvStub: sinon.SinonStub;
     let getUvPythonVersionInfoStub: sinon.SinonStub;
     let pickPythonVersionStub: sinon.SinonStub;
     let pickWorkspaceFolderStub: sinon.SinonStub;
@@ -51,6 +52,10 @@ suite('uv Creation provider tests', () => {
         getUvPythonVersionInfoStub.resolves({ version: '3.12.5', isPrerelease: false, path: undefined });
         pickPythonVersionStub = sinon.stub(uvUtils, 'pickPythonVersion');
         execObservableStub = sinon.stub(rawProcessApis, 'execObservable');
+        // Locating uv is the helper's job, covered in its own tests. Here it just spawns.
+        execObservableLocatedUvStub = sinon
+            .stub(uv, 'execObservableLocatedUv')
+            .callsFake(async (args, options) => rawProcessApis.execObservable('uv', args, options));
         withProgressStub = sinon.stub(windowApis, 'withProgress');
 
         showErrorMessageWithLogsStub = sinon.stub(commonUtils, 'showPositronErrorMessageWithLogs');
@@ -106,7 +111,6 @@ suite('uv Creation provider tests', () => {
         let _next: undefined | ((value: Output<string>) => void);
         let _complete: undefined | (() => void);
         execObservableStub.callsFake(() => {
-            deferred.resolve();
             return {
                 proc: {
                     exitCode: 0,
@@ -119,6 +123,7 @@ suite('uv Creation provider tests', () => {
                     ) => {
                         _next = next;
                         _complete = complete;
+                        deferred.resolve();
                     },
                 },
                 dispose: () => undefined,
@@ -158,6 +163,34 @@ suite('uv Creation provider tests', () => {
         assert.isTrue(pickExistingVenvActionStub.calledOnce);
     });
 
+    test('Reports rather than spawning when the probe can no longer find uv', async () => {
+        pickWorkspaceFolderStub.resolves({
+            uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
+            name: 'workspace1',
+            index: 0,
+        });
+        pickPythonVersionStub.resolves('3.12');
+        // The guard at the top of createEnvironment asks the same probe, so reaching this means uv
+        // went away mid-flow.
+        execObservableLocatedUvStub.rejects(new Error('Could not find the uv executable.'));
+
+        withProgressStub.callsFake(
+            (
+                _options: ProgressOptions,
+                task: (
+                    progress: CreateEnvironmentProgress,
+                    token?: CancellationToken,
+                ) => Thenable<CreateEnvironmentResult>,
+            ) => task(progressMock.object),
+        );
+
+        const result = await uvProvider.createEnvironment();
+
+        assert.isTrue(execObservableStub.notCalled);
+        assert.isDefined((result as CreateEnvironmentResult).error);
+        assert.isTrue(showErrorMessageWithLogsStub.calledOnce);
+    });
+
     test('Create uv environment failed', async () => {
         pickWorkspaceFolderStub.resolves({
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
@@ -170,7 +203,6 @@ suite('uv Creation provider tests', () => {
         let _error: undefined | ((error: unknown) => void);
         let _complete: undefined | (() => void);
         execObservableStub.callsFake(() => {
-            deferred.resolve();
             return {
                 proc: undefined,
                 out: {
@@ -181,6 +213,7 @@ suite('uv Creation provider tests', () => {
                     ) => {
                         _error = error;
                         _complete = complete;
+                        deferred.resolve();
                     },
                 },
                 dispose: () => undefined,
@@ -223,7 +256,6 @@ suite('uv Creation provider tests', () => {
         let _next: undefined | ((value: Output<string>) => void);
         let _complete: undefined | (() => void);
         execObservableStub.callsFake(() => {
-            deferred.resolve();
             return {
                 proc: {
                     exitCode: 1,
@@ -236,6 +268,7 @@ suite('uv Creation provider tests', () => {
                     ) => {
                         _next = next;
                         _complete = complete;
+                        deferred.resolve();
                     },
                 },
                 dispose: () => undefined,
@@ -299,7 +332,6 @@ suite('uv Creation provider tests', () => {
         let _next: undefined | ((value: Output<string>) => void);
         let _complete: undefined | (() => void);
         execObservableStub.callsFake(() => {
-            deferred.resolve();
             return {
                 proc: {
                     exitCode: 0,
@@ -312,6 +344,7 @@ suite('uv Creation provider tests', () => {
                     ) => {
                         _next = next;
                         _complete = complete;
+                        deferred.resolve();
                     },
                 },
                 dispose: () => undefined,
@@ -414,7 +447,6 @@ suite('uv Creation provider tests', () => {
             let _next: undefined | ((value: Output<string>) => void);
             let _complete: undefined | (() => void);
             execObservableStub.callsFake(() => {
-                deferred.resolve();
                 return {
                     proc: { exitCode: 0 },
                     out: {
@@ -425,6 +457,7 @@ suite('uv Creation provider tests', () => {
                         ) => {
                             _next = next;
                             _complete = complete;
+                            deferred.resolve();
                         },
                     },
                     dispose: () => undefined,
@@ -452,7 +485,6 @@ suite('uv Creation provider tests', () => {
             let _next: undefined | ((value: Output<string>) => void);
             let _complete: undefined | (() => void);
             execObservableStub.callsFake(() => {
-                deferred.resolve();
                 return {
                     proc: { exitCode: 0 },
                     out: {
@@ -463,6 +495,7 @@ suite('uv Creation provider tests', () => {
                         ) => {
                             _next = next;
                             _complete = complete;
+                            deferred.resolve();
                         },
                     },
                     dispose: () => undefined,
@@ -489,7 +522,6 @@ suite('uv Creation provider tests', () => {
             let _next: undefined | ((value: Output<string>) => void);
             let _complete: undefined | (() => void);
             execObservableStub.callsFake(() => {
-                deferred.resolve();
                 return {
                     proc: { exitCode: 0 },
                     out: {
@@ -500,6 +532,7 @@ suite('uv Creation provider tests', () => {
                         ) => {
                             _next = next;
                             _complete = complete;
+                            deferred.resolve();
                         },
                     },
                     dispose: () => undefined,
