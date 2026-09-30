@@ -87,16 +87,16 @@ export interface ILanguageRuntimeSessionStateEvent {
  * add a new member instead.
  */
 export enum SessionStartReason {
-	/** The runtime this workspace used last was started at startup. */
+	/** At startup, the runtime this workspace used last was started from its saved metadata. */
 	AffiliatedRuntime = 'affiliatedRuntime',
 
-	/** The runtime this workspace used last was registered after startup. */
+	/** Interpreter discovery found the runtime this workspace used last, and it had not been started yet. */
 	AffiliatedRuntimeRegistered = 'affiliatedRuntimeRegistered',
 
-	/** An extension asked for its runtime to start immediately at startup. */
+	/** When discovery finished with no saved runtime and no console, a runtime marked to start immediately was started. */
 	ExtensionRequestedImmediateStart = 'extensionRequestedImmediateStart',
 
-	/** An extension asked for its runtime to start immediately after startup finished. */
+	/** A runtime marked to start immediately was registered after startup finished, with no console running. */
 	ExtensionRequestedStartAfterRegistration = 'extensionRequestedStartAfterRegistration',
 
 	/** An extension recommended the runtime for this workspace. */
@@ -129,7 +129,7 @@ export enum SessionStartReason {
 	/** A restart was requested for a session that had never started. */
 	RestartUninitializedSession = 'restartUninitializedSession',
 
-	/** A new folder was created with a starter notebook. */
+	/** The New Folder flow started a kernel for the untitled notebook it opens for a Jupyter Notebook folder. */
 	NewFolderNotebook = 'newFolderNotebook',
 
 	/** A Quarto document ran code for inline output. */
@@ -141,16 +141,16 @@ export enum SessionStartReason {
 	/** A code fragment was run in a notebook with no session. */
 	NotebookCodeFragmentExecuted = 'notebookCodeFragmentExecuted',
 
-	/** A kernel was selected for a notebook. */
+	/** A kernel was selected for a notebook, by the user or automatically, such as from its metadata when it opened. */
 	NotebookKernelSelected = 'notebookKernelSelected',
 
-	/** A kernel selected before its runtime registered was started once it registered. */
+	/** A notebook's kernel was selected before its runtime was registered, and started once it was. */
 	NotebookKernelSelectionDeferred = 'notebookKernelSelectionDeferred',
 
-	/** A notebook was opened as the active, pinned editor. */
+	/** A notebook was opened in the Positron notebook editor as the active tab, not a preview tab. */
 	NotebookEditorOpened = 'notebookEditorOpened',
 
-	/** A notebook whose start was deferred became the active, pinned editor. */
+	/** A notebook's session waited while it was a preview or background tab, and started once it became the active, non-preview tab. */
 	NotebookEditorActivated = 'notebookEditorActivated',
 
 	/** A kernel restart was requested for a notebook with no session. */
