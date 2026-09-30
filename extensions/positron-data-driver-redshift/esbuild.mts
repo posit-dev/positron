@@ -27,7 +27,9 @@ run({
 	additionalOptions: {
 		// The two sibling bundles stay external so the dynamic imports that
 		// reach them remain real deferred loads at runtime rather than being
-		// inlined into extension.js.
+		// inlined into extension.js. esbuild matches relative externals
+		// against the specifier as written, so the imports must use exactly
+		// these paths, including the '.js' suffix.
 		//
 		// pg-native is an optional native dependency of pg; leave it as an
 		// external so its require() at runtime can no-op gracefully when

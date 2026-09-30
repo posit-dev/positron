@@ -17,9 +17,11 @@ const outDir = path.join(import.meta.dirname, 'dist');
  * binding fails the build rather than shipping a driver that cannot load.
  */
 async function copyOdbcBinding(outDir: string): Promise<void> {
-	const require = createRequire(import.meta.url);
-	const nodePreGyp: { find(packageJsonPath: string): string } = require('@mapbox/node-pre-gyp');
-	const bindingPath = nodePreGyp.find(require.resolve('odbc/package.json'));
+	// Resolve node-pre-gyp from odbc's own location, since it is odbc's
+	// dependency and not the extension's.
+	const odbcPackageJson = createRequire(import.meta.url).resolve('odbc/package.json');
+	const nodePreGyp: { find(packageJsonPath: string): string } = createRequire(odbcPackageJson)('@mapbox/node-pre-gyp');
+	const bindingPath = nodePreGyp.find(odbcPackageJson);
 	await fs.promises.copyFile(bindingPath, path.join(outDir, 'odbc.node'));
 }
 
