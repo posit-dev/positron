@@ -393,7 +393,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 *
 	 * A data connection is opened by its driver in this process, not inside the user's session, so
 	 * a session holds one only when connection code has run there. Resolves to an empty list when
-	 * none has, or when the feature is disabled.
+	 * none has. Rejects when the feature is disabled.
 	 */
 	$getDataConnectionSessionBindings(sessionId: string): Promise<IDataConnectionSessionBindingDTO[]>;
 
@@ -403,7 +403,8 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * Shown rather than skipped because the choices in it are the user's: which library to connect
 	 * with, and whether to put the stored password into code that runs in their console. Resolves
 	 * when the dialog closes -- `undefined` if the user dismissed it, or if there was nothing to
-	 * show (no such profile, no connection code for that language, or the feature is disabled).
+	 * show (no such profile, or no connection code for that language). Rejects when the feature is
+	 * disabled.
 	 */
 	$connectDataConnectionWith(profileId: string, languageId: string, takenVariableNames: string[]): Promise<IDataConnectionSessionBindingDTO | undefined>;
 

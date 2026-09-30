@@ -404,6 +404,14 @@ class SqlSession implements vscode.Disposable {
 				});
 				break;
 
+			case 'unavailable':
+				void vscode.window.showWarningMessage(vscode.l10n.t(
+					"The statement was not run against {0}: {1}",
+					connection.name,
+					outcome.reason,
+				));
+				break;
+
 			case 'no-language':
 				// The driver generates connection code for no language at all, so there is no
 				// session that could hold this connection and nothing for the user to choose.
