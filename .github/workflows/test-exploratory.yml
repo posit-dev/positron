@@ -894,7 +894,7 @@ jobs:
           rm -rf /tmp/exploratory-publish
           mkdir -p /tmp/exploratory-publish
           cp -a "$SRC/." /tmp/exploratory-publish/
-          rm -f /tmp/exploratory-publish/actions.log
+          rm -f /tmp/exploratory-publish/actions.log /tmp/exploratory-publish/instances.jsonl
           # The raw log tree stays in the artifact: the page lists it unlinked,
           # and the curated files beside it are what a reader opens.
           rm -rf /tmp/exploratory-publish/logs/all
