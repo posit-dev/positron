@@ -50,12 +50,12 @@ describe('RuntimeSessionCard', () => {
 	}
 
 	it('shows the start reason detail and ID', () => {
-		renderCard('This workspace\'s last used interpreter was restored at startup (language: python)', SessionStartReason.AffiliatedRuntime);
+		renderCard('This workspace\'s last used interpreter was started when Positron started (language: python)', SessionStartReason.AffiliatedRuntime);
 
 		// The detail already starts with the English label, so the label is
 		// not shown separately.
 		expect(screen.getAllByText(/Start Reason/).map(el => el.textContent)).toEqual([
-			'Start Reason: This workspace\'s last used interpreter was restored at startup (language: python)',
+			'Start Reason: This workspace\'s last used interpreter was started when Positron started (language: python)',
 			'Start Reason ID: affiliatedRuntime',
 		]);
 	});

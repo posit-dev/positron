@@ -10,11 +10,11 @@ import { IRuntimeSessionMetadata, IRuntimeSessionStartReason, SessionStartReason
  * User-facing labels for each session start reason.
  */
 const sessionStartReasonLabels: Record<SessionStartReason, ILocalizedString> = {
-	[SessionStartReason.AffiliatedRuntime]: localize2('positron.sessionStartReason.affiliatedRuntime', "This workspace's last used interpreter was restored at startup"),
-	[SessionStartReason.AffiliatedRuntimeRegistered]: localize2('positron.sessionStartReason.affiliatedRuntimeRegistered', "The interpreter scan found this workspace's last used interpreter"),
-	[SessionStartReason.ExtensionRequestedImmediateStart]: localize2('positron.sessionStartReason.extensionRequestedImmediateStart', "This interpreter's extension requested an immediate start, and no interpreter was saved for this workspace"),
-	[SessionStartReason.ExtensionRequestedStartAfterRegistration]: localize2('positron.sessionStartReason.extensionRequestedStartAfterRegistration', "This interpreter was found after startup, and its extension asked to start it right away"),
-	[SessionStartReason.ExtensionRecommendedRuntime]: localize2('positron.sessionStartReason.extensionRecommendedRuntime', "An extension recommended this interpreter for this workspace"),
+	[SessionStartReason.AffiliatedRuntime]: localize2('positron.sessionStartReason.affiliatedRuntime', "This workspace's last used interpreter was started when Positron started"),
+	[SessionStartReason.AffiliatedRuntimeRegistered]: localize2('positron.sessionStartReason.affiliatedRuntimeRegistered', "This workspace's last used interpreter was started when found by interpreter discovery"),
+	[SessionStartReason.ExtensionRequestedImmediateStart]: localize2('positron.sessionStartReason.extensionRequestedImmediateStart', "This interpreter's extension recommended the interpreter for this workspace when interpreter discovery finished"),
+	[SessionStartReason.ExtensionRequestedStartAfterRegistration]: localize2('positron.sessionStartReason.extensionRequestedStartAfterRegistration', "A new interpreter was found after startup, and the interpreter's extension recommended the interpreter for this workspace"),
+	[SessionStartReason.ExtensionRecommendedRuntime]: localize2('positron.sessionStartReason.extensionRecommendedRuntime', "This interpreter's extension recommended starting the interpreter for this workspace"),
 	[SessionStartReason.StartupBehaviorAlways]: localize2('positron.sessionStartReason.startupBehaviorAlways', "Startup Behavior is set to always for this language"),
 	[SessionStartReason.LanguageFileOpenAtRegistration]: localize2('positron.sessionStartReason.languageFileOpenAtRegistration', "This interpreter was found after a file in this language was opened"),
 	[SessionStartReason.LanguageFileOpened]: localize2('positron.sessionStartReason.languageFileOpened', "A file in this language was opened"),
@@ -25,7 +25,7 @@ const sessionStartReasonLabels: Record<SessionStartReason, ILocalizedString> = {
 	[SessionStartReason.CodeExecutedWithoutSession]: localize2('positron.sessionStartReason.codeExecutedWithoutSession', "Code was sent to the console with no session for this language"),
 	[SessionStartReason.RestartUninitializedSession]: localize2('positron.sessionStartReason.restartUninitializedSession', "A restart was requested for a session that never started"),
 	[SessionStartReason.NewFolderNotebook]: localize2('positron.sessionStartReason.newFolderNotebook', "This notebook was created with a new folder from the Jupyter Notebook template"),
-	[SessionStartReason.QuartoInlineOutput]: localize2('positron.sessionStartReason.quartoInlineOutput', "Code was run in a Quarto document with inline output"),
+	[SessionStartReason.QuartoInlineOutput]: localize2('positron.sessionStartReason.quartoInlineOutput', "A Quarto document with inline output needed a kernel"),
 	[SessionStartReason.NotebookCellsExecuted]: localize2('positron.sessionStartReason.notebookCellsExecuted', "Notebook cells were run with no kernel running"),
 	[SessionStartReason.NotebookCodeFragmentExecuted]: localize2('positron.sessionStartReason.notebookCodeFragmentExecuted', "Selected code in a notebook cell was run with no kernel"),
 	[SessionStartReason.NotebookKernelSelected]: localize2('positron.sessionStartReason.notebookKernelSelected', "A kernel was selected for this notebook"),
