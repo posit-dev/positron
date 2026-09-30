@@ -38,7 +38,7 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 	[SessionStartReasonId.AffiliatedRuntimeAtRegistration]: () => localize2('positron.sessionStartReason.affiliatedRuntimeAtRegistration', "This workspace's last used interpreter was started when found by interpreter discovery"),
 	[SessionStartReasonId.ExtensionRequestedImmediateStart]: args => localize2('positron.sessionStartReason.extensionRequestedImmediateStart', "The {0} extension recommended {1} for this workspace when interpreter discovery finished", args.extensionName, args.runtimeName),
 	[SessionStartReasonId.ExtensionRequestedStartAtRegistration]: args => localize2('positron.sessionStartReason.extensionRequestedStartAtRegistration', "A new interpreter was found after startup, and the {0} extension recommended {1} for this workspace", args.extensionName, args.runtimeName),
-	[SessionStartReasonId.ExtensionRecommendedRuntime]: args => localize2('positron.sessionStartReason.extensionRecommendedRuntime', "The {0} extension recommended starting the interpreter for this workspace", args.extensionName),
+	[SessionStartReasonId.ExtensionRecommendedRuntime]: args => localize2('positron.sessionStartReason.extensionRecommendedRuntime', "The {0} extension recommended starting {1} for this workspace", args.extensionName, args.runtimeName),
 	[SessionStartReasonId.StartupBehaviorAlways]: args => localize2('positron.sessionStartReason.startupBehaviorAlways', "Startup Behavior is set to \"Always\" for {0}", args.languageName),
 	[SessionStartReasonId.LanguageFileOpenedAtRegistration]: languageFileOpenedLabel,
 	[SessionStartReasonId.LanguageFileOpened]: languageFileOpenedLabel,

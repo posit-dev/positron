@@ -85,7 +85,7 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 	it('names the extension that provides the session\'s interpreter', () => {
 		renderPopup('', SessionStartReasonId.ExtensionRecommendedRuntime);
 
-		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The Python extension recommended starting the interpreter for this workspace');
+		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The Python extension recommended starting Python 3.12.4 for this workspace');
 	});
 
 	it('names the session\'s language', () => {
@@ -97,7 +97,7 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 	it('falls back to the extension ID when the extension is not registered', () => {
 		renderPopup('', SessionStartReasonId.ExtensionRecommendedRuntime, 'example.missing');
 
-		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The example.missing extension recommended starting the interpreter for this workspace');
+		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The example.missing extension recommended starting Python 3.12.4 for this workspace');
 	});
 
 	it('names the session\'s notebook', () => {

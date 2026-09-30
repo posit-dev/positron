@@ -1780,7 +1780,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				// Start the runtime immediately if it has Immediate startup
 				// behavior.
-				await this.autoStartRuntime(runtime, createSessionStartReason(SessionStartReasonId.ExtensionRecommendedRuntime, { extension: runtime.extensionId.value }), idx === 0);
+				await this.autoStartRuntime(runtime, createSessionStartReason(SessionStartReasonId.ExtensionRecommendedRuntime, { extension: runtime.extensionId.value, interpreter: runtime.runtimeName }), idx === 0);
 			} else {
 				// For other startup behaviors, we just save the runtime as the
 				// default (unless the workspace already has an affiliated

@@ -48,7 +48,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "duplicatedConsoleSession": "A console was duplicated",
 			  "duplicatedNotebookSession": "A notebook session was duplicated into a console",
 			  "extensionApi": "An extension asked for this session through the Positron API",
-			  "extensionRecommendedRuntime": "The Positron R extension recommended starting the interpreter for this workspace",
+			  "extensionRecommendedRuntime": "The Positron R extension recommended starting R 4.4.1 for this workspace",
 			  "extensionRequestedImmediateStart": "The Positron R extension recommended R 4.4.1 for this workspace when interpreter discovery finished",
 			  "extensionRequestedStartAtRegistration": "A new interpreter was found after startup, and the Positron R extension recommended R 4.4.1 for this workspace",
 			  "languageFileOpened": "This interpreter was started after a file written in R was opened",
@@ -72,7 +72,7 @@ describe('getSessionStartReasonLabel', () => {
 
 	it('uses the extension ID when the extension is not registered', () => {
 		expect(getSessionStartReasonLabel(createSession('detail', SessionStartReasonId.ExtensionRecommendedRuntime, 'example.missing'), extensions))
-			.toBe('The example.missing extension recommended starting the interpreter for this workspace');
+			.toBe('The example.missing extension recommended starting R 4.4.1 for this workspace');
 	});
 
 	it('falls back to the description when the session has no start reason ID', () => {
