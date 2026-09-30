@@ -29,9 +29,14 @@ export interface IInterpreterDefinition {
  */
 function validDefinitions(definitions: readonly IInterpreterDefinition[] | undefined): IInterpreterDefinition[] {
 	const isText = (value: unknown) => typeof value === 'string' && value.length > 0;
+	const isStringRecord = (value: unknown) =>
+		!!value && typeof value === 'object' && !Array.isArray(value) && Object.values(value).every(v => typeof v === 'string');
 	const seen = new Set<string>();
 	return (Array.isArray(definitions) ? definitions : []).filter(d => {
 		if (!d || !isText(d.language) || !isText(d.path) || !isText(d.label)) {
+			return false;
+		}
+		if ((d.env !== undefined && !isStringRecord(d.env)) || (d.startupScript !== undefined && typeof d.startupScript !== 'string')) {
 			return false;
 		}
 		const key = `${d.language}\0${d.label}`;

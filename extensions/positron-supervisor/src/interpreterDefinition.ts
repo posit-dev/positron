@@ -27,8 +27,22 @@ export function findInterpreterDefinition(definitions: unknown, languageId: stri
 	if (!Array.isArray(definitions)) {
 		return undefined;
 	}
-	return definitions.find((d): d is InterpreterDefinition =>
-		!!d && typeof d === 'object' && d.language === languageId && d.label === label);
+	return definitions.find((definition): definition is InterpreterDefinition => {
+		if (!definition || typeof definition !== 'object' || Array.isArray(definition)) {
+			return false;
+		}
+		const candidate = definition as Record<string, unknown>;
+		return candidate.language === languageId &&
+			typeof candidate.path === 'string' &&
+			candidate.path.length > 0 &&
+			candidate.label === label &&
+			(candidate.env === undefined || isStringRecord(candidate.env)) &&
+			(candidate.startupScript === undefined || typeof candidate.startupScript === 'string');
+	});
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+	return !!value && typeof value === 'object' && !Array.isArray(value) && Object.values(value).every(v => typeof v === 'string');
 }
 
 /**

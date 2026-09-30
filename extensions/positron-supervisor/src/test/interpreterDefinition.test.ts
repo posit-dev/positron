@@ -54,7 +54,14 @@ suite('findInterpreterDefinition', () => {
 
 	test('finds the entry by language and label, ignoring malformed setting values', () => {
 		assert.deepStrictEqual([
-			findInterpreterDefinition([null, 'r', { ...definition, language: 'python' }, definition], 'r', 'XX'),
+			findInterpreterDefinition([
+				null,
+				'r',
+				{ ...definition, language: 'python' },
+				{ ...definition, env: ['R_LIBS_SITE=/bad'] },
+				{ ...definition, startupScript: 42 },
+				definition,
+			], 'r', 'XX'),
 			findInterpreterDefinition(definition, 'r', 'XX'),
 			findInterpreterDefinition(undefined, 'r', 'XX'),
 		], [definition, undefined, undefined]);

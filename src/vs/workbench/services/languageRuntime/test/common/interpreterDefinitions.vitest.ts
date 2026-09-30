@@ -36,6 +36,8 @@ describe('getMatchingDefinitions', () => {
 			{ ...xx, label: 'Other path', path: '/opt/R/4.3.0/bin/R' },
 			{ ...xx, label: 'Other language', language: 'python' },
 			{ ...xx, label: '' },
+			{ ...xx, label: 'Bad env', env: ['R_LIBS_SITE=/bad'] },
+			{ ...xx, label: 'Bad startup script', startupScript: 42 },
 			{ ...xx, env: { R_LIBS_SITE: '/dup' } },
 		];
 		expect(getMatchingDefinitions(definitions, base)).toEqual([xx]);
