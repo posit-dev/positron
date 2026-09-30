@@ -370,7 +370,14 @@ pre-existing anywhere else in the report.
 `Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
 and "one in three" are different bugs. 0/M means you saw it but could not
-reproduce it, and renders as Unproven.
+reproduce it, and renders as Unproven. Make at least one of the M a cold replay:
+launch a second instance beside the first, attach to it under its own Playwright
+session (`-s=replay`), do only what the finding's preconditions and steps say,
+then collect its logs and stop it with `stop.sh`. Keep one replay instance at a
+time, and stop it before launching another or writing up. A window reload is not
+cold, since it restores editors and sessions. If the replay fails where the
+others passed, look for what the steps leave out and write it in; if nothing is
+missing, replay once more.
 
 When behavior that used to work is now broken, say so in the claim -- "X no
 longer Y" -- since that decides whether a reader reverts or fixes forward.
