@@ -22,7 +22,7 @@ import { PositronModalPopup } from '../../../../browser/positronComponents/posit
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { getSessionStartReasonLabel } from '../../../../services/runtimeSession/common/sessionStartReasonLabels.js';
+import { getSessionStartReasonLabel, getSessionStartReasonNames } from '../../../../services/runtimeSession/common/sessionStartReasonLabels.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
@@ -100,6 +100,7 @@ interface ConsoleInstanceInfoModalPopupProps {
 }
 
 export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
+	const services = usePositronReactServicesContext();
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
 	const [channels, setChannels] = useState<LanguageRuntimeSessionChannel[]>([]);
 
@@ -138,7 +139,8 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 		return () => { active = false; };
 	}, [props.session]);
 
-	const startReasonLabel = getSessionStartReasonLabel(props.session.metadata);
+	const startReasonLabel = getSessionStartReasonLabel(props.session.metadata,
+		getSessionStartReasonNames(props.session, services.extensionService.extensions));
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);

@@ -26,7 +26,7 @@ import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
-import { isEqual } from '../../../../base/common/resources.js';
+import { basename, isEqual } from '../../../../base/common/resources.js';
 import { isNotebookRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSession.js';
 import { IPositronNotebookService } from '../../positronNotebook/browser/positronNotebookService.js';
 import { ResourceMap } from '../../../../base/common/map.js';
@@ -521,7 +521,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		}
 
 		this._pendingPositronAutoStarts.delete(instance.uri);
-		await kernel.ensureSessionStarted(instance.uri, createSessionStartReason(SessionStartReason.NotebookEditorOpened, { kernel: kernel.id }));
+		await kernel.ensureSessionStarted(instance.uri, createSessionStartReason(SessionStartReason.NotebookEditorOpened, { notebook: basename(instance.uri), kernel: kernel.id }));
 	}
 
 	private _registerGroupListener(group: IEditorGroup): void {

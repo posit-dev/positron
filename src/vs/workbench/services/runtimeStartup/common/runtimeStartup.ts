@@ -348,7 +348,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					// Start the first runtime that has Immediate startup behavior
 					if (languageRuntimes.length) {
 						const extension = languageRuntimes[0].extensionId;
-						this.autoStartRuntime(languageRuntimes[0], createSessionStartReason(SessionStartReason.ExtensionRequestedImmediateStart, { extension: extension.value }), true);
+						this.autoStartRuntime(languageRuntimes[0], createSessionStartReason(SessionStartReason.ExtensionRequestedImmediateStart, { extension: extension.value, interpreter: languageRuntimes[0].runtimeName }), true);
 						return;
 					}
 
@@ -400,7 +400,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				this._startupPhase === RuntimeStartupPhase.Complete &&
 				!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 
-				this.autoStartRuntime(runtime, createSessionStartReason(SessionStartReason.ExtensionRequestedStartAfterRegistration, { extension: runtime.extensionId.value }), true);
+				this.autoStartRuntime(runtime, createSessionStartReason(SessionStartReason.ExtensionRequestedStartAfterRegistration, { extension: runtime.extensionId.value, interpreter: runtime.runtimeName }), true);
 			}
 
 			// Automatically start the language runtime under the following conditions:
