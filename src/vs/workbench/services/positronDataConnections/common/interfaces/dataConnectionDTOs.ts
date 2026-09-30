@@ -67,7 +67,9 @@ export type DataConnectionParameterValuesDTO = Record<string, string | number | 
 export interface IDataConnectionNodeDTO {
 	nodeHandle: number;
 	name: string;
-	kind: string; // DataConnectionNodeKind value
+	// Normally a DataConnectionNodeKind value (dataConnectionDriver.ts), but typed as the string a
+	// driver actually sent: nothing on the wire stops one reporting a kind the enum does not list.
+	kind: string;
 	dataType?: string;
 	isPrimaryKey?: boolean;
 	hasGetChildren: boolean;

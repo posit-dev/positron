@@ -504,41 +504,6 @@ export enum DataConnectionParameterType {
 	String = 'string',
 }
 
-export enum DataConnectionNodeKind {
-	Database = 'database',
-	// A catalog: the level above a schema in a three-part namespace, e.g. a Unity Catalog catalog
-	// (positron-data-driver-databricks).
-	Catalog = 'catalog',
-	Schema = 'schema',
-	Table = 'table',
-	View = 'view',
-	Field = 'field',
-	GroupDatabases = 'group-databases',
-	GroupCatalogs = 'group-catalogs',
-	GroupSchemas = 'group-schemas',
-	GroupTables = 'group-tables',
-	GroupViews = 'group-views',
-	GroupColumns = 'group-columns',
-	GroupIndexes = 'group-indexes',
-	GroupStages = 'group-stages',
-	GroupVolumes = 'group-volumes',
-	Index = 'index',
-	// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
-	Stage = 'stage',
-	// A Unity Catalog volume: a governed location for non-tabular files
-	// (positron-data-driver-databricks).
-	Volume = 'volume',
-	// A directory inside a volume, and a file inside one.
-	Directory = 'directory',
-	File = 'file',
-	// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
-	Owner = 'owner',
-	// A pin on a Posit Connect server (positron-data-driver-pins).
-	Pin = 'pin',
-	// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
-	Version = 'version',
-}
-
 /**
  * The reason the Positron window is shutting down. Mirrors the workbench's
  * internal `ShutdownReason` enum so extensions can distinguish a quit from a
@@ -558,3 +523,4 @@ export enum ShutdownReason {
 export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 export type { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 export { PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';
+export { DataConnectionNodeKind } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';

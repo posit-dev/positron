@@ -5,7 +5,7 @@
 
 import { quoteCompactToken } from './dataConnectionCompactFormat.js';
 import { IDataConnectionNodeDTO } from './interfaces/dataConnectionDTOs.js';
-import { IDataConnectionHandle } from './interfaces/dataConnectionDriver.js';
+import { DataConnectionNodeKind, IDataConnectionHandle } from './interfaces/dataConnectionDriver.js';
 
 // Defaults keep a single summarization call cheap for both the driver (bounded number of
 // nodeGetChildren round-trips) and the consumer (bounded JSON payload size).
@@ -13,20 +13,19 @@ const DEFAULT_MAX_DEPTH = 4;
 const DEFAULT_MAX_NODES_PER_LEVEL = 50;
 const DEFAULT_MAX_TOTAL_NODES = 500;
 
-// DataConnectionNodeKind values (positron.d.ts) that only group sibling nodes for display (e.g.
-// "Tables", "Views") and carry no schema information of their own. Exported because revealing a
-// row in the pane has to walk past the same rows this summary flattens away. IDataConnectionNodeDTO.kind
-// crosses the RPC wire as a plain string (see dataConnectionDTOs.ts), so these are compared as
-// string literals rather than imported from the ext-host-only DataConnectionNodeKind enum.
-export const CONTAINER_ONLY_KINDS = new Set([
-	'group-databases',
-	'group-catalogs',
-	'group-schemas',
-	'group-tables',
-	'group-views',
-	'group-columns',
-	'group-indexes',
-	'group-volumes',
+// Node kinds that only group sibling nodes for display (e.g. "Tables", "Views") and carry no schema
+// information of their own. Exported because revealing a row in the pane has to walk past the same
+// rows this summary flattens away. A set of strings rather than of kinds because what it is checked
+// against is a DTO's kind, which is whatever string the driver sent.
+export const CONTAINER_ONLY_KINDS: ReadonlySet<string> = new Set<string>([
+	DataConnectionNodeKind.GroupDatabases,
+	DataConnectionNodeKind.GroupCatalogs,
+	DataConnectionNodeKind.GroupSchemas,
+	DataConnectionNodeKind.GroupTables,
+	DataConnectionNodeKind.GroupViews,
+	DataConnectionNodeKind.GroupColumns,
+	DataConnectionNodeKind.GroupIndexes,
+	DataConnectionNodeKind.GroupVolumes,
 ]);
 
 // Node kinds whose children are files rather than schema, and so are summarized as leaves: the walk
@@ -40,15 +39,15 @@ export const CONTAINER_ONLY_KINDS = new Set([
 // arithmetic, and it does not avoid the work: at the depth limit the walk still fetches a node's
 // children in order to count them (see summarizeSiblings), so the listing is paid for and then
 // discarded. Stating the intent here instead skips the fetch outright.
-const SUMMARY_LEAF_KINDS = new Set([
-	'volume',
-	'stage',
+const SUMMARY_LEAF_KINDS: ReadonlySet<string> = new Set<string>([
+	DataConnectionNodeKind.Volume,
+	DataConnectionNodeKind.Stage,
 ]);
 
 // The node kind a driver reports a table's or view's columns as. Columns are the bulk of any
 // schema, and unlike every other kind they are pure leaves, so the renderer folds them onto their
 // parent's line instead of giving each one a line of its own.
-const COLUMN_KIND = 'field';
+const COLUMN_KIND = DataConnectionNodeKind.Field;
 
 // The characters a rendered schema line uses as delimiters: `.` between path segments, `,` between
 // folded columns, `:` between a column and its type, the brackets around a node's kind and its
@@ -85,7 +84,7 @@ export interface IDataConnectionSchemaSummaryOptions {
  */
 export interface IDataConnectionSchemaNode {
 	name: string;
-	kind: string; // DataConnectionNodeKind value (positron.d.ts)
+	kind: string; // Normally a DataConnectionNodeKind value; see IDataConnectionNodeDTO.kind
 	dataType?: string;
 	isPrimaryKey?: boolean;
 

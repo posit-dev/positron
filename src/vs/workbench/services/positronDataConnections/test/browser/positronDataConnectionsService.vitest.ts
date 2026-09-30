@@ -20,7 +20,7 @@ import { PositronDataExplorerUri } from '../../../positronDataExplorer/common/po
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IViewsService } from '../../../views/common/viewsService.js';
-import { IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
+import { DataConnectionNodeKind, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionParameter, IDataConnectionProfile } from '../../common/interfaces/dataConnectionDriver.js';
 import { IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../common/interfaces/positronDataConnectionsService.js';
 import { PositronDataConnectionsService } from '../../browser/positronDataConnectionsService.js';
 
@@ -938,7 +938,7 @@ describe('PositronDataConnectionsService', () => {
 		});
 	});
 	describe('revealNode', () => {
-		const PATH = [{ kind: 'table', name: 'flights' }];
+		const PATH = [{ kind: DataConnectionNodeKind.Table, name: 'flights' }];
 
 		/** Connects 'conn-1' through a minimal driver, so it has a live instance to reveal into. */
 		async function connectProfile() {

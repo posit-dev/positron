@@ -141,13 +141,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * Returns the connections the user has configured, live or not.
 	 */
 	async $getDataConnections(): Promise<IDataConnectionSummaryDTO[]> {
-		if (!this._isEnabled()) {
-			// An empty list and a disabled feature look the same to the caller, so the difference
-			// is recorded here. Otherwise an extension reporting "no connections" is unexplainable
-			// from the logs.
-			this._logService.trace('[DataConnections] getConnections: the feature is disabled.');
-			return [];
-		}
+		this._throwIfDisabled();
 		const live = new Set(
 			this._dataConnectionsService.getInstances().map(instance => instance.profileId),
 		);
@@ -168,10 +162,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * extension can ask for a connection to be opened, not so it can hold one.
 	 */
 	async $openDataConnection(profileId: string): Promise<boolean> {
-		if (!this._isEnabled()) {
-			this._logService.trace('[DataConnections] openConnection: the feature is disabled.');
-			return false;
-		}
+		this._throwIfDisabled();
 		if (!this._dataConnectionsService.getProfile(profileId)) {
 			// Nothing to open. A stale id is ordinary -- a caller may have recorded a profile the
 			// user has since removed -- so this is not an error, just a no.
@@ -196,10 +187,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		profileId: string,
 		options: IDataConnectionSchemaSummaryOptions,
 	): Promise<IDataConnectionSchemaWalk | undefined> {
-		if (!this._isEnabled()) {
-			this._logService.trace('[DataConnections] getSchema: the feature is disabled.');
-			return undefined;
-		}
+		this._throwIfDisabled();
 		const instance = this._dataConnectionsService.getInstanceForProfile(profileId);
 		if (!instance) {
 			this._logService.warn(`[DataConnections] getSchema: profile ${profileId} has no live connection.`);
@@ -212,8 +200,17 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		return walk;
 	}
 
-	private _isEnabled(): boolean {
-		return this._configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) === true;
+	/**
+	 * Rejects a call about the user's connections when the Data Connections feature is off.
+	 *
+	 * A rejection rather than an empty answer, so that a caller can tell "the user has none" from
+	 * "the user turned this off" -- the same choice positron.runtime.getConsoleHistory makes for
+	 * its own setting. Read on every call, since the setting changes without a reload.
+	 */
+	private _throwIfDisabled(): void {
+		if (this._configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true) {
+			throw new Error(`Data connections are unavailable because the "${POSITRON_DATA_CONNECTIONS_ENABLED_KEY}" setting is disabled.`);
+		}
 	}
 
 	/**

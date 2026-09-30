@@ -3603,8 +3603,8 @@ declare module 'positron' {
 		 * ones this extension opened with {@link connect}. Use them to offer completions, checks
 		 * or navigation against whatever the user is actually connected to.
 		 *
-		 * Empty when the Data Connections feature is disabled, which reads the same to a caller
-		 * as the user having none.
+		 * Rejects when the `dataConnections.enabled` setting is off, so that a disabled feature
+		 * cannot be mistaken for a user with no connections.
 		 */
 		export function getConnections(): Thenable<DataConnectionSummary[]>;
 
@@ -3626,9 +3626,10 @@ declare module 'positron' {
 		 * extension registered and hands back the connection it owns.
 		 *
 		 * @param profileId The connection to open, from {@link DataConnectionSummary.profileId}.
-		 * @returns Whether the connection is now open. `false` when no such profile exists or the
-		 *   Data Connections feature is disabled. Rejects with the driver's error when opening was
-		 *   attempted and failed, which a caller should expect: credentials expire and hosts go
+		 * @returns Whether the connection is now open. `false` when no such profile exists, which is
+		 *   ordinary: a caller may have recorded a profile the user has since removed. Rejects when
+		 *   the `dataConnections.enabled` setting is off, and with the driver's error when opening
+		 *   was attempted and failed, which a caller should expect: credentials expire and hosts go
 		 *   away.
 		 */
 		export function openConnection(profileId: string): Thenable<boolean>;
@@ -3643,7 +3644,8 @@ declare module 'positron' {
 		 *
 		 * @param profileId The connection to read, from {@link DataConnectionSummary.profileId}.
 		 * @param options Bounds for the walk. Defaults are sized for a summary, not a full schema.
-		 * @returns The schema, or `undefined` if the connection is not currently connected.
+		 * @returns The schema, or `undefined` if the connection is not currently connected. Rejects
+		 *   when the `dataConnections.enabled` setting is off.
 		 */
 		export function getSchema(profileId: string, options?: DataConnectionSchemaOptions): Thenable<DataConnectionSchema | undefined>;
 
@@ -3704,8 +3706,8 @@ declare module 'positron' {
 	export interface DataConnectionSchemaNode {
 		readonly name: string;
 
-		/** The kind of object, as a {@link DataConnectionNodeKind} value. */
-		readonly kind: string;
+		/** The kind of object. */
+		readonly kind: DataConnectionNodeKind;
 
 		/** The column's data type, for a node of kind `field`. */
 		readonly dataType?: string;

@@ -267,13 +267,13 @@ describe('MainThreadDataConnections', () => {
 			expect(JSON.stringify(summary)).not.toContain('hunter2');
 		});
 
-		it('reports nothing when the feature is disabled', async () => {
-			// Reads the same to a caller as the user having no connections, which is the point:
-			// there is nothing for them to act on either way.
+		it('rejects rather than reporting no connections when the feature is disabled', async () => {
+			// An empty list would read the same as a user with no connections, and the caller
+			// could not tell which one to explain.
 			profiles = [profile('p1', 'Sales')];
 			configurationService.setUserConfiguration('dataConnections', { enabled: false });
 
-			await expect(mainThread.$getDataConnections()).resolves.toEqual([]);
+			await expect(mainThread.$getDataConnections()).rejects.toThrow('"dataConnections.enabled" setting is disabled');
 		});
 
 		it('opens a connection the user configured', async () => {
@@ -290,11 +290,11 @@ describe('MainThreadDataConnections', () => {
 			expect(connect).not.toHaveBeenCalled();
 		});
 
-		it('opens nothing when the feature is disabled', async () => {
+		it('rejects and opens nothing when the feature is disabled', async () => {
 			profiles = [profile('p1', 'Sales')];
 			configurationService.setUserConfiguration('dataConnections', { enabled: false });
 
-			await expect(mainThread.$openDataConnection('p1')).resolves.toBe(false);
+			await expect(mainThread.$openDataConnection('p1')).rejects.toThrow('"dataConnections.enabled" setting is disabled');
 			expect(connect).not.toHaveBeenCalled();
 		});
 
@@ -355,6 +355,13 @@ describe('MainThreadDataConnections', () => {
 			profiles = [profile('p1', 'Sales')];
 
 			await expect(mainThread.$getDataConnectionSchema('p1', {})).resolves.toBeUndefined();
+		});
+
+		it('rejects a schema read when the feature is disabled, even for a live connection', async () => {
+			instances = [instance('p1', { getChildren: async () => [] })];
+			configurationService.setUserConfiguration('dataConnections', { enabled: false });
+
+			await expect(mainThread.$getDataConnectionSchema('p1', {})).rejects.toThrow('"dataConnections.enabled" setting is disabled');
 		});
 
 		it('does not register a borrowed handle, so it cannot be released', async () => {

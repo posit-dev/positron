@@ -12,7 +12,7 @@ import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnections
 import { quoteCompactToken } from '../../../services/positronDataConnections/common/dataConnectionCompactFormat.js';
 import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionNodeStep, IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, isDataConnectionNodeKind, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionSchemaSummary, IDataConnectionSchemaSummaryOptions, summarizeDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 
 /**
@@ -638,7 +638,8 @@ function parseRevealArgs(args: unknown): { profileId: string; path: IDataConnect
 
 	const steps: IDataConnectionNodeStep[] = [];
 	for (const step of path) {
-		if (typeof step?.kind !== 'string' || typeof step?.name !== 'string' || !step.name) {
+		if (typeof step?.kind !== 'string' || !isDataConnectionNodeKind(step.kind)
+			|| typeof step?.name !== 'string' || !step.name) {
 			return undefined;
 		}
 		steps.push({ kind: step.kind, name: step.name });

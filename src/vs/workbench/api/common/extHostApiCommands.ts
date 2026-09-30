@@ -541,12 +541,7 @@ const newCommands: ApiCommand[] = [
 	new ApiCommand(
 		'vscode.executeStatementRangeProvider', '_executeStatementRangeProvider', 'Execute statement range provider.',
 		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
-		new ApiCommandResult<languages.IStatementRange | undefined, positron.StatementRange | undefined>('A promise that resolves to a statement range.', result => {
-			// No provider produced a range, e.g. the document has no statement at or
-			// after the position, or there is no provider for its language.
-			if (!result) {
-				return undefined;
-			}
+		new ApiCommandResult<languages.IStatementRange, positron.StatementRange>('A promise that resolves to a statement range.', result => {
 			switch (result.kind) {
 				case languages.StatementRangeKind.Success:
 					return {
