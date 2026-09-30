@@ -94,7 +94,8 @@ test('reasonClause keeps one sentence and continues "This PR"', () => {
 
 test('reasonClause strips markup, defuses mentions and caps length', () => {
 	const clause = reasonClause('This PR <!-- x --> pings @someone about <b>it</b>');
-	assert.doesNotMatch(clause, /[<>]/);
+	assert.equal(clause.replace('​', ''), 'pings @someone about it.');
+	assert.doesNotMatch(reasonClause('a < b and c > d'), /[<>]/);
 	assert.doesNotMatch(clause, /@someone/);
 	assert.ok(reasonClause('word '.repeat(200), 50).length <= 54);
 });

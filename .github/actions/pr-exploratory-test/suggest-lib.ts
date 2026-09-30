@@ -113,7 +113,8 @@ export function parseVerdict(text) {
  * the model read, and this is posted as the bot.
  */
 export function reasonClause(reason, max = 300) {
-	let text = String(reason ?? '').replace(/\s+/g, ' ').replace(/[<>]/g, '').trim();
+	// Whole tags and comments first, then any stray bracket left unmatched.
+	let text = String(reason ?? '').replace(/<[^>]*>/g, ' ').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
 	text = text.replace(/^this pr\s+/i, '');
 	const sentence = text.match(/^.+?[.!?](?=\s|$)/);
 	if (sentence) {
