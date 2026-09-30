@@ -580,7 +580,19 @@ or at least belongs in the scenario's Result.
 
 Look for a second code path that consumes the same data. When one consumer is
 correct and another is wrong, you have localized the bug instead of just
-observing it.
+observing it. When a finding's cause is unclear, spend a few minutes on
+controls before writing it up, changing one thing at a time:
+
+- **Baseline:** the same actions without the changed feature, which rules out
+  the automation.
+- **Another user:** a second feature built on the changed component.
+- **An unchanged counterpart:** a feature the diff does not touch that shares
+  the mechanism. It stands in for the base build, so say the diff does not
+  touch it.
+- **Another trigger:** another key, another way to close, another way in.
+
+Word the Cause only as widely as those cases reach. If one dialog fails and
+another passes, the cause is in the first dialog, not in dialogs.
 
 Before believing a finding, confirm your measurement can see what you think it
 sees. A UI-scraping bug reads as a product bug, and bug-first instinct will
