@@ -17,7 +17,7 @@ import { IProgressService, ProgressLocation } from '../../../../platform/progres
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { RuntimeExitReason } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { INotebookLanguageRuntimeSession, IRuntimeSessionService, SessionStartReason } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { IActiveNotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';

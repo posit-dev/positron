@@ -25,7 +25,7 @@ import { PositronViewPane } from '../../../browser/positronViewPane/positronView
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronConsole } from './positronConsole.js';
 import { IRuntimeSessionService, RuntimeStartMode, SessionStartReason } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';

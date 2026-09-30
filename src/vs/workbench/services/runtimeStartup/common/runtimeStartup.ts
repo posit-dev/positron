@@ -17,7 +17,7 @@ import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMeta
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, SessionStartReason } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasons.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
@@ -2417,7 +2417,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async autoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
-		source: IRuntimeSessionStartReason,
+		startReason: IRuntimeSessionStartReason,
 		activate: boolean
 	) {
 		this._onWillAutoStartRuntime.fire({
@@ -2425,7 +2425,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			newSession: true,
 			activate
 		});
-		await this._runtimeSessionService.autoStartRuntime(metadata, source, activate);
+		await this._runtimeSessionService.autoStartRuntime(metadata, startReason, activate);
 	}
 
 	// Storage key prefix for architecture mismatch dismissal

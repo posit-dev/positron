@@ -22,7 +22,7 @@ import { PositronModalPopup } from '../../../../browser/positronComponents/posit
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel, SessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { getSessionStartReasonLabel, getSessionStartReasonNames } from '../../../../services/runtimeSession/common/sessionStartReasonLabels.js';
+import { getSessionStartReasonLabel } from '../../../../services/runtimeSession/common/sessionStartReasons.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
@@ -139,9 +139,8 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 		return () => { active = false; };
 	}, [props.session]);
 
-	const startReasonLabel = getSessionStartReasonLabel(props.session.metadata,
-		getSessionStartReasonNames(props.session, services.extensionService.extensions));
-	const showStartupBehaviorSetting = props.session.metadata.startReasonId === SessionStartReason.StartupBehaviorAlways;
+	const startReasonLabel = getSessionStartReasonLabel(props.session, services.extensionService.extensions);
+	const hasStartupBehaviorLink = props.session.metadata.startReasonId === SessionStartReason.StartupBehaviorAlways;
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
@@ -198,9 +197,9 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 						</p>
 					</div>
 				</div>
-				{(channels.length > 0 || showStartupBehaviorSetting) &&
+				{(channels.length > 0 || hasStartupBehaviorLink) &&
 					<div className='top-separator actions'>
-						{showStartupBehaviorSetting &&
+						{hasStartupBehaviorLink &&
 							<Button
 								className='link'
 								onPressed={showStartupBehaviorSettingClickHandler}

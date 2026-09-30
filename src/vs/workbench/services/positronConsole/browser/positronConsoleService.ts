@@ -48,7 +48,7 @@ import { ActivityItemStream, ActivityItemStreamType } from './classes/activityIt
 import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReason } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasons.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';

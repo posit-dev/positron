@@ -15,7 +15,7 @@ import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode, SessionStartReason } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';

@@ -190,7 +190,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	startNewRuntimeSession(_runtimeId: string, _sessionName: string, _sessionMode: any, _notebookUri: any, _source: IRuntimeSessionStartReason, _startMode: RuntimeStartMode, _activate: boolean): Promise<string> {
+	startNewRuntimeSession(_runtimeId: string, _sessionName: string, _sessionMode: any, _notebookUri: any, _startReason: IRuntimeSessionStartReason, _startMode: RuntimeStartMode, _activate: boolean): Promise<string> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -202,11 +202,11 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	autoStartRuntime(_metadata: any, _source: IRuntimeSessionStartReason, _activate: boolean): Promise<string> {
+	autoStartRuntime(_metadata: any, _startReason: IRuntimeSessionStartReason, _activate: boolean): Promise<string> {
 		throw new Error('Method not implemented.');
 	}
 
-	selectRuntime(_runtimeId: string, _source: IRuntimeSessionStartReason, _notebookUri?: any): Promise<void> {
+	selectRuntime(_runtimeId: string, _startReason: IRuntimeSessionStartReason, _notebookUri?: any): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 

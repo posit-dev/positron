@@ -5,17 +5,39 @@
 
 /// <reference types="vitest/globals" />
 
-import { SessionStartReason } from '../../common/runtimeSessionService.js';
-import { createSessionStartReason, getSessionStartReasonLabel } from '../../common/sessionStartReasonLabels.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { ILanguageRuntimeMetadata } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionMetadata, SessionStartReason } from '../../common/runtimeSessionService.js';
+import { createSessionStartReason, getSessionStartReasonLabel } from '../../common/sessionStartReasons.js';
 
 describe('getSessionStartReasonLabel', () => {
-	const names = { language: 'R', extension: 'Positron R', interpreter: 'R 4.4.1', notebook: 'analysis.ipynb' };
+	const extensions = [stubInterface<IExtensionDescription>({
+		identifier: new ExtensionIdentifier('positron.positron-r'),
+		displayName: 'Positron R',
+	})];
+
+	function createSession(startReason: string, startReasonId?: SessionStartReason, extensionId = 'positron.positron-r') {
+		return {
+			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({
+				languageName: 'R',
+				runtimeName: 'R 4.4.1',
+				extensionId: new ExtensionIdentifier(extensionId),
+			}),
+			metadata: stubInterface<IRuntimeSessionMetadata>({
+				startReason,
+				startReasonId,
+				notebookUri: URI.file('/work/analysis.ipynb'),
+			}),
+		};
+	}
 
 	// The IDs are persisted with session metadata, so a renamed ID or a
 	// changed label shows up as a diff here.
 	it('labels every start reason', () => {
 		const labels = Object.fromEntries(Object.values(SessionStartReason).map(id =>
-			[id, getSessionStartReasonLabel({ startReason: 'detail', startReasonId: id }, names)]
+			[id, getSessionStartReasonLabel(createSession('detail', id), extensions)]
 		));
 
 		expect(labels).toMatchInlineSnapshot(`
@@ -48,14 +70,19 @@ describe('getSessionStartReasonLabel', () => {
 		`);
 	});
 
+	it('uses the extension ID when the extension is not registered', () => {
+		expect(getSessionStartReasonLabel(createSession('detail', SessionStartReason.ExtensionRecommendedRuntime, 'example.missing'), extensions))
+			.toBe('The example.missing extension recommended starting the interpreter for this workspace');
+	});
+
 	it('falls back to the description when the session has no start reason ID', () => {
-		expect(getSessionStartReasonLabel({ startReason: 'Affiliated Python runtime for workspace' }, names))
+		expect(getSessionStartReasonLabel(createSession('Affiliated Python runtime for workspace'), extensions))
 			.toBe('Affiliated Python runtime for workspace');
 	});
 
 	it('falls back to the description when the start reason ID is unknown', () => {
 		// A session persisted by a newer version can carry an ID this version doesn't know.
-		expect(getSessionStartReasonLabel({ startReason: 'Started by a future feature', startReasonId: 'futureReason' as SessionStartReason }, names))
+		expect(getSessionStartReasonLabel(createSession('Started by a future feature', 'futureReason' as SessionStartReason), extensions))
 			.toBe('Started by a future feature');
 	});
 });

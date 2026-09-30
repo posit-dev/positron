@@ -22,7 +22,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IRuntimeSessionService, RuntimeStartMode, SessionStartReason } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasons.js';
 import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
 import { INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
 import { INotebookTextModel } from '../../../contrib/notebook/common/notebookCommon.js';

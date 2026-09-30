@@ -31,9 +31,9 @@ export interface IRuntimeNotebookKernelService {
 	/**
 	 * Ensure that a language runtime session is started for a notebook.
 	 * @param notebookUri The URI of the notebook
-	 * @param source Why the session is being started, with a description for logs
+	 * @param startReason Why the session is being started, with a description for logs
 	 */
-	ensureSessionStarted(notebookUri: URI, source: IRuntimeSessionStartReason): Promise<INotebookLanguageRuntimeSession>;
+	ensureSessionStarted(notebookUri: URI, startReason: IRuntimeSessionStartReason): Promise<INotebookLanguageRuntimeSession>;
 
 	/**
 	 * Execute a code fragment in the context of an existing notebook cell.

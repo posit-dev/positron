@@ -20,7 +20,7 @@ import {
 	RuntimeStartMode,
 	SessionStartReason,
 } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';

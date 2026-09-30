@@ -15,7 +15,7 @@ import {
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReason } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -2005,9 +2005,9 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to select a previously registered language runtime
-	$selectLanguageRuntime(runtimeId: string, extensionId: string): Promise<void> {
+	$selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void> {
 		return this._runtimeSessionService.selectRuntime(
-			runtimeId, createSessionStartReason(SessionStartReason.ExtensionApi, { extension: extensionId }));
+			runtimeId, createSessionStartReason(SessionStartReason.ExtensionApi, { 'requesting extension': requestingExtensionId }));
 	}
 
 	// Called by the extension host to get a list of all registered runtimes
@@ -2027,7 +2027,7 @@ export class MainThreadLanguageRuntime
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
-		extensionId: string): Promise<string> {
+		requestingExtensionId: string): Promise<string> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
@@ -2037,7 +2037,7 @@ export class MainThreadLanguageRuntime
 			sessionName,
 			sessionMode,
 			uri,
-			createSessionStartReason(SessionStartReason.ExtensionApi, { extension: extensionId }),
+			createSessionStartReason(SessionStartReason.ExtensionApi, { 'requesting extension': requestingExtensionId }),
 			RuntimeStartMode.Starting,
 			true);
 

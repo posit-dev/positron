@@ -1856,10 +1856,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Selects and starts a language runtime.
 	 *
 	 * @param runtimeId The runtime ID to select and start.
-	 * @param extensionId The ID of the extension making the request.
+	 * @param requestingExtensionId The ID of the extension making the request.
 	 */
-	public selectLanguageRuntime(runtimeId: string, extensionId: string): Promise<void> {
-		return this._proxy.$selectLanguageRuntime(runtimeId, extensionId);
+	public selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void> {
+		return this._proxy.$selectLanguageRuntime(runtimeId, requestingExtensionId);
 	}
 
 	/**
@@ -1869,7 +1869,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param sessionName A human-readable name for the new session.
 	 * @param sessionMode The mode in which the session is to be run.
 	 * @param notebookUri The URI of the notebook document, if in notebook mode.
-	 * @param extensionId The ID of the extension making the request.
+	 * @param requestingExtensionId The ID of the extension making the request.
 	 *
 	 * Returns a Thenable that resolves with the newly created session, or
 	 * rejects with an error.
@@ -1878,11 +1878,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
-		extensionId: string): Promise<positron.LanguageRuntimeSession> {
+		requestingExtensionId: string): Promise<positron.LanguageRuntimeSession> {
 
 		// Start the runtime and get the session ID
 		const sessionId =
-			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, extensionId);
+			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, requestingExtensionId);
 
 		// The process of starting a session in Positron should have caused the
 		// runtime to be registered with the extension host, so we should be able

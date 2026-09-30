@@ -10,7 +10,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeExitReason } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { INotebookLanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionStartReason, SessionStartReason } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasonLabels.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
@@ -263,7 +263,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		}));
 	}
 
-	public async ensureSessionStarted(notebookUri: URI, source: IRuntimeSessionStartReason): Promise<INotebookLanguageRuntimeSession> {
+	public async ensureSessionStarted(notebookUri: URI, startReason: IRuntimeSessionStartReason): Promise<INotebookLanguageRuntimeSession> {
 		// Get the notebook text model
 		const notebook = this._notebookService.getNotebookTextModel(notebookUri);
 		if (!notebook) {
@@ -276,7 +276,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		}
 
 		// Ensure the kernel has a started session
-		return await kernel.ensureSessionStarted(notebook.uri, source);
+		return await kernel.ensureSessionStarted(notebook.uri, startReason);
 	}
 
 	public async executeCodeInCell(notebookUri: URI, cellHandle: number, code: string): Promise<void> {
