@@ -4,9 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as positron from 'positron';
 import { DataConnectionsApi, explainEmptySchema, flattenSchemaNodes, readConnectionSchema, schemaOfProfile, SqlSchema, SqlTable } from '../schema';
 import { SchemaIndex } from '../schemaIndex';
 import { testLog } from './support';
+
+const Kind = positron.DataConnectionNodeKind;
 
 /**
  * Shapes taken from the three namespace layouts the built-in data connection drivers report:
@@ -19,9 +22,9 @@ suite('flattenSchemaNodes', () => {
 	test('tables at the root have no namespace', () => {
 		const tables = flattenSchemaNodes([
 			{
-				name: 'orders', kind: 'table', children: [
-					{ name: 'id', kind: 'field', dataType: 'INTEGER', isPrimaryKey: true },
-					{ name: 'total', kind: 'field', dataType: 'REAL' },
+				name: 'orders', kind: Kind.Table, children: [
+					{ name: 'id', kind: Kind.Field, dataType: 'INTEGER', isPrimaryKey: true },
+					{ name: 'total', kind: Kind.Field, dataType: 'REAL' },
 				],
 			},
 		]);
@@ -39,11 +42,11 @@ suite('flattenSchemaNodes', () => {
 	test('a table takes the schema and catalog it was found under', () => {
 		const tables = flattenSchemaNodes([
 			{
-				name: 'SHOP', kind: 'catalog', children: [
+				name: 'SHOP', kind: Kind.Catalog, children: [
 					{
-						name: 'SALES', kind: 'schema', children: [
-							{ name: 'ORDERS', kind: 'table', children: [{ name: 'ID', kind: 'field' }] },
-							{ name: 'ORDER_SUMMARY', kind: 'view', children: [] },
+						name: 'SALES', kind: Kind.Schema, children: [
+							{ name: 'ORDERS', kind: Kind.Table, children: [{ name: 'ID', kind: Kind.Field }] },
+							{ name: 'ORDER_SUMMARY', kind: Kind.View, children: [] },
 						],
 					},
 				],
@@ -63,8 +66,8 @@ suite('flattenSchemaNodes', () => {
 	test('databases qualify a table the same way catalogs do', () => {
 		const tables = flattenSchemaNodes([
 			{
-				name: 'analytics', kind: 'database', children: [
-					{ name: 'events', kind: 'table', children: [] },
+				name: 'analytics', kind: Kind.Database, children: [
+					{ name: 'events', kind: Kind.Table, children: [] },
 				],
 			},
 		]);
@@ -76,16 +79,16 @@ suite('flattenSchemaNodes', () => {
 	test('kinds that hold files rather than rows are skipped, along with their contents', () => {
 		const tables = flattenSchemaNodes([
 			{
-				name: 'SALES', kind: 'schema', children: [
-					{ name: 'orders', kind: 'table', children: [] },
+				name: 'SALES', kind: Kind.Schema, children: [
+					{ name: 'orders', kind: Kind.Table, children: [] },
 					{
-						name: 'raw_files', kind: 'volume', children: [
+						name: 'raw_files', kind: Kind.Volume, children: [
 							// A volume's children are files; a directory inside one is not a table
 							// even though a driver could name it like one.
-							{ name: 'orders', kind: 'directory', children: [] },
+							{ name: 'orders', kind: Kind.Directory, children: [] },
 						],
 					},
-					{ name: 'orders_pkey', kind: 'index', children: [] },
+					{ name: 'orders_pkey', kind: Kind.Index, children: [] },
 				],
 			},
 		]);
@@ -97,9 +100,9 @@ suite('flattenSchemaNodes', () => {
 		// A driver may report indexes alongside columns under a table.
 		const tables = flattenSchemaNodes([
 			{
-				name: 'orders', kind: 'table', children: [
-					{ name: 'id', kind: 'field', dataType: 'INT' },
-					{ name: 'orders_pkey', kind: 'index' },
+				name: 'orders', kind: Kind.Table, children: [
+					{ name: 'id', kind: Kind.Field, dataType: 'INT' },
+					{ name: 'orders_pkey', kind: Kind.Index },
 				],
 			},
 		]);
@@ -110,7 +113,7 @@ suite('flattenSchemaNodes', () => {
 	test('a table with no children reported has no columns', () => {
 		// What a truncated walk looks like: the table is in the summary, its columns were cut.
 		const tables = flattenSchemaNodes([
-			{ name: 'orders', kind: 'table', truncatedChildCount: 40 },
+			{ name: 'orders', kind: Kind.Table, truncatedChildCount: 40 },
 		]);
 
 		assert.deepStrictEqual(tables, [{
@@ -136,24 +139,18 @@ suite('flattenSchemaNodes', () => {
  */
 suite('explainEmptySchema', () => {
 
-	test('a disabled Data Connections feature names the setting', () => {
-		// getConnections cannot say so on its own: it returns [] whether the feature is off or the
-		// user has nothing configured, and the two call for different things from the user.
-		assert.ok(explainEmptySchema(false, 0).includes('dataConnections.enabled'));
-	});
-
 	test('no configured connections points at the Connections pane as a different thing', () => {
-		assert.ok(explainEmptySchema(true, 0).includes('Connections pane'));
+		assert.ok(explainEmptySchema(0).includes('Connections pane'));
 	});
 
 	test('configured but unconnected names the refresh command', () => {
-		assert.ok(explainEmptySchema(true, 2).includes('SQL: Refresh Database Schema'));
+		assert.ok(explainEmptySchema(2).includes('SQL: Refresh Database Schema'));
 	});
 
 	test('open connections that are not databases say so, not "none are open"', () => {
 		// The user can see them connected in the Connections pane, so "none are open" would read
 		// as the extension being broken rather than as the answer.
-		assert.ok(explainEmptySchema(true, 1, 1).includes('not SQL databases'));
+		assert.ok(explainEmptySchema(1, 1).includes('not SQL databases'));
 	});
 });
 
@@ -239,6 +236,20 @@ suite('readConnectionSchema', () => {
 		assert.ok(messages.length > 0, 'Expected the absence to be explained');
 	});
 
+	test('a disabled Data Connections feature is explained by the setting that turned it off', async () => {
+		// The API rejects rather than answering [], so the log says to change a setting rather
+		// than that the user has no connections.
+		const { messages, api, log } = harness({
+			getConnections: () => Promise.reject(new Error(
+				'Data connections are unavailable because the "dataConnections.enabled" setting is disabled.')),
+		});
+
+		const schema = await readConnectionSchema(log, api);
+
+		assert.deepStrictEqual(schema.tables, []);
+		assert.ok(messages.some(message => message.includes('dataConnections.enabled')), messages.join('\n'));
+	});
+
 	test('only live connections are asked for their schema', async () => {
 		const asked: string[] = [];
 		const { api, log } = harness({
@@ -251,7 +262,7 @@ suite('readConnectionSchema', () => {
 				return Promise.resolve({
 					profileId,
 					truncated: false,
-					nodes: [{ name: 'orders', kind: 'table', children: [{ name: 'id', kind: 'field' }] }],
+					nodes: [{ name: 'orders', kind: Kind.Table, children: [{ name: 'id', kind: Kind.Field }] }],
 				});
 			},
 		});
@@ -272,7 +283,7 @@ suite('readConnectionSchema', () => {
 			getSchema: (profileId: string) => Promise.resolve({
 				profileId,
 				truncated: true,
-				nodes: [{ name: 'orders', kind: 'table', children: [] }],
+				nodes: [{ name: 'orders', kind: Kind.Table, children: [] }],
 			}),
 		});
 
@@ -293,7 +304,7 @@ suite('readConnectionSchema', () => {
 				: Promise.resolve({
 					profileId,
 					truncated: false,
-					nodes: [{ name: 'orders', kind: 'table', children: [] }],
+					nodes: [{ name: 'orders', kind: Kind.Table, children: [] }],
 				}),
 		});
 
@@ -341,7 +352,7 @@ suite('readConnectionSchema', () => {
 			getSchema: (profileId: string) => Promise.resolve({
 				profileId,
 				truncated: false,
-				nodes: [{ name: 'orders', kind: 'table', children: [] }],
+				nodes: [{ name: 'orders', kind: Kind.Table, children: [] }],
 			}),
 		});
 
@@ -364,7 +375,7 @@ suite('readConnectionSchema', () => {
 			getSchema: (profileId: string) => Promise.resolve(
 				profileId === 'gone'
 					? undefined
-					: { profileId, truncated: false, nodes: [{ name: 'orders', kind: 'table', children: [] }] },
+					: { profileId, truncated: false, nodes: [{ name: 'orders', kind: Kind.Table, children: [] }] },
 			),
 		});
 
