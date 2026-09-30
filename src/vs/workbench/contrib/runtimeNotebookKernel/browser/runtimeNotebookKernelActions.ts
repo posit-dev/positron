@@ -5,6 +5,7 @@
 
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyChord, KeyCode } from '../../../../base/common/keyCodes.js';
+import { basename } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -186,7 +187,7 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 
 			// If trying to restart with no active session, start a new session
 			const runtimeNotebookKernelService = accessor.get(IRuntimeNotebookKernelService);
-			await runtimeNotebookKernelService.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReasonId.NotebookKernelRestart, { 'restart source': context.source.debugMessage }));
+			await runtimeNotebookKernelService.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReasonId.NotebookKernelRestart, { notebook: basename(notebookUri), 'restart source': context.source.debugMessage }));
 			return;
 		}
 

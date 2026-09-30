@@ -10,7 +10,7 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { PendingTaskMap } from '../../../../base/common/positron/async.js';
-import { isEqual } from '../../../../base/common/resources.js';
+import { basename, isEqual } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -190,7 +190,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			if (!session) {
 				// There's no active session for the notebook, start one.
 				const ensureSessionStartedForNotebook = () => this.ensureSessionStarted(
-					notebookUri, createSessionStartReason(SessionStartReasonId.NotebookCellsExecuted, { kernel: this.id }),
+					notebookUri, createSessionStartReason(SessionStartReasonId.NotebookCellsExecuted, { notebook: basename(notebookUri), kernel: this.id }),
 				);
 				// Don't show a progress bar if using Positron notebooks
 				if (usingPositronNotebooks(this._configurationService)) {
@@ -301,7 +301,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			try {
 				const session = this._runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri)
 					?? await this.ensureSessionStarted(
-						notebookUri, createSessionStartReason(SessionStartReasonId.NotebookCodeFragmentExecuted, { kernel: this.id }),
+						notebookUri, createSessionStartReason(SessionStartReasonId.NotebookCodeFragmentExecuted, { notebook: basename(notebookUri), kernel: this.id }),
 					);
 				// No `cellId` for fragments: the fragment's line numbers don't
 				// correspond to the cell's content, so the kernel's breakpoint

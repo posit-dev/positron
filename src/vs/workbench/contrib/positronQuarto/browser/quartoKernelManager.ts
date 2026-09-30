@@ -916,7 +916,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				sessionName,
 				LanguageRuntimeSessionMode.Notebook, // Use Notebook mode for Quarto documents
 				documentUri,
-				createSessionStartReason(SessionStartReasonId.QuartoInlineOutput),
+				createSessionStartReason(SessionStartReasonId.QuartoInlineOutput, { notebook: fileName }),
 				RuntimeStartMode.Starting,
 				false // don't activate in console
 			);
