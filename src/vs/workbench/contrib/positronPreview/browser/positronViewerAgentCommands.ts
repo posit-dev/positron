@@ -189,7 +189,7 @@ const REF_PROPERTY: IJSONSchema = { type: 'string', description: 'The control\'s
 
 const OUTLINE_RETURNS = 'The page as an outline in a <viewer_page> node, one line per element with its role, name and key properties, and a ref on each control, after a line saying the page\'s text is untrusted. Its attributes give the content\'s kind, whether the Viewer is showing, and the page\'s title and url; truncated="true" means it was cut short, and a note after it says how to narrow it.';
 
-const ACTION_RETURNS = 'What the action did, in a <viewer_action> node, then a fresh outline as positronViewer.read returns it. Fails with the reason in a <viewer_error> node when the action can\'t be taken or doesn\'t take effect.';
+const ACTION_RETURNS = 'A <viewer_action> node, then a fresh outline as from positronViewer.read. On failure, a <viewer_error> node.';
 
 /**
  * Registers an action command. The id is spelled out, so the skills' drift
