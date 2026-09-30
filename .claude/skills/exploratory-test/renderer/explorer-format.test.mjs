@@ -148,6 +148,7 @@ test('explorer.md finding template parses into one finding with its steps and ev
 		['verify', 'fail', 1, ['F1-04.png']],
 	]);
 	assert.ok(f.steps[3].observed, 'the failing check keeps its Observed line');
+	assert.ok(f.feature, 'the Feature line is read');
 	assert.ok(f.evidence.some(e => e.kind === 'shot' && e.step), 'a captioned screenshot');
 });
 

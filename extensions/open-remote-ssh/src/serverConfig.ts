@@ -68,7 +68,7 @@ async function getDailyRelease(): Promise<IDailyRelease | undefined> {
 }
 
 let vscodeProductJson: any;
-async function getVSCodeProductJson() {
+export async function getVSCodeProductJson() {
 	if (!vscodeProductJson) {
 		const productJsonStr = await fs.promises.readFile(path.join(vscode.env.appRoot, 'product.json'), 'utf8');
 		vscodeProductJson = JSON.parse(productJsonStr);

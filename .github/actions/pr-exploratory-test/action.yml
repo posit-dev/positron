@@ -35,6 +35,10 @@ inputs:
     description: "Output of git diff --stat between base and head"
     required: false
     default: ""
+  pr-body-file:
+    description: "Gate mode: file holding the PR description; empty when there is no PR"
+    required: false
+    default: ""
   base-sha:
     description: "Explore and gate modes: diff base SHA"
     required: false
@@ -160,6 +164,7 @@ runs:
         CDP_PORT: ${{ inputs.cdp-port }}
         BRANCH: ${{ inputs.branch }}
         DIFF_STAT: ${{ inputs.diff-stat }}
+        PR_BODY_FILE: ${{ inputs.pr-body-file }}
         BASE_SHA: ${{ inputs.base-sha }}
         HEAD_SHA: ${{ inputs.head-sha }}
         MODEL: ${{ inputs.model }}

@@ -12,12 +12,12 @@ Summary:
  * |Command   |Language|Targeted Console Output    |
  * |----------|--------|---------------------------|
  * |Interrupt |Python  |'KeyboardInterrupt'        |
- * |Interrupt |R       |Empty error line (visible) |
+ * |Interrupt |R       |Prompt returns             |
  * |Clear     |Python  |'int... has been cleared'  |
  * |Clear     |R       |'int... has been cleared'  |
  */
 
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -44,17 +44,19 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 		await toasts.expectToastWithTitle(/R .* interpreter has been cleared/);
 	});
 
-	test('R - Verify Interrupt Interpreter command works', { tag: [tags.WIN] }, async function ({ app, page, runCommand, sessions }) {
+	test('R - Verify Interrupt Interpreter command works', { tag: [tags.WIN, tags.CONSOLE] }, async function ({ app, runCommand, sessions }) {
 		const { console } = app.workbench;
 
+		// The prompt can only return within waitForReady's timeout if the interrupt works
 		await sessions.start('r');
-		await console.executeCode('R', 'Sys.sleep(5)', { waitForReady: false });
+		await console.executeCode('R', 'Sys.sleep(60)', { waitForReady: false });
+		await console.waitForExecutionStarted();
 		await runCommand('workbench.action.languageRuntime.interrupt');
-		await expect(page.locator('div.activity-error-stream')).toBeVisible();
+		await console.waitForReady('>');
 	});
 
 	// Skip this test for tags.WIN (e2e-windows) due to Bug #4604
-	test('Python - Verify Interrupt Interpreter command works', async function ({ app, runCommand, sessions }) {
+	test('Python - Verify Interrupt Interpreter command works', { tag: [tags.CONSOLE] }, async function ({ app, runCommand, sessions }) {
 		const { console } = app.workbench;
 
 		await sessions.start('python');

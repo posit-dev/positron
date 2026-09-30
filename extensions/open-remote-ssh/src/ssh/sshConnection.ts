@@ -15,6 +15,9 @@ import * as stream from 'stream';
 import { Client, ClientChannel, ClientErrorExtensions, ExecOptions, ShellOptions, ConnectConfig } from 'ssh2';
 import { Server } from 'net';
 import { SocksConnectionInfo, createServer as createSocksServer } from 'simple-socks';
+import SSHTransport, { SSHTunnelConfig } from './sshTransport';
+
+export { SSHTunnelConfig } from './sshTransport';
 
 export interface SSHConnectConfig extends ConnectConfig {
 	/** Optional Unique ID attached to ssh connection. */
@@ -27,20 +30,6 @@ export interface SSHConnectConfig extends ConnectConfig {
 	reconnectDelay?: number;
 	/** Path to private key */
 	identity?: string | Buffer;
-}
-
-export interface SSHTunnelConfig {
-	/** Remote Address to connect */
-	remoteAddr?: string;
-	/** Local port to bind to. By default, it will bind to a random port, if not passed */
-	localPort?: number;
-	/** Remote Port to connect */
-	remotePort?: number;
-	/** Remote socket path to connect */
-	remoteSocketPath?: string;
-	socks?: boolean;
-	/**  Unique name */
-	name?: string;
 }
 
 const defaultOptions: Partial<SSHConnectConfig> = {
@@ -64,7 +53,7 @@ const SSHConstants = {
 	}
 };
 
-export default class SSHConnection extends EventEmitter {
+export default class SSHConnection extends EventEmitter implements SSHTransport {
 	public config: SSHConnectConfig;
 
 	private activeTunnels: { [index: string]: SSHTunnelConfig & { server: Server } } = {};

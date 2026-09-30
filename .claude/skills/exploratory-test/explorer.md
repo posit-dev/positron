@@ -347,6 +347,10 @@ because they can get there another way; a control that wraps onto two lines is
 `Finding` is the claim, in under about twelve words that state the symptom and
 its consequence, such as "A column over 10 s never loads, and Retry cannot help".
 
+`Feature` is the area of Positron the finding is in, in lowercase except for
+proper names: "data explorer", "console", "notebooks", "R console", "Positron
+Assistant". It prefixes the filed issue's title, as "console: <claim>".
+
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".
 
@@ -389,6 +393,8 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 ````
 ### Finding N: <concise claim>
+
+**Feature:** <feature>
 
 **Repro** -- starting state: <what exists before step 1, naming each test file in backticks>
 
@@ -539,6 +545,15 @@ in the profile, the workspace, and the settings; if the state is reachable
 only by changing the machine itself, say so and drop it rather than doing it.
 Restore what you changed, and record both the change and the restore under
 State manipulation in Run details.
+
+When a scenario tests what happens after a failure -- a retry, a recheck,
+recovery once the fault is gone -- remove the fault and repeat the same
+trigger, changing nothing else in between: no edit, save, reload, restart, or
+tab switch. Each of those can clear the very state the retry is meant to test,
+so a pass after one proves nothing about recovery. Run the state-clearing
+action too if it is worth knowing, but as its own step after the plain retry,
+never in place of it. A retry that only works after one of them is a finding,
+or at least belongs in the scenario's Result.
 
 Look for a second code path that consumes the same data. When one consumer is
 correct and another is wrong, you have localized the bug instead of just
