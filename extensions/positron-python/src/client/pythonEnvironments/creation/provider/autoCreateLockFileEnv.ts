@@ -7,6 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { CancellationToken, ProgressLocation, WorkspaceFolder } from 'vscode';
 import { execObservable } from '../../../common/process/rawProcessApis';
+import { ObservableExecutionResult } from '../../../common/process/types';
 import { createDeferred } from '../../../common/utils/async';
 import { Common, CreateEnv } from '../../../common/utils/localize';
 import { traceError, traceLog } from '../../../logging';
@@ -16,6 +17,7 @@ import { withProgress, showWarningMessage } from '../../../common/vscodeApis/win
 import { launch } from '../../../common/vscodeApis/browserApis';
 import { ensureUvInstalled, showUvInstallError } from '../../common/environmentManagers/uvPythonInstaller';
 import { Pixi } from '../../common/environmentManagers/pixi';
+import { execObservableLocatedUv } from '../../common/environmentManagers/uv';
 import { isWindows } from '../../../common/utils/platform';
 import { IPythonRuntimeManager } from '../../../positron/manager';
 
@@ -30,11 +32,26 @@ export async function runToolCommand(
     cwd: string,
     token?: CancellationToken,
 ): Promise<void> {
+    traceLog('Running: ', [command, ...args]);
+    const result = execObservable(command, args, { mergeStdOutErr: true, token, cwd });
+    return waitForToolCommand(result, `${command} ${args.join(' ')}`);
+}
+
+/**
+ * Like `runToolCommand`, but runs the located uv binary so a uv installed this session is found.
+ */
+export async function runUvCommand(args: string[], cwd: string, token?: CancellationToken): Promise<void> {
+    traceLog('Running: ', ['uv', ...args]);
+    const result = await execObservableLocatedUv(args, { mergeStdOutErr: true, token, cwd });
+    return waitForToolCommand(result, `uv ${args.join(' ')}`);
+}
+
+function waitForToolCommand(
+    { proc, out, dispose }: ObservableExecutionResult<string>,
+    description: string,
+): Promise<void> {
     const deferred = createDeferred<void>();
     const outputLines: string[] = [];
-    traceLog('Running: ', [command, ...args]);
-    const { proc, out, dispose } = execObservable(command, args, { mergeStdOutErr: true, token, cwd });
-
     out.subscribe(
         (value) => {
             const output = value.out.split(/\r?\n/g).join(os.EOL);
@@ -45,7 +62,7 @@ export async function runToolCommand(
         () => {
             dispose();
             if (proc?.exitCode !== 0) {
-                const message = `${command} ${args.join(' ')} failed with exitCode: ${proc?.exitCode}`;
+                const message = `${description} failed with exitCode: ${proc?.exitCode}`;
                 const detail = outputLines.join('').trimEnd();
                 deferred.reject(detail ? `${message}\n${detail}` : message);
             } else {
@@ -69,7 +86,7 @@ export async function syncUvEnv(
         async (progress: CreateEnvironmentProgress, token: CancellationToken) => {
             progress.report({ message: CreateEnv.Venv.creating });
             try {
-                await runToolCommand('uv', ['sync'], workspace.uri.fsPath, token);
+                await runUvCommand(['sync'], workspace.uri.fsPath, token);
                 await pythonRuntimeManager.selectLanguageRuntimeFromPath(getVenvExecutable(workspace), true);
                 return true;
             } catch (error) {

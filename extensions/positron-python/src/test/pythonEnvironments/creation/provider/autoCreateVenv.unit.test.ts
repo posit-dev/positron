@@ -48,6 +48,9 @@ suite('Auto Create Venv', () => {
         showQuickPickWithBackStub = sinon.stub(windowApis, 'showQuickPickWithBack');
         executeCommandStub = sinon.stub(commandApis, 'executeCommand');
         execObservableStub = sinon.stub(rawProcessApis, 'execObservable');
+        sinon
+            .stub(uvApis, 'execObservableLocatedUv')
+            .callsFake(async (args, options) => rawProcessApis.execObservable('uv', args, options));
     });
 
     teardown(() => {

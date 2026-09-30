@@ -107,7 +107,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewFolderFlowStepPro
 	return (
 		<PositronFlowStep
 			backButtonConfig={{ onClick: props.back }}
-			cancelButtonConfig={{ onClick: props.cancel }}
 			okButtonConfig={{
 				onClick: props.accept,
 				title: localize(

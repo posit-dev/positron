@@ -61,6 +61,7 @@ suite('Create Environment APIs', () => {
     let getConfigurationStub: sinon.SinonStub;
     let workspaceConfig: typemoq.IMock<WorkspaceConfiguration>;
     let pythonRuntimeManager: typemoq.IMock<IPythonRuntimeManager>;
+    let isUvInstalledStub: sinon.SinonStub;
     // --- End Positron ---
 
     // --- Start Positron ---
@@ -84,6 +85,8 @@ suite('Create Environment APIs', () => {
             }
             return undefined;
         });
+        // Registered without uv, so a later install has to move uv up the provider list.
+        isUvInstalledStub = sinon.stub(uv, 'isUvInstalled').resolves(false);
         // --- End Positron ---
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({
@@ -236,6 +239,46 @@ suite('Create Environment APIs', () => {
             const result = await capturedContribution().onDidSelectItem('create-python-env');
 
             assert.strictEqual(result, undefined);
+        });
+    });
+
+    suite('Create environment providers', () => {
+        async function getProviderIds(): Promise<string[]> {
+            const call = registerCommandStub
+                .getCalls()
+                .find((c) => c.args[0] === Commands.Get_Create_Environment_Providers);
+            assert.ok(call, 'python.getCreateEnvironmentProviders was not registered');
+            const providers: { id: string }[] = await call!.args[1]();
+            return providers.map((p) => p.id);
+        }
+
+        test('uv is listed last when it is not installed', async () => {
+            const ids = await getProviderIds();
+
+            assert.strictEqual(ids[ids.length - 1], UV_PROVIDER_ID);
+        });
+
+        test('uv installed after activation is listed first', async () => {
+            isUvInstalledStub.resolves(true);
+
+            const ids = await getProviderIds();
+
+            assert.strictEqual(ids[0], UV_PROVIDER_ID);
+        });
+
+        test('uv installed after activation is listed first in the Create Environment quick pick', async () => {
+            isUvInstalledStub.resolves(true);
+            sinon
+                .stub(workspaceApis, 'getWorkspaceFolders')
+                .returns([{ uri: Uri.file('/project'), name: 'project', index: 0 }]);
+            showQuickPickStub.resolves(undefined);
+            const call = registerCommandStub.getCalls().find((c) => c.args[0] === Commands.Create_Environment);
+            assert.ok(call, 'python.createEnvironment was not registered');
+
+            await call!.args[1]();
+
+            const [items] = showQuickPickStub.firstCall.args;
+            assert.strictEqual(items[0].id, UV_PROVIDER_ID);
         });
     });
 

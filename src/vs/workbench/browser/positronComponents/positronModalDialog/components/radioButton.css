@@ -3,9 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box
-.radio-group
-.radio-button {
+.positron-modal-dialog-box .radio-group .radio-button,
+.positron-dynamic-modal-dialog-box .radio-group .radio-button {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
@@ -17,19 +16,16 @@
  * When focus is in the radio button via keyboard interaction, add a border around the full radio
  * button (both the input circle and the text label)
  */
-.positron-modal-dialog-box
-.radio-group
-.radio-button:has(:focus-visible) {
+.positron-modal-dialog-box .radio-group .radio-button:has(:focus-visible),
+.positron-dynamic-modal-dialog-box .radio-group .radio-button:has(:focus-visible) {
 	border-radius: 4px;
 	outline-offset: 2px;
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
 /* Style the radio button circle */
-.positron-modal-dialog-box
-.radio-group
-.radio-button
-.radio-button-input {
+.positron-modal-dialog-box .radio-group .radio-button .radio-button-input,
+.positron-dynamic-modal-dialog-box .radio-group .radio-button .radio-button-input {
 	cursor: pointer;
 	appearance: none;
 	margin: 0;
@@ -43,10 +39,8 @@
 }
 
 /* Style the selected radio button */
-.positron-modal-dialog-box
-.radio-group
-.radio-button
-.radio-button-input:checked::before {
+.positron-modal-dialog-box .radio-group .radio-button .radio-button-input:checked::before,
+.positron-dynamic-modal-dialog-box .radio-group .radio-button .radio-button-input:checked::before {
 	content: '';
 	width: 6px;
 	height: 6px;
@@ -55,9 +49,7 @@
 }
 
 /* Don't add an outline around the radio button circle */
-.positron-modal-dialog-box
-.radio-group
-.radio-button
-.radio-button-input:focus {
+.positron-modal-dialog-box .radio-group .radio-button .radio-button-input:focus,
+.positron-dynamic-modal-dialog-box .radio-group .radio-button .radio-button-input:focus {
 	outline: none;
 }
