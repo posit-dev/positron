@@ -307,13 +307,21 @@ jobs:
           echo "Resetting to origin/main; the bump script will reapply today's changes from scratch."
           git reset --hard origin/main
 
-      - name: Download mismatched extensions lists
+      - name: Download Linux mismatched extensions list
         if: needs.extensions-linux.result == 'failure'
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
-          pattern: mismatched-extensions-*
-          path: mismatched
+          name: mismatched-extensions-linux
+          path: mismatched/linux
+
+      - name: Download Windows mismatched extensions list
+        if: needs.extensions-windows.result == 'failure'
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: mismatched-extensions-windows
+          path: mismatched/windows
 
       - name: Update extensions
         env:
@@ -321,12 +329,12 @@ jobs:
           FLAGGED: ${{ needs.dependency-check.outputs.flagged }}
         run: |
           MISMATCHED=()
-          if [ "$LINUX_RESULT" = "failure" ] && [ -s mismatched/mismatched-extensions-linux/mismatched-extensions.txt ]; then
-            read -ra MISMATCHED <<< "$(cat mismatched/mismatched-extensions-linux/mismatched-extensions.txt)"
+          if [ "$LINUX_RESULT" = "failure" ] && [ -s mismatched/linux/mismatched-extensions.txt ]; then
+            read -ra MISMATCHED <<< "$(cat mismatched/linux/mismatched-extensions.txt)"
           fi
           # Empty when Windows found no drift, or failed before recording any;
           # either way nothing is confirmed there, so nothing is bumped.
-          WINDOWS_MISMATCHED=$(cat mismatched/mismatched-extensions-windows/mismatched-extensions.txt 2>/dev/null || true)
+          WINDOWS_MISMATCHED=$(cat mismatched/windows/mismatched-extensions.txt 2>/dev/null || true)
           EXTENSIONS_TO_BUMP=()
           HELD_BACK=()
           NOT_ON_WINDOWS=()
