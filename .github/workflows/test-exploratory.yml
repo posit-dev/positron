@@ -924,6 +924,8 @@ jobs:
     if: always() && needs.membership.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
+      actions: read
+      checks: read
       contents: read
       issues: write
       pull-requests: write
@@ -957,6 +959,27 @@ jobs:
             echo "WORK_DIR=/tmp/run-artifact" >> "$GITHUB_ENV"
           fi
 
+      # A newer /test on the PR cancels this one's explore job through its
+      # concurrency group, and GitHub notes that on the job. Any other cancel,
+      # such as by hand, reads as plain cancelled.
+      - name: Tell a replaced run from a cancelled one
+        id: cancel
+        if: needs.explore.result == 'cancelled'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          state=cancelled
+          jobs=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs" --paginate \
+            --jq '.jobs[] | select((.name | startswith("explore")) and .conclusion == "cancelled") | .id')
+          for job in $jobs; do
+            if gh api "repos/${GITHUB_REPOSITORY}/check-runs/${job}/annotations" --jq '.[].message' | grep -q 'higher priority waiting request'; then
+              state=superseded
+            fi
+          done
+          echo "state=$state" >> "$GITHUB_OUTPUT"
+
       # Links only when the upload succeeded, so the comment never points at a
       # CDN page that 404s; the run link still reaches the artifact.
       - name: Post result comment
@@ -969,7 +992,7 @@ jobs:
           # Empty when ack could not post; comment mode then posts a new one.
           comment-id: ${{ needs.ack.outputs.comment_id }}
           # A declined run never reaches explore; say so rather than "failed".
-          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
+          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || steps.cancel.outputs.state || needs.explore.outputs.outcome }}
           decline-reason: ${{ needs.worthiness.outputs.reason }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.publish.outputs.report_base_url }}
@@ -985,7 +1008,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
-          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.outputs.outcome }}
+          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || steps.cancel.outputs.state || needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \

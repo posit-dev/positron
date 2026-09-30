@@ -306,7 +306,7 @@ const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined']) {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'superseded', 'cancelled']) {
 		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
@@ -320,7 +320,15 @@ test('renderPrComment on a finished run is a title, the tally and the report lin
 
 test('renderPrComment running state names the head and links the run', () => {
 	const body = renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
-	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nLooking for trouble\u2026\n[View run \u2192](${RUN_URL})\n`);
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nOff exploring, back soon\u2026\n[View run \u2192](${RUN_URL})\n`);
+});
+
+test('renderPrComment tells a run a newer /test replaced from one cancelled otherwise', () => {
+	const superseded = renderPrComment({ state: 'superseded', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	assert.equal(superseded, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled: a newer /test replaced this run.\n[View run \u2192](${RUN_URL})\n`);
+	const cancelled = renderPrComment({ state: 'cancelled', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	assert.match(cancelled, /^Cancelled before the agent produced a report\.$/m);
+	assert.doesNotMatch(cancelled, /newer \/test/);
 });
 
 test('renderPrComment says No findings for an empty table', () => {
@@ -345,7 +353,7 @@ test('renderPrComment says the run failed when the agent never ran', () => {
 	// comment must still be replaced with something true.
 	const body = renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /failed before/);
-	assert.doesNotMatch(body, /Looking for trouble/);
+	assert.doesNotMatch(body, /Off exploring, back soon/);
 });
 
 test('renderPrComment explains a missing report per outcome', () => {
