@@ -190,6 +190,7 @@ export function buildSuggestPrompt({ title, body, files }) {
 		'- the change is docs, tests, CI, build or packaging, a dependency bump, a mechanical rename, or a refactor that should not change behavior;',
 		'- the change is small and its effect is obvious from the diff (a string, a style tweak, a one-line fix);',
 		'- the changed behavior can only be reached through something listed as not available below;',
+		'- the risk only shows in a packaged release: the run builds the branch the way a developer does (npm install, then compile) and launches it from source, so what install scripts put in place is there (including the bundled ipykernel and other Python and R libraries), but release packaging steps (bundling extensions, pruning node_modules, building a VSIX or installer) are not;',
 		'- the description names a blocker, such as a companion PR elsewhere that has not shipped;',
 		'- you are unsure.',
 		'',
