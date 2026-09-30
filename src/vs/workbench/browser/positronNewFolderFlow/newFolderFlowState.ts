@@ -12,7 +12,7 @@ import { Emitter, Event } from '../../../base/common/event.js';
 import { FlowFormattedTextItem } from './components/flowFormattedText.js';
 import { LanguageIds, FolderTemplate } from '../../services/positronNewFolder/common/positronNewFolder.js';
 import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from './utilities/condaUtils.js';
-import { UvPythonVersionInfo, EMPTY_UV_PYTHON_VERSION_INFO } from './utilities/uvUtils.js';
+import { UvPythonVersionInfo, EMPTY_UV_PYTHON_VERSION_INFO, EnsureUvResult } from './utilities/uvUtils.js';
 import { URI } from '../../../base/common/uri.js';
 import { PositronReactServices } from '../../../base/browser/positronReactServices.js';
 
@@ -93,6 +93,10 @@ export class NewFolderFlowStateManager
 	private _uvPythonVersion: string | undefined;
 	private _uvPythonVersionInfo: UvPythonVersionInfo | undefined;
 	private _isUvInstalled: boolean | undefined;
+	// Kept here rather than in the Python Environment step, which unmounts on Back, so that a
+	// return to the step still shows a running install instead of offering to start another.
+	private _uvInstall: Promise<EnsureUvResult> | undefined;
+	private _uvInstallError: string | undefined;
 
 	// R-specific state.
 	private _useRenv: boolean | undefined;
@@ -377,6 +381,9 @@ export class NewFolderFlowStateManager
 	 * only relevant for new environments.
 	 */
 	set pythonEnvSetupType(value: EnvironmentSetupType | undefined) {
+		if (value !== this._pythonEnvSetupType) {
+			this._uvInstallError = undefined;
+		}
 		this._pythonEnvSetupType = value;
 		this._updateInterpreterRelatedState();
 	}
@@ -394,6 +401,9 @@ export class NewFolderFlowStateManager
 	 * @param value The Python environment provider.
 	 */
 	set pythonEnvProvider(value: string | undefined) {
+		if (value !== this._pythonEnvProviderId) {
+			this._uvInstallError = undefined;
+		}
 		this._pythonEnvProviderId = value;
 		this._updateInterpreterRelatedState();
 	}
@@ -528,6 +538,23 @@ export class NewFolderFlowStateManager
 	}
 
 	/**
+	 * Gets whether a uv install started from the flow is still running.
+	 * @returns Whether a uv install is running.
+	 */
+	get uvInstallPending(): boolean {
+		return this._uvInstall !== undefined;
+	}
+
+	/**
+	 * Gets why the last uv install failed. Cleared when the environment provider or setup type
+	 * changes, since the failure belongs to the selection it was attempted for.
+	 * @returns The install error, or undefined if the last install did not fail.
+	 */
+	get uvInstallError(): string | undefined {
+		return this._uvInstallError;
+	}
+
+	/**
 	 * Gets whether the folder uses a Conda environment.
 	 * @returns Whether the folder uses a Conda environment.
 	 */
@@ -651,6 +678,27 @@ export class NewFolderFlowStateManager
 	}
 
 	/**
+	 * Installs uv via the Python extension, then refreshes the uv Python versions so that the
+	 * Python Environment step can offer them without leaving the flow. Fires
+	 * onUpdateInterpreterState when the install starts and again when it finishes.
+	 *
+	 * A call made while an install is running returns that install rather than starting a second
+	 * installer alongside it.
+	 * @returns The result of the install. A declined install resolves with ok false and no error.
+	 */
+	installUv(): Promise<EnsureUvResult> {
+		if (!this._uvInstall) {
+			this._uvInstallError = undefined;
+			this._uvInstall = this._runUvInstall().finally(() => {
+				this._uvInstall = undefined;
+				this._onUpdateInterpreterStateEmitter.fire();
+			});
+			this._onUpdateInterpreterStateEmitter.fire();
+		}
+		return this._uvInstall;
+	}
+
+	/**
 	 * Event that is fired when the runtime startup is complete.
 	 */
 	readonly onUpdateInterpreterState = this._onUpdateInterpreterStateEmitter.event;
@@ -663,6 +711,21 @@ export class NewFolderFlowStateManager
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Runs the uv install for installUv and records a failure for the Python Environment step.
+	 */
+	private async _runUvInstall(): Promise<EnsureUvResult> {
+		const result = await this._executeCommandSafe<EnsureUvResult>('python.ensureUvInstalled');
+		if (!result?.ok) {
+			this._uvInstallError = result?.error;
+			return result ?? { ok: false };
+		}
+
+		// uv is now installed, so re-run the version fetch that was skipped when it wasn't.
+		await this._setUvPythonVersionInfo();
+		return result;
+	}
 
 	/**
 	 * Executes a command, swallowing rejections so that one extension command failing does not
@@ -1108,6 +1171,7 @@ export class NewFolderFlowStateManager
 			this._uvPythonVersion = undefined;
 			this._uvPythonVersionInfo = undefined;
 			this._isUvInstalled = undefined;
+			this._uvInstallError = undefined;
 			this._createPyprojectToml = undefined;
 		};
 

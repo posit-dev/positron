@@ -15,6 +15,17 @@ export interface UvPythonVersionInfo {
 }
 
 /**
+ * Result of the 'python.ensureUvInstalled' command. Mirrors EnsureUvResult in the Python
+ * extension (uvPythonInstaller.ts) and has to be updated with it: ok is true if uv is installed
+ * (or was already), and error carries a message to show when the install failed for a reason
+ * other than the user declining.
+ */
+export interface EnsureUvResult {
+	ok: boolean;
+	error?: string;
+}
+
+/**
  * Empty UvPythonVersionInfo object.
  */
 export const EMPTY_UV_PYTHON_VERSION_INFO: UvPythonVersionInfo = {

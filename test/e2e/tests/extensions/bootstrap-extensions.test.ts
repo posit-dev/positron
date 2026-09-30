@@ -119,7 +119,7 @@ async function getInstalledExtensions(extensionsDir: string, runDockerCommand?: 
  * affected extensions instead of every entry in product.json. Called on every
  * path that ends the wait, so partial drift is never dropped on the floor.
  */
-function recordMismatches(mismatched: Set<string>) {
+function recordMismatches(mismatched: Set<string>, installedVersions: Map<string, string>) {
 	if (!process.env.GITHUB_ACTIONS || mismatched.size === 0) {
 		return;
 	}
@@ -128,6 +128,11 @@ function recordMismatches(mismatched: Set<string>) {
 	fs.writeFileSync(
 		path.join(outDir, 'mismatched-extensions.txt'),
 		Array.from(mismatched).join(' ')
+	);
+	// Installed (newer) version per extension, for the nightly's Slack message.
+	fs.writeFileSync(
+		path.join(outDir, 'mismatched-versions.json'),
+		JSON.stringify(Object.fromEntries(Array.from(mismatched, ext => [ext, installedVersions.get(ext)])))
 	);
 }
 
@@ -145,6 +150,7 @@ async function waitForExtensions(
 ) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 	const mismatched = new Set<string>();
+	const installedVersions = new Map<string, string>();
 
 	// Phase 1: wait for all to be installed (mismatches are noted, but we continue).
 	// Bounded so an extension that never installs fails with the list below rather
@@ -174,6 +180,7 @@ async function waitForExtensions(
 				console.log(`⚠️  ${ext.fullName} installed with version ${installedVersion}, currently ${ext.version} in product.json`);
 				missing.delete(ext.fullName);
 				mismatched.add(ext.fullName);
+				installedVersions.set(ext.fullName, installedVersion);
 			} else {
 				console.log(`✅ ${ext.fullName} (${ext.version}) found and matches`);
 				missing.delete(ext.fullName);
@@ -185,7 +192,7 @@ async function waitForExtensions(
 				// Hand over whatever drift we did observe before bailing out, or
 				// the nightly loses a real bump PR for the other extensions and
 				// posts a bare failure instead.
-				recordMismatches(mismatched);
+				recordMismatches(mismatched, installedVersions);
 				throw new Error(
 					`Bootstrap extensions never installed after ${Math.round(installGraceMs / 1000)}s: ${Array.from(missing).join(', ')}`
 				);
@@ -227,7 +234,7 @@ async function waitForExtensions(
 		console.log('\n👉 Run script and commit changes:');
 		console.log(`   ./scripts/update-extensions.sh ${Array.from(mismatched).join(' ')}\n`);
 
-		recordMismatches(mismatched);
+		recordMismatches(mismatched, installedVersions);
 
 		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
 			throw new Error('Some extensions were installed with mismatched versions (after grace period). Please check the logs above.');

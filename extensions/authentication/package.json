@@ -30,7 +30,7 @@
 		"@aws-sdk/credential-providers": "^3.734.0",
 		"@aws-sdk/types": "^3.734.0",
 		"ai-config": "file:../../ai-lib/packages/ai-config",
-		"google-auth-library": "^9.15.1"
+		"google-auth-library": "^10.9.1"
 	},
 	"devDependencies": {
 		"@types/node": "22.x"
