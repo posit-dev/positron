@@ -27,11 +27,9 @@ import { VirtualDocumentProvider } from './virtual-documents';
 import { isQuartoInlineOutputEnabled } from './quarto';
 import {
 	QUARTO_CELLS_NOTEBOOK_TYPE,
-	QUARTO_CELLS_SCHEME,
 	claimQuartoCells,
 	hasQuartoCellsOwner,
 	onDidChangeQuartoCellsOwnership,
-	quartoCellsNotebookPath,
 	releaseQuartoCells,
 } from './quarto-cells';
 
@@ -44,17 +42,6 @@ const QUARTO_INPUT_BOUNDARY_SELECTOR = { language: 'r', scheme: 'inmemory', patt
 
 // Regex to match notebook console REPL URIs: /notebook-repl-<lang>-<uuid>
 const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
-
-// Matches the path of a Quarto or R Markdown document.
-const QUARTO_PATH_PATTERN = /\.(qmd|rmd)$/i;
-
-// The language ids core treats as Quarto, from `QUARTO_LANGUAGE_IDS` in its own
-// positronQuartoConfig.ts. An untitled Quarto document has no extension to match
-// on, so its language id is the only thing that names it.
-const QUARTO_LANGUAGE_IDS = ['quarto', 'rmd'];
-
-// Matches the path of a real notebook, which a Quarto session never has.
-const NOTEBOOK_PATH_PATTERN = /\.ipynb$/i;
 
 // The cells of every Quarto virtual notebook, for the console client.
 //
@@ -81,12 +68,9 @@ function quartoNotebookOf(uri: vscode.Uri): vscode.NotebookDocument | undefined 
 /**
  * The ownership registry key for a hidden Quarto notebook.
  *
- * Core keeps the source's remote authority when it builds the notebook URI, and
- * the RPC transformer rewrites only the `file` and `vscode-remote` schemes, so
- * that authority survives the trip here. A session derives its own URI from a
- * `notebookUri` that arrives already transformed to a plain `file:` URI.
- * Dropping the authority on both sides is what makes the two agree in a remote
- * or web window.
+ * Drops the remote authority. Both a session's URI and the notebook document's
+ * URI come from core, and the RPC transformer leaves the `quarto-cells` scheme
+ * alone, so they should agree already; the key does not depend on it.
  */
 export function quartoCellsKey(notebookUri: vscode.Uri): string {
 	return notebookUri.with({ authority: '' }).toString();
@@ -96,52 +80,6 @@ export function quartoCellsKey(notebookUri: vscode.Uri): string {
 function isOwnedQuartoCellUri(uri: vscode.Uri): boolean {
 	const notebook = quartoNotebookOf(uri);
 	return notebook !== undefined && hasQuartoCellsOwner(quartoCellsKey(notebook.uri));
-}
-
-/**
- * Whether a session's document is a Quarto document rather than a real notebook.
- *
- * Mirrors `isQuartoDocument` in core's positronQuartoConfig.ts, which decides
- * whether the document gets a hidden notebook at all: a narrower rule here leaves
- * a session not knowing that cells core built are its own.
- *
- * The answer must not depend on timing, since the document selector is built from
- * it once. An untitled document that has not opened yet has no language id to
- * read, so it falls through to Quarto; that is safe because core gives an untitled
- * notebook a file ending and a notebook type in its query, for example
- * `untitled:Untitled-1.ipynb?jupyter-notebook`. A wrong guess is caught later,
- * when the claim finds no notebook of that name.
- */
-function isQuartoDocumentUri(uri: vscode.Uri, openDocuments: readonly vscode.TextDocument[]): boolean {
-	if (QUARTO_PATH_PATTERN.test(uri.path)) {
-		return true;
-	}
-	if (NOTEBOOK_PATH_PATTERN.test(uri.path) || uri.query !== '') {
-		return false;
-	}
-	const document = openDocuments.find(candidate => candidate.uri.toString() === uri.toString());
-	return document === undefined || QUARTO_LANGUAGE_IDS.includes(document.languageId.toLowerCase());
-}
-
-/**
- * The hidden Quarto notebook for a session's document, or `undefined` when the
- * session is not a Quarto session.
- *
- * Both the session's document selector and its ownership key derive from this, so
- * a wrong answer makes every one of its providers decline and leaves the document
- * on the console client. Callers resolve it lazily, so a document that opens after
- * its session gets the language-id answer rather than the fallback.
- */
-export function quartoCellsUriFor(
-	notebookUri: vscode.Uri | undefined,
-	openDocuments: readonly vscode.TextDocument[] = vscode.workspace.textDocuments,
-): vscode.Uri | undefined {
-	return notebookUri && isQuartoDocumentUri(notebookUri, openDocuments)
-		? notebookUri.with({
-			scheme: QUARTO_CELLS_SCHEME,
-			path: quartoCellsNotebookPath(notebookUri.path),
-		})
-		: undefined;
 }
 
 /**
@@ -194,8 +132,6 @@ export class ArkLsp implements vscode.Disposable {
 
 	private languageClientName: string;
 
-	private _resolvedQuartoCellsUri: vscode.Uri | undefined;
-
 	public constructor(
 		private readonly _version: string,
 		private readonly _metadata: positron.RuntimeSessionMetadata,
@@ -205,19 +141,14 @@ export class ArkLsp implements vscode.Disposable {
 	}
 
 	/**
-	 * The hidden notebook holding the cells of this session's Quarto document.
-	 * Undefined for console sessions and for real notebook (.ipynb) sessions.
-	 *
-	 * Resolved on first use rather than in the constructor, because a restored
-	 * session can reach us before the text document whose language id names an
-	 * untitled Quarto file. Kept once known, so a claim and its release always name
-	 * the same notebook.
+	 * The hidden notebook holding the cells of this session's Quarto document, as
+	 * core named it when the session started. Undefined for console sessions, for
+	 * real notebook (.ipynb) sessions, and for a Quarto session restored from
+	 * storage older than the field, which then leaves its cells to the console
+	 * client.
 	 */
 	private get _quartoCellsUri(): vscode.Uri | undefined {
-		if (!this._resolvedQuartoCellsUri) {
-			this._resolvedQuartoCellsUri = quartoCellsUriFor(this._metadata.notebookUri);
-		}
-		return this._resolvedQuartoCellsUri;
+		return this._metadata.quartoNotebookUri;
 	}
 
 	/**

@@ -9,23 +9,8 @@ import {
 	claimQuartoCells,
 	hasQuartoCellsOwner,
 	onDidChangeQuartoCellsOwnership,
-	quartoCellsNotebookPath,
 	releaseQuartoCells,
 } from './quarto-cells';
-
-describe('quartoCellsNotebookPath', () => {
-	// Mirrors `quartoNotebookUri` in core's quartoVirtualNotebookService.ts. A
-	// path that drifts from core's names a notebook that does not exist, and the
-	// session's selector then matches nothing.
-	it.each([
-		['/home/me/doc.qmd', '/home/me/doc.qmd.ipynb'],
-		['/home/me/doc.Rmd', '/home/me/doc.Rmd.ipynb'],
-		['/home/me/DOC.QMD', '/home/me/DOC.QMD.ipynb'],
-		['Untitled-1', 'Untitled-1.qmd.ipynb'],
-	])('%s -> %s', (source, expected) => {
-		expect(quartoCellsNotebookPath(source)).toBe(expected);
-	});
-});
 
 describe('Quarto cells ownership registry', () => {
 	const NOTEBOOK = 'quarto-cells:/home/me/doc.qmd.ipynb';
