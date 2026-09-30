@@ -62,7 +62,20 @@ With the base and head SHAs from the brief, run:
 If it prints `no findings`, skip to the render. Otherwise it prints the path of
 a prompt file. Spawn a fresh agent with `subagent_type: "general-purpose"` and
 `model: "sonnet"`, tell it to read that file and do what it says, and save its
-reply exactly as returned to `<run dir>/verify-reply.md`. Then run
+reply exactly as returned to `<run dir>/verify-reply.md`.
+
+If the reply's VERDICTS line has an UNRESOLVED finding, isolate it before
+applying anything. Spawn one fresh agent with `subagent_type: "general-purpose"`
+and `model: "sonnet"`, tell it to read `<base>/isolator.md` and do what it says,
+and give it the run directory, the checkout, the base and head SHAs, and the
+UNRESOLVED findings by name ("Finding 3"). If it is still running after 25
+minutes, tell it to write up. When it returns, run `stop-instances.sh` again,
+then send the verifier, with SendMessage: "Read `<run dir>/isolation.md`,
+revise those findings' verdicts, and name the Cause and Feature it points to.
+If a cause is broader than the cases in its table, narrow it. Reply again in
+full, in the same format." Save that reply over `verify-reply.md`.
+
+Then run
 `node <base>/renderer/finish.mjs apply <run dir> <run dir>/verify-reply.md`.
 The verdicts are advisory: do not edit them or drop a finding over them.
 
