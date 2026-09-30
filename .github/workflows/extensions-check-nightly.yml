@@ -78,7 +78,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: mismatched-extensions-linux
-          path: test-logs/mismatched-extensions.txt
+          path: |
+            test-logs/mismatched-extensions.txt
+            test-logs/mismatched-versions.json
           retention-days: 3
           if-no-files-found: ignore
 
@@ -204,7 +206,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: mismatched-extensions-windows
-          path: test-logs/mismatched-extensions.txt
+          path: |
+            test-logs/mismatched-extensions.txt
+            test-logs/mismatched-versions.json
           retention-days: 3
           if-no-files-found: ignore
 
@@ -273,6 +277,7 @@ jobs:
     outputs:
       pr_url: ${{ steps.sync.outputs.pr_url }}
       pr_action: ${{ steps.sync.outputs.pr_action }}
+      unexplained_failure: ${{ steps.update.outputs.unexplained_failure }}
     steps:
       # Local composite actions (used below) only resolve once the repo is on
       # disk, so check out first. detect-managed-pr re-checks-out with the bot
@@ -324,8 +329,10 @@ jobs:
           path: mismatched/windows
 
       - name: Update extensions
+        id: update
         env:
           LINUX_RESULT: ${{ needs.extensions-linux.result }}
+          WINDOWS_RESULT: ${{ needs.extensions-windows.result }}
           FLAGGED: ${{ needs.dependency-check.outputs.flagged }}
         run: |
           MISMATCHED=()
@@ -373,6 +380,33 @@ jobs:
           fi
           if [ ${#NOT_ON_WINDOWS[@]} -gt 0 ]; then
             echo "Holding back (not on Windows): ${NOT_ON_WINDOWS[*]}"
+          fi
+          # A failed check that recorded no drift failed for some other reason
+          # (setup, install timeout), so slack-notify still sends the generic alert.
+          UNEXPLAINED=false
+          if { [ "$LINUX_RESULT" = "failure" ] && [ ${#MISMATCHED[@]} -eq 0 ]; } ||
+             { [ "$WINDOWS_RESULT" = "failure" ] && [ -z "$WINDOWS_MISMATCHED" ]; }; then
+            UNEXPLAINED=true
+          fi
+          echo "unexplained_failure=$UNEXPLAINED" >> "$GITHUB_OUTPUT"
+          # One "<ext> <current> -> <new>: <reason>" line per held-back extension.
+          held_back_line() {
+            local current new
+            current=$(jq -r --arg e "$1" '.bootstrapExtensions[] | select(.name == $e) | .version' product.json)
+            new=$(jq -r --arg e "$1" '.[$e] // "newer"' mismatched/linux/mismatched-versions.json 2>/dev/null || echo newer)
+            echo "$1 $current -> $new: $2"
+          }
+          HELD_BACK_LINES=$(
+            for ext in "${HELD_BACK[@]}"; do held_back_line "$ext" "latest version depends on a blocked extension"; done
+            for ext in "${NOT_ON_WINDOWS[@]}"; do held_back_line "$ext" "new version not confirmed on Windows"; done
+          )
+          if [ -n "$HELD_BACK_LINES" ]; then
+            DELIM="HELD_BACK_EOF_$(openssl rand -hex 8)"
+            {
+              echo "held_back<<$DELIM"
+              printf '%s\n' "$HELD_BACK_LINES"
+              echo "$DELIM"
+            } >> "$GITHUB_OUTPUT"
           fi
           if [ ${#EXTENSIONS_TO_BUMP[@]} -eq 0 ]; then
             echo "Nothing to bump."
@@ -551,8 +585,39 @@ jobs:
             -H "Content-Type: application/json" \
             -d "$PAYLOAD"
 
+      - name: Post held-back extensions to Slack
+        if: steps.update.outputs.held_back != ''
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          HELD_BACK: ${{ steps.update.outputs.held_back }}
+          DRYRUN: ${{ inputs.dryrun }}
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg channel "#positron-dev" \
+            --arg run_url "$RUN_URL" \
+            --arg run_number "$RUN_NUMBER" \
+            --arg held "$HELD_BACK" \
+            '($held | split("\n") | map(select(length > 0)) | map("• " + .) | join("\n")) as $bullets |
+             {
+               channel: $channel,
+               text: (":pause_button: *Bootstrap Extension Bumps Held Back* · <" + $run_url + "|run #" + $run_number + ">\n\n" + $bullets)
+             }')
+          if [ "$DRYRUN" = "true" ]; then
+            echo "[dryrun] Would post to Slack:"
+            printf '%s\n' "$PAYLOAD" | sed 's/^/[dryrun]   /'
+            exit 0
+          fi
+          curl -s -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD"
+
   slack-notify:
-    if: always() && inputs.dryrun != true && (((needs.extensions-linux.result == 'failure' || needs.extensions-windows.result == 'failure') && needs.auto-update.outputs.pr_url == '') || needs.dependency-check.result == 'failure')
+    # Drift that was bumped or held back is reported by auto-update's own
+    # Slack messages; this alert covers everything else.
+    if: always() && inputs.dryrun != true && (((needs.extensions-linux.result == 'failure' || needs.extensions-windows.result == 'failure') && needs.auto-update.outputs.pr_url == '' && (needs.auto-update.result != 'success' || needs.auto-update.outputs.unexplained_failure == 'true')) || needs.dependency-check.result == 'failure')
     needs: [extensions-linux, extensions-windows, auto-update, dependency-check]
     runs-on: ubuntu-latest
     steps:
