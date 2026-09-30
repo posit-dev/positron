@@ -10,6 +10,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import { DuckDBInstance } from '@duckdb/node-api';
 import { DuckDBConnection, DuckDBConnectionConfig } from '../duckdbConnection.js';
+import { generateQueryCode } from '../duckdbDriver.js';
 
 suite('DuckDB Driver Tests', () => {
 	let tmpDir: string;
@@ -285,5 +286,41 @@ suite('DuckDB Driver Tests', () => {
 		await tables[0].preview!();
 
 		await conn.disconnect();
+	});
+});
+
+suite('DuckDB Query Code', () => {
+
+	// The quoting and the recipes themselves are covered by positron-data-driver-common's own tests.
+	// What is this driver's own is which variant ids map to which recipe, so that is what is asserted
+	// here. The connection variable is whatever the session bound, which is why each variant is given
+	// the name its own connection code binds.
+	function code(languageId: string, variantId: string, connectionVariable: string): string | undefined {
+		return generateQueryCode({ languageId, variantId, connectionVariable, query: 'SELECT 1' });
+	}
+
+	test('each connection code variant is queried the way its own connection object is', () => {
+		assert.deepStrictEqual(
+			{
+				duckdb: code('python', 'duckdb', 'conn'),
+				sqlalchemy: code('python', 'sqlalchemy', 'engine'),
+				dbi: code('r', 'dbi', 'con'),
+			},
+			{
+				duckdb: 'conn.sql("""\nSELECT 1\n""").df()',
+				sqlalchemy: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", engine)',
+				dbi: 'DBI::dbGetQuery(con, "SELECT 1")',
+			}
+		);
+	});
+
+	test('nothing is generated for a variant or a language this driver cannot query', () => {
+		assert.deepStrictEqual(
+			{
+				unknownVariant: code('python', 'sqlite3', 'conn'),
+				unknownLanguage: code('julia', 'duckdb', 'conn'),
+			},
+			{ unknownVariant: undefined, unknownLanguage: undefined }
+		);
 	});
 });

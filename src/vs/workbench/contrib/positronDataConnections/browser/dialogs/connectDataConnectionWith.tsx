@@ -26,6 +26,8 @@ import { EditableCodeEditor, EditableCodeEditorWidget } from '../../../../browse
 import { TwoButtonFooter } from '../../../../browser/positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { PositronDynamicModalDialog } from '../../../../browser/positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
 import { IDataConnectionCodeVariant, IDataConnectionDriver, isSecretParameter, resolveDataConnectionMechanism } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { extractConnectionVariableName } from '../../../../services/positronDataConnections/common/dataConnectionCode.js';
+import { IDataConnectionSessionBinding } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 // The width of the Connect Data Connection With dialog.
 const CONNECT_DATA_CONNECTION_WITH_WIDTH = 800;
@@ -70,26 +72,43 @@ export interface ConnectDataConnectionWithOptions {
 /**
  * Shows the Connect Data Connection With dialog, which previews the generated connection code and
  * lets the user pick a variant, copy it, or run it in a console session.
+ *
+ * Resolves when the dialog closes: with the connection the user made, or undefined if they left
+ * without connecting (cancel, escape, or one of the exits that does not run code). A caller that
+ * only wants the dialog shown can ignore the result; a caller that wants to use the connection
+ * afterwards needs it, since only the dialog knows which variant was chosen, what the user edited
+ * the variable name to, and which session the console service picked to run it in.
  * @param options The dialog options.
  */
-export const showConnectDataConnectionWith = (options: ConnectDataConnectionWithOptions) => {
-	// Create the renderer.
-	const renderer = new PositronModalReactRenderer();
+export const showConnectDataConnectionWith = (options: ConnectDataConnectionWithOptions): Promise<IDataConnectionSessionBinding | undefined> => {
+	return new Promise(resolve => {
+		// A promise rather than a value, because Connect closes the dialog before the console
+		// service has said which session it picked. Disposal is what this waits on -- it is the
+		// one event every exit shares, including the two the dialog does not own, the escape key
+		// and clicking outside it -- so by then the connection is still in flight.
+		let connecting: Promise<IDataConnectionSessionBinding | undefined> | undefined;
 
-	// Render the dialog.
-	renderer.render(
-		<ConnectDataConnectionWith
-			connectionName={options.connectionName}
-			driver={options.driver}
-			generateSecretVariants={options.generateSecretVariants}
-			initialIncludeSecrets={options.initialIncludeSecrets ?? false}
-			languageId={options.languageId}
-			mechanismId={options.mechanismId}
-			profileId={options.profileId}
-			renderer={renderer}
-			variants={options.variants}
-		/>
-	);
+		const renderer = new PositronModalReactRenderer({
+			// resolve() adopts a promise, so this settles when the connection does.
+			onDisposed: () => resolve(connecting ?? Promise.resolve(undefined)),
+		});
+
+		// Render the dialog.
+		renderer.render(
+			<ConnectDataConnectionWith
+				connectionName={options.connectionName}
+				driver={options.driver}
+				generateSecretVariants={options.generateSecretVariants}
+				initialIncludeSecrets={options.initialIncludeSecrets ?? false}
+				languageId={options.languageId}
+				mechanismId={options.mechanismId}
+				profileId={options.profileId}
+				renderer={renderer}
+				variants={options.variants}
+				onConnecting={pending => { connecting = pending; }}
+			/>
+		);
+	});
 };
 
 /**
@@ -104,6 +123,10 @@ interface ConnectDataConnectionWithProps {
 	readonly profileId: string;
 	readonly generateSecretVariants: () => Promise<IDataConnectionCodeVariant[]>;
 	readonly variants: IDataConnectionCodeVariant[];
+
+	// Called by the Connect handler with the connection it is making, before the dialog closes.
+	// See showConnectDataConnectionWith, which is what turns this back into a resolved value.
+	readonly onConnecting: (pending: Promise<IDataConnectionSessionBinding | undefined>) => void;
 	// Optional, like the equivalent field on ConnectDataConnectionWithOptions: a caller that has not
 	// already fetched secrets opens the dialog secret-free. Defaults to false.
 	readonly initialIncludeSecrets?: boolean;
@@ -290,24 +313,50 @@ export const ConnectDataConnectionWith = (props: PropsWithChildren<ConnectDataCo
 			code = updatedVariant.code;
 		}
 
-		props.renderer.dispose();
+		// The code that ran, not the variant that was generated: the editor is editable, so the
+		// user may have renamed the variable the connection binds to.
+		const variableName = extractConnectionVariableName(code);
 
-		try {
-			// Run the connection code in a console session, starting or reusing one as needed.
-			await services.positronConsoleService.executeCode(
-				props.languageId,
-				undefined, // session ID - choose or start an appropriate session
-				code,
-				{ source: CodeAttributionSource.Interactive }, // attribution
-				true, // focus the console
-			);
-		} catch (err) {
-			services.notificationService.error(localize(
-				'positron.connectDataConnectionWith.connectFailed',
-				"Failed to run the connection code: {0}",
-				toErrorMessage(err)
-			));
-		}
+		// Handed over before the dialog closes, and awaited by whoever opened it. The dialog is
+		// disposed immediately below, which is what makes this a promise rather than a value.
+		props.onConnecting((async () => {
+			try {
+				// Run the connection code in a console session, starting or reusing one as needed.
+				const sessionId = await services.positronConsoleService.executeCode(
+					props.languageId,
+					undefined, // session ID - choose or start an appropriate session
+					code,
+					{ source: CodeAttributionSource.Interactive }, // attribution
+					true, // focus the console
+				);
+
+				// Recorded so that the next thing wanting this connection in this session uses the
+				// one that is here rather than opening a second one beside it. Only when the
+				// variable could be read: a binding that cannot name the connection is one nothing
+				// can write code against, and recording it would suppress the dialog that would.
+				if (!variableName) {
+					return undefined;
+				}
+				const binding: IDataConnectionSessionBinding = {
+					profileId: props.profileId,
+					sessionId,
+					languageId: props.languageId,
+					variantId: selectedVariant.id,
+					variableName,
+				};
+				services.positronDataConnectionsService.registerSessionBinding(binding);
+				return binding;
+			} catch (err) {
+				services.notificationService.error(localize(
+					'positron.connectDataConnectionWith.connectFailed',
+					"Failed to run the connection code: {0}",
+					toErrorMessage(err)
+				));
+				return undefined;
+			}
+		})());
+
+		props.renderer.dispose();
 	};
 
 	const cancelHandler = () => {

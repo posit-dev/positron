@@ -140,6 +140,44 @@ suite('ConnectionSelection', () => {
 		assert.deepStrictEqual(selection.get(REPORT), WAREHOUSE);
 	});
 
+	test('the language a file was run in is remembered with its connection', () => {
+		const kept = store();
+		const selection = new ConnectionSelection(kept);
+		selection.set(REPORT, WAREHOUSE);
+
+		selection.setLanguage(REPORT, 'r');
+
+		assert.strictEqual(new ConnectionSelection(store(kept.written)).get(REPORT)?.languageId, 'r');
+	});
+
+	test('choosing a different connection forgets the language, which was about the old one', () => {
+		// A different database is reached through a different driver, which may not even offer the
+		// language the file was last run in.
+		const selection = new ConnectionSelection(store());
+		selection.set(REPORT, WAREHOUSE);
+		selection.setLanguage(REPORT, 'r');
+
+		selection.set(REPORT, LOCAL);
+
+		assert.strictEqual(selection.get(REPORT)?.languageId, undefined);
+	});
+
+	test('a language on its own is not kept, there being no connection for it to be about', () => {
+		const selection = new ConnectionSelection(store());
+
+		selection.setLanguage(REPORT, 'r');
+
+		assert.strictEqual(selection.get(REPORT), undefined);
+	});
+
+	test('an entry stored before languages existed is still read', () => {
+		const selection = new ConnectionSelection(store({
+			[REPORT.toString()]: WAREHOUSE,
+		}));
+
+		assert.deepStrictEqual(selection.get(REPORT), WAREHOUSE);
+	});
+
 	test('a stored entry that is not a connection is dropped rather than shown', () => {
 		// Written by an older version of this extension, or half written. A partial entry would
 		// reach the status bar as a connection with no name.

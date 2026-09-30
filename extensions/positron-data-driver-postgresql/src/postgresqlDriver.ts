@@ -8,6 +8,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { createQueryCodeGenerator, dbiGetQuery, pandasReadSql } from 'positron-data-driver-common';
 import { PostgreSQLConnection } from './postgresqlConnection.js';
 import { PostgresDataExplorerRpcHandler } from './postgresqlDataExplorerRpcHandler.js';
 
@@ -508,6 +509,23 @@ function redactConnectionString(connectionString: string): string {
 	);
 }
 
+// --- Query code generation ---
+
+/**
+ * Generates the code that runs a query through a connection one of this driver's connection code
+ * variants created. Only the variant ids are this driver's own; the recipes and the quoting they
+ * depend on are shared with every other SQL driver.
+ */
+export const generateQueryCode: (request: positron.QueryCodeRequest) => string | undefined = createQueryCodeGenerator({
+	python: {
+		psycopg2: pandasReadSql,
+		sqlalchemy: pandasReadSql,
+	},
+	r: {
+		dbi: dbiGetQuery,
+	},
+});
+
 // --- Connect-time validators ---
 
 /** Validates and returns the required TCP endpoint (host and port), throwing if either is missing. */
@@ -726,6 +744,7 @@ export function createPostgreSQLDriver(
 					return [];
 			}
 		},
+		generateQueryCode,
 		redactParameterValue(mechanismId: string, parameterId: string, value: string): string | undefined {
 			// The connection string is the only parameter shown in plaintext while embedding a
 			// secret, so it is the only one with a meaningful redacted preview.

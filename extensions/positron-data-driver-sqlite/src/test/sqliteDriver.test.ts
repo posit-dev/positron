@@ -10,6 +10,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import Database from 'better-sqlite3';
 import { SQLiteConnection } from '../sqliteConnection.js';
+import { generateQueryCode } from '../sqliteDriver.js';
 
 suite('SQLite Driver Tests', () => {
 	let tmpDir: string;
@@ -292,5 +293,41 @@ suite('SQLite Driver Tests', () => {
 		await tables[0].preview!();
 
 		await conn.disconnect();
+	});
+});
+
+suite('SQLite Query Code', () => {
+
+	// The quoting and the recipes themselves are covered by positron-data-driver-common's own tests.
+	// What is this driver's own is which variant ids map to which recipe, so that is what is asserted
+	// here. The connection variable is whatever the session bound, which is why each variant is given
+	// the name its own connection code binds.
+	function code(languageId: string, variantId: string, connectionVariable: string): string | undefined {
+		return generateQueryCode({ languageId, variantId, connectionVariable, query: 'SELECT 1' });
+	}
+
+	test('each connection code variant is queried the way its own connection object is', () => {
+		assert.deepStrictEqual(
+			{
+				sqlite3: code('python', 'sqlite3', 'conn'),
+				sqlalchemy: code('python', 'sqlalchemy', 'engine'),
+				dbi: code('r', 'dbi', 'con'),
+			},
+			{
+				sqlite3: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", conn)',
+				sqlalchemy: 'import pandas as pd\n\npd.read_sql_query("""\nSELECT 1\n""", engine)',
+				dbi: 'DBI::dbGetQuery(con, "SELECT 1")',
+			}
+		);
+	});
+
+	test('nothing is generated for a variant or a language this driver cannot query', () => {
+		assert.deepStrictEqual(
+			{
+				unknownVariant: code('python', 'duckdb', 'conn'),
+				unknownLanguage: code('julia', 'sqlite3', 'conn'),
+			},
+			{ unknownVariant: undefined, unknownLanguage: undefined }
+		);
 	});
 });

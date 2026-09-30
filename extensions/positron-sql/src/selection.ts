@@ -58,6 +58,24 @@ export function resolveSelection(
 	return live ? { kind: 'connection', connection: live } : { kind: 'closed', connection: chosen };
 }
 
+/**
+ * What a file remembers: the connection it is written against, and how it was last run.
+ *
+ * The language hangs off the connection rather than standing beside it, because it is only ever
+ * meaningful against one -- it is the language that connection's driver was connected with, and a
+ * file pointed at a different database has to choose again. Storing it here also means changing
+ * the connection forgets it, which is the right answer and takes no code to arrange.
+ */
+export interface RememberedConnection extends ConnectionRef {
+	/**
+	 * The language this file's statements were last run in, if they have been run.
+	 *
+	 * Only consulted when the session in front of the user does not settle it; see
+	 * `chooseLanguage` in `execution.ts`.
+	 */
+	readonly languageId?: string;
+}
+
 /** Where the choices are kept between sessions; the workspace memento in production. */
 export type SelectionStore = Pick<vscode.Memento, 'get' | 'update'>;
 
@@ -82,22 +100,46 @@ const MAX_REMEMBERED = 200;
  */
 export class ConnectionSelection {
 
-	private readonly _byFile: Map<string, ConnectionRef>;
+	private readonly _byFile: Map<string, RememberedConnection>;
 
 	constructor(private readonly _store: SelectionStore) {
 		this._byFile = new Map(storedSelections(_store));
 	}
 
-	public get(file: vscode.Uri): ConnectionRef | undefined {
+	public get(file: vscode.Uri): RememberedConnection | undefined {
 		return this._byFile.get(file.toString());
 	}
 
-	/** Scopes a file to a connection, and remembers it for the next time the file is opened. */
+	/**
+	 * Scopes a file to a connection, and remembers it for the next time the file is opened.
+	 *
+	 * Any language remembered for the file goes with the old connection. A different database is
+	 * reached through a different driver, which may not offer the same languages at all.
+	 */
 	public set(file: vscode.Uri, connection: ConnectionRef): void {
 		// Deleted before being set so that the entry moves to the end of the map. Insertion order
 		// is what the cap trims by, and a file just chosen for is the last one to forget.
 		this._byFile.delete(file.toString());
-		this._byFile.set(file.toString(), connection);
+		this._byFile.set(file.toString(), {
+			profileId: connection.profileId,
+			name: connection.name,
+			driverId: connection.driverId,
+		});
+		this._save();
+	}
+
+	/**
+	 * Remembers the language a file's statements were run in, so the next run does not ask again.
+	 *
+	 * Kept only for a file that has chosen a connection: a language on its own says nothing, and
+	 * the file will be asked which connection it means before it is asked anything else.
+	 */
+	public setLanguage(file: vscode.Uri, languageId: string): void {
+		const chosen = this._byFile.get(file.toString());
+		if (!chosen) {
+			return;
+		}
+		this._byFile.set(file.toString(), { ...chosen, languageId });
 		this._save();
 	}
 
@@ -116,7 +158,7 @@ export class ConnectionSelection {
 	}
 
 	private _save(): void {
-		const persisted: Record<string, ConnectionRef> = {};
+		const persisted: Record<string, RememberedConnection> = {};
 		for (const [id, connection] of [...this._byFile].slice(-MAX_REMEMBERED)) {
 			if (isPersistable(vscode.Uri.parse(id))) {
 				persisted[id] = connection;
@@ -140,20 +182,22 @@ function isPersistable(uri: vscode.Uri): boolean {
 }
 
 /** What was stored, with anything that is not a connection reference dropped. */
-function storedSelections(store: SelectionStore): [string, ConnectionRef][] {
+function storedSelections(store: SelectionStore): [string, RememberedConnection][] {
 	const stored = store.get<Record<string, unknown>>(STORAGE_KEY, {});
 	// Validated rather than trusted: this is data an older version of this extension wrote, and a
-	// half-shaped entry would reach the status bar as a connection with no name.
+	// half-shaped entry would reach the status bar as a connection with no name. The language is
+	// not required, because entries written before it existed do not carry one.
 	return Object.entries(stored)
-		.filter((entry): entry is [string, ConnectionRef] => isConnectionRef(entry[1]));
+		.filter((entry): entry is [string, RememberedConnection] => isRememberedConnection(entry[1]));
 }
 
-function isConnectionRef(value: unknown): value is ConnectionRef {
-	const candidate = value as Partial<ConnectionRef> | null;
+function isRememberedConnection(value: unknown): value is RememberedConnection {
+	const candidate = value as Partial<RememberedConnection> | null;
 	return typeof candidate === 'object'
 		&& candidate !== null
 		&& typeof candidate.profileId === 'string'
 		&& typeof candidate.name === 'string'
-		&& typeof candidate.driverId === 'string';
+		&& typeof candidate.driverId === 'string'
+		&& (candidate.languageId === undefined || typeof candidate.languageId === 'string');
 }
 
