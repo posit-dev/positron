@@ -323,9 +323,9 @@ test('renderPrComment running state names the head and links the run', () => {
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nOff exploring, back soon\u2026\n[View run \u2192](${RUN_URL})\n`);
 });
 
-test('renderPrComment tells a run a newer /test replaced from one cancelled otherwise', () => {
+test('renderPrComment tells a run a newer /explore replaced from one cancelled otherwise', () => {
 	const superseded = renderPrComment({ state: 'superseded', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
-	assert.equal(superseded, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled: a newer /test replaced this run.\n[View run \u2192](${RUN_URL})\n`);
+	assert.equal(superseded, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled: a newer /explore replaced this run.\n[View run \u2192](${RUN_URL})\n`);
 	const cancelled = renderPrComment({ state: 'cancelled', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.match(cancelled, /^Cancelled before the agent produced a report\.$/m);
 	assert.doesNotMatch(cancelled, /newer \/test/);

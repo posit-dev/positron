@@ -381,7 +381,7 @@ export function turnCapWarning({ numTurns, maxTurns }) {
  * and the SHA is how a reader tells.
  *
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
- * `reason` says why), `superseded` (a newer /test cancelled it), `cancelled`,
+ * `reason` says why), `superseded` (a newer /explore cancelled it), `cancelled`,
  * or empty when the agent never ran (the build failed first).
  */
 export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason }) {
@@ -395,7 +395,7 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
 	}
 	if (state === 'superseded') {
-		return comment(['Cancelled: a newer /test replaced this run.', run]);
+		return comment(['Cancelled: a newer /explore replaced this run.', run]);
 	}
 	if (state === 'cancelled') {
 		return comment(['Cancelled before the agent produced a report.', run]);
