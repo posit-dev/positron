@@ -424,7 +424,7 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 			return undefined;
 		}
 		const accessToken = await this.readAccessToken(authProviderId, mapping.scopes, mapping.fallbackScopes);
-		if (accessToken) {
+		if (accessToken !== undefined) {
 			const credentialType = mapping.credentialType;
 			const shaped = shapeCredentials(
 				mapping.providerId,
