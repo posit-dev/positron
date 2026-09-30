@@ -14,7 +14,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeSessionOwner, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -60,7 +60,7 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { getConsoleHistory } from '../../../services/positronHistory/common/helpers/sessionConsoleHistory.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { LanguageRuntimeDynState } from 'positron';
+import { LanguageRuntimeDynState, RuntimeSessionStartOptions } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 import * as perf from '../../../../base/common/performance.js';
@@ -2043,18 +2043,12 @@ export class MainThreadLanguageRuntime
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
-		owner: RuntimeSessionOwner | undefined): Promise<string> {
+		options: RuntimeSessionStartOptions | undefined): Promise<string> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
-		// Extensions may omit the owner; the session is then the user's.
-		const sessionOwner = owner ?? 'user';
-
-		// Start the runtime session. A session the Assistant starts for itself
-		// stays in the background so the user's selected session stays selected;
-		// the session service drops the owner while the
-		// `ai.assistantSessions.enabled` setting is off, in which case the
-		// session takes the foreground as usual.
+		// Start the runtime session. Extensions may omit the options: the
+		// session is then the user's and takes the foreground.
 		const sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 			runtimeId,
 			sessionName,
@@ -2062,8 +2056,8 @@ export class MainThreadLanguageRuntime
 			uri,
 			'Extension-requested runtime selection via Positron API',
 			RuntimeStartMode.Starting,
-			sessionOwner === 'user',
-			{ owner: sessionOwner });
+			options?.activate ?? true,
+			{ owner: options?.owner ?? 'user' });
 
 		return sessionId;
 	}

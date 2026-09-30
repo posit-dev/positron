@@ -765,18 +765,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		options?: IStartNewRuntimeSessionOptions): Promise<string> {
 		// Honour an Assistant owner only while the `ai.enabled` and
 		// `ai.assistantSessions.enabled` settings are both on; otherwise the
-		// session starts as the user's. Read live
-		// since the settings toggle without a reload. Whether the session takes
-		// the foreground is the caller's call: the Positron API starts Assistant
-		// sessions in the background, a user starting one from the Console gets
-		// it in front like any session they start.
+		// session starts as the user's. Read live since the settings toggle
+		// without a reload. Whether the session takes the foreground is the
+		// caller's call either way, via `activate`.
 		if (options?.owner === 'assistant' &&
 			!(this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true &&
 				this._configurationService.getValue<boolean>(ASSISTANT_SESSIONS_ENABLED_KEY) === true)) {
-			// Dropped to an ordinary user session, which takes the foreground as
-			// it always did before owners existed.
 			options = { ...options, owner: 'user' };
-			activate = true;
 		}
 
 		// See if we are already starting the requested session. If we

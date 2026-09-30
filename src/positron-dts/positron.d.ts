@@ -865,6 +865,13 @@ declare module 'positron' {
 		 * otherwise the session starts as the user's.
 		 */
 		readonly owner?: RuntimeSessionOwner;
+
+		/**
+		 * Whether the session becomes the foreground session once started.
+		 * Defaults to `true`. Pass `false` to start it in the background and
+		 * leave the user's selected session in place.
+		 */
+		readonly activate?: boolean;
 	}
 
 	/**

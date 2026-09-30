@@ -1862,11 +1862,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
-		owner?: positron.RuntimeSessionOwner): Promise<positron.LanguageRuntimeSession> {
+		options?: positron.RuntimeSessionStartOptions): Promise<positron.LanguageRuntimeSession> {
 
 		// Start the runtime and get the session ID
 		const sessionId =
-			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, owner);
+			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, options);
 
 		// The process of starting a session in Positron should have caused the
 		// runtime to be registered with the extension host, so we should be able
