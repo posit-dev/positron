@@ -54,16 +54,16 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 }
 
 /**
- * The verifier's reply from its VERDICTS line on, or from its KNOWN or LINKED
- * line if that came first. Its final message can open with notes to itself, which
- * would otherwise lead the Verification details.
+ * The verifier's reply from its VERDICTS line on, or from its KNOWN, LINKED or
+ * FEATURE line if that came first. Its final message can open with notes to
+ * itself, which would otherwise lead the Verification details.
  */
 export function fromVerdictLine(text) {
 	if (typeof text !== 'string') {
 		return text;
 	}
 	const lines = text.split('\n');
-	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED):/.test(l.trim().toUpperCase()));
+	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED|FEATURE):/.test(l.trim().toUpperCase()));
 	return at > 0 ? lines.slice(at).join('\n') : text;
 }
 
@@ -123,6 +123,54 @@ export function parseKnown(text) {
 		}
 	}
 	return out;
+}
+
+/**
+ * Parses the verifier's feature line.
+ *
+ * Expects `FEATURE: 3=new folder flow` anywhere in the text. Returns a Map of
+ * finding number to the feature the evidence points to. A part it cannot read,
+ * or one with a `|` that would break the table, is skipped.
+ */
+export function parseFeatures(text) {
+	const out = new Map();
+	if (typeof text !== 'string') {
+		return out;
+	}
+	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('FEATURE:'));
+	if (!line) {
+		return out;
+	}
+	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
+		const m = part.trim().match(/^(\d+)\s*=\s*"?([^"|]*?)"?$/);
+		if (m && m[2].trim()) {
+			out.set(Number(m[1]), m[2].trim());
+		}
+	}
+	return out;
+}
+
+/**
+ * The report with each `**Feature:**` line on the FEATURE line rewritten. The
+ * explorer picks Feature before the cause is known, and it prefixes the filed
+ * issue's title. A finding with no Feature line is left for lint to catch.
+ */
+export function applyFeatures(report, features) {
+	if (!(features instanceof Map) || !features.size) {
+		return report;
+	}
+	let n = null;
+	return report.split('\n').map(line => {
+		const heading = /^###\s+Finding\s+(\d+):/.exec(line);
+		if (heading) {
+			n = Number(heading[1]);
+		} else if (/^(<details>|## )/.test(line)) {
+			n = null;
+		} else if (n !== null && features.has(n) && /^\*\*Feature:\*\*/.test(line)) {
+			return `**Feature:** ${features.get(n)}`;
+		}
+		return line;
+	}).join('\n');
 }
 
 /**
@@ -232,7 +280,8 @@ export function applyVerification(report, verdicts, { failed = false } = {}) {
 	const section = failed
 		? `## Verification\n\n${verdicts}\n`
 		: `<details>\n<summary>Verification details</summary>\n\n${PREAMBLE}\n\n${verdicts}\n\n</details>\n`;
-	return `${annotateFindingsTable(report, parseVerdicts(verdicts), parseKnown(verdicts))}\n\n${section}`;
+	const revised = failed ? report : applyFeatures(report, parseFeatures(verdicts));
+	return `${annotateFindingsTable(revised, parseVerdicts(verdicts), parseKnown(verdicts))}\n\n${section}`;
 }
 
 /**

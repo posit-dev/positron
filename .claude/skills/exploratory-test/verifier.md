@@ -80,6 +80,14 @@ one entry per issue, rated major, moderate or minor:
 
 LINKED: #5678=moderate; #5301=minor
 
+If the evidence puts a finding in a different area than its `**Feature:**`
+line names, add a line with the one it points to. It replaces the Feature in
+the report and in the filed issue's title:
+
+FEATURE: 3=new folder flow
+
+Leave it out when every Feature holds.
+
 Then keep it short. The table column is what a reviewer reads; this section is
 for what the column cannot say.
 
@@ -88,6 +96,7 @@ for what the column cannot say.
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its
   severity.
+- A finding on the FEATURE line gets one line: what moved it.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have

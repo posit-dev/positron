@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { annotateFindingsTable, applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, isVerified, observedLinked, parseKnown, parseVerdicts, verifyLogLines } from './finish.mjs';
+import { annotateFindingsTable, applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseVerdicts, verifyLogLines } from './finish.mjs';
 
 const TABLE = [
 	'# Exploratory test: something',
@@ -68,6 +68,41 @@ test('parseKnown reads the issue numbers per finding and skips what it cannot re
 	assert.deepEqual([...k], [[2, [15102]], [3, [14991, 15153]], [5, [7]]]);
 	assert.equal(parseKnown('VERDICTS: 1=CONFIRMED').size, 0);
 	assert.equal(parseKnown(null).size, 0);
+});
+
+test('parseFeatures reads the feature per finding and skips what it cannot read', () => {
+	const f = parseFeatures('VERDICTS: 1=CONFIRMED\nFEATURE: 1=new folder flow; 2="modal dialogs"; 3=; x=console; 4=a | b\nprose');
+	assert.deepEqual([...f], [[1, 'new folder flow'], [2, 'modal dialogs']]);
+	assert.equal(parseFeatures('VERDICTS: 1=CONFIRMED').size, 0);
+	assert.equal(parseFeatures(null).size, 0);
+});
+
+const BLOCKS = [
+	TABLE.replace('### 1. first claim', '### Finding 1: first claim'),
+	'',
+	'**Feature:** modal dialogs',
+	'',
+	'### Finding 2: second claim',
+	'',
+	'**Feature:** console',
+].join('\n');
+
+test('applyVerification rewrites the Feature of a finding on the FEATURE line only', () => {
+	const out = applyVerification(BLOCKS, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nFEATURE: 1=new folder flow\n\n- 1: holds.');
+	assert.match(out, /### Finding 1: first claim\n\n\*\*Feature:\*\* new folder flow\n/);
+	assert.match(out, /### Finding 2: second claim\n\n\*\*Feature:\*\* console/);
+	assert.doesNotMatch(out, /\*\*Feature:\*\* modal dialogs/);
+});
+
+test('applyVerification leaves Feature alone on a failed pass or a finding with no Feature line', () => {
+	const reply = 'VERDICTS: 1=CONFIRMED\nFEATURE: 1=new folder flow; 2=data explorer';
+	assert.match(applyVerification(BLOCKS, `_Verification did not complete._\n\n${reply}`, { failed: true }), /\*\*Feature:\*\* modal dialogs/);
+	const noLine = BLOCKS.replace('**Feature:** console', 'no feature here');
+	assert.doesNotMatch(applyVerification(noLine, reply), /\*\*Feature:\*\* data explorer/);
+});
+
+test('fromVerdictLine keeps a FEATURE line written before the VERDICTS line', () => {
+	assert.equal(fromVerdictLine('notes\nFEATURE: 1=console\nVERDICTS: 1=CONFIRMED'), 'FEATURE: 1=console\nVERDICTS: 1=CONFIRMED');
 });
 
 test('fromVerdictLine keeps a KNOWN line written before the VERDICTS line', () => {
