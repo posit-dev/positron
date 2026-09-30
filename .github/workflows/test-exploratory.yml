@@ -90,6 +90,7 @@ jobs:
       head_ref: ${{ steps.check.outputs.head_ref }}
       base_ref: ${{ steps.check.outputs.base_ref }}
       model: ${{ steps.check.outputs.model }}
+      focus: ${{ steps.check.outputs.focus }}
       time_limit: ${{ steps.check.outputs.time_limit }}
     steps:
       - name: Mint org-scoped App token
@@ -124,18 +125,20 @@ jobs:
             exit 0
           fi
 
-          # Optional second word picks the model. Only the literal names pass;
-          # anything else runs the default, and the comment names the model so
-          # a typo is visible.
-          arg=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { print tolower($2); exit }')
-          case "$arg" in
-            opus|sonnet) model=$arg ;;
-            *) model=opus ;;
-          esac
-
-          # Optional time limit anywhere after the command, as 20m. Only that
-          # exact shape counts; anything else runs without a limit.
-          time_limit=$(printf '%s\n' "$BODY" | tr -d '\r' | awk 'NF { for (i = 2; i <= NF; i++) if (tolower($i) ~ /^[0-9]+m$/) { print tolower($i); exit } exit }')
+          # After the command, an optional time limit (20m) and then the focus:
+          # everything else, on one line. The model is the dispatch's choice
+          # only; a comment always runs opus.
+          rest=$(printf '%s\n' "$BODY" | tr -d '\r' \
+            | awk 'NF && !seen { seen = 1; sub(/^[ \t]*[^ \t]+/, "") } seen' \
+            | tr '\n\t' '  ' | tr -s ' ' | sed 's/^ //; s/ $//')
+          time_limit=""
+          word=$(printf '%s' "${rest%% *}" | tr '[:upper:]' '[:lower:]')
+          if [[ "$word" =~ ^[0-9]+m$ ]]; then
+            time_limit=$word
+            if [[ "$rest" == *" "* ]]; then rest=${rest#* }; else rest=""; fi
+          fi
+          # Capped: it is shown in the PR comment and handed to the agent.
+          focus=${rest:0:500}
 
           # Active member: 200 {"state":"active"}. Non-member: 404, empty
           # stdout. Pending invite: "pending", which does not count.
@@ -168,11 +171,12 @@ jobs:
             echo "head_sha=$(jq -r '.head.sha' <<<"$pr")"
             echo "head_ref=$(jq -r '.head.ref' <<<"$pr")"
             echo "base_ref=$(jq -r '.base.ref' <<<"$pr")"
-            echo "model=$model"
+            echo "model=opus"
             echo "time_limit=$time_limit"
+            echo "focus=$focus"
             echo "ok=true"
           } >> "$GITHUB_OUTPUT"
-          echo "Membership gate: ok (model=$model, time limit=${time_limit:-none})"
+          echo "Membership gate: ok (time limit=${time_limit:-none}, focus=${focus:-none})"
 
   # The dispatch path's counterpart to membership's branch check. Dispatching
   # already takes write access, so there is no team lookup, but `ref` must be a
@@ -213,15 +217,14 @@ jobs:
   worthiness:
     name: worthiness
     needs: [membership, dispatch-ref]
-    # Runs on every /test (there is no input to turn it off there) and on a
-    # dispatch that leaves it on and names no focus: the gate rules on the
-    # diff, and a named feature is the person's call. Behind membership on a
+    # Runs when no focus is named, on a comment or on a dispatch that leaves it
+    # on: the gate rules on the diff, and a named feature is the person's call. Behind membership on a
     # comment, because it checks out the PR and gives an agent a shell in it.
     # always(): membership is skipped on dispatch, and dispatch-ref on a comment.
     if: >-
       ${{ always() &&
       ((github.event_name == 'workflow_dispatch' && needs.dispatch-ref.outputs.sha != '' && inputs.worthiness_check && inputs.focus == '') ||
-        needs.membership.outputs.ok == 'true') }}
+        (needs.membership.outputs.ok == 'true' && needs.membership.outputs.focus == '')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -388,6 +391,7 @@ jobs:
         with:
           mode: comment
           comment-state: running
+          focus: ${{ needs.membership.outputs.focus }}
           model: ${{ needs.membership.outputs.model }}
           pr-number: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
@@ -405,13 +409,8 @@ jobs:
       ${{ always() &&
       needs.worthiness.outputs.testable != 'false' &&
       ((github.event_name == 'workflow_dispatch' && needs.dispatch-ref.outputs.sha != '') || needs.membership.outputs.ok == 'true') }}
-    # Job-level, not workflow-level: every comment on every PR starts a run of
-    # this workflow, and a workflow-level group would let any of them cancel an
-    # in-flight /test. Per model, so the two legs of `Both (Opus + Sonnet)` do
-    # not cancel each other.
-    concurrency:
-      group: pr-exploratory-${{ github.event.issue.number || inputs.ref }}-${{ matrix.model }}
-      cancel-in-progress: true
+    # No concurrency group: two /explore comments on one head, each with its
+    # own focus, are meant to run side by side.
     # Read-only on purpose: this job runs PR code and an agent with a shell, and
     # GITHUB_TOKEN is in their environment. ack and report do the writing, and
     # publish does the S3 upload, so no id-token either.
@@ -428,7 +427,7 @@ jobs:
         # Every branch is a literal. Building the JSON with format() put a
         # dispatch input inside the document it was about to parse, which only
         # held because `type: choice` happens to constrain the value.
-        # On a comment, membership's model is already checked to opus or sonnet.
+        # On a comment, membership's model is always opus.
         # == ignores case, so the dispatch's "Sonnet" matches 'sonnet'.
         model: ${{ (inputs.model || needs.membership.outputs.model || 'opus') == 'Both (Opus + Sonnet)' && fromJSON('["opus","sonnet"]')
           || (inputs.model || needs.membership.outputs.model || 'opus') == 'sonnet' && fromJSON('["sonnet"]')
@@ -754,7 +753,7 @@ jobs:
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}
-          focus: ${{ inputs.focus }}
+          focus: ${{ inputs.focus || needs.membership.outputs.focus }}
           time-limit: ${{ inputs.time_limit || needs.membership.outputs.time_limit }}
           # The PR link in the summary and the report header. No PR, no link.
           pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
@@ -926,8 +925,6 @@ jobs:
     if: always() && needs.membership.outputs.ok == 'true'
     runs-on: ubuntu-latest
     permissions:
-      actions: read
-      checks: read
       contents: read
       issues: write
       pull-requests: write
@@ -961,27 +958,6 @@ jobs:
             echo "WORK_DIR=/tmp/run-artifact" >> "$GITHUB_ENV"
           fi
 
-      # A newer /test on the PR cancels this one's explore job through its
-      # concurrency group, and GitHub notes that on the job. Any other cancel,
-      # such as by hand, reads as plain cancelled.
-      - name: Tell a replaced run from a cancelled one
-        id: cancel
-        if: needs.explore.result == 'cancelled'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          state=cancelled
-          jobs=$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/attempts/${GITHUB_RUN_ATTEMPT}/jobs" --paginate \
-            --jq '.jobs[] | select((.name | startswith("explore")) and .conclusion == "cancelled") | .id')
-          for job in $jobs; do
-            if gh api "repos/${GITHUB_REPOSITORY}/check-runs/${job}/annotations" --jq '.[].message' | grep -q 'higher priority waiting request'; then
-              state=superseded
-            fi
-          done
-          echo "state=$state" >> "$GITHUB_OUTPUT"
-
       # Links only when the upload succeeded, so the comment never points at a
       # CDN page that 404s; the run link still reaches the artifact.
       - name: Post result comment
@@ -990,11 +966,12 @@ jobs:
         with:
           mode: comment
           comment-state: result
+          focus: ${{ needs.membership.outputs.focus }}
           model: ${{ needs.membership.outputs.model }}
           # Empty when ack could not post; comment mode then posts a new one.
           comment-id: ${{ needs.ack.outputs.comment_id }}
           # A declined run never reaches explore; say so rather than "failed".
-          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || steps.cancel.outputs.state || needs.explore.outputs.outcome }}
+          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outcome }}
           decline-reason: ${{ needs.worthiness.outputs.reason }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.publish.outputs.report_base_url }}
@@ -1010,7 +987,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
-          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || steps.cancel.outputs.state || needs.explore.outputs.outcome }}
+          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Posts or edits the PR comment for one `/test` run. The body comes from
+// Posts or edits the PR comment for one `/explore` run. The body comes from
 // renderPrComment in lib.mjs; this file is only the GitHub I/O around it.
 
 import { appendFileSync, readFileSync } from 'node:fs';
@@ -29,7 +29,7 @@ async function gh(fetchImpl, token, path, init = {}) {
 }
 
 /**
- * Edits the comment this run posted, or posts one. Each /test owns a comment,
+ * Edits the comment this run posted, or posts one. Each /explore owns a comment,
  * so the running comment becomes that run's result and earlier runs' results
  * stay where they were.
  */
@@ -64,6 +64,7 @@ async function main() {
 		runUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
 		headSha: process.env.HEAD_SHA || '',
 		reason: process.env.DECLINE_REASON || '',
+		focus: process.env.FOCUS || '',
 	});
 	const { action, id } = await postOrEditComment({
 		fetchImpl: fetch,

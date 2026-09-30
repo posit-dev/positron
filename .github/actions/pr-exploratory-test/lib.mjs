@@ -377,25 +377,23 @@ export function turnCapWarning({ numTurns, maxTurns }) {
 
 /**
  * The body of the PR comment: a title with the head it tested, the finding
- * tally, and a link to the report or run. A push after `/test` makes the result stale,
- * and the SHA is how a reader tells.
+ * tally, and a link to the report or run. A push after `/explore` makes the result stale,
+ * and the SHA is how a reader tells. `focus` tells apart runs on the same head.
  *
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
- * `reason` says why), `superseded` (a newer /explore cancelled it), `cancelled`,
- * or empty when the agent never ran (the build failed first).
+ * `reason` says why), `cancelled`, or empty when the agent never ran (the
+ * build failed first).
  */
-export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason }) {
+export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason, focus }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
-	const comment = lines => `${COMMENT_MARKER}\n${title}\n\n${lines.join('\n')}\n`;
+	const focusLine = focus ? `Focus: ${focus}\n\n` : '';
+	const comment = lines => `${COMMENT_MARKER}\n${title}\n\n${focusLine}${lines.join('\n')}\n`;
 	if (state === 'running') {
 		return comment(['Off exploring, back soon\u2026', run]);
 	}
 	if (state === 'declined') {
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
-	}
-	if (state === 'superseded') {
-		return comment(['Cancelled: a newer /explore replaced this run.', run]);
 	}
 	if (state === 'cancelled') {
 		return comment(['Cancelled before the agent produced a report.', run]);

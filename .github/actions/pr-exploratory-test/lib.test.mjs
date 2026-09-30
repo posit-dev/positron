@@ -306,7 +306,7 @@ const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'superseded', 'cancelled']) {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'cancelled']) {
 		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
@@ -323,12 +323,17 @@ test('renderPrComment running state names the head and links the run', () => {
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nOff exploring, back soon\u2026\n[View run \u2192](${RUN_URL})\n`);
 });
 
-test('renderPrComment tells a run a newer /explore replaced from one cancelled otherwise', () => {
-	const superseded = renderPrComment({ state: 'superseded', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
-	assert.equal(superseded, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled: a newer /explore replaced this run.\n[View run \u2192](${RUN_URL})\n`);
-	const cancelled = renderPrComment({ state: 'cancelled', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
-	assert.match(cancelled, /^Cancelled before the agent produced a report\.$/m);
-	assert.doesNotMatch(cancelled, /newer \/test/);
+test('renderPrComment on a cancelled run says it was cancelled', () => {
+	const body = renderPrComment({ state: 'cancelled', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled before the agent produced a report.\n[View run \u2192](${RUN_URL})\n`);
+});
+
+test('renderPrComment names the focus, so two runs on one head can be told apart', () => {
+	for (const state of ['running', 'complete', 'declined', '']) {
+		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA, focus: 'sorting in the data explorer' });
+		assert.match(body, /abc1234\n\nFocus: sorting in the data explorer\n\n/, `state=${JSON.stringify(state)}`);
+	}
+	assert.doesNotMatch(renderPrComment({ state: 'running', runUrl: RUN_URL, headSha: SHA, focus: '' }), /Focus:/);
 });
 
 test('renderPrComment says No findings for an empty table', () => {
