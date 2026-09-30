@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('New Folder Flow: Jupyter Project', {
+test.describe('New Folder Flow: Jupyter Project', {
 	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW],
 	annotation: [{
 		type: 'issue',
