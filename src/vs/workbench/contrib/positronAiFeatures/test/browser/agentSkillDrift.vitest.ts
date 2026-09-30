@@ -73,6 +73,8 @@ const KNOWN_EXTENSION_COMMANDS = new Set([
 	'python.execGradioInTerminal',
 	'python.execMarimoInTerminal',
 	'python.execStreamlitInTerminal',
+	// Declared in extensions/positron-proxy/src/extension.ts
+	'positronProxy.showHtmlPreview',
 	// Posit Publisher is installed separately; its source is not in this repo.
 	'posit.publisher.agent.addCredential',
 	'posit.publisher.agent.deployContent',
