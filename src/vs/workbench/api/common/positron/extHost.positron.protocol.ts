@@ -19,7 +19,7 @@ import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, Environmen
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IChatAgentData } from '../../../contrib/chat/common/participants/chatAgents.js';
@@ -337,6 +337,11 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	$nodePreviewViaService(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
 
 	/**
+	 * Gets a node's details via the main thread service.
+	 */
+	$nodeGetDetailsViaService(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO>;
+
+	/**
 	 * Releases a connection handle via the main thread service.
 	 */
 	$releaseConnectionViaService(connectionHandle: number): void;
@@ -358,6 +363,7 @@ export interface ExtHostDataConnectionsShape {
 	$connectionIsConnected(connectionHandle: number): Promise<boolean>;
 	$nodeGetChildren(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDTO[]>;
 	$nodePreview(connectionHandle: number, nodeHandle: number): Promise<string | undefined>;
+	$nodeGetDetails(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO>;
 	$releaseConnection(connectionHandle: number): void;
 }
 

@@ -9,7 +9,7 @@ import { ReactNode } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
-import { DataConnectionNodeRow } from '../components/dataConnectionNodeRow.js';
+import { DataConnectionNodeRow, kindIcon } from '../components/dataConnectionNodeRow.js';
 import { MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
@@ -20,6 +20,11 @@ import { PositronActionBarHoverManager } from '../../../../../platform/positronA
 import { POSITRON_DATA_CONNECTIONS_MINIMUM_INDENT_WIDTH, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY } from '../positronDataConnectionsConfiguration.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { PositronTreeInstance } from '../../../../browser/positronTree/classes/positronTreeInstance.js';
+import { findParentIndex } from '../../../../browser/positronTree/classes/treeProjection.js';
+import { nodeReloadKey } from './dataConnectionNodeKey.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { openDataConnectionNodeDetails, pinDataConnectionNodeDetails } from '../editor/dataConnectionNodeDetailsEditor.js';
+import { IDataConnectionNodeDetailsTarget } from '../editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
@@ -95,10 +100,7 @@ const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): 
 
 /**
  * The identity a node keeps across a refresh, used by the tree to re-expand a subtree after
- * reload. Node handles are minted from a counter on every fetch, so a node's id always changes
- * even when the node itself hasn't -- its kind and name are what actually stay the same. The pair
- * is JSON-encoded so a name that happens to contain the separator can't collide with a different
- * kind/name pair.
+ * reload: an entry's profile, or a DTO's kind and name (see nodeReloadKey).
  *
  * DTO keys deliberately don't include the originating connection handle: the tree matches a node
  * to its counterpart among its own siblings, which always come from the same connection, so a
@@ -109,7 +111,7 @@ const dtoNodeId = (handle: IDataConnectionHandle, dto: IDataConnectionNodeDTO): 
 export const reloadKey = (node: DataConnectionNode): string =>
 	node.kind === 'entry'
 		? entryNodeId(node.entry.profile.id)
-		: JSON.stringify([node.dto.kind, node.dto.name]);
+		: nodeReloadKey(node.dto.kind, node.dto.name);
 
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
 	id: entryNodeId(entry.profile.id),
@@ -184,6 +186,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// be read by the row it was fetched for. See _breadcrumbNamespaceGroups and _takeLookAhead.
 	private readonly _lookAheadChildren = new Map<string, readonly IDataConnectionNodeDTO[]>();
 
+	// Counts details requests, so a preview-mode open whose fetch was overtaken by a later request
+	// can tell and drop its result. See openNodeDetails.
+	private _detailsRequestCount = 0;
+
 	// A scroll waiting for the grid to be laid out, held so a second reveal replaces the first
 	// rather than leaving two listeners racing to scroll to different rows. See
 	// _scrollToCursorWhenLaidOut.
@@ -198,6 +204,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		private readonly _configurationService: IConfigurationService,
 		private readonly _notificationService: INotificationService,
 		hoverService: IHoverService,
+		private readonly _editorService: IEditorService,
 	) {
 		super({
 			rowHeight: ROW_HEIGHT,
@@ -266,12 +273,18 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * An entry the user already has open is left expanded as it is; the selection still moves to
 	 * it, which is the part that answers "where did my connection go".
+	 *
+	 * A request with a node path goes on down to that node (see _revealNodePath) and selects it
+	 * instead, and with openDetails opens its details too. With preserveFocus the tree leaves focus
+	 * where it is -- a breadcrumb in a details editor, where the user is reading -- instead of taking
+	 * it.
 	 */
 	private async _revealRequestedConnection(): Promise<void> {
-		const profileId = this._service.takePendingRevealConnection();
-		if (profileId === undefined) {
+		const request = this._service.takePendingRevealConnection();
+		if (request === undefined) {
 			return;
 		}
+		const { profileId, nodePath = [], openDetails = false, preserveFocus = false } = request;
 
 		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
 		// tree through a roots refresh, and a tree built just now has no rows at all until its
@@ -291,9 +304,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			await this.expand(id);
 		}
 
-		// Located after the expand, which inserts the rows the connection holds and so moves
-		// everything below it.
-		const rowIndex = this.visibleNodes.findIndex(visible => visible.node.id === id);
+		// Located after the expands, which insert the rows each node holds and so move everything
+		// below it.
+		const targetId = nodePath.length > 0 ? await this._revealNodePath(id, nodePath) : id;
+		const rowIndex = this.visibleNodes.findIndex(visible => visible.node.id === targetId);
 		if (rowIndex === -1) {
 			return;
 		}
@@ -302,10 +316,96 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		this.selectRow(rowIndex);
 		this._scrollToCursorWhenLaidOut();
 
+		if (openDetails) {
+			// Opened without taking focus (see openDataConnectionNodeDetails).
+			await this.openNodeDetails(rowIndex, false);
+		}
+
 		// Put keyboard focus on the row, not merely the selection highlight: the user pressed a
 		// button elsewhere to get here, so this is where they are now, and the arrow keys should
-		// move from this row. Harmless if the tree already has focus.
-		this.requestFocus();
+		// move from this row. Harmless if the tree already has focus. Unless the request says to
+		// leave focus where it is.
+		if (!preserveFocus) {
+			this.requestFocus();
+		}
+	}
+
+	/**
+	 * Opens the tree down from a node to a descendant named by its path -- the reload key of each
+	 * row on the way -- and returns the id of the deepest node reached. That is the target itself unless the tree no longer matches the path
+	 * (something was renamed or dropped since the path was recorded), in which case it is as close
+	 * as the tree still gets.
+	 * @param startId The id of the node the path starts below (a connection's entry).
+	 * @param nodePath The reload keys of the nodes on the way down.
+	 */
+	private async _revealNodePath(startId: string, nodePath: readonly string[]): Promise<string> {
+		let currentId = startId;
+		for (const key of nodePath) {
+			const childId = await this._findChildByReloadKey(currentId, key);
+			if (childId === undefined) {
+				break;
+			}
+			currentId = childId;
+		}
+		return currentId;
+	}
+
+	/**
+	 * Finds the node with the given reload key among a node's children, expanding the node first if
+	 * need be. Paths normally name every row on the way, group rows included, so the node is a
+	 * direct child; failing that -- a path recorded without its group rows, or a tree regrouped since
+	 * -- rows that only group others ("Tables", "Metrics") are looked inside, and a group opened only
+	 * to look, where the node wasn't, is closed again so the search leaves no trace but the way to
+	 * the node.
+	 * @param parentId The id of the node to look under.
+	 * @param key The reload key of the node to find.
+	 * @returns The node's id, or undefined if it isn't there.
+	 */
+	private async _findChildByReloadKey(parentId: string, key: string): Promise<string | undefined> {
+		const wasExpanded = this.isExpanded(parentId);
+		if (!wasExpanded) {
+			await this.expand(parentId);
+		}
+
+		const children = this._visibleChildren(parentId);
+		const match = children.find(child => reloadKey(child.node.data) === key);
+		if (match) {
+			return match.node.id;
+		}
+
+		for (const child of children) {
+			const data = child.node.data;
+			if (data.kind === 'dto' && CONTAINER_ONLY_KINDS.has(data.dto.kind) && data.dto.hasGetChildren) {
+				const groupWasExpanded = this.isExpanded(child.node.id);
+				const found = await this._findChildByReloadKey(child.node.id, key);
+				if (found !== undefined) {
+					return found;
+				}
+				if (!groupWasExpanded) {
+					this.collapse(child.node.id);
+				}
+			}
+		}
+		return undefined;
+	}
+
+	/**
+	 * Gets the rows directly under an expanded node.
+	 * @param parentId The id of the node.
+	 */
+	private _visibleChildren(parentId: string): VisibleNode<DataConnectionNode>[] {
+		const parentIndex = this.visibleNodes.findIndex(visible => visible.node.id === parentId);
+		if (parentIndex === -1) {
+			return [];
+		}
+		const parentDepth = this.visibleNodes[parentIndex].depth;
+		const children: VisibleNode<DataConnectionNode>[] = [];
+		for (let index = parentIndex + 1; index < this.visibleNodes.length && this.visibleNodes[index].depth > parentDepth; index++) {
+			if (this.visibleNodes[index].depth === parentDepth + 1) {
+				children.push(this.visibleNodes[index]);
+			}
+		}
+		return children;
 	}
 
 	/**
@@ -720,13 +820,123 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			return this.holdFocusAppearance();
 		};
 
+		// Bound to the row's index at render time, like the callbacks above.
+		const onOpenDetails = (pinned: boolean) => this.openNodeDetails(context.index, pinned);
+		const onPinDetails = () => this.pinNodeDetails(context.index);
+
 		switch (data.kind) {
 			case 'entry':
 				// Entries are roots, so no ancestor can be refreshing them out from under the row.
 				return <DataConnectionEntryRow entry={data.entry} hoverManager={this._hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 			case 'dto':
-				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
+				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onOpenDetails={onOpenDetails} onPinDetails={onPinDetails} onRefresh={onRefresh} />;
 		}
+	}
+
+	/**
+	 * Enter commits the selection (see the base class) and, on a node that has details, opens its
+	 * details editor -- the keyboard counterpart of single-clicking the row. openNodeDetails does
+	 * nothing for a node without details.
+	 */
+	override async onEnterKey(): Promise<void> {
+		await super.onEnterKey();
+		await this.openNodeDetails(this.cursorRowIndex, false);
+	}
+
+	/**
+	 * Opens the details editor for the node at a row, fetching its details from the driver. Does
+	 * nothing for a row that has no details, or one on its way out under an ancestor's refresh
+	 * (its handle may already be dead).
+	 * @param rowIndex The index of the row.
+	 * @param pinned Whether to open the tab pinned rather than in preview mode.
+	 */
+	async openNodeDetails(rowIndex: number, pinned: boolean): Promise<void> {
+		const visible = this.visibleNodes[rowIndex];
+		if (visible === undefined || visible.stale || visible.node.data.kind !== 'dto' || !visible.node.data.dto.hasDetails) {
+			return;
+		}
+
+		const { dto, handle } = visible.node.data;
+		// Built before the fetch: rows above can come and go while it's in flight (a group expanded,
+		// a refresh landing), and rowIndex would then name some other row.
+		const target = this._detailsTarget(rowIndex, dto);
+		const request = ++this._detailsRequestCount;
+		try {
+			const details = await handle.nodeGetDetails(dto.nodeHandle);
+			// A slow fetch (a semantic view's GET_DDL resuming a warehouse) can be overtaken by a
+			// click on another node whose details arrive first. A preview-mode result that has been
+			// overtaken is dropped, or it would replace the newer preview with a node the tree no
+			// longer has selected. A pinned open was asked for outright, so it always lands.
+			if (!pinned && request !== this._detailsRequestCount) {
+				return;
+			}
+			await openDataConnectionNodeDetails(this._editorService, target, details, pinned);
+		} catch (error) {
+			this._notificationService.error(localize(
+				'positron.dataConnections.showDetailsFailed',
+				"Could not show the details of '{0}': {1}",
+				dto.name,
+				error instanceof Error ? error.message : String(error)
+			));
+		}
+	}
+
+	/**
+	 * Keeps the node at a row's details tab open, taking it out of preview mode. When the tab is
+	 * already open its details are current, so it is pinned as it is; otherwise the details are
+	 * fetched and opened pinned.
+	 * @param rowIndex The index of the row.
+	 */
+	async pinNodeDetails(rowIndex: number): Promise<void> {
+		const visible = this.visibleNodes[rowIndex];
+		if (visible === undefined || visible.node.data.kind !== 'dto') {
+			return;
+		}
+		const target = this._detailsTarget(rowIndex, visible.node.data.dto);
+		if (!await pinDataConnectionNodeDetails(this._editorService, target.key)) {
+			await this.openNodeDetails(rowIndex, true);
+		}
+	}
+
+	/**
+	 * Builds the details target for the DTO node at a row by walking up to its connection entry.
+	 * Group rows ("Tables", "Metrics") are left out of the key and the breadcrumb names -- they only
+	 * label the rows under them, and the kind in each node's reload key already tells same-named
+	 * siblings of different kinds apart -- but kept in the node path, so a reveal can walk it.
+	 * @param rowIndex The index of the row.
+	 * @param dto The DTO node at the row.
+	 */
+	private _detailsTarget(rowIndex: number, dto: IDataConnectionNodeDTO): IDataConnectionNodeDetailsTarget {
+		// The rows from the connection down to this one.
+		const chain: DataConnectionNode[] = [];
+		for (let index: number | undefined = rowIndex; index !== undefined; index = findParentIndex(this.visibleNodes, index)) {
+			chain.unshift(this.visibleNodes[index].node.data);
+		}
+
+		// The key and the breadcrumb names leave the group rows out; the node path keeps them, so
+		// the tree can walk it back without searching.
+		const keys: string[] = [];
+		const path: string[] = [];
+		const nodePath: string[] = [];
+		const breadcrumbNodePathLengths: number[] = [];
+		let profileId = '';
+		for (const data of chain) {
+			if (data.kind === 'entry') {
+				keys.push(reloadKey(data));
+				path.push(data.entry.profile.connectionName);
+				breadcrumbNodePathLengths.push(0);
+				profileId = data.entry.profile.id;
+				continue;
+			}
+			nodePath.push(reloadKey(data));
+			if (!CONTAINER_ONLY_KINDS.has(data.dto.kind)) {
+				keys.push(reloadKey(data));
+				path.push(data.dto.name);
+				breadcrumbNodePathLengths.push(nodePath.length);
+			}
+		}
+
+		return { key: JSON.stringify(keys), name: dto.name, icon: kindIcon(dto), path, profileId, nodePath, breadcrumbNodePathLengths };
 	}
 
 	private _findEntryNode(id: string): { entry: DataConnectionEntry } | undefined {
