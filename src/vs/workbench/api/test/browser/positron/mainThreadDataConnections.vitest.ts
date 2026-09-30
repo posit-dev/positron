@@ -426,11 +426,11 @@ describe('MainThreadDataConnections', () => {
 				.resolves.toEqual([binding]);
 		});
 
-		it('reports nothing when the feature is disabled', async () => {
+		it('rejects rather than reporting no bindings when the feature is disabled', async () => {
 			sessionBindings = [binding];
 			configurationService.setUserConfiguration('dataConnections', { enabled: false });
 
-			await expect(mainThread.$getDataConnectionSessionBindings('session-1')).resolves.toEqual([]);
+			await expect(mainThread.$getDataConnectionSessionBindings('session-1')).rejects.toThrow('"dataConnections.enabled" setting is disabled');
 		});
 
 		it('assumes the driver\'s preferred variant for a connection Positron did not make', async () => {

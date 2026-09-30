@@ -165,10 +165,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * Reports every connection a runtime session already holds.
 	 */
 	async $getDataConnectionSessionBindings(sessionId: string): Promise<IDataConnectionSessionBindingDTO[]> {
-		if (!this._isEnabled()) {
-			this._logService.trace('[DataConnections] getSessionBindings: the feature is disabled.');
-			return [];
-		}
+		this._throwIfDisabled();
 		return this._dataConnectionsService.getSessionBindings(sessionId);
 	}
 
@@ -184,10 +181,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 		languageId: string,
 		takenVariableNames: string[],
 	): Promise<IDataConnectionSessionBindingDTO | undefined> {
-		if (!this._isEnabled()) {
-			this._logService.trace('[DataConnections] connectDataConnectionWith: the feature is disabled.');
-			return undefined;
-		}
+		this._throwIfDisabled();
 		return connectDataConnectionWith(
 			this._dataConnectionsService,
 			this._notificationService,
@@ -202,10 +196,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * rather than one made through the dialog.
 	 */
 	async $registerDataConnectionSessionBinding(binding: IDataConnectionSessionBindingDTO): Promise<void> {
-		if (!this._isEnabled()) {
-			this._logService.trace('[DataConnections] registerSessionBinding: the feature is disabled.');
-			return;
-		}
+		this._throwIfDisabled();
 		this._dataConnectionsService.registerSessionBinding(binding);
 	}
 
@@ -217,10 +208,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * or the driver cannot query that connection.
 	 */
 	async $generateDataConnectionQueryCode(binding: IDataConnectionSessionBindingDTO, query: string): Promise<string | undefined> {
-		if (!this._isEnabled()) {
-			this._logService.trace('[DataConnections] generateQueryCode: the feature is disabled.');
-			return undefined;
-		}
+		this._throwIfDisabled();
 
 		const profile = this._dataConnectionsService.getProfile(binding.profileId);
 		const driver = profile && this._dataConnectionsService.driverManager.getDriver(profile.driverMetadata.id);
