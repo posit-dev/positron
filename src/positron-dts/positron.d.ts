@@ -4325,7 +4325,6 @@ declare module 'positron' {
 			 * page can't fake it. In web builds it may be a proxied URL.
 			 */
 			url: string;
-			/** The page's title. */
 			title: string;
 			/** Whether the outline was cut short to fit `maxChars`. */
 			truncated: boolean;

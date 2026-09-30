@@ -1075,15 +1075,14 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			throw new Error(`The ${what} isn't ready yet. Try again in a moment.`);
 		}
 		const isoOf = (d: unknown) => d instanceof viewOf(el).Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : undefined;
-		// Ask the widget what it takes: updateDateInput changes its range but not
-		// the input's data-min-date. It would clear the input, and send the
-		// server no date, for one outside the range, and it takes dates the app
-		// disabled, which a user can't pick.
+		// The widget's own range, which updateDateInput changes without the
+		// input's data-min-date. Out of range, it would clear the input and send no date.
 		if (!picker.dateWithinRange(date)) {
 			const min = isoOf(picker.o.startDate), max = isoOf(picker.o.endDate);
 			const range = min && max ? `from ${min} to ${max}` : min ? `from ${min} on` : `up to ${max}`;
 			throw new Error(`The ${what} takes dates ${range}, not ${target}.`);
 		}
+		// The widget takes dates the app disabled, which a user can't pick.
 		if (picker.dateIsDisabled(date)) {
 			throw new Error(`The ${what} doesn't take ${target}: the app has disabled that date.`);
 		}

@@ -51,7 +51,6 @@ export interface IViewerSnapshot {
 	readonly text: string;
 	/** The page's address, from Positron rather than the page, so the page can't fake it. */
 	readonly url: string;
-	/** The page's title. */
 	readonly title: string;
 	/** Whether the outline was cut short to fit `maxChars`. */
 	readonly truncated: boolean;
