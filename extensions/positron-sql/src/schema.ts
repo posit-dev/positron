@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
-import * as vscode from 'vscode';
 import { supportsSql } from './dialects';
 import { SqlLog } from './log';
 
@@ -17,9 +16,6 @@ import { SqlLog } from './log';
  * is read in one bounded call per connection rather than by walking the tree, because a walk
  * costs a round trip to the engine per node and a warehouse has thousands of them.
  */
-
-/** The setting that turns the Data Connections feature off entirely. */
-const DATA_CONNECTIONS_ENABLED = 'dataConnections.enabled';
 
 /**
  * Bounds for each connection's schema read.
@@ -37,14 +33,20 @@ const SCHEMA_BOUNDS = {
 };
 
 /** Node kinds that name a namespace above a table. */
-const CATALOG_KINDS = new Set(['catalog', 'database']);
-const SCHEMA_KINDS = new Set(['schema']);
+const CATALOG_KINDS = new Set<positron.DataConnectionNodeKind>([
+	positron.DataConnectionNodeKind.Catalog,
+	positron.DataConnectionNodeKind.Database,
+]);
+const SCHEMA_KINDS = new Set<positron.DataConnectionNodeKind>([positron.DataConnectionNodeKind.Schema]);
 
 /** Node kinds that hold columns. */
-const TABLE_KINDS = new Set(['table', 'view']);
+const TABLE_KINDS = new Set<positron.DataConnectionNodeKind>([
+	positron.DataConnectionNodeKind.Table,
+	positron.DataConnectionNodeKind.View,
+]);
 
 /** The node kind of a column. */
-const FIELD_KIND = 'field';
+const FIELD_KIND = positron.DataConnectionNodeKind.Field;
 
 /**
  * The part of `positron.dataConnections` this module uses.
@@ -205,29 +207,19 @@ export function flattenSchemaNodes(
 /**
  * Explains an empty result, at a level the user can actually see.
  *
- * `getConnections` answers `[]` both when the Data Connections feature is switched off and when
- * the user simply has nothing configured, and the two call for completely different things from
- * the user. The setting is a plain one that any extension can read, so it is consulted here
- * rather than being something the API has to carry -- a tri-state every caller would have to
- * handle, for a case most of them do not care about.
+ * Only for a feature that is on: `getConnections` rejects when the user has switched Data
+ * Connections off, and that is reported where the rejection is caught.
  *
  * Pure, and exported, because the message is the whole behaviour: which of these a user is
- * looking at decides whether they should change a setting, open a connection, or stop expecting
- * completions at all.
+ * looking at decides whether they should open a connection or stop expecting completions at all.
  *
- * @param enabled Whether the Data Connections feature is on.
  * @param configuredCount How many connections getConnections reported, live or not.
+ * @param nonSqlCount How many of the open ones are not SQL databases.
  */
 export function explainEmptySchema(
-	enabled: boolean,
 	configuredCount: number,
 	nonSqlCount = 0,
 ): string {
-	if (!enabled) {
-		return 'Table and column completions are off because the Data Connections feature is.'
-			+ ' Set "dataConnections.enabled": true and reload the window to turn it on.';
-	}
-
 	if (nonSqlCount > 0) {
 		// Open, and in the Connections pane where the user can see it, which makes "none are open"
 		// read as a bug in the extension rather than as the answer.
@@ -265,7 +257,9 @@ export async function readConnectionSchema(
 	try {
 		connections = await api.getConnections();
 	} catch (error) {
-		// Not an error condition for a SQL file, which still gets keywords and diagnostics.
+		// Not an error condition for a SQL file, which still gets keywords and diagnostics. This is
+		// also where a Data Connections feature the user switched off ends up: the API rejects
+		// rather than answering with no connections, and its error names the setting.
 		log.info(`Data connections are unavailable, so completions cover SQL keywords only: ${error}`);
 		return EMPTY_SCHEMA;
 	}
@@ -290,8 +284,7 @@ export async function readConnectionSchema(
 	const live = open.filter(connection => supportsSql(connection.driverId));
 
 	if (live.length === 0) {
-		const enabled = vscode.workspace.getConfiguration().get<boolean>(DATA_CONNECTIONS_ENABLED) !== false;
-		log.info(explainEmptySchema(enabled, connections.length, nonSql.length));
+		log.info(explainEmptySchema(connections.length, nonSql.length));
 		return EMPTY_SCHEMA;
 	}
 

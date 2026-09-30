@@ -260,10 +260,11 @@ class SqlSession implements vscode.Disposable {
 			this._log.info(opened
 				? `Opened ${chosen.name} for ${document.uri.toString(true)}.`
 				: `${chosen.name} could not be opened for ${document.uri.toString(true)}:`
-				+ ' the connection no longer exists, or the Data Connections feature is off.');
+				+ ' the connection no longer exists.');
 		} catch (error) {
-			// Expected rather than exceptional -- credentials expire, hosts go away -- so it is
-			// reported where the user can read the reason rather than raised at them.
+			// Expected rather than exceptional -- credentials expire, hosts go away, the user
+			// switched Data Connections off -- so it is reported where the user can read the
+			// reason rather than raised at them.
 			this._log.warn(`Could not open ${chosen.name}, which`
 				+ ` ${document.uri.toString(true)} is written against: ${error}`);
 		}
