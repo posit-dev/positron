@@ -358,6 +358,225 @@ wb_pick_workbench() {
 	export WB_URL
 }
 
+# --- Custom Positron builds (--positron-build, --vsix) -------------------------
+
+# Downloads from runs are kept here, so re-applying one after a `down` or a
+# --reinstall does not need the artifact, which positron's CI expires after a
+# day. One at a time: each is most of a gigabyte.
+WB_BUILDS_DIR="${SCRIPT_DIR}/.builds"
+# Marker in the container naming the custom build installed, for status. The
+# installer removes it: a (re)install puts an official Positron back.
+WB_BUILD_MARKER=/var/lib/wb-local-positron-build
+
+wb_find_tarball() {
+	[ -d "$1" ] || return 0
+	find "$1" -type f -name '*.tar.gz' 2>/dev/null | head -n 1
+}
+
+# Downloads the Workbench build artifact from GitHub Actions run $2 in repo $1
+# and sets WB_BUILD_TARBALL. Downloads into a scratch directory and renames it
+# into place only once complete, so an interrupted download is never mistaken
+# for a cached one.
+wb_download_run_build() {
+	local repo="$1" run="$2" json picked name size dir tgz
+	command -v gh >/dev/null 2>&1 || { echo "--positron-build with a run needs the gh CLI (gh auth login)." >&2; exit 1; }
+	json="$(_wb_fetch_run_artifacts_json "$repo" "$run" 2>/dev/null)" \
+		|| { echo "Could not read run ${run} in ${repo}. Does it exist, and can your gh login see it?" >&2; exit 1; }
+	if ! picked="$(wb_select_build_artifact "$POSITRON_ARCH" "$json")"; then
+		printf '%s' "$json" | jq -e '[ .artifacts[] | select(.expired | not)
+			| select(.name | test("workbench")) | select(.name | endswith("-x64")) ] | length > 0' >/dev/null 2>&1 \
+			&& wb_hint_container_arch
+		exit 1
+	fi
+	IFS=$'\t' read -r name size <<< "$picked"
+	case "$size" in ''|*[!0-9]*) size=0 ;; esac
+	dir="${WB_BUILDS_DIR}/$(printf '%s' "$repo" | tr '/' '_')-${run}-${name}"
+	tgz="$(wb_find_tarball "$dir")"
+	if [ -n "$tgz" ]; then
+		echo "Using the copy of ${name} already downloaded from run ${run}."
+		WB_BUILD_TARBALL="$tgz"
+		return 0
+	fi
+	rm -rf "${WB_BUILDS_DIR:?}"
+	mkdir -p "${dir}.partial"
+	echo "Downloading ${name} from run ${run} in ${repo} ($(( size / 1048576 )) MB)..."
+	if ! gh run download "$run" -R "$repo" -n "$name" -D "${dir}.partial"; then
+		rm -rf "${dir}.partial"
+		echo "Download failed." >&2
+		exit 1
+	fi
+	mv "${dir}.partial" "$dir"
+	tgz="$(wb_find_tarball "$dir")"
+	[ -n "$tgz" ] || { echo "Artifact ${name} has no .tar.gz in it." >&2; exit 1; }
+	WB_BUILD_TARBALL="$tgz"
+}
+
+# Called when an x64 build is on offer and the container could not take it. On
+# an arm64 container that is the Apple Silicon case -- CI builds Workbench for
+# linux-x64 only -- so point at the emulated amd64 stack, the one way to run
+# that build on such a machine.
+wb_hint_container_arch() {
+	[ "$POSITRON_ARCH" = arm64 ] || return 0
+	echo "" >&2
+	echo "This build is x64 and the test container is arm64 (Apple Silicon)." >&2
+	echo "To run it, switch the stack to emulated amd64: add WB_CONTAINER_ARCH=amd64 to" >&2
+	echo "docker/environments/wb-local/.env and re-run. That recreates the container, so" >&2
+	echo "it reinstalls, and everything runs slower under emulation." >&2
+}
+
+# Resolves --positron-build to a local tarball (WB_BUILD_TARBALL) plus a label
+# for status (WB_BUILD_LABEL), and checks its architecture against the
+# container's. Runs before anything slow, so a mistyped run ID, an expired
+# artifact, or a build for the wrong architecture fails in seconds rather than
+# after a reinstall.
+wb_prepare_positron_build() {
+	local parsed kind a b first arch
+	parsed="$(wb_parse_build_source "$1")" || exit 1
+	IFS=$'\t' read -r kind a b <<< "$parsed"
+	if [ "$kind" = run ]; then
+		wb_download_run_build "$a" "$b"
+		WB_BUILD_LABEL="run ${b} (${a})"
+	else
+		WB_BUILD_TARBALL="$(wb_host_path "$a")"
+		[ -f "$WB_BUILD_TARBALL" ] || { echo "No such file: ${a}" >&2; exit 1; }
+		WB_BUILD_LABEL="$(basename "$WB_BUILD_TARBALL")"
+	fi
+	# First entry only: tar stops at the pipe's close, so this is quick even on
+	# a gigabyte archive. The || true is for that close under pipefail.
+	first="$(tar -tzf "$WB_BUILD_TARBALL" 2>/dev/null | head -n 1)" || true
+	[ -n "$first" ] || { echo "Not a readable .tar.gz: ${WB_BUILD_TARBALL}" >&2; exit 1; }
+	arch="$(wb_build_tarball_arch "$first" "$(basename "$WB_BUILD_TARBALL")")"
+	if [ -n "$arch" ] && [ "$arch" != "$POSITRON_ARCH" ]; then
+		echo "That build is linux-${arch}, but the test container is linux-${POSITRON_ARCH}." >&2
+		[ "$arch" = x64 ] && wb_hint_container_arch
+		exit 1
+	fi
+}
+
+# One line of the public key src/vs/server/node/remoteLicenseKey.ts ships with.
+# A build for Workbench has it replaced with Workbench's key
+# (scripts/replace-license.sh, run by build-workbench-linux.yml); a build that
+# still carries it fails Workbench's license check, and every session exits at
+# startup. Read from this checkout rather than hardcoded so it follows a key
+# change; empty (check skipped) when the source is not here. The second line of
+# the key, not the first: the first opens with the header every RSA key of that
+# size shares.
+wb_default_license_needle() {
+	local f="${SCRIPT_DIR}/../../../src/vs/server/node/remoteLicenseKey.ts"
+	[ -f "$f" ] || return 0
+	awk '/BEGIN PUBLIC KEY/ { n = NR } n && NR == n + 2 { print; exit }' "$f" | tr -d '\r'
+}
+
+# Swaps the prepared build in over the installed Positron, the way the CI action
+# does (.github/actions/setup-workbench-docker): into positron-server/new when
+# the Workbench package ships a bundled Positron beside it, otherwise over
+# positron-server itself -- the same slot install-workbench.sh picks. Extracted
+# next to the target, then renamed into place, so a bad tarball never leaves a
+# half-replaced install. Only rserver is restarted: the launcher does not need
+# the new build, and restarting it would end every running session.
+wb_apply_positron_build() {
+	echo "Installing Positron build: ${WB_BUILD_LABEL}"
+	docker cp "$WB_BUILD_TARBALL" test:/tmp/wb-local-positron-build.tar.gz >/dev/null
+	MSYS_NO_PATHCONV=1 docker exec \
+		-e WB_LICENSE_NEEDLE="$(wb_default_license_needle)" \
+		-e WB_BUILD_LABEL="$WB_BUILD_LABEL" \
+		-e WB_BUILD_MARKER="$WB_BUILD_MARKER" \
+		test bash -c '
+		set -euo pipefail
+		P=/usr/lib/rstudio-server/bin/positron-server
+		stage=/usr/lib/rstudio-server/bin/.wb-local-positron-stage
+		if [ -d "$P/bundled" ]; then target="$P/new"; else target="$P"; fi
+		rm -rf "$stage"
+		mkdir -p "$stage"
+		tar -xzf /tmp/wb-local-positron-build.tar.gz -C "$stage" --strip-components=1 --no-same-owner
+		rm -f /tmp/wb-local-positron-build.tar.gz
+		if [ ! -f "$stage/product.json" ] || [ ! -f "$stage/out/vs/code/browser/workbench/rsLoginCheck.js" ]; then
+			rm -rf "$stage"
+			echo "That tarball is not a Positron Workbench build (vscode-reh-web-pwb-linux-*)." >&2
+			exit 1
+		fi
+		# Bundled into server-main.js in a packaged build; the directory covers
+		# one that is not bundled.
+		if [ -n "$WB_LICENSE_NEEDLE" ] && grep -rqF "$WB_LICENSE_NEEDLE" \
+			"$stage/out/server-main.js" "$stage/out/vs/server/node" 2>/dev/null; then
+			echo "" >&2
+			echo "WARNING: this build still has the default Positron license key, so Workbench" >&2
+			echo "         rejects it and every session exits at startup. Build it with the" >&2
+			echo "         Workbench key swapped in, as build-workbench-linux.yml does" >&2
+			echo "         (scripts/replace-license.sh)." >&2
+			echo "" >&2
+		fi
+		rm -rf "$target"
+		mv "$stage" "$target"
+		printf "%s\n" "$WB_BUILD_LABEL" > "$WB_BUILD_MARKER"
+	'
+	docker exec test bash -c 'sudo supervisorctl restart rstudio-server' >/dev/null 2>&1 || true
+	wb_ensure_workbench
+}
+
+# The extension ID and version in a .vsix, as "<publisher>.<name><TAB><version>",
+# or nothing if it cannot be read.
+wb_vsix_identity() {
+	command -v unzip >/dev/null 2>&1 || return 0
+	unzip -p "$1" extension/package.json 2>/dev/null \
+		| jq -r '"\(.publisher).\(.name)\t\(.version)"' 2>/dev/null || true
+}
+
+# Positron re-runs its bootstrap installs on the first session after its build
+# changes, and a bundled copy of an extension that is newer than the installed
+# one replaces it then. So a --vsix older than the copy this Positron bundles
+# only survives if installed after that session. Warn in exactly that case.
+wb_warn_bootstrap_override() {
+	local id="$1" ver="$2" info current stamp f lid bundled=""
+	info="$(docker exec test bash -c '
+		P=/usr/lib/rstudio-server/bin/positron-server
+		S="$P/new"; [ -f "$S/product.json" ] || S="$P"
+		v=$(sed -n "s/.*\"positronVersion\": *\"\([^\"]*\)\".*/\1/p" "$S/product.json")
+		b=$(sed -n "s/.*\"positronBuildNumber\": *\"\([^\"]*\)\".*/\1/p" "$S/product.json")
+		printf "%s\t%s\n" "${v}-${b}" "$(cat /home/user1/.positron-server/extensions/.version 2>/dev/null)"
+		ls "$S/extensions/bootstrap" 2>/dev/null' 2>/dev/null)" || return 0
+	IFS=$'\t' read -r current stamp <<< "$(printf '%s\n' "$info" | head -n 1)"
+	[ "$current" = "$stamp" ] && return 0
+	# Bootstrap file names are <publisher>.<name>-<version>.vsix, and publisher
+	# case varies (GitHub.vscode-...), so compare lowercased.
+	lid="$(printf '%s' "$id" | tr '[:upper:]' '[:lower:]')"
+	while IFS= read -r f; do
+		case "$(printf '%s' "$f" | tr '[:upper:]' '[:lower:]')" in
+			"${lid}"-[0-9]*.vsix) bundled="${f%.vsix}"; bundled="${bundled:$(( ${#id} + 1 ))}" ;;
+		esac
+	done <<< "$(printf '%s\n' "$info" | tail -n +2)"
+	[ -n "$bundled" ] && wb_version_gt "$bundled" "$ver" || return 0
+	echo "" >&2
+	echo "NOTE: this Positron bundles ${id} ${bundled}, newer than your ${ver}, and its" >&2
+	echo "      first session reinstalls the bundled copy over yours. Start one session," >&2
+	echo "      then run the same --vsix again; it stays after that." >&2
+}
+
+# Installs a .vsix for user1 with the Positron server's own CLI: the same code
+# path as Extensions: Install from VSIX in a session, so Positron manages its
+# extensions directory and extensions.json itself.
+wb_install_vsix() {
+	local f name identity id ver
+	f="$(wb_host_path "$1")"
+	[ -f "$f" ] || { echo "No such file: ${1}" >&2; exit 1; }
+	case "$f" in *.vsix) : ;; *) echo "Not a .vsix: ${1}" >&2; exit 1 ;; esac
+	name="$(basename "$f")"
+	echo "Installing extension: ${name}"
+	docker cp "$f" "test:/tmp/${name}" >/dev/null
+	MSYS_NO_PATHCONV=1 docker exec -e VSIX="/tmp/${name}" test bash -c '
+		set -euo pipefail
+		chmod 644 "$VSIX"
+		P=/usr/lib/rstudio-server/bin/positron-server
+		S="$P/new"; [ -f "$S/product.json" ] || S="$P"
+		trap "rm -f \"\$VSIX\"" EXIT
+		sudo -u user1 -H "$S/bin/positron-server" --install-extension "$VSIX" --force
+	'
+	identity="$(wb_vsix_identity "$f")"
+	[ -n "$identity" ] || return 0
+	IFS=$'\t' read -r id ver <<< "$identity"
+	wb_warn_bootstrap_override "$id" "$ver"
+}
+
 cmd_install() {
 	# GITHUB_TOKEN is guaranteed set by wb_ensure_auth (called in cmd_up before us).
 	local creds=""
@@ -402,6 +621,8 @@ cmd_install() {
 		'
 	# Record the exact Workbench package URL so status can show the build.
 	docker exec -e WB_URL="${WB_URL}" test bash -c 'printf "%s\n" "$WB_URL" > /var/lib/wb-local-source' || true
+	# The installer just put an official Positron down, over any custom build.
+	MSYS_NO_PATHCONV=1 docker exec test rm -f "$WB_BUILD_MARKER" || true
 	# install-workbench.sh writes /var/lib/wb-local-credentials itself, only on a
 	# successful configure-datasources.sh run. Without --credentials there's
 	# nothing to configure, so clear any stale marker from a prior install here.
@@ -413,8 +634,8 @@ cmd_install() {
 cmd_up() {
 	# Default to a 60-minute auto-stop (override with --ttl N / WB_TTL_MINUTES,
 	# disable with --no-ttl). Collect everything else for cmd_install.
-	local ttl="${WB_TTL_MINUTES:-60}" reinstall=0 os_flag=""
-	local passthru=()
+	local ttl="${WB_TTL_MINUTES:-60}" reinstall=0 os_flag="" build_src=""
+	local passthru=() vsixes=() v
 	while [ $# -gt 0 ]; do
 		case "$1" in
 			--reinstall) reinstall=1 ;;
@@ -423,6 +644,12 @@ cmd_up() {
 			--ttl=*)     ttl="${1#--ttl=}" ;;
 			--os)        shift; os_flag="${1:-}" ;;
 			--os=*)      os_flag="${1#--os=}" ;;
+			--positron-build=*)
+				build_src="${1#--positron-build=}"
+				[ -n "$build_src" ] || { wb_parse_build_source ""; exit 1; } ;;
+			--vsix=*)
+				[ -n "${1#--vsix=}" ] || { echo "--vsix needs a .vsix file path." >&2; exit 1; }
+				vsixes+=("${1#--vsix=}") ;;
 			*)           passthru+=("$1") ;;
 		esac
 		shift
@@ -466,16 +693,39 @@ cmd_up() {
 	# the container, not the host. Leaving it at arm64 would download an arm64
 	# Positron tarball into an amd64 container -- an install that "succeeds" and
 	# then serves nothing.
-	WB_TEST_PLATFORM="$(wb_os_platform "${WB_OS}" "${WB_ARCH}")"; export WB_TEST_PLATFORM
+	#
+	# WB_CONTAINER_ARCH (in .env, so it sticks: a later run without it would
+	# recreate the container at the host's arch) forces an architecture the same
+	# way. It exists for Apple Silicon running a CI build, which is linux-x64 only.
+	WB_TEST_PLATFORM="$(wb_container_platform "${WB_OS}" "${WB_ARCH}" "${WB_CONTAINER_ARCH:-}")" || exit 1
+	export WB_TEST_PLATFORM
 	if [ -n "${WB_TEST_PLATFORM}" ]; then
-		echo "Note: no ${WB_ARCH} Workbench package exists for ${WB_OS}, so the test container"
-		echo "      runs emulated ${WB_TEST_PLATFORM}. Everything works; expect it to be slow."
+		if [ -n "${WB_CONTAINER_ARCH:-}" ]; then
+			echo "Note: WB_CONTAINER_ARCH=${WB_CONTAINER_ARCH} runs the test container as emulated"
+			echo "      ${WB_TEST_PLATFORM}. Everything works; expect it to be slow."
+		else
+			echo "Note: no ${WB_ARCH} Workbench package exists for ${WB_OS}, so the test container"
+			echo "      runs emulated ${WB_TEST_PLATFORM}. Everything works; expect it to be slow."
+		fi
 		wb_detect_arch "${WB_TEST_PLATFORM#linux/}"
 		export ARCH_SUFFIX="${WB_ARCH}"
 	fi
 	# Sources .env first (may set GITHUB_TOKEN), then fills auth gaps from gh and
 	# logs into ghcr.io -- must run before the image pull below.
 	wb_ensure_auth
+	# Resolve and download a --positron-build now, before anything slow, and
+	# check the files handed to --vsix exist. Needs the container arch, which is
+	# settled above.
+	[ -n "$build_src" ] && wb_prepare_positron_build "$build_src"
+	for v in ${vsixes[@]+"${vsixes[@]}"}; do
+		[ -f "$(wb_host_path "$v")" ] || { echo "No such file: ${v}" >&2; exit 1; }
+	done
+	# A first install still lays down an official Positron (the installer always
+	# does); the build then replaces it. With no Positron named, take the current
+	# daily rather than stopping at a picker for a build about to be discarded.
+	if [ -n "$build_src" ] && [ -z "${WB_POSITRON:-}" ]; then
+		WB_POSITRON=daily
+	fi
 	# The base images are multi-arch manifests pinned to a single tag in the
 	# compose file, so Docker resolves the arch automatically -- no per-arch tag
 	# selection is needed here. ARCH_SUFFIX (set above) still drives the
@@ -568,6 +818,8 @@ cmd_up() {
 	wb_fetch_scripts
 	if wb_installed && [ "$reinstall" -eq 0 ]; then
 		wb_ensure_workbench
+		[ -n "$build_src" ] && wb_apply_positron_build
+		for v in ${vsixes[@]+"${vsixes[@]}"}; do wb_install_vsix "$v"; done
 		wb_print_ready
 		echo "Wrong version? run 'npm run pwb -- --reinstall' to switch versions"
 		wb_schedule_ttl "$ttl"
@@ -576,6 +828,13 @@ cmd_up() {
 	fi
 	cmd_install ${passthru[@]+"${passthru[@]}"}
 	wb_ensure_workbench
+	[ -n "$build_src" ] && wb_apply_positron_build
+	for v in ${vsixes[@]+"${vsixes[@]}"}; do wb_install_vsix "$v"; done
+	# The installer printed its own summary; reprint it when something changed
+	# after it.
+	if [ -n "$build_src" ] || [ "${#vsixes[@]}" -gt 0 ]; then
+		wb_print_ready
+	fi
 	wb_schedule_ttl "$ttl"
 	wb_print_ttl "$ttl"
 }
@@ -620,6 +879,17 @@ wb_running_os() {
 	printf '%s' "$img"
 }
 
+# The custom build installed with --positron-build, as "<label>, commit <sha>",
+# or empty when Positron is the official build the installer put down.
+wb_custom_build() {
+	MSYS_NO_PATHCONV=1 docker exec -e WB_BUILD_MARKER="$WB_BUILD_MARKER" test bash -c '
+		[ -f "$WB_BUILD_MARKER" ] || exit 0
+		P=/usr/lib/rstudio-server/bin/positron-server
+		S="$P/new"; [ -f "$S/product.json" ] || S="$P"
+		c=$(sed -n "s/.*\"commit\": *\"\([0-9a-f]\{10\}\)[0-9a-f]*\".*/\1/p" "$S/product.json" | head -n 1)
+		printf "%s%s" "$(cat "$WB_BUILD_MARKER")" "${c:+, commit $c}"' 2>/dev/null || true
+}
+
 # The configured managed-credential type (databricks/snowflake/azure), recorded
 # at install time. Empty if the stack was installed without --credentials.
 wb_credentials_type() {
@@ -631,12 +901,13 @@ wb_credentials_type() {
 # readiness: supervisord's view of the rstudio-server program, which it tracks
 # by pid, so it cannot be fooled the way the packaged init scripts' status was.
 wb_print_ready() {
-	local v wb pos src creds
+	local v wb pos src creds build
 	v="$(wb_versions)"
 	wb="$(printf '%s' "$v" | cut -f1)"
 	pos="$(printf '%s' "$v" | cut -f2)"
 	src="$(wb_source_build)"
 	creds="$(wb_credentials_type)"
+	build="$(wb_custom_build)"
 	echo ''
 	if docker exec test bash -c 'sudo supervisorctl status rstudio-server 2>/dev/null | grep -q RUNNING'; then
 		# allow-any-unicode-next-line
@@ -646,6 +917,7 @@ wb_print_ready() {
 	fi
 	printf 'OS:                  %s\n' "$(wb_running_os)"
 	printf 'Positron version:    %s\n' "$pos"
+	[ -n "$build" ] && printf 'Positron build:      %s\n' "$build"
 	printf 'Workbench version:   %s\n' "$wb"
 	[ -n "$src" ] && printf 'Workbench build:     %s\n' "$src"
 	[ -n "$creds" ] && printf 'Credentials:         %s\n' "$creds"
@@ -704,6 +976,17 @@ USAGE
   npm run pwb -- --credentials=<type>
                              Install with a managed data source: databricks, snowflake,
                              or azure (set the provider's vars in .env first).
+  npm run pwb -- --positron-build=<run|file>
+                             Swap in a Positron Workbench build in place of the official
+                             one: a GitHub Actions run ID (posit-dev/positron) or run URL
+                             (any repo) with a Workbench build artifact, or a local
+                             positron-workbench-linux-<arch>*.tar.gz. Downloads are kept
+                             in docker/environments/wb-local/.builds (latest only).
+                             CI builds x64 only; on Apple Silicon set WB_CONTAINER_ARCH=amd64
+                             in .env to run those (emulated amd64; recreates, so reinstalls).
+  npm run pwb -- --vsix=<file>
+                             Install an extension .vsix for user1 (repeatable). Reload open
+                             sessions to pick it up.
   npm run pwb -- --ttl N      Set the auto-stop to N minutes (--no-ttl to disable).
   npm run pwb -- status       Containers, installed Positron + Workbench versions, URLs.
   npm run pwb -- logs [svc]   Follow full history of all services (default), or one:
@@ -743,7 +1026,7 @@ main() {
 	case "$sub" in
 		up)          cmd_up "$@" ;;
 		# Flag-style invocations (no explicit "up") route to cmd_up with the flag.
-		--reinstall|--ttl|--ttl=*|--no-ttl|--os|--os=*|--credentials=*|--workbench=*|--positron=*) cmd_up "$sub" "$@" ;;
+		--reinstall|--ttl|--ttl=*|--no-ttl|--os|--os=*|--credentials=*|--workbench=*|--positron=*|--positron-build=*|--vsix=*) cmd_up "$sub" "$@" ;;
 		status)      cmd_status "$@" ;;
 		logs)        cmd_logs "$@" ;;
 		shell)       cmd_shell "$@" ;;

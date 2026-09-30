@@ -1,0 +1,179 @@
+name: "Test: Exploratory Suggest"
+
+# Suggests `/explore` once on a PR that looks worth exploratory testing, and
+# stays quiet on the rest. Requesting a reviewer is the "ready" signal: agent
+# PRs are often opened as non-drafts well before then.
+#
+# Plain `pull_request`, not `pull_request_target`. A fork PR gets no secrets
+# here, and precheck skips it anyway: /explore refuses a head outside this
+# repo, so there is nothing to suggest. A same-repo PR's author can already
+# push, so running this file from the PR grants them nothing new. The model
+# still gets no tools and no checkout of the PR: it reads the title, body and
+# diff from the API, framed as untrusted.
+on:
+  pull_request:
+    # ready_for_review catches a reviewer requested while the PR was a draft.
+    types: [review_requested, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: "PR number"
+        required: true
+        type: string
+      # Dry run judges even a PR precheck would skip, and posts nothing. The
+      # verdicts are in the step summary.
+      dry_run:
+        description: "Dry run"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+# Requesting two reviewers at once fires two events. One at a time per PR, so
+# the second sees the first's comment instead of racing it.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: false
+
+env:
+  PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+
+jobs:
+  # The free checks: draft, fork, bot, release base, the author's positron-dev
+  # membership, any sign of a prior run or suggestion, and a diff with no
+  # product file in it. Most PRs stop here.
+  precheck:
+    name: precheck
+    # A fork has no secrets to mint the App token with; skip before trying.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .nvmrc
+            .github/actions/pr-exploratory-test
+            .claude/skills/exploratory-test/renderer
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      # lib.mjs imports the renderer's parser.
+      - name: Install renderer dependencies
+        working-directory: .claude/skills/exploratory-test/renderer
+        run: npm ci --no-audit --no-fund
+
+      - name: Mint org-scoped App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ secrets.POSITRON_PROJECTS_CLIENT_ID }}
+          private-key: ${{ secrets.POSITRON_PROJECTS_PEM }}
+          owner: posit-dev
+
+      - name: Check the PR
+        id: check
+        working-directory: .github/actions/pr-exploratory-test
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ORG_TOKEN: ${{ steps.app-token.outputs.token }}
+          EVENT_ACTION: ${{ github.event.action }}
+        run: node suggest.ts precheck
+
+  # One model call, read-only token. Fails closed: an error or an unclear
+  # answer is no suggestion.
+  judge:
+    name: judge
+    needs: [precheck]
+    if: needs.precheck.outputs.proceed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      suggest: ${{ steps.judge.outputs.suggest }}
+      reason: ${{ steps.judge.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .nvmrc
+            .github/actions/pr-exploratory-test
+            .claude/skills/exploratory-test/renderer
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund --prefix .claude/skills/exploratory-test/renderer
+          npm ci --no-audit --no-fund --prefix .github/actions/pr-exploratory-test
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Judge the PR
+        id: judge
+        working-directory: .github/actions/pr-exploratory-test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node suggest.ts judge
+
+  # The only job that can write, and it runs no model.
+  post:
+    name: post
+    needs: [judge]
+    if: needs.judge.outputs.suggest == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .nvmrc
+            .github/actions/pr-exploratory-test
+            .claude/skills/exploratory-test/renderer
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install renderer dependencies
+        working-directory: .claude/skills/exploratory-test/renderer
+        run: npm ci --no-audit --no-fund
+
+      - name: Post the suggestion
+        working-directory: .github/actions/pr-exploratory-test
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REASON: ${{ needs.judge.outputs.reason }}
+        run: node suggest.ts post

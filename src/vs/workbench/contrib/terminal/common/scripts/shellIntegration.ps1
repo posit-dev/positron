@@ -51,7 +51,11 @@ if ($env:VSCODE_ENV_REPLACE) {
 	$Split = $env:VSCODE_ENV_REPLACE.Split(":")
 	foreach ($Item in $Split) {
 		$Inner = $Item.Split('=', 2)
-		[Environment]::SetEnvironmentVariable($Inner[0], $Inner[1].Replace('\x3a', ':'))
+		# --- Start Positron ---
+		# Decode backslashes, which are encoded as \x5c
+		# [Environment]::SetEnvironmentVariable($Inner[0], $Inner[1].Replace('\x3a', ':'))
+		[Environment]::SetEnvironmentVariable($Inner[0], $Inner[1].Replace('\x3a', ':').Replace('\x5c', '\'))
+		# --- End Positron ---
 	}
 	$env:VSCODE_ENV_REPLACE = $null
 }
@@ -59,7 +63,11 @@ if ($env:VSCODE_ENV_PREPEND) {
 	$Split = $env:VSCODE_ENV_PREPEND.Split(":")
 	foreach ($Item in $Split) {
 		$Inner = $Item.Split('=', 2)
-		[Environment]::SetEnvironmentVariable($Inner[0], $Inner[1].Replace('\x3a', ':') + [Environment]::GetEnvironmentVariable($Inner[0]))
+		# --- Start Positron ---
+		# Decode backslashes, which are encoded as \x5c
+		# [Environment]::SetEnvironmentVariable($Inner[0], $Inner[1].Replace('\x3a', ':') + [Environment]::GetEnvironmentVariable($Inner[0]))
+		[Environment]::SetEnvironmentVariable($Inner[0], $Inner[1].Replace('\x3a', ':').Replace('\x5c', '\') + [Environment]::GetEnvironmentVariable($Inner[0]))
+		# --- End Positron ---
 	}
 	$env:VSCODE_ENV_PREPEND = $null
 }
@@ -67,7 +75,11 @@ if ($env:VSCODE_ENV_APPEND) {
 	$Split = $env:VSCODE_ENV_APPEND.Split(":")
 	foreach ($Item in $Split) {
 		$Inner = $Item.Split('=', 2)
-		[Environment]::SetEnvironmentVariable($Inner[0], [Environment]::GetEnvironmentVariable($Inner[0]) + $Inner[1].Replace('\x3a', ':'))
+		# --- Start Positron ---
+		# Decode backslashes, which are encoded as \x5c
+		# [Environment]::SetEnvironmentVariable($Inner[0], [Environment]::GetEnvironmentVariable($Inner[0]) + $Inner[1].Replace('\x3a', ':'))
+		[Environment]::SetEnvironmentVariable($Inner[0], [Environment]::GetEnvironmentVariable($Inner[0]) + $Inner[1].Replace('\x3a', ':').Replace('\x5c', '\'))
+		# --- End Positron ---
 	}
 	$env:VSCODE_ENV_APPEND = $null
 }
