@@ -6,7 +6,7 @@ metadata:
   # Bump when the agent is told something new: this file, explorer.md,
   # verifier.md, or the prompt CI builds in pr-exploratory-test's run.mjs and
   # lib.mjs. Feedback is grouped by it, so a renderer change does not count.
-  version: "1.6"
+  version: "1.7"
 ---
 
 # Exploratory testing
