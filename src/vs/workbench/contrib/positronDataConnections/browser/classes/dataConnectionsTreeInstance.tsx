@@ -271,15 +271,16 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * it, which is the part that answers "where did my connection go".
 	 *
 	 * A request with a node path goes on down to that node (see _revealNodePath) and selects it
-	 * instead, and with openDetails opens its details too. That is a breadcrumb in a details editor,
-	 * so focus is left in the editor then, rather than moved to the tree.
+	 * instead, and with openDetails opens its details too. With preserveFocus the tree leaves focus
+	 * where it is -- a breadcrumb in a details editor, where the user is reading -- instead of taking
+	 * it.
 	 */
 	private async _revealRequestedConnection(): Promise<void> {
 		const request = this._service.takePendingRevealConnection();
 		if (request === undefined) {
 			return;
 		}
-		const { profileId, nodePath = [], openDetails = false } = request;
+		const { profileId, nodePath = [], openDetails = false, preserveFocus = false } = request;
 
 		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
 		// tree through a roots refresh, and a tree built just now has no rows at all until its
@@ -312,21 +313,22 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		this._scrollToCursorWhenLaidOut();
 
 		if (openDetails) {
-			// The details open where the request came from, in the editor area, which keeps focus.
+			// Opened without taking focus (see openDataConnectionNodeDetails).
 			await this.openNodeDetails(rowIndex, false);
-			return;
 		}
 
 		// Put keyboard focus on the row, not merely the selection highlight: the user pressed a
 		// button elsewhere to get here, so this is where they are now, and the arrow keys should
-		// move from this row. Harmless if the tree already has focus.
-		this.requestFocus();
+		// move from this row. Harmless if the tree already has focus. Unless the request says to
+		// leave focus where it is.
+		if (!preserveFocus) {
+			this.requestFocus();
+		}
 	}
 
 	/**
 	 * Opens the tree down from a node to a descendant named by its path -- the reload key of each
-	 * node on the way, leaving out the rows that only group others -- and returns the id of the
-	 * deepest node reached. That is the target itself unless the tree no longer matches the path
+	 * row on the way -- and returns the id of the deepest node reached. That is the target itself unless the tree no longer matches the path
 	 * (something was renamed or dropped since the path was recorded), in which case it is as close
 	 * as the tree still gets.
 	 * @param startId The id of the node the path starts below (a connection's entry).
@@ -346,9 +348,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 
 	/**
 	 * Finds the node with the given reload key among a node's children, expanding the node first if
-	 * need be. Rows that only group others ("Tables", "Metrics") are looked inside, since a path
-	 * leaves them out; a group opened only to look, where the node wasn't, is closed again so the
-	 * search leaves no trace but the way to the node.
+	 * need be. Paths normally name every row on the way, group rows included, so the node is a
+	 * direct child; failing that -- a path recorded without its group rows, or a tree regrouped since
+	 * -- rows that only group others ("Tables", "Metrics") are looked inside, and a group opened only
+	 * to look, where the node wasn't, is closed again so the search leaves no trace but the way to
+	 * the node.
 	 * @param parentId The id of the node to look under.
 	 * @param key The reload key of the node to find.
 	 * @returns The node's id, or undefined if it isn't there.
@@ -870,23 +874,36 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * @param dto The DTO node at the row.
 	 */
 	private _detailsTarget(rowIndex: number, dto: IDataConnectionNodeDTO): IDataConnectionNodeDetailsTarget {
+		// The rows from the connection down to this one.
+		const chain: DataConnectionNode[] = [];
+		for (let index: number | undefined = rowIndex; index !== undefined; index = findParentIndex(this.visibleNodes, index)) {
+			chain.unshift(this.visibleNodes[index].node.data);
+		}
+
+		// The key and the breadcrumb names leave the group rows out; the node path keeps them, so
+		// the tree can walk it back without searching.
 		const keys: string[] = [];
 		const path: string[] = [];
+		const nodePath: string[] = [];
+		const breadcrumbNodePathLengths: number[] = [];
 		let profileId = '';
-		for (let index: number | undefined = rowIndex; index !== undefined; index = findParentIndex(this.visibleNodes, index)) {
-			const data = this.visibleNodes[index].node.data;
+		for (const data of chain) {
 			if (data.kind === 'entry') {
-				keys.unshift(reloadKey(data));
-				path.unshift(data.entry.profile.connectionName);
+				keys.push(reloadKey(data));
+				path.push(data.entry.profile.connectionName);
+				breadcrumbNodePathLengths.push(0);
 				profileId = data.entry.profile.id;
-			} else if (!CONTAINER_ONLY_KINDS.has(data.dto.kind)) {
-				keys.unshift(reloadKey(data));
-				path.unshift(data.dto.name);
+				continue;
+			}
+			nodePath.push(reloadKey(data));
+			if (!CONTAINER_ONLY_KINDS.has(data.dto.kind)) {
+				keys.push(reloadKey(data));
+				path.push(data.dto.name);
+				breadcrumbNodePathLengths.push(nodePath.length);
 			}
 		}
 
-		// keys[0] is the connection's own; the node path is what lies below it.
-		return { key: JSON.stringify(keys), name: dto.name, icon: kindIcon(dto), path, profileId, nodePath: keys.slice(1) };
+		return { key: JSON.stringify(keys), name: dto.name, icon: kindIcon(dto), path, profileId, nodePath, breadcrumbNodePathLengths };
 	}
 
 	private _findEntryNode(id: string): { entry: DataConnectionEntry } | undefined {

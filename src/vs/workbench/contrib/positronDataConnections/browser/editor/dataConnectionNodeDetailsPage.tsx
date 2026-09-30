@@ -7,7 +7,7 @@
 import './dataConnectionNodeDetailsPage.css';
 
 // React.
-import { CSSProperties, useEffect, useRef, useState } from 'react';
+import { CSSProperties, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -19,6 +19,7 @@ import { FontConfigurationManager } from '../../../../browser/fontConfigurationM
 import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../positronDataConnectionsConfiguration.js';
 import { nodeReloadKey } from '../classes/dataConnectionNodeKey.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { kindIcon } from '../components/dataConnectionNodeRow.js';
@@ -104,8 +105,8 @@ interface IDataConnectionNodeDetailsActions {
 	// Shows the tree node a group stands for, given its treePath.
 	readonly revealInTree: (treePath: readonly { kind: string; name: string }[]) => void;
 
-	// Shows the reveal buttons' tooltips.
-	readonly hoverManager: IHoverManager;
+	// Shows the reveal buttons' tooltips; undefined until the page has mounted.
+	readonly hoverManager: IHoverManager | undefined;
 }
 
 /**
@@ -113,6 +114,8 @@ interface IDataConnectionNodeDetailsActions {
  * own. A collapsible group's heading is a button that shows and hides them; groups start expanded.
  * A group that stands for a tree node gets a button after its heading that shows the node in the
  * Data Connections pane, appearing when the heading is pointed at or the button has keyboard focus.
+ * The button sits beside the heading element rather than in it, so the heading's accessible name
+ * stays its title and count.
  */
 const DataConnectionNodeDetailsGroup = ({ section, level, actions }: {
 	section: Extract<IDataConnectionNodeDetailsSectionDTO, { kind: 'group' }>;
@@ -128,17 +131,19 @@ const DataConnectionNodeDetailsGroup = ({ section, level, actions }: {
 
 	return (
 		<section className={positronClassNames('data-connection-node-details-group', `level-${Math.min(level, MAX_HEADING_LEVEL)}`, { collapsible: section.collapsible })}>
-			<Heading className='data-connection-node-details-group-title'>
-				{section.collapsible ? (
-					<button
-						aria-expanded={expanded}
-						className='data-connection-node-details-group-toggle'
-						onClick={() => setExpanded(!expanded)}
-					>
-						<span className={`codicon codicon-chevron-${expanded ? 'down' : 'right'}`} />
-						{headingContent}
-					</button>
-				) : headingContent}
+			<div className='data-connection-node-details-group-title'>
+				<Heading className='data-connection-node-details-group-heading'>
+					{section.collapsible ? (
+						<button
+							aria-expanded={expanded}
+							className='data-connection-node-details-group-toggle'
+							onClick={() => setExpanded(!expanded)}
+						>
+							<span className={`codicon codicon-chevron-${expanded ? 'down' : 'right'}`} />
+							{headingContent}
+						</button>
+					) : headingContent}
+				</Heading>
 				{section.treePath && (
 					<Button
 						ariaLabel={localize('positron.dataConnections.nodeDetails.showInTree', "Show {0} in Data Connections", section.title)}
@@ -150,7 +155,7 @@ const DataConnectionNodeDetailsGroup = ({ section, level, actions }: {
 						<span aria-hidden='true' className='codicon codicon-list-tree' />
 					</Button>
 				)}
-			</Heading>
+			</div>
 			{expanded && (
 				<div className='data-connection-node-details-group-content'>
 					{section.sections.map((child, index) => <DataConnectionNodeDetailsSection key={index} actions={actions} level={level + 1} section={child} />)}
@@ -297,43 +302,52 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 	const { configurationService, hoverService, positronDataConnectionsService, viewsService } = usePositronReactServicesContext();
 	const [details, setDetails] = useState(() => input.details);
 
-	// A breadcrumb shows its node in the Data Connections pane -- the connection itself for the
-	// first, which reconnects it if need be -- and opens that node's details, when it has any, in
-	// place of these. The pane is opened without taking focus: the user is reading here.
-	const revealBreadcrumb = async (index: number) => {
+	// Shows a node in the Data Connections pane, given its path below the connection. The pane is
+	// opened without focus; the tree then takes it or not, as the request says.
+	const reveal = async (nodePath: readonly string[], options: { openDetails?: boolean; preserveFocus?: boolean }) => {
 		await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
-		positronDataConnectionsService.revealConnection(input.target.profileId, {
-			nodePath: input.target.nodePath.slice(0, index),
-			openDetails: index > 0,
-		});
+		positronDataConnectionsService.revealConnection(input.target.profileId, { nodePath, ...options });
 	};
 
+	// A breadcrumb shows its node -- the connection itself for the first, which reconnects it if need
+	// be -- and opens that node's details, when it has any, in place of these. Focus stays here, on
+	// every breadcrumb alike: the user is reading, and a breadcrumb is a way to read somewhere else.
+	const revealBreadcrumb = (index: number) => reveal(
+		input.target.nodePath.slice(0, input.target.breadcrumbNodePathLengths[index]),
+		{ openDetails: index > 0, preserveFocus: true }
+	);
+
 	// A group's reveal button goes to the tree node it stands for, somewhere below this node, and
-	// leaves the user there: unlike a breadcrumb, it opens no details, so the tree takes focus.
-	const [hoverManager] = useState(() => new PositronActionBarHoverManager(true, configurationService, hoverService));
-	useEffect(() => () => hoverManager.dispose(), [hoverManager]);
+	// takes the user there: it opens no details, and the tree takes focus.
+	const [hoverManager, setHoverManager] = useState<IHoverManager | undefined>(undefined);
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		setHoverManager(disposableStore.add(new PositronActionBarHoverManager(true, configurationService, hoverService)));
+		return () => disposableStore.dispose();
+	}, [configurationService, hoverService]);
 	const actions: IDataConnectionNodeDetailsActions = {
 		hoverManager,
-		revealInTree: async treePath => {
-			await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
-			positronDataConnectionsService.revealConnection(input.target.profileId, {
-				nodePath: [...input.target.nodePath, ...treePath.map(node => nodeReloadKey(node.kind, node.name))],
-			});
-		},
+		revealInTree: treePath => reveal(
+			[...input.target.nodePath, ...treePath.map(node => nodeReloadKey(node.kind, node.name))],
+			{}
+		),
 	};
 
 	// Code is shown in the font the user picked for the editor, as the Data Explorer and the Console
 	// show theirs. It's read into custom properties on the page, rather than applied to each code
 	// element, so one listener serves every code block and chip; and read again whenever an editor
 	// font setting changes. (--vscode-editor-font-family is only defined inside webviews, so the CSS
-	// can't use it here.)
+	// can't use it here.) Measured once the page is attached, in a layout effect, so it's measured in
+	// the page's own window -- which may be an auxiliary one -- and before the first paint.
 	const pageRef = useRef<HTMLDivElement>(null);
-	const [codeFont, setCodeFont] = useState<CodeFontCSSProperties>(() =>
-		codeFontStyle(FontConfigurationManager.getFontInfo(configurationService, 'editor')));
-	useEffect(() => {
+	const [codeFont, setCodeFont] = useState<CodeFontCSSProperties>({});
+	useLayoutEffect(() => {
+		const measure = () =>
+			setCodeFont(codeFontStyle(FontConfigurationManager.getFontInfo(configurationService, 'editor', pageRef.current ?? undefined)));
+		measure();
 		const disposable = configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('editor')) {
-				setCodeFont(codeFontStyle(FontConfigurationManager.getFontInfo(configurationService, 'editor', pageRef.current ?? undefined)));
+				measure();
 			}
 		});
 		return () => disposable.dispose();
@@ -358,9 +372,9 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 						{input.target.path.map((segment, index) => {
 							const current = index === input.target.path.length - 1;
 							return (
-								<li key={index} aria-current={current ? 'location' : undefined}>
+								<li key={index}>
 									{index > 0 && <span aria-hidden='true' className='codicon codicon-chevron-right data-connection-node-details-breadcrumb-separator' />}
-									<button className='data-connection-node-details-breadcrumb' onClick={() => void revealBreadcrumb(index)}>
+									<button aria-current={current ? 'location' : undefined} className='data-connection-node-details-breadcrumb' onClick={() => void revealBreadcrumb(index)}>
 										{segment}
 									</button>
 								</li>

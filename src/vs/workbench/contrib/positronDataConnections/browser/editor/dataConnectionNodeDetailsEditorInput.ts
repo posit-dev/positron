@@ -32,10 +32,15 @@ export interface IDataConnectionNodeDetailsTarget {
 	// The id of the connection profile the node belongs to.
 	readonly profileId: string;
 
-	// The reload key of each node on the way down from the connection to the node itself: path
-	// without its first entry (the connection), as keys the tree can find the nodes by again. A
-	// breadcrumb reveals its node with the keys up to and including its own.
+	// The reload key of each row on the way down from the connection to the node itself, group rows
+	// ("Tables", "Metrics") included, so the tree can walk straight back down it rather than search
+	// the groups for each node.
 	readonly nodePath: readonly string[];
+
+	// For each entry of path, how much of nodePath leads to it: 0 for the connection, and for any
+	// other node the length of the nodePath prefix that ends at it. A breadcrumb reveals its node
+	// with that prefix.
+	readonly breadcrumbNodePathLengths: readonly number[];
 }
 
 /**

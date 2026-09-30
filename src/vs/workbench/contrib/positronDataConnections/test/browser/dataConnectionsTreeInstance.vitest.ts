@@ -910,18 +910,34 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		await expectRevealed(revealed);
 	});
 
-	it('goes down to a node inside a group, and opens its details, when a breadcrumb asks', async () => {
+	it('walks a path down through a group, and opens the node\'s details, when a breadcrumb asks', async () => {
 		const revealed = createTree({ grouped: true });
 		await revealed.tree.refresh();
 
-		// The node's path leaves out the Tables group, as a breadcrumb's does.
-		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'flights'])], openDetails: true });
+		revealed.requestReveal('conn-1', {
+			nodePath: [JSON.stringify(['group-tables', 'Tables']), JSON.stringify(['table', 'flights'])],
+			openDetails: true,
+			preserveFocus: true,
+		});
 
 		await vi.waitFor(() => expect(revealed.openEditor).toHaveBeenCalled());
 		const selected = revealed.tree.getSelectedNode()?.data;
 		expect(selected?.kind === 'dto' ? selected.dto.name : undefined).toBe('flights');
-		// The details open in the editor the request came from, which keeps focus.
+		// The breadcrumb's editor keeps focus.
 		expect(revealed.focusRequested()).toBe(false);
+	});
+
+	it('finds a node inside a group its path leaves out, and takes focus when not asked to leave it', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'flights'])] });
+
+		await vi.waitFor(() => {
+			const selected = revealed.tree.getSelectedNode()?.data;
+			expect(selected?.kind === 'dto' ? selected.dto.name : undefined).toBe('flights');
+		});
+		expect(revealed.focusRequested()).toBe(true);
 	});
 
 	it('stops at the deepest node it can still find when the path no longer matches', async () => {

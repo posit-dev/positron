@@ -17,13 +17,17 @@ export const IPositronDataConnectionsService = createDecorator<IPositronDataConn
  * Where in a connection a reveal should go (see IPositronDataConnectionsService.revealConnection).
  */
 export interface IDataConnectionRevealOptions {
-	// The node to go to, as the reload key (see the tree's reloadKey) of each node on the way down
-	// from the connection, leaving out the rows that only group others ("Tables", "Metrics"). Empty
-	// or absent for the connection itself.
+	// The node to go to, as the reload key (see nodeReloadKey) of each row on the way down from the
+	// connection, group rows ("Tables", "Metrics") included. Empty or absent for the connection
+	// itself.
 	readonly nodePath?: readonly string[];
 
 	// Whether to open the node's details once it is revealed, when it has any.
 	readonly openDetails?: boolean;
+
+	// Whether to leave keyboard focus where it is rather than move it to the revealed row -- for a
+	// request made from somewhere the user is still reading, such as a details editor's breadcrumbs.
+	readonly preserveFocus?: boolean;
 }
 
 /**

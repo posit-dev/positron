@@ -24,7 +24,13 @@ const TARGET = {
 	icon: 'type-hierarchy',
 	path: ['TestData', 'DEMO_CHAOS_DB', 'ERP_DUMP', 'CHAOS_MODEL'],
 	profileId: 'conn-1',
-	nodePath: ['["database","DEMO_CHAOS_DB"]', '["schema","ERP_DUMP"]', '["semantic-view","CHAOS_MODEL"]'],
+	// Every row on the way down, group rows included; each breadcrumb ends somewhere along it.
+	nodePath: [
+		'["group-databases","Databases"]', '["database","DEMO_CHAOS_DB"]',
+		'["group-schemas","Schemas"]', '["schema","ERP_DUMP"]',
+		'["group-semantic-views","Semantic Views"]', '["semantic-view","CHAOS_MODEL"]',
+	],
+	breadcrumbNodePathLengths: [0, 2, 4, 6],
 };
 
 // A semantic view's details, shaped the way the Snowflake driver builds them: an Overview holding a
@@ -149,8 +155,9 @@ describe('DataConnectionNodeDetailsPage', () => {
 
 			const breadcrumbs = within(screen.getByRole('navigation', { name: 'Location' })).getAllByRole('listitem');
 			expect(breadcrumbs.map(crumb => crumb.textContent)).toEqual(['TestData', 'DEMO_CHAOS_DB', 'ERP_DUMP', 'CHAOS_MODEL']);
-			expect(breadcrumbs.at(-1)).toHaveAttribute('aria-current', 'location');
-			expect(breadcrumbs[0]).not.toHaveAttribute('aria-current');
+			// On the breadcrumb itself, the element a screen reader lands on.
+			expect(screen.getByRole('button', { name: 'CHAOS_MODEL' })).toHaveAttribute('aria-current', 'location');
+			expect(screen.getByRole('button', { name: 'TestData' })).not.toHaveAttribute('aria-current');
 		});
 
 		it('reveals a breadcrumb\'s node in the pane, opening its details, and the connection alone for the first', async () => {
@@ -159,15 +166,17 @@ describe('DataConnectionNodeDetailsPage', () => {
 
 			await user.click(screen.getByRole('button', { name: 'ERP_DUMP' }));
 
+			// Focus stays in the editor, for every breadcrumb alike.
 			expect(openView).toHaveBeenCalledWith(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
 			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', {
-				nodePath: ['["database","DEMO_CHAOS_DB"]', '["schema","ERP_DUMP"]'],
+				nodePath: TARGET.nodePath.slice(0, 4),
 				openDetails: true,
+				preserveFocus: true,
 			});
 
 			await user.click(screen.getByRole('button', { name: 'TestData' }));
 
-			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', { nodePath: [], openDetails: false });
+			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', { nodePath: [], openDetails: false, preserveFocus: true });
 		});
 
 		it('says so when the node has no details', () => {
@@ -234,6 +243,9 @@ describe('DataConnectionNodeDetailsPage', () => {
 		it('shows a group\'s tree node in the pane, below this node, from its heading\'s button', async () => {
 			renderPage(semanticViewDetails('ddl'));
 			const user = userEvent.setup();
+
+			// The button sits beside the heading, not in it, so the heading is named by its title.
+			expect(screen.getByRole('heading', { name: 'Dimensions 1' })).toBeInTheDocument();
 
 			// Only groups that name a tree node get the button.
 			expect(screen.queryByRole('button', { name: 'Show Metrics in Data Connections' })).not.toBeInTheDocument();
