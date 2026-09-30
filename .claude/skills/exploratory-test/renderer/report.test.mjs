@@ -736,6 +736,39 @@ test('parseReport reads the preconditions line above or below the steps', () => 
 	}
 });
 
+test('parseReport reads bulleted preconditions as one item each, with a pasted file kept on its bullet', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro**', '',
+		'**Preconditions:**',
+		'- `positron.notebook.enabled: true` in',
+		'  `.vscode/settings.json`',
+		'- `nb.ipynb` in the workspace',
+		'  ```python',
+		'  import cv2',
+		'  ```',
+		'- A Python 3.10.15 venv with ipykernel',
+		'',
+		'1. Start a Python console.', '2. Open `nb.ipynb`.',
+		'',
+		'**Observed:** it broke.',
+	].join('\n')));
+	const f = r.findings[0];
+	assert.equal(f.steps.length, 2);
+	assert.equal(f.preconditions.length, 3);
+	assert.match(f.preconditions[0], /enabled: true<\/code> in <code>\.vscode\/settings\.json<\/code>/);
+	assert.match(f.preconditions[1], /<code class="language-python">import cv2/);
+	assert.match(f.preconditions[2], /^A Python 3\.10\.15 venv with ipykernel$/);
+	assert.match(renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro**', '', '**Preconditions:**', '- one', '- two', '', '1. First.',
+	].join('\n'))), /<ul class="preconditions"><li>One<\/li><li>Two<\/li><\/ul>/);
+});
+
 test('parseReport widens a step fence past the source nested inside it', () => {
 	const r = parseReport(md([
 		'## Findings', '',

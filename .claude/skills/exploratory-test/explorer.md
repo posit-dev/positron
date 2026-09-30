@@ -84,8 +84,8 @@ cannot reproduce from a description of a file.
   image, a database), save the script that made it too and list both.
 - In preconditions and steps, name it in backticks by its file name,
   `` `multi.qmd` ``; the page turns the name into a link that opens the file.
-  A file that exists before step 1 is named in the starting state, never
-  pasted into a step. Never describe a file's content instead of saving it.
+  A file that exists before step 1 is named in Preconditions, never pasted
+  into a step. Never describe a file's content instead of saving it.
   Never write "create a file with ..." as a step unless creating it is what
   you are testing, such as a new-file flow or pasting into an untitled editor.
 - Helper scripts you load, such as a `slow.py` you `%run`, go in `files/`, not
@@ -270,8 +270,11 @@ Steps:
 - `Preconditions:` is everything a scenario needs before step 1, one bullet
   each, repeated on every scenario that needs it. Put the creating scenario's ID
   in the middle field when there is one. Leave `Preconditions:` out when there
-  is nothing to set up; never write a default-settings line. Steps never start
-  with "With X open, ..."; that state belongs here.
+  is nothing to set up; never write a default-settings line. A precondition is
+  state that exists before the app does anything: a setting, a file, an
+  installed interpreter. Anything done in the app to get there, such as
+  starting a console or opening a file, is a step, even if it is only setup.
+  Steps never start with "With X open, ..."; open it as step 1.
 - `Not run` covers surfaces you could not reach and threads you abandoned. A
   gap that deserves more than a phrase, such as an untested mechanism that
   probably shares a fault with a tested one, gets it in the reason. There is no
@@ -386,7 +389,7 @@ at the failure unless it went on. Another scenario's run of the same bug goes
 under Evidence as a `Variant:`.
 
 Every finding's steps stand on their own: no "as Finding 1", no "same as
-above". Repeat the setup line in full each time.
+above". Repeat the preconditions in full each time.
 
 Use this block for every finding. `N` is the table's row number; it ties the
 block to that row and to ledger scenarios whose `Status:` names Finding N.
@@ -396,12 +399,10 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 **Feature:** <feature>
 
-**Repro** -- starting state: <what exists before step 1, naming each test file in backticks>
+**Repro**
 
-**Preconditions:** <only with X: the non-default configuration or
-manufactured state this needs, how you set it up, and what happened without it:
-reproduces, does not reproduce, or not checked. Leave the line out when the bug
-needs nothing special.>
+**Preconditions:**
+- <one state per bullet, true before the app does anything: a non-default setting, a test file in backticks, an installed interpreter. Anything done in the app is a step. Leave the list out when nothing is needed.>
 
 1. <action>
 2. VERIFY <expectation> -> PASS
@@ -578,13 +579,11 @@ The harness is part of the configuration, not a neutral window onto the
 product. A launcher that forces a setting, a web server standing in for the
 desktop app, a seeded profile: each puts the app in a state most users are not
 in, and a finding reachable only there is a narrower bug than it looks. So
-before you rank a finding, find the configuration axis it sits on and say where
-it lands on the `Preconditions` line, in the finding template's form. Re-check
-it under the default; if you cannot, write that you did not rather than leaving
-the axis unstated. Keep it to a sentence or two: it renders as a bullet above
-the steps, and a paragraph there buries the one thing a reader needs before
-they begin. Desktop and web differ this way by construction, so a finding from
-one is not yet a finding about the other.
+before you rank a finding, find the configuration axis it sits on. A
+non-default setting it needs is a precondition bullet. Re-check it under the
+default and say in the Cause whether it still happens, or that you could not
+check. Desktop and web differ this way by construction, so a finding from one
+is not yet a finding about the other.
 
 Abandon dead ends and say you did. But tell a dead end from a door: a reload,
 a moved binary, or a blocked host is often the only way into the state under
