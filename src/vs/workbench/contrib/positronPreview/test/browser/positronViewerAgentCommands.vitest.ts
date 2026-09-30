@@ -17,6 +17,7 @@ describe('positronViewer commands', () => {
 	let info: IViewerInfo;
 	let snapshot: IViewerSnapshot;
 	let actResult: IViewerActResult | Error;
+	const getViewerInfo = vi.fn(async () => info);
 	const getViewerSnapshot = vi.fn(async (_options?: IViewerSnapshotOptions) => snapshot);
 	const viewerAct = vi.fn(async (_action: ViewerAction, _options?: IViewerSnapshotOptions) => {
 		if (actResult instanceof Error) {
@@ -27,7 +28,7 @@ describe('positronViewer commands', () => {
 
 	const ctx = createTestContainer()
 		.stub(IPositronViewerAgentService, {
-			getViewerInfo: async () => info,
+			getViewerInfo,
 			getViewerSnapshot,
 			getViewerScreenshot: async () => ({ mimeType: 'image/png', data: VSBuffer.fromString('png'), width: 2, height: 1, method: 'dom', revealed: true }),
 			viewerAct,
@@ -45,14 +46,14 @@ describe('positronViewer commands', () => {
 		return ctx.instantiationService.invokeFunction(accessor => Promise.resolve(command.handler(accessor, options)));
 	}
 
-	it('offers every command to agents, and runs the ones that leave what the user entered alone without asking', () => {
+	it('offers every command to agents, and lets them read, screenshot, scroll and wait without asking', () => {
 		const flags = Object.fromEntries(VIEWER_COMMANDS.map(id => {
 			const metadata = CommandsRegistry.getCommand(`positronViewer.${id}`)?.metadata;
 			return [id, metadata?.agentCompatible === true && metadata.readOnly === true ? 'read-only' : metadata?.agentCompatible === true ? 'asks' : 'hidden'];
 		}));
 
 		expect(flags).toEqual({
-			read: 'read-only', screenshot: 'read-only', click: 'asks', hover: 'read-only',
+			read: 'read-only', screenshot: 'read-only', click: 'asks', hover: 'asks',
 			fill: 'asks', select: 'asks', press: 'asks', scroll: 'read-only', wait: 'read-only',
 		});
 	});
@@ -133,6 +134,21 @@ describe('positronViewer commands', () => {
 			The app was still busy when the wait ran out, so the outline may not show where it ends up.
 			The Viewer was hidden, so it was revealed to act on it."
 		`);
+	});
+
+	it('still reports an action that was taken when the page can\'t be described after it', async () => {
+		info = { ...info, visible: false };
+		actResult = { message: 'Clicked the button "Go".', snapshot, timedOut: false, revealed: true };
+		getViewerInfo.mockImplementationOnce(async () => info).mockRejectedValueOnce(new Error('The webview is gone.'));
+
+		const result = await run('click', { ref: 'e1' }) as string;
+
+		expect(result.split('\n').slice(1, 5)).toEqual([
+			'<viewer_action>',
+			'Clicked the button "Go".',
+			'</viewer_action>',
+			'<viewer_page kind="url" visible="true" title="App" url="http://localhost:8000/">',
+		]);
 	});
 
 	it('fails with the reason escaped when an action can\'t be taken, and doesn\'t act on content it can\'t read', async () => {

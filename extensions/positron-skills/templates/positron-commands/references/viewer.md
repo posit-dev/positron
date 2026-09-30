@@ -110,8 +110,8 @@ settle and returns what it did in a `<viewer_action>` node, then a fresh
 outline, so there's no need to read the page again.
 
 - **Only act when the user wants the app used,** such as to test it, and say
-  what you're about to do. Click, fill, select and press ask for approval;
-  hover, scroll and wait don't, so use them freely.
+  what you're about to do. Click, hover, fill, select and press ask for
+  approval; scroll and wait don't, so use them freely.
 - **Use refs from the latest outline.** Refs start over after a link or a
   reload, and can shift when the layout changes. If an action says a ref is
   stale, read the page again.

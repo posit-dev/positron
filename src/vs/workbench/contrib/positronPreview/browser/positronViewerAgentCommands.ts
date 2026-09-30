@@ -165,8 +165,10 @@ async function act(accessor: ServicesAccessor, kind: ViewerAction['kind'], optio
 	// Without a snapshot, the action was still taken, and the message says why.
 	const lines = [UNTRUSTED_NOTE, xmlNode('viewer_action', escape(message))];
 	if (snapshot) {
-		// After the action, which can reveal the Viewer or open other content.
-		lines.push(...outlineLines(await viewerAgentService.getViewerInfo(), snapshot, snapshotOpts.maxChars));
+		// Described after the action, which can reveal the Viewer or open other
+		// content. The action was taken, so if that fails, use what was known before.
+		const after = await viewerAgentService.getViewerInfo().catch(() => ({ ...before, visible: before.visible || revealed }));
+		lines.push(...outlineLines(after, snapshot, snapshotOpts.maxChars));
 	}
 	if (timedOut) {
 		lines.push(snapshot ?
@@ -241,7 +243,9 @@ CommandsRegistry.registerCommand({
 
 registerActionCommand('positronViewer.click', 'click', localize('positron.viewer.click.description', "Click a control in the Viewer pane, by its ref, as a user would."), false,
 	{ ref: REF_PROPERTY }, ['ref']);
-registerActionCommand('positronViewer.hover', 'hover', localize('positron.viewer.hover.description', "Move the pointer over a control in the Viewer pane, by its ref, as a user would. Doesn't change what the user entered."), true,
+// Not read-only: an app can run server code on hover, such as a Shiny plot's
+// hover input or a Dash hoverData callback.
+registerActionCommand('positronViewer.hover', 'hover', localize('positron.viewer.hover.description', "Move the pointer over a control in the Viewer pane, by its ref, as a user would."), false,
 	{ ref: REF_PROPERTY }, ['ref']);
 registerActionCommand('positronViewer.fill', 'fill', localize('positron.viewer.fill.description', "Type into a text or number box in the Viewer pane, or move a slider, by its ref. Dropdowns are handed on to positronViewer.select."), false,
 	{ ref: REF_PROPERTY, value: { type: 'string', description: 'The text or number.' } }, ['ref', 'value']);
