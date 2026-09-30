@@ -872,6 +872,23 @@ export function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	return out.join('\n').trimEnd();
 }
 
+/**
+ * The claim with its first letter lowercased, unless its first word is a name:
+ * a single letter other than A (R), a word with more capitals or digits (PyPI), or one the
+ * finding's own text capitalizes mid-sentence (the Quarto preview).
+ */
+function lowerFirstWord(claim, f) {
+	const word = /^[A-Z][A-Za-z0-9'-]*/.exec(claim)?.[0];
+	if (!word || (word.length === 1 && word !== 'A') || /[A-Z0-9]/.test(word.slice(1))) {
+		return claim;
+	}
+	const prose = Object.values(f.text ?? {}).flat().join(' ').replace(/`[^`]*`/g, '');
+	if (new RegExp(`[a-z,;]\\s+${word}\\b`).test(prose)) {
+		return claim;
+	}
+	return word[0].toLowerCase() + claim.slice(1);
+}
+
 function issueHref(title, body) {
 	return `${ISSUE_NEW_URL}?title=${encodeURIComponent(title)}&labels=ai-discovered${body === undefined ? '' : `&body=${encodeURIComponent(body)}`}`;
 }
@@ -888,7 +905,7 @@ const ISSUE_TRIMS = ['fileText', 'regression', 'cause', 'errors'];
  */
 export function issueLink(f, report, options = {}) {
 	// Positron issues are titled `<Feature>: <description>`.
-	const title = f.feature ? `${f.feature}: ${f.title}` : f.title;
+	const title = f.feature ? `${f.feature}: ${lowerFirstWord(f.title, f)}` : f.title;
 	const full = buildIssueBody(f, report, options);
 	for (let trim = 0; trim <= ISSUE_TRIMS.length; trim++) {
 		const text = trim ? buildIssueBody(f, report, options, { trim }) : full;

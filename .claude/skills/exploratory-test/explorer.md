@@ -347,9 +347,9 @@ because they can get there another way; a control that wraps onto two lines is
 `Finding` is the claim, in under about twelve words that state the symptom and
 its consequence, such as "A column over 10 s never loads, and Retry cannot help".
 
-`Feature` is the area of Positron the finding is in, named the way issue titles
-name it: "Data Explorer", "Console", "Notebooks", "Plots". It prefixes the filed
-issue's title.
+`Feature` is the area of Positron the finding is in, in lowercase except for
+proper names: "data explorer", "console", "notebooks", "R console", "Positron
+Assistant". It prefixes the filed issue's title, as "console: <claim>".
 
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".

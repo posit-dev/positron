@@ -1993,13 +1993,28 @@ test('issue: parseSystemLine reads the ledger line, and "not recorded" where it 
 });
 
 test('issue: a finding\'s Feature prefixes the issue title', () => {
-	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, '$1\n\n**Feature:** Data Explorer');
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, '$1\n\n**Feature:** data explorer');
 	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
 	const card = unescapeHtml(/<article id="f1"[\s\S]*?<h2 class="card-title">([^<]*)<\/h2>/.exec(html)[1]);
-	assert.equal(issueUrl(html, 1).searchParams.get('title'), `Data Explorer: ${card}`);
-	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('Data Explorer'), false);
+	assert.equal(issueUrl(html, 1).searchParams.get('title'), `data explorer: ${card[0].toLowerCase()}${card.slice(1)}`);
+	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
 });
+test('issue: the claim after the Feature starts lowercase unless its first word is a name', () => {
+	const title = (claim, extra = '') => {
+		const md = LOGS_REPORT.replace(/^### Finding 1: .*$/m, `### Finding 1: ${claim}\n\n**Feature:** console${extra}`);
+		const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+		return issueUrl(html, 1).searchParams.get('title');
+	};
+	assert.equal(title('Typing while busy aborts'), 'console: typing while busy aborts');
+	assert.equal(title('R aborts while busy'), 'console: R aborts while busy');
+	assert.equal(title('PyPI lookups are skipped'), 'console: PyPI lookups are skipped');
+	assert.equal(title('A preview goes blank'), 'console: a preview goes blank');
+	// Named nowhere else, a capitalized word cannot be told from a sentence start.
+	assert.equal(title('Quarto previews go blank'), 'console: quarto previews go blank');
+	assert.equal(title('Quarto previews go blank', '\n\nOpening the Quarto preview shows nothing.'), 'console: Quarto previews go blank');
+});
+
 test('issue: a body too long for the link drops the file text, then falls back to copying', () => {
 	const big = p => p.endsWith('slow.py') ? Buffer.from(`x = 1\n`.repeat(2000)) : logsRead(p);
 	const dropped = logsIssueHtml({ readFile: big });
