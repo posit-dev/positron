@@ -77,7 +77,133 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: mismatched-extensions
+          name: mismatched-extensions-linux
+          path: test-logs/mismatched-extensions.txt
+          retention-days: 3
+          if-no-files-found: ignore
+
+  # A version can be published for Linux but not Windows (meta.pyrefly 1.3.2
+  # shipped without a win32-x64 build). Windows only reports a mismatch once the
+  # new version actually installs there, and auto-update bumps an extension only
+  # when both platforms report it.
+  extensions-windows:
+    name: 'extensions-windows'
+    timeout-minutes: 90
+    runs-on: windows-latest-8x
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install System Level Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.10.10"
+
+      - name: 📦 Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      # See test-e2e-windows-run.yml for why the VS 2022 build tools are needed.
+      - name: Install Visual Studio 2022 C++ build tools
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 15
+          shell: pwsh
+          command: |
+            $ErrorActionPreference = 'Stop'
+            $bootstrapper = "$env:TEMP\vs_buildtools.exe"
+            Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile $bootstrapper
+            $p = Start-Process -FilePath $bootstrapper -Wait -PassThru -ArgumentList @(
+              '--quiet','--wait','--norestart','--nocache',
+              '--add','Microsoft.VisualStudio.Workload.VCTools',
+              '--add','Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre',
+              '--includeRecommended'
+            )
+            if ($p.ExitCode -notin 0,3010) { exit $p.ExitCode }
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          npm_config_arch: x64
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 90
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: |
+            set -e
+            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+            npm ci --no-audit --no-fund --fetch-timeout 120000
+
+      - name: Download binaries (Ark, Kallichore) with retry
+        uses: nick-fields/retry@v4
+        env:
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          retry_wait_seconds: 10
+          shell: bash
+          command: |
+            set -e
+            cd extensions
+            cd positron-r && npm rebuild --foreground-scripts
+            cd ../positron-supervisor && npm rebuild --foreground-scripts
+
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Install Playwright browsers
+        run: npm run playwright-install
+
+      - name: Install E2E test dependencies
+        run: npm --prefix test/e2e ci --no-audit --no-fund
+
+      - name: Compile E2E Tests
+        run: npm --prefix test/e2e run compile
+
+      - name: Download builtin extensions
+        shell: bash
+        run: npm run prelaunch
+
+      - name: 🧪 Run Playwright Tests (Electron)
+        shell: bash
+        env:
+          POSITRON_PY_VER_SEL: 3.10.10
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          EXTENSIONS_FAIL_ON_MISMATCH: true
+          # See extensions-linux.
+          ALLOW_PYREFLY: 'true'
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project e2e-electron --reporter=null
+
+      - name: Upload mismatched extensions list
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mismatched-extensions-windows
           path: test-logs/mismatched-extensions.txt
           retention-days: 3
           if-no-files-found: ignore
@@ -138,8 +264,8 @@ jobs:
 
   auto-update:
     name: 'auto-update-extensions'
-    if: always() && needs.extensions-linux.result != 'cancelled' && needs.dependency-check.result == 'success'
-    needs: [extensions-linux, dependency-check]
+    if: always() && needs.extensions-linux.result != 'cancelled' && needs.extensions-windows.result != 'cancelled' && needs.dependency-check.result == 'success'
+    needs: [extensions-linux, extensions-windows, dependency-check]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -181,28 +307,34 @@ jobs:
           echo "Resetting to origin/main; the bump script will reapply today's changes from scratch."
           git reset --hard origin/main
 
-      - name: Download mismatched extensions list
+      - name: Download mismatched extensions lists
         if: needs.extensions-linux.result == 'failure'
         continue-on-error: true
         uses: actions/download-artifact@v8
         with:
-          name: mismatched-extensions
-          path: .
+          pattern: mismatched-extensions-*
+          path: mismatched
 
       - name: Update extensions
         env:
-          TEST_RESULT: ${{ needs.extensions-linux.result }}
+          LINUX_RESULT: ${{ needs.extensions-linux.result }}
           FLAGGED: ${{ needs.dependency-check.outputs.flagged }}
         run: |
           MISMATCHED=()
-          if [ "$TEST_RESULT" = "failure" ] && [ -s mismatched-extensions.txt ]; then
-            read -ra MISMATCHED <<< "$(cat mismatched-extensions.txt)"
+          if [ "$LINUX_RESULT" = "failure" ] && [ -s mismatched/mismatched-extensions-linux/mismatched-extensions.txt ]; then
+            read -ra MISMATCHED <<< "$(cat mismatched/mismatched-extensions-linux/mismatched-extensions.txt)"
           fi
+          # Empty when Windows found no drift, or failed before recording any;
+          # either way nothing is confirmed there, so nothing is bumped.
+          WINDOWS_MISMATCHED=$(cat mismatched/mismatched-extensions-windows/mismatched-extensions.txt 2>/dev/null || true)
           EXTENSIONS_TO_BUMP=()
           HELD_BACK=()
+          NOT_ON_WINDOWS=()
           for ext in "${MISMATCHED[@]}"; do
             if [[ " $FLAGGED " == *" $ext "* ]]; then
               HELD_BACK+=("$ext")
+            elif [[ " $WINDOWS_MISMATCHED " != *" $ext "* ]]; then
+              NOT_ON_WINDOWS+=("$ext")
             else
               EXTENSIONS_TO_BUMP+=("$ext")
             fi
@@ -221,9 +353,18 @@ jobs:
               echo ""
               printf -- '- %s\n' "${HELD_BACK[@]}"
             fi
+            if [ ${#NOT_ON_WINDOWS[@]} -gt 0 ]; then
+              echo ""
+              echo "Held back, new version not confirmed on Windows:"
+              echo ""
+              printf -- '- %s\n' "${NOT_ON_WINDOWS[@]}"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
           if [ ${#HELD_BACK[@]} -gt 0 ]; then
             echo "Holding back: ${HELD_BACK[*]}"
+          fi
+          if [ ${#NOT_ON_WINDOWS[@]} -gt 0 ]; then
+            echo "Holding back (not on Windows): ${NOT_ON_WINDOWS[*]}"
           fi
           if [ ${#EXTENSIONS_TO_BUMP[@]} -eq 0 ]; then
             echo "Nothing to bump."
@@ -403,8 +544,8 @@ jobs:
             -d "$PAYLOAD"
 
   slack-notify:
-    if: always() && inputs.dryrun != true && ((needs.extensions-linux.result == 'failure' && needs.auto-update.outputs.pr_url == '') || needs.dependency-check.result == 'failure')
-    needs: [extensions-linux, auto-update, dependency-check]
+    if: always() && inputs.dryrun != true && (((needs.extensions-linux.result == 'failure' || needs.extensions-windows.result == 'failure') && needs.auto-update.outputs.pr_url == '') || needs.dependency-check.result == 'failure')
+    needs: [extensions-linux, extensions-windows, auto-update, dependency-check]
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
