@@ -801,7 +801,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// produce zero runtimes on this open still get refreshed), not here.
 		if (metadata.cacheable === true &&
 			(this._startupPhase === RuntimeStartupPhase.Discovering || this._backgroundDiscoveryInProgress)) {
-			this._discoveryCache.upsert(metadata).catch(err => {
+			// Keep the display path the language runtime service computed.
+			const registered = this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId);
+			this._discoveryCache.upsert({
+				...metadata,
+				runtimeDisplayPath: metadata.runtimeDisplayPath ?? registered?.runtimeDisplayPath,
+			}).catch(err => {
 				this._logService.warn(
 					`[Runtime startup] Failed to cache runtime ${formatLanguageRuntimeMetadata(metadata)}: ${err}`);
 			});

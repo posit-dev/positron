@@ -921,7 +921,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 
 			svc.registerDiscoveredRuntime(md);
 
-			expect(cache.getEntries('ms.python', 'python').map(e => e.metadata.runtimeId)).toEqual(['rt-1']);
+			const registered = ctx.get(ILanguageRuntimeService).getRegisteredRuntime(md.runtimeId);
+			expect(cache.getEntries('ms.python', 'python').map(e => e.metadata)).toEqual([registered]);
 		});
 	});
 });
