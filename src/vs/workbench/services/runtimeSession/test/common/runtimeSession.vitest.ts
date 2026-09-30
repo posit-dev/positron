@@ -1912,13 +1912,13 @@ describe('Positron - RuntimeSessionService', () => {
 				.toEqual({ owner: 'assistant', foregroundSessionId: result.userSessionId });
 		});
 
-		it('is dropped while the ai.assistantSessions.enabled setting is off', async () => {
+		it('is dropped, still without taking the foreground, while the ai.assistantSessions.enabled setting is off', async () => {
 			configService.setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
 
 			const result = await startConsoleOwnedByAssistant();
 
 			expect({ owner: result.owner, foregroundSessionId: result.foregroundSessionId })
-				.toEqual({ owner: 'user', foregroundSessionId: result.sessionId });
+				.toEqual({ owner: 'user', foregroundSessionId: result.userSessionId });
 		});
 	});
 

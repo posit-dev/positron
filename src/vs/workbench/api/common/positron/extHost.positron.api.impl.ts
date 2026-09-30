@@ -165,7 +165,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					sessionName,
 					sessionMode,
 					notebookUri,
-					options?.owner);
+					options);
 			},
 			interruptSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.interruptSession(sessionId);
