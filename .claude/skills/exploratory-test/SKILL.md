@@ -29,11 +29,11 @@ the change between them, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about.
 State intent and risk; do not state what you expect to work.
 
-If the person gave a time limit ("spend 20 minutes on it"), put it in the brief
-as minutes to explore, with how to keep to it: run `date` at the start and
-between scenarios, and when the time is up, stop exploring, list what was not
-reached under Not run, and write up. Nothing enforces it locally, as it does in
-CI, so say it plainly.
+If the person gave a time limit ("spend 20 minutes on it"), keep it out of the
+brief: told its budget, the agent rushes and wraps up early. Note the time you
+spawn it, and if it is still exploring when the limit is up, send it a message
+to stop exploring, list what it did not reach under Not run, and write up. CI
+does the same with a hook.
 
 When the change is a PR, fetch the issues linked to it before spawning the
 agent: `node <base>/renderer/known-issues.mjs --pr <number> --out <scratch dir>/known-issues.json`.

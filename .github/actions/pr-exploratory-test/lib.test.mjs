@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, buildTimeBudgetLine, timeUpHook, timeUpMessage, timeLeftMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath, renderPrBody, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath, renderPrBody, ENVIRONMENT } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -482,20 +482,12 @@ test('runOutcome is timed-out when the hard stop fired, whatever else is true', 
 	assert.equal(runOutcome({ report: '# r', numTurns: 50, maxTurns: 200, timedOut: false }), 'complete');
 });
 
-test('the brief states the budget, and the wrap-up window', () => {
-	const line = buildTimeBudgetLine(20);
-	assert.match(line, /^\*\*You have 20 minutes to explore\.\*\*/);
-	assert.match(line, new RegExp(`${WRAP_UP_MINUTES} more minutes`));
-	assert.match(line, /Not run/);
-	assert.match(line, /Keep exploring until you are told time is up/);
-	assert.match(line, /use all of yours for exploring/);
-});
-
-test('timeUpHook gives the time left before the deadline, then tells every tool result time is up, calling onTimeUp once', async () => {
+test('timeUpHook adds nothing before the deadline, then tells every tool result time is up, calling onTimeUp once', async () => {
 	let clock = 1000;
 	let calls = 0;
 	const hook = timeUpHook({ deadline: 2000, minutes: 20, now: () => clock, onTimeUp: () => calls++ });
-	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: timeLeftMessage(1000) } });
+	// Told the time left, the agent rushed; before the deadline it hears nothing.
+	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), {});
 	assert.equal(calls, 0);
 	clock = 2000;
 	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: timeUpMessage(20) } });
@@ -503,12 +495,7 @@ test('timeUpHook gives the time left before the deadline, then tells every tool 
 	assert.equal((await hook({ hook_event_name: 'PostToolUseFailure' })).hookSpecificOutput.hookEventName, 'PostToolUseFailure');
 	assert.equal(calls, 1);
 	assert.match(timeUpMessage(20), /Stop exploring now\..*Not run.*report\.md/);
-});
-
-test('timeLeftMessage rounds up to the second, with seconds padded', () => {
-	assert.equal(timeLeftMessage(125000), 'Time left to explore: 2m05s.');
-	assert.equal(timeLeftMessage(180000), 'Time left to explore: 3m00s.');
-	assert.equal(timeLeftMessage(400), 'Time left to explore: 0m01s.');
+	assert.match(timeUpMessage(20), new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
 });
 
 test('renderPrComment says when a run was stopped at its time limit', () => {

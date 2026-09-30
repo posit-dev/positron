@@ -314,7 +314,7 @@ export function runOutcome({ report, numTurns, maxTurns, timedOut = false }) {
 export const WRAP_UP_MINUTES = 10;
 
 /**
- * The time limit, in whole minutes, from a dispatch input or a `/test 20m`
+ * The time limit, in whole minutes, from a dispatch input or an `/explore 20m`
  * word: `20`, `20m` or empty. Null when there is none or it is not a positive
  * whole number, which runs without a limit rather than failing the run.
  */
@@ -324,35 +324,25 @@ export function parseTimeLimit(raw) {
 	return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
 }
 
-/** The brief's line for a run with a time limit. The hook enforces it, so the agent must not pace itself: it has no clock and quits early. */
-export function buildTimeBudgetLine(minutes) {
-	return `**You have ${minutes} minutes to explore.** Keep exploring until you are told time is up; don't stop on your own estimate of the time. Each tool result shows the time left. Writing up has its own time; use all of yours for exploring. Then stop, finish the ledger with what you didn't reach under Not run, write the report and check it. You have ${WRAP_UP_MINUTES} more minutes for that before the run is stopped.`;
-}
-
-/** What the agent is told on each tool result before its time is up: it has no clock, and guesses short without one. */
-export function timeLeftMessage(ms) {
-	const seconds = Math.ceil(ms / 1000);
-	return `Time left to explore: ${Math.floor(seconds / 60)}m${String(seconds % 60).padStart(2, '0')}s.`;
-}
-
 /** What the agent is told on each tool result once its time is up. */
 export function timeUpMessage(minutes) {
 	return `Time is up: your ${minutes} minutes for exploring have run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.md and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
 }
 
 /**
- * A PostToolUse (and PostToolUseFailure) hook that appends the time left to
- * every tool result and, once `deadline` has passed, the time-up message, so
- * the agent learns it from what it reads next rather than being cut off
- * mid-step. `onTimeUp` is
- * called the first time. `now` is the clock, for tests.
+ * A PostToolUse (and PostToolUseFailure) hook that, once `deadline` has
+ * passed, appends the time-up message to every tool result, so the agent
+ * learns it from what it reads next rather than being cut off mid-step.
+ * Before then it adds nothing: told its budget or the time left, the agent
+ * rushed from the first step and wrapped up at about 70% of it, in every CI
+ * run that had a limit. `onTimeUp` is called the first time. `now` is the
+ * clock, for tests.
  */
 export function timeUpHook({ deadline, minutes, now = Date.now, onTimeUp = () => {} }) {
 	let told = false;
 	return async input => {
-		const left = deadline - now();
-		if (left > 0) {
-			return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: timeLeftMessage(left) } };
+		if (now() < deadline) {
+			return {};
 		}
 		if (!told) {
 			told = true;
