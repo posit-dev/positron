@@ -14,17 +14,19 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
+import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ConsoleInstanceInfoModalPopup } from '../../browser/components/consoleInstanceInfoButton.js';
 
 describe('ConsoleInstanceInfoModalPopup', () => {
-	const executeCommand = vi.fn();
+	const openUserSettings = vi.fn(async () => undefined);
+	const openWorkspaceSettings = vi.fn(async () => undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(ICommandService, { executeCommand })
+		.stub(IPreferencesService, { openUserSettings, openWorkspaceSettings })
 		.stub(IExtensionService, {
 			extensions: [stubInterface<IExtensionDescription>({
 				identifier: new ExtensionIdentifier('positron.positron-python'),
@@ -106,14 +108,30 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The analysis.ipynb notebook was opened');
 	});
 
-	it('opens the Startup Behavior setting for the session\'s language', async () => {
+	async function clickStartupBehaviorLink(value: IConfigurationValue<string>) {
+		const inspect = vi.spyOn(ctx.get(IConfigurationService), 'inspect').mockReturnValue(value);
 		const user = userEvent.setup();
 		renderPopup('', SessionStartReasonId.StartupBehaviorAlways);
 
 		await user.click(screen.getByRole('button', { name: 'Open Startup Behavior Setting' }));
 
-		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', '@lang:python interpreters.startupBehavior');
+		expect(inspect).toHaveBeenCalledWith('interpreters.startupBehavior', { overrideIdentifier: 'python' });
 		expect(renderer.dispose).toHaveBeenCalled();
+		return { user: openUserSettings.mock.calls, workspace: openWorkspaceSettings.mock.calls };
+	}
+
+	it('opens the User settings tab when the value comes from user settings', async () => {
+		expect(await clickStartupBehaviorLink({ userValue: 'always', value: 'always' })).toEqual({
+			user: [[{ query: '@lang:python interpreters.startupBehavior' }]],
+			workspace: [],
+		});
+	});
+
+	it('opens the Workspace settings tab when the value comes from workspace settings', async () => {
+		expect(await clickStartupBehaviorLink({ workspaceValue: 'always', value: 'always' })).toEqual({
+			user: [],
+			workspace: [[{ query: '@lang:python interpreters.startupBehavior' }]],
+		});
 	});
 
 	it('omits the Startup Behavior setting link for other start reasons', () => {

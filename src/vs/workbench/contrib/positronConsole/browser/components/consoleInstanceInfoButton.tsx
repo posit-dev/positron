@@ -148,8 +148,17 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 	};
 
 	const showStartupBehaviorSettingClickHandler = () => {
-		services.commandService.executeCommand('workbench.action.openSettings',
-			`@lang:${props.session.runtimeMetadata.languageId} interpreters.startupBehavior`);
+		// Open the settings tab the session's value comes from, so the user
+		// sees the value that started the session.
+		const languageId = props.session.runtimeMetadata.languageId;
+		const options = { query: `@lang:${languageId} interpreters.startupBehavior` };
+		const { workspaceValue, workspaceFolderValue } = services.configurationService.inspect(
+			'interpreters.startupBehavior', { overrideIdentifier: languageId });
+		if (workspaceValue !== undefined || workspaceFolderValue !== undefined) {
+			services.preferencesService.openWorkspaceSettings(options);
+		} else {
+			services.preferencesService.openUserSettings(options);
+		}
 		props.renderer.dispose();
 	};
 
