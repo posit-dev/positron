@@ -33,7 +33,7 @@ import { IPositronIPyWidgetsService } from '../../../../services/positronIPyWidg
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { ExtHostLanguageRuntimeShape, RuntimeSessionCapabilities } from '../../../common/positron/extHost.positron.protocol.js';
@@ -278,8 +278,8 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 		await mainThread.$startLanguageRuntime('python-1', 'Python 3.12', LanguageRuntimeSessionMode.Console, undefined, 'positron.positron-python');
 
 		expect([selectRuntime.mock.calls[0][1], startNewRuntimeSession.mock.calls[0][4]]).toEqual([
-			{ id: SessionStartReason.ExtensionApi, detail: 'An extension asked for this session through the Positron API (requesting extension: positron.positron-r)' },
-			{ id: SessionStartReason.ExtensionApi, detail: 'An extension asked for this session through the Positron API (requesting extension: positron.positron-python)' },
+			{ id: SessionStartReasonId.ExtensionApi, detail: 'An extension asked for this session through the Positron API (requesting extension: positron.positron-r)' },
+			{ id: SessionStartReasonId.ExtensionApi, detail: 'An extension asked for this session through the Positron API (requesting extension: positron.positron-python)' },
 		]);
 	});
 });

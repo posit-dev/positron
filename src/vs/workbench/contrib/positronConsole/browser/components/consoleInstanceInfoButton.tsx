@@ -20,7 +20,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel, SessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getSessionStartReasonLabel } from '../../../../services/runtimeSession/common/sessionStartReasons.js';
 
@@ -140,7 +140,7 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 	}, [props.session]);
 
 	const startReasonLabel = getSessionStartReasonLabel(props.session, services.extensionService.extensions);
-	const hasStartupBehaviorLink = props.session.metadata.startReasonId === SessionStartReason.StartupBehaviorAlways;
+	const hasStartupBehaviorLink = props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlways;
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);

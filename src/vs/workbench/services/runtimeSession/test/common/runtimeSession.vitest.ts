@@ -14,7 +14,7 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionStartReason, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode, SessionStartReason } from '../../common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionStartReason, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode, SessionStartReasonId } from '../../common/runtimeSessionService.js';
 import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
@@ -30,7 +30,7 @@ type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLang
 describe('Positron - RuntimeSessionService', () => {
 	const startReason = 'Test requested to start a runtime session';
 	// Not the test helper's default ID, so a hardcoded ID in the service fails the tests.
-	const startSource: IRuntimeSessionStartReason = { id: SessionStartReason.NewConsoleCommand, detail: startReason };
+	const startSource: IRuntimeSessionStartReason = { id: SessionStartReasonId.NewConsoleCommand, detail: startReason };
 	const notebookUri = URI.file('/path/to/notebook');
 	const notebookParent = '/path/to';
 
@@ -1026,7 +1026,7 @@ describe('Positron - RuntimeSessionService', () => {
 			expect(newSession!.metadata.sessionMode).toBe(session.metadata.sessionMode);
 			expect(newSession!.metadata.notebookUri).toBe(session.metadata.notebookUri);
 			expect(newSession!.runtimeMetadata).toBe(session.runtimeMetadata);
-			expect(newSession!.metadata.startReasonId).toBe(SessionStartReason.RestartUninitializedSession);
+			expect(newSession!.metadata.startReasonId).toBe(SessionStartReasonId.RestartUninitializedSession);
 			expect(newSession!.metadata.startReason).toBe(
 				`A restart was requested for a session that never started (restart source: ${startReason})`);
 

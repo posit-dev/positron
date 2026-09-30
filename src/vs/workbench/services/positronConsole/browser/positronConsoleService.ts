@@ -47,7 +47,7 @@ import { ActivityItemInput, ActivityItemInputState } from './classes/activityIte
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReason } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasons.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
@@ -829,7 +829,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // No notebook URI (console sesion)
-					createSessionStartReason(SessionStartReason.CodeExecutedWithoutSession, { language: languageId, 'code source': attribution.source }),
+					createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: languageId, 'code source': attribution.source }),
 					RuntimeStartMode.Starting,
 					true
 				);

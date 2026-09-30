@@ -9,7 +9,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionMetadata, SessionStartReason } from '../../common/runtimeSessionService.js';
+import { IRuntimeSessionMetadata, SessionStartReasonId } from '../../common/runtimeSessionService.js';
 import { createSessionStartReason, getSessionStartReasonLabel } from '../../common/sessionStartReasons.js';
 
 describe('getSessionStartReasonLabel', () => {
@@ -18,7 +18,7 @@ describe('getSessionStartReasonLabel', () => {
 		displayName: 'Positron R',
 	})];
 
-	function createSession(startReason: string, startReasonId?: SessionStartReason, extensionId = 'positron.positron-r') {
+	function createSession(startReason: string, startReasonId?: SessionStartReasonId, extensionId = 'positron.positron-r') {
 		return {
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({
 				languageName: 'R',
@@ -36,23 +36,23 @@ describe('getSessionStartReasonLabel', () => {
 	// The IDs are persisted with session metadata, so a renamed ID or a
 	// changed label shows up as a diff here.
 	it('labels every start reason', () => {
-		const labels = Object.fromEntries(Object.values(SessionStartReason).map(id =>
+		const labels = Object.fromEntries(Object.values(SessionStartReasonId).map(id =>
 			[id, getSessionStartReasonLabel(createSession('detail', id), extensions)]
 		));
 
 		expect(labels).toMatchInlineSnapshot(`
 			{
 			  "affiliatedRuntime": "This workspace's last used interpreter was started when Positron started",
-			  "affiliatedRuntimeRegistered": "This workspace's last used interpreter was started when found by interpreter discovery",
+			  "affiliatedRuntimeAtRegistration": "This workspace's last used interpreter was started when found by interpreter discovery",
 			  "codeExecutedWithoutSession": "Code was sent to the console with no R session",
 			  "duplicatedConsoleSession": "A console was duplicated",
 			  "duplicatedNotebookSession": "A notebook session was duplicated into a console",
 			  "extensionApi": "An extension asked for this session through the Positron API",
 			  "extensionRecommendedRuntime": "The Positron R extension recommended starting the interpreter for this workspace",
 			  "extensionRequestedImmediateStart": "The Positron R extension recommended R 4.4.1 for this workspace when interpreter discovery finished",
-			  "extensionRequestedStartAfterRegistration": "A new interpreter was found after startup, and the Positron R extension recommended R 4.4.1 for this workspace",
-			  "languageFileOpenAtRegistration": "This interpreter was started after a file written in R was opened",
+			  "extensionRequestedStartAtRegistration": "A new interpreter was found after startup, and the Positron R extension recommended R 4.4.1 for this workspace",
 			  "languageFileOpened": "This interpreter was started after a file written in R was opened",
+			  "languageFileOpenedAtRegistration": "This interpreter was started after a file written in R was opened",
 			  "newConsoleCommand": "A command requested a new console for this interpreter",
 			  "newFolderNotebook": "This notebook was created with a new folder from the Jupyter Notebook template",
 			  "notebookCellsExecuted": "Notebook cells were run with no kernel running",
@@ -71,7 +71,7 @@ describe('getSessionStartReasonLabel', () => {
 	});
 
 	it('uses the extension ID when the extension is not registered', () => {
-		expect(getSessionStartReasonLabel(createSession('detail', SessionStartReason.ExtensionRecommendedRuntime, 'example.missing'), extensions))
+		expect(getSessionStartReasonLabel(createSession('detail', SessionStartReasonId.ExtensionRecommendedRuntime, 'example.missing'), extensions))
 			.toBe('The example.missing extension recommended starting the interpreter for this workspace');
 	});
 
@@ -82,19 +82,19 @@ describe('getSessionStartReasonLabel', () => {
 
 	it('falls back to the description when the start reason ID is unknown', () => {
 		// A session persisted by a newer version can carry an ID this version doesn't know.
-		expect(getSessionStartReasonLabel(createSession('Started by a future feature', 'futureReason' as SessionStartReason), extensions))
+		expect(getSessionStartReasonLabel(createSession('Started by a future feature', 'futureReason' as SessionStartReasonId), extensions))
 			.toBe('Started by a future feature');
 	});
 });
 
 describe('createSessionStartReason', () => {
 	it('uses the English label as the detail', () => {
-		expect(createSessionStartReason(SessionStartReason.UserSelectedRuntime))
-			.toEqual({ id: SessionStartReason.UserSelectedRuntime, detail: 'You selected this interpreter' });
+		expect(createSessionStartReason(SessionStartReasonId.UserSelectedRuntime))
+			.toEqual({ id: SessionStartReasonId.UserSelectedRuntime, detail: 'You selected this interpreter' });
 	});
 
 	it('appends the values that identify the request to the detail', () => {
-		expect(createSessionStartReason(SessionStartReason.CodeExecutedWithoutSession, { language: 'python', 'code source': 'assistant' }).detail)
+		expect(createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: 'python', 'code source': 'assistant' }).detail)
 			.toBe('Code was sent to the console with no python session (language: python, code source: assistant)');
 	});
 });

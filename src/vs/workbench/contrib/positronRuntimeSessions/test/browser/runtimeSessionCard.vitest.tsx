@@ -11,13 +11,13 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, SessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { RuntimeSessionCard } from '../../browser/components/runtimeSessionCard.js';
 
 describe('RuntimeSessionCard', () => {
 	const rtl = setupRTLRenderer();
 
-	function renderCard(detail: string, id?: SessionStartReason) {
+	function renderCard(detail: string, id?: SessionStartReasonId) {
 		const session = stubInterface<ILanguageRuntimeSession>({
 			metadata: {
 				sessionId: 'python-1',
@@ -50,7 +50,7 @@ describe('RuntimeSessionCard', () => {
 	}
 
 	it('shows the start reason detail and ID', () => {
-		renderCard('This workspace\'s last used interpreter was started when Positron started (language: python)', SessionStartReason.AffiliatedRuntime);
+		renderCard('This workspace\'s last used interpreter was started when Positron started (language: python)', SessionStartReasonId.AffiliatedRuntime);
 
 		// The detail already starts with the English label, so the label is
 		// not shown separately.

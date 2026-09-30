@@ -16,7 +16,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { RuntimeExitReason } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { INotebookLanguageRuntimeSession, IRuntimeSessionService, SessionStartReason } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookLanguageRuntimeSession, IRuntimeSessionService, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { IActiveNotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
@@ -186,7 +186,7 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 
 			// If trying to restart with no active session, start a new session
 			const runtimeNotebookKernelService = accessor.get(IRuntimeNotebookKernelService);
-			await runtimeNotebookKernelService.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReason.NotebookKernelRestart, { 'restart source': context.source.debugMessage }));
+			await runtimeNotebookKernelService.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReasonId.NotebookKernelRestart, { 'restart source': context.source.debugMessage }));
 			return;
 		}
 

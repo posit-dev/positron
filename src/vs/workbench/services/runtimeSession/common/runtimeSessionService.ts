@@ -86,18 +86,18 @@ export interface ILanguageRuntimeSessionStateEvent {
  * metadata and map to user-facing labels, so never rename or reuse a value;
  * add a new member instead.
  */
-export enum SessionStartReason {
+export enum SessionStartReasonId {
 	/** At startup, the runtime this workspace used last was started from its saved metadata. */
 	AffiliatedRuntime = 'affiliatedRuntime',
 
 	/** Interpreter discovery found the runtime this workspace used last, and it had not been started yet. */
-	AffiliatedRuntimeRegistered = 'affiliatedRuntimeRegistered',
+	AffiliatedRuntimeAtRegistration = 'affiliatedRuntimeAtRegistration',
 
 	/** When discovery finished with no saved runtime and no console, a runtime marked to start immediately was started. */
 	ExtensionRequestedImmediateStart = 'extensionRequestedImmediateStart',
 
 	/** A runtime marked to start immediately was registered after startup finished, with no console running. */
-	ExtensionRequestedStartAfterRegistration = 'extensionRequestedStartAfterRegistration',
+	ExtensionRequestedStartAtRegistration = 'extensionRequestedStartAtRegistration',
 
 	/** An extension recommended the runtime for this workspace. */
 	ExtensionRecommendedRuntime = 'extensionRecommendedRuntime',
@@ -106,7 +106,7 @@ export enum SessionStartReason {
 	StartupBehaviorAlways = 'startupBehaviorAlways',
 
 	/** A file in the runtime's language was opened before the runtime registered. */
-	LanguageFileOpenAtRegistration = 'languageFileOpenAtRegistration',
+	LanguageFileOpenedAtRegistration = 'languageFileOpenedAtRegistration',
 
 	/** A file in the runtime's language was opened. */
 	LanguageFileOpened = 'languageFileOpened',
@@ -165,7 +165,7 @@ export enum SessionStartReason {
  */
 export interface IRuntimeSessionStartReason {
 	/** Why the session is being started. */
-	readonly id: SessionStartReason;
+	readonly id: SessionStartReasonId;
 
 	/** A description of the request for logs; non-localized. */
 	readonly detail: string;
@@ -209,7 +209,7 @@ export interface IRuntimeSessionMetadata {
 	 * Why the session was started. Absent for sessions persisted before start
 	 * reason IDs existed.
 	 */
-	readonly startReasonId?: SessionStartReason;
+	readonly startReasonId?: SessionStartReasonId;
 
 	/**
 	 * True when the session is being created because the user explicitly

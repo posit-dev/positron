@@ -9,7 +9,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeExitReason } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { INotebookLanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionStartReason, SessionStartReason } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookLanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionStartReason, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
@@ -105,7 +105,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 						this._pendingPositronAutoStarts.set(notebookUri, kernel);
 						continue;
 					}
-					await kernel.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReason.NotebookKernelSelectionDeferred, { kernel: kernel.id }));
+					await kernel.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReasonId.NotebookKernelSelectionDeferred, { kernel: kernel.id }));
 				}
 			}
 		}));
@@ -178,7 +178,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 						this._pendingPositronAutoStarts.set(e.notebook, newKernel);
 						return;
 					}
-					await newKernel.ensureSessionStarted(e.notebook, createSessionStartReason(SessionStartReason.NotebookKernelSelected, { kernel: newKernel.id }));
+					await newKernel.ensureSessionStarted(e.notebook, createSessionStartReason(SessionStartReasonId.NotebookKernelSelected, { kernel: newKernel.id }));
 				} else {
 					// Our kernel but not registered yet - defer processing until runtime registers
 					this._logService.info(
@@ -521,7 +521,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		}
 
 		this._pendingPositronAutoStarts.delete(instance.uri);
-		await kernel.ensureSessionStarted(instance.uri, createSessionStartReason(SessionStartReason.NotebookEditorOpened, { notebook: basename(instance.uri), kernel: kernel.id }));
+		await kernel.ensureSessionStarted(instance.uri, createSessionStartReason(SessionStartReasonId.NotebookEditorOpened, { notebook: basename(instance.uri), kernel: kernel.id }));
 	}
 
 	private _registerGroupListener(group: IEditorGroup): void {
@@ -562,7 +562,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			return;
 		}
 		this._pendingPositronAutoStarts.delete(uri);
-		pending.ensureSessionStarted(uri, createSessionStartReason(SessionStartReason.NotebookEditorActivated, { kernel: pending.id }))
+		pending.ensureSessionStarted(uri, createSessionStartReason(SessionStartReasonId.NotebookEditorActivated, { kernel: pending.id }))
 			.catch(err => this._logService.error(`Error starting deferred notebook session: ${err}`));
 	}
 

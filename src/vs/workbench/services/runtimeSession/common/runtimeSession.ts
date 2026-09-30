@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, RuntimeStartupPhase } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions, IRuntimeSessionStartReason, SessionStartReason } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions, IRuntimeSessionStartReason, SessionStartReasonId } from './runtimeSessionService.js';
 import { createSessionStartReason } from './sessionStartReasons.js';
 import { RuntimeSessionDisplayInfo } from './runtimeSessionDisplayInfo.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
@@ -276,7 +276,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// so they will be in the right order so the first one is the right
 			// one to start.
 			this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(languageRuntimeInfos[0])} automatically starting`);
-			this.autoStartRuntime(languageRuntimeInfos[0], createSessionStartReason(SessionStartReason.LanguageFileOpened, { language: languageId }), true);
+			this.autoStartRuntime(languageRuntimeInfos[0], createSessionStartReason(SessionStartReasonId.LanguageFileOpened, { language: languageId }), true);
 		}));
 
 		// When an extension activates, check to see if we have any disconnected
@@ -1255,7 +1255,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				session.dynState.sessionName,
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
-				createSessionStartReason(SessionStartReason.RestartUninitializedSession, { 'restart source': source }),
+				createSessionStartReason(SessionStartReasonId.RestartUninitializedSession, { 'restart source': source }),
 				RuntimeStartMode.Starting,
 				true
 			);

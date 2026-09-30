@@ -18,7 +18,7 @@ import {
 	ILanguageRuntimeSession,
 	IRuntimeSessionService,
 	RuntimeStartMode,
-	SessionStartReason,
+	SessionStartReasonId,
 } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
@@ -916,7 +916,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				sessionName,
 				LanguageRuntimeSessionMode.Notebook, // Use Notebook mode for Quarto documents
 				documentUri,
-				createSessionStartReason(SessionStartReason.QuartoInlineOutput),
+				createSessionStartReason(SessionStartReasonId.QuartoInlineOutput),
 				RuntimeStartMode.Starting,
 				false // don't activate in console
 			);

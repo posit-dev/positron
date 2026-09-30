@@ -27,7 +27,7 @@ import { IPositronConsoleService } from '../../../positronConsole/browser/interf
 import { TestPositronConsoleService } from '../../../positronConsole/test/browser/testPositronConsoleService.js';
 import { IPositronModalDialogsService } from '../../../positronModalDialogs/common/positronModalDialogs.js';
 import { RuntimeSessionService } from '../../common/runtimeSession.js';
-import { IRuntimeSessionService, RuntimeStartMode, SessionStartReason } from '../../common/runtimeSessionService.js';
+import { IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession.js';
 import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager, TestConfigurationResolverService, TestDirectoryFileService, TestPathService } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestExtensionService, TestLifecycleService, TestStorageService, TestWorkspaceTrustManagementService, TestContextService } from '../../../../test/common/workbenchTestServices.js';
@@ -112,7 +112,7 @@ export interface IStartTestLanguageRuntimeSessionOptions {
 	sessionMode?: LanguageRuntimeSessionMode;
 	notebookUri?: URI;
 	startReason?: string;
-	startReasonId?: SessionStartReason;
+	startReasonId?: SessionStartReasonId;
 }
 
 export async function startTestLanguageRuntimeSession(
@@ -131,7 +131,7 @@ export async function startTestLanguageRuntimeSession(
 		options?.sessionMode ?? LanguageRuntimeSessionMode.Console,
 		options?.notebookUri,
 		{
-			id: options?.startReasonId ?? SessionStartReason.UserSelectedRuntime,
+			id: options?.startReasonId ?? SessionStartReasonId.UserSelectedRuntime,
 			detail: options?.startReason ?? 'Test requested to start a runtime session',
 		},
 		RuntimeStartMode.Starting,

@@ -12,7 +12,7 @@ import { IProgressService } from '../../../../../platform/progress/common/progre
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
-import { IRuntimeSessionService, SessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IActiveNotebookEditor } from '../../../notebook/browser/notebookBrowser.js';
 import { IPositronNotebookService } from '../../../positronNotebook/browser/positronNotebookService.js';
 import { RuntimeNotebookKernelRestartAction } from '../../browser/runtimeNotebookKernelActions.js';
@@ -54,11 +54,11 @@ describe('RuntimeNotebookKernelRestartAction', () => {
 
 		expect(ensureSessionStarted.mock.calls).toEqual([
 			[notebookUri, {
-				id: SessionStartReason.NotebookKernelRestart,
+				id: SessionStartReasonId.NotebookKernelRestart,
 				detail: 'Restart Kernel was used with no kernel running (restart source: User clicked positron.runtimeNotebookKernel.restart button in Positron notebook editor action bar)',
 			}],
 			[notebookUri, {
-				id: SessionStartReason.NotebookKernelRestart,
+				id: SessionStartReasonId.NotebookKernelRestart,
 				detail: 'Restart Kernel was used with no kernel running (restart source: User clicked positron.runtimeNotebookKernel.restart button in VSCode notebook editor toolbar)',
 			}],
 		]);
