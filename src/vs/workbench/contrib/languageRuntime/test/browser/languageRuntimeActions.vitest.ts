@@ -1047,7 +1047,7 @@ describe('StartNewConsoleSessionAction', () => {
 			'Python 3.12 (System)',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			{ id: SessionStartReasonId.NewConsoleCommand, detail: 'A command requested a new console for this interpreter' },
+			{ id: SessionStartReasonId.NewConsoleCommand, detail: 'A command requested a new console for this interpreter (command: workbench.action.language.runtime.startNewConsoleSession)' },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: false }

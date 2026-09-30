@@ -1085,7 +1085,7 @@ export class StartNewConsoleSessionAction extends Action2 {
 			LanguageRuntimeSessionMode.Console,
 			undefined,
 			suppliedRuntimeId ?
-				createSessionStartReason(SessionStartReasonId.NewConsoleCommand) :
+				createSessionStartReason(SessionStartReasonId.NewConsoleCommand, { command: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID }) :
 				createSessionStartReason(SessionStartReasonId.UserSelectedRuntime),
 			RuntimeStartMode.Starting,
 			true,
