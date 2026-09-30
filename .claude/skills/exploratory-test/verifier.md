@@ -27,7 +27,9 @@ For EACH finding, answer these five questions explicitly:
 3. If Cause says whether the blamed code was added by this change or is older
    code the change now reaches, check that sentence against the diff. Flag it
    if the diff does not show it, or if it is written as a label ("New",
-   "Pre-existing") rather than as reasoning.
+   "Pre-existing") rather than as reasoning. An unchanged counterpart counts as
+   evidence in place of a base build: a feature sharing the mechanism that the
+   diff does not touch. Check the diff to confirm it is untouched.
 4. For each test file the report says already covers something (`exists,
    covers ...` under Regression test, or a note under Other tests), open it and
    say whether it does. A wrong claim does not change the verdict; name the
