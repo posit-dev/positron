@@ -47,13 +47,23 @@ const NODE_TYPE_BADGE = '.data-connection-node-type';
  * Redshift database and a table both named `flights`); passing a kind narrows the exact-text match to
  * the row with the matching icon.
  */
-export type DataConnectionNodeKind = 'database' | 'schema' | 'table' | 'view';
+export type DataConnectionNodeKind = 'database' | 'schema' | 'table' | 'view' | 'semantic-view' | 'logical-table' | 'time-dimension' | 'metric';
 const NODE_KIND_ICON: Record<DataConnectionNodeKind, string> = {
 	database: 'codicon-positron-db-database',
 	schema: 'codicon-positron-db-schema',
 	table: 'codicon-positron-db-table',
 	view: 'codicon-positron-db-view',
+	'semantic-view': 'codicon-type-hierarchy',
+	'logical-table': 'codicon-positron-db-table',
+	'time-dimension': 'codicon-calendar',
+	metric: 'codicon-graph',
 };
+
+// The details editor a node with details opens (see `dataConnectionNodeDetailsPage.tsx`).
+const DETAILS_PAGE = '.data-connection-node-details-page';
+const DETAILS_NAME = '.data-connection-node-details-name';
+const DETAILS_DESCRIPTION = '.data-connection-node-details-description';
+const DETAILS_CODE = '.data-connection-node-details-code';
 
 /**
  * Reusable Positron Data Connections panel functionality for tests to leverage.
@@ -337,6 +347,57 @@ export class DataConnections {
 			await expect(row).toBeVisible({ timeout: this.actionTimeout });
 			await row.locator('.data-connection-node-row').dispatchEvent('dblclick');
 		});
+	}
+
+	/**
+	 * Single-clicks a node to open its details editor in preview mode. Dispatched like
+	 * {@link doubleClickNode}, with `detail: 1` because the row only opens details on the first click
+	 * of a sequence, and a dispatched event's detail is otherwise 0.
+	 * @param label The node label, e.g. 'LOG_DT'.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
+	 */
+	async clickNode(label: string, kind?: DataConnectionNodeKind): Promise<void> {
+		await test.step(`Click node: ${label}`, async () => {
+			const row = this.treeRow(label, kind);
+			await this.revealNode(row);
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
+			await row.locator('.data-connection-node-row').dispatchEvent('click', { detail: 1 });
+		});
+	}
+
+	/**
+	 * Asserts that the details editor is showing the given node.
+	 * @param name The node's name, shown as the page heading.
+	 * @param description The description shown under the name, e.g. 'Semantic view'.
+	 */
+	async expectDetailsOpen(name: string, description: string): Promise<void> {
+		const page = this.code.driver.currentPage.locator(DETAILS_PAGE);
+		await expect(page.locator(DETAILS_NAME)).toHaveText(name, { timeout: this.actionTimeout });
+		await expect(page.locator(DETAILS_DESCRIPTION)).toHaveText(description);
+	}
+
+	/**
+	 * Selects a tab in the open details editor, e.g. 'Definition'.
+	 * @param title The tab's title.
+	 */
+	async selectDetailsTab(title: string): Promise<void> {
+		await this.code.driver.currentPage.locator(DETAILS_PAGE).getByRole('tab', { name: title }).click();
+	}
+
+	/**
+	 * Asserts that the open details editor's visible content contains the given text.
+	 * @param text The text, or a pattern for it.
+	 */
+	async expectDetailsToContain(text: string | RegExp): Promise<void> {
+		await expect(this.code.driver.currentPage.locator(DETAILS_PAGE)).toContainText(text, { timeout: this.actionTimeout });
+	}
+
+	/**
+	 * Asserts that a code block in the open details editor contains the given text.
+	 * @param text The text, or a pattern for it.
+	 */
+	async expectDetailsCodeToContain(text: string | RegExp): Promise<void> {
+		await expect(this.code.driver.currentPage.locator(DETAILS_PAGE).locator(DETAILS_CODE)).toContainText(text, { timeout: this.actionTimeout });
 	}
 
 	/**
