@@ -29,7 +29,7 @@ function optionalDetailsText(value: unknown): string | undefined {
  * fields are copied, and every value is coerced to the type the wire promises, so a driver can't put
  * an unexpected shape on the wire for the editor to trip over.
  */
-function detailsSectionToDTO(section: positron.DataConnectionNodeDetailsSection): IDataConnectionNodeDetailsSectionDTO {
+function detailsSectionToDTO(section: positron.DataConnectionNodeDetailsSection): IDataConnectionNodeDetailsSectionDTO | undefined {
 	switch (section.kind) {
 		case 'properties':
 			return {
@@ -53,7 +53,7 @@ function detailsSectionToDTO(section: positron.DataConnectionNodeDetailsSection)
 				count: typeof section.count === 'number' ? section.count : undefined,
 				collapsible: section.collapsible === true,
 				treePath: section.treePath?.map(node => ({ kind: detailsText(node.kind), name: detailsText(node.name) })),
-				sections: section.sections.map(detailsSectionToDTO),
+				sections: detailsSectionsToDTO(section.sections),
 			};
 		case 'items':
 			return {
@@ -68,7 +68,21 @@ function detailsSectionToDTO(section: positron.DataConnectionNodeDetailsSection)
 					code: optionalDetailsText(item.code),
 				})),
 			};
+		default:
+			// A kind this version of Positron doesn't know; see detailsSectionsToDTO.
+			return undefined;
 	}
+}
+
+/**
+ * Converts a driver's list of sections into DTOs, dropping any section of a kind this version of
+ * Positron doesn't know -- a JavaScript driver, a newer API, or a cast -- rather than putting an
+ * unknown shape on the wire for the editor to trip over.
+ */
+function detailsSectionsToDTO(sections: positron.DataConnectionNodeDetailsSection[]): IDataConnectionNodeDetailsSectionDTO[] {
+	return sections
+		.map(detailsSectionToDTO)
+		.filter((section): section is IDataConnectionNodeDetailsSectionDTO => section !== undefined);
 }
 
 /**
@@ -77,8 +91,8 @@ function detailsSectionToDTO(section: positron.DataConnectionNodeDetailsSection)
 function detailsToDTO(details: positron.DataConnectionNodeDetails): IDataConnectionNodeDetailsDTO {
 	return {
 		description: optionalDetailsText(details.description),
-		sections: details.sections.map(detailsSectionToDTO),
-		tabs: details.tabs?.map(tab => ({ title: detailsText(tab.title), sections: tab.sections.map(detailsSectionToDTO) })),
+		sections: detailsSectionsToDTO(details.sections),
+		tabs: details.tabs?.map(tab => ({ title: detailsText(tab.title), sections: detailsSectionsToDTO(tab.sections) })),
 	};
 }
 

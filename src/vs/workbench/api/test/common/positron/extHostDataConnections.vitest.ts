@@ -55,7 +55,8 @@ describe('ExtHostDataConnections node details', () => {
 		// can easily hand back numbers and nulls where strings belong, and extra fields besides.
 		const details: unknown = {
 			description: null,
-			sections: [{ kind: 'code', languageId: 'sql', code: 123, extra: 'dropped' }],
+			// A kind this version doesn't know (a newer driver, say) is dropped, not sent as undefined.
+			sections: [{ kind: 'code', languageId: 'sql', code: 123, extra: 'dropped' }, { kind: 'chart', data: [1, 2, 3] }],
 			tabs: [{
 				title: 'Overview',
 				sections: [

@@ -67,6 +67,7 @@ describe('DataConnectionNodeRow', () => {
 				stale={stale}
 				onMenuOpening={onMenuOpening}
 				onOpenDetails={vi.fn(async () => { })}
+				onPinDetails={vi.fn(async () => { })}
 				onRefresh={onRefresh}
 			/>
 		);
@@ -201,7 +202,7 @@ describe('DataConnectionNodeRow', () => {
 		expect(call.anchorPoint).toEqual({ clientX: expect.any(Number), clientY: expect.any(Number) });
 	});
 	describe('details', () => {
-		function renderRow(dto: IDataConnectionNodeDTO, onOpenDetails: (pinned: boolean) => Promise<void>) {
+		function renderRow(dto: IDataConnectionNodeDTO, onOpenDetails: (pinned: boolean) => Promise<void>, onPinDetails: () => Promise<void> = vi.fn(async () => { })) {
 			rtl.render(
 				<DataConnectionNodeRow
 					dto={dto}
@@ -209,6 +210,7 @@ describe('DataConnectionNodeRow', () => {
 					stale={false}
 					onMenuOpening={() => ({ dispose: () => { } })}
 					onOpenDetails={onOpenDetails}
+					onPinDetails={onPinDetails}
 					onRefresh={vi.fn()}
 				/>
 			);
@@ -221,14 +223,17 @@ describe('DataConnectionNodeRow', () => {
 			const onOpenDetails = vi.fn((pinned: boolean) => pinned
 				? Promise.resolve()
 				: new Promise<void>(resolve => { releaseFirstOpen = resolve; }));
-			const { rowText, user } = renderRow(createDto({ kind: 'metric', name: 'NET_REVENUE', hasPreview: false, hasDetails: true }), onOpenDetails);
+			const onPinDetails = vi.fn(async () => { });
+			const { rowText, user } = renderRow(createDto({ kind: 'metric', name: 'NET_REVENUE', hasPreview: false, hasDetails: true }), onOpenDetails, onPinDetails);
 
 			await user.dblClick(rowText);
 			expect(onOpenDetails.mock.calls).toEqual([[false]]);
 
 			await act(async () => releaseFirstOpen());
 
-			expect(onOpenDetails.mock.calls).toEqual([[false], [true]]);
+			// The tab the first open landed in is pinned as it is, not fetched a second time.
+			expect(onOpenDetails.mock.calls).toEqual([[false]]);
+			expect(onPinDetails).toHaveBeenCalledTimes(1);
 		});
 
 		it('opens a previewable node\'s details, not the Data Explorer, on double-click', async () => {

@@ -23,7 +23,7 @@ import { PositronTreeInstance } from '../../../../browser/positronTree/classes/p
 import { findParentIndex } from '../../../../browser/positronTree/classes/treeProjection.js';
 import { nodeReloadKey } from './dataConnectionNodeKey.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
-import { openDataConnectionNodeDetails } from '../editor/dataConnectionNodeDetailsEditor.js';
+import { openDataConnectionNodeDetails, pinDataConnectionNodeDetails } from '../editor/dataConnectionNodeDetailsEditor.js';
 import { IDataConnectionNodeDetailsTarget } from '../editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
@@ -185,6 +185,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// the group's node id, which carries the node handle the fetch minted, so an entry can only ever
 	// be read by the row it was fetched for. See _breadcrumbNamespaceGroups and _takeLookAhead.
 	private readonly _lookAheadChildren = new Map<string, readonly IDataConnectionNodeDTO[]>();
+
+	// Counts details requests, so a preview-mode open whose fetch was overtaken by a later request
+	// can tell and drop its result. See openNodeDetails.
+	private _detailsRequestCount = 0;
 
 	// A scroll waiting for the grid to be laid out, held so a second reveal replaces the first
 	// rather than leaving two listeners racing to scroll to different rows. See
@@ -818,13 +822,14 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 
 		// Bound to the row's index at render time, like the callbacks above.
 		const onOpenDetails = (pinned: boolean) => this.openNodeDetails(context.index, pinned);
+		const onPinDetails = () => this.pinNodeDetails(context.index);
 
 		switch (data.kind) {
 			case 'entry':
 				// Entries are roots, so no ancestor can be refreshing them out from under the row.
 				return <DataConnectionEntryRow entry={data.entry} hoverManager={this._hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 			case 'dto':
-				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onOpenDetails={onOpenDetails} onRefresh={onRefresh} />;
+				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onOpenDetails={onOpenDetails} onPinDetails={onPinDetails} onRefresh={onRefresh} />;
 		}
 	}
 
@@ -852,9 +857,20 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		}
 
 		const { dto, handle } = visible.node.data;
+		// Built before the fetch: rows above can come and go while it's in flight (a group expanded,
+		// a refresh landing), and rowIndex would then name some other row.
+		const target = this._detailsTarget(rowIndex, dto);
+		const request = ++this._detailsRequestCount;
 		try {
 			const details = await handle.nodeGetDetails(dto.nodeHandle);
-			await openDataConnectionNodeDetails(this._editorService, this._detailsTarget(rowIndex, dto), details, pinned);
+			// A slow fetch (a semantic view's GET_DDL resuming a warehouse) can be overtaken by a
+			// click on another node whose details arrive first. A preview-mode result that has been
+			// overtaken is dropped, or it would replace the newer preview with a node the tree no
+			// longer has selected. A pinned open was asked for outright, so it always lands.
+			if (!pinned && request !== this._detailsRequestCount) {
+				return;
+			}
+			await openDataConnectionNodeDetails(this._editorService, target, details, pinned);
 		} catch (error) {
 			this._notificationService.error(localize(
 				'positron.dataConnections.showDetailsFailed',
@@ -866,10 +882,27 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	}
 
 	/**
+	 * Keeps the node at a row's details tab open, taking it out of preview mode. When the tab is
+	 * already open its details are current, so it is pinned as it is; otherwise the details are
+	 * fetched and opened pinned.
+	 * @param rowIndex The index of the row.
+	 */
+	async pinNodeDetails(rowIndex: number): Promise<void> {
+		const visible = this.visibleNodes[rowIndex];
+		if (visible === undefined || visible.node.data.kind !== 'dto') {
+			return;
+		}
+		const target = this._detailsTarget(rowIndex, visible.node.data.dto);
+		if (!await pinDataConnectionNodeDetails(this._editorService, target.key)) {
+			await this.openNodeDetails(rowIndex, true);
+		}
+	}
+
+	/**
 	 * Builds the details target for the DTO node at a row by walking up to its connection entry.
-	 * Group rows ("Tables", "Metrics") are left out of both the key and the path: they only label
-	 * the rows under them, and the kind in each node's reload key already tells same-named
-	 * siblings of different kinds apart.
+	 * Group rows ("Tables", "Metrics") are left out of the key and the breadcrumb names -- they only
+	 * label the rows under them, and the kind in each node's reload key already tells same-named
+	 * siblings of different kinds apart -- but kept in the node path, so a reveal can walk it.
 	 * @param rowIndex The index of the row.
 	 * @param dto The DTO node at the row.
 	 */

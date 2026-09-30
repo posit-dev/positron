@@ -15,7 +15,8 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
-import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionRevealOptions, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
@@ -252,7 +253,12 @@ describe('DataConnectionsTreeInstance', () => {
 		profiles: IDataConnectionProfile[] = [profile],
 		// Defaulted to the setting's own default, so a test that says nothing gets what a user gets:
 		// a lone schema dropped from the tree. The breadcrumb tests below opt in explicitly.
-		showSingleSchema = false
+		showSingleSchema = false,
+		// For the details tests: how the connection answers for a node's details, and where they open.
+		{ nodeGetDetails, editorService = stubInterface<IEditorService>() }: {
+			nodeGetDetails?: IDataConnectionHandle['nodeGetDetails'];
+			editorService?: IEditorService;
+		} = {}
 	) {
 		const nodeGetChildren = vi.fn(async (nodeHandle: number) => childrenOf(nodeHandle));
 		const notificationError = vi.fn<INotificationService['error']>();
@@ -269,6 +275,7 @@ describe('DataConnectionsTreeInstance', () => {
 					handle: index + 1,
 					getChildren: async () => rootDtos,
 					nodeGetChildren,
+					...(nodeGetDetails ? { nodeGetDetails } : {}),
 				}),
 			}),
 		]));
@@ -290,7 +297,7 @@ describe('DataConnectionsTreeInstance', () => {
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
 			'dataConnections.tree.showSingleSchema': showSingleSchema,
-		}), notificationService, hoverService, stubInterface<IEditorService>());
+		}), notificationService, hoverService, editorService);
 		ctx.disposables.add(tree);
 		return { tree, nodeGetChildren, notificationError };
 	}
@@ -308,6 +315,47 @@ describe('DataConnectionsTreeInstance', () => {
 			expanded: tree.isExpanded(visible.node.id),
 		}));
 	}
+
+	it('drops a preview-mode details result that a later click has overtaken', async () => {
+		// The first node's details are slow (a semantic view resuming a warehouse for GET_DDL); the
+		// second's are instant, so the second click's tab opens first.
+		let releaseSlow!: () => void;
+		const nodeGetDetails = vi.fn((nodeHandle: number) => nodeHandle === 1
+			? new Promise<IDataConnectionNodeDetailsDTO>(resolve => { releaseSlow = () => resolve({ description: 'slow', sections: [] }); })
+			: Promise.resolve({ description: 'fast', sections: [] }));
+		const opened: string[] = [];
+		const openEditor = vi.fn(async (input: DataConnectionNodeDetailsEditorInput) => {
+			ctx.disposables.add(input);
+			opened.push(input.target.name);
+			return undefined;
+		});
+		const { tree } = createTreeOverNodes(
+			[
+				nodeDto({ nodeHandle: 1, name: 'CHAOS_MODEL', kind: 'semantic-view', hasGetChildren: false, hasDetails: true }),
+				nodeDto({ nodeHandle: 2, name: 'NET_REVENUE', kind: 'metric', hasGetChildren: false, hasDetails: true }),
+			],
+			() => [],
+			[profile],
+			false,
+			{
+				nodeGetDetails,
+				// openEditor is overloaded for every kind of input; the tree only passes this one.
+				editorService: stubInterface<IEditorService>({ editors: [], openEditor: openEditor as unknown as IEditorService['openEditor'] }),
+			}
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		const rowOf = (name: string) => tree.visibleNodes.findIndex(visible => visible.node.data.kind === 'dto' && visible.node.data.dto.name === name);
+
+		const slow = tree.openNodeDetails(rowOf('CHAOS_MODEL'), false);
+		await tree.openNodeDetails(rowOf('NET_REVENUE'), false);
+		releaseSlow();
+		await slow;
+
+		// Only the click the tree still has in hand opens; the overtaken one is dropped rather than
+		// replacing it.
+		expect(opened).toEqual(['NET_REVENUE']);
+	});
 
 	it('breadcrumbs a namespace group holding one child into that child, and opens it', async () => {
 		// connection > Schemas > public > Tables. Only one schema, so "Schemas" is ceremony. Opted

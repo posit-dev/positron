@@ -162,6 +162,10 @@ interface DataConnectionNodeRowProps {
 	// binds it to this row and reports any failure itself.
 	onOpenDetails: (pinned: boolean) => Promise<void>;
 
+	// Keeps this node's details tab open, taking it out of preview mode, without fetching its details
+	// again when the tab is already open. Supplied by the tree.
+	onPinDetails: () => Promise<void>;
+
 	// Tells the tree this row is opening a context menu, so it can select the row and hold its
 	// focused appearance. Dispose the returned handle when the menu closes.
 	onMenuOpening: () => IDisposable;
@@ -181,7 +185,7 @@ interface DataConnectionNodeRowProps {
  * keep it open on double-click, the way the Explorer treats a file. For a node with details,
  * double-click opens the details rather than the Data Explorer.
  */
-export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onOpenDetails, onRefresh, stale }: DataConnectionNodeRowProps) => {
+export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onOpenDetails, onPinDetails, onRefresh, stale }: DataConnectionNodeRowProps) => {
 	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
 	// A group row labels the rows beneath it rather than naming a thing of its own, and it holds them
@@ -240,8 +244,10 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 		setOpeningDetails(true);
 		try {
 			await onOpenDetails(pinned);
+			// The tab the first open just landed in holds the freshest details there are, so it is
+			// pinned as it is rather than fetched again.
 			if (pinWhenOpenedRef.current && !pinned) {
-				await onOpenDetails(true);
+				await onPinDetails();
 			}
 		} finally {
 			detailsOpeningRef.current = false;

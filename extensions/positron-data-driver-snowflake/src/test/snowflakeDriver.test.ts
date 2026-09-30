@@ -744,7 +744,7 @@ function memberNames(members: ReturnType<typeof parseSemanticViewDescription>) {
 // A mock client answering the queries a semantic view's nodes make: SHOW SEMANTIC VIEWS, DESCRIBE
 // SEMANTIC VIEW, and GET_DDL (which fails, as it would without a warehouse, when ddlError is set).
 // Any other query fails loudly, so a renamed query shows up as an error rather than as empty groups.
-function createSemanticViewClient(ddlError?: string, queries: { sql: string; binds?: any[] }[] = []): any {
+function createSemanticViewClient(ddlError?: string, queries: { sql: string; binds?: any[] }[] = [], ddl = 'create or replace semantic view CHAOS_MODEL'): any {
 	return createMockClient((sql, binds) => {
 		queries.push({ sql, binds });
 		if (sql.startsWith('SHOW SEMANTIC VIEWS')) {
@@ -757,7 +757,7 @@ function createSemanticViewClient(ddlError?: string, queries: { sql: string; bin
 			if (ddlError) {
 				throw new Error(ddlError);
 			}
-			return { rows: [{ DDL: 'create or replace semantic view CHAOS_MODEL' }] };
+			return { rows: [{ DDL: ddl }] };
 		}
 		throw new Error(`Unexpected query: ${sql}`);
 	});
@@ -915,6 +915,16 @@ suite('Snowflake Semantic Views', () => {
 				'group-logical-tables:Logical Tables > logical-table:REF_ENTITIES',
 				'group-logical-tables:Logical Tables > logical-table:REF_ENTITIES > group-dimensions:Dimensions',
 			]);
+	});
+
+	test('a semantic view\'s Definition is unavailable, not blank, when GET_DDL returns nothing', async () => {
+		// What a role that can see the semantic view but not read its definition gets back.
+		const semanticView = await semanticViewOf(createSemanticViewClient(undefined, [], ''));
+		const details = await semanticView.getDetails!();
+
+		assert.deepStrictEqual(
+			details.tabs!.find(tab => tab.title === 'Definition')!.sections,
+			[{ kind: 'properties', properties: [{ name: 'Unavailable', value: 'The definition is not available to the current role.' }] }]);
 	});
 
 	test('a semantic view\'s details still show the Overview when its DDL cannot be fetched', async () => {

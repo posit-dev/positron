@@ -340,7 +340,7 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 	// can't use it here.) Measured once the page is attached, in a layout effect, so it's measured in
 	// the page's own window -- which may be an auxiliary one -- and before the first paint.
 	const pageRef = useRef<HTMLDivElement>(null);
-	const [codeFont, setCodeFont] = useState<CodeFontCSSProperties>({});
+	const [codeFont, setCodeFont] = useState<CodeFontCSSProperties>(() => ({}));
 	useLayoutEffect(() => {
 		const measure = () =>
 			setCodeFont(codeFontStyle(FontConfigurationManager.getFontInfo(configurationService, 'editor', pageRef.current ?? undefined)));

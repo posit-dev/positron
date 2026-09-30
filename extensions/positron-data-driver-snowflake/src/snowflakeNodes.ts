@@ -595,11 +595,8 @@ async function semanticViewDetails(
 				treePath: tablePath,
 				sections: [
 					...(tableProperties.length > 0 ? [{ kind: 'properties' as const, properties: tableProperties }] : []),
-					semanticViewMemberGroup(vscode.l10n.t('Dimensions'), K.GroupDimensions, K.Dimension, own(members.dimensions), vscode.l10n.t('No dimensions'), tablePath),
-					semanticViewMemberGroup(vscode.l10n.t('Time Dimensions'), K.GroupTimeDimensions, K.TimeDimension, own(members.timeDimensions), vscode.l10n.t('No time dimensions'), tablePath),
-					semanticViewMemberGroup(vscode.l10n.t('Facts'), K.GroupFacts, K.Fact, own(members.facts), vscode.l10n.t('No facts'), tablePath),
-					semanticViewMemberGroup(vscode.l10n.t('Named Filters'), K.GroupNamedFilters, K.NamedFilter, own(members.namedFilters), vscode.l10n.t('No named filters'), tablePath),
-					semanticViewMemberGroup(vscode.l10n.t('Metrics'), K.GroupMetrics, K.Metric, own(members.metrics), vscode.l10n.t('No metrics'), tablePath),
+					...logicalTableMemberGroups().map(group =>
+						semanticViewMemberGroup(group.title, group.groupKind, group.kind, own(group.members(members)), group.emptyText, tablePath)),
 				],
 			};
 		}),
@@ -609,9 +606,16 @@ async function semanticViewDetails(
 	overview.push({ ...semanticViewMemberGroup(vscode.l10n.t('Derived Metrics'), K.GroupDerivedMetrics, K.Metric, members.derivedMetrics, vscode.l10n.t('No derived metrics'), []), collapsible: false });
 	overview.push({ ...semanticViewMemberGroup(vscode.l10n.t('Relationships'), K.GroupRelationships, K.Relationship, members.relationships, vscode.l10n.t('No relationships'), [], relationshipItem), collapsible: false });
 
-	const definition: positron.DataConnectionNodeDetailsSection = ddl.ok
+	// GET_DDL answers with nothing, rather than failing, for a role that can see the semantic view
+	// but not read its definition; that reads as unavailable too, not as a blank definition.
+	const unavailable = !ddl.ok
+		? ddl.text
+		: ddl.text.trim().length === 0
+			? vscode.l10n.t('The definition is not available to the current role.')
+			: undefined;
+	const definition: positron.DataConnectionNodeDetailsSection = unavailable === undefined
 		? { kind: 'code', languageId: 'sql', code: ddl.text }
-		: { kind: 'properties', properties: [{ name: vscode.l10n.t('Unavailable'), value: ddl.text }] };
+		: { kind: 'properties', properties: [{ name: vscode.l10n.t('Unavailable'), value: unavailable }] };
 
 	return {
 		// Just what the node is: where it lives is the details editor's breadcrumbs.
@@ -622,6 +626,41 @@ async function semanticViewDetails(
 			{ title: vscode.l10n.t('Definition'), sections: [definition] },
 		],
 	};
+}
+
+/**
+ * One of the groups a logical table holds its members in. Both the tree (createLogicalTableNode)
+ * and the semantic view's Overview (semanticViewDetails) are built from this one list, so their
+ * groups can't drift apart -- the Overview's "show in the tree" buttons find their groups by name.
+ */
+interface ILogicalTableMemberGroup {
+	/** The group's name, in the tree and as the Overview's heading. */
+	readonly title: string;
+	/** The group node's kind. */
+	readonly groupKind: positron.DataConnectionNodeKind;
+	/** The members' node kind. */
+	readonly kind: positron.DataConnectionNodeKind;
+	/** What each member is, for its details, e.g. "Metric". */
+	readonly description: string;
+	/** What the Overview shows when the group is empty. */
+	readonly emptyText: string;
+	/** Picks the group's members, of every table, out of the semantic view's. */
+	readonly members: (members: ISemanticViewMembers) => ISemanticViewMember[];
+}
+
+/**
+ * The groups a logical table holds its members in, in Snowsight's order. A function rather than a
+ * constant so the strings are localized when used, not when the module loads.
+ */
+function logicalTableMemberGroups(): readonly ILogicalTableMemberGroup[] {
+	const K = positron.DataConnectionNodeKind;
+	return [
+		{ title: vscode.l10n.t('Dimensions'), groupKind: K.GroupDimensions, kind: K.Dimension, description: vscode.l10n.t('Dimension'), emptyText: vscode.l10n.t('No dimensions'), members: members => members.dimensions },
+		{ title: vscode.l10n.t('Time Dimensions'), groupKind: K.GroupTimeDimensions, kind: K.TimeDimension, description: vscode.l10n.t('Time dimension'), emptyText: vscode.l10n.t('No time dimensions'), members: members => members.timeDimensions },
+		{ title: vscode.l10n.t('Facts'), groupKind: K.GroupFacts, kind: K.Fact, description: vscode.l10n.t('Fact'), emptyText: vscode.l10n.t('No facts'), members: members => members.facts },
+		{ title: vscode.l10n.t('Named Filters'), groupKind: K.GroupNamedFilters, kind: K.NamedFilter, description: vscode.l10n.t('Named filter'), emptyText: vscode.l10n.t('No named filters'), members: members => members.namedFilters },
+		{ title: vscode.l10n.t('Metrics'), groupKind: K.GroupMetrics, kind: K.Metric, description: vscode.l10n.t('Metric'), emptyText: vscode.l10n.t('No metrics'), members: members => members.metrics },
+	];
 }
 
 /** Creates a group of semantic view members. */
@@ -752,18 +791,9 @@ function createLogicalTableNode(
 		name: table.name,
 		kind: K.LogicalTable,
 		async getChildren() {
-			return [
-				createSemanticViewMemberGroupNode(vscode.l10n.t('Dimensions'), K.GroupDimensions, own(members.dimensions), member =>
-					createSemanticViewMemberNode(member, K.Dimension, vscode.l10n.t('Dimension'))),
-				createSemanticViewMemberGroupNode(vscode.l10n.t('Time Dimensions'), K.GroupTimeDimensions, own(members.timeDimensions), member =>
-					createSemanticViewMemberNode(member, K.TimeDimension, vscode.l10n.t('Time dimension'))),
-				createSemanticViewMemberGroupNode(vscode.l10n.t('Facts'), K.GroupFacts, own(members.facts), member =>
-					createSemanticViewMemberNode(member, K.Fact, vscode.l10n.t('Fact'))),
-				createSemanticViewMemberGroupNode(vscode.l10n.t('Named Filters'), K.GroupNamedFilters, own(members.namedFilters), member =>
-					createSemanticViewMemberNode(member, K.NamedFilter, vscode.l10n.t('Named filter'))),
-				createSemanticViewMemberGroupNode(vscode.l10n.t('Metrics'), K.GroupMetrics, own(members.metrics), member =>
-					createSemanticViewMemberNode(member, K.Metric, vscode.l10n.t('Metric'))),
-			];
+			return logicalTableMemberGroups().map(group =>
+				createSemanticViewMemberGroupNode(group.title, group.groupKind, own(group.members(members)), member =>
+					createSemanticViewMemberNode(member, group.kind, group.description)));
 		},
 		async getDetails() {
 			return semanticViewMemberDetails(table, vscode.l10n.t('Logical table'), false);

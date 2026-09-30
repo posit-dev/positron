@@ -166,9 +166,7 @@ export async function openDataConnectionNodeDetails(
 	details: IDataConnectionNodeDetailsDTO,
 	pinned: boolean,
 ): Promise<void> {
-	const existing = editorService.editors.find((editor): editor is DataConnectionNodeDetailsEditorInput =>
-		editor instanceof DataConnectionNodeDetailsEditorInput && editor.target.key === target.key
-	);
+	const existing = findDataConnectionNodeDetails(editorService, target.key);
 	let input: DataConnectionNodeDetailsEditorInput;
 	if (existing) {
 		existing.setDetails(details);
@@ -176,7 +174,37 @@ export async function openDataConnectionNodeDetails(
 	} else {
 		input = new DataConnectionNodeDetailsEditorInput(target, details);
 	}
-	await editorService.openEditor(input, { pinned, preserveFocus: true });
+	// revealIfOpened: an existing tab may be in another editor group; show it there rather than
+	// open the same input a second time in the active group.
+	await editorService.openEditor(input, { pinned, preserveFocus: true, revealIfOpened: true });
+}
+
+/**
+ * Keeps an open details tab for a node open, taking it out of preview mode, without fetching its
+ * details again -- for a double-click that lands while its first click's preview-mode open is still
+ * settling, when the tab's details are already the freshest there are.
+ * @param editorService The editor service.
+ * @param key The node's key (see IDataConnectionNodeDetailsTarget.key).
+ * @returns Whether there was such a tab to pin.
+ */
+export async function pinDataConnectionNodeDetails(editorService: IEditorService, key: string): Promise<boolean> {
+	const existing = findDataConnectionNodeDetails(editorService, key);
+	if (!existing) {
+		return false;
+	}
+	await editorService.openEditor(existing, { pinned: true, preserveFocus: true, revealIfOpened: true });
+	return true;
+}
+
+/**
+ * Finds the open details tab for a node, in any editor group.
+ * @param editorService The editor service.
+ * @param key The node's key (see IDataConnectionNodeDetailsTarget.key).
+ */
+function findDataConnectionNodeDetails(editorService: IEditorService, key: string): DataConnectionNodeDetailsEditorInput | undefined {
+	return editorService.editors.find((editor): editor is DataConnectionNodeDetailsEditorInput =>
+		editor instanceof DataConnectionNodeDetailsEditorInput && editor.target.key === key
+	);
 }
 
 /**
