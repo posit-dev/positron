@@ -801,6 +801,14 @@ declare module 'positron' {
 		/** The URI of the notebook document associated with the session, if any */
 		readonly notebookUri?: vscode.Uri;
 
+		/**
+		 * The URI of the hidden notebook that holds the cells of this session's
+		 * Quarto document, if the session is for a Quarto document. Its cells are
+		 * the ones this session's language client should select and serve.
+		 * Undefined for console sessions and for real notebook sessions.
+		 */
+		readonly quartoNotebookUri?: vscode.Uri;
+
 		/** The starting working directory of the session, if any */
 		readonly workingDirectory?: string;
 

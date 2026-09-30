@@ -429,6 +429,35 @@ describe('ExtHostLanguageRuntime', () => {
 			await runtime.$disposeLanguageRuntime(init.handle);
 		});
 	});
+
+	describe('session metadata URIs', () => {
+		class RecordingManager extends mock<positron.LanguageRuntimeManager>() {
+			received: positron.RuntimeSessionMetadata[] = [];
+			override async createSession(_runtime: positron.LanguageRuntimeMetadata, metadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
+				this.received.push(metadata);
+				return new TestSession();
+			}
+			override async restoreSession(_runtime: positron.LanguageRuntimeMetadata, metadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
+				this.received.push(metadata);
+				return new TestSession();
+			}
+		}
+
+		it('revives the Quarto notebook URI on create and restore', async () => {
+			const manager = new RecordingManager();
+			runtime.registerLanguageRuntimeManager(extension, 'r', manager);
+			const quartoNotebookUri = URI.from({ scheme: 'quarto-cells', path: '/home/u/a.qmd.ipynb' });
+			const wire = JSON.parse(JSON.stringify({ ...sessionMetadata, quartoNotebookUri })) as IRuntimeSessionMetadata;
+
+			const created = await runtime.$createLanguageRuntimeSession(runtimeMetadata, wire, 'test');
+			const restored = await runtime.$restoreLanguageRuntimeSession(runtimeMetadata, wire, 'test');
+
+			expect(manager.received.map(metadata => metadata.quartoNotebookUri instanceof URI && metadata.quartoNotebookUri.toString()))
+				.toEqual(['quarto-cells:/home/u/a.qmd.ipynb', 'quarto-cells:/home/u/a.qmd.ipynb']);
+			await runtime.$disposeLanguageRuntime(created.handle);
+			await runtime.$disposeLanguageRuntime(restored.handle);
+		});
+	});
 });
 
 /**

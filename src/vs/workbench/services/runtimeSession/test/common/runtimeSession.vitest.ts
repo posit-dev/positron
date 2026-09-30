@@ -14,7 +14,7 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
@@ -1961,5 +1961,32 @@ describe('Positron - RuntimeSessionService', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+});
+
+describe('reviveRuntimeSessionMetadata', () => {
+	it('turns serialized notebook URIs back into URIs and leaves missing ones missing', () => {
+		const serialized = JSON.parse(JSON.stringify({
+			sessionId: 's1',
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			notebookUri: URI.file('/home/u/a.qmd'),
+			quartoNotebookUri: URI.file('/home/u/a.qmd').with({ scheme: 'quarto-cells', path: '/home/u/a.qmd.ipynb' }),
+			createdTimestamp: 0,
+			startReason: 'test',
+		})) as IRuntimeSessionMetadata;
+		const legacy = JSON.parse(JSON.stringify({ ...serialized, quartoNotebookUri: undefined })) as IRuntimeSessionMetadata;
+
+		const revived = reviveRuntimeSessionMetadata(serialized);
+		const revivedLegacy = reviveRuntimeSessionMetadata(legacy);
+
+		expect({
+			notebookUri: revived.notebookUri instanceof URI && revived.notebookUri.toString(),
+			quartoNotebookUri: revived.quartoNotebookUri instanceof URI && revived.quartoNotebookUri.toString(),
+			legacyQuartoNotebookUri: revivedLegacy.quartoNotebookUri,
+		}).toEqual({
+			notebookUri: 'file:///home/u/a.qmd',
+			quartoNotebookUri: 'quarto-cells:/home/u/a.qmd.ipynb',
+			legacyQuartoNotebookUri: undefined,
+		});
 	});
 });
