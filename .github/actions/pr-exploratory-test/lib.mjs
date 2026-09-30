@@ -195,7 +195,7 @@ export const ENVIRONMENT = [
 	'Available in this run:',
 	'- Positron desktop (Electron) on Linux, compiled from the branch, in a disposable container you run as root.',
 	'- Python and R, several versions of each, including a conda Python and a venv at `/root/.venv`.',
-	'- Positron Assistant signed in with Anthropic.',
+	'- Posit Assistant signed in with Anthropic, with its preview features available to turn on.',
 	'- Open internet: extensions, PyPI and CRAN install normally.',
 	'- A Postgres server at host `postgres`, port 5432, database `periodic`, as `$E2E_POSTGRES_USER` / `$E2E_POSTGRES_PASSWORD`. That login is a fixed test value, not a secret, so connection code and forms that show it need no hiding.',
 	'- Snowflake as `$SNOWFLAKE_ACCOUNT` / `$SNOWFLAKE_USER` / `$SNOWFLAKE_PASSWORD`, and Databricks as `$DATABRICKS_WORKSPACE` / `$DATABRICKS_PAT`.',
@@ -205,7 +205,7 @@ export const ENVIRONMENT = [
 	'- Positron Web or server mode (no license), and any browser other than the Electron app.',
 	'- Remote SSH, WSL, a Jupyter server, Posit Workbench and Posit Connect: they need a Docker host or a license this container has not got.',
 	'- Redshift (private network) and any database not listed above.',
-	'- Bedrock and Posit AI sign-in.',
+	'- Posit AI and Bedrock as Assistant model providers (no sign-in for either). Posit Assistant itself is available, as above.',
 	'- GitHub sign-in, and so GitHub Copilot: the run has no GitHub account to sign in with.',
 	'- Windows and macOS.',
 ].join('\n');
