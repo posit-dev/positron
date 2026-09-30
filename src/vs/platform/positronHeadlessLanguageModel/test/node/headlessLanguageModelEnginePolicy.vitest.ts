@@ -5,20 +5,18 @@
 
 /// <reference types="vitest/globals" />
 
-import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { NullLogService } from '../../../log/common/log.js';
 import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedModelsData, IResolvedProviderData } from '../../../positronAiProvider/common/aiProviderCatalog.js';
 import { applyModelPolicy, HeadlessLanguageModelEngine } from '../../node/headlessLanguageModelEngine.js';
 
-async function collect(stream: AsyncIterable<string>): Promise<string> {
-	let text = '';
-	for await (const chunk of stream) {
-		text += chunk;
-	}
-	return text;
-}
+const { registerAllProviders } = vi.hoisted(() => ({ registerAllProviders: vi.fn() }));
+vi.mock('ai-provider-bridge/providers', async importOriginal => {
+	const original = await importOriginal<typeof import('ai-provider-bridge/providers')>();
+	registerAllProviders.mockImplementation(original.registerAllProviders);
+	return { ...original, registerAllProviders };
+});
 
 /** A discovered model as the bridge reports it: identity plus the capabilities ai-config resolves against. */
 function model(id: string, name: string, vendor = 'Anthropic') {
@@ -154,7 +152,7 @@ describe('getProviderMappings', () => {
 });
 
 describe('registry follows the catalog', () => {
-	it('lists a custom entry added after first use', async () => {
+	it('rebuilds the registry with a custom entry added after first use', async () => {
 		const changed = new Emitter<IProviderCatalogChangeData>();
 		let entries: IResolvedProviderData[] = [{ id: 'anthropic', enabled: true, connection: {} }];
 		const engine = new HeadlessLanguageModelEngine(new NullLogService(), {
@@ -162,13 +160,13 @@ describe('registry follows the catalog', () => {
 			getCatalog: () => Promise.resolve(entries),
 			getConfigFileUri: () => Promise.resolve(URI.file('/providers.json')),
 		});
-		await engine.listModels('my-gateway', { type: 'apikey', apiKey: 'k', baseUrl: 'http://127.0.0.1:1' });
+		await engine.listModels('unregistered', { type: 'apikey', apiKey: 'k' });
 		entries = [...entries, { id: 'my-gateway', enabled: true, clientKind: 'openai-compatible', connection: {}, custom: true }];
 		changed.fire({ catalog: [], enabledChanged: true, connectionChanged: false, modelsChanged: false });
-		// A stream request no longer fails at the registry-lookup boundary (the
-		// specific error the pre-rebuild registry would throw), proving the
-		// registry rebuilt rather than serving its stale first-use snapshot.
-		const stream = engine.streamChat({ providerId: 'my-gateway', modelId: 'm', systemPrompt: 's', messages: [{ role: 'user', content: 'hi' }], credentials: { type: 'apikey', apiKey: 'k', baseUrl: 'http://127.0.0.1:1' } }, CancellationToken.None);
-		await expect(collect(stream)).resolves.not.toThrow();
-	}, 15_000);
+		await engine.listModels('unregistered', { type: 'apikey', apiKey: 'k' });
+		expect(registerAllProviders.mock.calls.map(([, , options]) => options?.customProviders)).toEqual([
+			[],
+			[{ id: 'my-gateway', clientKind: 'openai-compatible' }],
+		]);
+	});
 });
