@@ -58,11 +58,12 @@ const NOTEBOOK_PATH_PATTERN = /\.ipynb$/i;
 
 // The cells of every Quarto virtual notebook, for the console client.
 //
-// Ark declares no `notebookDocumentSync` capability, so the client syncs these
-// cells as ordinary text documents and the document selector is the only gate.
-// Matching the notebook's type keeps real notebooks' (.ipynb) cells out, since
-// no other notebook carries this type. A Quarto session names its own
-// document's notebook instead; see `ArkLsp._quartoCellsUri`.
+// When Ark does not declare `notebookDocumentSync`, the client syncs these
+// cells as ordinary text documents and the document selector is the only
+// gate. When it does, `notebookCellFilter` gates sync and this selector only
+// routes requests. Matching the notebook's type keeps real notebooks' (.ipynb)
+// cells out, since no other notebook carries this type. A Quarto session names
+// its own document's notebook instead; see `ArkLsp._quartoCellsUri`.
 const QUARTO_CELL_SELECTOR = {
 	notebook: { notebookType: QUARTO_CELLS_NOTEBOOK_TYPE },
 	language: 'r',
@@ -96,6 +97,25 @@ export function quartoCellsKey(notebookUri: vscode.Uri): string {
 function isOwnedQuartoCellUri(uri: vscode.Uri): boolean {
 	const notebook = quartoNotebookOf(uri);
 	return notebook !== undefined && hasQuartoCellsOwner(quartoCellsKey(notebook.uri));
+}
+
+/**
+ * Which cells of a notebook a client syncs when Ark claims them through
+ * `notebookDocumentSync`. The document selector gates text-document sync;
+ * this gates notebook sync, so both must name the same cells.
+ *
+ * A session client syncs only its own notebook. For a Quarto session that is
+ * the hidden notebook core builds for its document. The console client syncs
+ * every Quarto notebook, since it serves those without a session, and no real
+ * notebook, since each has its own session.
+ */
+export function notebookCellFilter(ownNotebookUri: vscode.Uri | undefined) {
+	return (notebookDocument: vscode.NotebookDocument, cells: vscode.NotebookCell[]): vscode.NotebookCell[] => {
+		if (ownNotebookUri) {
+			return quartoCellsKey(ownNotebookUri) === quartoCellsKey(notebookDocument.uri) ? cells : [];
+		}
+		return notebookDocument.notebookType === QUARTO_CELLS_NOTEBOOK_TYPE ? cells : [];
+	};
 }
 
 /**
@@ -369,6 +389,9 @@ export class ArkLsp implements vscode.Disposable {
 					// has no session of its own; see `isOwnedQuartoCellUri`.
 					QUARTO_CELL_SELECTOR,
 				],
+			notebookDocumentOptions: {
+				filterCells: notebookCellFilter(this._quartoCellsUri ?? notebookUri),
+			},
 			synchronize: notebookUri ?
 				undefined :
 				{
