@@ -6,6 +6,7 @@
 /// <reference types="vitest/globals" />
 
 import { screen } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -13,14 +14,17 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, SessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ConsoleInstanceInfoModalPopup } from '../../browser/components/consoleInstanceInfoButton.js';
 
 describe('ConsoleInstanceInfoModalPopup', () => {
+	const executeCommand = vi.fn();
 	const ctx = createTestContainer()
 		.withReactServices()
+		.stub(ICommandService, { executeCommand })
 		.stub(IExtensionService, {
 			extensions: [stubInterface<IExtensionDescription>({
 				identifier: new ExtensionIdentifier('positron.positron-python'),
@@ -100,6 +104,22 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		renderPopup('', SessionStartReason.NotebookEditorOpened, undefined, URI.file('/work/analysis.ipynb'));
 
 		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The analysis.ipynb notebook was opened');
+	});
+
+	it('opens the Startup Behavior setting for the session\'s language', async () => {
+		const user = userEvent.setup();
+		renderPopup('', SessionStartReason.StartupBehaviorAlways);
+
+		await user.click(screen.getByRole('button', { name: 'Open Startup Behavior Setting' }));
+
+		expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', '@lang:python interpreters.startupBehavior');
+		expect(renderer.dispose).toHaveBeenCalled();
+	});
+
+	it('omits the Startup Behavior setting link for other start reasons', () => {
+		renderPopup('', SessionStartReason.UserSelectedRuntime);
+
+		expect(screen.queryByRole('button', { name: 'Open Startup Behavior Setting' })).not.toBeInTheDocument();
 	});
 
 	it('omits the start reason line when the start reason is empty', () => {

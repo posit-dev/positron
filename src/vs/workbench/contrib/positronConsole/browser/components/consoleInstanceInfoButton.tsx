@@ -20,7 +20,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel, SessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getSessionStartReasonLabel, getSessionStartReasonNames } from '../../../../services/runtimeSession/common/sessionStartReasonLabels.js';
 
@@ -141,9 +141,16 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 
 	const startReasonLabel = getSessionStartReasonLabel(props.session.metadata,
 		getSessionStartReasonNames(props.session, services.extensionService.extensions));
+	const showStartupBehaviorSetting = props.session.metadata.startReasonId === SessionStartReason.StartupBehaviorAlways;
 
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
+		props.renderer.dispose();
+	};
+
+	const showStartupBehaviorSettingClickHandler = () => {
+		services.commandService.executeCommand('workbench.action.openSettings',
+			`@lang:${props.session.runtimeMetadata.languageId} interpreters.startupBehavior`);
 		props.renderer.dispose();
 	};
 
@@ -191,8 +198,16 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 						</p>
 					</div>
 				</div>
-				{channels.length > 0 &&
+				{(channels.length > 0 || showStartupBehaviorSetting) &&
 					<div className='top-separator actions'>
+						{showStartupBehaviorSetting &&
+							<Button
+								className='link'
+								onPressed={showStartupBehaviorSettingClickHandler}
+							>
+								{localize('positron.console.info.showStartupBehaviorSetting', "Open Startup Behavior Setting")}
+							</Button>
+						}
 						{channels.map((channel, index) => (
 							<Button
 								key={`channel-${index}`}
