@@ -163,6 +163,23 @@ export class ProviderManager {
 		});
 	}
 
+	/** Checks that a host-managed provider shows as connected, names its manager, and offers no actions. */
+	async expectManagedBy(provider: ModelProvider, managedBy: string, options: { timeout?: number } = {}) {
+		const { timeout = 15000 } = options;
+
+		await test.step(`Check ${provider} is managed by ${managedBy}`, async () => {
+			const frame = await this.open(timeout);
+			try {
+				const card = frame.locator(PROVIDER_CARD(provider));
+				await expect(card).toContainText('Connected', { timeout });
+				await expect(card).toContainText(`Managed by ${managedBy}`);
+				await expect(card.locator('[data-testid^="provider-action-"]')).toHaveCount(0);
+			} finally {
+				await this.close();
+			}
+		});
+	}
+
 	/** Closes the modal editor through its header, which disposes the panel. Escape goes to the focused webview instead. */
 	async close() {
 		const page = this.code.driver.currentPage;
