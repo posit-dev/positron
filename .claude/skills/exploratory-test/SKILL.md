@@ -54,7 +54,9 @@ session you are working in.
 
 ## Verify, then render
 
-When the agent finishes, have a second agent check its findings, as CI does.
+When the agent finishes, stop any instance it left running:
+`bash <base>/renderer/stop-instances.sh <run dir>`. Then have a second agent
+check its findings, as CI does.
 With the base and head SHAs from the brief, run:
 `node <base>/renderer/finish.mjs prompt <run dir> --repo <checkout> --base <base sha> --head <head sha>`.
 If it prints `no findings`, skip to the render. Otherwise it prints the path of

@@ -64,6 +64,9 @@ report.
 Write findings to a fresh run directory,
 `~/.claude/skills/exploratory-test/output/<YYYYMMDDTHHMMSS>/report.md`, with
 evidence under `shots/` beside it. Never write into an existing run directory.
+Make it before you launch, and pipe every launch through
+`tee -a "$RUN/instances.jsonl"` so an instance left running is stopped after you
+return.
 Write every screenshot straight to `$RUN/shots/` with `--filename`, never to a
 scratch directory to copy later: drive-positron's cleanup deletes its run
 directory, and a shot left there is lost.
