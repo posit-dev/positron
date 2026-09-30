@@ -1124,6 +1124,72 @@ describe('RuntimeStartupService - affiliation healing', () => {
 	});
 });
 
+describe('RuntimeStartupService - restored sessions', () => {
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
+			onWillShutdown: new Emitter<WillShutdownEvent>().event,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	/** A session as persisted to workspace storage, optionally with an owner. */
+	function storedSession(sessionId: string, lastUsed: number, owner?: string) {
+		return {
+			sessionName: sessionId,
+			metadata: {
+				sessionId,
+				sessionMode: 'console',
+				createdTimestamp: 0,
+				startReason: 'test',
+				...(owner ? { owner } : {}),
+			},
+			sessionState: 'idle',
+			lastUsed,
+			runtimeMetadata: metadata(),
+			workingDirectory: '/',
+			hasConsole: true,
+			localWindowId: 'window-1',
+		};
+	}
+
+	it('treats sessions stored before owners existed as the user\'s', async () => {
+		// The persistent workspace session list, as an older build wrote it:
+		// no owner on the first session.
+		ctx.get(IStorageService).store(
+			'positron.workspaceSessionList.v3',
+			JSON.stringify([
+				storedSession('pre-owner-session', 2),
+				storedSession('assistant-session', 1, 'assistant'),
+			]),
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE,
+		);
+
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const sessions = await svc.getRestoredSessions();
+
+		expect(sessions.map(session => [session.metadata.sessionId, session.metadata.owner])).toEqual([
+			['pre-owner-session', 'user'],
+			['assistant-session', 'assistant'],
+		]);
+	});
+});
+
 describe('RuntimeStartupService - getPreferredRuntime', () => {
 
 	const ctx = createTestContainer()

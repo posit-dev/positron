@@ -24,6 +24,7 @@ import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
 type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
@@ -207,6 +208,7 @@ describe('Positron - RuntimeSessionService', () => {
 			createdTimestamp: Date.now(),
 			notebookUri: undefined,
 			startReason,
+			owner: 'user',
 		};
 		return restoreSession(sessionMetadata, runtime);
 	}
@@ -218,6 +220,7 @@ describe('Positron - RuntimeSessionService', () => {
 			createdTimestamp: Date.now(),
 			notebookUri,
 			startReason,
+			owner: 'user',
 		};
 		return restoreSession(sessionMetadata, runtime);
 	}
@@ -1794,6 +1797,7 @@ describe('Positron - RuntimeSessionService', () => {
 				notebookUri: undefined,
 				startReason,
 				userSelected: true,
+				owner: 'user',
 			};
 			const session = await restoreSession(sessionMetadata, runtime);
 
@@ -1867,6 +1871,54 @@ describe('Positron - RuntimeSessionService', () => {
 				isNewSession: restarted !== uninitialized,
 				quartoNotebookUri: restarted.metadata.quartoNotebookUri?.toString(),
 			}).toEqual({ isNewSession: true, quartoNotebookUri: quartoCellsUri.toString() });
+		});
+	});
+
+	describe('assistant owner', () => {
+		async function startConsoleOwnedByAssistant() {
+			const userSession = await startConsole(runtime);
+			await waitForRuntimeState(userSession, RuntimeState.Ready);
+
+			// Start the way the Positron API does: in the background, with an owner.
+			const sessionId = await runtimeSessionService.startNewRuntimeSession(
+				anotherRuntime.runtimeId,
+				anotherRuntime.runtimeName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				startReason,
+				RuntimeStartMode.Starting,
+				false,
+				{ owner: 'assistant' },
+			);
+			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;
+			ctx.disposables.add(session);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			return {
+				owner: session.metadata.owner,
+				foregroundSessionId: runtimeSessionService.foregroundSession?.sessionId,
+				userSessionId: userSession.sessionId,
+				sessionId,
+			};
+		}
+
+		it('is honoured without taking the foreground while the ai.assistantSessions.enabled setting is on', async () => {
+			configService.setUserConfiguration(AI_ENABLED_KEY, true);
+			configService.setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, true);
+
+			const result = await startConsoleOwnedByAssistant();
+
+			expect({ owner: result.owner, foregroundSessionId: result.foregroundSessionId })
+				.toEqual({ owner: 'assistant', foregroundSessionId: result.userSessionId });
+		});
+
+		it('is dropped while the ai.assistantSessions.enabled setting is off', async () => {
+			configService.setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
+
+			const result = await startConsoleOwnedByAssistant();
+
+			expect({ owner: result.owner, foregroundSessionId: result.foregroundSessionId })
+				.toEqual({ owner: 'user', foregroundSessionId: result.sessionId });
 		});
 	});
 

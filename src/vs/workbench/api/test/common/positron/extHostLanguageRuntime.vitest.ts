@@ -296,6 +296,7 @@ const sessionMetadata: IRuntimeSessionMetadata = {
 	notebookUri: undefined,
 	createdTimestamp: 0,
 	startReason: 'test',
+	owner: 'user',
 };
 const extension = stubInterface<IExtensionDescription>({
 	id: extensionId,
@@ -486,6 +487,7 @@ function fakeSessionDto(overrides: Partial<IActiveRuntimeSessionMetadataDto> = {
 		metadata: {
 			sessionId: 's1',
 			sessionMode: LanguageRuntimeSessionMode.Console,
+			owner: 'user',
 		},
 		runtimeMetadata: fakeMetadata(),
 		runtimeState: RuntimeState.Idle,

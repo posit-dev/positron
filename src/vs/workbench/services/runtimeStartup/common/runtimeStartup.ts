@@ -623,10 +623,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		try {
-			// Revive the URIs in the session metadata.
+			// Revive the URIs in the session metadata. Sessions stored before
+			// owners existed have none; they belong to the user.
 			this._restoredSessions = storedSessions.map(session => ({
 				...session,
-				metadata: reviveRuntimeSessionMetadata(session.metadata),
+				metadata: {
+					...reviveRuntimeSessionMetadata(session.metadata),
+					owner: session.metadata.owner ?? 'user',
+				},
 			}));
 		} catch (err) {
 			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +

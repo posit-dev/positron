@@ -31,6 +31,7 @@ function createSessionMetadata(): positron.RuntimeSessionMetadata {
 		sessionId: 'r-test-0001',
 		sessionMode: positron.LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
+		owner: 'user',
 	};
 }
 

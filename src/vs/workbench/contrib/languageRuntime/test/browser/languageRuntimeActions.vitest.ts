@@ -12,7 +12,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAssistantSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -26,6 +26,11 @@ import { EvalResult } from '../../../../services/languageRuntime/common/positron
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';
@@ -90,6 +95,7 @@ describe('summarizeActiveSession', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 			getRuntimeState: () => RuntimeState.Idle,
 		});
@@ -804,6 +810,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 				notebookUri: uri,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -817,6 +824,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -934,6 +942,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -951,6 +960,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 				notebookUri: URI.file('/path/to/notebook.ipynb'),
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -1114,6 +1124,65 @@ describe('StartNewConsoleSessionAction', () => {
 	});
 });
 
+describe('startNewAssistantSession', () => {
+	const ctx = createTestContainer().withRuntimeServices().build();
+
+	async function startAssistantSessionBesideUserSession() {
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
+		const userSession = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		await waitForRuntimeState(userSession, RuntimeState.Ready);
+		expect(runtimeSessionService.foregroundSession).toBe(userSession);
+
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const sessionId = await startNewAssistantSession(runtimeSessionService, runtime);
+		const session = runtimeSessionService.getSession(sessionId)!;
+		ctx.disposables.add(session);
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		return {
+			runtime,
+			userSessionId: userSession.sessionId,
+			sessionId,
+			summary: {
+				runtimeId: session.runtimeMetadata.runtimeId,
+				sessionName: session.dynState.sessionName,
+				sessionMode: session.metadata.sessionMode,
+				owner: session.metadata.owner,
+				foregroundSessionId: runtimeSessionService.foregroundSession?.sessionId,
+			},
+		};
+	}
+
+	it('starts the runtime as an Assistant-owned console session that takes the foreground', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(AI_ENABLED_KEY, true);
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, true);
+
+		const { runtime, sessionId, summary } = await startAssistantSessionBesideUserSession();
+
+		expect(summary).toEqual({
+			runtimeId: runtime.runtimeId,
+			sessionName: runtime.runtimeName,
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			owner: 'assistant',
+			foregroundSessionId: sessionId,
+		});
+	});
+
+	it('starts an ordinary user session that takes the foreground while the ai.assistantSessions.enabled setting is off', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
+
+		const { runtime, sessionId, summary } = await startAssistantSessionBesideUserSession();
+
+		expect(summary).toEqual({
+			runtimeId: runtime.runtimeId,
+			sessionName: runtime.runtimeName,
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			owner: 'user',
+			foregroundSessionId: sessionId,
+		});
+	});
+});
+
 describe('SelectSessionAction', () => {
 	const executeCommand = vi.fn(async () => undefined);
 	const openEditor = vi.fn(async () => undefined);
@@ -1166,6 +1235,7 @@ describe('SelectSessionAction', () => {
 				notebookUri,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 			runtimeMetadata: makeRuntime(),
 			dynState: {
