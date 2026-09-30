@@ -653,6 +653,7 @@ function parseFindingBody(lines) {
 		status: { confirmed: null, reproduced: null },
 		summary: [],
 		observed: '', expected: '', preconditions: '',
+		feature: '',
 		reproStart: '', steps: [],
 		evidence: [],
 		cause: '',
@@ -773,6 +774,11 @@ function parseFindingBody(lines) {
 			out[key] = text;
 			out.matched++;
 			i = end - 1;
+			continue;
+		}
+		if (label === 'feature') {
+			out.feature = trimmed.replace(/^\*\*[^*]+:\*\*\s*/, '');
+			out.matched++;
 			continue;
 		}
 		if (label === 'error output') {
@@ -1285,6 +1291,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		return {
 			n: start.n,
 			title: start.claim,
+			feature: parsed.feature,
 			// The table's claim is written to be scanned in a row; the heading's is
 			// written to open a card. Both are in the markdown, so both get used.
 			rowTitle: row['finding'] ? inline(row['finding']) : inline(start.claim),

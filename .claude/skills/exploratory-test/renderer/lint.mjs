@@ -347,6 +347,10 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {
 			problems.push(`report: Finding ${b.n} Preconditions: says only "defaults"; leave the line out`);
 		}
+		// The filed issue's title is `<Feature>: <claim>`.
+		if (!body.some(l => /^\*\*Feature:\*\*\s*\S/.test(l))) {
+			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
+		}
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }
 	});
