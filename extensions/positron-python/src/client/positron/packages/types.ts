@@ -80,6 +80,17 @@ export interface IPackageManager {
     searchPackageVersions(name: string, token?: vscode.CancellationToken): Promise<string[]>;
 
     /**
+     * Resolve a candidate name to an installable distribution by exact
+     * (normalized) match, without a fuzzy search. Managers that omit this are
+     * resolved by filtering `searchPackages` results instead.
+     * @param name Candidate distribution name
+     * @param token Optional cancellation token
+     * @returns The name to install, or undefined when the repository has no
+     *   such project
+     */
+    resolvePackageName?(name: string, token?: vscode.CancellationToken): Promise<string | undefined>;
+
+    /**
      * Fetch additional metadata for packages from external sources (e.g., P3M).
      * This is called separately from getPackages() to allow the UI to display
      * the basic package list quickly while metadata loads in the background.
