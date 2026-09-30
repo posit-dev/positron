@@ -14,7 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { NotebookCellMoreActionsMenu } from './actionBar/NotebookCellMoreActionsMenu.js';
 import { CellActionButton } from './actionBar/CellActionButton.js';
-import { useObservedValue } from '../useObservedValue.js';
+import { useObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { useMenu } from '../useMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { useMenuActions } from '../useMenuActions.js';

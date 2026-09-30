@@ -12,6 +12,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runti
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../common/positronConsoleCodeExecution.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { IObservable, observableValue } from '../../../../../base/common/observable.js';
 
 /**
  * Implementation of IPositronConsoleService for use in tests.
@@ -425,6 +426,16 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	get onDidChangeWidthInChars(): Event<number> {
 		return this._onDidChangeWidthInCharsEmitter.event;
+	}
+
+	/** The unread execution count, settable through {@link setUnreadExecutionCount}. */
+	private readonly _unreadExecutionCount = observableValue<number>('test-console-unread-execution-count', 0);
+
+	readonly unreadExecutionCount: IObservable<number> = this._unreadExecutionCount;
+
+	/** Sets the unread execution count. */
+	setUnreadExecutionCount(count: number): void {
+		this._unreadExecutionCount.set(count, undefined);
 	}
 
 	get findWidgetDomNode(): HTMLElement | undefined {
