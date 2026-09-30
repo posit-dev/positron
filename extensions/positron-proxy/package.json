@@ -50,7 +50,20 @@
       {
         "command": "positronProxy.showHtmlPreview",
         "title": "%command.positronProxy.showHtmlPreview.title%",
-        "icon": "$(open-preview)"
+        "icon": "$(open-preview)",
+        "agent": {
+          "description": "Show a local HTML file in the Viewer pane.",
+          "args": [
+            {
+              "name": "path",
+              "description": "Absolute path or file URI of the HTML file to show.",
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "returns": "Nothing. Fails if the file does not exist; otherwise returns before the Viewer has loaded the file."
+        }
       },
       {
         "command": "positronProxy.openBrowserPreview",

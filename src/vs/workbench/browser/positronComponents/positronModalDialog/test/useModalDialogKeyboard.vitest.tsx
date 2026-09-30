@@ -269,6 +269,64 @@ describe('useModalDialogKeyboard', () => {
 		}).toEqual({ defaultButtonClicked: 0, preventedDefault: false });
 	});
 
+	/**
+	 * Opens a stand-in for a modal message box and returns a function that closes it. The real one
+	 * is created outside React, as a sibling of the dialog, so the test builds it the same way.
+	 */
+	function openModalMessageBox() {
+		const modalBlock = document.createElement('div');
+		modalBlock.className = 'monaco-dialog-modal-block';
+		document.body.appendChild(modalBlock);
+		return () => modalBlock.remove();
+	}
+
+	it('leaves Escape to a modal message box opened over the dialog', () => {
+		// The message box is raised by an extension command the dialog started, and it is modal, so
+		// Escape belongs to it. Cancelling here would discard everything the user had entered.
+		const onCancel = vi.fn();
+		render(<Harness onCancel={onCancel} onKeyDown={emitter.event}><button>OK</button></Harness>);
+		const closeMessageBox = openModalMessageBox();
+
+		const { preventDefault } = press('Escape');
+		closeMessageBox();
+
+		expect({
+			cancelled: onCancel.mock.calls.length,
+			preventedDefault: preventDefault.mock.calls.length > 0,
+		}).toEqual({ cancelled: 0, preventedDefault: false });
+	});
+
+	it('leaves Enter to a modal message box opened over the dialog', () => {
+		// Enter activates the message box's own default button. Clicking the dialog's would submit
+		// the dialog underneath it.
+		const onCancel = vi.fn();
+		render(
+			<Harness onCancel={onCancel} onKeyDown={emitter.event}>
+				<button className='default' onClick={() => defaultButtonClicked++}>OK</button>
+			</Harness>
+		);
+		const closeMessageBox = openModalMessageBox();
+
+		press('Enter');
+		closeMessageBox();
+
+		expect(defaultButtonClicked).toBe(0);
+	});
+
+	it('takes Escape back once the modal message box closes', () => {
+		// The guard is on the message box being open, not on the dialog having ever seen one, so
+		// dismissing the message box has to leave the dialog working as it did before.
+		const onCancel = vi.fn();
+		render(<Harness onCancel={onCancel} onKeyDown={emitter.event}><button>OK</button></Harness>);
+		const closeMessageBox = openModalMessageBox();
+		press('Escape');
+		closeMessageBox();
+
+		press('Escape');
+
+		expect(onCancel.mock.calls.length).toBe(1);
+	});
+
 	it('ignores a hidden control, which reports a tabIndex but cannot take focus', () => {
 		// Counting a hidden trailing button puts the wrap boundary past the last control a user can
 		// reach, so Tab off that control is not consumed and focus leaves the dialog entirely.

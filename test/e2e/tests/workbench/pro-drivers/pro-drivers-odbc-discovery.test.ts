@@ -40,10 +40,6 @@ import { test, tags, expect } from '../../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	// The Data Connections panel is a preview feature gated behind `dataConnections.enabled`. This
-	// bakes the setting into the Workbench container at startup, which reads settings copied in at
-	// launch rather than the host settings file written at runtime.
-	enableDataConnections: true,
 });
 
 // The Workbench host container from docker/environments/wb-local.

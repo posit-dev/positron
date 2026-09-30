@@ -17,7 +17,7 @@ import { getPipRequirementsFiles } from './venvUtils';
 import { UV_PROVIDER_ID } from './uvCreationProvider';
 import { hasPyprojectToml } from '../common/createEnvTriggerUtils';
 import { getVenvExecutable } from '../common/commonUtils';
-import { runToolCommand, syncUvEnv } from './autoCreateLockFileEnv';
+import { runUvCommand, syncUvEnv } from './autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../../positron/manager';
 
 export interface AutoCreateVenvContext {
@@ -142,7 +142,7 @@ export async function uvInstallDeps(
     const errors: string[] = [];
     for (const args of allArgs) {
         try {
-            await runToolCommand('uv', args, workspace.uri.fsPath, token);
+            await runUvCommand(args, workspace.uri.fsPath, token);
         } catch (err) {
             traceError('Failed to install dep source: ', err);
             errors.push(String(err));

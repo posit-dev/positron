@@ -35,6 +35,10 @@ inputs:
     description: "Output of git diff --stat between base and head"
     required: false
     default: ""
+  pr-body-file:
+    description: "Gate mode: file holding the PR description; empty when there is no PR"
+    required: false
+    default: ""
   base-sha:
     description: "Explore and gate modes: diff base SHA"
     required: false
@@ -64,6 +68,10 @@ inputs:
     default: ""
   report-base-url:
     description: "Public CDN base URL the run directory is published under"
+    required: false
+    default: ""
+  known-issues:
+    description: "Explore mode: path to the known-issues.json the workflow fetched for the PR. Empty runs without it."
     required: false
     default: ""
   agent-prompts:
@@ -156,6 +164,7 @@ runs:
         CDP_PORT: ${{ inputs.cdp-port }}
         BRANCH: ${{ inputs.branch }}
         DIFF_STAT: ${{ inputs.diff-stat }}
+        PR_BODY_FILE: ${{ inputs.pr-body-file }}
         BASE_SHA: ${{ inputs.base-sha }}
         HEAD_SHA: ${{ inputs.head-sha }}
         MODEL: ${{ inputs.model }}
@@ -165,6 +174,7 @@ runs:
         TIME_LIMIT: ${{ inputs.time-limit }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
         AGENT_PROMPTS: ${{ inputs.agent-prompts }}
+        KNOWN_ISSUES: ${{ inputs.known-issues }}
         COMMENT_STATE: ${{ inputs.comment-state }}
         OUTCOME: ${{ inputs.outcome }}
         DECLINE_REASON: ${{ inputs.decline-reason }}

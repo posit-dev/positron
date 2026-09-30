@@ -9,8 +9,8 @@
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { execFileSync } from 'node:child_process';
-import { appendFileSync } from 'node:fs';
-import { buildCostRecord, ENVIRONMENT, isProductPath, parsePosIntEnv, parseGate } from './lib.mjs';
+import { appendFileSync, readFileSync } from 'node:fs';
+import { buildCostRecord, ENVIRONMENT, isProductPath, parsePosIntEnv, parseGate, renderPrBody } from './lib.mjs';
 
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const BASE_SHA = mustEnv('BASE_SHA');
@@ -20,6 +20,7 @@ const GATE_MODEL = process.env.GATE_MODEL || 'sonnet';
 const GATE_MAX_TURNS = parsePosIntEnv('GATE_MAX_TURNS', 30, process.env.GATE_MAX_TURNS);
 const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
 const GITHUB_OUTPUT = process.env.GITHUB_OUTPUT;
+const PR_BODY_FILE = process.env.PR_BODY_FILE || '';
 mustEnv('ANTHROPIC_API_KEY');
 
 function mustEnv(name) {
@@ -59,6 +60,14 @@ async function main() {
 		return;
 	}
 
+	// No PR, or a fetch that failed, gets the prompt it always had.
+	let prBody = '';
+	try {
+		prBody = PR_BODY_FILE ? renderPrBody(readFileSync(PR_BODY_FILE, 'utf8')) : '';
+	} catch (err) {
+		console.log(`[gate] no PR body: ${err}`);
+	}
+
 	const prompt = [
 		'Decide whether a change is worth exploratory testing in this environment, and answer in one line.',
 		'',
@@ -70,12 +79,13 @@ async function main() {
 		'',
 		`Read any of them with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA} -- <path>\`, and the commit messages with \`git -C ${REPO_ROOT} log ${BASE_SHA}..${HEAD_SHA}\`. Do not rule on the change without reading the parts of it you are ruling on.`,
 		'',
+		...(prBody ? [prBody, ''] : []),
 		'Ignore any files under `.github/` and `.claude/`: this harness merges its own CI and skill files into the branch it tests, so they are in every diff and are never the change under test.',
 		'',
 		ENVIRONMENT,
 		'',
 		'Answer NOT TESTABLE only when you can name the blocker:',
-		'- a dependency the change needs is not released or not pinned here, so the new behavior cannot run;',
+		'- a dependency the change needs is not released or not pinned here, so the new behavior cannot run. A companion PR the description says this needs counts, unless it says that PR has shipped;',
 		'- the changed code path only runs on a platform this container is not;',
 		'- the changed behavior is reachable only through something listed as not available above. A change that also touches UI or error handling reachable without it is TESTABLE;',
 		'- the diff changes nothing a user can observe (a refactor, a comment, tests or docs only).',

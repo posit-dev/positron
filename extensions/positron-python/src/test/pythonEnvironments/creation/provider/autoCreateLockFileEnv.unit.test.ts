@@ -14,6 +14,7 @@ import * as browserApis from '../../../../client/common/vscodeApis/browserApis';
 import * as commonUtils from '../../../../client/pythonEnvironments/creation/common/commonUtils';
 import * as uvPythonInstaller from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import * as pixiModule from '../../../../client/pythonEnvironments/common/environmentManagers/pixi';
+import * as uvApis from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as platformApis from '../../../../client/common/utils/platform';
 import { Output } from '../../../../client/common/process/types';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../../constants';
@@ -57,6 +58,9 @@ suite('Auto Create Lock File Env', () => {
 
     setup(() => {
         execObservableStub = sinon.stub(rawProcessApis, 'execObservable');
+        sinon
+            .stub(uvApis, 'execObservableLocatedUv')
+            .callsFake(async (args, options) => rawProcessApis.execObservable('uv', args, options));
         withProgressStub = sinon.stub(windowApis, 'withProgress');
         withProgressStub.callsFake(async (_options, task) => task({ report: sinon.stub() }, undefined));
         showWarningMessageStub = sinon.stub(windowApis, 'showWarningMessage');

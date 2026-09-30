@@ -80,8 +80,14 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			'positronProxy.showHtmlPreview',
-			(path: vscode.Uri) => {
-				positron.window.previewHtml(path.toString());
+			async (target: vscode.Uri | string) => {
+				// Agents pass a string, which may be a file URI or a path.
+				const uri = typeof target !== 'string' ? target :
+					target.startsWith('file:') ? vscode.Uri.parse(target) : vscode.Uri.file(target);
+
+				// Throws if the file doesn't exist.
+				await vscode.workspace.fs.stat(uri);
+				positron.window.previewHtml(uri.toString());
 			})
 	);
 

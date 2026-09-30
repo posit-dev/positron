@@ -146,7 +146,12 @@
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.positron-dynamic-modal-dialog-box .dialog-button:disabled {
+/*
+ * .disabled covers a Button marked ariaDisabled, which stays focusable and so never gets the
+ * native disabled attribute that :disabled matches.
+ */
+.positron-dynamic-modal-dialog-box .dialog-button:disabled,
+.positron-dynamic-modal-dialog-box .dialog-button.disabled {
 	color: var(--vscode-positronModalDialog-buttonDisabledForeground);
 	background-color: var(--vscode-positronModalDialog-buttonDisabledBackground) !important;
 	border: 1px solid var(--vscode-positronModalDialog-buttonDisabledBorder);

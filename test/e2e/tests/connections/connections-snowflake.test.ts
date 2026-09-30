@@ -6,7 +6,9 @@
 import { test, tags } from '../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// These tests cover the older Connections pane, which Data Connections replaces by default.
+	enableDataConnections: false,
 });
 
 const account = process.env.SNOWFLAKE_ACCOUNT || 'testaccount';

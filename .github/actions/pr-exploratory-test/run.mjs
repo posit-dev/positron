@@ -7,14 +7,15 @@
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderReportHtml, linkedLogs, skillVersion } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
-import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, buildTimeBudgetLine, timeUpHook, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -35,8 +36,8 @@ const FOCUS = process.env.FOCUS || '';
 // Unset leaves each model at its own default effort.
 const EFFORT = process.env.EFFORT || '';
 const MAX_TURNS = parsePosIntEnv('MAX_TURNS', 200, process.env.MAX_TURNS);
-// Minutes of exploring, or null for no limit. The agent is told when they are
-// up and stopped WRAP_UP_MINUTES later.
+// Minutes of exploring, or null for no limit. The agent is not told the limit,
+// only when it is up, and is stopped WRAP_UP_MINUTES later.
 const TIME_LIMIT = parseTimeLimit(process.env.TIME_LIMIT);
 // Set when the hard stop fires, so the outcome and stats can say so.
 let timedOut = false;
@@ -183,6 +184,12 @@ async function verifyReport() {
 
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
+	// Fetched by the workflow while the build ran; the verifier and renderer read it from the run directory.
+	if (process.env.KNOWN_ISSUES && existsSync(process.env.KNOWN_ISSUES)) {
+		copyFileSync(process.env.KNOWN_ISSUES, join(WORK_DIR, 'known-issues.json'));
+	}
+	const knownIssues = readKnownIssues(WORK_DIR);
+	const knownBrief = buildKnownIssuesBrief(knownIssues);
 
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 
@@ -207,7 +214,7 @@ async function main() {
 		'',
 		buildTaskLine(FOCUS),
 		'',
-		...(TIME_LIMIT ? [buildTimeBudgetLine(TIME_LIMIT), ''] : []),
+		...(knownBrief ? [knownBrief, ''] : []),
 		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
 		'',
 		'Write the report to `report.md` in the run directory. Return a two or three line summary and nothing else.',
@@ -224,8 +231,8 @@ async function main() {
 	// approaching the cap.
 	let messageCount = 0;
 
-	// With a time limit: a hook tells the agent the time left, then when its
-	// time is up, and the query is aborted WRAP_UP_MINUTES later if it is still going.
+	// With a time limit: a hook tells the agent when its time is up, and the
+	// query is aborted WRAP_UP_MINUTES later if it is still going.
 	const abortController = new AbortController();
 	let hardStop;
 	let timeLimitOptions = {};
@@ -238,7 +245,16 @@ async function main() {
 				console.log(`[exploratory] time limit: ${TIME_LIMIT}m are up; told the agent to wrap up`);
 			},
 		});
-		timeLimitOptions = { hooks: { PostToolUse: [{ hooks: [hook] }], PostToolUseFailure: [{ hooks: [hook] }] } };
+		// Logged on its first call, so a run shows the hook is wired up at all.
+		let hookCalled = false;
+		const logged = async input => {
+			if (!hookCalled) {
+				hookCalled = true;
+				console.log(`[exploratory] time limit: hook active on ${input.hook_event_name}`);
+			}
+			return hook(input);
+		};
+		timeLimitOptions = { hooks: { PostToolUse: [{ hooks: [logged] }], PostToolUseFailure: [{ hooks: [logged] }] } };
 		hardStop = setTimeout(() => {
 			timedOut = true;
 			console.log(`[exploratory] time limit: stopping the agent ${WRAP_UP_MINUTES}m after its time was up`);
@@ -382,7 +398,10 @@ async function main() {
 		// the fallback write above.
 		let verdicts = null;
 		let verifyFailed = false;
-		if (VERIFY_ENABLED && !hasFindings(report)) {
+		// Linked issues the run ran into still need a severity.
+		const ledgerText = existsSync(join(WORK_DIR, 'ledger.md')) ? readFileSync(join(WORK_DIR, 'ledger.md'), 'utf8') : '';
+		const observed = observedLinked(knownIssues, ledgerText);
+		if (VERIFY_ENABLED && !hasFindings(report) && !observed.length) {
 			console.log('[verify] skipped: the report has no findings to verify');
 		} else if (VERIFY_ENABLED) {
 			try {
@@ -392,7 +411,10 @@ async function main() {
 				// in the summary rather than dropping it silently.
 				console.error(`[verify] failed: ${err}`);
 				verifyFailed = true;
-				verdicts = `_Verification did not complete: ${err}. The findings above are unreviewed._`;
+				verdicts = `_Verification did not complete: ${err}. ${hasFindings(report) ? 'The findings above are unreviewed.' : 'The known issues above are unrated.'}_`;
+			}
+			for (const line of verifyLogLines(knownIssues, ledgerText, verifyFailed ? '' : verdicts)) {
+				console.log(`[verify] ${line}`);
 			}
 		}
 
@@ -425,6 +447,7 @@ async function main() {
 				fileExists,
 				readFile,
 				startedAt: STARTED_AT,
+				knownIssues,
 			}));
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const parsed = parseReport(reportMarkdown, { ledger });
