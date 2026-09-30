@@ -14,14 +14,15 @@ test.use({
 test.describe('Posit Assistant - Microsoft Foundry (Azure managed credentials)', {
 	tag: [tags.WORKBENCH_AZURE, tags.ASSISTANT],
 }, () => {
+	test('Foundry shows as managed by Posit Workbench in the provider manager', async function ({ app }) {
+		await app.workbench.providerManager.expectManagedBy('ms-foundry', 'Posit Workbench');
+	});
+
 	test('Foundry model responds when authenticated via Azure managed credentials', async function ({ app }) {
-		// No interactive sign-in: the msFoundry provider obtains its token via
-		// `vscode.authentication.getSession('ms-foundry', ...)`, which Assistant's
-		// `ms-foundry` provider brokers by reading the Posit Workbench managed
-		// credential (scope `msfoundry`) once the fixture has signed into PWB via
-		// Azure OIDC. The `posit.workbench.foundry.endpoint` setting (pushed by the
-		// fixture via `enableFoundryAssistant`) gates that credential, so the
-		// session is silently available here.
+		// No interactive sign-in: Posit Assistant reads the Foundry token from the
+		// `posit-workbench` session (scope `msfoundry`) once the fixture has signed
+		// into PWB via Azure OIDC. The `posit.workbench.foundry.endpoint` setting
+		// (pushed by the fixture via `enableFoundryAssistant`) turns that on.
 		await app.workbench.positAssistant.open();
 		await app.workbench.positAssistant.waitForReady();
 		await app.workbench.positAssistant.startNewConversation();
