@@ -5,7 +5,7 @@
 
 import { quoteCompactToken } from './dataConnectionCompactFormat.js';
 import { IDataConnectionNodeDTO } from './interfaces/dataConnectionDTOs.js';
-import { IDataConnectionHandle } from './interfaces/dataConnectionDriver.js';
+import { DataConnectionNodeKind, IDataConnectionHandle } from './interfaces/dataConnectionDriver.js';
 
 // Defaults keep a single summarization call cheap for both the driver (bounded number of
 // nodeGetChildren round-trips) and the consumer (bounded JSON payload size).
@@ -13,19 +13,19 @@ const DEFAULT_MAX_DEPTH = 4;
 const DEFAULT_MAX_NODES_PER_LEVEL = 50;
 const DEFAULT_MAX_TOTAL_NODES = 500;
 
-// DataConnectionNodeKind values (positron.d.ts) that only group sibling nodes for display (e.g.
-// "Tables", "Views") and carry no schema information of their own. IDataConnectionNodeDTO.kind
-// crosses the RPC wire as a plain string (see dataConnectionDTOs.ts), so these are compared as
-// string literals rather than imported from the ext-host-only DataConnectionNodeKind enum.
-export const CONTAINER_ONLY_KINDS = new Set([
-	'group-databases',
-	'group-catalogs',
-	'group-schemas',
-	'group-tables',
-	'group-views',
-	'group-columns',
-	'group-indexes',
-	'group-volumes',
+// Node kinds that only group sibling nodes for display (e.g. "Tables", "Views") and carry no schema
+// information of their own. Exported because revealing a row in the pane has to walk past the same
+// rows this summary flattens away. A set of strings rather than of kinds because what it is checked
+// against is a DTO's kind, which is whatever string the driver sent.
+export const CONTAINER_ONLY_KINDS: ReadonlySet<string> = new Set<string>([
+	DataConnectionNodeKind.GroupDatabases,
+	DataConnectionNodeKind.GroupCatalogs,
+	DataConnectionNodeKind.GroupSchemas,
+	DataConnectionNodeKind.GroupTables,
+	DataConnectionNodeKind.GroupViews,
+	DataConnectionNodeKind.GroupColumns,
+	DataConnectionNodeKind.GroupIndexes,
+	DataConnectionNodeKind.GroupVolumes,
 ]);
 
 // Node kinds whose children are files rather than schema, and so are summarized as leaves: the walk
@@ -39,15 +39,15 @@ export const CONTAINER_ONLY_KINDS = new Set([
 // arithmetic, and it does not avoid the work: at the depth limit the walk still fetches a node's
 // children in order to count them (see summarizeSiblings), so the listing is paid for and then
 // discarded. Stating the intent here instead skips the fetch outright.
-const SUMMARY_LEAF_KINDS = new Set([
-	'volume',
-	'stage',
+const SUMMARY_LEAF_KINDS: ReadonlySet<string> = new Set<string>([
+	DataConnectionNodeKind.Volume,
+	DataConnectionNodeKind.Stage,
 ]);
 
 // The node kind a driver reports a table's or view's columns as. Columns are the bulk of any
 // schema, and unlike every other kind they are pure leaves, so the renderer folds them onto their
 // parent's line instead of giving each one a line of its own.
-const COLUMN_KIND = 'field';
+const COLUMN_KIND = DataConnectionNodeKind.Field;
 
 // The characters a rendered schema line uses as delimiters: `.` between path segments, `,` between
 // folded columns, `:` between a column and its type, the brackets around a node's kind and its
@@ -78,13 +78,13 @@ export interface IDataConnectionSchemaSummaryOptions {
 }
 
 /**
- * A single node in the schema tree the walk builds. Internal to this module: the walk's output is
- * rendered to compact lines (see {@link renderSchemaLines}) before it leaves, so no consumer sees
- * this shape.
+ * A single node in the schema tree the walk builds. Rendered to compact lines (see
+ * {@link renderSchemaLines}) for the callers that want a summary to read, and carried as-is on
+ * {@link IDataConnectionSchemaSummary.nodes} for the ones that navigate the structure.
  */
-interface IDataConnectionSchemaNode {
+export interface IDataConnectionSchemaNode {
 	name: string;
-	kind: string; // DataConnectionNodeKind value (positron.d.ts)
+	kind: string; // Normally a DataConnectionNodeKind value; see IDataConnectionNodeDTO.kind
 	dataType?: string;
 	isPrimaryKey?: boolean;
 
@@ -210,24 +210,40 @@ function renderSchemaLines(nodes: readonly IDataConnectionSchemaNode[], prefix?:
 }
 
 /**
+ * The walk's own output: the schema as a tree, before it is rendered to lines.
+ */
+export interface IDataConnectionSchemaWalk {
+	// The schema tree, in walk order.
+	nodes: IDataConnectionSchemaNode[];
+
+	// Root-level siblings a cap left out. Reported separately because, unlike deeper levels, the
+	// root has no parent node to carry a truncatedChildCount.
+	omitted: number;
+
+	// True if any cap (maxDepth, maxNodesPerLevel, maxTotalNodes) truncated the output.
+	truncated: boolean;
+}
+
+/**
  * Recursively walks a data connection's schema tree via {@link IDataConnectionHandle.getChildren}
- * and {@link IDataConnectionHandle.nodeGetChildren}, producing a bounded, plain JSON-serializable
- * summary suitable for handing to Assistant: one compact line per schema object (see
- * {@link renderSchemaLines}), rather than a nested tree that would spend most of its size on
- * repeated JSON keys. Container-only node kinds (see
- * CONTAINER_ONLY_KINDS) are flattened into their parent since they add no schema information of
- * their own, and file-holding kinds (see SUMMARY_LEAF_KINDS) are recorded without being expanded.
- * Output is bounded by maxDepth, maxNodesPerLevel, and maxTotalNodes; whenever a cap
- * leaves children out, the parent node is annotated with truncatedChildCount rather than the
- * data being dropped silently. Root-level siblings have no parent line, so objects a cap leaves
- * out at the root are reported as a trailing `+<n> more` line instead.
- * @param handle The live data connection handle to summarize.
+ * and {@link IDataConnectionHandle.nodeGetChildren}, producing a bounded tree. Container-only node
+ * kinds (see CONTAINER_ONLY_KINDS) are flattened into their parent since they add no schema
+ * information of their own, and file-holding kinds (see SUMMARY_LEAF_KINDS) are recorded without
+ * being expanded. Output is bounded by maxDepth, maxNodesPerLevel, and maxTotalNodes; whenever a
+ * cap leaves children out, the parent node is annotated with truncatedChildCount rather than the
+ * data being dropped silently.
+ *
+ * Exposed alongside {@link summarizeDataConnectionSchema} because the two consumers want different
+ * things from the same walk. Assistant wants the compact lines and would only pay for a tree it
+ * cannot read; the extension API hands the schema to callers that navigate it -- a SQL editor
+ * resolving a table to its columns -- and would have to parse the lines back into a tree.
+ * @param handle The live data connection handle to walk.
  * @param options Bounds for the walk; see {@link IDataConnectionSchemaSummaryOptions}.
  */
-export async function summarizeDataConnectionSchema(
+export async function walkDataConnectionSchema(
 	handle: IDataConnectionHandle,
 	options?: IDataConnectionSchemaSummaryOptions,
-): Promise<IDataConnectionSchemaSummary> {
+): Promise<IDataConnectionSchemaWalk> {
 	const maxDepth = options?.maxDepth ?? DEFAULT_MAX_DEPTH;
 	const maxNodesPerLevel = options?.maxNodesPerLevel ?? DEFAULT_MAX_NODES_PER_LEVEL;
 	const maxTotalNodes = options?.maxTotalNodes ?? DEFAULT_MAX_TOTAL_NODES;
@@ -310,6 +326,22 @@ export async function summarizeDataConnectionSchema(
 
 	const { nodes, omitted } = await summarizeSiblings(await handle.getChildren(), 1);
 
+	return { nodes, omitted, truncated: state.truncated };
+}
+
+/**
+ * Renders a data connection's schema as a bounded, plain JSON-serializable summary suitable for
+ * handing to Assistant: one compact line per schema object (see {@link renderSchemaLines}), rather
+ * than a nested tree that would spend most of its size on repeated JSON keys.
+ * @param handle The live data connection handle to summarize.
+ * @param options Bounds for the walk; see {@link IDataConnectionSchemaSummaryOptions}.
+ */
+export async function summarizeDataConnectionSchema(
+	handle: IDataConnectionHandle,
+	options?: IDataConnectionSchemaSummaryOptions,
+): Promise<IDataConnectionSchemaSummary> {
+	const { nodes, omitted, truncated } = await walkDataConnectionSchema(handle, options);
+
 	// Root-level siblings have no parent line to carry a truncatedChildCount, so objects a cap
 	// leaves out at the root get their own trailing `+<n> more` line -- otherwise they would be the
 	// one place the summary drops data with nothing but the bare `truncated` flag to show for it.
@@ -321,6 +353,6 @@ export async function summarizeDataConnectionSchema(
 	return {
 		instanceId: String(handle.handle),
 		lines,
-		truncated: state.truncated,
+		truncated,
 	};
 }
