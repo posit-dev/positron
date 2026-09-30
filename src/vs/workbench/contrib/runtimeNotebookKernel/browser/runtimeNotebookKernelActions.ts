@@ -187,7 +187,7 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 
 			// If trying to restart with no active session, start a new session
 			const runtimeNotebookKernelService = accessor.get(IRuntimeNotebookKernelService);
-			await runtimeNotebookKernelService.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReasonId.NotebookKernelRestart, { notebook: basename(notebookUri), 'restart source': context.source.debugMessage }));
+			await runtimeNotebookKernelService.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReasonId.NotebookKernelRestart, { notebook: basename(notebookUri), restartSource: context.source.debugMessage }));
 			return;
 		}
 

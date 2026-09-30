@@ -2007,7 +2007,7 @@ export class MainThreadLanguageRuntime
 	// Called by the extension host to select a previously registered language runtime
 	$selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void> {
 		return this._runtimeSessionService.selectRuntime(
-			runtimeId, createSessionStartReason(SessionStartReasonId.ExtensionApi, { 'requesting extension': requestingExtensionId }));
+			runtimeId, createSessionStartReason(SessionStartReasonId.ExtensionApiSelect, { requestingExtension: requestingExtensionId }));
 	}
 
 	// Called by the extension host to get a list of all registered runtimes
@@ -2037,7 +2037,7 @@ export class MainThreadLanguageRuntime
 			sessionName,
 			sessionMode,
 			uri,
-			createSessionStartReason(SessionStartReasonId.ExtensionApi, { 'requesting extension': requestingExtensionId }),
+			createSessionStartReason(SessionStartReasonId.ExtensionApiStart, { requestingExtension: requestingExtensionId }),
 			RuntimeStartMode.Starting,
 			true);
 

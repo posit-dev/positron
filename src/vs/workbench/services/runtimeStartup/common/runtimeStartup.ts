@@ -377,7 +377,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 							return always;
 						});
 					if (alwaysStarted.length) {
-						this.autoStartRuntime(alwaysStarted[0], createSessionStartReason(SessionStartReasonId.StartupBehaviorAlways, { language: languageId }), true);
+						// Language-specific values win over values for all
+						// languages, so a language-specific value is the one
+						// that applies whenever one is set.
+						const languageSpecific = this._configurationService.inspect(
+							'interpreters.startupBehavior', { overrideIdentifier: languageId })
+							.overrideIdentifiers?.includes(languageId);
+						this.autoStartRuntime(alwaysStarted[0], createSessionStartReason(languageSpecific ?
+							SessionStartReasonId.StartupBehaviorAlways :
+							SessionStartReasonId.StartupBehaviorAlwaysAllLanguages, { language: languageId }), true);
 					}
 				}
 			}

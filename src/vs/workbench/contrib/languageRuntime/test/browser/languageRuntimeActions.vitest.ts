@@ -971,7 +971,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			'My Python Session',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			{ id: SessionStartReasonId.DuplicatedConsoleSession, detail: 'A console was duplicated (from session: My Python Session)' },
+			{ id: SessionStartReasonId.DuplicatedConsoleSession, detail: 'A console was duplicated (fromSession: My Python Session)' },
 			RuntimeStartMode.Starting,
 			true
 		);
@@ -987,7 +987,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			'Python 3.12',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			{ id: SessionStartReasonId.DuplicatedNotebookSession, detail: 'A console was started from the Python 3.12 notebook session (interpreter: Python 3.12, from session: My Notebook Session)' },
+			{ id: SessionStartReasonId.DuplicatedNotebookSession, detail: 'A console was started from the Python 3.12 notebook session (interpreter: Python 3.12, fromSession: My Notebook Session)' },
 			RuntimeStartMode.Starting,
 			true
 		);

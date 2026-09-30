@@ -829,7 +829,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // No notebook URI (console sesion)
-					createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: languageId, 'code source': attribution.source }),
+					createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: languageId, codeSource: attribution.source }),
 					RuntimeStartMode.Starting,
 					true
 				);

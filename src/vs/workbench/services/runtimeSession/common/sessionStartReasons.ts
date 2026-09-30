@@ -9,7 +9,9 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform
 import { ILanguageRuntimeSession, IRuntimeSessionStartReason, SessionStartReasonId } from './runtimeSessionService.js';
 
 /**
- * Values that fill in a start reason label.
+ * Values that fill in a start reason label. The console info popup reads them
+ * from the session, and `createSessionStartReason` reads them from the
+ * matching `ISessionStartReasonValues`, so a label can only use these.
  */
 interface ISessionStartReasonLabelArgs {
 	/** The session's language, such as "Python". */
@@ -40,6 +42,7 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 	[SessionStartReasonId.ExtensionRequestedStartAtRegistration]: args => localize2('positron.sessionStartReason.extensionRequestedStartAtRegistration', "A new interpreter was found after startup, and the {0} extension recommended {1} for this workspace", args.extensionName, args.runtimeName),
 	[SessionStartReasonId.ExtensionRecommendedRuntime]: args => localize2('positron.sessionStartReason.extensionRecommendedRuntime', "The {0} extension recommended starting {1} for this workspace", args.extensionName, args.runtimeName),
 	[SessionStartReasonId.StartupBehaviorAlways]: args => localize2('positron.sessionStartReason.startupBehaviorAlways', "Startup Behavior is set to \"Always\" for {0}", args.languageName),
+	[SessionStartReasonId.StartupBehaviorAlwaysAllLanguages]: () => localize2('positron.sessionStartReason.startupBehaviorAlwaysAllLanguages', "Startup Behavior is set to \"Always\""),
 	[SessionStartReasonId.LanguageFileOpenedAtRegistration]: languageFileOpenedLabel,
 	[SessionStartReasonId.LanguageFileOpened]: languageFileOpenedLabel,
 	[SessionStartReasonId.UserSelectedRuntime]: () => localize2('positron.sessionStartReason.userSelectedRuntime', "You selected this interpreter"),
@@ -57,24 +60,24 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 	[SessionStartReasonId.NotebookEditorOpened]: args => localize2('positron.sessionStartReason.notebookEditorOpened', "The {0} notebook was opened", args.notebookFileName),
 	[SessionStartReasonId.NotebookEditorActivated]: args => localize2('positron.sessionStartReason.notebookEditorActivated', "{0}'s preview tab was kept open, or its background tab was brought to the front", args.notebookFileName),
 	[SessionStartReasonId.NotebookKernelRestart]: args => localize2('positron.sessionStartReason.notebookKernelRestart', "Restart Kernel was used in {0} with no kernel running", args.notebookFileName),
-	[SessionStartReasonId.ExtensionApi]: () => localize2('positron.sessionStartReason.extensionApi', "An extension asked for this session through the Positron API"),
+	[SessionStartReasonId.ExtensionApiSelect]: () => localize2('positron.sessionStartReason.extensionApiSelect', "You started this interpreter"),
+	[SessionStartReasonId.ExtensionApiStart]: () => localize2('positron.sessionStartReason.extensionApiStart', "An extension asked for this session through the Positron API"),
 };
 
 /**
- * Gets the user-facing label for why a session was started. Falls back to the
- * non-localized description for sessions without a known start reason ID,
- * such as sessions persisted before the ID existed.
+ * Gets the user-facing label for why a session was started.
  *
  * @param session The session.
  * @param extensions The registered extensions, used to find the display name
  * of the extension that provides the session's runtime.
- * @returns The label, or an empty string if the session has no start reason.
+ * @returns The label, or undefined if the session has no start reason ID this
+ * version knows, such as a session persisted before the ID existed.
  */
-export function getSessionStartReasonLabel(session: Pick<ILanguageRuntimeSession, 'runtimeMetadata' | 'metadata'>, extensions: readonly IExtensionDescription[]): string {
+export function getSessionStartReasonLabel(session: Pick<ILanguageRuntimeSession, 'runtimeMetadata' | 'metadata'>, extensions: readonly IExtensionDescription[]): string | undefined {
 	const { runtimeMetadata, metadata } = session;
 	const createLabel = metadata.startReasonId && sessionStartReasonLabels[metadata.startReasonId];
 	if (!createLabel) {
-		return metadata.startReason;
+		return undefined;
 	}
 	const extension = extensions.find(extension =>
 		ExtensionIdentifier.equals(extension.identifier, runtimeMetadata.extensionId));
@@ -87,23 +90,55 @@ export function getSessionStartReasonLabel(session: Pick<ILanguageRuntimeSession
 }
 
 /**
+ * Values that identify a request to start a session. They're appended to the
+ * start reason's detail. The `language`, `extension`, `interpreter`, and
+ * `notebook` values also fill in the English label at the start of the
+ * detail, so they must describe what the console info popup reads from the
+ * session.
+ */
+export interface ISessionStartReasonValues {
+	/** The ID of the session's language, such as "python". */
+	readonly language?: string;
+	/**
+	 * The ID of the extension that provides the session's interpreter. Use
+	 * `requestingExtension` for the extension that asked for the session.
+	 */
+	readonly extension?: string;
+	/** The name of the session's interpreter, such as "Python 3.12.4 (Pyenv)". */
+	readonly interpreter?: string;
+	/** The file name of the session's notebook or Quarto document. */
+	readonly notebook?: string;
+	/** The ID of the notebook kernel. */
+	readonly kernel?: string;
+	/** The ID of the command that asked for the session. */
+	readonly command?: string;
+	/** The name of the session that was duplicated. */
+	readonly fromSession?: string;
+	/** Where the code sent to the console came from. */
+	readonly codeSource?: string;
+	/** Where the restart was requested from. */
+	readonly restartSource?: string;
+	/** The ID of the extension that asked for the session. */
+	readonly requestingExtension?: string;
+}
+
+/**
  * Creates the start reason for a request to start a runtime session. The
- * detail is the English label, followed by any values that identify the
- * request. The label is filled in from the `language`, `extension`,
- * `interpreter`, and `notebook` values.
+ * detail is the English label, followed by the values that identify the
+ * request.
  *
  * @param id Why the session is being started.
  * @param values Values that identify the request, such as the language ID.
  * @returns The start reason.
  */
-export function createSessionStartReason(id: SessionStartReasonId, values?: Record<string, string>): IRuntimeSessionStartReason {
+export function createSessionStartReason(id: SessionStartReasonId, values: ISessionStartReasonValues = {}): IRuntimeSessionStartReason {
 	const label = sessionStartReasonLabels[id]({
-		languageName: values?.language ?? '',
-		extensionName: values?.extension ?? '',
-		runtimeName: values?.interpreter ?? '',
-		notebookFileName: values?.notebook ?? '',
+		languageName: values.language ?? '',
+		extensionName: values.extension ?? '',
+		runtimeName: values.interpreter ?? '',
+		notebookFileName: values.notebook ?? '',
 	}).original;
-	const entries = Object.entries(values ?? {});
+	const entries = Object.entries(values).filter(([, value]) => value !== undefined);
 	const detail = entries.length ?
 		`${label} (${entries.map(([key, value]) => `${key}: ${value}`).join(', ')})` :
 		label;

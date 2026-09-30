@@ -102,8 +102,11 @@ export enum SessionStartReasonId {
 	/** An extension recommended the runtime for this workspace. */
 	ExtensionRecommendedRuntime = 'extensionRecommendedRuntime',
 
-	/** The `interpreters.startupBehavior` setting is `always` for the language. */
+	/** The `interpreters.startupBehavior` setting is `always` for the runtime's language, set with a language-specific value. */
 	StartupBehaviorAlways = 'startupBehaviorAlways',
+
+	/** The `interpreters.startupBehavior` setting is `always`, set for all languages rather than for the runtime's language. */
+	StartupBehaviorAlwaysAllLanguages = 'startupBehaviorAlwaysAllLanguages',
 
 	/** A file in the runtime's language was opened before the runtime registered. */
 	LanguageFileOpenedAtRegistration = 'languageFileOpenedAtRegistration',
@@ -156,8 +159,15 @@ export enum SessionStartReasonId {
 	/** A kernel restart was requested for a notebook with no session. */
 	NotebookKernelRestart = 'notebookKernelRestart',
 
-	/** An extension started or selected the runtime through the Positron API. */
-	ExtensionApi = 'extensionApi',
+	/**
+	 * An extension selected the runtime through the Positron API's
+	 * `selectLanguageRuntime`. The R and Python interpreter pickers call it
+	 * when the user picks an interpreter.
+	 */
+	ExtensionApiSelect = 'extensionApiSelect',
+
+	/** An extension started the runtime through the Positron API's `startLanguageRuntime`. */
+	ExtensionApiStart = 'extensionApiStart',
 }
 
 /**

@@ -978,7 +978,7 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 				currentSession.dynState.sessionName,
 				LanguageRuntimeSessionMode.Console,
 				undefined,
-				createSessionStartReason(SessionStartReasonId.DuplicatedConsoleSession, { 'from session': currentSession.dynState.sessionName }),
+				createSessionStartReason(SessionStartReasonId.DuplicatedConsoleSession, { fromSession: currentSession.dynState.sessionName }),
 				RuntimeStartMode.Starting,
 				true
 			);
@@ -988,7 +988,7 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 				currentSession.runtimeMetadata.runtimeName,
 				LanguageRuntimeSessionMode.Console,
 				undefined,
-				createSessionStartReason(SessionStartReasonId.DuplicatedNotebookSession, { interpreter: currentSession.runtimeMetadata.runtimeName, 'from session': currentSession.dynState.sessionName }),
+				createSessionStartReason(SessionStartReasonId.DuplicatedNotebookSession, { interpreter: currentSession.runtimeMetadata.runtimeName, fromSession: currentSession.dynState.sessionName }),
 				RuntimeStartMode.Starting,
 				true
 			);

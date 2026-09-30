@@ -47,7 +47,8 @@ describe('getSessionStartReasonLabel', () => {
 			  "codeExecutedWithoutSession": "Code was sent to the console with no R session",
 			  "duplicatedConsoleSession": "A console was duplicated",
 			  "duplicatedNotebookSession": "A console was started from the R 4.4.1 notebook session",
-			  "extensionApi": "An extension asked for this session through the Positron API",
+			  "extensionApiSelect": "You started this interpreter",
+			  "extensionApiStart": "An extension asked for this session through the Positron API",
 			  "extensionRecommendedRuntime": "The Positron R extension recommended starting R 4.4.1 for this workspace",
 			  "extensionRequestedImmediateStart": "The Positron R extension recommended R 4.4.1 for this workspace when interpreter discovery finished",
 			  "extensionRequestedStartAtRegistration": "A new interpreter was found after startup, and the Positron R extension recommended R 4.4.1 for this workspace",
@@ -65,6 +66,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "quartoInlineOutput": "The Quarto document analysis.ipynb needed a kernel for inline output",
 			  "restartUninitializedSession": "A restart was requested for a session that never started",
 			  "startupBehaviorAlways": "Startup Behavior is set to "Always" for R",
+			  "startupBehaviorAlwaysAllLanguages": "Startup Behavior is set to "Always"",
 			  "userSelectedRuntime": "You selected this interpreter",
 			}
 		`);
@@ -75,15 +77,16 @@ describe('getSessionStartReasonLabel', () => {
 			.toBe('The example.missing extension recommended starting R 4.4.1 for this workspace');
 	});
 
-	it('falls back to the description when the session has no start reason ID', () => {
+	it('has no label when the session has no start reason ID', () => {
+		// Sessions persisted before start reason IDs existed only have a description.
 		expect(getSessionStartReasonLabel(createSession('Affiliated Python runtime for workspace'), extensions))
-			.toBe('Affiliated Python runtime for workspace');
+			.toBeUndefined();
 	});
 
-	it('falls back to the description when the start reason ID is unknown', () => {
+	it('has no label when the start reason ID is unknown', () => {
 		// A session persisted by a newer version can carry an ID this version doesn't know.
 		expect(getSessionStartReasonLabel(createSession('Started by a future feature', 'futureReason' as SessionStartReasonId), extensions))
-			.toBe('Started by a future feature');
+			.toBeUndefined();
 	});
 });
 
@@ -94,7 +97,12 @@ describe('createSessionStartReason', () => {
 	});
 
 	it('appends the values that identify the request to the detail', () => {
-		expect(createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: 'python', 'code source': 'assistant' }).detail)
-			.toBe('Code was sent to the console with no python session (language: python, code source: assistant)');
+		expect(createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: 'python', codeSource: 'assistant' }).detail)
+			.toBe('Code was sent to the console with no python session (language: python, codeSource: assistant)');
+	});
+
+	it('leaves values that are undefined out of the detail', () => {
+		expect(createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: 'python', codeSource: undefined }).detail)
+			.toBe('Code was sent to the console with no python session (language: python)');
 	});
 });

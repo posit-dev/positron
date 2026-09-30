@@ -1255,7 +1255,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				session.dynState.sessionName,
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
-				createSessionStartReason(SessionStartReasonId.RestartUninitializedSession, { 'restart source': source }),
+				createSessionStartReason(SessionStartReasonId.RestartUninitializedSession, { restartSource: source }),
 				RuntimeStartMode.Starting,
 				true
 			);

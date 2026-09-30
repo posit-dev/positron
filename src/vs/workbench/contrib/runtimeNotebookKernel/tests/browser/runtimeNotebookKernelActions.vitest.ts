@@ -55,11 +55,11 @@ describe('RuntimeNotebookKernelRestartAction', () => {
 		expect(ensureSessionStarted.mock.calls).toEqual([
 			[notebookUri, {
 				id: SessionStartReasonId.NotebookKernelRestart,
-				detail: 'Restart Kernel was used in notebook.ipynb with no kernel running (notebook: notebook.ipynb, restart source: User clicked positron.runtimeNotebookKernel.restart button in Positron notebook editor action bar)',
+				detail: 'Restart Kernel was used in notebook.ipynb with no kernel running (notebook: notebook.ipynb, restartSource: User clicked positron.runtimeNotebookKernel.restart button in Positron notebook editor action bar)',
 			}],
 			[notebookUri, {
 				id: SessionStartReasonId.NotebookKernelRestart,
-				detail: 'Restart Kernel was used in notebook.ipynb with no kernel running (notebook: notebook.ipynb, restart source: User clicked positron.runtimeNotebookKernel.restart button in VSCode notebook editor toolbar)',
+				detail: 'Restart Kernel was used in notebook.ipynb with no kernel running (notebook: notebook.ipynb, restartSource: User clicked positron.runtimeNotebookKernel.restart button in VSCode notebook editor toolbar)',
 			}],
 		]);
 	});

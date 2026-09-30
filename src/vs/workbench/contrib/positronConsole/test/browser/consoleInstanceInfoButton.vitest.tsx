@@ -23,10 +23,11 @@ import { ConsoleInstanceInfoModalPopup } from '../../browser/components/consoleI
 
 describe('ConsoleInstanceInfoModalPopup', () => {
 	const openUserSettings = vi.fn(async () => undefined);
+	const openRemoteSettings = vi.fn(async () => undefined);
 	const openWorkspaceSettings = vi.fn(async () => undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IPreferencesService, { openUserSettings, openWorkspaceSettings })
+		.stub(IPreferencesService, { openUserSettings, openRemoteSettings, openWorkspaceSettings })
 		.stub(IExtensionService, {
 			extensions: [stubInterface<IExtensionDescription>({
 				identifier: new ExtensionIdentifier('positron.positron-python'),
@@ -108,29 +109,88 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The analysis.ipynb notebook was opened');
 	});
 
-	async function clickStartupBehaviorLink(value: IConfigurationValue<string>) {
+	async function clickStartupBehaviorLink(value: IConfigurationValue<string>, id = SessionStartReasonId.StartupBehaviorAlways) {
 		const inspect = vi.spyOn(ctx.get(IConfigurationService), 'inspect').mockReturnValue(value);
 		const user = userEvent.setup();
-		renderPopup('', SessionStartReasonId.StartupBehaviorAlways);
+		renderPopup('', id);
 
 		await user.click(screen.getByRole('button', { name: 'Open Startup Behavior Setting' }));
 
 		expect(inspect).toHaveBeenCalledWith('interpreters.startupBehavior', { overrideIdentifier: 'python' });
 		expect(renderer.dispose).toHaveBeenCalled();
-		return { user: openUserSettings.mock.calls, workspace: openWorkspaceSettings.mock.calls };
+		return {
+			user: openUserSettings.mock.calls,
+			remote: openRemoteSettings.mock.calls,
+			workspace: openWorkspaceSettings.mock.calls,
+		};
 	}
 
+	const languageOptions = { query: '@lang:python interpreters.startupBehavior', revealSetting: { key: '[python]' } };
+	const allLanguagesOptions = { query: 'interpreters.startupBehavior', revealSetting: { key: 'interpreters.startupBehavior' } };
+
 	it('opens the User settings tab when the value comes from user settings', async () => {
-		expect(await clickStartupBehaviorLink({ userValue: 'always', value: 'always' })).toEqual({
-			user: [[{ query: '@lang:python interpreters.startupBehavior' }]],
+		expect(await clickStartupBehaviorLink({ userLocal: { override: 'always' }, value: 'always' })).toEqual({
+			user: [[languageOptions]],
+			remote: [],
+			workspace: [],
+		});
+	});
+
+	it('opens the Remote settings tab when the value comes from remote user settings', async () => {
+		expect(await clickStartupBehaviorLink({ userRemote: { override: 'always' }, value: 'always' })).toEqual({
+			user: [],
+			remote: [[languageOptions]],
 			workspace: [],
 		});
 	});
 
 	it('opens the Workspace settings tab when the value comes from workspace settings', async () => {
-		expect(await clickStartupBehaviorLink({ workspaceValue: 'always', value: 'always' })).toEqual({
+		expect(await clickStartupBehaviorLink({ workspace: { override: 'always' }, value: 'always' })).toEqual({
 			user: [],
-			workspace: [[{ query: '@lang:python interpreters.startupBehavior' }]],
+			remote: [],
+			workspace: [[languageOptions]],
+		});
+	});
+
+	it('opens the tab with the language-specific value over a tab with a value for all languages', async () => {
+		// A language-specific user value wins over a workspace value for all languages.
+		expect(await clickStartupBehaviorLink({ workspace: { value: 'auto' }, userLocal: { override: 'always' }, value: 'always' })).toEqual({
+			user: [[languageOptions]],
+			remote: [],
+			workspace: [],
+		});
+	});
+
+	it('opens the Workspace settings tab over the User settings tab when both set a language-specific value', async () => {
+		expect(await clickStartupBehaviorLink({ workspace: { override: 'always' }, userLocal: { override: 'manual' }, value: 'always' })).toEqual({
+			user: [],
+			remote: [],
+			workspace: [[languageOptions]],
+		});
+	});
+
+	it('opens the Remote settings tab over the User settings tab when both set a language-specific value', async () => {
+		expect(await clickStartupBehaviorLink({ userRemote: { override: 'always' }, userLocal: { override: 'manual' }, value: 'always' })).toEqual({
+			user: [],
+			remote: [[languageOptions]],
+			workspace: [],
+		});
+	});
+
+	it('opens the User settings tab for the start reason\'s setting when no tab sets a value', async () => {
+		// Such as when the setting changed after the session started.
+		expect(await clickStartupBehaviorLink({ value: 'auto' }, SessionStartReasonId.StartupBehaviorAlwaysAllLanguages)).toEqual({
+			user: [[allLanguagesOptions]],
+			remote: [],
+			workspace: [],
+		});
+	});
+
+	it('opens the setting for all languages when the value is set for all languages', async () => {
+		expect(await clickStartupBehaviorLink({ userLocal: { value: 'always' }, value: 'always' }, SessionStartReasonId.StartupBehaviorAlwaysAllLanguages)).toEqual({
+			user: [[allLanguagesOptions]],
+			remote: [],
+			workspace: [],
 		});
 	});
 
@@ -140,8 +200,9 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		expect(screen.queryByRole('button', { name: 'Open Startup Behavior Setting' })).not.toBeInTheDocument();
 	});
 
-	it('omits the start reason line when the start reason is empty', () => {
-		renderPopup('');
+	it('omits the start reason line when the session has no start reason ID', () => {
+		// Sessions persisted before start reason IDs existed only have a description.
+		renderPopup('Affiliated Python runtime for workspace');
 
 		expect(screen.queryByTestId('session-start-reason')).not.toBeInTheDocument();
 	});

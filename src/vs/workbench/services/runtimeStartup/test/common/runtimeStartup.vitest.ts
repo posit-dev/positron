@@ -32,9 +32,11 @@ import {
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
-import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
+import { SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import {
 	ICachedRuntime,
@@ -1255,6 +1257,105 @@ describe('RuntimeStartupService - discovery completion', () => {
 
 		expect(ctx.get(ILanguageRuntimeService).registeredRuntimes).toHaveLength(0);
 		expect(errorNotification).not.toHaveBeenCalled();
+	});
+});
+
+describe('RuntimeStartupService - start reasons', () => {
+	const setItem = vi.fn<IEphemeralStateService['setItem']>(async () => { });
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem,
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: Event.None,
+			onWillShutdown: Event.None,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: Event.None,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	/**
+	 * Creates the service with the given startup behavior, and returns the
+	 * IDs of the start reasons it auto-starts runtimes with.
+	 */
+	function createService(startupBehavior: LanguageStartupBehavior, options?: { overrideIdentifiers?: string[] }) {
+		const configurationService = new TestConfigurationService({ 'interpreters.startupBehavior': startupBehavior });
+		if (options?.overrideIdentifiers) {
+			configurationService.setOverrideIdentifiers('interpreters.startupBehavior', options.overrideIdentifiers);
+		}
+		ctx.instantiationService.stub(IConfigurationService, configurationService);
+		const autoStartRuntime = vi.spyOn(ctx.get(IRuntimeSessionService), 'autoStartRuntime').mockResolvedValue('');
+		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		return () => autoStartRuntime.mock.calls.map(([, startReason]) => startReason.id);
+	}
+
+	function registerRuntime(startupBehavior: LanguageRuntimeStartupBehavior) {
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime({ ...metadata(), startupBehavior }));
+	}
+
+	function completeDiscovery() {
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+	}
+
+	it('starts a runtime marked to start immediately when discovery finishes', () => {
+		const startReasonIds = createService(LanguageStartupBehavior.Auto);
+		registerRuntime(LanguageRuntimeStartupBehavior.Immediate);
+		completeDiscovery();
+
+		expect(startReasonIds()).toEqual([SessionStartReasonId.ExtensionRequestedImmediateStart]);
+	});
+
+	it.each([
+		{ overrideIdentifiers: ['python'], id: SessionStartReasonId.StartupBehaviorAlways },
+		{ overrideIdentifiers: undefined, id: SessionStartReasonId.StartupBehaviorAlwaysAllLanguages },
+		// A value set for another language doesn't apply to Python.
+		{ overrideIdentifiers: ['r'], id: SessionStartReasonId.StartupBehaviorAlwaysAllLanguages },
+	])('starts a runtime set to always start when discovery finishes (language-specific values: $overrideIdentifiers)', ({ overrideIdentifiers, id }) => {
+		const startReasonIds = createService(LanguageStartupBehavior.Always, { overrideIdentifiers });
+		registerRuntime(LanguageRuntimeStartupBehavior.Implicit);
+		completeDiscovery();
+
+		expect(startReasonIds()).toEqual([id]);
+	});
+
+	it('starts a runtime marked to start immediately when it registers after discovery', () => {
+		const startReasonIds = createService(LanguageStartupBehavior.Auto);
+		completeDiscovery();
+		registerRuntime(LanguageRuntimeStartupBehavior.Immediate);
+
+		expect(startReasonIds()).toEqual([SessionStartReasonId.ExtensionRequestedStartAtRegistration]);
+	});
+
+	it('starts a runtime for an open file\'s language when it registers after discovery', () => {
+		const startReasonIds = createService(LanguageStartupBehavior.Auto);
+		completeDiscovery();
+		ctx.get(ILanguageService).requestRichLanguageFeatures('python');
+		registerRuntime(LanguageRuntimeStartupBehavior.Implicit);
+
+		expect(startReasonIds()).toEqual([SessionStartReasonId.LanguageFileOpenedAtRegistration]);
+	});
+
+	it('keeps the start reason ID when saving workspace sessions', async () => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Workspace);
+
+		await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+			runtime,
+			startReasonId: SessionStartReasonId.CodeExecutedWithoutSession,
+		});
+
+		await vi.waitFor(() => {
+			const saved = setItem.mock.calls.at(-1)?.[1] as SerializedSessionMetadata[] | undefined;
+			expect(saved?.map(session => session.metadata.startReasonId)).toEqual([SessionStartReasonId.CodeExecutedWithoutSession]);
+		});
 	});
 });
 
