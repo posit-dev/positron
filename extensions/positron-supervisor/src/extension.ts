@@ -57,6 +57,10 @@ export function activate(context: vscode.ExtensionContext): PositronSupervisorAp
 		return KallichoreInstances.showRunningSupervisors();
 	}));
 
+	context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.showCurrentSupervisor', () => {
+		return KallichoreInstances.showCurrentSupervisor();
+	}));
+
 	// Listen for the command to open the logs
 	context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.showKernelSupervisorLog', () => {
 		log.show();
