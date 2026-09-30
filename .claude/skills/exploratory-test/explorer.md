@@ -379,8 +379,14 @@ Append every action to `actions.log` in the run directory as you take it, with a
 timestamp, including incidental ones: a reload, a setting toggle, a wait. Have
 your scripts append it themselves. `Repro` is a transcription of that file, and
 a precondition that only existed in your head is how a finding stops
-reproducing. Write steps as a person using the app would; launch flags belong
-in the ledger's Environment, and scratch paths in Run details.
+reproducing. So is state you did not create. Before writing a finding, compare
+the screen at its first step with what its steps and preconditions produce: a
+console the app started on launch, a setting the launcher or seeded profile
+applied, an editor restored from last time, a cell already selected. Write each
+one in, as a step for what the app did ("Wait for the Python console to
+start.") or a precondition for a setting. Write steps as a person using the
+app would; launch flags belong in the ledger's Environment, and scratch paths
+in Run details.
 
 A finding's steps are the minimal sequence from the scenario that found it: its
 actions plus the verify steps that matter, keeping PASS checks that show what
