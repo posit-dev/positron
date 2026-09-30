@@ -312,8 +312,18 @@ async function vendorPythonKernelRequirements() {
 }
 
 async function bundleIPykernel() {
-    const pythonVersions = ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14'];
     const minimumPythonVersion = '3.9';
+
+    // pyzmq publishes a wheel for each Python version up to 3.11, and one abi3 wheel
+    // (cp312-abi3) for Python 3.12 and later. Install the abi3 wheel one time instead of
+    // one identical copy for each version.
+    // Keep in sync with getIpykernelBundle() in src/client/positron/ipykernel.ts.
+    const cpxInstalls = [
+        { directory: 'cp39', pythonVersion: '3.9', abi: 'cp39' },
+        { directory: 'cp310', pythonVersion: '3.10', abi: 'cp310' },
+        { directory: 'cp311', pythonVersion: '3.11', abi: 'cp311' },
+        { directory: 'cp312-abi3', pythonVersion: '3.12', abi: 'abi3' },
+    ];
 
     // Pure Python 3 requirements (same for all architectures).
     await pipInstall([
@@ -359,14 +369,12 @@ async function bundleIPykernel() {
         }
 
         // CPython 3.x (cpXX) requirements - packages like pyzmq only have universal2 wheels.
-        // Install once per Python version into a shared 'universal2' directory.
+        // Install into a shared 'universal2' directory.
         fancyLog(`Bundling cpx requirements for macOS: ${ansiColors.cyan('universal2')}`);
-        for (const pythonVersion of pythonVersions) {
-            const shortVersion = pythonVersion.replace('.', '');
-            const abi = `cp${shortVersion}`;
+        for (const { directory, pythonVersion, abi } of cpxInstalls) {
             await pipInstall([
                 '--target',
-                `./python_files/lib/ipykernel/universal2/${abi}`,
+                `./python_files/lib/ipykernel/universal2/${directory}`,
                 '--implementation',
                 'cp',
                 '--python-version',
@@ -405,12 +413,10 @@ async function bundleIPykernel() {
             await removeTornadoTestFolder(arch);
 
             // CPython 3.x requirements (specific to platform, architecture, and Python version).
-            for (const pythonVersion of pythonVersions) {
-                const shortVersion = pythonVersion.replace('.', '');
-                const abi = `cp${shortVersion}`;
+            for (const { directory, pythonVersion, abi } of cpxInstalls) {
                 await pipInstall([
                     '--target',
-                    `./python_files/lib/ipykernel/${arch}/${abi}`,
+                    `./python_files/lib/ipykernel/${arch}/${directory}`,
                     '--implementation',
                     'cp',
                     '--python-version',
@@ -448,12 +454,10 @@ async function bundleIPykernel() {
         await removeTornadoTestFolder(arch);
 
         // CPython 3.x requirements (specific to architecture and Python version).
-        for (const pythonVersion of pythonVersions) {
-            const shortVersion = pythonVersion.replace('.', '');
-            const abi = `cp${shortVersion}`;
+        for (const { directory, pythonVersion, abi } of cpxInstalls) {
             await pipInstall([
                 '--target',
-                `./python_files/lib/ipykernel/${arch}/${abi}`,
+                `./python_files/lib/ipykernel/${arch}/${directory}`,
                 '--implementation',
                 'cp',
                 '--python-version',

@@ -106,7 +106,7 @@ export const DEFAULT_EXTENSION_FILE_COUNT_BUDGET = 100;
  */
 export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map([
 	['copilot', 8_500], // 7,728
-	['positron-python', 6_350], // 5,219; 5,784 on win32-x64
+	['positron-python', 5_950], // about 5,020; about 5,400 on win32-x64
 	['positron-data-driver-odbc', 515], // 467
 	['positron-data-driver-sqlite', 515], // 425; 466 on win32-x64
 	['positron-pdf-server', 450], // 407
