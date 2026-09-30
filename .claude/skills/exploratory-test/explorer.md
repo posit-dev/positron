@@ -306,7 +306,9 @@ N. VERIFY <expectation> -> FAIL - Finding K
 ```
 
 - An action is something you did: "Run `%view df`.", "Click Continue." Merge
-  trivial waits into it ("Run X and wait 15 s").
+  trivial waits into it, naming what you waited for, not for how long: "Run X
+  and wait for the plot to appear." When the bug needs you to act before
+  something finishes, say what it races instead.
 - A verify is a check, written as the expectation *before* you look. Every
   check is one, including the ones that pass.
 - Never write an observation as a step; it belongs in `Observed:` or the next
