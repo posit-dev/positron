@@ -193,10 +193,10 @@ configurationRegistry.registerConfiguration({
 		},
 		[QUARTO_NATIVE_LANGUAGE_FEATURES_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
 				'positron.quarto.embeddedLanguageFeatures.native',
-				'Also serve language features for code cells in Quarto and R Markdown documents from Positron, instead of only from the Quarto extension. The Quarto extension continues to answer these requests from temporary virtual documents until a later release turns that off.'
+				'Serve language features for code cells in Quarto and R Markdown documents (completions, hover, diagnostics, outline, formatting, and more) from Positron. When off, the Quarto extension serves them from temporary virtual documents instead.'
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],
@@ -358,13 +358,13 @@ export function usingQuartoInlineOutputAutoScroll(configurationService: IConfigu
 
 /**
  * Helper function to check if Positron serves language features for Quarto code
- * cells itself. Defaults to false when the setting is unset. There is no
+ * cells itself. Defaults to true when the setting is unset. There is no
  * deprecated alias for this key, so it reads through plain `getValue`.
  * @param configurationService The configuration service instance
  * @returns true if native embedded language features are enabled
  */
 export function usingNativeEmbeddedFeatures(configurationService: IConfigurationService): boolean {
-	return configurationService.getValue<boolean>(QUARTO_NATIVE_LANGUAGE_FEATURES_KEY) === true;
+	return configurationService.getValue<boolean>(QUARTO_NATIVE_LANGUAGE_FEATURES_KEY) !== false;
 }
 
 /**

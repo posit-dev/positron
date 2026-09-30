@@ -79,8 +79,8 @@ export class FontConfigurationManager {
 
 		// Use the container to get the window, if it's available. Otherwise, use the active window.
 		const window = container ?
-			DOM.getActiveWindow() :
-			DOM.getWindow(container);
+			DOM.getWindow(container) :
+			DOM.getActiveWindow();
 
 		// Return the font info for the window.
 		return FontMeasurements.readFontInfo(

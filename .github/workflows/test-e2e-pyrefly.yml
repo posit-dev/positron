@@ -29,7 +29,7 @@ jobs:
   e2e-linux:
     name: 'e2e-pyrefly-ubuntu'
     timeout-minutes: 60
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-amd64-8-core
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       options: --user 0:0 --init
@@ -98,7 +98,7 @@ jobs:
           GH_SUMMARY_REPORT: true
           ENABLE_DIAGNOSTIC_LOGGING: ${{ inputs.enable_diagnostic_logging }}
         run: |
-          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/lsp --project=e2e-electron --workers=1
+          ALLOW_PYREFLY=true npx playwright test test/e2e/tests/lsp test/e2e/tests/quarto/quarto-outline.test.ts --project=e2e-electron --workers=1
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}

@@ -70,6 +70,7 @@ function createInstance(profileId: string, handle: number): IDataConnectionInsta
 				kind: 'table',
 				hasGetChildren: false,
 				hasPreview: false,
+				hasDetails: false,
 			}]),
 		}),
 	});

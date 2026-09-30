@@ -14,10 +14,6 @@ const shim = createBrowserLaunchShim();
 
 test.use({
 	suiteId: __filename,
-	// The Data Connections panel is a preview feature gated behind `dataConnections.enabled`. This
-	// bakes the setting into the app (and the Workbench/Jupyter containers) at startup, since those
-	// read settings copied in at launch rather than the host settings file written at runtime.
-	enableDataConnections: true,
 	// Put the shim ahead of the real browser opener for the launched app. The extension host
 	// inherits this, which is where snowflake-sdk runs.
 	extraEnv: shim.env,

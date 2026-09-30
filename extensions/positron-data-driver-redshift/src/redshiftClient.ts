@@ -95,9 +95,14 @@ export type PgClientFactory = (config: RedshiftFieldConfig) => Promise<Client>;
  * every driver at once, and a user who never opens a Redshift connection should never pay to load
  * pg.
  *
+ * pg is bundled behind a shim module (src/pg.ts) that is its own esbuild entry point, so the
+ * packaged extension loads the bundled copy with a relative dynamic import rather than resolving
+ * the package from node_modules, which does not ship. The shim is CommonJS with `export =`, so the
+ * namespace a dynamic import() yields carries the module object on `default`.
+ *
  * Exported for unit tests, which assert the lazy import yields a constructible client.
  */
-export const defaultPgClientFactory: PgClientFactory = async config => new (await import('pg')).Client({
+export const defaultPgClientFactory: PgClientFactory = async config => new (await import('./pg.js')).default.Client({
 	host: config.host,
 	port: config.port,
 	user: config.user,

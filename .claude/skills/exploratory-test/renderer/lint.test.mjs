@@ -23,6 +23,8 @@ const REPORT = `# Exploratory test: x
 
 ### Finding 1: Retry does nothing
 
+**Feature:** console
+
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
 
@@ -69,6 +71,11 @@ const lint = (report = REPORT, ledger = LEDGER) => lintReport(report, ledger, { 
 
 test('a report written to the format is clean', () => {
 	assert.deepEqual(lint(), []);
+});
+
+test('flags a finding with no Feature line', () => {
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console\n\n', '')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 });
 
 test('fenced code does not count as a heading', () => {
@@ -225,4 +232,63 @@ test('a finding screenshot with no step is a format problem', () => {
 	for (const caption of ['Step 2: empty panel', 'Variant: empty panel']) {
 		assert.ok(!lint(shot(caption)).some(p => /has no step/.test(p)), caption);
 	}
+});
+
+test('a finding ends where Run details or the verification starts', () => {
+	const verified = REPORT.replace('</details>\n', '</details>\n\n<details>\n<summary>Verification details</summary>\n\n3. Same as Finding 1: a note from the verifier.\n\n</details>\n');
+	assert.match(verified, /Same as Finding 1: a note from the verifier/);
+	assert.deepEqual(lintReport(verified, LEDGER).filter(p => /points at another finding/.test(p)), []);
+	// Inside a finding it is still a problem.
+	const pointing = REPORT.replace('1. Click Retry.', '1. Same as Finding 1: click Retry.');
+	assert.match(pointing, /1\. Same as Finding 1: click Retry\./);
+	assert.equal(lintReport(pointing, LEDGER).filter(p => /points at another finding/.test(p)).length, 1);
+});
+
+const KNOWN = { issues: [
+	{ number: 10, relation: 'fixes' },
+	{ number: 11, relation: 'fixes' },
+	{ number: 20, relation: 'linked' },
+	{ number: 21, relation: 'linked', state: 'closed' },
+] };
+const lintKnown = ledger => lintReport(REPORT, ledger, { fileExists: () => true, knownIssues: KNOWN }).filter(p => /#\d|Issue:/.test(p));
+const withIssues = (s01, s02, notRun = '') => LEDGER
+	.replace('Result: loads\n', `Result: loads\n${s01}`)
+	.replace('Result: Fails 2/2\n', `Result: Fails 2/2\n${s02}`)
+	.replace('- N01 - web build - no server\n', `- N01 - web build - no server\n${notRun}`);
+
+test('a ledger that accounts for every linked issue is clean', () => {
+	assert.deepEqual(lintKnown(withIssues('Issue: #10 fix held\nIssue: #20 observed\n', 'Issue: #11 fix did not hold\nIssue: #21 came back\n')), []);
+	assert.deepEqual(lintKnown(withIssues('Issue: #10 fix held\nIssue: #20 observed\n', 'Issue: #11 fix didn\'t hold\nIssue: #21 came back\n')), []);
+	assert.deepEqual(lintKnown(withIssues('Issue: #10 fix held\n', '', '- N02 - x - Fix for #11 not exercised: web only\n- N03 - y - Already filed as #20\n')), []);
+});
+
+test('flags Issue lines that do not match the list', () => {
+	const problems = lintKnown(withIssues('Issue: #10 held\nIssue: #99 observed\nIssue: #20 fix held\n', 'Issue: #10 observed\nIssue: #11 fix did not hold\n'));
+	assert.ok(problems.some(p => /S01 "Issue: #10 held" must read/.test(p)), problems.join('\n'));
+	assert.ok(problems.some(p => /S01 names #99, which is not in known-issues\.json/.test(p)));
+	assert.ok(problems.some(p => /S01 #20 is a linked issue/.test(p)));
+	assert.ok(problems.some(p => /S02 #10 is a fix the PR claims/.test(p)));
+});
+
+test('flags a fix that did not hold on a passing scenario, and a fix the ledger never mentions', () => {
+	const problems = lintKnown(withIssues('Issue: #10 fix did not hold\n', ''));
+	assert.ok(problems.some(p => /S01 says the fix for #10 did not hold, so it needs a finding/.test(p)), problems.join('\n'));
+	assert.ok(problems.some(p => /the PR fixes #11; record/.test(p)));
+});
+
+test('flags a closed issue recorded as observed, an open one that came back, and a regression on a passing scenario', () => {
+	const problems = lintKnown(withIssues('Issue: #10 fix held\nIssue: #20 came back\nIssue: #21 came back\n', 'Issue: #11 fix held\nIssue: #21 observed\nIssue: #10 came back\n'));
+	assert.ok(problems.some(p => /S01 #20 is still open; record "observed", not "came back"/.test(p)), problems.join('\n'));
+	assert.ok(problems.some(p => /S01 says #21 came back, so it needs a finding and Status: FAIL/.test(p)));
+	assert.ok(problems.some(p => /S02 #21 is closed, so seeing it again is a finding; record "came back"/.test(p)));
+	assert.ok(problems.some(p => /S02 #10 is a fix the PR claims; record "fix held" or "fix did not hold", not "came back"/.test(p)));
+});
+
+test('flags a Not run row that names the wrong kind of issue', () => {
+	const problems = lintKnown(withIssues('Issue: #10 fix held\n', 'Issue: #11 fix held\n', '- N02 - x - Already filed as #10\n'));
+	assert.ok(problems.some(p => /Not run N02 #10: use "Fix for #N not exercised"/.test(p)), problems.join('\n'));
+});
+
+test('Issue lines are not checked without a known-issues list', () => {
+	assert.deepEqual(lint(REPORT, withIssues('Issue: #99 observed\n', '')), []);
 });

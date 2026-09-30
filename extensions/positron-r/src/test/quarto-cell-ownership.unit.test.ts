@@ -10,7 +10,7 @@ import * as vscode from 'vscode';
 import { LanguageClient, State } from 'vscode-languageclient/node';
 import { RHelpTopicProvider } from '../help';
 import { RStatementRangeProvider } from '../statement-range';
-import { quartoCellsKey, quartoCellsUriFor } from '../lsp';
+import { notebookCellFilter, quartoCellsKey, quartoCellsUriFor } from '../lsp';
 
 // A running client whose only job is to prove it was never asked.
 const untouchedClient = {
@@ -152,5 +152,40 @@ suite('Quarto cell ownership: quartoCellsUriFor', () => {
 		const notebookUri = vscode.Uri.from({ scheme: 'untitled', path: 'Untitled-1', query: 'some-notebook' });
 
 		assert.strictEqual(quartoCellsUriFor(notebookUri, []), undefined);
+	});
+});
+
+function fakeNotebook(uri: string, notebookType: string): vscode.NotebookDocument {
+	return { uri: vscode.Uri.parse(uri), notebookType } as unknown as vscode.NotebookDocument;
+}
+
+const someCells = [{}, {}] as unknown as vscode.NotebookCell[];
+
+suite('Quarto cell ownership: notebookCellFilter', () => {
+	test('a Quarto session client keeps only its own notebook', () => {
+		const filter = notebookCellFilter(vscode.Uri.parse('quarto-cells:/proj/doc.qmd.ipynb'));
+
+		assert.deepStrictEqual(filter(fakeNotebook('quarto-cells:/proj/doc.qmd.ipynb', 'quarto-cells'), someCells), someCells);
+		assert.deepStrictEqual(filter(fakeNotebook('quarto-cells:/proj/other.qmd.ipynb', 'quarto-cells'), someCells), []);
+	});
+
+	test('a Quarto session client ignores the remote authority', () => {
+		const filter = notebookCellFilter(vscode.Uri.parse('quarto-cells:/proj/doc.qmd.ipynb'));
+
+		assert.deepStrictEqual(filter(fakeNotebook('quarto-cells://ssh-remote%2Bhost/proj/doc.qmd.ipynb', 'quarto-cells'), someCells), someCells);
+	});
+
+	test('a notebook session client keeps only its own notebook', () => {
+		const filter = notebookCellFilter(vscode.Uri.parse('file:///proj/analysis.ipynb'));
+
+		assert.deepStrictEqual(filter(fakeNotebook('file:///proj/analysis.ipynb', 'jupyter-notebook'), someCells), someCells);
+		assert.deepStrictEqual(filter(fakeNotebook('quarto-cells:/proj/doc.qmd.ipynb', 'quarto-cells'), someCells), []);
+	});
+
+	test('the console client keeps Quarto notebooks and drops real notebooks', () => {
+		const filter = notebookCellFilter(undefined);
+
+		assert.deepStrictEqual(filter(fakeNotebook('quarto-cells:/proj/doc.qmd.ipynb', 'quarto-cells'), someCells), someCells);
+		assert.deepStrictEqual(filter(fakeNotebook('file:///proj/analysis.ipynb', 'jupyter-notebook'), someCells), []);
 	});
 });

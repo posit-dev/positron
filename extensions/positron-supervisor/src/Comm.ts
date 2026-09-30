@@ -115,7 +115,9 @@ export class CommImpl implements vscode.Disposable {
 
 		this.close();
 		const commClose = new CommCloseCommand(this.id);
-		this.session.sendCommand(commClose);
+		this.session.sendCommand(commClose).catch((err) => {
+			this.session.log(`Failed to close comm ${this.id}: ${err}`, vscode.LogLevel.Error);
+		});
 	}
 
 	// Make sure not to call `dispose()` from Kallichore, only the owner of the

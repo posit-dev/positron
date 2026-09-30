@@ -133,8 +133,9 @@ export async function hideDataGridCursor(page: Page): Promise<void> {
 }
 
 /**
- * Hide the text-insertion caret in any focused input. The blinking cursor
- * causes pixel differences between runs and is not meaningful in a screenshot.
+ * Hide the text-insertion caret in any focused input or Monaco editor. The
+ * blinking cursor causes pixel differences between runs and is not meaningful
+ * in a screenshot.
  */
 export async function hideCaret(page: Page): Promise<void> {
 	await page.evaluate(() => {
@@ -144,7 +145,10 @@ export async function hideCaret(page: Page): Promise<void> {
 		}
 		const style = document.createElement('style');
 		style.id = ID;
-		style.textContent = '* { caret-color: transparent !important; }';
+		style.textContent = [
+			'* { caret-color: transparent !important; }',
+			'.monaco-editor .cursors-layer > .cursor { visibility: hidden !important; }',
+		].join('\n');
 		document.head.appendChild(style);
 	});
 }
@@ -209,6 +213,7 @@ export async function waitForStableUI(page: Page, ms = 250): Promise<void> {
  *   - `.tab-header .session-name`                (console session tab)
  *   - `.positron-notebook-kernel-status-badge`   (Positron notebook kernel chip)
  *   - `a.kernel-label`                           (VS Code Jupyter notebook kernel chip)
+ *   - `[data-testid="quarto-kernel-status"]`     (Quarto inline output kernel chip)
  *
  * Call this AFTER `waitForStableUI` so any in-flight re-renders don't undo
  * the rewrite before the screenshot fires.
@@ -221,6 +226,7 @@ export async function overrideRuntimeLabel(page: Page, displayVersion: string = 
 			'.tab-header .session-name',
 			'.positron-notebook-kernel-status-badge',
 			'a.kernel-label',
+			'[data-testid="quarto-kernel-status"]',
 		];
 		const PATTERN = /Python\s+[\d.]+\s+\([^)]+\)/g;
 		const REPLACEMENT = `Python ${displayVersion} (Venv: .venv)`;

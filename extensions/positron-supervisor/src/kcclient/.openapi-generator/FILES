@@ -12,8 +12,15 @@ docs/Error.md
 docs/ExecuteOutput.md
 docs/ExecuteReply.md
 docs/ExecuteRequest.md
+docs/ExecutionError.md
+docs/ExecutionHistoryEntry.md
 docs/ExecutionQueue.md
 docs/InterruptMode.md
+docs/McpClient.md
+docs/McpStatus.md
+docs/McpWorkspace.md
+docs/McpWorkspaceRegistration.md
+docs/McpWorkspaceStatus.md
 docs/NewSession.md
 docs/NewSession200Response.md
 docs/ResourceUsage.md

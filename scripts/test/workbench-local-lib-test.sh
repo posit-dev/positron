@@ -337,5 +337,116 @@ assert_fails "validate rejects an unreachable URL" \
 	wb_validate_wb_url "https://x/rstudio-workbench-2026.08.0-187.pro5-amd64.deb" ubuntu24 amd64
 wb_url_reachable() { return 0; }
 
+# --- wb_container_platform ----------------------------------------------------
+# With nothing requested this must be exactly wb_os_platform, or every existing
+# stack would be recreated on its next run. A request (WB_CONTAINER_ARCH) is how
+# Apple Silicon runs a linux-x64 CI build, so the arm64-host -> amd64 case is
+# the one that matters.
+
+assert_eq "container_platform with no request matches os_platform (ubuntu24/arm64)" \
+	"$(wb_os_platform ubuntu24 arm64)" "$(wb_container_platform ubuntu24 arm64 "")"
+assert_eq "container_platform with no request keeps the opensuse15 emulation" \
+	"linux/amd64" "$(wb_container_platform opensuse15 arm64 "")"
+assert_eq "container_platform: requesting the host's own arch forces nothing" \
+	"" "$(wb_container_platform ubuntu24 amd64 amd64)"
+assert_eq "container_platform: amd64 on an arm64 host forces linux/amd64" \
+	"linux/amd64" "$(wb_container_platform ubuntu24 arm64 amd64)"
+assert_eq "container_platform: x86_64 is accepted for amd64" \
+	"linux/amd64" "$(wb_container_platform rocky9 arm64 x86_64)"
+assert_eq "container_platform: x64 is accepted for amd64" \
+	"linux/amd64" "$(wb_container_platform ubuntu24 arm64 x64)"
+assert_eq "container_platform: aarch64 on an amd64 host forces linux/arm64" \
+	"linux/arm64" "$(wb_container_platform ubuntu24 amd64 aarch64)"
+# openSUSE has no arm64 package, so asking for one must fail up front rather
+# than build a container that cannot install Workbench.
+assert_fails "container_platform refuses arm64 for opensuse15" wb_container_platform opensuse15 amd64 arm64
+assert_fails "container_platform refuses an unknown arch" wb_container_platform ubuntu24 amd64 ppc64le
+
+# --- wb_parse_build_source ----------------------------------------------------
+
+assert_eq "build source: a bare run ID means posit-dev/positron" \
+	"$(printf 'run\tposit-dev/positron\t36598746699')" "$(wb_parse_build_source 36598746699)"
+assert_eq "build source: a run URL" \
+	"$(printf 'run\tposit-dev/positron\t36598746699')" \
+	"$(wb_parse_build_source https://github.com/posit-dev/positron/actions/runs/36598746699)"
+assert_eq "build source: a job URL still names the run" \
+	"$(printf 'run\tposit-dev/positron\t36598746699')" \
+	"$(wb_parse_build_source https://github.com/posit-dev/positron/actions/runs/36598746699/job/123456)"
+assert_eq "build source: a run URL with a query string" \
+	"$(printf 'run\tposit-dev/positron\t36598746699')" \
+	"$(wb_parse_build_source 'https://github.com/posit-dev/positron/actions/runs/36598746699?pr=16300')"
+# positron-builds' release runs build both architectures, which is what an
+# Apple Silicon machine can use natively.
+assert_eq "build source: a run URL in another repo keeps that repo" \
+	"$(printf 'run\tposit-dev/positron-builds\t123')" \
+	"$(wb_parse_build_source https://github.com/posit-dev/positron-builds/actions/runs/123)"
+assert_eq "build source: anything else is a file" \
+	"$(printf 'file\t~/Downloads/positron-workbench-linux-x64-branch.tar.gz')" \
+	"$(wb_parse_build_source '~/Downloads/positron-workbench-linux-x64-branch.tar.gz')"
+assert_eq "build source: a relative path is a file" \
+	"$(printf 'file\tpwb/build.tar.gz')" "$(wb_parse_build_source pwb/build.tar.gz)"
+# A pasted URL that is not a run must not be read as a (missing) file name.
+assert_fails "build source refuses a non-run URL" wb_parse_build_source https://github.com/posit-dev/positron/pull/16300
+assert_fails "build source refuses an empty value" wb_parse_build_source ""
+
+# --- wb_select_build_artifact -------------------------------------------------
+# Artifact names verbatim from real runs: positron's test-full-suite (which
+# uploads the Workbench build next to e2e reports) and positron-builds' Linux
+# release build (both arches, plus look-alikes that are not Workbench builds).
+
+positron_run_json='{"artifacts":[
+	{"name":"blob-report-workbench-1","size_in_bytes":1000,"expired":false},
+	{"name":"positron-workbench-linux-x64","size_in_bytes":759659161,"expired":false}]}'
+builds_run_json='{"artifacts":[
+	{"name":"positron-binary-server-x64","size_in_bytes":1,"expired":false},
+	{"name":"positron-binary-reh-arm64","size_in_bytes":2,"expired":false},
+	{"name":"positron-binary-workbench-x64","size_in_bytes":3,"expired":false},
+	{"name":"positron-binary-workbench-arm64","size_in_bytes":4,"expired":false}]}'
+expired_run_json='{"artifacts":[
+	{"name":"positron-workbench-linux-x64","size_in_bytes":759659161,"expired":true}]}'
+
+assert_eq "artifact: positron CI's x64 build, with its size" \
+	"$(printf 'positron-workbench-linux-x64\t759659161')" "$(wb_select_build_artifact x64 "$positron_run_json")"
+# The Apple Silicon case: CI has no arm64 build, and that must be an error, not
+# the x64 build handed to an arm64 container.
+assert_fails "artifact: an arm64 container gets nothing from an x64-only run" \
+	wb_select_build_artifact arm64 "$positron_run_json"
+assert_eq "artifact: positron-builds' arm64 Workbench build, not the REH or server" \
+	"$(printf 'positron-binary-workbench-arm64\t4')" "$(wb_select_build_artifact arm64 "$builds_run_json")"
+assert_eq "artifact: positron-builds' x64 Workbench build, not the server" \
+	"$(printf 'positron-binary-workbench-x64\t3')" "$(wb_select_build_artifact x64 "$builds_run_json")"
+assert_fails "artifact: an expired build is not offered" wb_select_build_artifact x64 "$expired_run_json"
+assert_fails "artifact: a run with no artifacts" wb_select_build_artifact x64 '{"artifacts":[]}'
+
+# --- wb_build_tarball_arch ----------------------------------------------------
+
+assert_eq "tarball arch from the top-level entry" "x64" \
+	"$(wb_build_tarball_arch vscode-reh-web-pwb-linux-x64/ positron-workbench-linux-x64-branch.tar.gz)"
+assert_eq "tarball arch falls back to the file name" "arm64" \
+	"$(wb_build_tarball_arch ./ positron-workbench-linux-arm64-2026.10.0-150.tar.gz)"
+assert_eq "tarball arch is empty when nothing says" "" "$(wb_build_tarball_arch build/ build.tar.gz)"
+
+# --- wb_version_gt ------------------------------------------------------------
+
+assert_ok    "version_gt: a newer minor"        wb_version_gt 1.6.0 1.5.0
+assert_fails "version_gt: equal is not newer"   wb_version_gt 1.5.0 1.5.0
+assert_fails "version_gt: an older patch"       wb_version_gt 1.5.0 1.5.1
+# Numeric, not lexical: "10" sorts before "9" as a string.
+assert_ok    "version_gt: compares numerically" wb_version_gt 1.10.0 1.9.9
+assert_ok    "version_gt: a newer major wins"   wb_version_gt 2.0.0 1.99.99
+assert_ok    "version_gt: a pre-release suffix is ignored" wb_version_gt 1.5.1-dev.3 1.5.0
+assert_ok    "version_gt: a missing patch is 0" wb_version_gt 1.5 1.4.9
+assert_fails "version_gt: junk is never newer"  wb_version_gt abc 1.0.0
+
+# --- wb_host_path -------------------------------------------------------------
+# Only where there is no cygpath (Linux, macOS); Git Bash rewrites the result.
+
+if ! command -v cygpath >/dev/null 2>&1; then
+	assert_eq "host_path: absolute stays" "/tmp/x.tar.gz" "$(wb_host_path /tmp/x.tar.gz)"
+	assert_eq "host_path: relative resolves against INIT_CWD (where npm was run)" \
+		"/work/sub/x.vsix" "$(INIT_CWD=/work/sub wb_host_path x.vsix)"
+	assert_eq "host_path: ~/ expands to HOME" "/home/me/x.vsix" "$(HOME=/home/me wb_host_path '~/x.vsix')"
+fi
+
 [[ $fail -eq 0 ]] && echo "ALL PASS"
 exit $fail

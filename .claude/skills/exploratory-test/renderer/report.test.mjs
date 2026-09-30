@@ -168,7 +168,7 @@ test('the Findings table has no Origin, and an old Introduced? column or origin 
 	const head = /<div class="row row-head findings-grid">(.*?)<\/div>/.exec(html)[1];
 	assert.deepEqual([...head.matchAll(/<span[^>]*>([^<]*)<\/span>/g)].map(m => m[1]),
 		['Severity', 'Finding and impact', 'Reproduced', 'Status']);
-	assert.match(html, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 90px 110px\}/);
+	assert.match(html, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 90px 140px\}/);
 	assert.doesNotMatch(html, /class="org|origin-cell|\.org\{|>Pre-existing<|>New</);
 	assert.doesNotMatch(promptText(html, 1), /^(Origin|Introduced)/m);
 });
@@ -290,6 +290,13 @@ test('parseReport reads each cost pass and the total', () => {
 	assert.equal(cost.passes[0].maxTurns, '200');
 });
 
+test('parseReport takes the one pass as the total when there was nothing to verify', () => {
+	const { cost } = parseReport('# Exploratory test: x\n\n_explore: Opus 5.5 | $0.55 | 18/200 turns | 3m_\n');
+	assert.equal(cost.total, '$0.55');
+	assert.equal(cost.duration, '3m');
+	assert.match(renderReportHtml('# Exploratory test: x\n\n_explore: Opus 5.5 | $0.55 | 18/200 turns | 3m_\n'), /<span class="tile-num">3m<\/span><span class="unit">\$0\.55<\/span>/);
+});
+
 test('renderReportHtml ships both themes, defaulting to Professional', () => {
 	const html = renderReportHtml(FULL);
 	assert.match(html, /<html lang="en" data-theme="professional">/);
@@ -384,12 +391,15 @@ test('renderReportHtml renders a run with no findings and no issues', () => {
 		'| Scenario | Result | Screenshot |', '|---|---|---|',
 		'| pandas frame | everything loads | |',
 	].join('\n')));
-	assert.doesNotMatch(html, /id="findings"/);
+	// No rows to label, so no column header: just the empty state.
+	assert.match(html, /id="findings"/);
+	assert.doesNotMatch(html, /row-head findings-grid/);
+	assert.match(html, /<b>No new findings<\/b><span>The one exercised scenario passed\. <a class="ki-ev" href="#coverage">See Coverage<\/a><\/span>/);
 	assert.match(html, /<div class="tile-num">0<\/div>/);
 	// One scenario, all passing: no issue segment and no not-run segment.
 	assert.match(html, /<b>1<\/b> pass/);
-	assert.doesNotMatch(html, /issues/);
-	assert.doesNotMatch(html, /not run/);
+	assert.doesNotMatch(html, /<b>\d+<\/b> issues/);
+	assert.doesNotMatch(html, /<b>\d+<\/b> not run/);
 });
 
 test('renderReportHtml escapes a title that contains markup', () => {
@@ -521,7 +531,7 @@ test('renderReportHtml counts each coverage kind on its filter tab', () => {
 	const html = renderReportHtml(FULL);
 	const tabs = html.slice(html.indexOf('<div class="cf-tabs">'), html.indexOf('<div class="panel cf-card">'));
 	const counts = [...tabs.matchAll(/<span class="cf-l">([^<]+) <span class="cf-cnt">(\d+)<\/span><\/span>/g)].map(m => `${m[1]} ${m[2]}`);
-	assert.deepEqual(counts, ['All 4', 'Issues 1', 'Passed 2', 'Not run 1']);
+	assert.deepEqual(counts, ['All 4', 'Failed 1', 'Passed 2', 'Not run 1']);
 	// A hidden semibold copy holds each tab's selected width.
 	assert.match(tabs, /<span class="cf-g" aria-hidden="true">Passed 2<\/span><\/label>/);
 	// One radio per tab, All checked, all ahead of the tabs and the card.
@@ -841,7 +851,7 @@ test('renderReportHtml writes tile legends as plain text in bar order', () => {
 	// No colour keys: each item names what it counts, split by a quiet middot.
 	assert.doesNotMatch(tiles, /class="key"/);
 	assert.match(tiles, /<span class="legend-item"><b>1<\/b> major<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> minor<\/span>/);
-	assert.match(tiles, /<b>2<\/b> pass<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> issues<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> not run/);
+	assert.match(tiles, /<b>2<\/b> passed<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> failed<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> not run/);
 });
 
 test('renderReportHtml treats a placeholder Not exercised row as an empty list', () => {
@@ -1110,6 +1120,24 @@ test('the regression test follows the verdict: hidden when disputed, caveated wh
 	assert.match(card(renderReportHtml(verdict('confirmed')), 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
 });
 
+test('a finding the verifier matched to an issue says so on its card, and nowhere else', () => {
+	const known = FULL
+		.replace('| Reproduction | Verified |', '| Reproduction | Verified | Known |')
+		.replace('|--------------|----------|', '|--------------|----------|---|')
+		.replace('| 3/3 | confirmed |', '| 3/3 | confirmed | #15102, #14991 |')
+		.replace('| 1/1 | confirmed |', '| 1/1 | confirmed | - |')
+		.replace('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE', 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nKNOWN: 1=#15102,#14991');
+	assert.deepEqual(parseReport(known).findings.map(f => f.known), [[15102, 14991], []]);
+	const html = renderReportHtml(known);
+	assert.match(card(html, 1), /<\/h2><p class="ki-known"><span class="ki-i">[\s\S]*?<\/span><span>Possibly known: <a class="ki-num" href="https:\/\/github\.com\/posit-dev\/positron\/issues\/15102" target="_blank" rel="noopener">#15102<\/a>, <a class="ki-num" href="[^"]+\/issues\/14991"[^>]*>#14991<\/a><\/span><\/p>/);
+	assert.doesNotMatch(card(html, 2), /Possibly known/);
+	const row = /<a href="#f1" class="row findings-grid">.*?<\/a>\n/s.exec(html)[0];
+	assert.doesNotMatch(row, /Possibly known|15102/, 'the row does not repeat it');
+	// The cards carry it, so the verification fold does not repeat the raw line.
+	assert.doesNotMatch(html, /KNOWN:/);
+	assert.doesNotMatch(renderReportHtml(FULL), /class="ki-known"/);
+});
+
 test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
 	const html = renderReportHtml(md([
 		'## Findings', '',
@@ -1234,7 +1262,7 @@ test('parseReport keeps the step of a shot the finding also embeds', () => {
 test('renderReportHtml opens a passing coverage row on its steps, not a finding row', () => {
 	const html = renderReportHtml(RICH);
 	const cov = html.slice(html.indexOf('id="coverage"'));
-	assert.match(cov, /<details class="cv cf-r cf-p" id="cv-row-\d+"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol class="steps"><li>Build <code>df<\/code>\.<\/li>\n<li>Run <code>%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
+	assert.match(cov, /<details class="cv cf-r cf-p" id="cv-row-\d+"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol class="steps"><li>Build <code class="cc" data-tip="Copy">df<\/code>\.<\/li>\n<li>Run <code class="cc" data-tip="Copy">%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
 	// No steps, nothing to open.
 	assert.match(cov, /<div class="row coverage-grid cf-r cf-p" id="cv-row-\d+"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
 	// The finding link leads, and the row does not expand.
@@ -1473,15 +1501,17 @@ test('ledger: reads the middle-dot and arrow forms the same as ASCII', () => {
 	assert.equal(parseLedger('# Test ledger\n\n## Environment\n- x'), null);
 });
 
-test('ledger: Coverage and the Scenarios tile come from the ledger, not the report tables', () => {
+test('ledger: Coverage and the Coverage tile come from the ledger, not the report tables', () => {
 	const report = parseReport(TYPED, { ledger: LEDGER });
 	assert.deepEqual(report.scenarios, { exercised: 8, pass: 6, issues: 2, notRun: 3 });
 	const html = renderReportHtml(TYPED, { ledger: LEDGER });
+	// The tile's number is every scenario, so the legend adds up to it.
+	assert.match(html, /<div class="tile-label">Coverage<\/div><div class="tile-figure"><span class="tile-num">11<\/span><span class="unit">scenarios<\/span>/);
 	const cov = coverageOf(html);
 	// One table: no subheadings, no second table.
 	assert.doesNotMatch(cov, /Exercised|Not exercised|<h3/);
 	assert.match(cov, /cf-tab-all"><span class="cf-l">All <span class="cf-cnt">11<\/span>/);
-	assert.match(cov, /cf-tab-i"><span class="cf-l">Issues <span class="cf-cnt">2<\/span>/);
+	assert.match(cov, /cf-tab-i"><span class="cf-l">Failed <span class="cf-cnt">2<\/span>/);
 	assert.match(cov, /cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">6<\/span>/);
 	assert.match(cov, /cf-tab-n"><span class="cf-l">Not run <span class="cf-cnt">3<\/span>/);
 	// Issues in finding order, then passes in run order, then not run.
@@ -1698,6 +1728,67 @@ test('logs: render.mjs fails the run when a listed log was not copied', () => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
+test('Run details shows the explorer\'s format checks, with the rules it did not fix marked', () => {
+	const page = checks => renderReportHtml(LOGS_REPORT, {
+		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(checks.map(c => JSON.stringify(c)).join('\n')) : null),
+		fileExists: p => p === 'stats.json',
+	});
+	const blank = 'report: leave a blank line after </summary>';
+	const repro = 'report: finding # Reproduction must be N/M, got "…"';
+	const shot = 'ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own';
+
+	// Of three: the blank line fixed, one of two Reproductions left, and a
+	// screenshot rule that broke after the first check.
+	const html = page([
+		{ problems: 3, rules: { [blank]: 1, [repro]: 2 } },
+		{ problems: 2, rules: { [repro]: 1, [shot]: 1 } },
+	]);
+	assert.match(html, /<div class="format-checks">The explorer ran the report's format check 2 times\. The first time, it found 3 problems:<\/div><ul class="format-rules">/);
+	assert.match(html, /<\/ul><div class="format-raw"><a href="stats.json">Raw stats<\/a><\/div>/);
+	// Not fixed first, escaped, then the fixed one; a partial fix shows both counts.
+	assert.match(html, new RegExp([
+		'<ul class="format-rules">',
+		'<li><span class="num">2&times;</span> report: finding # Reproduction must be N/M, got &quot;…&quot; <span class="fixed">1 fixed</span> <span class="not-fixed">1 not fixed</span></li>',
+		'<li><span class="num">1&times;</span> ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own <span class="not-fixed">not fixed</span></li>',
+		'<li><span class="num">1&times;</span> report: leave a blank line after &lt;/summary&gt; <span class="fixed">fixed</span></li>',
+		'</ul>',
+	].join('').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+	// All fixed: every rule marked fixed, none not fixed.
+	const clean = page([{ problems: 2, rules: { [blank]: 2 } }, { problems: 0, rules: {} }]);
+	assert.match(clean, /report: leave a blank line after &lt;\/summary&gt; <span class="fixed">fixed<\/span>/);
+	assert.doesNotMatch(clean, /class="not-fixed"/);
+	// One clean check: the sentence, and no list.
+	const once = page([{ problems: 0, rules: {} }]);
+	assert.match(once, /format check once\. The first time, it found no problems\./);
+	assert.doesNotMatch(once, /<ul class="format-rules">/);
+	assert.doesNotMatch(renderReportHtml(LOGS_REPORT), /Format checks/);
+});
+
+test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.md');
+	const render = args => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, ...args], { encoding: 'utf8' });
+	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142']);
+	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '180000', '--verify-turns', '24']);
+	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
+	assert.deepEqual(footer, ['_explore: Opus 5.5 | 142 turns | 25m_', '_verify: Sonnet 5 | 24 turns | 3m_', '_total: 28m_']);
+	const { cost } = parseReport(readFileSync(report, 'utf8'));
+	assert.deepEqual(cost.passes.map(p => p.label), ['explore', 'verify']);
+	assert.equal(cost.duration, '28m');
+	rmSync(dir, { recursive: true, force: true });
+});
+
+test('render.mjs keeps a verify pass that took under a millisecond', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.md');
+	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, '--duration-ms', '60000', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '0']);
+	assert.match(readFileSync(report, 'utf8'), /_verify: Sonnet 5 \| <1m_\n_total: 1m_\n$/);
+	rmSync(dir, { recursive: true, force: true });
+});
+
 test('modelDisplayName reads a model id the way the report names it', () => {
 	assert.equal(modelDisplayName('claude-opus-5-5'), 'Opus 5.5');
 	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');
@@ -1834,7 +1925,7 @@ test('issue: the link opens a blank bug form titled as the card, with the embedd
 		const url = issueUrl(html, n);
 		assert.equal(`${url.origin}${url.pathname}`, 'https://github.com/posit-dev/positron/issues/new');
 		assert.equal(url.searchParams.get('title'), title);
-		assert.equal(url.searchParams.get('labels'), 'exploratory');
+		assert.equal(url.searchParams.get('labels'), 'ai-discovered');
 		assert.equal(url.searchParams.get('template'), null);
 		assert.equal(url.searchParams.get('body'), issueCopied(html, n));
 		assert.ok(url.href.length <= 8000);
@@ -1901,6 +1992,29 @@ test('issue: parseSystemLine reads the ledger line, and "not recorded" where it 
 	assert.equal(parseSystemLine('- Positron (pre-launched, CDP 44987), workspace /tmp/x.'), null);
 });
 
+test('issue: a finding\'s Feature prefixes the issue title', () => {
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, '$1\n\n**Feature:** data explorer');
+	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const card = unescapeHtml(/<article id="f1"[\s\S]*?<h2 class="card-title">([^<]*)<\/h2>/.exec(html)[1]);
+	assert.equal(issueUrl(html, 1).searchParams.get('title'), `data explorer: ${card[0].toLowerCase()}${card.slice(1)}`);
+	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
+	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
+});
+test('issue: the claim after the Feature starts lowercase unless its first word is a name', () => {
+	const title = (claim, extra = '') => {
+		const md = LOGS_REPORT.replace(/^### Finding 1: .*$/m, `### Finding 1: ${claim}\n\n**Feature:** console${extra}`);
+		const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+		return issueUrl(html, 1).searchParams.get('title');
+	};
+	assert.equal(title('Typing while busy aborts'), 'console: typing while busy aborts');
+	assert.equal(title('R aborts while busy'), 'console: R aborts while busy');
+	assert.equal(title('PyPI lookups are skipped'), 'console: PyPI lookups are skipped');
+	assert.equal(title('A preview goes blank'), 'console: a preview goes blank');
+	// Named nowhere else, a capitalized word cannot be told from a sentence start.
+	assert.equal(title('Quarto previews go blank'), 'console: quarto previews go blank');
+	assert.equal(title('Quarto previews go blank', '\n\nOpening the Quarto preview shows nothing.'), 'console: Quarto previews go blank');
+});
+
 test('issue: a body too long for the link drops the file text, then falls back to copying', () => {
 	const big = p => p.endsWith('slow.py') ? Buffer.from(`x = 1\n`.repeat(2000)) : logsRead(p);
 	const dropped = logsIssueHtml({ readFile: big });
@@ -1915,7 +2029,7 @@ test('issue: a body too long for the link drops the file text, then falls back t
 	const anchor = issueAnchor(html, 1);
 	const fallback = issueUrl(html, 1);
 	assert.equal(fallback.searchParams.get('body'), null);
-	assert.equal(fallback.searchParams.get('labels'), 'exploratory');
+	assert.equal(fallback.searchParams.get('labels'), 'ai-discovered');
 	assert.match(anchor, / data-issue="issue-f1"/);
 	// The copy holds everything, file text included.
 	assert.match(issueCopied(html, 1), /<summary>slow\.py<\/summary>/);
@@ -1976,18 +2090,22 @@ test('issue: icons rest until their own button is hovered', () => {
 	assert.match(html, /\.gh-btn\+\.cp-btn\{margin-left:-19px\}/);
 });
 
-/** Each feedback link's pre-filled answers, by form question. */
+const FINDING_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform';
+const REPORT_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform';
+
+/** Each feedback link's pre-filled answers, by form question; a finding row goes to the finding form, the header button to the report form. */
 function feedbackAnswers(html, cls) {
 	const hrefs = cls === 'fb-top'
 		? [...html.matchAll(/<a class="fb-top" href="([^"]+)"/g)].map(m => m[1])
 		: [...html.matchAll(/<div class="fb" [^>]*>(.*?)<\/div>/g)].flatMap(m => [...m[1].matchAll(/href="([^"]+)"/g)].map(h => h[1]));
 	return hrefs.map(href => {
 		const url = new URL(href.replace(/&amp;/g, '&'));
-		assert.equal(`${url.origin}${url.pathname}`, 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform');
+		assert.equal(`${url.origin}${url.pathname}`, cls === 'fb-top' ? REPORT_FORM : FINDING_FORM);
+		// The "Feedback on" question is gone from both forms.
+		assert.equal(url.searchParams.has('entry.857252905'), false);
 		return {
 			report: url.searchParams.get('entry.1746253506'),
 			version: url.searchParams.get('entry.1873070470'),
-			on: url.searchParams.get('entry.857252905'),
 			finding: url.searchParams.get('entry.890833928'),
 			verdict: url.searchParams.get('entry.427792690'),
 		};
@@ -1999,20 +2117,22 @@ test('feedback: a published page asks about each finding, and the verdicts match
 	const answers = feedbackAnswers(html, 'fb');
 	const titles = parseReport(FULL).findings.map(f => f.title);
 	assert.equal(titles[0], 'a longer claim');
-	const verdicts = ['Real issue', 'Not a bug', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
+	// In the form's order, which is also the buttons'.
+	const verdicts = ['Real issue', 'Not a bug', 'Enhancement idea', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
 	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(verdict =>
-		({ report: `https://cdn.example/run1/index.html#f${n}`, version: '1.2', on: 'A finding', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
+		({ report: `https://cdn.example/run1/index.html#f${n}`, version: 'v1.2', finding: `Finding ${n} \u00B7 ${titles[n - 1]}`, verdict }))));
 	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
 	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
+	assert.match(html, />Enhancement<\/a>/);
 	// The row closes its card: after Suggested tests, before the card ends.
-	assert.match(html, /<div class="fb" role="group" aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
+	assert.match(html, /<div class="fb" role="group" [^>]*aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
 });
 
 test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
 	assert.deepEqual(feedbackAnswers(html, 'fb-top'),
-		[{ report: 'https://cdn.example/run1/index.html', version: '1.2', on: 'The whole report', finding: null, verdict: null }]);
+		[{ report: 'https://cdn.example/run1/index.html', version: 'v1.2', finding: null, verdict: null }]);
 	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
 });
 
@@ -2021,6 +2141,250 @@ test('feedback: a local page, which only has a path, asks for none', () => {
 		const html = renderReportHtml(FULL, { base, skillVersion: '1.2' });
 		assert.doesNotMatch(html, /docs\.google\.com|class="fb[ "]|class="fb-top"/, `base: ${base}`);
 	}
+});
+
+/** Runs the page's feedback script against a stub window; returns a click dispatcher and the window.open calls. */
+function feedbackPopup(html, { blocked = false } = {}) {
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('exploratory-feedback'));
+	assert.ok(src);
+	const opens = [];
+	let handler;
+	const popup = { closed: false, location: { href: '' }, focused: 0, focus() { this.focused++; } };
+	const window = {
+		screenX: 100, screenY: 50, outerWidth: 1400, outerHeight: 1000,
+		open: (url, name, features) => { opens.push({ url, name, features }); return blocked || name === '_blank' ? null : popup; },
+	};
+	const document = { querySelectorAll: () => [], addEventListener: (type, fn) => { assert.equal(type, 'click'); handler = fn; } };
+	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, window, { availWidth: 1440, availHeight: 900 }, null, () => {});
+	const click = (href, mods = {}) => {
+		const a = { href, dataset: {} };
+		const e = { button: 0, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, target: { closest: sel => sel === '.fb a, a.fb-top' ? a : null }, ...mods };
+		handler(e);
+		return e.defaultPrevented;
+	};
+	return { click, opens, popup };
+}
+
+test('feedback: a plain click opens the form in one reused pop-up over the report', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	// The links still work with script off.
+	assert.ok([...html.matchAll(/<a (?:class="fb-top" )?href="https:\/\/docs\.google\.com[^>]*>/g)].every(m => / target="_blank" rel="noopener"/.test(m[0])));
+	const { click, opens, popup } = feedbackPopup(html);
+	assert.equal(click('https://forms.example/finding'), true);
+	// 680 x 820, which fits the 1440 x 900 screen; centred across, a third of the way down.
+	assert.deepEqual(opens, [{ url: '', name: 'exploratory-feedback', features: 'popup,width=680,height=820,left=460,top=110' }]);
+	assert.doesNotMatch(opens[0].features, /noopener/);
+	assert.equal(popup.location.href, 'https://forms.example/finding');
+	assert.equal(click('https://forms.example/report'), true);
+	assert.equal(opens.length, 1);
+	assert.equal(popup.location.href, 'https://forms.example/report');
+	assert.equal(popup.focused, 2);
+	// Once it is closed, the next click opens a new one.
+	popup.closed = true;
+	click('https://forms.example/finding');
+	assert.equal(opens.length, 2);
+});
+
+test('feedback: a modified or middle click keeps the link\'s own behaviour, and a blocked pop-up falls back to a tab', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const { click, opens } = feedbackPopup(html);
+	for (const mods of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+		assert.equal(click('https://forms.example/finding', mods), false, JSON.stringify(mods));
+	}
+	assert.equal(opens.length, 0);
+	const blocked = feedbackPopup(html, { blocked: true });
+	assert.equal(blocked.click('https://forms.example/finding'), true);
+	assert.deepEqual(blocked.opens.map(o => [o.url, o.name, o.features]).at(-1), ['https://forms.example/finding', '_blank', 'noopener']);
+	// A local page has no feedback links, so no script for them.
+	assert.doesNotMatch(renderReportHtml(FULL, { skillVersion: '1.2' }), /exploratory-feedback/);
+});
+
+test('feedback: each verdict also carries its one-click submit address, with the same answers', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const rows = [...html.matchAll(/<div class="fb" ([^>]*)>(.*?)<\/div>/g)];
+	assert.equal(rows.length, 2);
+	assert.match(rows[1][1], /^role="group" aria-live="polite" data-report="https:\/\/cdn\.example\/run1\/index\.html" data-finding="f2" /);
+	for (const [, , inner] of rows) {
+		const links = [...inner.matchAll(/<a href="([^"]+)" data-submit="([^"]+)" data-verdict="([^"]+)"/g)];
+		assert.equal(links.length, 5);
+		for (const [, href, submit, verdict] of links) {
+			const form = new URL(href.replace(/&amp;/g, '&'));
+			const one = new URL(submit.replace(/&amp;/g, '&'));
+			// The address that worked when tried by hand: no usp, and a Submit.
+			assert.equal(`${one.origin}${one.pathname}`, FINDING_FORM.replace(/viewform$/, 'formResponse'));
+			assert.equal(one.searchParams.get('submit'), 'Submit');
+			assert.equal(one.searchParams.has('usp'), false);
+			assert.equal(one.searchParams.get('entry.427792690'), verdict.replace(/&#39;/g, '\''));
+			for (const entry of ['entry.1746253506', 'entry.1873070470', 'entry.890833928', 'entry.427792690']) {
+				assert.equal(one.searchParams.get(entry), form.searchParams.get(entry), entry);
+			}
+		}
+	}
+});
+
+/** A fake DOM, just enough for the feedback script: a page of rows built from the rendered HTML. */
+function feedbackDom(html, storage) {
+	const matches = (el, sel) => sel.split(', ').some(one => {
+		if (one === '.fb a') {
+			return el.tag === 'a' && !!el.parent?.closest('.fb');
+		}
+		const [, tag, cls, data] = /^(a|button|span|div)?(?:\.([\w-]+))?(?:\[data-([\w-]+)\])?$/.exec(one) ?? [];
+		return (!tag || el.tag === tag) && (!cls || el.classList.includes(cls)) && (!data || data in el.dataset);
+	});
+	class El {
+		constructor(tag, parent) { this.tag = tag; this.parent = parent; this.children = []; this.dataset = {}; this.attrs = {}; this.className = ''; this.textContent = ''; this.hidden = false; }
+		get classList() { return this.className.split(/\s+/); }
+		// Only the empty span the answer pill's label goes in becomes an element.
+		set innerHTML(v) { this.html = v; if (v.includes('<span></span>')) { this.appendChild(new El('span', this)); } }
+		setAttribute(k, v) { this.attrs[k] = v; if (k.startsWith('data-')) { this.dataset[k.slice(5)] = v; } }
+		appendChild(c) { c.parent = this; this.children.push(c); return c; }
+		remove() { this.parent.children = this.parent.children.filter(c => c !== this); }
+		focus() { page.focused = this; }
+		all() { return this.children.flatMap(c => [c, ...c.all()]); }
+		querySelectorAll(sel) { return this.all().filter(e => matches(e, sel)); }
+		querySelector(sel) { return this.querySelectorAll(sel)[0] ?? null; }
+		closest(sel) { for (let e = this; e && e.tag; e = e.parent) { if (matches(e, sel)) { return e; } } return null; }
+		get text() { return this.textContent + this.children.map(c => c.text).join(''); }
+		get label() { return this.children.filter(c => !c.hidden).map(c => c.text).join('|'); }
+	}
+	const page = new El('body', null);
+	for (const [, attrs, inner] of html.matchAll(/<div class="fb" ([^>]*)>(.*?)<\/div>/g)) {
+		const row = page.appendChild(new El('div', page));
+		row.className = 'fb';
+		for (const [, k, v] of attrs.matchAll(/(data-[\w-]+)="([^"]*)"/g)) { row.setAttribute(k, v); }
+		const q = row.appendChild(new El('span', row)); q.className = 'fb-q'; q.textContent = 'Is this finding right?';
+		for (const [, href, submit, verdict, label] of inner.matchAll(/<a href="([^"]+)" data-submit="([^"]+)" data-verdict="([^"]+)"[^>]*>([^<]+)<\/a>/g)) {
+			const a = row.appendChild(new El('a', row));
+			a.href = href.replace(/&amp;/g, '&');
+			a.setAttribute('data-submit', submit.replace(/&amp;/g, '&'));
+			a.setAttribute('data-verdict', verdict.replace(/&#39;/g, '\''));
+			a.textContent = label.replace('&rsquo;', '’');
+		}
+	}
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('exploratory-feedback'));
+	const opens = [];
+	let handler;
+	const popup = { closed: false, location: {}, focus() {} };
+	Object.defineProperty(popup.location, 'href', { set(v) { opens.push(v); } });
+	const body = new El('body', null);
+	const timers = [];
+	const document = {
+		body,
+		querySelectorAll: sel => page.querySelectorAll(sel),
+		createElement: tag => new El(tag, null),
+		createTextNode: text => Object.assign(new El('#text', null), { textContent: text }),
+		addEventListener: (_, fn) => { handler = fn; },
+	};
+	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, { open: () => popup }, {}, storage, fn => timers.push(fn));
+	const rows = page.children;
+	// The hidden frames a verdict click loads, which record it with no window.
+	const sends = () => body.children.map(f => f.src);
+	const click = (el, mods = {}) => {
+		const e = { button: 0, target: el, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...mods };
+		handler(e);
+		return e.defaultPrevented;
+	};
+	const verdict = (row, name) => row.children.find(c => c.dataset.verdict === name);
+	return { page, rows, click, opens, sends, body, timers, verdict };
+}
+
+function memoryStorage() {
+	const map = new Map();
+	return { map, getItem: k => map.get(k) ?? null, setItem: (k, v) => map.set(k, String(v)), removeItem: k => map.delete(k) };
+}
+
+test('feedback: a verdict click records it in one click and shows the answer, remembered on reload', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const storage = memoryStorage();
+	const { rows, click, opens, sends, body, timers, verdict, page } = feedbackDom(html, storage);
+	const pick = verdict(rows[1], 'Not a bug');
+	assert.equal(click(pick), true);
+	// No window: the verdict goes in a hidden frame, which is removed later.
+	assert.deepEqual(opens, []);
+	assert.deepEqual(sends(), [pick.dataset.submit]);
+	const [frame] = body.children;
+	assert.equal(frame.tag, 'iframe');
+	assert.equal(frame.hidden, true);
+	timers.forEach(fn => fn());
+	assert.deepEqual(sends(), []);
+	assert.equal(rows[1].label, 'Is this finding right?|Not a bug|Add a note');
+	const pill = rows[1].querySelector('.fb-done');
+	assert.equal(pill.tag, 'button');
+	assert.equal(pill.attrs['aria-label'], 'Your answer: Not a bug. Change answer');
+	assert.equal(pill.dataset.tip, 'Change answer');
+	assert.match(pill.html, /class="fb-car"/);
+	assert.equal(rows[0].label.split('|').length, 6, 'the other finding is untouched');
+	assert.deepEqual([...storage.map].filter(([k]) => k !== 'fb:id'), [['fb:https://cdn.example/run1/index.html#f2', 'Not a bug']]);
+	const note = rows[1].querySelector('.fb-note');
+	assert.equal(page.focused, note);
+	// Add a note opens the pre-filled form, and records nothing more.
+	assert.equal(note.href, pick.href);
+	click(note);
+	assert.deepEqual(opens, [pick.href]);
+
+	// A reload shows the answer again, without submitting.
+	const again = feedbackDom(html, storage);
+	assert.equal(again.rows[1].label, 'Is this finding right?|Not a bug|Add a note');
+	assert.deepEqual(again.opens, []);
+
+	assert.deepEqual(again.sends(), []);
+
+	// Clicking the answer forgets it and brings the buttons back, sending nothing.
+	again.click(again.rows[1].querySelector('.fb-done'));
+	assert.equal(again.rows[1].label, 'Is this finding right?|Real issue|Not a bug|Enhancement|Not worth reporting|Couldn’t tell');
+	assert.deepEqual([...storage.map.keys()], ['fb:id']);
+	assert.equal(again.page.focused, again.verdict(again.rows[1], 'Real issue'));
+	assert.deepEqual(again.sends(), []);
+	// Picking again sends the new verdict.
+	const other = again.verdict(again.rows[1], 'Real issue');
+	again.click(other);
+	assert.deepEqual(again.sends(), [other.dataset.submit]);
+});
+
+test('feedback: a modified click opens the form without recording, and blocked storage only loses the memory', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const storage = memoryStorage();
+	const { rows, click, opens, sends, verdict } = feedbackDom(html, storage);
+	assert.equal(click(verdict(rows[0], 'Real issue'), { metaKey: true }), false);
+	assert.deepEqual(opens, []);
+	assert.deepEqual(sends(), []);
+	assert.deepEqual([...storage.map.keys()], ['fb:id']);
+	assert.equal(rows[0].label.split('|').length, 6);
+
+	const throwing = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() { throw new Error('blocked'); } };
+	const blocked = feedbackDom(html, throwing);
+	blocked.click(blocked.verdict(blocked.rows[0], 'Real issue'));
+	assert.equal(blocked.sends().length, 1);
+	assert.equal(blocked.rows[0].label, 'Is this finding right?|Real issue|Add a note');
+
+	// A stored value that is not one of the page's verdicts is dropped, never shown.
+	const planted = memoryStorage();
+	planted.setItem('fb:https://cdn.example/run1/index.html#f1', '<img src=x onerror=alert(1)>');
+	const p = feedbackDom(html, planted);
+	assert.equal(p.rows[0].label.split('|').length, 6);
+	assert.deepEqual([...planted.map.keys()], ['fb:id']);
+});
+
+test('feedback: every finding answer from a browser carries the same random ID, kept across reloads', () => {
+	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const ids = links => links.flatMap(a => [a.href, a.dataset.submit]).map(u => new URL(u).searchParams.getAll('entry.1280428395'));
+	const storage = memoryStorage();
+	const first = feedbackDom(html, storage);
+	const links = first.rows.flatMap(r => r.querySelectorAll('a[data-verdict]'));
+	const [[id]] = ids(links);
+	assert.match(id, /^[0-9a-f]{12}$/);
+	assert.ok(ids(links).every(v => v.length === 1 && v[0] === id), 'once per link, the same everywhere');
+	assert.equal(storage.getItem('fb:id'), id);
+	const again = feedbackDom(html, storage);
+	assert.ok(ids(again.rows.flatMap(r => r.querySelectorAll('a[data-verdict]'))).every(v => v[0] === id));
+	// A different browser gets its own; one that cannot store gets one per page.
+	assert.notEqual(ids(feedbackDom(html, memoryStorage()).rows[0].querySelectorAll('a[data-verdict]'))[0][0], id);
+	// A stored value that is not an ID is replaced.
+	const planted = memoryStorage();
+	planted.setItem('fb:id', '&entry.427792690=Not%20a%20bug');
+	const p = feedbackDom(html, planted);
+	assert.match(planted.getItem('fb:id'), /^[0-9a-f]{12}$/);
+	assert.ok(ids(p.rows[0].querySelectorAll('a[data-verdict]')).every(v => v[0] === planted.getItem('fb:id')));
 });
 
 test('feedback: a missing skill version is sent as unknown, never blank', () => {
@@ -2041,13 +2405,13 @@ test('the footer names the version the feedback links send, with a v, published 
 		assert.match(html, /<a class="sig-link" [^>]*>exploratory-test <span class="sig-ver">v1\.2<\/span> &#8599;<\/a>/);
 	}
 	const published = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	assert.ok(feedbackAnswers(published, 'fb').every(a => a.version === '1.2'));
+	assert.ok(feedbackAnswers(published, 'fb').every(a => a.version === 'v1.2'));
 	// No version: the name alone, with no empty span and no placeholder.
 	assert.match(renderReportHtml(FULL), /<a class="sig-link" [^>]*>exploratory-test &#8599;<\/a>/);
 	assert.doesNotMatch(renderReportHtml(FULL), /sig-ver/);
 });
 
-test('code copy: inline code in Reproduce copies on click, and nothing else does', () => {
+test('code copy: inline code in Reproduce copies on click, and nothing else on the card does', () => {
 	const html = renderReportHtml(md([
 		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
 		'', '### Finding 1: a claim', '',
@@ -2068,4 +2432,254 @@ test('code copy: inline code in Reproduce copies on click, and nothing else does
 
 test('code copy: a page with no inline code in Reproduce ships no script for it', () => {
 	assert.doesNotMatch(renderReportHtml(md('Nothing to reproduce.')), /code\.cc'\)\.forEach/);
+});
+
+// Known issues: issues the PR fixes and issues that mention it, fetched before the run.
+const KI_REPORT = `# Exploratory test: x
+
+\`b\` | \`abc1234\`
+
+**Result:** It works.
+**Tested:** the panel
+**Not exercised:** the web build
+
+## Findings
+
+| # | Finding | Severity | Impact | Reproduction | Verified | Known |
+|---|---------|----------|--------|--------------|----------|-------|
+| 1 | Still jumps | major | loses place | 3/3 | confirmed | #11, #15102 |
+| 2 | Old bug back | minor | looks wrong | 2/2 | disputed | #21 |
+| 3 | Looks known | moderate | slow | 2/2 | unresolved | #25, #20 |
+
+### Finding 1: Still jumps
+
+**Observed:** it jumps.
+
+**Expected:** it stays.
+
+### Finding 2: Old bug back
+
+**Observed:** it is back.
+
+**Expected:** it is gone.
+
+### Finding 3: Looks known
+
+**Observed:** it is slow.
+
+**Expected:** it is fast.
+
+<details>
+<summary>Verification details</summary>
+
+A second agent.
+
+VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE; 3=UNRESOLVED
+KNOWN: 1=#11,#15102; 2=#21; 3=#25,#20
+LINKED: #23=major; #20=minor; #26=minor
+
+**1.** Checks out.
+
+</details>
+`;
+const KI_LEDGER = `## S01 - fix one
+Status: pass
+Result: loads
+Issue: #10 fix held
+Issue: #26 observed
+
+## S02 - fix two
+Status: fail - Finding 1
+Result: jumps
+Issue: #11 fix did not hold
+
+## S03 - old bug
+Status: fail - Finding 2
+Result: back
+Issue: #21 came back
+
+## S04 - slow
+Status: fail - Finding 3
+Result: slow
+Issue: #25 observed
+
+## S05 - other
+Status: pass
+Result: fine
+Issue: #22 observed
+Issue: #23 observed
+Issue: #26 observed
+
+## Not run
+- N01 - web - Fix for #12 not exercised: desktop only
+- N02 - scroll - Already filed as #24
+`;
+const KI_ISSUES = {
+	pr: 100,
+	issues: [
+		{ number: 10, relation: 'fixes', state: 'open', title: 'held', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+		{ number: 11, relation: 'fixes', state: 'open', title: 'failed', createdAt: '2026-08-20T00:00:00Z', summary: 'x' },
+		{ number: 12, relation: 'fixes', state: 'open', title: 'skipped', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+		{ number: 13, relation: 'fixes', state: 'open', title: 'unaccounted <b>"&', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+		{ number: 20, relation: 'linked', state: 'open', title: 'also similar', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+		{ number: 21, relation: 'linked', state: 'closed', title: 'regressed', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+		{ number: 22, relation: 'linked', state: 'open', title: 'Title "<script>&', createdAt: '2026-08-20T00:00:00Z', summary: 'a "<b>" & c' },
+		{ number: 23, relation: 'linked', state: 'open', title: 'major one', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+		{ number: 24, relation: 'linked', state: 'open', title: 'not seen', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+		{ number: 25, relation: 'linked', state: 'open', title: 'similar', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+		{ number: 26, relation: 'linked', state: 'open', title: 'minor one', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+	],
+};
+const kiHtml = (options = {}) => renderReportHtml(KI_REPORT, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, startedAt: new Date('2026-09-29T00:00:00Z'), ...options });
+const findingsOf = html => html.slice(html.indexOf('id="findings"'), html.indexOf('</section>', html.indexOf('id="findings"')));
+const kiRows = html => [...findingsOf(html).matchAll(/<div class="row findings-grid ki-row">([\s\S]*?)<\/div>/g)].map(m => m[1]);
+const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>(?=\\n)`).exec(findingsOf(html))[0];
+const linkedOf = html => /<details class="ki-grp">[\s\S]*?<\/details>/.exec(findingsOf(html))?.[0] ?? '';
+const kiList = (html, id) => new RegExp(`<div class="ki-list" id="${id}" hidden>([\\s\\S]*?)</div></div>(?=<div class="ki-list"|\\n)`).exec(findingsOf(html))?.[1] ?? '';
+const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
+
+test('Linked issues is one closed row under the findings, counting what is inside', () => {
+	const html = kiHtml();
+	const f = findingsOf(html);
+	const linked = linkedOf(html);
+	assert.ok(f.indexOf('<a href="#f3"') < f.indexOf('<details class="ki-grp">'), 'under the findings');
+	assert.doesNotMatch(linked, /<details class="ki-grp" open/);
+	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+	assert.ok(linked.startsWith(`<details class="ki-grp"><summary><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">3 observed${dot}${kiCnt('ki-list-fix', '1 fix verified')}${dot}${kiCnt('ki-list-no', '1 not observed')}</span><svg class="ki-chev"`), linked.slice(0, 400));
+	assert.doesNotMatch(f, /ki-group|ki-foot|ki-line|Already filed/);
+	assert.ok(f.indexOf('</details>') < f.indexOf('id="ki-list-fix"'), 'lists sit outside the row');
+	assert.ok(html.includes("closest('.ki-cnt')"), 'list script');
+});
+
+test('Linked issues lists open observed issues by severity, unrated last, then the fixes verified and the rest', () => {
+	const html = kiHtml();
+	assert.deepEqual(kiRows(html).map(r => />#(\d+)<\/a>/.exec(r)[1]), ['23', '26', '22']);
+	const [, twice, unrated] = kiRows(html);
+	assert.match(twice, /Observed in 2 scenarios &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a>/);
+	assert.match(twice, /<span class="rate">2<\/span>/);
+	assert.match(twice, /<span class="ki-st"><span>Open &middot; <a class="ki-num"/);
+	assert.ok(unrated.startsWith('<span></span>'), 'no pill when the verifier gave no severity');
+	assert.doesNotMatch(unrated, /Unrated|&mdash;/);
+});
+
+test('the fix verified and not observed lists name each issue with its state and where it stood', () => {
+	const html = kiHtml();
+	const it = (n, title, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/${n}" target="_blank" rel="noopener">#${n}</a><span>${title}<span class="ki-lc-m">${meta}</span></span>`;
+	assert.equal(kiList(html, 'ki-list-fix'), `<div class="ki-lc-h">Fix verified this run</div>${it(10, 'held', 'Open &middot; passed in &ldquo;fix one&rdquo;')}`);
+	// A closed issue that came back and an issue a finding matched are findings, so neither is listed.
+	assert.equal(kiList(html, 'ki-list-no'), `<div class="ki-lc-h">Linked to this PR, not observed</div>${it(24, 'not seen', 'Open &middot; skipped on purpose, see Coverage')}`);
+	const unseen = kiHtml({ ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') });
+	assert.match(kiList(unseen, 'ki-list-no'), /#22<\/a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; no scenario reached it<\/span>/);
+});
+
+test('Linked issues leaves out zero counts, opens only onto observed issues, and is left out with no counts', () => {
+	const noFix = kiHtml({ ledger: KI_LEDGER.replace('Issue: #10 fix held\n', '') });
+	assert.match(linkedOf(noFix), /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span><span class="ki-cnt"[^>]*>1 not observed<\/span><\/span>/);
+	assert.doesNotMatch(findingsOf(noFix), /ki-list-fix/);
+	// Nothing observed: the same row with its counts, but nothing to open.
+	const f = findingsOf(kiHtml({ ledger: KI_LEDGER.replace(/^Issue: #2[236] observed\n/gm, '') }));
+	assert.doesNotMatch(f, /<details class="ki-grp"|ki-chev/);
+	assert.match(f, new RegExp(`<div class="ki-grp"><div class="ki-hd"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${kiCnt('ki-list-fix', '1 fix verified')}<span class="ki-dot" aria-hidden="true">&middot;</span>${kiCnt('ki-list-no', '4 not observed')}</span></div></div>`));
+	const onlyFixes = { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) };
+	assert.equal(linkedOf(kiHtml({ knownIssues: onlyFixes })), '', 'a failed fix is a finding and an unexercised one is in Coverage');
+});
+
+test('known issues are not findings: no number, no card, not counted', () => {
+	const html = kiHtml();
+	for (const row of kiRows(html)) {
+		assert.doesNotMatch(row, /class="n"|href="#f/);
+	}
+	assert.equal((findingsOf(html).match(/<a href="#f\d+" class="row/g) ?? []).length, 3);
+});
+
+test('a fix that did not hold and a closed issue that came back are findings with a red x and plain numbers', () => {
+	const html = kiHtml();
+	const one = findingRow(html, 1);
+	assert.match(one, /<span class="ki-st"><span class="ki-reg"><span class="ki-x"><svg[^>]*>[\s\S]*?<\/svg><\/span>Fix didn&rsquo;t hold<\/span><span class="ki-state">Fixes <span class="ki-num-t"[^>]*>#11<\/span><\/span><\/span>/);
+	assert.doesNotMatch(one.slice(1), /<a /, 'no link inside the row link');
+	assert.doesNotMatch(one, /Possibly known/, 'the card carries it');
+	const back = findingRow(renderReportHtml(KI_REPORT.replace('| disputed |', '| confirmed |'), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2);
+	assert.match(back, /<span class="ki-reg"><span class="ki-x">[\s\S]*?<\/span>Regressed<\/span><span class="ki-state">Closed &middot; <span class="ki-num-t"[^>]*>#21<\/span><\/span>/);
+});
+
+test('an issue number in a row previews on hover but is not a link, so the row click stands', () => {
+	const html = kiHtml();
+	assert.match(findingRow(html, 1), /<span class="ki-num-t" data-state="open" data-opened="Opened Aug 20" data-title="failed" data-summary="x">#11<\/span>/);
+	assert.ok(html.includes(".ki-num-t[data-title]"), 'the preview script picks it up');
+	assert.match(findingRow(kiHtml({ knownIssues: { ...KI_ISSUES, issues: [] } }), 1), /<a href="#f1" class="row findings-grid">/);
+});
+
+test('a verdict other than Confirmed takes the label\'s place, with the issue line kept under it', () => {
+	const two = findingRow(kiHtml(), 2);
+	assert.match(two, /<span class="ki-st"><span class="status muted">Disputed<\/span><span class="ki-state">Closed &middot; <span class="ki-num-t"[^>]*>#21<\/span><\/span><\/span>/);
+	assert.doesNotMatch(two, /Regressed|ki-x/);
+});
+
+test('a finding that matches an open linked issue says Similar to under its verdict, with a count past the first', () => {
+	const three = findingRow(kiHtml(), 3);
+	assert.match(three, /<span class="ki-st"><span class="status muted">Unresolved<\/span><span class="ki-state">Similar to <span class="ki-num-t"[^>]*>#25<\/span> \+1<\/span><\/span>/);
+	const one = findingRow(kiHtml({ knownIssues: { ...KI_ISSUES, issues: KI_ISSUES.issues.filter(i => i.number !== 20) } }), 3);
+	assert.match(one, /Similar to <span class="ki-num-t"[^>]*>#25<\/span><\/span>/);
+	assert.doesNotMatch(findingRow(kiHtml(), 1), /Similar to/, 'a match on a fix or an unlisted issue changes no Status');
+	// A finding's own issue wins, so the cell stays two lines and the match stays on the card.
+	const mixed = renderReportHtml(KI_REPORT.replace('| #11, #15102 |', '| #11, #25 |').replace('KNOWN: 1=#11,#15102', 'KNOWN: 1=#11,#25'), { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
+	assert.equal((findingRow(mixed, 1).match(/ki-state/g) ?? []).length, 1);
+	assert.doesNotMatch(findingRow(mixed, 1), /Similar to/);
+	assert.match(card(mixed, 1), /Possibly known: <a class="ki-num"[^>]*>#25<\/a>/);
+});
+
+test('the card\'s Possibly known line sits under the title and drops the finding\'s own issue', () => {
+	const html = kiHtml();
+	const known = n => /<p class="ki-known">[\s\S]*?<\/p>/.exec(card(html, n))?.[0] ?? '';
+	assert.ok(card(html, 1).indexOf('card-title') < card(html, 1).indexOf('ki-known'), 'under the title');
+	assert.match(known(1), /<span class="ki-i"><svg[^>]*>[\s\S]*?<\/svg><\/span><span>Possibly known: <a class="ki-num" href="[^"]+\/issues\/15102" target="_blank" rel="noopener">#15102<\/a><\/span><\/p>$/);
+	assert.doesNotMatch(known(1), /#11/, 'its own fix');
+	assert.equal(known(2), '', 'its own regression');
+	assert.match(known(3), /#25<\/a>, <a class="ki-num"[^>]*data-title="also similar"[^>]*>#20<\/a><\/span><\/p>/);
+});
+
+test('Coverage leads each row\'s result with its fixes and linked issues, after any finding link, and adds a Not run row for an unrecorded fix', () => {
+	const c = coverageOf(kiHtml()).replace(/<a class="ki-num"[^>]*>/g, '<a>');
+	assert.match(c, /Finding 1<\/a> &middot; Fix didn&rsquo;t hold for <a>#11<\/a> &middot; Jumps/);
+	assert.match(c, /Finding 2<\/a> &middot; Regressed <a>#21<\/a> &middot; Back/);
+	assert.match(c, /"cov-result">Fix verified for <a>#10<\/a> &middot; Also observed <a>#26<\/a> &middot; Loads/);
+	assert.match(c, /"cov-result">Also observed <a>#22<\/a>, <a>#23<\/a>, <a>#26<\/a> &middot; Fine/);
+	assert.match(c, /Not run<\/span> &middot; Fix for <a>#12<\/a> not exercised: desktop only/);
+	assert.match(c, /Not run<\/span> &middot; Already filed as <a>#24<\/a>/);
+	assert.match(c, /Not run<\/span> &middot; Fix for <a>#13<\/a> not exercised: the run did not record it/);
+	assert.match(c, /Not run <span class="cf-cnt">3<\/span>/, 'the synthesized row is counted');
+});
+
+test('issue text from GitHub is escaped in rows and data attributes, and the preview script ships only with them', () => {
+	const html = kiHtml();
+	assert.match(html, /<span class="ki-title">Title &quot;&lt;script&gt;&amp;<\/span>/);
+	assert.match(html, /data-title="Title &quot;&lt;script&gt;&amp;" data-summary="a &quot;&lt;b&gt;&quot; &amp; c"/);
+	assert.doesNotMatch(html, /Title "<script>/);
+	assert.ok(html.includes('a.ki-num[data-title]'), 'preview script');
+	assert.ok(!renderReportHtml(KI_REPORT, { ledger: KI_LEDGER }).includes('a.ki-num[data-title]'), 'no script without issues');
+});
+
+test('the issue body names the fix that did not hold, or the issue that regressed, and the PR', () => {
+	const html = kiHtml({ base: 'https://cdn.example/run1' });
+	const body = n => issueUrl(html, n).searchParams.get('body');
+	assert.ok(body(1).startsWith('The fix for #11 in #100 didn\'t hold.\n\n'), body(1).slice(0, 80));
+	assert.ok(body(2).startsWith('#21 regressed in #100.\n\n'), body(2).slice(0, 80));
+});
+
+const NO_FINDINGS = KI_REPORT.replace(/## Findings[\s\S]*?(?=<details>)/, 'No findings.\n\n').replace(/VERDICTS: .*\nKNOWN: .*/, 'VERDICTS: none').replace('**1.** Checks out.', '');
+const passing = ledger => ledger.replace(/Status: fail - Finding \d/g, 'Status: pass').replace('Issue: #11 fix did not hold', 'Issue: #11 fix held').replace(/^Issue: #2[15] .*\n/gm, '');
+
+test('with no findings, the empty state and Linked issues show without a header, even with observed rows inside', () => {
+	const f = findingsOf(renderReportHtml(NO_FINDINGS, { ledger: passing(KI_LEDGER), knownIssues: KI_ISSUES }));
+	assert.doesNotMatch(f, /row-head/);
+	assert.match(f, /<b>No new findings<\/b><span>All 5 exercised scenarios passed; 3 weren&rsquo;t run\. <a class="ki-ev" href="#coverage">See Coverage<\/a>/);
+	assert.ok(f.indexOf('ki-empty') < f.indexOf('ki-grp'));
+	assert.match(f, /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span><span class="ki-cnt"[^>]*>2 fix verified<\/span>/);
+});
+
+test('with no findings and no linked issues, only the empty state shows', () => {
+	const f = findingsOf(renderReportHtml(NO_FINDINGS, { ledger: passing(KI_LEDGER).replace(/^Issue: .*\n/gm, '') }));
+	assert.doesNotMatch(f, /row-head|ki-grp|ki-list/);
+	assert.match(f, /ki-empty/);
+	assert.ok(!renderReportHtml(NO_FINDINGS).includes("closest('.ki-cnt')"), 'no list script');
 });

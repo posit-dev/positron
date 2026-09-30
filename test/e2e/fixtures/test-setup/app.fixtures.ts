@@ -24,7 +24,8 @@ export interface AppFixtureOptions {
 	 */
 	useLegacyNotebookEditor?: boolean;
 	/**
-	 * When true, suites opt into the Data Connections preview panel. As with
+	 * When false, suites opt into the older Connections pane instead of the Data
+	 * Connections panel, which is the default. As with
 	 * `useLegacyNotebookEditor`, the local apps apply this via the host `settingsFile`
 	 * in `beforeApp`, while the Docker-based apps merge the override into the settings
 	 * copied into the container.

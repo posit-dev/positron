@@ -9,7 +9,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	// These tests cover the older Connections pane, which Data Connections replaces by default.
+	enableDataConnections: false,
 });
 
 const randomText = Math.random().toString(36).substring(7);

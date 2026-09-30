@@ -908,8 +908,15 @@ describe('PositronDataConnectionsService', () => {
 			// Whichever tree gets there first takes it -- one being built as the pane renders, or
 			// one already listening. It has to be cleared on the way out, or every tree built
 			// afterwards would re-reveal a connection the user has long since moved on from.
-			expect(service.takePendingRevealConnection()).toBe('conn-1');
+			expect(service.takePendingRevealConnection()).toEqual({ profileId: 'conn-1' });
 			expect(service.takePendingRevealConnection()).toBeUndefined();
+		});
+
+		it('hands over where in the connection to go, and whether to open the node\'s details', () => {
+			const nodePath = [JSON.stringify(['schema', 'ERP_DUMP'])];
+			service.revealConnection('conn-1', { nodePath, openDetails: true });
+
+			expect(service.takePendingRevealConnection()).toEqual({ profileId: 'conn-1', nodePath, openDetails: true });
 		});
 
 		it('records the request before announcing it', () => {
@@ -917,7 +924,7 @@ describe('PositronDataConnectionsService', () => {
 			// so the request has to be recorded by the time the event fires.
 			let takenWhileFiring: string | undefined;
 			ctx.disposables.add(service.onDidRequestRevealConnection(() => {
-				takenWhileFiring = service.takePendingRevealConnection();
+				takenWhileFiring = service.takePendingRevealConnection()?.profileId;
 			}));
 
 			service.revealConnection('conn-1');

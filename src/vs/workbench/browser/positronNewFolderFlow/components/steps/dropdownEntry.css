@@ -6,11 +6,13 @@
 .dropdown-entry {
 	display: grid;
 	grid-template-columns: [icon] min-content [left] max-content [middle] 1fr [right] max-content [end];
-	align-items: center;
+	/* Baseline, not center: the smaller subtitle otherwise sits above the title's baseline. */
+	align-items: baseline;
 }
 
 .dropdown-entry > .dropdown-entry-icon {
 	grid-column: icon / left;
+	align-self: center;
 	margin-right: 0.2em;
 }
 

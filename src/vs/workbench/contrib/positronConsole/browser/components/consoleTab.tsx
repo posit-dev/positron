@@ -383,12 +383,10 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 	const deleteSession = async () => {
 		// Prevent the button from being clicked multiple times
 		setDeleteDisabled(true);
+		let wasRegistered = false;
 		try {
-			// Updated to support proper deletion of sessions that have
-			// been shutdown or exited.
 			if (services.runtimeSessionService.getSession(positronConsoleInstance.sessionId)) {
-				// Attempt to delete the session from the runtime session service.
-				// This will throw an error if the session is not found.
+				wasRegistered = true;
 				await services.runtimeSessionService.deleteSession(positronConsoleInstance.sessionId);
 			} else {
 				// If the session is not found, it may have been deleted already
@@ -397,9 +395,20 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 				services.positronConsoleService.deletePositronConsoleSession(positronConsoleInstance.sessionId);
 			}
 		} catch (error) {
+			const message = error.message || JSON.stringify(error);
+
+			// `deleteSession()` removes the session before rethrowing if force-quit
+			// cannot stop its runtime.
+			if (wasRegistered && !services.runtimeSessionService.getSession(positronConsoleInstance.sessionId)) {
+				services.notificationService.warn(
+					localize('positronDeleteSessionRuntimeStillRunning', "Session deleted, but its runtime may still be running: {0}", message)
+				);
+				return;
+			}
+
 			// Show an error notification if the session could not be deleted.
 			services.notificationService.error(
-				localize('positronDeleteSessionError', "Failed to delete session: {0}", error.message || JSON.stringify(error))
+				localize('positronDeleteSessionError', "Failed to delete session: {0}", message)
 			);
 			// Re-enable the button if the session could not be deleted.
 			// If it is deleted, the component is destroyed and the

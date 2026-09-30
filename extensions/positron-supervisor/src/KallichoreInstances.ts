@@ -12,6 +12,8 @@ import { KallichoreServerState } from './ServerState.js';
 import { ActiveSession, DefaultApi, ServerConfiguration, ServerStatus, SessionList, SessionMode, Status } from './kcclient/api';
 import { summarizeAxiosError } from './util';
 import { KALLICHORE_STATE_KEY } from './KallichoreAdapterApi.js';
+import { COPY_MCP_DETAILS_COMMAND, McpFrontend } from './McpFrontend.js';
+import { agentQuickPickItem } from './mcpClients.js';
 
 /**
  * Snapshot of a running Kallichore supervisor persisted in global storage.
@@ -42,7 +44,7 @@ interface SupervisorQuickPickItem extends vscode.QuickPickItem {
 }
 
 interface SupervisorSessionQuickPickItem extends vscode.QuickPickItem {
-	action?: 'shutdown' | 'openWorkspace' | 'showLogs';
+	action?: 'shutdown' | 'openWorkspace' | 'showLogs' | 'copyMcpDetails';
 	session?: ActiveSession;
 	workspaceUri?: vscode.Uri;
 	sessionCount?: number;
@@ -139,22 +141,7 @@ export class KallichoreInstances {
 					lastSeen: Date.now()
 				};
 				survivors.push(refreshedRecord);
-
-				const inspection: SupervisorInspectionResult = { record: refreshedRecord };
-				try {
-					inspection.api = this.createApi(record.state);
-					// Fetch status/configuration in parallel to keep the progress UI responsive.
-					const [status, configuration] = await Promise.all([
-						inspection.api.serverStatus({ timeout: 3000 }).then(response => response.data),
-						inspection.api.getServerConfiguration({ timeout: 3000 }).then(response => response.data).catch(() => undefined)
-					]);
-					inspection.status = status;
-					inspection.configuration = configuration;
-				} catch (err) {
-					inspection.error = summarizeAxiosError(err);
-				}
-
-				liveResults.push(inspection);
+				liveResults.push(await this.inspect(refreshedRecord));
 				// Record progress after both process validation and status probe complete.
 				progress.report({ increment, message: record.workspaceName ?? vscode.l10n.t("Empty Workspace") });
 			}
@@ -184,6 +171,46 @@ export class KallichoreInstances {
 	}
 
 	/**
+	 * Presents the inspection picker for the supervisor serving this window.
+	 *
+	 * @returns A promise that resolves after the inspection UI has been dismissed.
+	 */
+	public static async showCurrentSupervisor(): Promise<void> {
+		const state = await this.getStoredSupervisorState();
+		if (!state || !this.isProcessAlive(state.server_pid)) {
+			await vscode.window.showInformationMessage(vscode.l10n.t("No kernel supervisor is running for this workspace."));
+			return;
+		}
+
+		const stored = (await this.getStoredInstances()).find(instance => this.matchesInstance(instance.state, state));
+		const record = stored ?? { workspaceName: vscode.workspace.name, state, lastSeen: Date.now() };
+		await this.showSessions(await this.inspect(record));
+	}
+
+	/**
+	 * Probes a supervisor for its status and configuration.
+	 *
+	 * @param record The supervisor record to probe.
+	 * @returns The inspection result; errors are captured rather than thrown.
+	 */
+	private static async inspect(record: StoredKallichoreInstance): Promise<SupervisorInspectionResult> {
+		const inspection: SupervisorInspectionResult = { record };
+		try {
+			inspection.api = this.createApi(record.state);
+			// Fetch status/configuration in parallel to keep the progress UI responsive.
+			const [status, configuration] = await Promise.all([
+				inspection.api.serverStatus({ timeout: 3000 }).then(response => response.data),
+				inspection.api.getServerConfiguration({ timeout: 3000 }).then(response => response.data).catch(() => undefined)
+			]);
+			inspection.status = status;
+			inspection.configuration = configuration;
+		} catch (err) {
+			inspection.error = summarizeAxiosError(err);
+		}
+		return inspection;
+	}
+
+	/**
 	 * Retrieves and displays the session list for a single supervisor in a modal dialog.
 	 *
 	 * @param result The inspected supervisor metadata.
@@ -207,13 +234,14 @@ export class KallichoreInstances {
 		const workspaceUri = this.parseWorkspaceUri(result.record);
 		const items: SupervisorSessionQuickPickItem[] = [];
 		const sessionCount = sessions ? sessions.sessions.length : result.status?.sessions;
+		const isCurrentWindow = await this.isCurrentWindow(result.record);
 
 		items.push({
 			label: vscode.l10n.t("Actions"),
 			kind: vscode.QuickPickItemKind.Separator
 		});
 
-		if (workspaceUri && result.record.workspaceName) {
+		if (!isCurrentWindow && workspaceUri && result.record.workspaceName) {
 			items.push({
 				label: `$(folder) ${vscode.l10n.t("Open Workspace '{0}'", result.record.workspaceName)}`,
 				detail: vscode.l10n.t("Open the workspace in a new window"),
@@ -227,6 +255,14 @@ export class KallichoreInstances {
 			detail: vscode.l10n.t("Open the supervisor log file"),
 			action: 'showLogs'
 		});
+
+		if (result.status?.mcp?.active && isCurrentWindow) {
+			items.push({
+				label: `$(plug) ${vscode.l10n.t("Copy MCP Connection Details")}`,
+				detail: vscode.l10n.t("Copy the endpoint and token an external agent needs"),
+				action: 'copyMcpDetails'
+			});
+		}
 
 		items.push({
 			label: `$(trash) ${vscode.l10n.t("Shutdown")}`,
@@ -257,6 +293,27 @@ export class KallichoreInstances {
 			});
 		}
 
+		const mcp = result.status?.mcp;
+		if (mcp?.active) {
+			items.push({
+				label: vscode.l10n.t("Coding Agents"),
+				kind: vscode.QuickPickItemKind.Separator
+			});
+			// One supervisor can serve several workspaces, so name each
+			// agent's workspace when there is more than one.
+			const namesWorkspaces = mcp.workspaces.length > 1;
+			const agents = mcp.workspaces.flatMap(workspace => (workspace.clients ?? []).map(client =>
+				agentQuickPickItem(client, namesWorkspaces ? workspace.display_name : undefined)));
+			if (agents.length > 0) {
+				items.push(...agents);
+			} else {
+				items.push({
+					label: `$(circle-large-outline) ${vscode.l10n.t("No coding agents are connected.")}`,
+					alwaysShow: true
+				});
+			}
+		}
+
 		const selection = await vscode.window.showQuickPick<SupervisorSessionQuickPickItem>(items, {
 			placeHolder: vscode.l10n.t("Select an action or session for {0}", supervisorLabel),
 			ignoreFocusOut: true
@@ -277,6 +334,9 @@ export class KallichoreInstances {
 				return;
 			case 'showLogs':
 				await this.handleShowLogsAction(result);
+				return;
+			case 'copyMcpDetails':
+				await vscode.commands.executeCommand(COPY_MCP_DETAILS_COMMAND);
 				return;
 			case 'openWorkspace':
 				if (selection.workspaceUri) {
@@ -321,6 +381,10 @@ export class KallichoreInstances {
 			detailParts.push(vscode.l10n.t("Connected to this window"));
 		} else if (result.configuration) {
 			detailParts.push(this.describeIdleShutdown(result.configuration.idle_shutdown_hours, result.status));
+		}
+		const mcpDetail = McpFrontend.describeStatus(result.status?.mcp);
+		if (mcpDetail) {
+			detailParts.push(mcpDetail);
 		}
 		if (result.error) {
 			detailParts.push(vscode.l10n.t("Status unavailable: {0}", result.error));
@@ -685,11 +749,23 @@ export class KallichoreInstances {
 	}
 
 	/**
+	 * Whether a supervisor record describes the supervisor serving this window.
+	 * Only that supervisor's MCP registration belongs to us, so only its
+	 * connection details are ours to hand out.
+	 *
+	 * @param record The supervisor record to test.
+	 * @returns True when the record is this window's supervisor.
+	 */
+	private static async isCurrentWindow(record: StoredKallichoreInstance): Promise<boolean> {
+		return this.isCurrentWindowSupervisor(record, await this.getCurrentWindowSupervisorPid());
+	}
+
+	/**
 	 * Determines whether the supervisor is associated with the currently open workspace.
 	 *
 	 * @param record The stored supervisor record to evaluate.
 	 * @param currentPid The PID of the supervisor connected to this window, if any.
-	 * @returns  True if the supervisor is tied to the current window, false otherwise.
+	 * @returns True if the supervisor is tied to the current window, false otherwise.
 	 */
 	private static isCurrentWindowSupervisor(record: StoredKallichoreInstance, currentPid: number | undefined): boolean {
 		if (currentPid === undefined || !record.state.server_pid) {

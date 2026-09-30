@@ -14,7 +14,7 @@ import { IServiceContainer } from '../../ioc/types';
 import { traceVerbose } from '../../logging';
 import { PIP_INDEX_ENV_VARS, resolvePythonIndexUrl } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
-import { searchPyPI, searchPyPIVersions } from './pypiSearch';
+import { pypiPackageExists, searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
@@ -242,6 +242,10 @@ export class PipPackageManager implements IPackageManager {
             (specs) => this._callMethod<Record<string, boolean>>('checkRequiresPython', token, specs),
             token,
         );
+    }
+
+    async resolvePackageName(name: string, token?: vscode.CancellationToken): Promise<string | undefined> {
+        return (await pypiPackageExists(name, token)) ? name : undefined;
     }
 
     // =========================================================================

@@ -11,6 +11,8 @@ import { clearAnnotations } from '../_helpers/annotate-utils';
 
 test.use({
 	suiteId: __filename,
+	// These tests cover the older Connections pane, which Data Connections replaces by default.
+	enableDataConnections: false,
 });
 
 test.beforeEach(async ({ app }) => {

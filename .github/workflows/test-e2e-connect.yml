@@ -41,7 +41,7 @@ permissions:
 jobs:
   e2e-connect-ubuntu:
     name: ${{ inputs.display_name || 'connect' }}
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-amd64-8-core
     timeout-minutes: 80
 
     env:
