@@ -154,6 +154,8 @@ export type ExecutionOutcome =
 	}
 	| { readonly kind: 'cancelled' }
 	| { readonly kind: 'no-connection' }
+	/** Positron would not list the connections at all, e.g. because Data Connections is off. */
+	| { readonly kind: 'unavailable'; readonly reason: string }
 	| { readonly kind: 'no-language' }
 	| { readonly kind: 'not-run'; readonly languageId: string }
 	| { readonly kind: 'connect-failed'; readonly binding: positron.DataConnectionBinding }
@@ -435,8 +437,17 @@ export class StatementRunner {
 		// Read afresh rather than from the schema the editor features use: that one holds the
 		// connections that are open, and a statement can be run against a connection that is not.
 		// Nothing here needs the pane's connection -- the session opens its own.
-		const summary = (await this._api.getConnections())
-			.find(candidate => candidate.profileId === connection.profileId);
+		let connections: positron.DataConnectionSummary[];
+		try {
+			connections = await this._api.getConnections();
+		} catch (error) {
+			// The user switched Data Connections off, most likely; the error says so. Reported
+			// rather than thrown, for the same reason as a console that does not take the code.
+			this._log.warn(`Could not read the data connections to run ${document.uri.toString(true)}`
+				+ ` against: ${error}`);
+			return { kind: 'unavailable', reason: error instanceof Error ? error.message : String(error) };
+		}
+		const summary = connections.find(candidate => candidate.profileId === connection.profileId);
 		if (!summary) {
 			this._log.warn(`${connection.name} no longer exists, so ${document.uri.toString(true)}`
 				+ ' has nothing to run against.');

@@ -3726,7 +3726,7 @@ declare module 'positron' {
 		 *
 		 * @param sessionId The session to ask about, from {@link runtime.getForegroundSession}.
 		 * @returns The connections that session holds, in no particular order. Empty when it holds
-		 *   none, or when the Data Connections feature is disabled.
+		 *   none. Rejects when the `dataConnections.enabled` setting is off.
 		 */
 		export function getSessionBindings(sessionId: string): Thenable<DataConnectionBinding[]>;
 
@@ -3749,8 +3749,8 @@ declare module 'positron' {
 		 * @param languageId The language to connect in, one of
 		 *   {@link DataConnectionSummary.supportedLanguageIds}.
 		 * @returns What the user connected, or `undefined` if they dismissed the dialog, no such
-		 *   profile exists, its driver cannot generate connection code for that language, or the
-		 *   Data Connections feature is disabled.
+		 *   profile exists, or its driver cannot generate connection code for that language.
+		 *   Rejects when the `dataConnections.enabled` setting is off.
 		 */
 		export function connectDataConnectionWith(profileId: string, languageId: string, options?: ConnectDataConnectionOptions): Thenable<DataConnectionBinding | undefined>;
 
@@ -3769,6 +3769,7 @@ declare module 'positron' {
 		 * -- and re-check before writing code against it later.
 		 *
 		 * @param binding The connection the session holds.
+		 * @returns Resolves once recorded. Rejects when the `dataConnections.enabled` setting is off.
 		 */
 		export function registerSessionBinding(binding: DataConnectionBinding): Thenable<void>;
 
@@ -3785,7 +3786,8 @@ declare module 'positron' {
 		 *   {@link connectDataConnectionWith}.
 		 * @param query The query to run, as the user wrote it.
 		 * @returns The code to execute, or `undefined` if the driver cannot query that connection
-		 *   -- it does not implement query generation, or does not for that variant.
+		 *   -- it does not implement query generation, or does not for that variant. Rejects when
+		 *   the `dataConnections.enabled` setting is off.
 		 */
 		export function generateQueryCode(binding: DataConnectionBinding, query: string): Thenable<string | undefined>;
 

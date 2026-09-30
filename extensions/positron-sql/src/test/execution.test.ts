@@ -409,6 +409,16 @@ suite('StatementRunner', () => {
 		assert.deepStrictEqual(outcome, { kind: 'no-connection' });
 	});
 
+	test('a disabled Data Connections feature is reported with its reason, not thrown', async () => {
+		const reason = 'Data connections are unavailable because the "dataConnections.enabled" setting is disabled.';
+		const { runner, calls } = harness({ connectionsError: new Error(reason) });
+
+		const outcome = await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
+
+		assert.deepStrictEqual(outcome, { kind: 'unavailable', reason });
+		assert.deepStrictEqual(calls.executed, []);
+	});
+
 	test('a driver that cannot be connected from any language is reported', async () => {
 		const { runner, calls } = harness({ supportedLanguageIds: [] });
 
@@ -530,6 +540,8 @@ suite('StatementRunner', () => {
 	 */
 	function harness(options: {
 		connections?: positron.DataConnectionSummary[];
+		/** Why getConnections rejects, when it should. */
+		connectionsError?: Error;
 		supportedLanguageIds?: string[];
 		bindings?: positron.DataConnectionBinding[];
 		connected?: positron.DataConnectionBinding;
@@ -568,14 +580,19 @@ suite('StatementRunner', () => {
 		let connectSubmitted = false;
 
 		const api: ExecutionApi = {
-			getConnections: async () => options.connections ?? [{
-				profileId: TEST_PROFILE,
-				name: TEST_CONNECTION,
-				driverId: TEST_DRIVER,
-				driverName: 'DuckDB',
-				connected: true,
-				supportedLanguageIds: options.supportedLanguageIds ?? ['python', 'r'],
-			}],
+			getConnections: async () => {
+				if (options.connectionsError) {
+					throw options.connectionsError;
+				}
+				return options.connections ?? [{
+					profileId: TEST_PROFILE,
+					name: TEST_CONNECTION,
+					driverId: TEST_DRIVER,
+					driverName: 'DuckDB',
+					connected: true,
+					supportedLanguageIds: options.supportedLanguageIds ?? ['python', 'r'],
+				}];
+			},
 			getSessionBindings: async () => options.bindings ?? [held],
 			registerSessionBinding: async binding => { calls.registered.push(binding); },
 			connectDataConnectionWith: async (profileId, languageId, connectOptions) => {
