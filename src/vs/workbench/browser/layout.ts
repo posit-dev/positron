@@ -458,30 +458,41 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 			// to maximize the panel. When editors become visible again, restore
 			// the editor. Crucially, if the user has explicitly hidden the
 			// panel (e.g. via Cmd+J), we do NOT force it back open.
+			const maybeMaximizePanel = () => {
+				// Only maximize the panel (by hiding the editor) when no editors
+				// are visible in any window and the panel is already visible and
+				// not minimized (e.g. by the Side-by-Side layout). This prevents
+				// force-showing a panel the user has explicitly hidden.
+				if (this.editorService.visibleEditors.length === 0 &&
+					this.isVisible(Parts.PANEL_PART) &&
+					!this.isPanelMinimized() &&
+					this.getPanelPosition() === Position.BOTTOM &&
+					this.getPanelAlignment() === 'center' &&
+					!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
+					const size = this.workbenchGrid.getViewSize(this.panelPartView);
+					this.stateModel.setRuntimeValue(
+						LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
+						size.height
+					);
+					this.setEditorHidden(true);
+				}
+			};
 			this._register(this.mainPartEditorService.onDidVisibleEditorsChange(e => {
 				const handled = maybeMaximizeAuxiliaryBar();
 				if (!handled) {
 					if (this.mainPartEditorService.visibleEditors.length === 0) {
-						// Only maximize the panel (by hiding the editor) when the
-						// panel is already visible and not minimized (e.g. by the
-						// Side-by-Side layout). This prevents force-showing a panel
-						// the user has explicitly hidden.
-						if (this.editorService.visibleEditors.length === 0 &&
-							this.isVisible(Parts.PANEL_PART) &&
-							!this.isPanelMinimized() &&
-							this.getPanelPosition() === Position.BOTTOM &&
-							this.getPanelAlignment() === 'center' &&
-							!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
-							const size = this.workbenchGrid.getViewSize(this.panelPartView);
-							this.stateModel.setRuntimeValue(
-								LayoutStateKeys.PANEL_LAST_NON_MAXIMIZED_HEIGHT,
-								size.height
-							);
-							this.setEditorHidden(true);
-						}
+						maybeMaximizePanel();
 					} else {
 						showEditorIfHidden(e.isExplicit);
 					}
+				}
+			}));
+			// The main part listener doesn't fire when the last editor in an
+			// auxiliary window closes, so re-check once all windows are empty.
+			this._register(this.editorService.onDidVisibleEditorsChange(() => {
+				if (this.mainPartEditorService.visibleEditors.length === 0 &&
+					this.configurationService.getValue(WorkbenchLayoutSettings.AUXILIARYBAR_FORCE_MAXIMIZED) !== true) {
+					maybeMaximizePanel();
 				}
 			}));
 			// --- End Positron ---

@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { Application } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
 
 test.use({
@@ -19,12 +20,13 @@ test.describe('Bottom Panel Size', {
 		annotation: [
 			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/2033' },
 		],
-	}, async function ({ app, openFile, openFolder }) {
+	}, async function ({ app, openFile }) {
 		const layouts = app.workbench.layouts;
 
 		// An empty sibling project: it opens with no editors, so the panel is maximized there
-		const otherFolder = 'panel-size-other-project';
-		fs.mkdirSync(path.join(path.dirname(app.workspacePathOrFolder), otherFolder), { recursive: true });
+		const workspaceFolder = app.workspacePathOrFolder;
+		const otherFolder = path.join(path.dirname(workspaceFolder), 'panel-size-other-project');
+		fs.mkdirSync(otherFolder, { recursive: true });
 
 		// Open a file and give the panel a custom height
 		await openFile('README.md');
@@ -32,8 +34,8 @@ test.describe('Bottom Panel Size', {
 		const panelHeight = await layouts.boundingBoxProperty(layouts.panel, 'height');
 
 		// Switch to the empty project and back
-		await openFolder(otherFolder);
-		await openFolder(path.basename(app.workspacePathOrFolder));
+		await openFolderByPath(app, otherFolder);
+		await openFolderByPath(app, workspaceFolder);
 
 		// The panel should be restored to the custom height
 		await expect.poll(async () =>
@@ -41,3 +43,22 @@ test.describe('Bottom Panel Size', {
 		).toBeLessThanOrEqual(1);
 	});
 });
+
+/**
+ * Opens a folder by typing its absolute path into the Open Folder picker. The openFolder fixture
+ * can only descend from the workspace root, so it can't reach a sibling folder or return to the
+ * workspace from one.
+ */
+async function openFolderByPath(app: Application, folderPath: string): Promise<void> {
+	await test.step(`Open folder: ${folderPath}`, async () => {
+		const quickInput = app.workbench.quickInput;
+		await app.workbench.hotKeys.openFolder();
+		await expect(quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
+		await quickInput.type(folderPath + '/');
+		await quickInput.clickOkButton();
+
+		// Wait for the workbench to re-render after the folder switch
+		await app.code.driver.currentPage.waitForTimeout(3000);
+		await app.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
+	});
+}
