@@ -604,30 +604,37 @@ describe('act', () => {
 	});
 
 	/**
-	 * Loads a Shiny dateInput with a stub of its datepicker, which refuses the
-	 * dates in `refuses` (as for dates the app disabled), and of the input
-	 * values Shiny has sent. Returns what Shiny sent for the date.
+	 * Loads a Shiny dateInput with a stub of its datepicker and of the input
+	 * values Shiny has sent. Like the real datepicker, it drops a date outside
+	 * its range, 2026-01-01 to `max` (updateDateInput changes that, but not the
+	 * input's data-max-date), and takes the dates the app disabled. Returns
+	 * what Shiny sent for the date.
 	 */
-	function loadShinyDate({ serverUpdates = true, refuses = [] as string[] } = {}): { bridge: IViewerBridge; sent: () => unknown } {
+	function loadShinyDate({ serverUpdates = true, max = '2026-12-31', disabled = [] as string[] } = {}): { bridge: IViewerBridge; sent: () => unknown } {
 		const inputValues: Record<string, unknown> = { 'day:shiny.date': '2026-01-10' };
 		const bridge = load(`<div id="day" class="shiny-date-input"><label id="day-label" for="day">Day</label>
 			<input id="day-input" type="text" aria-labelledby="day-label" data-min-date="2026-01-01" data-max-date="2026-12-31" value="2026-01-10"></div>`, () => {
 			const input = byId('day-input') as HTMLInputElement;
-			let date: Date | null = new win.Date(Date.UTC(2026, 0, 10));
+			const isoOf = (d: Date) => d.toISOString().slice(0, 10);
+			const picker = {
+				o: { startDate: new win.Date('2026-01-01T00:00:00Z'), endDate: new win.Date(`${max}T00:00:00Z`) },
+				dateWithinRange: (d: Date) => d.getTime() >= picker.o.startDate.getTime() && d.getTime() <= picker.o.endDate.getTime(),
+				dateIsDisabled: (d: Date) => disabled.includes(isoOf(d)),
+			};
+			let date: Date | null = new win.Date('2026-01-10T00:00:00Z');
 			const bsDatepicker = (method: string, value?: Date) => {
 				if (method === 'getUTCDate') {
 					return date;
 				}
-				const iso = value!.toISOString().slice(0, 10);
-				date = refuses.includes(iso) ? null : value!;
-				input.value = date ? iso : '';
+				date = picker.dateWithinRange(value!) ? value! : null;
+				input.value = date ? isoOf(date) : '';
 				if (serverUpdates) {
-					inputValues['day:shiny.date'] = date ? iso : null;
+					inputValues['day:shiny.date'] = date ? isoOf(date) : null;
 				}
 				return undefined;
 			};
 			Object.assign(win, {
-				jQuery: () => ({ data: () => undefined, bsDatepicker }),
+				jQuery: () => ({ data: (key: string) => key === 'datepicker' ? picker : undefined, bsDatepicker }),
 				Shiny: { shinyapp: { $inputValues: inputValues } },
 			});
 		});
@@ -645,11 +652,12 @@ describe('act', () => {
 		await expect(unsent).rejects.toThrow('The textbox "Day" shows 2026-02-03 on the page, but the Shiny app received "2026-01-10".');
 	});
 
-	it('refuses dates a Shiny date input won\'t take, and leaves its date as it was', async () => {
-		const { bridge, sent } = loadShinyDate({ refuses: ['2026-07-04'] });
+	it('refuses dates a Shiny date input won\'t take, by the widget\'s own range and disabled dates, and leaves its date as it was', async () => {
+		// As after updateDateInput(max = "2026-06-30"), with datesdisabled.
+		const { bridge, sent } = loadShinyDate({ max: '2026-06-30', disabled: ['2026-05-04'] });
 
 		const errors: string[] = [];
-		for (const value of ['02/03/2026', '2026-02-30', '2027-01-01', '2026-07-04']) {
+		for (const value of ['02/03/2026', '2026-02-30', '2026-08-01', '2026-05-04']) {
 			errors.push(await bridge.act({ kind: 'fill', ref: 'e1', value }, QUICK).then(() => 'ok', (error: Error) => error.message));
 		}
 
@@ -657,8 +665,8 @@ describe('act', () => {
 			errors: [
 				'The textbox "Day" takes a date as YYYY-MM-DD, such as 2026-02-03, not "02/03/2026".',
 				'The textbox "Day" takes a date as YYYY-MM-DD, such as 2026-02-03, not "2026-02-30".',
-				'The textbox "Day" takes dates from 2026-01-01 to 2026-12-31, not 2027-01-01.',
-				'The textbox "Day" doesn\'t take 2026-07-04, so it\'s back to 2026-01-10.',
+				'The textbox "Day" takes dates from 2026-01-01 to 2026-06-30, not 2026-08-01.',
+				'The textbox "Day" doesn\'t take 2026-05-04: the app has disabled that date.',
 			],
 			shown: '2026-01-10',
 			sent: '2026-01-10',
@@ -741,10 +749,11 @@ describe('act', () => {
 
 	/**
 	 * Loads a stub of Streamlit's multiselect: typing lists the options not yet
-	 * picked that contain the text (or "No results"), and picks show as tags,
-	 * hidden from assistive technology, with a remove button.
+	 * picked that contain the text (or "No results"), or only a note once there
+	 * are `max` picks, and picks show as tags, hidden from assistive
+	 * technology, with a remove button.
 	 */
-	function loadMultiSelect(picked: readonly string[]): IViewerBridge {
+	function loadMultiSelect(picked: readonly string[], max = 0): IViewerBridge {
 		return load(`<div data-testid="stMultiSelect"><div data-testid="stMultiSelectTagsContainer">
 			<span role="group" aria-hidden="true" id="tags"></span><input id="colors" role="combobox" aria-label="Colors" aria-controls="list"></div></div>
 			<div role="listbox" id="list" aria-multiselectable="true"></div>`, () => {
@@ -763,8 +772,10 @@ describe('act', () => {
 			picked.forEach(addTag);
 			input.addEventListener('input', () => {
 				const taken = picks();
-				const matches = ['Red', 'Green', 'Blue'].filter(o => !taken.includes(o) && o.toLowerCase().includes(input.value.toLowerCase()));
-				list.replaceChildren(...(matches.length ? matches : ['No results']).map(text => {
+				const full = max > 0 && taken.length >= max;
+				const matches = full ? [] : ['Red', 'Green', 'Blue'].filter(o => !taken.includes(o) && o.toLowerCase().includes(input.value.toLowerCase()));
+				const note = full ? `You can only select up to ${max} option. Remove an option first.` : 'No results';
+				list.replaceChildren(...(matches.length ? matches : [note]).map(text => {
 					const option = win.document.createElement('div');
 					option.setAttribute('role', 'option');
 					option.textContent = text;
@@ -804,6 +815,19 @@ describe('act', () => {
 		await expect(bridge.act({ kind: 'select', ref: 'e1', value: ['Green', 'Purple'] }, QUICK))
 			.rejects.toThrow('The combobox "Colors" has no option "Purple".');
 		expect(picks()).toEqual(['Blue']);
+	});
+
+	it('swaps the pick of a Streamlit multiselect that has all it takes, and says when it\'s given more', async () => {
+		const bridge = loadMultiSelect(['Red'], 1);
+
+		const swapped = await bridge.act({ kind: 'select', ref: 'e1', value: ['Blue'] }, QUICK);
+		const tooMany = await bridge.act({ kind: 'select', ref: 'e1', value: ['Blue', 'Green'] }, QUICK).then(() => 'ok', (error: Error) => error.message);
+
+		expect({ swapped: swapped.message, tooMany, picks: picks() }).toEqual({
+			swapped: 'Picked "Blue" in the combobox "Colors".',
+			tooMany: 'The combobox "Colors" can\'t take "Green": "You can only select up to 1 option. Remove an option first."',
+			picks: ['Blue'],
+		});
 	});
 
 	it('opens a popup dropdown and clicks the option in it', async () => {

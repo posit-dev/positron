@@ -95,8 +95,15 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		result?: { from?: number; min?: number; max?: number };
 		update?(options: { from: number }): void;
 	}
+	// bootstrap-datepicker's instance. Its dates are UTC midnights.
+	interface DatepickerData {
+		o: { startDate: unknown; endDate: unknown };
+		dateWithinRange(date: Date): boolean;
+		dateIsDisabled(date: Date): boolean;
+	}
 	interface JQueryLike {
-		data(key: string): IonRangeSliderData | undefined;
+		data(key: 'ionRangeSlider'): IonRangeSliderData | undefined;
+		data(key: 'datepicker'): DatepickerData | undefined;
 		trigger?(event: string): void;
 		// Shiny's bootstrap-datepicker, renamed so it doesn't clash with others.
 		bsDatepicker?(method: 'setUTCDate' | 'getUTCDate', date?: Date): unknown;
@@ -1042,31 +1049,31 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		if (!date || date.toISOString().slice(0, 10) !== target) {
 			throw new Error(`The ${what} takes a date as YYYY-MM-DD, such as 2026-02-03, not ${quote(value)}.`);
 		}
-		// The widget would clear the input, and send the server no date, for one outside min and max.
-		const { minDate: min, maxDate: max } = el.dataset;
-		if ((min && target < min) || (max && target > max)) {
+		const widget = (viewOf(el) as unknown as { jQuery?: (el: Element) => JQueryLike }).jQuery?.(el);
+		const picker = widget?.data('datepicker');
+		if (!widget?.bsDatepicker || !picker) {
+			throw new Error(`The ${what} isn't ready yet. Try again in a moment.`);
+		}
+		const isoOf = (d: unknown) => d instanceof viewOf(el).Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : undefined;
+		// Ask the widget what it takes: updateDateInput changes its range but not
+		// the input's data-min-date. It would clear the input, and send the
+		// server no date, for one outside the range, and it takes dates the app
+		// disabled, which a user can't pick.
+		if (!picker.dateWithinRange(date)) {
+			const min = isoOf(picker.o.startDate), max = isoOf(picker.o.endDate);
 			const range = min && max ? `from ${min} to ${max}` : min ? `from ${min} on` : `up to ${max}`;
 			throw new Error(`The ${what} takes dates ${range}, not ${target}.`);
 		}
-		const widget = (viewOf(el) as unknown as { jQuery?: (el: Element) => JQueryLike }).jQuery?.(el);
-		if (!widget?.bsDatepicker) {
-			throw new Error(`The ${what} isn't ready yet. Try again in a moment.`);
+		if (picker.dateIsDisabled(date)) {
+			throw new Error(`The ${what} doesn't take ${target}: the app has disabled that date.`);
 		}
-		const datepicker = (method: 'setUTCDate' | 'getUTCDate', d?: Date) => widget.bsDatepicker!(method, d);
-		const isoOf = (d: unknown) => d instanceof viewOf(el).Date && !Number.isNaN(d.getTime()) ? d.toISOString().slice(0, 10) : undefined;
-		const previous = datepicker('getUTCDate');
-		datepicker('setUTCDate', date);
+		widget.bsDatepicker('setUTCDate', date);
 		const container = el.closest('.shiny-date-input, .shiny-date-range-input')!;
 		return {
 			done: `Set the ${what} to ${target}.`,
 			check: () => {
-				if (isoOf(datepicker('getUTCDate')) !== target) {
-					// It also refuses dates the app disabled. Put the old date back, so the action doesn't take.
-					const old = isoOf(previous);
-					if (old) {
-						datepicker('setUTCDate', previous as Date);
-					}
-					throw new Error(`The ${what} doesn't take ${target}${old ? `, so it's back to ${old}` : ''}.`);
+				if (isoOf(widget.bsDatepicker!('getUTCDate')) !== target) {
+					throw new Error(`Set the ${what} to ${target}, but it shows ${quote(el.value)}.`);
 				}
 				// A dateRangeInput sends [start, end].
 				const server = shinyValue(container);
@@ -1355,8 +1362,9 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		};
 	}
 
-	// Streamlit's multiselect: the values given become the picks. Pick each
-	// missing value from the list, then remove the others with their tags' buttons.
+	// Streamlit's multiselect: the values given become the picks. Remove the
+	// others with their tags' buttons first, since at max_selections the list
+	// offers nothing more, then pick each missing value from the list.
 	async function selectInMultiSelect(el: HTMLInputElement, wanted: readonly string[], what: string): Promise<ActStep> {
 		const picks = () => multiSelectTags(el) ?? [];
 		const box = el.closest('[data-testid="stMultiSelect"]')!;
@@ -1368,26 +1376,42 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			click(button);
 			await sleep(150);
 		};
-		const added: string[] = [];
-		for (const value of wanted.filter(v => !picks().includes(v))) {
+		// Picks a value from the list, or returns the list's options if it isn't one.
+		const add = async (value: string): Promise<Element[] | undefined> => {
 			const { options, match } = await typeInCombobox(el, value);
 			if (!match) {
 				pressKey(el, 'Escape');
 				setNativeValue(el, '');
+				return options;
+			}
+			click(match);
+			await sleep(150);
+			return undefined;
+		};
+		const removed = picks().filter(v => !wanted.includes(v));
+		for (const extra of removed) {
+			await remove(extra);
+		}
+		const added: string[] = [];
+		for (const value of wanted.filter(v => !picks().includes(v))) {
+			const options = await add(value);
+			if (options) {
 				// Leave the picks as they were.
 				for (const v of added) {
 					await remove(v);
 				}
-				// Streamlit also lists "No results" and "Select 2 matches" as options.
+				for (const v of removed) {
+					await add(v);
+				}
+				pressKey(el, 'Escape');
+				// Streamlit also lists "No results" and "Select 2 matches" as
+				// options, and at max_selections only a note saying so.
 				const real = options.filter(o => o.hasAttribute('aria-selected') && !o.getAttribute('data-key')?.startsWith('__'));
-				throw noOption(what, value, real.map(o => textOf(o)), 'options with that text');
+				const note = real.length ? undefined : options.map(o => textOf(o)).find(text => text && text !== 'No results');
+				throw note ? new Error(`The ${what} can't take ${quote(value)}: ${quote(note)}`) :
+					noOption(what, value, real.map(o => textOf(o)), 'options with that text');
 			}
-			click(match);
-			await sleep(150);
 			added.push(value);
-		}
-		for (const extra of picks().filter(v => !wanted.includes(v))) {
-			await remove(extra);
 		}
 		pressKey(el, 'Escape');
 		return {

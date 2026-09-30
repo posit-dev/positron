@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { getWindow } from '../../../../base/browser/dom.js';
-import { DeferredPromise } from '../../../../base/common/async.js';
+import { raceCancellation } from '../../../../base/common/async.js';
+import { CancellationTokenSource } from '../../../../base/common/cancellation.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { externalUriToString } from '../../../../base/common/positronUtilities.js';
 import { htmlAttributeEncodeValue } from '../../../../base/common/strings.js';
@@ -32,13 +33,15 @@ export class PreviewOverlayWebview extends Disposable {
 
 	private _title: string | undefined;
 
-	/** Settles when the webview is disposed, as when other content replaces it in the Viewer. */
-	private readonly _disposed = new DeferredPromise<void>();
+	/** Cancelled when the webview is disposed, as when other content replaces it in the Viewer. */
+	private readonly _disposed = new CancellationTokenSource();
 
 	constructor(public readonly webview: IOverlayWebview) {
 		super();
+		// Disposing the webview cancels _disposed, so dispose it first.
 		this._register(webview);
-		this._register(webview.onDidDispose(() => this._disposed.complete()));
+		this._register(webview.onDidDispose(() => this._disposed.cancel()));
+		this._register(this._disposed);
 		// The script that reports loads runs in the app's page, so an empty title
 		// means the page has none.
 		this._register(webview.onDidLoad(title => {
@@ -160,13 +163,14 @@ export class PreviewOverlayWebview extends Disposable {
 	 * Runs a call into the page, but rejects as soon as the webview is
 	 * disposed: a call into a page that's gone can go unanswered.
 	 */
-	private untilDisposed<T>(call: () => Promise<T>): Promise<T> {
-		if (this._disposed.isSettled) {
-			return Promise.reject(new Error(VIEWER_CONTENT_CHANGED_MESSAGE));
-		}
-		return Promise.race([call(), this._disposed.p.then((): never => {
+	private async untilDisposed<T>(call: () => Promise<T>): Promise<T> {
+		const token = this._disposed.token;
+		// Wrapped, so a call that returns nothing isn't taken for a cancelled one.
+		const result = token.isCancellationRequested ? undefined : await raceCancellation(call().then(value => ({ value })), token);
+		if (!result) {
 			throw new Error(VIEWER_CONTENT_CHANGED_MESSAGE);
-		})]);
+		}
+		return result.value;
 	}
 
 	/**
