@@ -100,14 +100,18 @@ function isOwnedQuartoCellUri(uri: vscode.Uri): boolean {
 }
 
 /**
- * Which cells of a notebook a client syncs when Ark claims them through
- * `notebookDocumentSync`. The document selector gates text-document sync;
- * this gates notebook sync, so both must name the same cells.
+ * Selects notebook cells to sync with Ark when it declares `notebookDocumentSync`.
  *
- * A session client syncs only its own notebook. For a Quarto session that is
- * the hidden notebook core builds for its document. The console client syncs
- * every Quarto notebook, since it serves those without a session, and no real
- * notebook, since each has its own session.
+ * For a dedicated session client, this filter accepts only its own notebook.
+ * For Quarto, that is the hidden notebook representing the document's chunks.
+ *
+ * Quarto documents do not always have a dedicated R session, so the console
+ * client (for the main R session) syncs all hidden Quarto notebooks as a
+ * fallback. It excludes real notebooks, which have their own sessions.
+ *
+ * Syncing sends cell contents and edits to Ark; it does not decide who answers.
+ * Request and diagnostic middleware use `isOwnedQuartoCellUri` to make the
+ * console client stand down when a dedicated session owns the document.
  */
 export function notebookCellFilter(ownNotebookUri: vscode.Uri | undefined) {
 	return (notebookDocument: vscode.NotebookDocument, cells: vscode.NotebookCell[]): vscode.NotebookCell[] => {
