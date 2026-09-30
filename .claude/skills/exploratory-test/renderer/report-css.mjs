@@ -514,10 +514,12 @@ a.ki-num,.ki-num-t{font-family:var(--mono);font-size:12px}
 .ki-num-t[data-title]:hover{text-decoration:underline dotted;text-decoration-thickness:1px}
 a.ki-num:hover,a.ki-num:focus-visible,a.ki-ev:hover,a.ki-ev:focus-visible{color:var(--link-hover);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:currentColor;outline:none}
 a.ki-num:focus-visible,a.ki-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
-.ki-empty{display:flex;align-items:flex-start;gap:12px;padding:20px}
+.ki-empty{display:flex;align-items:center;gap:12px;padding:20px}
 .ki-empty-ic{width:28px;height:28px;border-radius:50%;background:var(--pass-bg);color:var(--pass-fill);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .ki-empty b{display:block;font-size:15px;font-weight:600;color:var(--ink);line-height:1.4}
-.ki-empty b+span{font-size:13px;color:var(--muted);line-height:1.5}
+.ki-empty-sum{font-size:13px;line-height:1.6;color:var(--muted)}
+.ki-empty-sum b{display:inline;font-size:13px;font-weight:500;color:var(--body)}
+a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .ki-card{position:fixed;z-index:60;width:340px;max-width:calc(100vw - 24px);box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:12px 14px;display:none;flex-direction:column;gap:6px;pointer-events:none;font-family:var(--sans);text-align:left}
 .ki-card.is-open{display:flex}
 .ki-card-top{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
