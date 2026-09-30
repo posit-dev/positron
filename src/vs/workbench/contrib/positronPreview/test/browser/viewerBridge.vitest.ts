@@ -157,6 +157,7 @@ describe('createViewerBridge', () => {
 
 	it('keeps the text of a label tied to no control, as Dash\'s html.Label often is, unless it\'s hidden from assistive technology', () => {
 		// Streamlit hides its labels' text, and names its widgets with aria-label.
+		// A label holding only an icon or an image is tied to nothing.
 		const text = snapshotText(`
 			<label>Fruit</label>
 			<div><button aria-haspopup="listbox"><span>Apple</span></button></div>
@@ -166,7 +167,9 @@ describe('createViewerBridge', () => {
 			<label for="title">Plot title</label><input id="title" value="Old Faithful">
 			<label><input type="checkbox"> Show table</label>
 			<div data-testid="stRadio"><label data-testid="stWidgetLabel"><span aria-hidden="true"><p>Units</p></span></label>
-				<div role="radiogroup" aria-label="Units"><div role="radio" aria-checked="true">minutes</div></div></div>`);
+				<div role="radiogroup" aria-label="Units"><div role="radio" aria-checked="true">minutes</div></div></div>
+			<label><span>Threshold</span><svg></svg></label><input type="range" min="0" max="9" value="3">
+			<label><img alt="Info"> Scale</label>`);
 
 		expect(text).toMatchInlineSnapshot(`
 			"- text "Fruit"
@@ -176,7 +179,27 @@ describe('createViewerBridge', () => {
 			- textbox "Plot title" [ref=e3] value="Old Faithful"
 			- checkbox "Show table" [ref=e4] unchecked
 			- radiogroup "Units"
-			  - radio "minutes" [ref=e5] checked"
+			  - radio "minutes" [ref=e5] checked
+			- text "Threshold"
+			- slider [ref=e6] value=3 min=0 max=9
+			- text "Scale"
+			- img "Info""
+		`);
+	});
+
+	it('reads text around parts hidden from assistive technology as one piece, leaving them out', () => {
+		// An icon, and KaTeX, which shows math twice: once for screen readers and once, hidden from them, on screen.
+		const text = snapshotText(`
+			<h2>Notes</h2>
+			<p>Click <b>here</b> to continue <i class="icon" aria-hidden="true">arrow_forward</i></p>
+			<p>The area is <span class="katex"><span class="katex-mathml">x squared</span><span class="katex-html" aria-hidden="true">x2</span></span> units.</p>
+			<div><div>First line</div><div>Second line</div><span aria-hidden="true">*</span></div>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- heading "Notes" [level=2]
+			- text "Click here to continue"
+			- text "The area is x squared units."
+			- text "First line Second line""
 		`);
 	});
 

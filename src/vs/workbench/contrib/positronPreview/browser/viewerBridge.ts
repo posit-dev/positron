@@ -47,6 +47,7 @@ export function viewerBridgeScript(method: keyof IViewerBridge, args: readonly u
  */
 export function createViewerBridge(win: Window & typeof globalThis): IViewerBridge {
 	const doc = win.document;
+	const ELEMENT_NODE = 1;
 	const TEXT_NODE = 3;
 	const SHOW_TEXT = 4;
 	const MAX_ROWS_PER_TABLE = 50;
@@ -70,9 +71,6 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	const TABLE_ROLES = new Set(['table', 'grid', 'treegrid']);
 	const IGNORED_ROLES = new Set(['presentation', 'none', 'generic']);
 	const HAS_STRUCTURE = 'a[href],button,input,select,textarea,img,svg,canvas,iframe,h1,h2,h3,h4,h5,h6,table,[role]';
-	// An element with any of these inside is walked, not read as one piece of
-	// text, so its parts hidden from assistive technology are left out.
-	const WALK_INTO = `${HAS_STRUCTURE},[aria-hidden="true"]`;
 
 	interface WalkState {
 		readonly lines: string[];
@@ -145,6 +143,26 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 		const inner = (el as HTMLElement).innerText;
 		return clean(typeof inner === 'string' ? inner : textNodesOf(el), max);
 	};
+	// The text of an element as it reads, without the parts hidden from
+	// assistive technology (icons, KaTeX's visual copy), which innerText keeps.
+	// Inline elements run on; other elements are words of their own.
+	const readableTextOf = (el: Element, fallback: boolean, own = true): string => {
+		let text = '';
+		for (const node of el.childNodes) {
+			if (node.nodeType === TEXT_NODE) {
+				text += own ? node.textContent : '';
+			} else if (node.nodeType === ELEMENT_NODE) {
+				const child = node as Element;
+				const state = renderStateOf(child, fallback);
+				if (state !== 'hidden') {
+					// A visibility:hidden element's own text doesn't show, but its descendants' can.
+					const inner = readableTextOf(child, fallback, state === 'shown');
+					text += viewOf(child).getComputedStyle(child).display.startsWith('inline') ? inner : ` ${inner} `;
+				}
+			}
+		}
+		return text;
+	};
 	const directTextOf = (el: Element): string => clean([...el.childNodes]
 		.filter(n => n.nodeType === TEXT_NODE)
 		.map(n => n.textContent)
@@ -157,7 +175,7 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 	const namesControl = (label: Element): boolean => {
 		const root = rootOf(label);
 		const target = label.getAttribute('for');
-		return !!label.querySelector(HAS_STRUCTURE) ||
+		return !!label.querySelector(INTERACTIVE_SELECTOR) ||
 			!!(target && root.getElementById(target)) ||
 			!!(label.id && root.querySelector(`[aria-labelledby~="${win.CSS.escape(label.id)}"]`));
 	};
@@ -336,7 +354,8 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 				return textOf(label, undefined, fallback);
 			}
 		}
-		const wrapping = el.closest('label');
+		// A label names the controls it wraps, not an icon beside its text.
+		const wrapping = el.matches(INTERACTIVE_SELECTOR) ? el.closest('label') : null;
 		if (wrapping) {
 			return textOf(wrapping, undefined, fallback);
 		}
@@ -672,12 +691,13 @@ export function createViewerBridge(win: Window & typeof globalThis): IViewerBrid
 			return;
 		}
 
-		// No role: plain text if nothing structural or hidden is inside, otherwise descend.
+		// No role: plain text if nothing structural is inside, otherwise descend.
 		const label = el.closest('label');
 		const isLabelText = !!label && namesControl(label);
-		if (!state.shadowHosts.has(el) && !el.querySelector(WALK_INTO)) {
+		if (!state.shadowHosts.has(el) && !el.querySelector(HAS_STRUCTURE)) {
 			if (!isLabelText) {
-				pushText(state, indent, textOf(el, 300, fallback));
+				const hasHiddenParts = !!el.querySelector('[aria-hidden="true"]');
+				pushText(state, indent, hasHiddenParts ? clean(readableTextOf(el, fallback), 300) : textOf(el, 300, fallback));
 			}
 			return;
 		}
