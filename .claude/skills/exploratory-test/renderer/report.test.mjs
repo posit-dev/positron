@@ -1925,7 +1925,7 @@ test('issue: the link opens a blank bug form titled as the card, with the embedd
 		const url = issueUrl(html, n);
 		assert.equal(`${url.origin}${url.pathname}`, 'https://github.com/posit-dev/positron/issues/new');
 		assert.equal(url.searchParams.get('title'), title);
-		assert.equal(url.searchParams.get('labels'), 'exploratory');
+		assert.equal(url.searchParams.get('labels'), 'ai-discovered');
 		assert.equal(url.searchParams.get('template'), null);
 		assert.equal(url.searchParams.get('body'), issueCopied(html, n));
 		assert.ok(url.href.length <= 8000);
@@ -1992,6 +1992,14 @@ test('issue: parseSystemLine reads the ledger line, and "not recorded" where it 
 	assert.equal(parseSystemLine('- Positron (pre-launched, CDP 44987), workspace /tmp/x.'), null);
 });
 
+test('issue: a finding\'s Feature prefixes the issue title', () => {
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, '$1\n\n**Feature:** Data Explorer');
+	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const card = unescapeHtml(/<article id="f1"[\s\S]*?<h2 class="card-title">([^<]*)<\/h2>/.exec(html)[1]);
+	assert.equal(issueUrl(html, 1).searchParams.get('title'), `Data Explorer: ${card}`);
+	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('Data Explorer'), false);
+	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
+});
 test('issue: a body too long for the link drops the file text, then falls back to copying', () => {
 	const big = p => p.endsWith('slow.py') ? Buffer.from(`x = 1\n`.repeat(2000)) : logsRead(p);
 	const dropped = logsIssueHtml({ readFile: big });
@@ -2006,7 +2014,7 @@ test('issue: a body too long for the link drops the file text, then falls back t
 	const anchor = issueAnchor(html, 1);
 	const fallback = issueUrl(html, 1);
 	assert.equal(fallback.searchParams.get('body'), null);
-	assert.equal(fallback.searchParams.get('labels'), 'exploratory');
+	assert.equal(fallback.searchParams.get('labels'), 'ai-discovered');
 	assert.match(anchor, / data-issue="issue-f1"/);
 	// The copy holds everything, file text included.
 	assert.match(issueCopied(html, 1), /<summary>slow\.py<\/summary>/);
@@ -2605,15 +2613,14 @@ test('a finding that matches an open linked issue says Similar to under its verd
 	assert.match(card(mixed, 1), /Possibly known: <a class="ki-num"[^>]*>#25<\/a>/);
 });
 
-test('the card\'s Possibly known line sits under the title, drops the finding\'s own issue, and offers a comment for one match', () => {
+test('the card\'s Possibly known line sits under the title and drops the finding\'s own issue', () => {
 	const html = kiHtml();
 	const known = n => /<p class="ki-known">[\s\S]*?<\/p>/.exec(card(html, n))?.[0] ?? '';
 	assert.ok(card(html, 1).indexOf('card-title') < card(html, 1).indexOf('ki-known'), 'under the title');
-	assert.match(known(1), /<span class="ki-i"><svg[^>]*>[\s\S]*?<\/svg><\/span><span>Possibly known: <a class="ki-num" href="[^"]+\/issues\/15102" target="_blank" rel="noopener">#15102<\/a><span class="ki-dot" aria-hidden="true">&middot;<\/span><a class="ki-ev" href="[^"]+\/issues\/15102" target="_blank" rel="noopener">Comment there instead<\/a><\/span>/);
+	assert.match(known(1), /<span class="ki-i"><svg[^>]*>[\s\S]*?<\/svg><\/span><span>Possibly known: <a class="ki-num" href="[^"]+\/issues\/15102" target="_blank" rel="noopener">#15102<\/a><\/span><\/p>$/);
 	assert.doesNotMatch(known(1), /#11/, 'its own fix');
 	assert.equal(known(2), '', 'its own regression');
 	assert.match(known(3), /#25<\/a>, <a class="ki-num"[^>]*data-title="also similar"[^>]*>#20<\/a><\/span><\/p>/);
-	assert.doesNotMatch(known(3), /Comment there instead/, 'no single issue to comment on');
 });
 
 test('Coverage leads each row\'s result with its fixes and linked issues, after any finding link, and adds a Not run row for an unrecorded fix', () => {

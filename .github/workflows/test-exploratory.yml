@@ -223,6 +223,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     outputs:
       testable: ${{ steps.gate.outputs.testable }}
       reason: ${{ steps.gate.outputs.reason }}
@@ -274,6 +275,28 @@ jobs:
             echo "DIFFEOF"
           } >> "$GITHUB_OUTPUT"
 
+      # A blocker such as an unmerged companion PR is often named only in the
+      # description. Best effort: no PR, or a failed lookup, writes no file and
+      # the gate rules on the diff alone.
+      - name: Fetch the PR description
+        id: pr-body
+        continue-on-error: true
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.issue.number }}
+          REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/pr-body.md"
+          if [ -n "$PR" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR}" --jq '.body // ""' > "$OUT"
+          else
+            gh api -X GET "repos/${GITHUB_REPOSITORY}/pulls" -f head="${GITHUB_REPOSITORY_OWNER}:${REF}" -f state=open \
+              --jq '.[0].body // ""' > "$OUT"
+          fi
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+
       - name: Load secret
         uses: 1password/load-secrets-action@v5
         with:
@@ -294,6 +317,7 @@ jobs:
           explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
+          pr-body-file: ${{ steps.pr-body.outputs.file }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
 
