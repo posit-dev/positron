@@ -24,7 +24,7 @@ const sessionStartReasonLabels: Record<SessionStartReason, ILocalizedString> = {
 	[SessionStartReason.DuplicatedNotebookSession]: localize2('positron.sessionStartReason.duplicatedNotebookSession', "A notebook session was duplicated into a console"),
 	[SessionStartReason.CodeExecutedWithoutSession]: localize2('positron.sessionStartReason.codeExecutedWithoutSession', "Code was sent to the console with no session for this language"),
 	[SessionStartReason.RestartUninitializedSession]: localize2('positron.sessionStartReason.restartUninitializedSession', "A restart was requested for a session that never started"),
-	[SessionStartReason.NewFolderNotebook]: localize2('positron.sessionStartReason.newFolderNotebook', "A notebook was opened for a new Jupyter Notebook folder"),
+	[SessionStartReason.NewFolderNotebook]: localize2('positron.sessionStartReason.newFolderNotebook', "This notebook was created with a new folder from the Jupyter Notebook template"),
 	[SessionStartReason.QuartoInlineOutput]: localize2('positron.sessionStartReason.quartoInlineOutput', "Code was run in a Quarto document with inline output"),
 	[SessionStartReason.NotebookCellsExecuted]: localize2('positron.sessionStartReason.notebookCellsExecuted', "Notebook cells were run with no kernel running"),
 	[SessionStartReason.NotebookCodeFragmentExecuted]: localize2('positron.sessionStartReason.notebookCodeFragmentExecuted', "Selected code in a notebook cell was run with no kernel"),

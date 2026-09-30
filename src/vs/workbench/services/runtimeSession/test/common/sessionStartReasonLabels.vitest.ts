@@ -30,7 +30,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "languageFileOpenAtRegistration": "This interpreter was found after a file in this language was opened",
 			  "languageFileOpened": "A file in this language was opened",
 			  "newConsoleCommand": "A command requested a new console for this interpreter",
-			  "newFolderNotebook": "A notebook was opened for a new Jupyter Notebook folder",
+			  "newFolderNotebook": "This notebook was created with a new folder from the Jupyter Notebook template",
 			  "notebookCellsExecuted": "Notebook cells were run with no kernel running",
 			  "notebookCodeFragmentExecuted": "Selected code in a notebook cell was run with no kernel",
 			  "notebookEditorActivated": "This notebook's preview tab was kept open, or its background tab was brought to the front",

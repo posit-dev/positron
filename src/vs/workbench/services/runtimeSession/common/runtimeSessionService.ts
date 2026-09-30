@@ -129,7 +129,7 @@ export enum SessionStartReason {
 	/** A restart was requested for a session that had never started. */
 	RestartUninitializedSession = 'restartUninitializedSession',
 
-	/** The New Folder flow started a kernel for the untitled notebook it opens for a Jupyter Notebook folder. */
+	/** New Folder from Template, with the Jupyter Notebook template, started a kernel for the untitled notebook it opens. */
 	NewFolderNotebook = 'newFolderNotebook',
 
 	/** A Quarto document ran code for inline output. */
