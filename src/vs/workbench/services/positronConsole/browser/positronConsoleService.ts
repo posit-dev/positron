@@ -299,9 +299,9 @@ configurationRegistry.registerConfiguration({
 		// Scrollback size.
 		'console.scrollbackSize': {
 			type: 'number',
-			'minimum': 1_000,
+			'minimum': 100,
 			'maximum': 20_000,
-			'default': 10_000,
+			'default': 2_000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
 		},
 		// Whether to automatically create consoles for notebook sessions
