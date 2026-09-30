@@ -97,6 +97,14 @@ export interface IStartNewRuntimeSessionOptions {
 	readonly quartoNotebookUri?: URI;
 }
 
+export interface IUpdateNotebookSessionUriOptions {
+	/**
+	 * The hidden notebook of the Quarto document at the new URI, when the
+	 * session is a Quarto session. See `IRuntimeSessionMetadata.quartoNotebookUri`.
+	 */
+	readonly quartoNotebookUri?: URI;
+}
+
 export interface IRuntimeSessionMetadata {
 	/** The unique identifier of the session */
 	readonly sessionId: string;
@@ -1044,9 +1052,10 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param oldUri The original URI of the notebook (typically an untitled:// URI)
 	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
+	 * @param options The session's Quarto notebook URI for the new document, if it has one.
 	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined>;
+	updateNotebookSessionUri(oldUri: URI, newUri: URI, options?: IUpdateNotebookSessionUriOptions): Promise<string | undefined>;
 
 	/**
 	 * Updates the active languages with the update service. This has to be pushed to the update
