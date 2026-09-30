@@ -36,6 +36,7 @@ function makeDisplayInfo(
 		sessionName: 'Python 3.12.1',
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
+		owner: 'user',
 		runtimeId: 'python-3.12.1',
 		runtimeName: 'Python',
 		languageName: 'Python',
@@ -59,6 +60,7 @@ function makeConsoleSessionStub(): Partial<ILanguageRuntimeSession> {
 			createdTimestamp: 0,
 			notebookUri: undefined,
 			startReason: 'test',
+			owner: 'user',
 		},
 	};
 }
@@ -141,6 +143,25 @@ describe('TopActionBarSessionPicker', () => {
 		it('renders a runtime-session-icon with the language class for a console session', () => {
 			rtl.render(<TopActionBarSessionPicker />);
 			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'python-lang-file-icon');
+		});
+	});
+
+	describe('assistant-owned console session', () => {
+		const assistantInfo = makeDisplayInfo({ owner: 'assistant' });
+		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
+		const ctx = createTestContainer()
+			.withReactServices()
+			.stub(IRuntimeSessionService, {
+				foregroundSessionDisplayInfo: assistantInfo,
+				activeSessions: [makeConsoleSessionStub() as ILanguageRuntimeSession],
+				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
+			})
+			.build();
+		const rtl = setupRTLRenderer(() => ctx.reactServices);
+
+		it('marks the icon as an Assistant session, keeping the language class', () => {
+			rtl.render(<TopActionBarSessionPicker />);
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'python-lang-file-icon', 'assistant-session-icon');
 		});
 	});
 

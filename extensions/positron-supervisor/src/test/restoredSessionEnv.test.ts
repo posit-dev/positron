@@ -49,6 +49,7 @@ suite('Restored session environment', () => {
 			sessionId: 'python-test-0001',
 			sessionMode: positron.LanguageRuntimeSessionMode.Console,
 			notebookUri: undefined,
+			owner: 'user',
 		};
 	}
 

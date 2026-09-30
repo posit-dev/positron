@@ -60,7 +60,8 @@ const SESSION_METADATA: IRuntimeSessionMetadata = {
 	createdTimestamp: 0,
 	sessionMode: LanguageRuntimeSessionMode.Console,
 	notebookUri: undefined,
-	startReason: 'Unit Test'
+	startReason: 'Unit Test',
+	owner: 'user',
 };
 
 /** The attribution the kernel supervisor sends for agent-run code. */

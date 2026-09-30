@@ -10,12 +10,12 @@ import {
 	IConfigurationRegistry,
 } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { AI_ENABLED_KEY, MCP_ENABLED_KEY, MCP_STATUS_BAR_KEY, NEW_PROVIDER_MODAL_KEY } from './positronAIConfigurationKeys.js';
+import { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY, MCP_ENABLED_KEY, MCP_STATUS_BAR_KEY, NEW_PROVIDER_MODAL_KEY } from './positronAIConfigurationKeys.js';
 
 // Re-exported so existing importers do not have to move. New callers outside
 // the workbench (e.g. the extension host) should import the keys module
 // directly to avoid this file's registerConfiguration side effect.
-export { AI_ENABLED_KEY };
+export { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY };
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 configurationRegistry.registerConfiguration({
@@ -51,6 +51,7 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],
+			order: 1,
 		},
 		[MCP_STATUS_BAR_KEY]: {
 			type: 'boolean',
@@ -61,6 +62,18 @@ configurationRegistry.registerConfiguration({
 			),
 			scope: ConfigurationScope.WINDOW,
 			tags: ['experimental'],
+			order: 2,
+		},
+		[ASSISTANT_SESSIONS_ENABLED_KEY]: {
+			type: 'boolean',
+			default: false,
+			markdownDescription: localize(
+				'positron.ai.assistantSessions.enabled',
+				"Let Posit Assistant work in console sessions of its own. Under active development."
+			),
+			scope: ConfigurationScope.WINDOW,
+			tags: ['experimental'],
+			order: 3,
 		}
 	}
 });

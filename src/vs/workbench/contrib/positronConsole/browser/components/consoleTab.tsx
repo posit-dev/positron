@@ -583,6 +583,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 				<RuntimeIcon
 					languageId={positronConsoleInstance.runtimeMetadata.languageId}
 					notebookUri={positronConsoleInstance.sessionMetadata.notebookUri}
+					owner={positronConsoleInstance.sessionMetadata.owner}
 					sessionMode={positronConsoleInstance.sessionMetadata.sessionMode}
 				/>
 				{isRenamingSession ? (

@@ -1,0 +1,23 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/**
+ * Assistant-owned sessions draw the sparkle codicon in place of their language
+ * glyph, wherever session icons are shown (console tab list, session quick
+ * pick). The file icon theme's color for the language still applies, so they
+ * match the other sessions. `!important` beats the theme's glyph rules, which
+ * are more specific.
+ *
+ * The codicon glyph sits a little left of and above the file icon theme glyphs
+ * it replaces, so nudge it into line. The same offset applies wherever the icon
+ * shows, so the console tab and the quick pick agree.
+ */
+.show-file-icons .assistant-session-icon::before {
+	font-family: codicon !important;
+	content: "\ec10" !important;
+	font-size: 16px !important;
+	background-image: none !important;
+	transform: translate(2.5px, -1px);
+}
