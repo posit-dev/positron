@@ -7,7 +7,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IDataConnectionInstance } from './dataConnectionInstance.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { DataConnectionParameterValues, IDataConnectionHandle, IDataConnectionProfile } from './dataConnectionDriver.js';
+import { DataConnectionNodeKind, DataConnectionParameterValues, IDataConnectionHandle, IDataConnectionProfile } from './dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
 
 // DI token used to inject IPositronDataConnectionsService throughout the workbench.
@@ -24,8 +24,7 @@ export const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataCo
  * fetched under, and a fresh fetch mints new handles. Kind and name are what survive.
  */
 export interface IDataConnectionNodeStep {
-	// A DataConnectionNodeKind value, e.g. 'schema', 'table', 'field'.
-	readonly kind: string;
+	readonly kind: DataConnectionNodeKind;
 
 	readonly name: string;
 }

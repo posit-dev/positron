@@ -356,7 +356,8 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * handle. No handle is handed out: a handle carries `disconnect` and `release`, neither of
 	 * which an extension should be able to do to a connection it does not own.
 	 *
-	 * Empty when the Data Connections feature is disabled, which reads the same as having none.
+	 * Rejects when the Data Connections feature is disabled, rather than answering with an empty
+	 * list that would read the same as having none.
 	 */
 	$getDataConnections(): Promise<IDataConnectionSummaryDTO[]>;
 
@@ -368,7 +369,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * but still cannot disconnect or release it. Idempotent: the service returns the existing
 	 * instance when there is one rather than reconnecting.
 	 *
-	 * Resolves false when no such profile exists or the feature is disabled; rejects with the
+	 * Resolves false when no such profile exists. Rejects when the feature is disabled, and with the
 	 * driver's error when the connection was attempted and failed.
 	 */
 	$openDataConnection(profileId: string): Promise<boolean>;
@@ -381,7 +382,7 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * caller needs in order to know it cannot tell a name the schema is missing from one the user
 	 * got wrong.
 	 *
-	 * Resolves to `undefined` when the profile has no live connection, or when the feature is
+	 * Resolves to `undefined` when the profile has no live connection. Rejects when the feature is
 	 * disabled.
 	 */
 	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions): Promise<IDataConnectionSchemaWalk | undefined>;

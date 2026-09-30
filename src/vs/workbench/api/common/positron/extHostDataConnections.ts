@@ -190,7 +190,10 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		}
 		// The walk carries no connection identity of its own, so the profile id is added here:
 		// callers hold that, it is what they asked with, and it stays the same across a reconnect.
-		return { profileId, nodes: walk.nodes, truncated: walk.truncated };
+		// The kinds are cast rather than checked, as for a browsed node (see _dtoToNode): they are
+		// the driver's word, and a driver reporting a kind the enum does not list still gets its
+		// node through.
+		return { profileId, nodes: walk.nodes as positron.DataConnectionSchemaNode[], truncated: walk.truncated };
 	}
 
 	/** Fires when a connection is opened or closed, or a profile is added, renamed or removed. */

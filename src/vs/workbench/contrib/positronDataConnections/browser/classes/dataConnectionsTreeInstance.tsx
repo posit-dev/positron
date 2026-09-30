@@ -31,7 +31,7 @@ import { IDataConnectionInstance } from '../../../../services/positronDataConnec
 import { Event } from '../../../../../base/common/event.js';
 import { raceTimeout } from '../../../../../base/common/async.js';
 import { IDataConnectionNodeOpener, IDataConnectionNodeStep, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionNodeKind, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * The row height in pixels. Matches the height used by the previous list-based panel so the
@@ -75,7 +75,7 @@ export type DataConnectionNode =
  * outright when it holds a single schema, rather than breadcrumbed like the rest -- see
  * POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY, the opt-in that brings it back.
  */
-const SCHEMAS_GROUP_KIND = 'group-schemas';
+const SCHEMAS_GROUP_KIND = DataConnectionNodeKind.GroupSchemas;
 
 /**
  * Group kinds that name a namespace tier -- the levels a connection is organized by, above the
@@ -86,9 +86,9 @@ const SCHEMAS_GROUP_KIND = 'group-schemas';
  * Deliberately not every container kind. A lone "Tables" or "Columns" group still tells the user
  * what the single row beneath it is, which the row itself does not.
  */
-const BREADCRUMB_GROUP_KINDS = new Set([
-	'group-databases',
-	'group-catalogs',
+const BREADCRUMB_GROUP_KINDS: ReadonlySet<string> = new Set<string>([
+	DataConnectionNodeKind.GroupDatabases,
+	DataConnectionNodeKind.GroupCatalogs,
 	SCHEMAS_GROUP_KIND,
 ]);
 

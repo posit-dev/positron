@@ -18,7 +18,7 @@ import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../.
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
-import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionNodeKind, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionRevealOptions, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 // The tree's hover manager hides the hover when the tree is disposed; nothing here shows one.
@@ -873,7 +873,7 @@ describe('DataConnectionsTreeInstance', () => {
 		expect(notificationError.mock.calls).toEqual([]);
 	});
 	describe('reveal', () => {
-		const FLIGHTS = { kind: 'table', name: 'flights' };
+		const FLIGHTS = { kind: DataConnectionNodeKind.Table, name: 'flights' };
 
 		/**
 		 * A tree shaped like a real connection: the schema sits under a "Tables" grouping row,
@@ -914,7 +914,7 @@ describe('DataConnectionsTreeInstance', () => {
 
 			await tree.reveal({
 				profileId: 'conn-1',
-				path: [FLIGHTS, { kind: 'field', name: 'dep_time' }],
+				path: [FLIGHTS, { kind: DataConnectionNodeKind.Field, name: 'dep_time' }],
 			});
 
 			expect(tree.getSelectedNode()?.id).toBe('dto:1:9');
@@ -926,7 +926,7 @@ describe('DataConnectionsTreeInstance', () => {
 			const { tree } = createTree();
 			await tree.refresh();
 
-			await tree.reveal({ profileId: 'conn-1', path: [{ kind: 'view', name: 'flights' }] });
+			await tree.reveal({ profileId: 'conn-1', path: [{ kind: DataConnectionNodeKind.View, name: 'flights' }] });
 
 			expect(tree.getSelectedNode()?.id).toBe(DTO_ID);
 		});
@@ -935,7 +935,7 @@ describe('DataConnectionsTreeInstance', () => {
 			const { tree } = createTree();
 			await tree.refresh();
 
-			await tree.reveal({ profileId: 'conn-1', path: [{ kind: 'table', name: 'FLIGHTS' }] });
+			await tree.reveal({ profileId: 'conn-1', path: [{ kind: DataConnectionNodeKind.Table, name: 'FLIGHTS' }] });
 
 			expect(tree.getSelectedNode()?.id).toBe(DTO_ID);
 		});
@@ -946,7 +946,7 @@ describe('DataConnectionsTreeInstance', () => {
 			const { tree } = createTree();
 			await tree.refresh();
 
-			await tree.reveal({ profileId: 'conn-1', path: [{ kind: 'table', name: 'gone' }] });
+			await tree.reveal({ profileId: 'conn-1', path: [{ kind: DataConnectionNodeKind.Table, name: 'gone' }] });
 
 			expect(tree.getSelectedNode()).toBeUndefined();
 		});

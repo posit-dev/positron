@@ -20,6 +20,81 @@ import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from './dataCon
 export type DataConnectionParameterValues = Record<string, boolean | number | string>;
 
 /**
+ * The kinds of node a driver reports in a connection's tree. Mirrors DataConnectionNodeKind in
+ * positron.d.ts, and is the implementation the extension API hands out (see
+ * extHostTypes.positron.ts), so the two cannot drift apart.
+ *
+ * A node DTO still carries its kind as a plain string: the value comes from a driver, and nothing
+ * on the wire stops one reporting a kind that is not listed here. Compare against these members
+ * rather than narrowing a DTO's kind to this type.
+ */
+export enum DataConnectionNodeKind {
+	Database = 'database',
+	// A catalog: the level above a schema in a three-part namespace, e.g. a Unity Catalog catalog
+	// (positron-data-driver-databricks).
+	Catalog = 'catalog',
+	Schema = 'schema',
+	Table = 'table',
+	View = 'view',
+	Field = 'field',
+	GroupDatabases = 'group-databases',
+	GroupCatalogs = 'group-catalogs',
+	GroupSchemas = 'group-schemas',
+	GroupTables = 'group-tables',
+	GroupViews = 'group-views',
+	GroupColumns = 'group-columns',
+	GroupIndexes = 'group-indexes',
+	GroupStages = 'group-stages',
+	GroupVolumes = 'group-volumes',
+	Index = 'index',
+	// A Snowflake stage: a named location for staging files (positron-data-driver-snowflake).
+	Stage = 'stage',
+	// A Unity Catalog volume: a governed location for non-tabular files
+	// (positron-data-driver-databricks).
+	Volume = 'volume',
+	// A directory inside a volume or stage, and a file inside one.
+	Directory = 'directory',
+	File = 'file',
+	// A note in the tree rather than an object, e.g. that a long listing was cut short.
+	Notice = 'notice',
+	// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
+	Owner = 'owner',
+	// A pin on a Posit Connect server (positron-data-driver-pins).
+	Pin = 'pin',
+	// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
+	Version = 'version',
+	// A Snowflake semantic view (positron-data-driver-snowflake).
+	GroupSemanticViews = 'group-semantic-views',
+	SemanticView = 'semantic-view',
+	// The members of a semantic view, and the groups that hold them.
+	GroupLogicalTables = 'group-logical-tables',
+	GroupRelationships = 'group-relationships',
+	GroupFacts = 'group-facts',
+	GroupDimensions = 'group-dimensions',
+	GroupTimeDimensions = 'group-time-dimensions',
+	GroupNamedFilters = 'group-named-filters',
+	GroupMetrics = 'group-metrics',
+	GroupDerivedMetrics = 'group-derived-metrics',
+	LogicalTable = 'logical-table',
+	Relationship = 'relationship',
+	Fact = 'fact',
+	Dimension = 'dimension',
+	TimeDimension = 'time-dimension',
+	NamedFilter = 'named-filter',
+	Metric = 'metric',
+}
+
+const DATA_CONNECTION_NODE_KINDS = new Set<string>(Object.values(DataConnectionNodeKind));
+
+/**
+ * Whether a string is one of the {@link DataConnectionNodeKind} values.
+ * @param value The string to check, typically from untyped input such as command arguments.
+ */
+export function isDataConnectionNodeKind(value: string): value is DataConnectionNodeKind {
+	return DATA_CONNECTION_NODE_KINDS.has(value);
+}
+
+/**
  * A data connection profile. A profile has its persistence metadata (id, createdAt, lastUsedAt)
  * once stored; for a draft (not yet saved) those fields are undefined. Distinct from
  * IDataConnectionInstance, which represents the live/connected form at runtime.
