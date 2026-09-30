@@ -12,18 +12,22 @@ run({
 	platform: 'node',
 	entryPoints: {
 		'extension': path.join(srcDir, 'extension.ts'),
+		// pg and the AWS SDK bundle into their own entry points rather than
+		// into extension.js, and the dynamic imports in redshiftClient and
+		// redshiftConnection load them on first use. Opening the Data
+		// Connections pane activates this extension, and a user who never
+		// connects to Redshift should not pay to parse either. The AWS SDK is
+		// only reachable through the IAM auth mechanism, so even a Redshift
+		// user on password auth never loads it.
+		'pg': path.join(srcDir, 'pg.ts'),
+		'redshiftIamCredentials': path.join(srcDir, 'redshiftIamCredentials.ts'),
 	},
 	srcDir,
 	outdir: outDir,
 	additionalOptions: {
-		// pg and the AWS SDK are externalized so the dynamic import()s in
-		// redshiftClient and redshiftConnection stay deferred loads: opening the
-		// Data Connections pane activates this extension, and a user who never
-		// connects to Redshift should not pay to parse either. The AWS SDK is
-		// only reachable through the IAM auth mechanism, so even a Redshift user
-		// on password auth never loads it. positron-data-driver-redshift is
-		// registered in extensionsWithNpmDeps (build/lib/extensions.ts) so all of
-		// these are packaged.
+		// The two sibling bundles stay external so the dynamic imports that
+		// reach them remain real deferred loads at runtime rather than being
+		// inlined into extension.js.
 		//
 		// pg-native is an optional native dependency of pg; leave it as an
 		// external so its require() at runtime can no-op gracefully when
@@ -31,11 +35,13 @@ run({
 		external: [
 			'vscode',
 			'positron',
-			'pg',
+			'./pg.js',
+			'./redshiftIamCredentials.js',
 			'pg-native',
-			'@aws-sdk/client-redshift',
-			'@aws-sdk/client-redshift-serverless',
-			'@aws-sdk/credential-providers',
 		],
+		// The dependency trees of pg and the AWS SDK ship inside the bundles;
+		// keep the license comments they carry instead of letting minify drop
+		// them.
+		legalComments: 'eof',
 	},
 }, process.argv);
