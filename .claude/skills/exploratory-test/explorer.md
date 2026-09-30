@@ -305,14 +305,15 @@ N. VERIFY <expectation> -> FAIL - Finding K
        at <function> (<repo-relative path>:<line>)
 ```
 
-- An action is something you did: "Run `%view df`.", "Click Continue." Merge
-  trivial waits into it, naming what you waited for, not for how long: "Run X
-  and wait for the plot to appear." When the bug needs you to act before
-  something finishes, say what it races instead.
-- Name the exact way in, as the UI labels it: the palette command
-  ("Workspaces: New Folder from Template..."), the menu path, the button, or
-  the key. Two ways in can open different features. If you ran a command by
-  ID, write the palette name a person would pick.
+- An action is one thing you did: "Run `%view df`.", "Click Continue." Two
+  actions are two steps. Merge trivial waits into it, naming what you waited
+  for, not for how long: "Run X and wait for the plot to appear." When the bug
+  needs you to act before something finishes, say what it races instead.
+- Name the exact way in, as the UI labels it: the palette command in
+  backticks, with its category (`Workspaces: New Folder from Template...`),
+  the menu path, the button, or the key. Two ways in can open different
+  features. If you ran a command by ID, write the palette name a person would
+  pick.
 - A verify is a check, written as the expectation *before* you look. Every
   check is one, including the ones that pass.
 - Never write an observation as a step; it belongs in `Observed:` or the next
