@@ -20,7 +20,7 @@ permissions:
 jobs:
   build-server:
     name: Build Positron Server Linux x64
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-amd64-8-core
     timeout-minutes: 180
     outputs:
       artifact-name: positron-server-linux-x64
