@@ -11,7 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
-import { useObservedValue } from './useObservedValue.js';
+import { useObservedValue } from '../../../../base/browser/useObservedValue.js';
 import { NotebookKernelStatus } from './IPositronNotebookInstance.js';
 import { useSessionRuntimeState } from '../../positronConsole/browser/components/useSessionRuntimeState.js';
 import { RuntimeStatusIcon } from '../../positronConsole/browser/components/runtimeStatus.js';

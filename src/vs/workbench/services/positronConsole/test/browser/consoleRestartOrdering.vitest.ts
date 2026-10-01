@@ -11,6 +11,8 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { TestViewsService } from '../../../../test/browser/workbenchTestServices.js';
+import { IViewsService } from '../../../views/common/viewsService.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../runtimeStartup/common/runtimeStartupService.js';
@@ -35,6 +37,8 @@ describe('Positron - console restart ordering', () => {
 			getRestoredSessions: () => Promise.resolve([]),
 			onSessionRestoreFailure: Event.None,
 		})
+		// The console service tracks the console view's visibility.
+		.stub(IViewsService, new TestViewsService())
 		.stub(IConsoleFindWidgetFactory, {
 			createFindWidget: () => stubInterface<IConsoleFindWidget>({
 				onDidHide: Event.None,

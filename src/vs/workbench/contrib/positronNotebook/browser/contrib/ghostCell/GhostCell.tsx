@@ -12,7 +12,7 @@ import React from 'react';
 // Other dependencies.
 import * as DOM from '../../../../../../base/browser/dom.js';
 import { localize } from '../../../../../../nls.js';
-import { useObservedValue } from '../../useObservedValue.js';
+import { useObservedValue } from '../../../../../../base/browser/useObservedValue.js';
 import { SplitButton } from '../../utilityComponents/SplitButton.js';
 import { GhostCellState } from './controller.js';
 import { useGhostCellController } from './useGhostCellController.js';

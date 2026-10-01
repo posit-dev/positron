@@ -12,6 +12,7 @@ import React, { KeyboardEvent, MouseEvent, useEffect, useLayoutEffect, useRef, u
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { useObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { ConsoleSessionStatusIcon } from './consoleSessionStatusIcon.js';
@@ -39,6 +40,33 @@ const MINIMUM_ACTION_CONSOLE_TAB_WIDTH = 110;
  * The height of the resource usage graph in pixels.
  */
 const RESOURCE_GRAPH_HEIGHT = 24;
+
+/**
+ * Gets the tab's tooltip when executions ran while it was not being looked at.
+ * @param sessionName The session name to lead with, when the tab cuts it short;
+ *   undefined when the tab already shows it in full.
+ */
+function getUnreadExecutionsTooltip(sessionName: string | undefined, count: number): string {
+	if (sessionName === undefined) {
+		return count === 1 ?
+			localize('positron.console.tab.unreadExecution', "1 new execution") :
+			localize('positron.console.tab.unreadExecutions', "{0} new executions", count);
+	}
+	return count === 1 ?
+		localize('positron.console.tab.unreadExecutionWithName', "{0} \u2022 1 new execution", sessionName) :
+		localize('positron.console.tab.unreadExecutionsWithName', "{0} \u2022 {1} new executions", sessionName, count);
+}
+
+/**
+ * Gets the tab's accessible name when executions ran while it was not being
+ * looked at. A comma rather than the tooltip's bullet, which screen readers
+ * have no good way to read.
+ */
+function getUnreadExecutionsAriaLabel(sessionName: string, count: number): string {
+	return count === 1 ?
+		localize('positron.console.tab.unreadExecutionAriaLabel', "{0}, 1 new execution", sessionName) :
+		localize('positron.console.tab.unreadExecutionsAriaLabel', "{0}, {1} new executions", sessionName, count);
+}
 
 interface ConsoleTabProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
@@ -69,6 +97,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 	const [consoleState, setConsoleState] = useState(positronConsoleInstance.state);
 	const [fittedSessionName, setFittedSessionName] = useState(sessionDisplayName);
 	const [mouseInside, setMouseInside] = useState(false);
+	const unreadExecutionCount = useObservedValue(positronConsoleInstance.unreadExecutionCount);
 	const [showResourceMonitor, setShowResourceMonitor] = useState(() =>
 		services.configurationService.getValue<boolean>('console.showResourceMonitor') ?? true
 	);
@@ -80,6 +109,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 
 	// Variables
 	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId;
+	const hasUnreadExecutions = !isActiveTab && unreadExecutionCount > 0;
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -177,7 +207,7 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 		} finally {
 			measureElement.remove();
 		}
-	}, [width, sessionName, isRenamingSession, onSessionNameHiddenChange, positronConsoleInstance.sessionId]);
+	}, [width, sessionName, isRenamingSession, hasUnreadExecutions, onSessionNameHiddenChange, positronConsoleInstance.sessionId]);
 
 	// Stop counting this tab's name once the tab goes away.
 	useEffect(() => {
@@ -192,8 +222,13 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 	// The hover targets the whole tab rather than the name element, because the
 	// case that most needs a tooltip is the one where the name has been squeezed
 	// out entirely and there is no name left to hover over.
+	//
+	// Unread executions always get a tooltip, since the dot alone doesn't
+	// say how many there were; it names the session only if the tab can't.
 	const nameIsCutShort = hideSessionName || fittedSessionName !== sessionName;
-	const tooltip = nameIsCutShort && !isRenamingSession ? sessionName : undefined;
+	const tooltip = isRenamingSession ? undefined :
+		hasUnreadExecutions ? getUnreadExecutionsTooltip(nameIsCutShort ? sessionName : undefined, unreadExecutionCount) :
+			nameIsCutShort ? sessionName : undefined;
 
 	// Re-runs when the tooltip changes as well as when the mouse moves in, so a
 	// name that gets cut short while the pointer is already on the tab updates
@@ -526,7 +561,12 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 			// filename), and the accessible name should be what the tab reads
 			// as. It's also the full name, which the rendered one may not be
 			// once it has been ellipsized to fit.
-			aria-label={sessionName}
+			//
+			// The dot is a mark in the corner of the tab, so what it says goes in
+			// the tab's accessible name.
+			aria-label={hasUnreadExecutions ?
+				getUnreadExecutionsAriaLabel(sessionName, unreadExecutionCount) :
+				sessionName}
 			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId}
 			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === positronConsoleInstance.sessionId && 'tab-button--active'}`}
 			data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
@@ -560,9 +600,14 @@ export const ConsoleTab = ({ positronConsoleInstance, width, hideSessionName, ho
 				) : (
 					<>
 						<p ref={sessionNameRef} className='session-name'>{hideSessionName ? '' : fittedSessionName}</p>
+						{/* Marks executions that ran while the tab was not being looked at; the delete button replaces it on hover */
+							width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH && hasUnreadExecutions &&
+							<span className='unread-executions' data-testid='unread-executions' />
+						}
 						{/* Show the delete button only if the width of the tab is greater than the minimum width */
 							width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
 							<button
+								aria-label={localize('positron.console.tab.deleteSession', "Delete Session")}
 								className='delete-button'
 								data-testid='trash-session'
 								disabled={deleteDisabled}

@@ -16,7 +16,7 @@ import { codeFragmentsFromBoundaries, IInputBoundaryFragment, IInputBoundaryFrag
 import { IInputBoundary } from '../../../../editor/common/languages.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
+import { IObservable, ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
 import { ConfigurationTarget, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -464,6 +464,16 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Run one-time migrations.
 		this.resetScrollbackSizeUserOverrideOnce();
+
+		// The active console is seen only while the console view is visible, so
+		// executions that land in it while the view is hidden are counted, and
+		// the count clears when the view comes back.
+		this._register(this._viewsService.onDidChangeViewVisibility(e => {
+			if (e.id !== POSITRON_CONSOLE_VIEW_ID || !this._activePositronConsoleInstance) {
+				return;
+			}
+			this._positronConsoleInstancesBySessionId.get(this._activePositronConsoleInstance.sessionId)?.setSeen(e.visible);
+		}));
 
 		// Start a Positron console instance for each session that will be restored.
 		//
@@ -988,10 +998,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Set the active positron console instance, if requested
 		if (activate) {
-			this._activePositronConsoleInstance = positronConsoleInstance;
-
-			// Fire the onDidChangeActivePositronConsoleInstance event.
-			this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
+			this.setActivePositronConsoleInstance(positronConsoleInstance);
 		}
 
 		// Listen for console width changes.
@@ -1153,6 +1160,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param positronConsoleInstance
 	 */
 	private setActivePositronConsoleInstance(positronConsoleInstance?: IPositronConsoleInstance) {
+		// Tell the outgoing and incoming instances, so that each knows whether
+		// to count executions as unread. The incoming one is only seen if the
+		// console view is visible too.
+		const previousInstance = this._activePositronConsoleInstance;
+		if (previousInstance && previousInstance !== positronConsoleInstance) {
+			this._positronConsoleInstancesBySessionId.get(previousInstance.sessionId)?.setSeen(false);
+		}
+		if (positronConsoleInstance) {
+			this._positronConsoleInstancesBySessionId.get(positronConsoleInstance.sessionId)?.setSeen(
+				this._viewsService.isViewVisible(POSITRON_CONSOLE_VIEW_ID));
+		}
+
 		// Set the active instance and fire the onDidChangeActivePositronConsoleInstance event.
 		this._activePositronConsoleInstance = positronConsoleInstance;
 		this._onDidChangeActivePositronConsoleInstanceEmitter.fire(positronConsoleInstance);
@@ -1514,6 +1533,17 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	private readonly _widthInChars: ISettableObservable<number>;
 
 	/**
+	 * Whether the user can see this console: it is the active console and the
+	 * console view is visible. Set by the console service.
+	 */
+	private _isSeen = false;
+
+	/**
+	 * The number of executions that started while this console was not seen.
+	 */
+	private readonly _unreadExecutionCount = observableValue<number>('console-unread-execution-count', 0);
+
+	/**
 	 * The initial working directory.
 	 */
 	private _initialWorkingDirectory: string = '';
@@ -1657,6 +1687,17 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 */
 	getWidthInChars(): number {
 		return this._widthInChars.get();
+	}
+
+	/**
+	 * Marks this console as seen (active with the console view visible), or
+	 * not. Becoming seen clears the unread execution count.
+	 */
+	setSeen(isSeen: boolean): void {
+		this._isSeen = isSeen;
+		if (isSeen) {
+			this._unreadExecutionCount.set(0, undefined);
+		}
 	}
 
 	/**
@@ -1875,6 +1916,8 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 	 * Emitted when the width of the console changes.
 	 */
 	readonly onDidChangeWidthInChars: Event<number>;
+
+	readonly unreadExecutionCount: IObservable<number> = this._unreadExecutionCount;
 
 	/**
 	 * onDidChangeCodeSubmissionInProgress event.
@@ -3354,6 +3397,15 @@ export class PositronConsoleInstance extends Disposable implements IPositronCons
 			}
 
 			this.dropDiscardedExecutions(languageRuntimeMessageInput.parent_id);
+
+			// Count executions that start while the user is looking at another
+			// console, or while the console view is hidden. The input echo fires
+			// once per execution whoever submitted it (the console, an extension,
+			// or an external agent via the MCP server), and silent executions
+			// don't echo, so they aren't counted.
+			if (!this._isSeen) {
+				this._unreadExecutionCount.set(this._unreadExecutionCount.get() + 1, undefined);
+			}
 
 			// Add or update the runtime item activity.
 			this.addOrUpdateRuntimeItemActivity(
