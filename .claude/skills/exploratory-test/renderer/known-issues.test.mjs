@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { buildKnownIssuesBrief, closingRefs, extractSummary, knownFixLines, knownIssueOutcomes, openedLabel, parseLinked, referencedNumbers } from './known-issues.mjs';
 import { parseLedger } from './report-parse.mjs';
 
-test('closingRefs reads GitHub closing keywords for this repo only', () => {
+test('closingRefs reads the keywords for the work a PR does, for this repo only', () => {
 	const body = [
 		'Fixes #12, #13 and #14',
 		'closes posit-dev/positron#20',
@@ -16,8 +16,10 @@ test('closingRefs reads GitHub closing keywords for this repo only', () => {
 		'fixes other/repo#40',
 		'Related to #50',
 		'This prefixes #60',
+		'Addresses #70 for R.',
+		'Implements #71, part of #72, towards #73',
 	].join('\n');
-	assert.deepEqual(closingRefs(body).sort((a, b) => a - b), [12, 13, 14, 20, 30]);
+	assert.deepEqual(closingRefs(body).sort((a, b) => a - b), [12, 13, 14, 20, 30, 70, 71, 72, 73]);
 });
 
 test('referencedNumbers names every same-repo ref outside code fences', () => {
