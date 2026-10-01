@@ -168,6 +168,8 @@ test('lint: Files and files/ have to agree', () => {
 	assert.deepEqual(fileProblems(REPORT, LEDGER, { list: () => ['files/slow.py', 'files/extra.csv'] }), ['ledger: files/extra.csv is saved but not listed in ## Files']);
 	const named = REPORT.replace('## Coverage', 'See files/other.qmd too.\n\n## Coverage');
 	assert.deepEqual(fileProblems(named, LEDGER), ['ledger: files/other.qmd is named but not listed in ## Files']);
+	const hyphen = REPORT.replace('## Coverage', 'Open files/mr.code-workspace, then files/rhq/4.6-proj/bin/R.\n\n## Coverage');
+	assert.deepEqual(fileProblems(hyphen, LEDGER), ['ledger: files/mr.code-workspace is named but not listed in ## Files'], 'a hyphen ends neither path early');
 	assert.ok(fileProblems(REPORT, LEDGER.replace('- files/slow.py |', '- slow.py |'))
 		.includes('ledger: ## Files lists slow.py; save it under files/ and list that path'));
 });
