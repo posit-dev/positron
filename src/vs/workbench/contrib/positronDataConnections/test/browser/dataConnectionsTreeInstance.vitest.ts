@@ -832,7 +832,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 	 * first. `requestReveal` puts a new one up and nudges the tree, standing in for a press of the
 	 * database file page's button while the pane is already open.
 	 */
-	function createTree({ pendingReveal, connected = true, profilesAbove = 0, grouped = false, previewFails = false, groupFails = false, connectFails = false }: {
+	function createTree({ pendingReveal, connected = true, profilesAbove = 0, grouped = false, previewFails = false, groupFails = false, connectFails = false, previewable = true, connectGate }: {
 		pendingReveal?: string;
 		connected?: boolean;
 		profilesAbove?: number;
@@ -845,6 +845,10 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		groupFails?: boolean;
 		// Make connecting fail, as it does when signing in fails.
 		connectFails?: boolean;
+		// Whether the table can be opened in the Data Explorer.
+		previewable?: boolean;
+		// Hold connecting until this settles, as a browser sign-in does.
+		connectGate?: Promise<void>;
 	} = {}) {
 		let pending: IDataConnectionRevealRequest | undefined = pendingReveal === undefined ? undefined : { profileId: pendingReveal };
 
@@ -853,9 +857,16 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			name: 'flights',
 			kind: 'table',
 			hasGetChildren: false,
-			hasPreview: true,
+			hasPreview: previewable,
 			hasDetails: grouped,
 		};
+		// Lists the Tables group, counted so a test can tell a failed load isn't tried again.
+		const nodeGetChildren = vi.fn(async () => {
+			if (groupFails) {
+				throw new Error('Session expired.');
+			}
+			return [flights];
+		});
 		const instance = stubInterface<IDataConnectionInstance>({
 			id: 'instance-1',
 			profileId: profile.id,
@@ -865,12 +876,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 					? [{ nodeHandle: 6, name: 'Tables', kind: 'group-tables', hasGetChildren: true, hasPreview: false, hasDetails: false }]
 					: [flights],
 				...(grouped ? {
-					nodeGetChildren: async () => {
-						if (groupFails) {
-							throw new Error('Session expired.');
-						}
-						return [flights];
-					},
+					nodeGetChildren,
 					nodeGetDetails: async () => ({ sections: [] }),
 				} : {}),
 			}),
@@ -880,6 +886,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		// database file page's button finds a saved connection in.
 		let liveInstance = connected ? instance : undefined;
 		const connect = vi.fn(async () => {
+			await connectGate;
 			if (connectFails) {
 				throw new Error('Authentication failed.');
 			}
@@ -946,6 +953,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			previewNode,
 			disconnectWhenUnused,
 			notifyError,
+			nodeGetChildren,
 			openEditor,
 			focusRequested: () => focusRequests > 0,
 			requestReveal: (profileId: string, options?: IDataConnectionRevealOptions) => {
@@ -1092,7 +1100,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		});
 	});
 
-	it('reports a load that fails on the way as the reason, not as the node being gone', async () => {
+	it('reports a load that fails on the way as the reason, leaving no error on a row the user hasn\'t opened', async () => {
 		const revealed = createTree({ grouped: true, groupFails: true });
 		await revealed.tree.refresh();
 		// The tree logs a failed fetch; keep that out of the test output.
@@ -1100,7 +1108,47 @@ describe('DataConnectionsTreeInstance reveal', () => {
 
 		await revealed.tree.openInDataExplorer('conn-1', FLIGHTS_PATH, 'flights');
 
-		expect(revealed.notifyError.mock.calls.map(call => call[0])).toEqual([`Could not open 'flights' in the Data Explorer: Session expired.`]);
+		// Opening the connection afterwards shows its Tables group as it was before: the failure
+		// was reported against the node, so the row carries none of it.
+		await revealed.tree.expand(ENTRY_ID);
+		const tables = revealed.tree.visibleNodes.find(visible => visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'Tables');
+		expect({
+			reported: revealed.notifyError.mock.calls.map(call => call[0]),
+			tablesError: tables === undefined ? 'missing' : revealed.tree.getError(tables.node.id),
+		}).toEqual({ reported: [`Could not open 'flights' in the Data Explorer: Session expired.`], tablesError: undefined });
+	});
+
+	it('says so when the node is still there but can no longer be previewed', async () => {
+		const revealed = createTree({ grouped: true, previewable: false });
+		await revealed.tree.refresh();
+
+		await revealed.tree.openInDataExplorer('conn-1', FLIGHTS_PATH, 'flights');
+
+		expect({
+			previewed: revealed.previewNode.mock.calls.length,
+			reported: revealed.notifyError.mock.calls.map(call => call[0]),
+		}).toEqual({ previewed: 0, reported: [`Could not open 'flights' in the Data Explorer: it can no longer be previewed.`] });
+	});
+
+	it('leaves the connection to the tree when its entry is expanded while the node is opening', async () => {
+		let signIn!: () => void;
+		const revealed = createTree({ grouped: true, connected: false, connectGate: new Promise<void>(resolve => { signIn = resolve; }) });
+		await revealed.tree.refresh();
+
+		// The user opens the connection while the open is still signing in to it.
+		const opening = revealed.tree.openInDataExplorer('conn-1', FLIGHTS_PATH, 'flights');
+		await vi.waitFor(() => expect(revealed.connect).toHaveBeenCalled());
+		const expanding = revealed.tree.expand(ENTRY_ID);
+		signIn();
+		await Promise.all([opening, expanding]);
+
+		// The tree now shows what the connection holds, so it isn't handed over to close.
+		expect({
+			previewed: revealed.previewNode.mock.calls.map(call => call[1]),
+			connected: revealed.connect.mock.calls.length,
+			expanded: revealed.tree.isExpanded(ENTRY_ID),
+			handedOver: revealed.disconnectWhenUnused.mock.calls.length,
+		}).toEqual({ previewed: [7], connected: 1, expanded: true, handedOver: 0 });
 	});
 
 	it('tries a connection that fails to open once', async () => {
@@ -1129,6 +1177,30 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			previewed: revealed.previewNode.mock.calls.map(call => call[1]),
 			expanded: revealed.tree.isExpanded(ENTRY_ID),
 		}).toEqual({ previewed: [7, 7], expanded: false });
+	});
+
+	it('reveals as far as a failed load, leaving that row collapsed with its error, and reports it once', async () => {
+		const revealed = createTree({ grouped: true, groupFails: true });
+		await revealed.tree.refresh();
+		vi.spyOn(console, 'error').mockImplementation(() => { });
+
+		revealed.requestReveal('conn-1', { nodePath: FLIGHTS_PATH });
+
+		await vi.waitFor(() => expect(revealed.notifyError).toHaveBeenCalled());
+		const selected = revealed.tree.getSelectedNode();
+		expect({
+			selected: selected?.data.kind === 'dto' ? selected.data.dto.name : undefined,
+			expanded: selected === undefined ? undefined : revealed.tree.isExpanded(selected.id),
+			showsError: selected === undefined ? undefined : revealed.tree.getError(selected.id) !== undefined,
+			listed: revealed.nodeGetChildren.mock.calls.length,
+			reported: revealed.notifyError.mock.calls.map(call => call[0]),
+		}).toEqual({
+			selected: 'Tables',
+			expanded: false,
+			showsError: true,
+			listed: 1,
+			reported: [`Could not expand 'Tables': Session expired.`],
+		});
 	});
 
 	it('connects a connection that is not live when it is revealed', async () => {

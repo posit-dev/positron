@@ -233,6 +233,29 @@ describe('DataConnectionNodeDetailsPage', () => {
 			expect(button).not.toHaveAttribute('aria-disabled');
 		});
 
+		it('gives the press back when the open doesn\'t settle, rather than leaving the button dead', async () => {
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				// An open that never settles, as one stuck on a connection whose extension host has gone.
+				openNodeInDataExplorer.mockImplementation(() => new Promise<boolean>(() => { }));
+				renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+				const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+				const button = screen.getByRole('button', { name: 'Open in Data Explorer' });
+
+				await user.click(button);
+				expect(button).toHaveAttribute('aria-disabled', 'true');
+
+				// Well past the button's wait.
+				await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
+				expect(button).not.toHaveAttribute('aria-disabled');
+
+				await user.click(button);
+				expect(openNodeInDataExplorer).toHaveBeenCalledTimes(2);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
 		it('ignores a press while the node is still opening', async () => {
 			// The first open doesn't settle until released, as with a connection still connecting.
 			let releaseOpen!: () => void;
