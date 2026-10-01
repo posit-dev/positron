@@ -16,14 +16,13 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
-import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IPositronNewFolderService } from '../../positronNewFolder/common/positronNewFolder.js';
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
@@ -627,10 +626,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Revive the URIs in the session metadata.
 			this._restoredSessions = storedSessions.map(session => ({
 				...session,
-				metadata: {
-					...session.metadata,
-					notebookUri: URI.revive(session.metadata.notebookUri),
-				},
+				metadata: reviveRuntimeSessionMetadata(session.metadata),
 			}));
 		} catch (err) {
 			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +
