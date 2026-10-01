@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { PositronTabs } from '../../../../../base/browser/ui/positronComponents/tabs/positronTabs.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { useBusyIndicator } from '../../../../../base/browser/positronReactHooks.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../positronDataConnectionsConfiguration.js';
@@ -321,14 +322,18 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 	// tree refreshes -- so the pane's tree finds the node by its path and opens it, puts itself back
 	// as it was, and reports any failure. Opening data is not showing the node, so the pane is opened
 	// only when it has no tree to do the finding -- it hasn't been opened in this window, or was
-	// closed since -- and then without focus. A press while one is under way is ignored, as the
-	// row's are.
+	// closed since -- and then without focus. While it is under way the button says so, and a press
+	// is ignored, as the row's are. A ref as well as state: a double-click's second press arrives
+	// before React re-renders, so state would still read false.
 	const openingRef = useRef(false);
+	const [opening, setOpening] = useState(false);
+	const showOpening = useBusyIndicator(opening);
 	const openInDataExplorer = async () => {
 		if (openingRef.current) {
 			return;
 		}
 		openingRef.current = true;
+		setOpening(true);
 		try {
 			if (!positronDataConnectionsService.hasNodeOpener()) {
 				await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
@@ -343,6 +348,7 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 			}
 		} finally {
 			openingRef.current = false;
+			setOpening(false);
 		}
 	};
 
@@ -421,10 +427,11 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 					</div>
 					{input.target.canPreview && (
 						<Button
+							ariaDisabled={opening}
 							className='data-connection-node-details-open'
 							onPressed={() => void openInDataExplorer()}
 						>
-							<span aria-hidden='true' className='codicon codicon-table' />
+							<span aria-hidden='true' className={`codicon ${showOpening ? 'codicon-loading codicon-modifier-spin' : 'codicon-table'}`} />
 							{localize('positron.dataConnections.openInDataExplorer', "Open in Data Explorer")}
 						</Button>
 					)}

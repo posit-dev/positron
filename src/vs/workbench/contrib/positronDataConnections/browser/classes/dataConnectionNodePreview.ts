@@ -21,6 +21,21 @@ export function canPreview(dto: Pick<IDataConnectionNodeDTO, 'kind' | 'hasPrevie
 }
 
 /**
+ * Reports that a node couldn't be opened in the Data Explorer, and why.
+ * @param notificationService The notification service.
+ * @param name The node's name.
+ * @param error What went wrong.
+ */
+export function reportOpenInDataExplorerFailed(notificationService: INotificationService, name: string, error: unknown): void {
+	notificationService.error(localize(
+		'positron.dataConnections.openInDataExplorerFailed',
+		"Could not open '{0}' in the Data Explorer: {1}",
+		name,
+		error instanceof Error ? error.message : String(error)
+	));
+}
+
+/**
  * Opens a node in the Data Explorer, reporting a failure as a notification. The one way the pane
  * opens a node's data, whether from its row or from its details editor (by way of the tree). It
  * previews through the service rather than the handle, so the Data Explorer it opens is recorded
@@ -40,11 +55,6 @@ export async function openNodeInDataExplorer(
 	try {
 		await service.previewNode(handle, dto.nodeHandle);
 	} catch (error) {
-		notificationService.error(localize(
-			'positron.dataConnections.openInDataExplorerFailed',
-			"Could not open '{0}' in the Data Explorer: {1}",
-			dto.name,
-			error instanceof Error ? error.message : String(error)
-		));
+		reportOpenInDataExplorerFailed(notificationService, dto.name, error);
 	}
 }

@@ -219,6 +219,20 @@ describe('DataConnectionNodeDetailsPage', () => {
 				`Could not open 'CHAOS_MODEL' in the Data Explorer: the Data Connections pane is not available.`));
 		});
 
+		it('shows the button busy while the node opens', async () => {
+			let releaseOpen!: () => void;
+			openNodeInDataExplorer.mockImplementationOnce(() => new Promise<boolean>(resolve => { releaseOpen = () => resolve(true); }));
+			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+			const user = userEvent.setup();
+			const button = screen.getByRole('button', { name: 'Open in Data Explorer' });
+
+			await user.click(button);
+			expect(button).toHaveAttribute('aria-disabled', 'true');
+
+			await act(async () => releaseOpen());
+			expect(button).not.toHaveAttribute('aria-disabled');
+		});
+
 		it('ignores a press while the node is still opening', async () => {
 			// The first open doesn't settle until released, as with a connection still connecting.
 			let releaseOpen!: () => void;
