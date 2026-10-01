@@ -8,7 +8,9 @@
 import { Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
+import { IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
+import { CodeAttributionSource } from '../../common/positronConsoleCodeExecution.js';
 import { IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance } from '../../browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../browser/positronConsoleService.js';
 
@@ -44,5 +46,23 @@ describe('PositronConsoleService', () => {
 
 		expect(active.map(instance => instance?.sessionId)).toEqual([undefined]);
 		expect(consoleService.activePositronConsoleInstance).toBeUndefined();
+	});
+
+	it('starts a console with the code\'s source in the start reason when no console is running', async () => {
+		const consoleService = ctx.disposables.add(
+			ctx.instantiationService.createInstance(PositronConsoleService));
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const willStart = Event.toPromise(ctx.get(IRuntimeSessionService).onWillStartSession);
+
+		const executing = consoleService.executeCode(runtime.languageId, undefined, '1 + 1', { source: CodeAttributionSource.Script }, false);
+		const { session } = await willStart;
+		ctx.disposables.add(session);
+
+		expect([session.metadata.startReasonId, session.metadata.startReason]).toEqual([
+			SessionStartReasonId.CodeExecutedWithoutSession,
+			`Code was sent to the console with no ${runtime.languageId} session (language: ${runtime.languageId}, codeSource: script)`,
+		]);
+		// The code runs once the session is ready; this test only covers the start.
+		await executing.catch(() => { });
 	});
 });
