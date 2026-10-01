@@ -304,7 +304,7 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 
 	// Shows a node in the Data Connections pane, given its path below the connection. The pane is
 	// opened without focus; the tree then takes it or not, as the request says.
-	const reveal = async (nodePath: readonly string[], options: { openDetails?: boolean; openInDataExplorer?: boolean; preserveFocus?: boolean }) => {
+	const reveal = async (nodePath: readonly string[], options: { openDetails?: boolean; preserveFocus?: boolean }) => {
 		await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
 		positronDataConnectionsService.revealConnection(input.target.profileId, { nodePath, ...options });
 	};
@@ -318,9 +318,22 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 	);
 
 	// Opens the node's data. The page holds a snapshot, not the node's handle -- that dies when the
-	// tree refreshes -- so the tree walks back down to the node and opens it from there, without
-	// moving its selection or taking focus from the Data Explorer that opens.
-	const openInDataExplorer = () => reveal(input.target.nodePath, { openInDataExplorer: true, preserveFocus: true });
+	// tree refreshes -- so the tree walks back down to the node and opens it from there, putting
+	// itself back as it was and leaving focus to the Data Explorer that opens. Opening data is not
+	// showing the node, so the pane isn't opened: its tree takes the request even while another view
+	// fills the sidebar. Only when no tree was there to take it -- the pane hasn't been opened in this
+	// window, or was closed since -- is the pane opened, for its tree to take the waiting request as
+	// it is built.
+	const openInDataExplorer = async () => {
+		const taken = positronDataConnectionsService.revealConnection(input.target.profileId, {
+			nodePath: input.target.nodePath,
+			openInDataExplorer: true,
+			preserveFocus: true,
+		});
+		if (!taken) {
+			await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+		}
+	};
 
 	// A group's reveal button goes to the tree node it stands for, somewhere below this node, and
 	// takes the user there: it opens no details, and the tree takes focus.

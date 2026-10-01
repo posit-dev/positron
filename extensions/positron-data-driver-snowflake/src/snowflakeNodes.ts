@@ -23,7 +23,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { SnowflakeClient } from './snowflakeClient.js';
+import { isStatementError, SnowflakeClient } from './snowflakeClient.js';
 import { formatFileSize } from './fileSize.js';
 
 /** Quotes and escapes an identifier for Snowflake by doubling embedded double-quotes. */
@@ -957,17 +957,18 @@ interface IStageFolder {
  * Turns a name LIST reported into the file's path within the stage. LIST names a file in an internal
  * stage by the stage's name and the path (`my_stage/2024/orders.csv`), and a file in an external stage
  * by its full URL (`s3://bucket/prefix/2024/orders.csv`), so the stage's own part is cut off. That
- * part is matched by its segments rather than as a string: the URL SHOW STAGES reports needn't be
- * spelled exactly as LIST spells its names (case, a trailing slash, an Azure host's form), but it
- * names the same location, so it has the same number of segments -- the stage name's one for an
- * internal stage, and the URL's own (bucket or container, then its path) for an external one.
- * Exported for unit tests.
+ * part is matched by its segments rather than as a string: the name or URL SHOW STAGES reports needn't
+ * be spelled exactly as LIST spells its names (case, a trailing slash, an Azure host's form), but it
+ * names the same location, so it has the same number of segments -- the stage name's (usually one,
+ * but a quoted name can hold a slash) for an internal stage, and the URL's own (bucket or container,
+ * then its path) for an external one. Exported for unit tests.
  * @param name The `name` LIST reported.
  * @param stageUrl The stage's URL from SHOW STAGES; empty for an internal stage.
+ * @param stageName The stage's name from SHOW STAGES.
  */
-export function stageFilePath(name: string, stageUrl: string | undefined): string {
+export function stageFilePath(name: string, stageUrl: string | undefined, stageName: string): string {
 	const segments = (value: string) => value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').split('/').filter(segment => segment.length > 0);
-	const stageSegments = stageUrl ? segments(stageUrl).length : 1;
+	const stageSegments = segments(stageUrl || stageName).length;
 	const path = segments(name).slice(stageSegments).join('/');
 	// A trailing slash marks a folder (see stageFolders), so it is kept.
 	return name.endsWith('/') && path.length > 0 ? `${path}/` : path;
@@ -1003,6 +1004,8 @@ function stageFolders(files: IStageFile[]): IStageFolder {
 
 /** A stage, as the nodes of its listing need it. */
 interface IStageLocation {
+	/** The stage's name from SHOW STAGES. */
+	name: string;
 	/** The stage's path, e.g. `@"DB"."PUBLIC"."STAGE"`. */
 	path: string;
 	/** The stage's URL from SHOW STAGES; unset for an internal stage. */
@@ -1017,12 +1020,13 @@ function quoteLiteral(value: string): string {
 /**
  * Lists a folder of a stage: its subfolders, then its files, each in name order -- the ordering a
  * file browser uses. LIST always lists everything under the location it's given, with no limit, so
- * only its first MAX_STAGE_FILES rows are read, with a notice saying so. Each folder lists its own
- * prefix when expanded, so refreshing a folder picks up what changed under it.
+ * only its first MAX_STAGE_FILES rows are read, with a notice saying so.
  *
  * A stage the role can see but not read (no READ on an internal stage, or an external stage whose
  * credentials or integration fail) can't be listed. That isn't a fault in the tree: the stage's
- * details still show, so the listing says why it is empty instead of failing the expand.
+ * details still show, so the listing says why it is empty instead of failing the expand. Anything
+ * else -- a dead or closed session, a network failure -- fails the expand as usual, so the tree
+ * reports it and the user can retry.
  * @param client The client.
  * @param stage The stage.
  * @param prefix The folder's path within the stage, with a trailing slash; empty for the stage itself.
@@ -1033,37 +1037,62 @@ async function listStageFolder(client: SnowflakeClient, stage: IStageLocation, p
 	try {
 		listing = await client.queryCapped(`LIST ${quoteLiteral(`${stage.path}/${prefix}`)}`, MAX_STAGE_FILES);
 	} catch (error) {
+		if (!isStatementError(error)) {
+			throw error;
+		}
 		return [{
 			name: vscode.l10n.t('Could not list the files: {0}', error instanceof Error ? error.message : String(error)),
 			kind: positron.DataConnectionNodeKind.Notice,
 		}];
 	}
-	// LIST matches its location as a string prefix, so the files are kept to the folder's own before
-	// they're arranged, in case a name comes back outside it.
-	const files = listing.rows
-		.map(row => ({ path: stageFilePath(String(row.name), stage.url), row }))
-		.filter(file => file.path.startsWith(prefix))
-		.map(file => ({ ...file, path: file.path.slice(prefix.length) }));
-	const folder = stageFolders(files);
-
-	const nodes: positron.DataConnectionNode[] = [];
-	if (listing.total > listing.rows.length) {
-		nodes.push({
+	// LIST on the folder returns only the files under it, so each path starts with the folder's own.
+	const folder = stageFolders(listing.rows.map(row =>
+		({ path: stageFilePath(String(row.name), stage.url, stage.name).slice(prefix.length), row })));
+	const complete = listing.total <= listing.rows.length;
+	const nodes = stageFolderNodes(client, stage, prefix, folder, complete);
+	if (!complete) {
+		nodes.unshift({
 			name: vscode.l10n.t('Showing the first {0} of {1} files', listing.rows.length.toLocaleString(), listing.total.toLocaleString()),
 			kind: positron.DataConnectionNodeKind.Notice,
 		});
 	}
-	for (const name of [...folder.folders.keys()].sort((a, b) => a.localeCompare(b))) {
+	return nodes;
+}
+
+/**
+ * Creates the nodes for a folder of a stage's listing: its subfolders, then its files, each in name
+ * order. A listing that wasn't cut short holds every file below the folder, so each subfolder's first
+ * expansion is built from it rather than listed again -- a deep folder costs one LIST, not one per
+ * level. Expanding it again (a refresh) lists it afresh, so a refresh picks up what changed under it.
+ * @param client The client.
+ * @param stage The stage.
+ * @param prefix The folder's path within the stage, with a trailing slash; empty for the stage itself.
+ * @param folder The folder's files and subfolders.
+ * @param complete Whether the listing holds every file below the folder.
+ */
+function stageFolderNodes(client: SnowflakeClient, stage: IStageLocation, prefix: string, folder: IStageFolder, complete: boolean): positron.DataConnectionNode[] {
+	const nodes: positron.DataConnectionNode[] = [];
+	for (const [name, child] of [...folder.folders].sort(([a], [b]) => a.localeCompare(b))) {
 		const folderPrefix = `${prefix}${name}/`;
+		// Taken by the first expansion, so the listing is let go of once it has been shown.
+		let listed = complete ? child : undefined;
 		nodes.push({
 			name,
 			kind: positron.DataConnectionNodeKind.Directory,
 			path: `${stage.path}/${folderPrefix}`,
-			getChildren: () => listStageFolder(client, stage, folderPrefix),
+			async getChildren() {
+				const snapshot = listed;
+				listed = undefined;
+				return snapshot
+					? stageFolderNodes(client, stage, folderPrefix, snapshot, true)
+					: listStageFolder(client, stage, folderPrefix);
+			},
 		});
 	}
+	// A file's path is its folder's and its name: the path it was listed under is relative to the
+	// folder that was listed, which for a folder built from its parent's listing is the parent.
 	for (const { name, file } of [...folder.files].sort((a, b) => a.name.localeCompare(b.name))) {
-		nodes.push(createStageFileNode(`${stage.path}/${prefix}${file.path}`, name, file.row));
+		nodes.push(createStageFileNode(`${stage.path}/${prefix}${name}`, name, file.row));
 	}
 	return nodes;
 }
@@ -1105,7 +1134,7 @@ function createStageNode(client: SnowflakeClient, database: string, schemaName: 
 	const stageRef = objectRef(database, schemaName, stageName);
 	// An external stage's URL may come back as a JSON list of one; an internal stage has none.
 	const url = showValue(showRow.url);
-	const stage: IStageLocation = { path: `@${stageRef}`, url: url === undefined ? undefined : parseJsonList(url)?.[0] ?? url };
+	const stage: IStageLocation = { name: stageName, path: `@${stageRef}`, url: url === undefined ? undefined : parseJsonList(url)?.[0] ?? url };
 
 	return {
 		name: stageName,

@@ -190,14 +190,18 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * {@link IPositronDataConnectionsService.revealConnection}.
 	 * @param profileId The id of the profile to show.
 	 * @param options Where in the connection to go, and whether to open that node's details.
+	 * @returns Whether a live tree took the request as it was made.
 	 */
-	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): void {
+	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): boolean {
 		// The request is recorded, then announced: the announcement is only a nudge, and whoever
 		// acts on it reads the profile from takePendingRevealConnection. That way a tree that is
 		// still being built when this is called -- which hears nothing -- takes the same request on
 		// the way up, and the request is cleared exactly once, by whichever of the two honors it.
 		this._pendingRevealConnection = { profileId, ...options };
 		this._onDidRequestRevealConnectionEmitter.fire();
+		// A live tree takes the request as it hears the announcement, before the announcement
+		// returns, so a request still outstanding here is one no tree was there to take.
+		return this._pendingRevealConnection === undefined;
 	}
 
 	/**
