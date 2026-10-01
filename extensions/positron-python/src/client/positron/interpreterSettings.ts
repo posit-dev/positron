@@ -454,14 +454,10 @@ function mapInterpreterToInstallDir(interpreterPath: string): string | undefined
  * and paths with a variable that cannot be resolved are ignored.
  *
  * Upstream code also reads `python.defaultInterpreterPath` (`common/configSettings.ts`,
- * `common/interpreterPathService.ts`) and resolves variables with `SystemVariables` instead
- * of `substituteWorkspaceFolder`. For a resource in the first workspace folder, the two give
- * the same path for any value that resolves here. They differ when a value can't be resolved
- * here: for example, with no folder open, `SystemVariables` replaces `${workspaceFolder}` with
- * the extension's install folder, while this function ignores the value.
- *
- * TODO: Decide whether the upstream reads should use `substituteWorkspaceFolder` too, or
- * whether `SystemVariables` can be changed and used here instead.
+ * `common/interpreterPathService.ts`), but resolves it with `SystemVariables`, which is more
+ * lenient: it accepts other variables, turns an unset `${env:NAME}` into '', and uses the
+ * extension's install folder for `${workspaceFolder}` when no folder is open. For a resource
+ * in the first workspace folder, both give the same path for any value this function accepts.
  *
  * @returns The configured Python interpreter path if it exists and is not 'python',
  *          otherwise returns an empty string
