@@ -76,7 +76,7 @@ UNRESOLVED findings by name ("Finding 3"). If it is still running after 25
 minutes, tell it to write up. When it returns, run `stop-instances.sh` again,
 then send the verifier, with SendMessage: "Read `<run dir>/isolation.md`,
 revise those findings' verdicts, and name the Cause and Feature it points to,
-with a FEATURE line when the Feature changes. If a cause is broader than the
+with a FEATURE line when the Feature changes and a TITLE line when the title names the wrong trigger. If a cause is broader than the
 cases in its table, narrow it. Reply again in full, in the same format." Save that reply over `verify-reply.md`.
 
 Then run

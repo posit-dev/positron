@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { annotateFindingsTable, applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseVerdicts, verifyLogLines } from './finish.mjs';
+import { annotateFindingsTable, applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseTitles, parseVerdicts, verifyLogLines } from './finish.mjs';
 
 const TABLE = [
 	'# Exploratory test: something',
@@ -92,6 +92,16 @@ test('applyVerification rewrites the Feature of a finding on the FEATURE line on
 	assert.match(out, /### Finding 1: first claim\n\n\*\*Feature:\*\* new folder flow\n/);
 	assert.match(out, /### Finding 2: second claim\n\n\*\*Feature:\*\* console/);
 	assert.doesNotMatch(out, /\*\*Feature:\*\* modal dialogs/);
+});
+
+test('applyVerification retitles a finding on the TITLE line in its heading and table row only', () => {
+	const report = `${BLOCKS}\n\n## Coverage\n\n| 1 | not a finding | pass |`;
+	const out = applyVerification(report, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nTITLE: 1=a slow reply drops the project R\n\n- 1: holds.');
+	assert.match(out, /^\| 1 \| a slow reply drops the project R \| major \| blocks completion \| 3\/3 \| confirmed \|$/m);
+	assert.match(out, /### Finding 1: a slow reply drops the project R\n/);
+	assert.match(out, /### Finding 2: second claim/);
+	assert.match(out, /\| 1 \| not a finding \| pass \|/, 'other tables are left alone');
+	assert.deepEqual([...parseTitles('TITLE: 1=x; 2=a | b')], [[1, 'x']]);
 });
 
 test('applyVerification leaves Feature alone on a failed pass or a finding with no Feature line', () => {

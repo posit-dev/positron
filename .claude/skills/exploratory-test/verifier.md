@@ -91,6 +91,14 @@ FEATURE: 3=new folder flow
 
 Leave it out when every Feature holds.
 
+If you narrow a Cause so that the finding's title names a trigger the evidence
+does not need, add a line with a title that names the one it does. It replaces
+the title in the table, the report and the filed issue. Use no `;` or `|`:
+
+TITLE: 1=project R is missing from the picker when its signature check times out on reload
+
+Leave it out when every title holds.
+
 Then keep it short. The table column is what a reviewer reads; this section is
 for what the column cannot say.
 
@@ -99,7 +107,7 @@ for what the column cannot say.
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its
   severity.
-- A finding on the FEATURE line gets one line: what moved it.
+- A finding on the FEATURE or TITLE line gets one line: what moved it.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have
