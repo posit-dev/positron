@@ -5,8 +5,8 @@
 
 import { expect } from '@playwright/test';
 import { test } from '../../tests/_test.setup';
-import { capturePanelHires, captureRegion } from '../_helpers/screenshot-utils';
-import { annotate, clearAnnotations } from '../_helpers/annotate-utils';
+import { capturePanelHires } from '../_helpers/screenshot-utils';
+import { clearAnnotations } from '../_helpers/annotate-utils';
 import { hideToasts, setScreenshotWindowSize, waitForStableUI } from '../_helpers/layout-utils';
 
 test.use({
@@ -24,46 +24,6 @@ test.afterEach(async ({ page }) => {
 });
 
 test.describe('Release Screenshots - Top Action Bar', () => {
-	/**
-	 * Img Path: https://positron.posit.co/images/top-action-bar.png
-	 */
-	test.skip('Release Screenshot - top-action-bar.png', async ({ app, page }) => {
-		const topBar = page.locator('.top-action-bar-container');
-		await expect(topBar).toBeVisible();
-
-		// Override the displayed folder name so the docs screenshot reads
-		// "my-project" rather than "test-files"
-		await page.evaluate(() => {
-			const el = document.querySelector('#top-action-bar-current-working-folder');
-			if (el) { el.textContent = 'my-project'; }
-		});
-
-		await hideToasts(app);
-		await annotate(page, [
-			{ selector: '.top-action-bar-container [aria-label="New"]', label: 'New File / Folder', color: '#22c55e', labelPosition: 'above-left' },
-			{ selector: '.top-action-bar-container [aria-label="Open"]', label: 'Open File / Folder', color: '#0d9488', labelPosition: 'below-center' },
-			{ selector: ['.top-action-bar-container [aria-label="Go Back"]', '.top-action-bar-container [aria-label="Go Forward"]'], label: 'Backward / Forward', color: '#7c3aed', labelPosition: 'above-center' },
-			{ selector: '.top-action-bar-command-center', label: 'Command Center', color: '#ca8a04', labelPosition: 'above-center' },
-			{ selector: '.top-action-bar-session-picker-face', label: 'Interpreter Selector', color: '#ef4444', labelPosition: 'below-center' },
-			{ selector: '.top-action-bar-custom-folder-menu', label: 'Folder Selector', color: '#ea580c', labelPosition: 'above-center' },
-		]);
-		await waitForStableUI(page);
-
-		// Crop to the top of the window: top action bar plus space for the
-		// above/below labels. Width = full viewport.
-		const topBarBox = await topBar.boundingBox();
-		if (!topBarBox) {
-			throw new Error('Could not measure top action bar bounding box');
-		}
-		const LABEL_HEIGHT = 32; // badge + padding
-		await captureRegion(page, 'top-action-bar.png', {
-			x: 0,
-			y: 0,
-			width: 1920,
-			height: Math.ceil(topBarBox.y + topBarBox.height + LABEL_HEIGHT),
-		});
-	});
-
 	/**
 	 * Img Path: https://positron.posit.co/images/action-bar-information.png
 	 */

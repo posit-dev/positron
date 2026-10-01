@@ -17,7 +17,7 @@ const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 // Catches regressions where MCP servers in `.positai/settings.json` are
 // ignored — see posit-dev/assistant#1289 (fixed in #1293). Uses the `echo`
 // tool from @modelcontextprotocol/server-everything as a stable reference.
-test.describe.skip('Posit Assistant MCP', { // skipping while investigating failures
+test.describe('Posit Assistant MCP', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
 
