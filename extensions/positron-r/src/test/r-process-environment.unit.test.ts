@@ -32,7 +32,7 @@ function find(mutations: EnvVarMutation[], variable: string): EnvVarMutation | u
 suite('getRTerminalEnvironmentMutations', () => {
 
 	test('prepends the R binary directory to PATH (posix separator)', () => {
-		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'darwin');
+		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), false, 'darwin');
 		const path = find(mutations, 'PATH');
 
 		assert.ok(path, 'expected a PATH mutation');
@@ -43,6 +43,7 @@ suite('getRTerminalEnvironmentMutations', () => {
 	test('prepends the R binary directory to PATH (windows separator)', () => {
 		const mutations = getRTerminalEnvironmentMutations(
 			makeMetadataExtra({ binpath: 'C:\\R\\R-4.4.0\\bin\\x64\\R.exe' }),
+			false,
 			'win32'
 		);
 		const path = find(mutations, 'PATH');
@@ -52,14 +53,21 @@ suite('getRTerminalEnvironmentMutations', () => {
 		assert.strictEqual(path!.value, 'C:\\R\\R-4.4.0\\bin\\x64;');
 	});
 
+	test('omits PATH when R on PATH is already the selected R', () => {
+		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), true, 'linux');
+
+		assert.strictEqual(find(mutations, 'PATH'), undefined);
+		assert.ok(find(mutations, 'QUARTO_R'));
+	});
+
 	test('does not set R_HOME (R launcher scripts derive it themselves)', () => {
-		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'darwin');
+		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), false, 'darwin');
 
 		assert.strictEqual(find(mutations, 'R_HOME'), undefined);
 	});
 
 	test('sets QUARTO_R to the directory containing Rscript, not Rscript itself', () => {
-		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'darwin');
+		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), false, 'darwin');
 		const quartoR = find(mutations, 'QUARTO_R');
 
 		assert.ok(quartoR, 'expected a QUARTO_R mutation');
@@ -68,14 +76,14 @@ suite('getRTerminalEnvironmentMutations', () => {
 	});
 
 	test('does not set library-path variables on macOS', () => {
-		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'darwin');
+		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), false, 'darwin');
 
 		assert.strictEqual(find(mutations, 'DYLD_LIBRARY_PATH'), undefined);
 		assert.strictEqual(find(mutations, 'LD_LIBRARY_PATH'), undefined);
 	});
 
 	test('does not set library-path variables on Linux', () => {
-		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'linux');
+		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), false, 'linux');
 
 		assert.strictEqual(find(mutations, 'LD_LIBRARY_PATH'), undefined);
 		assert.strictEqual(find(mutations, 'DYLD_LIBRARY_PATH'), undefined);
@@ -84,6 +92,7 @@ suite('getRTerminalEnvironmentMutations', () => {
 	test('omits PATH when there is no binary path', () => {
 		const mutations = getRTerminalEnvironmentMutations(
 			makeMetadataExtra({ binpath: '' }),
+			false,
 			'darwin'
 		);
 
@@ -95,6 +104,7 @@ suite('getRTerminalEnvironmentMutations', () => {
 	test('omits QUARTO_R when there is no script path', () => {
 		const mutations = getRTerminalEnvironmentMutations(
 			makeMetadataExtra({ scriptpath: '' }),
+			false,
 			'darwin'
 		);
 
@@ -103,7 +113,7 @@ suite('getRTerminalEnvironmentMutations', () => {
 	});
 
 	test('contributes only the expected variables', () => {
-		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), 'darwin');
+		const mutations = getRTerminalEnvironmentMutations(makeMetadataExtra(), false, 'darwin');
 		const variables = mutations.map(m => m.name).sort();
 
 		assert.deepStrictEqual(variables, ['PATH', 'QUARTO_R']);
