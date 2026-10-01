@@ -166,6 +166,14 @@ export interface IRuntimeStartupService {
 	onSessionRestoreFailure: Event<ISessionRestoreFailedEvent>;
 
 	/**
+	 * Register a runtime reported by a runtime manager, and add it to the
+	 * discovery cache if a discovery pass is in progress.
+	 *
+	 * @param metadata The metadata of the discovered runtime
+	 */
+	registerDiscoveredRuntime(metadata: ILanguageRuntimeMetadata): void;
+
+	/**
 	 * Register a runtime manager with the service; returns a disposable that
 	 * can be used to unregister the manager.
 	 *
