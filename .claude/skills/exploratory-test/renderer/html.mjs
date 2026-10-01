@@ -235,17 +235,29 @@ function coverageOrder(coverage) {
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-/** The row that stands in for the finding rows when there are none. */
-function renderNoFindings(report) {
+/**
+ * The block that stands in for the finding rows when there are none: the
+ * scenario counts, plus the linked-issue counts when no linked issue was
+ * observed (there's no "Linked issues" row then).
+ */
+function renderNoFindings(report, ki) {
 	const { exercised = 0, pass = 0, notRun = 0 } = report.scenarios ?? {};
-	const ran = !exercised ? (notRun ? 'No scenarios were exercised' : '')
-		: pass === exercised ? (exercised === 1 ? 'The one exercised scenario passed' : `All ${exercised} exercised scenarios passed`)
-			: `${pass} of ${plural(exercised, 'exercised scenario', 'exercised scenarios')} passed`;
-	const skipped = notRun ? `; ${notRun} ${notRun === 1 ? 'wasn&rsquo;t' : 'weren&rsquo;t'} run` : '';
-	const see = exercised + notRun ? ' <a class="ki-ev" href="#coverage">See Coverage</a>' : '';
+	const observed = ki?.observed?.length ?? 0;
+	const held = ki?.fixesHeld?.length ?? 0;
+	const unseen = ki?.notObserved?.length ?? 0;
+	const counts = [
+		pass ? `<b>${pass}</b> passed` : '',
+		notRun ? `<b>${notRun}</b> not run` : '',
+		!observed && held ? kiCnt('ki-list-fix', `${plural(held, 'fix', 'fixes')} verified`) : '',
+		!observed && unseen ? kiCnt('ki-list-no', `${plural(unseen, 'linked issue', 'linked issues')} not observed`) : '',
+	].filter(Boolean).join(KI_DOT);
+	const see = exercised + notRun ? '<a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a>' : '';
 	return `<div class="ki-empty"><span class="ki-empty-ic">${ICON.check(14)}</span>`
-		+ `<span><b>No new findings</b>${ran ? `<span>${ran}${skipped}.${see}</span>` : ''}</span></div>`;
+		+ `<span><b>No new findings</b>${counts ? `<span class="ki-empty-sum">${counts}</span>` : ''}</span>${see}</div>`;
 }
+
+const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
 function renderFindingsList(report, ki = null) {
 	const rows = report.findings.map(f => {
@@ -287,7 +299,7 @@ function renderFindingsList(report, ki = null) {
 	return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
 <div class="panel">
-${head}${[...(rows.length ? rows : [renderNoFindings(report)]), renderLinkedIssues(report, ki)].filter(Boolean).join('\n')}
+${head}${[...(rows.length ? rows : [renderNoFindings(report, ki)]), renderLinkedIssues(report, ki, !rows.length)].filter(Boolean).join('\n')}
 </div>
 </section>`;
 }
@@ -296,9 +308,11 @@ ${head}${[...(rows.length ? rows : [renderNoFindings(report)]), renderLinkedIssu
  * The "Linked issues" row under the findings. It opens only onto the open
  * linked issues the run ran into, which are not findings, so no number, card
  * or count. The fix-verified and not-observed counts show their lists on hover.
- * Nothing when every count is zero.
+ * Nothing when every count is zero. With no findings it opens by default, and
+ * with nothing observed either its counts move into the empty block, leaving
+ * only the lists.
  */
-function renderLinkedIssues(report, ki) {
+function renderLinkedIssues(report, ki, noFindings = false) {
 	const observed = ki?.observed ?? [];
 	const held = ki?.fixesHeld ?? [];
 	const unseen = ki?.notObserved ?? [];
@@ -316,13 +330,11 @@ function renderLinkedIssues(report, ki) {
 			+ `<span class="rate">${o.rows.length}</span>`
 			+ `<span class="ki-st"><span>${kiState(o.issue)} &middot; ${kiNum(o.issue.number, ki)}</span></span></div>`;
 	});
-	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
-	const cnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 	const counts = [
 		observed.length ? `${observed.length} observed` : '',
-		held.length ? cnt('ki-list-fix', `${held.length} fix verified`) : '',
-		unseen.length ? cnt('ki-list-no', `${unseen.length} not observed`) : '',
-	].filter(Boolean).join(dot);
+		held.length ? kiCnt('ki-list-fix', `${held.length} fix verified`) : '',
+		unseen.length ? kiCnt('ki-list-no', `${unseen.length} not observed`) : '',
+	].filter(Boolean).join(KI_DOT);
 	// Hidden sources the script copies into its panel as they are, so every
 	// title and scenario name is escaped here.
 	const item = (issue, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="${REPO_URL}/issues/${Number(issue.number)}" target="_blank" rel="noopener">#${Number(issue.number)}</a>`
@@ -331,10 +343,13 @@ function renderLinkedIssues(report, ki) {
 	const skipped = ki?.skipped ?? new Set();
 	const lists = list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in &ldquo;${h.rows[0].scenarioHtml}&rdquo;`)))
 		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : 'no scenario reached it')));
+	if (noFindings && !rows.length) {
+		return lists;
+	}
 	const head = `<span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span>`;
 	// Only observed issues need rows, so with none there is nothing to open.
 	const row = rows.length
-		? `<details class="ki-grp"><summary>${head}${ICON.disclose('ki-chev')}</summary>${rows.join('')}</details>`
+		? `<details class="ki-grp"${noFindings ? ' open' : ''}><summary>${head}${ICON.disclose('ki-chev')}</summary>${rows.join('')}</details>`
 		: `<div class="ki-grp"><div class="ki-hd">${head}</div></div>`;
 	return row + lists;
 }

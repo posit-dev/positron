@@ -12,7 +12,7 @@
  */
 
 import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
-import { FILE_NAME, findFile } from './repro-files.mjs';
+import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
 function prose(markdown) {
@@ -171,7 +171,7 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 	// Only one with an extension: "files/lines" in a sentence is prose.
 	const named = new Set();
 	for (const { line } of [...prose(markdown), ...prose(ledger)]) {
-		for (const m of line.matchAll(/(?<![\w/.-])(files\/[\w./-]*\.\w+)(?!\w|\.\w)/g)) { named.add(m[1]); }
+		for (const m of line.matchAll(FILES_PATH)) { named.add(m[1]); }
 	}
 	for (const p of named) {
 		if (!listed.has(p)) { problems.push(`ledger: ${p} is named but not listed in ## Files`); }

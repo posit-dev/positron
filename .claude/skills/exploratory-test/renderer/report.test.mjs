@@ -394,7 +394,7 @@ test('renderReportHtml renders a run with no findings and no issues', () => {
 	// No rows to label, so no column header: just the empty state.
 	assert.match(html, /id="findings"/);
 	assert.doesNotMatch(html, /row-head findings-grid/);
-	assert.match(html, /<b>No new findings<\/b><span>The one exercised scenario passed\. <a class="ki-ev" href="#coverage">See Coverage<\/a><\/span>/);
+	assert.match(html, /<b>No new findings<\/b><span class="ki-empty-sum"><b>1<\/b> passed<\/span><\/span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage<\/a><\/div>/);
 	assert.match(html, /<div class="tile-num">0<\/div>/);
 	// One scenario, all passing: no issue segment and no not-run segment.
 	assert.match(html, /<b>1<\/b> pass/);
@@ -734,6 +734,39 @@ test('parseReport reads the preconditions line above or below the steps', () => 
 		assert.deepEqual(r.findings[0].preconditions, ['A notebook open']);
 		assert.match(r.findings[0].observedHtml, /it broke/);
 	}
+});
+
+test('parseReport reads bulleted preconditions as one item each, with a pasted file kept on its bullet', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro**', '',
+		'**Preconditions:**',
+		'- `positron.notebook.enabled: true` in',
+		'  `.vscode/settings.json`',
+		'- `nb.ipynb` in the workspace',
+		'  ```python',
+		'  import cv2',
+		'  ```',
+		'- A Python 3.10.15 venv with ipykernel',
+		'',
+		'1. Start a Python console.', '2. Open `nb.ipynb`.',
+		'',
+		'**Observed:** it broke.',
+	].join('\n')));
+	const f = r.findings[0];
+	assert.equal(f.steps.length, 2);
+	assert.equal(f.preconditions.length, 3);
+	assert.match(f.preconditions[0], /enabled: true<\/code> in <code>\.vscode\/settings\.json<\/code>/);
+	assert.match(f.preconditions[1], /<code class="language-python">import cv2/);
+	assert.match(f.preconditions[2], /^A Python 3\.10\.15 venv with ipykernel$/);
+	assert.match(renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro**', '', '**Preconditions:**', '- one', '- two', '', '1. First.',
+	].join('\n'))), /<ul class="preconditions"><li>One<\/li><li>Two<\/li><\/ul>/);
 });
 
 test('parseReport widens a step fence past the source nested inside it', () => {
@@ -2669,12 +2702,24 @@ test('the issue body names the fix that did not hold, or the issue that regresse
 const NO_FINDINGS = KI_REPORT.replace(/## Findings[\s\S]*?(?=<details>)/, 'No findings.\n\n').replace(/VERDICTS: .*\nKNOWN: .*/, 'VERDICTS: none').replace('**1.** Checks out.', '');
 const passing = ledger => ledger.replace(/Status: fail - Finding \d/g, 'Status: pass').replace('Issue: #11 fix did not hold', 'Issue: #11 fix held').replace(/^Issue: #2[15] .*\n/gm, '');
 
-test('with no findings, the empty state and Linked issues show without a header, even with observed rows inside', () => {
+test('with no findings, the empty state and an open Linked issues row show without a header, when some were observed', () => {
 	const f = findingsOf(renderReportHtml(NO_FINDINGS, { ledger: passing(KI_LEDGER), knownIssues: KI_ISSUES }));
 	assert.doesNotMatch(f, /row-head/);
-	assert.match(f, /<b>No new findings<\/b><span>All 5 exercised scenarios passed; 3 weren&rsquo;t run\. <a class="ki-ev" href="#coverage">See Coverage<\/a>/);
+	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+	assert.ok(f.includes(`<b>No new findings</b><span class="ki-empty-sum"><b>5</b> passed${dot}<b>3</b> not run</span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>`), f.slice(0, 600));
 	assert.ok(f.indexOf('ki-empty') < f.indexOf('ki-grp'));
+	assert.match(f, /<details class="ki-grp" open><summary>/);
 	assert.match(f, /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span><span class="ki-cnt"[^>]*>2 fix verified<\/span>/);
+});
+
+test('with no findings and nothing observed, the linked counts join the empty state and there is no Linked issues row', () => {
+	// Drop every observed sighting, so what's left is fixes that held and issues not observed.
+	const ledger = passing(KI_LEDGER).replace(/^Issue: #\d+ observed.*\n/gm, '').replace(/ - Also observed #\d+/g, '');
+	const f = findingsOf(renderReportHtml(NO_FINDINGS, { ledger, knownIssues: KI_ISSUES }));
+	assert.doesNotMatch(f, /ki-grp|row-head/);
+	assert.match(f, /<span class="ki-empty-sum"><b>\d+<\/b> passed[\s\S]*?<span class="ki-cnt"[^>]*aria-controls="ki-list-fix">\d+ fix(es)? verified<\/span>[\s\S]*?<span class="ki-cnt"[^>]*aria-controls="ki-list-no">\d+ linked issues? not observed<\/span><\/span>/);
+	assert.match(f, /<div class="ki-list" id="ki-list-no" hidden>/);
+	assert.match(f, /<div class="ki-list" id="ki-list-fix" hidden>/);
 });
 
 test('with no findings and no linked issues, only the empty state shows', () => {

@@ -6,7 +6,7 @@ metadata:
   # Bump when the agent is told something new: this file, explorer.md,
   # verifier.md, or the prompt CI builds in pr-exploratory-test's run.mjs and
   # lib.mjs. Feedback is grouped by it, so a renderer change does not count.
-  version: "1.6"
+  version: "1.7"
 ---
 
 # Exploratory testing
@@ -29,11 +29,15 @@ the change between them, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about.
 State intent and risk; do not state what you expect to work.
 
-If the person gave a time limit ("spend 20 minutes on it"), keep it out of the
-brief: told its budget, the agent rushes and wraps up early. Note the time you
-spawn it, and if it is still exploring when the limit is up, send it a message
-to stop exploring, list what it did not reach under Not run, and write up. CI
-does the same with a hook.
+Exploring stops after 30 minutes unless the person names another limit
+("spend an hour on it", "no limit"). When you spawn the agent, tell them the
+limit and that they can change it at any time. Keep it out of the brief: told
+its budget, the agent rushes and wraps up early. Start a timer, `sleep
+<seconds>` as a background command. When it ends, if the agent is still
+exploring, send it a message to stop exploring, list what it did not reach
+under Not run, and write up. If the person changes the limit, stop the timer
+and start one for the time left. This is for local runs; CI sets its own limit
+and does not read this file.
 
 When the change is a PR, fetch the issues linked to it before spawning the
 agent: `node <base>/renderer/known-issues.mjs --pr <number> --out <scratch dir>/known-issues.json`.
@@ -54,13 +58,28 @@ session you are working in.
 
 ## Verify, then render
 
-When the agent finishes, have a second agent check its findings, as CI does.
+When the agent finishes, stop any instance it left running:
+`bash <base>/renderer/stop-instances.sh <run dir>`. Then have a second agent
+check its findings, as CI does.
 With the base and head SHAs from the brief, run:
 `node <base>/renderer/finish.mjs prompt <run dir> --repo <checkout> --base <base sha> --head <head sha>`.
 If it prints `no findings`, skip to the render. Otherwise it prints the path of
 a prompt file. Spawn a fresh agent with `subagent_type: "general-purpose"` and
 `model: "sonnet"`, tell it to read that file and do what it says, and save its
-reply exactly as returned to `<run dir>/verify-reply.md`. Then run
+reply exactly as returned to `<run dir>/verify-reply.md`.
+
+If the reply's VERDICTS line has an UNRESOLVED finding, isolate it before
+applying anything. Spawn one fresh agent with `subagent_type: "general-purpose"`
+and `model: "sonnet"`, tell it to read `<base>/isolator.md` and do what it says,
+and give it the run directory, the checkout, the base and head SHAs, and the
+UNRESOLVED findings by name ("Finding 3"). If it is still running after 25
+minutes, tell it to write up. When it returns, run `stop-instances.sh` again,
+then send the verifier, with SendMessage: "Read `<run dir>/isolation.md`,
+revise those findings' verdicts, and name the Cause and Feature it points to,
+with a FEATURE line when the Feature changes and a TITLE line when the title names the wrong trigger. If a cause is broader than the
+cases in its table, narrow it. Reply again in full, in the same format." Save that reply over `verify-reply.md`.
+
+Then run
 `node <base>/renderer/finish.mjs apply <run dir> <run dir>/verify-reply.md`.
 The verdicts are advisory: do not edit them or drop a finding over them.
 

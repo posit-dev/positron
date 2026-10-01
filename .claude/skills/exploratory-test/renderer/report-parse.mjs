@@ -203,6 +203,42 @@ function readLabelled(lines, start) {
 }
 
 /**
+ * A finding's `**Preconditions:**`, one item per bullet. Older reports wrote
+ * it as one line of prose, which stays one item. A file pasted under a bullet
+ * stays with that bullet.
+ */
+function readPreconditions(lines, start) {
+	if (lines[start].replace(/^\*\*[^*]+[:*]*\*\*:?\s*/, '').trim()) {
+		const { text, end } = readLabelled(lines, start);
+		return { items: [text], end };
+	}
+	const items = [];
+	let i = start + 1;
+	while (i < lines.length) {
+		const t = lines[i].trim();
+		if (/^[-*]\s+/.test(t)) {
+			items.push(t.replace(/^[-*]\s+/, ''));
+			i++;
+			continue;
+		}
+		if (!items.length && !t) { i++; continue; }
+		if (items.length && t && /^\s+/.test(lines[i]) && !/^ {0,3}(`{3,}|~{3,})/.test(lines[i])) {
+			items[items.length - 1] += ` ${t}`;
+			i++;
+			continue;
+		}
+		const source = items.length ? readSourceBlock(lines, i) : null;
+		if (source) {
+			items[items.length - 1] += `\n\n${source.text}`;
+			i = source.end;
+			continue;
+		}
+		break;
+	}
+	return { items, end: i };
+}
+
+/**
  * A precondition that says nothing but "defaults" is not a precondition.
  *
  * The skill makes the agent state where the finding sits on the configuration
@@ -652,7 +688,7 @@ function parseFindingBody(lines) {
 	const out = {
 		status: { confirmed: null, reproduced: null },
 		summary: [],
-		observed: '', expected: '', preconditions: '',
+		observed: '', expected: '', preconditions: [],
 		feature: '',
 		reproStart: '', steps: [],
 		evidence: [],
@@ -716,8 +752,8 @@ function parseFindingBody(lines) {
 			while (scan < lines.length && !lines[scan].trim()) { scan++; }
 			const early = labelOf(lines[scan] ?? '');
 			if (['preconditions', 'configuration', 'only under'].includes(early)) {
-				const { text: value, end } = readLabelled(lines, scan);
-				out.preconditions = value;
+				const { items, end } = readPreconditions(lines, scan);
+				out.preconditions = items;
 				i = end - 1;
 			}
 
@@ -769,11 +805,16 @@ function parseFindingBody(lines) {
 		// setting -- but reports already published use them.
 		if (label === 'observed' || label === 'expected'
 			|| label === 'preconditions' || label === 'configuration' || label === 'only under') {
-			const { text, end } = readLabelled(lines, i);
-			const key = label === 'observed' || label === 'expected' ? label : 'preconditions';
-			out[key] = text;
+			if (label === 'observed' || label === 'expected') {
+				const { text, end } = readLabelled(lines, i);
+				out[label] = text;
+				i = end - 1;
+			} else {
+				const { items, end } = readPreconditions(lines, i);
+				out.preconditions = items;
+				i = end - 1;
+			}
 			out.matched++;
-			i = end - 1;
 			continue;
 		}
 		if (label === 'feature') {
@@ -1263,7 +1304,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		}
 		// The starting state and the configuration line are both answers to
 		// "what has to be true before step 1", so they render as one list.
-		const preconditions = [parsed.reproStart, parsed.preconditions]
+		const preconditions = [parsed.reproStart, ...parsed.preconditions]
 			.map(t => String(t ?? '').trim())
 			.filter(t => t && !isDefaultsOnly(t))
 			.map(sentenceCase);

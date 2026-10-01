@@ -608,14 +608,15 @@ jobs:
       # would sit in the agent's environment for no use. The S3 upload assumes
       # its own role after the agent has finished.
 
-      - name: Install jq
+      - name: Install jq and lsof
         shell: bash
         run: |
           set -euo pipefail
           # Not in the container image. launch.sh output parsing below needs
-          # it, and so do monaco-paste.sh, quickpick-enum.sh, and the snapshot
-          # recipe the agent follows from the drive-positron skill.
-          sudo apt-get update && sudo apt-get install -y jq
+          # jq, and so do monaco-paste.sh, quickpick-enum.sh, and the snapshot
+          # recipe the agent follows from the drive-positron skill. stop.sh
+          # needs lsof to find the instance on a CDP port.
+          sudo apt-get update && sudo apt-get install -y jq lsof
           jq --version
 
       - name: Setup Xvfb
@@ -820,6 +821,7 @@ jobs:
           path: |
             /tmp/exploratory-run
             /tmp/positron-dev-launch/*/code.log
+            /tmp/positron-dev-launch/instances.log
             /tmp/exploratory-workspace
             !/tmp/exploratory-workspace/**/node_modules/**
             !/tmp/exploratory-workspace/**/__pycache__/**
@@ -894,7 +896,7 @@ jobs:
           rm -rf /tmp/exploratory-publish
           mkdir -p /tmp/exploratory-publish
           cp -a "$SRC/." /tmp/exploratory-publish/
-          rm -f /tmp/exploratory-publish/actions.log
+          rm -f /tmp/exploratory-publish/actions.log /tmp/exploratory-publish/instances.jsonl
           # The raw log tree stays in the artifact: the page lists it unlinked,
           # and the curated files beside it are what a reader opens.
           rm -rf /tmp/exploratory-publish/logs/all

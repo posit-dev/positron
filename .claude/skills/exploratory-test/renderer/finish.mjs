@@ -15,7 +15,7 @@
 //     adds the reply's verdicts to report.md
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { knownFixLines, knownIssueOutcomes, parseLinked } from './known-issues.mjs';
@@ -35,6 +35,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		KNOWN_ISSUES: `${workDir}/known-issues.json`,
 		REPO: repoRoot,
 		DIFF: `${baseSha}...${headSha}`,
+		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
 	const missing = new Set();
@@ -54,16 +55,16 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 }
 
 /**
- * The verifier's reply from its VERDICTS line on, or from its KNOWN or LINKED
- * line if that came first. Its final message can open with notes to itself, which
- * would otherwise lead the Verification details.
+ * The verifier's reply from its VERDICTS line on, or from its KNOWN, LINKED,
+ * FEATURE or TITLE line if that came first. Its final message can open with notes to
+ * itself, which would otherwise lead the Verification details.
  */
 export function fromVerdictLine(text) {
 	if (typeof text !== 'string') {
 		return text;
 	}
 	const lines = text.split('\n');
-	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED):/.test(l.trim().toUpperCase()));
+	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED|FEATURE|TITLE):/.test(l.trim().toUpperCase()));
 	return at > 0 ? lines.slice(at).join('\n') : text;
 }
 
@@ -123,6 +124,88 @@ export function parseKnown(text) {
 		}
 	}
 	return out;
+}
+
+/**
+ * Parses one of the verifier's `KEY: 3=text; 4=text` lines into a Map of
+ * finding number to text. A part it cannot read, or one with a `|` that would
+ * break the table, is skipped.
+ */
+function parseNumbered(text, key) {
+	const out = new Map();
+	if (typeof text !== 'string') {
+		return out;
+	}
+	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith(`${key}:`));
+	if (!line) {
+		return out;
+	}
+	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
+		const m = part.trim().match(/^(\d+)\s*=\s*"?([^"|]*?)"?$/);
+		if (m && m[2].trim()) {
+			out.set(Number(m[1]), m[2].trim());
+		}
+	}
+	return out;
+}
+
+/** `FEATURE: 3=new folder flow`: the feature the evidence points to. */
+export function parseFeatures(text) {
+	return parseNumbered(text, 'FEATURE');
+}
+
+/** `TITLE: 1=...`: a title naming the trigger the evidence shows. */
+export function parseTitles(text) {
+	return parseNumbered(text, 'TITLE');
+}
+
+/**
+ * The report with each finding on the TITLE line retitled, in its heading and
+ * its table row. The explorer titles a finding by the steps it took, which can
+ * name a trigger the verifier finds is not the one that matters.
+ */
+export function applyTitles(report, titles) {
+	if (!(titles instanceof Map) || !titles.size) {
+		return report;
+	}
+	let inFindings = false;
+	return report.split('\n').map(line => {
+		if (/^## /.test(line)) {
+			inFindings = /^## Findings\s*$/.test(line);
+		}
+		const heading = /^(###\s+Finding\s+(\d+):\s*).*$/.exec(line);
+		if (heading && titles.has(Number(heading[2]))) {
+			return `${heading[1]}${titles.get(Number(heading[2]))}`;
+		}
+		const row = inFindings && /^(\|\s*(\d+)\s*\|)[^|]*(\|.*)$/.exec(line);
+		if (row && titles.has(Number(row[2]))) {
+			return `${row[1]} ${titles.get(Number(row[2]))} ${row[3]}`;
+		}
+		return line;
+	}).join('\n');
+}
+
+/**
+ * The report with each `**Feature:**` line on the FEATURE line rewritten. The
+ * explorer picks Feature before the cause is known, and it prefixes the filed
+ * issue's title. A finding with no Feature line is left for lint to catch.
+ */
+export function applyFeatures(report, features) {
+	if (!(features instanceof Map) || !features.size) {
+		return report;
+	}
+	let n = null;
+	return report.split('\n').map(line => {
+		const heading = /^###\s+Finding\s+(\d+):/.exec(line);
+		if (heading) {
+			n = Number(heading[1]);
+		} else if (/^(<details>|## )/.test(line)) {
+			n = null;
+		} else if (n !== null && features.has(n) && /^\*\*Feature:\*\*/.test(line)) {
+			return `**Feature:** ${features.get(n)}`;
+		}
+		return line;
+	}).join('\n');
 }
 
 /**
@@ -232,7 +315,8 @@ export function applyVerification(report, verdicts, { failed = false } = {}) {
 	const section = failed
 		? `## Verification\n\n${verdicts}\n`
 		: `<details>\n<summary>Verification details</summary>\n\n${PREAMBLE}\n\n${verdicts}\n\n</details>\n`;
-	return `${annotateFindingsTable(report, parseVerdicts(verdicts), parseKnown(verdicts))}\n\n${section}`;
+	const revised = failed ? report : applyTitles(applyFeatures(report, parseFeatures(verdicts)), parseTitles(verdicts));
+	return `${annotateFindingsTable(revised, parseVerdicts(verdicts), parseKnown(verdicts))}\n\n${section}`;
 }
 
 /**
