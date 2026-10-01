@@ -30,7 +30,7 @@ import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } fr
 import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
+import { ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';
@@ -766,6 +766,50 @@ describe('selectNewLanguageRuntime', () => {
 	});
 });
 
+describe('selectLanguageRuntimeSession - Assistant session icon', () => {
+	let pickItems: QuickPickItem[] = [];
+	const pickFn = vi.fn(async (items: QuickPickItem[]): Promise<QuickPickItem | undefined> => {
+		pickItems = items;
+		return undefined;
+	});
+
+	const assistantSession = stubInterface<ILanguageRuntimeSession>({
+		sessionId: 'assistant-session-1',
+		metadata: {
+			sessionId: 'assistant-session-1',
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			notebookUri: undefined,
+			createdTimestamp: 0,
+			startReason: 'test',
+			owner: 'assistant',
+		},
+		runtimeMetadata: makeRuntime(),
+		dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'Python (Assistant)' }),
+		getRuntimeState: () => RuntimeState.Idle,
+	});
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			foregroundSession: undefined,
+			activeSessions: [assistantSession],
+		}))
+		.stub(IModelService, { getModel: () => null })
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			pick: pickFn as IQuickInputService['pick'],
+		}))
+		.build();
+
+	// The setting gates starting Assistant sessions, not how existing ones look.
+	it('marks an Assistant session even while the ai.assistantSessions.enabled setting is off', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
+		await ctx.instantiationService.invokeFunction(accessor => selectLanguageRuntimeSession(accessor));
+		const item = pickItems.find((item): item is IQuickPickItem =>
+			item.type !== 'separator' && item.id === assistantSession.sessionId);
+		expect(item?.iconClasses).toContain('assistant-session-icon');
+	});
+});
+
 describe('selectLanguageRuntimeSession - change notebook session', () => {
 	const changeNotebookSessionLabel = 'Change Notebook Session...';
 
@@ -1154,9 +1198,6 @@ describe('startNewAssistantSession', () => {
 	}
 
 	it('starts the runtime as an Assistant-owned console session that takes the foreground', async () => {
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(AI_ENABLED_KEY, true);
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, true);
-
 		const { runtime, sessionId, summary } = await startAssistantSessionBesideUserSession();
 
 		expect(summary).toEqual({
@@ -1164,20 +1205,6 @@ describe('startNewAssistantSession', () => {
 			sessionName: runtime.runtimeName,
 			sessionMode: LanguageRuntimeSessionMode.Console,
 			owner: 'assistant',
-			foregroundSessionId: sessionId,
-		});
-	});
-
-	it('starts an ordinary user session that takes the foreground while the ai.assistantSessions.enabled setting is off', async () => {
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
-
-		const { runtime, sessionId, summary } = await startAssistantSessionBesideUserSession();
-
-		expect(summary).toEqual({
-			runtimeId: runtime.runtimeId,
-			sessionName: runtime.runtimeName,
-			sessionMode: LanguageRuntimeSessionMode.Console,
-			owner: 'user',
 			foregroundSessionId: sessionId,
 		});
 	});

@@ -104,9 +104,7 @@ export interface IStartNewRuntimeSessionOptions {
 
 	/**
 	 * Who the session belongs to; see {@link RuntimeSessionOwner}. Defaults to
-	 * `user`. An `assistant` owner is honoured only while the
-	 * `ai.assistantSessions.enabled` setting is on; otherwise the session
-	 * starts as the user's.
+	 * `user`.
 	 */
 	readonly owner?: RuntimeSessionOwner;
 }

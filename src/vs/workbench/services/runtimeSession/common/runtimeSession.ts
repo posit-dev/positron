@@ -34,7 +34,6 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPathService } from '../../path/common/pathService.js';
 import { resolveNotebookWorkingDirectory } from '../../../contrib/notebook/common/notebookWorkingDirectoryUtils.js';
-import { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 import { isEqual } from '../../../../base/common/resources.js';
 
 /**
@@ -763,17 +762,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		startMode = RuntimeStartMode.Starting,
 		activate: boolean,
 		options?: IStartNewRuntimeSessionOptions): Promise<string> {
-		// Honour an Assistant owner only while the `ai.enabled` and
-		// `ai.assistantSessions.enabled` settings are both on; otherwise the
-		// session starts as the user's. Read live since the settings toggle
-		// without a reload. Whether the session takes the foreground is the
-		// caller's call either way, via `activate`.
-		if (options?.owner === 'assistant' &&
-			!(this._configurationService.getValue<boolean>(AI_ENABLED_KEY) === true &&
-				this._configurationService.getValue<boolean>(ASSISTANT_SESSIONS_ENABLED_KEY) === true)) {
-			options = { ...options, owner: 'user' };
-		}
-
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
