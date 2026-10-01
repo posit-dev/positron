@@ -10,6 +10,13 @@ import { ILanguageRuntimeMetadata } from './languageRuntimeService.js';
 export const INTERPRETER_DEFINITIONS_KEY = 'interpreters.definitions';
 
 /**
+ * The setting that controls interpreter discovery. When it is
+ * `definitionsOnly` for a language, only the interpreters in
+ * `interpreters.definitions` are available for that language.
+ */
+export const INTERPRETER_DISCOVERY_KEY = 'interpreters.discovery';
+
+/**
  * An entry in the `interpreters.definitions` setting: a labeled variant of the
  * discovered interpreter at `path`, launched with extra environment variables
  * and/or a startup script.
@@ -59,7 +66,8 @@ export function getMatchingDefinitions(definitions: readonly IInterpreterDefinit
  * Create a variant of a runtime from a definition. The variant ID is derived
  * from the base ID and label, so it is stable across windows and distinct per
  * definition. Variants share their base's runtimePath, which keys the discovery
- * cache, so they are never cached.
+ * cache, so they are never cached. Variants are always shown, even when their
+ * base is definition-only.
  */
 export function createInterpreterVariant(base: ILanguageRuntimeMetadata, definition: IInterpreterDefinition): ILanguageRuntimeMetadata {
 	const sha = new StringSHA1();
@@ -69,6 +77,7 @@ export function createInterpreterVariant(base: ILanguageRuntimeMetadata, definit
 		runtimeId: sha.digest().substring(0, 32),
 		runtimeName: definition.label,
 		interpreterDefinition: definition.label,
+		definitionOnly: false,
 		cacheable: false,
 	};
 }

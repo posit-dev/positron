@@ -59,12 +59,13 @@ describe('getMatchingDefinitions', () => {
 
 describe('createInterpreterVariant', () => {
 	it('copies the base runtime with a derived ID, the label as name, and caching off', () => {
-		const variant = createInterpreterVariant(base, xx);
+		const variant = createInterpreterVariant({ ...base, definitionOnly: true }, xx);
 		expect({ ...variant, runtimeId: undefined }).toEqual({
 			...base,
 			runtimeId: undefined,
 			runtimeName: 'R 4.4.3 (XX libs)',
 			interpreterDefinition: 'R 4.4.3 (XX libs)',
+			definitionOnly: false,
 			cacheable: false,
 		});
 		expect(variant.runtimeId).toMatch(/^[0-9a-f]{32}$/);

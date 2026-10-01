@@ -15,7 +15,7 @@ import { IConfigurationRegistry, Extensions as ConfigurationExtensions, Configur
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
-import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY } from './interpreterDefinitions.js';
+import { createInterpreterVariant, getMatchingDefinitions, IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from './interpreterDefinitions.js';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -35,6 +35,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _onDidUnregisterRuntimeEmitter =
 		this._register(new Emitter<string>);
 
+	// The event emitter for the onDidRegisterDefinitionOnlyRuntime event.
+	private readonly _onDidRegisterDefinitionOnlyRuntimeEmitter =
+		this._register(new Emitter<ILanguageRuntimeMetadata>);
+
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
 
@@ -47,6 +51,10 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// Variant runtime IDs (from interpreters.definitions) by the ID of the runtime they derive from
 	private readonly _variantIdsByBaseId = new Map<string, string[]>();
+
+	// Runtimes found only because a definition points at them, by runtime ID.
+	// They are not shown, but their variants are derived from them.
+	private readonly _definitionOnlyRuntimesByRuntimeId = new Map<string, ILanguageRuntimeMetadata>();
 
 	//#endregion Private Properties
 
@@ -82,7 +90,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(INTERPRETER_DEFINITIONS_KEY)) {
 				const definitions = this._configurationService.getValue<IInterpreterDefinition[]>(INTERPRETER_DEFINITIONS_KEY);
-				for (const runtime of this.registeredRuntimes) {
+				for (const runtime of [...this.registeredRuntimes, ...this._definitionOnlyRuntimesByRuntimeId.values()]) {
 					if (!runtime.interpreterDefinition) {
 						this._registerVariants(runtime);
 					} else if (!getMatchingDefinitions(definitions, runtime).some(d => d.label === runtime.interpreterDefinition)) {
@@ -115,6 +123,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 
 	// An event that fires when a runtime is unregistered, carrying its runtimeId.
 	readonly onDidUnregisterRuntime = this._onDidUnregisterRuntimeEmitter.event;
+
+	// An event that fires when a definition-only runtime is registered.
+	readonly onDidRegisterDefinitionOnlyRuntime = this._onDidRegisterDefinitionOnlyRuntimeEmitter.event;
 
 	/**
 	 * Event tracking the current startup phase.
@@ -149,7 +160,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 */
 	registerRuntime(metadata: ILanguageRuntimeMetadata): IDisposable {
 		// If the runtime has already been registered, return early.
-		if (this._registeredRuntimesByRuntimeId.has(metadata.runtimeId)) {
+		if (this._registeredRuntimesByRuntimeId.has(metadata.runtimeId) || this._definitionOnlyRuntimesByRuntimeId.has(metadata.runtimeId)) {
 			return this._register(toDisposable(() => { }));
 		}
 
@@ -179,6 +190,21 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			runtimeDisplayPath,
 		};
 
+		// A definition-only runtime is not shown; register just its variants.
+		// When discovery is limited to definitions, every runtime that is not a
+		// variant is treated this way, wherever it came from (discovery, the
+		// cache, a workspace's saved interpreter, a newly created environment).
+		const definitionsOnly = !enriched.interpreterDefinition && this._configurationService.getValue<string>(
+			INTERPRETER_DISCOVERY_KEY, { overrideIdentifier: enriched.languageId }) === 'definitionsOnly';
+		if (enriched.definitionOnly || definitionsOnly) {
+			this._definitionOnlyRuntimesByRuntimeId.set(enriched.runtimeId, enriched);
+			this._onDidRegisterDefinitionOnlyRuntimeEmitter.fire(enriched);
+			this._registerVariants(enriched);
+			return this._register(toDisposable(() => {
+				this.unregisterRuntime(metadata.runtimeId);
+			}));
+		}
+
 		// Add the runtime to the registered runtimes.
 		this._registeredRuntimesByRuntimeId.set(enriched.runtimeId, enriched);
 
@@ -204,6 +230,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		if (this._registeredRuntimesByRuntimeId.delete(runtimeId)) {
 			this._onDidUnregisterRuntimeEmitter.fire(runtimeId);
 		}
+		this._definitionOnlyRuntimesByRuntimeId.delete(runtimeId);
 		this._unregisterVariants(runtimeId);
 	}
 
@@ -361,7 +388,7 @@ configurationRegistry.registerConfiguration({
 			default: [],
 			markdownDescription: nls.localize(
 				'positron.runtime.definitions',
-				"Additional interpreters based on ones Positron has already found, each with its own environment variables and startup script. The original interpreter stays available. `path` must be the absolute runtime path; do not use shortened display paths such as `~`. Can only be set in user or remote settings."),
+				"Additional interpreters, each with its own environment variables and startup script. If Positron also finds the interpreter at `path` on its own, that interpreter stays available too; otherwise only the defined interpreter is shown. Variables the startup script sets are also applied to terminals while the interpreter is active. `path` must be the absolute runtime path; do not use shortened display paths such as `~`. Can only be set in user or remote settings."),
 			items: {
 				type: 'object',
 				required: ['language', 'path', 'label'],
@@ -374,7 +401,7 @@ configurationRegistry.registerConfiguration({
 					},
 					path: {
 						type: 'string',
-						description: nls.localize('positron.runtime.definitions.path', "Absolute runtime path of the interpreter this is based on. Do not use shortened display paths such as ~.")
+						description: nls.localize('positron.runtime.definitions.path', "Absolute path of the interpreter. It does not need to be one Positron finds on its own. Do not use shortened display paths such as ~.")
 					},
 					label: {
 						type: 'string',
@@ -387,10 +414,28 @@ configurationRegistry.registerConfiguration({
 					},
 					startupScript: {
 						type: 'string',
-						description: nls.localize('positron.runtime.definitions.startupScript', "Shell script to source before starting this interpreter. Not supported on Windows.")
+						description: nls.localize('positron.runtime.definitions.startupScript', "Shell script to source before starting this interpreter. The environment variables it sets are applied to the interpreter and to terminals. Not supported on Windows.")
 					},
 				}
 			},
+			tags: ['interpreterSettings']
+		},
+		[INTERPRETER_DISCOVERY_KEY]: {
+			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
+			type: 'string',
+			enum: ['auto', 'definitionsOnly'],
+			default: 'auto',
+			markdownEnumDescriptions: [
+				nls.localize(
+					'positron.runtime.discovery.auto',
+					"Positron finds interpreters installed on this system, and also shows the ones in `#interpreters.definitions#`."),
+				nls.localize(
+					'positron.runtime.discovery.definitionsOnly',
+					"Positron does not look for interpreters. Only the ones in `#interpreters.definitions#` are available, and other interpreter discovery settings are ignored."),
+			],
+			markdownDescription: nls.localize(
+				'positron.runtime.discovery',
+				"How Positron finds interpreters. Can be set for each language. Requires a restart to take effect."),
 			tags: ['interpreterSettings']
 		},
 		'interpreters.discoveryCache.enabled': {

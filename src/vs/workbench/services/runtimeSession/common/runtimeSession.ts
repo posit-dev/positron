@@ -28,7 +28,7 @@ import { toUtcDay } from '../../../../platform/update/common/positronUpdateUtils
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
-import { IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, recreateInterpreterVariant } from '../../languageRuntime/common/interpreterDefinitions.js';
+import { IInterpreterDefinition, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY, recreateInterpreterVariant } from '../../languageRuntime/common/interpreterDefinitions.js';
 import { IConfigurationResolverService } from '../../configurationResolver/common/configurationResolver.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
@@ -1736,6 +1736,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 							metadata.interpreterDefinition));
 					}
 					validated = variant;
+				}
+
+				// When discovery is limited to definitions, only interpreters
+				// from interpreters.definitions can start.
+				if (!validated.interpreterDefinition && this._configurationService.getValue<string>(
+					INTERPRETER_DISCOVERY_KEY, { overrideIdentifier: validated.languageId }) === 'definitionsOnly') {
+					throw new Error(localize(
+						'positron.runtime.discovery.notDefined',
+						"The interpreter \"{0}\" cannot start because interpreters.discovery is set to definitionsOnly and it is not in the interpreters.definitions setting.",
+						validated.runtimeName));
 				}
 
 				// Did the validator change the runtime ID? If so, we're starting a different

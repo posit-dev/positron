@@ -42,7 +42,7 @@ import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vsco
 
 // --- Start Positron ---
 import { getUvDirs, isUvEnvironment, isUvManagedBasePython } from './common/environmentManagers/uv';
-import { isCustomEnvironment, isPythonStartupDisabled } from '../positron/interpreterSettings';
+import { isCustomEnvironment, isEagerDiscoveryDisabled } from '../positron/interpreterSettings';
 import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
 // eslint-disable-next-line import/no-duplicates
 import { PythonEnvSource } from './base/info';
@@ -872,8 +872,9 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
     const native = new NativePythonEnvironments(finder);
     // --- Start Positron ---
     // native.triggerRefresh().ignoreErrors();
-    // Skip the eager refresh when Python startup is disabled (#15004).
-    if (!isPythonStartupDisabled()) {
+    // Skip the eager refresh when Python startup is disabled (#15004) or
+    // discovery is limited to interpreters.definitions.
+    if (!isEagerDiscoveryDisabled()) {
         native.triggerRefresh().ignoreErrors();
     }
     // --- End Positron ---
@@ -1362,8 +1363,9 @@ async function checkForExistingEnv(
 export function createNativeEnvironmentsApiWithModules(finder: NativePythonFinder): IDiscoveryAPI & Disposable {
     const native = new NativePythonEnvironments(finder);
     const wrapper = new NativeWithModulesApi(native);
-    // Skip the eager refresh when Python startup is disabled (#15004).
-    if (!isPythonStartupDisabled()) {
+    // Skip the eager refresh when Python startup is disabled (#15004) or
+    // discovery is limited to interpreters.definitions.
+    if (!isEagerDiscoveryDisabled()) {
         wrapper.triggerRefresh().ignoreErrors();
     }
     return wrapper;

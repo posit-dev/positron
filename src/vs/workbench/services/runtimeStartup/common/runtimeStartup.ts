@@ -217,6 +217,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
 
+		// Definition-only runtimes are hidden, but are cached like any other
+		// runtime so their variants come back on warm starts.
+		this._register(
+			this._languageRuntimeService.onDidRegisterDefinitionOnlyRuntime(
+				this.cacheDiscoveredRuntime, this));
+
 		this._startupPhase = _languageRuntimeService.startupPhase;
 		perf.mark(`code/positron/runtimeStartupPhase/${this._startupPhase}`);
 
@@ -1504,7 +1510,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 		try {
-			const validated = await owner.validateMetadata(task.metadata);
+			let validated = await owner.validateMetadata(task.metadata);
+			// Validators rebuild metadata from scratch; keep a definition-only
+			// runtime hidden.
+			if (task.metadata.definitionOnly) {
+				validated = { ...validated, definitionOnly: true };
+			}
 			this._discoveryCache.sessionCounters.revalidationsSucceeded++;
 			// Registry swap: if the validator returned different metadata,
 			// register it (the registry tolerates re-registration on the same
@@ -1539,6 +1550,28 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * During a real discovery pass (cold-start full discovery, user-triggered
+	 * rediscover, or a background refresh), feed cacheable runtimes into the
+	 * cross-window cache. Cache hits replayed during `LoadingCache` are
+	 * already in the cache and don't need to be re-upserted.
+	 *
+	 * `lastFullDiscovery` is stamped at the start of the pass in
+	 * `_captureSignaturesAtDiscoveryStart` (so buckets that legitimately
+	 * produce zero runtimes on this open still get refreshed), not here.
+	 *
+	 * @param metadata The newly registered runtime.
+	 */
+	private cacheDiscoveredRuntime(metadata: ILanguageRuntimeMetadata): void {
+		if (metadata.cacheable === true &&
+			(this._startupPhase === RuntimeStartupPhase.Discovering || this._backgroundDiscoveryInProgress)) {
+			this._discoveryCache.upsert(metadata).catch(err => {
+				this._logService.warn(
+					`[Runtime startup] Failed to cache runtime ${formatLanguageRuntimeMetadata(metadata)}: ${err}`);
+			});
+		}
+	}
+
+	/**
 	 * Runs as an event handler when a new runtime is registered; checks to see
 	 * if the runtime is affiliated with this workspace, and if so, starts the
 	 * runtime.
@@ -1547,21 +1580,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private onDidRegisterRuntime(metadata: ILanguageRuntimeMetadata): void {
 
-		// During a real discovery pass (cold-start full discovery, user-triggered
-		// rediscover, or a background refresh), feed cacheable runtimes into the
-		// cross-window cache. Cache hits replayed during `LoadingCache` are
-		// already in the cache and don't need to be re-upserted.
-		//
-		// `lastFullDiscovery` is stamped at the start of the pass in
-		// `_captureSignaturesAtDiscoveryStart` (so buckets that legitimately
-		// produce zero runtimes on this open still get refreshed), not here.
-		if (metadata.cacheable === true &&
-			(this._startupPhase === RuntimeStartupPhase.Discovering || this._backgroundDiscoveryInProgress)) {
-			this._discoveryCache.upsert(metadata).catch(err => {
-				this._logService.warn(
-					`[Runtime startup] Failed to cache runtime ${formatLanguageRuntimeMetadata(metadata)}: ${err}`);
-			});
-		}
+		this.cacheDiscoveredRuntime(metadata);
 
 		// The remaining work is the affiliated-runtime auto-start. We act in
 		// both Discovering (cold start) and LoadingCache (warm-start cache hit),

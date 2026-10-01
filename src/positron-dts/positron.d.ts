@@ -759,6 +759,13 @@ declare module 'positron' {
 		 * `interpreters.definitions` entry with this label.
 		 */
 		interpreterDefinition?: string;
+
+		/**
+		 * When true, this runtime was found only because an
+		 * `interpreters.definitions` entry points at it. It is not shown; only
+		 * its variants are.
+		 */
+		definitionOnly?: boolean;
 	}
 
 	/**

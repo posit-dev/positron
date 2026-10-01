@@ -13,6 +13,7 @@ import * as vscode from 'vscode';
 import { getPyenvDir } from '../pythonEnvironments/common/environmentManagers/pyenv';
 import { getGlobalEnvironmentParent } from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getUserHomeDir } from '../common/utils/platform';
+import { getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery } from './interpreterSettings';
 
 /**
  * Hard-coded POSIX bin directories where Python installers commonly drop
@@ -236,6 +237,9 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
     // they are the same directory.
     addAll([getGlobalEnvironmentParent(), home ? path.join(home, '.virtualenvs') : undefined]);
 
+    // Interpreters named in interpreters.definitions, so adding one triggers discovery.
+    addAll(getInterpreterDefinitionPaths());
+
     // Dedupe by resolved path -- two settings/defaults may both land at the
     // same physical location (e.g. PYENV_ROOT explicitly set to ~/.pyenv).
     // The first occurrence wins so the signature is stable across runs.
@@ -285,6 +289,8 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
  *     which enumerate different sets of interpreters.
  *   - `useEnvironmentsExtension`: switches discovery to the external Python
  *     Environments extension; the cache must rebuild when this flips.
+ *   - Positron's `interpreters.discovery`: switching to or from
+ *     `definitionsOnly` changes which interpreters exist at all.
  */
 function getFilterSettingsDigest(): string {
     const config = vscode.workspace.getConfiguration('python');
@@ -294,6 +300,8 @@ function getFilterSettingsDigest(): string {
         override: config.get<string[]>('interpreters.override') ?? [],
         locator: config.get<string>('locator') ?? '',
         useEnvironmentsExtension: config.get<boolean>('useEnvironmentsExtension') ?? false,
+        // Only included when set, so the digest is unchanged for everyone else.
+        ...(isDefinitionsOnlyDiscovery() ? { definitionsOnly: true } : {}),
     };
     return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }

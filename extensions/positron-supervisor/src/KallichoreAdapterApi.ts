@@ -18,7 +18,7 @@ import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreInstances } from './KallichoreInstances.js';
-import { applyInterpreterDefinition, findInterpreterDefinition } from './interpreterDefinition';
+import { findInterpreterDefinition, getTerminalMutation, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 
@@ -288,6 +288,19 @@ export class KCApi implements PositronSupervisorApi {
 	private _showingDisconnectedWarning = false;
 
 	/**
+	 * The environment variables set by the interpreter definition of each
+	 * session started from one, by session ID. Applied to terminals while that
+	 * session is in the foreground.
+	 */
+	private readonly _definitionEnvBySessionId = new Map<string, Record<string, string>>();
+
+	/**
+	 * Counts terminal environment updates, so that an update that finishes
+	 * after a newer one started is dropped.
+	 */
+	private _terminalEnvironmentUpdates = 0;
+
+	/**
 	 * Per-workspace ephemeral storage for the server reconnect state. Used
 	 * instead of persistent workspace storage when the server shares the
 	 * application's lifetime, so that a stale reconnect target is never read
@@ -312,6 +325,16 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._api = new KallichoreApiInstance(_transport);
 		positron.runtime.emitPerfMark('initializing');
+
+		// Give terminals the environment of the foreground session's interpreter
+		// definition, if it has one. Start clean, since variables from a
+		// previous window may no longer apply.
+		_context.environmentVariableCollection.clear();
+		_context.subscriptions.push(positron.runtime.onDidChangeForegroundSession(sessionId => {
+			this.updateTerminalEnvironment(sessionId).catch(err => {
+				this.log(`Failed to update terminal environment: ${summarizeError(err)}`);
+			});
+		}));
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
@@ -1318,6 +1341,95 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Get the environment variables an interpreter definition sets, running its
+	 * startup script to capture the variables the script sets.
+	 *
+	 * @param definition The interpreter definition
+	 * @param kernelEnv The environment variables the kernel spec sets, if any
+	 */
+	private async resolveDefinitionEnv(definition: InterpreterDefinition, kernelEnv: NodeJS.ProcessEnv | undefined): Promise<Record<string, string>> {
+		if (definition.startupScript && process.platform === 'win32') {
+			this.log(`Ignoring startupScript for "${definition.label}": startup scripts are not supported on Windows`);
+		}
+		const baseEnv: Record<string, string> = {};
+		for (const [name, value] of Object.entries({ ...process.env, ...kernelEnv })) {
+			if (value !== undefined) {
+				baseEnv[name] = value;
+			}
+		}
+		let env: Record<string, string>;
+		try {
+			env = await resolveDefinitionEnv(definition, baseEnv, process.platform);
+		} catch (err) {
+			throw new Error(vscode.l10n.t(
+				'The startup script for the interpreter "{0}" failed: {1}',
+				definition.label, summarizeError(err)));
+		}
+		this.log(`Applying interpreter definition "${definition.label}" (env: ${Object.keys(env).join(', ') || 'none'})`);
+		return env;
+	}
+
+	/**
+	 * Set the terminal environment variables for the foreground session: the
+	 * variables its interpreter definition sets, or none if it has no
+	 * definition.
+	 *
+	 * @param sessionId The ID of the foreground session, if any
+	 */
+	private async updateTerminalEnvironment(sessionId: string | undefined): Promise<void> {
+		const update = ++this._terminalEnvironmentUpdates;
+		let env: Record<string, string> = {};
+		const session = sessionId ? await positron.runtime.getSession(sessionId) : undefined;
+		const label = session?.runtimeMetadata.interpreterDefinition;
+		if (sessionId && session && label) {
+			let definitionEnv = this._definitionEnvBySessionId.get(sessionId);
+			if (!definitionEnv) {
+				// The session was restored rather than started in this window,
+				// so capture its definition's variables now.
+				const definition = findInterpreterDefinition(
+					vscode.workspace.getConfiguration('interpreters').get('definitions'),
+					session.runtimeMetadata.languageId,
+					label);
+				if (definition) {
+					definitionEnv = await this.resolveDefinitionEnv(definition, undefined);
+					this._definitionEnvBySessionId.set(sessionId, definitionEnv);
+				}
+			}
+			env = definitionEnv ?? {};
+		}
+		if (update !== this._terminalEnvironmentUpdates) {
+			return;
+		}
+
+		const collection = this._context.environmentVariableCollection;
+		const staleNames: string[] = [];
+		collection.forEach(name => {
+			if (env[name] === undefined) {
+				staleNames.push(name);
+			}
+		});
+		for (const name of staleNames) {
+			collection.delete(name);
+		}
+		const types = {
+			replace: vscode.EnvironmentVariableMutatorType.Replace,
+			prepend: vscode.EnvironmentVariableMutatorType.Prepend,
+			append: vscode.EnvironmentVariableMutatorType.Append,
+		};
+		const options = { applyAtProcessCreation: true, applyAtShellIntegration: true };
+		for (const [name, value] of Object.entries(env)) {
+			const mutation = getTerminalMutation(value, process.env[name]);
+			// Skip variables that are already set, to avoid needlessly marking
+			// open terminals as stale.
+			const existing = collection.get(name);
+			if (existing?.type === types[mutation.type] && existing.value === mutation.value) {
+				continue;
+			}
+			collection[mutation.type](name, mutation.value, options);
+		}
+	}
+
+	/**
 	 * Create a new session for a Jupyter-compatible kernel.
 	 *
 	 * @param runtimeMetadata The metadata for the associated language runtime
@@ -1348,11 +1460,9 @@ export class KCApi implements PositronSupervisorApi {
 					'The interpreter "{0}" is no longer defined in the interpreters.definitions setting.',
 					runtimeMetadata.interpreterDefinition));
 			}
-			if (definition.startupScript && process.platform === 'win32') {
-				this.log(`Ignoring startupScript for "${definition.label}": startup scripts are not supported on Windows`);
-			}
-			this.log(`Applying interpreter definition "${definition.label}" (env: ${Object.keys(definition.env ?? {}).join(', ') || 'none'})`);
-			kernel = applyInterpreterDefinition(kernel, definition, process.platform);
+			const definitionEnv = await this.resolveDefinitionEnv(definition, kernel.env);
+			this._definitionEnvBySessionId.set(sessionMetadata.sessionId, definitionEnv);
+			kernel = { ...kernel, env: { ...kernel.env, ...definitionEnv } };
 		}
 
 		// Ensure the server is started before trying to create the session

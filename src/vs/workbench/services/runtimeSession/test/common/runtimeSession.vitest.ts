@@ -16,7 +16,7 @@ import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageR
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
-import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY } from '../../../languageRuntime/common/interpreterDefinitions.js';
+import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../../languageRuntime/common/interpreterDefinitions.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
 import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
@@ -681,6 +681,33 @@ describe('Positron - RuntimeSessionService', () => {
 			manager.setValidateMetadata(async () => runtime);
 
 			await expect(autoStartSession(variant)).rejects.toThrow('no longer defined');
+		});
+
+		describe('when discovery is limited to definitions', () => {
+			beforeEach(() => {
+				configService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, 'definitionsOnly');
+			});
+
+			afterEach(() => {
+				configService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, 'auto');
+			});
+
+			it('auto start refuses a runtime that is not in the definitions', async () => {
+				manager.setValidateMetadata(async () => runtime);
+
+				await expect(autoStartSession(unregisteredRuntime)).rejects.toThrow('definitionsOnly');
+			});
+
+			it('auto start allows a variant from the definitions', async () => {
+				const definition = { language: runtime.languageId, path: runtime.runtimePath, label };
+				configService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [definition]);
+				const variant = createInterpreterVariant(runtime, definition);
+				manager.setValidateMetadata(async () => runtime);
+
+				const session = await autoStartSession(variant);
+
+				expect(session.runtimeMetadata.runtimeId).toBe(variant.runtimeId);
+			});
 		});
 	});
 

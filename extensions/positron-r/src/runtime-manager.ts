@@ -6,13 +6,13 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { currentRBinary, getRDiscoveryRootSignature, makeMetadata, registerModuleRuntimeWithApi, rRuntimeDiscoverer } from './provider';
+import { currentRBinary, getRDiscoveryRootSignature, makeMetadata, rDefinitionOnlyRuntimes, registerModuleRuntimeWithApi, rRuntimeDiscoverer } from './provider';
 import { PackagerMetadata, RInstallation, RMetadataExtra, ReasonDiscovered, friendlyReason, isModuleMetadata, isRVersionsMetadata } from './r-installation';
 import { RSession, createJupyterKernelExtra } from './session';
 import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
-import { getDefaultInterpreterPath } from './interpreter-settings.js';
+import { getDefaultInterpreterPath, isDefinitionsOnlyDiscovery } from './interpreter-settings.js';
 import { getEnvironmentModulesApi } from './provider-module.js';
 import { setupArkJupyterKernel } from './kernel';
 import { getRTerminalEnvironmentMutations } from './r-process-environment';
@@ -109,12 +109,17 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	async *discoverAllRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 		// Wrap the discoverer to track completion
-		const discoverer = rRuntimeDiscoverer();
+		const discoveredPaths = new Set<string>();
 		try {
+			// When discovery is limited to definitions, skip all other discovery.
+			const discoverer = isDefinitionsOnlyDiscovery() ? [] : rRuntimeDiscoverer();
 			for await (const runtime of discoverer) {
 				this._discoveredRuntimeCount++;
+				discoveredPaths.add(runtime.runtimePath);
 				yield runtime;
 			}
+			// Interpreters named in interpreters.definitions that discovery missed
+			yield* rDefinitionOnlyRuntimes(discoveredPaths);
 		} finally {
 			this._discoveryComplete = true;
 			this._onDidCompleteDiscoveryEmitter.fire();
@@ -136,6 +141,11 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 	}
 
 	async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+		// When discovery is limited to definitions, nothing outside them is recommended.
+		if (isDefinitionsOnlyDiscovery()) {
+			return undefined;
+		}
+
 		// If the default interpreter path is set and the path exists on the filesystem,
 		// recommend it with implicit startup behavior.
 		const defaultInterpreterPath = getDefaultInterpreterPath();

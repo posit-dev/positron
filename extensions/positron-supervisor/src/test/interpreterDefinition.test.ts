@@ -4,48 +4,94 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
 import * as os from 'os';
-import { applyInterpreterDefinition, findInterpreterDefinition, InterpreterDefinition } from '../interpreterDefinition';
-import { JupyterKernelSpec } from '../positron-supervisor';
+import * as path from 'path';
+import { findInterpreterDefinition, getTerminalMutation, InterpreterDefinition, resolveDefinitionEnv } from '../interpreterDefinition';
 
-suite('applyInterpreterDefinition', () => {
-	const kernel: JupyterKernelSpec = {
-		argv: ['ark'],
-		display_name: 'R 4.4.3',
-		language: 'R',
-		env: { RUST_LOG: 'warn', R_LIBS_SITE: '/default' },
-		kernel_protocol_version: '5.5',
-	};
+suite('resolveDefinitionEnv', () => {
 	const definition: InterpreterDefinition = {
 		language: 'r',
 		path: '/opt/R/4.4.3/bin/R',
 		label: 'XX',
 		env: { R_LIBS_SITE: '/xx' },
-		startupScript: '/shared/xx setup.sh',
 	};
+	// Start from the real environment, since the OS may add variables to new
+	// processes that are missing (e.g. __CF_USER_TEXT_ENCODING on macOS).
+	const baseEnv: Record<string, string> = { R_LIBS_SITE: '/default' };
+	for (const [name, value] of Object.entries(process.env)) {
+		if (value !== undefined) {
+			baseEnv[name] = value;
+		}
+	}
+	baseEnv.PATH = '/usr/bin:/bin';
+	let dir: string;
 
-	test('merges env over the kernel env and adds the startup script', () => {
-		assert.deepStrictEqual(applyInterpreterDefinition(kernel, definition, 'linux'), {
-			...kernel,
-			env: { RUST_LOG: 'warn', R_LIBS_SITE: '/xx' },
-			startup_command: `. '/shared/xx setup.sh'`,
+	setup(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'interpreter-definition-'));
+	});
+
+	teardown(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	function writeScript(name: string, contents: string): string {
+		const scriptPath = path.join(dir, name);
+		fs.writeFileSync(scriptPath, contents);
+		return scriptPath;
+	}
+
+	test('returns the definition env when there is no startup script', async () => {
+		assert.deepStrictEqual(await resolveDefinitionEnv(definition, baseEnv, process.platform), { R_LIBS_SITE: '/xx' });
+	});
+
+	test('adds the variables the startup script sets or changes', async function () {
+		if (process.platform === 'win32') {
+			this.skip();
+		}
+		// The script sees the definition env, and its output does not leak into the capture.
+		const startupScript = writeScript(`it's setup.sh`, [
+			'echo loading modules',
+			'export LIB_PATH="$R_LIBS_SITE/lib"',
+			'export PATH="/opt/tools/bin:$PATH"',
+			'UNEXPORTED=1',
+		].join('\n'));
+		assert.deepStrictEqual(await resolveDefinitionEnv({ ...definition, startupScript }, baseEnv, process.platform), {
+			R_LIBS_SITE: '/xx',
+			LIB_PATH: '/xx/lib',
+			PATH: '/opt/tools/bin:/usr/bin:/bin',
 		});
 	});
 
-	test('runs the startup script after an existing startup command', () => {
-		const result = applyInterpreterDefinition({ ...kernel, startup_command: 'module load R/4.4.3' }, definition, 'linux');
-		assert.strictEqual(result.startup_command, `module load R/4.4.3 && . '/shared/xx setup.sh'`);
+	test('rejects when the startup script fails', async function () {
+		if (process.platform === 'win32') {
+			this.skip();
+		}
+		const startupScript = writeScript('fail.sh', 'return 3');
+		await assert.rejects(resolveDefinitionEnv({ ...definition, startupScript }, baseEnv, process.platform));
 	});
 
-	test('expands a leading ~ and quotes shell-special characters in the script path', () => {
-		const commands = ['~/setup.sh', `/it's $HOME.sh`].map(startupScript =>
-			applyInterpreterDefinition(kernel, { ...definition, startupScript }, 'linux').startup_command);
-		assert.deepStrictEqual(commands, [`. '${os.homedir()}/setup.sh'`, `. '/it'\\''s $HOME.sh'`]);
+	test('skips the startup script on Windows but still applies env', async () => {
+		const startupScript = writeScript('setup.sh', 'export FOO=bar');
+		assert.deepStrictEqual(await resolveDefinitionEnv({ ...definition, startupScript }, baseEnv, 'win32'), { R_LIBS_SITE: '/xx' });
 	});
+});
 
-	test('skips the startup script on Windows but still applies env', () => {
-		const result = applyInterpreterDefinition(kernel, definition, 'win32');
-		assert.deepStrictEqual([result.startup_command, result.env], [undefined, { RUST_LOG: 'warn', R_LIBS_SITE: '/xx' }]);
+suite('getTerminalMutation', () => {
+	test('prepends or appends only the added part, and replaces otherwise', () => {
+		assert.deepStrictEqual([
+			getTerminalMutation('/opt/tools/bin:/usr/bin', '/usr/bin'),
+			getTerminalMutation('/usr/bin:/opt/tools/bin', '/usr/bin'),
+			getTerminalMutation('/xx', '/default'),
+			getTerminalMutation('/xx', undefined),
+			getTerminalMutation('/usr/bin', '/usr/bin'),
+		], [
+			{ type: 'prepend', value: '/opt/tools/bin:' },
+			{ type: 'append', value: ':/opt/tools/bin' },
+			{ type: 'replace', value: '/xx' },
+			{ type: 'replace', value: '/xx' },
+			{ type: 'replace', value: '/usr/bin' },
+		]);
 	});
 });
 

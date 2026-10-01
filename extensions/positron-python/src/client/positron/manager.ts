@@ -16,7 +16,7 @@ import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../interpreter/contracts';
-import { traceError, traceInfo } from '../logging';
+import { traceError, traceInfo, traceWarn } from '../logging';
 import { IConfigurationService, IDisposable, IDisposableRegistry } from '../common/types';
 import { getActivePythonSessions, PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
@@ -25,7 +25,12 @@ import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
-import { shouldIncludeInterpreter, getUserDefaultInterpreter } from './interpreterSettings';
+import {
+    shouldIncludeInterpreter,
+    getUserDefaultInterpreter,
+    getInterpreterDefinitionPaths,
+    isDefinitionsOnlyDiscovery,
+} from './interpreterSettings';
 import { hasFiles, resolveInterpreterWithRetry } from './util';
 import { isCondaEnvironment } from '../pythonEnvironments/common/environmentManagers/conda';
 import { untildify } from '../common/helpers';
@@ -327,6 +332,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      * Recommend a Python language runtime based on the workspace.
      */
     async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
+        // When discovery is limited to definitions, nothing outside them is recommended.
+        if (isDefinitionsOnlyDiscovery()) {
+            return undefined;
+        }
+
         // TODO: may need other handling for multiroot workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
         let { path: interpreterPath, isImmediate } = await this.recommendedWorkspaceInterpreterPath(workspaceUri);
@@ -651,8 +661,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      * before it's returned to Positron.
      */
     private async *discoverPythonRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-        // Get the async generator for Python runtimes
-        const discoverer = pythonRuntimeDiscoverer(this.serviceContainer);
+        // Get the async generator for Python runtimes. When discovery is
+        // limited to definitions, skip all other discovery.
+        const definitionsOnly = isDefinitionsOnlyDiscovery();
+        const discoverer = definitionsOnly ? [] : pythonRuntimeDiscoverer(this.serviceContainer);
 
         // As each runtime metadata element is returned, cache and return it
         for await (const runtime of discoverer) {
@@ -676,6 +688,37 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
 
             // Return the runtime to Positron
             yield runtime;
+        }
+
+        // Interpreters named in interpreters.definitions that discovery missed.
+        // Positron hides these and shows only the variants created from the
+        // definitions, so they are not saved with the discovered runtimes.
+        for (const pythonPath of getInterpreterDefinitionPaths()) {
+            if (this.registeredPythonRuntimes.has(pythonPath)) {
+                continue;
+            }
+            try {
+                // The retry falls back to a full interpreter refresh, which
+                // definitions-only discovery exists to avoid.
+                const interpreter = definitionsOnly
+                    ? await this.interpreterService.getInterpreterDetails(pythonPath)
+                    : await resolveInterpreterWithRetry(this.interpreterService, pythonPath);
+                if (!interpreter) {
+                    traceWarn(`Ignoring Python interpreter ${pythonPath} from interpreters.definitions: could not resolve it`);
+                    continue;
+                }
+                const runtime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+                // Definitions match on the exact runtime path.
+                if (runtime.runtimePath !== pythonPath) {
+                    traceWarn(
+                        `Ignoring Python interpreter ${pythonPath} from interpreters.definitions: it resolved to ${runtime.runtimePath}; use that path in the definition`,
+                    );
+                    continue;
+                }
+                yield { ...runtime, definitionOnly: true };
+            } catch (err) {
+                traceWarn(`Ignoring Python interpreter ${pythonPath} from interpreters.definitions: ${err}`);
+            }
         }
     }
 

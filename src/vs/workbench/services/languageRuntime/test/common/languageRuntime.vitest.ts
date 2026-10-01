@@ -15,7 +15,7 @@ import { IConfigurationChangeEvent, IConfigurationService } from '../../../../..
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { LanguageRuntimeService } from '../../common/languageRuntime.js';
-import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY } from '../../common/interpreterDefinitions.js';
+import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../common/interpreterDefinitions.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, LanguageRuntimeSessionLocation, LanguageRuntimeStartupBehavior, LanguageStartupBehavior } from '../../common/languageRuntimeService.js';
 
 const TEST_USER_HOME = URI.file('/home/testuser');
@@ -219,6 +219,48 @@ describe('Positron - LanguageRuntimeService', () => {
 			);
 
 			expect([unregistered, service.registeredRuntimes.map(m => m.runtimeName)]).toEqual([[], ['R 4.4.3', 'R 4.4.3 (XX libs)', 'Second']]);
+		});
+
+		it('hides a definition-only runtime but shows its variants, and removes them with it', () => {
+			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+			const definitionOnly: string[] = [];
+			ctx.disposables.add(service.onDidRegisterDefinitionOnlyRuntime(m => definitionOnly.push(m.runtimeId)));
+
+			service.registerRuntime({ ...r, definitionOnly: true });
+
+			expect([definitionOnly, service.registeredRuntimes.map(m => [m.runtimeName, m.definitionOnly])]).toEqual([
+				['r-base'],
+				[['R 4.4.3 (XX libs)', false]],
+			]);
+
+			service.unregisterRuntime('r-base');
+			expect(service.registeredRuntimes).toEqual([]);
+		});
+
+		it('hides every runtime that is not a variant when discovery is limited to definitions', async () => {
+			await configurationService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, 'definitionsOnly');
+			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+
+			// One runtime has a definition, and one does not.
+			service.registerRuntime(r);
+			service.registerRuntime(makeTestMetadata({ runtimeId: 'r-other', languageId: 'r', runtimePath: '/opt/R/4.3.0/bin/R' }));
+
+			expect(service.registeredRuntimes.map(m => m.runtimeName)).toEqual(['R 4.4.3 (XX libs)']);
+			await configurationService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, 'auto');
+		});
+
+		it('re-derives variants of a definition-only runtime when the setting changes', async () => {
+			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
+			service.registerRuntime({ ...r, definitionOnly: true });
+
+			await configurationService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [{ ...definition, label: 'Renamed' }]);
+			configurationService.onDidChangeConfigurationEmitter.fire(
+				stubInterface<IConfigurationChangeEvent>({
+					affectsConfiguration: (key: string) => key === INTERPRETER_DEFINITIONS_KEY,
+				})
+			);
+
+			expect(service.registeredRuntimes.map(m => m.runtimeName)).toEqual(['Renamed']);
 		});
 	});
 

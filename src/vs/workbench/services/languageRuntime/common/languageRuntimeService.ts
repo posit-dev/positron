@@ -1040,6 +1040,12 @@ export interface ILanguageRuntimeMetadata {
 	 * `interpreters.definitions` entry with this label.
 	 */
 	readonly interpreterDefinition?: string;
+
+	/**
+	 * When true, this runtime was found only because an `interpreters.definitions`
+	 * entry points at it. It is not shown; only its variants are.
+	 */
+	readonly definitionOnly?: boolean;
 }
 
 /**
@@ -1243,6 +1249,13 @@ export interface ILanguageRuntimeService {
 	 * runtimeId of the removed runtime.
 	 */
 	readonly onDidUnregisterRuntime: Event<string>;
+
+	/**
+	 * An event that fires when a definition-only runtime is registered. These
+	 * runtimes are not in `registeredRuntimes` and do not fire
+	 * `onDidRegisterRuntime`; only their variants do.
+	 */
+	readonly onDidRegisterDefinitionOnlyRuntime: Event<ILanguageRuntimeMetadata>;
 
 	/**
 	 * Event tracking the current startup phase.
