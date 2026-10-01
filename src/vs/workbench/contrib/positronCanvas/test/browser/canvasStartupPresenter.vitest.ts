@@ -15,7 +15,7 @@ import { toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
-import { CanvasStartupPresenter } from '../../browser/canvasStartupPresenter.js';
+import { CanvasStartupPresenter, createCanvasLoadingCurtain } from '../../browser/canvasStartupPresenter.js';
 import { CanvasEntryOutcome } from '../../common/positronCanvasMode.js';
 
 const ENTERED: CanvasEntryOutcome = { entered: true };
@@ -347,5 +347,24 @@ describe('CanvasStartupPresenter', () => {
 		// The IDE must be back on screen before the output view is asked to show.
 		expect(calls).toEqual(['recover', 'logs']);
 		await vi.waitFor(() => expect(within(container).queryByRole('status')).not.toBeInTheDocument());
+	});
+
+	describe('createCanvasLoadingCurtain', () => {
+		it('covers the container with a busy status card that offers no way out', () => {
+			const container = createContainer();
+			const sibling = addWorkbenchSibling(container);
+			const curtain = disposables.add(createCanvasLoadingCurtain(container, 'Canvas is opening another folder...'));
+
+			const status = within(container).getByRole('status');
+			expect(status).toHaveAttribute('aria-busy', 'true');
+			expect(within(status).getByRole('progressbar', { name: 'Loading Canvas' })).toBeInTheDocument();
+			expect(within(status).getByText('Canvas is opening another folder...')).toBeInTheDocument();
+			expect(within(status).queryAllByRole('button')).toHaveLength(0);
+			expect(sibling.inert).toBe(true);
+
+			curtain.dispose();
+			expect(within(container).queryByRole('status')).not.toBeInTheDocument();
+			expect(sibling.inert).toBe(false);
+		});
 	});
 });

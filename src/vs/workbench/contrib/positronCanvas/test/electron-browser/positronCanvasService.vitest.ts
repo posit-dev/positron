@@ -5,6 +5,8 @@
 
 /// <reference types="vitest/globals" />
 
+// eslint-disable-next-line local/code-import-patterns -- Semantic DOM queries for the folder-open curtains, a non-React presenter.
+import { within } from '@testing-library/dom';
 import { mainWindow } from '../../../../../base/browser/window.js';
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
@@ -13,10 +15,11 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { IChannel } from '../../../../../base/parts/ipc/common/ipc.js';
+import { toDisposable } from '../../../../../base/common/lifecycle.js';
 import { IMainProcessService } from '../../../../../platform/ipc/common/mainProcessService.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { INativeHostService } from '../../../../../platform/native/common/native.js';
-import { IStorageService, StorageScope } from '../../../../../platform/storage/common/storage.js';
+import { IStorageService, IWillSaveStateEvent, StorageScope, WillSaveStateReason } from '../../../../../platform/storage/common/storage.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
@@ -25,7 +28,7 @@ import { IAuxiliaryWindow, IAuxiliaryWindowService } from '../../../../services/
 import { IAuxiliaryEditorPart, IEditorGroup, IEditorGroupsService, IEditorPart } from '../../../../services/editor/common/editorGroupsService.js';
 import { IHostService } from '../../../../services/host/browser/host.js';
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
-import { ILifecycleService } from '../../../../services/lifecycle/common/lifecycle.js';
+import { BeforeShutdownEvent, ILifecycleService, ShutdownReason, WillShutdownEvent } from '../../../../services/lifecycle/common/lifecycle.js';
 import { IOverlayWebview } from '../../../webview/browser/webview.js';
 import { WebviewInput } from '../../../webviewPanel/browser/webviewEditorInput.js';
 import { CANVAS_MODE_STORAGE_KEY, CANVAS_WEBVIEW_VIEW_TYPE } from '../../common/positronCanvasMode.js';
@@ -111,7 +114,19 @@ describe('PositronCanvasService', () => {
 		parts.set(mainGroup, mainPart);
 
 		const executeCommand = vi.fn(options.executeCommand ?? (() => Promise.resolve(undefined)));
-		const storageService = stubInterface<IStorageService>({ store: vi.fn(), remove: vi.fn() });
+		const willSaveState = ctx.disposables.add(new Emitter<IWillSaveStateEvent>());
+		const storageService = stubInterface<IStorageService>({ store: vi.fn(), remove: vi.fn(), onWillSaveState: willSaveState.event });
+		// The containers the folder open covers: the IDE window's and the
+		// Canvas window's. Attached, so the curtains render like real ones.
+		const mainContainer = document.createElement('div');
+		const auxContainer = document.createElement('div');
+		document.body.append(mainContainer, auxContainer);
+		ctx.disposables.add(toDisposable(() => { mainContainer.remove(); auxContainer.remove(); }));
+		// Shutdown bookkeeping the folder open listens to; `willShutdown` is
+		// live so a test can flip it mid-operation.
+		const beforeShutdown = ctx.disposables.add(new Emitter<BeforeShutdownEvent>());
+		const willShutdown = ctx.disposables.add(new Emitter<WillShutdownEvent>());
+		const lifecycle = { willShutdown: options.willShutdown === true, onBeforeShutdown: beforeShutdown.event, onWillShutdown: willShutdown.event };
 		const mergeGroup = vi.fn().mockReturnValue(true);
 		const setPartHidden = vi.fn();
 		const hideWindow = vi.fn(options.hideWindow ?? (() => Promise.resolve(true)));
@@ -130,7 +145,8 @@ describe('PositronCanvasService', () => {
 		// unless the test says otherwise.
 		ctx.instantiationService.stub(IAuxiliaryWindowService, stubInterface<IAuxiliaryWindowService>({
 			getWindow: () => stubInterface<IAuxiliaryWindow>({
-				createState: () => options.plainAuxWindows === true ? {} : { lockCompact: true }
+				createState: () => options.plainAuxWindows === true ? {} : { lockCompact: true },
+				container: auxContainer
 			})
 		}));
 		ctx.instantiationService.stub(ICommandService, stubInterface<ICommandService>({ executeCommand }));
@@ -138,9 +154,9 @@ describe('PositronCanvasService', () => {
 		ctx.instantiationService.stub(INativeHostService, stubInterface<INativeHostService>({ hideWindow, showWindow }));
 		const focus = vi.fn().mockResolvedValue(undefined);
 		ctx.instantiationService.stub(IHostService, stubInterface<IHostService>({ focus }));
-		ctx.instantiationService.stub(IWorkbenchLayoutService, stubInterface<IWorkbenchLayoutService>({ setPartHidden }));
+		ctx.instantiationService.stub(IWorkbenchLayoutService, stubInterface<IWorkbenchLayoutService>({ setPartHidden, mainContainer }));
 		ctx.instantiationService.stub(IStorageService, storageService);
-		ctx.instantiationService.stub(ILifecycleService, stubInterface<ILifecycleService>({ willShutdown: options.willShutdown === true }));
+		ctx.instantiationService.stub(ILifecycleService, stubInterface<ILifecycleService>(lifecycle));
 		ctx.instantiationService.stub(ILogService, new NullLogService());
 		ctx.instantiationService.stub(IContextKeyService, new MockContextKeyService());
 		// The engagement channel: `acquire` grants unless the test says
@@ -154,8 +170,11 @@ describe('PositronCanvasService', () => {
 
 		const service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronCanvasService));
 
-		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus, createAuxiliaryEditorPart };
+		return { service, mainGroup, auxiliaryPart, executeCommand, storageService, mergeGroup, setPartHidden, hideWindow, showWindow, channelCall, focus, createAuxiliaryEditorPart, willSaveState, beforeShutdown, lifecycle, mainContainer, auxContainer };
 	}
+
+	/** Whether `container` is under a Canvas curtain (a busy status region) right now. */
+	const covered = (container: HTMLElement) => within(container).queryByRole('status') !== null;
 
 	it('coalesces concurrent entries so the assistant is asked for one Canvas', async () => {
 		const created = new DeferredPromise<undefined>();
@@ -789,5 +808,308 @@ describe('PositronCanvasService', () => {
 		// the panel gets a fresh dedicated window instead of being adopted.
 		expect(createAuxiliaryEditorPart).toHaveBeenCalledWith(expect.objectContaining({ lockCompact: true }));
 		expect(plainGroup.moveEditors).toHaveBeenCalled();
+	});
+
+	describe('holdRestoredWindow', () => {
+		it('puts a restored window away and shows it again before the IDE is hidden when entry adopts it as the Canvas window', async () => {
+			const auxiliaryGroup = createGroup([createCanvasEditor()]);
+			const { service, hideWindow, showWindow } = build({ auxiliaryGroups: [auxiliaryGroup] });
+
+			await service.holdRestoredWindow(AUX_WINDOW_ID);
+			expect(hideWindow).toHaveBeenCalledWith({ targetWindowId: AUX_WINDOW_ID });
+
+			expect(await service.enter()).toEqual({ entered: true });
+
+			const shownCanvas = showWindow.mock.calls.findIndex(call => call[0]?.targetWindowId === AUX_WINDOW_ID);
+			const hiddenIde = hideWindow.mock.calls.findIndex(call => call[0]?.targetWindowId === MAIN_WINDOW_ID);
+			expect(shownCanvas).toBeGreaterThanOrEqual(0);
+			expect(showWindow.mock.invocationCallOrder[shownCanvas]).toBeLessThan(hideWindow.mock.invocationCallOrder[hiddenIde]);
+		});
+
+		it('keeps a held detached window on the re-show list when the entry finds it already hidden, so exit brings it back', async () => {
+			const auxiliaryGroup = createGroup([createCanvasEditor()]);
+			const detachedPart = createPart(createGroup(), Event.None, DETACHED_WINDOW_ID);
+			const { service, showWindow } = build({
+				auxiliaryGroups: [auxiliaryGroup],
+				extraParts: [detachedPart],
+				// The hold already put the detached window away: the entry's own hide finds nothing to do.
+				hideWindow: async options => options?.targetWindowId !== DETACHED_WINDOW_ID,
+			});
+
+			await service.holdRestoredWindow(DETACHED_WINDOW_ID);
+			expect(await service.enter()).toEqual({ entered: true });
+			showWindow.mockClear();
+
+			expect(await service.exit()).toBe(true);
+
+			expect(showWindow).toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+		});
+
+		it('re-shows held windows when startup recovery exits without ever presenting', async () => {
+			const { service, showWindow } = build();
+			await service.holdRestoredWindow(DETACHED_WINDOW_ID);
+
+			expect(await service.exit()).toBe(false);
+
+			expect(showWindow).toHaveBeenCalledWith({ targetWindowId: DETACHED_WINDOW_ID });
+		});
+	});
+
+	describe('openFolderWithLoadingPresentation', () => {
+		/**
+		 * A presenting Canvas whose native calls record, in order, into
+		 * `calls` together with whether each container was covered at the
+		 * time. `open` is the caller's preparation-and-open callback.
+		 */
+		async function presentAndBuild(open: (stillPresenting: () => boolean) => Promise<void>, overrides: { hideWindow?: (options?: { targetWindowId?: number }) => Promise<boolean>; showWindow?: (options?: { targetWindowId?: number }) => Promise<void>; onWillDispose?: Event<void> } = {}) {
+			const calls: string[] = [];
+			const auxiliaryGroup = createGroup([createCanvasEditor()]);
+			const world = build({
+				auxiliaryGroups: [auxiliaryGroup],
+				onWillDispose: overrides.onWillDispose,
+				showWindow: async options => {
+					calls.push(`show(${options?.targetWindowId}) main=${covered(world.mainContainer) ? 'covered' : 'bare'} canvas=${covered(world.auxContainer) ? 'covered' : 'bare'}`);
+					await overrides.showWindow?.(options);
+				},
+				hideWindow: async options => {
+					calls.push(`hide(${options?.targetWindowId}) main=${covered(world.mainContainer) ? 'covered' : 'bare'} canvas=${covered(world.auxContainer) ? 'covered' : 'bare'}`);
+					return overrides.hideWindow ? overrides.hideWindow(options) : true;
+				},
+			});
+			expect(await world.service.enter()).toEqual({ entered: true });
+			calls.length = 0;
+			vi.mocked(auxiliaryGroup.focus).mockClear();
+			const openMock = vi.fn(async (stillPresenting: () => boolean) => {
+				calls.push(`open main=${covered(world.mainContainer) ? 'covered' : 'bare'} canvas=${covered(world.auxContainer) ? 'covered' : 'bare'}`);
+				await open(stillPresenting);
+			});
+			return { ...world, calls, auxiliaryGroup, open: openMock };
+		}
+
+		it('covers both windows, shows the covered IDE, puts Canvas away, then runs the open, and leaves the covers up once it is accepted', async () => {
+			const { service, calls, open, mergeGroup, mainContainer, auxContainer, storageService } = await presentAndBuild(async () => { });
+
+			await service.openFolderWithLoadingPresentation(open);
+
+			expect(calls).toEqual([
+				`show(${MAIN_WINDOW_ID}) main=covered canvas=covered`,
+				`hide(${AUX_WINDOW_ID}) main=covered canvas=covered`,
+				'open main=covered canvas=covered',
+			]);
+			// The load is under way: nothing is uncovered, merged, or cleared here.
+			expect({ main: covered(mainContainer), canvas: covered(auxContainer), merged: mergeGroup.mock.calls.length, removed: vi.mocked(storageService.remove).mock.calls.length, active: service.isActive })
+				.toEqual({ main: true, canvas: true, merged: 0, removed: 0, active: true });
+		});
+
+		it('clears the stored Canvas intent inside the shutdown save of the accepted load', async () => {
+			const { service, open, beforeShutdown, willSaveState, storageService } = await presentAndBuild(async () => { });
+			await service.openFolderWithLoadingPresentation(open);
+
+			beforeShutdown.fire({ reason: ShutdownReason.LOAD, veto: () => { } });
+			expect(storageService.remove).not.toHaveBeenCalled();
+			willSaveState.fire({ reason: WillSaveStateReason.SHUTDOWN });
+
+			expect(storageService.remove).toHaveBeenCalledWith(CANVAS_MODE_STORAGE_KEY, StorageScope.WORKSPACE);
+		});
+
+		it.each([
+			['a quit in Canvas', ShutdownReason.QUIT, WillSaveStateReason.SHUTDOWN],
+			['a window close in Canvas', ShutdownReason.CLOSE, WillSaveStateReason.SHUTDOWN],
+			['an ordinary state flush', ShutdownReason.LOAD, WillSaveStateReason.NONE],
+		])('keeps the stored intent for %s', async (_name, shutdownReason, saveReason) => {
+			const { service, open, beforeShutdown, willSaveState, storageService } = await presentAndBuild(async () => { });
+			await service.openFolderWithLoadingPresentation(open);
+
+			beforeShutdown.fire({ reason: shutdownReason, veto: () => { } });
+			willSaveState.fire({ reason: saveReason });
+
+			expect(storageService.remove).not.toHaveBeenCalled();
+		});
+
+		it('a rejected open brings Canvas back: window shown, IDE hidden before it is uncovered, intent kept', async () => {
+			const { service, calls, open, auxiliaryGroup, mainContainer, auxContainer, storageService, beforeShutdown, willSaveState } = await presentAndBuild(async () => {
+				// The unload got as far as asking before it was vetoed.
+				beforeShutdown.fire({ reason: ShutdownReason.LOAD, veto: () => { } });
+				throw new Error('Positron could not leave the current folder.');
+			});
+
+			await expect(service.openFolderWithLoadingPresentation(open)).rejects.toThrow('could not leave');
+
+			expect(calls).toEqual([
+				`show(${MAIN_WINDOW_ID}) main=covered canvas=covered`,
+				`hide(${AUX_WINDOW_ID}) main=covered canvas=covered`,
+				'open main=covered canvas=covered',
+				`show(${AUX_WINDOW_ID}) main=covered canvas=covered`,
+				`hide(${MAIN_WINDOW_ID}) main=covered canvas=covered`,
+			]);
+			expect({ main: covered(mainContainer), canvas: covered(auxContainer), active: service.isActive, focused: auxiliaryGroup.focus }).toMatchObject({ main: false, canvas: false, active: true });
+			expect(auxiliaryGroup.focus).toHaveBeenCalled();
+
+			// The vetoed load's bookkeeping is gone: a later real shutdown save
+			// must not clear the intent on its behalf.
+			willSaveState.fire({ reason: WillSaveStateReason.SHUTDOWN });
+			expect(storageService.remove).not.toHaveBeenCalled();
+		});
+
+		describe('when Canvas goes away during the rollback itself', () => {
+			/** A rejecting open whose rollback pauses inside the native call for `pauseIn`. */
+			async function pausedRollback(pauseIn: 'show-canvas' | 'hide-main', onWillDispose?: Event<void>) {
+				const gate = new DeferredPromise<void>();
+				// Armed only once Canvas is presented: entry itself hides the IDE
+				// window, and the forward path shows it; the rollback's calls are
+				// the first Canvas show and the first IDE hide after that.
+				let armed = false;
+				const world = await presentAndBuild(() => Promise.reject(new Error('vetoed')), {
+					showWindow: async options => {
+						if (armed && pauseIn === 'show-canvas' && options?.targetWindowId === AUX_WINDOW_ID) {
+							await gate.p;
+						}
+					},
+					hideWindow: async options => {
+						if (armed && pauseIn === 'hide-main' && options?.targetWindowId === MAIN_WINDOW_ID) {
+							await gate.p;
+						}
+						return true;
+					},
+					onWillDispose,
+				});
+				armed = true;
+				const failing = world.service.openFolderWithLoadingPresentation(world.open);
+				failing.catch(() => { });
+				const pausedCall = pauseIn === 'show-canvas' ? `show(${AUX_WINDOW_ID})` : `hide(${MAIN_WINDOW_ID})`;
+				await vi.waitFor(() => expect(world.calls.some(call => call.startsWith(pausedCall) && world.calls.indexOf(call) >= 3)).toBe(true));
+				return { ...world, gate, failing };
+			}
+
+			it('a native close while Canvas is being shown leaves the returned IDE visible', async () => {
+				const willDispose = new Emitter<void>();
+				ctx.disposables.add(willDispose);
+				const { gate, failing, calls, mainContainer, auxContainer, service } = await pausedRollback('show-canvas', willDispose.event);
+
+				willDispose.fire();
+				await gate.complete();
+				await expect(failing).rejects.toThrow('vetoed');
+
+				expect(calls.filter(call => call.startsWith(`hide(${MAIN_WINDOW_ID})`))).toEqual([]);
+				expect({ main: covered(mainContainer), canvas: covered(auxContainer), active: service.isActive }).toEqual({ main: false, canvas: false, active: false });
+			});
+
+			it('an exit while Canvas is being shown leaves the IDE the exit revealed visible', async () => {
+				const { gate, failing, calls, mainContainer, service } = await pausedRollback('show-canvas');
+
+				const exited = service.exit();
+				await gate.complete();
+				await expect(failing).rejects.toThrow('vetoed');
+				expect(await exited).toBe(true);
+
+				expect(calls.filter(call => call.startsWith(`hide(${MAIN_WINDOW_ID})`))).toEqual([]);
+				expect({ main: covered(mainContainer), active: service.isActive }).toEqual({ main: false, active: false });
+			});
+
+			it('a close while the IDE is being hidden shows the IDE again', async () => {
+				const willDispose = new Emitter<void>();
+				ctx.disposables.add(willDispose);
+				const { gate, failing, calls, mainContainer, service } = await pausedRollback('hide-main', willDispose.event);
+
+				willDispose.fire();
+				await gate.complete();
+				await expect(failing).rejects.toThrow('vetoed');
+
+				const hideIndex = calls.findIndex(call => call.startsWith(`hide(${MAIN_WINDOW_ID})`));
+				expect(calls.slice(hideIndex + 1).some(call => call.startsWith(`show(${MAIN_WINDOW_ID})`))).toBe(true);
+				expect({ main: covered(mainContainer), active: service.isActive }).toEqual({ main: false, active: false });
+			});
+
+			it('a quit while Canvas is being shown restores nothing and keeps the covers up', async () => {
+				const { gate, failing, calls, lifecycle, mainContainer, auxContainer } = await pausedRollback('show-canvas');
+
+				lifecycle.willShutdown = true;
+				await gate.complete();
+				await expect(failing).rejects.toThrow('vetoed');
+
+				expect(calls.filter(call => call.startsWith(`hide(${MAIN_WINDOW_ID})`))).toEqual([]);
+				expect({ main: covered(mainContainer), canvas: covered(auxContainer) }).toEqual({ main: true, canvas: true });
+			});
+		});
+
+		it('does not count the IDE as put away when the rollback hide found it already gone', async () => {
+			const { service, open, calls } = await presentAndBuild(() => Promise.reject(new Error('vetoed')), {
+				hideWindow: async options => options?.targetWindowId !== MAIN_WINDOW_ID,
+			});
+			await expect(service.openFolderWithLoadingPresentation(open)).rejects.toThrow('vetoed');
+			calls.length = 0;
+
+			// A later exit has nothing of ours to re-show.
+			expect(await service.exit()).toBe(true);
+			expect(calls.filter(call => call.startsWith(`show(${MAIN_WINDOW_ID})`))).toEqual([]);
+		});
+
+		it('tells the preparation that an exit and immediate re-entry retired its Canvas, even though Canvas is active again', async () => {
+			const seen: { before: boolean; after: boolean; active: boolean }[] = [];
+			const world = await presentAndBuild(async stillPresenting => {
+				const before = stillPresenting();
+				await world.service.exit();
+				expect(await world.service.enter()).toEqual({ entered: true });
+				seen.push({ before, after: stillPresenting(), active: world.service.isActive });
+			});
+
+			await world.service.openFolderWithLoadingPresentation(world.open);
+
+			expect(seen).toEqual([{ before: true, after: false, active: true }]);
+		});
+
+		it('accepts a new request after a refused one', async () => {
+			const { service, open } = await presentAndBuild(async () => { });
+			await expect(service.openFolderWithLoadingPresentation(() => Promise.reject(new Error('refused')))).rejects.toThrow('refused');
+			await service.openFolderWithLoadingPresentation(open);
+			expect(open).toHaveBeenCalledTimes(1);
+		});
+
+		it('refuses a second request while one is in flight', async () => {
+			const gate = new DeferredPromise<void>();
+			const { service, open } = await presentAndBuild(() => gate.p);
+			const first = service.openFolderWithLoadingPresentation(open);
+			await expect(service.openFolderWithLoadingPresentation(open)).rejects.toThrow('already switching');
+			await gate.complete();
+			await first;
+			expect(open).toHaveBeenCalledTimes(1);
+		});
+
+		it('refuses when Canvas is not presenting', async () => {
+			const { service } = build();
+			const open = vi.fn(async () => { });
+			await expect(service.openFolderWithLoadingPresentation(open)).rejects.toThrow('not open in its own window');
+			expect(open).not.toHaveBeenCalled();
+		});
+
+		it('a Canvas window closed during preparation cancels the open and leaves the returned IDE uncovered', async () => {
+			const willDispose = new Emitter<void>();
+			ctx.disposables.add(willDispose);
+			const { service, calls, open, mainContainer, auxContainer } = await presentAndBuild(async () => { }, {
+				// The user closes the Canvas window natively while it is being put away.
+				hideWindow: async options => { if (options?.targetWindowId === AUX_WINDOW_ID) { willDispose.fire(); } return true; },
+				onWillDispose: willDispose.event,
+			});
+
+			await expect(service.openFolderWithLoadingPresentation(open)).rejects.toThrow('closed while switching');
+
+			expect(open).not.toHaveBeenCalled();
+			// The window loss returned the IDE (its reveal is the second show);
+			// the open only takes its covers off, and never re-hides the IDE.
+			expect(calls.filter(call => call.startsWith('hide('))).toEqual([`hide(${AUX_WINDOW_ID}) main=covered canvas=covered`]);
+			expect({ main: covered(mainContainer), canvas: covered(auxContainer), active: service.isActive }).toEqual({ main: false, canvas: false, active: false });
+		});
+
+		it('restores nothing when the failure lands during shutdown', async () => {
+			const { service, calls, open, lifecycle, mainContainer } = await presentAndBuild(async () => {
+				lifecycle.willShutdown = true;
+				throw new Error('too late');
+			});
+
+			await expect(service.openFolderWithLoadingPresentation(open)).rejects.toThrow('too late');
+
+			expect(calls.slice(3)).toEqual([]);
+			expect(covered(mainContainer)).toBe(true);
+		});
 	});
 });

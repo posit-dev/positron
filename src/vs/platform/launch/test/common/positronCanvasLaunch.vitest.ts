@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { CanvasLaunchWindowAssigner, ICanvasWindowIdentity, selectCanvasLaunchWindow } from '../../common/positronCanvasLaunch.js';
+import { CanvasLaunchWindowAssigner, canvasWindowSplash, ICanvasWindowIdentity, selectCanvasLaunchWindow } from '../../common/positronCanvasLaunch.js';
 
 const freshEmpty: ICanvasWindowIdentity = { workspaceId: undefined, backupFolder: undefined };
 
@@ -147,5 +147,23 @@ describe('selectCanvasLaunchWindow', () => {
 		const unrelated = {};
 
 		expect(selectCanvasLaunchWindow([used], unrelated)).toBe(used);
+	});
+});
+
+describe('canvasWindowSplash', () => {
+	const cached = { baseTheme: 'vs-dark', colorInfo: { background: '#1e1e1e' }, zoomLevel: 1, layoutInfo: { sideBarWidth: 300, titleBarHeight: 35 } };
+
+	it('drops the layout for a Canvas window without touching the cached splash', () => {
+		const before = structuredClone(cached);
+		const splash = canvasWindowSplash(cached, true);
+		expect(splash).toEqual({ ...before, layoutInfo: undefined });
+		expect(splash).not.toBe(cached);
+		expect(cached).toEqual(before);
+	});
+
+	it('hands ordinary windows the cached splash as is', () => {
+		expect(canvasWindowSplash(cached, undefined)).toBe(cached);
+		expect(canvasWindowSplash(cached, false)).toBe(cached);
+		expect(canvasWindowSplash(undefined, true)).toBeUndefined();
 	});
 });
