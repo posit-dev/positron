@@ -3,10 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// modern-screenshot is bundled as an ESM package dependency and loaded through
-// the workbench's import map (see build/npm/build-esm-package-dependencies.ts).
-// eslint-disable-next-line local/code-import-patterns, local/code-amd-node-module
-import { createContext, destroyContext, domToCanvas } from 'modern-screenshot';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 
 /**
@@ -84,6 +80,13 @@ async function encodePng(
  * @param targetWindow The window to create canvases in.
  */
 export async function captureDomScreenshot(appWindow: Window, targetWindow: Window): Promise<IViewerCapture> {
+	// modern-screenshot is an ESM package dependency, resolved through the
+	// workbench's import map (see build/npm/build-esm-package-dependencies.ts).
+	// It's imported here, on first use, so Desktop, which takes native
+	// screenshots, never loads it.
+	// eslint-disable-next-line local/code-amd-node-module
+	const { createContext, destroyContext, domToCanvas } = await import('modern-screenshot');
+
 	// Render just the viewport: restoreScrollPosition shifts every scrolled
 	// element's content, the page's too, so what's on screen lands at the top
 	// left (cropping a whole-page render at the scroll position would shift it
