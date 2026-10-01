@@ -632,11 +632,22 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             return registeredMetadata;
         }
 
-        const interpreter = await resolveInterpreterWithRetry(this.interpreterService, resolvePath);
+        // The retry falls back to a full interpreter refresh, which
+        // definitions-only discovery exists to avoid.
+        const interpreter = isDefinitionsOnlyDiscovery()
+            ? await this.interpreterService.getInterpreterDetails(resolvePath)
+            : await resolveInterpreterWithRetry(this.interpreterService, resolvePath);
         if (!interpreter) {
             throw new Error(`Failed to resolve interpreter ${resolvePath}; the environment may no longer be usable`);
         }
-        return createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+        // Keep a definition's path as written, as discovery does, so its
+        // variants still match it.
+        const definitionPath = getInterpreterDefinitionPaths().includes(resolvePath);
+        return createPythonRuntimeMetadata(
+            definitionPath ? { ...interpreter, path: resolvePath } : interpreter,
+            this.serviceContainer,
+            false,
+        );
     }
 
     /**
@@ -707,14 +718,14 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                     traceWarn(`Ignoring Python interpreter ${pythonPath} from interpreters.definitions: could not resolve it`);
                     continue;
                 }
-                const runtime = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
-                // Definitions match on the exact runtime path.
-                if (runtime.runtimePath !== pythonPath) {
-                    traceWarn(
-                        `Ignoring Python interpreter ${pythonPath} from interpreters.definitions: it resolved to ${runtime.runtimePath}; use that path in the definition`,
-                    );
-                    continue;
-                }
+                // Definitions match on the exact runtime path, so keep the path
+                // as written even if it resolves to another one (e.g. a python3
+                // symlink to python).
+                const runtime = await createPythonRuntimeMetadata(
+                    { ...interpreter, path: pythonPath },
+                    this.serviceContainer,
+                    false,
+                );
                 yield { ...runtime, definitionOnly: true };
             } catch (err) {
                 traceWarn(`Ignoring Python interpreter ${pythonPath} from interpreters.definitions: ${err}`);

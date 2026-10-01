@@ -1370,6 +1370,46 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Get a function that resolves the environment variables of the
+	 * interpreter definition a runtime is a variant of. It reads the setting
+	 * each time it is called, so a restart applies edits to the definition, and
+	 * fails if the definition has been removed.
+	 *
+	 * @param runtimeMetadata The metadata of the session's runtime
+	 * @param sessionId The ID of the session
+	 * @returns The resolver, or undefined if the runtime is not a variant
+	 */
+	private definitionEnvResolver(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionId: string):
+		((kernelEnv: NodeJS.ProcessEnv | undefined) => Promise<Record<string, string>>) | undefined {
+		const label = runtimeMetadata.interpreterDefinition;
+		if (!label) {
+			return undefined;
+		}
+		return async kernelEnv => {
+			const definition = findInterpreterDefinition(
+				vscode.workspace.getConfiguration('interpreters').get('definitions'),
+				runtimeMetadata.languageId,
+				label);
+			if (!definition) {
+				throw new Error(vscode.l10n.t(
+					'The interpreter "{0}" is no longer defined in the interpreters.definitions setting.',
+					label));
+			}
+			const env = await this.resolveDefinitionEnv(definition, kernelEnv);
+			this._definitionEnvBySessionId.set(sessionId, env);
+			// Bring terminals up to date if a restart changed the variables.
+			positron.runtime.getForegroundSession().then(async foreground => {
+				if (foreground?.metadata.sessionId === sessionId) {
+					await this.updateTerminalEnvironment(sessionId);
+				}
+			}).then(undefined, err => {
+				this.log(`Failed to update terminal environment: ${summarizeError(err)}`);
+			});
+			return env;
+		};
+	}
+
+	/**
 	 * Set the terminal environment variables for the foreground session: the
 	 * variables its interpreter definition sets, or none if it has no
 	 * definition.
@@ -1377,9 +1417,14 @@ export class KCApi implements PositronSupervisorApi {
 	 * @param sessionId The ID of the foreground session, if any
 	 */
 	private async updateTerminalEnvironment(sessionId: string | undefined): Promise<void> {
+		const session = sessionId ? await positron.runtime.getSession(sessionId) : undefined;
+		// Only consoles drive the terminal environment; a notebook coming to
+		// the foreground leaves the console's variables in place.
+		if (session && session.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
+			return;
+		}
 		const update = ++this._terminalEnvironmentUpdates;
 		let env: Record<string, string> = {};
-		const session = sessionId ? await positron.runtime.getSession(sessionId) : undefined;
 		const label = session?.runtimeMetadata.interpreterDefinition;
 		if (sessionId && session && label) {
 			let definitionEnv = this._definitionEnvBySessionId.get(sessionId);
@@ -1416,7 +1461,10 @@ export class KCApi implements PositronSupervisorApi {
 			prepend: vscode.EnvironmentVariableMutatorType.Prepend,
 			append: vscode.EnvironmentVariableMutatorType.Append,
 		};
-		const options = { applyAtProcessCreation: true, applyAtShellIntegration: true };
+		// Terminals only: kernels and other spawned processes take
+		// ProcessCreation contributions, and must not inherit another
+		// session's definition (as with R's module environment).
+		const options = { applyAtProcessCreation: false, applyAtShellIntegration: true };
 		for (const [name, value] of Object.entries(env)) {
 			const mutation = getTerminalMutation(value, process.env[name]);
 			// Skip variables that are already set, to avoid needlessly marking
@@ -1448,23 +1496,6 @@ export class KCApi implements PositronSupervisorApi {
 		dynState: positron.LanguageRuntimeDynState,
 		_extra?: JupyterKernelExtra | undefined): Promise<JupyterLanguageRuntimeSession> {
 
-		// Apply the interpreters.definitions entry this runtime is a variant of.
-		// Read at session start so edits to the setting apply without a reload.
-		if (runtimeMetadata.interpreterDefinition) {
-			const definition = findInterpreterDefinition(
-				vscode.workspace.getConfiguration('interpreters').get('definitions'),
-				runtimeMetadata.languageId,
-				runtimeMetadata.interpreterDefinition);
-			if (!definition) {
-				throw new Error(vscode.l10n.t(
-					'The interpreter "{0}" is no longer defined in the interpreters.definitions setting.',
-					runtimeMetadata.interpreterDefinition));
-			}
-			const definitionEnv = await this.resolveDefinitionEnv(definition, kernel.env);
-			this._definitionEnvBySessionId.set(sessionMetadata.sessionId, definitionEnv);
-			kernel = { ...kernel, env: { ...kernel.env, ...definitionEnv } };
-		}
-
 		// Ensure the server is started before trying to create the session
 		await this.ensureStarted();
 
@@ -1480,6 +1511,10 @@ export class KCApi implements PositronSupervisorApi {
 			},
 			true,
 			_extra);
+
+		// Apply the interpreters.definitions entry this runtime is a variant
+		// of, read at every start and restart so edits apply without a reload.
+		session.definitionEnvResolver = this.definitionEnvResolver(runtimeMetadata, sessionMetadata.sessionId);
 
 		this.log(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
@@ -1793,6 +1828,7 @@ export class KCApi implements PositronSupervisorApi {
 					continuationPrompt: kcSession.continuation_prompt,
 					inputPrompt: kcSession.input_prompt
 				}, this._api.api, this._api.transport, async () => { await this.testServerExited() }, false);
+				session.definitionEnvResolver = this.definitionEnvResolver(runtimeMetadata, sessionMetadata.sessionId);
 
 				// Restore the session from the server
 				try {

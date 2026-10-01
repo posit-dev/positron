@@ -165,6 +165,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _kernelSpec: JupyterKernelSpec | undefined;
 
 	/**
+	 * Resolves the environment variables of the interpreter definition this
+	 * session's runtime is a variant of, given the kernel spec's variables.
+	 * Called on start and on every restart, so edits to the definition apply.
+	 */
+	definitionEnvResolver: ((kernelEnv: NodeJS.ProcessEnv | undefined) => Promise<Record<string, string>>) | undefined;
+
+	/** The variables the interpreter definition set at the last start or restart */
+	private _definitionEnv: Record<string, string> = {};
+
+	/**
 	 * The channel to which output for this specific kernel is logged, if any
 	 */
 	private readonly _kernelChannel: OutputChannelFormatted;
@@ -389,6 +399,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					varActions.push(action);
 				}
 			}
+		}
+
+		// Last, the interpreter definition's variables, which take precedence
+		// over the kernel spec's. Resolved fresh each time so a restart picks
+		// up edits to the definition.
+		if (this.definitionEnvResolver) {
+			this._definitionEnv = await this.definitionEnvResolver(specEnv);
+		}
+		for (const [name, value] of Object.entries(this._definitionEnv)) {
+			varActions.push({ action: VarActionType.Replace, name, value });
 		}
 
 		return varActions;
@@ -2104,7 +2124,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 			return {
 				argv: this._kernelSpec.argv,
-				env,
+				env: { ...env, ...this._definitionEnv },
 				startupCommand: this._kernelSpec.startup_command,
 				interruptMode: this._kernelSpec.interrupt_mode,
 				protocolVersion: this._kernelSpec.kernel_protocol_version,
