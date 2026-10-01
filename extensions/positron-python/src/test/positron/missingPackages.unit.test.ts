@@ -171,7 +171,7 @@ suite('listMissingPythonPackages', () => {
             const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
             const manager = makeManager({});
 
-            const project = path.resolve('project');
+            const project = vscode.Uri.file(path.resolve('project')).fsPath;
             const notebooks = path.join(project, 'notebooks');
             const fileUri = vscode.Uri.file(path.join(notebooks, 'analysis.qmd'));
             when(mockedVSCodeNamespaces.workspace!.getWorkspaceFolder(anything())).thenReturn(
