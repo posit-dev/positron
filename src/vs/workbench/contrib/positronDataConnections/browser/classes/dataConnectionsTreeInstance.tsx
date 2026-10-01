@@ -172,6 +172,22 @@ const wrapDto = (
 });
 
 /**
+ * Where a recorded path led (see DataConnectionsTreeInstance._lookUpPath).
+ */
+interface PathLookup {
+	// The rows reached, from the connection's entry down to the deepest one the path still leads
+	// to, groups the path left out included.
+	readonly chain: readonly TreeNode<DataConnectionNode>[];
+
+	// Whether the path led all the way: the last row in the chain is the node it names.
+	readonly found: boolean;
+
+	// When a load on the way failed, the error and the row whose children failed to load.
+	readonly error?: unknown;
+	readonly failedId?: string;
+}
+
+/**
  * DataConnectionsTreeInstance. Backs the Data Connections panel.
  *
  * Roots are one entry per saved profile, joined with its live instance (if connected). Expanding
@@ -275,10 +291,13 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * An entry the user already has open is left expanded as it is; the selection still moves to
 	 * it, which is the part that answers "where did my connection go".
 	 *
-	 * A request with a node path goes on down to that node (see _revealNodePath) and selects it
-	 * instead, and with openDetails opens its details too. With preserveFocus the tree leaves focus
-	 * where it is -- a breadcrumb in a details editor, where the user is reading -- instead of taking
-	 * it.
+	 * A request with a node path goes on down to that node (see _lookUpPath) and selects it
+	 * instead, opening just the way to it, and with openDetails opens its details too. When the path
+	 * no longer leads all the way -- something was renamed or dropped since it was recorded -- the
+	 * deepest node it still leads to is opened and selected instead, and when a load on the way
+	 * failed, that node is left as the failure left it and reported. With preserveFocus the tree
+	 * leaves focus where it is -- a breadcrumb in a details editor, where the user is reading --
+	 * instead of taking it.
 	 */
 	private async _revealRequestedConnection(): Promise<void> {
 		const request = this._service.takePendingRevealConnection();
@@ -287,27 +306,35 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		}
 		const { profileId, nodePath = [], openDetails = false, preserveFocus = false } = request;
 
-		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
-		// tree through a roots refresh, and a tree built just now has no rows at all until its
-		// first refresh. Either way, one refresh puts the saved profiles on screen.
-		const id = entryNodeId(profileId);
-		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
-			await this.refresh();
-		}
-
-		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
+		const entry = await this._entryNode(profileId);
+		if (entry === undefined) {
 			return;
 		}
 
 		// Expanding an entry is what opens its connection, so this is the "open" in the request.
-		// Failures surface on the row itself, the same as a user-driven expand.
-		if (!this.isExpanded(id)) {
-			await this.expand(id);
+		// Failures surface on the row itself, the same as a user-driven expand, and leave nothing
+		// below it to look for.
+		if (!this.isExpanded(entry.id)) {
+			await this.expand(entry.id);
+		}
+		const lookup: PathLookup = this.getError(entry.id) === undefined
+			? await this._lookUpPath(entry, nodePath)
+			: { chain: [entry], found: false };
+
+		// Open the way to the node -- or, when the path stops short, to and including the deepest
+		// node it reached, which is where it would have gone on -- leaving a node whose children
+		// failed to load as the failure left it: collapsed, showing the error.
+		const toOpen = lookup.found ? lookup.chain.slice(0, -1) : lookup.chain.filter(node => node.id !== lookup.failedId);
+		for (const node of toOpen) {
+			await this.expand(node.id);
+		}
+		if (lookup.failedId !== undefined) {
+			this._notifyIfFailed(lookup.failedId);
 		}
 
 		// Located after the expands, which insert the rows each node holds and so move everything
 		// below it.
-		const targetId = nodePath.length > 0 ? await this._revealNodePath(id, nodePath) : id;
+		const targetId = lookup.chain[lookup.chain.length - 1].id;
 		const rowIndex = this.visibleNodes.findIndex(visible => visible.node.id === targetId);
 		if (rowIndex === -1) {
 			return;
@@ -336,16 +363,17 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * holds the node's path rather than its live handle. See IDataConnectionNodeOpener.
 	 *
 	 * Opening a node's data is a request to see the data, not to go to the node, so the tree finds
-	 * the node without showing it: the children of each node on the way are loaded, as expanding it
-	 * would load them -- connecting, if need be, since the data comes through the connection -- but
-	 * nothing is expanded, so nothing on screen moves and the selection and focus stay where they
-	 * are. A connection opened just for this is handed to the Data Explorer, which keeps it open
-	 * while the Data Explorer is, or lets it close straight away if the preview failed: the tree
-	 * holds a connection open only while it shows what the connection holds.
+	 * the node without showing it (see _lookUpPath): nothing is expanded, so nothing on screen moves
+	 * and the selection and focus stay where they are. A connection opened just for this is handed to
+	 * the Data Explorer, which keeps it open while the Data Explorer is, or lets it close straight
+	 * away if the preview failed: the tree holds a connection open only while it shows what the
+	 * connection holds.
 	 *
-	 * Only the node itself is opened. When a load on the way fails, that failure is reported, as the
-	 * reason; otherwise, when the path no longer leads to the node -- something was renamed or
-	 * dropped since the path was recorded, or the connection was removed -- that is reported.
+	 * Only the node itself is opened, and a failure is reported for what it is: a load on the way
+	 * that failed, as the reason -- leaving no error behind on a row the user hasn't opened, since the
+	 * report is about the node -- or a node that can no longer be previewed, or one the path no
+	 * longer leads to (something was renamed or dropped since it was recorded, or the connection was
+	 * removed).
 	 * @param profileId The id of the connection's profile.
 	 * @param nodePath The reload key of each row on the way down from the connection to the node.
 	 * @param name The node's name, for reporting a failure.
@@ -353,12 +381,22 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	async openInDataExplorer(profileId: string, nodePath: readonly string[], name: string): Promise<void> {
 		const wasConnected = this._service.getInstanceForProfile(profileId) !== undefined;
 		try {
-			const found = await this._findNodeByPath(profileId, nodePath);
-			const data = found.node?.data;
+			const entry = await this._entryNode(profileId);
+			const lookup = entry === undefined ? undefined : await this._lookUpPath(entry, nodePath);
+			const data = lookup?.found ? lookup.chain[lookup.chain.length - 1].data : undefined;
 			if (data?.kind === 'dto' && canPreview(data.dto)) {
 				await openNodeInDataExplorer(this._service, this._notificationService, data.handle, data.dto);
-			} else if (found.error !== undefined) {
-				reportOpenInDataExplorerFailed(this._notificationService, name, found.error);
+			} else if (data?.kind === 'dto') {
+				this._notificationService.error(localize(
+					'positron.dataConnections.openInDataExplorerCannotPreview',
+					"Could not open '{0}' in the Data Explorer: it can no longer be previewed.",
+					name
+				));
+			} else if (lookup?.error !== undefined) {
+				reportOpenInDataExplorerFailed(this._notificationService, name, lookup.error);
+				if (lookup.failedId !== undefined && !this.isExpanded(lookup.failedId)) {
+					this.dropLoadedChildren(lookup.failedId);
+				}
 			} else {
 				this._notificationService.error(localize(
 					'positron.dataConnections.openInDataExplorerNotFound',
@@ -374,144 +412,81 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	}
 
 	/**
-	 * Finds the node at a path below a connection without changing what the tree shows: the
-	 * children of each node on the way are loaded if they aren't already, but nothing is expanded.
-	 * The path is matched as a reveal matches it (see _findChildByReloadKey).
+	 * Gets a connection's entry row. The entry may not be among the rows yet: a connection saved a
+	 * moment ago reaches this tree through a roots refresh, and a tree built just now has no rows at
+	 * all until its first refresh. Either way, one refresh puts the saved profiles on screen.
 	 * @param profileId The id of the connection's profile.
-	 * @param nodePath The reload key of each row on the way down from the connection to the node.
-	 * @returns The node, when the path still leads to it; otherwise the error a load on the way
-	 * failed with, if one did.
+	 * @returns The entry, or undefined when the profile isn't in the tree.
 	 */
-	private async _findNodeByPath(profileId: string, nodePath: readonly string[]): Promise<{ node?: TreeNode<DataConnectionNode>; error?: unknown }> {
-		// The entry may not be among the rows yet, as for a reveal (see _revealRequestedConnection).
+	private async _entryNode(profileId: string): Promise<TreeNode<DataConnectionNode> | undefined> {
 		const id = entryNodeId(profileId);
 		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
 			await this.refresh();
 		}
+		return this.visibleNodes.find(visible => visible.node.id === id)?.node;
+	}
 
-		let node = this.visibleNodes.find(visible => visible.node.id === id)?.node;
-		if (node === undefined) {
-			return {};
-		}
+	/**
+	 * Follows a path -- the reload key of each row on the way, recorded from the tree -- down from a
+	 * connection's entry, without changing what the tree shows: the children of each node on the
+	 * way are loaded if they aren't already, as expanding the node would load them (connecting, for
+	 * the entry), but nothing is expanded. The one matcher for recorded paths, for a reveal and for
+	 * opening a node's data alike.
+	 * @param entry The connection's entry.
+	 * @param nodePath The reload keys of the nodes on the way down; empty for the connection itself.
+	 */
+	private async _lookUpPath(entry: TreeNode<DataConnectionNode>, nodePath: readonly string[]): Promise<PathLookup> {
+		const chain = [entry];
 		for (const key of nodePath) {
-			const found = await this._findLoadedChildByReloadKey(node, key);
-			if (found.node === undefined) {
-				return found;
+			const found = await this._findLoadedChildByReloadKey(chain[chain.length - 1], key);
+			if (found.path === undefined) {
+				return { chain, found: false, error: found.error, failedId: found.failedId };
 			}
-			node = found.node;
+			chain.push(...found.path);
 		}
-		return { node };
+		return { chain, found: true };
 	}
 
 	/**
 	 * Finds the child with a reload key below a node, loading the node's children if need be but
-	 * expanding nothing. Like _findChildByReloadKey, it looks inside the groups among the children
-	 * when the child isn't one of them. A load that fails stops the search below that node: it is
-	 * not tried a second time.
+	 * expanding nothing. Paths normally name every row on the way, group rows included, so the node
+	 * is a direct child; failing that -- a path recorded without its group rows, or a tree regrouped
+	 * since -- rows that only group others ("Tables", "Metrics") are looked inside. A load that fails
+	 * stops the search below that node: it is not tried a second time.
 	 * @param parent The node to look under.
 	 * @param key The reload key of the child to find.
-	 * @returns The child, if it is there; otherwise the error a load failed with, if one did.
+	 * @returns The rows from just below the parent down to the child -- the child alone, or the
+	 * groups it was found inside and then the child -- if it is there; otherwise the first load
+	 * that failed, if one did.
 	 */
-	private async _findLoadedChildByReloadKey(parent: TreeNode<DataConnectionNode>, key: string): Promise<{ node?: TreeNode<DataConnectionNode>; error?: unknown }> {
+	private async _findLoadedChildByReloadKey(
+		parent: TreeNode<DataConnectionNode>,
+		key: string
+	): Promise<{ path?: TreeNode<DataConnectionNode>[]; error?: unknown; failedId?: string }> {
 		const children = await this.loadChildren(parent.id);
 		if (children === undefined) {
-			return { error: this.getError(parent.id) };
+			const error = this.getError(parent.id);
+			return error === undefined ? {} : { error, failedId: parent.id };
 		}
 
 		const match = children.find(child => reloadKey(child.data) === key);
 		if (match) {
-			return { node: match };
+			return { path: [match] };
 		}
 
-		let error: unknown;
+		let failure: { error?: unknown; failedId?: string } = {};
 		for (const child of children) {
 			if (child.data.kind === 'dto' && CONTAINER_ONLY_KINDS.has(child.data.dto.kind) && child.data.dto.hasGetChildren) {
 				const found = await this._findLoadedChildByReloadKey(child, key);
-				if (found.node !== undefined) {
-					return found;
+				if (found.path !== undefined) {
+					return { path: [child, ...found.path] };
 				}
-				error ??= found.error;
-			}
-		}
-		return { error };
-	}
-
-	/**
-	 * Opens the tree down from a node to a descendant named by its path -- the reload key of each
-	 * row on the way -- and returns the id of the deepest node reached. That is the target itself unless the tree no longer matches the path
-	 * (something was renamed or dropped since the path was recorded), in which case it is as close
-	 * as the tree still gets.
-	 * @param startId The id of the node the path starts below (a connection's entry).
-	 * @param nodePath The reload keys of the nodes on the way down.
-	 */
-	private async _revealNodePath(startId: string, nodePath: readonly string[]): Promise<string> {
-		let currentId = startId;
-		for (const key of nodePath) {
-			const childId = await this._findChildByReloadKey(currentId, key);
-			if (childId === undefined) {
-				break;
-			}
-			currentId = childId;
-		}
-		return currentId;
-	}
-
-	/**
-	 * Finds the node with the given reload key among a node's children, expanding the node first if
-	 * need be. Paths normally name every row on the way, group rows included, so the node is a
-	 * direct child; failing that -- a path recorded without its group rows, or a tree regrouped since
-	 * -- rows that only group others ("Tables", "Metrics") are looked inside, and a group opened only
-	 * to look, where the node wasn't, is closed again so the search leaves no trace but the way to
-	 * the node.
-	 * @param parentId The id of the node to look under.
-	 * @param key The reload key of the node to find.
-	 * @returns The node's id, or undefined if it isn't there.
-	 */
-	private async _findChildByReloadKey(parentId: string, key: string): Promise<string | undefined> {
-		const wasExpanded = this.isExpanded(parentId);
-		if (!wasExpanded) {
-			await this.expand(parentId);
-		}
-
-		const children = this._visibleChildren(parentId);
-		const match = children.find(child => reloadKey(child.node.data) === key);
-		if (match) {
-			return match.node.id;
-		}
-
-		for (const child of children) {
-			const data = child.node.data;
-			if (data.kind === 'dto' && CONTAINER_ONLY_KINDS.has(data.dto.kind) && data.dto.hasGetChildren) {
-				const groupWasExpanded = this.isExpanded(child.node.id);
-				const found = await this._findChildByReloadKey(child.node.id, key);
-				if (found !== undefined) {
-					return found;
-				}
-				if (!groupWasExpanded) {
-					this.collapse(child.node.id);
+				if (failure.error === undefined && found.error !== undefined) {
+					failure = found;
 				}
 			}
 		}
-		return undefined;
-	}
-
-	/**
-	 * Gets the rows directly under an expanded node.
-	 * @param parentId The id of the node.
-	 */
-	private _visibleChildren(parentId: string): VisibleNode<DataConnectionNode>[] {
-		const parentIndex = this.visibleNodes.findIndex(visible => visible.node.id === parentId);
-		if (parentIndex === -1) {
-			return [];
-		}
-		const parentDepth = this.visibleNodes[parentIndex].depth;
-		const children: VisibleNode<DataConnectionNode>[] = [];
-		for (let index = parentIndex + 1; index < this.visibleNodes.length && this.visibleNodes[index].depth > parentDepth; index++) {
-			if (this.visibleNodes[index].depth === parentDepth + 1) {
-				children.push(this.visibleNodes[index]);
-			}
-		}
-		return children;
+		return failure;
 	}
 
 	/**

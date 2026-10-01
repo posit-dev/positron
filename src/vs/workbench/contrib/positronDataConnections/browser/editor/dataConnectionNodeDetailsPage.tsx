@@ -21,6 +21,7 @@ import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../positronDataConnectionsCon
 import { nodeReloadKey } from '../classes/dataConnectionNodeKey.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { raceTimeout } from '../../../../../base/common/async.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PositronActionBarHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { kindIcon } from '../components/dataConnectionNodeRow.js';
@@ -32,6 +33,14 @@ import { IDataConnectionNodeDetailsItemDTO, IDataConnectionNodeDetailsSectionDTO
  * top-level groups are h2, so this leaves three levels of nesting before headings stop shrinking.
  */
 const MAX_HEADING_LEVEL = 4;
+
+/**
+ * How long Open in Data Explorer shows its open as under way before giving the press back. Long
+ * enough for the connection to open first, browser sign-in and all; an open that hasn't settled by
+ * then -- one stuck on a connection whose extension host has gone, say -- shouldn't leave the button
+ * dead, and one that is only slow still opens its Data Explorer when it finishes.
+ */
+const OPEN_IN_DATA_EXPLORER_WAIT_MS = 60_000;
 
 /**
  * The item kinds that stand for a value of some data type -- a column, or a semantic view's
@@ -319,12 +328,13 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 	);
 
 	// Opens the node's data. The page holds a snapshot, not the node's handle -- that dies when the
-	// tree refreshes -- so the pane's tree finds the node by its path and opens it, puts itself back
-	// as it was, and reports any failure. Opening data is not showing the node, so the pane is opened
-	// only when it has no tree to do the finding -- it hasn't been opened in this window, or was
-	// closed since -- and then without focus. While it is under way the button says so, and a press
-	// is ignored, as the row's are. A ref as well as state: a double-click's second press arrives
-	// before React re-renders, so state would still read false.
+	// tree refreshes -- so the pane's tree finds the node by its path, without changing what it
+	// shows, opens it, and reports any failure. Opening data is not showing the node, so the pane is
+	// opened only when it has no tree to do the finding -- it hasn't been opened in this window, or
+	// was closed since -- and then without focus. While the open is under way the button says so,
+	// and a press is ignored, as the row's are, for OPEN_IN_DATA_EXPLORER_WAIT_MS at most. A ref as
+	// well as state: a double-click's second press arrives before React re-renders, so state would
+	// still read false.
 	const openingRef = useRef(false);
 	const [opening, setOpening] = useState(false);
 	const showOpening = useBusyIndicator(opening);
@@ -338,8 +348,12 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 			if (!positronDataConnectionsService.hasNodeOpener()) {
 				await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
 			}
-			const opened = await positronDataConnectionsService.openNodeInDataExplorer(input.target.profileId, input.target.nodePath, input.target.name);
-			if (!opened) {
+			// Undefined when the wait ran out, with the open still under way.
+			const opened = await raceTimeout(
+				positronDataConnectionsService.openNodeInDataExplorer(input.target.profileId, input.target.nodePath, input.target.name),
+				OPEN_IN_DATA_EXPLORER_WAIT_MS
+			);
+			if (opened === false) {
 				notificationService.error(localize(
 					'positron.dataConnections.nodeDetails.openInDataExplorerNoPane',
 					"Could not open '{0}' in the Data Explorer: the Data Connections pane is not available.",
