@@ -70,6 +70,7 @@ describe('DataConnectionNodeRow', () => {
 				stale={stale}
 				onMenuOpening={onMenuOpening}
 				onOpenDetails={vi.fn(async () => { })}
+				onOpeningDataExplorer={vi.fn()}
 				onPinDetails={vi.fn(async () => { })}
 				onRefresh={onRefresh}
 			/>
@@ -234,7 +235,7 @@ describe('DataConnectionNodeRow', () => {
 		expect(call.anchorPoint).toEqual({ clientX: expect.any(Number), clientY: expect.any(Number) });
 	});
 	describe('details', () => {
-		function renderRow(dto: IDataConnectionNodeDTO, onOpenDetails: (pinned: boolean) => Promise<void>, onPinDetails: () => Promise<void> = vi.fn(async () => { })) {
+		function renderRow(dto: IDataConnectionNodeDTO, onOpenDetails: (pinned: boolean) => Promise<void>, onPinDetails: () => Promise<void> = vi.fn(async () => { }), onOpeningDataExplorer: () => void = vi.fn()) {
 			rtl.render(
 				<DataConnectionNodeRow
 					dto={dto}
@@ -242,6 +243,7 @@ describe('DataConnectionNodeRow', () => {
 					stale={false}
 					onMenuOpening={() => ({ dispose: () => { } })}
 					onOpenDetails={onOpenDetails}
+					onOpeningDataExplorer={onOpeningDataExplorer}
 					onPinDetails={onPinDetails}
 					onRefresh={vi.fn()}
 				/>
@@ -270,11 +272,18 @@ describe('DataConnectionNodeRow', () => {
 
 		it('opens a previewable node\'s data on double-click, its first click having shown its details', async () => {
 			const onOpenDetails = vi.fn(async (_pinned: boolean) => { });
-			const { rowText, user } = renderRow(createDto({ kind: 'table', name: 'ORDERS', nodeHandle: 7, hasPreview: true, hasDetails: true }), onOpenDetails);
+			const onOpeningDataExplorer = vi.fn();
+			const { rowText, user } = renderRow(createDto({ kind: 'table', name: 'ORDERS', nodeHandle: 7, hasPreview: true, hasDetails: true }), onOpenDetails, undefined, onOpeningDataExplorer);
 
 			await user.dblClick(rowText);
 
-			expect({ details: onOpenDetails.mock.calls, previewed: previewNode.mock.calls.map(call => call[1]) }).toEqual({ details: [[false]], previewed: [7] });
+			// The tree is told before the data opens, so the first click's details, if still on their
+			// way, don't open over the Data Explorer.
+			expect({
+				details: onOpenDetails.mock.calls,
+				droppedPendingDetails: onOpeningDataExplorer.mock.calls.length,
+				previewed: previewNode.mock.calls.map(call => call[1]),
+			}).toEqual({ details: [[false]], droppedPendingDetails: 1, previewed: [7] });
 		});
 
 		it('keeps the details open on double-click for a node whose driver made details its default action', async () => {

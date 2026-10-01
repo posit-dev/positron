@@ -357,6 +357,39 @@ describe('DataConnectionsTreeInstance', () => {
 		expect(opened).toEqual(['NET_REVENUE']);
 	});
 
+	it('drops a preview-mode details result when the row opens its data meanwhile', async () => {
+		// A double-click on a table: its first click starts fetching the details, which are slow; the
+		// double-click opens the Data Explorer before they arrive.
+		let releaseDetails!: () => void;
+		const nodeGetDetails = vi.fn(() => new Promise<IDataConnectionNodeDetailsDTO>(resolve => { releaseDetails = () => resolve({ description: 'Table', sections: [] }); }));
+		const openEditor = vi.fn(async (input: DataConnectionNodeDetailsEditorInput) => {
+			ctx.disposables.add(input);
+			return undefined;
+		});
+		const { tree } = createTreeOverNodes(
+			[nodeDto({ nodeHandle: 1, name: 'ORDERS', kind: 'table', hasGetChildren: false, hasPreview: true, hasDetails: true })],
+			() => [],
+			[profile],
+			false,
+			{
+				nodeGetDetails,
+				// openEditor is overloaded for every kind of input; the tree only passes this one.
+				editorService: stubInterface<IEditorService>({ editors: [], openEditor: openEditor as unknown as IEditorService['openEditor'] }),
+			}
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		const row = tree.visibleNodes.findIndex(visible => visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'ORDERS');
+
+		const details = tree.openNodeDetails(row, false);
+		tree.dropPendingDetails();
+		releaseDetails();
+		await details;
+
+		// Details tabs open active, so arriving now they would cover the Data Explorer; they're dropped.
+		expect(openEditor).not.toHaveBeenCalled();
+	});
+
 	it('breadcrumbs a namespace group holding one child into that child, and opens it', async () => {
 		// connection > Schemas > public > Tables. Only one schema, so "Schemas" is ceremony. Opted
 		// into showing that schema, since the tree drops it entirely by default -- see the elide
