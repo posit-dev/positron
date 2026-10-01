@@ -14,21 +14,20 @@ import { SubstitutionResult, substituteWorkspaceFolder } from './setting-variabl
  * workspace folder, then expands `~` and normalizes the result. Paths with a variable that
  * cannot be resolved, and relative paths, are ignored.
  * @param value The path from the setting
- * @param description Names the path in log messages, e.g. 'R custom binary path'
- * @param log Whether to log why a path is ignored
+ * @param description Names the path in log messages, e.g. 'R custom binary path'. If omitted, ignored paths are not logged.
  * @returns The absolute path, or undefined if the path is ignored
  */
-function resolveSettingPath(value: string, description: string, log = true): string | undefined {
+function resolveSettingPath(value: string, description?: string): string | undefined {
 	const result = substituteWorkspaceFolder(value, vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
 	if (result.resolved === false) {
-		if (log) {
+		if (description) {
 			LOGGER.info(`${description} ${value} ${describeUnresolved(result)}...ignoring`);
 		}
 		return undefined;
 	}
 	const resolved = normalizeUserPath(result.value);
 	if (!path.isAbsolute(resolved)) {
-		if (log) {
+		if (description) {
 			LOGGER.info(`${description} ${resolved} is not absolute...ignoring`);
 		}
 		return undefined;
@@ -48,9 +47,9 @@ function describeUnresolved(result: Extract<SubstitutionResult, { resolved: fals
 /**
  * Resolves each path in a list setting. Ignored paths are dropped and the rest are kept.
  */
-function resolveSettingPaths(values: string[], description: string, log = true): string[] {
+function resolveSettingPaths(values: string[], description?: string): string[] {
 	return values
-		.map(value => resolveSettingPath(value, description, log))
+		.map(value => resolveSettingPath(value, description))
 		.filter((value): value is string => value !== undefined);
 }
 
@@ -182,8 +181,8 @@ export function getResolvedFilterSettingPaths(): { exclude: string[]; default: s
 	const config = vscode.workspace.getConfiguration('positron.r');
 	const defaultSetting = config.get<string>('interpreters.default');
 	return {
-		exclude: resolveSettingPaths(config.get<string[]>('interpreters.exclude') ?? [], '', false),
-		default: (defaultSetting && resolveSettingPath(defaultSetting, '', false)) || '',
+		exclude: resolveSettingPaths(config.get<string[]>('interpreters.exclude') ?? []),
+		default: (defaultSetting && resolveSettingPath(defaultSetting)) || '',
 	};
 }
 

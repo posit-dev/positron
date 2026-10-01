@@ -13,7 +13,7 @@ describe('substituteWorkspaceFolder', () => {
 		['/opt/R/bin/R', undefined, '/opt/R/bin/R'],
 		['${workspaceFolder}/env/bin/R', '/work/proj', '/work/proj/env/bin/R'],
 		['${workspaceFolder}/a:${workspaceFolder}/b', '/work/proj', '/work/proj/a:/work/proj/b'],
-		['~/R/${workspaceFolder}', '/work/proj', '~/R//work/proj'],
+		['~/R/bin/R', '/work/proj', '~/R/bin/R'],
 		['${workspaceFolder}\\env\\R.exe', 'C:\\Users\\me\\My Project', 'C:\\Users\\me\\My Project\\env\\R.exe'],
 		['${workspaceFolder}/bin/R', '/work/${odd}', '/work/${odd}/bin/R'],
 	])('resolves %s with folder %s', (value, folder, expected) => {
