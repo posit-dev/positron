@@ -50,8 +50,13 @@ export class ProviderManager {
 	 * so the panel can't be told apart from the chat sidebar by position; find the one holding the provider list.
 	 */
 	async open(timeout = 15000): Promise<FrameLocator> {
-		await this.quickaccess.runCommand(CONFIGURE_PROVIDERS_COMMAND);
-		return this.frame(timeout);
+		// The command is hidden until Assistant sees AI turn on, and the palette then picks a similar command instead, so retry.
+		let frame: FrameLocator | undefined;
+		await expect(async () => {
+			await this.quickaccess.runCommand(CONFIGURE_PROVIDERS_COMMAND);
+			frame = await this.frame(5000);
+		}).toPass({ timeout });
+		return frame!;
 	}
 
 	async frame(timeout = 15000): Promise<FrameLocator> {
