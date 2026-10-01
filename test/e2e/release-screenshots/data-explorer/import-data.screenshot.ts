@@ -20,8 +20,10 @@ test.beforeEach(async ({ app }) => {
 });
 
 // The workbook is copied to the workspace root so the generated code reads it by
-// a short path that wraps cleanly in the dialog's code preview.
-const WORKBOOK_NAME = 'supermarkt_sales.xlsx';
+// a short path that wraps cleanly in the dialog's code preview. The copy takes the
+// English spelling so the screenshot does not look like a typo to readers.
+const SOURCE_WORKBOOK = join('data-files', 'supermarkt_sales', 'supermarkt_sales.xlsx');
+const WORKBOOK_NAME = 'supermarket_sales.xlsx';
 
 test.afterEach(async ({ app, hotKeys }) => {
 	await hotKeys.closeAllEditors();
@@ -57,7 +59,7 @@ test.describe('Release Screenshots - Data Explorer Import Data', () => {
 
 		// copy the workbook to the workspace root and open it in the Data Explorer
 		await fs.copyFile(
-			join(app.workspacePathOrFolder, 'data-files', 'supermarkt_sales', WORKBOOK_NAME),
+			join(app.workspacePathOrFolder, SOURCE_WORKBOOK),
 			join(app.workspacePathOrFolder, WORKBOOK_NAME),
 		);
 		await openDataFile(WORKBOOK_NAME);
@@ -67,9 +69,13 @@ test.describe('Release Screenshots - Data Explorer Import Data', () => {
 		await dataExplorer.editorActionBar.clickButton('Import Data');
 		await dataExplorer.importDataModal.expectToBeVisible();
 		await dataExplorer.importDataModal.selectPackage('Python (pandas)');
-		await dataExplorer.importDataModal.expectCodeToContain('pd.read_excel("supermarkt_sales.xlsx"');
 
-		// capture screenshot
+		// a short variable name keeps the read_excel() call on one line in the code preview
+		await dataExplorer.importDataModal.setVariableName('sales');
+		await dataExplorer.importDataModal.expectCodeToContain(`sales = pd.read_excel("${WORKBOOK_NAME}"`);
+
+		// capture screenshot, with focus off the input so it has no focus ring
+		await dataExplorer.importDataModal.variableNameInput.blur();
 		await prepareForScreenshot(app, page);
 		await captureDialog(app, page, 'import-data.png');
 		await dataExplorer.importDataModal.clickCancel();
