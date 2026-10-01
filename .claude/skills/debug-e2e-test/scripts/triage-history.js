@@ -4,8 +4,9 @@
 // Wraps e2e-failure-analyzer/scripts/e2e-query-history.js: resolves the branch,
 // queries the current branch and main, merges their failure patterns by failure
 // text, computes counts/percentages/seen-on/last-seen, detects zero-run conditions,
-// selects ONE representative occurrence per pattern, writes the full responses
-// to disk, and prints only a compact JSON summary to stdout.
+// orders each pattern's occurrences (representative first, the rest as 403
+// fallbacks), writes the full responses to disk, and prints only a compact JSON
+// summary to stdout.
 //
 // Flags: see CLI below, or run with --help.
 //
@@ -30,11 +31,18 @@ export const CLI = defineCli({
 		{ name: 'repo', value: '<id>', description: 'test-health repo id (default: positron)' },
 		{ name: 'branch', value: '<branch>', description: 'override the current branch (skips the git lookup)' },
 		{ name: 'lookback-days', value: '<n>', description: '1-30 (default: 14)' },
-		{ name: 'occurrences-per-pattern', value: '<n>', description: 'default 1; raise to 2 only for a listed escalation reason' },
 		{ name: 'triage-id', value: '<id>', description: 'work-dir id (default: derived from the test key)' },
 		{ name: 'since-fix', value: '<iso-date>', description: "a merged fix's date (mergedAt from find-prior-triage.js); adds per-pattern fixHeld numbers to feed back into its sufficiency scoring" },
 	],
 });
+
+/**
+ * The API's cap on occurrences per pattern. Always request the cap: occurrences
+ * are metadata, not evidence. A pattern's environments and scoped rate are
+ * derived from them, and fewer than the full set reports a cross-environment
+ * break as one lane at a >100% rate.
+ */
+export const API_MAX_OCCURRENCES = 20;
 
 /** Whole days between an ISO date and now, at least 1. */
 export function daysSince(isoDate, now = Date.now()) {
@@ -190,6 +198,23 @@ export function resolveLastSeen(occurrences, dateFor, now = Date.now()) {
 }
 
 /**
+ * One branch's rate for a pattern. Scoped to the environments it occurred in
+ * when the API returned every occurrence; when it truncated (count above
+ * API_MAX_OCCURRENCES) the environment set is a sample, so fall back to the
+ * branch's all-environment total rather than divide by too few runs.
+ */
+export function branchRate({ count, environments, complete, breakdown, totalRuns }) {
+	const scoped = complete ? scopedRunsForEnvironments(breakdown, environments) : null;
+	const environmentRuns = scoped ?? (totalRuns || null);
+	return {
+		count,
+		environmentRuns,
+		scope: scoped !== null ? 'environments' : (environmentRuns ? 'all' : null),
+		ratePercent: environmentRuns ? Math.round((count / environmentRuns) * 1000) / 10 : null,
+	};
+}
+
+/**
  * Sum `total_runs` from a test object's `environment_breakdown` for exactly the
  * environments a pattern occurred in. Returns null when the breakdown is
  * missing or none of its entries match (so callers can tell "no data" apart
@@ -217,7 +242,7 @@ export function scopedRunsForEnvironments(environmentBreakdown, environments) {
  * @param {object|null} current  tests[0] from the current-branch response (null if not queried)
  * @param {object|null} main     tests[0] from the main response (null if not queried)
  * @param {string} currentBranch
- * @param {number} occurrencesPerPattern
+ * @param {(o: object) => string|null} dateFor
  */
 /**
  * Spreadsheet-style pattern label: A..Z, then AA, AB, ... so 27+ patterns keep
@@ -234,7 +259,7 @@ export function patternLabel(i) {
 	return label;
 }
 
-export function mergeHistory(current, main, currentBranch, occurrencesPerPattern = 1, dateFor = () => null) {
+export function mergeHistory(current, main, currentBranch, dateFor = () => null) {
 	const byKey = new Map();
 
 	const ingest = (testObj, branchLabel) => {
@@ -247,6 +272,8 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 					branches: new Set(),
 					count: 0,
 					branchCounts: new Map(),
+					branchEnvironments: new Map(),
+					branchComplete: new Map(),
 					environments: new Set(),
 					occurrences: [],
 				});
@@ -255,7 +282,11 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 			entry.branches.add(branchLabel);
 			entry.count += p.count || 0;
 			entry.branchCounts.set(branchLabel, (entry.branchCounts.get(branchLabel) || 0) + (p.count || 0));
-			for (const e of occEnvironments(p.occurrences)) { entry.environments.add(e); }
+			const envs = entry.branchEnvironments.get(branchLabel) || new Set();
+			for (const e of occEnvironments(p.occurrences)) { envs.add(e); entry.environments.add(e); }
+			entry.branchEnvironments.set(branchLabel, envs);
+			const complete = (p.occurrences || []).length >= (p.count || 0);
+			entry.branchComplete.set(branchLabel, (entry.branchComplete.get(branchLabel) ?? true) && complete);
 			for (const o of (p.occurrences || [])) {
 				entry.occurrences.push({ branch: branchLabel, ...o });
 			}
@@ -269,6 +300,7 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 	const mainRuns = main?.history?.total_runs ?? null;
 	const totalRuns = (currentRuns || 0) + (mainRuns || 0);
 	const breakdownByBranch = { [currentBranch]: current?.environment_breakdown, main: main?.environment_breakdown };
+	const runsByBranch = { [currentBranch]: currentRuns, main: mainRuns };
 
 	const patterns = [...byKey.values()]
 		.sort((a, b) => b.count - a.count)
@@ -278,23 +310,30 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 			const seenOn = hasCurrent && hasMain ? 'both'
 				: hasCurrent ? `${currentBranch} only`
 					: 'main only';
-			// One representative occurrence by default; prefer a current-branch one.
-			const rep = entry.occurrences.find(o => o.branch === currentBranch) || entry.occurrences[0] || null;
-			const kept = entry.occurrences.slice(0, occurrencesPerPattern);
+			// Current-branch occurrences first, each branch in API order (newest
+			// first): [0] is the representative, the rest are its 403 fallbacks.
+			const occurrences = [
+				...entry.occurrences.filter(o => o.branch === currentBranch),
+				...entry.occurrences.filter(o => o.branch !== currentBranch),
+			].map(o => ({
+				branch: o.branch, sha: o.sha, os: o.os, browser: o.browser,
+				outcome: o.outcome, report_url: o.report_url ?? null,
+			}));
+			const rep = occurrences[0] || null;
 			const environments = [...entry.environments];
-			// Per-branch rate scoped to the environments this pattern actually occurred
-			// in -- NOT count/totalRuns (that blends branches and environments together
-			// and can understate a pattern by 100x when it is concentrated in one
-			// environment on one branch; see triage-history.md).
-			const rates = [...entry.branchCounts.entries()].map(([branch, count]) => {
-				const environmentRuns = scopedRunsForEnvironments(breakdownByBranch[branch], environments);
-				return {
-					branch,
+			// Per-branch rate scoped to the environments this pattern occurred in on
+			// that branch -- NOT count/totalRuns, which blends branches and
+			// environments and can understate a one-lane pattern by 100x.
+			const rates = [...entry.branchCounts.entries()].map(([branch, count]) => ({
+				branch,
+				...branchRate({
 					count,
-					environmentRuns,
-					ratePercent: environmentRuns ? Math.round((count / environmentRuns) * 1000) / 10 : null,
-				};
-			});
+					environments: [...entry.branchEnvironments.get(branch)],
+					complete: entry.branchComplete.get(branch),
+					breakdown: breakdownByBranch[branch],
+					totalRuns: runsByBranch[branch],
+				}),
+			}));
 			return {
 				id: patternLabel(i), // A, B, .. Z, AA, AB, ...
 				failure: entry.failure,
@@ -306,11 +345,8 @@ export function mergeHistory(current, main, currentBranch, occurrencesPerPattern
 				environments,
 				seenOn,
 				lastSeen: resolveLastSeen(entry.occurrences, dateFor),
-				representativeOccurrence: rep && {
-					branch: rep.branch, sha: rep.sha, os: rep.os,
-					browser: rep.browser, outcome: rep.outcome, report_url: rep.report_url,
-				},
-				keptOccurrences: kept,
+				representativeOccurrence: rep,
+				occurrences,
 			};
 		});
 
@@ -343,7 +379,7 @@ export function classifyVerdict({ currentBranch, currentRuns, mainRuns, patternC
 	return { verdict: 'ok', stop: false };
 }
 
-function queryBranch(scriptPath, { repo, testKey, branch, lookbackDays, occ }) {
+function queryBranch(scriptPath, { repo, testKey, branch, lookbackDays, occ = API_MAX_OCCURRENCES }) {
 	const out = runNode(scriptPath, [
 		'--repo', repo,
 		'--test-keys', JSON.stringify([testKey]),
@@ -384,7 +420,6 @@ function main() {
 				{ cause: 'lookback-too-short', daysSinceFix });
 		}
 	}
-	const occ = Number(args['occurrences-per-pattern'] || 1);
 	const triageId = args['triage-id'] || deriveTriageId(testKey);
 	const dir = triageDir(triageId);
 	ensureDir(dir);
@@ -399,9 +434,9 @@ function main() {
 	const queriedCurrent = currentBranch !== 'main';
 
 	const currentData = queriedCurrent
-		? queryBranch(scriptPath, { repo, testKey, branch: currentBranch, lookbackDays, occ })
+		? queryBranch(scriptPath, { repo, testKey, branch: currentBranch, lookbackDays })
 		: null;
-	const mainData = queryBranch(scriptPath, { repo, testKey, branch: 'main', lookbackDays, occ });
+	const mainData = queryBranch(scriptPath, { repo, testKey, branch: 'main', lookbackDays });
 
 	// An empty {} means the API was unreachable for that call -- surface and stop.
 	if ((queriedCurrent && Object.keys(currentData).length === 0) || Object.keys(mainData).length === 0) {
@@ -421,14 +456,14 @@ function main() {
 	// date resolution comes up empty.
 	const insight = mainTest?.insight || currentTest?.insight || null;
 
-	const merged = mergeHistory(currentTest, mainTest, currentBranch, occ, occurrenceDate);
+	const merged = mergeHistory(currentTest, mainTest, currentBranch, occurrenceDate);
 
 	// --since-fix: a second, shorter query bounded by the fix's merge date. A fix
 	// merges to main, so "did it hold?" is a question about main -- the current
 	// branch's own runs predate the merge or duplicate it.
 	let fixHeldByPattern = null;
 	if (daysSinceFix !== null) {
-		const postData = queryBranch(scriptPath, { repo, testKey, branch: 'main', lookbackDays: daysSinceFix, occ: 1 });
+		const postData = queryBranch(scriptPath, { repo, testKey, branch: 'main', lookbackDays: daysSinceFix });
 		if (Object.keys(postData).length === 0) {
 			fail('test-health API unreachable on the --since-fix query.', { triageId, cause: 'api-unreachable' });
 		}
@@ -481,6 +516,7 @@ function main() {
 			id: p.id, failure: p.failure, count: p.count, rates: p.rates,
 			environments: p.environments, seenOn: p.seenOn, lastSeen: p.lastSeen,
 			representativeOccurrence: p.representativeOccurrence,
+			occurrences: p.occurrences,
 			...(fixHeldByPattern ? { fixHeld: fixHeldByPattern[p.id] } : {}),
 		})),
 		onset: insight ? {
@@ -497,8 +533,14 @@ function main() {
 		rawResultFile: path.relative(process.cwd(), rawFile),
 	};
 
+	// The full occurrence lists stay on disk (fetch-pattern-evidence.js reads its
+	// fallbacks from there); stdout carries only how many each pattern has.
 	const summaryFile = writeJson(path.join(dir, 'history-summary.json'), summary);
-	emit({ ...summary, summaryFile: path.relative(process.cwd(), summaryFile) });
+	emit({
+		...summary,
+		patterns: summary.patterns.map(({ occurrences, ...p }) => ({ ...p, occurrenceCount: occurrences.length })),
+		summaryFile: path.relative(process.cwd(), summaryFile),
+	});
 }
 
 if (isMain(import.meta.url)) { main(); }
