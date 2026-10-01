@@ -487,7 +487,6 @@ function fakeSessionDto(overrides: Partial<IActiveRuntimeSessionMetadataDto> = {
 		metadata: {
 			sessionId: 's1',
 			sessionMode: LanguageRuntimeSessionMode.Console,
-			owner: 'user',
 		},
 		runtimeMetadata: fakeMetadata(),
 		runtimeState: RuntimeState.Idle,
