@@ -868,7 +868,8 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			liveInstance = instance;
 			return instance;
 		});
-		const previewNode = vi.fn(async () => 'dataset-1');
+		const previewNode = vi.fn(async (_handle: IDataConnectionHandle, _nodeHandle: number) => 'dataset-1');
+		const disconnectWhenUnused = vi.fn();
 
 		// The profile to reveal sits last, so a tree laid out shorter than its rows has to scroll
 		// to bring it into view.
@@ -900,6 +901,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			connect,
 			previewNode,
 			cancelDisconnectWhenUnused: vi.fn(),
+			disconnectWhenUnused,
 		});
 
 		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
@@ -917,6 +919,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			tree,
 			connect,
 			previewNode,
+			disconnectWhenUnused,
 			openEditor,
 			focusRequested: () => focusRequests > 0,
 			requestReveal: (profileId: string, options?: IDataConnectionRevealOptions) => {
@@ -1004,7 +1007,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'flights')).toBe(false);
 	});
 
-	it('opens a node in the Data Explorer for a details editor, leaving the selection and focus alone', async () => {
+	it('opens a node in the Data Explorer for a details editor, then puts the tree back as it was', async () => {
 		const revealed = createTree({ grouped: true });
 		await revealed.tree.refresh();
 
@@ -1014,9 +1017,14 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			preserveFocus: true,
 		});
 
-		await vi.waitFor(() => expect(revealed.previewNode).toHaveBeenCalledWith(expect.anything(), 7));
-		expect({ selected: revealed.tree.getSelectedNode()?.id, focusRequested: revealed.focusRequested() })
-			.toEqual({ selected: undefined, focusRequested: false });
+		// The connection the walk opened is handed to the Data Explorer as the entry closes again.
+		await vi.waitFor(() => expect(revealed.disconnectWhenUnused).toHaveBeenCalledWith('conn-1'));
+		expect({
+			previewed: revealed.previewNode.mock.calls.map(call => call[1]),
+			expanded: revealed.tree.isExpanded(ENTRY_ID),
+			selected: revealed.tree.getSelectedNode()?.id,
+			focusRequested: revealed.focusRequested(),
+		}).toEqual({ previewed: [7], expanded: false, selected: undefined, focusRequested: false });
 	});
 
 	it('opens nothing in the Data Explorer when the path no longer reaches the node', async () => {
@@ -1025,9 +1033,10 @@ describe('DataConnectionsTreeInstance reveal', () => {
 
 		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'dropped_since'])], openInDataExplorer: true });
 
-		// The reveal still opens the connection on its way down; it just finds nothing to open.
-		await vi.waitFor(() => expect(revealed.tree.isExpanded(ENTRY_ID)).toBe(true));
-		expect(revealed.previewNode).not.toHaveBeenCalled();
+		// The walk opens the connection on its way down, finds nothing to open, and closes it again.
+		await vi.waitFor(() => expect(revealed.disconnectWhenUnused).toHaveBeenCalledWith('conn-1'));
+		expect({ previewed: revealed.previewNode.mock.calls.length, expanded: revealed.tree.isExpanded(ENTRY_ID) })
+			.toEqual({ previewed: 0, expanded: false });
 	});
 
 	it('connects a connection that is not live when it is revealed', async () => {

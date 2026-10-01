@@ -5,9 +5,10 @@
 
 import * as assert from 'assert';
 import * as positron from 'positron';
+import { Readable } from 'stream';
 import * as vscode from 'vscode';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
-import { defaultConnectionFactory, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
+import { defaultConnectionFactory, isStatementError, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
 import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription, stageFilePath } from '../snowflakeNodes.js';
 import { parseSnowflakeAccount } from '../snowflakeDriver.js';
 import { isWorkbenchManaged } from '../workbenchCredentials.js';
@@ -266,7 +267,7 @@ suite('Snowflake Driver Tests', () => {
 		});
 	});
 
-	test('stage expands to folders and files from LIST, each folder listing its own prefix', async () => {
+	test('stage expands to folders and files from one LIST, listing a folder again only when it is refreshed', async () => {
 		const listed: string[] = [];
 		const mock = createMockClient((sql) => {
 			if (sql.includes('SHOW STAGES')) {
@@ -299,53 +300,87 @@ suite('Snowflake Driver Tests', () => {
 			[positron.DataConnectionNodeKind.File, 'readme.txt', '12 B', '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/readme.txt'],
 		]);
 
-		// The folder lists its own prefix when expanded.
+		// The stage's listing held every file, so the folder's first expansion is built from it, and
+		// a file in it is named by its own folder's path.
 		const inFolder = await top[0].getChildren!();
-		assert.deepStrictEqual(inFolder.map(node => [node.kind, node.name, node.dataType]), [
-			[positron.DataConnectionNodeKind.Directory, 'q1', undefined],
-			[positron.DataConnectionNodeKind.File, 'orders.csv', '2.0 KB'],
-		]);
+		const expected = [
+			[positron.DataConnectionNodeKind.Directory, 'q1', undefined, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/q1/'],
+			[positron.DataConnectionNodeKind.File, 'orders.csv', '2.0 KB', '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/orders.csv'],
+		];
+		assert.deepStrictEqual(inFolder.map(node => [node.kind, node.name, node.dataType, node.path]), expected);
+		assert.deepStrictEqual(listed, [`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/'`]);
+
+		// Refreshing the folder lists its own prefix.
+		const refreshed = await top[0].getChildren!();
+		assert.deepStrictEqual(refreshed.map(node => [node.kind, node.name, node.dataType, node.path]), expected);
 		assert.deepStrictEqual(listed, [
 			`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/'`,
 			`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/'`,
 		]);
 	});
 
-	test('stageFilePath strips the stage name or URL from a LIST name, however the URL is spelled', () => {
+	test('stageFilePath strips the stage name or URL from a LIST name, however either is spelled', () => {
 		assert.deepStrictEqual([
-			stageFilePath('raw_load/2024/orders.csv', undefined),
-			stageFilePath('s3://bucket/exports/2024/orders.csv', 's3://bucket/exports/'),
+			stageFilePath('raw_load/2024/orders.csv', undefined, 'RAW_LOAD'),
+			// A quoted stage name can hold a slash.
+			stageFilePath('raw/load/2024/orders.csv', undefined, 'raw/load'),
+			stageFilePath('s3://bucket/exports/2024/orders.csv', 's3://bucket/exports/', 'EXPORTS'),
 			// The URL SHOW STAGES reports can differ from LIST's names in case and trailing slash.
-			stageFilePath('s3://Bucket/Exports/2024/orders.csv', 's3://bucket/exports'),
-			stageFilePath('azure://acct.blob.core.windows.net/data/raw/orders.csv', 'azure://acct.blob.core.windows.net/data/'),
+			stageFilePath('s3://Bucket/Exports/2024/orders.csv', 's3://bucket/exports', 'EXPORTS'),
+			stageFilePath('azure://acct.blob.core.windows.net/data/raw/orders.csv', 'azure://acct.blob.core.windows.net/data/', 'EXPORTS'),
 			// A folder marker keeps its trailing slash.
-			stageFilePath('raw_load/2024/', undefined),
-		], ['2024/orders.csv', '2024/orders.csv', '2024/orders.csv', 'raw/orders.csv', '2024/']);
+			stageFilePath('raw_load/2024/', undefined, 'RAW_LOAD'),
+		], ['2024/orders.csv', '2024/orders.csv', '2024/orders.csv', '2024/orders.csv', 'raw/orders.csv', '2024/']);
 	});
 
-	test('stage listing says when it was cut short, and why it is empty when LIST fails', async () => {
-		const many = Array.from({ length: 10001 }, (_, index) => ({ name: `big/f${String(index).padStart(5, '0')}.csv`, size: 1 }));
+	test('stage listing says when it was cut short, and lists a folder of a cut-short listing itself', async () => {
+		// One file in a folder, then 10,000 at the top: the first 10,000 hold the folder's file and
+		// all but one of the others.
+		const many = [
+			{ name: 'big/sub/x.csv', size: 1 },
+			...Array.from({ length: 10000 }, (_, index) => ({ name: `big/f${String(index).padStart(5, '0')}.csv`, size: 1 })),
+		];
+		const listed: string[] = [];
 		const mock = createMockClient((sql) => {
 			if (sql.includes('SHOW STAGES')) {
-				return { rows: [{ name: 'BIG' }, { name: 'LOCKED' }] };
+				return { rows: [{ name: 'BIG' }] };
 			}
-			if (sql.includes('"BIG"')) {
-				return { rows: many };
-			}
-			if (sql.includes('"LOCKED"')) {
-				throw new Error('Insufficient privileges to operate on stage');
-			}
-			throw new Error(`Unexpected query: ${sql}`);
+			listed.push(sql);
+			// LIST lists everything under the location it's given.
+			const location = /"BIG"\/(?<prefix>[^']*)'/.exec(sql)?.groups?.prefix ?? '';
+			return { rows: many.filter(file => file.name.startsWith(`big/${location}`)) };
 		});
 
-		const [big, locked] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const [big] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
 		const bigChildren = await big.getChildren!();
 		assert.deepStrictEqual(
-			[bigChildren.length, bigChildren[0].kind, bigChildren[0].name],
-			[10001, positron.DataConnectionNodeKind.Notice, 'Showing the first 10,000 of 10,001 files']);
+			[bigChildren.length, bigChildren[0].kind, bigChildren[0].name, bigChildren[1].kind, bigChildren[1].name],
+			[10001, positron.DataConnectionNodeKind.Notice, 'Showing the first 10,000 of 10,001 files', positron.DataConnectionNodeKind.Directory, 'sub']);
+
+		// The listing was cut short, so it may not hold all of the folder's files: the folder lists
+		// them itself.
+		assert.deepStrictEqual((await bigChildren[1].getChildren!()).map(node => node.name), ['x.csv']);
+		assert.deepStrictEqual(listed, [`LIST '@"ANALYTICS"."PUBLIC"."BIG"/'`, `LIST '@"ANALYTICS"."PUBLIC"."BIG"/sub/'`]);
+	});
+
+	test('stage listing says why it is empty when the role can\'t list it, and fails when the connection does', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'GONE' }, { name: 'LOCKED' }] };
+			}
+			if (sql.includes('"LOCKED"')) {
+				// Snowflake reports a statement's own failure with a SQL state.
+				throw Object.assign(new Error('Insufficient privileges to operate on stage'), { sqlState: '42501' });
+			}
+			throw new Error('Snowflake client is closed');
+		});
+
+		const [gone, locked] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
 		assert.deepStrictEqual((await locked.getChildren!()).map(node => [node.kind, node.name]), [
 			[positron.DataConnectionNodeKind.Notice, 'Could not list the files: Insufficient privileges to operate on stage'],
 		]);
+		// A connection problem is the tree's to report, not the stage's.
+		await assert.rejects(async () => gone.getChildren!(), /Snowflake client is closed/);
 	});
 
 	test('stage details show its SHOW row and its DESCRIBE STAGE properties, grouped', async () => {
@@ -919,6 +954,118 @@ suite('Snowflake Reconnecting Client', () => {
 		assert.strictEqual(replacement.state.destroyCount, 1, 'the reconnect-installed connection is destroyed');
 		await assert.rejects(() => qa, /closed/);
 		await assert.rejects(() => client.query('SELECT C'), /closed/);
+	});
+});
+
+suite('Snowflake Capped Query', () => {
+
+	const OPTIONS: SnowflakeConnectionOptions = {
+		account: 'myorg-myacct',
+		username: 'testuser',
+		password: 'testpass',
+	};
+
+	// How a fake connection answers a streamed statement: the rows of its result, or the failure it
+	// reports instead -- as the statement runs, as its result is read, or as its stream fails.
+	interface IStreamedAnswer {
+		rows?: Record<string, unknown>[];
+		executeError?: Error;
+		readThrows?: Error;
+		streamError?: Error;
+	}
+
+	// A fake sdk connection that answers a streamed statement the way snowflake-sdk does: `complete`
+	// gets the statement but no rows, which are read from it with getNumRows and an inclusive
+	// streamRows range. Records each range read.
+	function streamingConnection(answer: IStreamedAnswer) {
+		const ranges: { start: number; end: number }[] = [];
+		const conn = {
+			connect: (cb: (err: unknown, conn: unknown) => void) => cb(undefined, conn),
+			destroy: (cb: (err: unknown, conn: unknown) => void) => cb(undefined, conn),
+			execute: (opts: { streamResult?: boolean; complete: (err: unknown, stmt: unknown, rows: unknown) => void }) => {
+				assert.strictEqual(opts.streamResult, true, 'a capped query streams its result');
+				if (answer.executeError) {
+					opts.complete(answer.executeError, undefined, undefined);
+					return;
+				}
+				const rows = answer.rows ?? [];
+				opts.complete(undefined, {
+					getNumRows: () => {
+						if (answer.readThrows) {
+							throw answer.readThrows;
+						}
+						return rows.length;
+					},
+					streamRows: (range: { start: number; end: number }) => {
+						ranges.push(range);
+						const streamError = answer.streamError;
+						return streamError
+							? new Readable({ objectMode: true, read() { this.destroy(streamError); } })
+							: Readable.from(rows.slice(range.start, range.end + 1));
+					},
+				}, undefined);
+			},
+		};
+		return { conn, ranges };
+	}
+
+	// Builds a client over the given fake connections, the nth backing the nth connection built.
+	function clientOver(...conns: unknown[]): { client: SnowflakeClient; built: () => number } {
+		let n = 0;
+		// eslint-disable-next-line local/code-no-any-casts
+		const factory: SnowflakeConnectionFactory = async () => conns[n++] as any;
+		return { client: new SnowflakeClient(OPTIONS, factory), built: () => n };
+	}
+
+	test('reads only the first rows of a result, and says how many it had', async () => {
+		const { conn, ranges } = streamingConnection({ rows: [{ n: 1 }, { n: 2 }, { n: 3 }, { n: 4 }, { n: 5 }] });
+		const { client } = clientOver(conn);
+		await client.connect();
+
+		const result = await client.queryCapped('LIST @s', 3);
+
+		assert.deepStrictEqual([result, ranges], [{ rows: [{ n: 1 }, { n: 2 }, { n: 3 }], total: 5 }, [{ start: 0, end: 2 }]]);
+	});
+
+	test('reads nothing from an empty result', async () => {
+		const { conn, ranges } = streamingConnection({ rows: [] });
+		const { client } = clientOver(conn);
+		await client.connect();
+
+		const result = await client.queryCapped('LIST @s', 3);
+
+		assert.deepStrictEqual([result, ranges], [{ rows: [], total: 0 }, []]);
+	});
+
+	test('rejects when reading the result throws, or its stream fails', async () => {
+		const reading = clientOver(streamingConnection({ rows: [{ n: 1 }], readThrows: new Error('cannot read the result') }).conn).client;
+		const streaming = clientOver(streamingConnection({ rows: [{ n: 1 }], streamError: new Error('the stream broke') }).conn).client;
+		await reading.connect();
+		await streaming.connect();
+
+		await assert.rejects(reading.queryCapped('LIST @s', 3), /cannot read the result/);
+		await assert.rejects(streaming.queryCapped('LIST @s', 3), /the stream broke/);
+	});
+
+	test('reconnects once and retries when the session is dead', async () => {
+		const { client, built } = clientOver(
+			streamingConnection({ executeError: new Error('Connection terminated unexpectedly') }).conn,
+			streamingConnection({ rows: [{ n: 1 }] }).conn,
+		);
+		await client.connect();
+
+		const result = await client.queryCapped('LIST @s', 3);
+
+		assert.deepStrictEqual([result, built()], [{ rows: [{ n: 1 }], total: 1 }, 2]);
+	});
+
+	test('tells a statement\'s own failure from a connection\'s', () => {
+		assert.deepStrictEqual([
+			isStatementError(Object.assign(new Error('Insufficient privileges'), { sqlState: '42501' })),
+			isStatementError(Object.assign(new Error('Connection does not exist'), { sqlState: '08003' })),
+			isStatementError(new Error('Snowflake client is closed')),
+			isStatementError(Object.assign(new Error('Network error'), { sqlState: '42501' })),
+		], [true, false, false, false]);
 	});
 });
 

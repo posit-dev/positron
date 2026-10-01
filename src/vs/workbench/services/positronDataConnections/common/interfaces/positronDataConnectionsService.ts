@@ -26,8 +26,8 @@ export interface IDataConnectionRevealOptions {
 	readonly openDetails?: boolean;
 
 	// Whether to open the node in the Data Explorer, when it can preview, instead of going to it: the
-	// tree opens its way down to the node (connecting, if need be) but leaves its selection, scroll
-	// position, and focus as they were.
+	// tree opens its way down to the node (connecting, if need be), then puts itself back as it was,
+	// collapsing what it expanded on the way and leaving its selection and focus alone.
 	readonly openInDataExplorer?: boolean;
 
 	// Whether to leave keyboard focus where it is rather than move it to the revealed row -- for a
@@ -85,8 +85,11 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * have to race it.
 	 * @param profileId The id of the profile to show.
 	 * @param options Where in the connection to go, and whether to open that node's details.
+	 * @returns Whether a live tree took the request as it was made. A tree takes requests whether or
+	 * not its pane is showing; when there is none to take it -- the pane hasn't been opened in this
+	 * window, or was closed since -- the request waits for the next tree to be built.
 	 */
-	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): void;
+	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): boolean;
 
 	/**
 	 * Takes the outstanding reveal request, if there is one, clearing it. Called by the pane's tree

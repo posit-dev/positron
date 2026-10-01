@@ -180,13 +180,26 @@ describe('DataConnectionNodeDetailsPage', () => {
 			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', { nodePath: [], openDetails: false, preserveFocus: true });
 		});
 
-		it('opens a previewable node in the Data Explorer through the tree, leaving focus where it lands', async () => {
+		it('opens a previewable node in the Data Explorer through the tree, leaving the pane closed', async () => {
+			// The pane's tree is there, if hidden, and takes the request as it is made.
+			revealConnection.mockReturnValueOnce(true);
 			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
 			const user = userEvent.setup();
 
 			await user.click(screen.getByRole('button', { name: 'Open in Data Explorer' }));
 
 			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', { nodePath: TARGET.nodePath, openInDataExplorer: true, preserveFocus: true });
+			expect(openView).not.toHaveBeenCalled();
+		});
+
+		it('opens the pane when no tree took the request, for the tree it builds to take it', async () => {
+			revealConnection.mockReturnValueOnce(false);
+			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Open in Data Explorer' }));
+
+			await vi.waitFor(() => expect(openView).toHaveBeenCalledWith(POSITRON_DATA_CONNECTIONS_VIEW_ID, false));
 		});
 
 		it('offers no Data Explorer button for a node that can\'t preview', () => {

@@ -68,6 +68,8 @@ export interface SnowflakeConnectionOptions {
 interface SnowflakeError {
 	code?: string | number;
 	message?: string;
+	// The SQL state Snowflake reported for a statement that failed on the server.
+	sqlState?: string;
 }
 
 /**
@@ -227,6 +229,21 @@ export function isFatalConnectionError(err: unknown): boolean {
 }
 
 /**
+ * Whether an error is Snowflake's verdict on the statement itself -- insufficient privileges, an
+ * object that doesn't exist, a stage whose credentials fail -- rather than a problem with the
+ * connection it ran on (a dead or closed session, a network failure, an expired login). Snowflake
+ * reports a statement's failure with a SQL state; a connection problem comes with none, or with a
+ * class 08 (connection exception) state.
+ */
+export function isStatementError(err: unknown): boolean {
+	if (!err || typeof err !== 'object' || isFatalConnectionError(err)) {
+		return false;
+	}
+	const { sqlState } = err as SnowflakeError;
+	return typeof sqlState === 'string' && sqlState.length > 0 && !sqlState.startsWith('08');
+}
+
+/**
  * A snowflake-sdk connection that survives an idle session dropping out from under it. Presents the
  * small promisified surface the rest of the driver uses -- connect(), query(), end() -- and swaps the
  * underlying connection transparently when a query hits a dead session. Callers hold a stable
@@ -373,18 +390,25 @@ export class SnowflakeClient {
 						reject(err);
 						return;
 					}
-					const total = stmt.getNumRows();
-					const count = Math.min(total, limit);
-					if (count <= 0) {
-						resolve({ rows: [], total });
-						return;
+					// The SDK calls this outside the promise's executor, so anything reading the
+					// result throws is caught here; uncaught, it would escape to the extension host
+					// and leave the promise unsettled.
+					try {
+						const total = stmt.getNumRows();
+						const count = Math.min(total, limit);
+						if (count <= 0) {
+							resolve({ rows: [], total });
+							return;
+						}
+						const rows: Array<Record<string, unknown>> = [];
+						// The range is inclusive at both ends.
+						const stream = stmt.streamRows({ start: 0, end: count - 1 });
+						stream.on('data', row => rows.push(row));
+						stream.on('error', reject);
+						stream.on('end', () => resolve({ rows, total }));
+					} catch (error) {
+						reject(error);
 					}
-					const rows: Array<Record<string, unknown>> = [];
-					// The range is inclusive at both ends.
-					const stream = stmt.streamRows({ start: 0, end: count - 1 });
-					stream.on('data', row => rows.push(row));
-					stream.on('error', reject);
-					stream.on('end', () => resolve({ rows, total }));
 				},
 			});
 		});

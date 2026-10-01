@@ -12,6 +12,7 @@ import { MouseEvent as ReactMouseEvent, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { CONTAINER_ONLY_KINDS } from '../../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { useBusyIndicator } from '../../../../../base/browser/positronReactHooks.js';
@@ -21,6 +22,7 @@ import { CustomContextMenuSeparator } from '../../../../browser/positronComponen
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { IDataConnectionHandle } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 /**
  * Maps a node DTO to a codicon name, keying off its kind (and, for columns/fields, whether it
@@ -149,6 +151,35 @@ export const kindIcon = (dto: Pick<IDataConnectionNodeDTO, 'kind' | 'isPrimaryKe
 export const canPreview = (dto: Pick<IDataConnectionNodeDTO, 'kind' | 'hasPreview'>): boolean =>
 	dto.hasPreview && (dto.kind === 'table' || dto.kind === 'view' || dto.kind === 'field' || dto.kind === 'logical-table' || dto.kind === 'pin' || dto.kind === 'version');
 
+/**
+ * Opens a node in the Data Explorer, reporting a failure as a notification. The one way the pane
+ * opens a node's data, whether from its row or from its details editor (by way of the tree). It
+ * previews through the service rather than the handle, so the Data Explorer it opens is recorded
+ * against the connection; collapsing the connection consults that record before deciding whether
+ * it can be closed.
+ * @param service The data connections service.
+ * @param notificationService The notification service.
+ * @param handle The connection the node belongs to.
+ * @param dto The node.
+ */
+export async function openNodeInDataExplorer(
+	service: IPositronDataConnectionsService,
+	notificationService: INotificationService,
+	handle: IDataConnectionHandle,
+	dto: IDataConnectionNodeDTO
+): Promise<void> {
+	try {
+		await service.previewNode(handle, dto.nodeHandle);
+	} catch (error) {
+		notificationService.error(localize(
+			'positron.dataConnections.openInDataExplorerFailed',
+			"Could not open '{0}' in the Data Explorer: {1}",
+			dto.name,
+			error instanceof Error ? error.message : String(error)
+		));
+	}
+}
+
 interface DataConnectionNodeRowProps {
 	dto: IDataConnectionNodeDTO;
 	handle: IDataConnectionHandle;
@@ -214,17 +245,7 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 		}
 		setOpening(true);
 		try {
-			// Preview through the service rather than the handle so the Data Explorer this opens is
-			// recorded against the connection; collapsing the connection consults that record before
-			// deciding whether it can be closed.
-			await positronDataConnectionsService.previewNode(handle, dto.nodeHandle);
-		} catch (error) {
-			notificationService.error(localize(
-				'positron.dataConnections.openInDataExplorerFailed',
-				"Could not open '{0}' in the Data Explorer: {1}",
-				dto.name,
-				error instanceof Error ? error.message : String(error)
-			));
+			await openNodeInDataExplorer(positronDataConnectionsService, notificationService, handle, dto);
 		} finally {
 			setOpening(false);
 		}
