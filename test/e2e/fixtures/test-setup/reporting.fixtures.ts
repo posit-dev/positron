@@ -189,9 +189,14 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 	const execP = promisify(exec);
 
 	const containerName = 'test';
-	const containerLogsPath = '/home/user1/.local/state/positron/logs';
 	const tempLogsDir = path.join(logsPath, 'docker-logs');
 	const zipPath = path.join(logsPath, 'logs.zip');
+	// Most shards run the session as user1; the Azure shard runs it as the JIT
+	// user rstudio-ide-test, so its Positron logs live under that home instead.
+	const containerLogDirs = [
+		{ source: '/home/user1/.local/state/positron/logs', dest: tempLogsDir },
+		{ source: '/home/rstudio-ide-test/.local/state/positron/logs', dest: path.join(tempLogsDir, 'rstudio-ide-test') },
+	];
 
 	try {
 		// Create temporary directory to store copied logs
@@ -200,14 +205,21 @@ async function attachDockerLogsToReport(logsPath: string, testInfo: playwright.T
 		// Copy logs from container to local temp directory
 		// Using tar to handle file permissions and nested directories properly
 		let hasDockerLogs = false;
-		try {
-			await execP(`docker exec ${containerName} tar -C ${containerLogsPath} -cf - . | tar -C ${tempLogsDir} -xf -`, {
-				maxBuffer: 1024 * 1024 * 50, // 50 MB buffer for logs
-			});
-			hasDockerLogs = true;
-		} catch (err: any) {
-			// If logs don't exist in container or copy fails, log and continue
-			console.warn(`Failed to copy logs from Docker container: ${err.message}`);
+		for (const { source, dest } of containerLogDirs) {
+			try {
+				await execP(`docker exec ${containerName} test -d ${source}`);
+			} catch {
+				continue;
+			}
+			try {
+				await fs.promises.mkdir(dest, { recursive: true });
+				await execP(`docker exec ${containerName} tar -C ${source} -cf - . | tar -C ${dest} -xf -`, {
+					maxBuffer: 1024 * 1024 * 50, // 50 MB buffer for logs
+				});
+				hasDockerLogs = true;
+			} catch (err: any) {
+				console.warn(`Failed to copy logs from Docker container (${source}): ${err.message}`);
+			}
 		}
 
 		// Check if we got any files from Docker

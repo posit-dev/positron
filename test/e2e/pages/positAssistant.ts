@@ -404,38 +404,44 @@ export class PositAssistant {
 	 * @param modelName Exact model name as displayed in the menu (e.g. "GPT-5.4 Mini").
 	 */
 	async selectModel(modelName: string): Promise<void> {
-		// 1. Open the chat-form overflow menu.
-		await this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON).click();
-
-		// 2. Open the "Model" submenu. The SubTrigger is identifiable as a
-		//    menuitem with aria-haspopup="menu" that contains the literal
-		//    "Model" label span; that label is stable across states.
-		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
-
-		// 3. Locate the desired model. `:text-is()` is exact-match so
-		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Within each provider
-		//    group, less-preferred models (e.g. those flagged with a warning note,
-		//    like Microsoft Foundry's "model-router") are collapsed under a "More
-		//    models" inline disclosure -- a plain <button>, not a menuitem. When
-		//    more than one provider group is signed in, several "More models"
-		//    disclosures render at once, so the locator must not assume a single
-		//    match. Wait for the submenu to render (the model itself or a
-		//    disclosure), then expand disclosures one at a time -- re-querying,
-		//    since clicking removes the button -- until the model is shown or every
-		//    group has been expanded.
+		const overflow = this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON);
+		// The SubTrigger is a menuitem with aria-haspopup="menu" containing the
+		// literal "Model" label span; that label is stable across states.
+		const modelSubmenu = this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))');
+		// `:text-is()` is exact-match so "GPT-5.4" does not collide with "GPT-5.4 Mini".
 		const model = this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`);
+		// Within each provider group, less-preferred models (e.g. Microsoft
+		// Foundry's "model-router") are collapsed under a "More models" inline
+		// disclosure -- a plain <button>, not a menuitem -- and several groups can
+		// show one at once, so the locator must not assume a single match.
 		const moreModels = this.frame.getByRole('button', { name: 'More models' });
-		await expect(model.or(moreModels.first()).first()).toBeVisible();
-		for (let remaining = await moreModels.count(); remaining > 0 && !(await model.isVisible()); remaining--) {
-			await moreModels.first().click();
-		}
+		const submenuRendered = model.or(moreModels.first()).first();
 
-		// 4. Click the model.
-		await model.click();
+		// Retry the open->select->close cycle with short per-step timeouts, as in
+		// selectProviderModelMenuMode: the "Model" submenu only exists once a
+		// provider has delivered models, and a list populated by a live fetch can
+		// re-render mid-click. A stalled step fails fast and is retried against the
+		// current menu instead of hanging for the whole budget.
+		await expect(async () => {
+			if (!(await submenuRendered.isVisible().catch(() => false))) {
+				if (await overflow.getAttribute('aria-expanded') !== 'true') {
+					await overflow.click({ timeout: 5000 });
+				}
+				await modelSubmenu.click({ timeout: 5000 });
+				await expect(submenuRendered).toBeVisible({ timeout: 5000 });
+			}
 
-		// Menu closes on selection; wait for the trigger to collapse so
-		// subsequent actions (e.g. Send) don't race an open overlay.
-		await expect(this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON)).toHaveAttribute('aria-expanded', 'false');
+			// Expand disclosures one at a time, re-querying since a click removes
+			// the button, until the model is shown or every group is expanded.
+			for (let remaining = await moreModels.count(); remaining > 0 && !(await model.isVisible()); remaining--) {
+				await moreModels.first().click({ timeout: 5000 });
+			}
+			await model.click({ timeout: 5000 });
+
+			// Menu closes on selection; wait for the trigger to collapse so
+			// subsequent actions (e.g. Send) don't race an open overlay.
+			await expect(overflow).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 	}
 
 	/**
