@@ -19,7 +19,7 @@ test('closingRefs reads the keywords for the work a PR does, for this repo only'
 		'Addresses #70 for R.',
 		'Implements #71, part of #72, towards #73',
 	].join('\n');
-	assert.deepEqual(closingRefs(body).sort((a, b) => a - b), [12, 13, 14, 20, 30, 70, 71, 72, 73]);
+	assert.deepEqual(closingRefs(body).sort((a, b) => a - b), [12, 13, 14, 20, 30, 70, 71]);
 });
 
 test('formatSearch lists issues with their state, quotes titles, and says when nothing matched', () => {

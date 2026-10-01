@@ -35,14 +35,15 @@ const SEVERITY_RANK = { major: 0, moderate: 1, minor: 2 };
 /**
  * Issue numbers a PR body says it does the work of: GitHub's closing keywords
  * (`Fixes #12`, `closes posit-dev/positron#12`, or a full issue URL), and the
- * ones that do not close it (`Addresses #12`, `Part of #12`). Refs to other
- * repos are left out: the run cannot check them.
+ * ones that do not close it (`Addresses #12`, `Implements #12`). `Part of`
+ * and `toward` are left out: they name an umbrella issue, not this PR's work.
+ * Refs to other repos are left out: the run cannot check them.
  */
 export function closingRefs(body, repo = DEFAULT_REPO) {
 	const text = String(body ?? '');
 	const out = new Set();
 	const ref = String.raw`(?:#\d+|[\w.-]+\/[\w.-]+#\d+|https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/\d+)`;
-	const re = new RegExp(String.raw`\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|address(?:e[sd])?|implement(?:s|ed)?|part\s+of|towards?)\b:?\s+(${ref}(?:(?:\s*,\s*|\s+and\s+)${ref})*)`, 'gi');
+	const re = new RegExp(String.raw`\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|address(?:e[sd])?|implement(?:s|ed)?)\b:?\s+(${ref}(?:(?:\s*,\s*|\s+and\s+)${ref})*)`, 'gi');
 	for (const m of text.matchAll(re)) {
 		for (const r of m[1].matchAll(new RegExp(ref, 'g'))) {
 			const n = sameRepoNumber(r[0], repo);
