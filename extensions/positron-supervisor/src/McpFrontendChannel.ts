@@ -11,6 +11,7 @@ import { McpClient } from './kcclient/api';
 import { createWebSocket } from './NamedPipeHttpAgent';
 import { budgetCommandResult } from './mcpCommandResult';
 import { checkCommandArgs } from './mcpCommandArgs';
+import { readCommandGuide } from './mcpCommandGuide';
 import { summarizeError } from './util';
 
 /**
@@ -25,7 +26,7 @@ const RECONNECT_DELAY_MS = 1000;
 /** The longest we back off between reconnect attempts. */
 const MAX_RECONNECT_DELAY_MS = 30_000;
 
-/** How long to coalesce catalog refreshes triggered by extension changes. */
+/** How long to coalesce catalog refreshes triggered by extension and skill changes. */
 const CATALOG_REFRESH_DEBOUNCE_MS = 500;
 
 /**
@@ -74,8 +75,8 @@ type ServerFrontendMessage = CommandRequest | ClientsChanged;
 
 /**
  * Connects this window to the supervisor's MCP server over a WebSocket,
- * publishing what only Positron knows -- its command catalog, the sessions it
- * holds, its foreground session, and whether the user is looking at it -- and
+ * publishing what only Positron knows -- its command catalog and the guide to
+ * it, the sessions it holds, its foreground session, and whether the user is looking at it -- and
  * running the commands agents ask for.
  *
  * A supervisor can be shared by every window of a Positron server, so an agent
@@ -144,6 +145,12 @@ export class McpFrontendChannel implements vscode.Disposable {
 		// extension set changes, coalescing the burst of events an install
 		// produces.
 		this._disposables.push(vscode.extensions.onDidChange(() => {
+			this.scheduleCatalogRefresh();
+		}));
+
+		// The guide is a generated skill whose root is often registered after
+		// we first read the roots.
+		this._disposables.push(positron.ai.onDidChangeAgentSkillRoots(() => {
 			this.scheduleCatalogRefresh();
 		}));
 
@@ -223,18 +230,21 @@ export class McpFrontendChannel implements vscode.Disposable {
 	}
 
 	/**
-	 * Announce ourselves: the command catalog, the sessions we hold, the one
-	 * agents should target by default, and whether the user is looking at us.
+	 * Announce ourselves: the command catalog and its guide, the sessions we
+	 * hold, the one agents should target by default, and whether the user is
+	 * looking at us.
 	 */
 	private async sayHello(): Promise<void> {
-		const [commands, foreground] = await Promise.all([
+		const [commands, guide, foreground] = await Promise.all([
 			this.readCatalog(),
+			this.readGuide(),
 			positron.runtime.getForegroundSession(),
 		]);
 		this.send({
 			kind: 'hello',
 			positron_version: positron.version,
 			commands,
+			guide,
 			session_ids: this._sessionIds(),
 			foreground_session_id: foreground?.metadata.sessionId,
 			focused: vscode.window.state.focused,
@@ -246,15 +256,26 @@ export class McpFrontendChannel implements vscode.Disposable {
 		this.send({ kind: 'sessions_changed', session_ids: this._sessionIds() });
 	}
 
-	/** Re-read the catalog and push it, coalescing bursts of changes. */
+	/** Re-read the catalog and its guide and push them, coalescing bursts of changes. */
 	private scheduleCatalogRefresh(): void {
 		if (this._catalogRefreshTimer) {
 			clearTimeout(this._catalogRefreshTimer);
 		}
 		this._catalogRefreshTimer = setTimeout(async () => {
 			this._catalogRefreshTimer = undefined;
-			this.send({ kind: 'commands_changed', commands: await this.readCatalog() });
+			const [commands, guide] = await Promise.all([this.readCatalog(), this.readGuide()]);
+			this.send({ kind: 'commands_changed', commands, guide });
 		}, CATALOG_REFRESH_DEBOUNCE_MS);
+	}
+
+	/** The guide to the catalog, as pages keyed by path; empty if unavailable. */
+	private async readGuide(): Promise<Record<string, string>> {
+		try {
+			return await readCommandGuide(await positron.ai.getAgentSkillRoots());
+		} catch (err) {
+			this._log(`Failed to read the agent command guide: ${summarizeError(err)}`);
+			return {};
+		}
 	}
 
 	/**
