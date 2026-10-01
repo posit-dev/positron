@@ -3,7 +3,7 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes,
   clearing the console, opening a file or data file in the right editor,
-  showing an HTML file or URL in the Viewer, discovering interpreters,
+  showing an HTML file or URL in the Viewer, finding or adding interpreters,
   listing, switching, starting, restarting or interrupting sessions, setting
   up Python, reading, installing or updating a session's packages, running or
   debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
@@ -85,10 +85,10 @@ or prototype -- or asks to show a local HTML file or a URL in the Viewer. Read i
 that show a file or URL in the Viewer pane.
 
 **Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
-Read when the user asks what interpreters are available, wants the registered
-interpreters listed (Python, R, or another language), or needs Positron to
-rescan for newly installed environments. Also the place to find a base
-interpreter before creating an environment.
+Read when the user asks what interpreters are available or which one the
+project uses, wants to install one, says an installed interpreter isn't showing
+up, or wants a specific interpreter made available. Also the place to find a
+base interpreter before creating an environment.
 
 **Sessions** -- [references/sessions.md]({{skill_dir}}/references/sessions.md)
 Read when the user asks about: which sessions are running, switching to a

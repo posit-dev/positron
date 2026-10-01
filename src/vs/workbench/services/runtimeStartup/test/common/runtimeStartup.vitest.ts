@@ -178,6 +178,7 @@ function makeManager(opts: IManagerOptions): IRuntimeManager {
 		recommendWorkspaceRuntimes: async () => [],
 		managesRuntime: async (metadata) => ownsByPath.has(metadata.runtimePath),
 		validateMetadata: opts.validate ?? (async (m) => m),
+		registerRuntimeFromPath: async () => undefined,
 		getDiscoveryRootSignature: async (extensionId: string, languageId: string) => {
 			if (opts.rootSignatureBehavior === 'throws') {
 				throw new Error('boom');

@@ -160,6 +160,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 	$getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
+	$registerLanguageRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$onDidRegisterLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
 	$updateProxySessionState(sessionId: string, state: RuntimeState): void;

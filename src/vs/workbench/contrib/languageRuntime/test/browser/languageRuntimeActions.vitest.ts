@@ -55,7 +55,7 @@ describe('summarizeRegisteredRuntime', () => {
 			runtimeDisplayPath: '~/venvs/proj/bin/python',
 			base64EncodedIconSvg: 'PHN2Zz4uLi48L3N2Zz4=',
 			extraRuntimeData: { pythonPath: '/secret' },
-		}));
+		}), true);
 
 		expect(summary).toEqual({
 			runtimeId: 'python-abc',
@@ -69,11 +69,12 @@ describe('summarizeRegisteredRuntime', () => {
 			runtimePath: '~/venvs/proj/bin/python',
 			startupBehavior: 'implicit',
 			extensionId: 'test-extension',
+			affiliated: true,
 		});
 	});
 
 	test('falls back to the raw path when there is no display path', () => {
-		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }));
+		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }), false);
 		expect(summary.runtimePath).toBe('/usr/bin/python3');
 	});
 });

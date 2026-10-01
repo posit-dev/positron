@@ -1761,6 +1761,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			?? this._languageRuntimeService.registeredRuntimes.find(info => info.languageId === languageId);
 	}
 
+	public async registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
+		for (const manager of this._runtimeManagers) {
+			const metadata = await manager.registerRuntimeFromPath(languageId, path);
+			if (metadata) {
+				return metadata;
+			}
+		}
+		throw new Error(`No '${languageId}' runtime manager supports registering an interpreter by path.`);
+	}
+
 	/**
 	 * Starts all recommended runtimes for the workspace.
 	 */

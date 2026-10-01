@@ -1220,6 +1220,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return m.manager.getDiscoveryRootSignature();
 	}
 
+	public async $registerLanguageRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		const m = this._runtimeManagers.find(m =>
+			m.languageId === languageId && m.manager.registerRuntimeFromPath);
+		if (!m) {
+			return undefined;
+		}
+		const runtime = await m.manager.registerRuntimeFromPath!(path);
+		this.registerLanguageRuntime(m.extension, m.manager, runtime);
+		return { extensionId: m.extension.identifier, ...runtime };
+	}
+
 	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
 		// Get the recommended runtimes from each provider
 		const metadata = await Promise.all(

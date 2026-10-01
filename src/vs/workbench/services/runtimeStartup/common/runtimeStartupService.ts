@@ -95,6 +95,17 @@ export interface IRuntimeStartupService {
 	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
+	 * Asks the language's runtime manager to make the interpreter at a path
+	 * available, registering it with Positron.
+	 *
+	 * @param languageId The language identifier.
+	 * @param path The path to the interpreter.
+	 * @returns The registered runtime's metadata. Throws if no manager for the
+	 *  language supports registering by path, or if the manager rejects it.
+	 */
+	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata>;
+
+	/**
 	 * Whether any extension provides language runtimes for a language. This
 	 * mostly comes from the static `languageRuntimes` contribution, so it is
 	 * known as soon as extensions are scanned -- before they activate and before

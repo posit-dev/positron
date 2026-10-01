@@ -72,6 +72,7 @@ export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.run
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
 export const LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID = 'workbench.action.language.runtime.discoverAllRuntimes';
 export const LANGUAGE_RUNTIME_GET_REGISTERED_RUNTIMES_ID = 'workbench.action.language.runtime.getRegisteredRuntimes';
+export const LANGUAGE_RUNTIME_REGISTER_RUNTIME_FROM_PATH_ID = 'workbench.action.language.runtime.registerRuntimeFromPath';
 export const LANGUAGE_RUNTIME_GET_ACTIVE_SESSIONS_ID = 'workbench.action.language.runtime.getActiveSessions';
 export const LANGUAGE_RUNTIME_CLEAR_INTERPRETER_CACHE_ID = 'workbench.action.language.runtime.clearInterpreterCache';
 
@@ -104,15 +105,17 @@ export interface IRegisteredRuntimeSummary {
 	readonly runtimePath: string;
 	readonly startupBehavior: string;
 	readonly extensionId: string;
+	readonly affiliated: boolean;
 }
 
 /**
  * Projects full runtime metadata down to the fields useful to an AI agent.
  *
  * @param metadata The registered runtime's metadata.
+ * @param affiliated Whether the runtime is affiliated with the workspace.
  * @returns A slim summary of the runtime.
  */
-export function summarizeRegisteredRuntime(metadata: ILanguageRuntimeMetadata): IRegisteredRuntimeSummary {
+export function summarizeRegisteredRuntime(metadata: ILanguageRuntimeMetadata, affiliated: boolean): IRegisteredRuntimeSummary {
 	return {
 		runtimeId: metadata.runtimeId,
 		languageId: metadata.languageId,
@@ -125,6 +128,7 @@ export function summarizeRegisteredRuntime(metadata: ILanguageRuntimeMetadata): 
 		runtimePath: getRuntimeDisplayPath(metadata),
 		startupBehavior: metadata.startupBehavior,
 		extensionId: metadata.extensionId.value,
+		affiliated,
 	};
 }
 
@@ -1613,17 +1617,53 @@ export function registerLanguageRuntimeActions() {
 							schema: { type: 'string' },
 						},
 					],
-					returns: 'An array of registered interpreters. Each entry has runtimeId, languageId, languageName, languageVersion, runtimeName, runtimeShortName, runtimeVersion, runtimeSource (e.g. System, Pyenv, Conda), runtimePath, startupBehavior, and extensionId. An empty array means no interpreter of the requested language is registered.',
+					returns: 'An array of registered interpreters. Each entry has runtimeId, languageId, languageName, languageVersion, runtimeName, runtimeShortName, runtimeVersion, runtimeSource (e.g. System, Pyenv, Conda), runtimePath, startupBehavior, extensionId, and affiliated (true for the interpreter this workspace uses for its language). An empty array means no interpreter of the requested language is registered.',
 				},
 			});
 		}
 
 		async run(accessor: ServicesAccessor, languageId?: string): Promise<IRegisteredRuntimeSummary[]> {
 			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			const runtimeStartupService = accessor.get(IRuntimeStartupService);
 			const filter = typeof languageId === 'string' && languageId.length > 0 ? languageId : undefined;
+			const affiliatedIds = new Set(runtimeStartupService.getAffiliatedRuntimes().map(runtime => runtime.runtimeId));
 			return languageRuntimeService.registeredRuntimes
 				.filter(runtime => !filter || runtime.languageId === filter)
-				.map(summarizeRegisteredRuntime);
+				.map(runtime => summarizeRegisteredRuntime(runtime, affiliatedIds.has(runtime.runtimeId)));
+		}
+	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LANGUAGE_RUNTIME_REGISTER_RUNTIME_FROM_PATH_ID,
+				title: localize2('workbench.action.language.runtime.registerRuntimeFromPath', "Register Interpreter from Path"),
+				category,
+				metadata: {
+					description: localize('positron.languageRuntime.registerRuntimeFromPath.description', "Make the interpreter at a path available in Positron, including in future sessions. Use when an installed interpreter does not appear among the registered interpreters; if it can't be used, the error explains why."),
+					agentCompatible: true,
+					args: [
+						{
+							name: 'languageId',
+							description: 'The language of the interpreter, e.g. "python" or "r".',
+							schema: { type: 'string' },
+						},
+						{
+							name: 'path',
+							description: 'The absolute path to the interpreter executable.',
+							schema: { type: 'string' },
+						},
+					],
+					returns: 'The registered interpreter, in the same shape as the entries returned by getRegisteredRuntimes.',
+				},
+			});
+		}
+
+		async run(accessor: ServicesAccessor, languageId: string, path: string): Promise<IRegisteredRuntimeSummary> {
+			const runtimeStartupService = accessor.get(IRuntimeStartupService);
+			const metadata = await runtimeStartupService.registerRuntimeFromPath(languageId, path);
+			const affiliated = runtimeStartupService.getAffiliatedRuntimeMetadata(languageId)?.runtimeId === metadata.runtimeId;
+			return summarizeRegisteredRuntime(metadata, affiliated);
 		}
 	});
 
