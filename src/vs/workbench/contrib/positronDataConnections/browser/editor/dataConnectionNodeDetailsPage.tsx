@@ -304,7 +304,7 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 
 	// Shows a node in the Data Connections pane, given its path below the connection. The pane is
 	// opened without focus; the tree then takes it or not, as the request says.
-	const reveal = async (nodePath: readonly string[], options: { openDetails?: boolean; preserveFocus?: boolean }) => {
+	const reveal = async (nodePath: readonly string[], options: { openDetails?: boolean; openInDataExplorer?: boolean; preserveFocus?: boolean }) => {
 		await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
 		positronDataConnectionsService.revealConnection(input.target.profileId, { nodePath, ...options });
 	};
@@ -316,6 +316,11 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 		input.target.nodePath.slice(0, input.target.breadcrumbNodePathLengths[index]),
 		{ openDetails: index > 0, preserveFocus: true }
 	);
+
+	// Opens the node's data. The page holds a snapshot, not the node's handle -- that dies when the
+	// tree refreshes -- so the tree walks back down to the node and opens it from there, without
+	// moving its selection or taking focus from the Data Explorer that opens.
+	const openInDataExplorer = () => reveal(input.target.nodePath, { openInDataExplorer: true, preserveFocus: true });
 
 	// A group's reveal button goes to the tree node it stands for, somewhere below this node, and
 	// takes the user there: it opens no details, and the tree takes focus.
@@ -390,6 +395,15 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 							<div className='data-connection-node-details-description'>{details.description}</div>
 						)}
 					</div>
+					{input.target.canPreview && (
+						<Button
+							className='data-connection-node-details-open'
+							onPressed={() => void openInDataExplorer()}
+						>
+							<span aria-hidden='true' className='codicon codicon-table' />
+							{localize('positron.dataConnections.openInDataExplorer', "Open in Data Explorer")}
+						</Button>
+					)}
 				</div>
 			</div>
 			{details.tabs && details.tabs.length > 0 ? (

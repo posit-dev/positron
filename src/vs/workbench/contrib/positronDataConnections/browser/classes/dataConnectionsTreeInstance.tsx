@@ -9,7 +9,7 @@ import { ReactNode } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
-import { DataConnectionNodeRow, kindIcon } from '../components/dataConnectionNodeRow.js';
+import { canPreview, DataConnectionNodeRow, kindIcon } from '../components/dataConnectionNodeRow.js';
 import { MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
@@ -284,7 +284,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		if (request === undefined) {
 			return;
 		}
-		const { profileId, nodePath = [], openDetails = false, preserveFocus = false } = request;
+		const { profileId, nodePath = [], openDetails = false, openInDataExplorer = false, preserveFocus = false } = request;
 
 		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
 		// tree through a roots refresh, and a tree built just now has no rows at all until its
@@ -312,6 +312,14 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			return;
 		}
 
+		// Opening a node's data is a request to see the data, not to go to the node: the tree walks
+		// down to it -- connecting, if need be, since the data comes through the connection -- but
+		// leaves the user's selection and scroll position where they were, and takes no focus.
+		if (openInDataExplorer) {
+			await this._openRevealedInDataExplorer(rowIndex, nodePath);
+			return;
+		}
+
 		this.setCursorRow(rowIndex);
 		this.selectRow(rowIndex);
 		this._scrollToCursorWhenLaidOut();
@@ -327,6 +335,30 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		// leave focus where it is.
 		if (!preserveFocus) {
 			this.requestFocus();
+		}
+	}
+
+	/**
+	 * Opens a revealed row's node in the Data Explorer. Only the node itself is opened: when the tree
+	 * no longer matches the path (something was renamed or dropped since it was recorded), the row
+	 * reached is some ancestor, and opening that would show the user data they didn't ask for.
+	 * @param rowIndex The index of the row the reveal reached.
+	 * @param nodePath The path the reveal was asked to follow.
+	 */
+	private async _openRevealedInDataExplorer(rowIndex: number, nodePath: readonly string[]): Promise<void> {
+		const data = this.visibleNodes[rowIndex].node.data;
+		if (data.kind !== 'dto' || reloadKey(data) !== nodePath.at(-1) || !canPreview(data.dto)) {
+			return;
+		}
+		try {
+			await this._service.previewNode(data.handle, data.dto.nodeHandle);
+		} catch (error) {
+			this._notificationService.error(localize(
+				'positron.dataConnections.openInDataExplorerFailed',
+				"Could not open '{0}' in the Data Explorer: {1}",
+				data.dto.name,
+				error instanceof Error ? error.message : String(error)
+			));
 		}
 	}
 
@@ -936,7 +968,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			}
 		}
 
-		return { key: JSON.stringify(keys), name: dto.name, icon: kindIcon(dto), path, profileId, nodePath, breadcrumbNodePathLengths };
+		return { key: JSON.stringify(keys), name: dto.name, icon: kindIcon(dto), path, profileId, nodePath, breadcrumbNodePathLengths, canPreview: canPreview(dto) };
 	}
 
 	private _findEntryNode(id: string): { entry: DataConnectionEntry } | undefined {

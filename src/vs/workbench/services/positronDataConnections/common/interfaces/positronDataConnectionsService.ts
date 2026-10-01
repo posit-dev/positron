@@ -25,6 +25,11 @@ export interface IDataConnectionRevealOptions {
 	// Whether to open the node's details once it is revealed, when it has any.
 	readonly openDetails?: boolean;
 
+	// Whether to open the node in the Data Explorer, when it can preview, instead of going to it: the
+	// tree opens its way down to the node (connecting, if need be) but leaves its selection, scroll
+	// position, and focus as they were.
+	readonly openInDataExplorer?: boolean;
+
 	// Whether to leave keyboard focus where it is rather than move it to the revealed row -- for a
 	// request made from somewhere the user is still reading, such as a details editor's breadcrumbs.
 	readonly preserveFocus?: boolean;

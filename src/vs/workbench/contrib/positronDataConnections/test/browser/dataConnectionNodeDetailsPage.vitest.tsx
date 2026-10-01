@@ -15,10 +15,10 @@ import { IViewsService } from '../../../../services/views/common/viewsService.js
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../../browser/positronDataConnectionsConfiguration.js';
 import { DataConnectionNodeDetailsPage } from '../../browser/editor/dataConnectionNodeDetailsPage.js';
-import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
+import { DataConnectionNodeDetailsEditorInput, IDataConnectionNodeDetailsTarget } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDetailsSectionDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 
-const TARGET = {
+const TARGET: IDataConnectionNodeDetailsTarget = {
 	key: '["entry:conn-1","[\\"semantic-view\\",\\"CHAOS_MODEL\\"]"]',
 	name: 'CHAOS_MODEL',
 	icon: 'type-hierarchy',
@@ -31,6 +31,7 @@ const TARGET = {
 		'["group-semantic-views","Semantic Views"]', '["semantic-view","CHAOS_MODEL"]',
 	],
 	breadcrumbNodePathLengths: [0, 2, 4, 6],
+	canPreview: false,
 };
 
 // A semantic view's details, shaped the way the Snowflake driver builds them: an Overview holding a
@@ -111,8 +112,8 @@ describe('DataConnectionNodeDetailsPage', () => {
 		return screen.getAllByRole('listitem').filter(item => !breadcrumbs.contains(item));
 	}
 
-	function renderPage(details: IDataConnectionNodeDetailsDTO) {
-		const input = ctx.disposables.add(new DataConnectionNodeDetailsEditorInput(TARGET, details));
+	function renderPage(details: IDataConnectionNodeDetailsDTO, target: IDataConnectionNodeDetailsTarget = TARGET) {
+		const input = ctx.disposables.add(new DataConnectionNodeDetailsEditorInput(target, details));
 		rtl.render(<DataConnectionNodeDetailsPage input={input} />);
 		return input;
 	}
@@ -177,6 +178,21 @@ describe('DataConnectionNodeDetailsPage', () => {
 			await user.click(screen.getByRole('button', { name: 'TestData' }));
 
 			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', { nodePath: [], openDetails: false, preserveFocus: true });
+		});
+
+		it('opens a previewable node in the Data Explorer through the tree, leaving focus where it lands', async () => {
+			renderPage({ sections: [] }, { ...TARGET, canPreview: true });
+			const user = userEvent.setup();
+
+			await user.click(screen.getByRole('button', { name: 'Open in Data Explorer' }));
+
+			expect(revealConnection).toHaveBeenLastCalledWith('conn-1', { nodePath: TARGET.nodePath, openInDataExplorer: true, preserveFocus: true });
+		});
+
+		it('offers no Data Explorer button for a node that can\'t preview', () => {
+			renderPage({ sections: [] });
+
+			expect(screen.queryByRole('button', { name: 'Open in Data Explorer' })).not.toBeInTheDocument();
 		});
 
 		it('says so when the node has no details', () => {

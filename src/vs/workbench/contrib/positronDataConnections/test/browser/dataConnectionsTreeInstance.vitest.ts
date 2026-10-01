@@ -868,6 +868,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			liveInstance = instance;
 			return instance;
 		});
+		const previewNode = vi.fn(async () => 'dataset-1');
 
 		// The profile to reveal sits last, so a tree laid out shorter than its rows has to scroll
 		// to bring it into view.
@@ -897,6 +898,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			getAllProfiles: () => [...filler, profile],
 			getInstanceForProfile: (profileId: string) => profileId === profile.id ? liveInstance : undefined,
 			connect,
+			previewNode,
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
@@ -914,6 +916,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		return {
 			tree,
 			connect,
+			previewNode,
 			openEditor,
 			focusRequested: () => focusRequests > 0,
 			requestReveal: (profileId: string, options?: IDataConnectionRevealOptions) => {
@@ -999,6 +1002,32 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		await expectRevealed(revealed);
 		expect(revealed.tree.visibleNodes.some(visible =>
 			visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'flights')).toBe(false);
+	});
+
+	it('opens a node in the Data Explorer for a details editor, leaving the selection and focus alone', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		revealed.requestReveal('conn-1', {
+			nodePath: [JSON.stringify(['group-tables', 'Tables']), JSON.stringify(['table', 'flights'])],
+			openInDataExplorer: true,
+			preserveFocus: true,
+		});
+
+		await vi.waitFor(() => expect(revealed.previewNode).toHaveBeenCalledWith(expect.anything(), 7));
+		expect({ selected: revealed.tree.getSelectedNode()?.id, focusRequested: revealed.focusRequested() })
+			.toEqual({ selected: undefined, focusRequested: false });
+	});
+
+	it('opens nothing in the Data Explorer when the path no longer reaches the node', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'dropped_since'])], openInDataExplorer: true });
+
+		// The reveal still opens the connection on its way down; it just finds nothing to open.
+		await vi.waitFor(() => expect(revealed.tree.isExpanded(ENTRY_ID)).toBe(true));
+		expect(revealed.previewNode).not.toHaveBeenCalled();
 	});
 
 	it('connects a connection that is not live when it is revealed', async () => {

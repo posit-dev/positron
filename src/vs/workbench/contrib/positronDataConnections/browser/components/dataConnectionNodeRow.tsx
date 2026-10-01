@@ -70,6 +70,9 @@ export const kindIcon = (dto: Pick<IDataConnectionNodeDTO, 'kind' | 'isPrimaryKe
 		case 'file':
 			return 'file';
 
+		case 'notice':
+			return 'info';
+
 		case 'schema':
 			return 'positron-db-schema';
 
@@ -143,7 +146,7 @@ export const kindIcon = (dto: Pick<IDataConnectionNodeDTO, 'kind' | 'isPrimaryKe
  * the driver didn't make previewable (e.g. index-column fields, or pins whose storage type isn't
  * tabular).
  */
-const canPreview = (dto: IDataConnectionNodeDTO): boolean =>
+export const canPreview = (dto: Pick<IDataConnectionNodeDTO, 'kind' | 'hasPreview'>): boolean =>
 	dto.hasPreview && (dto.kind === 'table' || dto.kind === 'view' || dto.kind === 'field' || dto.kind === 'logical-table' || dto.kind === 'pin' || dto.kind === 'version');
 
 interface DataConnectionNodeRowProps {
@@ -179,14 +182,15 @@ interface DataConnectionNodeRowProps {
 /**
  * DataConnectionNodeRow component. Renders one server-side connection node (catalog, schema,
  * table, view, column, etc.) inside the tree. Previewable table/view nodes open in the Data
- * Explorer on double-click or via the "Open in Data Explorer" context-menu action; nodes that
- * can have children offer a "Refresh" action that re-fetches the subtree. Nodes with details open
- * their details editor via "Show Details", and also open it on single-click, in preview mode, and
- * keep it open on double-click, the way the Explorer treats a file. For a node with details,
- * double-click opens the details rather than the Data Explorer.
+ * Explorer on double-click and from the "Open in Data Explorer" context-menu action; nodes that can
+ * have children offer a "Refresh" action that re-fetches the subtree. Nodes with details open their
+ * details editor via "Show Details", and also open it on single-click, in preview mode; a node with
+ * details but no preview -- or one whose driver made details its default action -- keeps it open
+ * on double-click, the way the Explorer treats a file. Nodes other than groups offer "Copy Name",
+ * and "Copy Path" when the driver gave them one.
  */
 export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onOpenDetails, onPinDetails, onRefresh, stale }: DataConnectionNodeRowProps) => {
-	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
+	const { clipboardService, notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
 	// A group row labels the rows beneath it rather than naming a thing of its own, and it holds them
 	// at its own indent (see wrapDto). Its plural glyph and the indent guide are what tell it apart
@@ -268,11 +272,12 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 		if (stale) {
 			return;
 		}
-		// A node with details keeps the details tab the first click opened in preview mode, the way
-		// double-clicking a file in the Explorer does -- even when it can also preview, as a
-		// semantic view's logical table can: its details are what the click was about, and its
-		// base table is one "Open in Data Explorer" away. Any other previewable node opens its data.
-		if (dto.hasDetails) {
+		// A double-click opens the node: its data when it has data, as a table, view, or column does,
+		// whether or not it has details too (its first click has already shown those, in preview
+		// mode). A node with only details -- or one whose driver says its details come first, as a
+		// semantic view's logical table, whose data is its base table's -- keeps the details tab that
+		// first click opened, the way double-clicking a file in the Explorer does.
+		if (dto.hasDetails && (!canPreview(dto) || dto.defaultAction === 'details')) {
 			void openDetails(true);
 		} else if (canPreview(dto)) {
 			openInDataExplorer();
@@ -321,7 +326,28 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 			}
 		}
 
-		// Nothing applies to this node (e.g. a non-previewable leaf), so leave the event alone
+		// Copying is offered for nodes that name a thing; a group's name is only a label, and a
+		// notice's is a sentence. The path is the driver's, in the form the source accepts, so it
+		// pastes straight into a query.
+		if (!isGroup && dto.kind !== 'notice') {
+			if (entries.length > 0) {
+				entries.push(new CustomContextMenuSeparator());
+			}
+			entries.push(new CustomContextMenuItem({
+				icon: 'copy',
+				label: localize('positron.dataConnections.copyName', "Copy Name"),
+				onSelected: () => { void clipboardService.writeText(dto.name); },
+			}));
+			if (dto.path !== undefined) {
+				const path = dto.path;
+				entries.push(new CustomContextMenuItem({
+					label: localize('positron.dataConnections.copyPath', "Copy Path"),
+					onSelected: () => { void clipboardService.writeText(path); },
+				}));
+			}
+		}
+
+		// Nothing applies to this node (e.g. a group that can't be refreshed), so leave the event alone
 		// rather than swallowing it to show an empty menu.
 		if (entries.length === 0) {
 			return;

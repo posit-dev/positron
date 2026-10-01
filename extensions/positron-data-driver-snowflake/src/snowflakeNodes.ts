@@ -7,19 +7,24 @@
 // the active role can access, so the tree is always cross-database: the root is a "Databases" group,
 // and everything under it is enumerated with SHOW/DESCRIBE metadata commands.
 //
-// Browsing deliberately uses SHOW (SHOW TERSE DATABASES / SCHEMAS / TABLES / VIEWS, SHOW SEMANTIC
-// VIEWS, SHOW STAGES) and DESCRIBE rather than SELECTs against INFORMATION_SCHEMA. INFORMATION_SCHEMA views require an active
-// warehouse (compute), so querying them fails with "No active warehouse selected in the current
-// session" whenever the connection has no warehouse -- and warehouse is an optional connection field.
-// SHOW/DESCRIBE run on the cloud-services layer and need no warehouse, so the tree expands regardless.
-// (Previewing data in the Data Explorer still needs a warehouse, since that runs a real SELECT.) Each
-// command is scoped by fully-qualified object name, so it works no matter which database or schema the
-// session currently has selected. Snowflake does not enforce primary keys, so no primary-key detection
+// Browsing deliberately uses SHOW (SHOW DATABASES / SCHEMAS / TABLES / VIEWS / SEMANTIC VIEWS /
+// STAGES), DESCRIBE, and LIST rather than SELECTs against INFORMATION_SCHEMA. INFORMATION_SCHEMA views
+// require an active warehouse (compute), so querying them fails with "No active warehouse selected in
+// the current session" whenever the connection has no warehouse -- and warehouse is an optional
+// connection field. SHOW/DESCRIBE/LIST run on the cloud-services layer and need no warehouse, so the
+// tree expands regardless. (Previewing data in the Data Explorer still needs a warehouse, since that
+// runs a real SELECT.) Each command is scoped by fully-qualified object name, so it works no matter
+// which database or schema the session currently has selected. Snowflake does not enforce primary keys, so no primary-key detection
 // is attempted and field nodes are never marked as primary keys.
+//
+// Each object node keeps the row its group's SHOW returned for it: the full (not TERSE) SHOW carries
+// the owner, comment, and kind-specific facts the node's details show, so clicking a node costs no
+// further round-trip for them.
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { SnowflakeClient } from './snowflakeClient.js';
+import { formatFileSize } from './fileSize.js';
 
 /** Quotes and escapes an identifier for Snowflake by doubling embedded double-quotes. */
 function quoteIdentifier(name: string): string {
@@ -30,6 +35,17 @@ function quoteIdentifier(name: string): string {
 function schemaRef(database: string, schemaName: string): string {
 	return `${quoteIdentifier(database)}.${quoteIdentifier(schemaName)}`;
 }
+
+/** Builds a double-quoted three-part `"<db>"."<schema>"."<name>"` reference. */
+function objectRef(database: string, schemaName: string, name: string): string {
+	return `${schemaRef(database, schemaName)}.${quoteIdentifier(name)}`;
+}
+
+/**
+ * The most files a stage's listing shows. LIST has no limit of its own and a stage can hold millions
+ * of files, so the listing is cut short here, and the tree says so.
+ */
+const MAX_STAGE_FILES = 10000;
 
 /**
  * The capability a table/view/column node needs to open itself in the Data Explorer. Implemented by
@@ -45,19 +61,18 @@ export interface ISnowflakePreviewHost {
 
 /**
  * Creates the root "Databases" group node, listing every database the connection's role can access.
- * Uses SHOW TERSE DATABASES so no current-database context is required.
+ * Uses SHOW DATABASES so no current-database context is required.
  */
 export function createDatabasesGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHost): positron.DataConnectionNode {
 	return {
 		name: vscode.l10n.t('Databases'),
 		kind: positron.DataConnectionNodeKind.GroupDatabases,
 		async getChildren() {
-			// SHOW returns a row per database with a lowercase `name` column.
-			const result = await client.query('SHOW TERSE DATABASES');
-			return result.rows
-				.map(row => String(row.name))
-				.sort((a, b) => a.localeCompare(b))
-				.map(name => createDatabaseNode(client, host, name));
+			// SHOW returns a row per database with a lowercase `name` column; the row is kept for the
+			// database's details.
+			const result = await client.query('SHOW DATABASES');
+			return sortByName(result.rows)
+				.map(row => createDatabaseNode(client, host, String(row.name), row));
 		},
 	};
 }
@@ -65,18 +80,36 @@ export function createDatabasesGroupNode(client: SnowflakeClient, host: ISnowfla
 /**
  * Creates a database node that expands to a single "Schemas" group. Exported so unit tests can
  * construct a database node directly against a mocked client.
+ * @param showRow The database's row from SHOW DATABASES, for its details.
  */
-export function createDatabaseNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string): positron.DataConnectionNode {
+export function createDatabaseNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, showRow: Record<string, unknown> = {}): positron.DataConnectionNode {
+	const path = quoteIdentifier(database);
 	return {
 		name: database,
 		kind: positron.DataConnectionNodeKind.Database,
+		path,
 		async getChildren() {
 			return [createSchemasGroupNode(client, host, database)];
+		},
+		async getDetails() {
+			return {
+				description: vscode.l10n.t('Database'),
+				sections: propertiesSection([
+					{ name: vscode.l10n.t('Path'), value: path },
+					{ name: vscode.l10n.t('Kind'), value: showValue(showRow.kind) },
+					{ name: vscode.l10n.t('Owner'), value: showValue(showRow.owner) },
+					{ name: vscode.l10n.t('Created'), value: showValue(showRow.created_on) },
+					{ name: vscode.l10n.t('Origin'), value: showValue(showRow.origin) },
+					{ name: vscode.l10n.t('Options'), value: showValue(showRow.options) },
+					{ name: vscode.l10n.t('Retention Time (Days)'), value: showValue(showRow.retention_time) },
+					{ name: vscode.l10n.t('Comment'), value: showValue(showRow.comment) },
+				]),
+			};
 		},
 	};
 }
 
-/** Creates the "Schemas" group inside a database node, via `SHOW TERSE SCHEMAS`. */
+/** Creates the "Schemas" group inside a database node, via `SHOW SCHEMAS`. */
 export function createSchemasGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string): positron.DataConnectionNode {
 	return {
 		name: vscode.l10n.t('Schemas'),
@@ -84,23 +117,37 @@ export function createSchemasGroupNode(client: SnowflakeClient, host: ISnowflake
 		async getChildren() {
 			// SHOW runs without a warehouse; SHOW returns a lowercase `name` column. Every schema is
 			// listed, including INFORMATION_SCHEMA -- it is a browsable schema, not noise to hide.
-			const result = await client.query(`SHOW TERSE SCHEMAS IN DATABASE ${quoteIdentifier(database)}`);
-			return result.rows
-				.map(row => String(row.name))
-				.sort((a, b) => a.localeCompare(b))
-				.map(name => createSchemaNode(client, host, database, name));
+			const result = await client.query(`SHOW SCHEMAS IN DATABASE ${quoteIdentifier(database)}`);
+			return sortByName(result.rows)
+				.map(row => createSchemaNode(client, host, database, String(row.name), row));
 		},
 	};
 }
 
 /**
- * Creates a schema node that expands to Tables and Views groups. Exported so unit tests can construct
- * a schema node directly against a mocked client.
+ * Creates a schema node that expands to Tables, Views, Semantic Views, and Stages groups. Exported so
+ * unit tests can construct a schema node directly against a mocked client.
+ * @param showRow The schema's row from SHOW SCHEMAS, for its details.
  */
-export function createSchemaNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
+export function createSchemaNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, schemaName: string, showRow: Record<string, unknown> = {}): positron.DataConnectionNode {
+	const path = schemaRef(database, schemaName);
 	return {
 		name: schemaName,
 		kind: positron.DataConnectionNodeKind.Schema,
+		path,
+		async getDetails() {
+			return {
+				description: vscode.l10n.t('Schema'),
+				sections: propertiesSection([
+					{ name: vscode.l10n.t('Path'), value: path },
+					{ name: vscode.l10n.t('Owner'), value: showValue(showRow.owner) },
+					{ name: vscode.l10n.t('Created'), value: showValue(showRow.created_on) },
+					{ name: vscode.l10n.t('Options'), value: showValue(showRow.options) },
+					{ name: vscode.l10n.t('Retention Time (Days)'), value: showValue(showRow.retention_time) },
+					{ name: vscode.l10n.t('Comment'), value: showValue(showRow.comment) },
+				]),
+			};
+		},
 		async getChildren() {
 			return [
 				createTablesGroupNode(client, host, database, schemaName),
@@ -112,33 +159,29 @@ export function createSchemaNode(client: SnowflakeClient, host: ISnowflakePrevie
 	};
 }
 
-/** Creates the "Tables" group inside a schema. Lists base tables via `SHOW TERSE TABLES`. */
+/** Creates the "Tables" group inside a schema. Lists base tables via `SHOW TABLES`. */
 function createTablesGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: vscode.l10n.t('Tables'),
 		kind: positron.DataConnectionNodeKind.GroupTables,
 		async getChildren() {
 			// SHOW TABLES lists only base tables (views come from SHOW VIEWS) and needs no warehouse.
-			const result = await client.query(`SHOW TERSE TABLES IN SCHEMA ${schemaRef(database, schemaName)}`);
-			return result.rows
-				.map(row => String(row.name))
-				.sort((a, b) => a.localeCompare(b))
-				.map(name => createRelationNode(client, host, database, schemaName, name, 'table'));
+			const result = await client.query(`SHOW TABLES IN SCHEMA ${schemaRef(database, schemaName)}`);
+			return sortByName(result.rows)
+				.map(row => createRelationNode(client, host, database, schemaName, row, 'table'));
 		},
 	};
 }
 
-/** Creates the "Views" group inside a schema. Lists views via `SHOW TERSE VIEWS`. */
+/** Creates the "Views" group inside a schema. Lists views, materialized ones included, via `SHOW VIEWS`. */
 function createViewsGroupNode(client: SnowflakeClient, host: ISnowflakePreviewHost, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
 		name: vscode.l10n.t('Views'),
 		kind: positron.DataConnectionNodeKind.GroupViews,
 		async getChildren() {
-			const result = await client.query(`SHOW TERSE VIEWS IN SCHEMA ${schemaRef(database, schemaName)}`);
-			return result.rows
-				.map(row => String(row.name))
-				.sort((a, b) => a.localeCompare(b))
-				.map(name => createRelationNode(client, host, database, schemaName, name, 'view'));
+			const result = await client.query(`SHOW VIEWS IN SCHEMA ${schemaRef(database, schemaName)}`);
+			return sortByName(result.rows)
+				.map(row => createRelationNode(client, host, database, schemaName, row, 'view'));
 		},
 	};
 }
@@ -157,8 +200,7 @@ function createSemanticViewsGroupNode(client: SnowflakeClient, host: ISnowflakeP
 			const result = await client.query(`SHOW SEMANTIC VIEWS IN SCHEMA ${schemaRef(database, schemaName)}`);
 			// Each row is kept with its node: it carries the owner, creation time, and comment the
 			// semantic view's details show.
-			return [...result.rows]
-				.sort((a, b) => String(a.name).localeCompare(String(b.name)))
+			return sortByName(result.rows)
 				.map(row => createSemanticViewNode(client, host, database, schemaName, row));
 		},
 	};
@@ -371,7 +413,7 @@ function createSemanticViewNode(
 	showRow: Record<string, unknown>
 ): positron.DataConnectionNode {
 	const semanticViewName = String(showRow.name);
-	const semanticViewRef = `${schemaRef(database, schemaName)}.${quoteIdentifier(semanticViewName)}`;
+	const semanticViewRef = objectRef(database, schemaName, semanticViewName);
 
 	// Both loads are shared across the node's lifetime: expanding the node and clicking it (as many
 	// times as the user likes) cost one DESCRIBE between them, and GET_DDL -- a SELECT, which may
@@ -387,6 +429,7 @@ function createSemanticViewNode(
 	return {
 		name: semanticViewName,
 		kind: positron.DataConnectionNodeKind.SemanticView,
+		path: semanticViewRef,
 		async getDetails() {
 			return semanticViewDetails(showRow, describe, ddl);
 		},
@@ -533,6 +576,67 @@ function showValue(value: unknown): string | undefined {
 		return undefined;
 	}
 	return value instanceof Date ? value.toLocaleString() : String(value);
+}
+
+/**
+ * Reads a SHOW flag column. SHOW reports flags inconsistently across commands -- 'Y' and 'N' in some,
+ * 'true' and 'false' or 'ON' and 'OFF' in others -- so each is read as yes or no. Returns undefined
+ * for a value that is neither.
+ */
+function parseFlag(value: unknown): boolean | undefined {
+	switch (showValue(value)?.toUpperCase()) {
+		case 'Y': case 'YES': case 'TRUE': case 'ON':
+			return true;
+		case 'N': case 'NO': case 'FALSE': case 'OFF':
+			return false;
+		default:
+			return undefined;
+	}
+}
+
+/** Formats a SHOW flag column for display as yes or no (see parseFlag), or as it came otherwise. */
+function showFlag(value: unknown): string | undefined {
+	const flag = parseFlag(value);
+	return flag === undefined ? showValue(value) : flag ? vscode.l10n.t('Yes') : vscode.l10n.t('No');
+}
+
+/** Formats a SHOW count column (e.g. a table's rows) for display, with digit grouping. */
+function showCount(value: unknown): string | undefined {
+	const count = Number(showValue(value));
+	return showValue(value) === undefined || !isFinite(count) ? showValue(value) : count.toLocaleString();
+}
+
+/** Formats a SHOW or LIST size column for display, or returns undefined when it has none. */
+function showSize(value: unknown): string | undefined {
+	const text = showValue(value);
+	const bytes = Number(text);
+	return text === undefined || !isFinite(bytes) ? text : formatFileSize(bytes);
+}
+
+/**
+ * Builds a properties section from name/value pairs, leaving out the pairs with no value. Returns
+ * no section at all when none has one.
+ */
+function propertiesSection(properties: { name: string; value: string | undefined }[]): positron.DataConnectionNodeDetailsSection[] {
+	const present = properties.filter((property): property is { name: string; value: string } => property.value !== undefined);
+	return present.length > 0 ? [{ kind: 'properties', properties: present }] : [];
+}
+
+/** Sorts SHOW rows by their `name` column. */
+function sortByName(rows: Record<string, unknown>[]): Record<string, unknown>[] {
+	return [...rows].sort((a, b) => String(a.name).localeCompare(String(b.name)));
+}
+
+/**
+ * Runs a details load that may fail, turning a failure into a section saying why, so the rest of the
+ * details still show.
+ */
+async function settleSections(load: () => Promise<positron.DataConnectionNodeDetailsSection[]>): Promise<positron.DataConnectionNodeDetailsSection[]> {
+	try {
+		return await load();
+	} catch (error) {
+		return [{ kind: 'properties', properties: [{ name: vscode.l10n.t('Unavailable'), value: error instanceof Error ? error.message : String(error) }] }];
+	}
 }
 
 /**
@@ -805,6 +909,10 @@ function createLogicalTableNode(
 	const baseTable = table.properties.get('BASE_TABLE_NAME');
 	if (baseDatabase && baseSchema && baseTable) {
 		node.dataType = `${baseDatabase}.${baseSchema}.${baseTable}`;
+		// What a logical table holds is its definition; its preview opens its base table, which is
+		// another object's data. So a double-click keeps its details, and the data is one "Open in
+		// Data Explorer" away.
+		node.defaultAction = 'details';
 		node.preview = () => {
 			// The base object may be a table or a view; DESCRIBE does not say which. The kind only tags
 			// the dataset id -- the Snowflake preview queries both the same way -- so 'table' is safe.
@@ -816,9 +924,8 @@ function createLogicalTableNode(
 
 /**
  * Creates the "Stages" group inside a schema. Lists named stages via `SHOW STAGES`. Stages hold files
- * rather than tabular rows, so stage nodes are leaves: no Data Explorer preview and no children
- * (listing a stage's files is deliberately left for a follow-up). Takes no preview host for that
- * reason.
+ * rather than tabular rows, so a stage has no Data Explorer preview; it expands to its files instead.
+ * Takes no preview host for that reason.
  */
 function createStagesGroupNode(client: SnowflakeClient, database: string, schemaName: string): positron.DataConnectionNode {
 	return {
@@ -826,42 +933,394 @@ function createStagesGroupNode(client: SnowflakeClient, database: string, schema
 		kind: positron.DataConnectionNodeKind.GroupStages,
 		async getChildren() {
 			const result = await client.query(`SHOW STAGES IN SCHEMA ${schemaRef(database, schemaName)}`);
-			return result.rows
-				.map(row => String(row.name))
-				.sort((a, b) => a.localeCompare(b))
-				.map(name => ({
-					name,
-					kind: positron.DataConnectionNodeKind.Stage,
-				}));
+			return sortByName(result.rows)
+				.map(row => createStageNode(client, database, schemaName, row));
 		},
 	};
 }
 
-/** Creates a table or view node that expands to a single "Columns" group. */
-function createRelationNode(
-	client: SnowflakeClient,
-	host: ISnowflakePreviewHost,
-	database: string,
-	schemaName: string,
-	relationName: string,
-	kind: 'table' | 'view'
-): positron.DataConnectionNode {
+/** A file in a stage, from LIST. */
+interface IStageFile {
+	/** The file's path below the folder being listed, without a leading slash, e.g. `2024/orders.csv`. */
+	path: string;
+	/** The file's row from LIST, for its details. */
+	row: Record<string, unknown>;
+}
+
+/** A folder in a stage's listing: the files directly in it, and its subfolders by name. */
+interface IStageFolder {
+	folders: Map<string, IStageFolder>;
+	files: { name: string; file: IStageFile }[];
+}
+
+/**
+ * Turns a name LIST reported into the file's path within the stage. LIST names a file in an internal
+ * stage by the stage's name and the path (`my_stage/2024/orders.csv`), and a file in an external stage
+ * by its full URL (`s3://bucket/prefix/2024/orders.csv`), so the stage's own part is cut off. That
+ * part is matched by its segments rather than as a string: the URL SHOW STAGES reports needn't be
+ * spelled exactly as LIST spells its names (case, a trailing slash, an Azure host's form), but it
+ * names the same location, so it has the same number of segments -- the stage name's one for an
+ * internal stage, and the URL's own (bucket or container, then its path) for an external one.
+ * Exported for unit tests.
+ * @param name The `name` LIST reported.
+ * @param stageUrl The stage's URL from SHOW STAGES; empty for an internal stage.
+ */
+export function stageFilePath(name: string, stageUrl: string | undefined): string {
+	const segments = (value: string) => value.replace(/^[a-z][a-z0-9+.-]*:\/\//i, '').split('/').filter(segment => segment.length > 0);
+	const stageSegments = stageUrl ? segments(stageUrl).length : 1;
+	const path = segments(name).slice(stageSegments).join('/');
+	// A trailing slash marks a folder (see stageFolders), so it is kept.
+	return name.endsWith('/') && path.length > 0 ? `${path}/` : path;
+}
+
+/**
+ * Arranges a stage's files into folders by their `/`-separated paths. A stage has no folders of its
+ * own -- LIST returns a flat list of files -- so these are the prefixes the paths share, the way a
+ * cloud storage console shows them.
+ */
+function stageFolders(files: IStageFile[]): IStageFolder {
+	const root: IStageFolder = { folders: new Map(), files: [] };
+	for (const file of files) {
+		const segments = file.path.split('/').filter(segment => segment.length > 0);
+		// A path ending in a slash is a folder marker -- the empty object some tools write to make a
+		// folder show in a storage console -- so it adds its folders but no file.
+		const fileName = file.path.endsWith('/') ? undefined : segments.pop();
+		let folder = root;
+		for (const segment of segments) {
+			let child = folder.folders.get(segment);
+			if (!child) {
+				child = { folders: new Map(), files: [] };
+				folder.folders.set(segment, child);
+			}
+			folder = child;
+		}
+		if (fileName !== undefined) {
+			folder.files.push({ name: fileName, file });
+		}
+	}
+	return root;
+}
+
+/** A stage, as the nodes of its listing need it. */
+interface IStageLocation {
+	/** The stage's path, e.g. `@"DB"."PUBLIC"."STAGE"`. */
+	path: string;
+	/** The stage's URL from SHOW STAGES; unset for an internal stage. */
+	url: string | undefined;
+}
+
+/** Quotes a Snowflake string literal, escaping backslashes as well as single quotes. */
+function quoteLiteral(value: string): string {
+	return `'${value.replace(/\\/g, '\\\\').replace(/'/g, '\\\'')}'`;
+}
+
+/**
+ * Lists a folder of a stage: its subfolders, then its files, each in name order -- the ordering a
+ * file browser uses. LIST always lists everything under the location it's given, with no limit, so
+ * only its first MAX_STAGE_FILES rows are read, with a notice saying so. Each folder lists its own
+ * prefix when expanded, so refreshing a folder picks up what changed under it.
+ *
+ * A stage the role can see but not read (no READ on an internal stage, or an external stage whose
+ * credentials or integration fail) can't be listed. That isn't a fault in the tree: the stage's
+ * details still show, so the listing says why it is empty instead of failing the expand.
+ * @param client The client.
+ * @param stage The stage.
+ * @param prefix The folder's path within the stage, with a trailing slash; empty for the stage itself.
+ */
+async function listStageFolder(client: SnowflakeClient, stage: IStageLocation, prefix: string): Promise<positron.DataConnectionNode[]> {
+	// The quoted form takes any path, spaces and all. LIST runs without a warehouse.
+	let listing: { rows: Record<string, unknown>[]; total: number };
+	try {
+		listing = await client.queryCapped(`LIST ${quoteLiteral(`${stage.path}/${prefix}`)}`, MAX_STAGE_FILES);
+	} catch (error) {
+		return [{
+			name: vscode.l10n.t('Could not list the files: {0}', error instanceof Error ? error.message : String(error)),
+			kind: positron.DataConnectionNodeKind.Notice,
+		}];
+	}
+	// LIST matches its location as a string prefix, so the files are kept to the folder's own before
+	// they're arranged, in case a name comes back outside it.
+	const files = listing.rows
+		.map(row => ({ path: stageFilePath(String(row.name), stage.url), row }))
+		.filter(file => file.path.startsWith(prefix))
+		.map(file => ({ ...file, path: file.path.slice(prefix.length) }));
+	const folder = stageFolders(files);
+
+	const nodes: positron.DataConnectionNode[] = [];
+	if (listing.total > listing.rows.length) {
+		nodes.push({
+			name: vscode.l10n.t('Showing the first {0} of {1} files', listing.rows.length.toLocaleString(), listing.total.toLocaleString()),
+			kind: positron.DataConnectionNodeKind.Notice,
+		});
+	}
+	for (const name of [...folder.folders.keys()].sort((a, b) => a.localeCompare(b))) {
+		const folderPrefix = `${prefix}${name}/`;
+		nodes.push({
+			name,
+			kind: positron.DataConnectionNodeKind.Directory,
+			path: `${stage.path}/${folderPrefix}`,
+			getChildren: () => listStageFolder(client, stage, folderPrefix),
+		});
+	}
+	for (const { name, file } of [...folder.files].sort((a, b) => a.name.localeCompare(b.name))) {
+		nodes.push(createStageFileNode(`${stage.path}/${prefix}${file.path}`, name, file.row));
+	}
+	return nodes;
+}
+
+/**
+ * Creates a file node in a stage's listing, with details from its LIST row.
+ * @param path The file's path, e.g. `@"DB"."PUBLIC"."STAGE"/2024/orders.csv`.
+ * @param name The file's name.
+ * @param row The file's row from LIST.
+ */
+function createStageFileNode(path: string, name: string, row: Record<string, unknown>): positron.DataConnectionNode {
 	return {
-		name: relationName,
-		kind: kind === 'table' ? positron.DataConnectionNodeKind.Table : positron.DataConnectionNodeKind.View,
-		async getChildren() {
-			return [createColumnsGroupNode(client, host, database, schemaName, relationName, kind)];
-		},
-		preview() {
-			return host.previewObject(client, database, schemaName, relationName, kind);
+		name,
+		kind: positron.DataConnectionNodeKind.File,
+		// The tree renders dataType as a trailing label, which is where a file's size belongs.
+		dataType: showSize(row.size),
+		path,
+		async getDetails() {
+			return {
+				description: vscode.l10n.t('File'),
+				sections: propertiesSection([
+					{ name: vscode.l10n.t('Path'), value: path },
+					{ name: vscode.l10n.t('Size'), value: showSize(row.size) },
+					{ name: vscode.l10n.t('Last Modified'), value: showValue(row.last_modified) },
+					{ name: vscode.l10n.t('MD5'), value: showValue(row.md5) },
+				]),
+			};
 		},
 	};
 }
 
 /**
- * Creates the "Columns" group inside a table or view. Columns come from DESCRIBE TABLE/VIEW.
+ * Creates a stage node. It expands to the stage's files, arranged into folders by their paths (see
+ * stageFolders and listStageFolder), and has details: what SHOW STAGES says about it, and its file
+ * format and copy options from DESCRIBE STAGE.
+ */
+function createStageNode(client: SnowflakeClient, database: string, schemaName: string, showRow: Record<string, unknown>): positron.DataConnectionNode {
+	const stageName = String(showRow.name);
+	const stageRef = objectRef(database, schemaName, stageName);
+	// An external stage's URL may come back as a JSON list of one; an internal stage has none.
+	const url = showValue(showRow.url);
+	const stage: IStageLocation = { path: `@${stageRef}`, url: url === undefined ? undefined : parseJsonList(url)?.[0] ?? url };
+
+	return {
+		name: stageName,
+		kind: positron.DataConnectionNodeKind.Stage,
+		path: stage.path,
+		getChildren: () => listStageFolder(client, stage, ''),
+		async getDetails() {
+			const type = showValue(showRow.type);
+			const overview = propertiesSection([
+				{ name: vscode.l10n.t('Path'), value: stage.path },
+				{ name: vscode.l10n.t('Type'), value: type },
+				{ name: vscode.l10n.t('URL'), value: stage.url },
+				{ name: vscode.l10n.t('Cloud'), value: showValue(showRow.cloud) },
+				{ name: vscode.l10n.t('Region'), value: showValue(showRow.region) },
+				{ name: vscode.l10n.t('Storage Integration'), value: showValue(showRow.storage_integration) },
+				{ name: vscode.l10n.t('Directory Table'), value: showFlag(showRow.directory_enabled) },
+				{ name: vscode.l10n.t('Has Credentials'), value: showFlag(showRow.has_credentials) },
+				{ name: vscode.l10n.t('Has Encryption Key'), value: showFlag(showRow.has_encryption_key) },
+				{ name: vscode.l10n.t('Owner'), value: showValue(showRow.owner) },
+				{ name: vscode.l10n.t('Created'), value: showValue(showRow.created_on) },
+				{ name: vscode.l10n.t('Comment'), value: showValue(showRow.comment) },
+			]);
+			const properties = await settleSections(async () =>
+				stagePropertySections((await client.query(`DESCRIBE STAGE ${stageRef}`)).rows));
+			return {
+				description: type?.toUpperCase() === 'EXTERNAL' ? vscode.l10n.t('External stage') : vscode.l10n.t('Stage'),
+				sections: [],
+				tabs: [
+					{ title: vscode.l10n.t('Overview'), sections: overview },
+					{ title: vscode.l10n.t('Properties'), sections: properties },
+				],
+			};
+		},
+	};
+}
+
+/**
+ * Builds the sections of a stage's Properties tab from DESCRIBE STAGE, which returns a row per
+ * property with columns `parent_property` (e.g. STAGE_FILE_FORMAT, STAGE_COPY_OPTIONS),
+ * `property`, `property_value`, and `property_default`. Each parent property gets a table of its own,
+ * in the order DESCRIBE returns them.
+ */
+function stagePropertySections(rows: Record<string, unknown>[]): positron.DataConnectionNodeDetailsSection[] {
+	const byParent = new Map<string, string[][]>();
+	for (const row of rows) {
+		const parent = showValue(row.parent_property) ?? '';
+		let tableRows = byParent.get(parent);
+		if (!tableRows) {
+			tableRows = [];
+			byParent.set(parent, tableRows);
+		}
+		tableRows.push([showValue(row.property) ?? '', showValue(row.property_value) ?? '', showValue(row.property_default) ?? '']);
+	}
+	const columns = [vscode.l10n.t('Property'), vscode.l10n.t('Value'), vscode.l10n.t('Default')];
+	return [...byParent].map(([parent, tableRows]) => ({
+		kind: 'table' as const,
+		title: parent ? propertyLabel(parent.replace(/^STAGE_/, '')) : undefined,
+		columns,
+		rows: tableRows,
+	}));
+}
+
+/**
+ * Creates a table or view node that expands to a single "Columns" group, and has details: what its
+ * SHOW row says about it, its columns, and for a view its definition.
+ *
+ * The Columns group and the details share one DESCRIBE, so clicking the node (as often as the user
+ * likes) and expanding its columns cost one between them. Refreshing reloads it: expanding the
+ * Columns group always runs a fresh DESCRIBE, and refreshing the node itself (or anything above it)
+ * drops the shared one, so the next click fetches it again.
+ * @param showRow The object's row from SHOW TABLES or SHOW VIEWS.
+ */
+function createRelationNode(
+	client: SnowflakeClient,
+	host: ISnowflakePreviewHost,
+	database: string,
+	schemaName: string,
+	showRow: Record<string, unknown>,
+	kind: 'table' | 'view'
+): positron.DataConnectionNode {
+	const relationName = String(showRow.name);
+	const path = objectRef(database, schemaName, relationName);
+	// DESCRIBE needs no warehouse and returns columns in ordinal order with a ready-formatted `type`
+	// string (e.g. NUMBER(38,0), TIMESTAMP_NTZ(9)), so no type assembly is needed. Use the keyword
+	// matching the relation kind.
+	let columns: Promise<Record<string, unknown>[]> | undefined;
+	const describe = (fresh: boolean) => {
+		if (fresh || !columns) {
+			const attempt = (async () =>
+				(await client.query(`${kind === 'view' ? 'DESCRIBE VIEW' : 'DESCRIBE TABLE'} ${path}`)).rows)();
+			columns = attempt;
+			// A failed DESCRIBE is forgotten, so the next click retries it.
+			attempt.catch(() => {
+				if (columns === attempt) {
+					columns = undefined;
+				}
+			});
+		}
+		return columns;
+	};
+	return {
+		name: relationName,
+		kind: kind === 'table' ? positron.DataConnectionNodeKind.Table : positron.DataConnectionNodeKind.View,
+		path,
+		async getChildren() {
+			// The tree calls this on expanding the node and on refreshing it.
+			columns = undefined;
+			return [createColumnsGroupNode(client, host, database, schemaName, relationName, kind, () => describe(true))];
+		},
+		preview() {
+			return host.previewObject(client, database, schemaName, relationName, kind);
+		},
+		async getDetails() {
+			const loadColumns = () => describe(false);
+			return kind === 'table' ? tableDetails(showRow, path, loadColumns) : viewDetails(showRow, path, loadColumns);
+		},
+	};
+}
+
+/**
+ * Builds a Columns tab from a table's or view's DESCRIBE rows: each column with its type and comment.
+ */
+async function columnsTab(describe: () => Promise<Record<string, unknown>[]>): Promise<positron.DataConnectionNodeDetailsTab> {
+	return {
+		title: vscode.l10n.t('Columns'),
+		sections: await settleSections(async () => [{
+			kind: 'items',
+			items: (await describe()).map(row => ({
+				name: String(row.name),
+				kind: positron.DataConnectionNodeKind.Field,
+				dataType: showValue(row.type),
+				description: showValue(row.comment),
+			})),
+			emptyText: vscode.l10n.t('No columns'),
+		}]),
+	};
+}
+
+/**
+ * Builds the details of a table: an Overview of what SHOW TABLES says about it, and its columns.
+ * @param showRow The table's row from SHOW TABLES.
+ * @param path The table's quoted three-part name.
+ * @param describe Loads the table's columns (DESCRIBE TABLE).
+ */
+async function tableDetails(showRow: Record<string, unknown>, path: string, describe: () => Promise<Record<string, unknown>[]>): Promise<positron.DataConnectionNodeDetails> {
+	// SHOW TABLES lists every kind of table; the flags say which special kind this one is, if any.
+	const description =
+		parseFlag(showRow.is_dynamic) ? vscode.l10n.t('Dynamic table') :
+			parseFlag(showRow.is_iceberg) ? vscode.l10n.t('Iceberg table') :
+				parseFlag(showRow.is_hybrid) ? vscode.l10n.t('Hybrid table') :
+					parseFlag(showRow.is_external) ? vscode.l10n.t('External table') :
+						parseFlag(showRow.is_event) ? vscode.l10n.t('Event table') :
+							vscode.l10n.t('Table');
+	const overview = propertiesSection([
+		{ name: vscode.l10n.t('Path'), value: path },
+		{ name: vscode.l10n.t('Kind'), value: showValue(showRow.kind) },
+		{ name: vscode.l10n.t('Owner'), value: showValue(showRow.owner) },
+		{ name: vscode.l10n.t('Created'), value: showValue(showRow.created_on) },
+		{ name: vscode.l10n.t('Rows'), value: showCount(showRow.rows) },
+		{ name: vscode.l10n.t('Size'), value: showSize(showRow.bytes) },
+		{ name: vscode.l10n.t('Clustering Key'), value: showValue(showRow.cluster_by) },
+		{ name: vscode.l10n.t('Automatic Clustering'), value: showValue(showRow.cluster_by) ? showFlag(showRow.automatic_clustering) : undefined },
+		{ name: vscode.l10n.t('Change Tracking'), value: showFlag(showRow.change_tracking) },
+		{ name: vscode.l10n.t('Retention Time (Days)'), value: showValue(showRow.retention_time) },
+		{ name: vscode.l10n.t('Comment'), value: showValue(showRow.comment) },
+	]);
+	return {
+		description,
+		sections: [],
+		tabs: [
+			{ title: vscode.l10n.t('Overview'), sections: overview },
+			await columnsTab(describe),
+		],
+	};
+}
+
+/**
+ * Builds the details of a view: an Overview of what SHOW VIEWS says about it, its columns, and its
+ * definition. The definition is SHOW VIEWS' `text` column, so it costs no query of its own (unlike a
+ * semantic view's GET_DDL); SHOW leaves it empty for a secure view the role doesn't own.
+ * @param showRow The view's row from SHOW VIEWS.
+ * @param path The view's quoted three-part name.
+ * @param describe Loads the view's columns (DESCRIBE VIEW).
+ */
+async function viewDetails(showRow: Record<string, unknown>, path: string, describe: () => Promise<Record<string, unknown>[]>): Promise<positron.DataConnectionNodeDetails> {
+	const materialized = parseFlag(showRow.is_materialized);
+	const overview = propertiesSection([
+		{ name: vscode.l10n.t('Path'), value: path },
+		{ name: vscode.l10n.t('Owner'), value: showValue(showRow.owner) },
+		{ name: vscode.l10n.t('Created'), value: showValue(showRow.created_on) },
+		{ name: vscode.l10n.t('Secure'), value: showFlag(showRow.is_secure) },
+		{ name: vscode.l10n.t('Materialized'), value: showFlag(showRow.is_materialized) },
+		{ name: vscode.l10n.t('Change Tracking'), value: showFlag(showRow.change_tracking) },
+		{ name: vscode.l10n.t('Comment'), value: showValue(showRow.comment) },
+	]);
+	const text = showValue(showRow.text);
+	const definition: positron.DataConnectionNodeDetailsSection = text !== undefined && text.trim().length > 0
+		? { kind: 'code', languageId: 'sql', code: text }
+		: { kind: 'properties', properties: [{ name: vscode.l10n.t('Unavailable'), value: vscode.l10n.t('The definition is not available to the current role.') }] };
+	return {
+		description: materialized ? vscode.l10n.t('Materialized view') : vscode.l10n.t('View'),
+		sections: [],
+		tabs: [
+			{ title: vscode.l10n.t('Overview'), sections: overview },
+			await columnsTab(describe),
+			{ title: vscode.l10n.t('Definition'), sections: [definition] },
+		],
+	};
+}
+
+/**
+ * Creates the "Columns" group inside a table or view, from the relation's DESCRIBE.
  * Primary-key detection is intentionally skipped: Snowflake does not enforce primary keys and does not
  * expose them for browsing.
+ * @param describe Runs the relation's DESCRIBE afresh, sharing the result with its details.
  */
 function createColumnsGroupNode(
 	client: SnowflakeClient,
@@ -869,19 +1328,14 @@ function createColumnsGroupNode(
 	database: string,
 	schemaName: string,
 	relationName: string,
-	kind: 'table' | 'view'
+	kind: 'table' | 'view',
+	describe: () => Promise<Record<string, unknown>[]>
 ): positron.DataConnectionNode {
 	return {
 		name: vscode.l10n.t('Columns'),
 		kind: positron.DataConnectionNodeKind.GroupColumns,
 		async getChildren() {
-			// DESCRIBE needs no warehouse and returns columns in ordinal order with a ready-formatted
-			// `type` string (e.g. NUMBER(38,0), TIMESTAMP_NTZ(9)), so no type assembly is needed. Use the
-			// keyword matching the relation kind.
-			const relationRef = `${schemaRef(database, schemaName)}.${quoteIdentifier(relationName)}`;
-			const command = kind === 'view' ? 'DESCRIBE VIEW' : 'DESCRIBE TABLE';
-			const result = await client.query(`${command} ${relationRef}`);
-			return result.rows.map(row => ({
+			return (await describe()).map(row => ({
 				name: String(row.name),
 				kind: positron.DataConnectionNodeKind.Field,
 				dataType: String(row.type),

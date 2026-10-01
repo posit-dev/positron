@@ -535,9 +535,11 @@ export enum DataConnectionNodeKind {
 	// A Unity Catalog volume: a governed location for non-tabular files
 	// (positron-data-driver-databricks).
 	Volume = 'volume',
-	// A directory inside a volume, and a file inside one.
+	// A directory inside a volume or stage, and a file inside one.
 	Directory = 'directory',
 	File = 'file',
+	// A note in the tree rather than an object, e.g. that a long listing was cut short.
+	Notice = 'notice',
 	// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 	Owner = 'owner',
 	// A pin on a Posit Connect server (positron-data-driver-pins).

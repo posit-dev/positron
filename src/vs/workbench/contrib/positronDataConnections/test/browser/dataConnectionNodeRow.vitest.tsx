@@ -8,6 +8,7 @@
 import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
+import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -29,9 +30,11 @@ describe('DataConnectionNodeRow', () => {
 	// The row previews through the service rather than the handle, so the connection can record the
 	// Data Explorer it opened.
 	const previewNode = vi.fn().mockResolvedValue(undefined);
+	const writeText = vi.fn().mockResolvedValue(undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IPositronDataConnectionsService, { previewNode })
+		.stub(IClipboardService, { writeText })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -94,6 +97,8 @@ describe('DataConnectionNodeRow', () => {
 			  "Refresh",
 			  "---",
 			  "Open in Data Explorer",
+			  "---",
+			  "Copy Name",
 			]
 		`);
 	});
@@ -106,23 +111,50 @@ describe('DataConnectionNodeRow', () => {
 		expect(labels).toMatchInlineSnapshot(`
 			[
 			  "Refresh",
+			  "---",
+			  "Copy Name",
 			]
 		`);
 	});
 
-	it('offers only Open in Data Explorer for a previewable leaf', async () => {
+	it('offers Open in Data Explorer and Copy Name for a previewable leaf', async () => {
 		const { labels } = await rightClickRow(createDto({ hasGetChildren: false, hasPreview: true }));
 
 		expect(labels).toMatchInlineSnapshot(`
 			[
 			  "Open in Data Explorer",
+			  "---",
+			  "Copy Name",
 			]
 		`);
 	});
 
-	it('opens no menu for a leaf with nothing to offer, leaving the event alone', async () => {
+	it('offers only the copy actions for a leaf with nothing else, Copy Path when it has a path', async () => {
+		const { labels } = await rightClickRow(
+			createDto({ kind: 'file', name: 'orders.csv', path: '@"DB"."PUBLIC"."STAGE"/orders.csv', hasPreview: false })
+		);
+
+		expect(labels).toMatchInlineSnapshot(`
+			[
+			  "Copy Name",
+			  "Copy Path",
+			]
+		`);
+	});
+
+	it('copies the driver-supplied path when Copy Path is selected', async () => {
+		const { call } = await rightClickRow(
+			createDto({ kind: 'table', name: 'ORDERS', path: '"DB"."PUBLIC"."ORDERS"', hasPreview: false })
+		);
+
+		call.entries.at(-1).options.onSelected();
+
+		expect(writeText).toHaveBeenCalledWith('"DB"."PUBLIC"."ORDERS"');
+	});
+
+	it('opens no menu for a notice, leaving the event alone', async () => {
 		const { labels, onMenuOpening } = await rightClickRow(
-			createDto({ kind: 'column', name: 'id', hasGetChildren: false, hasPreview: false })
+			createDto({ kind: 'notice', name: 'Showing the first 10 of 20 files', hasGetChildren: false, hasPreview: false })
 		);
 
 		// No menu, and no focus hold taken -- an empty menu would be worse than none, and holding
@@ -236,9 +268,18 @@ describe('DataConnectionNodeRow', () => {
 			expect(onPinDetails).toHaveBeenCalledTimes(1);
 		});
 
-		it('opens a previewable node\'s details, not the Data Explorer, on double-click', async () => {
+		it('opens a previewable node\'s data on double-click, its first click having shown its details', async () => {
+			const onOpenDetails = vi.fn(async (_pinned: boolean) => { });
+			const { rowText, user } = renderRow(createDto({ kind: 'table', name: 'ORDERS', nodeHandle: 7, hasPreview: true, hasDetails: true }), onOpenDetails);
+
+			await user.dblClick(rowText);
+
+			expect({ details: onOpenDetails.mock.calls, previewed: previewNode.mock.calls.map(call => call[1]) }).toEqual({ details: [[false]], previewed: [7] });
+		});
+
+		it('keeps the details open on double-click for a node whose driver made details its default action', async () => {
 			const onOpenDetails = vi.fn(async () => { });
-			const { rowText, user } = renderRow(createDto({ kind: 'logical-table', name: 'REF_ENTITIES', hasPreview: true, hasDetails: true }), onOpenDetails);
+			const { rowText, user } = renderRow(createDto({ kind: 'logical-table', name: 'REF_ENTITIES', hasPreview: true, hasDetails: true, defaultAction: 'details' }), onOpenDetails);
 
 			await user.dblClick(rowText);
 
