@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildKnownIssuesBrief, closingRefs, extractSummary, knownFixLines, knownIssueOutcomes, openedLabel, parseLinked, referencedNumbers } from './known-issues.mjs';
+import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, openedLabel, parseLinked, referencedNumbers } from './known-issues.mjs';
 import { parseLedger } from './report-parse.mjs';
 
 test('closingRefs reads the keywords for the work a PR does, for this repo only', () => {
@@ -20,6 +20,16 @@ test('closingRefs reads the keywords for the work a PR does, for this repo only'
 		'Implements #71, part of #72, towards #73',
 	].join('\n');
 	assert.deepEqual(closingRefs(body).sort((a, b) => a - b), [12, 13, 14, 20, 30, 70, 71, 72, 73]);
+});
+
+test('formatSearch lists issues with their state, quotes titles, and says when nothing matched', () => {
+	const items = [
+		{ number: 12, state: 'closed', title: 'Console "hangs"' },
+		{ number: 13, state: 'open', title: 'Plot pane', pull_request: {} },
+		{ number: 14, state: 'open', title: 'Viewer' },
+	];
+	assert.equal(formatSearch(items), '#12 (closed): "Console \\"hangs\\""\n#14 (open): "Viewer"');
+	assert.equal(formatSearch([]), 'no matches');
 });
 
 test('referencedNumbers names every same-repo ref outside code fences', () => {

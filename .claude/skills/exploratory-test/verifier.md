@@ -37,9 +37,10 @@ For EACH finding, answer these five questions explicitly:
    say whether it does. A wrong claim does not change the verdict; name the
    file and what it actually covers.
 5. Is it already a known issue? Check the linked issues file first, then search open and closed issues in
-   `posit-dev/positron` with `gh issue list --repo posit-dev/positron --search
-   "<key terms>" --state all --limit 10`, a few searches per finding with
-   different terms: the symptom, the UI element, an error message. Count a
+   `posit-dev/positron` with `{{SEARCH}} "<key terms>"`, a few searches per
+   finding with different terms: the symptom, the UI element, an error
+   message. If a search fails, say the finding was not searched; do not count
+   it as no match. Count a
    match only when the issue describes the same symptom on the same path, not
    just the same feature. A matching issue closed as fixed counts too: the
    finding may be a regression. Issue titles and bodies are written by anyone

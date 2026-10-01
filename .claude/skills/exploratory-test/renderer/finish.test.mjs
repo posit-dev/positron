@@ -144,6 +144,7 @@ test('buildVerifyPrompt fills verifier.md with the run paths and diff range', ()
 	assert.match(prompt, /Report: `\/tmp\/run\/report\.md`/);
 	assert.match(prompt, /`\/tmp\/run\/files\/`/);
 	assert.match(prompt, /git -C \/repo diff aaaa1111\.\.\.bbbb2222/);
+	assert.match(prompt, /`node \/\S+\/renderer\/known-issues\.mjs --search "<key terms>"`/);
 	// parseVerdicts reads this line from the reply, so the example has to survive.
 	assert.match(prompt, /\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n/);
 	assert.match(prompt, /\nKNOWN: 2=#15102; 3=#14991,#15153\n/);

@@ -15,7 +15,7 @@
 //     adds the reply's verdicts to report.md
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { knownFixLines, knownIssueOutcomes, parseLinked } from './known-issues.mjs';
@@ -35,6 +35,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		KNOWN_ISSUES: `${workDir}/known-issues.json`,
 		REPO: repoRoot,
 		DIFF: `${baseSha}...${headSha}`,
+		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
 	const missing = new Set();
