@@ -904,13 +904,14 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		// Bound to the row's index at render time, like the callbacks above.
 		const onOpenDetails = (pinned: boolean) => this.openNodeDetails(context.index, pinned);
 		const onPinDetails = () => this.pinNodeDetails(context.index);
+		const onOpeningDataExplorer = () => this.dropPendingDetails();
 
 		switch (data.kind) {
 			case 'entry':
 				// Entries are roots, so no ancestor can be refreshing them out from under the row.
 				return <DataConnectionEntryRow entry={data.entry} hoverManager={this._hoverManager} onDisconnect={onDisconnect} onMenuOpening={onMenuOpening} onRefresh={onRefresh} />;
 			case 'dto':
-				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onOpenDetails={onOpenDetails} onPinDetails={onPinDetails} onRefresh={onRefresh} />;
+				return <DataConnectionNodeRow dto={data.dto} handle={data.handle} labelPrefix={data.labelPrefix} stale={visible.stale} onMenuOpening={onMenuOpening} onOpenDetails={onOpenDetails} onOpeningDataExplorer={onOpeningDataExplorer} onPinDetails={onPinDetails} onRefresh={onRefresh} />;
 		}
 	}
 
@@ -960,6 +961,16 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				error instanceof Error ? error.message : String(error)
 			));
 		}
+	}
+
+	/**
+	 * Drops any preview-mode details still on their way, so they don't open over what the user has
+	 * opened since -- the Data Explorer a double-click opens, whose first click started fetching the
+	 * node's details. Details tabs open active, so ones that arrived after the Data Explorer would
+	 * cover it. A pinned open still lands: it was asked for outright.
+	 */
+	dropPendingDetails(): void {
+		this._detailsRequestCount++;
 	}
 
 	/**

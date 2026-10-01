@@ -161,6 +161,11 @@ interface DataConnectionNodeRowProps {
 	// again when the tab is already open. Supplied by the tree.
 	onPinDetails: () => Promise<void>;
 
+	// Tells the tree this row is opening its data, so details still on their way for it -- the first
+	// click of a double-click starts fetching them -- don't open over the Data Explorer. Supplied by
+	// the tree.
+	onOpeningDataExplorer: () => void;
+
 	// Tells the tree this row is opening a context menu, so it can select the row and hold its
 	// focused appearance. Dispose the returned handle when the menu closes.
 	onMenuOpening: () => IDisposable;
@@ -181,7 +186,7 @@ interface DataConnectionNodeRowProps {
  * on double-click, the way the Explorer treats a file. Nodes other than groups offer "Copy Name",
  * and "Copy Path" when the driver gave them one.
  */
-export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onOpenDetails, onPinDetails, onRefresh, stale }: DataConnectionNodeRowProps) => {
+export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onOpenDetails, onOpeningDataExplorer, onPinDetails, onRefresh, stale }: DataConnectionNodeRowProps) => {
 	const { clipboardService, notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
 	// A group row labels the rows beneath it rather than naming a thing of its own, and it holds them
@@ -205,6 +210,7 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 			return;
 		}
 		setOpening(true);
+		onOpeningDataExplorer();
 		try {
 			await openNodeInDataExplorer(positronDataConnectionsService, notificationService, handle, dto);
 		} finally {
