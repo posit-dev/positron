@@ -121,9 +121,13 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 
 		// Availability also depends on the resolved provider catalog the credential
 		// shaping reads (base URLs, custom headers, AWS region/profile, Snowflake
-		// host/account), on each provider's enabled state, and on model policy.
+		// host/account), on each provider's enabled state, and on model policy. A
+		// custom entry can appear, disappear, or change kind on any of these, so
+		// the mappings (built from the catalog, not just the built-in table) are
+		// dropped alongside the cached listing.
 		this._register(this._aiProviderService.onDidChangeProviders(e => {
 			if (e.enabledChanged || e.connectionChanged || e.modelsChanged) {
+				this._mappings.clear();
 				this._invalidate();
 			}
 		}));
@@ -354,9 +358,10 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		// registered, so this loses nothing.
 		const registered = new Set(this._authService.getProviderIds());
 		const relevant = mappings.filter(mapping =>
-			registered.has(mapping.authProviderId) && this._aiProviderService.isEnabled(mapping.providerId));
+			(mapping.credentialType === 'local' || (mapping.authProviderId !== undefined && registered.has(mapping.authProviderId)))
+			&& this._aiProviderService.isEnabled(mapping.providerId));
 
-		// Read-only credential lookup across every registered mapped provider.
+		// Read-only credential lookup across every registered mapped built-in or custom entry.
 		const credentialed = (await Promise.all(relevant.map(async mapping => {
 			const credentials = await this.resolveCredential(mapping);
 			return credentials ? { providerId: mapping.providerId, credentials } : undefined;
@@ -410,24 +415,61 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	 * `shapeCredentials`, so it stays in lockstep with the assistant path.
 	 */
 	private async resolveCredential(mapping: IProviderMapping): Promise<ICredentials | undefined> {
-		const accessToken = await this.readAccessToken(mapping);
-		if (!accessToken) {
+		if (mapping.credentialType === 'local') {
+			const endpoint = this._aiProviderService.getProvider(mapping.providerId)?.connection.endpoint;
+			return endpoint ? { type: 'local', endpoint } : undefined;
+		}
+		const authProviderId = mapping.authProviderId;
+		if (!authProviderId) {
 			return undefined;
 		}
-		const shaped = shapeCredentials(mapping.providerId, mapping, accessToken, this.credentialConfig());
-		// The bridge also models local providers (Ollama, LM Studio) and Foundry's
-		// Entra credentials; the headless service never resolves either (no mapped
-		// provider is local-typed, and shaping never emits azure-entra), so both
-		// fall outside ICredentials and are dropped here.
-		return shaped && shaped.type !== 'local' && shaped.type !== 'azure-entra' ? shaped : undefined;
+		const accessToken = await this.readAccessToken(authProviderId, mapping.scopes, mapping.fallbackScopes);
+		if (accessToken !== undefined) {
+			const credentialType = mapping.credentialType;
+			const shaped = shapeCredentials(
+				mapping.providerId,
+				{ ...mapping, authProviderId, credentialType },
+				accessToken,
+				this.credentialConfig(),
+			);
+			return shaped && shaped.type !== 'local' ? shaped : undefined;
+		}
+		return this.entraCredential(mapping.providerId);
+	}
+
+	/**
+	 * Foundry in Entra mode has no session: the bearer is minted per request by
+	 * the bridge's Foundry client from this credential, which carries no secret.
+	 * A session, when one exists, has already won above (on Workbench it is the
+	 * admin-delegated bearer).
+	 */
+	private entraCredential(providerId: string): ICredentials | undefined {
+		if (providerId !== 'ms-foundry') {
+			return undefined;
+		}
+		const connection = this._aiProviderService.getProvider(providerId)?.connection;
+		if (connection?.azure?.authMode !== 'entra' || !connection.azure.scope || !connection.baseUrl) {
+			return undefined;
+		}
+		return {
+			type: 'azure-entra',
+			baseUrl: connection.baseUrl,
+			scope: connection.azure.scope,
+			tenantId: connection.azure.tenantId,
+			customHeaders: connection.customHeaders,
+		};
 	}
 
 	/** Silent session lookup with scope fallback, matching the bridge's resolver. */
-	private async readAccessToken(mapping: IProviderMapping): Promise<string | undefined> {
-		let sessions = await this.tryGetSessions(mapping.authProviderId, [...mapping.scopes]);
-		if (sessions.length === 0 && mapping.fallbackScopes) {
-			for (const fallback of mapping.fallbackScopes) {
-				sessions = await this.tryGetSessions(mapping.authProviderId, [...fallback]);
+	private async readAccessToken(
+		authProviderId: string,
+		scopes: readonly string[],
+		fallbackScopes: readonly (readonly string[])[] | undefined,
+	): Promise<string | undefined> {
+		let sessions = await this.tryGetSessions(authProviderId, [...scopes]);
+		if (sessions.length === 0 && fallbackScopes) {
+			for (const fallback of fallbackScopes) {
+				sessions = await this.tryGetSessions(authProviderId, [...fallback]);
 				if (sessions.length > 0) {
 					break;
 				}
@@ -451,14 +493,8 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 	}
 
 	/**
-	 * The connection-reading half supplied to the bridge's `shapeCredentials`,
-	 * backed by the resolved provider catalog. `shapeCredentials` owns which
-	 * value each provider needs (including the AWS `us-east-1` default); this
-	 * only resolves a target to its provider's `connection`. `bedrock` /
-	 * `snowflake-cortex` are bridge-vocabulary catalog ids for the two providers
-	 * whose connection details are keyed by provider rather than `configKey`;
-	 * they stay hardcoded because these mappings only ever cover built-ins
-	 * (`MAPPED_PROVIDER_IDS`), never a `providers.custom` entry.
+	 * The connection-reading half of `shapeCredentials`, resolving each target to
+	 * its own provider's connection.
 	 */
 	private credentialConfig(): CredentialConfig {
 		const connectionFor = (target: CredentialConfigTarget) =>
@@ -466,12 +502,12 @@ export abstract class AbstractHeadlessLanguageModelService extends Disposable im
 		return {
 			getBaseUrl: target => connectionFor(target)?.baseUrl || undefined,
 			getCustomHeaders: target => connectionFor(target)?.customHeaders,
-			getAws: () => this._aiProviderService.getProvider('bedrock')?.connection.aws,
-			getSnowflake: () => {
-				const snowflake = this._aiProviderService.getProvider('snowflake-cortex')?.connection.snowflake;
+			getAws: target => connectionFor(target)?.aws,
+			getSnowflake: target => {
+				const snowflake = connectionFor(target)?.snowflake;
 				return snowflake && { host: snowflake.host, account: snowflake.account };
 			},
-			getDatabricks: () => this._aiProviderService.getProvider('databricks')?.connection.databricks,
+			getDatabricks: target => connectionFor(target)?.databricks,
 		};
 	}
 }
