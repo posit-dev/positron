@@ -730,12 +730,22 @@ function feedbackHref(report, version, finding, verdict) {
 	return FEEDBACK_FORM_URL[finding ? 'finding' : 'report'] + feedbackValues(report, version, finding, verdict).map(v => `&${v}`).join('');
 }
 
-// Only a published page asks for feedback, so every answer points at a report
-// someone can open. A local page has only a path, which is never sent.
+/**
+ * What an answer names the report by: its URL once published. A local page
+ * has only a path, which is never sent, so it sends `local:`, who ran it, and
+ * the run directory's name, the run's timestamp. A published page is public,
+ * so it never carries who ran it.
+ */
+function feedbackReport(base, author) {
+	// Either separator, so a Windows path is cut to its name too.
+	const name = (base ?? '').replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+	return reportUrl(base) ?? (name ? `local:${author ? `${author}/` : ''}${name}` : null);
+}
+
 // A verdict's `href` is the pre-filled form, for "Add a note" and a modified
 // click; `data-submit` records it in one click.
 function renderFeedbackRow(f, options) {
-	const url = reportUrl(options.base);
+	const url = feedbackReport(options.base, options.author);
 	if (!url) {
 		return '';
 	}
@@ -744,16 +754,16 @@ function renderFeedbackRow(f, options) {
 		const submit = `${FEEDBACK_SUBMIT_URL}?${feedbackValues(report, options.skillVersion, f, verdict).join('&')}&submit=Submit`;
 		return `<a href="${escapeHtml(feedbackHref(report, options.skillVersion, f, verdict))}" data-submit="${escapeHtml(submit)}" data-verdict="${escapeHtml(verdict)}" target="_blank" rel="noopener">${label}</a>`;
 	});
-	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Posit team feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
+	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Provide feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 
 function renderFeedbackButton(options) {
-	const url = reportUrl(options.base);
+	const url = feedbackReport(options.base, options.author);
 	if (!url) {
 		return '';
 	}
 	return `<a class="fb-top" href="${escapeHtml(feedbackHref(url, options.skillVersion))}" target="_blank" rel="noopener"`
-		+ ' title="Posit team feedback on this report (opens a Posit-only form)" aria-label="Give feedback (opens a Posit-only form)">'
+		+ ' title="Provide feedback on this report" aria-label="Give feedback (opens a Posit-only form)">'
 		+ `${ICON.speech}<span class="fb-top-label">Give feedback</span></a>`;
 }
 

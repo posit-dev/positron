@@ -2159,7 +2159,7 @@ test('feedback: a published page asks about each finding, and the verdicts match
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
 	assert.match(html, />Enhancement<\/a>/);
 	// The row closes its card: after Suggested tests, before the card ends.
-	assert.match(html, /<div class="fb" role="group" [^>]*aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
+	assert.match(html, /<div class="fb" role="group" [^>]*aria-label="Provide feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
 });
 
 test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
@@ -2169,11 +2169,22 @@ test('feedback: a published page has one header button for the whole report, bes
 	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
 });
 
-test('feedback: a local page, which only has a path, asks for none', () => {
-	for (const base of [undefined, '/Users/someone/run1', 'run1']) {
+test('feedback: a local page asks too, naming the run by its directory, never its path', () => {
+	for (const base of ['/Users/someone/20261001T120000', '/Users/someone/20261001T120000/', '20261001T120000', 'C:\\Users\\someone\\20261001T120000', 'C:\\Users\\someone\\20261001T120000\\']) {
 		const html = renderReportHtml(FULL, { base, skillVersion: '1.2' });
-		assert.doesNotMatch(html, /docs\.google\.com|class="fb[ "]|class="fb-top"/, `base: ${base}`);
+		assert.deepEqual(feedbackAnswers(html, 'fb-top').map(a => a.report), ['local:20261001T120000'], `base: ${base}`);
+		assert.deepEqual([...new Set(feedbackAnswers(html, 'fb').map(a => a.report))], ['local:20261001T120000#f1', 'local:20261001T120000#f2']);
+		assert.doesNotMatch([...html.matchAll(/(?:href|data-submit)="(https:\/\/docs\.google\.com[^"]*)"/g)].join(' '), /someone/);
+		assert.match(html, /exploratory-feedback/);
 	}
+	// Who ran it, when git knows; a published page never says.
+	const local = renderReportHtml(FULL, { base: '/Users/someone/20261001T120000', author: 'a@posit.co', skillVersion: '1.2' });
+	const published = renderReportHtml(FULL, { base: 'https://cdn.example/run1', author: 'a@posit.co', skillVersion: '1.2' });
+	assert.deepEqual(feedbackAnswers(local, 'fb-top').map(a => a.report), ['local:a@posit.co/20261001T120000']);
+	assert.equal(feedbackAnswers(local, 'fb')[0].report, 'local:a@posit.co/20261001T120000#f1');
+	assert.doesNotMatch(published, /a@posit\.co/);
+	// With no base at all there is nothing to name the report by.
+	assert.doesNotMatch(renderReportHtml(FULL, { skillVersion: '1.2' }), /docs\.google\.com|class="fb[ "]|class="fb-top"/);
 });
 
 /** Runs the page's feedback script against a stub window; returns a click dispatcher and the window.open calls. */
@@ -2228,7 +2239,7 @@ test('feedback: a modified or middle click keeps the link\'s own behaviour, and 
 	const blocked = feedbackPopup(html, { blocked: true });
 	assert.equal(blocked.click('https://forms.example/finding'), true);
 	assert.deepEqual(blocked.opens.map(o => [o.url, o.name, o.features]).at(-1), ['https://forms.example/finding', '_blank', 'noopener']);
-	// A local page has no feedback links, so no script for them.
+	// A page with no base has no feedback links, so no script for them.
 	assert.doesNotMatch(renderReportHtml(FULL, { skillVersion: '1.2' }), /exploratory-feedback/);
 });
 
