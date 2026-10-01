@@ -563,9 +563,6 @@ to test and the least representative one; warm start, a populated workspace,
 and cached state are the common cases and are where this has found its worst
 behavior.
 
-When a path works, take one more step a user would take next: use what it
-gave you, or do it again from another state.
-
 Manufacture the state you need. A feature that only appears when something is
 missing, stale, or failing cannot be tested on a machine where it is present,
 fresh, and working -- so make it missing: move a binary off PATH, reload the
