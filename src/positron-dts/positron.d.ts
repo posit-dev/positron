@@ -845,9 +845,10 @@ declare module 'positron' {
 
 		/**
 		 * Who the session belongs to. `user` for sessions the user starts;
-		 * `assistant` for sessions Posit Assistant starts for itself.
+		 * `assistant` for sessions Posit Assistant starts for itself. When
+		 * absent, the session belongs to the user.
 		 */
-		readonly owner: RuntimeSessionOwner;
+		readonly owner?: RuntimeSessionOwner;
 	}
 
 	/**
