@@ -12,7 +12,7 @@ import { IFileSystem } from '../../common/platform/types';
 import { IProcessServiceFactory } from '../../common/process/types';
 import { ITerminalServiceFactory } from '../../common/terminal/types';
 import { IServiceContainer } from '../../ioc/types';
-import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
+import { getLocatedUvCommand, isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { traceVerbose } from '../../logging';
 import { resolvePythonIndexUrl, UV_INDEX_ENV_VARS } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
@@ -344,7 +344,7 @@ export class UvPackageManager implements IPackageManager {
         // codes (e.g. "\x1b[1mscipy\x1b[0m==1.15.3"). Feeding those to
         // `uv pip install -r` makes uv's requirements parser reject the ESC byte.
         const result = await processService.exec(
-            'uv',
+            await getLocatedUvCommand(),
             ['pip', 'freeze', '--color', 'never', '--python', this._pythonPath],
             {
                 extraVariables: proxyEnv,
@@ -400,7 +400,7 @@ export class UvPackageManager implements IPackageManager {
 
         try {
             const result = await processService.exec(
-                'uv',
+                await getLocatedUvCommand(),
                 ['pip', 'list', '--outdated', '--format=json', '--color', 'never', '--python', this._pythonPath],
                 { extraVariables: proxyEnv, token },
             );
@@ -457,7 +457,7 @@ export class UvPackageManager implements IPackageManager {
         });
 
         try {
-            await terminalService.sendCommand('uv', args, token);
+            await terminalService.sendCommand(await getLocatedUvCommand(), args, token);
         } finally {
             disposable?.dispose();
         }
