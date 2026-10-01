@@ -93,6 +93,10 @@ cannot reproduce from a description of a file.
   you are testing, such as a new-file flow or pasting into an untitled editor.
 - Helper scripts you load, such as a `slow.py` you `%run`, go in `files/`, not
   `logs/`.
+- A helper that stands in for something the run cannot use, such as an
+  extension calling the API the Assistant calls, gets a precondition saying
+  what it stands in for and what its command does, in a user's words. Its code
+  is in the file; leave it out.
 
 The render step checks this: a file a setup names that is not saved and listed
 is a format problem.
