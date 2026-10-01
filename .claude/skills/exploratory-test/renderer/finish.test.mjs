@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { annotateFindingsTable, applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, isVerified, observedLinked, parseKnown, parseVerdicts, verifyLogLines } from './finish.mjs';
+import { annotateFindingsTable, applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseTitles, parseVerdicts, verifyLogLines } from './finish.mjs';
 
 const TABLE = [
 	'# Exploratory test: something',
@@ -70,6 +70,51 @@ test('parseKnown reads the issue numbers per finding and skips what it cannot re
 	assert.equal(parseKnown(null).size, 0);
 });
 
+test('parseFeatures reads the feature per finding and skips what it cannot read', () => {
+	const f = parseFeatures('VERDICTS: 1=CONFIRMED\nFEATURE: 1=new folder flow; 2="modal dialogs"; 3=; x=console; 4=a | b\nprose');
+	assert.deepEqual([...f], [[1, 'new folder flow'], [2, 'modal dialogs']]);
+	assert.equal(parseFeatures('VERDICTS: 1=CONFIRMED').size, 0);
+	assert.equal(parseFeatures(null).size, 0);
+});
+
+const BLOCKS = [
+	TABLE.replace('### 1. first claim', '### Finding 1: first claim'),
+	'',
+	'**Feature:** modal dialogs',
+	'',
+	'### Finding 2: second claim',
+	'',
+	'**Feature:** console',
+].join('\n');
+
+test('applyVerification rewrites the Feature of a finding on the FEATURE line only', () => {
+	const out = applyVerification(BLOCKS, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nFEATURE: 1=new folder flow\n\n- 1: holds.');
+	assert.match(out, /### Finding 1: first claim\n\n\*\*Feature:\*\* new folder flow\n/);
+	assert.match(out, /### Finding 2: second claim\n\n\*\*Feature:\*\* console/);
+	assert.doesNotMatch(out, /\*\*Feature:\*\* modal dialogs/);
+});
+
+test('applyVerification retitles a finding on the TITLE line in its heading and table row only', () => {
+	const report = `${BLOCKS}\n\n## Coverage\n\n| 1 | not a finding | pass |`;
+	const out = applyVerification(report, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nTITLE: 1=a slow reply drops the project R\n\n- 1: holds.');
+	assert.match(out, /^\| 1 \| a slow reply drops the project R \| major \| blocks completion \| 3\/3 \| confirmed \|$/m);
+	assert.match(out, /### Finding 1: a slow reply drops the project R\n/);
+	assert.match(out, /### Finding 2: second claim/);
+	assert.match(out, /\| 1 \| not a finding \| pass \|/, 'other tables are left alone');
+	assert.deepEqual([...parseTitles('TITLE: 1=x; 2=a | b')], [[1, 'x']]);
+});
+
+test('applyVerification leaves Feature alone on a failed pass or a finding with no Feature line', () => {
+	const reply = 'VERDICTS: 1=CONFIRMED\nFEATURE: 1=new folder flow; 2=data explorer';
+	assert.match(applyVerification(BLOCKS, `_Verification did not complete._\n\n${reply}`, { failed: true }), /\*\*Feature:\*\* modal dialogs/);
+	const noLine = BLOCKS.replace('**Feature:** console', 'no feature here');
+	assert.doesNotMatch(applyVerification(noLine, reply), /\*\*Feature:\*\* data explorer/);
+});
+
+test('fromVerdictLine keeps a FEATURE line written before the VERDICTS line', () => {
+	assert.equal(fromVerdictLine('notes\nFEATURE: 1=console\nVERDICTS: 1=CONFIRMED'), 'FEATURE: 1=console\nVERDICTS: 1=CONFIRMED');
+});
+
 test('fromVerdictLine keeps a KNOWN line written before the VERDICTS line', () => {
 	assert.equal(fromVerdictLine('notes\nKNOWN: 1=#5\nVERDICTS: 1=CONFIRMED'), 'KNOWN: 1=#5\nVERDICTS: 1=CONFIRMED');
 });
@@ -109,6 +154,7 @@ test('buildVerifyPrompt fills verifier.md with the run paths and diff range', ()
 	assert.match(prompt, /Report: `\/tmp\/run\/report\.md`/);
 	assert.match(prompt, /`\/tmp\/run\/files\/`/);
 	assert.match(prompt, /git -C \/repo diff aaaa1111\.\.\.bbbb2222/);
+	assert.match(prompt, /`node \/\S+\/renderer\/known-issues\.mjs --search "<key terms>"`/);
 	// parseVerdicts reads this line from the reply, so the example has to survive.
 	assert.match(prompt, /\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n/);
 	assert.match(prompt, /\nKNOWN: 2=#15102; 3=#14991,#15153\n/);

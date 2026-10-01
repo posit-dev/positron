@@ -7,8 +7,8 @@
 import React from 'react';
 
 // Other dependencies.
-import { IObservable, debouncedObservable, runOnChange } from '../../../../base/common/observable.js';
-import { isUndefinedOrNull } from '../../../../base/common/types.js';
+import { IObservable, debouncedObservable, runOnChange } from '../common/observable.js';
+import { isUndefinedOrNull } from '../common/types.js';
 
 /**
  * Automatically updates the component when the observable changes.

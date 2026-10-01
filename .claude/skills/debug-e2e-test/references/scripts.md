@@ -63,8 +63,10 @@ Output: `{ input, mode, resolved, candidates, totalListed, inWorkingTree, note }
 ## `triage-history.js`
 
 Dual-branch failure history: queries the current branch and `main`, merges
-`failure_patterns[]` by normalized failure text, and picks one representative
-occurrence per pattern.
+`failure_patterns[]` by normalized failure text, and orders each pattern's
+occurrences (representative first). It always requests the API's cap of 20
+occurrences per pattern: that is metadata, not an evidence fetch, and the
+environments and rate are derived from it.
 
 | Flag | Default | Notes |
 |---|---|---|
@@ -72,7 +74,6 @@ occurrence per pattern.
 | `--repo <id>` | `positron` | test-health repo id |
 | `--branch <branch>` | current git branch | skips the git lookup; `main` means only main is queried |
 | `--lookback-days <n>` | `14` | 1-30 |
-| `--occurrences-per-pattern <n>` | `1` | raise to `2` only for a listed escalation reason |
 | `--triage-id <id>` | derived from the test key | |
 | `--since-fix <iso-date>` | none | a merged fix's `mergedAt`; runs a second, shorter query and adds `fixHeld` to every pattern (below) |
 
@@ -86,12 +87,16 @@ rawResultFile, summaryFile }`.
   `lastSeen.date` is `null`.
 
 Each `patterns[]` entry: `{ id, failure, count, rates[], environments[], seenOn,
-lastSeen, representativeOccurrence }`.
+lastSeen, representativeOccurrence, occurrenceCount }`. `history-summary.json`
+additionally holds each pattern's full ordered `occurrences[]`, which
+`fetch-pattern-evidence.js` walks on a 403.
 
-- `rates[]` is per branch: `{ branch, count, environmentRuns, ratePercent }`.
-  `environmentRuns` is scoped to the environments the pattern actually occurred
-  in, which is why the table's Rate column reads from `rates` and never from
-  `count / totalRuns`.
+- `rates[]` is per branch: `{ branch, count, environmentRuns, scope,
+  ratePercent }`. With `scope: "environments"`, `environmentRuns` covers the
+  environments the pattern occurred in on that branch, which is why the table's
+  Rate column reads from `rates` and never from `count / totalRuns`. `scope:
+  "all"` means the API truncated the occurrences (count above 20), so the
+  environment set was only a sample and the denominator is the branch's total runs.
 - `lastSeen` is `{ date, daysAgo, sha }`, any of which may be `null` -- see
   [`history-query.md`](history-query.md#how-lastseen-is-derived).
 - `id` is a spreadsheet-style label: `A`..`Z`, then `AA`, `AB`, ...
@@ -146,11 +151,13 @@ the `scopeWarning` seriously.
 
 Runs the S3 report processor for **one** occurrence of **one** pattern, filtered
 to the test under triage, and prints a manifest instead of the multi-megabyte
-payload.
+payload. Without `--report-url` it walks the pattern's `occurrences[]` from
+`history-summary.json` newest-first, skipping any report that 403s/404s (run still
+uploading, or expired) until one fetches. Any other processor error stops it.
 
 | Flag | Default | Notes |
 |---|---|---|
-| `--report-url <url>` | *required* | the pattern's `representativeOccurrence.report_url`; the `index.html#?testId=` fragment is stripped for you and the testId reused as the filter |
+| `--report-url <url>` | walk the pattern's occurrences | fetch exactly this occurrence, with no fallback (a deliberate second occurrence). The `index.html#?testId=` fragment is stripped for you and the testId reused as the filter |
 | `--triage-id <id>` | *required* | |
 | `--pattern <id>` | `A` | names the evidence sub-directory |
 | `--title <full title>` | none | filter fallback when the URL carries no `testId`. There is no flag for the testId itself -- it is read from the `--report-url` fragment |
@@ -158,7 +165,9 @@ payload.
 | `--occurrence <label>` | none | nests artifacts under `evidence/<pattern>/<label>` so several occurrences of one pattern can coexist. Use it whenever you fetch a second occurrence |
 
 **Output:** `{ evidenceDir, summaryFile, timelineFile, snapshotFile,
-screenshots[], rawLogDir, rawLogsRetained, rawEvidenceFile, failure }`. Paths
+screenshots[], rawLogDir, rawLogsRetained, rawEvidenceFile, failure,
+occurrence, skipped[] }`. `occurrence` names the one actually fetched; `skipped`
+lists the unfetchable ones passed over. Relay a non-empty `skipped`. Paths
 are repo-relative; `timelineFile` and `snapshotFile` may be `null`.
 
 The evidence dir is keyed by **pattern**, not by occurrence, so each fetch clears

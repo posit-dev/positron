@@ -24,21 +24,6 @@
  */
 export const QUARTO_CELLS_NOTEBOOK_TYPE = 'quarto-cells';
 
-/** The URI scheme of the hidden notebooks, which happens to match the type. */
-export const QUARTO_CELLS_SCHEME = 'quarto-cells';
-
-/**
- * Mirrors `quartoNotebookUri` in core's quartoVirtualNotebookService.ts: the
- * source path with `.ipynb` appended, after `.qmd` when the source has no
- * Quarto extension of its own, which is the untitled case.
- */
-export function quartoCellsNotebookPath(sourcePath: string): string {
-    const lower = sourcePath.toLowerCase();
-    const isQuarto = lower.endsWith('.qmd') || lower.endsWith('.rmd');
-    const quartoPath = isQuarto ? sourcePath : `${sourcePath}.qmd`;
-    return `${quartoPath}.ipynb`;
-}
-
 export type QuartoCellsOwnershipListener = (notebookUri: string, owned: boolean) => void;
 
 // Notebook key -> the ids of the sessions claiming it. More than one owner at a

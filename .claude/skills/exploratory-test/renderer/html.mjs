@@ -235,17 +235,29 @@ function coverageOrder(coverage) {
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-/** The row that stands in for the finding rows when there are none. */
-function renderNoFindings(report) {
+/**
+ * The block that stands in for the finding rows when there are none: the
+ * scenario counts, plus the linked-issue counts when no linked issue was
+ * observed (there's no "Linked issues" row then).
+ */
+function renderNoFindings(report, ki) {
 	const { exercised = 0, pass = 0, notRun = 0 } = report.scenarios ?? {};
-	const ran = !exercised ? (notRun ? 'No scenarios were exercised' : '')
-		: pass === exercised ? (exercised === 1 ? 'The one exercised scenario passed' : `All ${exercised} exercised scenarios passed`)
-			: `${pass} of ${plural(exercised, 'exercised scenario', 'exercised scenarios')} passed`;
-	const skipped = notRun ? `; ${notRun} ${notRun === 1 ? 'wasn&rsquo;t' : 'weren&rsquo;t'} run` : '';
-	const see = exercised + notRun ? ' <a class="ki-ev" href="#coverage">See Coverage</a>' : '';
+	const observed = ki?.observed?.length ?? 0;
+	const held = ki?.fixesHeld?.length ?? 0;
+	const unseen = ki?.notObserved?.length ?? 0;
+	const counts = [
+		pass ? `<b>${pass}</b> passed` : '',
+		notRun ? `<b>${notRun}</b> not run` : '',
+		!observed && held ? kiCnt('ki-list-fix', `${plural(held, 'fix', 'fixes')} verified`) : '',
+		!observed && unseen ? kiCnt('ki-list-no', `${plural(unseen, 'linked issue', 'linked issues')} not observed`) : '',
+	].filter(Boolean).join(KI_DOT);
+	const see = exercised + notRun ? '<a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a>' : '';
 	return `<div class="ki-empty"><span class="ki-empty-ic">${ICON.check(14)}</span>`
-		+ `<span><b>No new findings</b>${ran ? `<span>${ran}${skipped}.${see}</span>` : ''}</span></div>`;
+		+ `<span><b>No new findings</b>${counts ? `<span class="ki-empty-sum">${counts}</span>` : ''}</span>${see}</div>`;
 }
+
+const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
 function renderFindingsList(report, ki = null) {
 	const rows = report.findings.map(f => {
@@ -287,7 +299,7 @@ function renderFindingsList(report, ki = null) {
 	return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
 <div class="panel">
-${head}${[...(rows.length ? rows : [renderNoFindings(report)]), renderLinkedIssues(report, ki)].filter(Boolean).join('\n')}
+${head}${[...(rows.length ? rows : [renderNoFindings(report, ki)]), renderLinkedIssues(report, ki, !rows.length)].filter(Boolean).join('\n')}
 </div>
 </section>`;
 }
@@ -296,9 +308,11 @@ ${head}${[...(rows.length ? rows : [renderNoFindings(report)]), renderLinkedIssu
  * The "Linked issues" row under the findings. It opens only onto the open
  * linked issues the run ran into, which are not findings, so no number, card
  * or count. The fix-verified and not-observed counts show their lists on hover.
- * Nothing when every count is zero.
+ * Nothing when every count is zero. With no findings it opens by default, and
+ * with nothing observed either its counts move into the empty block, leaving
+ * only the lists.
  */
-function renderLinkedIssues(report, ki) {
+function renderLinkedIssues(report, ki, noFindings = false) {
 	const observed = ki?.observed ?? [];
 	const held = ki?.fixesHeld ?? [];
 	const unseen = ki?.notObserved ?? [];
@@ -316,13 +330,11 @@ function renderLinkedIssues(report, ki) {
 			+ `<span class="rate">${o.rows.length}</span>`
 			+ `<span class="ki-st"><span>${kiState(o.issue)} &middot; ${kiNum(o.issue.number, ki)}</span></span></div>`;
 	});
-	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
-	const cnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 	const counts = [
 		observed.length ? `${observed.length} observed` : '',
-		held.length ? cnt('ki-list-fix', `${held.length} fix verified`) : '',
-		unseen.length ? cnt('ki-list-no', `${unseen.length} not observed`) : '',
-	].filter(Boolean).join(dot);
+		held.length ? kiCnt('ki-list-fix', `${held.length} fix verified`) : '',
+		unseen.length ? kiCnt('ki-list-no', `${unseen.length} not observed`) : '',
+	].filter(Boolean).join(KI_DOT);
 	// Hidden sources the script copies into its panel as they are, so every
 	// title and scenario name is escaped here.
 	const item = (issue, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="${REPO_URL}/issues/${Number(issue.number)}" target="_blank" rel="noopener">#${Number(issue.number)}</a>`
@@ -331,10 +343,13 @@ function renderLinkedIssues(report, ki) {
 	const skipped = ki?.skipped ?? new Set();
 	const lists = list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in &ldquo;${h.rows[0].scenarioHtml}&rdquo;`)))
 		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : 'no scenario reached it')));
+	if (noFindings && !rows.length) {
+		return lists;
+	}
 	const head = `<span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span>`;
 	// Only observed issues need rows, so with none there is nothing to open.
 	const row = rows.length
-		? `<details class="ki-grp"><summary>${head}${ICON.disclose('ki-chev')}</summary>${rows.join('')}</details>`
+		? `<details class="ki-grp"${noFindings ? ' open' : ''}><summary>${head}${ICON.disclose('ki-chev')}</summary>${rows.join('')}</details>`
 		: `<div class="ki-grp"><div class="ki-hd">${head}</div></div>`;
 	return row + lists;
 }
@@ -715,12 +730,22 @@ function feedbackHref(report, version, finding, verdict) {
 	return FEEDBACK_FORM_URL[finding ? 'finding' : 'report'] + feedbackValues(report, version, finding, verdict).map(v => `&${v}`).join('');
 }
 
-// Only a published page asks for feedback, so every answer points at a report
-// someone can open. A local page has only a path, which is never sent.
+/**
+ * What an answer names the report by: its URL once published. A local page
+ * has only a path, which is never sent, so it sends `local:`, who ran it, and
+ * the run directory's name, the run's timestamp. A published page is public,
+ * so it never carries who ran it.
+ */
+function feedbackReport(base, author) {
+	// Either separator, so a Windows path is cut to its name too.
+	const name = (base ?? '').replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+	return reportUrl(base) ?? (name ? `local:${author ? `${author}/` : ''}${name}` : null);
+}
+
 // A verdict's `href` is the pre-filled form, for "Add a note" and a modified
 // click; `data-submit` records it in one click.
 function renderFeedbackRow(f, options) {
-	const url = reportUrl(options.base);
+	const url = feedbackReport(options.base, options.author);
 	if (!url) {
 		return '';
 	}
@@ -729,16 +754,16 @@ function renderFeedbackRow(f, options) {
 		const submit = `${FEEDBACK_SUBMIT_URL}?${feedbackValues(report, options.skillVersion, f, verdict).join('&')}&submit=Submit`;
 		return `<a href="${escapeHtml(feedbackHref(report, options.skillVersion, f, verdict))}" data-submit="${escapeHtml(submit)}" data-verdict="${escapeHtml(verdict)}" target="_blank" rel="noopener">${label}</a>`;
 	});
-	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Posit team feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
+	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Provide feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 
 function renderFeedbackButton(options) {
-	const url = reportUrl(options.base);
+	const url = feedbackReport(options.base, options.author);
 	if (!url) {
 		return '';
 	}
 	return `<a class="fb-top" href="${escapeHtml(feedbackHref(url, options.skillVersion))}" target="_blank" rel="noopener"`
-		+ ' title="Posit team feedback on this report (opens a Posit-only form)" aria-label="Give feedback (opens a Posit-only form)">'
+		+ ' title="Provide feedback on this report" aria-label="Give feedback (opens a Posit-only form)">'
 		+ `${ICON.speech}<span class="fb-top-label">Give feedback</span></a>`;
 }
 

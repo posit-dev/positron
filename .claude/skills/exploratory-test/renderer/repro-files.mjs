@@ -37,6 +37,12 @@ const FENCE = { py: 'python', r: 'r', rmd: 'rmd', sh: 'bash', yml: 'yaml', jl: '
  */
 export const FILE_NAME = /(?<![\w/.:@-])((?:[\w-]+\/)*[\w-][\w.-]*\.(?:qmd|rmd|ipynb|py|r|jl|sql|csv|tsv|jsonl?|toml|ya?ml|md|txt|parquet|feather|arrow|sqlite|db|duckdb|xlsx?|rds|rdata|sh))(?!\w|\.\w)/gi;
 
+/**
+ * A saved file named in prose by its `files/` path. Its extension may hold a
+ * hyphen (`mr.code-workspace`); a path with no extension is not matched.
+ */
+export const FILES_PATH = /(?<![\w/.-])(files\/[\w./-]*\.\w+(?:-\w+)*)(?![\w/-]|\.\w)/g;
+
 function extOf(path) {
 	const m = /\.([^./]+)$/.exec(path);
 	return m ? m[1].toLowerCase() : '';
@@ -228,7 +234,7 @@ export function linkFilePaths(html, files) {
 			else if (/^<\/(a|code)>/i.test(part)) { skip = Math.max(0, skip - 1); }
 			return part;
 		}
-		return skip ? part : part.replace(/(?<![\w/.-])(files\/[\w./-]*\.\w+)(?!\w|\.\w)/g, (whole, path) => {
+		return skip ? part : part.replace(FILES_PATH, (whole, path) => {
 			const f = findFile(files, path);
 			return f && f.kind !== 'missing'
 				? `<a class="fn-view" href="${escapeHtml(f.path)}" data-file="${f.id}">view ${escapeHtml(f.name)}</a>`

@@ -484,7 +484,7 @@ test.afterAll(async function ({ logger, suiteId, }, testInfo) {
 			const { exec } = require('child_process');
 			const { promisify } = require('util');
 			const execP = promisify(exec);
-			await execP('docker exec test sh -c "rm -rf /home/user1/.local/state/positron/logs/*"', {
+			await execP('docker exec test sh -c "rm -rf /home/user1/.local/state/positron/logs/* /home/rstudio-ide-test/.local/state/positron/logs/*"', {
 				maxBuffer: 1024 * 1024 * 10,
 			});
 			console.log('Cleaned up logs in Docker container');
