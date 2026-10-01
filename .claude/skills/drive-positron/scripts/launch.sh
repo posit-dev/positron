@@ -475,3 +475,7 @@ node -e '
 		agents: '"$AGENTS"' === 1,
 	}));
 ' "$DEST_UDD" "$EXT_DIR" "$SHARED_DATA_DIR" "$RUN_DIR" "$LOG_FILE" "$REPO"
+
+# One line per start and stop, beside every run directory, so how many
+# instances ran at once can be read without trusting whoever launched them.
+{ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) start cdp=$CDP_PORT pid=$PID $RUN_DIR" >> "$(dirname "$RUN_DIR")/instances.log"; } 2>/dev/null || true

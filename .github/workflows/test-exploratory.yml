@@ -821,6 +821,7 @@ jobs:
           path: |
             /tmp/exploratory-run
             /tmp/positron-dev-launch/*/code.log
+            /tmp/positron-dev-launch/instances.log
             /tmp/exploratory-workspace
             !/tmp/exploratory-workspace/**/node_modules/**
             !/tmp/exploratory-workspace/**/__pycache__/**
