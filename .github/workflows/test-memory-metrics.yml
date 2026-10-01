@@ -79,7 +79,7 @@ jobs:
   memory:
     name: measure-${{ matrix.lane }}-${{ matrix.scenario }}-memory
     needs: resolve-build
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-amd64-8-core
     timeout-minutes: 45
     strategy:
       # One scenario's failure should not cancel the others: a broken session

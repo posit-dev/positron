@@ -135,11 +135,12 @@ export class DashboardPage {
 	 * @param projectName The project name to open
 	 * @param context Optional BrowserContext for setting up managed credentials via OAuth
 	 * @param managedCredentials Optional credential filter: 'snowflake', 'databricks', or undefined for both
+	 * @returns true if the project was created (and launched) fresh, false if an existing project was relaunched
 	 */
-	async openSession(projectName = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<void> {
+	async openSession(projectName = 'test-files', context?: BrowserContext, managedCredentials?: 'snowflake' | 'databricks' | 'azure'): Promise<boolean> {
 		// Ensure the project exists before trying to open it
 		// If a new project is created, it will auto-launch and set up managed credentials
-		const newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
+		let newProjectCreated = await this.ensureProjectExists(projectName, context, managedCredentials);
 
 		if (!newProjectCreated) {
 			// Project already existed, so we need to launch it. Sweep up any session left behind
@@ -161,8 +162,10 @@ export class DashboardPage {
 			} else {
 				this.code.logger.log(`Project '${projectName}' was not listed after quitting its session; creating it again`);
 				await this.createNewProject(projectName, context, managedCredentials);
+				newProjectCreated = true;
 			}
 		}
+		return newProjectCreated;
 	}
 
 	/**

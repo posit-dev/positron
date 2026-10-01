@@ -10,10 +10,12 @@ import { Event } from '../../../../../base/common/event.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
+import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../../languageRuntime/common/interpreterDefinitions.js';
@@ -908,37 +910,116 @@ describe('Positron - RuntimeSessionService', () => {
 				expect(session.getRuntimeState()).toBe(RuntimeState.Ready);
 			});
 
-			it(`restart ${mode} in '${state}' state and session never reaches ready state`, async () => {
-				// Start the session and wait for it to be ready.
+		}
+
+		// Exit handlers such as R's `.Last` can delay shutdown, so restart uses
+		// the same grace period as deletion.
+		describe(`restart ${mode} whose runtime is slow to exit`, () => {
+			afterEach(() => {
+				vi.useRealTimers();
+			});
+
+			async function startSlowRestart(shutdownBehavior: 'noExit' | 'noReply' = 'noExit') {
 				const session = await start(runtime);
 				await waitForRuntimeState(session, RuntimeState.Ready);
+				session.shutdownBehavior = shutdownBehavior;
+				const warn = vi.spyOn(ctx.instantiationService.get(INotificationService), 'warn');
 
-				// Set the state to the desired state.
-				if (session.getRuntimeState() !== state) {
-					session.setRuntimeState(state);
-				}
-
-				// Stub onDidChangeRuntimeState to never fire, causing the restart to time out.
-				// onDidChangeRuntimeState is a plain property on TestLanguageRuntimeSession (not a getter),
-				// so we assign directly on the concrete type to replace it with a no-op.
-				const sessionAsMutable = session as { onDidChangeRuntimeState: unknown };
-				const originalOnDidChangeRuntimeState = session.onDidChangeRuntimeState;
-				sessionAsMutable.onDidChangeRuntimeState = (_listener: unknown) => ({ dispose: () => { } });
-
-				// Use fake timers to avoid actually having to wait for the timeout.
 				vi.useFakeTimers();
-				const promise = expect(restartSession(session.sessionId)).rejects.toThrow(
-					`Timed out waiting for runtime ` +
-					`${formatLanguageRuntimeSession(session)} to be 'ready'.`
+				const outcome = restartSession(session.sessionId).then(
+					() => 'restarted',
+					(error: Error) => error.message,
 				);
-				await vi.advanceTimersByTimeAsync(10_000);
-				vi.useRealTimers();
-				await promise;
+				return { session, warn, outcome };
+			}
 
-				// Restore the original property.
-				sessionAsMutable.onDidChangeRuntimeState = originalOnDidChangeRuntimeState;
+			it('does not force a runtime that exits within the grace period', async () => {
+				const { session, warn, outcome } = await startSlowRestart();
+
+				await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS - 1);
+				session.setRuntimeState(RuntimeState.Exited);
+				await vi.advanceTimersByTimeAsync(1);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+					warnings: warn.mock.calls.length,
+					state: session.getRuntimeState(),
+				}).toEqual({ outcome: 'restarted', forceQuitCount: 0, warnings: 0, state: RuntimeState.Ready });
 			});
-		}
+
+			it('forces the runtime to quit and notifies when it outlasts the grace period', async () => {
+				const { session, warn, outcome } = await startSlowRestart();
+
+				// The test runtime chains zero-delay timers after a forced quit, so an
+				// extra 100 ms is needed to drain them.
+				await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + 100);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+					warnings: warn.mock.calls.map(([message]) => message),
+					state: session.getRuntimeState(),
+				}).toEqual({
+					outcome: 'restarted',
+					forceQuitCount: 1,
+					warnings: [`${session.dynState.sessionName} did not exit after a restart request and was forced to quit.`],
+					state: RuntimeState.Ready,
+				});
+			});
+
+			it('fails when even a forced quit does not end the runtime', async () => {
+				const { session, outcome } = await startSlowRestart();
+				session.exitsOnForceQuit = false;
+
+				await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + FORCE_QUIT_GRACE_MS);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+				}).toEqual({
+					outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} ` +
+						`to finish exiting, even after forcing it to quit.`,
+					forceQuitCount: 1,
+				});
+			});
+
+			it('fails once the deadlines pass even if the restart request never returns', async () => {
+				const { session, outcome } = await startSlowRestart('noReply');
+				session.exitsOnForceQuit = false;
+
+				await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + FORCE_QUIT_GRACE_MS);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+				}).toEqual({
+					outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} ` +
+						`to finish exiting, even after forcing it to quit.`,
+					forceQuitCount: 1,
+				});
+			});
+
+			it('fails when the replacement does not become ready', async () => {
+				const { session, outcome } = await startSlowRestart();
+				const runtimeInfo = session.runtimeInfo!;
+				vi.spyOn(session, 'start').mockImplementation(async () => {
+					session.setRuntimeState(RuntimeState.Starting);
+					return runtimeInfo;
+				});
+
+				session.setRuntimeState(RuntimeState.Exited);
+				await vi.advanceTimersByTimeAsync(10_000);
+
+				expect({
+					outcome: await outcome,
+					forceQuitCount: session.forceQuitCount,
+				}).toEqual({
+					outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} to be 'ready'.`,
+					forceQuitCount: 0,
+				});
+			});
+		});
 
 		it(`restart ${mode} in 'uninitialized' state`, async () => {
 			// Get a session to the uninitialized state.
@@ -1773,6 +1854,264 @@ describe('Positron - RuntimeSessionService', () => {
 			const session = await restoreSession(sessionMetadata, runtime);
 
 			expect(session.metadata.userSelected).toBe(true);
+		});
+	});
+
+	describe('quartoNotebookUri', () => {
+		const quartoSourceUri = URI.file('/path/to/doc.qmd');
+		const quartoCellsUri = URI.from({ scheme: 'quarto-cells', path: '/path/to/doc.qmd.ipynb' });
+
+		function startQuartoSession() {
+			return runtimeSessionService.startNewRuntimeSession(
+				runtime.runtimeId,
+				sessionName,
+				LanguageRuntimeSessionMode.Notebook,
+				quartoSourceUri,
+				startReason,
+				RuntimeStartMode.Starting,
+				false,
+				{ quartoNotebookUri: quartoCellsUri },
+			);
+		}
+
+		it('is copied from the start options, and absent for other sessions', async () => {
+			const quarto = runtimeSessionService.getSession(await startQuartoSession()) as TestLanguageRuntimeSession;
+			ctx.disposables.add(quarto);
+			const notebook = await startNotebook(anotherRuntime);
+			const console = await startConsole(unrelatedRuntime);
+
+			expect([
+				quarto.metadata.quartoNotebookUri?.toString(),
+				notebook.metadata.quartoNotebookUri,
+				console.metadata.quartoNotebookUri,
+			]).toEqual([quartoCellsUri.toString(), undefined, undefined]);
+		});
+
+		it('follows the document when an untitled session is adopted by its saved file', async () => {
+			const untitledUri = URI.from({ scheme: 'untitled', path: 'Untitled-1' });
+			const savedUri = URI.file('/path/to/saved.qmd');
+			const savedCellsUri = URI.from({ scheme: 'quarto-cells', path: '/path/to/saved.qmd.ipynb' });
+			const sessionId = await runtimeSessionService.startNewRuntimeSession(
+				runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Notebook, untitledUri,
+				startReason, RuntimeStartMode.Starting, false,
+				{ quartoNotebookUri: URI.from({ scheme: 'quarto-cells', path: 'Untitled-1.qmd.ipynb' }) },
+			);
+			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;
+			ctx.disposables.add(session);
+			await timeout(0);
+
+			await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri, { quartoNotebookUri: savedCellsUri });
+
+			expect(session.metadata.quartoNotebookUri?.toString()).toBe(savedCellsUri.toString());
+		});
+
+		it('keeps the Quarto notebook URI when an uninitialized session is started again', async () => {
+			configService.setUserConfiguration('console.showNotebookConsoles', false);
+			const failFirstStart = runtimeSessionService.onWillStartSession(e => {
+				vi.spyOn(e.session, 'start').mockRejectedValue(new Error('Session failed to start'));
+			});
+			await expect(startQuartoSession()).rejects.toThrow('Session failed to start');
+			failFirstStart.dispose();
+			const uninitialized = runtimeSessionService.activeSessions[0];
+			ctx.disposables.add(uninitialized);
+
+			await restartSession(uninitialized.sessionId);
+
+			const restarted = runtimeSessionService.getNotebookSessionForNotebookUri(quartoSourceUri)!;
+			ctx.disposables.add(restarted);
+			expect({
+				isNewSession: restarted !== uninitialized,
+				quartoNotebookUri: restarted.metadata.quartoNotebookUri?.toString(),
+			}).toEqual({ isNewSession: true, quartoNotebookUri: quartoCellsUri.toString() });
+		});
+	});
+
+	// A failed shutdown must not leave an unusable console registered for
+	// other components to act on (https://github.com/posit-dev/positron/issues/15781).
+	describe('deleting a session whose runtime does not exit', () => {
+		function spyOnWarnings() {
+			return vi.spyOn(ctx.instantiationService.get(INotificationService), 'warn');
+		}
+		let warn: ReturnType<typeof spyOnWarnings>;
+
+		beforeEach(() => {
+			warn = spyOnWarnings();
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		async function startReadyConsole() {
+			const session = await startConsole(runtime);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+			return session;
+		}
+
+
+		async function deleteRunningOutGracePeriods(session: TestLanguageRuntimeSession) {
+			vi.useFakeTimers();
+			const deleted = runtimeSessionService.deleteSession(session.sessionId);
+			// Handle a rejection before advancing fake timers to avoid an
+			// unhandled rejection from `deleteSession()`.
+			const outcome = deleted.then(
+				() => 'deleted',
+				(error: Error) => error.message,
+			);
+			await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + FORCE_QUIT_GRACE_MS);
+			return outcome;
+		}
+
+		it('does not force a runtime that exits after the shutdown request', async () => {
+			const session = await startReadyConsole();
+
+			const outcome = await deleteRunningOutGracePeriods(session);
+
+			expect({
+				outcome,
+				forceQuitCount: session.forceQuitCount,
+				warnings: warn.mock.calls.length,
+				registered: runtimeSessionService.getSession(session.sessionId) !== undefined,
+			}).toEqual({ outcome: 'deleted', forceQuitCount: 0, warnings: 0, registered: false });
+		});
+
+		it('forces the runtime to quit when it does not exit after the shutdown request', async () => {
+			const session = await startReadyConsole();
+			session.shutdownBehavior = 'noExit';
+
+			const outcome = await deleteRunningOutGracePeriods(session);
+
+			expect({
+				outcome,
+				forceQuitCount: session.forceQuitCount,
+				warnings: warn.mock.calls.map(([message]) => message),
+				registered: runtimeSessionService.getSession(session.sessionId) !== undefined,
+			}).toEqual({
+				outcome: 'deleted',
+				forceQuitCount: 1,
+				warnings: [`${session.dynState.sessionName} did not exit after a shutdown request and was forced to quit.`],
+				registered: false,
+			});
+		});
+
+		it('forces the runtime to quit when the shutdown request never completes', async () => {
+			const session = await startReadyConsole();
+			session.shutdownBehavior = 'noReply';
+
+			const outcome = await deleteRunningOutGracePeriods(session);
+
+			expect({
+				outcome,
+				forceQuitCount: session.forceQuitCount,
+				warnings: warn.mock.calls.length,
+				registered: runtimeSessionService.getSession(session.sessionId) !== undefined,
+			}).toEqual({ outcome: 'deleted', forceQuitCount: 1, warnings: 1, registered: false });
+		});
+
+		it('waits for the end event of a runtime that exits as the grace period expires', async () => {
+			const session = await startReadyConsole();
+			session.shutdownBehavior = 'noExit';
+
+			vi.useFakeTimers();
+			let settled = false;
+			const outcome = runtimeSessionService.deleteSession(session.sessionId).then(
+				() => 'deleted',
+				(error: Error) => error.message,
+			).finally(() => settled = true);
+
+			// `Exited` arrives before the shutdown timeout, but deletion must
+			// wait for `onDidEndSession()` after the timeout.
+			await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS - 1);
+			session.setRuntimeState(RuntimeState.Exited);
+			await vi.advanceTimersByTimeAsync(2);
+			const settledBeforeEnd = settled;
+
+			session.endSession();
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect({
+				settledBeforeEnd,
+				outcome: await outcome,
+				forceQuitCount: session.forceQuitCount,
+				warnings: warn.mock.calls.length,
+			}).toEqual({ settledBeforeEnd: false, outcome: 'deleted', forceQuitCount: 0, warnings: 0 });
+		});
+
+		it('deletes the session and rethrows when even a forced quit does not end it', async () => {
+			const session = await startReadyConsole();
+			session.shutdownBehavior = 'noExit';
+			session.exitsOnForceQuit = false;
+
+			const outcome = await deleteRunningOutGracePeriods(session);
+
+			expect({
+				outcome,
+				forceQuitCount: session.forceQuitCount,
+				registered: runtimeSessionService.getSession(session.sessionId) !== undefined,
+			}).toEqual({
+				outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} ` +
+					`to finish exiting, even after forcing it to quit.`,
+				forceQuitCount: 1,
+				registered: false,
+			});
+		});
+	});
+
+	// Only `deleteSession()` force-quits. Other shutdowns time out so
+	// `waitForShutdown()` can offer the user that choice.
+	it('does not force a notebook runtime that does not exit after the shutdown request', async () => {
+		const session = await startNotebook(runtime);
+		await waitForRuntimeState(session, RuntimeState.Ready);
+		session.shutdownBehavior = 'noExit';
+
+		vi.useFakeTimers();
+		try {
+			const outcome = shutdownNotebook().then(
+				() => 'shut down',
+				(error: Error) => error.message,
+			);
+			await vi.advanceTimersByTimeAsync(SHUTDOWN_GRACE_MS + FORCE_QUIT_GRACE_MS);
+
+			expect({
+				outcome: await outcome,
+				forceQuitCount: session.forceQuitCount,
+			}).toEqual({
+				outcome: `Timed out waiting for runtime ${formatLanguageRuntimeSession(session)} to finish exiting.`,
+				forceQuitCount: 0,
+			});
+
+			// End the simulated session so `waitForShutdown()` stops watching it.
+			session.setRuntimeState(RuntimeState.Exited);
+			await vi.advanceTimersByTimeAsync(0);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+describe('reviveRuntimeSessionMetadata', () => {
+	it('turns serialized notebook URIs back into URIs and leaves missing ones missing', () => {
+		const serialized = JSON.parse(JSON.stringify({
+			sessionId: 's1',
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			notebookUri: URI.file('/home/u/a.qmd'),
+			quartoNotebookUri: URI.file('/home/u/a.qmd').with({ scheme: 'quarto-cells', path: '/home/u/a.qmd.ipynb' }),
+			createdTimestamp: 0,
+			startReason: 'test',
+		})) as IRuntimeSessionMetadata;
+		const legacy = JSON.parse(JSON.stringify({ ...serialized, quartoNotebookUri: undefined })) as IRuntimeSessionMetadata;
+
+		const revived = reviveRuntimeSessionMetadata(serialized);
+		const revivedLegacy = reviveRuntimeSessionMetadata(legacy);
+
+		expect({
+			notebookUri: revived.notebookUri instanceof URI && revived.notebookUri.toString(),
+			quartoNotebookUri: revived.quartoNotebookUri instanceof URI && revived.quartoNotebookUri.toString(),
+			legacyQuartoNotebookUri: revivedLegacy.quartoNotebookUri,
+		}).toEqual({
+			notebookUri: 'file:///home/u/a.qmd',
+			quartoNotebookUri: 'quarto-cells:/home/u/a.qmd.ipynb',
+			legacyQuartoNotebookUri: undefined,
 		});
 	});
 });

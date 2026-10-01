@@ -24,14 +24,13 @@ import { INotebookSerializer, INotebookService } from '../../notebook/common/not
 import {
 	QUARTO_NATIVE_LANGUAGE_FEATURES_KEY,
 	isQuartoDocument,
-	isQuartoOrRmdFile,
 	usingNativeEmbeddedFeatures,
 } from '../common/positronQuartoConfig.js';
 import { IQuartoDocumentModel, QuartoCodeCell } from '../common/quartoTypes.js';
 import {
-	QUARTO_CELLS_SCHEME,
 	QUARTO_CELLS_VIEW_TYPE,
 	QUARTO_EMBEDDED_DIAGNOSTICS_OWNER,
+	quartoNotebookUri,
 } from '../common/quartoVirtualNotebookTypes.js';
 import { diffCellRuns, ICellRun, ICellSplice } from '../common/quartoCellDiff.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
@@ -140,32 +139,6 @@ class QuartoCellsSerializer implements INotebookSerializer {
 	async searchInNotebooks(): Promise<{ results: never[]; limitHit: boolean }> {
 		return { results: [], limitHit: false };
 	}
-}
-
-/**
- * The URI of the hidden notebook for a source document: the source URI under our
- * own scheme, since the extension host cannot hold a text document and a notebook
- * document at the same URI.
- *
- * The path ends in `.ipynb` because a server that is told about a notebook over
- * the notebook channel may still decide from the URI whether to index it at all.
- *
- * The source document's own extension is kept in front of it so the URI still says
- * where it came from, and an untitled document, which has none to keep
- * ("Untitled-1", from _Quarto: New Document_), is given a Quarto one.
- *
- * The path is not how anything tells our cells from a real notebook's. That is the
- * notebook's type, `quarto-cells`, which no other notebook has and which a document
- * selector matches directly through `notebookType`.
- */
-function quartoNotebookUri(sourceUri: URI): URI {
-	const quartoPath = isQuartoOrRmdFile(sourceUri.path)
-		? sourceUri.path
-		: `${sourceUri.path}.qmd`;
-	return sourceUri.with({
-		scheme: QUARTO_CELLS_SCHEME,
-		path: `${quartoPath}.ipynb`,
-	});
 }
 
 /**

@@ -5,10 +5,18 @@
 
 /// <reference types="vitest/globals" />
 
-import { Event } from '../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IAiProviderCatalog, IResolvedModelsData, IResolvedProviderData } from '../../../positronAiProvider/common/aiProviderCatalog.js';
-import { applyModelPolicy } from '../../node/headlessLanguageModelEngine.js';
+import { NullLogService } from '../../../log/common/log.js';
+import { IAiProviderCatalog, IProviderCatalogChangeData, IResolvedModelsData, IResolvedProviderData } from '../../../positronAiProvider/common/aiProviderCatalog.js';
+import { applyModelPolicy, HeadlessLanguageModelEngine } from '../../node/headlessLanguageModelEngine.js';
+
+const { registerAllProviders } = vi.hoisted(() => ({ registerAllProviders: vi.fn() }));
+vi.mock('ai-provider-bridge/providers', async importOriginal => {
+	const original = await importOriginal<typeof import('ai-provider-bridge/providers')>();
+	registerAllProviders.mockImplementation(original.registerAllProviders);
+	return { ...original, registerAllProviders };
+});
 
 /** A discovered model as the bridge reports it: identity plus the capabilities ai-config resolves against. */
 function model(id: string, name: string, vendor = 'Anthropic') {
@@ -29,6 +37,14 @@ function catalog(models: IResolvedModelsData | undefined, id = 'anthropic'): IAi
 	return {
 		onDidChangeCatalog: Event.None,
 		getCatalog: () => Promise.resolve([provider]),
+		getConfigFileUri: () => Promise.resolve(URI.file('/providers.json')),
+	};
+}
+
+function catalogOf(providers: IResolvedProviderData[], onDidChangeCatalog: Event<IProviderCatalogChangeData> = Event.None): IAiProviderCatalog {
+	return {
+		onDidChangeCatalog,
+		getCatalog: () => Promise.resolve(providers),
 		getConfigFileUri: () => Promise.resolve(URI.file('/providers.json')),
 	};
 }
@@ -100,5 +116,57 @@ describe('applyModelPolicy', () => {
 		const resolved = await applyModelPolicy(catalog({ deny: ['claude-opus-5'] }, 'openai'), 'anthropic', discovered);
 
 		expect(resolved.map(m => m.id)).toEqual(['claude-opus-5', 'claude-sonnet-5', 'claude-haiku-5']);
+	});
+});
+
+describe('getProviderMappings', () => {
+	it('adds one aggregate mapping per custom entry after the built-ins', async () => {
+		const engine = new HeadlessLanguageModelEngine(new NullLogService(), catalogOf([
+			{ id: 'anthropic', enabled: true, connection: {} },
+			{ id: 'my-gateway', enabled: true, clientKind: 'openai-compatible', connection: {}, custom: true },
+			{ id: 'team-snow', enabled: true, clientKind: 'snowflake', connection: {}, custom: true },
+			{ id: 'local-llm', enabled: true, clientKind: 'ollama', connection: {}, custom: true },
+			{ id: 'no-kind', enabled: true, connection: {}, custom: true },
+		]));
+		const mappings = await engine.getProviderMappings();
+		expect(mappings.find(m => m.providerId === 'anthropic')).toBeDefined();
+		expect(mappings.filter(m => m.authProviderId === 'positron-custom-provider')).toEqual([
+			{ providerId: 'my-gateway', authProviderId: 'positron-custom-provider', scopes: ['my-gateway'], credentialType: 'apikey', configKey: 'my-gateway' },
+			{ providerId: 'team-snow', authProviderId: 'positron-custom-provider', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' },
+		]);
+	});
+
+	it('adds a local mapping for each built-in local provider and each custom entry of a local kind', async () => {
+		const engine = new HeadlessLanguageModelEngine(new NullLogService(), catalogOf([
+			{ id: 'ollama', enabled: true, connection: { endpoint: 'http://localhost:11434' } },
+			{ id: 'lmstudio', enabled: false, connection: { endpoint: 'http://localhost:1234/v1' } },
+			{ id: 'lab-ollama', enabled: true, clientKind: 'ollama', connection: { endpoint: 'http://gpu-box:11434' }, custom: true },
+		]));
+		const mappings = await engine.getProviderMappings();
+		expect(mappings.filter(m => m.credentialType === 'local')).toEqual([
+			{ providerId: 'ollama', scopes: [], credentialType: 'local', configKey: 'ollama' },
+			{ providerId: 'lmstudio', scopes: [], credentialType: 'local', configKey: 'lmstudio' },
+			{ providerId: 'lab-ollama', scopes: [], credentialType: 'local', configKey: 'lab-ollama' },
+		]);
+	});
+});
+
+describe('registry follows the catalog', () => {
+	it('rebuilds the registry with a custom entry added after first use', async () => {
+		const changed = new Emitter<IProviderCatalogChangeData>();
+		let entries: IResolvedProviderData[] = [{ id: 'anthropic', enabled: true, connection: {} }];
+		const engine = new HeadlessLanguageModelEngine(new NullLogService(), {
+			onDidChangeCatalog: changed.event,
+			getCatalog: () => Promise.resolve(entries),
+			getConfigFileUri: () => Promise.resolve(URI.file('/providers.json')),
+		});
+		await engine.listModels('unregistered', { type: 'apikey', apiKey: 'k' });
+		entries = [...entries, { id: 'my-gateway', enabled: true, clientKind: 'openai-compatible', connection: {}, custom: true }];
+		changed.fire({ catalog: [], enabledChanged: true, connectionChanged: false, modelsChanged: false });
+		await engine.listModels('unregistered', { type: 'apikey', apiKey: 'k' });
+		expect(registerAllProviders.mock.calls.map(([, , options]) => options?.customProviders)).toEqual([
+			[],
+			[{ id: 'my-gateway', clientKind: 'openai-compatible' }],
+		]);
 	});
 });

@@ -3,10 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI } from '../../../../base/common/uri.js';
+
 /**
- * Identifiers for the hidden notebooks that back Quarto documents.
+ * Identifiers for the hidden notebooks that back Quarto documents, and the rule
+ * that names them.
  *
- * These live in their own dependency-free module because code outside this
+ * These live in their own module, free of services, because code outside this
  * contribution has to recognize the hidden notebooks and skip them. Importing a
  * leaf module keeps those call sites from pulling in the notebook service.
  */
@@ -34,6 +37,38 @@ export const QUARTO_CELLS_VIEW_TYPE = 'quarto-cells';
  * cell's fragment.
  */
 export const QUARTO_CELLS_SCHEME = 'quarto-cells';
+
+/**
+ * The URI of the hidden notebook for a source document: the source URI under our
+ * own scheme, since the extension host cannot hold a text document and a notebook
+ * document at the same URI.
+ *
+ * The path ends in `.ipynb` because a server that is told about a notebook over
+ * the notebook channel may still decide from the URI whether to index it at all.
+ *
+ * The source document's own extension is kept in front of it so the URI still says
+ * where it came from, and an untitled document, which has none to keep
+ * ("Untitled-1", from _Quarto: New Document_), is given a Quarto one.
+ *
+ * The path is not how anything tells our cells from a real notebook's. That is the
+ * notebook's type, `quarto-cells`, which no other notebook has and which a document
+ * selector matches directly through `notebookType`.
+ *
+ * Pure in the source URI, so a session can be told its notebook's URI before the
+ * notebook exists; see `IRuntimeSessionMetadata.quartoNotebookUri`.
+ */
+export function quartoNotebookUri(sourceUri: URI): URI {
+	// The same check as `isQuartoOrRmdFile`, repeated so this module imports no
+	// configuration registrations.
+	const lowerPath = sourceUri.path.toLowerCase();
+	const quartoPath = lowerPath.endsWith('.qmd') || lowerPath.endsWith('.rmd')
+		? sourceUri.path
+		: `${sourceUri.path}.qmd`;
+	return sourceUri.with({
+		scheme: QUARTO_CELLS_SCHEME,
+		path: `${quartoPath}.ipynb`,
+	});
+}
 
 /**
  * Marker owner the diagnostics of the hidden cells are republished under, on the

@@ -15,7 +15,7 @@ import { IEditorService } from '../../editor/common/editorService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IDataConnectionInstance } from '../common/interfaces/dataConnectionInstance.js';
 import { PositronDataExplorerUri } from '../../positronDataExplorer/common/positronDataExplorerUri.js';
-import { IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionRevealOptions, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
@@ -101,7 +101,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// The profile the pane has been asked to show and has not shown yet. Held because the pane's
 	// tree is built as the pane renders, so a request made while the pane was still opening has no
 	// tree to hear it; the tree takes this when it is built. Cleared by takePendingRevealConnection.
-	private _pendingRevealConnection?: string;
+	private _pendingRevealConnection?: IDataConnectionRevealRequest;
 
 	// Ephemeral profiles for the connections drivers report as already configured on this machine.
 	// Rebuilt whenever the registered drivers change and never persisted; see
@@ -189,25 +189,26 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * Asks the Data Connections pane to show a connection. See
 	 * {@link IPositronDataConnectionsService.revealConnection}.
 	 * @param profileId The id of the profile to show.
+	 * @param options Where in the connection to go, and whether to open that node's details.
 	 */
-	revealConnection(profileId: string): void {
+	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): void {
 		// The request is recorded, then announced: the announcement is only a nudge, and whoever
 		// acts on it reads the profile from takePendingRevealConnection. That way a tree that is
 		// still being built when this is called -- which hears nothing -- takes the same request on
 		// the way up, and the request is cleared exactly once, by whichever of the two honors it.
-		this._pendingRevealConnection = profileId;
+		this._pendingRevealConnection = { profileId, ...options };
 		this._onDidRequestRevealConnectionEmitter.fire();
 	}
 
 	/**
 	 * Takes the outstanding reveal request, if there is one. See
 	 * {@link IPositronDataConnectionsService.takePendingRevealConnection}.
-	 * @returns The id of the profile to show, or undefined if no request is outstanding.
+	 * @returns The request, or undefined if no request is outstanding.
 	 */
-	takePendingRevealConnection(): string | undefined {
-		const profileId = this._pendingRevealConnection;
+	takePendingRevealConnection(): IDataConnectionRevealRequest | undefined {
+		const request = this._pendingRevealConnection;
 		this._pendingRevealConnection = undefined;
-		return profileId;
+		return request;
 	}
 
 	/**

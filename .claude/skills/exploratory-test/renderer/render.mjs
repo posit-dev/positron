@@ -57,6 +57,10 @@ let markdown = readFileSync(input, 'utf8');
 const dir = dirname(resolve(input));
 const ledgerPath = join(dir, 'ledger.md');
 const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
+// Issues linked to the PR, fetched before the run by known-issues.mjs.
+const knownIssues = (() => {
+	try { return JSON.parse(readFileSync(join(dir, 'known-issues.json'), 'utf8')); } catch { return undefined; }
+})();
 const fileExists = path => existsSync(join(dir, path));
 const readFile = path => (existsSync(join(dir, path)) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null);
 // Every file saved under files/, so lint can find one the ledger never listed.
@@ -75,7 +79,7 @@ const repoFileExists = repoRoot ? path => existsSync(join(repoRoot, path)) : und
 // the renders the harness does afterwards (the Run tile's, a publish's) are not.
 const byExplorer = !flags['duration-ms'] && !flags.out && !flags.base;
 const printProblems = () => {
-	const problems = lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists });
+	const problems = lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues });
 	if (byExplorer) {
 		recordCheck(dir, problems);
 	}
@@ -137,17 +141,28 @@ if (flags['duration-ms']) {
 	}), null, 2)}\n`);
 }
 
+/** Who a local page's feedback says ran it; none when git has no email. */
+function gitEmail() {
+	try {
+		return execFileSync('git', ['config', 'user.email'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+	} catch {
+		return null;
+	}
+}
+
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 writeFileSync(out, renderReportHtml(markdown, {
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
 	// Evidence in the prompt has to open from wherever it is pasted.
 	base: flags.base || dir,
-	// Sent with feedback, which only a published page (--base) asks for.
+	// Sent with feedback.
 	skillVersion: skillVersion(),
+	author: gitEmail(),
 	fileExists,
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,
+	knownIssues,
 }));
 console.log(out);
 

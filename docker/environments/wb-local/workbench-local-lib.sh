@@ -161,6 +161,26 @@ wb_os_platform() {
 	printf 'linux/amd64'
 }
 
+# wb_os_platform plus an explicit request (WB_CONTAINER_ARCH). A request forces
+# that architecture whenever it differs from the host's, which is how an Apple
+# Silicon machine runs an x64-only build -- positron's CI builds the Workbench
+# tarball for linux-x64 only -- in an emulated amd64 container. The request must
+# still be an architecture the OS has a Workbench package for.
+wb_container_platform() {
+	local os="${1:-}" host="${2:-}" want="${3:-}"
+	if [ -z "$want" ]; then
+		wb_os_platform "$os" "$host"
+		return 0
+	fi
+	case "$want" in
+		amd64|x86_64|x64) want=amd64 ;;
+		arm64|aarch64)    want=arm64 ;;
+		*) echo "Unsupported WB_CONTAINER_ARCH: '${want}' (expected amd64 or arm64)" >&2; return 1 ;;
+	esac
+	wb_os_supports_arch "$os" "$want" || return 1
+	[ "$want" = "$host" ] || printf 'linux/%s' "$want"
+}
+
 # --- Package URL parsing ------------------------------------------------------
 
 # Extract the Workbench version (incl .proN) from a package URL/filename:
@@ -216,6 +236,8 @@ _wb_fetch_dailies_json()   { curl -sL "https://dailies.rstudio.com/rstudio/lates
 # any tag is downloaded from here by positronDownload.sh).
 _wb_fetch_releases_json()  { gh api "repos/posit-dev/positron/releases?per_page=30"; }
 _wb_fetch_builds_json()    { gh api "repos/posit-dev/positron-builds/releases?per_page=30"; }
+# Artifacts of one GitHub Actions run: $1 = owner/repo, $2 = run ID.
+_wb_fetch_run_artifacts_json() { gh api "repos/${1}/actions/runs/${2}/artifacts?per_page=100"; }
 
 # True if the URL responds successfully to a HEAD request (follows redirects).
 wb_url_reachable() { curl -fsIL --max-time 15 "$1" >/dev/null 2>&1; }
@@ -308,4 +330,123 @@ wb_list_positron_dailies() {
 			[ .[] | select(.tag_name as $t | ($rel | index($t)) == null) ]
 			| sort_by(.published_at) | reverse | .[:$n]
 			| .[] | "\(.tag_name)\t\(.published_at[:10])"'
+}
+
+# --- Custom Positron builds (--positron-build, --vsix) -------------------------
+
+# A path the user typed, made usable here. npm runs scripts from the repo root,
+# not from where the command was typed, so a relative path is resolved against
+# INIT_CWD (npm's record of that directory). A leading ~/ is expanded because
+# neither bash nor zsh expands it after the = in --flag=~/x. Under Git Bash a
+# Windows path (C:\... or C:/...) becomes its /c/... form: the MSYS tar reads
+# "C:" as a remote host, and docker cp gets it converted back on the way out.
+wb_host_path() {
+	local p="${1:-}" base
+	case "$p" in
+		"~/"*) p="${HOME}/${p#"~/"}" ;;
+	esac
+	command -v cygpath >/dev/null 2>&1 && p="$(cygpath -u "$p")"
+	case "$p" in
+		/*) : ;;
+		*)
+			base="${INIT_CWD:-$PWD}"
+			command -v cygpath >/dev/null 2>&1 && base="$(cygpath -u "$base")"
+			p="${base}/${p}" ;;
+	esac
+	printf '%s' "$p"
+}
+
+# Where a --positron-build comes from. Prints one tab-separated line:
+#   run<TAB><owner/repo><TAB><run ID>   a bare run ID (posit-dev/positron) or a run URL
+#   file<TAB><path>                     anything else, taken as a local .tar.gz
+# A URL that is not an Actions run is refused rather than read as a file name.
+wb_parse_build_source() {
+	local src="${1:-}"
+	# In a variable, not inline: the portable way to write a regex with groups
+	# for [[ =~ ]] across bash 3.2 (macOS) and later.
+	local re='^https://github\.com/([^/]+/[^/]+)/actions/runs/([0-9]+)([/?#].*)?$'
+	[ -n "$src" ] || { echo "--positron-build needs a value: a run ID, a run URL, or a .tar.gz path." >&2; return 1; }
+	case "$src" in
+		*[!0-9]*) : ;;
+		*) printf 'run\tposit-dev/positron\t%s\n' "$src"; return 0 ;;
+	esac
+	if [[ $src =~ $re ]]; then
+		printf 'run\t%s\t%s\n' "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}"
+		return 0
+	fi
+	case "$src" in
+		http://*|https://*)
+			echo "Not a GitHub Actions run URL: ${src}" >&2
+			echo "(expected https://github.com/<owner>/<repo>/actions/runs/<id>)" >&2
+			return 1 ;;
+	esac
+	printf 'file\t%s\n' "$src"
+}
+
+# Picks the Workbench build artifact for this architecture (x64|arm64) from a
+# run's artifact list JSON (GitHub's .../actions/runs/<id>/artifacts). Prints
+# "<name><TAB><size in bytes>". positron's CI names the artifact
+# positron-workbench-linux-<arch>, positron-builds' release runs name theirs
+# positron-binary-workbench-<arch>: both contain "workbench" and end in the arch,
+# and nothing else either repo uploads does. On failure, says why -- expired, or
+# only built for the other architecture -- since each has a different fix.
+wb_select_build_artifact() {
+	local arch="${1:-}" json="${2:-}" picked others
+	picked="$(printf '%s' "$json" | jq -r --arg a "$arch" '
+		[ .artifacts[]
+			| select(.expired | not)
+			| select(.name | test("workbench"))
+			| select(.name | endswith("-" + $a)) ]
+		| .[0] // empty
+		| "\(.name)\t\(.size_in_bytes)"')"
+	if [ -n "$picked" ]; then
+		printf '%s' "$picked"
+		return 0
+	fi
+	others="$(printf '%s' "$json" | jq -r '
+		[ .artifacts[]
+			| select(.name | test("workbench"))
+			| .name + (if .expired then " (expired)" else "" end) ]
+		| join(", ")')"
+	if [ -z "$others" ]; then
+		echo "That run has no Workbench build artifact. If its build job is still running," >&2
+		echo "wait for it to finish; otherwise it is not a run that builds Workbench." >&2
+	else
+		echo "That run has no usable linux-${arch} Workbench build. It has: ${others}." >&2
+		case "$others" in
+			*expired*) echo "Artifacts expire (positron's CI keeps Workbench builds for 1 day); re-run the build." >&2 ;;
+		esac
+	fi
+	return 1
+}
+
+# Architecture (x64|arm64) of a Workbench build tarball, from any of the names
+# given: its top-level entry (vscode-reh-web-pwb-linux-<arch>/...) and its file
+# name. Prints nothing when none of them says.
+wb_build_tarball_arch() {
+	local s
+	for s in "$@"; do
+		case "$s" in
+			*linux-x64*)   printf x64;   return 0 ;;
+			*linux-arm64*) printf arm64; return 0 ;;
+		esac
+	done
+}
+
+# True if version $1 is newer than $2 by numeric major.minor.patch, the way
+# Positron's bootstrap installer decides whether its bundled copy of an
+# extension replaces the installed one (isVSIXNewer in
+# positronBootstrapExtensionsInitializer.ts). A pre-release suffix is ignored.
+wb_version_gt() {
+	local a="${1%%-*}" b="${2%%-*}" a1 a2 a3 b1 b2 b3 rest
+	IFS=. read -r a1 a2 a3 rest <<< "$a"
+	IFS=. read -r b1 b2 b3 rest <<< "$b"
+	set -- "${a1:-0}" "${b1:-0}" "${a2:-0}" "${b2:-0}" "${a3:-0}" "${b3:-0}"
+	while [ $# -gt 0 ]; do
+		case "$1$2" in *[!0-9]*) return 1 ;; esac
+		[ "$1" -gt "$2" ] && return 0
+		[ "$1" -lt "$2" ] && return 1
+		shift 2
+	done
+	return 1
 }

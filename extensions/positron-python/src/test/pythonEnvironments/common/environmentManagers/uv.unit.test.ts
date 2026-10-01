@@ -16,7 +16,10 @@ import {
     getUvPythonVersionInfo,
     updateUv,
     installUvPython,
+    execLocatedUv,
+    execObservableLocatedUv,
 } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
+import * as rawProcessApis from '../../../../client/common/process/rawProcessApis';
 import * as platformUtils from '../../../../client/common/utils/platform';
 import * as logging from '../../../../client/logging';
 import * as simplevenv from '../../../../client/pythonEnvironments/common/environmentManagers/simplevirtualenvs';
@@ -306,6 +309,52 @@ suite('uv Environment Tests', () => {
             const result = await isUvInstalled();
 
             assert.strictEqual(result, true);
+        });
+    });
+
+    suite('Located uv', () => {
+        // Where the official installer puts uv: off the PATH the extension host was launched with,
+        // so spawning the bare name fails with ENOENT on a uv installed this session.
+        const localBinUv = path.join(os.homedir(), '.local', 'bin', process.platform === 'win32' ? 'uv.exe' : 'uv');
+
+        setup(() => {
+            execStub
+                .withArgs('uv', ['--color', 'never', 'python', 'dir'], { throwOnStdErr: true })
+                .rejects(new Error('command not found'));
+            pathExistsStub.withArgs(localBinUv).resolves(true);
+        });
+
+        test('execLocatedUv spawns the uv the probe found, not the bare name', async () => {
+            await execLocatedUv(['python', 'install', '3.13'], { throwOnStdErr: false });
+
+            assert.ok(
+                execStub.calledWith(localBinUv, ['--color', 'never', 'python', 'install', '3.13'], {
+                    throwOnStdErr: false,
+                }),
+            );
+        });
+
+        test('execObservableLocatedUv spawns the uv the probe found, not the bare name', async () => {
+            const execObservableStub = sinon.stub(rawProcessApis, 'execObservable');
+
+            await execObservableLocatedUv(['venv', '.venv'], { cwd: '/workspace' });
+
+            assert.ok(
+                execObservableStub.calledOnceWith(localBinUv, ['--color', 'never', 'venv', '.venv'], {
+                    cwd: '/workspace',
+                }),
+            );
+        });
+
+        test('Rejects rather than spawning when no uv can be found', async () => {
+            pathExistsStub.withArgs(localBinUv).resolves(false);
+            const execObservableStub = sinon.stub(rawProcessApis, 'execObservable');
+
+            await assert.rejects(execLocatedUv(['python', 'list']), /Could not find the uv executable/);
+            await assert.rejects(execObservableLocatedUv(['venv']), /Could not find the uv executable/);
+
+            assert.ok(!execStub.calledWith(sinon.match.any, sinon.match.array.contains(['list'])));
+            assert.ok(execObservableStub.notCalled);
         });
     });
 

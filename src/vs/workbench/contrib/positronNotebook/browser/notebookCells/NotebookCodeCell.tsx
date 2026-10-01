@@ -12,7 +12,7 @@ import React, { useCallback, useEffect } from 'react';
 // Other dependencies.
 import { NotebookCellOutputs } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { getPlainTextOutputContent, isParsedTextOutput } from '../getOutputContents.js';
-import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
+import { useObservedValue, useDebouncedObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';

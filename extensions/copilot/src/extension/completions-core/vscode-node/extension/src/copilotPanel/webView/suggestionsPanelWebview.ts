@@ -3,7 +3,10 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 /// <reference types="@types/vscode-webview" />
-import { provideVSCodeDesignSystem, vsCodeButton } from '@vscode/webview-ui-toolkit';
+// --- Start PWB: Remove deprecated @vscode/webview-ui-toolkit ---
+// The toolkit (and its FAST dependencies) was only used to register <vscode-button>.
+// The accept buttons are now native <button> elements styled in baseSuggestionsPanel.ts.
+// --- End PWB ---
 
 interface SanitizableHTMLElement extends HTMLElement {
 	setHTML(html: string, options: { readonly sanitizer: Sanitizer | SanitizerConfig | SanitizerPresets }): void;
@@ -19,8 +22,6 @@ const snippetSanitizerElements: SanitizerElementWithAttributes[] = [
 	{ name: 'code' },
 	{ name: 'span', attributes: ['class', 'style'] },
 ];
-
-provideVSCodeDesignSystem().register(vsCodeButton());
 
 type Message = {
 	command: string;
@@ -78,11 +79,12 @@ function createSolutionElements(solution: Message['solutions'][number], index: n
 	snippetContainer.dataset.solutionIndex = String(index);
 	setSnippetHtml(snippetContainer, solution.htmlSnippet);
 
-	const acceptButton = document.createElement('vscode-button');
-	acceptButton.setAttribute('role', 'button');
+	// --- Start PWB: Use a native button instead of the deprecated toolkit's vscode-button ---
+	const acceptButton = document.createElement('button');
+	acceptButton.type = 'button';
 	acceptButton.className = 'acceptButton';
 	acceptButton.id = `acceptButton${index}`;
-	acceptButton.setAttribute('appearance', 'secondary');
+	// --- End PWB ---
 	acceptButton.dataset.solutionIndex = String(index);
 	acceptButton.textContent = `Accept suggestion ${solutionNumber}`;
 
@@ -188,7 +190,9 @@ function initializeSolutionEventHandlers(): void {
 	});
 	solutionsContainer.addEventListener('click', (event) => {
 		const target = event.target as HTMLElement | null;
-		const button = target?.closest('vscode-button[data-solution-index]');
+		// --- Start PWB: Match the native accept button ---
+		const button = target?.closest('button[data-solution-index]');
+		// --- End PWB ---
 		if (!(button instanceof HTMLElement)) {
 			return;
 		}

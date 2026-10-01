@@ -46,7 +46,7 @@
 }
 
 /* Hide the default input circle */
-.positron-modal-dialog-box .folder-template-group .folder-template .folder-template-input {
+.positron-dynamic-modal-dialog-box .folder-template-group .folder-template .folder-template-input {
 	cursor: pointer;
 	appearance: none;
 	margin: 0;

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, resolveLastSeen, runApiPath, deriveFixHeld, daysSince } from '../triage-history.js';
+import { normalizePattern, mergeHistory, classifyVerdict, patternLabel, scopedRunsForEnvironments, branchRate, resolveLastSeen, runApiPath, deriveFixHeld, daysSince } from '../triage-history.js';
 
 const mkTest = (runs, patterns, environmentBreakdown) => ({ history: { total_runs: runs }, failure_patterns: patterns, environment_breakdown: environmentBreakdown });
 const occ = (sha, os = 'ubuntu', browser = 'electron') => ({ sha, os, browser, outcome: 'flaky', report_url: `https://x/${sha}/index.html` });
@@ -17,7 +17,7 @@ test('mergeHistory matches patterns across branches by text, not position', () =
 		{ pattern: 'locator.click timeout', count: 1, occurrences: [occ('m1', 'win')] },
 		{ pattern: 'toBeVisible timeout', count: 5, occurrences: [occ('m2')] },
 	]);
-	const { patterns, totalRuns } = mergeHistory(current, main, 'feature/x', 1);
+	const { patterns, totalRuns } = mergeHistory(current, main, 'feature/x');
 
 	assert.equal(totalRuns, 310);
 	// count-descending: shared 'toBeVisible' (2+5=7) first, then 'locator.click' (1).
@@ -33,22 +33,49 @@ test('mergeHistory scopes each branch rate to the environments the pattern occur
 	// diluted by dividing its count by the combined total_runs of both branches
 	// across all environments (that understated a 100%-in-environment failure as 0.8%).
 	const current = mkTest(11, [
-		{ pattern: 'locator.click timeout', count: 4, occurrences: [occ('c1', 'ubuntu', 'chromium')] },
+		{ pattern: 'locator.click timeout', count: 4, occurrences: ['c1', 'c2', 'c3', 'c4'].map(s => occ(s, 'ubuntu', 'chromium')) },
 	], [
 		env('ubuntu', 'chromium', 4), env('ubuntu', 'electron', 3), env('win', 'electron', 4),
 	]);
 	const main = mkTest(480, [
-		{ pattern: 'locator.click timeout', count: 3, occurrences: [occ('m1', 'ubuntu', 'chromium')] },
+		{ pattern: 'locator.click timeout', count: 3, occurrences: ['m1', 'm2', 'm3'].map(s => occ(s, 'ubuntu', 'chromium')) },
 	], [
 		env('ubuntu', 'chromium', 157), env('ubuntu', 'electron', 142), env('win', 'electron', 133),
 	]);
-	const { patterns } = mergeHistory(current, main, 'feature/x', 1);
+	const { patterns } = mergeHistory(current, main, 'feature/x');
 
 	assert.equal(patterns[0].environments.length, 1);
 	assert.equal(patterns[0].environments[0], 'ubuntu/chromium');
 	const byBranch = Object.fromEntries(patterns[0].rates.map(r => [r.branch, r]));
-	assert.deepEqual(byBranch['feature/x'], { branch: 'feature/x', count: 4, environmentRuns: 4, ratePercent: 100 });
-	assert.deepEqual(byBranch.main, { branch: 'main', count: 3, environmentRuns: 157, ratePercent: 1.9 });
+	assert.deepEqual(byBranch['feature/x'], { branch: 'feature/x', count: 4, environmentRuns: 4, scope: 'environments', ratePercent: 100 });
+	assert.deepEqual(byBranch.main, { branch: 'main', count: 3, environmentRuns: 157, scope: 'environments', ratePercent: 1.9 });
+});
+
+test('mergeHistory derives environments from every occurrence, not just the newest', () => {
+	// Regression: with one occurrence requested, a 16-failure break across 8
+	// lanes read as one rhel/chromium lane at 16/9 = 177.8%.
+	const lanes = [['rhel', 'chromium', 9], ['win', 'electron', 106], ['ubuntu', 'electron', 138]];
+	const main = mkTest(253, [{
+		pattern: 'locator.click timeout', count: 3,
+		occurrences: lanes.map(([os, browser], i) => occ(`m${i}`, os, browser)),
+	}], lanes.map(([os, browser, n]) => env(os, browser, n)));
+	const { patterns } = mergeHistory(null, main, 'main');
+	assert.deepEqual(patterns[0].environments.sort(), ['rhel/chromium', 'ubuntu/electron', 'win/electron']);
+	assert.deepEqual(patterns[0].rates[0], { branch: 'main', count: 3, environmentRuns: 253, scope: 'environments', ratePercent: 1.2 });
+});
+
+test('branchRate falls back to all-environment runs when the API truncated occurrences', () => {
+	const breakdown = [env('rhel', 'chromium', 9), env('ubuntu', 'electron', 400)];
+	// 25 failures but only a sample of occurrences: the sampled lanes are not the
+	// whole set, so scoping to them would overstate the rate.
+	assert.deepEqual(
+		branchRate({ count: 25, environments: ['rhel/chromium'], complete: false, breakdown, totalRuns: 409 }),
+		{ count: 25, environmentRuns: 409, scope: 'all', ratePercent: 6.1 },
+	);
+	assert.deepEqual(
+		branchRate({ count: 2, environments: [], complete: true, breakdown: null, totalRuns: null }),
+		{ count: 2, environmentRuns: null, scope: null, ratePercent: null },
+	);
 });
 
 test('scopedRunsForEnvironments sums only matching os/browser entries, null when no match or no breakdown', () => {
@@ -60,12 +87,12 @@ test('scopedRunsForEnvironments sums only matching os/browser entries, null when
 	assert.equal(scopedRunsForEnvironments(breakdown, []), null);
 });
 
-test('mergeHistory prefers a current-branch representative occurrence and keeps only N', () => {
+test('mergeHistory orders occurrences current-branch first, so [0] is the representative and the rest are fallbacks', () => {
 	const current = mkTest(10, [{ pattern: 'p', count: 1, occurrences: [occ('cur')] }]);
 	const main = mkTest(10, [{ pattern: 'p', count: 3, occurrences: [occ('main1'), occ('main2')] }]);
-	const { patterns } = mergeHistory(current, main, 'feature/x', 1);
+	const { patterns } = mergeHistory(current, main, 'feature/x');
 	assert.equal(patterns[0].representativeOccurrence.sha, 'cur');
-	assert.equal(patterns[0].keptOccurrences.length, 1);
+	assert.deepEqual(patterns[0].occurrences.map(o => o.sha), ['cur', 'main1', 'main2']);
 });
 
 test('resolveLastSeen picks the newest occurrence by date, not API order', () => {
@@ -91,13 +118,13 @@ test('mergeHistory surfaces lastSeen per pattern so a stale burst is distinguish
 		{ pattern: 'acute burst, already fixed', count: 10, occurrences: [occ('stale')] },
 		{ pattern: 'ongoing drip', count: 3, occurrences: [occ('live')] },
 	]);
-	const { patterns } = mergeHistory(null, main, 'main', 1, o => dates[o.sha]);
+	const { patterns } = mergeHistory(null, main, 'main', o => dates[o.sha]);
 	// Sort stays count-descending; recency is surfaced, not used to reorder.
 	assert.deepEqual(
 		patterns.map(p => [p.failure, p.lastSeen.date]),
 		[['acute burst, already fixed', '2026-07-24'], ['ongoing drip', '2026-07-29']],
 	);
-	assert.equal(mergeHistory(null, main, 'main', 1, o => dates[o.sha]).patterns[0].lastSeen.daysAgo > 0, true);
+	assert.equal(mergeHistory(null, main, 'main', o => dates[o.sha]).patterns[0].lastSeen.daysAgo > 0, true);
 	assert.equal(resolveLastSeen([occ('live')], o => dates[o.sha], now).daysAgo, 0);
 });
 
@@ -196,7 +223,7 @@ test('deriveFixHeld flags a zero baseline rate as uninformative', () => {
 
 test('mergeHistory carries the untruncated pattern text for cross-window matching', () => {
 	const long = 'Error: expect(locator).toBeVisible() failed because ' + 'x'.repeat(200);
-	const { patterns } = mergeHistory(null, mkTest(50, [{ pattern: long, count: 1, occurrences: [occ('m1')] }], [env('ubuntu', 'electron', 50)]), 'main', 1);
+	const { patterns } = mergeHistory(null, mkTest(50, [{ pattern: long, count: 1, occurrences: [occ('m1')] }], [env('ubuntu', 'electron', 50)]), 'main');
 	assert.equal(patterns[0].fullPattern, long);
 	// The headline is what the table shows; it is lossy, so it cannot be the match key.
 	assert.notEqual(patterns[0].failure, long);

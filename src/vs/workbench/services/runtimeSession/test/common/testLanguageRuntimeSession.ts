@@ -8,7 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, LanguageRuntimeSessionChannel, RuntimeClientType } from '../../common/runtimeSessionService.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, ILanguageRuntimeResourceUsage, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, ILanguageRuntimeResourceUsage, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
@@ -30,6 +30,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	private readonly _onDidReceiveRuntimeMessageResult = this._register(new Emitter<ILanguageRuntimeMessageResult>());
 	private readonly _onDidReceiveRuntimeMessageStream = this._register(new Emitter<ILanguageRuntimeMessageStream>());
 	private readonly _onDidReceiveRuntimeMessageInput = this._register(new Emitter<ILanguageRuntimeMessageInput>());
+	private readonly _onDidReceiveRuntimeMessageExecutionRequested = this._register(new Emitter<ILanguageRuntimeMessageExecutionRequested>());
 	private readonly _onDidReceiveRuntimeMessageError = this._register(new Emitter<ILanguageRuntimeMessageError>());
 	private readonly _onDidReceiveRuntimeMessagePrompt = this._register(new Emitter<ILanguageRuntimeMessagePrompt>());
 	private readonly _onDidReceiveRuntimeMessageState = this._register(new Emitter<ILanguageRuntimeMessageState>());
@@ -59,6 +60,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	onDidReceiveRuntimeMessageResult = this._onDidReceiveRuntimeMessageResult.event;
 	onDidReceiveRuntimeMessageStream = this._onDidReceiveRuntimeMessageStream.event;
 	onDidReceiveRuntimeMessageInput = this._onDidReceiveRuntimeMessageInput.event;
+	onDidReceiveRuntimeMessageExecutionRequested = this._onDidReceiveRuntimeMessageExecutionRequested.event;
 	onDidReceiveRuntimeMessageError = this._onDidReceiveRuntimeMessageError.event;
 	onDidReceiveRuntimeMessagePrompt = this._onDidReceiveRuntimeMessagePrompt.event;
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageState.event;
@@ -77,6 +79,15 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	// Track the working directory.
 	private _workingDirectory = '';
+
+	/** Distinguishes a runtime that cannot exit from one that cannot answer `shutdown()`. */
+	shutdownBehavior: 'exit' | 'noExit' | 'noReply' = 'exit';
+
+
+	exitsOnForceQuit = true;
+
+
+	forceQuitCount = 0;
 
 	readonly sessionId: string;
 
@@ -303,27 +314,40 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 				` (state = ${this._currentState})`);
 		}
 
+		if (this.shutdownBehavior === 'noReply') {
+			return new Promise<void>(() => { });
+		}
+
 		if (exitReason === RuntimeExitReason.Restart) {
 			this._onDidChangeRuntimeState.fire(RuntimeState.Restarting);
 		} else {
 			this._onDidChangeRuntimeState.fire(RuntimeState.Exiting);
 		}
 
-		// Complete the shutdown on the next tick, trying to match real runtime behavior.
+		if (this.shutdownBehavior === 'exit') {
+			this.exitOnNextTick(exitReason);
+		}
+	}
+
+	async forceQuit(): Promise<void> {
+		this.forceQuitCount++;
+		if (this.exitsOnForceQuit) {
+			this.exitOnNextTick(RuntimeExitReason.ForcedQuit);
+		}
+	}
+
+	// Complete the exit on the next tick, trying to match real runtime behavior.
+	private exitOnNextTick(reason: RuntimeExitReason) {
 		setTimeout(() => {
 			this._onDidChangeRuntimeState.fire(RuntimeState.Exited);
 			this._onDidEndSession.fire({
 				runtime_name: this.runtimeMetadata.runtimeName,
 				session_name: this.dynState.sessionName,
 				exit_code: 0,
-				reason: exitReason,
+				reason,
 				message: '',
 			});
 		}, 0);
-	}
-
-	async forceQuit(): Promise<void> {
-		throw new Error('Not implemented.');
 	}
 
 	showOutput(): void {
@@ -401,6 +425,16 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		};
 	}
 
+	private _executionRequestedMessage(
+		message: Partial<ILanguageRuntimeMessageExecutionRequested>
+	): ILanguageRuntimeMessageExecutionRequested {
+		return {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.ExecutionRequested),
+			code: message.code ?? '',
+			attribution: message.attribution ?? { source: 'agent' },
+		};
+	}
+
 	private _errorMessage(message: Partial<ILanguageRuntimeMessageError>): ILanguageRuntimeMessageError {
 		return {
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Error),
@@ -463,6 +497,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		const input = this._inputMessage(message);
 		this._onDidReceiveRuntimeMessageInput.fire(input);
 		return input;
+	}
+
+	receiveExecutionRequestedMessage(message: Partial<ILanguageRuntimeMessageExecutionRequested>) {
+		const requested = this._executionRequestedMessage(message);
+		this._onDidReceiveRuntimeMessageExecutionRequested.fire(requested);
+		return requested;
 	}
 
 	receiveErrorMessage(message: Partial<ILanguageRuntimeMessageError>) {

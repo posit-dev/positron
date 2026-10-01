@@ -17,6 +17,8 @@ import type { ParsedKey } from 'ssh2-streams';
 import Log from './common/logger';
 import SSHDestination from './ssh/sshDestination';
 import SSHConnection, { SSHTunnelConfig } from './ssh/sshConnection';
+import NativeSSHConnection from './ssh/nativeSSHConnection';
+import SSHTransport from './ssh/sshTransport';
 import SSHConfiguration from './ssh/sshConfig';
 import { gatherIdentityFiles } from './ssh/identityFiles';
 import { untildify, exists as fileExists } from './common/files';
@@ -60,7 +62,7 @@ interface SSHKey {
 export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode.Disposable {
 
 	private proxyConnections: SSHConnection[] = [];
-	private sshConnection: SSHConnection | undefined;
+	private sshConnection: SSHTransport | undefined;
 	private sshAgentSock: string | undefined;
 	private proxyCommandProcess: cp.ChildProcessWithoutNullStreams | undefined;
 
@@ -98,6 +100,9 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 		const remotePlatformMap = remoteSSHconfig.get<Record<string, string>>('remotePlatform', {});
 		const remoteServerListenOnSocket = remoteSSHconfig.get<boolean>('remoteServerListenOnSocket', false)!;
 		const connectTimeout = remoteSSHconfig.get<number>('connectTimeout', 60)!;
+		const transport = remoteSSHconfig.get<'ssh2' | 'native'>('transport', 'ssh2');
+		const sshPath = remoteSSHconfig.get<string>('path', 'ssh')!;
+		const sshConfigFile = remoteSSHconfig.get<string>('configFile');
 
 		return vscode.window.withProgress({
 			title: `Setting up SSH Host ${sshDest.hostname}`,
@@ -105,105 +110,124 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 			cancellable: false
 		}, async () => {
 			try {
-				const sshconfig = await SSHConfiguration.loadFromFS();
-				const sshHostConfig = sshconfig.getHostConfiguration(sshDest.hostname);
-				const sshHostName = sshHostConfig['HostName'] ? sshHostConfig['HostName'].replace('%h', sshDest.hostname) : sshDest.hostname;
-				const sshUser = sshHostConfig['User'] || sshDest.user || os.userInfo().username || ''; // https://github.com/openssh/openssh-portable/blob/5ec5504f1d328d5bfa64280cd617c3efec4f78f3/sshconnect.c#L1561-L1562
-				const sshPort = sshHostConfig['Port'] ? parseInt(sshHostConfig['Port'], 10) : (sshDest.port || 22);
-
-				this.sshAgentSock = sshHostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK'] || (isWindows ? '\\\\.\\pipe\\openssh-ssh-agent' : undefined);
-				this.sshAgentSock = this.sshAgentSock ? untildify(this.sshAgentSock) : undefined;
-				const agentForward = enableAgentForwarding && (sshHostConfig['ForwardAgent'] || 'no').toLowerCase() === 'yes';
-				const agent = agentForward && this.sshAgentSock ? new ssh2.OpenSSHAgent(this.sshAgentSock) : undefined;
-
-				const preferredAuthentications = sshHostConfig['PreferredAuthentications'] ? sshHostConfig['PreferredAuthentications'].split(',').map(s => s.trim()) : ['publickey', 'password', 'keyboard-interactive'];
-
-				const identityFiles: string[] = (sshHostConfig['IdentityFile'] as unknown as string[]) || [];
-				const identitiesOnly = (sshHostConfig['IdentitiesOnly'] || 'no').toLowerCase() === 'yes';
-				const identityKeys = await gatherIdentityFiles(identityFiles, this.sshAgentSock, identitiesOnly, this.logger);
-
-				// Create proxy jump connections if any
-				let proxyStream: ssh2.ClientChannel | stream.Duplex | undefined;
-				if (sshHostConfig['ProxyJump']) {
-					const proxyJumps = sshHostConfig['ProxyJump'].split(',').filter(i => !!i.trim())
-						.map(i => {
-							const proxy = SSHDestination.parse(i);
-							const proxyHostConfig = sshconfig.getHostConfiguration(proxy.hostname);
-							return [proxy, proxyHostConfig] as [SSHDestination, Record<string, string>];
-						});
-					for (let i = 0; i < proxyJumps.length; i++) {
-						const [proxy, proxyHostConfig] = proxyJumps[i];
-						const proxyHostName = proxyHostConfig['HostName'] || proxy.hostname;
-						const proxyUser = proxyHostConfig['User'] || proxy.user || sshUser;
-						const proxyPort = proxyHostConfig['Port'] ? parseInt(proxyHostConfig['Port'], 10) : (proxy.port || sshPort);
-
-						const proxyAgentForward = enableAgentForwarding && (proxyHostConfig['ForwardAgent'] || 'no').toLowerCase() === 'yes';
-						const proxyAgent = proxyAgentForward && this.sshAgentSock ? new ssh2.OpenSSHAgent(this.sshAgentSock) : undefined;
-
-						const proxyIdentityFiles: string[] = (proxyHostConfig['IdentityFile'] as unknown as string[]) || [];
-						const proxyIdentitiesOnly = (proxyHostConfig['IdentitiesOnly'] || 'no').toLowerCase() === 'yes';
-						const proxyIdentityKeys = await gatherIdentityFiles(proxyIdentityFiles, this.sshAgentSock, proxyIdentitiesOnly, this.logger);
-
-						const proxyAuthHandler = this.getSSHAuthHandler(proxyUser, proxyHostName, proxyIdentityKeys, preferredAuthentications);
-						const proxyConnection = new SSHConnection({
-							host: !proxyStream ? proxyHostName : undefined,
-							port: !proxyStream ? proxyPort : undefined,
-							sock: proxyStream,
-							username: proxyUser,
-							readyTimeout: connectTimeout * 1000,
-							strictVendor: false,
-							agentForward: proxyAgentForward,
-							agent: proxyAgent,
-							authHandler: (arg0, arg1, arg2) => (proxyAuthHandler(arg0, arg1, arg2), undefined)
-						});
-						this.proxyConnections.push(proxyConnection);
-
-						const nextProxyJump = i < proxyJumps.length - 1 ? proxyJumps[i + 1] : undefined;
-						const destIP = nextProxyJump ? (nextProxyJump[1]['HostName'] || nextProxyJump[0].hostname) : sshHostName;
-						const destPort = nextProxyJump ? ((nextProxyJump[1]['Port'] && parseInt(nextProxyJump[1]['Port'], 10)) || nextProxyJump[0].port || 22) : sshPort;
-						proxyStream = await proxyConnection.forwardOut('127.0.0.1', 0, destIP, destPort);
-					}
-				} else if (sshHostConfig['ProxyCommand']) {
-					let proxyArgs = (sshHostConfig['ProxyCommand'] as unknown as string[])
-						.map((arg) => arg.replace('%h', sshHostName).replace('%n', sshDest.hostname).replace('%p', sshPort.toString()).replace('%r', sshUser));
-					let proxyCommand = proxyArgs.shift()!;
-
-					let options = {};
-					if (isWindows && /\.(bat|cmd)$/.test(proxyCommand)) {
-						proxyCommand = `"${proxyCommand}"`;
-						proxyArgs = proxyArgs.map((arg) => arg.includes(' ') ? `"${arg}"` : arg);
-						options = { shell: true, windowsHide: true, windowsVerbatimArguments: true };
-					}
-
-					this.logger.trace(`Spawning ProxyCommand: ${proxyCommand} ${proxyArgs.join(' ')}`);
-
-					const child = cp.spawn(proxyCommand, proxyArgs, options);
-					proxyStream = stream.Duplex.from({ readable: child.stdout, writable: child.stdin });
-					this.proxyCommandProcess = child;
-				}
-
-				// Create final shh connection
-				const sshAuthHandler = this.getSSHAuthHandler(sshUser, sshHostName, identityKeys, preferredAuthentications);
-
-				this.sshConnection = new SSHConnection({
-					host: !proxyStream ? sshHostName : undefined,
-					port: !proxyStream ? sshPort : undefined,
-					sock: proxyStream,
-					username: sshUser,
-					readyTimeout: connectTimeout * 1000,
-					strictVendor: false,
-					agentForward,
-					agent,
-					authHandler: (arg0, arg1, arg2) => (sshAuthHandler(arg0, arg1, arg2), undefined),
-				});
-				await this.sshConnection.connect();
-
 				const envVariables: Record<string, string | null> = {};
-				if (agentForward) {
-					envVariables['SSH_AUTH_SOCK'] = null;
+				let resolvedHostName = sshDest.hostname;
+
+				if (transport === 'native') {
+					this.logger.info(`Using native OpenSSH transport for ${sshDest.hostname}`);
+					this.sshConnection = new NativeSSHConnection({
+						executable: untildify(sshPath),
+						destination: sshDest,
+						configFile: sshConfigFile ? untildify(sshConfigFile) : undefined,
+						connectTimeout,
+						logger: this.logger,
+					});
+					await this.sshConnection.connect();
+				} else {
+					const sshconfig = await SSHConfiguration.loadFromFS();
+					const sshHostConfig = sshconfig.getHostConfiguration(sshDest.hostname);
+					const sshHostName = sshHostConfig['HostName'] ? sshHostConfig['HostName'].replace('%h', sshDest.hostname) : sshDest.hostname;
+					resolvedHostName = sshHostName;
+					const sshUser = sshHostConfig['User'] || sshDest.user || os.userInfo().username || ''; // https://github.com/openssh/openssh-portable/blob/5ec5504f1d328d5bfa64280cd617c3efec4f78f3/sshconnect.c#L1561-L1562
+					const sshPort = sshHostConfig['Port'] ? parseInt(sshHostConfig['Port'], 10) : (sshDest.port || 22);
+
+					this.sshAgentSock = sshHostConfig['IdentityAgent'] || process.env['SSH_AUTH_SOCK'] || (isWindows ? '\\\\.\\pipe\\openssh-ssh-agent' : undefined);
+					this.sshAgentSock = this.sshAgentSock ? untildify(this.sshAgentSock) : undefined;
+					const agentForward = enableAgentForwarding && (sshHostConfig['ForwardAgent'] || 'no').toLowerCase() === 'yes';
+					const agent = agentForward && this.sshAgentSock ? new ssh2.OpenSSHAgent(this.sshAgentSock) : undefined;
+
+					const preferredAuthentications = sshHostConfig['PreferredAuthentications'] ? sshHostConfig['PreferredAuthentications'].split(',').map(s => s.trim()) : ['publickey', 'password', 'keyboard-interactive'];
+
+					const identityFiles: string[] = (sshHostConfig['IdentityFile'] as unknown as string[]) || [];
+					const identitiesOnly = (sshHostConfig['IdentitiesOnly'] || 'no').toLowerCase() === 'yes';
+					const identityKeys = await gatherIdentityFiles(identityFiles, this.sshAgentSock, identitiesOnly, this.logger);
+
+					// Create proxy jump connections if any
+					let proxyStream: ssh2.ClientChannel | stream.Duplex | undefined;
+					if (sshHostConfig['ProxyJump']) {
+						const proxyJumps = sshHostConfig['ProxyJump'].split(',').filter(i => !!i.trim())
+							.map(i => {
+								const proxy = SSHDestination.parse(i);
+								const proxyHostConfig = sshconfig.getHostConfiguration(proxy.hostname);
+								return [proxy, proxyHostConfig] as [SSHDestination, Record<string, string>];
+							});
+						for (let i = 0; i < proxyJumps.length; i++) {
+							const [proxy, proxyHostConfig] = proxyJumps[i];
+							const proxyHostName = proxyHostConfig['HostName'] || proxy.hostname;
+							const proxyUser = proxyHostConfig['User'] || proxy.user || sshUser;
+							const proxyPort = proxyHostConfig['Port'] ? parseInt(proxyHostConfig['Port'], 10) : (proxy.port || sshPort);
+
+							const proxyAgentForward = enableAgentForwarding && (proxyHostConfig['ForwardAgent'] || 'no').toLowerCase() === 'yes';
+							const proxyAgent = proxyAgentForward && this.sshAgentSock ? new ssh2.OpenSSHAgent(this.sshAgentSock) : undefined;
+
+							const proxyIdentityFiles: string[] = (proxyHostConfig['IdentityFile'] as unknown as string[]) || [];
+							const proxyIdentitiesOnly = (proxyHostConfig['IdentitiesOnly'] || 'no').toLowerCase() === 'yes';
+							const proxyIdentityKeys = await gatherIdentityFiles(proxyIdentityFiles, this.sshAgentSock, proxyIdentitiesOnly, this.logger);
+
+							const proxyAuthHandler = this.getSSHAuthHandler(proxyUser, proxyHostName, proxyIdentityKeys, preferredAuthentications);
+							const proxyConnection = new SSHConnection({
+								host: !proxyStream ? proxyHostName : undefined,
+								port: !proxyStream ? proxyPort : undefined,
+								sock: proxyStream,
+								username: proxyUser,
+								readyTimeout: connectTimeout * 1000,
+								strictVendor: false,
+								agentForward: proxyAgentForward,
+								agent: proxyAgent,
+								authHandler: (arg0, arg1, arg2) => (proxyAuthHandler(arg0, arg1, arg2), undefined)
+							});
+							this.proxyConnections.push(proxyConnection);
+
+							const nextProxyJump = i < proxyJumps.length - 1 ? proxyJumps[i + 1] : undefined;
+							const destIP = nextProxyJump ? (nextProxyJump[1]['HostName'] || nextProxyJump[0].hostname) : sshHostName;
+							const destPort = nextProxyJump ? ((nextProxyJump[1]['Port'] && parseInt(nextProxyJump[1]['Port'], 10)) || nextProxyJump[0].port || 22) : sshPort;
+							proxyStream = await proxyConnection.forwardOut('127.0.0.1', 0, destIP, destPort);
+						}
+					} else if (sshHostConfig['ProxyCommand']) {
+						let proxyArgs = (sshHostConfig['ProxyCommand'] as unknown as string[])
+							.map((arg) => arg.replace('%h', sshHostName).replace('%n', sshDest.hostname).replace('%p', sshPort.toString()).replace('%r', sshUser));
+						let proxyCommand = proxyArgs.shift()!;
+
+						let options = {};
+						if (isWindows && /\.(bat|cmd)$/.test(proxyCommand)) {
+							proxyCommand = `"${proxyCommand}"`;
+							proxyArgs = proxyArgs.map((arg) => arg.includes(' ') ? `"${arg}"` : arg);
+							options = { shell: true, windowsHide: true, windowsVerbatimArguments: true };
+						}
+
+						this.logger.trace(`Spawning ProxyCommand: ${proxyCommand} ${proxyArgs.join(' ')}`);
+
+						const child = cp.spawn(proxyCommand, proxyArgs, options);
+						proxyStream = stream.Duplex.from({ readable: child.stdout, writable: child.stdin });
+						this.proxyCommandProcess = child;
+					}
+
+					// Create final shh connection
+					const sshAuthHandler = this.getSSHAuthHandler(sshUser, sshHostName, identityKeys, preferredAuthentications);
+
+					this.sshConnection = new SSHConnection({
+						host: !proxyStream ? sshHostName : undefined,
+						port: !proxyStream ? sshPort : undefined,
+						sock: proxyStream,
+						username: sshUser,
+						readyTimeout: connectTimeout * 1000,
+						strictVendor: false,
+						agentForward,
+						agent,
+						authHandler: (arg0, arg1, arg2) => (sshAuthHandler(arg0, arg1, arg2), undefined),
+					});
+					await this.sshConnection.connect();
+
+					if (agentForward) {
+						envVariables['SSH_AUTH_SOCK'] = null;
+					}
 				}
 
-				const installResult = await installCodeServer(this.sshConnection, serverDownloadUrlTemplate, defaultExtensions, Object.keys(envVariables), remotePlatformMap[sshDest.hostname], remoteServerListenOnSocket, this.logger, sshHostName, sshDest.hostname);
+				const connection = this.sshConnection;
+				if (!connection) {
+					throw new Error('SSH transport was not initialized');
+				}
+				const installResult = await installCodeServer(connection, serverDownloadUrlTemplate, defaultExtensions, Object.keys(envVariables), remotePlatformMap[sshDest.hostname], remoteServerListenOnSocket, this.logger, resolvedHostName, sshDest.hostname);
 
 				for (const key of Object.keys(envVariables)) {
 					if (installResult[key] !== undefined) {
@@ -213,6 +237,7 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 
 				// Update terminal env variables
 				this.context.environmentVariableCollection.persistent = false;
+				this.context.environmentVariableCollection.delete('SSH_AUTH_SOCK');
 				for (const [key, value] of Object.entries(envVariables)) {
 					if (value) {
 						this.context.environmentVariableCollection.replace(key, value);
@@ -221,7 +246,7 @@ export class RemoteSSHResolver implements vscode.RemoteAuthorityResolver, vscode
 
 				if (enableDynamicForwarding) {
 					const socksPort = await findRandomPort();
-					this.socksTunnel = await this.sshConnection!.addTunnel({
+					this.socksTunnel = await connection.addTunnel({
 						name: `ssh_tunnel_socks_${socksPort}`,
 						localPort: socksPort,
 						socks: true

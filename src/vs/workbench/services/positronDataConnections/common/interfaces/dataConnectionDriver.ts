@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { FileFilter } from '../../../../../platform/dialogs/common/dialogs.js';
-import { IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
+import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from './dataConnectionDTOs.js';
 
 // --- Service-level interfaces ---
 //
@@ -253,5 +253,9 @@ export interface IDataConnectionHandle {
 	 * opened under, or undefined when the driver did not report one.
 	 */
 	nodePreview(nodeHandle: number): Promise<string | undefined>;
+	/**
+	 * Gets a node's details, for the details editor.
+	 */
+	nodeGetDetails(nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO>;
 	release(): void;
 }

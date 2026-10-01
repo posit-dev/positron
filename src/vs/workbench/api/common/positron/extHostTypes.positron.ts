@@ -116,6 +116,12 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message representing a request to update an output */
 	UpdateOutput = 'update_output',
+
+	/**
+	 * A message announcing that something other than Positron submitted code
+	 * to the runtime, sent before the code's echo and output arrive.
+	 */
+	ExecutionRequested = 'execution_requested',
 }
 
 /**
@@ -454,6 +460,7 @@ export enum EnvironmentContributionFilter {
  * Code attribution sources for code executed in the Console.
  */
 export enum CodeAttributionSource {
+	Agent = 'agent',
 	Assistant = 'assistant',
 	Extension = 'extension',
 	Interactive = 'interactive',
@@ -537,6 +544,25 @@ export enum DataConnectionNodeKind {
 	Pin = 'pin',
 	// A version (bundle) of a pin on a Posit Connect server (positron-data-driver-pins).
 	Version = 'version',
+	// A Snowflake semantic view (positron-data-driver-snowflake).
+	GroupSemanticViews = 'group-semantic-views',
+	SemanticView = 'semantic-view',
+	// The members of a semantic view, and the groups that hold them.
+	GroupLogicalTables = 'group-logical-tables',
+	GroupRelationships = 'group-relationships',
+	GroupFacts = 'group-facts',
+	GroupDimensions = 'group-dimensions',
+	GroupTimeDimensions = 'group-time-dimensions',
+	GroupNamedFilters = 'group-named-filters',
+	GroupMetrics = 'group-metrics',
+	GroupDerivedMetrics = 'group-derived-metrics',
+	LogicalTable = 'logical-table',
+	Relationship = 'relationship',
+	Fact = 'fact',
+	Dimension = 'dimension',
+	TimeDimension = 'time-dimension',
+	NamedFilter = 'named-filter',
+	Metric = 'metric',
 }
 
 /**

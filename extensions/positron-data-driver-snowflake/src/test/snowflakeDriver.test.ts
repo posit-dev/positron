@@ -5,10 +5,12 @@
 
 import * as assert from 'assert';
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
 import { defaultConnectionFactory, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
-import { createDatabaseNode, createSchemaNode } from '../snowflakeNodes.js';
+import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription } from '../snowflakeNodes.js';
 import { parseSnowflakeAccount } from '../snowflakeDriver.js';
+import { isWorkbenchManaged } from '../workbenchCredentials.js';
 
 // Default config for tests -- not used to connect, just to construct.
 const TEST_CONFIG: SnowflakeConnectionConfig = {
@@ -213,10 +215,11 @@ suite('Snowflake Driver Tests', () => {
 
 		const schemaNode = createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC');
 		const groups = await schemaNode.getChildren!();
-		assert.strictEqual(groups.length, 3);
+		assert.strictEqual(groups.length, 4);
 		assert.strictEqual(groups[0].kind, positron.DataConnectionNodeKind.GroupTables);
 		assert.strictEqual(groups[1].kind, positron.DataConnectionNodeKind.GroupViews);
-		assert.strictEqual(groups[2].kind, positron.DataConnectionNodeKind.GroupStages);
+		assert.strictEqual(groups[2].kind, positron.DataConnectionNodeKind.GroupSemanticViews);
+		assert.strictEqual(groups[3].kind, positron.DataConnectionNodeKind.GroupStages);
 
 		// Tables.
 		const tables = await tablesOf(schemaNode);
@@ -458,6 +461,35 @@ suite('Snowflake Reconnecting Client', () => {
 		assert.strictEqual(connections[1].connectCount, 1, 'the replacement connection should be connected');
 	});
 
+	test('fetches the token from the provider on every connect and reconnect', async () => {
+		// A Workbench-managed token is rotated externally, so each connection the client builds must
+		// carry the token current at that moment rather than the one captured at construction.
+		const tokens = ['token-1', 'token-2'];
+		const seenTokens: Array<string | undefined> = [];
+		const seenProviders: Array<unknown> = [];
+		const { factory: inner, connections } = makeFactory([
+			() => { throw new Error('Connection terminated unexpectedly'); },
+			() => ({ rows: [{ ok: true }] }),
+		]);
+		const factory: SnowflakeConnectionFactory = async options => {
+			seenTokens.push(options.token);
+			seenProviders.push(options.tokenProvider);
+			return inner(options);
+		};
+		const client = new SnowflakeClient({
+			...OPTIONS,
+			authenticator: 'OAUTH',
+			tokenProvider: async () => tokens.shift()!,
+		}, factory);
+
+		await client.connect();
+		await client.query('SELECT 1');
+
+		assert.strictEqual(connections.length, 2);
+		assert.deepStrictEqual(seenTokens, ['token-1', 'token-2']);
+		assert.deepStrictEqual(seenProviders, [undefined, undefined], 'the provider itself must not reach the SDK options');
+	});
+
 	test('does not reconnect on a non-connection error', async () => {
 		const sqlError = Object.assign(new Error('SQL compilation error: invalid identifier'), { code: '000904' });
 		const { factory, connections } = makeFactory([() => { throw sqlError; }]);
@@ -646,6 +678,28 @@ suite('Snowflake Account Parsing', () => {
 	});
 });
 
+suite('Workbench Managed Credentials Detection', () => {
+	// The helper is shared verbatim with the Databricks driver (a vitest guard keeps the copies
+	// identical), so these cases cover both.
+	const workbenchEnv = { RS_SERVER_URL: 'https://workbench.example.com/', SNOWFLAKE_HOME: '/home/u/.local/share/posit-workbench/snowflake' };
+
+	test('requires a Workbench web session and a Workbench-managed credential path', () => {
+		assert.deepStrictEqual({
+			workbench: isWorkbenchManaged('SNOWFLAKE_HOME', workbenchEnv, vscode.UIKind.Web),
+			desktop: isWorkbenchManaged('SNOWFLAKE_HOME', workbenchEnv, vscode.UIKind.Desktop),
+			notWorkbench: isWorkbenchManaged('SNOWFLAKE_HOME', { SNOWFLAKE_HOME: workbenchEnv.SNOWFLAKE_HOME }, vscode.UIKind.Web),
+			userHome: isWorkbenchManaged('SNOWFLAKE_HOME', { ...workbenchEnv, SNOWFLAKE_HOME: '/home/u/.snowflake' }, vscode.UIKind.Web),
+			unset: isWorkbenchManaged('DATABRICKS_CONFIG_FILE', workbenchEnv, vscode.UIKind.Web),
+		}, {
+			workbench: true,
+			desktop: false,
+			notWorkbench: false,
+			userHome: false,
+			unset: false,
+		});
+	});
+});
+
 suite('Snowflake Lazy SDK Loading', () => {
 	// The SDK is reached through a dynamic import() inside the default factory rather than a
 	// top-level import, so that opening the Data Connections pane does not pay to load it. That
@@ -662,5 +716,285 @@ suite('Snowflake Lazy SDK Loading', () => {
 		assert.deepStrictEqual(
 			{ execute: typeof conn.execute, connectAsync: typeof conn.connectAsync },
 			{ execute: 'function', connectAsync: 'function' });
+	});
+});
+
+// --- Semantic views ---
+
+// One row of DESCRIBE SEMANTIC VIEW output: a single property of a single member.
+function describeRow(objectKind: string | null, objectName: string, parentEntity: string | null, property: string, propertyValue: string) {
+	return { object_kind: objectKind, object_name: objectName, parent_entity: parentEntity, property, property_value: propertyValue };
+}
+
+// The Cortex Analyst extension of the DEMO_CHAOS_DB.ERP_DUMP.CHAOS_MODEL semantic view, trimmed to
+// what the driver reads. Its table names are deliberately in lowercase here, to show they are
+// matched to DESCRIBE's spelling rather than trusted as-is.
+const CHAOS_MODEL_EXTENSION = JSON.stringify({
+	tables: [
+		{
+			name: 'ref_entities',
+			filters: [{
+				name: 'IS_EXTERNAL',
+				synonyms: ['Billed Accounts', 'External Customers'],
+				description: 'Filters for true external customers only.',
+				expr: `ACC_TYPE_CD = 'EXT'`,
+			}],
+		},
+		{ name: 't_data_log', time_dimensions: [{ name: 'LOG_DT' }] },
+		// A table DESCRIBE doesn't report: its filter has nowhere to be shown.
+		{ name: 'retired_table', filters: [{ name: 'ORPHANED', expr: 'TRUE' }] },
+	],
+});
+
+// DESCRIBE SEMANTIC VIEW rows modeled on CHAOS_MODEL: two logical tables, a relationship, facts,
+// dimensions, and a metric. A few rows are planted to pin down behavior:
+// - Z_STATUS comes before ACC_TYPE_CD, so a parser that sorted by name rather than keeping
+//   definition order would show.
+// - LOG_DT is typed VARCHAR, so its being a time dimension has to come from the extension.
+// - CREATED_DT is typed DATE but not listed in T_DATA_LOG's time_dimensions, so it has to stay an
+//   ordinary dimension: the extension decides for a table whose entry lists time dimensions.
+// - OPENED_DT is typed DATE on REF_ENTITIES, whose extension entry lists none, so it falls back to
+//   the data type and is a time dimension.
+const CHAOS_MODEL_ROWS = [
+	describeRow(null, 'CHAOS_MODEL', null, 'COMMENT', 'A chaotic model'),
+	describeRow('TABLE', 'REF_ENTITIES', null, 'BASE_TABLE_DATABASE_NAME', 'DEMO_CHAOS_DB'),
+	describeRow('TABLE', 'REF_ENTITIES', null, 'BASE_TABLE_SCHEMA_NAME', 'ERP_DUMP'),
+	describeRow('TABLE', 'REF_ENTITIES', null, 'BASE_TABLE_NAME', 'REF_ENTITIES'),
+	describeRow('TABLE', 'T_DATA_LOG', null, 'BASE_TABLE_NAME', 'T_DATA_LOG'),
+	describeRow('RELATIONSHIP', 'LINK_TRANSACTIONS_TO_ENTITIES', 'T_DATA_LOG', 'TABLE', 'T_DATA_LOG'),
+	describeRow('RELATIONSHIP', 'LINK_TRANSACTIONS_TO_ENTITIES', 'T_DATA_LOG', 'REF_TABLE', 'REF_ENTITIES'),
+	describeRow('RELATIONSHIP', 'LINK_TRANSACTIONS_TO_ENTITIES', 'T_DATA_LOG', 'FOREIGN_KEY', '["E_KEY"]'),
+	describeRow('RELATIONSHIP', 'LINK_TRANSACTIONS_TO_ENTITIES', 'T_DATA_LOG', 'REF_KEY', '["REF_KEY"]'),
+	describeRow('FACT', 'RUNNING_BAL', 'REF_ENTITIES', 'DATA_TYPE', 'NUMBER(12,2)'),
+	describeRow('DIMENSION', 'Z_STATUS', 'REF_ENTITIES', 'DATA_TYPE', 'VARCHAR(1)'),
+	describeRow('DIMENSION', 'ACC_TYPE_CD', 'REF_ENTITIES', 'DATA_TYPE', 'VARCHAR(3)'),
+	describeRow('DIMENSION', 'ACC_TYPE_CD', 'REF_ENTITIES', 'EXPRESSION', 'ACC_TYPE_CD'),
+	describeRow('DIMENSION', 'OPENED_DT', 'REF_ENTITIES', 'DATA_TYPE', 'DATE'),
+	describeRow('DIMENSION', 'E_KEY', 'T_DATA_LOG', 'DATA_TYPE', 'NUMBER(38,0)'),
+	describeRow('DIMENSION', 'LOG_DT', 'T_DATA_LOG', 'DATA_TYPE', 'VARCHAR(10)'),
+	describeRow('DIMENSION', 'CREATED_DT', 'T_DATA_LOG', 'DATA_TYPE', 'DATE'),
+	describeRow('METRIC', 'NET_REVENUE', 'T_DATA_LOG', 'DATA_TYPE', 'NUMBER(37,4)'),
+	describeRow('METRIC', 'NET_REVENUE', 'T_DATA_LOG', 'EXPRESSION', 'SUM(X_AMT)'),
+	describeRow('EXTENSION', 'CA', null, 'VALUE', CHAOS_MODEL_EXTENSION),
+];
+
+// The members' names in each bucket, table-qualified where they have a table, for comparing a
+// parse against what it should have produced.
+function memberNames(members: ReturnType<typeof parseSemanticViewDescription>) {
+	const names = (bucket: { name: string; table?: string }[]) => bucket.map(member => member.table ? `${member.table}.${member.name}` : member.name);
+	return {
+		tables: names(members.tables),
+		dimensions: names(members.dimensions),
+		timeDimensions: names(members.timeDimensions),
+		facts: names(members.facts),
+		namedFilters: names(members.namedFilters),
+		metrics: names(members.metrics),
+		derivedMetrics: names(members.derivedMetrics),
+		relationships: names(members.relationships),
+	};
+}
+
+// A mock client answering the queries a semantic view's nodes make: SHOW SEMANTIC VIEWS, DESCRIBE
+// SEMANTIC VIEW, and GET_DDL (which fails, as it would without a warehouse, when ddlError is set).
+// Any other query fails loudly, so a renamed query shows up as an error rather than as empty groups.
+function createSemanticViewClient(ddlError?: string, queries: { sql: string; binds?: any[] }[] = [], ddl = 'create or replace semantic view CHAOS_MODEL'): any {
+	return createMockClient((sql, binds) => {
+		queries.push({ sql, binds });
+		if (sql.startsWith('SHOW SEMANTIC VIEWS')) {
+			return { rows: [{ name: 'CHAOS_MODEL', owner: 'ACCOUNTADMIN' }] };
+		}
+		if (sql.startsWith('DESCRIBE SEMANTIC VIEW')) {
+			return { rows: CHAOS_MODEL_ROWS };
+		}
+		if (sql.includes('GET_DDL')) {
+			if (ddlError) {
+				throw new Error(ddlError);
+			}
+			return { rows: [{ DDL: ddl }] };
+		}
+		throw new Error(`Unexpected query: ${sql}`);
+	});
+}
+
+// Expands a schema to its one semantic view node.
+async function semanticViewOf(client: any): Promise<positron.DataConnectionNode> {
+	const groups = await createSchemaNode(client, noopHost, 'DEMO_CHAOS_DB', 'ERP_DUMP').getChildren!();
+	const semanticViewsGroup = groups.find(group => group.kind === positron.DataConnectionNodeKind.GroupSemanticViews)!;
+	const [semanticView] = await semanticViewsGroup.getChildren!();
+	return semanticView;
+}
+
+suite('Snowflake Semantic Views', () => {
+	test('DESCRIBE rows are merged into one member each, bucketed by kind, in definition order', () => {
+		const members = parseSemanticViewDescription(CHAOS_MODEL_ROWS);
+
+		assert.deepStrictEqual(memberNames(members), {
+			tables: ['REF_ENTITIES', 'T_DATA_LOG'],
+			dimensions: ['REF_ENTITIES.Z_STATUS', 'REF_ENTITIES.ACC_TYPE_CD', 'T_DATA_LOG.E_KEY', 'T_DATA_LOG.CREATED_DT'],
+			timeDimensions: ['REF_ENTITIES.OPENED_DT', 'T_DATA_LOG.LOG_DT'],
+			facts: ['REF_ENTITIES.RUNNING_BAL'],
+			// ORPHANED names a table DESCRIBE doesn't report, so it is dropped.
+			namedFilters: ['REF_ENTITIES.IS_EXTERNAL'],
+			metrics: ['T_DATA_LOG.NET_REVENUE'],
+			derivedMetrics: [],
+			relationships: ['T_DATA_LOG.LINK_TRANSACTIONS_TO_ENTITIES'],
+		});
+		assert.deepStrictEqual(Object.fromEntries(members.metrics[0].properties), { DATA_TYPE: 'NUMBER(37,4)', EXPRESSION: 'SUM(X_AMT)' });
+	});
+
+	test('the Cortex Analyst extension supplies named filters and decides time dimensions', () => {
+		const members = parseSemanticViewDescription(CHAOS_MODEL_ROWS);
+
+		// Attached to the table as DESCRIBE spells it, with the filter's definition as its properties.
+		const [filter] = members.namedFilters;
+		assert.deepStrictEqual(
+			{ table: filter.table, properties: Object.fromEntries(filter.properties) },
+			{
+				table: 'REF_ENTITIES',
+				properties: {
+					EXPRESSION: `ACC_TYPE_CD = 'EXT'`,
+					COMMENT: 'Filters for true external customers only.',
+					SYNONYMS: '["Billed Accounts","External Customers"]',
+				},
+			});
+		// LOG_DT is typed VARCHAR, so only the extension can have made it a time dimension; CREATED_DT
+		// is typed DATE, but T_DATA_LOG's list leaves it out, so it stays an ordinary dimension; and
+		// OPENED_DT's table lists no time dimensions at all, so its DATE type decides.
+		assert.deepStrictEqual(members.timeDimensions.map(dimension => dimension.name), ['OPENED_DT', 'LOG_DT']);
+		assert.ok(members.dimensions.some(dimension => dimension.name === 'CREATED_DT'));
+	});
+
+	test('without an extension, date-typed dimensions are time dimensions and table-less metrics are derived', () => {
+		const members = parseSemanticViewDescription([
+			describeRow('DIMENSION', 'LOG_DT', 'T_DATA_LOG', 'DATA_TYPE', 'DATE'),
+			describeRow('DIMENSION', 'STS_CD', 'T_DATA_LOG', 'DATA_TYPE', 'NUMBER(2,0)'),
+			describeRow('METRIC', 'NET_REVENUE', 'T_DATA_LOG', 'DATA_TYPE', 'NUMBER(37,4)'),
+			describeRow('METRIC', 'REVENUE_PER_ENTITY', null, 'EXPRESSION', 'NET_REVENUE / ENTITY_COUNT'),
+		]);
+
+		assert.deepStrictEqual(
+			{
+				timeDimensions: memberNames(members).timeDimensions,
+				dimensions: memberNames(members).dimensions,
+				metrics: memberNames(members).metrics,
+				derivedMetrics: memberNames(members).derivedMetrics,
+			},
+			{
+				timeDimensions: ['T_DATA_LOG.LOG_DT'],
+				dimensions: ['T_DATA_LOG.STS_CD'],
+				metrics: ['T_DATA_LOG.NET_REVENUE'],
+				derivedMetrics: ['REVENUE_PER_ENTITY'],
+			});
+	});
+
+	test('a semantic view expands to Snowsight\'s layout, with members under their logical table', async () => {
+		const semanticView = await semanticViewOf(createSemanticViewClient());
+		const groups = await semanticView.getChildren!();
+		const [refEntities] = await groups[0].getChildren!();
+		const tableGroups = await refEntities.getChildren!();
+		const membersOf = async (kind: positron.DataConnectionNodeKind) =>
+			(await tableGroups.find(group => group.kind === kind)!.getChildren!()).map(member => member.name);
+
+		assert.deepStrictEqual(
+			{
+				view: groups.map(group => group.name),
+				table: refEntities.name,
+				baseTable: refEntities.dataType,
+				tableGroups: tableGroups.map(group => group.name),
+				// Only REF_ENTITIES' own members: no T_DATA_LOG dimensions, and no NET_REVENUE.
+				dimensions: await membersOf(positron.DataConnectionNodeKind.GroupDimensions),
+				metrics: await membersOf(positron.DataConnectionNodeKind.GroupMetrics),
+				namedFilters: await membersOf(positron.DataConnectionNodeKind.GroupNamedFilters),
+			},
+			{
+				view: ['Logical Tables', 'Derived Metrics', 'Relationships'],
+				table: 'REF_ENTITIES',
+				baseTable: 'DEMO_CHAOS_DB.ERP_DUMP.REF_ENTITIES',
+				tableGroups: ['Dimensions', 'Time Dimensions', 'Facts', 'Named Filters', 'Metrics'],
+				dimensions: ['Z_STATUS', 'ACC_TYPE_CD'],
+				metrics: [],
+				namedFilters: ['IS_EXTERNAL'],
+			});
+	});
+
+	test('a semantic view\'s Definition holds its DDL, fetched with its name as a bind', async () => {
+		const queries: { sql: string; binds?: any[] }[] = [];
+		const semanticView = await semanticViewOf(createSemanticViewClient(undefined, queries));
+		const details = await semanticView.getDetails!();
+
+		assert.deepStrictEqual(
+			details.tabs!.find(tab => tab.title === 'Definition')!.sections,
+			[{ kind: 'code', languageId: 'sql', code: 'create or replace semantic view CHAOS_MODEL' }]);
+		// A bind, not a string literal, so no name can break out of (or be misread inside) the quotes.
+		assert.deepStrictEqual(
+			queries.filter(query => query.sql.includes('GET_DDL')).map(query => query.binds),
+			[['"DEMO_CHAOS_DB"."ERP_DUMP"."CHAOS_MODEL"']]);
+	});
+
+	test('a semantic view describes itself once however often it is expanded and clicked', async () => {
+		const queries: { sql: string; binds?: any[] }[] = [];
+		const semanticView = await semanticViewOf(createSemanticViewClient(undefined, queries));
+
+		await semanticView.getChildren!();
+		await semanticView.getDetails!();
+		await semanticView.getDetails!();
+
+		assert.deepStrictEqual(
+			{
+				describes: queries.filter(query => query.sql.startsWith('DESCRIBE')).length,
+				ddls: queries.filter(query => query.sql.includes('GET_DDL')).length,
+			},
+			{ describes: 1, ddls: 1 });
+	});
+
+	test('each Overview heading names the tree node it stands for', async () => {
+		const semanticView = await semanticViewOf(createSemanticViewClient());
+		const details = await semanticView.getDetails!();
+
+		// Headings and their tree paths, walking Logical Tables > REF_ENTITIES > its member groups.
+		type Group = Extract<positron.DataConnectionNodeDetailsSection, { kind: 'group' }>;
+		const groups = details.tabs![0].sections.filter((section): section is Group => section.kind === 'group');
+		const [logicalTables] = groups;
+		const refEntities = logicalTables.sections[0] as Group;
+		const dimensions = refEntities.sections.find((section): section is Group => section.kind === 'group' && section.title === 'Dimensions')!;
+		const path = (group: Group) => group.treePath!.map(node => `${node.kind}:${node.name}`).join(' > ');
+
+		assert.deepStrictEqual(
+			[...groups, refEntities, dimensions].map(path),
+			[
+				'group-logical-tables:Logical Tables',
+				'group-derived-metrics:Derived Metrics',
+				'group-relationships:Relationships',
+				'group-logical-tables:Logical Tables > logical-table:REF_ENTITIES',
+				'group-logical-tables:Logical Tables > logical-table:REF_ENTITIES > group-dimensions:Dimensions',
+			]);
+	});
+
+	test('a semantic view\'s Definition is unavailable, not blank, when GET_DDL returns nothing', async () => {
+		// What a role that can see the semantic view but not read its definition gets back.
+		const semanticView = await semanticViewOf(createSemanticViewClient(undefined, [], ''));
+		const details = await semanticView.getDetails!();
+
+		assert.deepStrictEqual(
+			details.tabs!.find(tab => tab.title === 'Definition')!.sections,
+			[{ kind: 'properties', properties: [{ name: 'Unavailable', value: 'The definition is not available to the current role.' }] }]);
+	});
+
+	test('a semantic view\'s details still show the Overview when its DDL cannot be fetched', async () => {
+		const semanticView = await semanticViewOf(createSemanticViewClient('No active warehouse selected in the current session.'));
+		const details = await semanticView.getDetails!();
+
+		const [overview, definition] = details.tabs!;
+		assert.deepStrictEqual(
+			{
+				tabs: details.tabs!.map(tab => tab.title),
+				overviewHeadings: overview.sections.map(section => section.kind === 'group' ? section.title : section.kind),
+				definition: definition.sections,
+			},
+			{
+				tabs: ['Overview', 'Definition'],
+				overviewHeadings: ['properties', 'Logical Tables', 'Derived Metrics', 'Relationships'],
+				definition: [{ kind: 'properties', properties: [{ name: 'Unavailable', value: 'No active warehouse selected in the current session.' }] }],
+			});
 	});
 });

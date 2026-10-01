@@ -1,20 +1,32 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box .flow-step {
-	top: 32px;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	padding: 16px 16px calc(var(--_positron-modal-action-bar-height) + 16px);
-	position: absolute;
+/* Caps the step's height so a tall step scrolls inside the dialog instead of running off a short
+window. The allowance covers the dialog's 40px gutters and its title bar and footer. */
+.positron-dynamic-modal-dialog-box .content-area:has(> .flow-step) {
+	max-height: calc(100vh - 260px);
 }
 
-.positron-modal-dialog-box .flow-step .flow-step-title {
-	font-size: 26px;
-	font-weight: bold;
-	margin-top: 16px;
-	margin-bottom: 32px;
+.positron-dynamic-modal-dialog-box .flow-step-footer {
+	display: flex;
+	flex: 0 0 auto;
+	padding: 16px;
+	align-items: center;
+	border-top: solid 1px var(--vscode-positronModalDialog-border);
+	justify-content: space-between;
+}
+
+.positron-dynamic-modal-dialog-box .flow-step-footer-left,
+.positron-dynamic-modal-dialog-box .flow-step-footer-right {
+	gap: 10px;
+	display: flex;
+	align-items: center;
+}
+
+/* The dialog's content area preserves newlines for plain-text dialogs. Flow steps lay out their own
+text, so they use normal wrapping. */
+.positron-dynamic-modal-dialog-box .flow-step {
+	white-space: normal;
 }

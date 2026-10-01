@@ -911,6 +911,20 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			expect(infoSpy.mock.calls[0][0]).toContain('already running');
 		});
 	});
+
+	describe('registerDiscoveredRuntime', () => {
+		it('caches a runtime that was already registered before discovery', async () => {
+			const svc = makeService();
+			const md = metadata();
+			ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime(md));
+			(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.Discovering;
+
+			svc.registerDiscoveredRuntime(md);
+
+			const registered = ctx.get(ILanguageRuntimeService).getRegisteredRuntime(md.runtimeId);
+			expect(cache.getEntries('ms.python', 'python').map(e => e.metadata)).toEqual([registered]);
+		});
+	});
 });
 
 describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
@@ -1090,8 +1104,6 @@ describe('RuntimeStartupService - affiliation healing', () => {
 		const svc = ctx.disposables.add(
 			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
 		// Force into LoadingCache phase so onDidRegisterRuntime heals the affiliation.
-		// LoadingCache (not Discovering) is used here to skip the upsert branch that
-		// only runs during Discovering; the heal runs in both phases.
 		(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.LoadingCache;
 
 		// Use Manual startup behavior so the service heals the stored affiliation

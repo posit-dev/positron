@@ -29,23 +29,48 @@ export class PromiseHandles<T> {
 
 export class Barrier {
 	private _isOpen: boolean;
+	private _isCancelled = false;
 	private _promise: Promise<boolean>;
 	private _completePromise!: (v: boolean) => void;
+	private _errorPromise!: (err: Error) => void;
 
 	constructor() {
 		this._isOpen = false;
-		this._promise = new Promise<boolean>((c, _e) => {
+		this._promise = new Promise<boolean>((c, e) => {
 			this._completePromise = c;
+			this._errorPromise = e;
 		});
+		// Handle cancellation even without waiters so it cannot produce an
+		// unhandled rejection. `wait()` still returns the rejecting promise.
+		this._promise.catch(() => { });
 	}
 
 	isOpen(): boolean {
 		return this._isOpen;
 	}
 
+	isCancelled(): boolean {
+		return this._isCancelled;
+	}
+
 	open(): void {
+		if (this._isCancelled) {
+			return;
+		}
 		this._isOpen = true;
 		this._completePromise(true);
+	}
+
+	/**
+	 * Reject pending and future `wait()` calls, even if `open()` already
+	 * released earlier waiters. A cancelled barrier cannot reopen.
+	 */
+	cancel(error: Error): void {
+		this._isOpen = false;
+		this._isCancelled = true;
+		this._errorPromise(error);
+		this._promise = Promise.reject(error);
+		this._promise.catch(() => { });
 	}
 
 	wait(): Promise<boolean> {
@@ -71,4 +96,3 @@ export function withTimeout<T>(promise: Thenable<T>,
 		new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), timeout))
 	]);
 }
-

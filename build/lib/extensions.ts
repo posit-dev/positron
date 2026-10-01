@@ -314,11 +314,7 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			'positron-duckdb',
 			'positron-data-driver-databricks',
 			'positron-data-driver-duckdb',
-			'positron-data-driver-odbc',
-			'positron-data-driver-pins',
-			'positron-data-driver-postgresql',
-			'positron-data-driver-redshift',
-			'positron-data-driver-sqlite'
+			'positron-data-driver-pins'
 		];
 
 		// If the extension has npm dependencies, use the Npm package manager

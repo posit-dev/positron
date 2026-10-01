@@ -10,8 +10,6 @@ import { PositronAssistantConfigurationService } from '../../browser/positronAss
 import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { INotificationService, IPromptChoice } from '../../../../../platform/notification/common/notification.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 import { IProviderCatalogChangeData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -27,14 +25,10 @@ function makeSource(id: string, catalogId?: string): IPositronLanguageModelSourc
 
 describe('PositronAssistantConfigurationService', () => {
 	const configurationService = new TestConfigurationService();
-	const prompt = vi.fn();
-	const executeCommand = vi.fn();
 	const catalogEnabled = new Map<string, boolean>();
 	const onDidChangeProvidersEmitter = new Emitter<IProviderCatalogChangeData>();
 	const ctx = createTestContainer()
 		.stub(IConfigurationService, configurationService)
-		.stub(INotificationService, { prompt })
-		.stub(ICommandService, { executeCommand })
 		.stub(IAiProviderService, {
 			// The catalog "knows" exactly the ids in catalogEnabled.
 			getProvider: (id: string) => catalogEnabled.has(id)
@@ -63,78 +57,6 @@ describe('PositronAssistantConfigurationService', () => {
 		expect(source).toBeDefined();
 		return source!;
 	}
-
-	describe('updateProvider status notifications', () => {
-		it('notifies once with the status message on transition to error', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { signedIn: false, status: 'error', statusMessage: 'Authentication expired' });
-
-			expect(prompt).toHaveBeenCalledTimes(1);
-			expect(prompt.mock.calls[0][1]).toBe('Display prov-a: Authentication expired');
-
-			// The Configure action opens the config dialog at this provider.
-			const choices = prompt.mock.calls[0][2] as IPromptChoice[];
-			choices[0].run();
-			expect(executeCommand).toHaveBeenCalledWith('authentication.configureProviders', { preselectedProviderId: 'prov-a' });
-		});
-
-		it('stays silent for ok and null statuses', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { signedIn: true, status: 'ok' });
-			service.updateProvider('prov-a', { signedIn: false, status: null });
-
-			expect(prompt).not.toHaveBeenCalled();
-		});
-
-		it('stays silent for disabled providers', () => {
-			// 'anthropic' is in the catalog with enabled=false, so the provider is
-			// disabled and the error status stays quiet.
-			registerProvider('anthropic', false);
-			service.updateProvider('anthropic', { status: 'error', statusMessage: 'Authentication expired' });
-
-			expect(prompt).not.toHaveBeenCalled();
-		});
-
-		it('does not re-notify on repeated error updates', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Authentication expired' });
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Still expired' });
-
-			expect(prompt).toHaveBeenCalledTimes(1);
-		});
-
-		it('re-arms the notification after an ok status', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Authentication expired' });
-			service.updateProvider('prov-a', { status: 'ok' });
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Authentication expired' });
-
-			expect(prompt).toHaveBeenCalledTimes(2);
-		});
-
-		it('re-arms the notification after a signedIn update', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Authentication expired' });
-			service.updateProvider('prov-a', { signedIn: true });
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Authentication expired' });
-
-			expect(prompt).toHaveBeenCalledTimes(2);
-		});
-
-		it('falls back to a generic message without statusMessage', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { status: 'error' });
-
-			expect(prompt).toHaveBeenCalledTimes(1);
-			expect(prompt.mock.calls[0][1]).toContain('Display prov-a');
-		});
-
-		it('is a no-op for unknown providers', () => {
-			service.updateProvider('prov-unknown', { status: 'error', statusMessage: 'Authentication expired' });
-
-			expect(prompt).not.toHaveBeenCalled();
-		});
-	});
 
 	describe('updateProvider status state', () => {
 		it('stores an explicit null status', () => {

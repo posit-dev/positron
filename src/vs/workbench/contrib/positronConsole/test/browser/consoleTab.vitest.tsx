@@ -8,13 +8,14 @@
 import { act, fireEvent, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { IAction } from '../../../../../base/common/actions.js';
+import { Event } from '../../../../../base/common/event.js';
 import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
 import { IContextMenuDelegate } from '../../../../../base/browser/contextmenu.js';
 import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
-import { IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestPositronConsoleInstance, TestPositronConsoleService } from '../../../../services/positronConsole/test/browser/testPositronConsoleService.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -247,6 +248,60 @@ describe('ConsoleTab', () => {
 		});
 	});
 
+	describe('delete session', () => {
+		async function clickDelete(sessionId: string, stillRegisteredAfterFailure: boolean) {
+			const instance = addActiveConsoleInstance(sessionId, 'My Python Session');
+			const session = stubInterface<ILanguageRuntimeSession>({
+				sessionId,
+				getRuntimeState: () => RuntimeState.Ready,
+				onDidUpdateResourceUsage: Event.None,
+			});
+			let registered = true;
+			const runtimeSessionService = ctx.reactServices.runtimeSessionService;
+			vi.spyOn(runtimeSessionService, 'getSession')
+				.mockImplementation(() => registered ? session : undefined);
+			vi.spyOn(runtimeSessionService, 'deleteSession').mockImplementation(async () => {
+				registered = stillRegisteredAfterFailure;
+				throw new Error('runtime did not exit');
+			});
+			const warn = vi.spyOn(ctx.reactServices.notificationService, 'warn');
+			const error = vi.spyOn(ctx.reactServices.notificationService, 'error');
+
+			rtl.render(
+				<PositronConsoleContextProvider>
+					<ConsoleTab
+						hideSessionName={false}
+						hoverManager={hoverManager}
+						positronConsoleInstance={instance}
+						width={200}
+						onChangeSession={() => { }}
+						onSessionNameHiddenChange={() => { }}
+					/>
+				</PositronConsoleContextProvider>
+			);
+			await userEvent.setup().click(screen.getByTestId('trash-session'));
+
+			return {
+				warn: warn.mock.calls.map(([message]) => message),
+				error: error.mock.calls.map(([message]) => message),
+			};
+		}
+
+		it('warns that the runtime may still be running when deletion removed the session but rethrew', async () => {
+			expect(await clickDelete('test-session-delete-1', false)).toEqual({
+				warn: ['Session deleted, but its runtime may still be running: runtime did not exit'],
+				error: [],
+			});
+		});
+
+		it('reports a failed deletion when the session is still registered', async () => {
+			expect(await clickDelete('test-session-delete-2', true)).toEqual({
+				warn: [],
+				error: ['Failed to delete session: runtime did not exit'],
+			});
+		});
+	});
+
 	describe('session name tooltip', () => {
 		function renderTab(sessionId: string, sessionName: string, hideSessionName: boolean) {
 			const instance = addActiveConsoleInstance(sessionId, sessionName);
@@ -312,6 +367,63 @@ describe('ConsoleTab', () => {
 			await user.unhover(tab);
 
 			expect(hideHover).toHaveBeenCalled();
+		});
+	});
+
+	describe('unread executions', () => {
+		/** Render a tab for a console that is not the active one. */
+		function renderInactiveTab(sessionId: string, sessionName: string, count: number, hideSessionName = false) {
+			const instance = addActiveConsoleInstance(sessionId, sessionName);
+			instance.setUnreadExecutionCount(count);
+			// Adding another console makes it the active one, sending this one to the background.
+			addActiveConsoleInstance(`${sessionId}-foreground`, 'Foreground Session');
+			rtl.render(
+				<PositronConsoleContextProvider>
+					<ConsoleTab
+						hideSessionName={hideSessionName}
+						hoverManager={hoverManager}
+						positronConsoleInstance={instance}
+						width={200}
+						onChangeSession={() => { }}
+						onSessionNameHiddenChange={() => { }}
+					/>
+				</PositronConsoleContextProvider>
+			);
+			return { user: userEvent.setup(), tab: screen.getByRole('tab') };
+		}
+
+		it('says how many executions are unread in the tooltip', async () => {
+			const { user, tab } = renderInactiveTab('unread-session-1', 'My Python Session', 3);
+
+			await user.hover(tab);
+
+			expect(showHover).toHaveBeenCalledWith(tab, '3 new executions');
+		});
+
+		it('names the session in the unread tooltip when the tab has no room to show it', async () => {
+			const { user, tab } = renderInactiveTab('unread-session-5', 'My Python Session', 3, true);
+
+			await user.hover(tab);
+
+			expect(showHover).toHaveBeenCalledWith(tab, 'My Python Session \u2022 3 new executions');
+		});
+
+		it('says how many executions are unread in the accessible name', () => {
+			renderInactiveTab('unread-session-2', 'My Python Session', 3);
+
+			expect(screen.getByRole('tab', { name: 'My Python Session, 3 new executions' })).toBeInTheDocument();
+		});
+
+		it('uses the singular for a single unread execution', () => {
+			renderInactiveTab('unread-session-3', 'My Python Session', 1);
+
+			expect(screen.getByRole('tab', { name: 'My Python Session, 1 new execution' })).toBeInTheDocument();
+		});
+
+		it('names the delete button', () => {
+			renderInactiveTab('unread-session-4', 'My Python Session', 1);
+
+			expect(screen.getByRole('button', { name: 'Delete Session' })).toBeInTheDocument();
 		});
 	});
 });

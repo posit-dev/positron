@@ -16,14 +16,13 @@ import { IExtensionService } from '../../extensions/common/extensions.js';
 import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimeManager, IRuntimeRootSignature, LanguageRuntimeArchitecture, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeStartupPhase, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, signaturesEqual } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
-import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 import { IPositronNewFolderService } from '../../positronNewFolder/common/positronNewFolder.js';
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
@@ -216,12 +215,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(
 			this._languageRuntimeService.onDidRegisterRuntime(
 				this.onDidRegisterRuntime, this));
-
-		// Definition-only runtimes are hidden, but are cached like any other
-		// runtime so their variants come back on warm starts.
-		this._register(
-			this._languageRuntimeService.onDidRegisterDefinitionOnlyRuntime(
-				this.cacheDiscoveredRuntime, this));
 
 		this._startupPhase = _languageRuntimeService.startupPhase;
 		perf.mark(`code/positron/runtimeStartupPhase/${this._startupPhase}`);
@@ -633,10 +626,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Revive the URIs in the session metadata.
 			this._restoredSessions = storedSessions.map(session => ({
 				...session,
-				metadata: {
-					...session.metadata,
-					notebookUri: URI.revive(session.metadata.notebookUri),
-				},
+				metadata: reviveRuntimeSessionMetadata(session.metadata),
 			}));
 		} catch (err) {
 			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +
@@ -792,6 +782,34 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * {@inheritDoc}
+	 */
+	public registerDiscoveredRuntime(metadata: ILanguageRuntimeMetadata): void {
+		this._languageRuntimeService.registerRuntime(metadata);
+
+		// During a real discovery pass (cold-start full discovery, user-triggered
+		// rediscover, or a background refresh), feed cacheable runtimes into the
+		// cross-window cache. This happens even if the runtime was already
+		// registered, since the pass may have wiped its cache entry.
+		//
+		// `lastFullDiscovery` is stamped at the start of the pass in
+		// `_captureSignaturesAtDiscoveryStart` (so buckets that legitimately
+		// produce zero runtimes on this open still get refreshed), not here.
+		if (metadata.cacheable === true &&
+			(this._startupPhase === RuntimeStartupPhase.Discovering || this._backgroundDiscoveryInProgress)) {
+			// Keep the display path the language runtime service computed.
+			const registered = this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId);
+			this._discoveryCache.upsert({
+				...metadata,
+				runtimeDisplayPath: metadata.runtimeDisplayPath ?? registered?.runtimeDisplayPath,
+			}).catch(err => {
+				this._logService.warn(
+					`[Runtime startup] Failed to cache runtime ${formatLanguageRuntimeMetadata(metadata)}: ${err}`);
+			});
+		}
+	}
+
+	/**
 	 * Used to register an instance of a MainThreadLanguageRuntime.
 	 *
 	 * This is required because there can be multiple extension hosts
@@ -858,7 +876,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}, async (progress) => {
 			// Start the discovery process. bypassCache=true so every manager
 			// runs a fresh full pass and the cache is re-seeded from the
-			// results via onDidRegisterRuntime's cache-write path.
+			// results via registerDiscoveredRuntime.
 			this.discoverAllRuntimes({ bypassCache: true });
 
 			// Wait for discovery to complete
@@ -1095,7 +1113,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// contribution) keep their cache: we're not asking the ext
 				// host to discover them, so wiping would lose data without
 				// a refresh. The pass will repopulate the run languages'
-				// cache via `onDidRegisterRuntime`.
+				// cache via `registerDiscoveredRuntime`.
 				for (const { extensionId, languageId } of runPairs) {
 					for (const entry of this._discoveryCache.getEntries(extensionId, languageId)) {
 						this._discoveryCache.invalidate(extensionId, languageId, entry.metadata.runtimePath);
@@ -1391,7 +1409,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// periodic-refresh check reads this value on the next open and
 			// what matters is that *a* pass ran, not exactly when each
 			// runtime registered. Stamping per-runtime via
-			// `onDidRegisterRuntime` would miss buckets that legitimately
+			// `registerDiscoveredRuntime` would miss buckets that legitimately
 			// produce zero runtimes on this open.
 			this._discoveryCache.setLastFullDiscovery(extensionId, languageId, stampedAt);
 			const sig = sigByPair.get(key);
@@ -1550,28 +1568,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * During a real discovery pass (cold-start full discovery, user-triggered
-	 * rediscover, or a background refresh), feed cacheable runtimes into the
-	 * cross-window cache. Cache hits replayed during `LoadingCache` are
-	 * already in the cache and don't need to be re-upserted.
-	 *
-	 * `lastFullDiscovery` is stamped at the start of the pass in
-	 * `_captureSignaturesAtDiscoveryStart` (so buckets that legitimately
-	 * produce zero runtimes on this open still get refreshed), not here.
-	 *
-	 * @param metadata The newly registered runtime.
-	 */
-	private cacheDiscoveredRuntime(metadata: ILanguageRuntimeMetadata): void {
-		if (metadata.cacheable === true &&
-			(this._startupPhase === RuntimeStartupPhase.Discovering || this._backgroundDiscoveryInProgress)) {
-			this._discoveryCache.upsert(metadata).catch(err => {
-				this._logService.warn(
-					`[Runtime startup] Failed to cache runtime ${formatLanguageRuntimeMetadata(metadata)}: ${err}`);
-			});
-		}
-	}
-
-	/**
 	 * Runs as an event handler when a new runtime is registered; checks to see
 	 * if the runtime is affiliated with this workspace, and if so, starts the
 	 * runtime.
@@ -1580,11 +1576,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private onDidRegisterRuntime(metadata: ILanguageRuntimeMetadata): void {
 
-		this.cacheDiscoveredRuntime(metadata);
-
-		// The remaining work is the affiliated-runtime auto-start. We act in
-		// both Discovering (cold start) and LoadingCache (warm-start cache hit),
-		// since a cache-loaded runtime can match the workspace affiliation just
+		// Start the affiliated runtime. We act in both Discovering (cold start)
+		// and LoadingCache (warm-start cache hit), since a cache-loaded runtime can match the workspace affiliation just
 		// like a freshly-discovered one would.
 		if (this._startupPhase !== RuntimeStartupPhase.Discovering &&
 			this._startupPhase !== RuntimeStartupPhase.LoadingCache) {

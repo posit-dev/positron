@@ -47,6 +47,8 @@ interface ConsoleInstanceItemsProps {
 	readonly runtimeAttached: boolean;
 	readonly consoleInputWidth: number;
 	readonly disconnected: boolean;
+	readonly exiting: boolean;
+	readonly showExitingBanner: boolean;
 	readonly onSelectAll: () => void;
 }
 /**
@@ -167,9 +169,25 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 						)}</span>
 					</div>
 				}
+				{this.props.showExitingBanner &&
+					// Reuse `RuntimeStarting`'s striped margin bar for a consistent in-progress affordance.
+					<div className='console-item-starting runtime-starting'>
+						<div className='left-bar' />
+						<div className='starting-message'>
+							{localize(
+								"positron.console.sessionExiting",
+								"{0} exiting...",
+								this.props.positronConsoleInstance.sessionName
+							)}
+						</div>
+					</div>
+				}
 				<ConsoleInput
 					hidden={this.props.positronConsoleInstance.promptActive ||
-						!this.props.runtimeAttached}
+						!this.props.runtimeAttached ||
+						// Hide the prompt while the runtime shuts down. It remains attached until
+						// shutdown completes, including a `.Last`-style hook that can hang.
+						this.props.exiting}
 					positronConsoleInstance={this.props.positronConsoleInstance}
 					width={this.props.consoleInputWidth}
 					onCodeExecuted={() =>

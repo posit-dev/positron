@@ -82,10 +82,10 @@ export function describeBudget(): string {
  * The budgets do not count gzip copies or source maps, which only some builds
  * ship. See `isUnbudgeted` in positron-check-path-lengths.ts.
  *
- * The expected count is about 17,800; the budget leaves about 10% headroom
+ * The expected count is about 15,900; the budget leaves about 10% headroom
  * above it.
  */
-export const EXTENSIONS_FILE_COUNT_BUDGET = 19_500;
+export const EXTENSIONS_FILE_COUNT_BUDGET = 17_500;
 
 /**
  * File-count budget for an extension that `EXTENSION_FILE_COUNT_BUDGETS` does not
@@ -106,20 +106,14 @@ export const DEFAULT_EXTENSION_FILE_COUNT_BUDGET = 100;
  */
 export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map([
 	['copilot', 8_500], // 7,728
-	['positron-python', 6_350], // 5,219; 5,784 on win32-x64
-	['positron-data-driver-odbc', 550], // 493
-	['positron-data-driver-sqlite', 540], // 448; 489 on win32-x64
+	['positron-python', 5_950], // about 5,020; about 5,400 on win32-x64
 	['positron-pdf-server', 450], // 407
-	['positron-data-driver-redshift', 330], // 299
-	['positron-data-driver-pins', 290], // 257
-	['positron-duckdb', 250], // 221
-	['positron-data-driver-duckdb', 230], // 207
+	['positron-data-driver-pins', 260], // 233
+	['positron-duckdb', 230], // 206
+	['positron-data-driver-duckdb', 215], // 192
 	['markdown-language-features', 190], // 167
 	['node_modules', 150], // 129
-	['positron-supervisor', 150], // 128
 	['theme-modern-icons', 140], // 121
-	['positron-data-driver-postgresql', 130], // 117
-	['positron-dev-containers', 130], // 111
 ]);
 
 /**

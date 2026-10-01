@@ -17,7 +17,7 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { Icon } from '../../../../../platform/positronActionBar/browser/components/icon.js';
 import { IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
-import { useObservedValue } from '../useObservedValue.js';
+import { useObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { notifyTagResult } from './cellTagNotifications.js';
 
 // Tag-bar pointer events must not bubble to the cell wrapper's selection handler.

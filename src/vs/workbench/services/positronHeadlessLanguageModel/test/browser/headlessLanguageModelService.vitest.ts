@@ -10,7 +10,7 @@ import { CancellationTokenSource } from '../../../../../base/common/cancellation
 import { Emitter } from '../../../../../base/common/event.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IProviderCatalogChangeData, IResolvedProviderData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
-import { IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
+import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../../../../../platform/positronHeadlessLanguageModel/common/engine.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { AiProviderServiceStatus, IAiProviderService } from '../../../positronAiProvider/common/aiProviderService.js';
 import { AuthenticationProviderInformation, AuthenticationSession, IAuthenticationService } from '../../../authentication/common/authentication.js';
@@ -55,12 +55,12 @@ function fakeEngine(options: {
 	models?: Record<string, IModelDescriptor[]>;
 	mappings?: IProviderMapping[];
 	getProviderMappings?: () => Promise<IProviderMapping[]>;
-	listModels?: (providerId: string) => Promise<IModelDescriptor[]>;
+	listModels?: (providerId: string, credentials: ICredentials) => Promise<IModelDescriptor[]>;
 	stream?: (request: IEngineChatRequest) => AsyncIterable<string>;
 } = {}): IHeadlessLanguageModelEngine {
 	return {
 		getProviderMappings: options.getProviderMappings ?? (async () => options.mappings ?? TEST_MAPPINGS),
-		listModels: options.listModels ?? (async (providerId: string) => options.models?.[providerId] ?? []),
+		listModels: options.listModels ?? (async (providerId: string, _credentials: ICredentials) => options.models?.[providerId] ?? []),
 		streamChat: (request: IEngineChatRequest) =>
 			options.stream ? options.stream(request) : AsyncIterableObject.fromArray(['ok']),
 	};
@@ -145,7 +145,7 @@ describe('HeadlessLanguageModelService', () => {
 
 	beforeEach(() => {
 		signedInAuthProviders = new Set();
-		registeredAuthProviders = new Set(TEST_MAPPINGS.map(mapping => mapping.authProviderId));
+		registeredAuthProviders = new Set(TEST_MAPPINGS.map(mapping => mapping.authProviderId).filter((id): id is string => id !== undefined));
 		throwingAuthProviders = new Set();
 		// The built-in mappings' providers are enabled with no connection overrides
 		// by default; individual tests replace this snapshot for shaping/enablement.
@@ -692,6 +692,118 @@ describe('HeadlessLanguageModelService', () => {
 
 			const result = await service.streamText({ systemPrompt: 's', messages: [] });
 			expect(result).toEqual({ available: false, reason: 'no-providers-configured' });
+		});
+	});
+
+	describe('custom entries', () => {
+		const customMapping: IProviderMapping = {
+			providerId: 'team-aws', authProviderId: 'positron-custom-provider', scopes: ['team-aws'],
+			credentialType: 'aws-credentials', configKey: 'team-aws',
+		};
+
+		beforeEach(() => {
+			registeredAuthProviders = new Set(['positron-custom-provider']);
+		});
+
+		it('reads the aggregate session with the entry name as scope and shapes it from the entry\'s own connection', async () => {
+			catalogSnapshot = new Map([
+				['bedrock', provider('bedrock', { aws: { region: 'us-east-1' } })],
+				['team-aws', { ...provider('team-aws', { aws: { region: 'eu-west-1', profile: 'team' } }), custom: true, clientKind: 'aws' }],
+			]);
+			getSessions.mockImplementationOnce(async (id: string) =>
+				id === 'positron-custom-provider'
+					? [{ ...session('positron-custom-provider'), accessToken: JSON.stringify({ accessKeyId: 'AK', secretAccessKey: 'SK' }) }]
+					: []);
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [customMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('team-aws', expect.objectContaining({ type: 'aws-credentials', region: 'eu-west-1', profile: 'team' }));
+		});
+
+		it('recomputes mappings after a catalog change so a new custom entry is picked up', async () => {
+			let mappings: IProviderMapping[] = [];
+			const getProviderMappings = vi.fn(async () => mappings);
+			const service = createService(fakeEngine({ getProviderMappings }));
+			await service.getAvailableModels();
+			mappings = [customMapping];
+			catalogChangeEmitter.fire(catalogChange({ enabledChanged: true }));
+			await service.getAvailableModels();
+			expect(getProviderMappings).toHaveBeenCalledTimes(2);
+		});
+
+		it('derives a custom Snowflake base URL from the entry\'s account', async () => {
+			const snowMapping: IProviderMapping = { providerId: 'team-snow', authProviderId: 'positron-custom-provider', scopes: ['team-snow'], credentialType: 'apikey', configKey: 'team-snow', structuredBaseUrl: 'snowflake' };
+			catalogSnapshot = new Map([['team-snow', { ...provider('team-snow', { snowflake: { account: 'acme-xy12345' } }), custom: true, clientKind: 'snowflake' }]]);
+			signedInAuthProviders.add('positron-custom-provider');
+			sessionTokenOverrides.set('positron-custom-provider', 'pat-token');
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [snowMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('team-snow', expect.objectContaining({ type: 'apikey', baseUrl: expect.stringContaining('acme-xy12345') }));
+		});
+	});
+
+	describe('local providers', () => {
+		const ollamaMapping: IProviderMapping = { providerId: 'ollama', scopes: [], credentialType: 'local', configKey: 'ollama' };
+
+		beforeEach(() => {
+			registeredAuthProviders = new Set();
+		});
+
+		it('builds a local credential from the catalog endpoint with no auth provider registered', async () => {
+			catalogSnapshot = new Map([['ollama', provider('ollama', { endpoint: 'http://localhost:11434' })]]);
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [ollamaMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('ollama', { type: 'local', endpoint: 'http://localhost:11434' });
+		});
+
+		it('skips a disabled local provider and one with no endpoint', async () => {
+			catalogSnapshot = new Map([
+				['ollama', provider('ollama', { endpoint: 'http://localhost:11434' }, false)],
+				['lmstudio', provider('lmstudio', {})],
+			]);
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [ollamaMapping, { ...ollamaMapping, providerId: 'lmstudio', configKey: 'lmstudio' }], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('Foundry in Entra mode', () => {
+		const foundryMapping: IProviderMapping = {
+			providerId: 'ms-foundry', authProviderId: 'ms-foundry', scopes: [], credentialType: 'apikey', configKey: 'ms-foundry',
+		};
+		const entra = { baseUrl: 'https://r.openai.azure.com/openai/v1', azure: { authMode: 'entra' as const, scope: 'https://cognitiveservices.azure.com/.default', tenantId: 't' } };
+
+		beforeEach(() => {
+			registeredAuthProviders = new Set(['ms-foundry']);
+			catalogSnapshot = new Map([['ms-foundry', provider('ms-foundry', entra)]]);
+		});
+
+		it('synthesizes an azure-entra credential from the catalog when there is no session', async () => {
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [foundryMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('ms-foundry', {
+				type: 'azure-entra', baseUrl: entra.baseUrl, scope: entra.azure.scope, tenantId: 't', customHeaders: undefined,
+			});
+		});
+
+		it('prefers a session over the Entra synthesis', async () => {
+			signedInAuthProviders.add('ms-foundry');
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [foundryMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).toHaveBeenCalledWith('ms-foundry', expect.objectContaining({ type: 'apikey', apiKey: 'tok-ms-foundry' }));
+		});
+
+		it('synthesizes nothing without a base URL', async () => {
+			catalogSnapshot.set('ms-foundry', provider('ms-foundry', { azure: { authMode: 'entra', scope: 's' } }));
+			const listModels = vi.fn(async () => []);
+			const service = createService(fakeEngine({ mappings: [foundryMapping], listModels }));
+			await service.getAvailableModels();
+			expect(listModels).not.toHaveBeenCalled();
 		});
 	});
 });

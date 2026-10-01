@@ -15,6 +15,7 @@
 // that instead of the structured blocks.
 
 import { Marked } from 'marked';
+import { parseLinked } from './known-issues.mjs';
 
 /** Escapes the characters that would otherwise open markup or close an attribute. */
 export function escapeHtml(text) {
@@ -199,6 +200,42 @@ function readLabelled(lines, start) {
 		out.push(line.trim());
 	}
 	return { text: out.join(' ').trim(), end: lines.length };
+}
+
+/**
+ * A finding's `**Preconditions:**`, one item per bullet. Older reports wrote
+ * it as one line of prose, which stays one item. A file pasted under a bullet
+ * stays with that bullet.
+ */
+function readPreconditions(lines, start) {
+	if (lines[start].replace(/^\*\*[^*]+[:*]*\*\*:?\s*/, '').trim()) {
+		const { text, end } = readLabelled(lines, start);
+		return { items: [text], end };
+	}
+	const items = [];
+	let i = start + 1;
+	while (i < lines.length) {
+		const t = lines[i].trim();
+		if (/^[-*]\s+/.test(t)) {
+			items.push(t.replace(/^[-*]\s+/, ''));
+			i++;
+			continue;
+		}
+		if (!items.length && !t) { i++; continue; }
+		if (items.length && t && /^\s+/.test(lines[i]) && !/^ {0,3}(`{3,}|~{3,})/.test(lines[i])) {
+			items[items.length - 1] += ` ${t}`;
+			i++;
+			continue;
+		}
+		const source = items.length ? readSourceBlock(lines, i) : null;
+		if (source) {
+			items[items.length - 1] += `\n\n${source.text}`;
+			i = source.end;
+			continue;
+		}
+		break;
+	}
+	return { items, end: i };
 }
 
 /**
@@ -651,7 +688,8 @@ function parseFindingBody(lines) {
 	const out = {
 		status: { confirmed: null, reproduced: null },
 		summary: [],
-		observed: '', expected: '', preconditions: '',
+		observed: '', expected: '', preconditions: [],
+		feature: '',
 		reproStart: '', steps: [],
 		evidence: [],
 		cause: '',
@@ -714,8 +752,8 @@ function parseFindingBody(lines) {
 			while (scan < lines.length && !lines[scan].trim()) { scan++; }
 			const early = labelOf(lines[scan] ?? '');
 			if (['preconditions', 'configuration', 'only under'].includes(early)) {
-				const { text: value, end } = readLabelled(lines, scan);
-				out.preconditions = value;
+				const { items, end } = readPreconditions(lines, scan);
+				out.preconditions = items;
 				i = end - 1;
 			}
 
@@ -767,11 +805,21 @@ function parseFindingBody(lines) {
 		// setting -- but reports already published use them.
 		if (label === 'observed' || label === 'expected'
 			|| label === 'preconditions' || label === 'configuration' || label === 'only under') {
-			const { text, end } = readLabelled(lines, i);
-			const key = label === 'observed' || label === 'expected' ? label : 'preconditions';
-			out[key] = text;
+			if (label === 'observed' || label === 'expected') {
+				const { text, end } = readLabelled(lines, i);
+				out[label] = text;
+				i = end - 1;
+			} else {
+				const { items, end } = readPreconditions(lines, i);
+				out.preconditions = items;
+				i = end - 1;
+			}
 			out.matched++;
-			i = end - 1;
+			continue;
+		}
+		if (label === 'feature') {
+			out.feature = trimmed.replace(/^\*\*[^*]+:\*\*\s*/, '');
+			out.matched++;
 			continue;
 		}
 		if (label === 'error output') {
@@ -847,8 +895,18 @@ function parseVerification(lines) {
 	const verdicts = [];
 	const body = [];
 	let preamble = '';
+	let linked = new Map();
 	for (const line of lines) {
 		const trimmed = line.trim();
+		// The findings carry the matches; as a line here it would only repeat them.
+		if (/^KNOWN:/i.test(trimmed)) {
+			continue;
+		}
+		// The Linked issues rows carry these.
+		if (/^LINKED:/i.test(trimmed)) {
+			linked = parseLinked(trimmed);
+			continue;
+		}
 		if (/^VERDICTS:/i.test(trimmed)) {
 			for (const part of trimmed.slice(trimmed.indexOf(':') + 1).split(';')) {
 				const m = /^(\d+)\s*=\s*(.+)$/.exec(part.trim());
@@ -867,7 +925,7 @@ function parseVerification(lines) {
 		}
 		body.push(line);
 	}
-	return { preambleHtml: preamble ? inline(preamble) : '', verdicts, bodyHtml: block(body.join('\n')) };
+	return { preambleHtml: preamble ? inline(preamble) : '', verdicts, linked, bodyHtml: block(body.join('\n')) };
 }
 
 /**
@@ -931,6 +989,30 @@ export function parseSystemLine(text) {
 }
 
 /**
+ * A scenario's `Issue: #5678 observed` line, as `{ n, kind }` with kind
+ * observed, held, failed or back; null for anything else.
+ */
+function ledgerIssue(text) {
+	const m = /^#(\d+)\s+(observed|came back|fix held|fix did not hold|fix didn't hold)\b/i.exec(text.trim());
+	if (!m) {
+		return null;
+	}
+	const word = m[2].toLowerCase();
+	const kind = word === 'observed' ? 'observed' : word === 'came back' ? 'back' : word === 'fix held' ? 'held' : 'failed';
+	return { n: Number(m[1]), kind };
+}
+
+/** A Not run reason naming a linked issue: `Already filed as #5412`, `Fix for #6040 not exercised: ...`. */
+function notRunIssue(reason) {
+	const skipped = /^already filed as #(\d+)/i.exec(reason);
+	if (skipped) {
+		return [{ n: Number(skipped[1]), kind: 'skipped' }];
+	}
+	const fix = /^fix for #(\d+) not exercised\b/i.exec(reason);
+	return fix ? [{ n: Number(fix[1]), kind: 'not-exercised' }] : [];
+}
+
+/**
  * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
  * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
  * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
@@ -962,7 +1044,7 @@ export function parseLedger(markdown) {
 			inEnvironment = /^environment$/i.test(head[1].trim());
 			const m = /^(S\d+)\s*(?:·|-|\||:)\s*(.+)$/.exec(head[1].trim());
 			if (m) {
-				cur = { id: m[1], name: m[2].trim(), status: '', finding: null, result: '', pre: [], stepLines: [] };
+				cur = { id: m[1], name: m[2].trim(), status: '', finding: null, result: '', pre: [], stepLines: [], issues: [] };
 				exercised.push(cur);
 			}
 			continue;
@@ -997,14 +1079,19 @@ export function parseLedger(markdown) {
 				const sep = LEDGER_SEP.exec(m[2]);
 				const name = sep ? m[2].slice(0, sep.index) : m[2];
 				const reason = sep ? m[2].slice(sep.index + sep[0].length) : '';
-				notExercised.push({ id: m[1] ?? '', name: name.trim(), reason: reason.trim() });
+				notExercised.push({ id: m[1] ?? '', name: name.trim(), reason: reason.trim(), issues: notRunIssue(reason) });
 			}
 			continue;
 		}
 		if (!cur) { continue; }
-		const field = /^(status|result|preconditions|steps):\s*(.*)$/i.exec(t);
+		const field = /^(status|result|preconditions|steps|issue):\s*(.*)$/i.exec(t);
 		if (field && !/^\s/.test(line)) {
 			const name = field[1].toLowerCase();
+			if (name === 'issue') {
+				const issue = ledgerIssue(field[2]);
+				if (issue) { cur.issues.push(issue); }
+				continue;
+			}
 			if (name === 'status') {
 				cur.status = /fail/i.test(field[2]) ? 'fail' : 'pass';
 				// "Finding 1, Finding 2" and "Findings 1, 2" both name two.
@@ -1046,6 +1133,7 @@ export function parseLedger(markdown) {
 			status: s.status || (steps.some(st => st.result === 'fail') ? 'fail' : 'pass'),
 			finding,
 			findings: s.findings ?? [],
+			issues: s.issues,
 			shot: null,
 			pre: s.pre.map(p => ({ nameHtml: inline(p.name), from: p.from, howHtml: inline(p.how) })),
 			steps,
@@ -1057,6 +1145,7 @@ export function parseLedger(markdown) {
 			id: r.id,
 			scenarioHtml: inline(r.name),
 			reasonHtml: inline(sentenceCase(r.reason)),
+			issues: r.issues,
 		})),
 		// A ledger always lists what it did not run, so an empty list means none.
 		notExercisedListed: true,
@@ -1095,7 +1184,7 @@ function fenceMask(lines) {
 
 /**
  * Parses a report's markdown into the structure the template renders. Given
- * the run's ledger, Coverage and the Scenarios tile come from it instead of
+ * the run's ledger, Coverage and the Coverage tile come from it instead of
  * the report's Coverage tables.
  */
 export function parseReport(markdown, { ledger } = {}) {
@@ -1215,7 +1304,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		}
 		// The starting state and the configuration line are both answers to
 		// "what has to be true before step 1", so they render as one list.
-		const preconditions = [parsed.reproStart, parsed.preconditions]
+		const preconditions = [parsed.reproStart, ...parsed.preconditions]
 			.map(t => String(t ?? '').trim())
 			.filter(t => t && !isDefaultsOnly(t))
 			.map(sentenceCase);
@@ -1243,6 +1332,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		return {
 			n: start.n,
 			title: start.claim,
+			feature: parsed.feature,
 			// The table's claim is written to be scanned in a row; the heading's is
 			// written to open a card. Both are in the markdown, so both get used.
 			rowTitle: row['finding'] ? inline(row['finding']) : inline(start.claim),
@@ -1252,6 +1342,8 @@ export function parseReport(markdown, { ledger } = {}) {
 			// Unproven is 0/M by definition, so the rate settles it when no strip was written.
 			confirmed: parsed.status.confirmed ?? (/^0\//.test(reproduced) ? 'Unproven' : reproduced ? 'Confirmed' : null),
 			verified: ['confirmed', 'disputed', 'unresolved'].includes(verified) ? verified : null,
+			// Issues the verifier says may already describe this finding. Advisory.
+			known: [...new Set([...(row['known'] ?? '').matchAll(/#(\d+)/g)].map(m => Number(m[1])))],
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
@@ -1435,10 +1527,11 @@ export function parseReport(markdown, { ledger } = {}) {
 		environment: fromLedger?.environment ?? [],
 		verification,
 		// The total's duration covers every pass. Falling back to the main pass
-		// only matters for a report written before the total carried one.
+		// only matters for a report written before the total carried one. A run
+		// with one pass, such as one with no findings to verify, writes no total.
 		cost: {
 			passes: billed,
-			total: total?.cost ?? null,
+			total: total?.cost ?? (billed.length === 1 ? billed[0].cost : null),
 			duration: total?.duration ?? main?.duration ?? null,
 		},
 	};

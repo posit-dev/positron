@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { IPackageManager, PackageSession } from './packages/types';
+import { canonicalizePyPIName } from './packages/pypiSearch';
 import { IMPORT_TO_DISTRIBUTION } from './pythonImportAliases';
 
 /**
@@ -70,11 +71,6 @@ export function pythonMissingPackageProbe(errorMessage: string): string | undefi
     return name ? `import ${name}` : undefined;
 }
 
-/** PEP 503 canonicalization: lowercase and collapse runs of `-_.` to a dash. */
-function canonicalizeName(name: string): string {
-    return name.replace(/[-_.]+/g, '-').toLowerCase();
-}
-
 /**
  * Analyzes Python code and returns the packages it references that are not
  * importable in this session AND that resolve to an installable distribution.
@@ -119,12 +115,12 @@ export async function listMissingPythonPackages(
         }
         const installName = await resolveInstallName(module, packageManager, token);
         if (installName) {
-            const canonical = canonicalizeName(installName);
+            const canonical = canonicalizePyPIName(installName);
             if (!seen.has(canonical)) {
                 seen.add(canonical);
                 result.push({
                     name: installName,
-                    referencedName: canonicalizeName(module) !== canonical ? module : undefined,
+                    referencedName: canonicalizePyPIName(module) !== canonical ? module : undefined,
                 });
             }
         }
@@ -141,6 +137,9 @@ export async function listMissingPythonPackages(
  *
  * The alias is tried first so a well-known mismatch (`cv2` -> `opencv-python`)
  * resolves to its canonical distribution even when a same-named shim also exists.
+ * A failed lookup (e.g. a transient network error) stops the search: moving on
+ * to the next candidate could offer an unrelated distribution (`serial` instead
+ * of `pyserial`) only because the alias could not be checked.
  */
 async function resolveInstallName(
     module: string,
@@ -151,7 +150,12 @@ async function resolveInstallName(
         if (token?.isCancellationRequested) {
             return undefined;
         }
-        const resolved = await searchExact(candidate, packageManager, token);
+        let resolved: string | undefined;
+        try {
+            resolved = await searchExact(candidate, packageManager, token);
+        } catch {
+            return undefined;
+        }
         if (resolved) {
             return resolved;
         }
@@ -161,32 +165,34 @@ async function resolveInstallName(
 
 /**
  * Candidate distribution names to try for an import name: the curated alias (if
- * any) first, then the import name itself.
+ * any) first, then the import name itself. The import name is PEP 503
+ * normalized (`flask_cors` -> `flask-cors`) because an exact-name lookup only
+ * confirms that a project exists; it does not return the published spelling.
  */
 function candidateDistributions(module: string): string[] {
     const alias = IMPORT_TO_DISTRIBUTION[module];
-    return alias ? [alias, module] : [module];
+    const normalized = canonicalizePyPIName(module);
+    return alias ? [alias, normalized] : [normalized];
 }
 
 /**
  * Returns the repository's exact (canonicalized) name match for a query, or
- * undefined. A search failure (e.g. a transient network error) is treated as no
- * match so we never offer a package we could not install.
+ * undefined when the repository has no such project. Uses the manager's
+ * exact-name lookup when it has one, so a yes/no question never pays for a
+ * fuzzy search (for PyPI, a download of the full project index). Throws when
+ * the lookup fails, so callers can tell "absent" from "unknown".
  */
 async function searchExact(
     query: string,
     packageManager: IPackageManager,
     token?: vscode.CancellationToken,
 ): Promise<string | undefined> {
-    let matches: positron.LanguageRuntimePackage[];
-    try {
-        matches = await packageManager.searchPackages(query, token);
-    } catch {
-        return undefined;
+    if (packageManager.resolvePackageName) {
+        return packageManager.resolvePackageName(query, token);
     }
-    const canonical = canonicalizeName(query);
-    const exact = matches.find((pkg) => canonicalizeName(pkg.name) === canonical);
-    return exact?.name;
+    const matches = await packageManager.searchPackages(query, token);
+    const canonical = canonicalizePyPIName(query);
+    return matches.find((pkg) => canonicalizePyPIName(pkg.name) === canonical)?.name;
 }
 
 /**

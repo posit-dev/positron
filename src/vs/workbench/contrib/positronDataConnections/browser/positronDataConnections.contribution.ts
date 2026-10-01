@@ -14,6 +14,7 @@ import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContaine
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { registerDatabaseFileEditor } from './editor/databaseFileEditor.contribution.js';
+import { registerDataConnectionNodeDetailsEditor } from './editor/dataConnectionNodeDetailsEditor.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY, POSITRON_DATA_CONNECTIONS_VIEW_ID } from './positronDataConnectionsConfiguration.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
@@ -28,10 +29,10 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 	properties: {
 		[POSITRON_DATA_CONNECTIONS_ENABLED_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
 				'positron.dataConnections.enabled',
-				'Enable the Data Connections panel. Requires a reload to take effect. Can be set per workspace.'
+				"Controls which connections experience is used. When enabled, the Data Connections pane connects to databases directly, without a Python or R session. When disabled, the older Connections pane is used instead, which shows connections opened from code in a Python or R session. Requires a reload to take effect. Can be set per workspace."
 			),
 			tags: ['preview'],
 			scope: ConfigurationScope.WINDOW,
@@ -88,7 +89,7 @@ class PositronDataConnectionsContribution implements IWorkbenchContribution {
 	constructor(@IConfigurationService configurationService: IConfigurationService) {
 		// Check if the Positron Data Connections feature is enabled before registering the view
 		// container and view. Return early if the feature is disabled.
-		if (!configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY)) {
+		if (configurationService.getValue<boolean>(POSITRON_DATA_CONNECTIONS_ENABLED_KEY) !== true) {
 			return;
 		}
 
@@ -152,3 +153,7 @@ registerWorkbenchContribution2(
 // Register the database file editor, which opens a database file (e.g. `.duckdb`, `.sqlite`) to a
 // page offering to create a data connection to it. Gated on the same feature flag, from inside.
 registerDatabaseFileEditor();
+
+// Register the details editor the Data Connections tree opens when a node that has details is
+// clicked.
+registerDataConnectionNodeDetailsEditor();

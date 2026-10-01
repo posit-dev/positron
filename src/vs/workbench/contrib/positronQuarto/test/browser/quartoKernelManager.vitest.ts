@@ -15,7 +15,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionLocation, RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, IStartNewRuntimeSessionOptions, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IQuartoDocumentModel } from '../../common/quartoTypes.js';
 import { IQuartoDocumentModelService } from '../../browser/quartoDocumentModelService.js';
 import { IQuartoOutputCacheService } from '../../common/quartoExecutionTypes.js';
@@ -59,6 +59,7 @@ describe('QuartoKernelManager', () => {
 
 	// Track calls to startNewRuntimeSession
 	let startedRuntimeIds: string[];
+	let startOptions: (IStartNewRuntimeSessionOptions | undefined)[];
 	let shutdownUris: URI[];
 	let nextSessionId: number;
 
@@ -80,14 +81,16 @@ describe('QuartoKernelManager', () => {
 		storageService = disposables.add(new InMemoryStorageService());
 
 		startedRuntimeIds = [];
+		startOptions = [];
 		shutdownUris = [];
 		nextSessionId = 0;
 		primaryLanguage = 'python';
 		registeredRuntimes = [pythonRuntime1, pythonRuntime2, rRuntime1];
 
 		const mockRuntimeSessionService = stubInterface<IRuntimeSessionService>({
-			async startNewRuntimeSession(runtimeId: string, _name: string, _mode: LanguageRuntimeSessionMode, _notebookUri?: URI) {
+			async startNewRuntimeSession(runtimeId: string, _name: string, _mode: LanguageRuntimeSessionMode, _notebookUri?: URI, _source?: string, _startMode?: RuntimeStartMode, _activate?: boolean, options?: IStartNewRuntimeSessionOptions) {
 				startedRuntimeIds.push(runtimeId);
+				startOptions.push(options);
 				return `session-${nextSessionId++}`;
 			},
 			getSession(_id: string) {
@@ -165,6 +168,13 @@ describe('QuartoKernelManager', () => {
 	it('ensureKernelForDocument uses preferred runtime by default', async () => {
 		await kernelManager.ensureKernelForDocument(docUri);
 		expect(startedRuntimeIds).toEqual(['python-3.11']);
+	});
+
+	it('tells a new session the URI of its document\'s hidden notebook', async () => {
+		await kernelManager.ensureKernelForDocument(docUri);
+
+		expect(startOptions.map(options => options?.quartoNotebookUri?.toString()))
+			.toEqual(['quarto-cells:/test/doc.qmd.ipynb']);
 	});
 
 	it('changeKernelForDocument shuts down old session and starts new runtime', async () => {

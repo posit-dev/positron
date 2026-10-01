@@ -18,7 +18,7 @@ import { resolvePythonIndexUrl, UV_INDEX_ENV_VARS } from './packageIndex';
 import { fetchMetadataWithOutdated } from './packageMetadata';
 import { buildRequirementsFile } from './requirementsFile';
 import { findWorkspaceRequirementsFile, USE_REQUIREMENTS_FILE_SETTING } from './workspaceRequirements';
-import { searchPyPI, searchPyPIVersions } from './pypiSearch';
+import { pypiPackageExists, searchPyPI, searchPyPIVersions } from './pypiSearch';
 import { IPackageManager, MessageEmitter, PackageSession } from './types';
 
 /**
@@ -242,6 +242,10 @@ export class UvPackageManager implements IPackageManager {
             (specs) => this._callMethod<Record<string, boolean>>('checkRequiresPython', token, specs),
             token,
         );
+    }
+
+    async resolvePackageName(name: string, token?: vscode.CancellationToken): Promise<string | undefined> {
+        return (await pypiPackageExists(name, token)) ? name : undefined;
     }
 
     // =========================================================================
