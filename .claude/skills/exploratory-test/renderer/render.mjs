@@ -141,14 +141,24 @@ if (flags['duration-ms']) {
 	}), null, 2)}\n`);
 }
 
+/** Who a local page's feedback says ran it; none when git has no email. */
+function gitEmail() {
+	try {
+		return execFileSync('git', ['config', 'user.email'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+	} catch {
+		return null;
+	}
+}
+
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 writeFileSync(out, renderReportHtml(markdown, {
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
 	// Evidence in the prompt has to open from wherever it is pasted.
 	base: flags.base || dir,
-	// Sent with feedback, which only a published page (--base) asks for.
+	// Sent with feedback.
 	skillVersion: skillVersion(),
+	author: gitEmail(),
 	fileExists,
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,

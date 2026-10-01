@@ -6,7 +6,7 @@ metadata:
   # Bump when the agent is told something new: this file, explorer.md,
   # verifier.md, or the prompt CI builds in pr-exploratory-test's run.mjs and
   # lib.mjs. Feedback is grouped by it, so a renderer change does not count.
-  version: "1.7"
+  version: "1.8"
 ---
 
 # Exploratory testing
@@ -94,8 +94,7 @@ The agents cannot do this themselves, because they do not see their own totals.
 Give the user the result, the findings table, and the `index.html` path. Then
 ask, in these words:
 
-> Publish this report to share it?
-> (Anyone with the link can view it. Keys found in screenshots are painted over.)
+> Publish this report to share it? Feedback on a published report reaches the team with its screenshots and logs.
 
 Publish only on a yes:
 `bash <base>/renderer/publish.sh <run dir>`. It prints the report URL; give it
