@@ -36,6 +36,12 @@ export class PreviewOverlayWebview extends Disposable {
 	/** Cancelled when the webview is disposed, as when other content replaces it in the Viewer. */
 	private readonly _disposed = new CancellationTokenSource();
 
+	/**
+	 * Whether agents can read HTML shown as a string (`openHtmlString`), rather
+	 * than loaded from a URI.
+	 */
+	public readonly canReadHtmlStrings: boolean = true;
+
 	constructor(public readonly webview: IOverlayWebview) {
 		super();
 		// Disposing the webview cancels _disposed, so dispose it first.

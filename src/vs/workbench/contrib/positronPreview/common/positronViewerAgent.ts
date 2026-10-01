@@ -10,7 +10,8 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
  * What's showing in the Viewer.
  * - `url`: a web page or app loaded from a URL (Shiny, Streamlit, Dash, ...).
  * - `html`: an HTML file or string (htmlwidgets, local HTML files).
- * - `other`: something agents can't read yet, such as notebook renderer output.
+ * - `other`: something agents can't read yet, such as notebook renderer output,
+ *   or on Desktop, an HTML string (Quarto output opened in the Viewer).
  * - `none`: the Viewer is empty.
  */
 export type ViewerContentKind = 'url' | 'html' | 'other' | 'none';

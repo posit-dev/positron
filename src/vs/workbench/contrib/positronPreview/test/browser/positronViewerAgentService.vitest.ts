@@ -16,7 +16,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { PreviewSourceType } from '../../../../services/languageRuntime/common/positronUiComm.js';
 import { IViewsService } from '../../../../services/views/common/viewsService.js';
 import { IOverlayWebview } from '../../../webview/browser/webview.js';
-import { IPositronPreviewService } from '../../browser/positronPreviewSevice.js';
+import { IPositronPreviewService, POSITRON_PREVIEW_HTML_VIEW_TYPE } from '../../browser/positronPreviewSevice.js';
 import { PositronViewerAgentService } from '../../browser/positronViewerAgentService.js';
 import { PreviewHtml } from '../../browser/previewHtml.js';
 import { PreviewOverlayWebview, ViewerBridgeResult } from '../../browser/previewOverlayWebview.js';
@@ -66,6 +66,8 @@ class FakePreviewOverlayWebview extends PreviewOverlayWebview {
 	hang: keyof IViewerBridge | undefined;
 	/** The address the browser has for the page, if the page has loaded. */
 	pageUrl: string | undefined;
+	/** False to act like Desktop, which can't reach HTML shown as a string. */
+	override canReadHtmlStrings = true;
 
 	constructor(size = { width: 600, height: 400 }, onDidLoad: Event<string> = Event.None) {
 		super(fakeOverlayWebview(size, onDidLoad));
@@ -227,6 +229,18 @@ describe('PositronViewerAgentService', () => {
 
 		activePreview = ctx.disposables.add(new PreviewWebview('notebookRenderer', 'previewWebview.1', 'Python', new FakePreviewOverlayWebview()));
 
+		await expect(service.getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet.');
+	});
+
+	it('reads HTML shown as a string, such as Quarto output, only where it can reach it', async () => {
+		const service = createService();
+		const webview = new FakePreviewOverlayWebview();
+		activePreview = ctx.disposables.add(new PreviewWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, 'quartoHtmlOutput.1', 'Output - report.qmd', webview));
+		const onWeb = (await service.getViewerInfo()).kind;
+		webview.canReadHtmlStrings = false;
+		const onDesktop = (await service.getViewerInfo()).kind;
+
+		expect({ onWeb, onDesktop }).toEqual({ onWeb: 'html', onDesktop: 'other' });
 		await expect(service.getViewerSnapshot()).rejects.toThrow('Agents can\'t read this kind of Viewer content yet.');
 	});
 

@@ -19,6 +19,9 @@ type ViewerBridgeScriptResult<M extends keyof IViewerBridge> =
  */
 export class ElectronPreviewOverlayWebview extends PreviewOverlayWebview {
 
+	/** The bridge runs in the frame the webview loaded a URI in, and an HTML string has none. */
+	public override readonly canReadHtmlStrings = false;
+
 	/**
 	 * Loads a URI in the preview's underlying webview.
 	 *

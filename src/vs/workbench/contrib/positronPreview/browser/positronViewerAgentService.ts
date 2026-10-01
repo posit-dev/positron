@@ -112,9 +112,10 @@ function contentKindOf(preview: PreviewWebview | undefined): ViewerContentKind {
 	if (preview instanceof PreviewUrl) {
 		return 'url';
 	}
-	// HTML files (PreviewHtml) and HTML strings shown with openHtmlString.
+	// HTML files (PreviewHtml) and HTML strings shown with openHtmlString, such
+	// as Quarto output opened in the Viewer.
 	if (preview.viewType === POSITRON_PREVIEW_HTML_VIEW_TYPE) {
-		return 'html';
+		return preview instanceof PreviewHtml || preview.webview.canReadHtmlStrings ? 'html' : 'other';
 	}
 	return 'other';
 }
