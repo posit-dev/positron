@@ -3,14 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { ModelInfoLike } from 'ai-config';
+import type { ModelInfoLike, ResolvedProviderId, SupportedCustomClientKind } from 'ai-config/node';
 import type { Logger, ModelMessage, ProviderId, ProviderRegistry } from 'ai-provider-bridge';
 import { AsyncIterableObject } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
 import { SelfHealingLazyPromise } from '../../../base/common/positron/async.js';
 import { ILogService } from '../../log/common/log.js';
 import { IAiProviderCatalog } from '../../positronAiProvider/common/aiProviderCatalog.js';
 import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelDescriptor, IProviderMapping } from '../common/engine.js';
+
+/** The aggregate auth provider the authentication extension registers for `providers.custom` entries. */
+const CUSTOM_PROVIDERS_AUTH_ID = 'positron-custom-provider';
 
 /**
  * The Node-side egress engine: the one place that touches the provider bridge
@@ -26,13 +30,14 @@ import { ICredentials, IEngineChatRequest, IHeadlessLanguageModelEngine, IModelD
  * Runs in the shared process (desktop) or the remote server (Remote SSH / web)
  * and is reached over an IPC channel.
  */
-export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine {
+export class HeadlessLanguageModelEngine extends Disposable implements IHeadlessLanguageModelEngine {
 
 	private readonly _logger: Logger;
 	/** Self-healing so a transient first-use failure (e.g. a deferred bridge import error) retries on the next call. */
 	private readonly _registry = new SelfHealingLazyPromise(() => this.createRegistry());
 
 	constructor(logService: ILogService, private readonly _catalog: IAiProviderCatalog) {
+		super();
 		this._logger = {
 			info: (m: string, ...a: unknown[]) => logService.info(m, ...a),
 			warn: (m: string, ...a: unknown[]) => logService.warn(m, ...a),
@@ -40,6 +45,9 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 			debug: (m: string, ...a: unknown[]) => logService.debug(m, ...a),
 			trace: (m: string, ...a: unknown[]) => logService.trace(m, ...a),
 		};
+		// Custom entries register into the same registry as the built-ins, so any
+		// catalog change rebuilds it on the next call.
+		this._register(this._catalog.onDidChangeCatalog(() => this._registry.clear()));
 	}
 
 	async getProviderMappings(): Promise<IProviderMapping[]> {
@@ -48,9 +56,9 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 		// Dynamic import (not static): the bridge is a node module the lint forbids
 		// loading synchronously at startup; CONFIG_KEY_OVERRIDES comes from its pure
 		// credential-shaping entry, the single source the renderer also consumes.
-		const { PROVIDER_MAP, MAPPED_PROVIDER_IDS } = await import('ai-provider-bridge');
+		const { PROVIDER_MAP, MAPPED_PROVIDER_IDS, LOCAL_PROVIDER_IDS } = await import('ai-provider-bridge');
 		const { CONFIG_KEY_OVERRIDES } = await import('ai-provider-bridge/credential-shaping');
-		return MAPPED_PROVIDER_IDS.flatMap((providerId: ProviderId) => {
+		const builtIn = MAPPED_PROVIDER_IDS.flatMap((providerId: ProviderId) => {
 			const mapping = PROVIDER_MAP[providerId];
 			if (!mapping) {
 				return [];
@@ -62,7 +70,33 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 				fallbackScopes: mapping.fallbackScopes,
 				credentialType: mapping.credentialType,
 				configKey: CONFIG_KEY_OVERRIDES[mapping.authProviderId] ?? mapping.authProviderId,
+				structuredBaseUrl: mapping.structuredBaseUrl,
 			}];
+		});
+		const localBuiltIn = LOCAL_PROVIDER_IDS.map((providerId: string) => ({ providerId, scopes: [], credentialType: 'local' as const, configKey: providerId }));
+		const custom = (await this.customEntries()).map(entry => entry.mapping);
+		return [...builtIn, ...localBuiltIn, ...custom];
+	}
+
+	/**
+	 * Custom entries the headless service can serve, each with the mapping it
+	 * will resolve credentials through. An entry without a supported custom kind,
+	 * or whose kind has no headless mapping, is left out.
+	 */
+	private async customEntries(): Promise<{ id: ResolvedProviderId; clientKind: SupportedCustomClientKind; mapping: IProviderMapping }[]> {
+		const { customProviderAuthMapping } = await import('ai-provider-bridge/credential-shaping');
+		const { LOCAL_PROVIDER_IDS } = await import('ai-provider-bridge');
+		const { isSupportedCustomClientKind } = await import('ai-config');
+		return (await this._catalog.getCatalog()).flatMap(entry => {
+			if (entry.custom !== true || !entry.clientKind || !isSupportedCustomClientKind(entry.clientKind)) {
+				return [];
+			}
+			const mapping = (LOCAL_PROVIDER_IDS as readonly string[]).includes(entry.clientKind)
+				? { providerId: entry.id, scopes: [], credentialType: 'local' as const, configKey: entry.id }
+				: customProviderAuthMapping(entry.id, entry.clientKind, CUSTOM_PROVIDERS_AUTH_ID);
+			return mapping
+				? [{ id: entry.id as ResolvedProviderId, clientKind: entry.clientKind, mapping: { providerId: entry.id, configKey: entry.id, ...mapping } }]
+				: [];
 		});
 	}
 
@@ -75,7 +109,8 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 	streamChat(request: IEngineChatRequest, token: CancellationToken): AsyncIterable<string> {
 		return new AsyncIterableObject<string>(async (emitter) => {
 			const registry = await this._registry.get();
-			const client = registry.getClientForProvider(request.providerId, request.credentials);
+			const clientKind = (await this.customEntries()).find(entry => entry.id === request.providerId)?.clientKind;
+			const client = registry.getClientForProviderOrKind(request.providerId, request.credentials, clientKind);
 			if (!client) {
 				throw new Error(`No client for provider ${request.providerId}`);
 			}
@@ -107,21 +142,21 @@ export class HeadlessLanguageModelEngine implements IHeadlessLanguageModelEngine
 	private async createRegistry(): Promise<ProviderRegistry> {
 		// Deferred so the bridge and its heavy AI-SDK dependencies load only on
 		// first use rather than synchronously at startup.
-		const { ProviderRegistry, POSIT_AI_DEFAULTS, MAPPED_PROVIDER_IDS } = await import('ai-provider-bridge');
+		const { ProviderRegistry, POSIT_AI_DEFAULTS, MAPPED_PROVIDER_IDS, LOCAL_PROVIDER_IDS } = await import('ai-provider-bridge');
 		const { registerAllProviders } = await import('ai-provider-bridge/providers');
 		const registry = new ProviderRegistry(this._logger);
-		// Register exactly the providers the bridge has an auth mapping for
-		// (MAPPED_PROVIDER_IDS) -- the same set getProviderMappings() exposes to
-		// the renderer -- so the registered providers and the renderer-facing
-		// mappings cannot drift. Providers without an auth mapping (e.g. the local
-		// Ollama / LM Studio endpoints) need an endpoint-based credential path the
-		// headless service does not implement, so the bridge's `allowedProviders`
-		// filter excludes them. The Posit AI gateway is the first-party path the
-		// priority policy prefers.
+		// Built-ins with an auth mapping (MAPPED_PROVIDER_IDS) plus the local
+		// endpoint providers (Ollama, LM Studio) register the same way as before --
+		// the same set getProviderMappings() exposes to the renderer -- so the
+		// registered providers and the renderer-facing mappings cannot drift.
+		// Custom entries come from the catalog, without the host callbacks (none
+		// are wired in the headless path). The Posit AI gateway is the first-party
+		// path the priority policy prefers.
 		registerAllProviders(registry, this._logger, {
 			positAiBaseUrl: POSIT_AI_DEFAULTS.baseUrl,
 			userAgent: 'Positron/headless',
-			allowedProviders: [...MAPPED_PROVIDER_IDS],
+			allowedProviders: [...MAPPED_PROVIDER_IDS, ...LOCAL_PROVIDER_IDS],
+			customProviders: (await this.customEntries()).map(({ id, clientKind }) => ({ id, clientKind })),
 		});
 		return registry;
 	}

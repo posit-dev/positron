@@ -28,7 +28,7 @@ import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnect
  * generic 'symbol-misc' icon. As specific kinds become common across drivers, add entries here
  * to upgrade their visual treatment.
  */
-const kindIcon = (dto: IDataConnectionNodeDTO): string => {
+export const kindIcon = (dto: Pick<IDataConnectionNodeDTO, 'kind' | 'isPrimaryKey'>): string => {
 	switch (dto.kind) {
 		case 'catalog':
 		case 'database':
@@ -91,6 +91,43 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 		case 'version':
 			return 'history';
 
+		// A semantic view is a model layered over tables, so it gets a hierarchy glyph rather than
+		// the plain view icon. Its logical tables reuse the table icons.
+		case 'group-semantic-views':
+		case 'semantic-view':
+			return 'type-hierarchy';
+
+		case 'group-logical-tables':
+			return 'positron-db-tables';
+
+		case 'logical-table':
+			return 'positron-db-table';
+
+		case 'group-relationships':
+		case 'relationship':
+			return 'link';
+
+		case 'group-facts':
+		case 'fact':
+			return 'symbol-constant';
+
+		case 'group-dimensions':
+		case 'dimension':
+			return 'symbol-field';
+
+		case 'group-time-dimensions':
+		case 'time-dimension':
+			return 'calendar';
+
+		case 'group-named-filters':
+		case 'named-filter':
+			return 'filter';
+
+		case 'group-metrics':
+		case 'group-derived-metrics':
+		case 'metric':
+			return 'graph';
+
 		case 'column':
 		case 'field':
 			return dto.isPrimaryKey ? 'positron-db-column-key' : 'positron-db-column';
@@ -101,12 +138,13 @@ const kindIcon = (dto: IDataConnectionNodeDTO): string => {
 };
 
 /**
- * Whether a node can be opened in the Data Explorer: a previewable table, view, column, pin, or pin
- * version. The `hasPreview` gate excludes nodes the driver didn't make previewable (e.g. index-column
- * fields, or pins whose storage type isn't tabular).
+ * Whether a node can be opened in the Data Explorer: a previewable table, view, column, semantic view
+ * logical table (which opens its base table), pin, or pin version. The `hasPreview` gate excludes nodes
+ * the driver didn't make previewable (e.g. index-column fields, or pins whose storage type isn't
+ * tabular).
  */
 const canPreview = (dto: IDataConnectionNodeDTO): boolean =>
-	dto.hasPreview && (dto.kind === 'table' || dto.kind === 'view' || dto.kind === 'field' || dto.kind === 'pin' || dto.kind === 'version');
+	dto.hasPreview && (dto.kind === 'table' || dto.kind === 'view' || dto.kind === 'field' || dto.kind === 'logical-table' || dto.kind === 'pin' || dto.kind === 'version');
 
 interface DataConnectionNodeRowProps {
 	dto: IDataConnectionNodeDTO;
@@ -119,6 +157,14 @@ interface DataConnectionNodeRowProps {
 
 	// Reloads this node's subtree. Supplied by the tree, which binds it to this row's node id.
 	onRefresh: () => void;
+
+	// Opens this node's details editor, in preview mode unless pinned. Supplied by the tree, which
+	// binds it to this row and reports any failure itself.
+	onOpenDetails: (pinned: boolean) => Promise<void>;
+
+	// Keeps this node's details tab open, taking it out of preview mode, without fetching its details
+	// again when the tab is already open. Supplied by the tree.
+	onPinDetails: () => Promise<void>;
 
 	// Tells the tree this row is opening a context menu, so it can select the row and hold its
 	// focused appearance. Dispose the returned handle when the menu closes.
@@ -134,9 +180,12 @@ interface DataConnectionNodeRowProps {
  * DataConnectionNodeRow component. Renders one server-side connection node (catalog, schema,
  * table, view, column, etc.) inside the tree. Previewable table/view nodes open in the Data
  * Explorer on double-click or via the "Open in Data Explorer" context-menu action; nodes that
- * can have children offer a "Refresh" action that re-fetches the subtree.
+ * can have children offer a "Refresh" action that re-fetches the subtree. Nodes with details open
+ * their details editor via "Show Details", and also open it on single-click, in preview mode, and
+ * keep it open on double-click, the way the Explorer treats a file. For a node with details,
+ * double-click opens the details rather than the Data Explorer.
  */
-export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onRefresh, stale }: DataConnectionNodeRowProps) => {
+export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening, onOpenDetails, onPinDetails, onRefresh, stale }: DataConnectionNodeRowProps) => {
 	const { notificationService, positronDataConnectionsService } = usePositronReactServicesContext();
 	const rowRef = useRef<HTMLDivElement>(null);
 	// A group row labels the rows beneath it rather than naming a thing of its own, and it holds them
@@ -149,7 +198,10 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 	// is gated so a fast source -- a local PostgreSQL answers in a few milliseconds -- doesn't swap
 	// the row's icon for a spinner and back again faster than the eye can resolve it.
 	const [opening, setOpening] = useState(false);
-	const showOpeningSpinner = useBusyIndicator(opening);
+	// Details are tracked apart from the preview, so a double-click on a previewable node isn't
+	// swallowed by the details its first click is still fetching.
+	const [openingDetails, setOpeningDetails] = useState(false);
+	const showOpeningSpinner = useBusyIndicator(opening || openingDetails);
 
 	const openInDataExplorer = async () => {
 		// Ignore a repeat trigger (double-click or context menu) while a preview is already opening.
@@ -174,8 +226,55 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 		}
 	};
 
+	// Whether details are being fetched, and whether a pinned open arrived meanwhile. Refs rather than
+	// state: a double-click's handlers run before React re-renders, so state would still read false.
+	const detailsOpeningRef = useRef(false);
+	const pinWhenOpenedRef = useRef(false);
+
+	const openDetails = async (pinned: boolean) => {
+		// A repeat trigger while the details are already opening doesn't fetch again -- but a pinned
+		// one (the double-click that follows a click's preview-mode open) is remembered, so the tab
+		// the first open lands in is kept rather than left in preview mode.
+		if (detailsOpeningRef.current) {
+			pinWhenOpenedRef.current ||= pinned;
+			return;
+		}
+		detailsOpeningRef.current = true;
+		pinWhenOpenedRef.current = false;
+		setOpeningDetails(true);
+		try {
+			await onOpenDetails(pinned);
+			// The tab the first open just landed in holds the freshest details there are, so it is
+			// pinned as it is rather than fetched again.
+			if (pinWhenOpenedRef.current && !pinned) {
+				await onPinDetails();
+			}
+		} finally {
+			detailsOpeningRef.current = false;
+			setOpeningDetails(false);
+		}
+	};
+
+	const onClick = (e: ReactMouseEvent<HTMLDivElement>) => {
+		// Only the first click of a double-click opens the details; the double-click itself decides
+		// what the second one means. A node with children opens too: clicking a row only selects
+		// it -- the twisty is what expands -- so opening its details doesn't compete with browsing.
+		if (e.detail === 1 && dto.hasDetails && !stale) {
+			void openDetails(false);
+		}
+	};
+
 	const onDoubleClick = () => {
-		if (canPreview(dto) && !stale) {
+		if (stale) {
+			return;
+		}
+		// A node with details keeps the details tab the first click opened in preview mode, the way
+		// double-clicking a file in the Explorer does -- even when it can also preview, as a
+		// semantic view's logical table can: its details are what the click was about, and its
+		// base table is one "Open in Data Explorer" away. Any other previewable node opens its data.
+		if (dto.hasDetails) {
+			void openDetails(true);
+		} else if (canPreview(dto)) {
 			openInDataExplorer();
 		}
 	};
@@ -202,15 +301,24 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 				onSelected: onRefresh,
 			}));
 		}
-		if (canPreview(dto)) {
+		if (canPreview(dto) || dto.hasDetails) {
 			if (entries.length > 0) {
 				entries.push(new CustomContextMenuSeparator());
 			}
-			entries.push(new CustomContextMenuItem({
-				icon: 'table',
-				label: localize('positron.dataConnections.openInDataExplorer', "Open in Data Explorer"),
-				onSelected: openInDataExplorer,
-			}));
+			if (dto.hasDetails) {
+				entries.push(new CustomContextMenuItem({
+					icon: 'info',
+					label: localize('positron.dataConnections.showDetails', "Show Details"),
+					onSelected: () => { void openDetails(true); },
+				}));
+			}
+			if (canPreview(dto)) {
+				entries.push(new CustomContextMenuItem({
+					icon: 'table',
+					label: localize('positron.dataConnections.openInDataExplorer', "Open in Data Explorer"),
+					onSelected: openInDataExplorer,
+				}));
+			}
 		}
 
 		// Nothing applies to this node (e.g. a non-previewable leaf), so leave the event alone
@@ -240,12 +348,14 @@ export const DataConnectionNodeRow = ({ dto, handle, labelPrefix, onMenuOpening,
 
 	return (
 		// The row is a presentational element inside a tree that owns focus and keyboard
-		// navigation; double-click and right-click are pointer affordances for opening the
-		// Data Explorer, matching VS Code's tree behavior.
+		// navigation; click, double-click, and right-click are pointer affordances for opening the
+		// details editor and the Data Explorer, matching VS Code's tree behavior. Enter is the
+		// keyboard counterpart, handled by the tree.
 		// eslint-disable-next-line jsx-a11y/no-static-element-interactions
 		<div
 			ref={rowRef}
 			className={positronClassNames('data-connection-node-row', { 'group': isGroup })}
+			onClick={onClick}
 			onContextMenu={onContextMenu}
 			onDoubleClick={onDoubleClick}
 		>

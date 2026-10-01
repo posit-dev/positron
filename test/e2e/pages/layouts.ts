@@ -202,6 +202,21 @@ export class Layouts {
 	}
 
 	/**
+	 * Assert that the main editor area is visible or not visible.
+	 * @param visible Whether the main editor area should be visible.
+	 */
+	async expectEditorAreaToBeVisible(visible = true): Promise<void> {
+		await test.step(`Expect editor area to be ${visible ? 'visible' : 'not visible'}`, async () => {
+			const workbench = this.code.driver.currentPage.locator('.monaco-workbench');
+			if (visible) {
+				await expect(workbench).not.toHaveClass(/nomaineditorarea/);
+			} else {
+				await expect(workbench).toHaveClass(/nomaineditorarea/);
+			}
+		});
+	}
+
+	/**
 	 * Assert that the bottom panel is visible or not visible.
 	 * @param visible Whether the panel should be visible.
 	 */

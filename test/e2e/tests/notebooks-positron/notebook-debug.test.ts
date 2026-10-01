@@ -26,7 +26,10 @@ test.describe('Positron Notebook Debugging', {
 	tag: [tags.WEB, tags.WIN, tags.DEBUG, tags.POSITRON_NOTEBOOKS]
 }, () => {
 
-	test.skip('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', async ({ app, hotKeys }) => {
+	// Un-skip when #16347 is fixed
+	test.skip('Python - Core debugging workflow: breakpoints, variable inspection, step controls, and output verification', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/16347' }]
+	}, async ({ app, hotKeys }) => {
 		const { notebooksPositron, debug } = app.workbench;
 
 		await notebooksPositron.createNewNotebook();

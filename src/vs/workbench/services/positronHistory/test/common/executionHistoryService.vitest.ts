@@ -358,6 +358,8 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		// No-op in test implementation
 	}
 
+	registerDiscoveredRuntime(_metadata: ILanguageRuntimeMetadata): void { }
+
 	registerRuntimeManager(_manager: IRuntimeManager): IDisposable {
 		return Disposable.None;
 	}

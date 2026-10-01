@@ -8,11 +8,22 @@ import { registerAction2 } from '../../../../../platform/actions/common/actions.
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServicesAccessor } from '../../../../../platform/instantiation/common/instantiation.js';
+import { IExtensionService } from '../../../extensions/common/extensions.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
 import { IPositronLayoutService } from '../interfaces/positronLayoutService.js';
 import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 import { AI_ENABLED_KEY } from '../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
+const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
+
+/** Reveals an existing Assistant editor panel, or opens one if none exists. */
+const SHOW_EDITOR_PANEL_COMMAND = 'posit-assistant.showEditorPanel';
+
+/**
+ * Always opens another Assistant editor panel. Posit Assistant versions
+ * before 1.6.0 do not have SHOW_EDITOR_PANEL_COMMAND, so fall back to this.
+ */
+const MOVE_TO_EDITOR_PANEL_COMMAND = 'posit-assistant.moveToEditorPanel';
 
 export const positronAgentLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronAgentLayout',
@@ -71,12 +82,23 @@ registerAction2(class extends PositronLayoutAction {
 	}
 
 	override async run(accessor: ServicesAccessor): Promise<void> {
+		const commandService = accessor.get(ICommandService);
+		const extensionService = accessor.get(IExtensionService);
 		accessor.get(IPositronLayoutService).setLayout(positronAgentLayout.layoutDescriptor);
 
 		// The layout descriptor only covers the panel, sidebar, and auxiliary
 		// bar; the big Assistant pane in the editor area comes from Posit
-		// Assistant's own command, which carries over the sidebar conversation
-		// if one exists (and activates the extension if needed).
-		await accessor.get(ICommandService).executeCommand('posit-assistant.moveToEditorPanel');
+		// Assistant's own command (which activates the extension if needed).
+		// SHOW_EDITOR_PANEL_COMMAND reveals an existing Assistant editor panel,
+		// so re-invoking this layout does not open a duplicate tab. Check the
+		// manifest rather than catching a failure, so that a real error from
+		// the new command does not also open a second panel.
+		const extension = await extensionService.getExtension(POSIT_ASSISTANT_EXTENSION_ID);
+		const hasShowEditorPanel = extension?.contributes?.commands?.some(
+			command => command.command === SHOW_EDITOR_PANEL_COMMAND
+		) === true;
+		await commandService.executeCommand(
+			hasShowEditorPanel ? SHOW_EDITOR_PANEL_COMMAND : MOVE_TO_EDITOR_PANEL_COMMAND
+		);
 	}
 });

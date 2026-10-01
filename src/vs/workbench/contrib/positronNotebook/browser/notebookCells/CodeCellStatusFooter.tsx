@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
-import { useObservedValue, useDebouncedObservedValue } from '../useObservedValue.js';
+import { useObservedValue, useDebouncedObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { ExecutionStatus } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { formatCellDuration, formatTimestamp, getRelativeTime, isMoreThanOneHourAgo } from './cellExecutionUtils.js';

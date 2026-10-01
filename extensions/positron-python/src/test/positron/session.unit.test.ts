@@ -289,7 +289,7 @@ suite('Python Runtime Session', () => {
         const bundle = session.runtimeMetadata.extraRuntimeData.ipykernelBundle;
         assert.deepStrictEqual(
             { architecture: bundle.architecture, version: path.basename(bundle.paths[0]) },
-            { architecture: Architecture.arm64, version: 'cp314' },
+            { architecture: Architecture.arm64, version: 'cp312-abi3' },
         );
         sinon.assert.callCount(envVarsServiceSpy.appendPythonPath, 3);
         sinon.assert.notCalled(installerSpy.isProductVersionCompatible);

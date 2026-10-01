@@ -6,7 +6,10 @@
 import * as vscode from 'vscode';
 import { IS_RUNNING_ON_PWB } from './constants';
 import { log } from './log';
-import { ProviderCatalogOptions, saveProviderEnabled } from './providerCatalog';
+import { ProviderCatalogOptions, resolveProvidersConfigPath, saveProviderEnabled } from './providerCatalog';
+
+/** The levels this module logs at, so a test can supply its own sink. */
+type PwbDefaultLogger = Pick<vscode.LogOutputChannel, 'debug' | 'info' | 'warn'>;
 
 /**
  * On PWB, Posit AI Pass defaults to disabled so admins control AI access.
@@ -20,12 +23,17 @@ import { ProviderCatalogOptions, saveProviderEnabled } from './providerCatalog';
  * - User changes the setting: their choice is preserved
  * - Subsequent runs: we don't overwrite existing choices
  *
+ * Every branch logs which of those happened and to which file, so an admin
+ * looking at a disabled Posit AI Pass can tell an applied default apart from
+ * their own configuration without reverse-engineering providers.json.
+ *
  * See: https://github.com/posit-dev/positron/issues/12954
  */
 export async function applyPwbPositAIDefault(
 	context: vscode.ExtensionContext,
 	isRunningOnPwb = IS_RUNNING_ON_PWB,
-	options?: ProviderCatalogOptions
+	options?: ProviderCatalogOptions,
+	logger: PwbDefaultLogger = log
 ): Promise<void> {
 	if (!isRunningOnPwb) {
 		return;
@@ -33,13 +41,28 @@ export async function applyPwbPositAIDefault(
 
 	const pwbDefaultAppliedKey = 'positAI.pwbDefaultApplied';
 	if (context.globalState.get<boolean>(pwbDefaultAppliedKey)) {
+		// Debug, not info: this fires on every Workbench launch after the first,
+		// and says nothing about the value in effect.
+		logger.debug('Posit AI Pass: the Posit Workbench default was applied on an earlier run, skipping.');
 		return;
 	}
 
+	const configPath = await resolveProvidersConfigPath(options);
 	try {
-		await saveProviderEnabled('positai', false, /* onlyIfUnset */ true, options);
+		const wrote = await saveProviderEnabled('positai', false, /* onlyIfUnset */ true, options);
+		if (wrote) {
+			logger.info(
+				`Posit AI Pass: applied the Posit Workbench default and set providers.positai.enabled to false in ${configPath}. `
+				+ 'An admin or user can set "enabled" to true in that file to turn it back on.'
+			);
+		} else {
+			logger.info(
+				`Posit AI Pass: providers.positai.enabled is already set in ${configPath}, `
+				+ 'so the Posit Workbench default was not applied.'
+			);
+		}
 	} catch (error) {
-		log.warn(`Failed to write the Posit AI Pass PWB default: ${error}`);
+		logger.warn(`Failed to write the Posit AI Pass PWB default to ${configPath}: ${error}`);
 	}
 
 	await context.globalState.update(pwbDefaultAppliedKey, true);

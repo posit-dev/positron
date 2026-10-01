@@ -23,7 +23,7 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { addDisposableListener, getWindow } from '../../../../../base/browser/dom.js';
 import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
-import { useObservedValue } from '../useObservedValue.js';
+import { useObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { autorun, autorunDelta } from '../../../../../base/common/observable.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';

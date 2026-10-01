@@ -36,6 +36,7 @@ function fixture({ signedIn = true, page = true, report = true, missingLog = fal
 		rmSync(join(run, 'logs/44987-app.log'));
 	}
 	writeFileSync(join(run, 'actions.log'), 'actions\n');
+	writeFileSync(join(run, 'instances.jsonl'), '{"cdpPort":9222}\n');
 	writeFileSync(join(run, 'logs/all/9222/renderer.log'), 'raw\n');
 	writeFileSync(join(run, 'logs/9222-renderer.log'), `curated ${SECRET}\n`);
 	// A real image: the upload stops on a shot the scan cannot read.
@@ -56,7 +57,7 @@ function fixture({ signedIn = true, page = true, report = true, missingLog = fal
 	return { r, run, out, dest: () => readFileSync(join(dir, 'dest'), 'utf8').trim() };
 }
 
-test('uploads a redacted copy, rendered for its URL, without actions.log or the raw log tree', () => {
+test('uploads a redacted copy, rendered for its URL, without actions.log, instances.jsonl or the raw log tree', () => {
 	const { r, run, out, dest } = fixture();
 	assert.equal(r.status, 0, r.stderr);
 	assert.match(dest(), /^s3:\/\/positron-test-reports\/exploratory-report-local-\d{8}-\d{6}-[0-9a-f]{8}$/);
@@ -70,6 +71,7 @@ test('uploads a redacted copy, rendered for its URL, without actions.log or the 
 	assert.equal(readFileSync(join(out, 'logs/9222-renderer.log'), 'utf8'), 'curated [REDACTED]\n');
 	assert.ok(existsSync(join(out, 'shots/S01-01.png')));
 	assert.ok(!existsSync(join(out, 'actions.log')));
+	assert.ok(!existsSync(join(out, 'instances.jsonl')));
 	assert.ok(!existsSync(join(out, 'logs/all')));
 	// Names only, and the run directory itself is untouched.
 	assert.match(r.stdout, /^Redacting FAKE_API_KEY from logs\/9222-renderer\.log$/m);

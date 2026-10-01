@@ -32,12 +32,12 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await outline.focus();
 		});
 
-		test.skip('Verify outline is based on editor and per session', async function ({ app, sessions }) {
+		test('Verify outline is based on editor and per session', async function ({ app, sessions }) {
 			const { outline, console, editor } = app.workbench;
 
-			// No active session - verify no outlines
+			// No active session: Pyrefly serves Python symbols without one, Ark does not
 			await editor.selectTab(PY_FILE);
-			await outline.expectOutlineToBeEmpty();
+			await verifyOutline(outline);
 			await editor.selectTab(R_FILE);
 			await outline.expectOutlineToBeEmpty();
 
@@ -46,38 +46,38 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 			// Select Python file
 			await editor.selectTab(PY_FILE);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 
 			// Select R Session 1 - verify Python outline
 			// Use last-active Python session's LSP for Python files, even if foreground session is R.
 			await sessions.select(rSession1.id);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 
 			// Select Python Session 1 - verify Python outline
 			await sessions.select(pySession1.id);
 			await console.typeToConsole('global_variable="goodbye"', true);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 
 			// Select R file
 			await editor.selectTab(R_FILE);
-			await verifyROutline(outline);
+			await verifyOutline(outline);
 
 			// Select R Session 1 - verify R outline
 			await sessions.select(rSession1.id);
-			await verifyROutline(outline);
+			await verifyOutline(outline);
 
 			// Select R Session 2 - verify R outline
 			await sessions.select(rSession2.id);
-			await verifyROutline(outline);
+			await verifyOutline(outline);
 
 			// Select Python file - verify Python outline
 			await editor.selectTab(PY_FILE);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 
 			// Python Session 2 - verify Python outline
 			await sessions.select(pySession2.id);
 			await console.typeToConsole('global_variable="goodbye2"', true);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 		});
 
 		test.skip('Verify outline after reload with Python in foreground and R in background', {
@@ -91,10 +91,10 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 			// Verify outlines for both file types
 			await editor.selectTab(PY_FILE);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 
 			await editor.selectTab(R_FILE);
-			await verifyROutline(outline);
+			await verifyOutline(outline);
 
 			// Reload window
 			await sessions.expectSessionCountToBe(2);
@@ -103,10 +103,10 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 			// Verify outlines for both file types
 			await editor.selectTab(PY_FILE);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 
 			await editor.selectTab(R_FILE);
-			await verifyROutline(outline);
+			await verifyOutline(outline);
 		});
 
 		test.skip('Verify outline after reload with R in foreground and Python in background', {
@@ -120,20 +120,20 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 			// Verify outlines for both file types
 			await editor.selectTab(R_FILE);
-			await verifyROutline(outline);
+			await verifyOutline(outline);
 
 			await editor.selectTab(PY_FILE);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 
 			// Reload window
 			await hotKeys.reloadWindow(true);
 
 			// Verify outlines for both file types
 			await editor.selectTab(R_FILE);
-			await verifyROutline(outline);
+			await verifyOutline(outline);
 
 			await editor.selectTab(PY_FILE);
-			await verifyPythonOutline(outline);
+			await verifyOutline(outline);
 		});
 	});
 
@@ -174,14 +174,11 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 
 });
 
-async function verifyPythonOutline(outline: Outline) {
-	await outline.expectOutlineElementCountToBe(2); // ensure no dupes from multisessions
-	await outline.expectOutlineElementToBeVisible('global_variable = "hello"');
-	await outline.expectOutlineElementToBeVisible('def demonstrate_scope');
-}
-
-async function verifyROutline(outline: Outline) {
-	await outline.expectOutlineElementCountToBe(2); // ensure no dupes from multisessions
-	await outline.expectOutlineElementToBeVisible('demonstrate_scope');
-	await outline.expectOutlineElementToBeVisible('global_variable');
+// Child rows depend on the LSP and on the tree's expansion state, so only the top
+// level is compared; an exact match also proves no duplicates from multiple sessions.
+async function verifyOutline(outline: Outline) {
+	await expect.poll(async () => {
+		const rows = await outline.getOutlineRows();
+		return rows.filter(row => row.level === 1).map(row => row.label).sort();
+	}).toEqual(['demonstrate_scope', 'global_variable']);
 }

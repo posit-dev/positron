@@ -156,8 +156,10 @@ test.describe('Quarto - Inline Output: R', {
 		await inlineQuarto.expectOutputContainsText('6', { index: 1, timeout: 2000 });
 	});
 
-	// Test currently skipped due to flaky behavior on Windows
-	test.skip('R - Verify execution options are respected when running all cells', async function ({ app, openFile, r }) {
+	test('R - Verify execution options are respected when running all cells', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/16346' }]
+	}, async function ({ app, openFile, r }) {
+		test.skip(process.platform === 'win32', 'Flaky on Windows, see #16346');
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Open a Quarto file and wait for the kernel to be ready

@@ -131,6 +131,8 @@ else
 		exit 1
 	fi
 	echo "[stop.sh] instance stopped" >&2
+	# The counterpart of the start line launch.sh writes.
+	{ echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) stop cdp=$CDP_PORT" >> "${POSITRON_LAUNCH_TMP:-/tmp}/positron-dev-launch/instances.log"; } 2>/dev/null || true
 fi
 
 # Remove the run directory only when it looks like one launch.sh generated. The

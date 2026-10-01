@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { normalizeReportUrl, buildEvidenceSummary, clearManagedArtifacts } from '../fetch-pattern-evidence.js';
+import { normalizeReportUrl, buildEvidenceSummary, clearManagedArtifacts, isUnfetchableReport, candidateOccurrences } from '../fetch-pattern-evidence.js';
 
 test('normalizeReportUrl strips index.html + fragment and extracts testId', () => {
 	const url = 'https://cf.net/playwright-report-1-2-ubuntu/index.html#?testId=abc123-def';
@@ -129,4 +129,31 @@ test('buildEvidenceSummary does not crash when failures hold objects and the tra
 	const s = buildEvidenceSummary(result, { testId: 't1' });
 	assert.equal(s.failure, null);
 	assert.match(s.markdown, /no error captured/);
+});
+
+test('isUnfetchableReport falls through only on a 403/404 from the report host', () => {
+	// A still-uploading run's report 403s; that is a substitution, not a crash.
+	assert.equal(isUnfetchableReport('Error: HTTP 403 Forbidden for https://cf.net/r/index.html'), true);
+	assert.equal(isUnfetchableReport('Error: HTTP 404 Not Found for https://cf.net/r/index.html'), true);
+	assert.equal(isUnfetchableReport('TypeError: Cannot read properties of undefined'), false);
+	assert.equal(isUnfetchableReport('Error: HTTP 500 Internal Server Error'), false);
+	assert.equal(isUnfetchableReport(undefined), false);
+});
+
+test('candidateOccurrences walks the pattern\'s occurrences in order, or only the explicit --report-url', () => {
+	const history = { patterns: [{
+		id: 'A',
+		representativeOccurrence: { sha: 'new', report_url: 'https://cf.net/new/' },
+		occurrences: [
+			{ sha: 'new', report_url: 'https://cf.net/new/' },
+			{ sha: 'nourl', report_url: null },
+			{ sha: 'old', report_url: 'https://cf.net/old/' },
+		],
+	}] };
+	assert.deepEqual(candidateOccurrences(history, 'A', null).map(o => o.sha), ['new', 'old']);
+	assert.deepEqual(candidateOccurrences(history, 'A', 'https://cf.net/x/'), [{ report_url: 'https://cf.net/x/' }]);
+	assert.equal(candidateOccurrences(history, 'Z', null), null);
+	// A summary written before occurrences[] existed still yields its representative.
+	const legacy = { patterns: [{ id: 'A', representativeOccurrence: { sha: 'r', report_url: 'https://cf.net/r/' } }] };
+	assert.deepEqual(candidateOccurrences(legacy, 'A', null).map(o => o.sha), ['r']);
 });

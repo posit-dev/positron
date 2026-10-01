@@ -512,6 +512,7 @@ function createInstance(profileId: string, handle: number, tableNames: string[])
 				kind: 'table',
 				hasGetChildren: false,
 				hasPreview: false,
+				hasDetails: false,
 			}))),
 		}),
 	});

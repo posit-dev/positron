@@ -14,6 +14,30 @@ import { IDataConnectionsDriverManager } from './dataConnectionsDriverManager.js
 export const IPositronDataConnectionsService = createDecorator<IPositronDataConnectionsService>('positronDataConnectionsService');
 
 /**
+ * Where in a connection a reveal should go (see IPositronDataConnectionsService.revealConnection).
+ */
+export interface IDataConnectionRevealOptions {
+	// The node to go to, as the reload key (see nodeReloadKey) of each row on the way down from the
+	// connection, group rows ("Tables", "Metrics") included. Empty or absent for the connection
+	// itself.
+	readonly nodePath?: readonly string[];
+
+	// Whether to open the node's details once it is revealed, when it has any.
+	readonly openDetails?: boolean;
+
+	// Whether to leave keyboard focus where it is rather than move it to the revealed row -- for a
+	// request made from somewhere the user is still reading, such as a details editor's breadcrumbs.
+	readonly preserveFocus?: boolean;
+}
+
+/**
+ * An outstanding reveal request: the connection, and where in it to go.
+ */
+export interface IDataConnectionRevealRequest extends IDataConnectionRevealOptions {
+	readonly profileId: string;
+}
+
+/**
  * Service that manages data connection drivers and active data connection instances. Drivers are
  * registered by extensions via the ext host RPC pipeline; the UI consumes this service to list
  * drivers, connect, browse schema trees, and so on.
@@ -42,7 +66,12 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	/**
 	 * Asks the Data Connections pane to show a connection: select it, and open it so its contents
 	 * can be browsed. Called by anything outside the pane that has just put the user's attention on
-	 * one connection in particular -- the database file editor, after creating or opening one.
+	 * one connection in particular -- the database file editor, after creating or opening one -- or on
+	 * a node within one: a breadcrumb in a node's details editor.
+	 *
+	 * With a node path, the pane also opens its way down to that node and selects it instead,
+	 * stopping at the deepest node it can still find if the path no longer matches the tree. With
+	 * openDetails, it then opens the node's details, when the node has any.
 	 *
 	 * Revealing the connection does not open the pane; a caller that needs the pane open does that
 	 * first (IViewsService.openView) and then calls this. Because the pane's tree is built as the
@@ -50,17 +79,18 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * that appears in a moment -- see {@link takePendingRevealConnection} -- so a caller doesn't
 	 * have to race it.
 	 * @param profileId The id of the profile to show.
+	 * @param options Where in the connection to go, and whether to open that node's details.
 	 */
-	revealConnection(profileId: string): void;
+	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): void;
 
 	/**
 	 * Takes the outstanding reveal request, if there is one, clearing it. Called by the pane's tree
 	 * when it is built, so a request made while the pane was still opening is honored by the tree
 	 * that arrives rather than lost. Subsequent requests reach a live tree through
 	 * {@link onDidRequestRevealConnection} instead.
-	 * @returns The id of the profile to show, or undefined if no request is outstanding.
+	 * @returns The request, or undefined if no request is outstanding.
 	 */
-	takePendingRevealConnection(): string | undefined;
+	takePendingRevealConnection(): IDataConnectionRevealRequest | undefined;
 
 	/**
 	 * Gets the connections drivers report as already configured on this machine (e.g. ODBC data

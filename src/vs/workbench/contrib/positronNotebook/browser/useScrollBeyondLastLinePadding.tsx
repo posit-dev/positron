@@ -5,7 +5,7 @@
 
 import { IObservable } from '../../../../base/common/observable.js';
 import { ISize } from '../../../../base/browser/positronReactRenderer.js';
-import { useObservedValue } from './useObservedValue.js';
+import { useObservedValue } from '../../../../base/browser/useObservedValue.js';
 import { usePositronConfiguration } from '../../../../base/browser/positronReactHooks.js';
 
 /**

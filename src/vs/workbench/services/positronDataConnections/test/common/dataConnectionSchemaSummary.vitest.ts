@@ -46,6 +46,7 @@ function createFakeHandle(roots: IFakeSchemaNode[], connectionHandle = 1, expand
 			isPrimaryKey: node.isPrimaryKey,
 			hasGetChildren: node.children !== undefined,
 			hasPreview: false,
+			hasDetails: false,
 		};
 	};
 

@@ -85,7 +85,7 @@ jobs:
     name: ${{ inputs.display_name || 'e2e-workbench' }} (${{ matrix.shard.name }})
     needs: shards
     timeout-minutes: 120
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-amd64-8-core
     strategy:
       fail-fast: false
       # One shard at a time: the snowflake, databricks and azure shards all sign

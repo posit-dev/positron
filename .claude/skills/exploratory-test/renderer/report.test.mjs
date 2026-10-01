@@ -394,7 +394,7 @@ test('renderReportHtml renders a run with no findings and no issues', () => {
 	// No rows to label, so no column header: just the empty state.
 	assert.match(html, /id="findings"/);
 	assert.doesNotMatch(html, /row-head findings-grid/);
-	assert.match(html, /<b>No new findings<\/b><span>The one exercised scenario passed\. <a class="ki-ev" href="#coverage">See Coverage<\/a><\/span>/);
+	assert.match(html, /<b>No new findings<\/b><span class="ki-empty-sum"><b>1<\/b> passed<\/span><\/span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage<\/a><\/div>/);
 	assert.match(html, /<div class="tile-num">0<\/div>/);
 	// One scenario, all passing: no issue segment and no not-run segment.
 	assert.match(html, /<b>1<\/b> pass/);
@@ -734,6 +734,39 @@ test('parseReport reads the preconditions line above or below the steps', () => 
 		assert.deepEqual(r.findings[0].preconditions, ['A notebook open']);
 		assert.match(r.findings[0].observedHtml, /it broke/);
 	}
+});
+
+test('parseReport reads bulleted preconditions as one item each, with a pasted file kept on its bullet', () => {
+	const r = parseReport(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro**', '',
+		'**Preconditions:**',
+		'- `positron.notebook.enabled: true` in',
+		'  `.vscode/settings.json`',
+		'- `nb.ipynb` in the workspace',
+		'  ```python',
+		'  import cv2',
+		'  ```',
+		'- A Python 3.10.15 venv with ipykernel',
+		'',
+		'1. Start a Python console.', '2. Open `nb.ipynb`.',
+		'',
+		'**Observed:** it broke.',
+	].join('\n')));
+	const f = r.findings[0];
+	assert.equal(f.steps.length, 2);
+	assert.equal(f.preconditions.length, 3);
+	assert.match(f.preconditions[0], /enabled: true<\/code> in <code>\.vscode\/settings\.json<\/code>/);
+	assert.match(f.preconditions[1], /<code class="language-python">import cv2/);
+	assert.match(f.preconditions[2], /^A Python 3\.10\.15 venv with ipykernel$/);
+	assert.match(renderReportHtml(md([
+		'## Findings', '',
+		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
+		'', '### Finding 1: a claim', '',
+		'**Repro**', '', '**Preconditions:**', '- one', '- two', '', '1. First.',
+	].join('\n'))), /<ul class="preconditions"><li>One<\/li><li>Two<\/li><\/ul>/);
 });
 
 test('parseReport widens a step fence past the source nested inside it', () => {
@@ -2126,7 +2159,7 @@ test('feedback: a published page asks about each finding, and the verdicts match
 	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
 	assert.match(html, />Enhancement<\/a>/);
 	// The row closes its card: after Suggested tests, before the card ends.
-	assert.match(html, /<div class="fb" role="group" [^>]*aria-label="Posit team feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
+	assert.match(html, /<div class="fb" role="group" [^>]*aria-label="Provide feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
 });
 
 test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
@@ -2136,11 +2169,22 @@ test('feedback: a published page has one header button for the whole report, bes
 	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
 });
 
-test('feedback: a local page, which only has a path, asks for none', () => {
-	for (const base of [undefined, '/Users/someone/run1', 'run1']) {
+test('feedback: a local page asks too, naming the run by its directory, never its path', () => {
+	for (const base of ['/Users/someone/20261001T120000', '/Users/someone/20261001T120000/', '20261001T120000', 'C:\\Users\\someone\\20261001T120000', 'C:\\Users\\someone\\20261001T120000\\']) {
 		const html = renderReportHtml(FULL, { base, skillVersion: '1.2' });
-		assert.doesNotMatch(html, /docs\.google\.com|class="fb[ "]|class="fb-top"/, `base: ${base}`);
+		assert.deepEqual(feedbackAnswers(html, 'fb-top').map(a => a.report), ['local:20261001T120000'], `base: ${base}`);
+		assert.deepEqual([...new Set(feedbackAnswers(html, 'fb').map(a => a.report))], ['local:20261001T120000#f1', 'local:20261001T120000#f2']);
+		assert.doesNotMatch([...html.matchAll(/(?:href|data-submit)="(https:\/\/docs\.google\.com[^"]*)"/g)].join(' '), /someone/);
+		assert.match(html, /exploratory-feedback/);
 	}
+	// Who ran it, when git knows; a published page never says.
+	const local = renderReportHtml(FULL, { base: '/Users/someone/20261001T120000', author: 'a@posit.co', skillVersion: '1.2' });
+	const published = renderReportHtml(FULL, { base: 'https://cdn.example/run1', author: 'a@posit.co', skillVersion: '1.2' });
+	assert.deepEqual(feedbackAnswers(local, 'fb-top').map(a => a.report), ['local:a@posit.co/20261001T120000']);
+	assert.equal(feedbackAnswers(local, 'fb')[0].report, 'local:a@posit.co/20261001T120000#f1');
+	assert.doesNotMatch(published, /a@posit\.co/);
+	// With no base at all there is nothing to name the report by.
+	assert.doesNotMatch(renderReportHtml(FULL, { skillVersion: '1.2' }), /docs\.google\.com|class="fb[ "]|class="fb-top"/);
 });
 
 /** Runs the page's feedback script against a stub window; returns a click dispatcher and the window.open calls. */
@@ -2195,7 +2239,7 @@ test('feedback: a modified or middle click keeps the link\'s own behaviour, and 
 	const blocked = feedbackPopup(html, { blocked: true });
 	assert.equal(blocked.click('https://forms.example/finding'), true);
 	assert.deepEqual(blocked.opens.map(o => [o.url, o.name, o.features]).at(-1), ['https://forms.example/finding', '_blank', 'noopener']);
-	// A local page has no feedback links, so no script for them.
+	// A page with no base has no feedback links, so no script for them.
 	assert.doesNotMatch(renderReportHtml(FULL, { skillVersion: '1.2' }), /exploratory-feedback/);
 });
 
@@ -2669,12 +2713,24 @@ test('the issue body names the fix that did not hold, or the issue that regresse
 const NO_FINDINGS = KI_REPORT.replace(/## Findings[\s\S]*?(?=<details>)/, 'No findings.\n\n').replace(/VERDICTS: .*\nKNOWN: .*/, 'VERDICTS: none').replace('**1.** Checks out.', '');
 const passing = ledger => ledger.replace(/Status: fail - Finding \d/g, 'Status: pass').replace('Issue: #11 fix did not hold', 'Issue: #11 fix held').replace(/^Issue: #2[15] .*\n/gm, '');
 
-test('with no findings, the empty state and Linked issues show without a header, even with observed rows inside', () => {
+test('with no findings, the empty state and an open Linked issues row show without a header, when some were observed', () => {
 	const f = findingsOf(renderReportHtml(NO_FINDINGS, { ledger: passing(KI_LEDGER), knownIssues: KI_ISSUES }));
 	assert.doesNotMatch(f, /row-head/);
-	assert.match(f, /<b>No new findings<\/b><span>All 5 exercised scenarios passed; 3 weren&rsquo;t run\. <a class="ki-ev" href="#coverage">See Coverage<\/a>/);
+	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+	assert.ok(f.includes(`<b>No new findings</b><span class="ki-empty-sum"><b>5</b> passed${dot}<b>3</b> not run</span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>`), f.slice(0, 600));
 	assert.ok(f.indexOf('ki-empty') < f.indexOf('ki-grp'));
+	assert.match(f, /<details class="ki-grp" open><summary>/);
 	assert.match(f, /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span><span class="ki-cnt"[^>]*>2 fix verified<\/span>/);
+});
+
+test('with no findings and nothing observed, the linked counts join the empty state and there is no Linked issues row', () => {
+	// Drop every observed sighting, so what's left is fixes that held and issues not observed.
+	const ledger = passing(KI_LEDGER).replace(/^Issue: #\d+ observed.*\n/gm, '').replace(/ - Also observed #\d+/g, '');
+	const f = findingsOf(renderReportHtml(NO_FINDINGS, { ledger, knownIssues: KI_ISSUES }));
+	assert.doesNotMatch(f, /ki-grp|row-head/);
+	assert.match(f, /<span class="ki-empty-sum"><b>\d+<\/b> passed[\s\S]*?<span class="ki-cnt"[^>]*aria-controls="ki-list-fix">\d+ fix(es)? verified<\/span>[\s\S]*?<span class="ki-cnt"[^>]*aria-controls="ki-list-no">\d+ linked issues? not observed<\/span><\/span>/);
+	assert.match(f, /<div class="ki-list" id="ki-list-no" hidden>/);
+	assert.match(f, /<div class="ki-list" id="ki-list-fix" hidden>/);
 });
 
 test('with no findings and no linked issues, only the empty state shows', () => {

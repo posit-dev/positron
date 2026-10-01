@@ -12,6 +12,7 @@
 // to keep the extension host stable when the native binding fails.
 
 import Database from 'better-sqlite3';
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
 	WorkerOpenConfig,
@@ -28,15 +29,21 @@ import {
  * whose ABI differs -- loading the Electron binary there fails with a
  * NODE_MODULE_VERSION mismatch. `build/npm/postinstall.ts` ships a Node-ABI build
  * alongside the default one (`better_sqlite3-node.node`); select it when we are
- * not running under Electron. Returning undefined lets better-sqlite3 fall back
- * to its default resolution (undefined is treated as "unset" by the constructor).
+ * not running under Electron.
+ *
+ * The packaged extension bundles better-sqlite3 into this file and ships no
+ * node_modules, so esbuild.mts copies both binaries next to the bundle. The
+ * development build (compiled to out/) has no copies and loads them from
+ * node_modules instead.
  */
-function resolveNativeBinding(): string | undefined {
-	if (process.versions.electron) {
-		return undefined;
+function resolveNativeBinding(): string {
+	const fileName = process.versions.electron ? 'better_sqlite3.node' : 'better_sqlite3-node.node';
+	const bundledPath = path.join(__dirname, fileName);
+	if (fs.existsSync(bundledPath)) {
+		return bundledPath;
 	}
 	const packageJsonPath = require.resolve('better-sqlite3/package.json');
-	return path.join(path.dirname(packageJsonPath), 'build', 'Release', 'better_sqlite3-node.node');
+	return path.join(path.dirname(packageJsonPath), 'build', 'Release', fileName);
 }
 
 /** Send a response to the host, narrowed so TypeScript knows IPC is available. */

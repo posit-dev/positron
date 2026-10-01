@@ -99,6 +99,27 @@ suite('Ipykernel', () => {
         ]);
     });
 
+    [
+        { minor: 11, cpxDirectory: 'cp311' },
+        { minor: 12, cpxDirectory: 'cp312-abi3' },
+        { minor: 13, cpxDirectory: 'cp312-abi3' },
+        { minor: 14, cpxDirectory: 'cp312-abi3' },
+    ].forEach(({ minor, cpxDirectory }) => {
+        test(`should use the ${cpxDirectory} cpx bundle for Python 3.${minor}`, async () => {
+            sinon.stub(interpreter, 'version').get(() => mock<PythonVersion>({ major: 3, minor }));
+            // Stub fs.pathExists so the test does not depend on which bundles the local build has
+            sinon.stub(fs, 'pathExists').resolves(true);
+
+            const ipykernelBundle = await getIpykernelBundle(interpreter, serviceContainer);
+
+            const cpxArch = os.platform() === 'darwin' ? 'universal2' : 'x64';
+            assert.strictEqual(
+                ipykernelBundle.paths?.[0],
+                path.join(EXTENSION_ROOT_DIR, 'python_files', 'lib', 'ipykernel', cpxArch, cpxDirectory),
+            );
+        });
+    });
+
     test('should use interpreter architecture for arm64 interpreter', async () => {
         // Set interpreter to arm64 architecture
         sinon.stub(interpreter, 'architecture').get(() => Architecture.arm64);

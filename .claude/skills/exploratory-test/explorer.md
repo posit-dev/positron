@@ -64,6 +64,9 @@ report.
 Write findings to a fresh run directory,
 `~/.claude/skills/exploratory-test/output/<YYYYMMDDTHHMMSS>/report.md`, with
 evidence under `shots/` beside it. Never write into an existing run directory.
+Make it before you launch, and pipe every launch through
+`tee -a "$RUN/instances.jsonl"` so an instance left running is stopped after you
+return.
 Write every screenshot straight to `$RUN/shots/` with `--filename`, never to a
 scratch directory to copy later: drive-positron's cleanup deletes its run
 directory, and a shot left there is lost.
@@ -84,12 +87,16 @@ cannot reproduce from a description of a file.
   image, a database), save the script that made it too and list both.
 - In preconditions and steps, name it in backticks by its file name,
   `` `multi.qmd` ``; the page turns the name into a link that opens the file.
-  A file that exists before step 1 is named in the starting state, never
-  pasted into a step. Never describe a file's content instead of saving it.
+  A file that exists before step 1 is named in Preconditions, never pasted
+  into a step. Never describe a file's content instead of saving it.
   Never write "create a file with ..." as a step unless creating it is what
   you are testing, such as a new-file flow or pasting into an untitled editor.
 - Helper scripts you load, such as a `slow.py` you `%run`, go in `files/`, not
   `logs/`.
+- A helper that stands in for something the run cannot use, such as an
+  extension calling the API the Assistant calls, gets a precondition saying
+  what it stands in for and what its command does, in a user's words. Its code
+  is in the file; leave it out.
 
 The render step checks this: a file a setup names that is not saved and listed
 is a format problem.
@@ -270,8 +277,11 @@ Steps:
 - `Preconditions:` is everything a scenario needs before step 1, one bullet
   each, repeated on every scenario that needs it. Put the creating scenario's ID
   in the middle field when there is one. Leave `Preconditions:` out when there
-  is nothing to set up; never write a default-settings line. Steps never start
-  with "With X open, ..."; that state belongs here.
+  is nothing to set up; never write a default-settings line. A precondition is
+  state that exists before the app does anything: a setting, a file, an
+  installed interpreter. Anything done in the app to get there, such as
+  starting a console or opening a file, is a step, even if it is only setup.
+  Steps never start with "With X open, ..."; open it as step 1.
 - `Not run` covers surfaces you could not reach and threads you abandoned. A
   gap that deserves more than a phrase, such as an untested mechanism that
   probably shares a fault with a tested one, gets it in the reason. There is no
@@ -299,8 +309,15 @@ N. VERIFY <expectation> -> FAIL - Finding K
        at <function> (<repo-relative path>:<line>)
 ```
 
-- An action is something you did: "Run `%view df`.", "Click Continue." Merge
-  trivial waits into it ("Run X and wait 15 s").
+- An action is one thing you did: "Run `%view df`.", "Click Continue." Two
+  actions are two steps. Merge trivial waits into it, naming what you waited
+  for, not for how long: "Run X and wait for the plot to appear." When the bug
+  needs you to act before something finishes, say what it races instead.
+- Name the exact way in, as the UI labels it: the palette command in
+  backticks, with its category (`Workspaces: New Folder from Template...`),
+  the menu path, the button, or the key. Two ways in can open different
+  features. If you ran a command by ID, write the palette name a person would
+  pick.
 - A verify is a check, written as the expectation *before* you look. Every
   check is one, including the ones that pass.
 - Never write an observation as a step; it belongs in `Observed:` or the next
@@ -367,7 +384,14 @@ pre-existing anywhere else in the report.
 `Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
 and "one in three" are different bugs. 0/M means you saw it but could not
-reproduce it, and renders as Unproven.
+reproduce it, and renders as Unproven. Make at least one of the M a cold replay:
+launch a second instance beside the first, attach to it under its own Playwright
+session (`-s=replay`), do only what the finding's preconditions and steps say,
+then collect its logs and stop it with `stop.sh`. Keep one replay instance at a
+time, and stop it before launching another or writing up. A window reload is not
+cold, since it restores editors and sessions. If the replay fails where the
+others passed, look for what the steps leave out and write it in; if nothing is
+missing, replay once more.
 
 When behavior that used to work is now broken, say so in the claim -- "X no
 longer Y" -- since that decides whether a reader reverts or fixes forward.
@@ -376,8 +400,14 @@ Append every action to `actions.log` in the run directory as you take it, with a
 timestamp, including incidental ones: a reload, a setting toggle, a wait. Have
 your scripts append it themselves. `Repro` is a transcription of that file, and
 a precondition that only existed in your head is how a finding stops
-reproducing. Write steps as a person using the app would; launch flags belong
-in the ledger's Environment, and scratch paths in Run details.
+reproducing. So is state you did not create. Before writing a finding, compare
+the screen at its first step with what its steps and preconditions produce: a
+console the app started on launch, a setting the launcher or seeded profile
+applied, an editor restored from last time, a cell already selected. Write each
+one in, as a step for what the app did ("Wait for the Python console to
+start.") or a precondition for a setting. Write steps as a person using the
+app would; launch flags belong in the ledger's Environment, and scratch paths
+in Run details.
 
 A finding's steps are the minimal sequence from the scenario that found it: its
 actions plus the verify steps that matter, keeping PASS checks that show what
@@ -386,7 +416,7 @@ at the failure unless it went on. Another scenario's run of the same bug goes
 under Evidence as a `Variant:`.
 
 Every finding's steps stand on their own: no "as Finding 1", no "same as
-above". Repeat the setup line in full each time.
+above". Repeat the preconditions in full each time.
 
 Use this block for every finding. `N` is the table's row number; it ties the
 block to that row and to ledger scenarios whose `Status:` names Finding N.
@@ -396,12 +426,10 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 **Feature:** <feature>
 
-**Repro** -- starting state: <what exists before step 1, naming each test file in backticks>
+**Repro**
 
-**Preconditions:** <only with X: the non-default configuration or
-manufactured state this needs, how you set it up, and what happened without it:
-reproduces, does not reproduce, or not checked. Leave the line out when the bug
-needs nothing special.>
+**Preconditions:**
+- <one state per bullet, true before the app does anything: a non-default setting, a test file in backticks, an installed interpreter. Anything done in the app is a step. Leave the list out when nothing is needed.>
 
 1. <action>
 2. VERIFY <expectation> -> PASS
@@ -557,7 +585,19 @@ or at least belongs in the scenario's Result.
 
 Look for a second code path that consumes the same data. When one consumer is
 correct and another is wrong, you have localized the bug instead of just
-observing it.
+observing it. When a finding's cause is unclear, spend a few minutes on
+controls before writing it up, changing one thing at a time:
+
+- **Baseline:** the same actions without the changed feature, which rules out
+  the automation.
+- **Another user:** a second feature built on the changed component.
+- **An unchanged counterpart:** a feature the diff does not touch that shares
+  the mechanism. It stands in for the base build, so say the diff does not
+  touch it.
+- **Another trigger:** another key, another way to close, another way in.
+
+Word the Cause only as widely as those cases reach. If one dialog fails and
+another passes, the cause is in the first dialog, not in dialogs.
 
 Before believing a finding, confirm your measurement can see what you think it
 sees. A UI-scraping bug reads as a product bug, and bug-first instinct will
@@ -578,13 +618,11 @@ The harness is part of the configuration, not a neutral window onto the
 product. A launcher that forces a setting, a web server standing in for the
 desktop app, a seeded profile: each puts the app in a state most users are not
 in, and a finding reachable only there is a narrower bug than it looks. So
-before you rank a finding, find the configuration axis it sits on and say where
-it lands on the `Preconditions` line, in the finding template's form. Re-check
-it under the default; if you cannot, write that you did not rather than leaving
-the axis unstated. Keep it to a sentence or two: it renders as a bullet above
-the steps, and a paragraph there buries the one thing a reader needs before
-they begin. Desktop and web differ this way by construction, so a finding from
-one is not yet a finding about the other.
+before you rank a finding, find the configuration axis it sits on. A
+non-default setting it needs is a precondition bullet. Re-check it under the
+default and say in the Cause whether it still happens, or that you could not
+check. Desktop and web differ this way by construction, so a finding from one
+is not yet a finding about the other.
 
 Abandon dead ends and say you did. But tell a dead end from a door: a reload,
 a moved binary, or a blocked host is often the only way into the state under
