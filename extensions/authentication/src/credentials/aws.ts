@@ -5,8 +5,10 @@
 
 import type { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AuthProviderLogger } from '../authProviderLogger';
+import type { CredentialChainConfig } from '../authProvider';
 
 type ChainInit = Parameters<typeof fromNodeProviderChain>[0];
+type CreateChain = (init: ChainInit) => ReturnType<typeof fromNodeProviderChain>;
 
 const DEFAULT_AWS_REGION = 'us-east-1';
 
@@ -41,4 +43,33 @@ export function resolveAwsChainInit(
 	);
 
 	return chainInit;
+}
+
+/**
+ * Build the credential chain config for the AWS (Bedrock) auth provider.
+ *
+ * `getAws` reads the catalog's `connection.aws` slice at resolve time so a
+ * changed profile or region applies to the next resolution. `createChain` is
+ * `fromNodeProviderChain` in production; tests pass a fake so no request
+ * reaches AWS.
+ */
+export function createAwsCredentialChain(
+	getAws: () => { profile?: string; region?: string } | undefined,
+	env: NodeJS.ProcessEnv,
+	createChain: CreateChain,
+): CredentialChainConfig {
+	return {
+		resolve: async () => {
+			const credentialProvider = createChain(resolveAwsChainInit(getAws(), env));
+			const resolved = await credentialProvider();
+			return {
+				token: JSON.stringify({
+					accessKeyId: resolved.accessKeyId,
+					secretAccessKey: resolved.secretAccessKey,
+					sessionToken: resolved.sessionToken,
+				}),
+				expiration: resolved.expiration,
+			};
+		},
+	};
 }

@@ -38,7 +38,7 @@ import {
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { createManagedCredentialsApi } from './managedCredentialsApi';
-import { resolveAwsChainInit } from './credentials/aws';
+import { createAwsCredentialChain } from './credentials/aws';
 import { createAwsSsoRecovery } from './awsRecovery';
 import { resolveGeapCredential } from './credentials/geap';
 import {
@@ -418,22 +418,11 @@ async function registerAwsProvider(
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
 		undefined,
-		{
-			resolve: async () => {
-				const aws = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
-				const chainInit = resolveAwsChainInit(aws, process.env);
-				const credentialProvider = fromNodeProviderChain(chainInit);
-				const resolved = await credentialProvider();
-				return {
-					token: JSON.stringify({
-						accessKeyId: resolved.accessKeyId,
-						secretAccessKey: resolved.secretAccessKey,
-						sessionToken: resolved.sessionToken,
-					}),
-					expiration: resolved.expiration,
-				};
-			},
-		}
+		createAwsCredentialChain(
+			() => getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws,
+			process.env,
+			fromNodeProviderChain,
+		)
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
