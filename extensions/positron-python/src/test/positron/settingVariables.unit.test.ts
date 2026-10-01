@@ -13,7 +13,7 @@ suite('substituteWorkspaceFolder', () => {
             ['/opt/python/bin/python', undefined, '/opt/python/bin/python'],
             ['${workspaceFolder}/.venv/bin/python', '/work/proj', '/work/proj/.venv/bin/python'],
             ['${workspaceFolder}/a:${workspaceFolder}/b', '/work/proj', '/work/proj/a:/work/proj/b'],
-            ['~/pythons/${workspaceFolder}', '/work/proj', '~/pythons//work/proj'],
+            ['~/pythons/bin/python', '/work/proj', '~/pythons/bin/python'],
             [
                 '${workspaceFolder}\\.venv\\Scripts\\python.exe',
                 'C:\\Users\\me\\My Project',

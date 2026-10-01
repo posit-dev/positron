@@ -31,21 +31,21 @@ import { SubstitutionResult, substituteWorkspaceFolder } from './settingVariable
  * workspace folder, then expands `~`. Paths with a variable that cannot be resolved, and
  * relative paths, are ignored.
  * @param value The path from the setting
- * @param description Names the path in log messages, e.g. '[shouldIncludeInterpreter]: included interpreter path'
- * @param log Whether to log why a path is ignored
+ * @param description Names the path in log messages, e.g. '[shouldIncludeInterpreter]: included interpreter path'.
+ * If omitted, ignored paths are not logged.
  * @returns The absolute path, or undefined if the path is ignored
  */
-function resolveSettingPath(value: string, description: string, log = true): string | undefined {
+function resolveSettingPath(value: string, description?: string): string | undefined {
     const result = substituteWorkspaceFolder(value, getWorkspaceFolders()?.[0]?.uri.fsPath);
     if (result.resolved === false) {
-        if (log) {
+        if (description) {
             traceInfo(`${description} ${value} ${describeUnresolved(result)}...ignoring`);
         }
         return undefined;
     }
     const resolved = untildify(result.value);
     if (!path.isAbsolute(resolved)) {
-        if (log) {
+        if (description) {
             traceInfo(`${description} ${resolved} is not absolute...ignoring`);
         }
         return undefined;
@@ -65,9 +65,9 @@ function describeUnresolved(result: Extract<SubstitutionResult, { resolved: fals
 /**
  * Resolves each path in a list setting. Ignored paths are dropped and the rest are kept.
  */
-function resolveSettingPaths(values: string[], description: string, log = true): string[] {
+function resolveSettingPaths(values: string[], description?: string): string[] {
     return values
-        .map((value) => resolveSettingPath(value, description, log))
+        .map((value) => resolveSettingPath(value, description))
         .filter((value): value is string => value !== undefined);
 }
 
@@ -121,7 +121,7 @@ function getOverrideInterpreters(): string[] {
  */
 export function getResolvedFilterSettingPaths(): { include: string[]; exclude: string[]; override: string[] } {
     const config = getConfiguration('python');
-    const resolve = (key: string) => resolveSettingPaths(config.get<string[]>(key) ?? [], '', false);
+    const resolve = (key: string) => resolveSettingPaths(config.get<string[]>(key) ?? []);
     return {
         include: resolve(INTERPRETERS_INCLUDE_SETTING_KEY),
         exclude: resolve(INTERPRETERS_EXCLUDE_SETTING_KEY),
