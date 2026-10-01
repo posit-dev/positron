@@ -13,7 +13,7 @@ wrappers provide, so fix the script instead when you can.
 ```bash
 node .claude/skills/e2e-failure-analyzer/scripts/e2e-query-history.js \
   --repo positron --test-keys '["<key>"]' --branch <branch> \
-  --lookback-days 14 --occurrences-per-pattern 1
+  --lookback-days 14 --occurrences-per-pattern 20
 ```
 
 Query the current branch **and** `main`, then merge `failure_patterns[]` by
