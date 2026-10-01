@@ -737,7 +737,8 @@ function feedbackHref(report, version, finding, verdict) {
  * so it never carries who ran it.
  */
 function feedbackReport(base, author) {
-	const name = basename((base ?? '').replace(/\/+$/, ''));
+	// Either separator, so a Windows path is cut to its name too.
+	const name = (base ?? '').replace(/[\\/]+$/, '').split(/[\\/]/).pop();
 	return reportUrl(base) ?? (name ? `local:${author ? `${author}/` : ''}${name}` : null);
 }
 

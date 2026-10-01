@@ -2170,7 +2170,7 @@ test('feedback: a published page has one header button for the whole report, bes
 });
 
 test('feedback: a local page asks too, naming the run by its directory, never its path', () => {
-	for (const base of ['/Users/someone/20261001T120000', '/Users/someone/20261001T120000/', '20261001T120000']) {
+	for (const base of ['/Users/someone/20261001T120000', '/Users/someone/20261001T120000/', '20261001T120000', 'C:\\Users\\someone\\20261001T120000', 'C:\\Users\\someone\\20261001T120000\\']) {
 		const html = renderReportHtml(FULL, { base, skillVersion: '1.2' });
 		assert.deepEqual(feedbackAnswers(html, 'fb-top').map(a => a.report), ['local:20261001T120000'], `base: ${base}`);
 		assert.deepEqual([...new Set(feedbackAnswers(html, 'fb').map(a => a.report))], ['local:20261001T120000#f1', 'local:20261001T120000#f2']);
