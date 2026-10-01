@@ -226,17 +226,19 @@ describe('MissingPackagesService', () => {
 		expect(listMissingPackages).toHaveBeenCalledTimes(1);
 	});
 
-	it('analyzeCode shares the cache with ensure for the same session and code', async () => {
+	it('analyzeCode does not share the cache with ensure for the same session and code', async () => {
 		const service = createService();
 
-		// ensure() analyzes 'import requests' against the python session and caches
-		// it. analyzeCode() with the same session + code hits that cache entry
-		// (keyed on sessionId + content hash) rather than recomputing.
+		// ensure() sends the file URI, so the runtime can treat the file's
+		// directory as an import root. analyzeCode() sends inline code with no
+		// import roots, so the same code can resolve differently and must be
+		// analyzed on its own.
 		await service.ensure(resource);
 		const missing = await service.analyzeCode(sessionId, 'import requests');
 
 		expect(missing).toEqual([{ name: 'requests' }]);
-		expect(listMissingPackages).toHaveBeenCalledTimes(1);
+		expect(listMissingPackages).toHaveBeenCalledTimes(2);
+		expect(listMissingPackages).toHaveBeenNthCalledWith(2, { code: 'import requests' }, expect.anything());
 	});
 
 	it('forwards the file URI in the script target so local modules can be resolved', async () => {
@@ -429,6 +431,22 @@ describe('MissingPackagesService', () => {
 		expect(listMissingPackages).toHaveBeenCalledTimes(2);
 	});
 
+	it('analyzes identical code separately for documents in different directories', async () => {
+		const service = createService();
+		const other = URI.file('/workspace/sub/foo.py');
+
+		await service.ensure(resource);
+		await service.ensure(other);
+
+		// The same code can resolve differently per document because the
+		// document's directory is an import root, so results must not be shared.
+		expect(listMissingPackages).toHaveBeenCalledTimes(2);
+		expect(listMissingPackages).toHaveBeenNthCalledWith(2,
+			{ code: 'import requests', uri: other.toString() },
+			expect.anything(),
+		);
+	});
+
 	it('installs a group against its session package manager', async () => {
 		const service = createService();
 
@@ -481,8 +499,12 @@ describe('MissingPackagesService', () => {
 			  "total": 1,
 			}
 		`);
-		// The markup cell is excluded; only the code cell's source is analyzed.
-		expect(notebookListMissingPackages).toHaveBeenCalledWith({ code: 'import plotnine' }, expect.anything());
+		// The markup cell is excluded; only the code cell's source is analyzed. The
+		// notebook URI is forwarded so sibling modules resolve as local.
+		expect(notebookListMissingPackages).toHaveBeenCalledWith(
+			{ code: 'import plotnine', uri: notebookResource.toString() },
+			expect.anything(),
+		);
 	});
 
 	it('analyzes a console-mode quarto document per language, routing each chunk to its console session', async () => {
@@ -519,8 +541,14 @@ describe('MissingPackagesService', () => {
 			}
 		`);
 		// Each language's chunk is sent to its own console session.
-		expect(rListMissingPackages).toHaveBeenCalledWith({ code: 'library(leaflet)' }, expect.anything());
-		expect(listMissingPackages).toHaveBeenCalledWith({ code: 'import requests' }, expect.anything());
+		expect(rListMissingPackages).toHaveBeenCalledWith(
+			{ code: 'library(leaflet)', uri: quartoResource.toString() },
+			expect.anything(),
+		);
+		expect(listMissingPackages).toHaveBeenCalledWith(
+			{ code: 'import requests', uri: quartoResource.toString() },
+			expect.anything(),
+		);
 	});
 
 	it('analyzes an inline-output quarto document via its per-document session', async () => {
@@ -550,7 +578,10 @@ describe('MissingPackagesService', () => {
 			  "total": 1,
 			}
 		`);
-		expect(quartoInlineListMissingPackages).toHaveBeenCalledWith({ code: 'library(leaflet)' }, expect.anything());
+		expect(quartoInlineListMissingPackages).toHaveBeenCalledWith(
+			{ code: 'library(leaflet)', uri: quartoResource.toString() },
+			expect.anything(),
+		);
 		// The shared console sessions are not consulted in inline-output mode.
 		expect(rListMissingPackages).not.toHaveBeenCalled();
 	});
