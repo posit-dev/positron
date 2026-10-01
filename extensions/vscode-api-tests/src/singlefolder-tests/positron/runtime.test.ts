@@ -997,12 +997,13 @@ suite('positron API - executeCode', () => {
 		]);
 
 		// Find the test session created by our manager and verify
-		// executionMetadata was received by the runtime's execute method.
+		// executionMetadata was received by the runtime's execute method,
+		// along with the code's attribution.
 		const session = manager.createdSessions[manager.createdSessions.length - 1];
 		assert.ok(session, 'A session should have been created');
 		assert.deepStrictEqual(
 			session.lastExecutionMetadata,
-			testMetadata,
+			{ ...testMetadata, attributionSource: 'extension' },
 			'executionMetadata should be passed through to the runtime session'
 		);
 	});

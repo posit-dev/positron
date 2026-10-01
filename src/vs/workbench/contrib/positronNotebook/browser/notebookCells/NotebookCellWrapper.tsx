@@ -15,7 +15,7 @@ import { localize } from '../../../../../nls.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { CellSelectionType, SelectionState } from '../selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useObservedValue } from '../useObservedValue.js';
+import { useObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { CellTagsBar } from './CellTagsBar.js';
 import { CellProvider } from './CellProvider.js';

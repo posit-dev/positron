@@ -100,12 +100,15 @@ function toProviderData(provider: ResolvedProvider, aiConfig: IProviderMappingCo
 			endpoint: connection.endpoint,
 			customHeaders: connection.customHeaders,
 			aws: connection.aws,
+			azure: connection.azure,
 			googleCloud: connection.googleCloud,
 			snowflake: connection.snowflake,
 			databricks: connection.databricks,
+			positaiLogin: connection.positaiLogin,
 		},
 		models: provider.models,
 		custom: builtin ? undefined : true,
+		clientKind: builtin ? undefined : provider.clientKind,
 		customizedConnection: customizedConnectionFields(
 			connection,
 			builtin ? aiConfig.PROVIDER_CONNECTION_DEFAULTS[provider.id] : undefined,
@@ -145,6 +148,7 @@ export function customizedConnectionFields(
 		googleCloud: [connection.googleCloud, defaults?.googleCloud],
 		snowflake: [connection.snowflake, defaults?.snowflake],
 		databricks: [connection.databricks, defaults?.databricks],
+		azure: [connection.azure, defaults?.azure],
 	};
 	for (const [group, [values, defaultValues]] of Object.entries(groups)) {
 		for (const [name, value] of Object.entries(values ?? {})) {

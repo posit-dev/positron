@@ -7,7 +7,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionParameterValues, IDataConnectionCodeVariant, IDataConnectionDriver, IDataConnectionDriverMetadata, IDataConnectionHandle, IDataConnectionMechanism, IDataConnectionParameter, IDiscoveredDataConnection } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionMechanismDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionParameterDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { ExtHostDataConnectionsShape, ExtHostPositronContext, MainPositronContext, MainThreadDataConnectionsShape } from '../../common/positron/extHost.positron.protocol.js';
 
 /**
@@ -220,6 +220,13 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	}
 
 	/**
+	 * Gets a node's details through the main thread handle.
+	 */
+	async $nodeGetDetailsViaService(connectionHandle: number, nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO> {
+		return this._getHandle(connectionHandle).nodeGetDetails(nodeHandle);
+	}
+
+	/**
 	 * Releases a connection handle through the main thread handle.
 	 */
 	$releaseConnectionViaService(connectionHandle: number): void {
@@ -371,6 +378,13 @@ class MainThreadDataConnectionHandleAdapter implements IDataConnectionHandle {
 	 */
 	async nodePreview(nodeHandle: number): Promise<string | undefined> {
 		return this._proxy.$nodePreview(this.handle, nodeHandle);
+	}
+
+	/**
+	 * Gets the details of the given node, for the details editor.
+	 */
+	async nodeGetDetails(nodeHandle: number): Promise<IDataConnectionNodeDetailsDTO> {
+		return this._proxy.$nodeGetDetails(this.handle, nodeHandle);
 	}
 
 	/**

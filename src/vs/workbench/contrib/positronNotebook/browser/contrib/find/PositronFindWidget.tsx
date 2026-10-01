@@ -14,7 +14,7 @@ import { IKeyboardEvent } from '../../../../../../base/browser/keyboardEvent.js'
 import { IFindInputOptions } from '../../../../../../base/browser/ui/findinput/findInput.js';
 import { IReplaceInputOptions } from '../../../../../../base/browser/ui/findinput/replaceInput.js';
 import { IObservable, ISettableObservable } from '../../../../../../base/common/observable.js';
-import { useObservedValue } from '../../useObservedValue.js';
+import { useObservedValue } from '../../../../../../base/browser/useObservedValue.js';
 import { ThemeIcon } from '../../../../../../platform/positronActionBar/browser/components/icon.js';
 import { Codicon } from '../../../../../../base/common/codicons.js';
 import { localize } from '../../../../../../nls.js';

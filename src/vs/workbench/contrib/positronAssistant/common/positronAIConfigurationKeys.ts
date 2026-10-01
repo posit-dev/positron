@@ -35,3 +35,21 @@ export const AI_ENABLED_KEY = 'ai.enabled';
  * carry on.
  */
 export const NEW_PROVIDER_MODAL_KEY = 'assistant.newProviderModal';
+
+/**
+ * Whether this window offers its live sessions and its agent-compatible
+ * commands to external coding agents (Claude Code, Codex, any MCP client)
+ * through the kernel supervisor's Model Context Protocol server.
+ *
+ * Read by the `positron-supervisor` extension, which registers the window with
+ * the supervisor and publishes the endpoint into integrated terminals. Sits
+ * under {@link AI_ENABLED_KEY}: the server runs only when both are on.
+ */
+export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
+
+/**
+ * Whether the status bar shows the coding agents connected to this window's
+ * sessions. Off by default; the agents are always listed in the kernel
+ * supervisor's Quick Pick.
+ */
+export const MCP_STATUS_BAR_KEY = 'ai.mcp.statusBar';

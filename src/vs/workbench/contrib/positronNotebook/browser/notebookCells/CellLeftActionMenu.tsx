@@ -7,7 +7,7 @@
 import './CellLeftActionMenu.css';
 
 // Other dependencies.
-import { useDebouncedObservedValue } from '../useObservedValue.js';
+import { useDebouncedObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 
 interface CellLeftActionMenuProps {

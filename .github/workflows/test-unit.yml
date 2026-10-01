@@ -34,7 +34,7 @@ permissions:
 jobs:
   unit-tests:
     name: unit
-    runs-on: ubuntu-latest-4x
+    runs-on: ubuntu-latest-amd64-4-core
     # The three test steps only account for ~5m; almost all of the wall clock is
     # npm install plus the cache save, and both scale with how many npm caches
     # missed. A warm-ish run lands at ~35m, but a run that misses all three npm

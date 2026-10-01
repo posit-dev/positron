@@ -369,4 +369,61 @@ describe('ConsoleTab', () => {
 			expect(hideHover).toHaveBeenCalled();
 		});
 	});
+
+	describe('unread executions', () => {
+		/** Render a tab for a console that is not the active one. */
+		function renderInactiveTab(sessionId: string, sessionName: string, count: number, hideSessionName = false) {
+			const instance = addActiveConsoleInstance(sessionId, sessionName);
+			instance.setUnreadExecutionCount(count);
+			// Adding another console makes it the active one, sending this one to the background.
+			addActiveConsoleInstance(`${sessionId}-foreground`, 'Foreground Session');
+			rtl.render(
+				<PositronConsoleContextProvider>
+					<ConsoleTab
+						hideSessionName={hideSessionName}
+						hoverManager={hoverManager}
+						positronConsoleInstance={instance}
+						width={200}
+						onChangeSession={() => { }}
+						onSessionNameHiddenChange={() => { }}
+					/>
+				</PositronConsoleContextProvider>
+			);
+			return { user: userEvent.setup(), tab: screen.getByRole('tab') };
+		}
+
+		it('says how many executions are unread in the tooltip', async () => {
+			const { user, tab } = renderInactiveTab('unread-session-1', 'My Python Session', 3);
+
+			await user.hover(tab);
+
+			expect(showHover).toHaveBeenCalledWith(tab, '3 new executions');
+		});
+
+		it('names the session in the unread tooltip when the tab has no room to show it', async () => {
+			const { user, tab } = renderInactiveTab('unread-session-5', 'My Python Session', 3, true);
+
+			await user.hover(tab);
+
+			expect(showHover).toHaveBeenCalledWith(tab, 'My Python Session \u2022 3 new executions');
+		});
+
+		it('says how many executions are unread in the accessible name', () => {
+			renderInactiveTab('unread-session-2', 'My Python Session', 3);
+
+			expect(screen.getByRole('tab', { name: 'My Python Session, 3 new executions' })).toBeInTheDocument();
+		});
+
+		it('uses the singular for a single unread execution', () => {
+			renderInactiveTab('unread-session-3', 'My Python Session', 1);
+
+			expect(screen.getByRole('tab', { name: 'My Python Session, 1 new execution' })).toBeInTheDocument();
+		});
+
+		it('names the delete button', () => {
+			renderInactiveTab('unread-session-4', 'My Python Session', 1);
+
+			expect(screen.getByRole('button', { name: 'Delete Session' })).toBeInTheDocument();
+		});
+	});
 });

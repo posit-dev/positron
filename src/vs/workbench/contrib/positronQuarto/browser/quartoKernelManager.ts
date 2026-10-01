@@ -28,6 +28,7 @@ import { timeout } from '../../../../base/common/async.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { POSITRON_QUARTO_INLINE_OUTPUT_KEY, QUARTO_INLINE_OUTPUT_ENABLED_KEY, affectsQuartoConfig, isQuartoOrRmdFile, usingQuartoInlineOutput } from '../common/positronQuartoConfig.js';
 import { IQuartoOutputCacheService } from '../common/quartoExecutionTypes.js';
+import { quartoNotebookUri } from '../common/quartoVirtualNotebookTypes.js';
 
 export const IQuartoKernelManager = createDecorator<IQuartoKernelManager>('quartoKernelManager');
 
@@ -505,9 +506,11 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 			`${oldUri.toString()} -> ${newDocumentUri.toString()}`
 		);
 
-		// Update the session's notebookUri to the new document URI
-		// This maintains the URI mapping so future lookups work correctly
-		this._runtimeSessionService.updateNotebookSessionUri(oldUri, newDocumentUri);
+		// Point the session, and its hidden notebook URI, at the new document so
+		// future lookups work correctly
+		this._runtimeSessionService.updateNotebookSessionUri(oldUri, newDocumentUri, {
+			quartoNotebookUri: quartoNotebookUri(newDocumentUri),
+		});
 
 		return session;
 	}
@@ -916,7 +919,10 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				documentUri,
 				'Quarto inline output',
 				RuntimeStartMode.Starting,
-				false // don't activate in console
+				false, // don't activate in console
+				// The extensions select and claim this notebook's cells, so they
+				// are told its URI rather than deriving it from `documentUri`.
+				{ quartoNotebookUri: quartoNotebookUri(documentUri) }
 			);
 
 			if (cts.token.isCancellationRequested) {

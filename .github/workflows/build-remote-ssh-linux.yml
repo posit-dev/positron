@@ -23,7 +23,7 @@ permissions:
 jobs:
   build-deb:
     name: Build Positron DEB for Remote SSH Tests
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-amd64-8-core
     timeout-minutes: 180
     outputs:
       artifact-name: positron-deb-remote-ssh-x64
@@ -121,7 +121,7 @@ jobs:
 
   build-reh:
     name: Build Positron REH for Remote SSH Tests
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-amd64-8-core
     timeout-minutes: 180
     outputs:
       artifact-name: positron-reh-remote-ssh-x64

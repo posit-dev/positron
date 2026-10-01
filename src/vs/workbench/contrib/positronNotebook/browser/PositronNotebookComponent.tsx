@@ -14,7 +14,7 @@ import React from 'react';
 import * as DOM from '../../../../base/browser/dom.js';
 import { useNotebookInstance, useNotebookOptions } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
-import { useObservedValue } from './useObservedValue.js';
+import { useObservedValue } from '../../../../base/browser/useObservedValue.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { NotebookRawCell } from './notebookCells/NotebookRawCell.js';

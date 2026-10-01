@@ -8,7 +8,7 @@ import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { UiClientInstance, IRuntimeClientEvent } from '../../languageRuntime/common/languageRuntimeUiClient.js';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
@@ -88,6 +88,21 @@ export interface IStartNewRuntimeSessionOptions {
 	 * transposed with `activate` at a call site.
 	 */
 	readonly userSelected?: boolean;
+
+	/**
+	 * The hidden notebook holding the cells of the Quarto document this session
+	 * is for. Set by the Quarto contribution, which alone knows that a notebook
+	 * session belongs to a Quarto document; see `quartoNotebookUri`.
+	 */
+	readonly quartoNotebookUri?: URI;
+}
+
+export interface IUpdateNotebookSessionUriOptions {
+	/**
+	 * The hidden notebook of the Quarto document at the new URI, when the
+	 * session is a Quarto session. See `IRuntimeSessionMetadata.quartoNotebookUri`.
+	 */
+	readonly quartoNotebookUri?: URI;
 }
 
 export interface IRuntimeSessionMetadata {
@@ -126,6 +141,28 @@ export interface IRuntimeSessionMetadata {
 	 * notebook sessions leave this unset even when the user picked the kernel.
 	 */
 	readonly userSelected?: boolean;
+
+	/**
+	 * The hidden notebook holding the cells of this session's Quarto document.
+	 * Undefined for console sessions, for real notebook sessions, and for Quarto
+	 * sessions stored by a build older than this field.
+	 *
+	 * Computed once by core when the session starts.
+	 */
+	readonly quartoNotebookUri?: URI;
+}
+
+/**
+ * Revives the URIs in session metadata that has crossed a JSON boundary (the
+ * extension host RPC, or workspace storage), where they arrive as plain
+ * `UriComponents` objects.
+ */
+export function reviveRuntimeSessionMetadata<T extends IRuntimeSessionMetadata>(metadata: T): T {
+	return {
+		...metadata,
+		notebookUri: URI.revive(metadata.notebookUri),
+		quartoNotebookUri: URI.revive(metadata.quartoNotebookUri),
+	};
 }
 
 /**
@@ -188,6 +225,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	onDidReceiveRuntimeMessageResult: Event<ILanguageRuntimeMessageResult>;
 	onDidReceiveRuntimeMessageStream: Event<ILanguageRuntimeMessageStream>;
 	onDidReceiveRuntimeMessageInput: Event<ILanguageRuntimeMessageInput>;
+	onDidReceiveRuntimeMessageExecutionRequested: Event<ILanguageRuntimeMessageExecutionRequested>;
 	onDidReceiveRuntimeMessageError: Event<ILanguageRuntimeMessageError>;
 	onDidReceiveRuntimeMessagePrompt: Event<ILanguageRuntimeMessagePrompt>;
 	onDidReceiveRuntimeMessageState: Event<ILanguageRuntimeMessageState>;
@@ -358,6 +396,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
 	notebookUri: URI;
+	quartoNotebookUri?: URI;
 }
 
 export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession {
@@ -1014,9 +1053,10 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param oldUri The original URI of the notebook (typically an untitled:// URI)
 	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
+	 * @param options The session's Quarto notebook URI for the new document, if it has one.
 	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined>;
+	updateNotebookSessionUri(oldUri: URI, newUri: URI, options?: IUpdateNotebookSessionUriOptions): Promise<string | undefined>;
 
 	/**
 	 * Updates the active languages with the update service. This has to be pushed to the update

@@ -160,6 +160,11 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	/**
 	 * {@inheritDoc}
 	 */
+	public registerDiscoveredRuntime(_metadata: ILanguageRuntimeMetadata): void { }
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public registerRuntimeManager(manager: IRuntimeManager): IDisposable {
 		this._runtimeManagers.push(manager);
 		return {

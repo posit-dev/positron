@@ -37,7 +37,7 @@ permissions:
 jobs:
   e2e-remote-ssh-ubuntu:
     name: ${{ inputs.display_name || 'remote-ssh' }}
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-amd64-8-core
     timeout-minutes: 80
 
     env:
