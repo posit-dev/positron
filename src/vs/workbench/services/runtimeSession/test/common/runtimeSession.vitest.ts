@@ -1902,23 +1902,16 @@ describe('Positron - RuntimeSessionService', () => {
 			};
 		}
 
-		it('is honoured without taking the foreground while the ai.assistantSessions.enabled setting is on', async () => {
+		// The owner is recorded whatever the settings say; only how sessions
+		// are presented is gated on them.
+		it('is kept without taking the foreground while the ai.assistantSessions.enabled setting is off', async () => {
 			configService.setUserConfiguration(AI_ENABLED_KEY, true);
-			configService.setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, true);
-
-			const result = await startConsoleOwnedByAssistant();
-
-			expect({ owner: result.owner, foregroundSessionId: result.foregroundSessionId })
-				.toEqual({ owner: 'assistant', foregroundSessionId: result.userSessionId });
-		});
-
-		it('is dropped, still without taking the foreground, while the ai.assistantSessions.enabled setting is off', async () => {
 			configService.setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
 
 			const result = await startConsoleOwnedByAssistant();
 
 			expect({ owner: result.owner, foregroundSessionId: result.foregroundSessionId })
-				.toEqual({ owner: 'user', foregroundSessionId: result.userSessionId });
+				.toEqual({ owner: 'assistant', foregroundSessionId: result.userSessionId });
 		});
 	});
 

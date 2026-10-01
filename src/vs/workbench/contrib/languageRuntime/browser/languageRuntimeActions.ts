@@ -1099,8 +1099,6 @@ export class StartNewConsoleSessionAction extends Action2 {
 /**
  * Start an Assistant-owned console session for a runtime. Started by the user,
  * it takes the foreground like any session they start; only its owner differs.
- * While the `ai.assistantSessions.enabled` setting is off, the owner is dropped
- * and it is an ordinary user session.
  * @returns The new session's id.
  */
 export function startNewAssistantSession(

@@ -55,10 +55,10 @@ export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
 export const MCP_STATUS_BAR_KEY = 'ai.mcp.statusBar';
 
 /**
- * Whether Posit Assistant can work in console sessions of its own. Gates the
- * New Assistant Session command and the `owner: 'assistant'` option on
- * `positron.runtime.startLanguageRuntime`: when off, a requested Assistant
- * session starts as an ordinary user session. The command also requires
- * {@link AI_ENABLED_KEY}.
+ * Whether Posit Assistant can work in console sessions of its own. Gates only
+ * the ways to start one: the New Assistant Session command here, while Posit
+ * Assistant is expected to read it before starting a session of its own.
+ * Existing Assistant sessions are recorded and shown as such either way. The
+ * command also requires {@link AI_ENABLED_KEY}.
  */
 export const ASSISTANT_SESSIONS_ENABLED_KEY = 'ai.assistantSessions.enabled';

@@ -17,6 +17,9 @@ import { createTestContainer } from '../../../../../../test/vitest/positronTestC
 import { CommandCenter } from '../../../../../../platform/commandCenter/common/commandCenter.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -159,7 +162,9 @@ describe('TopActionBarSessionPicker', () => {
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		it('marks the icon as an Assistant session, keeping the language class', () => {
+		// The setting gates starting Assistant sessions, not how existing ones look.
+		it('marks the icon as an Assistant session, keeping the language class, even while the ai.assistantSessions.enabled setting is off', () => {
+			(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
 			rtl.render(<TopActionBarSessionPicker />);
 			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'python-lang-file-icon', 'assistant-session-icon');
 		});

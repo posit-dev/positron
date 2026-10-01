@@ -859,12 +859,7 @@ declare module 'positron' {
 
 	/** Options for {@link runtime.startLanguageRuntime}. */
 	export interface RuntimeSessionStartOptions {
-		/**
-		 * Who the session belongs to. Defaults to `user`.
-		 *
-		 * Honoured only while the `ai.assistantSessions.enabled` setting is on;
-		 * otherwise the session starts as the user's.
-		 */
+		/** Who the session belongs to. Defaults to `user`. */
 		readonly owner?: RuntimeSessionOwner;
 
 		/**
