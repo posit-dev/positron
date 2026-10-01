@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
 import type { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AuthProviderLogger } from '../authProviderLogger';
 import type { CredentialChainConfig } from '../authProvider';
@@ -52,24 +53,93 @@ export function resolveAwsChainInit(
  * changed profile or region applies to the next resolution. `createChain` is
  * `fromNodeProviderChain` in production; tests pass a fake so no request
  * reaches AWS.
+ *
+ * With web-identity auth (`AWS_WEB_IDENTITY_TOKEN_FILE` set), the token file
+ * can appear after activation: on Posit Workbench the session agent writes it
+ * asynchronously, so the startup resolve may fail with ENOENT (#15292).
+ * `shouldRefresh` retries a failed resolve once the token file exists, and
+ * again each time it is rewritten, but never while credentials are held:
+ * every STS exchange yields new credentials, so re-resolving a healthy
+ * session on each rewrite would report a changed session every few minutes.
+ * Expiring credentials are refreshed through their expiration instead.
  */
 export function createAwsCredentialChain(
 	getAws: () => { profile?: string; region?: string } | undefined,
 	env: NodeJS.ProcessEnv,
 	createChain: CreateChain,
 ): CredentialChainConfig {
+	const tokenFile = env.AWS_WEB_IDENTITY_TOKEN_FILE;
+	let credentialsHeld = false;
+	// Token file mtime seen by the last resolve; undefined if it was missing.
+	let attemptedMtime: number | undefined;
+
 	return {
 		resolve: async () => {
-			const credentialProvider = createChain(resolveAwsChainInit(getAws(), env));
-			const resolved = await credentialProvider();
-			return {
-				token: JSON.stringify({
-					accessKeyId: resolved.accessKeyId,
-					secretAccessKey: resolved.secretAccessKey,
-					sessionToken: resolved.sessionToken,
-				}),
-				expiration: resolved.expiration,
-			};
+			if (tokenFile) {
+				attemptedMtime = await getMtime(tokenFile);
+			}
+			try {
+				const credentialProvider = createChain(resolveAwsChainInit(getAws(), env));
+				const resolved = await credentialProvider();
+				credentialsHeld = true;
+				return {
+					token: JSON.stringify({
+						accessKeyId: resolved.accessKeyId,
+						secretAccessKey: resolved.secretAccessKey,
+						sessionToken: resolved.sessionToken,
+					}),
+					expiration: resolved.expiration,
+				};
+			} catch (err) {
+				credentialsHeld = false;
+				throw err;
+			}
+		},
+		shouldRefresh: async () => {
+			if (!tokenFile || credentialsHeld) {
+				return false;
+			}
+			const mtime = await getMtime(tokenFile);
+			return mtime !== undefined &&
+				(attemptedMtime === undefined || mtime > attemptedMtime);
 		},
 	};
+}
+
+/**
+ * Watch the web-identity token file and call `resolve` when `shouldRefresh`
+ * says a retry is due. `shouldRefresh` alone only runs when a consumer calls
+ * `getSessions`, and a consumer that waits for a session event would never
+ * make that call (#15292); resolving here fires the `added` event instead.
+ *
+ * Uses fs.watchFile rather than createFileSystemWatcher: the latter misses
+ * the file's creation when its folder does not exist yet, and its fallback
+ * for a missing path is this same stat polling. Returns undefined when
+ * web-identity auth is not in use.
+ */
+export function watchWebIdentityTokenFile(
+	env: NodeJS.ProcessEnv,
+	credentialChain: CredentialChainConfig,
+	resolve: () => Promise<unknown>,
+	intervalMs = 5000,
+): { dispose(): void } | undefined {
+	const tokenFile = env.AWS_WEB_IDENTITY_TOKEN_FILE;
+	if (!tokenFile) {
+		return undefined;
+	}
+	const onTokenFile = async () => {
+		if (await credentialChain.shouldRefresh?.()) {
+			await resolve();
+		}
+	};
+	fs.watchFile(tokenFile, { persistent: false, interval: intervalMs }, onTokenFile);
+	return { dispose: () => fs.unwatchFile(tokenFile, onTokenFile) };
+}
+
+async function getMtime(file: string): Promise<number | undefined> {
+	try {
+		return (await fs.promises.stat(file)).mtime.getTime();
+	} catch {
+		return undefined;
+	}
 }

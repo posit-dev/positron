@@ -8,9 +8,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { AuthProvider } from '../authProvider';
+import { AuthProvider, CredentialChainConfig } from '../authProvider';
 import { AWS_AUTH_PROVIDER_ID } from '../constants';
-import { createAwsCredentialChain, resolveAwsChainInit } from '../credentials/aws';
+import { createAwsCredentialChain, resolveAwsChainInit, watchWebIdentityTokenFile } from '../credentials/aws';
 
 // clientConfig is only set for web-identity auth, so tests that assert it
 // pass this env; SSO/other paths pass {} and must not get a clientConfig.
@@ -56,17 +56,31 @@ suite('resolveAwsChainInit', () => {
 suite('AWS credential chain (web identity)', () => {
 	let tokenDir: string;
 	let tokenFile: string;
+	let globalState: Map<string, unknown>;
+	let chainCalls: number;
+	let stsFails: boolean;
+	let events: { added: number; changed: number };
+	let chain: CredentialChainConfig;
 	let provider: AuthProvider;
-	let addedEvents: number;
 
-	setup(() => {
-		tokenDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aws-web-identity-'));
-		tokenFile = path.join(tokenDir, 'id_token');
-		const env = {
-			AWS_WEB_IDENTITY_TOKEN_FILE: tokenFile,
-			AWS_ROLE_ARN: 'arn:aws:iam::123456789012:role/bedrock',
+	// Stands in for fromNodeProviderChain's web-identity leg: it reads the
+	// token file, so it fails with ENOENT until the file exists, and the
+	// STS exchange it would then make is replaced by fresh credentials.
+	const fakeChain = () => async () => {
+		chainCalls++;
+		const idToken = await fs.promises.readFile(tokenFile, 'utf8');
+		if (stsFails) {
+			throw new Error('STS unreachable');
+		}
+		return {
+			accessKeyId: 'ASIA',
+			secretAccessKey: `secret-${chainCalls}-${idToken}`,
+			sessionToken: 'session',
+			expiration: new Date(Date.now() + 60 * 60 * 1000),
 		};
-		const globalState = new Map<string, unknown>();
+	};
+
+	function createProvider(env: NodeJS.ProcessEnv): AuthProvider {
 		const context = {
 			secrets: { get: () => Promise.resolve(undefined) },
 			globalState: {
@@ -77,27 +91,32 @@ suite('AWS credential chain (web identity)', () => {
 				},
 			},
 		} as unknown as vscode.ExtensionContext;
+		chain = createAwsCredentialChain(() => ({ region: 'eu-west-1' }), env, fakeChain);
+		const created = new AuthProvider(AWS_AUTH_PROVIDER_ID, 'AWS', context, undefined, chain);
+		created.onDidChangeSessions(e => {
+			events.added += e.added?.length ?? 0;
+			events.changed += e.changed?.length ?? 0;
+		});
+		return created;
+	}
 
-		// Stands in for fromNodeProviderChain's web-identity leg: it reads the
-		// token file, so it fails with ENOENT until the file exists, and the
-		// STS exchange it would then make is replaced by fixed credentials.
-		const fakeChain = () => async () => {
-			const idToken = await fs.promises.readFile(env.AWS_WEB_IDENTITY_TOKEN_FILE, 'utf8');
-			return {
-				accessKeyId: 'ASIA',
-				secretAccessKey: `secret-for-${idToken}`,
-				sessionToken: 'session',
-				expiration: new Date(Date.now() + 60 * 60 * 1000),
-			};
-		};
+	/** Rewrite the token file with an mtime later than any earlier write. */
+	function writeToken(secondsAhead: number): void {
+		fs.writeFileSync(tokenFile, 'jwt');
+		const mtime = new Date(Date.now() + secondsAhead * 1000);
+		fs.utimesSync(tokenFile, mtime, mtime);
+	}
 
-		provider = new AuthProvider(
-			AWS_AUTH_PROVIDER_ID, 'AWS', context, undefined,
-			createAwsCredentialChain(() => ({ region: 'eu-west-1' }), env, fakeChain),
-		);
-		addedEvents = 0;
-		provider.onDidChangeSessions(e => {
-			addedEvents += e.added?.length ?? 0;
+	setup(() => {
+		tokenDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aws-web-identity-'));
+		tokenFile = path.join(tokenDir, 'id_token');
+		globalState = new Map();
+		chainCalls = 0;
+		stsFails = false;
+		events = { added: 0, changed: 0 };
+		provider = createProvider({
+			AWS_WEB_IDENTITY_TOKEN_FILE: tokenFile,
+			AWS_ROLE_ARN: 'arn:aws:iam::123456789012:role/bedrock',
 		});
 	});
 
@@ -115,8 +134,83 @@ suite('AWS credential chain (web identity)', () => {
 		const sessions = await provider.getSessions();
 
 		assert.deepStrictEqual(
-			{ atStartup, sessions: sessions.length, addedEvents },
-			{ atStartup: undefined, sessions: 1, addedEvents: 1 },
+			{ atStartup, sessions: sessions.length, events },
+			{ atStartup: undefined, sessions: 1, events: { added: 1, changed: 0 } },
+		);
+	});
+
+	test('does not retry while the token file is still missing', async () => {
+		await provider.resolveChainCredentials();
+
+		await provider.getSessions();
+		await provider.getSessions();
+
+		assert.strictEqual(chainCalls, 1);
+	});
+
+	test('held credentials are not re-resolved when the token file is rewritten', async () => {
+		writeToken(0);
+		await provider.resolveChainCredentials();
+
+		writeToken(60);
+		const sessions = await provider.getSessions();
+
+		assert.deepStrictEqual(
+			{ chainCalls, sessions: sessions.length, events },
+			{ chainCalls: 1, sessions: 1, events: { added: 1, changed: 0 } },
+		);
+	});
+
+	test('a failed exchange is retried once per token file rewrite', async () => {
+		writeToken(0);
+		stsFails = true;
+		await provider.resolveChainCredentials();
+		const unchangedFile = await provider.getSessions();
+
+		stsFails = false;
+		writeToken(60);
+		const afterRewrite = await provider.getSessions();
+
+		assert.deepStrictEqual(
+			{ unchangedFile: unchangedFile.length, afterRewrite: afterRewrite.length, chainCalls },
+			{ unchangedFile: 0, afterRewrite: 1, chainCalls: 2 },
+		);
+	});
+
+	test('the token file watcher signs in without waiting for getSessions', async () => {
+		fs.rmSync(tokenDir, { recursive: true, force: true });
+		await provider.resolveChainCredentials();
+		const env = { AWS_WEB_IDENTITY_TOKEN_FILE: tokenFile };
+		const watcher = watchWebIdentityTokenFile(env, chain, () => provider.resolveChainCredentials(), 20)!;
+		try {
+			const added = new Promise<void>(resolve => provider.onDidChangeSessions(e => {
+				if (e.added?.length) {
+					resolve();
+				}
+			}));
+
+			// The folder is missing too, as it can be before the agent's first write.
+			fs.mkdirSync(tokenDir);
+			fs.writeFileSync(tokenFile, 'jwt');
+			await added;
+		} finally {
+			watcher.dispose();
+		}
+
+		assert.deepStrictEqual(events, { added: 1, changed: 0 });
+	});
+
+	test('without web identity, a failed resolve is not retried by getSessions', async () => {
+		provider.dispose();
+		provider = createProvider({});
+		await provider.resolveChainCredentials();
+
+		fs.writeFileSync(tokenFile, 'jwt');
+		const sessions = await provider.getSessions();
+
+		assert.deepStrictEqual(
+			{ chainCalls, sessions: sessions.length },
+			{ chainCalls: 1, sessions: 0 },
 		);
 	});
 });

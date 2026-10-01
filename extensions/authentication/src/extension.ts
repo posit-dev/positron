@@ -38,7 +38,7 @@ import {
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
 import { createManagedCredentialsApi } from './managedCredentialsApi';
-import { createAwsCredentialChain } from './credentials/aws';
+import { createAwsCredentialChain, watchWebIdentityTokenFile } from './credentials/aws';
 import { createAwsSsoRecovery } from './awsRecovery';
 import { resolveGeapCredential } from './credentials/geap';
 import {
@@ -415,14 +415,15 @@ async function registerAwsProvider(
 ): Promise<void> {
 	const logger = new AuthProviderLogger('AWS');
 
+	const credentialChain = createAwsCredentialChain(
+		() => getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws,
+		process.env,
+		fromNodeProviderChain,
+	);
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
 		undefined,
-		createAwsCredentialChain(
-			() => getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws,
-			process.env,
-			fromNodeProviderChain,
-		)
+		credentialChain
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
@@ -448,6 +449,13 @@ async function registerAwsProvider(
 			)?.connection.aws?.profile,
 		}),
 	});
+
+	const tokenWatcher = watchWebIdentityTokenFile(
+		process.env, credentialChain, () => provider.resolveChainCredentials()
+	);
+	if (tokenWatcher) {
+		context.subscriptions.push(tokenWatcher);
+	}
 	await provider.resolveChainCredentials();
 	logger.info('Registered auth provider');
 }
