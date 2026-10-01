@@ -299,7 +299,7 @@ interface DataConnectionNodeDetailsPageProps {
  * node again in the tree updates the open tab in place (keeping the selected tab).
  */
 export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetailsPageProps) => {
-	const { configurationService, hoverService, positronDataConnectionsService, viewsService } = usePositronReactServicesContext();
+	const { configurationService, hoverService, notificationService, positronDataConnectionsService, viewsService } = usePositronReactServicesContext();
 	const [details, setDetails] = useState(() => input.details);
 
 	// Shows a node in the Data Connections pane, given its path below the connection. The pane is
@@ -318,20 +318,31 @@ export const DataConnectionNodeDetailsPage = ({ input }: DataConnectionNodeDetai
 	);
 
 	// Opens the node's data. The page holds a snapshot, not the node's handle -- that dies when the
-	// tree refreshes -- so the tree walks back down to the node and opens it from there, putting
-	// itself back as it was and leaving focus to the Data Explorer that opens. Opening data is not
-	// showing the node, so the pane isn't opened: its tree takes the request even while another view
-	// fills the sidebar. Only when no tree was there to take it -- the pane hasn't been opened in this
-	// window, or was closed since -- is the pane opened, for its tree to take the waiting request as
-	// it is built.
+	// tree refreshes -- so the pane's tree finds the node by its path and opens it, puts itself back
+	// as it was, and reports any failure. Opening data is not showing the node, so the pane is opened
+	// only when it has no tree to do the finding -- it hasn't been opened in this window, or was
+	// closed since -- and then without focus. A press while one is under way is ignored, as the
+	// row's are.
+	const openingRef = useRef(false);
 	const openInDataExplorer = async () => {
-		const taken = positronDataConnectionsService.revealConnection(input.target.profileId, {
-			nodePath: input.target.nodePath,
-			openInDataExplorer: true,
-			preserveFocus: true,
-		});
-		if (!taken) {
-			await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+		if (openingRef.current) {
+			return;
+		}
+		openingRef.current = true;
+		try {
+			if (!positronDataConnectionsService.hasNodeOpener()) {
+				await viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+			}
+			const opened = await positronDataConnectionsService.openNodeInDataExplorer(input.target.profileId, input.target.nodePath, input.target.name);
+			if (!opened) {
+				notificationService.error(localize(
+					'positron.dataConnections.nodeDetails.openInDataExplorerNoPane',
+					"Could not open '{0}' in the Data Explorer: the Data Connections pane is not available.",
+					input.target.name
+				));
+			}
+		} finally {
+			openingRef.current = false;
 		}
 	};
 

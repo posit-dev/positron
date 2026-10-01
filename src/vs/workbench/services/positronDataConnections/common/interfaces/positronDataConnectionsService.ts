@@ -25,11 +25,6 @@ export interface IDataConnectionRevealOptions {
 	// Whether to open the node's details once it is revealed, when it has any.
 	readonly openDetails?: boolean;
 
-	// Whether to open the node in the Data Explorer, when it can preview, instead of going to it: the
-	// tree opens its way down to the node (connecting, if need be), then puts itself back as it was,
-	// collapsing what it expanded on the way and leaving its selection and focus alone.
-	readonly openInDataExplorer?: boolean;
-
 	// Whether to leave keyboard focus where it is rather than move it to the revealed row -- for a
 	// request made from somewhere the user is still reading, such as a details editor's breadcrumbs.
 	readonly preserveFocus?: boolean;
@@ -40,6 +35,24 @@ export interface IDataConnectionRevealOptions {
  */
 export interface IDataConnectionRevealRequest extends IDataConnectionRevealOptions {
 	readonly profileId: string;
+}
+
+/**
+ * Opens a node in the Data Explorer given only its path below its connection, for a caller that
+ * holds the path rather than the node's live handle, as a details editor does. Implemented by the
+ * Data Connections pane's tree, which holds the connections' live nodes, and registered with the
+ * service for as long as the tree exists (see IPositronDataConnectionsService.registerNodeOpener).
+ */
+export interface IDataConnectionNodeOpener {
+	/**
+	 * Opens the node at a path below a connection in the Data Explorer, connecting if need be, and
+	 * reports any failure itself: that the node is no longer there, or that it couldn't be opened.
+	 * @param profileId The id of the connection's profile.
+	 * @param nodePath The reload key (see nodeReloadKey) of each row on the way down from the
+	 * connection to the node, group rows included.
+	 * @param name The node's name, for reporting a failure.
+	 */
+	openInDataExplorer(profileId: string, nodePath: readonly string[], name: string): Promise<void>;
 }
 
 /**
@@ -85,11 +98,8 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * have to race it.
 	 * @param profileId The id of the profile to show.
 	 * @param options Where in the connection to go, and whether to open that node's details.
-	 * @returns Whether a live tree took the request as it was made. A tree takes requests whether or
-	 * not its pane is showing; when there is none to take it -- the pane hasn't been opened in this
-	 * window, or was closed since -- the request waits for the next tree to be built.
 	 */
-	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): boolean;
+	revealConnection(profileId: string, options?: IDataConnectionRevealOptions): void;
 
 	/**
 	 * Takes the outstanding reveal request, if there is one, clearing it. Called by the pane's tree
@@ -99,6 +109,34 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @returns The request, or undefined if no request is outstanding.
 	 */
 	takePendingRevealConnection(): IDataConnectionRevealRequest | undefined;
+
+	/**
+	 * Registers the Data Connections pane's tree as the opener of nodes by their path, for as long as
+	 * the tree exists. A later registration replaces an earlier one.
+	 * @param opener The opener.
+	 * @returns A disposable that unregisters the opener.
+	 */
+	registerNodeOpener(opener: IDataConnectionNodeOpener): IDisposable;
+
+	/**
+	 * Whether the pane's tree is there to open nodes by their path. The tree lives as long as its
+	 * pane does, whether or not the pane is showing, so there is none only when the pane hasn't been
+	 * opened in this window or was closed since. A caller opens it (IViewsService.openView) before
+	 * calling {@link openNodeInDataExplorer} in that case.
+	 */
+	hasNodeOpener(): boolean;
+
+	/**
+	 * Opens the node at a path below a connection in the Data Explorer, through the pane's tree
+	 * (see {@link IDataConnectionNodeOpener.openInDataExplorer}), which reports any failure itself.
+	 * When there is no tree yet -- a pane opened just now builds its tree as it renders -- waits a
+	 * moment for one, rather than leaving the request behind for whenever one arrives.
+	 * @param profileId The id of the connection's profile.
+	 * @param nodePath The reload key of each row on the way down from the connection to the node.
+	 * @param name The node's name, for reporting a failure.
+	 * @returns Whether a tree was there to open the node; false when none arrived in time.
+	 */
+	openNodeInDataExplorer(profileId: string, nodePath: readonly string[], name: string): Promise<boolean>;
 
 	/**
 	 * Gets the connections drivers report as already configured on this machine (e.g. ODBC data

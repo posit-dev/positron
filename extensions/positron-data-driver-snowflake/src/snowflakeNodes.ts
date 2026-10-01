@@ -579,6 +579,22 @@ function showValue(value: unknown): string | undefined {
 }
 
 /**
+ * Formats a timestamp column for display the way showValue formats the SDK's Dates. LIST reports a
+ * file's last modification as text (e.g. `Thu, 3 Oct 2024 16:09:00 GMT`) rather than as a timestamp,
+ * so text that reads as a date is shown in the same local format as every other date in the details;
+ * anything else is shown as it came.
+ */
+function showTimestamp(value: unknown): string | undefined {
+	if (typeof value === 'string') {
+		const time = Date.parse(value);
+		if (!isNaN(time)) {
+			return new Date(time).toLocaleString();
+		}
+	}
+	return showValue(value);
+}
+
+/**
  * Reads a SHOW flag column. SHOW reports flags inconsistently across commands -- 'Y' and 'N' in some,
  * 'true' and 'false' or 'ON' and 'OFF' in others -- so each is read as yes or no. Returns undefined
  * for a value that is neither.
@@ -1019,8 +1035,10 @@ function quoteLiteral(value: string): string {
 
 /**
  * Lists a folder of a stage: its subfolders, then its files, each in name order -- the ordering a
- * file browser uses. LIST always lists everything under the location it's given, with no limit, so
- * only its first MAX_STAGE_FILES rows are read, with a notice saying so.
+ * file browser uses. Each folder lists its own prefix when it is expanded, so what it shows is
+ * current, and refreshing it picks up what has changed under it. LIST always lists everything under
+ * the location it's given, with no limit, so only its first MAX_STAGE_FILES rows are read, with a
+ * notice saying so.
  *
  * A stage the role can see but not read (no READ on an internal stage, or an external stage whose
  * credentials or integration fail) can't be listed. That isn't a fault in the tree: the stage's
@@ -1048,51 +1066,31 @@ async function listStageFolder(client: SnowflakeClient, stage: IStageLocation, p
 	// LIST on the folder returns only the files under it, so each path starts with the folder's own.
 	const folder = stageFolders(listing.rows.map(row =>
 		({ path: stageFilePath(String(row.name), stage.url, stage.name).slice(prefix.length), row })));
-	const complete = listing.total <= listing.rows.length;
-	const nodes = stageFolderNodes(client, stage, prefix, folder, complete);
-	if (!complete) {
-		nodes.unshift({
-			name: vscode.l10n.t('Showing the first {0} of {1} files', listing.rows.length.toLocaleString(), listing.total.toLocaleString()),
+
+	const nodes: positron.DataConnectionNode[] = [];
+	if (listing.total > listing.rows.length) {
+		// LIST counts every file below the folder, not just those directly in it, so the notice says
+		// so: the rows under it are this level's, which a deep folder may have far fewer of.
+		const shown = listing.rows.length.toLocaleString();
+		const total = listing.total.toLocaleString();
+		nodes.push({
+			name: prefix
+				? vscode.l10n.t('Only the first {0} of the {1} files in this folder and its subfolders were listed', shown, total)
+				: vscode.l10n.t('Only the first {0} of the {1} files in this stage were listed', shown, total),
 			kind: positron.DataConnectionNodeKind.Notice,
 		});
 	}
-	return nodes;
-}
-
-/**
- * Creates the nodes for a folder of a stage's listing: its subfolders, then its files, each in name
- * order. A listing that wasn't cut short holds every file below the folder, so each subfolder's first
- * expansion is built from it rather than listed again -- a deep folder costs one LIST, not one per
- * level. Expanding it again (a refresh) lists it afresh, so a refresh picks up what changed under it.
- * @param client The client.
- * @param stage The stage.
- * @param prefix The folder's path within the stage, with a trailing slash; empty for the stage itself.
- * @param folder The folder's files and subfolders.
- * @param complete Whether the listing holds every file below the folder.
- */
-function stageFolderNodes(client: SnowflakeClient, stage: IStageLocation, prefix: string, folder: IStageFolder, complete: boolean): positron.DataConnectionNode[] {
-	const nodes: positron.DataConnectionNode[] = [];
-	for (const [name, child] of [...folder.folders].sort(([a], [b]) => a.localeCompare(b))) {
+	for (const name of [...folder.folders.keys()].sort((a, b) => a.localeCompare(b))) {
 		const folderPrefix = `${prefix}${name}/`;
-		// Taken by the first expansion, so the listing is let go of once it has been shown.
-		let listed = complete ? child : undefined;
 		nodes.push({
 			name,
 			kind: positron.DataConnectionNodeKind.Directory,
 			path: `${stage.path}/${folderPrefix}`,
-			async getChildren() {
-				const snapshot = listed;
-				listed = undefined;
-				return snapshot
-					? stageFolderNodes(client, stage, folderPrefix, snapshot, true)
-					: listStageFolder(client, stage, folderPrefix);
-			},
+			getChildren: () => listStageFolder(client, stage, folderPrefix),
 		});
 	}
-	// A file's path is its folder's and its name: the path it was listed under is relative to the
-	// folder that was listed, which for a folder built from its parent's listing is the parent.
 	for (const { name, file } of [...folder.files].sort((a, b) => a.name.localeCompare(b.name))) {
-		nodes.push(createStageFileNode(`${stage.path}/${prefix}${name}`, name, file.row));
+		nodes.push(createStageFileNode(`${stage.path}/${prefix}${file.path}`, name, file.row));
 	}
 	return nodes;
 }
@@ -1116,7 +1114,7 @@ function createStageFileNode(path: string, name: string, row: Record<string, unk
 				sections: propertiesSection([
 					{ name: vscode.l10n.t('Path'), value: path },
 					{ name: vscode.l10n.t('Size'), value: showSize(row.size) },
-					{ name: vscode.l10n.t('Last Modified'), value: showValue(row.last_modified) },
+					{ name: vscode.l10n.t('Last Modified'), value: showTimestamp(row.last_modified) },
 					{ name: vscode.l10n.t('MD5'), value: showValue(row.md5) },
 				]),
 			};
