@@ -95,10 +95,12 @@ def _get_missing_imports(
 
     An optional second parameter is a list of extra import root directories to
     search in addition to `sys.path`. The frontend passes the directory of the
-    file being analyzed so that local modules (e.g. a sibling `helper` package)
-    are recognized as importable, mirroring how running a file temporarily adds
-    its directory to `sys.path`. Without this, a local module would be
-    misreported as a missing, installable package.
+    document being analyzed, then each parent directory up to its workspace
+    folder, so that local modules (e.g. a sibling `helper` package, or a
+    `utils` module at the project root) are recognized as importable. This
+    mirrors how running a file temporarily adds its directory to `sys.path`.
+    Without this, a local module would be misreported as a missing, installable
+    package. Every root is searched, not only the first.
 
     The caller (the frontend analyzer) is responsible for mapping a missing
     import name back to an installable distribution; this method only answers
