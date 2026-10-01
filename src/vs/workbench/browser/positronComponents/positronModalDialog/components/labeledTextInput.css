@@ -3,26 +3,31 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-modal-dialog-box .labeled-text-input {
+.positron-modal-dialog-box .labeled-text-input,
+.positron-dynamic-modal-dialog-box .labeled-text-input {
 	width: 100%;
 }
 
-.positron-modal-dialog-box .labeled-text-input.disabled {
+.positron-modal-dialog-box .labeled-text-input.disabled,
+.positron-dynamic-modal-dialog-box .labeled-text-input.disabled {
 	cursor: default;
 	border-color: var(--vscode-disabledForeground);
 	color: var(--vscode-disabledForeground);
 }
 
-.positron-modal-dialog-box .labeled-text-input label {
+.positron-modal-dialog-box .labeled-text-input label,
+.positron-dynamic-modal-dialog-box .labeled-text-input label {
 	display: flex;
 	flex-direction: column;
 }
 
-.positron-modal-dialog-box .labeled-text-input .text-input {
+.positron-modal-dialog-box .labeled-text-input .text-input,
+.positron-dynamic-modal-dialog-box .labeled-text-input .text-input {
 	margin-top: 4px;
 }
 
-.positron-modal-dialog-box .labeled-text-input span.error {
+.positron-modal-dialog-box .labeled-text-input span.error,
+.positron-dynamic-modal-dialog-box .labeled-text-input span.error {
 	color: var(--vscode-errorForeground);
 	height: 1em;
 	display: block;

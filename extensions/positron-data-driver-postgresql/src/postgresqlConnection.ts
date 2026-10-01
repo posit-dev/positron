@@ -133,10 +133,15 @@ function withConnectionStringDatabase(connectionString: string, database: string
  * every driver at once, and a user who never opens a PostgreSQL connection should never pay to load
  * pg.
  *
+ * pg is bundled behind a shim module (src/pg.ts) that is its own esbuild entry point, so the
+ * packaged extension loads the bundled copy with a relative dynamic import rather than resolving
+ * the package from node_modules, which does not ship. The shim is CommonJS with `export =`, so the
+ * namespace a dynamic import() yields carries the module object on `default`.
+ *
  * Exported for unit tests, which assert the lazy import yields a constructible client.
  */
 export async function buildPgClient(config: PostgreSQLConnectionConfig, database?: string): Promise<Client> {
-	const { Client } = await import('pg');
+	const { Client } = (await import('./pg.js')).default;
 	// Keep the socket warm across idle gaps and let the OS detect a dead peer quickly.
 	const keepAlive = { keepAlive: true, keepAliveInitialDelayMillis: KEEP_ALIVE_INITIAL_DELAY_MS };
 	if (config.kind === 'connectionString') {

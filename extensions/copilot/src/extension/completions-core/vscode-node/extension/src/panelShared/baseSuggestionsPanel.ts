@@ -194,6 +194,26 @@ export abstract class BaseSuggestionsPanel<TPanelCompletion extends BasePanelCom
 						code {
 							background-color: transparent;
 						}
+						/* --- Start PWB: Style native accept buttons (replaces deprecated webview-ui-toolkit vscode-button) --- */
+						.acceptButton {
+							padding: 4px 11px;
+							border: 1px solid var(--vscode-button-border, transparent);
+							border-radius: 2px;
+							color: var(--vscode-button-secondaryForeground);
+							background: var(--vscode-button-secondaryBackground);
+							font-family: var(--vscode-font-family);
+							font-size: var(--vscode-font-size);
+							line-height: 18px;
+							cursor: pointer;
+						}
+						.acceptButton:hover {
+							background: var(--vscode-button-secondaryHoverBackground);
+						}
+						.acceptButton:focus-visible {
+							outline: 1px solid var(--vscode-focusBorder);
+							outline-offset: 2px;
+						}
+						/* --- End PWB --- */
 					</style>
 				</head>
 				<body>

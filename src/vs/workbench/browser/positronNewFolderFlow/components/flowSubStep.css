@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 .flow-step .flow-sub-step {
-	font-size: 14px;
+	font-size: 13px;
 	margin-bottom: 8px;
 }
 
 .flow-step .flow-sub-step .flow-sub-step-title {
-	font-weight: bold;
-	margin-bottom: 8px;
+	font-weight: 600;
+	margin-bottom: 4px;
 }
 
 .flow-step .flow-sub-step .flow-sub-step-description {

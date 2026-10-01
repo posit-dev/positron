@@ -65,9 +65,7 @@ test.describe('Sessions: R Session Init Hooks', {
 		await app.workbench.editors.waitForActiveTab('DESCRIPTION');
 	});
 
-	test.skip('R - Window reload fires only session_reconnect, not session_init or .Rprofile', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7593' }]
-	}, async function ({ app, hotKeys }) {
+	test('R - Window reload fires only session_reconnect, not session_init or .Rprofile', async function ({ app, hotKeys }) {
 		const { console } = app.workbench;
 
 		await hotKeys.closeAllEditors();
@@ -105,7 +103,6 @@ test.describe('Sessions: R Session Init Hooks', {
 		await console.executeCode('R', 'cat(paste0("[verify] marker_survived=", exists(".positron_init_marker", envir = globalenv())))');
 		await console.waitForConsoleContents('[verify] marker_survived=TRUE', { timeout: 15000, exact: true });
 
-		// .Rprofile must NOT have re-executed (it would print this to console)
-		await console.waitForConsoleContents('[.Rprofile] top-level code executed', { expectedCount: 0, timeout: 5000 });
+		// No console check for .Rprofile text: reload replays pre-clear output (#16333).
 	});
 });

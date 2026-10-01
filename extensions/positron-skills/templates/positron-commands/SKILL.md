@@ -7,14 +7,14 @@ description: >
   listing, switching, starting, restarting or interrupting sessions, setting
   up Python, reading, installing or updating a session's packages, running or
   debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
-  marimo), and reading the Data Connections pane, including a live
-  connection's tables and columns. Use when the user wants Positron itself to
-  act, or to know what is installed, rather than to run R or Python code.
-  Triggers: "show the variables pane", "open data.csv", "show this HTML in
-  the Viewer", "what interpreters are available", "switch to my R session",
-  "my session is stuck", "is pandas installed?", "set up a Python
-  environment", "run my shiny app", "what tables are in my warehouse",
-  "deploy my app to Connect".
+  marimo), reading the Data Connections pane, including a live connection's
+  tables and columns, and creating, editing, or running Jupyter notebook
+  cells. Use when the user wants Positron itself to act, or to know what is
+  installed, rather than to run R or Python code. Triggers: "show the
+  variables pane", "open data.csv", "show this HTML in the Viewer", "switch
+  to my R session", "my session is stuck", "is pandas installed?", "set up a
+  Python environment", "run my shiny app", "what tables are in my
+  warehouse", "add a cell to this notebook".
 ---
 
 # Positron IDE commands
@@ -127,6 +127,10 @@ Viewer by default, or wherever the user's preview mode setting points.
 Read when the user asks about: the database or warehouse connections they have
 configured, which of them are connected, the tables and columns a live
 connection exposes, or writing a query against one of their connections.
+
+**Notebooks** -- [references/notebooks.md]({{skill_dir}}/references/notebooks.md)
+Read when the user wants to create a Jupyter notebook, or read, insert, edit,
+delete, or run cells in one that's open in the Positron notebook editor.
 
 **Deploying to Connect** -- [references/publishing.md]({{skill_dir}}/references/publishing.md)
 Read when the user wants to deploy or publish a project to Posit Connect or

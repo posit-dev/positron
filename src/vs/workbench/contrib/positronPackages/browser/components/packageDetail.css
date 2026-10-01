@@ -129,51 +129,7 @@
 }
 
 .package-detail-tabs {
-	display: flex;
-	gap: 4px;
-	border-bottom: 1px solid var(--vscode-panel-border);
 	margin-top: 12px;
-}
-
-/*
- * Anchored with `.positron-button` (two-class specificity) so these styles win
- * over the base `.positron-button` rule, as the action buttons above do.
- */
-.package-detail-tab.positron-button {
-	position: relative;
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	padding: 8px 12px;
-	font-size: 12px;
-	text-transform: uppercase;
-	letter-spacing: 0.5px;
-	color: var(--vscode-descriptionForeground);
-}
-
-.package-detail-tab.positron-button:hover {
-	color: var(--vscode-foreground);
-}
-
-.package-detail-tab.active.positron-button {
-	color: var(--vscode-foreground);
-}
-
-/*
- * The selected tab's underline. Drawn as a pseudo-element rather than a
- * border because the high-contrast themes set a border on every
- * `.positron-button` at higher specificity (button.css), which would erase it
- * -- exactly where the colour difference between selected and unselected is
- * least likely to read on its own.
- */
-.package-detail-tab.active.positron-button::after {
-	content: '';
-	position: absolute;
-	right: 0;
-	bottom: 0;
-	left: 0;
-	height: 2px;
-	background: var(--vscode-focusBorder);
 }
 
 /*
@@ -206,15 +162,6 @@
 .package-detail-tab-badge.severity-unscored {
 	color: var(--_positron-package-severity-warning);
 	background: color-mix(in srgb, var(--_positron-package-severity-warning) 14%, var(--vscode-editor-background));
-}
-
-.package-detail-panel:focus {
-	outline: none;
-}
-
-.package-detail-panel:focus-visible {
-	outline: 1px solid var(--vscode-focusBorder);
-	outline-offset: 2px;
 }
 
 .package-detail-overview,

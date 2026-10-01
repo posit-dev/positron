@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { traceError, traceInfo } from '../../../logging';
 import { exec } from '../externalDependencies';
-import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execUv } from './uv';
+import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execLocatedUv } from './uv';
 import { Commands } from '../../../common/constants';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
 import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
@@ -56,7 +56,15 @@ async function allowUvInstall(): Promise<boolean> {
 }
 
 /**
- * Installs uv using the official installer script.
+ * Echoed by the installer command only when the script exits 0. `exec` reports neither the exit
+ * status nor a usable error, since it rejects only when the process cannot be spawned and the
+ * installer writes its normal progress to stderr, so this marker is the only signal of success.
+ */
+export const UV_INSTALL_OK_MARKER = 'positron-uv-install-ok';
+
+/**
+ * Runs the official uv installer script. The caller is responsible for getting consent
+ * first, so that nothing reports progress on an install the user has not agreed to.
  *
  * Note: This follows the official uv installation pattern (https://docs.astral.sh/uv/getting-started/installation/).
  * The scripts are fetched over HTTPS from astral.sh and executed directly. This is
@@ -65,27 +73,44 @@ async function allowUvInstall(): Promise<boolean> {
  *
  * @returns true if installation succeeded, false otherwise
  */
-async function installUv(): Promise<boolean> {
-    const allowInstall = await allowUvInstall();
-    if (!allowInstall) {
-        traceInfo('User declined uv installation');
-        return false;
-    }
-
+async function runUvInstaller(): Promise<boolean> {
     traceInfo('Installing uv...');
 
     try {
-        if (process.platform === 'win32') {
-            await exec('powershell', [
-                '-ExecutionPolicy',
-                'ByPass',
-                '-c',
-                'irm https://astral.sh/uv/install.ps1 | iex',
-            ]);
-        } else {
-            await exec('sh', ['-c', 'curl -LsSf https://astral.sh/uv/install.sh | sh']);
+        const result =
+            process.platform === 'win32'
+                ? await exec('powershell', [
+                      '-ExecutionPolicy',
+                      'ByPass',
+                      '-c',
+                      // `$?` reports whether the install succeeded without making non-terminating
+                      // errors fatal, which setting $ErrorActionPreference would, failing installs
+                      // that used to work.
+                      `irm https://astral.sh/uv/install.ps1 | iex; if ($?) { Write-Output "${UV_INSTALL_OK_MARKER}" }`,
+                  ])
+                : await exec('sh', [
+                      '-c',
+                      // Downloaded to a file rather than piped into `sh`, so a failed download is
+                      // fatal to the marker: piped, the status is the downstream shell's, which
+                      // exits 0 on empty stdin. `pipefail` and PIPESTATUS are out, since /bin/sh
+                      // is dash on some Linux distros.
+                      `script="$(mktemp)" && trap 'rm -f "$script"' EXIT && ` +
+                          `curl -LsSf https://astral.sh/uv/install.sh -o "$script" && ` +
+                          `sh "$script" && echo ${UV_INSTALL_OK_MARKER}`,
+                  ]);
+
+        if (!result.stdout.includes(UV_INSTALL_OK_MARKER)) {
+            traceError(`Failed to install uv: ${result.stderr?.trim() || result.stdout.trim()}`);
+            return false;
         }
-        traceInfo('uv installed successfully');
+
+        // The installer names the directory it wrote to. Logged on success too, so that "uv was
+        // installed but could not be found." has something behind its Show logs button.
+        const installerOutput = [result.stderr, result.stdout.replace(UV_INSTALL_OK_MARKER, '')]
+            .map((output) => output?.trim())
+            .filter((output) => output)
+            .join('\n');
+        traceInfo(`uv installed successfully${installerOutput ? `:\n${installerOutput}` : ''}`);
         // Clear caches so that subsequent calls detect the newly installed uv
         resetUvCache();
         return true;
@@ -108,20 +133,34 @@ export type EnsureUvResult = { ok: true } | { ok: false; error?: string };
 /**
  * Makes sure uv is available, prompting for consent and installing it if it is not.
  *
- * @param onInstalling Called only when uv is actually missing and about to be
- *   installed, so callers can report progress without claiming to install uv that
- *   is already there.
+ * @param onInstalling Called only once uv is missing and the user has consented, so
+ *   callers can report progress without claiming to install uv that is already there,
+ *   or to be installing while the consent prompt is still on screen.
+ * @param options.consented Skips the consent prompt, for callers whose own UI already asked. The
+ *   New Folder flow's Install uv button says what will run, so pressing it is the consent, and a
+ *   modal prompt over that modal dialog would ask twice.
  */
-export async function ensureUvInstalled(onInstalling?: () => void): Promise<EnsureUvResult> {
+export async function ensureUvInstalled(
+    onInstalling?: () => void,
+    options?: { consented?: boolean },
+): Promise<EnsureUvResult> {
     if (await isUvInstalled()) {
         return { ok: true };
     }
 
+    // Consent comes before the callback: while the prompt is up nothing is installing yet,
+    // and a caller that reported progress here would be claiming work the user has not agreed to.
+    if (!options?.consented && !(await allowUvInstall())) {
+        traceInfo('User declined uv installation');
+        return { ok: false };
+    }
+
     onInstalling?.();
 
-    if (!(await installUv())) {
-        // User declined or installation failed - exit silently
-        return { ok: false };
+    if (!(await runUvInstaller())) {
+        // Not the same as uv landing somewhere unreachable, so this must not fall through to the
+        // "installed but could not be found" message below.
+        return { ok: false, error: InterpreterQuickPickList.UvInstall.uvInstallFailed };
     }
 
     // Verify uv is now reachable. The installer drops the binary at a known
@@ -137,6 +176,53 @@ export async function ensureUvInstalled(onInstalling?: () => void): Promise<Ensu
 }
 
 /**
+ * Like ensureUvInstalled, but shows an "Installing uv" notification for as long as the
+ * installer runs. Meant for callers that have no UI of their own for the install, such as
+ * the New Folder flow, which only learns the outcome once the command returns.
+ *
+ * The notification opens only after the user has consented, so nothing claims to be
+ * installing while the consent prompt is on screen. It is a notification rather than a
+ * window-level indicator because notification toasts render above Positron modal dialogs.
+ *
+ * @param options Passed through to ensureUvInstalled.
+ */
+export async function ensureUvInstalledWithProgress(options?: { consented?: boolean }): Promise<EnsureUvResult> {
+    let finishInstall: (() => void) | undefined;
+
+    let result: EnsureUvResult;
+    try {
+        result = await ensureUvInstalled(() => {
+            const installing = new Promise<void>((resolve) => {
+                finishInstall = resolve;
+            });
+            vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: InterpreterQuickPickList.UvInstall.installingUv,
+                },
+                () => installing,
+            );
+        }, options);
+    } finally {
+        // In a finally so a throw after the notification opened still closes it, rather than
+        // leaving it claiming an install is running until the window is reloaded.
+        finishInstall?.();
+    }
+
+    // The step below this only has room to say that the install failed. The notification is what
+    // carries the way to find out why, through its Show logs button, which is why the flow does not
+    // have to grow a log affordance of its own. A declined install has no error and shows nothing.
+    if (!result.ok && result.error) {
+        // Deliberately not awaited: the notification stays until the user dismisses it, and
+        // awaiting it would hold this command open, leaving the step that called it stuck showing
+        // an install still in progress.
+        void showUvInstallError(result.error);
+    }
+
+    return result;
+}
+
+/**
  * Installs a Python version using uv and returns the path to the installed Python.
  * @param version The version to install (e.g., "3.13.1" or "3.13")
  * @param identifier Optional full identifier for Windows ARM64 (e.g., "cpython-3.13.1-windows-aarch64-none")
@@ -146,15 +232,13 @@ async function installPythonVersionAndGetPath(version: string, identifier?: stri
     traceInfo(`Installing Python ${version} via uv...`);
 
     try {
-        // Use exec directly instead of installUvPython to avoid cache issues
-        // when uv was just installed in the same session.
         // On Windows ARM64, use the full identifier to ensure we get ARM64 builds.
         // See: https://github.com/astral-sh/uv/issues/12906
         const installTarget = identifier ?? version;
-        await execUv('uv', ['python', 'install', installTarget], { throwOnStdErr: false });
+        await execLocatedUv(['python', 'install', installTarget], { throwOnStdErr: false });
 
         // Get the path to the installed Python
-        const result = await execUv('uv', ['python', 'find', version], { throwOnStdErr: false });
+        const result = await execLocatedUv(['python', 'find', version], { throwOnStdErr: false });
         const pythonPath = result?.stdout.trim();
 
         if (pythonPath) {

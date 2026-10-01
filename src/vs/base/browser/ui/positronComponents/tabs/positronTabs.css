@@ -1,0 +1,66 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-tabs-list {
+	display: flex;
+	gap: 4px;
+	border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+/*
+ * Anchored with `.positron-button` (two-class specificity) so these styles win
+ * over the base `.positron-button` rule.
+ */
+.positron-tab.positron-button {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 8px 12px;
+	font-size: 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.positron-tab.positron-button:hover {
+	color: var(--vscode-foreground);
+}
+
+.positron-tab.active.positron-button {
+	color: var(--vscode-foreground);
+}
+
+/*
+ * The selected tab's underline. Drawn as a pseudo-element rather than a
+ * border because the high-contrast themes set a border on every
+ * `.positron-button` at higher specificity (button.css), which would erase it
+ * -- exactly where the colour difference between selected and unselected is
+ * least likely to read on its own.
+ */
+.positron-tab.active.positron-button::after {
+	content: '';
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	background: var(--vscode-focusBorder);
+}
+
+/*
+ * A panel is focusable so keyboard users can reach content that has no focusable elements of its
+ * own. A mouse click inside it shows no ring; keyboard focus does. Anchored on `.monaco-workbench`
+ * and the tabindex so both outrank the workbench's `[tabindex="0"]:focus` outline (style.css),
+ * which would otherwise ring the whole panel on every click.
+ */
+.monaco-workbench .positron-tabs-panel[tabindex="0"]:focus {
+	outline: none;
+}
+
+.monaco-workbench .positron-tabs-panel[tabindex="0"]:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}

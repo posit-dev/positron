@@ -21,6 +21,10 @@ describe('PositronDynamicModalDialog', () => {
 	// they register the unmount that setupRTLRenderer would otherwise register.
 	afterEach(cleanup);
 
+	// restoreMocks undoes vi.spyOn but not vi.stubGlobal, so a stubbed ResizeObserver would
+	// otherwise outlive the test that installed it.
+	afterEach(() => vi.unstubAllGlobals());
+
 	let resize: Emitter<UIEvent>;
 	let keyDown: Emitter<KeyboardEvent>;
 
@@ -139,6 +143,27 @@ describe('PositronDynamicModalDialog', () => {
 		keyDown.fire(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
 
 		expect(onDefaultButton).not.toHaveBeenCalled();
+	});
+
+	it('moves up to keep its bottom on screen when its content grows', () => {
+		// happy-dom does no layout, so the heights are supplied and the resize is fired by hand.
+		let dialogHeight = 300;
+		vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(800);
+		vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(() => dialogHeight);
+		let onResize: ResizeObserverCallback = () => undefined;
+		vi.stubGlobal('ResizeObserver', class {
+			constructor(callback: ResizeObserverCallback) { onResize = callback; }
+			observe() { }
+			disconnect() { }
+		});
+		renderDialog();
+		expect(screen.getByRole('dialog')).toHaveStyle({ top: '250px' });
+
+		dialogHeight = 700;
+		act(() => onResize([], stubInterface<ResizeObserver>({})));
+
+		// 800 tall container, 700 tall dialog, 40px gutter: the bottom sits at the gutter.
+		expect(screen.getByRole('dialog')).toHaveStyle({ top: '60px' });
 	});
 
 	it('does not mark a dialog nested when it replaces one in the same commit', () => {

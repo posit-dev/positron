@@ -20,6 +20,12 @@ import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInsta
 import { KallichoreInstances } from './KallichoreInstances.js';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
+import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
+import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
+import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
+import { McpLaunch, mcpLaunch } from './McpAgents.js';
+import { mcpConnectionsDirectory } from './mcpConnection.js';
+import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
  * The environment variable naming a handshake-broker socket. In web/server
@@ -296,6 +302,19 @@ export class KCApi implements PositronSupervisorApi {
 	private readonly _ephemeralState: positron.context.EphemeralMemento = positron.context.ephemeralState;
 
 	/**
+	 * The state of the server we are connected to, once it is online. Held so
+	 * that the transport details and bearer token are on hand for connections
+	 * opened after startup, such as the MCP frontend channel.
+	 */
+	private _serverState: KallichoreServerState | undefined;
+
+	/**
+	 * Registers this window with the server's MCP server, so external coding
+	 * agents can reach its sessions.
+	 */
+	private readonly _mcp: McpFrontend;
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -310,6 +329,28 @@ export class KCApi implements PositronSupervisorApi {
 		private readonly _reconnect: boolean) {
 
 		this._api = new KallichoreApiInstance(_transport);
+		this._mcp = new McpFrontend(
+			_context.globalStorageUri,
+			_context.environmentVariableCollection,
+			message => this.log(message),
+			() => loadMcpState(_context.workspaceState),
+			state => saveMcpState(_context.workspaceState, state),
+			() => this._sessions.map(session => session.metadata.sessionId),
+			mcpFeatureEnabled,
+			() => onMcpRegistered(_context, () => this.mcpLaunch(), message => this.log(message)),
+			() => removeConfiguredAgents(_context, message => this.log(message)));
+		this._disposables.push(this._mcp);
+
+		// Offer the same registration to the editor itself, so chat extensions
+		// hosted in this window need no configuration of their own.
+		const mcpDefinitions = new McpServerDefinitions(this._mcp);
+		this._disposables.push(mcpDefinitions);
+		this._disposables.push(vscode.lm.registerMcpServerDefinitionProvider(
+			MCP_DEFINITION_PROVIDER_ID, mcpDefinitions));
+
+		// Show which coding agents are connected, so code arriving in the
+		// console from an agent is never a surprise.
+		this._disposables.push(new McpClientsStatusBar(this._mcp));
 		positron.runtime.emitPerfMark('initializing');
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
@@ -318,6 +359,10 @@ export class KCApi implements PositronSupervisorApi {
 			// Once the server is started, begin sending client heartbeats to
 			// keep the server alive.
 			this.startClientHeartbeat();
+
+			// Offer the MCP server to users who have an agent CLI installed
+			// but have not turned it on. Asked at most once per user.
+			await promptToEnable(_context);
 		}).catch((err) => {
 			this.log(`Failed to start Kallichore server: ${err}`);
 		});
@@ -333,6 +378,18 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
 			this.restartSupervisor();
+		}));
+
+		this._context.subscriptions.push(vscode.commands.registerCommand(COPY_MCP_DETAILS_COMMAND, () => {
+			return this._mcp.copyConnectionDetails();
+		}));
+
+		this._context.subscriptions.push(vscode.commands.registerCommand(SHOW_CONNECTED_AGENTS_COMMAND, () => {
+			return showConnectedAgents(this._mcp.clients);
+		}));
+
+		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
+			return configureAgent(this._context, () => this.mcpLaunch(), agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the
@@ -949,7 +1006,7 @@ export class KCApi implements PositronSupervisorApi {
 			named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined),
 			// Record the server's identity so we can later detect when a saved
 			// connection points at a different server instance (stale token).
-			server_id: status.server_id
+			server_id: status.server_id,
 		};
 
 		// Load the finalized state into the API instance so that subsequent
@@ -962,6 +1019,8 @@ export class KCApi implements PositronSupervisorApi {
 		}
 
 		await KallichoreInstances.recordSupervisor(this.getWorkspaceName(), state);
+
+		await this._mcp.attach(this._api.api, id => this.mcpChannelTarget(id));
 	}
 
 	/**
@@ -1059,6 +1118,36 @@ export class KCApi implements PositronSupervisorApi {
 		if (state) {
 			await this.saveServerState(state);
 		}
+	}
+
+	/**
+	 * Where this window's frontend channel lives, in terms of the transport its
+	 * supervisor is using. The channel upgrades in place on every transport, so
+	 * the path is the same one the REST API uses.
+	 *
+	 * @param workspaceId The ID the supervisor issued at registration.
+	 * @returns The channel's WebSocket URI and the headers to open it with.
+	 */
+	private mcpChannelTarget(workspaceId: string): McpChannelTarget {
+		const path = `/mcp/workspaces/${encodeURIComponent(workspaceId)}/channel`;
+		const state = this._serverState;
+		let uri: string;
+		if (this._api.transport === KallichoreTransport.UnixSocket && state?.socket_path) {
+			uri = `ws+unix://${state.socket_path}:${path}`;
+		} else if (this._api.transport === KallichoreTransport.NamedPipe && state?.named_pipe) {
+			uri = `ws+npipe://${state.named_pipe}:${path}`;
+		} else {
+			const basePath = this._api.basePath;
+			if (!basePath) {
+				throw new Error('The supervisor has no base path for the MCP frontend channel');
+			}
+			const scheme = basePath.startsWith('https://') ? 'wss://' : 'ws://';
+			uri = `${scheme}${basePath.replace(/^https?:\/\//, '').replace(/\/$/, '')}${path}`;
+		}
+		return {
+			uri,
+			headers: { Authorization: `Bearer ${state?.bearer_token}` },
+		};
 	}
 
 	/***
@@ -1218,6 +1307,8 @@ export class KCApi implements PositronSupervisorApi {
 
 		await KallichoreInstances.recordSupervisor(this.getWorkspaceName(), serverState);
 
+		await this._mcp.attach(this._api.api, id => this.mcpChannelTarget(id));
+
 		return true;
 	}
 
@@ -1228,6 +1319,10 @@ export class KCApi implements PositronSupervisorApi {
 	 * @param state The new server state
 	 */
 	refreshServerState(state: KallichoreServerState) {
+		// Remember the state so that additions made after startup (such as the
+		// MCP workspace identity) can be folded back into it and re-saved.
+		this._serverState = state;
+
 		// Update the API object with the new connection information
 		this._api.loadState(state);
 
@@ -1357,7 +1452,7 @@ export class KCApi implements PositronSupervisorApi {
 		let retried = false;
 		while (true) {
 			try {
-				await session.create(kernel);
+				await session.create(kernel, this._mcp.connection?.workspaceId);
 				break;
 			} catch (err) {
 				// A refused connection (the server may have exited) or a 401
@@ -1403,6 +1498,7 @@ export class KCApi implements PositronSupervisorApi {
 		// Save the session now that it has been created on the server
 		this.addDisconnectHandler(session);
 		this._sessions.push(session);
+		this._mcp.notifySessionsChanged();
 
 		return session;
 	}
@@ -1682,6 +1778,7 @@ export class KCApi implements PositronSupervisorApi {
 				// Save the session
 				this.addDisconnectHandler(session);
 				this._sessions.push(session);
+				this._mcp.notifySessionsChanged();
 				resolve(session);
 			}).catch((err) => {
 				if (isAxiosError(err)) {
@@ -1771,6 +1868,18 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Dispose of any other disposables
 		this._disposables.forEach(disposable => disposable.dispose());
+	}
+
+	/**
+	 * The command line an agent runs to start Positron's MCP server: this
+	 * supervisor binary's stdio bridge.
+	 *
+	 * @throws An error if the server binary cannot be found.
+	 */
+	private mcpLaunch(): McpLaunch {
+		return mcpLaunch(
+			this.getKallichorePath(),
+			mcpConnectionsDirectory(this._context.globalStorageUri));
 	}
 
 	/**

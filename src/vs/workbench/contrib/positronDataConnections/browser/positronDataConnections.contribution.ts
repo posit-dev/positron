@@ -14,6 +14,7 @@ import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContaine
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { registerDatabaseFileEditor } from './editor/databaseFileEditor.contribution.js';
+import { registerDataConnectionNodeDetailsEditor } from './editor/dataConnectionNodeDetailsEditor.js';
 import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY, POSITRON_DATA_CONNECTIONS_TREE_INDENT_KEY, POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY, POSITRON_DATA_CONNECTIONS_VIEW_ID } from './positronDataConnectionsConfiguration.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
@@ -152,3 +153,7 @@ registerWorkbenchContribution2(
 // Register the database file editor, which opens a database file (e.g. `.duckdb`, `.sqlite`) to a
 // page offering to create a data connection to it. Gated on the same feature flag, from inside.
 registerDatabaseFileEditor();
+
+// Register the details editor the Data Connections tree opens when a node that has details is
+// clicked.
+registerDataConnectionNodeDetailsEditor();

@@ -27,6 +27,7 @@ Name | Type | Description | Notes
 **idle_seconds** | **number** | The number of seconds the session has been idle, or 0 if the session is busy | [default to undefined]
 **busy_seconds** | **number** | The number of seconds the session has been busy, or 0 if the session is idle | [default to undefined]
 **socket_path** | **string** | The path to the Unix domain socket used to send/receive data from the session, if applicable | [optional] [default to undefined]
+**history** | [**Array&lt;ExecutionHistoryEntry&gt;**](ExecutionHistoryEntry.md) | The last few executions the session ran, oldest first. The full history is available from the session\&#39;s history endpoint. | [optional] [default to undefined]
 
 ## Example
 
@@ -56,6 +57,7 @@ const instance: ActiveSession = {
     idle_seconds,
     busy_seconds,
     socket_path,
+    history,
 };
 ```
 
