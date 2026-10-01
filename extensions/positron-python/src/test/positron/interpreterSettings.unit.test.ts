@@ -180,9 +180,10 @@ suite('${workspaceFolder} in interpreter settings', () => {
     });
 
     test('searches an included ${workspaceFolder} path for interpreters', () => {
-        getWorkspaceFoldersStub.returns([{ uri: Uri.file(__dirname), name: 'positron', index: 0 }]);
+        const testFolder = Uri.file(__dirname);
+        getWorkspaceFoldersStub.returns([{ uri: testFolder, name: 'positron', index: 0 }]);
         include = ['${workspaceFolder}'];
-        assert.deepStrictEqual(getCustomEnvDirs(), [__dirname]);
+        assert.deepStrictEqual(getCustomEnvDirs(), [testFolder.fsPath]);
     });
 
     test('replaces ${workspaceFolder} in each defaultInterpreterPath value', () => {
