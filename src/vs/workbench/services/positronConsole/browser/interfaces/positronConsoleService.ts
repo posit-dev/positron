@@ -5,6 +5,7 @@
 
 import { RuntimeItem } from '../classes/runtimeItem.js';
 import { Event } from '../../../../../base/common/event.js';
+import { IObservable } from '../../../../../base/common/observable.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -439,6 +440,13 @@ export interface IPositronConsoleInstance {
 	 * The onDidChangeWidthInChars event.
 	 */
 	readonly onDidChangeWidthInChars: Event<number>;
+
+	/**
+	 * The number of executions that ran while this console was not being looked
+	 * at: it was not the active console, or the console view was hidden. Resets
+	 * to zero when the console is seen.
+	 */
+	readonly unreadExecutionCount: IObservable<number>;
 
 	/**
 	 * Fires when a code submission (completeness check) starts or finishes.

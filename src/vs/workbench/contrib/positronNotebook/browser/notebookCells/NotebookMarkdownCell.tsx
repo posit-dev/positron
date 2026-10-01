@@ -11,7 +11,7 @@ import { useCallback, useRef } from 'react';
 
 // Other dependencies.
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
-import { useObservedValue } from '../useObservedValue.js';
+import { useObservedValue } from '../../../../../base/browser/useObservedValue.js';
 import { Markdown } from './Markdown.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell.js';

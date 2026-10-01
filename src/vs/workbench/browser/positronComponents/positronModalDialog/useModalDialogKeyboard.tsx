@@ -83,6 +83,20 @@ function isFromQuickPick(target: EventTarget | null): boolean {
 }
 
 /**
+ * Whether a modal message box is open over the dialog. This hook listens in the capture phase, so
+ * without this it acts first and Escape cancels the dialog instead of just the message box.
+ *
+ * Presence is what matters rather than the event target, unlike a reparented quick pick: the
+ * message box is modal, so no keystroke belongs to the dialog beneath it wherever focus sits.
+ *
+ * @param dialogBox An element in the dialog's document.
+ */
+function isModalMessageBoxOpen(dialogBox: HTMLElement): boolean {
+	// eslint-disable-next-line no-restricted-syntax
+	return DOM.getDocument(dialogBox).querySelector('.monaco-dialog-modal-block') !== null;
+}
+
+/**
  * IModalDialogKeyboardOptions interface.
  */
 export interface IModalDialogKeyboardOptions {
@@ -127,6 +141,11 @@ export function useModalDialogKeyboard(options: IModalDialogKeyboardOptions): vo
 			// The dialog box is not mounted yet on the first keydown after render.
 			const dialogBox = dialogBoxRef.current;
 			if (!dialogBox) {
+				return;
+			}
+
+			// A modal message box above the dialog owns every key for as long as it is open.
+			if (isModalMessageBoxOpen(dialogBox)) {
 				return;
 			}
 

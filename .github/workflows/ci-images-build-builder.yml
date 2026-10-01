@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: 'ubuntu-24.04-arm64-8-core'
+    runs-on: 'ubuntu-24-arm64-8-core'
     permissions:
       contents: read
       packages: write

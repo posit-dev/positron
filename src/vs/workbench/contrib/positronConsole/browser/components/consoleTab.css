@@ -134,6 +134,23 @@
 	display: unset;
 }
 
+/* A dot in the delete button's slot, centred in the same box */
+.tab-button .unread-executions {
+	flex-shrink: 0;
+	width: 6px;
+	height: 6px;
+	margin: 0 7px;
+	border-radius: 50%;
+	/* The activity-bar badge is red in Positron's themes; textLink is the theme's blue */
+	background-color: var(--vscode-textLink-foreground);
+}
+
+/* Make way for the delete button, so the session can still be closed */
+.tab-button:hover .unread-executions,
+.tab-button:focus-within .unread-executions {
+	display: none;
+}
+
 .tab-button .delete-button:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }

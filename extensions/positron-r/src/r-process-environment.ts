@@ -5,7 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as fs from 'fs';
 import { posix, win32 } from 'path';
+import which from 'which';
 import { LOGGER } from './extension';
 import { RMetadataExtra } from './r-installation';
 import { EnvVar, RSession, getEnvVars } from './session';
@@ -36,12 +38,14 @@ export interface EnvVarMutation {
  * against the system default R rather than the version selected in the console.
  *
  * @param metadataExtra Extra metadata for the active R installation.
+ * @param onPath Whether `R` on PATH already resolves to this installation.
  * @param platform The platform to compute mutations for. Defaults to the
  *   current platform; overridable for testing.
  * @returns The mutations to apply to the terminal environment collection.
  */
 export function getRTerminalEnvironmentMutations(
 	metadataExtra: RMetadataExtra,
+	onPath: boolean,
 	platform: NodeJS.Platform = process.platform
 ): EnvVarMutation[] {
 	const mutations: EnvVarMutation[] = [];
@@ -56,7 +60,12 @@ export function getRTerminalEnvironmentMutations(
 	// selected in the console rather than the system default. This is the
 	// primary mechanism by which the terminal's R matches the console's R, and
 	// mirrors how rig makes a selected R version available (symlinks on PATH).
-	if (metadataExtra.binpath) {
+	//
+	// Skip this when R on PATH is already the selected R. The prepend would be
+	// redundant, and when R lives in a shared directory such as /usr/bin it
+	// would move every tool in that directory ahead of other PATH entries, such
+	// as an activated Python virtual environment.
+	if (metadataExtra.binpath && !onPath) {
 		mutations.push({
 			action: 'prepend',
 			name: 'PATH',
@@ -92,6 +101,23 @@ export function getRTerminalEnvironmentMutations(
 	// bypassing the launcher scripts.
 
 	return mutations;
+}
+
+/**
+ * Whether `R` on the extension host's PATH resolves to the given R binary.
+ *
+ * @param binpath The path to an R binary.
+ */
+export function isROnPath(binpath: string): boolean {
+	const found = which.sync('R', { nothrow: true });
+	if (!found) {
+		return false;
+	}
+	try {
+		return fs.realpathSync(found) === fs.realpathSync(binpath);
+	} catch {
+		return false;
+	}
 }
 
 /**

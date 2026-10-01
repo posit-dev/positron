@@ -61,6 +61,7 @@ export enum FeatureTags {
 	INTERPRETER = '@:interpreter',
 	JUPYTER = '@:jupyter',
 	LAYOUTS = '@:layouts',
+	MCP = '@:mcp',
 	VIEWER = '@:viewer',
 	EDITOR = '@:editor',
 	QUARTO = '@:quarto',

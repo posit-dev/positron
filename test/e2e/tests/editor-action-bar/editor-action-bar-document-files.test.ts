@@ -121,7 +121,8 @@ async function verifySaveButton(app: Application, page: Page) {
 async function verifyOpenChanges(page: Page) {
 	await test.step('verify "open changes" shows diff', async () => {
 		// make change & save
-		await page.locator('[id="workbench\\.parts\\.editor"]').getByText('date').click();
+		// Scope to the view line: the breadcrumb label also contains 'date' once the front matter symbol loads
+		await page.locator('[id="workbench\\.parts\\.editor"] .view-line', { hasText: 'date:' }).click();
 		await page.keyboard.press('X');
 		await bindPlatformHotkey(page, 'S');
 

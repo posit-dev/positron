@@ -112,11 +112,11 @@ selector, or command id during the fix; inline `grep`/`cat` sweeps and whole-fil
    4. reconcile evidence that conflicts between occurrences,
    5. check whether a previous fix held.
 
-   Re-run `fetch-pattern-evidence.js` with a different occurrence's `report_url`
-   (widen `--occurrences-per-pattern 2` on `triage-history.js` first to get a
-   second `report_url`). Anything outside these five is not a reason -- a
-   retrieval failure (403 / `report_url: null`) is a *substitution* for the
-   first occurrence, not an escalation, and doesn't need one.
+   Re-run `fetch-pattern-evidence.js --report-url <url> --occurrence <label>`
+   with a different occurrence's `report_url`, taken from that pattern's
+   `occurrences[]` in `history-summary.json`. Anything outside these five is not
+   a reason -- a retrieval failure (403 / `report_url: null`) is a *substitution*
+   for the first occurrence, not an escalation, and doesn't need one.
 
 ## Why the summary can't see everything
 
@@ -204,9 +204,10 @@ that cites an ordering from one that only restates the timeout.
 ## Retrieval failures
 
 - **403 from the processor** means "this particular upload isn't fetchable"
-  (still in flight, or expired), not "no evidence exists." `fetch-pattern-
-  evidence.js` surfaces this as an error -- fall through to the next
-  occurrence's `report_url` for the same pattern.
+  (the run is still in progress, or the report expired), not "no evidence exists."
+  Without `--report-url`, `fetch-pattern-evidence.js` already falls through to the
+  pattern's next occurrence and lists the skipped ones in `skipped`. Don't wait
+  for the in-flight run, and don't switch patterns because of it.
 - **`report_url: null`** on an occurrence -- state it explicitly (e.g. "3 of 8
   occurrences have no report available") rather than assuming the reports that
   do exist fully cover the pattern.

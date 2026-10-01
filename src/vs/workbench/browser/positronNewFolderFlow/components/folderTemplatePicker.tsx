@@ -6,9 +6,6 @@
 // CSS.
 import './folderTemplatePicker.css';
 
-// React.
-import { useRef } from 'react';
-
 // Other dependencies.
 import { LogoRProject } from './logos/logoRProject.js';
 import { LogoEmptyProject } from './logos/logoEmptyProject.js';
@@ -36,26 +33,19 @@ interface FolderTemplatePickerProps {
 export const FolderTemplatePicker = (props: FolderTemplatePickerProps) => {
 	// State.
 	const { folderTemplate } = useNewFolderFlowContext();
-	// Use undefined! instead of null to avoid optional chaining and so that an error is thrown if
-	// the ref is accessed before it is assigned.
-	const inputRef = useRef<HTMLInputElement>(undefined!);
-
-	// On project type selected, set the focus to the input element and notify the parent.
-	const onSelected = () => {
-		inputRef.current.focus();
-		props.onSelected();
-	};
-
-	// Render.
+	// Render. The whole card is the radio button's label, so a click anywhere on it checks and
+	// focuses the radio natively. Focus from a pointer shows no focus ring; focusing the radio from
+	// script did, whenever the element focused before it (an autofocused card, a keyboard-focused
+	// control) had shown one.
 	return (
-		<div
+		<label
 			className={
 				'folder-template' +
 				(props.selected ? ' folder-template-selected' : '')
 			}
-			onClick={onSelected}
 		>
-			<div className='folder-template-icon'>
+			{/* Decorative: the template's name below is the label's text. */}
+			<div aria-hidden='true' className='folder-template-icon'>
 				{props.identifier === FolderTemplate.PythonProject ? (
 					<LogoPythonProject />
 				) : props.identifier === FolderTemplate.JupyterNotebook ? (
@@ -67,7 +57,6 @@ export const FolderTemplatePicker = (props: FolderTemplatePickerProps) => {
 				) : null}
 			</div>
 			<input
-				ref={inputRef}
 				autoFocus={folderTemplate && props.activeTabIndex}
 				checked={props.selected}
 				className='folder-template-input'
@@ -78,8 +67,10 @@ export const FolderTemplatePicker = (props: FolderTemplatePickerProps) => {
 				// Set the autofocus to the selected project type when the user navigates back to
 				// the project type step.
 				value={props.identifier}
+				// Fires for a click on the card, and for Space and the arrow keys.
+				onChange={props.onSelected}
 			/>
-			<label htmlFor={props.identifier}>{props.identifier}</label>
-		</div>
+			<span>{props.identifier}</span>
+		</label>
 	);
 };

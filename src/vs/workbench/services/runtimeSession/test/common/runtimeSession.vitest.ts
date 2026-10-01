@@ -14,7 +14,7 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionStartReason, IRuntimeSessionWillStartEvent, RuntimeClientType, RuntimeStartMode, SessionStartReasonId } from '../../common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../common/runtimeSessionService.js';
 import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
@@ -1810,6 +1810,75 @@ describe('Positron - RuntimeSessionService', () => {
 		});
 	});
 
+	describe('quartoNotebookUri', () => {
+		const quartoSourceUri = URI.file('/path/to/doc.qmd');
+		const quartoCellsUri = URI.from({ scheme: 'quarto-cells', path: '/path/to/doc.qmd.ipynb' });
+
+		function startQuartoSession() {
+			return runtimeSessionService.startNewRuntimeSession(
+				runtime.runtimeId,
+				sessionName,
+				LanguageRuntimeSessionMode.Notebook,
+				quartoSourceUri,
+				startReason,
+				RuntimeStartMode.Starting,
+				false,
+				{ quartoNotebookUri: quartoCellsUri },
+			);
+		}
+
+		it('is copied from the start options, and absent for other sessions', async () => {
+			const quarto = runtimeSessionService.getSession(await startQuartoSession()) as TestLanguageRuntimeSession;
+			ctx.disposables.add(quarto);
+			const notebook = await startNotebook(anotherRuntime);
+			const console = await startConsole(unrelatedRuntime);
+
+			expect([
+				quarto.metadata.quartoNotebookUri?.toString(),
+				notebook.metadata.quartoNotebookUri,
+				console.metadata.quartoNotebookUri,
+			]).toEqual([quartoCellsUri.toString(), undefined, undefined]);
+		});
+
+		it('follows the document when an untitled session is adopted by its saved file', async () => {
+			const untitledUri = URI.from({ scheme: 'untitled', path: 'Untitled-1' });
+			const savedUri = URI.file('/path/to/saved.qmd');
+			const savedCellsUri = URI.from({ scheme: 'quarto-cells', path: '/path/to/saved.qmd.ipynb' });
+			const sessionId = await runtimeSessionService.startNewRuntimeSession(
+				runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Notebook, untitledUri,
+				startReason, RuntimeStartMode.Starting, false,
+				{ quartoNotebookUri: URI.from({ scheme: 'quarto-cells', path: 'Untitled-1.qmd.ipynb' }) },
+			);
+			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;
+			ctx.disposables.add(session);
+			await timeout(0);
+
+			await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri, { quartoNotebookUri: savedCellsUri });
+
+			expect(session.metadata.quartoNotebookUri?.toString()).toBe(savedCellsUri.toString());
+		});
+
+		it('keeps the Quarto notebook URI when an uninitialized session is started again', async () => {
+			configService.setUserConfiguration('console.showNotebookConsoles', false);
+			const failFirstStart = runtimeSessionService.onWillStartSession(e => {
+				vi.spyOn(e.session, 'start').mockRejectedValue(new Error('Session failed to start'));
+			});
+			await expect(startQuartoSession()).rejects.toThrow('Session failed to start');
+			failFirstStart.dispose();
+			const uninitialized = runtimeSessionService.activeSessions[0];
+			ctx.disposables.add(uninitialized);
+
+			await restartSession(uninitialized.sessionId);
+
+			const restarted = runtimeSessionService.getNotebookSessionForNotebookUri(quartoSourceUri)!;
+			ctx.disposables.add(restarted);
+			expect({
+				isNewSession: restarted !== uninitialized,
+				quartoNotebookUri: restarted.metadata.quartoNotebookUri?.toString(),
+			}).toEqual({ isNewSession: true, quartoNotebookUri: quartoCellsUri.toString() });
+		});
+	});
+
 	// A failed shutdown must not leave an unusable console registered for
 	// other components to act on (https://github.com/posit-dev/positron/issues/15781).
 	describe('deleting a session whose runtime does not exit', () => {
@@ -1970,5 +2039,32 @@ describe('Positron - RuntimeSessionService', () => {
 		} finally {
 			vi.useRealTimers();
 		}
+	});
+});
+
+describe('reviveRuntimeSessionMetadata', () => {
+	it('turns serialized notebook URIs back into URIs and leaves missing ones missing', () => {
+		const serialized = JSON.parse(JSON.stringify({
+			sessionId: 's1',
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			notebookUri: URI.file('/home/u/a.qmd'),
+			quartoNotebookUri: URI.file('/home/u/a.qmd').with({ scheme: 'quarto-cells', path: '/home/u/a.qmd.ipynb' }),
+			createdTimestamp: 0,
+			startReason: 'test',
+		})) as IRuntimeSessionMetadata;
+		const legacy = JSON.parse(JSON.stringify({ ...serialized, quartoNotebookUri: undefined })) as IRuntimeSessionMetadata;
+
+		const revived = reviveRuntimeSessionMetadata(serialized);
+		const revivedLegacy = reviveRuntimeSessionMetadata(legacy);
+
+		expect({
+			notebookUri: revived.notebookUri instanceof URI && revived.notebookUri.toString(),
+			quartoNotebookUri: revived.quartoNotebookUri instanceof URI && revived.quartoNotebookUri.toString(),
+			legacyQuartoNotebookUri: revivedLegacy.quartoNotebookUri,
+		}).toEqual({
+			notebookUri: 'file:///home/u/a.qmd',
+			quartoNotebookUri: 'quarto-cells:/home/u/a.qmd.ipynb',
+			legacyQuartoNotebookUri: undefined,
+		});
 	});
 });

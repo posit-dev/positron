@@ -23,6 +23,8 @@ const REPORT = `# Exploratory test: x
 
 ### Finding 1: Retry does nothing
 
+**Feature:** console
+
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
 
@@ -69,6 +71,11 @@ const lint = (report = REPORT, ledger = LEDGER) => lintReport(report, ledger, { 
 
 test('a report written to the format is clean', () => {
 	assert.deepEqual(lint(), []);
+});
+
+test('flags a finding with no Feature line', () => {
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console\n\n', '')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 });
 
 test('fenced code does not count as a heading', () => {

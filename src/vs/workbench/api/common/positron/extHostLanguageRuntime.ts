@@ -15,7 +15,7 @@ import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { isUriComponents, URI } from '../../../../base/common/uri.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
-import { IPackageRepositoryRequest, IPackageRepositoryResponse, IRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPackageRepositoryRequest, IPackageRepositoryResponse, IRuntimeSessionMetadata, reviveRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
@@ -427,15 +427,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Look up the session manager responsible for restoring this session
 		const sessionManager = await this.runtimeManagerForRuntime(runtimeMetadata, true);
 
-		if (sessionMetadata.notebookUri) {
-			// Sometimes the full URI doesn't make it across the serialization boundary.
-			// By reviving the URI here we make sure we're operating with a full URI
-			// rather than a serialized one that may be missing parameters.
-			sessionMetadata = {
-				...sessionMetadata,
-				notebookUri: URI.revive(sessionMetadata.notebookUri)
-			};
-		}
+		// URIs arrive as plain objects after crossing the RPC boundary.
+		sessionMetadata = reviveRuntimeSessionMetadata(sessionMetadata);
 		if (sessionManager) {
 			const session =
 				await sessionManager.manager.createSession(runtimeMetadata, sessionMetadata);
@@ -557,15 +550,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
 		sessionName: string): Promise<extHostProtocol.RuntimeInitialState> {
-		// Revive the notebook URI if it exists. The URI is serialized as a
-		// plain UriComponents object when crossing the IPC boundary and needs
-		// to be revived into a proper URI instance.
-		if (sessionMetadata.notebookUri) {
-			sessionMetadata = {
-				...sessionMetadata,
-				notebookUri: URI.revive(sessionMetadata.notebookUri)
-			};
-		}
+		// URIs arrive as plain objects after crossing the RPC boundary.
+		sessionMetadata = reviveRuntimeSessionMetadata(sessionMetadata);
 
 		// Look up the session manager responsible for restoring this session
 		console.debug(`[Reconnect ${sessionMetadata.sessionId}]: Await runtime manager for runtime ${runtimeMetadata.extensionId.value}...`);

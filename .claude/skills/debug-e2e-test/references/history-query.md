@@ -70,9 +70,8 @@ derives one per pattern into `lastSeen: { date, daysAgo, sha }`:
 3. Neither resolves -> `{ date: null, daysAgo: null, sha }`. The sha still names
    the latest occurrence, because the API returns occurrences most-recent-first.
 
-That ordering is why `lastSeen` is accurate even at the default
-`--occurrences-per-pattern 1`: index 0 already *is* the most recent occurrence,
-so the date only has to be resolved, not searched for.
+That ordering is why `lastSeen` only has to resolve a date, not search for one:
+index 0 already *is* the most recent occurrence.
 
 `lastSeen` does **not** reorder the table -- patterns stay count-descending. It
 is a separate axis: a high-count pattern with a stale `daysAgo` was likely an

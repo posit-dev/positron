@@ -6,7 +6,12 @@
 import { expect } from 'chai';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { resetPyPIIndexCacheForTests, searchPyPI, searchPyPIVersions } from '../../client/positron/packages/pypiSearch';
+import {
+    pypiPackageExists,
+    resetPyPICachesForTests,
+    searchPyPI,
+    searchPyPIVersions,
+} from '../../client/positron/packages/pypiSearch';
 
 function makeIndexResponse(names: string[]): Response {
     return {
@@ -20,13 +25,13 @@ suite('searchPyPI', () => {
     let fetchStub: sinon.SinonStub;
 
     setup(() => {
-        resetPyPIIndexCacheForTests();
+        resetPyPICachesForTests();
         fetchStub = sinon.stub(global, 'fetch');
     });
 
     teardown(() => {
         sinon.restore();
-        resetPyPIIndexCacheForTests();
+        resetPyPICachesForTests();
     });
 
     test('filters the index by case-insensitive substring and maps to LanguageRuntimePackage', async () => {
@@ -304,5 +309,124 @@ suite('searchPyPIVersions', () => {
         const result = await searchPyPIVersions('pkg', async () => ({}));
 
         expect(result).to.deep.equal(['1.0', '2.0']);
+    });
+});
+
+suite('pypiPackageExists', () => {
+    let fetchStub: sinon.SinonStub;
+
+    function makeStatusResponse(status: number): Response {
+        return { ok: status >= 200 && status < 300, status } as Response;
+    }
+
+    setup(() => {
+        resetPyPICachesForTests();
+        fetchStub = sinon.stub(global, 'fetch');
+    });
+
+    teardown(() => {
+        sinon.restore();
+        resetPyPICachesForTests();
+    });
+
+    test('sends one HEAD request to the canonical per-project URL', async () => {
+        fetchStub.resolves(makeStatusResponse(200));
+
+        const exists = await pypiPackageExists('PyYAML');
+
+        expect(exists).to.be.true;
+        expect(fetchStub.calledOnce).to.be.true;
+        const [url, init] = fetchStub.firstCall.args;
+        expect({ url, method: init.method }).to.deep.equal({
+            url: 'https://pypi.org/simple/pyyaml/',
+            method: 'HEAD',
+        });
+    });
+
+    test('returns false for a 404', async () => {
+        fetchStub.resolves(makeStatusResponse(404));
+
+        expect(await pypiPackageExists('garfblatz')).to.be.false;
+    });
+
+    test('caches answers by canonical name so spellings share one request', async () => {
+        fetchStub.resolves(makeStatusResponse(200));
+
+        await pypiPackageExists('opencv_python');
+        await pypiPackageExists('OpenCV.Python');
+        await pypiPackageExists('opencv-python');
+
+        expect(fetchStub.calledOnce).to.be.true;
+        expect(fetchStub.firstCall.args[0]).to.equal('https://pypi.org/simple/opencv-python/');
+    });
+
+    test('caches a 404 too', async () => {
+        fetchStub.resolves(makeStatusResponse(404));
+
+        await pypiPackageExists('garfblatz');
+        await pypiPackageExists('garfblatz');
+
+        expect(fetchStub.calledOnce).to.be.true;
+    });
+
+    test('refetches once the TTL has elapsed', async () => {
+        const clock = sinon.useFakeTimers();
+        try {
+            fetchStub.resolves(makeStatusResponse(200));
+
+            await pypiPackageExists('numpy');
+            clock.tick(60 * 60 * 1000 + 1);
+            await pypiPackageExists('numpy');
+
+            expect(fetchStub.calledTwice).to.be.true;
+        } finally {
+            clock.restore();
+        }
+    });
+
+    test('throws on an unexpected status and does not cache it', async () => {
+        fetchStub.onFirstCall().resolves(makeStatusResponse(503));
+        fetchStub.onSecondCall().resolves(makeStatusResponse(200));
+
+        let error: unknown;
+        try {
+            await pypiPackageExists('numpy');
+        } catch (e) {
+            error = e;
+        }
+        expect(error).to.be.instanceOf(Error);
+        expect((error as Error).message).to.include('HTTP 503');
+
+        // The failure was not cached as "missing": the next call asks again.
+        expect(await pypiPackageExists('numpy')).to.be.true;
+        expect(fetchStub.calledTwice).to.be.true;
+    });
+
+    test('rethrows a network error and does not cache it', async () => {
+        fetchStub.onFirstCall().rejects(new TypeError('fetch failed'));
+        fetchStub.onSecondCall().resolves(makeStatusResponse(200));
+
+        let error: unknown;
+        try {
+            await pypiPackageExists('numpy');
+        } catch (e) {
+            error = e;
+        }
+        expect(error).to.be.instanceOf(TypeError);
+
+        expect(await pypiPackageExists('numpy')).to.be.true;
+        expect(fetchStub.calledTwice).to.be.true;
+    });
+
+    test('maps an aborted request to a CancellationError', async () => {
+        fetchStub.rejects(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+
+        let error: unknown;
+        try {
+            await pypiPackageExists('numpy', new vscode.CancellationTokenSource().token);
+        } catch (e) {
+            error = e;
+        }
+        expect(error).to.be.instanceOf(vscode.CancellationError);
     });
 });

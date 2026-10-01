@@ -358,6 +358,8 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		// No-op in test implementation
 	}
 
+	registerDiscoveredRuntime(_metadata: ILanguageRuntimeMetadata): void { }
+
 	registerRuntimeManager(_manager: IRuntimeManager): IDisposable {
 		return Disposable.None;
 	}
@@ -475,6 +477,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	readonly onDidEncounterStartupFailure = new Emitter<any>().event;
 	readonly onDidCreateClientInstance = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessageClearOutput = new Emitter<any>().event;
+	readonly onDidReceiveRuntimeMessageExecutionRequested = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessagePrompt = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeClientEvent = new Emitter<any>().event;
 	readonly onDidReceiveRuntimeMessagePromptConfig = new Emitter<void>().event;

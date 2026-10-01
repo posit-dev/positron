@@ -10,7 +10,11 @@
 //
 // Flags: see CLI below, or run with --help.
 //
-// The testId filter is read from the --report-url fragment, never from a flag;
+// Without --report-url, it walks the pattern's occurrences from
+// history-summary.json in order and skips any report that 403s/404s (still
+// uploading, or expired) -- that is a substitution, not a second fetch.
+//
+// The testId filter is read from the report URL's fragment, never from a flag;
 // --title is the fallback for a URL that carries no testId.
 //
 // --occurrence nests the artifacts under evidence/<pattern>/<label>, so several
@@ -19,22 +23,23 @@
 //
 // Output (stdout): compact JSON manifest { evidenceDir, summaryFile,
 //   timelineFile, snapshotFile, screenshots[], rawLogDir, rawLogsRetained,
-//   failure }.
+//   failure, occurrence, skipped[] }.
 
 import path from 'path';
 import fs from 'fs';
+import { execFileSync } from 'child_process';
 import {
-	analyzerScript, triageDir, ensureDir, writeJson, writeText,
-	emit, fail, runNode, isMain, parseArgs, defineCli, handleHelp,
+	analyzerScript, triageDir, ensureDir, writeJson, writeText, readJson,
+	emit, fail, isMain, parseArgs, defineCli, handleHelp, repoRoot,
 	stripAnsi, FAILURE_TEXT_LIMIT,
 } from './lib.js';
 
 export const CLI = defineCli({
 	name: 'fetch-pattern-evidence.js',
 	summary: 'pull evidence for ONE occurrence of ONE failure pattern, summary-first',
-	usage: ['--report-url <url> --triage-id <id> [--pattern A] [options]'],
+	usage: ['--triage-id <id> --pattern A [options]', '--report-url <url> --triage-id <id> [--pattern A] [options]'],
 	flags: [
-		{ name: 'report-url', value: '<url>', required: true, description: "the pattern's representativeOccurrence.report_url; the index.html#?testId= fragment is stripped and the testId reused as the filter" },
+		{ name: 'report-url', value: '<url>', description: "one specific occurrence's report_url, fetched with no fallback (default: walk the pattern's occurrences from history-summary.json, skipping unfetchable reports); the index.html#?testId= fragment is stripped and the testId reused as the filter" },
 		{ name: 'triage-id', value: '<id>', required: true, description: 'work-dir id from triage-history.js' },
 		{ name: 'pattern', value: '<id>', description: 'names the evidence sub-directory (default: A)' },
 		{ name: 'title', value: '<full title>', description: 'filter fallback when the URL carries no testId' },
@@ -74,6 +79,40 @@ export function clearManagedArtifacts(evidenceDir) {
 		fs.rmSync(path.join(evidenceDir, name), { recursive: true, force: true });
 	}
 	return present;
+}
+
+/**
+ * True when the processor failed because the report itself is not fetchable --
+ * a 403/404 from the report host, i.e. the run is still uploading or the report
+ * expired. Only these fall through to the next occurrence; any other failure is
+ * a processor bug and must surface.
+ */
+export function isUnfetchableReport(stderr) {
+	return /HTTP (403|404)\b/.test(String(stderr || ''));
+}
+
+/**
+ * Report URLs to try, in order: the explicit --report-url alone, or every
+ * occurrence of the pattern that has one (representative first).
+ */
+export function candidateOccurrences(historySummary, patternId, reportUrl) {
+	if (reportUrl) { return [{ report_url: reportUrl }]; }
+	const p = (historySummary?.patterns || []).find(x => x.id === patternId);
+	if (!p) { return null; }
+	const list = p.occurrences || (p.representativeOccurrence ? [p.representativeOccurrence] : []);
+	return list.filter(o => o.report_url);
+}
+
+/** Run the processor, capturing stderr so a 403 can be told apart from a crash. */
+function runProcessor(args) {
+	try {
+		return { ok: true, stdout: execFileSync('node', [analyzerScript('e2e-process-s3.js'), ...args], {
+			cwd: repoRoot(), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024,
+			stdio: ['ignore', 'pipe', 'pipe'],
+		}) };
+	} catch (err) {
+		return { ok: false, stderr: err.stderr ? String(err.stderr) : String(err.message) };
+	}
 }
 
 /** Pick the single test detail matching the filter, or the sole one present. */
@@ -179,33 +218,51 @@ function main() {
 	const reportUrl = args['report-url'];
 	const triageId = args['triage-id'];
 	const pattern = args.pattern || 'A';
-	if (!reportUrl) { fail('Missing --report-url.'); }
 	if (!triageId) { fail('Missing --triage-id.'); }
 
-	const { baseUrl, testId } = normalizeReportUrl(reportUrl);
-	const title = args.title || null;
-	const filterArgs = [];
-	if (testId) { filterArgs.push('--test-id', testId); }
-	else if (title) { filterArgs.push('--title', title); }
+	let history = null;
+	if (!reportUrl) {
+		const historyFile = path.join(triageDir(triageId), 'history-summary.json');
+		if (!fs.existsSync(historyFile)) { fail(`No --report-url and no ${historyFile}; run triage-history.js first.`, { triageId, pattern }); }
+		history = readJson(historyFile);
+	}
+	const candidates = candidateOccurrences(history, pattern, reportUrl);
+	if (!candidates) { fail(`Pattern ${pattern} is not in history-summary.json.`, { triageId, pattern }); }
+	if (!candidates.length) { fail(`Pattern ${pattern} has no occurrence with a report_url.`, { triageId, pattern }); }
 
-	const occurrence = args.occurrence || null;
+	const title = args.title || null;
+	const occurrenceLabel = args.occurrence || null;
 	const evidenceDir = ensureDir(path.join(
-		triageDir(triageId), 'evidence', pattern, ...(occurrence ? [occurrence] : []),
+		triageDir(triageId), 'evidence', pattern, ...(occurrenceLabel ? [occurrenceLabel] : []),
 	));
-	clearManagedArtifacts(evidenceDir);
 	const rawLogsDir = path.join(evidenceDir, 'raw-logs');
 
 	let stdout;
-	try {
-		const procArgs = ['--report-url', baseUrl, '--output-dir', evidenceDir, ...filterArgs];
+	let used = null;
+	let testId = null;
+	const skipped = [];
+	for (const cand of candidates) {
+		const norm = normalizeReportUrl(cand.report_url);
+		const filterArgs = [];
+		if (norm.testId) { filterArgs.push('--test-id', norm.testId); }
+		else if (title) { filterArgs.push('--title', title); }
+		clearManagedArtifacts(evidenceDir);
+		const procArgs = ['--report-url', norm.baseUrl, '--output-dir', evidenceDir, ...filterArgs];
 		// Extract raw logs into this triage's evidence dir rather than leaving them
 		// in a shared temp dir, where logs-<shortId>.zip collides across every test
 		// in the same spec file and a stale sibling's bundle reads as this run's.
 		if (args['keep-raw-logs']) { procArgs.push('--raw-logs-out', rawLogsDir); }
 		else { procArgs.push('--cleanup'); }
-		stdout = runNode(analyzerScript('e2e-process-s3.js'), procArgs);
-	} catch (err) {
-		fail(`e2e-process-s3.js failed (report may be 403/expired -- try the next occurrence's report_url): ${err.message}`, { triageId, pattern });
+		const r = runProcessor(procArgs);
+		if (r.ok) { stdout = r.stdout; used = cand; testId = norm.testId; break; }
+		if (!isUnfetchableReport(r.stderr) || reportUrl) {
+			const hint = isUnfetchableReport(r.stderr) ? ' (report not uploaded yet or expired; omit --report-url to fall back through the pattern\'s occurrences)' : '';
+			fail(`e2e-process-s3.js failed${hint}: ${stripAnsi(r.stderr).trim().split('\n').slice(-3).join(' | ')}`, { triageId, pattern, skipped });
+		}
+		skipped.push({ report_url: cand.report_url, sha: cand.sha ?? null, reason: (r.stderr.match(/HTTP (403|404)[^\n]*/) || ['unfetchable'])[0].slice(0, 40) });
+	}
+	if (!used) {
+		fail(`No fetchable report among ${candidates.length} occurrence(s) of pattern ${pattern}.`, { triageId, pattern, skipped });
 	}
 
 	let result;
@@ -237,6 +294,8 @@ function main() {
 		rawLogsRetained: Boolean(rawLogDir),
 		rawEvidenceFile: rel(rawFile),
 		failure: summary.failure ? summary.failure.slice(0, 200) : null,
+		occurrence: { sha: used.sha ?? null, os: used.os ?? null, browser: used.browser ?? null, report_url: used.report_url },
+		skipped,
 	});
 }
 

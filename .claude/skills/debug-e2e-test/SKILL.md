@@ -230,11 +230,11 @@ start at step 2. Steps 2 and 3 are shared.
 1. Fetch evidence for the pattern's representative occurrence:
    ```bash
    node .claude/skills/debug-e2e-test/scripts/fetch-pattern-evidence.js \
-     --report-url '<representativeOccurrence.report_url>' \
      --triage-id <id> --pattern A
    ```
-   (The helper strips the `index.html#?testId=` fragment and filters the report
-   to this one test itself.)
+   (It starts at the representative occurrence and skips past any report that
+   isn't uploaded yet or has expired, so a 403 is never a reason to wait or switch
+   patterns. It filters the report to this one test itself.)
 2. Read the generated `summary.md` (failure, timeline tail, sibling tests,
    error-shaped logs, unresolved questions). **Read only the summary first.**
 3. State the concrete questions that remain. **Before each escalation past the

@@ -12,7 +12,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, RuntimeStartupPhase } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions, IRuntimeSessionStartReason, SessionStartReasonId } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions, IUpdateNotebookSessionUriOptions, IRuntimeSessionStartReason, SessionStartReasonId } from './runtimeSessionService.js';
 import { createSessionStartReason } from './sessionStartReasons.js';
 import { RuntimeSessionDisplayInfo } from './runtimeSessionDisplayInfo.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
@@ -1257,7 +1257,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				session.metadata.notebookUri,
 				createSessionStartReason(SessionStartReasonId.RestartUninitializedSession, { restartSource: source }),
 				RuntimeStartMode.Starting,
-				true
+				true,
+				{ quartoNotebookUri: session.metadata.quartoNotebookUri }
 			);
 			return true;
 		} else if (
@@ -2026,7 +2027,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			createdTimestamp: Date.now(),
 			startReason: startReason.detail,
 			startReasonId: startReason.id,
-			userSelected: options?.userSelected
+			userSelected: options?.userSelected,
+			quartoNotebookUri: options?.quartoNotebookUri,
 		};
 
 		// Provision the new session.
@@ -2739,9 +2741,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param oldUri The original URI of the notebook (typically an untitled:// URI)
 	 * @param newUri The new URI of the notebook (typically a file:// URI after saving)
+	 * @param options The session's Quarto notebook URI for the new document, if it has one.
 	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	async updateNotebookSessionUri(oldUri: URI, newUri: URI): Promise<string | undefined> {
+	async updateNotebookSessionUri(oldUri: URI, newUri: URI, options?: IUpdateNotebookSessionUriOptions): Promise<string | undefined> {
 
 		// Find the session associated with the old URI
 		const session = this._notebookSessionsByNotebookUri.get(oldUri);
@@ -2766,6 +2769,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Remember the session ID and old working directory for return value
 		const sessionId = session.sessionId;
+		const oldQuartoNotebookUri = session.metadata.quartoNotebookUri;
 		try {
 			// Operations are performed in a specific order to maintain atomic-like behavior
 			// The ordering ensures that even if interrupted between steps, the system won't lose
@@ -2782,6 +2786,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// reflect current reality
 			session.dynState.currentNotebookUri = newUri;
 			session.metadata.notebookUri = newUri;
+			if (options?.quartoNotebookUri) {
+				session.metadata.quartoNotebookUri = options.quartoNotebookUri;
+			}
 
 			// 3. Finally remove the old mapping - we do this last because it's
 			// the most likely to fail if ResourceMap has internal inconsistency
@@ -2831,6 +2838,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 			if (isEqual(session.metadata.notebookUri, newUri)) {
 				session.metadata.notebookUri = oldUri;
+			}
+			if (options?.quartoNotebookUri && isEqual(session.metadata.quartoNotebookUri, options.quartoNotebookUri)) {
+				session.metadata.quartoNotebookUri = oldQuartoNotebookUri;
 			}
 
 			return undefined;

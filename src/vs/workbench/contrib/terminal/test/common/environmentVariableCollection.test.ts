@@ -292,6 +292,23 @@ suite('EnvironmentVariable - MergedEnvironmentVariableCollection', () => {
 				});
 			}
 		});
+
+		// --- Start Positron ---
+		test('should encode colons and backslashes for shell integration', async () => {
+			const merged = new MergedEnvironmentVariableCollection(new Map([
+				['ext', {
+					map: deserializeEnvironmentVariableCollection([
+						['A-key', { value: 'C:\\R\\bin\\x64', type: EnvironmentVariableMutatorType.Replace, variable: 'A', options: { applyAtProcessCreation: false, applyAtShellIntegration: true } }]
+					])
+				}]
+			]));
+			const env: IProcessEnvironment = {};
+			await merged.applyToProcessEnvironment(env, undefined);
+			deepStrictEqual(env, {
+				VSCODE_ENV_REPLACE: 'A=C\\x3a\\x5cR\\x5cbin\\x5cx64'
+			});
+		});
+		// --- End Positron ---
 	});
 
 	suite('diff', () => {

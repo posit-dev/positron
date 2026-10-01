@@ -9,15 +9,19 @@ import { QuickAccess } from './quickaccess';
 import { Toasts } from './dialog-toasts';
 
 export class NewFolderFlow {
-	// Dynamic modal dialogs render into an overlay with this same testid, so two on screen at once
-	// would fail Playwright's strict mode. Pin it to the overlay holding the older dialog box, which
-	// is the one this flow uses.
+	// Every Positron modal renders into an overlay with this same testid, so two on screen at once
+	// would fail Playwright's strict mode. Pin it to the overlay holding this flow's dialog. Each
+	// step's dialog is titled with the step's name, so the flow is found by its step content.
 	private get modalOverlay(): Locator {
 		return this.code.driver.currentPage.getByTestId('positron-modal-overlay')
-			.filter({ has: this.code.driver.currentPage.locator('.positron-modal-dialog-box') });
+			.filter({ has: this.flowStep });
+	}
+	private get flowStep(): Locator {
+		return this.code.driver.currentPage.locator('.positron-dynamic-modal-dialog-box .flow-step');
 	}
 	private get backButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Back', exact: true }); }
-	private get cancelButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Cancel' }); }
+	// The flow has no Cancel button; the dialog's title bar close button cancels it.
+	private get cancelButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Close' }); }
 	private get nextButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Next', exact: true }); }
 	private get createButton(): Locator { return this.modalOverlay.getByRole('button', { name: 'Create', exact: true }); }
 	private folderTemplateButton = (label: string) => this.code.driver.currentPage.locator('label').filter({ hasText: label });
@@ -48,7 +52,7 @@ export class NewFolderFlow {
 			}
 
 			await this.code.driver.currentPage.getByRole('button', { name: 'Current Window' }).click();
-			await expect(this.code.driver.currentPage.locator('.simple-title-bar').filter({ hasText: 'New Folder From Template' })).not.toBeVisible();
+			await expect(this.flowStep).not.toBeVisible();
 		});
 	}
 
@@ -224,7 +228,7 @@ export class NewFolderFlow {
 		const mergedVisibility = { ...defaultVisibility, ...visibleTemplates };
 
 		await test.step(`Verify folder flow template dialog`, async () => {
-			await expect(this.code.driver.currentPage.locator('.simple-title-bar-title').getByText('New Folder From Template')).toBeVisible();
+			await expect(this.code.driver.currentPage.locator('.positron-dynamic-modal-dialog-box .title-bar-title').getByText('Folder Template', { exact: true })).toBeVisible();
 
 			for (const template of Object.values(FolderTemplate)) {
 				const isVisible = mergedVisibility[template];

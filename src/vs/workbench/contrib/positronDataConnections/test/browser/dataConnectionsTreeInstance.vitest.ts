@@ -7,16 +7,19 @@
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IConfigurationChangeEvent } from '../../../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { DataConnectionNode, DataConnectionsTreeInstance, reloadKey } from '../../browser/classes/dataConnectionsTreeInstance.js';
-import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionRevealOptions, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 // The tree's hover manager hides the hover when the tree is disposed; nothing here shows one.
 const hoverService = stubInterface<IHoverService>({ hideHover: vi.fn() });
@@ -58,7 +61,7 @@ function dtoNode(
 ): DataConnectionNode {
 	return {
 		kind: 'dto',
-		dto: { nodeHandle: 99, hasGetChildren: true, hasPreview: false, ...dto },
+		dto: { nodeHandle: 99, hasGetChildren: true, hasPreview: false, hasDetails: false, ...dto },
 		handle: createHandle(handle),
 	};
 }
@@ -197,6 +200,7 @@ describe('DataConnectionsTreeInstance', () => {
 			kind: 'table',
 			hasGetChildren: false,
 			hasPreview: true,
+			hasDetails: false,
 		}]);
 		const instance = stubInterface<IDataConnectionInstance>({
 			id: 'instance-1',
@@ -227,7 +231,7 @@ describe('DataConnectionsTreeInstance', () => {
 			cancelDisconnectWhenUnused: vi.fn(),
 		});
 
-		const tree = new DataConnectionsTreeInstance(service, configurationService, notificationService, hoverService);
+		const tree = new DataConnectionsTreeInstance(service, configurationService, notificationService, hoverService, stubInterface<IEditorService>());
 		ctx.disposables.add(tree);
 
 		const setConnected = (nowConnected: boolean) => {
@@ -249,7 +253,12 @@ describe('DataConnectionsTreeInstance', () => {
 		profiles: IDataConnectionProfile[] = [profile],
 		// Defaulted to the setting's own default, so a test that says nothing gets what a user gets:
 		// a lone schema dropped from the tree. The breadcrumb tests below opt in explicitly.
-		showSingleSchema = false
+		showSingleSchema = false,
+		// For the details tests: how the connection answers for a node's details, and where they open.
+		{ nodeGetDetails, editorService = stubInterface<IEditorService>() }: {
+			nodeGetDetails?: IDataConnectionHandle['nodeGetDetails'];
+			editorService?: IEditorService;
+		} = {}
 	) {
 		const nodeGetChildren = vi.fn(async (nodeHandle: number) => childrenOf(nodeHandle));
 		const notificationError = vi.fn<INotificationService['error']>();
@@ -266,6 +275,7 @@ describe('DataConnectionsTreeInstance', () => {
 					handle: index + 1,
 					getChildren: async () => rootDtos,
 					nodeGetChildren,
+					...(nodeGetDetails ? { nodeGetDetails } : {}),
 				}),
 			}),
 		]));
@@ -287,14 +297,14 @@ describe('DataConnectionsTreeInstance', () => {
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
 			'dataConnections.tree.showSingleSchema': showSingleSchema,
-		}), notificationService, hoverService);
+		}), notificationService, hoverService, editorService);
 		ctx.disposables.add(tree);
 		return { tree, nodeGetChildren, notificationError };
 	}
 
 	/** A node DTO, defaulting to an expandable, non-previewable one. */
 	function nodeDto(overrides: Partial<IDataConnectionNodeDTO> & Pick<IDataConnectionNodeDTO, 'nodeHandle' | 'name' | 'kind'>): IDataConnectionNodeDTO {
-		return { hasGetChildren: true, hasPreview: false, ...overrides };
+		return { hasGetChildren: true, hasPreview: false, hasDetails: false, ...overrides };
 	}
 
 	/** The visible rows as name / breadcrumb prefix / expanded triples. */
@@ -305,6 +315,47 @@ describe('DataConnectionsTreeInstance', () => {
 			expanded: tree.isExpanded(visible.node.id),
 		}));
 	}
+
+	it('drops a preview-mode details result that a later click has overtaken', async () => {
+		// The first node's details are slow (a semantic view resuming a warehouse for GET_DDL); the
+		// second's are instant, so the second click's tab opens first.
+		let releaseSlow!: () => void;
+		const nodeGetDetails = vi.fn((nodeHandle: number) => nodeHandle === 1
+			? new Promise<IDataConnectionNodeDetailsDTO>(resolve => { releaseSlow = () => resolve({ description: 'slow', sections: [] }); })
+			: Promise.resolve({ description: 'fast', sections: [] }));
+		const opened: string[] = [];
+		const openEditor = vi.fn(async (input: DataConnectionNodeDetailsEditorInput) => {
+			ctx.disposables.add(input);
+			opened.push(input.target.name);
+			return undefined;
+		});
+		const { tree } = createTreeOverNodes(
+			[
+				nodeDto({ nodeHandle: 1, name: 'CHAOS_MODEL', kind: 'semantic-view', hasGetChildren: false, hasDetails: true }),
+				nodeDto({ nodeHandle: 2, name: 'NET_REVENUE', kind: 'metric', hasGetChildren: false, hasDetails: true }),
+			],
+			() => [],
+			[profile],
+			false,
+			{
+				nodeGetDetails,
+				// openEditor is overloaded for every kind of input; the tree only passes this one.
+				editorService: stubInterface<IEditorService>({ editors: [], openEditor: openEditor as unknown as IEditorService['openEditor'] }),
+			}
+		);
+		await tree.refresh();
+		await tree.expand(ENTRY_ID);
+		const rowOf = (name: string) => tree.visibleNodes.findIndex(visible => visible.node.data.kind === 'dto' && visible.node.data.dto.name === name);
+
+		const slow = tree.openNodeDetails(rowOf('CHAOS_MODEL'), false);
+		await tree.openNodeDetails(rowOf('NET_REVENUE'), false);
+		releaseSlow();
+		await slow;
+
+		// Only the click the tree still has in hand opens; the overtaken one is dropped rather than
+		// replacing it.
+		expect(opened).toEqual(['NET_REVENUE']);
+	});
 
 	it('breadcrumbs a namespace group holding one child into that child, and opens it', async () => {
 		// connection > Schemas > public > Tables. Only one schema, so "Schemas" is ceremony. Opted
@@ -777,25 +828,36 @@ describe('DataConnectionsTreeInstance reveal', () => {
 	 * first. `requestReveal` puts a new one up and nudges the tree, standing in for a press of the
 	 * database file page's button while the pane is already open.
 	 */
-	function createTree({ pendingReveal, connected = true, profilesAbove = 0 }: {
+	function createTree({ pendingReveal, connected = true, profilesAbove = 0, grouped = false }: {
 		pendingReveal?: string;
 		connected?: boolean;
 		profilesAbove?: number;
+		// Put the connection's table inside a Tables group, the way a real schema holds its tables,
+		// and give the table details.
+		grouped?: boolean;
 	} = {}) {
-		let pending = pendingReveal;
+		let pending: IDataConnectionRevealRequest | undefined = pendingReveal === undefined ? undefined : { profileId: pendingReveal };
 
+		const flights = {
+			nodeHandle: 7,
+			name: 'flights',
+			kind: 'table',
+			hasGetChildren: false,
+			hasPreview: true,
+			hasDetails: grouped,
+		};
 		const instance = stubInterface<IDataConnectionInstance>({
 			id: 'instance-1',
 			profileId: profile.id,
 			connectionHandle: stubInterface<IDataConnectionHandle>({
 				handle: 1,
-				getChildren: async () => [{
-					nodeHandle: 7,
-					name: 'flights',
-					kind: 'table',
-					hasGetChildren: false,
-					hasPreview: true,
-				}],
+				getChildren: async () => grouped
+					? [{ nodeHandle: 6, name: 'Tables', kind: 'group-tables', hasGetChildren: true, hasPreview: false, hasDetails: false }]
+					: [flights],
+				...(grouped ? {
+					nodeGetChildren: async () => [flights],
+					nodeGetDetails: async () => ({ sections: [] }),
+				} : {}),
 			}),
 		});
 
@@ -811,6 +873,16 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		// to bring it into view.
 		const filler = Array.from({ length: profilesAbove },
 			(_, index) => createProfile({ id: `filler-${index}` }));
+
+		// Where a revealed node's details open. The editor would own the input it is handed; with no
+		// editor here, the test's store does.
+		const openEditor = vi.fn(async (input: IDisposable) => {
+			ctx.disposables.add(input);
+			return undefined;
+		});
+		// openEditor is overloaded for every kind of input; the tree only ever passes an EditorInput,
+		// so the one-signature mock stands in for all of them.
+		const editorService = stubInterface<IEditorService>({ editors: [], openEditor: openEditor as unknown as IEditorService['openEditor'] });
 
 		const service = stubInterface<IPositronDataConnectionsService>({
 			onDidChangeProfiles: Event.None,
@@ -831,7 +903,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
-		}), stubInterface<INotificationService>({ error: vi.fn() }), hoverService);
+		}), stubInterface<INotificationService>({ error: vi.fn() }), hoverService, editorService);
 		ctx.disposables.add(tree);
 
 		// The tree asks the view rendering it to take keyboard focus, which is the part of a reveal
@@ -842,9 +914,10 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		return {
 			tree,
 			connect,
+			openEditor,
 			focusRequested: () => focusRequests > 0,
-			requestReveal: (profileId: string) => {
-				pending = profileId;
+			requestReveal: (profileId: string, options?: IDataConnectionRevealOptions) => {
+				pending = { profileId, ...options };
 				onDidRequestRevealConnection.fire();
 			},
 		};
@@ -883,6 +956,49 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		revealed.requestReveal('conn-1');
 
 		await expectRevealed(revealed);
+	});
+
+	it('walks a path down through a group, and opens the node\'s details, when a breadcrumb asks', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		revealed.requestReveal('conn-1', {
+			nodePath: [JSON.stringify(['group-tables', 'Tables']), JSON.stringify(['table', 'flights'])],
+			openDetails: true,
+			preserveFocus: true,
+		});
+
+		await vi.waitFor(() => expect(revealed.openEditor).toHaveBeenCalled());
+		const selected = revealed.tree.getSelectedNode()?.data;
+		expect(selected?.kind === 'dto' ? selected.dto.name : undefined).toBe('flights');
+		// The breadcrumb's editor keeps focus.
+		expect(revealed.focusRequested()).toBe(false);
+	});
+
+	it('finds a node inside a group its path leaves out, and takes focus when not asked to leave it', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'flights'])] });
+
+		await vi.waitFor(() => {
+			const selected = revealed.tree.getSelectedNode()?.data;
+			expect(selected?.kind === 'dto' ? selected.dto.name : undefined).toBe('flights');
+		});
+		expect(revealed.focusRequested()).toBe(true);
+	});
+
+	it('stops at the deepest node it can still find when the path no longer matches', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'dropped_since'])] });
+
+		// Nothing below the connection matches, so the connection is where it lands; the Tables
+		// group, opened only to look, is closed again.
+		await expectRevealed(revealed);
+		expect(revealed.tree.visibleNodes.some(visible =>
+			visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'flights')).toBe(false);
 	});
 
 	it('connects a connection that is not live when it is revealed', async () => {

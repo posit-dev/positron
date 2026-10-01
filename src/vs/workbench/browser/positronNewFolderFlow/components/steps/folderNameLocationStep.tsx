@@ -224,7 +224,6 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 	return (
 		<PositronFlowStep
 			backButtonConfig={{ onClick: props.back }}
-			cancelButtonConfig={{ onClick: props.cancel }}
 			{...okNextButtonConfig}
 			title={localize(
 				'folderNameLocationStep.title',
@@ -274,17 +273,20 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 							{parentPathErrorMsg}
 						</FlowFormattedText> :
 						<FlowFormattedText type={FlowFormattedTextType.Info}>
-							{localize(
-								'folderNameLocationSubStep.parentFolder.feedback',
-								"New folder will be created at "
-							)}
-							<PathDisplay
-								pathComponents={[
-									parentFolder,
-									folderName
-								]}
-								pathService={pathService}
-							/>
+							{/* One span, so the path wraps with the sentence instead of beside it. */}
+							<span>
+								{localize(
+									'folderNameLocationSubStep.parentFolder.feedback',
+									"New folder will be created at "
+								)}
+								<PathDisplay
+									pathComponents={[
+										parentFolder,
+										folderName
+									]}
+									pathService={pathService}
+								/>
+							</span>
 						</FlowFormattedText>
 				}
 				title={localize(
