@@ -932,4 +932,45 @@ describe('PositronDataConnectionsService', () => {
 			expect(takenWhileFiring).toBe('conn-1');
 		});
 	});
+
+	describe('opening a node in the Data Explorer by its path', () => {
+		const nodePath = [JSON.stringify(['group-tables', 'Tables']), JSON.stringify(['table', 'flights'])];
+
+		it('has the registered tree open the node, until the tree goes', async () => {
+			const opener = { openInDataExplorer: vi.fn(async (_profileId: string, _nodePath: readonly string[], _name: string) => { }) };
+			const registration = service.registerNodeOpener(opener);
+
+			const opened = await service.openNodeInDataExplorer('conn-1', nodePath, 'flights');
+			const hadOpener = service.hasNodeOpener();
+			registration.dispose();
+
+			expect({ opened, hadOpener, hasOpener: service.hasNodeOpener(), calls: opener.openInDataExplorer.mock.calls })
+				.toEqual({ opened: true, hadOpener: true, hasOpener: false, calls: [['conn-1', nodePath, 'flights']] });
+		});
+
+		it('waits for a tree that registers a moment later, as a pane opened just now builds its own', async () => {
+			const opener = { openInDataExplorer: vi.fn(async (_profileId: string, _nodePath: readonly string[], _name: string) => { }) };
+
+			const opening = service.openNodeInDataExplorer('conn-1', nodePath, 'flights');
+			ctx.disposables.add(service.registerNodeOpener(opener));
+
+			expect({ opened: await opening, calls: opener.openInDataExplorer.mock.calls.length }).toEqual({ opened: true, calls: 1 });
+		});
+
+		it('gives up when no tree arrives, leaving nothing behind for a tree built later', async () => {
+			vi.useFakeTimers();
+			try {
+				const opening = service.openNodeInDataExplorer('conn-1', nodePath, 'flights');
+				await vi.runAllTimersAsync();
+				const opened = await opening;
+
+				const opener = { openInDataExplorer: vi.fn(async (_profileId: string, _nodePath: readonly string[], _name: string) => { }) };
+				ctx.disposables.add(service.registerNodeOpener(opener));
+
+				expect({ opened, calls: opener.openInDataExplorer.mock.calls.length }).toEqual({ opened: false, calls: 0 });
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
 });

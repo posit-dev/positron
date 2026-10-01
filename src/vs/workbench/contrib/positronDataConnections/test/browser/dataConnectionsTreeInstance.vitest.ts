@@ -822,19 +822,25 @@ describe('DataConnectionsTreeInstance reveal', () => {
 	// built while one is outstanding, and one arriving while it is alive -- run the same path.
 	const onDidRequestRevealConnection = new Emitter<void>();
 
+	// Fired as a connection opens, as the real service does before connect resolves, so the entry
+	// the tree shows for it has its instance by the time the tree acts on it.
+	const onDidChangeInstances = new Emitter<IDataConnectionInstance[]>();
+
 	/**
 	 * Builds a tree over one connected profile, with `pendingReveal` outstanding on its service.
 	 * The request is handed over the way the real service hands it over: once, to whoever asks
 	 * first. `requestReveal` puts a new one up and nudges the tree, standing in for a press of the
 	 * database file page's button while the pane is already open.
 	 */
-	function createTree({ pendingReveal, connected = true, profilesAbove = 0, grouped = false }: {
+	function createTree({ pendingReveal, connected = true, profilesAbove = 0, grouped = false, previewFails = false }: {
 		pendingReveal?: string;
 		connected?: boolean;
 		profilesAbove?: number;
 		// Put the connection's table inside a Tables group, the way a real schema holds its tables,
 		// and give the table details.
 		grouped?: boolean;
+		// Make opening the table in the Data Explorer fail, as it does without a warehouse.
+		previewFails?: boolean;
 	} = {}) {
 		let pending: IDataConnectionRevealRequest | undefined = pendingReveal === undefined ? undefined : { profileId: pendingReveal };
 
@@ -866,10 +872,17 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		let liveInstance = connected ? instance : undefined;
 		const connect = vi.fn(async () => {
 			liveInstance = instance;
+			onDidChangeInstances.fire([instance]);
 			return instance;
 		});
-		const previewNode = vi.fn(async (_handle: IDataConnectionHandle, _nodeHandle: number) => 'dataset-1');
+		const previewNode = vi.fn(async (_handle: IDataConnectionHandle, _nodeHandle: number) => {
+			if (previewFails) {
+				throw new Error('No active warehouse selected in the current session.');
+			}
+			return 'dataset-1';
+		});
 		const disconnectWhenUnused = vi.fn();
+		const notifyError = vi.fn();
 
 		// The profile to reveal sits last, so a tree laid out shorter than its rows has to scroll
 		// to bring it into view.
@@ -888,7 +901,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 
 		const service = stubInterface<IPositronDataConnectionsService>({
 			onDidChangeProfiles: Event.None,
-			onDidChangeInstances: Event.None,
+			onDidChangeInstances: onDidChangeInstances.event,
 			onDidChangeDiscoveredProfiles: Event.None,
 			onDidRequestRevealConnection: onDidRequestRevealConnection.event,
 			takePendingRevealConnection: () => {
@@ -907,7 +920,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 		const tree = new DataConnectionsTreeInstance(service, new TestConfigurationService({
 			'workbench.tree.indent': 16,
 			'dataConnections.tree.indent': 0,
-		}), stubInterface<INotificationService>({ error: vi.fn() }), hoverService, editorService);
+		}), stubInterface<INotificationService>({ error: notifyError }), hoverService, editorService);
 		ctx.disposables.add(tree);
 
 		// The tree asks the view rendering it to take keyboard focus, which is the part of a reveal
@@ -920,6 +933,7 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			connect,
 			previewNode,
 			disconnectWhenUnused,
+			notifyError,
 			openEditor,
 			focusRequested: () => focusRequests > 0,
 			requestReveal: (profileId: string, options?: IDataConnectionRevealOptions) => {
@@ -1007,36 +1021,78 @@ describe('DataConnectionsTreeInstance reveal', () => {
 			visible.node.data.kind === 'dto' && visible.node.data.dto.name === 'flights')).toBe(false);
 	});
 
+	// The path a details editor records for the table: every row on the way, group rows included.
+	const FLIGHTS_PATH = [JSON.stringify(['group-tables', 'Tables']), JSON.stringify(['table', 'flights'])];
+
 	it('opens a node in the Data Explorer for a details editor, then puts the tree back as it was', async () => {
 		const revealed = createTree({ grouped: true });
 		await revealed.tree.refresh();
 
-		revealed.requestReveal('conn-1', {
-			nodePath: [JSON.stringify(['group-tables', 'Tables']), JSON.stringify(['table', 'flights'])],
-			openInDataExplorer: true,
-			preserveFocus: true,
-		});
+		await revealed.tree.openInDataExplorer('conn-1', FLIGHTS_PATH, 'flights');
 
 		// The connection the walk opened is handed to the Data Explorer as the entry closes again.
-		await vi.waitFor(() => expect(revealed.disconnectWhenUnused).toHaveBeenCalledWith('conn-1'));
 		expect({
 			previewed: revealed.previewNode.mock.calls.map(call => call[1]),
+			handedOver: revealed.disconnectWhenUnused.mock.calls,
 			expanded: revealed.tree.isExpanded(ENTRY_ID),
 			selected: revealed.tree.getSelectedNode()?.id,
 			focusRequested: revealed.focusRequested(),
-		}).toEqual({ previewed: [7], expanded: false, selected: undefined, focusRequested: false });
+		}).toEqual({ previewed: [7], handedOver: [['conn-1']], expanded: false, selected: undefined, focusRequested: false });
 	});
 
-	it('opens nothing in the Data Explorer when the path no longer reaches the node', async () => {
+	it('connects a closed connection to open a node, and lets it close again when the preview fails', async () => {
+		const revealed = createTree({ grouped: true, connected: false, previewFails: true });
+		await revealed.tree.refresh();
+
+		await revealed.tree.openInDataExplorer('conn-1', FLIGHTS_PATH, 'flights');
+
+		// The preview's failure is reported, and the entry the walk opened, closed again, hands the
+		// connection back to be closed: nothing is using it.
+		expect({
+			connected: revealed.connect.mock.calls.length,
+			reported: revealed.notifyError.mock.calls.map(call => call[0]),
+			handedOver: revealed.disconnectWhenUnused.mock.calls,
+			expanded: revealed.tree.isExpanded(ENTRY_ID),
+		}).toEqual({
+			connected: 1,
+			reported: [`Could not open 'flights' in the Data Explorer: No active warehouse selected in the current session.`],
+			handedOver: [['conn-1']],
+			expanded: false,
+		});
+	});
+
+	it('says so when the path no longer reaches the node, and opens nothing', async () => {
 		const revealed = createTree({ grouped: true });
 		await revealed.tree.refresh();
 
-		revealed.requestReveal('conn-1', { nodePath: [JSON.stringify(['table', 'dropped_since'])], openInDataExplorer: true });
+		await revealed.tree.openInDataExplorer('conn-1', [JSON.stringify(['table', 'dropped_since'])], 'dropped_since');
 
 		// The walk opens the connection on its way down, finds nothing to open, and closes it again.
-		await vi.waitFor(() => expect(revealed.disconnectWhenUnused).toHaveBeenCalledWith('conn-1'));
-		expect({ previewed: revealed.previewNode.mock.calls.length, expanded: revealed.tree.isExpanded(ENTRY_ID) })
-			.toEqual({ previewed: 0, expanded: false });
+		expect({
+			previewed: revealed.previewNode.mock.calls.length,
+			reported: revealed.notifyError.mock.calls.map(call => call[0]),
+			expanded: revealed.tree.isExpanded(ENTRY_ID),
+		}).toEqual({
+			previewed: 0,
+			reported: [`Could not open 'dropped_since' in the Data Explorer: it is no longer in its connection.`],
+			expanded: false,
+		});
+	});
+
+	it('walks down the tree for one request at a time', async () => {
+		const revealed = createTree({ grouped: true });
+		await revealed.tree.refresh();
+
+		// Two at once: the first's collapsing what it opened must not pull rows from under the second.
+		await Promise.all([
+			revealed.tree.openInDataExplorer('conn-1', FLIGHTS_PATH, 'flights'),
+			revealed.tree.openInDataExplorer('conn-1', FLIGHTS_PATH, 'flights'),
+		]);
+
+		expect({
+			previewed: revealed.previewNode.mock.calls.map(call => call[1]),
+			expanded: revealed.tree.isExpanded(ENTRY_ID),
+		}).toEqual({ previewed: [7, 7], expanded: false });
 	});
 
 	it('connects a connection that is not live when it is revealed', async () => {

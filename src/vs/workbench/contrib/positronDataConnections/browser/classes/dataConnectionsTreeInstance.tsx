@@ -9,7 +9,8 @@ import { ReactNode } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { DataConnectionEntryRow } from '../components/dataConnectionEntryRow.js';
-import { canPreview, DataConnectionNodeRow, kindIcon, openNodeInDataExplorer } from '../components/dataConnectionNodeRow.js';
+import { DataConnectionNodeRow, kindIcon } from '../components/dataConnectionNodeRow.js';
+import { canPreview, openNodeInDataExplorer } from './dataConnectionNodePreview.js';
 import { MutableDisposable } from '../../../../../base/common/lifecycle.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../../../browser/positronTree/classes/treeNode.js';
 import { MouseSelectionType } from '../../../../browser/positronDataGrid/classes/dataGridInstance.js';
@@ -27,7 +28,7 @@ import { openDataConnectionNodeDetails, pinDataConnectionNodeDetails } from '../
 import { IDataConnectionNodeDetailsTarget } from '../editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
-import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionNodeOpener, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
@@ -179,7 +180,7 @@ const wrapDto = (
  * from it closes -- and drops the loaded subtree so the next expand re-fetches against a fresh
  * handle.
  */
-export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> {
+export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> implements IDataConnectionNodeOpener {
 	// Children the breadcrumb look-ahead fetched for a namespace group that went on to keep its row,
 	// held until that group is expanded so the user's own expand doesn't repeat the query. Keyed by
 	// the group's node id, which carries the node handle the fetch minted, so an entry can only ever
@@ -189,6 +190,10 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// Counts details requests, so a preview-mode open whose fetch was overtaken by a later request
 	// can tell and drop its result. See openNodeDetails.
 	private _detailsRequestCount = 0;
+
+	// The walk down the tree under way, or the last one, settled; the next walk waits for it. See
+	// _walk.
+	private _walking: Promise<unknown> = Promise.resolve();
 
 	// A scroll waiting for the grid to be laid out, held so a second reveal replaces the first
 	// rather than leaving two listeners racing to scroll to different rows. See
@@ -237,8 +242,14 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		// database file editor, after creating or opening one). Taken rather than listened for,
 		// because the request may well have been made while this tree was being built -- the pane
 		// is opened first and renders a moment later -- in which case there was nothing here to
-		// hear it. Both paths run the same take, so whichever gets there first honors it.
-		const revealRequested = () => { void this._revealRequestedConnection(); };
+		// hear it. Both paths run the same take, so whichever gets there first honors it. A request
+		// is taken as soon as it is heard, and walked in turn with any other walk under way.
+		const revealRequested = () => {
+			const request = this._service.takePendingRevealConnection();
+			if (request !== undefined) {
+				void this._walk(() => this._revealConnection(request));
+			}
+		};
 		this._register(this._service.onDidRequestRevealConnection(revealRequested));
 		revealRequested();
 
@@ -266,10 +277,8 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	}
 
 	/**
-	 * Shows the connection the service has been asked to reveal, if there is one: selects its row
-	 * and opens it, which for an entry means connecting it and fetching what it holds. Nothing
-	 * happens when no request is outstanding, which is the usual case -- this runs once when the
-	 * tree is built as well as on every request.
+	 * Shows the connection the service has been asked to reveal: selects its row and opens it, which
+	 * for an entry means connecting it and fetching what it holds.
 	 *
 	 * An entry the user already has open is left expanded as it is; the selection still moves to
 	 * it, which is the part that answers "where did my connection go".
@@ -278,58 +287,15 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * instead, and with openDetails opens its details too. With preserveFocus the tree leaves focus
 	 * where it is -- a breadcrumb in a details editor, where the user is reading -- instead of taking
 	 * it.
+	 * @param request The request.
 	 */
-	private async _revealRequestedConnection(): Promise<void> {
-		const request = this._service.takePendingRevealConnection();
-		if (request === undefined) {
-			return;
-		}
-		const { profileId, nodePath = [], openDetails = false, openInDataExplorer = false, preserveFocus = false } = request;
+	private async _revealConnection(request: IDataConnectionRevealRequest): Promise<void> {
+		const { profileId, nodePath = [], openDetails = false, preserveFocus = false } = request;
 
-		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
-		// tree through a roots refresh, and a tree built just now has no rows at all until its
-		// first refresh. Either way, one refresh puts the saved profiles on screen.
-		const id = entryNodeId(profileId);
-		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
-			await this.refresh();
-		}
-
-		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
-			return;
-		}
-
-		// What the walk below expands on its way to the node, which a request to open the node's
-		// data puts back as it was.
-		const expandedOnTheWay: string[] = [];
-
-		// Expanding an entry is what opens its connection, so this is the "open" in the request.
-		// Failures surface on the row itself, the same as a user-driven expand.
-		if (!this.isExpanded(id)) {
-			await this.expand(id);
-			expandedOnTheWay.push(id);
-		}
-
-		// Located after the expands, which insert the rows each node holds and so move everything
-		// below it.
-		const targetId = nodePath.length > 0 ? await this._revealNodePath(id, nodePath, expandedOnTheWay) : id;
-		const rowIndex = this.visibleNodes.findIndex(visible => visible.node.id === targetId);
-
-		// Opening a node's data is a request to see the data, not to go to the node: the tree walks
-		// down to it -- connecting, if need be, since the data comes through the connection -- and
-		// then puts itself back as it was. What the walk expanded is collapsed again, deepest first so
-		// each collapse leaves its ancestors as they were; collapsing the entry hands the connection
-		// to the Data Explorer, which keeps it open, or closes it if the preview failed. The selection
-		// isn't moved and focus isn't taken.
-		if (openInDataExplorer) {
-			if (rowIndex !== -1) {
-				await this._openRevealedInDataExplorer(rowIndex, nodePath);
-			}
-			for (const expandedId of expandedOnTheWay.reverse()) {
-				this.collapse(expandedId);
-			}
-			return;
-		}
-
+		// Located after the walk's expands, which insert the rows each node holds and so move
+		// everything below it.
+		const targetId = await this._walkTo(profileId, nodePath, []);
+		const rowIndex = targetId === undefined ? -1 : this.visibleNodes.findIndex(visible => visible.node.id === targetId);
 		if (rowIndex === -1) {
 			return;
 		}
@@ -353,18 +319,90 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	}
 
 	/**
-	 * Opens a revealed row's node in the Data Explorer. Only the node itself is opened: when the tree
-	 * no longer matches the path (something was renamed or dropped since it was recorded), the row
-	 * reached is some ancestor, and opening that would show the user data they didn't ask for.
-	 * @param rowIndex The index of the row the reveal reached.
-	 * @param nodePath The path the reveal was asked to follow.
+	 * Opens the node at a path below a connection in the Data Explorer, for a details editor, which
+	 * holds the node's path rather than its live handle. See IDataConnectionNodeOpener.
+	 *
+	 * Opening a node's data is a request to see the data, not to go to the node: the tree walks down
+	 * to it as a reveal does -- connecting, if need be, since the data comes through the connection --
+	 * and then puts itself back as it was. What the walk expanded is collapsed again, deepest first so
+	 * each collapse leaves its ancestors as they were; collapsing the entry hands the connection to
+	 * the Data Explorer, which keeps it open, or lets it close if the preview failed. The selection
+	 * isn't moved and focus isn't taken.
+	 *
+	 * Only the node itself is opened. When the tree no longer matches the path -- something was
+	 * renamed or dropped since it was recorded, or the connection was removed -- the walk stops short
+	 * of it, and opening what it stopped at would show data the user didn't ask for; that is reported
+	 * instead, unless the walk stopped because a row failed to expand, which the expand has reported.
+	 * @param profileId The id of the connection's profile.
+	 * @param nodePath The reload key of each row on the way down from the connection to the node.
+	 * @param name The node's name, for reporting a failure.
 	 */
-	private async _openRevealedInDataExplorer(rowIndex: number, nodePath: readonly string[]): Promise<void> {
-		const data = this.visibleNodes[rowIndex].node.data;
-		if (data.kind !== 'dto' || reloadKey(data) !== nodePath.at(-1) || !canPreview(data.dto)) {
-			return;
+	openInDataExplorer(profileId: string, nodePath: readonly string[], name: string): Promise<void> {
+		return this._walk(async () => {
+			const expanded: string[] = [];
+			try {
+				const reachedId = await this._walkTo(profileId, nodePath, expanded);
+				const reached = this.visibleNodes.find(visible => visible.node.id === reachedId)?.node.data;
+				if (reached?.kind === 'dto' && reloadKey(reached) === nodePath.at(-1) && canPreview(reached.dto)) {
+					await openNodeInDataExplorer(this._service, this._notificationService, reached.handle, reached.dto);
+				} else if (reachedId === undefined || this.getError(reachedId) === undefined) {
+					this._notificationService.error(localize(
+						'positron.dataConnections.openInDataExplorerNotFound',
+						"Could not open '{0}' in the Data Explorer: it is no longer in its connection.",
+						name
+					));
+				}
+			} finally {
+				for (const expandedId of expanded.reverse()) {
+					this.collapse(expandedId);
+				}
+			}
+		});
+	}
+
+	/**
+	 * Runs a walk down the tree once any walk under way has finished. Walks expand rows on their way
+	 * down, and a walk opening a node's data collapses them again afterwards, so two at once would
+	 * undo each other's work: one collapsing rows the other is still walking through.
+	 * @param walk The walk.
+	 * @returns What the walk returns.
+	 */
+	private _walk<T>(walk: () => Promise<T>): Promise<T> {
+		const result = this._walking.then(walk);
+		this._walking = result.catch(() => undefined);
+		return result;
+	}
+
+	/**
+	 * Walks down from a connection's entry to the node at a path below it, expanding the entry -- which
+	 * connects it -- and the rows on the way, as need be.
+	 * @param profileId The id of the connection's profile.
+	 * @param nodePath The reload keys of the nodes on the way down; empty for the connection itself.
+	 * @param expanded Collects the ids of the rows the walk expanded that it left expanded.
+	 * @returns The id of the deepest node reached (see _revealNodePath), or undefined when the
+	 * connection's entry isn't in the tree.
+	 */
+	private async _walkTo(profileId: string, nodePath: readonly string[], expanded: string[]): Promise<string | undefined> {
+		// The entry may not be among the rows yet: a connection saved a moment ago reaches this
+		// tree through a roots refresh, and a tree built just now has no rows at all until its
+		// first refresh. Either way, one refresh puts the saved profiles on screen.
+		const id = entryNodeId(profileId);
+		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
+			await this.refresh();
 		}
-		await openNodeInDataExplorer(this._service, this._notificationService, data.handle, data.dto);
+
+		if (!this.visibleNodes.some(visible => visible.node.id === id)) {
+			return undefined;
+		}
+
+		// Expanding an entry is what opens its connection, so this is the "open" in a reveal.
+		// Failures surface on the row itself, the same as a user-driven expand.
+		if (!this.isExpanded(id)) {
+			await this.expand(id);
+			expanded.push(id);
+		}
+
+		return nodePath.length > 0 ? this._revealNodePath(id, nodePath, expanded) : id;
 	}
 
 	/**

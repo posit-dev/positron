@@ -265,7 +265,7 @@ suite('Snowflake Driver Tests', () => {
 		});
 	});
 
-	test('stage expands to folders and files from one LIST, listing a folder again only when it is refreshed', async () => {
+	test('stage expands to folders and files from LIST, each folder listing its own prefix', async () => {
 		const listed: string[] = [];
 		const mock = createMockClient((sql) => {
 			if (sql.includes('SHOW STAGES')) {
@@ -298,19 +298,12 @@ suite('Snowflake Driver Tests', () => {
 			[positron.DataConnectionNodeKind.File, 'readme.txt', '12 B', '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/readme.txt'],
 		]);
 
-		// The stage's listing held every file, so the folder's first expansion is built from it, and
-		// a file in it is named by its own folder's path.
+		// The folder lists its own prefix when expanded, so it shows what is there now.
 		const inFolder = await top[0].getChildren!();
-		const expected = [
+		assert.deepStrictEqual(inFolder.map(node => [node.kind, node.name, node.dataType, node.path]), [
 			[positron.DataConnectionNodeKind.Directory, 'q1', undefined, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/q1/'],
 			[positron.DataConnectionNodeKind.File, 'orders.csv', '2.0 KB', '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/orders.csv'],
-		];
-		assert.deepStrictEqual(inFolder.map(node => [node.kind, node.name, node.dataType, node.path]), expected);
-		assert.deepStrictEqual(listed, [`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/'`]);
-
-		// Refreshing the folder lists its own prefix.
-		const refreshed = await top[0].getChildren!();
-		assert.deepStrictEqual(refreshed.map(node => [node.kind, node.name, node.dataType, node.path]), expected);
+		]);
 		assert.deepStrictEqual(listed, [
 			`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/'`,
 			`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/'`,
@@ -331,13 +324,9 @@ suite('Snowflake Driver Tests', () => {
 		], ['2024/orders.csv', '2024/orders.csv', '2024/orders.csv', '2024/orders.csv', 'raw/orders.csv', '2024/']);
 	});
 
-	test('stage listing says when it was cut short, and lists a folder of a cut-short listing itself', async () => {
-		// One file in a folder, then 10,000 at the top: the first 10,000 hold the folder's file and
-		// all but one of the others.
-		const many = [
-			{ name: 'big/sub/x.csv', size: 1 },
-			...Array.from({ length: 10000 }, (_, index) => ({ name: `big/f${String(index).padStart(5, '0')}.csv`, size: 1 })),
-		];
+	test('stage listing says when it was cut short, counting the files below each level', async () => {
+		// 10,001 files, all in one folder: more than one listing reads, at the stage and in the folder.
+		const many = Array.from({ length: 10001 }, (_, index) => ({ name: `big/sub/f${String(index).padStart(5, '0')}.csv`, size: 1 }));
 		const listed: string[] = [];
 		const mock = createMockClient((sql) => {
 			if (sql.includes('SHOW STAGES')) {
@@ -350,15 +339,20 @@ suite('Snowflake Driver Tests', () => {
 		});
 
 		const [big] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
-		const bigChildren = await big.getChildren!();
-		assert.deepStrictEqual(
-			[bigChildren.length, bigChildren[0].kind, bigChildren[0].name, bigChildren[1].kind, bigChildren[1].name],
-			[10001, positron.DataConnectionNodeKind.Notice, 'Showing the first 10,000 of 10,001 files', positron.DataConnectionNodeKind.Directory, 'sub']);
-
-		// The listing was cut short, so it may not hold all of the folder's files: the folder lists
-		// them itself.
-		assert.deepStrictEqual((await bigChildren[1].getChildren!()).map(node => node.name), ['x.csv']);
-		assert.deepStrictEqual(listed, [`LIST '@"ANALYTICS"."PUBLIC"."BIG"/'`, `LIST '@"ANALYTICS"."PUBLIC"."BIG"/sub/'`]);
+		const atStage = await big.getChildren!();
+		const inFolder = await atStage[1].getChildren!();
+		assert.deepStrictEqual({
+			atStage: atStage.map(node => [node.kind, node.name]),
+			inFolder: [inFolder.length, inFolder[0].kind, inFolder[0].name],
+			listed,
+		}, {
+			atStage: [
+				[positron.DataConnectionNodeKind.Notice, 'Only the first 10,000 of the 10,001 files in this stage were listed'],
+				[positron.DataConnectionNodeKind.Directory, 'sub'],
+			],
+			inFolder: [10001, positron.DataConnectionNodeKind.Notice, 'Only the first 10,000 of the 10,001 files in this folder and its subfolders were listed'],
+			listed: [`LIST '@"ANALYTICS"."PUBLIC"."BIG"/'`, `LIST '@"ANALYTICS"."PUBLIC"."BIG"/sub/'`],
+		});
 	});
 
 	test('stage listing says why it is empty when the role can\'t list it, and fails when the connection does', async () => {
@@ -421,6 +415,31 @@ suite('Snowflake Driver Tests', () => {
 				]
 			},
 		]);
+	});
+
+	test('a stage file\'s details show its LIST row, its modification time in the local format', async () => {
+		const modified = 'Thu, 3 Oct 2024 16:09:00 GMT';
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'RAW' }] };
+			}
+			return { rows: [{ name: 'raw/model.yaml', size: 7066, md5: '5648cc8f8d7c35fda4ca7f310ff2db67', last_modified: modified }] };
+		});
+
+		const [stage] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const [file] = await stage.getChildren!();
+		assert.deepStrictEqual(await file.getDetails!(), {
+			description: 'File',
+			sections: [{
+				kind: 'properties', properties: [
+					{ name: 'Path', value: '@"ANALYTICS"."PUBLIC"."RAW"/model.yaml' },
+					{ name: 'Size', value: '6.9 KB' },
+					// LIST reports the time as text; it is shown like every other date in the details.
+					{ name: 'Last Modified', value: new Date(modified).toLocaleString() },
+					{ name: 'MD5', value: '5648cc8f8d7c35fda4ca7f310ff2db67' },
+				]
+			}],
+		});
 	});
 
 	test('stage folder markers add their folders but no file', async () => {

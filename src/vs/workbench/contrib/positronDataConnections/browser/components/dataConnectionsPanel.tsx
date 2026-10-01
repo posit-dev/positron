@@ -54,6 +54,13 @@ export const DataConnectionsPanel = (props: DataConnectionsPanelProps) => {
 	// Dispose the tree instance on unmount.
 	useEffect(() => () => treeInstance.dispose(), [treeInstance]);
 
+	// Let the tree open nodes by their path for as long as it is here, for details editors, which
+	// hold a node's path rather than its live handle.
+	useEffect(() => {
+		const disposable = positronDataConnectionsService.registerNodeOpener(treeInstance);
+		return () => disposable.dispose();
+	}, [positronDataConnectionsService, treeInstance]);
+
 	// Hand the view's focus to the tree. Focusing a view means focusing what is in it: left on the
 	// view itself, focus draws a rectangle around the whole panel and the arrow keys do nothing.
 	useEffect(() => {
