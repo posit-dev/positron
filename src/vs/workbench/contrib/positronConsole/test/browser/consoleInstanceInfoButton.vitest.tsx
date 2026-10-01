@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -114,7 +114,7 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		const user = userEvent.setup();
 		renderPopup('', id);
 
-		await user.click(screen.getByRole('button', { name: 'Open Startup Behavior Setting' }));
+		await user.click(screen.getByRole('button', { name: 'Open Startup Behavior settings' }));
 
 		expect(inspect).toHaveBeenCalledWith('interpreters.startupBehavior', { overrideIdentifier: 'python' });
 		expect(renderer.dispose).toHaveBeenCalled();
@@ -194,10 +194,19 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		});
 	});
 
+	it('links to the Startup Behavior setting from the start reason line', () => {
+		renderPopup('', SessionStartReasonId.StartupBehaviorAlways);
+
+		const reasonLine = screen.getByTestId('session-start-reason');
+		expect(reasonLine).toHaveTextContent('Start Reason: Startup Behavior is set to "Always" for Python. Change the behavior in settings.');
+		// The link is the word "settings", named for what it opens.
+		expect(within(reasonLine).getByRole('button', { name: 'Open Startup Behavior settings' })).toHaveTextContent(/^settings$/);
+	});
+
 	it('omits the Startup Behavior setting link for other start reasons', () => {
 		renderPopup('', SessionStartReasonId.UserSelectedRuntime);
 
-		expect(screen.queryByRole('button', { name: 'Open Startup Behavior Setting' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Open Startup Behavior settings' })).not.toBeInTheDocument();
 	});
 
 	it('omits the start reason line when the session has no start reason ID', () => {
