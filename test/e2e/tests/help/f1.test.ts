@@ -71,6 +71,11 @@ test.describe('F1 Help', {
 		await app.workbench.layouts.enterLayout('stacked');
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-py', fileName));
 
+		// The target is line 14; reveal it, since the editor may be too short to render it.
+		await app.workbench.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+		await page.keyboard.type('14');
+		await page.keyboard.press('Enter');
+
 		// Wait for editor content to be fully rendered before interacting
 		await app.workbench.editor.waitForEditorContents(fileName, (content) => content.includes('pd.DataFrame'));
 		await app.code.driver.currentPage.locator('span').filter({ hasText: 'df = pd.DataFrame(data)' }).locator('span').first().dblclick();
