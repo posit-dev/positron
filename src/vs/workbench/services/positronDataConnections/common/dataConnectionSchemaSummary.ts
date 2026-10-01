@@ -26,6 +26,7 @@ export const CONTAINER_ONLY_KINDS = new Set([
 	'group-columns',
 	'group-indexes',
 	'group-volumes',
+	'group-stages',
 	'group-semantic-views',
 	'group-logical-tables',
 	'group-relationships',

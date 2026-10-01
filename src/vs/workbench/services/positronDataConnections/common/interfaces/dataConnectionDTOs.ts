@@ -70,6 +70,8 @@ export interface IDataConnectionNodeDTO {
 	kind: string; // DataConnectionNodeKind value
 	dataType?: string;
 	isPrimaryKey?: boolean;
+	path?: string;
+	defaultAction?: 'preview' | 'details';
 	hasGetChildren: boolean;
 	hasPreview: boolean;
 	hasDetails: boolean;

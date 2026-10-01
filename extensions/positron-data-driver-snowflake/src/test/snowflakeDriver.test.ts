@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import { SnowflakeConnection, SnowflakeConnectionConfig } from '../snowflakeConnection.js';
 import { defaultConnectionFactory, SnowflakeConnectionFactory, SnowflakeClient, SnowflakeConnectionOptions } from '../snowflakeClient.js';
-import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription } from '../snowflakeNodes.js';
+import { createDatabaseNode, createSchemaNode, parseSemanticViewDescription, stageFilePath } from '../snowflakeNodes.js';
 import { parseSnowflakeAccount } from '../snowflakeDriver.js';
 
 // Default config for tests -- not used to connect, just to construct.
@@ -35,6 +35,11 @@ function createMockClient(queryHandler?: (sql: string, binds?: any[]) => { rows:
 	return {
 		connect: async () => { },
 		query: async (sql: string, binds?: any[]) => handler(sql, binds),
+		// Answered from the same handler, cut to the cap the way the real client's streamed read is.
+		queryCapped: async (sql: string, limit: number) => {
+			const { rows } = handler(sql);
+			return { rows: rows.slice(0, limit), total: rows.length };
+		},
 		end: async () => { },
 	};
 }
@@ -163,9 +168,9 @@ suite('Snowflake Driver Tests', () => {
 		await conn.disconnect();
 	});
 
-	test('Databases group expands to sorted database nodes via SHOW TERSE DATABASES', async () => {
+	test('Databases group expands to sorted database nodes via SHOW DATABASES', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE DATABASES')) {
+			if (sql.includes('SHOW DATABASES')) {
 				return { rows: [{ name: 'SALES' }, { name: 'ANALYTICS' }] };
 			}
 			return { rows: [] };
@@ -181,9 +186,9 @@ suite('Snowflake Driver Tests', () => {
 
 	// --- Schema browsing ---
 
-	test('database node expands to schema nodes via SHOW TERSE SCHEMAS', async () => {
+	test('database node expands to schema nodes via SHOW SCHEMAS', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE SCHEMAS')) {
+			if (sql.includes('SHOW SCHEMAS')) {
 				return { rows: [{ name: 'PUBLIC' }, { name: 'STAGING' }] };
 			}
 			return { rows: [] };
@@ -202,10 +207,10 @@ suite('Snowflake Driver Tests', () => {
 
 	test('schema getChildren returns Tables and Views groups', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE TABLES')) {
+			if (sql.includes('SHOW TABLES')) {
 				return { rows: [{ name: 'USERS' }, { name: 'ORDERS' }] };
 			}
-			if (sql.includes('SHOW TERSE VIEWS')) {
+			if (sql.includes('SHOW VIEWS')) {
 				return { rows: [{ name: 'USER_ORDERS' }] };
 			}
 			return { rows: [] };
@@ -239,7 +244,7 @@ suite('Snowflake Driver Tests', () => {
 
 	// --- Stages within a schema ---
 
-	test('Stages group lists stage nodes as leaves via SHOW STAGES', async () => {
+	test('Stages group lists stage nodes via SHOW STAGES', async () => {
 		const mock = createMockClient((sql) => {
 			if (sql.includes('SHOW STAGES')) {
 				return { rows: [{ name: 'RAW_LOAD' }, { name: 'EXPORTS' }] };
@@ -253,10 +258,286 @@ suite('Snowflake Driver Tests', () => {
 		assert.deepStrictEqual(stages.map(s => s.name), ['EXPORTS', 'RAW_LOAD']);
 		stages.forEach(s => {
 			assert.strictEqual(s.kind, positron.DataConnectionNodeKind.Stage);
-			// Stages hold files, not rows: leaf nodes with no children and no preview.
-			assert.strictEqual(s.getChildren, undefined);
+			// Stages hold files, not rows: they expand to their files, but have no preview.
+			assert.ok(s.getChildren, `${s.name} should have getChildren`);
 			assert.strictEqual(s.preview, undefined);
 		});
+	});
+
+	test('stage expands to folders and files from LIST, each folder listing its own prefix', async () => {
+		const listed: string[] = [];
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'RAW_LOAD', type: 'INTERNAL' }] };
+			}
+			if (sql.startsWith('LIST ')) {
+				listed.push(sql);
+				// An internal stage's LIST names each file by the stage's (lowercased) name and its path.
+				const files = [
+					{ name: 'raw_load/readme.txt', size: 12 },
+					{ name: 'raw_load/2024/orders.csv', size: 2048 },
+					{ name: 'raw_load/2024/q1/returns.csv', size: 10 },
+					{ name: 'raw_load/2024x/other.csv', size: 1 },
+				];
+				// LIST lists everything under the location it's given.
+				const location = /"RAW_LOAD"\/(?<prefix>[^']*)'/.exec(sql)?.groups?.prefix ?? '';
+				return { rows: files.filter(file => file.name.startsWith(`raw_load/${location}`)) };
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const schemaNode = createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC');
+		const [stage] = await stagesOf(schemaNode);
+		assert.strictEqual(stage.path, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"');
+
+		const top = await stage.getChildren!();
+		assert.deepStrictEqual(top.map(node => [node.kind, node.name, node.dataType, node.path]), [
+			[positron.DataConnectionNodeKind.Directory, '2024', undefined, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/'],
+			[positron.DataConnectionNodeKind.Directory, '2024x', undefined, '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024x/'],
+			[positron.DataConnectionNodeKind.File, 'readme.txt', '12 B', '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/readme.txt'],
+		]);
+
+		// The folder lists its own prefix when expanded.
+		const inFolder = await top[0].getChildren!();
+		assert.deepStrictEqual(inFolder.map(node => [node.kind, node.name, node.dataType]), [
+			[positron.DataConnectionNodeKind.Directory, 'q1', undefined],
+			[positron.DataConnectionNodeKind.File, 'orders.csv', '2.0 KB'],
+		]);
+		assert.deepStrictEqual(listed, [
+			`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/'`,
+			`LIST '@"ANALYTICS"."PUBLIC"."RAW_LOAD"/2024/'`,
+		]);
+	});
+
+	test('stageFilePath strips the stage name or URL from a LIST name, however the URL is spelled', () => {
+		assert.deepStrictEqual([
+			stageFilePath('raw_load/2024/orders.csv', undefined),
+			stageFilePath('s3://bucket/exports/2024/orders.csv', 's3://bucket/exports/'),
+			// The URL SHOW STAGES reports can differ from LIST's names in case and trailing slash.
+			stageFilePath('s3://Bucket/Exports/2024/orders.csv', 's3://bucket/exports'),
+			stageFilePath('azure://acct.blob.core.windows.net/data/raw/orders.csv', 'azure://acct.blob.core.windows.net/data/'),
+			// A folder marker keeps its trailing slash.
+			stageFilePath('raw_load/2024/', undefined),
+		], ['2024/orders.csv', '2024/orders.csv', '2024/orders.csv', 'raw/orders.csv', '2024/']);
+	});
+
+	test('stage listing says when it was cut short, and why it is empty when LIST fails', async () => {
+		const many = Array.from({ length: 10001 }, (_, index) => ({ name: `big/f${String(index).padStart(5, '0')}.csv`, size: 1 }));
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'BIG' }, { name: 'LOCKED' }] };
+			}
+			if (sql.includes('"BIG"')) {
+				return { rows: many };
+			}
+			if (sql.includes('"LOCKED"')) {
+				throw new Error('Insufficient privileges to operate on stage');
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const [big, locked] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const bigChildren = await big.getChildren!();
+		assert.deepStrictEqual(
+			[bigChildren.length, bigChildren[0].kind, bigChildren[0].name],
+			[10001, positron.DataConnectionNodeKind.Notice, 'Showing the first 10,000 of 10,001 files']);
+		assert.deepStrictEqual((await locked.getChildren!()).map(node => [node.kind, node.name]), [
+			[positron.DataConnectionNodeKind.Notice, 'Could not list the files: Insufficient privileges to operate on stage'],
+		]);
+	});
+
+	test('stage details show its SHOW row and its DESCRIBE STAGE properties, grouped', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'EXPORTS', type: 'EXTERNAL', url: '["s3://bucket/exports/"]', cloud: 'AWS', directory_enabled: 'N', owner: 'SYSADMIN', comment: '' }] };
+			}
+			if (sql.startsWith('DESCRIBE STAGE')) {
+				return {
+					rows: [
+						{ parent_property: 'STAGE_FILE_FORMAT', property: 'TYPE', property_value: 'CSV', property_default: 'CSV' },
+						{ parent_property: 'STAGE_COPY_OPTIONS', property: 'ON_ERROR', property_value: 'ABORT_STATEMENT', property_default: 'ABORT_STATEMENT' },
+					]
+				};
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const [stage] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const details = await stage.getDetails!();
+		assert.deepStrictEqual(details.description, 'External stage');
+		assert.deepStrictEqual(details.tabs, [
+			{
+				title: 'Overview', sections: [{
+					kind: 'properties', properties: [
+						{ name: 'Path', value: '@"ANALYTICS"."PUBLIC"."EXPORTS"' },
+						{ name: 'Type', value: 'EXTERNAL' },
+						// The URL's list form is unwrapped.
+						{ name: 'URL', value: 's3://bucket/exports/' },
+						{ name: 'Cloud', value: 'AWS' },
+						{ name: 'Directory Table', value: 'No' },
+						{ name: 'Owner', value: 'SYSADMIN' },
+					]
+				}]
+			},
+			{
+				title: 'Properties', sections: [
+					{ kind: 'table', title: 'File Format', columns: ['Property', 'Value', 'Default'], rows: [['TYPE', 'CSV', 'CSV']] },
+					{ kind: 'table', title: 'Copy Options', columns: ['Property', 'Value', 'Default'], rows: [['ON_ERROR', 'ABORT_STATEMENT', 'ABORT_STATEMENT']] },
+				]
+			},
+		]);
+	});
+
+	test('stage folder markers add their folders but no file', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW STAGES')) {
+				return { rows: [{ name: 'RAW' }] };
+			}
+			return { rows: [{ name: 'raw/empty/', size: 0 }, { name: 'raw/a.csv', size: 1 }] };
+		});
+
+		const [stage] = await stagesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		assert.deepStrictEqual((await stage.getChildren!()).map(node => [node.kind, node.name]), [
+			[positron.DataConnectionNodeKind.Directory, 'empty'],
+			[positron.DataConnectionNodeKind.File, 'a.csv'],
+		]);
+	});
+
+	// --- Details for databases, schemas, tables, and views ---
+
+	test('database and schema details show their SHOW rows, leaving out empty values', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW DATABASES')) {
+				return { rows: [{ name: 'ANALYTICS', kind: 'STANDARD', owner: 'SYSADMIN', origin: '', retention_time: '1', comment: null }] };
+			}
+			if (sql.includes('SHOW SCHEMAS')) {
+				return { rows: [{ name: 'PUBLIC', owner: 'SYSADMIN', options: 'MANAGED ACCESS', retention_time: '1', comment: 'Main' }] };
+			}
+			return { rows: [] };
+		});
+
+		const [database] = await databasesOf(createTestConnection(mock));
+		const [schema] = await schemasOf(database);
+		assert.deepStrictEqual([database.path, await database.getDetails!(), schema.path, await schema.getDetails!()], [
+			'"ANALYTICS"',
+			{
+				description: 'Database', sections: [{
+					kind: 'properties', properties: [
+						{ name: 'Path', value: '"ANALYTICS"' },
+						{ name: 'Kind', value: 'STANDARD' },
+						{ name: 'Owner', value: 'SYSADMIN' },
+						{ name: 'Retention Time (Days)', value: '1' },
+					]
+				}]
+			},
+			'"ANALYTICS"."PUBLIC"',
+			{
+				description: 'Schema', sections: [{
+					kind: 'properties', properties: [
+						{ name: 'Path', value: '"ANALYTICS"."PUBLIC"' },
+						{ name: 'Owner', value: 'SYSADMIN' },
+						{ name: 'Options', value: 'MANAGED ACCESS' },
+						{ name: 'Retention Time (Days)', value: '1' },
+						{ name: 'Comment', value: 'Main' },
+					]
+				}]
+			},
+		]);
+	});
+
+	test('table details show its SHOW row and its columns, naming a special kind of table', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW TABLES')) {
+				return {
+					rows: [{
+						name: 'ORDERS', kind: 'TABLE', owner: 'SYSADMIN', rows: 1234567, bytes: 1536, cluster_by: 'LINEAR(D)',
+						automatic_clustering: 'ON', change_tracking: 'OFF', retention_time: '1', is_dynamic: 'Y', comment: 'Orders',
+					}]
+				};
+			}
+			if (sql.startsWith('DESCRIBE TABLE')) {
+				return { rows: [{ name: 'ID', type: 'NUMBER(38,0)', comment: 'the id' }] };
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const [table] = await tablesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		assert.deepStrictEqual(await table.getDetails!(), {
+			description: 'Dynamic table',
+			sections: [],
+			tabs: [
+				{
+					title: 'Overview', sections: [{
+						kind: 'properties', properties: [
+							{ name: 'Path', value: '"ANALYTICS"."PUBLIC"."ORDERS"' },
+							{ name: 'Kind', value: 'TABLE' },
+							{ name: 'Owner', value: 'SYSADMIN' },
+							{ name: 'Rows', value: (1234567).toLocaleString() },
+							{ name: 'Size', value: '1.5 KB' },
+							{ name: 'Clustering Key', value: 'LINEAR(D)' },
+							{ name: 'Automatic Clustering', value: 'Yes' },
+							{ name: 'Change Tracking', value: 'No' },
+							{ name: 'Retention Time (Days)', value: '1' },
+							{ name: 'Comment', value: 'Orders' },
+						]
+					}]
+				},
+				{
+					title: 'Columns', sections: [{
+						kind: 'items',
+						items: [{ name: 'ID', kind: positron.DataConnectionNodeKind.Field, dataType: 'NUMBER(38,0)', description: 'the id' }],
+						emptyText: 'No columns',
+					}]
+				},
+			],
+		});
+	});
+
+	test('view details show its definition, or say it is unavailable for a secure view', async () => {
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW VIEWS')) {
+				return {
+					rows: [
+						{ name: 'OPEN_V', is_secure: 'false', is_materialized: 'true', text: 'create view OPEN_V as select 1' },
+						{ name: 'SECURE_V', is_secure: 'true', is_materialized: 'false', text: '' },
+					]
+				};
+			}
+			if (sql.startsWith('DESCRIBE VIEW')) {
+				return { rows: [] };
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const views = await viewsOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		const details = await Promise.all(views.map(view => view.getDetails!()));
+		assert.deepStrictEqual(details.map(detail => [detail.description, detail.tabs![2].sections]), [
+			['Materialized view', [{ kind: 'code', languageId: 'sql', code: 'create view OPEN_V as select 1' }]],
+			['View', [{ kind: 'properties', properties: [{ name: 'Unavailable', value: 'The definition is not available to the current role.' }] }]],
+		]);
+	});
+
+	test('a table\'s details share one DESCRIBE across clicks until the table is refreshed', async () => {
+		let describes = 0;
+		const mock = createMockClient((sql) => {
+			if (sql.includes('SHOW TABLES')) {
+				return { rows: [{ name: 'ORDERS' }] };
+			}
+			if (sql.startsWith('DESCRIBE TABLE')) {
+				describes++;
+				return { rows: [{ name: 'ID', type: 'NUMBER(38,0)' }] };
+			}
+			throw new Error(`Unexpected query: ${sql}`);
+		});
+
+		const [table] = await tablesOf(createSchemaNode(mock, noopHost, 'ANALYTICS', 'PUBLIC'));
+		await table.getDetails!();
+		await table.getDetails!();
+		const afterClicks = describes;
+		// Refreshing the table re-runs its getChildren, which drops the shared DESCRIBE.
+		await table.getChildren!();
+		await table.getDetails!();
+		assert.deepStrictEqual([afterClicks, describes], [1, 2]);
 	});
 
 	// --- Field nodes (under each table's Columns group) ---
@@ -274,7 +555,7 @@ suite('Snowflake Driver Tests', () => {
 					]
 				};
 			}
-			if (sql.includes('SHOW TERSE TABLES')) {
+			if (sql.includes('SHOW TABLES')) {
 				return { rows: [{ name: 'PRODUCTS' }] };
 			}
 			return { rows: [] };
@@ -313,7 +594,7 @@ suite('Snowflake Driver Tests', () => {
 
 	test('table getChildren returns only a Columns group', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE TABLES')) {
+			if (sql.includes('SHOW TABLES')) {
 				return { rows: [{ name: 'PRODUCTS' }] };
 			}
 			return { rows: [] };
@@ -344,7 +625,7 @@ suite('Snowflake Driver Tests', () => {
 
 	test('table node preview opens the table in the Data Explorer with its full identity', async () => {
 		const mock = createMockClient((sql) => {
-			if (sql.includes('SHOW TERSE TABLES')) {
+			if (sql.includes('SHOW TABLES')) {
 				return { rows: [{ name: 'T' }] };
 			}
 			return { rows: [] };
