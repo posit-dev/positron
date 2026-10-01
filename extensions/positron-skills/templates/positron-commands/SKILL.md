@@ -3,7 +3,8 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes,
   clearing the console, opening a file or data file in the right editor,
-  showing an HTML file or URL in the Viewer, discovering interpreters,
+  showing or reading an HTML file, URL or app in the Viewer,
+  discovering interpreters,
   listing, switching, starting, restarting or interrupting sessions, setting
   up Python, reading, installing or updating a session's packages, running or
   debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
@@ -80,9 +81,12 @@ open a file picker instead and hand the task back to the user.
 
 **Viewer** -- [references/viewer.md]({{skill_dir}}/references/viewer.md)
 Read when the user wants to see HTML you have written -- a page, chart, report,
-or prototype -- or asks to show a local HTML file or a URL in the Viewer. Read it
-**before** telling the user you can't display HTML: it documents the commands
-that show a file or URL in the Viewer pane.
+or prototype -- or asks to show a local HTML file or a URL in the Viewer, and
+when you need to see or use what's in the Viewer: to check that an app you
+started is up and what it shows, or to click, fill in or pick options in an app
+the user wants tested. Read it **before** telling the user you can't display
+HTML or can't see the Viewer: it documents the commands that show a file or URL
+in the Viewer pane, and those that read and use the page there.
 
 **Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
 Read when the user asks what interpreters are available, wants the registered
