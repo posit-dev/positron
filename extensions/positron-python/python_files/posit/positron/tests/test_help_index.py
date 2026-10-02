@@ -177,6 +177,91 @@ class DiscoveryTests(unittest.TestCase):
         index = Discovery(max_source_bytes=40).build([self.root], builtins=())
         assert len(index.diagnostics) == 2
 
+    def test_location_budget_keeps_discovered_topics_and_reports_once(self):
+        self.write("a.py")
+        self.write("b/__init__.py")
+        self.write("b/hidden.py")
+        self.write("c/__init__.py")
+        discovery = Discovery(max_locations=2)
+        with self.assertLogs("positron.help_index", level="WARNING") as logs:
+            index = discovery.build([self.root, self.root], builtins=("sys",))
+        assert self.names(index) == ["a", "b", "sys"]
+        assert [t.name for t in index.suggest("a")] == ["a"]
+        assert [t.name for t in index.search("Quasar")] == ["a", "b"]
+        assert discovery.visited == 2
+        assert index.diagnostics == ("Discovery location budget exceeded; index is incomplete",)
+        assert len(logs.records) == 1
+
+    def test_location_budget_does_not_guess_unvisited_package_kind(self):
+        self.write("a.py")
+        self.write("pkg.py")
+        self.write("pkg/__init__.py")
+        discovery = Discovery(max_locations=1)
+        with self.assertLogs("positron.help_index", level="WARNING"):
+            index = discovery.build([self.root], builtins=())
+        assert self.names(index) == ["a"]
+        assert discovery.visited == 1
+
+    def test_location_budget_omits_namespace_with_unvisited_shadowing_root(self):
+        self.write("a/available.py")
+        self.write("a/pkg/hidden.py")
+        self.write("b/pkg/__init__.py")
+        self.write("b/pkg/visible.py")
+        discovery = Discovery(max_locations=2)
+        with self.assertLogs("positron.help_index", level="WARNING"):
+            index = discovery.build([self.root / "a", self.root / "b"], builtins=())
+        assert self.names(index) == ["available"]
+        assert discovery.visited == 2
+
+    def test_location_budget_retains_fully_classified_namespace(self):
+        self.write("space/unvisited.py")
+        discovery = Discovery(max_locations=2)
+        with self.assertLogs("positron.help_index", level="WARNING"):
+            index = discovery.build([self.root], builtins=())
+        assert [(topic.name, topic.kind) for topic in index.topics] == [("space", "namespace")]
+        assert discovery.visited == 2
+
+    def test_zero_location_budget_retains_builtins_and_loaded_modules(self):
+        runtime = ModuleType("runtime_only", "Runtime summary.")
+        discovery = Discovery(max_locations=0)
+        with self.assertLogs("positron.help_index", level="WARNING"):
+            index = discovery.build(
+                [self.root],
+                builtins=("sys",),
+                loaded=snapshot_loaded_modules({"runtime_only": runtime}),
+            )
+        assert self.names(index) == ["runtime_only", "sys"]
+        assert discovery.visited == 0
+
+    def test_exact_location_budget_does_not_report_incomplete_index(self):
+        self.write("a.py")
+        discovery = Discovery(max_locations=1)
+        index = discovery.build([self.root], builtins=())
+        assert self.names(index) == ["a"]
+        assert index.diagnostics == ()
+
+    def test_location_budget_resets_for_each_build(self):
+        self.write("a.py")
+        discovery = Discovery(max_locations=1)
+        for _ in range(2):
+            with self.assertLogs("positron.help_index", level="WARNING") as logs:
+                index = discovery.build([self.root, self.root], builtins=())
+            assert self.names(index) == ["a"]
+            assert len(index.diagnostics) == len(logs.records) == 1
+        assert discovery.visited == 1
+
+    def test_location_budget_keeps_zip_topics_and_closes_archives(self):
+        archive = self.root / "library.zip"
+        with zipfile.ZipFile(archive, "w") as z:
+            z.writestr("a.py", '"""ZIP synopsis."""\n')
+            z.writestr("pkg/__init__.py", "")
+        discovery = Discovery(max_locations=1)
+        with self.assertLogs("positron.help_index", level="WARNING"):
+            index = discovery.build([archive], builtins=())
+        assert self.names(index) == ["a"]
+        assert index.topics[0].summary == "ZIP synopsis."
+        assert discovery.archives == discovery.zip_children == {}
+
     def test_rescan_reflects_add_remove_update(self):
         a = self.write("old.py")
         assert self.names(self.scan()) == ["old"]
@@ -500,3 +585,21 @@ def test_snapshot_does_not_inspect_nonmodule_attributes():
             raise AssertionError("Module discovery must not inspect arbitrary objects")
 
     assert snapshot_loaded_modules({"trap": Trap()}).modules == ()
+
+
+def test_cache_reuses_partial_index(tmp_path, monkeypatch, caplog):
+    from positron.help_index import LoadedSnapshot
+
+    (tmp_path / "available.py").write_text('"""Searchable partial result."""\n')
+    (tmp_path / "unvisited").mkdir()
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: LoadedSnapshot((), ())
+    )
+    with patch("positron.help_index.Discovery", side_effect=lambda: Discovery(max_locations=1)):
+        cache = HelpIndex()
+        first = cache.get()
+        assert cache.get() is first
+    assert [t.name for t in first.suggest("available")] == ["available"]
+    assert [t.name for t in first.search("Searchable partial result")] == ["available"]
+    assert len(first.diagnostics) == len(caplog.records) == 1
