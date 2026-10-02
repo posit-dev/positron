@@ -130,7 +130,11 @@ const getCodeStartReason = (attribution: IConsoleCodeAttribution): IRuntimeSessi
 		case CodeAttributionSource.Script:
 			return { id: SessionStartReasonId.UserRanCodeWithoutSession };
 		case CodeAttributionSource.Assistant:
-			return { id: SessionStartReasonId.AssistantRanCodeWithoutSession };
+			// Chat code run by a command, such as a code block's Run in Console
+			// button, was run by the user, not by the assistant.
+			return typeof attribution.metadata?.commandId === 'string' ?
+				{ id: SessionStartReasonId.UserRanCodeWithoutSession } :
+				{ id: SessionStartReasonId.AssistantRanCodeWithoutSession };
 		default:
 			return { id: SessionStartReasonId.CodeExecutedWithoutSession };
 	}

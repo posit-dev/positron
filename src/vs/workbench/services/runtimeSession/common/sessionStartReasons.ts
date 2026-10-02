@@ -67,7 +67,7 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 		localize2('positron.sessionStartReason.codeExecutedWithoutSessionByExtension', "The {0} extension ran code with no {1} console open", args.requestingExtensionName, args.languageName) :
 		localize2('positron.sessionStartReason.codeExecutedWithoutSession', "Code was run with no {0} console open", args.languageName),
 	[SessionStartReasonId.UserRanCodeWithoutSession]: args => localize2('positron.sessionStartReason.userRanCodeWithoutSession', "You ran code with no {0} console open", args.languageName),
-	[SessionStartReasonId.AssistantRanCodeWithoutSession]: args => localize2('positron.sessionStartReason.assistantRanCodeWithoutSession', "Positron Assistant ran code with no {0} console open", args.languageName),
+	[SessionStartReasonId.AssistantRanCodeWithoutSession]: args => localize2('positron.sessionStartReason.assistantRanCodeWithoutSession', "An AI assistant ran code with no {0} console open", args.languageName),
 	[SessionStartReasonId.RestartUninitializedSession]: () => localize2('positron.sessionStartReason.restartUninitializedSession', "A restart was requested before this interpreter had started"),
 	[SessionStartReasonId.NewFolderNotebook]: () => localize2('positron.sessionStartReason.newFolderNotebook', "You created a new folder from the Jupyter Notebook template"),
 	[SessionStartReasonId.QuartoInlineOutput]: args => localize2('positron.sessionStartReason.quartoInlineOutput', "{0} needed a kernel for inline output", args.notebookFileName),

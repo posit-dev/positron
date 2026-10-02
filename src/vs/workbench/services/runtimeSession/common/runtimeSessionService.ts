@@ -134,12 +134,16 @@ export enum SessionStartReasonId {
 	CodeExecutedWithoutSession = 'codeExecutedWithoutSession',
 
 	/**
-	 * The user ran code, such as from an editor or the History pane, and no
-	 * session for its language was running.
+	 * The user ran code, such as from an editor, the History pane, or a chat
+	 * code block's Run in Console button, and no session for its language was
+	 * running.
 	 */
 	UserRanCodeWithoutSession = 'userRanCodeWithoutSession',
 
-	/** Positron Assistant ran code and no session for its language was running. */
+	/**
+	 * An AI assistant ran code through a chat tool and no session for its
+	 * language was running.
+	 */
 	AssistantRanCodeWithoutSession = 'assistantRanCodeWithoutSession',
 
 	/** A restart was requested for a session that had never started. */

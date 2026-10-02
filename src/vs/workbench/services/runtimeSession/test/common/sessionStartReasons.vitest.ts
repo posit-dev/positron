@@ -51,7 +51,7 @@ describe('getSessionStartReasonLabel', () => {
 			{
 			  "affiliatedRuntime": "Positron started the last interpreter used in this workspace",
 			  "affiliatedRuntimeAtRegistration": "Positron found the last interpreter used in this workspace and started it",
-			  "assistantRanCodeWithoutSession": "Positron Assistant ran code with no R console open",
+			  "assistantRanCodeWithoutSession": "An AI assistant ran code with no R console open",
 			  "codeExecutedWithoutSession": "Code was run with no R console open",
 			  "duplicatedConsoleSession": "You duplicated a console",
 			  "duplicatedNotebookSession": "You started a new console with a notebook's interpreter",
