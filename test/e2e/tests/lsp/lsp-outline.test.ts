@@ -80,7 +80,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await verifyOutline(outline);
 		});
 
-		test.skip('Verify outline after reload with Python in foreground and R in background', {
+		test('Verify outline after reload with Python in foreground and R in background', {
 			tag: [tags.ARK],
 		}, async function ({ app, hotKeys, sessions }) {
 			const { outline, editor } = app.workbench;
@@ -109,7 +109,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await verifyOutline(outline);
 		});
 
-		test.skip('Verify outline after reload with R in foreground and Python in background', {
+		test('Verify outline after reload with R in foreground and Python in background', {
 			tag: [tags.ARK],
 		}, async function ({ app, hotKeys, sessions }) {
 			const { outline, editor } = app.workbench;
