@@ -152,6 +152,7 @@ describe('Positron - LanguageRuntimeService', () => {
 
 		beforeEach(async () => {
 			await configurationService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [definition]);
+			await configurationService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, 'auto');
 		});
 
 		it('registers a variant next to the base runtime, and unregisters it with the base', () => {
@@ -241,7 +242,6 @@ describe('Positron - LanguageRuntimeService', () => {
 			service.registerRuntime(makeTestMetadata({ runtimeId: 'r-other', languageId: 'r', runtimePath: '/opt/R/4.3.0/bin/R' }));
 
 			expect(service.registeredRuntimes.map(m => m.runtimeName)).toEqual(['R 4.4.3 (XX libs)']);
-			await configurationService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, 'auto');
 		});
 
 		it('re-derives variants of a definition-only runtime when the setting changes', async () => {

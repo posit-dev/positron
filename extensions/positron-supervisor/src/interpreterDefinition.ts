@@ -61,7 +61,9 @@ const SHELL_VARIABLES = new Set(['PWD', 'OLDPWD', 'SHLVL', '_', 'ELECTRON_RUN_AS
  * plus every variable its startup script sets or changes. The script is
  * sourced once in a POSIX shell, starting from `baseEnv` with the definition's
  * `env` applied, and the resulting environment is compared to that starting
- * point. Startup scripts need a POSIX shell, so they are skipped on Windows.
+ * point. Variables the script unsets are not reported, since the supervisor
+ * can only set variables. Startup scripts need a POSIX shell, so they are
+ * skipped on Windows.
  *
  * @param definition The interpreter definition.
  * @param baseEnv The environment the interpreter would otherwise start with.

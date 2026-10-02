@@ -65,6 +65,18 @@ suite('resolveDefinitionEnv', () => {
 		});
 	});
 
+	test('does not report variables the startup script unsets', async function () {
+		if (process.platform === 'win32') {
+			this.skip();
+		}
+		// The supervisor can only set variables, so an unset has no effect.
+		const startupScript = writeScript('unset.sh', 'unset R_LIBS_SITE\nexport FOO=bar');
+		assert.deepStrictEqual(await resolveDefinitionEnv({ ...definition, startupScript }, baseEnv, process.platform), {
+			R_LIBS_SITE: '/xx',
+			FOO: 'bar',
+		});
+	});
+
 	test('rejects when the startup script fails', async function () {
 		if (process.platform === 'win32') {
 			this.skip();

@@ -406,7 +406,7 @@ configurationRegistry.registerConfiguration({
 					},
 					startupScript: {
 						type: 'string',
-						description: nls.localize('positron.runtime.definitions.startupScript', "Shell script to source before starting this interpreter. The environment variables it sets are applied to the interpreter and to terminals. Not supported on Windows.")
+						description: nls.localize('positron.runtime.definitions.startupScript', "Shell script to source before starting this interpreter. The environment variables it sets are applied to the interpreter and to terminals; variables it unsets are not removed. Not supported on Windows.")
 					},
 				}
 			},
