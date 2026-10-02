@@ -64,12 +64,15 @@ export class Toasts {
 			? this.notificationsCenter.locator('.notification-list-item').filter({ hasText: title })
 			: this.notificationsCenter.locator('.notification-list-item');
 
-		await Promise.race([
-			toastLocator.first().waitFor({ state: 'attached', timeout }),
-			centerLocator.first().waitFor({ state: 'attached', timeout }),
-		]);
-
-		await this.closeNotificationCenter();
+		try {
+			await Promise.race([
+				toastLocator.first().waitFor({ state: 'attached', timeout }),
+				centerLocator.first().waitFor({ state: 'attached', timeout }),
+			]);
+		} finally {
+			// Close the center on timeout too, or it stays open over the next dialog.
+			await this.closeNotificationCenter();
+		}
 	}
 
 	async waitForDisappear(title?: string | RegExp, { timeout = 20000 } = {}) {
