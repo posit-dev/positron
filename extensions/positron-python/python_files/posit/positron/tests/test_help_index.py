@@ -11,6 +11,7 @@ import pydoc
 import sys
 import tempfile
 import unittest
+import warnings
 import zipfile
 from pathlib import Path
 from types import ModuleType
@@ -127,6 +128,18 @@ class DiscoveryTests(unittest.TestCase):
         path = self.write("encoded.py")
         path.write_bytes(b'# coding: latin-1\n("""Caf\xe9 summary.""")\n')
         assert self.scan().topics[0].summary == "Café summary."
+
+    def test_source_summary_does_not_leak_invalid_escape_warnings(self):
+        self.write("escaped.py", r'"""Summary with \_ markup."""' + "\n")
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            summaries = [self.scan().topics[0].summary for _ in range(2)]
+            # Indexing must also leave the user's warning policy intact.
+            warnings.warn("User warning", SyntaxWarning, stacklevel=1)
+        assert (summaries, [str(w.message) for w in captured]) == (
+            [r"Summary with \_ markup."] * 2,
+            ["User warning"],
+        )
 
     def test_bytecode_name_without_importing(self):
         source = self.write(
@@ -275,6 +288,187 @@ class DiscoveryTests(unittest.TestCase):
             [self.root], builtins=(), loaded=snapshot_loaded_modules({"example": module})
         )
         assert index.topics[0].summary == "Source synopsis."
+
+
+def test_cache_codec_import_during_cold_build_does_not_rescan(tmp_path, monkeypatch):
+    source = tmp_path / "encoded.py"
+    source.write_bytes(b'# coding: cp1258\n"""Encoded summary."""\n')
+    monkeypatch.delitem(sys.modules, "encodings.cp1258", raising=False)
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+    # Use real runtime snapshots, while excluding unrelated installed packages.
+    original_snapshot = snapshot_loaded_modules
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules",
+        lambda: original_snapshot(
+            {k: v for k, v in sys.modules.items() if k == "encodings.cp1258"}
+        ),
+    )
+    cache = HelpIndex()
+    cache.get()
+    assert "encodings.cp1258" in sys.modules
+    with patch.object(Discovery, "build", side_effect=AssertionError("Unexpected rebuild")):
+        cache.update_context()
+        assert cache.get().suggest("encoded")[0].summary == "Encoded summary."
+
+
+def test_cache_import_and_runtime_metadata_do_not_walk(tmp_path, monkeypatch):
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text('"""Source synopsis."""\n')
+    (package / "child.py").write_text('"""Child synopsis."""\n')
+    registry = {}
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: snapshot_loaded_modules(registry)
+    )
+    cache = HelpIndex()
+    cache.get()
+    module = ModuleType("pkg", "Runtime synopsis.")
+    module.__file__ = str(package / "__init__.py")
+    module.__path__ = [str(package)]
+    with patch.object(Discovery, "build", side_effect=AssertionError("Unexpected rebuild")):
+        registry["pkg"] = module
+        cache.update_context()
+        assert cache.get().suggest("pkg")[0].summary == "Source synopsis."
+        runtime = ModuleType("pkg.runtime", "Runtime-only summary.")
+        registry["pkg.runtime"] = runtime
+        cache.update_context()
+        assert cache.get().search("Runtime-only summary")[0].name == "pkg.runtime"
+        runtime.__doc__ = "Changed runtime summary."
+        cache.update_context()
+        assert cache.get().search("Changed runtime")[0].name == "pkg.runtime"
+        del registry["pkg.runtime"]
+        cache.update_context()
+        assert cache.get().suggest("pkg.runtime") == ()
+
+
+def test_cache_dynamic_paths_refresh_without_rebuilding_static_index(tmp_path, monkeypatch):
+    disk = tmp_path / "disk"
+    package = disk / "pkg"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "wrong.py").write_text("")
+    extra = tmp_path / "extra"
+    extra.mkdir()
+    (extra / "right.py").write_text('"""Dynamic source."""\n')
+    module = ModuleType("pkg")
+    module.__path__ = [str(extra)]
+    registry = {}
+    monkeypatch.setattr(sys, "path", [str(disk)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: snapshot_loaded_modules(registry)
+    )
+    cache = HelpIndex()
+    cache.get()
+    filesystem = cache._filesystem  # noqa: SLF001
+    registry["pkg"] = module
+    cache.update_context()
+    assert [t.name for t in cache.get().suggest("pkg")] == ["pkg", "pkg.right"]
+    with patch.object(Discovery, "build", side_effect=AssertionError("Unexpected rebuild")):
+        module.__doc__ = "Updated package summary."
+        cache.update_context()
+        assert cache.get().suggest("pkg")[0].summary == "Updated package summary."
+    (extra / "new.py").write_text('"""Added dynamic module."""\n')
+    assert cache.get().suggest("pkg.new")
+    assert cache._filesystem is filesystem  # noqa: SLF001
+    module.__path__ = []
+    cache.update_context()
+    assert [t.name for t in cache.get().suggest("pkg")] == ["pkg"]
+    del registry["pkg"]
+    cache.update_context()
+    assert cache.get().suggest("pkg.wrong")
+    assert cache._package_indexes == {}  # noqa: SLF001
+
+
+def test_cache_sys_path_changes_restore_precedence(tmp_path, monkeypatch):
+    first, second = tmp_path / "first", tmp_path / "second"
+    for root, summary in [(first, "First"), (second, "Second")]:
+        root.mkdir()
+        (root / "example.py").write_text(f'"""{summary}"""\n')
+    monkeypatch.setattr(sys, "path", [str(first), str(second)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: snapshot_loaded_modules({})
+    )
+    cache = HelpIndex()
+    assert cache.get().suggest("example")[0].summary == "First"
+    sys.path.reverse()
+    cache.update_context()
+    assert cache.get().suggest("example")[0].summary == "Second"
+
+
+def test_cache_loaded_module_blocks_static_package_children(tmp_path, monkeypatch):
+    package = tmp_path / "pkg"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    (package / "child.py").write_text("")
+    registry = {"pkg": ModuleType("pkg", "Loaded module.")}
+    monkeypatch.setattr(sys, "path", [str(tmp_path)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: snapshot_loaded_modules(registry)
+    )
+    cache = HelpIndex()
+    assert [t.name for t in cache.get().suggest("pkg")] == ["pkg"]
+    registry.clear()
+    cache.update_context()
+    assert cache.get().suggest("pkg.child")
+
+
+def test_cache_nested_loaded_paths_match_discovery(tmp_path, monkeypatch):
+    for name in [
+        "disk/pkg/__init__.py",
+        "disk/pkg/sub/__init__.py",
+        "disk/pkg/sub/old.py",
+        "extra/sub/__init__.py",
+        "extra/sub/other.py",
+        "child/new.py",
+    ]:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('"""Static summary."""\n')
+    parent = ModuleType("pkg")
+    parent.__path__ = [str(tmp_path / "extra")]
+    child = ModuleType("pkg.sub")
+    child.__path__ = [str(tmp_path / "disk/pkg/sub")]
+    registry = {"pkg": parent, "pkg.sub": child}
+    monkeypatch.setattr(sys, "path", [str(tmp_path / "disk")])
+    monkeypatch.setattr(sys, "builtin_module_names", ())
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: snapshot_loaded_modules(registry)
+    )
+    cache = HelpIndex()
+    for paths in [[str(tmp_path / "disk/pkg/sub")], [str(tmp_path / "child")], []]:
+        child.__path__ = paths
+        cache.update_context()
+        expected = Discovery().build(
+            sys.path, builtins=(), loaded=snapshot_loaded_modules(registry)
+        )
+        assert cache.get() == expected
+
+
+def test_cache_zip_source_changes_and_loaded_path_reuse(tmp_path, monkeypatch):
+    archive = tmp_path / "library.zip"
+
+    def write(summary):
+        with zipfile.ZipFile(archive, "w") as stream:
+            stream.writestr("pkg/__init__.py", '"""ZIP package."""\n')
+            stream.writestr("pkg/child.py", f'"""{summary}"""\n')
+
+    write("Before")
+    registry = {}
+    monkeypatch.setattr(sys, "path", [str(archive)])
+    monkeypatch.setattr(
+        "positron.help_index.snapshot_loaded_modules", lambda: snapshot_loaded_modules(registry)
+    )
+    cache = HelpIndex()
+    cache.get()
+    package = ModuleType("pkg")
+    package.__path__ = [str(archive / "pkg")]
+    registry["pkg"] = package
+    with patch.object(Discovery, "build", side_effect=AssertionError("Unexpected rebuild")):
+        cache.update_context()
+        assert cache.get().suggest("pkg.child")[0].summary == "Before"
+    write("After ZIP update")
+    assert cache.get().suggest("pkg.child")[0].summary == "After ZIP update"
 
 
 if __name__ == "__main__":
