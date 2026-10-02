@@ -62,6 +62,14 @@ export function resolveAwsChainInit(
  * every STS exchange yields new credentials, so re-resolving a healthy
  * session on each rewrite would report a changed session every few minutes.
  * Expiring credentials are refreshed through their expiration instead.
+ *
+ * Known, accepted race: if the token file appears after a resolve records
+ * its mtime but before the chain reads it, the token file watcher can start
+ * a second resolve before the first one finishes. Both resolves succeed, so
+ * the user stays signed in; the cost is one extra STS exchange and a
+ * `changed` event carrying the second resolve's credentials. Waiting for the
+ * pending resolve instead would stall sign-in when an earlier resolve has
+ * already failed its token read but has not settled yet.
  */
 export function createAwsCredentialChain(
 	getAws: () => { profile?: string; region?: string } | undefined,
