@@ -18,6 +18,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionServic
 import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
+import { createInterpreterVariant, INTERPRETER_DEFINITIONS_KEY, INTERPRETER_DISCOVERY_KEY } from '../../../languageRuntime/common/interpreterDefinitions.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestLifecycleService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
 import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
@@ -655,6 +656,61 @@ describe('Positron - RuntimeSessionService', () => {
 		// A later attempt must not wait on the failed attempt's start promise.
 		manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => metadata);
 		await autoStartSession(unregisteredRuntime);
+	});
+
+	describe('interpreter variants', () => {
+		const label = 'Variant';
+
+		afterEach(() => {
+			manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => metadata);
+		});
+
+		it('auto start rebuilds a stored variant from the validated base runtime', async () => {
+			const definition = { language: runtime.languageId, path: runtime.runtimePath, label };
+			configService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [definition]);
+			const variant = createInterpreterVariant(runtime, definition);
+			// Extensions validate a variant as the runtime it derives from.
+			manager.setValidateMetadata(async () => runtime);
+
+			const session = await autoStartSession(variant);
+
+			expect([session.runtimeMetadata.runtimeId, session.runtimeMetadata.interpreterDefinition]).toEqual([variant.runtimeId, label]);
+		});
+
+		it('auto start fails when the stored variant is no longer defined', async () => {
+			configService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, []);
+			const variant = createInterpreterVariant(runtime, { language: runtime.languageId, path: runtime.runtimePath, label });
+			manager.setValidateMetadata(async () => runtime);
+
+			await expect(autoStartSession(variant)).rejects.toThrow('no longer defined');
+		});
+
+		describe('when discovery is limited to definitions', () => {
+			beforeEach(() => {
+				configService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, 'definitionsOnly');
+			});
+
+			afterEach(() => {
+				configService.setUserConfiguration(INTERPRETER_DISCOVERY_KEY, 'auto');
+			});
+
+			it('auto start refuses a runtime that is not in the definitions', async () => {
+				manager.setValidateMetadata(async () => runtime);
+
+				await expect(autoStartSession(unregisteredRuntime)).rejects.toThrow('definitionsOnly');
+			});
+
+			it('auto start allows a variant from the definitions', async () => {
+				const definition = { language: runtime.languageId, path: runtime.runtimePath, label };
+				configService.setUserConfiguration(INTERPRETER_DEFINITIONS_KEY, [definition]);
+				const variant = createInterpreterVariant(runtime, definition);
+				manager.setValidateMetadata(async () => runtime);
+
+				const session = await autoStartSession(variant);
+
+				expect(session.runtimeMetadata.runtimeId).toBe(variant.runtimeId);
+			});
+		});
 	});
 
 	it('auto start console does nothing if automatic startup is disabled', async () => {
