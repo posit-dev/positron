@@ -77,6 +77,10 @@ export function readChecks(runDir) {
 	return summarizeChecks(existsSync(path) ? readFileSync(path, 'utf8') : '');
 }
 
+function clip(text, max) {
+	return text.length > max ? `${text.slice(0, max - 3)}...` : text;
+}
+
 /**
  * One run's stats record. `parsed` is parseReport's result for the finished
  * report, so findings and verdicts are counted the way the page shows them.
@@ -101,7 +105,11 @@ export function buildStats({ where, date, run, version, model, turns, maxTurns, 
 		costUsd: typeof costUsd === 'number' ? Math.round(costUsd * 100) / 100 : null,
 		durationMs: durationMs ?? null,
 		findings: parsed?.findings?.length ?? 0,
+		severity: parsed?.severityCounts ?? null,
 		verdicts,
+		// What the run meant to test and did not, and why: often a setup problem.
+		notRun: parsed?.coverage?.notExercised?.length ?? 0,
+		notRunReasons: (parsed?.coverage?.notExercised ?? []).map(r => clip(r.reason ?? '', 100)),
 		checks: checks ?? null,
 		// `{ minutes, reached, stopped }`: whether time ran out, and whether the
 		// run then had to be stopped. Null without a limit.

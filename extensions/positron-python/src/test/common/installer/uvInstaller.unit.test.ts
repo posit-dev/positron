@@ -34,6 +34,7 @@ suite('UV Installer Tests', () => {
     let workspaceService: IWorkspaceService;
     let fileSystem: IFileSystem;
     let isUvInstalledStub: sinon.SinonStub;
+    let getLocatedUvCommandStub: sinon.SinonStub;
 
     setup(() => {
         // Create mocks for services
@@ -78,6 +79,7 @@ suite('UV Installer Tests', () => {
 
         // Create stubs for external dependencies
         isUvInstalledStub = sinon.stub(uvUtils, 'isUvInstalled');
+        getLocatedUvCommandStub = sinon.stub(uvUtils, 'getLocatedUvCommand').resolves('uv');
 
         // Create installer instance
         uvInstaller = new UVInstallerTest(serviceContainer);
@@ -182,6 +184,17 @@ suite('UV Installer Tests', () => {
             });
             expect((configurationService.getSettings as sinon.SinonStub).calledWith(resource)).to.be.true;
             expect((interpreterService.getActiveInterpreter as sinon.SinonStub).calledWith(resource)).to.be.true;
+        });
+
+        test('Should run the located uv when it is not on PATH', async () => {
+            // A uv installed this session is only found in its install location.
+            const locatedUv = path.join('/home/user', '.local', 'bin', 'uv');
+            getLocatedUvCommandStub.resolves(locatedUv);
+            const pythonEnv = { path: '/path/to/python' } as PythonEnvironment;
+
+            const result = await uvInstaller.getExecutionInfo('pandas', pythonEnv);
+
+            expect(result.execPath).to.equal(locatedUv);
         });
 
         test('Should return correct execution info for PythonEnvironment', async () => {

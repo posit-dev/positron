@@ -109,8 +109,9 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 			await toasts.clickButton('Accept');
 			await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
 			await hotKeys.openUserSettingsJSON();
-			await hotKeys.scrollToTop();
-			await expect(page.getByText('Settings imported from Visual Studio Code')).toBeVisible();
+			const banner = page.getByText('Settings imported from Visual Studio Code');
+			await scrollEditorUntilVisible(app, banner);
+			await expect(banner).toBeVisible();
 		});
 	});
 
@@ -146,9 +147,9 @@ async function scrollEditorUntilVisible(
 		'.monaco-editor[data-uri*="settings.json"]',
 	);
 
-	// Focus the editor so wheel events go to the monaco scrollable element
-	await app.workbench.hotKeys.scrollToTop();
+	// Click first: it waits for the editor and gives Monaco focus for scrollToTop.
 	await editor.click({ position: { x: 50, y: 10 } });
+	await app.workbench.hotKeys.scrollToTop();
 
 	for (let i = 0; i < maxSteps; i++) {
 		if (await target.isVisible()) { return; }

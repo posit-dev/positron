@@ -48,7 +48,7 @@ import { FromWebviewMessage, KeyEvent, ToWebviewMessage, WebViewDragEvent } from
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { VSBuffer } from '../../../../base/common/buffer.js';
-import { FrameNavigationEvent, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
+import { FrameNavigationEvent, isSameWebviewFrame, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { FileAccess } from '../../../../base/common/network.js';
@@ -385,8 +385,10 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 			if (!this._frameId) {
 				return;
 			}
-			if (evt.frameId.processId === this._frameId.processId &&
-				evt.frameId.routingId === this._frameId.routingId) {
+			// Going to another document can give the frame new IDs; follow it.
+			if (isSameWebviewFrame(evt.frameId, this._frameId)) {
+				this._frameId = evt.frameId;
+
 				// Insert the `webview-events.js` script into the frame
 				await this.injectJavaScript();
 
@@ -1193,6 +1195,13 @@ export class WebviewElement extends Disposable implements IWebviewElement, Webvi
 	}
 	public executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any> {
 		// The default implementation doesn't support executing scripts
+		return Promise.resolve(undefined);
+	}
+	public getContentFrameId(): WebviewFrameId | undefined {
+		return this._frameId;
+	}
+	public getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
+		// The default implementation can't reach frames by ID
 		return Promise.resolve(undefined);
 	}
 	// --- End Positron ---

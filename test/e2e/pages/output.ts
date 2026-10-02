@@ -51,21 +51,16 @@ export class Output {
 	}
 
 	/**
-	 * Scroll to the top of the output pane
+	 * Scroll to the top of the output pane and leave the cursor on its first line.
 	 */
 	async scrollToTop(): Promise<void> {
-		// First, ensure the output pane is focused
 		await this.quickaccess.runCommand('workbench.panel.output.focus');
-
-		// Use platform-specific keyboard shortcuts to scroll to top
-		const platform = os.platform();
-		if (platform === 'darwin') {
-			// On macOS, use Cmd+ArrowUp
-			await this.code.driver.currentPage.keyboard.press('Meta+ArrowUp');
-		} else {
-			// On Windows/Linux, use Ctrl+Home
-			await this.code.driver.currentPage.keyboard.press('Control+Home');
-		}
+		// The view focuses its editor only after the channel model loads, so a key sent
+		// before then is dropped and the pane stays pinned to the streaming tail.
+		await expect(this.editTarget).toBeFocused();
+		await this.pressCursorTop();
+		// Monaco drops this class once scrollTop reaches 0.
+		await expect(this.outputPane.locator('.scroll-decoration')).toHaveCount(0);
 	}
 
 	/**
@@ -97,27 +92,29 @@ export class Output {
 	}
 
 	/**
-	 * Select the first N lines of output text
+	 * Select the first N lines of output text (fewer when the channel is shorter).
 	 */
 	async selectFirstNLines(lineCount: number): Promise<void> {
-		const outputPane = this.code.driver.currentPage.locator(OUTPUT_PANE);
-		const outputLines = outputPane.locator('.view-line');
-		const totalLines = await outputLines.count();
-
-		if (totalLines === 0) {
-			throw new Error('No output lines found in the output pane');
+		// Extend the selection from the keyboard: the Window log streams while the test
+		// runs, so clicking a view line races a re-render and the top scroll shadow
+		// intercepts the pointer.
+		await expect(this.editTarget).toBeFocused();
+		await this.pressCursorTop();
+		for (let i = 0; i < lineCount; i++) {
+			await this.code.driver.currentPage.keyboard.press('Shift+ArrowDown');
 		}
+	}
 
-		// Calculate how many lines to select (or all lines if less than N)
-		const linesToSelect = Math.min(lineCount, totalLines);
-		const endLineIndex = linesToSelect - 1;
+	private get outputPane() {
+		return this.code.driver.currentPage.locator(OUTPUT_PANE);
+	}
 
-		// Click on the first line and then shift+click on the last line of selection
-		const startLine = outputLines.nth(0);
-		const endLine = outputLines.nth(endLineIndex);
+	private get editTarget() {
+		return this.outputPane.locator('.monaco-editor textarea, .monaco-editor .native-edit-context').first();
+	}
 
-		await startLine.click();
-		await endLine.click({ modifiers: ['Shift'] });
+	private async pressCursorTop(): Promise<void> {
+		await this.code.driver.currentPage.keyboard.press(os.platform() === 'darwin' ? 'Meta+ArrowUp' : 'Control+Home');
 	}
 
 	/**

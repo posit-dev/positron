@@ -1145,6 +1145,7 @@ export function parseLedger(markdown) {
 			id: r.id,
 			scenarioHtml: inline(r.name),
 			reasonHtml: inline(sentenceCase(r.reason)),
+			reason: plainText(r.reason),
 			issues: r.issues,
 		})),
 		// A ledger always lists what it did not run, so an empty list means none.
@@ -1444,6 +1445,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	const notExercised = (notExercisedTable?.rows ?? []).filter(row => !isPlaceholder(row['scenario'])).map(row => ({
 		scenarioHtml: inline(row['scenario'] ?? ''),
 		reasonHtml: inline(sentenceCase(row['reason'] ?? row._cells?.[1] ?? '')),
+		reason: plainText(row['reason'] ?? row._cells?.[1] ?? ''),
 	}));
 
 	// Whether the report wrote a Not exercised heading at all, so an empty one
