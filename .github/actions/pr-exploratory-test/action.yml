@@ -113,6 +113,15 @@ outputs:
   comment-id:
     description: "Comment mode: the id of the comment posted or edited"
     value: ${{ steps.agent.outputs.comment_id }}
+  testable:
+    description: "Gate mode: false when the gate declined the run"
+    value: ${{ steps.agent.outputs.testable }}
+  reason:
+    description: "Gate mode: why it ruled as it did"
+    value: ${{ steps.agent.outputs.reason }}
+  cost:
+    description: "Gate mode: the gate's cost in USD"
+    value: ${{ steps.agent.outputs.cost }}
 runs:
   using: composite
   steps:
