@@ -3,6 +3,8 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+from __future__ import annotations
+
 import contextlib
 import logging
 import os
