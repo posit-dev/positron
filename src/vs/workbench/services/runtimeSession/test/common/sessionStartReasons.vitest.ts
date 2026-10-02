@@ -118,6 +118,12 @@ describe('getSessionStartReasonLabel', () => {
 		expect(getSessionStartReasonLabel(createSession('Started by a future feature', 'futureReason' as SessionStartReasonId), extensions))
 			.toBeUndefined();
 	});
+
+	it('has no label when the start reason ID names a property every object has', () => {
+		// Saved IDs come from storage, so one could match a built-in such as `toString`.
+		expect(getSessionStartReasonLabel(createSession('detail', 'toString' as SessionStartReasonId), extensions))
+			.toBeUndefined();
+	});
 });
 
 describe('describeSessionStartReason', () => {

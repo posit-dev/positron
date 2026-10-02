@@ -158,10 +158,12 @@ export function describeSessionStartReasonForLog(startReason: IRuntimeSessionSta
  */
 export function getSessionStartReasonLabel(session: Pick<ILanguageRuntimeSession, 'runtimeMetadata' | 'metadata'>, extensions: readonly IExtensionDescription[]): string | undefined {
 	const { runtimeMetadata, metadata } = session;
-	const createLabel = metadata.startReasonId && sessionStartReasonLabels[metadata.startReasonId];
-	if (!createLabel) {
+	// The ID comes from storage, so make sure it names a label and not a
+	// property every object has, such as `toString`.
+	if (!metadata.startReasonId || !Object.hasOwn(sessionStartReasonLabels, metadata.startReasonId)) {
 		return undefined;
 	}
+	const createLabel = sessionStartReasonLabels[metadata.startReasonId];
 	const getDisplayName = (extensionId: string) => extensions.find(extension =>
 		ExtensionIdentifier.equals(extension.identifier, extensionId))?.displayName ?? extensionId;
 	return createLabel(getLabelArgs(runtimeMetadata, metadata.notebookUri, metadata.requestingExtensionId, getDisplayName)).value;
