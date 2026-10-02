@@ -602,7 +602,7 @@ jobs:
             '($held | split("\n") | map(select(length > 0)) | map("• " + .) | join("\n")) as $bullets |
              {
                channel: $channel,
-               text: (":pause_button: *Bootstrap Extension Bumps Held Back* · <" + $run_url + "|run #" + $run_number + ">\n\n" + $bullets)
+               text: (":double_vertical_bar: *Bootstrap Extension Bumps Held Back* · <" + $run_url + "|run #" + $run_number + ">\n\n" + $bullets)
              }')
           if [ "$DRYRUN" = "true" ]; then
             echo "[dryrun] Would post to Slack:"
