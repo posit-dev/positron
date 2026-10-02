@@ -65,4 +65,23 @@ describe('PositronConsoleService', () => {
 		// The code runs once the session is ready; this test only covers the start.
 		await executing.catch(() => { });
 	});
+
+	it.each([
+		{ name: 'code an extension sent', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny' } }, expected: 'posit.shiny' },
+		{ name: 'code an extension sent for a file', attribution: { source: CodeAttributionSource.Script, metadata: { extensionId: 'positron.positron-r' } }, expected: 'positron.positron-r' },
+		{ name: 'code a kernel sent through an extension', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'positron.positron-supervisor', callerSessionId: 'r-notebook-1' } }, expected: undefined },
+		{ name: 'code the user ran', attribution: { source: CodeAttributionSource.Interactive }, expected: undefined },
+	])('records the requesting extension for $name', async ({ attribution, expected }) => {
+		const consoleService = ctx.disposables.add(
+			ctx.instantiationService.createInstance(PositronConsoleService));
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const willStart = Event.toPromise(ctx.get(IRuntimeSessionService).onWillStartSession);
+
+		const executing = consoleService.executeCode(runtime.languageId, undefined, '1 + 1', attribution, false);
+		const { session } = await willStart;
+		ctx.disposables.add(session);
+
+		expect(session.metadata.requestingExtensionId).toBe(expected);
+		await executing.catch(() => { });
+	});
 });

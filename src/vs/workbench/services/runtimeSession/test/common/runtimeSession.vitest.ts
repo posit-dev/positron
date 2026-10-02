@@ -1042,6 +1042,23 @@ describe('Positron - RuntimeSessionService', () => {
 			expect(newSession!.getRuntimeState()).toBe(RuntimeState.Starting);
 		});
 
+		it(`restart ${mode} in 'uninitialized' state records the extension that requested the restart`, async () => {
+			const willStartSessionDisposable = runtimeSessionService.onWillStartSession(e => {
+				vi.spyOn(e.session, 'start').mockRejectedValue(new Error('Session failed to start'));
+			});
+			await expect(start(runtime)).rejects.toThrow('Session failed to start');
+			const session = runtimeSessionService.activeSessions[0];
+			ctx.disposables.add(session);
+			willStartSessionDisposable.dispose();
+
+			const willStart = Event.toPromise(runtimeSessionService.onWillStartSession);
+			await runtimeSessionService.restartSession(session.sessionId, startReason, false, 'posit.shiny');
+			const { session: newSession } = await willStart;
+			ctx.disposables.add(newSession);
+
+			expect(newSession.metadata.requestingExtensionId).toBe('posit.shiny');
+		});
+
 		it(`restart ${mode} in 'starting' state`, async () => {
 			const session = await start(runtime);
 			expect(session.getRuntimeState()).toBe(RuntimeState.Starting);

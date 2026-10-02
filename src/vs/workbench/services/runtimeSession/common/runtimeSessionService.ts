@@ -161,8 +161,9 @@ export enum SessionStartReasonId {
 
 	/**
 	 * An extension selected the runtime through the Positron API's
-	 * `selectLanguageRuntime`. The R and Python interpreter pickers call it
-	 * when the user picks an interpreter.
+	 * `selectLanguageRuntime`. The R and Python interpreter pickers call it when
+	 * the user picks an interpreter, but extensions also call it without a user
+	 * action, such as when `python.defaultInterpreterPath` changes.
 	 */
 	ExtensionApiSelect = 'extensionApiSelect',
 
@@ -1109,12 +1110,15 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
+	 * @param interrupt Whether to offer to interrupt the session if it is busy.
+	 * @param requestingExtensionId The ID of the extension that requested the
+	 *  restart, if any.
 	 * @returns `true` if the session was restarted (or a restart already
 	 *  in progress completed), `false` if the restart was declined by
 	 *  the user. Rejects if the session is not found or not in a
 	 *  restartable state.
 	 */
-	restartSession(sessionId: string, source: string, interrupt?: boolean): Promise<boolean>;
+	restartSession(sessionId: string, source: string, interrupt?: boolean, requestingExtensionId?: string): Promise<boolean>;
 
 	/**
 	 * Interrupt a runtime session.

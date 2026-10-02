@@ -1215,8 +1215,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param sessionId The session ID of the runtime to restart.
 	 * @param source The source of the request to restart the runtime.
+	 * @param interrupt Whether to offer to interrupt the session if it is busy.
+	 * @param requestingExtensionId The ID of the extension that requested the
+	 * restart, if any.
 	 */
-	async restartSession(sessionId: string, source: string, interrupt: boolean = true): Promise<boolean> {
+	async restartSession(sessionId: string, source: string, interrupt: boolean = true, requestingExtensionId?: string): Promise<boolean> {
 		const activeSession = this._activeSessionsBySessionId.get(sessionId);
 		if (!activeSession) {
 			throw new Error(`No session with ID '${sessionId}' was found.`);
@@ -1256,7 +1259,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				session.dynState.sessionName,
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
-				{ id: SessionStartReasonId.RestartUninitializedSession },
+				{ id: SessionStartReasonId.RestartUninitializedSession, requestingExtensionId },
 				RuntimeStartMode.Starting,
 				true,
 				{ quartoNotebookUri: session.metadata.quartoNotebookUri }

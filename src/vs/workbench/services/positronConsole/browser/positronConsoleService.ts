@@ -850,12 +850,20 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				// Start the preferred runtime.
 				this._logService.trace(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
+				// Code from an extension carries the extension's ID. Code a
+				// kernel sent through an extension also carries the kernel's
+				// session ID, and the extension only relayed it.
+				const extensionId = attribution.metadata?.callerSessionId === undefined ?
+					attribution.metadata?.extensionId : undefined;
 				sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 					languageRuntime.runtimeId,
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // No notebook URI (console sesion)
-					{ id: SessionStartReasonId.CodeExecutedWithoutSession },
+					{
+						id: SessionStartReasonId.CodeExecutedWithoutSession,
+						requestingExtensionId: typeof extensionId === 'string' ? extensionId : undefined,
+					},
 					RuntimeStartMode.Starting,
 					true
 				);
