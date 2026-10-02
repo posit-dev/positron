@@ -53,7 +53,7 @@ test.describe('Posit Assistant - Snowflake Cortex API Key', {
 		// provider's env var names. SNOWFLAKE_ACCOUNT is already present on the Linux
 		// lanes for the data-connections Snowflake suite; both are exported on the
 		// Windows and macOS lanes for this test.
-		await app.workbench.modelProviderModal.loginModelProvider(provider);
+		await app.workbench.providerManager.loginModelProvider(provider);
 
 		try {
 			await app.workbench.positAssistant.open();
@@ -71,7 +71,7 @@ test.describe('Posit Assistant - Snowflake Cortex API Key', {
 			const responseText = await app.workbench.positAssistant.getLastResponseText();
 			test.expect(responseText).toMatch(/hello/i);
 		} finally {
-			await app.workbench.modelProviderModal.logoutModelProvider(provider);
+			await app.workbench.providerManager.logoutModelProvider(provider);
 		}
 	});
 });

@@ -40,7 +40,7 @@ const CONFIRM_VIEW = 'div.space-y-4:has(> div > h2)';
 
 /**
  * Page object for Posit Assistant's "AI Providers" panel, a webview the extension opens in a modal editor.
- * Keeps the `loginModelProvider` / `logoutModelProvider` signatures of the removed `ModelProviderModal`.
+ * Keeps the `loginModelProvider` / `logoutModelProvider` signatures of the old core provider modal.
  */
 export class ProviderManager {
 	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }

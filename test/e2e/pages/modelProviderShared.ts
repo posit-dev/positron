@@ -43,7 +43,6 @@ export async function fillSecretValue(locator: Locator, value: string): Promise<
 	}, value);
 }
 
-const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
 const POSIT_EMAIL_FIELD = 'input[name="email"]';
 const POSIT_PASSWORD_FIELD = 'input[name="password"]';
 const POSIT_CONTINUE_BUTTON = 'button[type="submit"]:has-text("Continue")';
@@ -220,31 +219,6 @@ export function isProviderAutoSignedIn(provider: ModelProvider): boolean {
 	return envVarName ? !!process.env[envVarName] : false;
 }
 
-export async function extractDeviceCodeFromModal(code: Code, _config: OAuthDeviceCodeConfig): Promise<{ verificationCode: string }> {
-	const deviceCodeModalLocator = code.driver.currentPage.locator(`${POSITRON_MODAL_DIALOG}:has-text("You will need this code to sign in")`);
-	await expect(deviceCodeModalLocator).toBeVisible({ timeout: 30000 });
-
-	const modalHtml = await deviceCodeModalLocator.innerHTML();
-	if (!modalHtml) {
-		throw new Error('Could not read Positron device code modal content');
-	}
-
-	const codeMatch = modalHtml.match(/<code>([A-Z0-9-]+)<\/code>/i);
-	if (!codeMatch) {
-		// Do not embed modalHtml in the error: it contains the device code
-		// and other auth UI content that would otherwise leak into
-		// Playwright traces and CI logs.
-		throw new Error('Could not extract verification code from Positron device code modal (no <code> element found)');
-	}
-
-	const verificationCode = codeMatch[1];
-
-	const okButton = deviceCodeModalLocator.locator('button:has-text("OK"), button:has-text("Ok")');
-	await okButton.click();
-
-	return { verificationCode };
-}
-
 async function completePositLogin(page: Page, config: OAuthDeviceCodeConfig, verificationUrl: string): Promise<void> {
 	const email = process.env[config.envVars.username];
 	const password = process.env[config.envVars.password];
@@ -276,20 +250,6 @@ async function completePositLogin(page: Page, config: OAuthDeviceCodeConfig, ver
 	await expect(page.locator('body')).toContainText(/success|authorized|complete|congratulations/i, { timeout: 30000 });
 
 	await page.close();
-}
-
-/**
- * Completes an OAuth device-code login AFTER the caller has initiated sign-in
- * (clicked the Sign in / Connect button). Extracts the device code from the
- * Positron modal, then drives the external Posit login in a separate browser.
- */
-export async function completeOAuthDeviceCodeLogin(code: Code, config: OAuthDeviceCodeConfig, options: LoginModelProviderOptions = {}): Promise<void> {
-	// The Posit login page does not render in headless Chromium, so the
-	// default is headed. Callers may override per-invocation.
-	const { headless = false } = options;
-
-	const { verificationCode } = await extractDeviceCodeFromModal(code, config);
-	await completeOAuthDeviceCodeLoginWithCode(config, verificationCode, { headless });
 }
 
 /**

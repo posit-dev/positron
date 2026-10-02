@@ -50,7 +50,6 @@ import { Notebooks } from '../pages/notebooks.js';
 import { PositronNotebooks } from '../pages/notebooksPositron.js';
 import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
 import { PositAssistant } from '../pages/positAssistant.js';
-import { ModelProviderModal } from '../pages/modelProviderModal.js';
 import { ProviderManager } from '../pages/providerManager.js';
 import { InlineDataExplorer } from '../pages/inlineDataExplorer.js';
 import { InlineQuarto } from '../pages/inlineQuarto.js';
@@ -109,7 +108,6 @@ export class Workbench {
 	readonly hotKeys: HotKeys;
 	readonly positConnect: PositConnect;
 	readonly positAssistant: PositAssistant;
-	readonly modelProviderModal: ModelProviderModal;
 	readonly providerManager: ProviderManager;
 	readonly inlineDataExplorer: InlineDataExplorer;
 	readonly inlineQuarto: InlineQuarto;
@@ -161,10 +159,9 @@ export class Workbench {
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
-		this.assistant = new Assistant(code, this.quickaccess, this.toasts, this.modals);
+		this.assistant = new Assistant(code, this.quickaccess, this.toasts);
 		this.positConnect = new PositConnect(code);
 		this.positAssistant = new PositAssistant(code);
-		this.modelProviderModal = new ModelProviderModal(code, this.toasts);
 		this.providerManager = new ProviderManager(code, this.quickaccess, this.toasts);
 		this.inlineDataExplorer = new InlineDataExplorer(code.driver.currentPage);
 		this.inlineQuarto = new InlineQuarto(code, this.quickaccess, this.hotKeys);

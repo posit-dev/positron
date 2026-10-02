@@ -407,14 +407,6 @@ export class HotKeys {
 	}
 
 	// -----------------------
-	// ---  Assistant Actions ---
-	// -----------------------
-
-	public configureProviders() {
-		return this.pressHotKeys('Cmd+J R', 'Configure Language Model Providers');
-	}
-
-	// -----------------------
 	// ---  Debug Actions  ---
 	// -----------------------
 

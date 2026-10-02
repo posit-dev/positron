@@ -56,7 +56,7 @@ test.describe('Posit Assistant - Databricks OAuth', {
 		// 2-minute budget on their own.
 		test.slow();
 
-		await app.workbench.modelProviderModal.loginModelProvider(provider, {
+		await app.workbench.providerManager.loginModelProvider(provider, {
 			authMethod: 'oauth',
 			baseUrl: process.env.DATABRICKS_URL,
 		});
@@ -77,7 +77,7 @@ test.describe('Posit Assistant - Databricks OAuth', {
 			const responseText = await app.workbench.positAssistant.getLastResponseText();
 			test.expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await app.workbench.modelProviderModal.logoutModelProvider(provider);
+			await app.workbench.providerManager.logoutModelProvider(provider);
 		}
 	});
 });
@@ -97,7 +97,7 @@ test.describe('Posit Assistant - Databricks API Key', {
 		// DATABRICKS_PAT / DATABRICKS_WORKSPACE, resolved by the page object from the
 		// provider's env var names. Both are exported by the desktop lanes specifically
 		// for this test.
-		await app.workbench.modelProviderModal.loginModelProvider(provider, {
+		await app.workbench.providerManager.loginModelProvider(provider, {
 			authMethod: 'apiKey',
 		});
 
@@ -113,7 +113,7 @@ test.describe('Posit Assistant - Databricks API Key', {
 			const responseText = await app.workbench.positAssistant.getLastResponseText();
 			test.expect(responseText.length).toBeGreaterThan(0);
 		} finally {
-			await app.workbench.modelProviderModal.logoutModelProvider(provider);
+			await app.workbench.providerManager.logoutModelProvider(provider);
 		}
 	});
 });
