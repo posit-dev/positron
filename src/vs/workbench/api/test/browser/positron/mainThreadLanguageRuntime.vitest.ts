@@ -33,7 +33,7 @@ import { IPositronIPyWidgetsService } from '../../../../services/positronIPyWidg
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { ExtHostLanguageRuntimeShape, RuntimeSessionCapabilities } from '../../../common/positron/extHost.positron.protocol.js';
@@ -303,17 +303,26 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 
 	it('attributes code to the calling extension and the kernel that sent it, ignoring caller-supplied values', async () => {
 		const executeCode = vi.fn<IPositronConsoleService['executeCode']>(async () => 'session-1');
-		const { mainThread } = createMainThreadLanguageRuntime(disposables, undefined, executeCode);
+		const kernelSession = stubInterface<ILanguageRuntimeSession>({ sessionId: 'r-notebook-1' });
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+			getSession: sessionId => sessionId === kernelSession.sessionId ? kernelSession : undefined,
+		}), executeCode);
 		const forged = { extensionId: 'example.forged', callerSessionId: 'forged-session' };
 
 		await mainThread.$executeCode('r', 'posit.shiny', undefined, 'x', false,
 			undefined, undefined, undefined, undefined, undefined, undefined, forged);
 		await mainThread.$executeCode('r', 'positron.positron-supervisor', undefined, 'x', false,
 			undefined, undefined, undefined, undefined, undefined, undefined, undefined, 'r-notebook-1');
+		// An extension can pass any session ID to `positron.methods.call`; one that names no
+		// session doesn't count, so the extension is still credited.
+		await mainThread.$executeCode('r', 'posit.shiny', undefined, 'x', false,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined, 'made-up-session');
 
 		expect(executeCode.mock.calls.map(call => call[3])).toEqual([
 			{ source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny', callerSessionId: undefined } },
 			{ source: CodeAttributionSource.Extension, metadata: { extensionId: 'positron.positron-supervisor', callerSessionId: 'r-notebook-1' } },
+			{ source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny', callerSessionId: undefined } },
 		]);
 	});
 

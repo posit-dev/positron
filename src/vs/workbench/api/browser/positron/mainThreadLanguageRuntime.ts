@@ -2147,6 +2147,11 @@ export class MainThreadLanguageRuntime
 		//
 		// `callerSessionId` is set when a kernel sent the code through the
 		// extension, so the extension relayed the code rather than asking for it.
+		// Extensions can pass any session ID to `positron.methods.call`, so it
+		// only counts when it names a real session; otherwise an extension
+		// could hide that it sent the code.
+		const relayedFromSessionId = callerSessionId && this._runtimeSessionService.getSession(callerSessionId) ?
+			callerSessionId : undefined;
 		let attribution: IConsoleCodeAttribution;
 		if (revivedUri) {
 			const codeLocation: ICodeLocation = {
@@ -2161,7 +2166,7 @@ export class MainThreadLanguageRuntime
 				metadata: {
 					...attributionMetadata,
 					extensionId: extensionId,
-					callerSessionId,
+					callerSessionId: relayedFromSessionId,
 					codeLocation,
 				}
 			};
@@ -2171,7 +2176,7 @@ export class MainThreadLanguageRuntime
 				metadata: {
 					...attributionMetadata,
 					extensionId: extensionId,
-					callerSessionId,
+					callerSessionId: relayedFromSessionId,
 				}
 			};
 		}
