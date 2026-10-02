@@ -368,6 +368,9 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (!body.some(l => /^\*\*Feature:\*\*\s*\S/.test(l))) {
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
 		}
+		if (!body.some(l => /^\*\*Impact:\*\*\s*\S/.test(l))) {
+			problems.push(`report: Finding ${b.n} has no "**Impact:** <who hits it, whether they would notice, what you did not check>" line`);
+		}
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }
 	});

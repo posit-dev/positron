@@ -357,6 +357,13 @@ Assistant". It prefixes the filed issue's title, as "console: <claim>".
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".
 
+The finding block's `**Impact:**` says how far it reaches, in two sentences at
+most: who hits it, as the data, setting or workflow a user would recognize;
+whether they would notice, since a wrong value that looks right is worse than
+one that looks broken; and what you did not check. Claim only what you
+checked: "Any pandas datetime column with a missing value shows a wrong median
+that looks right. Polars and R not checked."
+
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
 the change now reaches, say so in one sentence as part of the reasoning: "The
@@ -411,6 +418,8 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 ### Finding N: <concise claim>
 
 **Feature:** <feature>
+
+**Impact:** <two sentences at most: who hits it, whether they would notice, what you did not check>
 
 **Repro**
 

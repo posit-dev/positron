@@ -25,6 +25,8 @@ const REPORT = `# Exploratory test: x
 
 **Feature:** console
 
+**Impact:** Anyone who opens the panel; nothing else checked.
+
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
 
@@ -76,6 +78,10 @@ test('a report written to the format is clean', () => {
 test('flags a finding with no Feature line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console\n\n', '')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
+});
+
+test('flags a finding with no Impact line', () => {
+	assert.deepEqual(lint(REPORT.replace(/\*\*Impact:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Impact:** <who hits it, whether they would notice, what you did not check>" line']);
 });
 
 test('fenced code does not count as a heading', () => {

@@ -2169,6 +2169,17 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
 });
+test('issue: a finding\'s Impact gets its own section, and joins the table phrase in the prompt', () => {
+	const impact = 'Any frame with a slow column; polars was not checked.';
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n**Impact:** ${impact}`);
+	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const body = issueCopied(html, 1);
+	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]).slice(1, 3), ['Describe the issue', 'Impact']);
+	assert.match(body, new RegExp(`## Impact\\n${impact.replace(/[.;]/g, '\\$&')}\\n`));
+	assert.match(unescapeHtml(promptText(html, 1)), new RegExp(`### Impact\\n[^\\n]+\\n\\n${impact.replace(/[.;]/g, '\\$&')}\\n`));
+	assert.doesNotMatch(issueCopied(html, 2), /## Impact/);
+	assert.doesNotMatch(html, /\*\*Impact:\*\*/);
+});
 test('issue: the claim after the Feature starts lowercase unless its first word is a name', () => {
 	const title = (claim, extra = '') => {
 		const md = LOGS_REPORT.replace(/^### Finding 1: .*$/m, `### Finding 1: ${claim}\n\n**Feature:** console${extra}`);
