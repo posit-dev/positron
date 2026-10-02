@@ -18,6 +18,25 @@ from typing import Any, List, Literal, Optional, Union
 from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 
+class HelpTopicSuggestion(BaseModel):
+    """
+    A help topic offered as an autocomplete suggestion.
+    """
+
+    label: StrictStr = Field(
+        description="The topic label shown to the user.",
+    )
+
+    topic: StrictStr = Field(
+        description="The exact topic value used to open help.",
+    )
+
+    detail: Optional[StrictStr] = Field(
+        default=None,
+        description="Optional context such as the package containing the topic.",
+    )
+
+
 @enum.unique
 class ShowHelpKind(str, enum.Enum):
     """
@@ -39,6 +58,12 @@ class HelpBackendRequest(str, enum.Enum):
 
     # Look for and, if found, show a help topic.
     ShowHelpTopic = "show_help_topic"
+
+    # Search the active interpreter's help system.
+    SearchHelp = "search_help"
+
+    # Find help topics for autocomplete.
+    GetHelpTopics = "get_help_topics"
 
 
 class ShowHelpTopicParams(BaseModel):
@@ -76,9 +101,83 @@ class ShowHelpTopicRequest(BaseModel):
     )
 
 
+class SearchHelpParams(BaseModel):
+    """
+    Searches interpreter-wide help and displays the resulting page via a
+    Show Help notification.
+    """
+
+    query: StrictStr = Field(
+        description="The help query to search for",
+    )
+
+    search_id: StrictStr = Field(
+        description="Opaque identifier supplied by the frontend for this UI search. Echo it in the resulting Show Help notification.",
+    )
+
+
+class SearchHelpRequest(BaseModel):
+    """
+    Searches interpreter-wide help and displays the resulting page via a
+    Show Help notification.
+    """
+
+    params: SearchHelpParams = Field(
+        description="Parameters to the SearchHelp method",
+    )
+
+    method: Literal[HelpBackendRequest.SearchHelp] = Field(
+        description="The JSON-RPC method name (search_help)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class GetHelpTopicsParams(BaseModel):
+    """
+    Returns at most limit matching help topic suggestions, filtered and
+    ranked by the backend. An empty query returns no suggestions.
+    """
+
+    query: StrictStr = Field(
+        description="The text to match against help topic labels.",
+    )
+
+    limit: StrictInt = Field(
+        description="Maximum number of suggestions to return, from 1 to 50.",
+    )
+
+
+class GetHelpTopicsRequest(BaseModel):
+    """
+    Returns at most limit matching help topic suggestions, filtered and
+    ranked by the backend. An empty query returns no suggestions.
+    """
+
+    params: GetHelpTopicsParams = Field(
+        description="Parameters to the GetHelpTopics method",
+    )
+
+    method: Literal[HelpBackendRequest.GetHelpTopics] = Field(
+        description="The JSON-RPC method name (get_help_topics)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class HelpBackendMessageContent(BaseModel):
     comm_id: str
-    data: ShowHelpTopicRequest
+    data: Union[
+        ShowHelpTopicRequest,
+        SearchHelpRequest,
+        GetHelpTopicsRequest,
+    ] = Field(..., discriminator="method")
 
 
 @enum.unique
@@ -108,9 +207,23 @@ class ShowHelpParams(BaseModel):
         description="Whether to focus the Help pane when the content is displayed.",
     )
 
+    search_id: Optional[StrictStr] = Field(
+        description="Identifier of the UI search that requested this navigation, if any. Omit for console help and other help navigation. The frontend ignores identifiers that are no longer current.",
+    )
+
+
+HelpTopicSuggestion.update_forward_refs()
 
 ShowHelpTopicParams.update_forward_refs()
 
 ShowHelpTopicRequest.update_forward_refs()
+
+SearchHelpParams.update_forward_refs()
+
+SearchHelpRequest.update_forward_refs()
+
+GetHelpTopicsParams.update_forward_refs()
+
+GetHelpTopicsRequest.update_forward_refs()
 
 ShowHelpParams.update_forward_refs()

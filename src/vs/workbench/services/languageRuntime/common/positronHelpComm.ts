@@ -12,6 +12,27 @@ import { PositronBaseComm, PositronCommOptions } from './positronBaseComm.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
 /**
+ * A help topic offered as an autocomplete suggestion.
+ */
+export interface HelpTopicSuggestion {
+	/**
+	 * The topic label shown to the user.
+	 */
+	label: string;
+
+	/**
+	 * The exact topic value used to open help.
+	 */
+	topic: string;
+
+	/**
+	 * Optional context such as the package containing the topic.
+	 */
+	detail?: string;
+
+}
+
+/**
  * Parameters for the ShowHelpTopic method.
  */
 export interface ShowHelpTopicParams {
@@ -19,6 +40,37 @@ export interface ShowHelpTopicParams {
 	 * The help topic to show
 	 */
 	topic: string;
+}
+
+/**
+ * Parameters for the SearchHelp method.
+ */
+export interface SearchHelpParams {
+	/**
+	 * The help query to search for
+	 */
+	query: string;
+
+	/**
+	 * Opaque identifier supplied by the frontend for this UI search. Echo it
+	 * in the resulting Show Help notification.
+	 */
+	search_id: string;
+}
+
+/**
+ * Parameters for the GetHelpTopics method.
+ */
+export interface GetHelpTopicsParams {
+	/**
+	 * The text to match against help topic labels.
+	 */
+	query: string;
+
+	/**
+	 * Maximum number of suggestions to return, from 1 to 50.
+	 */
+	limit: number;
 }
 
 /**
@@ -48,6 +100,13 @@ export interface ShowHelpParams {
 	 * Whether to focus the Help pane when the content is displayed.
 	 */
 	focus: boolean;
+
+	/**
+	 * Identifier of the UI search that requested this navigation, if any.
+	 * Omit for console help and other help navigation. The frontend ignores
+	 * identifiers that are no longer current.
+	 */
+	search_id?: string;
 }
 
 /**
@@ -69,6 +128,13 @@ export interface ShowHelpEvent {
 	 */
 	focus: boolean;
 
+	/**
+	 * Identifier of the UI search that requested this navigation, if any.
+	 * Omit for console help and other help navigation. The frontend ignores
+	 * identifiers that are no longer current.
+	 */
+	search_id?: string;
+
 }
 
 export enum HelpFrontendEvent {
@@ -76,7 +142,9 @@ export enum HelpFrontendEvent {
 }
 
 export enum HelpBackendRequest {
-	ShowHelpTopic = 'show_help_topic'
+	ShowHelpTopic = 'show_help_topic',
+	SearchHelp = 'search_help',
+	GetHelpTopics = 'get_help_topics'
 }
 
 export class PositronHelpComm extends PositronBaseComm {
@@ -85,7 +153,7 @@ export class PositronHelpComm extends PositronBaseComm {
 		options?: PositronCommOptions<HelpBackendRequest>,
 	) {
 		super(instance, options);
-		this.onDidShowHelp = super.createEventEmitter('show_help', ['content', 'kind', 'focus']);
+		this.onDidShowHelp = super.createEventEmitter('show_help', ['content', 'kind', 'focus', 'search_id']);
 	}
 
 	/**
@@ -103,6 +171,39 @@ export class PositronHelpComm extends PositronBaseComm {
 	 */
 	showHelpTopic(topic: string): Promise<boolean> {
 		return super.performRpc('show_help_topic', ['topic'], [topic]);
+	}
+
+	/**
+	 * Search the active interpreter's help system.
+	 *
+	 * Searches interpreter-wide help and displays the resulting page via a
+	 * Show Help notification.
+	 *
+	 * @param query The help query to search for
+	 * @param searchId Opaque identifier supplied by the frontend for this UI
+	 * search. Echo it in the resulting Show Help notification.
+	 *
+	 * @returns Whether the search results navigation was requested. This
+	 * does not confirm that the frontend displayed or finished loading the
+	 * page.
+	 */
+	searchHelp(query: string, searchId: string): Promise<boolean> {
+		return super.performRpc('search_help', ['query', 'search_id'], [query, searchId]);
+	}
+
+	/**
+	 * Find help topics for autocomplete.
+	 *
+	 * Returns at most limit matching help topic suggestions, filtered and
+	 * ranked by the backend. An empty query returns no suggestions.
+	 *
+	 * @param query The text to match against help topic labels.
+	 * @param limit Maximum number of suggestions to return, from 1 to 50.
+	 *
+	 * @returns Help topic suggestions.
+	 */
+	getHelpTopics(query: string, limit: number): Promise<Array<HelpTopicSuggestion>> {
+		return super.performRpc('get_help_topics', ['query', 'limit'], [query, limit]);
 	}
 
 
