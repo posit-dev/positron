@@ -286,3 +286,5 @@ versions/show-version.cjs
 #
 .claude/skills/exploratory-test/renderer/usage.mjs
 .claude/skills/exploratory-test/renderer/usage.test.mjs
+.claude/skills/exploratory-test/renderer/og-card.mjs
+.claude/skills/exploratory-test/renderer/og-card.test.mjs

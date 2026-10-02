@@ -52,6 +52,7 @@ const { modelDisplayName, parseReport } = await import('./report-parse.mjs');
 const { lintReport, untaggedShots } = await import('./lint.mjs');
 const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
 const { reportUsageOnce } = await import('./usage.mjs');
+const { CARD_FILE, writeCard } = await import('./og-card.mjs');
 
 let markdown = readFileSync(input, 'utf8');
 // Coverage is built from the run's ledger when it wrote one.
@@ -153,6 +154,10 @@ function gitEmail() {
 }
 
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
+// Published pages only: chat apps need an absolute URL to fetch the image from.
+const ogImage = /^https?:\/\//.test(flags.base ?? '') && await writeCard(join(dirname(out), CARD_FILE), parsed.severityCounts)
+	? `${flags.base.replace(/\/$/, '')}/${CARD_FILE}`
+	: undefined;
 writeFileSync(out, renderReportHtml(markdown, {
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
@@ -165,6 +170,7 @@ writeFileSync(out, renderReportHtml(markdown, {
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,
 	knownIssues,
+	ogImage,
 }));
 console.log(out);
 

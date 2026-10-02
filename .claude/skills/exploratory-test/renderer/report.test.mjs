@@ -2745,18 +2745,28 @@ test('with no findings and no linked issues, only the empty state shows', () => 
 
 test('renderReportHtml gives chat apps a link preview', () => {
 	const html = renderReportHtml('# Exploratory test: a "quoted" title\n\nbody');
-	assert.match(html, /<meta property="og:title" content="Exploratory test: a &quot;quoted&quot; title">/);
-	assert.match(html, /<meta property="og:description" content="No findings\.">/);
+	// The site name already says what it is, so the title is just the report's.
+	assert.match(html, /<meta property="og:site_name" content="Positron exploratory test">\n<meta property="og:title" content="A &quot;quoted&quot; title">/);
+	// No branch line, so no description rather than an empty one.
+	assert.doesNotMatch(html, /description/);
 });
 
-test('previewSummary names the PR and branch, then the findings and coverage counts', () => {
-	const report = {
-		pr: { number: 16378 },
-		chips: ['feature/interpreter-skill', 'f3f04ee7db'],
-		findingCount: 3,
-		severityCounts: { major: 1, moderate: 0, minor: 2 },
-		scenarios: { exercised: 5, pass: 4, issues: 1, notRun: 2 },
-	};
-	assert.equal(previewSummary(report), 'PR #16378 on feature/interpreter-skill. 3 findings: 1 major, 2 minor. 7 scenarios: 4 passed, 1 failed, 2 not run.');
-	assert.equal(previewSummary({ ...report, pr: null, findingCount: 1, severityCounts: { major: 0, moderate: 0, minor: 0 }, scenarios: { exercised: 0, pass: 0, issues: 0, notRun: 0 } }), 'feature/interpreter-skill. 1 finding.');
+test('renderReportHtml adds the link image only when the caller wrote one', () => {
+	assert.doesNotMatch(renderReportHtml(FULL), /og:image/);
+	const tags = html => html.match(/<meta property="og:image[^>]*>/g);
+	assert.deepEqual(tags(renderReportHtml(FULL, { ogImage: 'https://cdn.example/run/og.png' })), [
+		'<meta property="og:image" content="https://cdn.example/run/og.png">',
+		'<meta property="og:image:width" content="1200">',
+		'<meta property="og:image:height" content="630">',
+		'<meta property="og:image:alt" content="1 major, 1 minor findings">',
+	]);
+	assert.match(renderReportHtml('# Exploratory test: x\n\nbody', { ogImage: 'https://cdn.example/og.png' }), /og:image:alt" content="No findings"/);
+	const one = md('## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '', '### Finding 1: a claim', '');
+	assert.match(renderReportHtml(one, { ogImage: 'https://cdn.example/og.png' }), /og:image:alt" content="1 minor finding"/);
+});
+
+test('previewSummary names the PR and branch only, since the image shows the counts', () => {
+	const report = { pr: { number: 16378 }, chips: ['feature/interpreter-skill', 'f3f04ee7db'] };
+	assert.equal(previewSummary(report), 'PR #16378 on feature/interpreter-skill');
+	assert.equal(previewSummary({ ...report, pr: null }), 'feature/interpreter-skill');
 });
