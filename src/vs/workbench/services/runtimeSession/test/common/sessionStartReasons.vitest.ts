@@ -91,12 +91,14 @@ describe('getSessionStartReasonLabel', () => {
 			SessionStartReasonId.ExtensionApiStart,
 			SessionStartReasonId.CodeExecutedWithoutSession,
 			SessionStartReasonId.ExtensionApiSelect,
+			SessionStartReasonId.RestartUninitializedSession,
 		].map(id => getSessionStartReasonLabel(createSession('detail', id, undefined, 'posit.shiny'), extensions));
 
 		expect(labels).toEqual([
 			'The Shiny extension started this interpreter',
 			'The Shiny extension ran code with no R console open',
 			'The Shiny extension selected this interpreter',
+			'The Shiny extension requested a restart before this interpreter had started',
 		]);
 	});
 
@@ -176,7 +178,7 @@ describe('describeSessionStartReasonForLog', () => {
 			describeSessionStartReasonForLog({ id: SessionStartReasonId.RestartUninitializedSession, requestingExtensionId: 'posit.shiny' }, runtime),
 		]).toEqual([
 			'A file written in R was opened [startReasonId: languageFileOpenedAtRegistration]',
-			'A restart was requested before this interpreter had started [startReasonId: restartUninitializedSession, requestingExtension: posit.shiny]',
+			'The posit.shiny extension requested a restart before this interpreter had started [startReasonId: restartUninitializedSession, requestingExtension: posit.shiny]',
 		]);
 	});
 });
