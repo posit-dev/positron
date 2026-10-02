@@ -9,7 +9,7 @@ import contextlib
 import logging
 import os
 from pathlib import Path
-from typing import Any, Iterable, Tuple, cast
+from typing import TYPE_CHECKING, Any, Iterable, Tuple, cast
 from unittest.mock import Mock
 
 import pytest
@@ -22,13 +22,15 @@ from positron.help import help  # noqa: A004
 from positron.session_mode import SessionMode
 from positron.utils import alias_home
 
-from .conftest import PositronShell
 from .utils import (
     CapturedError,
     assert_register_table_called,
     capture_errors,
     patch_positron_execute_request,
 )
+
+if TYPE_CHECKING:
+    from .conftest import PositronShell
 
 try:
     import lightning
