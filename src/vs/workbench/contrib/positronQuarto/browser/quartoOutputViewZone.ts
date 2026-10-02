@@ -34,6 +34,7 @@ import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY, POSITRON_NOTEBOOK_I
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
+import { getInlineGridMetrics } from '../../../services/positronDataExplorer/browser/inlineGridMetrics.js';
 import { ResourceUsageGraph } from '../../positronConsole/browser/components/resourceUsageGraph.js';
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -598,11 +599,16 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
-	 * Apply the editor's font settings to the output container.
+	 * Apply the editor's font settings to the output container. The styled
+	 * container gets only the font size, so its em-based padding scales with
+	 * the editor font. The collapsed summary inherits that size but keeps the
+	 * workbench font family.
 	 */
 	private _applyEditorFont(): void {
 		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
 		applyFontInfo(this._outputContainer, fontInfo);
+		this._styledContainer.style.fontSize = `${fontInfo.fontSize}px`;
+		this._updateHeight();
 	}
 
 	/**
@@ -2382,7 +2388,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const maxHeight = this._configurationService?.getValue<number>(
 			POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 		) ?? 300;
-		const height = calculateInlineDataExplorerHeight(shape.rows, maxHeight);
+		const height = calculateInlineDataExplorerHeight(
+			shape.rows,
+			maxHeight,
+			getInlineGridMetrics(this._configurationService)
+		);
 
 		// Create a container for the React component
 		const dataExplorerContainer = document.createElement('div');
@@ -3042,8 +3052,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._saveButton.style.display = containerHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
 		}
 
-		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
-		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);
+		// Add the styled container's vertical margins plus 5px spacing below
+		// the widget. offsetHeight excludes margins, so read them from the
+		// computed style; they are em-based and scale with the editor font.
+		// Round up so the lines below the zone stay on whole pixels.
+		const containerStyle = dom.getComputedStyle(this._styledContainer);
+		const verticalMargins =
+			(parseFloat(containerStyle.marginTop) || 0) +
+			(parseFloat(containerStyle.marginBottom) || 0);
+		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, Math.ceil(styledHeight + verticalMargins + 5));
 
 		if (newHeight !== this.heightInPx && this._zoneId) {
 			this.heightInPx = newHeight;

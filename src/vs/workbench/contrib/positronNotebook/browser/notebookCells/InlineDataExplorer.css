@@ -39,7 +39,8 @@ with the Quarto-style overlay layout. */
 
 .inline-data-explorer-info {
 	display: flex;
-	align-items: center;
+	/* Title and shape text differ in size; align their baselines, not their boxes */
+	align-items: baseline;
 	gap: 8px;
 	/* Allow flex children to shrink so the spans below can ellipsis-truncate. */
 	min-width: 0;

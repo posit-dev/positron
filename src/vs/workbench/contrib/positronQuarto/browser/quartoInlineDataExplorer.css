@@ -5,15 +5,52 @@
 
 /*
  * Overrides for the inline data explorer when rendered inside a Quarto editor
- * view zone, which inherits the editor's monospace font. The header and status
- * areas should use the workbench (proportional) font instead.
+ * view zone. The output container carries the editor's font (family, size,
+ * and line-height) via inline styles, which the header and status areas would
+ * otherwise inherit. Match the full Data Explorer's workbench font instead,
+ * so only the grid cells use the editor font, same as the full Data Explorer.
+ *
+ * Note: the font family and size CSS variables are only injected into
+ * webviews, not defined in the workbench, so they cannot be used here.
+ * Keep the per-platform families in sync with .monaco-workbench.mac/.windows/
+ * .linux, and the size/line-height with .monaco-workbench, in
+ * vs/workbench/browser/media/style.css.
  */
-.quarto-output-data-explorer .inline-data-explorer-header,
-.quarto-output-data-explorer .inline-data-explorer-loading,
-.quarto-output-data-explorer .inline-data-explorer-disconnected,
-.quarto-output-data-explorer .inline-data-explorer-error {
-	font-family: var(--vscode-font-family);
-	font-size: var(--vscode-font-size);
+.quarto-output-data-explorer :is(
+	.inline-data-explorer-header,
+	.inline-data-explorer-loading,
+	.inline-data-explorer-disconnected,
+	.inline-data-explorer-error
+) {
+	font-size: 13px;
+	line-height: 1.4em;
+}
+
+.monaco-workbench.mac .quarto-output-data-explorer :is(
+	.inline-data-explorer-header,
+	.inline-data-explorer-loading,
+	.inline-data-explorer-disconnected,
+	.inline-data-explorer-error
+) {
+	font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.monaco-workbench.windows .quarto-output-data-explorer :is(
+	.inline-data-explorer-header,
+	.inline-data-explorer-loading,
+	.inline-data-explorer-disconnected,
+	.inline-data-explorer-error
+) {
+	font-family: "Segoe WPC", "Segoe UI", sans-serif;
+}
+
+.monaco-workbench.linux .quarto-output-data-explorer :is(
+	.inline-data-explorer-header,
+	.inline-data-explorer-loading,
+	.inline-data-explorer-disconnected,
+	.inline-data-explorer-error
+) {
+	font-family: system-ui, "Ubuntu", "Droid Sans", sans-serif;
 }
 
 /*
