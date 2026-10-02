@@ -12,6 +12,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildStats, CHECKS_FILE, readChecks, recordCheck, ruleKey, statsFromLog, summarizeByVersion, summarizeChecks } from './stats.mjs';
 
+// The renders these tests spawn must not post usage rows.
+process.env.EXPLORATORY_TEST_NO_USAGE = '1';
+
 const RENDER = fileURLToPath(new URL('./render.mjs', import.meta.url));
 const SCRIPT = fileURLToPath(new URL('./stats.mjs', import.meta.url));
 const LOGS_DIR = fileURLToPath(new URL('./fixtures/logs-run/', import.meta.url));
@@ -122,11 +125,25 @@ test('render.mjs counts the explorer\'s checks, not the harness\'s renders, and 
 		assert.equal(stats.durationMs, 1500000);
 		assert.equal(stats.checks.rounds, 2);
 		assert.match(stats.version, /^\d+\.\d+$/);
+		assert.deepEqual(stats.severity, { major: 1, moderate: 1, minor: 0 });
+		assert.equal(stats.notRun, 3);
+		assert.deepEqual(stats.notRunReasons, [
+			'Time; Python and DuckDB cover both null-vs-omitted serializations the diff mentions',
+			'Could not make value fetches slow: the slow-hash trick only slows profiling',
+			'Desktop build only',
+		]);
 		// The page is written after stats.json, so Run details links it.
 		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /format check 2 times\. The first time, it found .*<div class="format-raw"><a href="stats.json">Raw stats<\/a><\/div>/s);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
+});
+
+test('buildStats clips a long Not run reason', () => {
+	const parsed = { coverage: { notExercised: [{ reason: 'x'.repeat(150) }] } };
+	const { notRun, notRunReasons } = buildStats({ parsed });
+	assert.equal(notRun, 1);
+	assert.equal(notRunReasons[0], `${'x'.repeat(97)}...`);
 });
 
 test('the stats command tables local runs and sums them up by version', () => {

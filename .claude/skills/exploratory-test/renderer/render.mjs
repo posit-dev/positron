@@ -15,7 +15,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -51,6 +51,8 @@ const { renderReportHtml, linkedLogs, skillVersion } = await import('./html.mjs'
 const { modelDisplayName, parseReport } = await import('./report-parse.mjs');
 const { lintReport, untaggedShots } = await import('./lint.mjs');
 const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
+const { reportUsageOnce } = await import('./usage.mjs');
+const { CARD_FILE, writeCard } = await import('./og-card.mjs');
 
 let markdown = readFileSync(input, 'utf8');
 // Coverage is built from the run's ledger when it wrote one.
@@ -127,18 +129,19 @@ const parsed = parseReport(markdown, { ledger });
 
 // The Run tile's render is the run's last: record its stats, as CI's run.mjs
 // does, before the page is written, so the page can link them.
-if (flags['duration-ms']) {
-	writeFileSync(join(dir, 'stats.json'), `${JSON.stringify(buildStats({
-		where: 'local',
-		date: (born.getTime() > 0 ? born : new Date()).toISOString(),
-		version: skillVersion(),
-		model: flags.model,
-		// A subagent's tool_uses, which is what the footer calls turns here.
-		turns: flags.turns ? Number(flags.turns) : null,
-		durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0),
-		parsed,
-		checks: readChecks(dir),
-	}), null, 2)}\n`);
+const stats = flags['duration-ms'] ? buildStats({
+	where: 'local',
+	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
+	version: skillVersion(),
+	model: flags.model,
+	// A subagent's tool_uses, which is what the footer calls turns here.
+	turns: flags.turns ? Number(flags.turns) : null,
+	durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0),
+	parsed,
+	checks: readChecks(dir),
+}) : null;
+if (stats) {
+	writeFileSync(join(dir, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
 }
 
 /** Who a local page's feedback says ran it; none when git has no email. */
@@ -151,6 +154,10 @@ function gitEmail() {
 }
 
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
+// Published pages only: chat apps need an absolute URL to fetch the image from.
+const ogImage = /^https?:\/\//.test(flags.base ?? '') && await writeCard(join(dirname(out), CARD_FILE), parsed.severityCounts)
+	? `${flags.base.replace(/\/$/, '')}/${CARD_FILE}`
+	: undefined;
 writeFileSync(out, renderReportHtml(markdown, {
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
@@ -163,11 +170,12 @@ writeFileSync(out, renderReportHtml(markdown, {
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,
 	knownIssues,
+	ogImage,
 }));
 console.log(out);
 
 // Printed, not fatal: the page still renders. Fix each line and render again.
-printProblems();
+const problems = printProblems();
 
 // A listed log that was never copied is a dead link; the page shows it unlinked,
 // and the run fails so it gets copied rather than shipped.
@@ -182,6 +190,11 @@ if (missingFiles.length) {
 }
 // Evidence groups by step, so a shot with none has nowhere to go; lint names it.
 const untagged = untaggedShots(parsed.findings);
+// Sent last, so the row says whether the render failed the run.
+if (stats) {
+	const final = { problems: problems.length, missingLogs: missing.length, missingFiles: missingFiles.length, untaggedShots: untagged.length };
+	await reportUsageOnce(dir, { email: gitEmail(), event: 'finished', runId: basename(dir), stats: { ...stats, final } });
+}
 if (missing.length || missingFiles.length || untagged.length) {
 	process.exit(1);
 }

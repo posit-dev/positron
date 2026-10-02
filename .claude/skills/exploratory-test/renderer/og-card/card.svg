@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<!-- Exploratory test report: Slack/OG link image, 1200x630.
+     Placeholders: {major} {moderate} {minor}. Each severity is one <g data-sev> drawn around the
+     centre of #slots. A count text with data-sizes="1-digit 2-digit 3+-digit" gets the
+     font-size matching its number of digits, so 12 still fits its circle. og-card.mjs removes groups whose count is 0 and spaces the rest
+     data-step-y apart, centred vertically. Keep everything inside the centre 630x630 square:
+     Slack may crop to it for the small thumbnail. Fonts: IBM Plex Sans 400 + 600 (fonts/). -->
+<rect width="1200" height="630" fill="#FBFAF7"/>
+<g id="slots" data-step-x="0" data-step-y="148" transform="translate(600 315)">
+<g data-sev="major"><rect x="-260" y="-64" width="520" height="128" rx="64" fill="#D1492F" fill-opacity=".16"/><circle cx="-196" cy="0" r="50" fill="#D1492F"/><text x="-196" y="22" text-anchor="middle" font-family="IBM Plex Sans" font-weight="600" font-size="62" data-sizes="62 50 40" fill="#FFFFFF">{major}</text><text x="-120" y="21" font-family="IBM Plex Sans" font-size="60" fill="#1C1F23">major</text></g>
+<g data-sev="moderate"><rect x="-260" y="-64" width="520" height="128" rx="64" fill="#D9953A" fill-opacity=".16"/><circle cx="-196" cy="0" r="50" fill="#D9953A"/><text x="-196" y="22" text-anchor="middle" font-family="IBM Plex Sans" font-weight="600" font-size="62" data-sizes="62 50 40" fill="#FFFFFF">{moderate}</text><text x="-120" y="21" font-family="IBM Plex Sans" font-size="60" fill="#1C1F23">moderate</text></g>
+<g data-sev="minor"><rect x="-260" y="-64" width="520" height="128" rx="64" fill="#A3ABB6" fill-opacity=".16"/><circle cx="-196" cy="0" r="50" fill="#8E96A2"/><text x="-196" y="22" text-anchor="middle" font-family="IBM Plex Sans" font-weight="600" font-size="62" data-sizes="62 50 40" fill="#FFFFFF">{minor}</text><text x="-120" y="21" font-family="IBM Plex Sans" font-size="60" fill="#1C1F23">minor</text></g>
+</g>
+</svg>
