@@ -13,6 +13,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { localize } from '../../../../../nls.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { InlineTableDataGridInstance } from '../../../../services/positronDataExplorer/browser/inlineTableDataGridInstance.js';
+import { getInlineGridMetrics, IInlineGridMetrics } from '../../../../services/positronDataExplorer/browser/inlineGridMetrics.js';
 import { TableDataCache } from '../../../../services/positronDataExplorer/common/tableDataCache.js';
 import { PositronDataGrid } from '../../../../browser/positronDataGrid/positronDataGrid.js';
 import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
@@ -28,15 +29,14 @@ import { useCodeCell } from './CellProvider.js';
 import type { IInlineDataExplorerActionContext } from './InlineDataExplorerActions.js';
 import { InlineDataExplorerActionButton } from './InlineDataExplorerActionButton.js';
 
-// Height calculation constants (from inlineTableDataGridInstance.tsx constructor options)
-const HEADER_HEIGHT = 28;  // columnHeadersHeight
-const ROW_HEIGHT = 22;     // defaultRowHeight
+// Height calculation constants. The header uses the workbench font, so unlike
+// the grid metrics it does not scale with the editor font.
 const TOOLBAR_HEIGHT = 32; // Component header with row/col counts
 const PADDING = 8;
 
-const calculateHeight = (rowCount: number, maxHeight: number): number => {
+const calculateHeight = (rowCount: number, maxHeight: number, metrics: IInlineGridMetrics): number => {
 	// Calculate natural height based on content
-	const naturalHeight = TOOLBAR_HEIGHT + HEADER_HEIGHT + (rowCount * ROW_HEIGHT) + PADDING;
+	const naturalHeight = TOOLBAR_HEIGHT + metrics.columnHeadersHeight + (rowCount * metrics.defaultRowHeight) + PADDING;
 
 	// Apply max constraint (no min to allow very small tables)
 	return Math.min(naturalHeight, maxHeight);
@@ -119,9 +119,20 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	const cell = useCodeCell();
 	const [state, setState] = useState<InlineDataExplorerState>({ status: 'loading' });
 	const containerRef = useRef<HTMLDivElement>(null);
-	// Don't create DisposableStore in useRef - it will leak on remount.
-	// The store is created in the effect below.
-	const disposablesRef = useRef<DisposableStore | null>(null);
+
+	// Grid layout metrics scale with the editor font size; recompute them when
+	// the editor font changes so the grid is rebuilt to fit its text.
+	const [metrics, setMetrics] = useState(() => getInlineGridMetrics(services.configurationService));
+	useEffect(() => {
+		const disposable = services.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('editor.fontSize') ||
+				e.affectsConfiguration('editor.lineHeight') ||
+				e.affectsConfiguration('editor.fontFamily')) {
+				setMetrics(getInlineGridMetrics(services.configurationService));
+			}
+		});
+		return () => disposable.dispose();
+	}, [services.configurationService]);
 
 	// Get data explorer service
 	const dataExplorerService = services.positronDataExplorerService;
@@ -131,26 +142,16 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 		POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 	) ?? 300;
 
+	// Initialize the grid. Re-runs when the font-scaled metrics change so the
+	// grid is recreated with layout dimensions that fit the new font size.
 	useEffect(() => {
-		// Create a fresh disposable store for this mount cycle
 		const disposables = new DisposableStore();
-		disposablesRef.current = disposables;
-
-		// Clean up on unmount or when commId changes
-		return () => {
-			disposables.dispose();
-			disposablesRef.current = null;
-		};
-	}, [commId]);
-
-	useEffect(() => {
-		const disposables = disposablesRef.current;
 		let cancelled = false;
 
 		async function initializeGrid() {
 			try {
 				// Check if store is already disposed (race condition protection)
-				if (!disposables || disposables.isDisposed) {
+				if (disposables.isDisposed) {
 					return;
 				}
 
@@ -160,7 +161,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				const timeout = onFallback ? 500 : 10000;
 				const instance = await dataExplorerService.getInstanceAsync(commId, timeout);
 
-				if (cancelled || !disposables || disposables.isDisposed) {
+				if (cancelled || disposables.isDisposed) {
 					return;
 				}
 
@@ -189,7 +190,8 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 				// Create the inline grid instance
 				const gridInstance = disposables.add(new InlineTableDataGridInstance(
 					clientInstance,
-					tableDataCache
+					tableDataCache,
+					metrics
 				));
 
 				// Listen for close event
@@ -224,8 +226,9 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 
 		return () => {
 			cancelled = true;
+			disposables.dispose();
 		};
-	}, [commId, dataExplorerService, onFallback]);
+	}, [commId, dataExplorerService, onFallback, metrics]);
 
 	// Check if grid instance has become stale (no data but still "connected")
 	const isGridStale = state.status === 'connected' &&
@@ -262,7 +265,7 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 	};
 
 	// Calculate dynamic height based on row count
-	const dynamicHeight = calculateHeight(shape.rows, maxHeight);
+	const dynamicHeight = calculateHeight(shape.rows, maxHeight, metrics);
 
 	// Render based on state
 	return (

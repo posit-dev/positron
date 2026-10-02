@@ -25,14 +25,23 @@ import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { buildTableSelectionFromClipboardData } from './utils.js';
 
+import {
+	IInlineGridMetrics,
+	INLINE_GRID_COLUMN_HEADERS_HEIGHT,
+	INLINE_GRID_DEFAULT_ROW_HEIGHT,
+	INLINE_GRID_SCROLLBAR_THICKNESS,
+} from './inlineGridMetrics.js';
+
 /**
  * Grid layout constants used in the DataGridInstance constructor options.
- * These are also used externally for pre-calculating inline data explorer heights
- * (see quartoInlineDataExplorerLayout.ts, InlineDataExplorer.tsx).
+ * Re-exported from inlineGridMetrics.ts for compatibility; prefer
+ * getInlineGridMetrics() for font-scaled values.
  */
-export const INLINE_GRID_COLUMN_HEADERS_HEIGHT = 34;
-export const INLINE_GRID_DEFAULT_ROW_HEIGHT = 22;
-export const INLINE_GRID_SCROLLBAR_THICKNESS = 10;
+export {
+	INLINE_GRID_COLUMN_HEADERS_HEIGHT,
+	INLINE_GRID_DEFAULT_ROW_HEIGHT,
+	INLINE_GRID_SCROLLBAR_THICKNESS,
+};
 
 /**
  * Constants.
@@ -71,32 +80,36 @@ export class InlineTableDataGridInstance extends DataGridInstance {
 	 * Constructor.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 * @param _tableDataCache The table data cache.
+	 * @param metrics The font-scaled grid layout metrics (see
+	 * getInlineGridMetrics). Since the grid renders cell text in the editor
+	 * font, its layout dimensions must be scaled to the editor font size.
 	 */
 	constructor(
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableDataCache: TableDataCache,
+		metrics: IInlineGridMetrics,
 	) {
 		// Call the base class's constructor with simplified options
 		super({
 			columnHeaders: true,
-			columnHeadersHeight: INLINE_GRID_COLUMN_HEADERS_HEIGHT,
+			columnHeadersHeight: metrics.columnHeadersHeight,
 			rowHeaders: true,
-			rowHeadersWidth: 50,
+			rowHeadersWidth: metrics.rowHeadersWidth,
 			rowHeadersResize: false,
-			defaultColumnWidth: 150,
-			defaultRowHeight: INLINE_GRID_DEFAULT_ROW_HEIGHT,
+			defaultColumnWidth: metrics.defaultColumnWidth,
+			defaultRowHeight: metrics.defaultRowHeight,
 			columnResize: false,
 			rowResize: false,
 			columnPinning: false,
 			rowPinning: false,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
-			scrollbarThickness: INLINE_GRID_SCROLLBAR_THICKNESS,
+			scrollbarThickness: metrics.scrollbarThickness,
 			scrollbarOverscroll: 0,
 			useEditorFont: true,
 			automaticLayout: true,
 			cellBorders: true,
-			horizontalCellPadding: 5,
+			horizontalCellPadding: metrics.horizontalCellPadding,
 			internalCursor: true,
 			cursorOffset: 0.5,
 			selection: true,

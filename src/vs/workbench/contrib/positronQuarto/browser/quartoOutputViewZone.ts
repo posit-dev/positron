@@ -34,6 +34,7 @@ import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY, POSITRON_NOTEBOOK_I
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
+import { getInlineGridMetrics } from '../../../services/positronDataExplorer/browser/inlineGridMetrics.js';
 import { ResourceUsageGraph } from '../../positronConsole/browser/components/resourceUsageGraph.js';
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -2385,7 +2386,11 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		const maxHeight = this._configurationService?.getValue<number>(
 			POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY
 		) ?? 300;
-		const height = calculateInlineDataExplorerHeight(shape.rows, maxHeight);
+		const height = calculateInlineDataExplorerHeight(
+			shape.rows,
+			maxHeight,
+			getInlineGridMetrics(this._configurationService)
+		);
 
 		// Create a container for the React component
 		const dataExplorerContainer = document.createElement('div');
