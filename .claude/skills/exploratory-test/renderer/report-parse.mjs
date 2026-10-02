@@ -693,7 +693,7 @@ function parseFindingBody(lines) {
 		status: { confirmed: null, reproduced: null },
 		summary: [],
 		observed: '', expected: '', preconditions: [],
-		feature: '', impact: '',
+		feature: '', affects: '', workaround: '',
 		reproStart: '', steps: [],
 		evidence: [],
 		cause: '',
@@ -821,11 +821,9 @@ function parseFindingBody(lines) {
 			out.matched++;
 			continue;
 		}
-		if (label === 'impact') {
-			const { text, end } = readLabelled(lines, i);
-			out.impact = text;
+		if (label === 'affects' || label === 'workaround') {
+			out[label] = trimmed.replace(/^\*\*[^*]+:\*\*\s*/, '');
 			out.matched++;
-			i = end - 1;
 			continue;
 		}
 		if (label === 'feature') {
@@ -1349,8 +1347,9 @@ export function parseReport(markdown, { ledger } = {}) {
 			// written to open a card. Both are in the markdown, so both get used.
 			rowTitle: row['finding'] ? inline(row['finding']) : inline(start.claim),
 			impact: row['impact'] ? inline(sentenceCase(row['impact'])) : '',
-			// The block's `**Impact:**`: who hits it, whether they would notice, what was not checked.
-			impactDetailHtml: parsed.impact ? inline(parsed.impact) : '',
+			// Who hits it and how to get past it, one clause each, under the card title.
+			affectsHtml: parsed.affects ? inline(parsed.affects) : '',
+			workaroundHtml: parsed.workaround ? inline(parsed.workaround) : '',
 			severity: parseSeverity(row['severity']),
 			reproduced,
 			// Unproven is 0/M by definition, so the rate settles it when no strip was written.
@@ -1381,7 +1380,8 @@ export function parseReport(markdown, { ledger } = {}) {
 			// from this parse rather than the rendered card, so the two cannot disagree.
 			text: {
 				impact: row['impact'] ? sentenceCase(row['impact']) : '',
-				impactDetail: parsed.impact,
+				affects: parsed.affects,
+				workaround: parsed.workaround,
 				observed: parsed.observed ?? '',
 				expected: parsed.expected ?? '',
 				preconditions,

@@ -357,12 +357,13 @@ Assistant". It prefixes the filed issue's title, as "console: <claim>".
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".
 
-The finding block's `**Impact:**` says how far it reaches, in two sentences at
-most: who hits it, as the data, setting or workflow a user would recognize;
-whether they would notice, since a wrong value that looks right is worse than
-one that looks broken; and what you did not check. Claim only what you
-checked: "Any pandas datetime column with a missing value shows a wrong median
-that looks right. Polars and R not checked."
+The finding block's `**Affects:**` and `**Workaround:**` show under its title,
+one clause each. Affects starts "anyone who" or "anyone whose" and names the
+trigger a user would recognize, not the symptom: "anyone whose columns take
+over 10 s to summarize". Workaround is a step you saw get past it ("reopen the
+Data Explorer"), `none found` when you tried and nothing worked, or `none
+needed (wording only)` or `none needed (spacing only)`. Neither repeats the
+title or Observed, or claims wider than the cases you tried.
 
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
@@ -419,7 +420,9 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 **Feature:** <feature>
 
-**Impact:** <two sentences at most: who hits it, whether they would notice, what you did not check>
+**Affects:** anyone who <trigger, as the data, setting or workflow a user would recognize>
+
+**Workaround:** <a step you saw work, or none found>
 
 **Repro**
 

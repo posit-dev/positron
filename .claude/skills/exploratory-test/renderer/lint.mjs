@@ -368,8 +368,17 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (!body.some(l => /^\*\*Feature:\*\*\s*\S/.test(l))) {
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
 		}
-		if (!body.some(l => /^\*\*Impact:\*\*\s*\S/.test(l))) {
-			problems.push(`report: Finding ${b.n} has no "**Impact:** <who hits it, whether they would notice, what you did not check>" line`);
+		const affects = body.find(l => /^\*\*Affects:\*\*/.test(l))?.replace(/^\*\*Affects:\*\*\s*/, '');
+		if (!affects) {
+			problems.push(`report: Finding ${b.n} has no "**Affects:** anyone who <trigger>" line`);
+		} else if (!/^anyone (who|whose)\b/.test(affects)) {
+			problems.push(`report: Finding ${b.n} Affects: starts "${affects.slice(0, 30)}"; start it "anyone who" or "anyone whose"`);
+		}
+		const workaround = body.find(l => /^\*\*Workaround:\*\*/.test(l))?.replace(/^\*\*Workaround:\*\*\s*/, '');
+		if (!workaround) {
+			problems.push(`report: Finding ${b.n} has no "**Workaround:** <what worked, or none found>" line`);
+		} else if (/^none\b/i.test(workaround) && !/^none (found|needed \((wording|spacing) only\))$/.test(workaround)) {
+			problems.push(`report: Finding ${b.n} Workaround: "${workaround.slice(0, 40)}"; write "none found", "none needed (wording only)" or "none needed (spacing only)"`);
 		}
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }

@@ -624,7 +624,7 @@ function buildAgentPrompt(f, report, options = {}) {
 			out.push(`### ${heading}`, safeLinks(body), '');
 		}
 	};
-	section('Impact', [t.impact, t.impactDetail].filter(Boolean).join('\n\n'));
+	section('Impact', [t.impact, impactLines(t)].filter(Boolean).join('\n\n'));
 	// So the agent checks these before fixing or filing it again.
 	section('Possibly known issues', possiblyKnown(f, options.ki).map(n => {
 		const issue = options.ki?.byNumber.get(n);
@@ -862,7 +862,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
 
 	section('Describe the issue', capitalize([t.impact, t.prose].filter(Boolean).join('\n\n') || t.summary));
-	section('Impact', capitalize(t.impactDetail));
+	section('Impact', impactLines(t));
 
 	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
@@ -1072,6 +1072,19 @@ function renderPossiblyKnown(f, ki) {
 	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, ki)).join(', ')}</span></p>`;
 }
 
+/** Affects and Workaround as markdown bullets, for the filed issue and the agent prompt. */
+function impactLines(t) {
+	return [['Affects', t.affects], ['Workaround', t.workaround]]
+		.filter(([, v]) => v).map(([k, v]) => `- **${k}:** ${v}`).join('\n');
+}
+
+/** The one line under the card title: who hits it, and how to get past it. */
+function renderImpactLine(f) {
+	const parts = [['Affects', f.affectsHtml], ['Workaround', f.workaroundHtml]]
+		.filter(([, v]) => v).map(([k, v]) => `<span><span class="f-imp-l">${k}</span>${v}</span>`);
+	return parts.length ? `<div class="f-imp">${parts.join('<span class="f-imp-d" aria-hidden="true">&middot;</span>')}</div>` : '';
+}
+
 function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
 	const issue = issueLink(f, report, options);
@@ -1098,6 +1111,7 @@ function renderFindingCard(f, report, options) {
 
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
+		+ renderImpactLine(f)
 		+ renderPossiblyKnown(f, options.ki)
 		+ '</header>';
 

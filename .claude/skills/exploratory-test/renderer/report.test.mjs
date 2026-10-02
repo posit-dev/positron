@@ -2169,16 +2169,17 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
 });
-test('issue: a finding\'s Impact gets its own section, and joins the table phrase in the prompt', () => {
-	const impact = 'Any frame with a slow column; polars was not checked.';
-	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n**Impact:** ${impact}`);
+test('a finding\'s Affects and Workaround go under the card title, and into the issue and prompt as Impact', () => {
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, '$1\n\n**Affects:** anyone whose columns take over 10 s\n\n**Workaround:** reopen the Data Explorer');
 	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	assert.match(html, /<\/h2><div class="f-imp"><span><span class="f-imp-l">Affects<\/span>anyone whose columns take over 10 s<\/span><span class="f-imp-d" aria-hidden="true">&middot;<\/span><span><span class="f-imp-l">Workaround<\/span>reopen the Data Explorer<\/span><\/div>/);
+	const lines = '- \\*\\*Affects:\\*\\* anyone whose columns take over 10 s\\n- \\*\\*Workaround:\\*\\* reopen the Data Explorer\\n';
 	const body = issueCopied(html, 1);
 	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]).slice(1, 3), ['Describe the issue', 'Impact']);
-	assert.match(body, new RegExp(`## Impact\\n${impact.replace(/[.;]/g, '\\$&')}\\n`));
-	assert.match(unescapeHtml(promptText(html, 1)), new RegExp(`### Impact\\n[^\\n]+\\n\\n${impact.replace(/[.;]/g, '\\$&')}\\n`));
+	assert.match(body, new RegExp(`## Impact\\n${lines}`));
+	assert.match(unescapeHtml(promptText(html, 1)), new RegExp(`### Impact\\n[^\\n]+\\n\\n${lines}`));
 	assert.doesNotMatch(issueCopied(html, 2), /## Impact/);
-	assert.doesNotMatch(html, /\*\*Impact:\*\*/);
+	assert.equal((html.match(/class="f-imp"/g) ?? []).length, 1);
 });
 test('issue: the claim after the Feature starts lowercase unless its first word is a name', () => {
 	const title = (claim, extra = '') => {

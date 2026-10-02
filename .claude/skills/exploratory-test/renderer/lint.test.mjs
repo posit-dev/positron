@@ -25,7 +25,9 @@ const REPORT = `# Exploratory test: x
 
 **Feature:** console
 
-**Impact:** Anyone who opens the panel; nothing else checked.
+**Affects:** anyone who opens the panel
+
+**Workaround:** none found
 
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
@@ -80,8 +82,16 @@ test('flags a finding with no Feature line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 });
 
-test('flags a finding with no Impact line', () => {
-	assert.deepEqual(lint(REPORT.replace(/\*\*Impact:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Impact:** <who hits it, whether they would notice, what you did not check>" line']);
+test('flags a finding with no Affects or Workaround line', () => {
+	assert.deepEqual(lint(REPORT.replace(/\*\*Affects:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Affects:** anyone who <trigger>" line']);
+	assert.deepEqual(lint(REPORT.replace(/\*\*Workaround:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Workaround:** <what worked, or none found>" line']);
+});
+
+test('flags an Affects that names no one, and a none that is not an allowed form', () => {
+	assert.deepEqual(lint(REPORT.replace('anyone who opens the panel', 'the panel is blank')), ['report: Finding 1 Affects: starts "the panel is blank"; start it "anyone who" or "anyone whose"']);
+	assert.deepEqual(lint(REPORT.replace('none found', 'none, it is cosmetic')), ['report: Finding 1 Workaround: "none, it is cosmetic"; write "none found", "none needed (wording only)" or "none needed (spacing only)"']);
+	assert.deepEqual(lint(REPORT.replace('none found', 'none needed (wording only)')), []);
+	assert.deepEqual(lint(REPORT.replace('none found', 'reopen the panel')), []);
 });
 
 test('fenced code does not count as a heading', () => {

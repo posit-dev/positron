@@ -20,7 +20,7 @@ For EACH finding, answer these five questions explicitly:
    Check the hypothesis against every observation in the steps, including ones
    it does not mention. When the repro depends on a test file, read it: the
    trigger is what the file contains, not what the report says it contains.
-   If the Cause or the `**Impact:**` is worded more widely than the cases the
+   If the Cause or the `**Affects:**` is worded more widely than the cases the
    report tried, narrow it to what they show.
 2. Could anything the reporting agent did to its own test environment produce
    the reported symptom? Read the action log, the ledger's `## Environment` and
