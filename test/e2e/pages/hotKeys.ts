@@ -189,7 +189,8 @@ export class HotKeys {
 		const platform = process.platform;
 
 		if (platform === 'win32' || platform === 'linux') {
-			await this.code.driver.currentPage.keyboard.press('Home');
+			// Bare Home only moves to the start of the current line.
+			await this.pressHotKeys('Cmd+Home', 'Scroll to top');
 		} else {
 			await this.pressHotKeys('Cmd+ArrowUp', 'Scroll to top');
 		}
@@ -311,6 +312,14 @@ export class HotKeys {
 	}
 
 	public async reloadWindow(waitForReady = false) {
+		await this.reloadWindowWith(() => this.pressHotKeys('Cmd+B R', 'Reload window'), waitForReady);
+	}
+
+	/**
+	 * Runs `trigger`, which must reload the window (a keybinding, a toast's
+	 * Reload button), then waits for the reloaded workbench as `reloadWindow` does.
+	 */
+	public async reloadWindowWith(trigger: () => Promise<void>, waitForReady = false) {
 		const page = this.code.driver.currentPage;
 
 		// Arm the navigation listener before triggering the reload: the old DOM stays
@@ -319,7 +328,7 @@ export class HotKeys {
 		// The main frame navigating is the deterministic signal that the reload
 		// actually happened. (Filter to the main frame: webview iframes navigate too.)
 		const navigated = page.waitForEvent('framenavigated', frame => frame === page.mainFrame());
-		await this.pressHotKeys('Cmd+B R', 'Reload window');
+		await trigger();
 		await navigated;
 
 		// `framenavigated` fires at the navigation-commit instant, before the new
