@@ -235,7 +235,8 @@ export class Plots {
 		await test.step(`Set plot zoom to: ${zoomLevel}`, async () => {
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.currentPage.getByRole('button', { name: /Fit|%/ }),
-				menuItemLabel: zoomLevel
+				menuItemLabel: zoomLevel,
+				menuItemType: 'menuitemcheckbox'
 			});
 		});
 	}

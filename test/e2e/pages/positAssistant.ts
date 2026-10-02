@@ -117,7 +117,8 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
-const TOOL_CONFIRM_CARD = '.bg-warning';
+// `.bg-warning` alone also matches the legacy-config and restricted-mode banners.
+const TOOL_CONFIRM_CARD = '.bg-warning.border-warning-border';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
