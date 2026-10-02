@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
+import * as positron from 'positron';
+import * as vscode from 'vscode';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 
@@ -118,4 +120,106 @@ export function getTerminalMutation(value: string, current: string | undefined):
 		return { type: 'append', value: value.slice(current.length) };
 	}
 	return { type: 'replace', value };
+}
+
+/** The parts of a session that decide whether it drives the terminal environment. */
+interface TerminalEnvironmentSession {
+	readonly metadata: Pick<positron.RuntimeSessionMetadata, 'sessionMode'>;
+}
+
+/** The slice of a terminal environment variable collection used here. */
+export interface TerminalEnvironmentCollection extends Pick<vscode.EnvironmentVariableCollection, 'get' | 'replace' | 'prepend' | 'append' | 'delete'> {
+	forEach(callback: (variable: string) => void): void;
+}
+
+/**
+ * Sets the terminal environment variables for the foreground console session:
+ * the variables its interpreter definition sets, or none if it has none.
+ */
+export class DefinitionTerminalEnvironment<S extends TerminalEnvironmentSession> {
+	/**
+	 * Counts updates, so that an update that finishes after a newer one
+	 * started is dropped.
+	 */
+	private _updates = 0;
+
+	/** The names of the variables set here. */
+	private _names = new Set<string>();
+
+	/**
+	 * @param _collection The terminal environment. It is shared with other
+	 *   variables, and persists across windows.
+	 * @param preserved The names of the other variables in the collection.
+	 *   Everything else is removed, since variables set by a previous window
+	 *   may no longer apply.
+	 * @param _getSession Gets a session by ID.
+	 * @param _getDefinitionEnv Gets the variables a console session's
+	 *   interpreter definition sets, or none if it has no definition.
+	 * @param _processEnv The environment terminals start from.
+	 */
+	constructor(
+		private readonly _collection: TerminalEnvironmentCollection,
+		preserved: readonly string[],
+		private readonly _getSession: (sessionId: string) => Thenable<S | undefined>,
+		private readonly _getDefinitionEnv: (session: S) => Promise<Record<string, string>>,
+		private readonly _processEnv: NodeJS.ProcessEnv = process.env,
+	) {
+		const stale: string[] = [];
+		_collection.forEach(name => {
+			if (!preserved.includes(name)) {
+				stale.push(name);
+			}
+		});
+		for (const name of stale) {
+			_collection.delete(name);
+		}
+	}
+
+	/**
+	 * Update the variables for a new foreground session.
+	 *
+	 * @param sessionId The ID of the foreground session, if any.
+	 */
+	async update(sessionId: string | undefined): Promise<void> {
+		// Number the update before any await, so it reflects the order the
+		// foreground changes happened in.
+		const update = ++this._updates;
+		const session = sessionId ? await this._getSession(sessionId) : undefined;
+		// Only consoles drive the terminal environment; a notebook coming to
+		// the foreground leaves the console's variables in place.
+		if (session && session.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
+			return;
+		}
+		const env = session ? await this._getDefinitionEnv(session) : {};
+		if (update !== this._updates) {
+			return;
+		}
+
+		// Remove only the variables set here; the collection is shared.
+		for (const name of this._names) {
+			if (env[name] === undefined) {
+				this._collection.delete(name);
+			}
+		}
+		this._names = new Set(Object.keys(env));
+		const types = {
+			replace: vscode.EnvironmentVariableMutatorType.Replace,
+			prepend: vscode.EnvironmentVariableMutatorType.Prepend,
+			append: vscode.EnvironmentVariableMutatorType.Append,
+		};
+		// Terminals only: kernels and other spawned processes take
+		// ProcessCreation contributions, and must not inherit another
+		// session's definition (as with R's module environment).
+		const options = { applyAtProcessCreation: false, applyAtShellIntegration: true };
+		for (const [name, value] of Object.entries(env)) {
+			const mutation = getTerminalMutation(value, this._processEnv[name]);
+			// Skip variables that are already set, to avoid needlessly marking
+			// open terminals as stale.
+			const existing = this._collection.get(name);
+			if (existing?.type === types[mutation.type] && existing.value === mutation.value) {
+				continue;
+			}
+			this._collection[mutation.type](name, mutation.value, options);
+		}
+	}
 }

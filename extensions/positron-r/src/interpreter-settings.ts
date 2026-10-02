@@ -93,7 +93,7 @@ export function userRBinaries(): string[] {
  * Paths must be absolute; other entries are ignored.
  * @returns List of R binary paths from interpreter definitions.
  */
-export function interpreterDefinitionPaths(): string[] {
+export function getInterpreterDefinitionPaths(): string[] {
 	const definitions = vscode.workspace.getConfiguration('interpreters').get<unknown>('definitions');
 	if (!Array.isArray(definitions)) {
 		return [];

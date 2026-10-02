@@ -18,14 +18,14 @@ import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreInstances } from './KallichoreInstances.js';
-import { findInterpreterDefinition, getTerminalMutation, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
+import { DefinitionTerminalEnvironment, findInterpreterDefinition, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
 import { McpLaunch, mcpLaunch } from './McpAgents.js';
-import { mcpConnectionsDirectory } from './mcpConnection.js';
+import { MCP_TOKEN_ENV_VAR, MCP_URL_ENV_VAR, mcpConnectionsDirectory } from './mcpConnection.js';
 import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
@@ -301,16 +301,10 @@ export class KCApi implements PositronSupervisorApi {
 	private readonly _definitionEnvBySessionId = new Map<string, Record<string, string>>();
 
 	/**
-	 * Counts terminal environment updates, so that an update that finishes
-	 * after a newer one started is dropped.
+	 * The terminal environment variables set from the foreground session's
+	 * interpreter definition.
 	 */
-	private _terminalEnvironmentUpdates = 0;
-
-	/**
-	 * The names of the terminal environment variables set from the foreground
-	 * session's interpreter definition.
-	 */
-	private _terminalEnvironmentNames = new Set<string>();
+	private readonly _terminalEnvironment: DefinitionTerminalEnvironment<positron.BaseLanguageRuntimeSession>;
 
 	/**
 	 * Per-workspace ephemeral storage for the server reconnect state. Used
@@ -374,11 +368,14 @@ export class KCApi implements PositronSupervisorApi {
 		positron.runtime.emitPerfMark('initializing');
 
 		// Give terminals the environment of the foreground session's interpreter
-		// definition, if it has one. Start clean, since variables from a
-		// previous window may no longer apply.
-		_context.environmentVariableCollection.clear();
+		// definition, if it has one. MCP's variables share the collection.
+		this._terminalEnvironment = new DefinitionTerminalEnvironment(
+			_context.environmentVariableCollection,
+			[MCP_URL_ENV_VAR, MCP_TOKEN_ENV_VAR],
+			sessionId => positron.runtime.getSession(sessionId),
+			session => this.getTerminalDefinitionEnv(session));
 		_context.subscriptions.push(positron.runtime.onDidChangeForegroundSession(sessionId => {
-			this.updateTerminalEnvironment(sessionId).catch(err => {
+			this._terminalEnvironment.update(sessionId).catch(err => {
 				this.log(`Failed to update terminal environment: ${summarizeError(err)}`);
 			});
 		}));
@@ -1502,7 +1499,7 @@ export class KCApi implements PositronSupervisorApi {
 			// Bring terminals up to date if a restart changed the variables.
 			positron.runtime.getForegroundSession().then(async foreground => {
 				if (foreground?.metadata.sessionId === sessionId) {
-					await this.updateTerminalEnvironment(sessionId);
+					await this._terminalEnvironment.update(sessionId);
 				}
 			}).then(undefined, err => {
 				this.log(`Failed to update terminal environment: ${summarizeError(err)}`);
@@ -1512,73 +1509,34 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
-	 * Set the terminal environment variables for the foreground session: the
-	 * variables its interpreter definition sets, or none if it has no
-	 * definition.
+	 * Get the variables a session's interpreter definition sets, for its
+	 * terminals.
 	 *
-	 * @param sessionId The ID of the foreground session, if any
+	 * @param session The session
+	 * @returns The variables, or none if the session has no definition
 	 */
-	private async updateTerminalEnvironment(sessionId: string | undefined): Promise<void> {
-		// Number the update before any await, so it reflects the order the
-		// foreground changes happened in.
-		const update = ++this._terminalEnvironmentUpdates;
-		const session = sessionId ? await positron.runtime.getSession(sessionId) : undefined;
-		// Only consoles drive the terminal environment; a notebook coming to
-		// the foreground leaves the console's variables in place.
-		if (session && session.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
-			return;
+	private async getTerminalDefinitionEnv(session: positron.BaseLanguageRuntimeSession): Promise<Record<string, string>> {
+		const label = session.runtimeMetadata.interpreterDefinition;
+		if (!label) {
+			return {};
 		}
-		let env: Record<string, string> = {};
-		const label = session?.runtimeMetadata.interpreterDefinition;
-		if (sessionId && session && label) {
-			let definitionEnv = this._definitionEnvBySessionId.get(sessionId);
-			if (!definitionEnv) {
-				// The session was restored rather than started in this window,
-				// so capture its definition's variables now.
-				const definition = findInterpreterDefinition(
-					vscode.workspace.getConfiguration('interpreters').get('definitions'),
-					session.runtimeMetadata.languageId,
-					label,
-					session.runtimeMetadata.runtimePath);
-				if (definition) {
-					definitionEnv = await this.resolveDefinitionEnv(definition, undefined);
-					this._definitionEnvBySessionId.set(sessionId, definitionEnv);
-				}
+		const sessionId = session.metadata.sessionId;
+		let env = this._definitionEnvBySessionId.get(sessionId);
+		if (!env) {
+			// The session was restored rather than started in this window,
+			// so capture its definition's variables now.
+			const definition = findInterpreterDefinition(
+				vscode.workspace.getConfiguration('interpreters').get('definitions'),
+				session.runtimeMetadata.languageId,
+				label,
+				session.runtimeMetadata.runtimePath);
+			if (!definition) {
+				return {};
 			}
-			env = definitionEnv ?? {};
+			env = await this.resolveDefinitionEnv(definition, undefined);
+			this._definitionEnvBySessionId.set(sessionId, env);
 		}
-		if (update !== this._terminalEnvironmentUpdates) {
-			return;
-		}
-
-		// Remove only the variables set here; the collection is shared with
-		// MCP's terminal variables.
-		const collection = this._context.environmentVariableCollection;
-		for (const name of this._terminalEnvironmentNames) {
-			if (env[name] === undefined) {
-				collection.delete(name);
-			}
-		}
-		this._terminalEnvironmentNames = new Set(Object.keys(env));
-		const types = {
-			replace: vscode.EnvironmentVariableMutatorType.Replace,
-			prepend: vscode.EnvironmentVariableMutatorType.Prepend,
-			append: vscode.EnvironmentVariableMutatorType.Append,
-		};
-		// Terminals only: kernels and other spawned processes take
-		// ProcessCreation contributions, and must not inherit another
-		// session's definition (as with R's module environment).
-		const options = { applyAtProcessCreation: false, applyAtShellIntegration: true };
-		for (const [name, value] of Object.entries(env)) {
-			const mutation = getTerminalMutation(value, process.env[name]);
-			// Skip variables that are already set, to avoid needlessly marking
-			// open terminals as stale.
-			const existing = collection.get(name);
-			if (existing?.type === types[mutation.type] && existing.value === mutation.value) {
-				continue;
-			}
-			collection[mutation.type](name, mutation.value, options);
-		}
+		return env;
 	}
 
 	/**
@@ -1827,6 +1785,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Forget the sessions; they will not exist on the new server.
 		this._sessions.length = 0;
+		this._definitionEnvBySessionId.clear();
 
 		// Stop streaming the logs from the old server
 		if (this._logStreamer) {
@@ -2150,6 +2109,7 @@ export class KCApi implements PositronSupervisorApi {
 			session.dispose();
 		});
 		this._sessions.length = 0;
+		this._definitionEnvBySessionId.clear();
 
 		// Clear the saved state so we don't try to reconnect to the old server
 		await this.saveServerState(undefined);

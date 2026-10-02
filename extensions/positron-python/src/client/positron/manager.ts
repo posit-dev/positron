@@ -709,11 +709,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 continue;
             }
             try {
-                // The retry falls back to a full interpreter refresh, which
-                // definitions-only discovery exists to avoid.
-                const interpreter = definitionsOnly
-                    ? await this.interpreterService.getInterpreterDetails(pythonPath)
-                    : await resolveInterpreterWithRetry(this.interpreterService, pythonPath);
+                // Resolve the explicit path directly; a retry would fall back to
+                // a full interpreter refresh for every path that doesn't resolve.
+                const interpreter = await this.interpreterService.getInterpreterDetails(pythonPath);
                 if (!interpreter) {
                     traceWarn(
                         `Ignoring Python interpreter ${pythonPath} from interpreters.definitions: could not resolve it`,

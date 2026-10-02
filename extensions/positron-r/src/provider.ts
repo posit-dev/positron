@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, isRVersionsMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { getInterpreterOverridePaths, getResolvedFilterSettingPaths, interpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { getInterpreterOverridePaths, getResolvedFilterSettingPaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
@@ -194,7 +194,7 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
 	addAll(rCurrentSymlinks(userRHeadquarters()));
 	addAll(userRBinaries());
 	addAll(getInterpreterOverridePaths());
-	addAll(interpreterDefinitionPaths());
+	addAll(getInterpreterDefinitionPaths());
 	if (process.platform !== 'win32') {
 		addAll(R_SERVER_ROOTS_POSIX);
 	}
@@ -362,7 +362,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
  * @param discoveredPaths Runtime paths already yielded by discovery.
  */
 export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<string>): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-	for (const binpath of interpreterDefinitionPaths()) {
+	for (const binpath of getInterpreterDefinitionPaths()) {
 		if (discoveredPaths.has(binpath)) {
 			continue;
 		}
