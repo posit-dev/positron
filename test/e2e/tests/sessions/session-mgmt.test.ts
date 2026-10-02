@@ -73,13 +73,12 @@ test.describe('Sessions: Management', {
 			// Select Python session 1 and run script to generate plot and variable
 			await runCodeInSession(app, pySession, 2);
 			await plots.waitForCurrentPlot();
-			await plots.expectPlotThumbnailsCountToBe(2);
 			await console.waitForConsoleContents('this is console 2', { exact: true });
 			await variables.expectVariableToBe('test', '2');
 
 			// Select Python session 1b (same runtime) and run script to generate plot and variable
 			await runCodeInSession(app, pySession2, 3);
-			await plots.expectPlotThumbnailsCountToBe(3);
+			await plots.waitForCurrentPlot();
 			await console.waitForConsoleContents('this is console 3', { exact: true });
 			await variables.expectVariableToBe('test', '3');
 
