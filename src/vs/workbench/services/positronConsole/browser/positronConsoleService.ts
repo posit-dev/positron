@@ -47,7 +47,7 @@ import { ActivityItemInput, ActivityItemInputState } from './classes/activityIte
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
@@ -107,6 +107,33 @@ const describeExecutionAttribution = (
 		return agentName;
 	}
 	return localize('positron.console.externalAgent', "External agent");
+};
+
+/**
+ * Gets why a console is being started to run code when no console for the
+ * code's language is running.
+ *
+ * @param attribution Where the code came from.
+ * @returns The start reason.
+ */
+const getCodeStartReason = (attribution: IConsoleCodeAttribution): IRuntimeSessionStartReason => {
+	// Code from an extension carries the extension's ID. Code a kernel sent
+	// through an extension also carries the kernel's session ID, and the
+	// extension only relayed it.
+	const extensionId = attribution.metadata?.callerSessionId === undefined ?
+		attribution.metadata?.extensionId : undefined;
+	if (typeof extensionId === 'string') {
+		return { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: extensionId };
+	}
+	switch (attribution.source) {
+		case CodeAttributionSource.Interactive:
+		case CodeAttributionSource.Script:
+			return { id: SessionStartReasonId.UserRanCodeWithoutSession };
+		case CodeAttributionSource.Assistant:
+			return { id: SessionStartReasonId.AssistantRanCodeWithoutSession };
+		default:
+			return { id: SessionStartReasonId.CodeExecutedWithoutSession };
+	}
 };
 
 /**
@@ -850,20 +877,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				// Start the preferred runtime.
 				this._logService.trace(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
-				// Code from an extension carries the extension's ID. Code a
-				// kernel sent through an extension also carries the kernel's
-				// session ID, and the extension only relayed it.
-				const extensionId = attribution.metadata?.callerSessionId === undefined ?
-					attribution.metadata?.extensionId : undefined;
 				sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 					languageRuntime.runtimeId,
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // No notebook URI (console sesion)
-					{
-						id: SessionStartReasonId.CodeExecutedWithoutSession,
-						requestingExtensionId: typeof extensionId === 'string' ? extensionId : undefined,
-					},
+					getCodeStartReason(attribution),
 					RuntimeStartMode.Starting,
 					true
 				);

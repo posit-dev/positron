@@ -48,30 +48,15 @@ describe('PositronConsoleService', () => {
 		expect(consoleService.activePositronConsoleInstance).toBeUndefined();
 	});
 
-	it('records why it started a console when code runs with no console running', async () => {
-		const consoleService = ctx.disposables.add(
-			ctx.instantiationService.createInstance(PositronConsoleService));
-		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
-		const willStart = Event.toPromise(ctx.get(IRuntimeSessionService).onWillStartSession);
-
-		const executing = consoleService.executeCode(runtime.languageId, undefined, '1 + 1', { source: CodeAttributionSource.Script }, false);
-		const { session } = await willStart;
-		ctx.disposables.add(session);
-
-		expect([session.metadata.startReasonId, session.metadata.startReason]).toEqual([
-			SessionStartReasonId.CodeExecutedWithoutSession,
-			`Code was run with no ${runtime.languageName} console open`,
-		]);
-		// The code runs once the session is ready; this test only covers the start.
-		await executing.catch(() => { });
-	});
-
 	it.each([
-		{ name: 'code an extension sent', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny' } }, expected: 'posit.shiny' },
-		{ name: 'code an extension sent for a file', attribution: { source: CodeAttributionSource.Script, metadata: { extensionId: 'positron.positron-r' } }, expected: 'positron.positron-r' },
-		{ name: 'code a kernel sent through an extension', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'positron.positron-supervisor', callerSessionId: 'r-notebook-1' } }, expected: undefined },
-		{ name: 'code the user ran', attribution: { source: CodeAttributionSource.Interactive }, expected: undefined },
-	])('records the requesting extension for $name', async ({ attribution, expected }) => {
+		{ name: 'code an extension sent', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny' } }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: 'posit.shiny' } },
+		{ name: 'code an extension sent for a file', attribution: { source: CodeAttributionSource.Script, metadata: { extensionId: 'positron.positron-r' } }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: 'positron.positron-r' } },
+		{ name: 'code a kernel sent through an extension', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'positron.positron-supervisor', callerSessionId: 'r-notebook-1' } }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code the user ran from an editor', attribution: { source: CodeAttributionSource.Script }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code the user ran from the History pane', attribution: { source: CodeAttributionSource.Interactive }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code Positron Assistant ran', attribution: { source: CodeAttributionSource.Assistant }, expected: { id: SessionStartReasonId.AssistantRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code from an unknown caller', attribution: { source: CodeAttributionSource.Extension }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: undefined } },
+	])('records why it started a console for $name', async ({ attribution, expected }) => {
 		const consoleService = ctx.disposables.add(
 			ctx.instantiationService.createInstance(PositronConsoleService));
 		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
@@ -81,7 +66,8 @@ describe('PositronConsoleService', () => {
 		const { session } = await willStart;
 		ctx.disposables.add(session);
 
-		expect(session.metadata.requestingExtensionId).toBe(expected);
+		const { startReasonId: id, requestingExtensionId } = session.metadata;
+		expect({ id, requestingExtensionId }).toEqual(expected);
 		await executing.catch(() => { });
 	});
 });

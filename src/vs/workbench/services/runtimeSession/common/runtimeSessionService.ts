@@ -126,8 +126,21 @@ export enum SessionStartReasonId {
 	/** The user duplicated a notebook session into a console. */
 	DuplicatedNotebookSession = 'duplicatedNotebookSession',
 
-	/** Code was sent to the console and no session for its language was running. */
+	/**
+	 * Code was sent to the console and no session for its language was
+	 * running. Used when an extension sent the code, or when who sent it
+	 * isn't known.
+	 */
 	CodeExecutedWithoutSession = 'codeExecutedWithoutSession',
+
+	/**
+	 * The user ran code, such as from an editor or the History pane, and no
+	 * session for its language was running.
+	 */
+	UserRanCodeWithoutSession = 'userRanCodeWithoutSession',
+
+	/** Positron Assistant ran code and no session for its language was running. */
+	AssistantRanCodeWithoutSession = 'assistantRanCodeWithoutSession',
 
 	/** A restart was requested for a session that had never started. */
 	RestartUninitializedSession = 'restartUninitializedSession',
