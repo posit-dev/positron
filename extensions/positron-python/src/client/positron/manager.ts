@@ -715,7 +715,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                     ? await this.interpreterService.getInterpreterDetails(pythonPath)
                     : await resolveInterpreterWithRetry(this.interpreterService, pythonPath);
                 if (!interpreter) {
-                    traceWarn(`Ignoring Python interpreter ${pythonPath} from interpreters.definitions: could not resolve it`);
+                    traceWarn(
+                        `Ignoring Python interpreter ${pythonPath} from interpreters.definitions: could not resolve it`,
+                    );
                     continue;
                 }
                 // Definitions match on the exact runtime path, so keep the path

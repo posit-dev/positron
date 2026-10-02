@@ -97,7 +97,7 @@ function getOverrideInterpreters(): string[] {
  * @returns List of Python interpreter paths from interpreter definitions.
  */
 export function getInterpreterDefinitionPaths(): string[] {
-    const definitions = getConfiguration('interpreters').get<unknown>('definitions');
+    const definitions = getConfiguration('interpreters')?.get<unknown>('definitions');
     if (!Array.isArray(definitions)) {
         return [];
     }
