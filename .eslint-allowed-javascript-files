@@ -284,3 +284,5 @@ versions/create-anchor.cjs
 versions/show-version.cjs
 # --- End Positron ---
 #
+.claude/skills/exploratory-test/renderer/usage.mjs
+.claude/skills/exploratory-test/renderer/usage.test.mjs

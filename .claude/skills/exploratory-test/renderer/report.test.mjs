@@ -13,6 +13,9 @@ import { fileURLToPath } from 'node:url';
 import { modelDisplayName, parseLedger, parseReport, parseSystemLine, safeUrl } from './report-parse.mjs';
 import { renderReportHtml, skillVersion } from './html.mjs';
 
+// The renders these tests spawn must not post usage rows.
+process.env.EXPLORATORY_TEST_NO_USAGE = '1';
+
 /** A minimal report with one of everything the template lays out. */
 function md(...body) {
 	return [
