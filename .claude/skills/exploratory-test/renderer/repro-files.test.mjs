@@ -184,6 +184,18 @@ test('lint: a bare name two saved files share is flagged, not linked to the firs
 	assert.ok(!problems.some(p => /not saved/.test(p)));
 });
 
+test('lint: a setup that names a file and then its files/ path says it twice', () => {
+	const ledger = LEDGER.replace('- files/slow.py |', '- files/a/slow.py | copy | S04\n- files/b/slow.py |').replaceAll('files/slow.py, then run', 'Run');
+	const lint = report => fileProblems(report, ledger, { exists: () => true, list: () => ['files/a/slow.py', 'files/b/slow.py'] });
+	const twice = REPORT.replace('starting state: `slow.py` loaded', 'starting state: `slow.py` (from `files/a/slow.py`) loaded');
+	assert.ok(lint(twice).includes('Finding 1 names slow.py twice, bare and as files/a/slow.py; write `files/a/slow.py` once in place of the name, and the page shows it as slow.py'));
+	const once = REPORT.replace('starting state: `slow.py` loaded', 'starting state: `files/a/slow.py` loaded');
+	assert.ok(!lint(once).some(p => /twice/.test(p)));
+	// The bullets under a Preconditions: line count too.
+	const bullets = REPORT.replace('**Repro** -- starting state: `slow.py` loaded', '**Preconditions:**\n- `slow.py` (from `files/b/slow.py`) loaded\n\n**Repro** -- starting state:');
+	assert.ok(lint(bullets).some(p => p.startsWith('Finding 1 names slow.py twice, bare and as files/b/slow.py')));
+});
+
 test('lint: setting keys, the app\'s own config files and prose are not test files', () => {
 	const report = REPORT.replace('**Repro** -- starting state: `slow.py` loaded',
 		'**Repro** -- starting state: `positron.r.interpreters.default` set in user settings.json, R 4.5.2 running, and `slow.py` loaded');

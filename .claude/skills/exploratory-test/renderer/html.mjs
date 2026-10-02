@@ -38,6 +38,8 @@ const ICON = {
 	bug: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
 		+ '<path d="M6.2 5.1a1.8 1.8 0 0 1 3.6 0"/><rect x="4.75" y="5.5" width="6.5" height="8" rx="3.25"/>'
 		+ '<path d="M4.75 8.6H2.5M13.5 8.6h-2.25M4.9 11.7 3 13M11.1 11.7 13 13"/></svg>',
+	link: '<svg class="ln-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2.2-2.2a2.6 2.6 0 0 0-3.7-3.7l-.8.8"></path><path d="M9.2 6.8a2.6 2.6 0 0 0-3.7 0L3.3 9a2.6 2.6 0 0 0 3.7 3.7l.8-.8"></path></svg>',
+	linked: '<svg class="ln-ok" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	copied: '<svg class="cp-ok" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	down: '<svg class="cov-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>',
 	// The collapsed rows' and the Coverage rows' disclosure: 12px, right-pointing.
@@ -51,9 +53,8 @@ const ICON = {
 	next: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
-	briefcase: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M3 12.5h18"></path><path d="M11 12.5v1.5h2v-1.5"></path></svg>',
-	speech: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.2c0-.9.7-1.7 1.7-1.7h7.6c.9 0 1.7.8 1.7 1.7v5.1c0 .9-.8 1.7-1.7 1.7H7l-3 2.5V11h.2c-.9 0-1.7-.8-1.7-1.7z"></path></svg>',
-	party: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4.5-12 7.5 7.5z"></path><path d="M7 16l1.5 1.5"></path><path d="M14 4.5c.5 1-.2 2 .3 3"></path><path d="M19.5 10c-1-.5-2 .2-3-.3"></path><path d="M17 3v2"></path><path d="M21 7h-2"></path><circle cx="20" cy="3.5" r=".6" fill="currentColor"></circle><circle cx="12" cy="3" r=".6" fill="currentColor"></circle><circle cx="21" cy="12.5" r=".6" fill="currentColor"></circle></svg>',
+	moon: '<svg class="th-moon" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 9.6A5.5 5.5 0 0 1 6.4 2.8a5.5 5.5 0 1 0 6.8 6.8z"></path></svg>',
+	sun: '<svg class="th-sun" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="2.8"></circle><path d="M8 1.5v1.4M8 13.1v1.4M1.5 8h1.4M13.1 8h1.4M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"></path></svg>',
 };
 
 const SEVERITY_LABEL = { major: 'Major', moderate: 'Moderate', minor: 'Minor' };
@@ -655,8 +656,13 @@ function fenced(text, lang = '') {
 }
 
 function renderCopyButton(f) {
-	return `<button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f${f.n}" aria-label="Copy prompt for an agent: finding ${f.n}">`
+	return `<button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f${f.n}" aria-label="Copy prompt for an agent: finding ${f.n}">`
 		+ `${ICON.copy}${ICON.copied}</button>`;
+}
+
+function renderLinkButton(f) {
+	return `<button type="button" class="ln-btn" data-link-to="f${f.n}" data-tip="Copy link" aria-label="Copy link to finding ${f.n}">`
+		+ `${ICON.link}${ICON.linked}</button>`;
 }
 
 /**
@@ -683,13 +689,9 @@ function reportUrl(base) {
 	return /^https?:\/\//i.test(base ?? '') ? `${base.replace(/\/+$/, '')}/index.html` : null;
 }
 
-// Posit team feedback: one Google Form per finding, one for the whole report,
-// each pre-filled by entry ID. The finding form takes anyone, since a
+// Posit team feedback: one Google Form per finding, pre-filled by entry ID. The finding form takes anyone, since a
 // background submit cannot tell when Google refuses a signed-out reader.
-const FEEDBACK_FORM_URL = {
-	finding: 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform?usp=pp_url',
-	report: 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform?usp=pp_url',
-};
+const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform?usp=pp_url';
 const FEEDBACK_SUBMIT_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/formResponse';
 const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470', finding: 'entry.890833928', verdict: 'entry.427792690' };
 // A random ID kept per browser, so a count can take each browser's latest
@@ -725,21 +727,21 @@ export function skillVersion(skillMd) {
 }
 
 /**
- * A pre-filled link to the finding form when given a finding, to the report
- * form otherwise. The finding is shown above its verdict, so the form says
- * which one it asks about.
+ * A finding's pre-filled answers. The finding is shown above its verdict, so
+ * the form says which one it asks about.
  */
 function feedbackValues(report, version, finding, verdict) {
 	return [
 		[FEEDBACK_ENTRY.report, report],
 		// With a v, so Sheets keeps it as text: 1.10 would otherwise read as 1.1.
 		[FEEDBACK_ENTRY.version, version ? `v${version}` : 'unknown'],
-		...(finding ? [[FEEDBACK_ENTRY.finding, `Finding ${finding.n} \u00B7 ${finding.title}`], [FEEDBACK_ENTRY.verdict, verdict]] : []),
+		[FEEDBACK_ENTRY.finding, `Finding ${finding.n} \u00B7 ${finding.title}`],
+		[FEEDBACK_ENTRY.verdict, verdict],
 	].map(([entry, value]) => `${entry}=${encodeURIComponent(value)}`);
 }
 
 function feedbackHref(report, version, finding, verdict) {
-	return FEEDBACK_FORM_URL[finding ? 'finding' : 'report'] + feedbackValues(report, version, finding, verdict).map(v => `&${v}`).join('');
+	return FEEDBACK_FORM_URL + feedbackValues(report, version, finding, verdict).map(v => `&${v}`).join('');
 }
 
 /**
@@ -767,16 +769,6 @@ function renderFeedbackRow(f, options) {
 		return `<a href="${escapeHtml(feedbackHref(report, options.skillVersion, f, verdict))}" data-submit="${escapeHtml(submit)}" data-verdict="${escapeHtml(verdict)}" target="_blank" rel="noopener">${label}</a>`;
 	});
 	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Provide feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
-}
-
-function renderFeedbackButton(options) {
-	const url = feedbackReport(options.base, options.author);
-	if (!url) {
-		return '';
-	}
-	return `<a class="fb-top" href="${escapeHtml(feedbackHref(url, options.skillVersion))}" target="_blank" rel="noopener"`
-		+ ' title="Provide feedback on this report" aria-label="Give feedback (opens a Posit-only form)">'
-		+ `${ICON.speech}<span class="fb-top-label">Give feedback</span></a>`;
 }
 
 /** Positron and OS, then the session, each value on its own line under its label. */
@@ -1084,6 +1076,7 @@ function renderFindingCard(f, report, options) {
 		+ `<span class="group context">${contextHtml}</span>`
 		+ renderIssueButton(f, issue)
 		+ (prompts ? renderCopyButton(f) : '')
+		+ renderLinkButton(f)
 		+ '</div>';
 
 	const head = `<header>${meta}`
@@ -1417,17 +1410,35 @@ function renderSignature(startedAt = new Date(), version = null, skillUrl = SKIL
 </footer>`;
 }
 
+// The theme toggle shows the moon on light and the sun on dark, by CSS, so a
+// saved choice applied before paint shows the right icon.
+const HEADER_ACTIONS = '<div class="hd-act hd-inline">'
+	+ `<button type="button" class="mode-tip th-sw" data-tip="Switch to dark mode" aria-label="Switch to dark mode">${ICON.moon}${ICON.sun}</button>`
+	+ '<button type="button" class="sh-btn" aria-label="Share: copy a link to this report">'
+	+ `${ICON.link.replace('ln-ico', 'sh-ico')}${ICON.linked.replace('ln-ok', 'sh-ok')}<span class="sh-l">Share</span></button></div>`;
+
 const BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('exploratory-report-theme');
 if(t==='party'||t==='professional'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
 
 const PAGE_SCRIPT = `(function(){
 var root=document.documentElement;
-var buttons=Array.prototype.slice.call(document.querySelectorAll('.switch button'));
+var sw=document.querySelector('.th-sw');
 function apply(theme){root.setAttribute('data-theme',theme);
-buttons.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.theme===theme));});}
-buttons.forEach(function(b){b.addEventListener('click',function(){apply(b.dataset.theme);
-try{localStorage.setItem('exploratory-report-theme',b.dataset.theme);}catch(e){}});});
+var label=theme==='party'?'Switch to light mode':'Switch to dark mode';sw.dataset.tip=label;sw.setAttribute('aria-label',label);}
+sw.addEventListener('click',function(){var theme=root.getAttribute('data-theme')==='party'?'professional':'party';apply(theme);
+try{localStorage.setItem('exploratory-report-theme',theme);}catch(e){}});
 apply(root.getAttribute('data-theme')||'professional');
+
+var share=document.querySelector('.sh-btn'),shareLabel=share.querySelector('.sh-l'),shareTimer;
+share.addEventListener('click',function(){var text=location.href.split('#')[0];
+try{history.replaceState(null,'',location.pathname+location.search);}catch(_){}
+function done(){share.classList.add('is-copied');shareLabel.textContent='Copied';clearTimeout(shareTimer);
+shareTimer=setTimeout(function(){share.classList.remove('is-copied');shareLabel.textContent='Share';},1600);}
+function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
+else{fallback();}});
 
 var top=document.querySelector('.to-top');
 if(top){var sync=function(){var show=(window.scrollY||document.documentElement.scrollTop||0)>900;
@@ -1544,7 +1555,7 @@ if(a){answer(row,a);}else{put(key(row),null);}});
 document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target:null;if(!t){return;}
 var change=t.closest('.fb-done');
 if(change){var row=change.closest('.fb');put(key(row),null);reset(row);verdicts(row)[0].focus();return;}
-var a=t.closest('.fb a, a.fb-top');
+var a=t.closest('.fb a');
 if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey){return;}
 e.preventDefault();
 if(a.dataset.submit){var r=a.closest('.fb');send(a.dataset.submit);put(key(r),a.dataset.verdict);answer(r,a).focus();return;}
@@ -1562,6 +1573,20 @@ text=el.textContent.trim().replace(/<\\\\(?=\\/script|!--)/gi,'<');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
 // A frame that blocks the clipboard API can still allow execCommand.
+function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
+else{fallback();}});});`;
+
+// Copy link: this page's URL with the finding's anchor. The address bar
+// follows without scrolling or adding a history entry.
+const LINK_SCRIPT = `document.querySelectorAll('[data-link-to]').forEach(function(b){var t,tip=b.dataset.tip;
+b.addEventListener('click',function(e){e.preventDefault();var id=b.dataset.linkTo;
+var text=location.href.split('#')[0]+'#'+id;
+try{history.replaceState(null,'','#'+id);}catch(_){}
+function done(){b.classList.add('is-copied');b.dataset.tip='Link copied';clearTimeout(t);
+t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},1600);}
 function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
 ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
 var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
@@ -1734,15 +1759,9 @@ ${previewText ? `<meta name="description" content="${previewText}">\n` : ''}<met
 <main class="wrap">
 
 <header class="head">
-${renderFeedbackButton(options)}
-<nav class="switch" aria-label="Report theme">
-<button type="button" class="tip" data-theme="professional" data-tip="Professional" aria-label="Switch to Professional" aria-pressed="true">${ICON.briefcase}</button>
-<button type="button" class="tip" data-theme="party" data-tip="Party" aria-label="Switch to Party" aria-pressed="false">${ICON.party}</button>
-</nav>
-<div class="eyebrow"><span class="kicker">Exploratory test</span>${chips ? '<span class="bullet"></span>' : ''}${chips}</div>
+<div class="eyebrow"><span class="kicker">Exploratory test</span>${chips ? '<span class="bullet"></span>' : ''}${chips}${HEADER_ACTIONS}</div>
 <h1 class="title">${escapeHtml(report.title)}</h1>
 ${report.leadHtml ? `<p class="lead">${report.leadHtml}</p>` : ''}
-<div class="motif" aria-hidden="true"><div class="plane"></div><div class="horizon"></div></div>
 </header>
 
 ${renderTiles(report)}
@@ -1780,11 +1799,12 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	// Code blocks in steps have copy buttons even when agent prompts are off.
 	const copy = prompts || page.includes('class="code-cp"');
 	const issue = page.includes(' data-issue="');
+	const link = page.includes(' data-link-to="');
 	const codeCopy = page.includes('<code class="cc"');
 	const preview = page.includes(' data-title="');
 	const lists = page.includes('<span class="ki-cnt"');
-	const feedback = page.includes('<a class="fb-top" ');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}${lists ? `<script>${KI_LIST_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
+	const feedback = page.includes('<div class="fb" ');
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${link ? `<script>${LINK_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}${lists ? `<script>${KI_LIST_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
 }

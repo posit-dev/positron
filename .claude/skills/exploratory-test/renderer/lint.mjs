@@ -183,7 +183,19 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 	// One line per file, naming every setup that needs it.
 	const unsaved = new Map();
 	for (const [where, text] of needs) {
+		// A files/ path already shows as its file name, so the bare name beside it repeats it.
+		// A ledger row's later fields say how the state was made, so only the state counts.
+		const state = String(text).split(' | ')[0];
+		const twice = new Set();
+		for (const [, path] of state.matchAll(FILES_PATH)) {
+			const name = basename(path);
+			if (!twice.has(name) && state.includes(`\`${name}\``)) {
+				twice.add(name);
+				problems.push(`${where} names ${name} twice, bare and as ${path}; write \`${path}\` once in place of the name, and the page shows it as ${name}`);
+			}
+		}
 		for (const m of String(text).matchAll(FILE_NAME)) {
+			if (twice.has(m[1])) { continue; }
 			// "user settings.json" is the app's own file; the setting goes in the step.
 			// A files/ path is the rule above's.
 			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/')) { continue; }
@@ -342,6 +354,11 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		const body = lines.slice(b.k + 1, end).map(l => l.line);
 		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
 			needs.push([`Finding ${b.n}`, l]);
+		}
+		// The bullets under a bare Preconditions: line are its setup too.
+		const at = body.findIndex(l => /^\*\*Preconditions:\*\*\s*$/.test(l));
+		for (let k = at + 1; at !== -1 && /^[-*]\s+/.test(body[k] ?? ''); k++) {
+			needs.push([`Finding ${b.n}`, body[k]]);
 		}
 		const pre = body.find(l => l.startsWith('**Preconditions:**'));
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {
