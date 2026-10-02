@@ -92,6 +92,8 @@ test('flags an Affects that names no one, and a none that is not an allowed form
 	assert.deepEqual(lint(REPORT.replace('none found', 'none, it is cosmetic')), ['report: Finding 1 Workaround: "none, it is cosmetic"; write "none found", "none needed (wording only)" or "none needed (spacing only)"']);
 	assert.deepEqual(lint(REPORT.replace('none found', 'none needed (wording only)')), []);
 	assert.deepEqual(lint(REPORT.replace('none found', 'reopen the panel')), []);
+	assert.deepEqual(lint(REPORT.replace('none found', 'reopen the panel, which reloads it')), []);
+	assert.deepEqual(lint(REPORT.replace('anyone who opens the panel', 'anyone who opens the panel from the view menu while a long job runs')), ['report: Finding 1 Affects: is 14 words; keep it to about eight']);
 });
 
 test('fenced code does not count as a heading', () => {

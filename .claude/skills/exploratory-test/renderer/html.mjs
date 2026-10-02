@@ -1082,7 +1082,7 @@ function impactLines(t) {
 function renderImpactLine(f) {
 	const parts = [['Affects', f.affectsHtml], ['Workaround', f.workaroundHtml]]
 		.filter(([, v]) => v).map(([k, v]) => `<span><span class="f-imp-l">${k}</span>${v}</span>`);
-	return parts.length ? `<div class="f-imp">${parts.join('<span class="f-imp-d" aria-hidden="true">&middot;</span>')}</div>` : '';
+	return parts.length ? `<div class="f-imp">${parts.join('')}</div>` : '';
 }
 
 function renderFindingCard(f, report, options) {

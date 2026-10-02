@@ -380,6 +380,12 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		} else if (/^none\b/i.test(workaround) && !/^none (found|needed \((wording|spacing) only\))$/.test(workaround)) {
 			problems.push(`report: Finding ${b.n} Workaround: "${workaround.slice(0, 40)}"; write "none found", "none needed (wording only)" or "none needed (spacing only)"`);
 		}
+		// One line under the title: about eight words each, and room for a Workaround's short reason.
+		for (const [label, text, limit] of [['Affects', affects, 10], ['Workaround', workaround, 12]]) {
+			if (text && text.split(/\s+/).length > limit) {
+				problems.push(`report: Finding ${b.n} ${label}: is ${text.split(/\s+/).length} words; keep it to about eight`);
+			}
+		}
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }
 	});

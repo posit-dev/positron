@@ -2172,7 +2172,7 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 test('a finding\'s Affects and Workaround go under the card title, and into the issue and prompt as Impact', () => {
 	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, '$1\n\n**Affects:** anyone whose columns take over 10 s\n\n**Workaround:** reopen the Data Explorer');
 	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
-	assert.match(html, /<\/h2><div class="f-imp"><span><span class="f-imp-l">Affects<\/span>anyone whose columns take over 10 s<\/span><span class="f-imp-d" aria-hidden="true">&middot;<\/span><span><span class="f-imp-l">Workaround<\/span>reopen the Data Explorer<\/span><\/div>/);
+	assert.match(html, /<\/h2><div class="f-imp"><span><span class="f-imp-l">Affects<\/span>anyone whose columns take over 10 s<\/span><span><span class="f-imp-l">Workaround<\/span>reopen the Data Explorer<\/span><\/div>/);
 	const lines = '- \\*\\*Affects:\\*\\* anyone whose columns take over 10 s\\n- \\*\\*Workaround:\\*\\* reopen the Data Explorer\\n';
 	const body = issueCopied(html, 1);
 	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]).slice(1, 3), ['Describe the issue', 'Impact']);

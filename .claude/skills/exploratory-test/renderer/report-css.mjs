@@ -597,9 +597,11 @@ code.cc.is-copied::after{color:var(--pass-fill)}
 @media (prefers-reduced-motion:reduce){.code-cp{transition:none}}
 
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
-.f-imp{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-top:-2px;font-size:14px;line-height:1.5;color:var(--muted)}
+/* Each part leads with its own dot, pulled left by its width; overflow clips the one that starts a line. */
+.f-imp{display:flex;flex-wrap:wrap;gap:4px 22px;align-items:baseline;overflow:hidden;margin-top:-2px;font-size:14px;line-height:1.5;color:var(--muted)}
+.f-imp>span{position:relative;margin-left:-22px;padding-left:22px}
+.f-imp>span::before{content:'\\00B7';position:absolute;left:0;width:22px;text-align:center;color:var(--sep)}
 .f-imp-l{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:6px}
-.f-imp-d{color:var(--sep)}
 .card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 
 /* Observed | Expected: the strongest sub-section in the card. */
