@@ -7,7 +7,7 @@
 import './consoleInstanceInfoButton.css';
 
 // React.
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -30,33 +30,7 @@ import { IEditorPane } from '../../../../common/editor.js';
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
 
-const startupBehaviorSettingsLinkLabel = localize('positron.console.info.openStartupBehaviorSettings', "Open Startup Behavior settings");
-
-/**
- * Renders a localized message with the text between two markers shown as an
- * element, such as a link. The message and the link text stay one string, so
- * translators can word and place the link text to fit the sentence.
- *
- * @param message The localized message containing the markers.
- * @param open The marker before the link text.
- * @param close The marker after the link text.
- * @param renderLink Renders the link for the given text.
- * @param fallbackLinkText The link text to use if a translation dropped a marker.
- * @returns The message with the marked text as a link, or the message followed
- * by the link if a translation dropped a marker.
- */
-function renderMarkedLink(message: string, open: string, close: string, renderLink: (text: string) => ReactNode, fallbackLinkText: string): ReactNode {
-	const start = message.indexOf(open);
-	const end = message.indexOf(close, start + open.length);
-	if (start === -1 || end === -1) {
-		return <>{message} {renderLink(fallbackLinkText)}</>;
-	}
-	return <>
-		{message.slice(0, start)}
-		{renderLink(message.slice(start + open.length, end))}
-		{message.slice(end + close.length)}
-	</>;
-}
+const changeStartupBehaviorLabel = localize('positron.console.info.changeStartupBehavior', "Change Startup Behavior");
 
 const OutputChannelNames = {
 	[LanguageRuntimeSessionChannel.Kernel]: localize('positron.console.info.kernel', 'Kernel'),
@@ -271,25 +245,18 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 						</p>
 						{startReasonLabel &&
 							<p className='line' data-testid='session-start-reason'>
-								{hasStartupBehaviorLink ?
-									renderMarkedLink(
-										localize({
-											key: 'positron.console.info.startReasonWithSettingsLink',
-											comment: ['{0} is why the interpreter was started.', 'The text between {1} and {2} is a link that opens the Startup Behavior setting. Keep both markers around the link text.']
-										}, "Start Reason: {0}. Change the behavior in {1}settings{2}.", startReasonLabel, '{1}', '{2}'),
-										'{1}',
-										'{2}',
-										text => <Button
-											ariaLabel={startupBehaviorSettingsLinkLabel}
-											className='inline-link'
-											onPressed={showStartupBehaviorSettingClickHandler}
-										>
-											{text}
-										</Button>,
-										startupBehaviorSettingsLinkLabel,
-									) :
-									localize('positron.console.info.startReason', 'Start Reason: {0}', startReasonLabel)
-								}
+								{localize('positron.console.info.startReason', 'Start Reason: {0}', startReasonLabel)}
+							</p>
+						}
+						{startReasonLabel && hasStartupBehaviorLink &&
+							<p className='line'>
+								<Button
+									ariaLabel={changeStartupBehaviorLabel}
+									className='inline-link'
+									onPressed={showStartupBehaviorSettingClickHandler}
+								>
+									{changeStartupBehaviorLabel}
+								</Button>
 							</p>
 						}
 					</div>
