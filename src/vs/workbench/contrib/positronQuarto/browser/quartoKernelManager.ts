@@ -20,7 +20,6 @@ import {
 	RuntimeStartMode,
 	SessionStartReasonId,
 } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IQuartoDocumentModelService } from './quartoDocumentModelService.js';
@@ -919,7 +918,7 @@ export class QuartoKernelManager extends Disposable implements IQuartoKernelMana
 				sessionName,
 				LanguageRuntimeSessionMode.Notebook, // Use Notebook mode for Quarto documents
 				documentUri,
-				createSessionStartReason(SessionStartReasonId.QuartoInlineOutput, { notebook: fileName }),
+				{ id: SessionStartReasonId.QuartoInlineOutput },
 				RuntimeStartMode.Starting,
 				false, // don't activate in console
 				// The extensions select and claim this notebook's cells, so they

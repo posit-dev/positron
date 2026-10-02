@@ -278,8 +278,8 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 		await mainThread.$startLanguageRuntime('python-1', 'Python 3.12', LanguageRuntimeSessionMode.Console, undefined, 'positron.positron-python');
 
 		expect([selectRuntime.mock.calls[0][1], startNewRuntimeSession.mock.calls[0][4]]).toEqual([
-			{ id: SessionStartReasonId.ExtensionApiSelect, detail: 'You started this interpreter (requestingExtension: positron.positron-r)' },
-			{ id: SessionStartReasonId.ExtensionApiStart, detail: 'An extension asked for this session through the Positron API (requestingExtension: positron.positron-python)' },
+			{ id: SessionStartReasonId.ExtensionApiSelect, requestingExtensionId: 'positron.positron-r' },
+			{ id: SessionStartReasonId.ExtensionApiStart, requestingExtensionId: 'positron.positron-python' },
 		]);
 	});
 });

@@ -173,12 +173,9 @@ describe('QuartoKernelManager', () => {
 		expect(startedRuntimeIds).toEqual(['python-3.11']);
 	});
 
-	it('ensureKernelForDocument names the document in the start reason', async () => {
+	it('ensureKernelForDocument records the inline output start reason', async () => {
 		await kernelManager.ensureKernelForDocument(docUri);
-		expect(startReasons).toEqual([{
-			id: SessionStartReasonId.QuartoInlineOutput,
-			detail: 'The Quarto document doc.qmd needed a kernel for inline output (notebook: doc.qmd)',
-		}]);
+		expect(startReasons).toEqual([{ id: SessionStartReasonId.QuartoInlineOutput }]);
 	});
 
 	it('tells a new session the URI of its document\'s hidden notebook', async () => {

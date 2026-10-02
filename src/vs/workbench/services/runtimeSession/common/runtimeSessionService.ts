@@ -177,8 +177,11 @@ export interface IRuntimeSessionStartReason {
 	/** Why the session is being started. */
 	readonly id: SessionStartReasonId;
 
-	/** A description of the request for logs; non-localized. */
-	readonly detail: string;
+	/**
+	 * The ID of the extension that asked for the session through a Positron
+	 * API, if any.
+	 */
+	readonly requestingExtensionId?: string;
 }
 
 export interface IStartNewRuntimeSessionOptions {
@@ -235,6 +238,12 @@ export interface IRuntimeSessionMetadata {
 	 * reason IDs existed.
 	 */
 	readonly startReasonId?: SessionStartReasonId;
+
+	/**
+	 * The ID of the extension that asked for the session through a Positron
+	 * API, if any. Absent for sessions persisted before it was recorded.
+	 */
+	readonly requestingExtensionId?: string;
 
 	/**
 	 * True when the session is being created because the user explicitly

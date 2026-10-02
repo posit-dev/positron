@@ -10,7 +10,7 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platf
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata, SessionStartReasonId } from '../../common/runtimeSessionService.js';
-import { createSessionStartReason, getSessionStartReasonLabel } from '../../common/sessionStartReasons.js';
+import { describeSessionStartReason, getSessionStartReasonLabel } from '../../common/sessionStartReasons.js';
 
 describe('getSessionStartReasonLabel', () => {
 	const extensions = [stubInterface<IExtensionDescription>({
@@ -90,19 +90,27 @@ describe('getSessionStartReasonLabel', () => {
 	});
 });
 
-describe('createSessionStartReason', () => {
-	it('uses the English label as the detail', () => {
-		expect(createSessionStartReason(SessionStartReasonId.UserSelectedRuntime))
-			.toEqual({ id: SessionStartReasonId.UserSelectedRuntime, detail: 'You selected this interpreter' });
+describe('describeSessionStartReason', () => {
+	const runtime = stubInterface<ILanguageRuntimeMetadata>({
+		languageName: 'R',
+		runtimeName: 'R 4.4.1',
+		extensionId: new ExtensionIdentifier('positron.positron-r'),
+	});
+	const notebookUri = URI.file('/work/analysis.ipynb');
+
+	it('names extensions by ID', () => {
+		expect(describeSessionStartReason({ id: SessionStartReasonId.ExtensionRecommendedRuntime }, runtime))
+			.toBe('The positron.positron-r extension recommended starting R 4.4.1 for this workspace');
 	});
 
-	it('appends the values that identify the request to the detail', () => {
-		expect(createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: 'python', codeSource: 'assistant' }).detail)
-			.toBe('Code was sent to the console with no python session (language: python, codeSource: assistant)');
-	});
-
-	it('leaves values that are undefined out of the detail', () => {
-		expect(createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: 'python', codeSource: undefined }).detail)
-			.toBe('Code was sent to the console with no python session (language: python)');
+	it('matches the popup label when the popup has no display names to use', () => {
+		const session = {
+			runtimeMetadata: runtime,
+			metadata: stubInterface<IRuntimeSessionMetadata>({ notebookUri }),
+		};
+		for (const id of Object.values(SessionStartReasonId)) {
+			const label = getSessionStartReasonLabel({ ...session, metadata: { ...session.metadata, startReasonId: id } }, []);
+			expect(describeSessionStartReason({ id }, runtime, notebookUri), id).toBe(label);
+		}
 	});
 });

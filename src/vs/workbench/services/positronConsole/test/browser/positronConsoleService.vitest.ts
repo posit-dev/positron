@@ -48,7 +48,7 @@ describe('PositronConsoleService', () => {
 		expect(consoleService.activePositronConsoleInstance).toBeUndefined();
 	});
 
-	it('starts a console with the code\'s source in the start reason when no console is running', async () => {
+	it('records why it started a console when code runs with no console running', async () => {
 		const consoleService = ctx.disposables.add(
 			ctx.instantiationService.createInstance(PositronConsoleService));
 		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
@@ -60,7 +60,7 @@ describe('PositronConsoleService', () => {
 
 		expect([session.metadata.startReasonId, session.metadata.startReason]).toEqual([
 			SessionStartReasonId.CodeExecutedWithoutSession,
-			`Code was sent to the console with no ${runtime.languageId} session (language: ${runtime.languageId}, codeSource: script)`,
+			`Code was sent to the console with no ${runtime.languageName} session`,
 		]);
 		// The code runs once the session is ready; this test only covers the start.
 		await executing.catch(() => { });

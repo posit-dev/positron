@@ -38,7 +38,7 @@ describe('RuntimeNotebookKernelRestartAction', () => {
 		ensureSessionStarted.mockReset();
 	});
 
-	it('names the entry point in the start reason when no kernel is running', async () => {
+	it('records the restart start reason from each entry point when no kernel is running', async () => {
 		const toolbarContext = {
 			ui: true,
 			source: 'notebookToolbar',
@@ -53,14 +53,8 @@ describe('RuntimeNotebookKernelRestartAction', () => {
 		}
 
 		expect(ensureSessionStarted.mock.calls).toEqual([
-			[notebookUri, {
-				id: SessionStartReasonId.NotebookKernelRestart,
-				detail: 'Restart Kernel was used in notebook.ipynb with no kernel running (notebook: notebook.ipynb, restartSource: User clicked positron.runtimeNotebookKernel.restart button in Positron notebook editor action bar)',
-			}],
-			[notebookUri, {
-				id: SessionStartReasonId.NotebookKernelRestart,
-				detail: 'Restart Kernel was used in notebook.ipynb with no kernel running (notebook: notebook.ipynb, restartSource: User clicked positron.runtimeNotebookKernel.restart button in VSCode notebook editor toolbar)',
-			}],
+			[notebookUri, { id: SessionStartReasonId.NotebookKernelRestart }],
+			[notebookUri, { id: SessionStartReasonId.NotebookKernelRestart }],
 		]);
 	});
 });

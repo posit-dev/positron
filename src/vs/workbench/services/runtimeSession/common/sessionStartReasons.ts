@@ -4,14 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from '../../../../base/common/resources.js';
+import { URI } from '../../../../base/common/uri.js';
 import { ILocalizedString, localize2 } from '../../../../nls.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionStartReason, SessionStartReasonId } from './runtimeSessionService.js';
 
 /**
- * Values that fill in a start reason label. The console info popup reads them
- * from the session, and `createSessionStartReason` reads them from the
- * matching `ISessionStartReasonValues`, so a label can only use these.
+ * Values that fill in a start reason label, read from the runtime and notebook
+ * the session is created for.
  */
 interface ISessionStartReasonLabelArgs {
 	/** The session's language, such as "Python". */
@@ -65,11 +66,43 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 };
 
 /**
+ * Gets the values that fill in a start reason label. The saved description and
+ * the console info popup both use this, so they always describe the same
+ * session.
+ *
+ * @param runtime The runtime the session is for.
+ * @param notebookUri The session's notebook, or undefined for a console session.
+ * @param getExtensionName Gets the name to show for an extension ID.
+ */
+function getLabelArgs(runtime: ILanguageRuntimeMetadata, notebookUri: URI | undefined, getExtensionName: (extensionId: string) => string): ISessionStartReasonLabelArgs {
+	return {
+		languageName: runtime.languageName,
+		extensionName: getExtensionName(runtime.extensionId.value),
+		runtimeName: runtime.runtimeName,
+		notebookFileName: notebookUri ? basename(notebookUri) : '',
+	};
+}
+
+/**
+ * Describes why a session is being started, for logs and for the session's
+ * saved `startReason`. The description is in English and names extensions by
+ * ID.
+ *
+ * @param startReason Why the session is being started.
+ * @param runtime The runtime the session is for.
+ * @param notebookUri The session's notebook, or undefined for a console session.
+ * @returns The description.
+ */
+export function describeSessionStartReason(startReason: IRuntimeSessionStartReason, runtime: ILanguageRuntimeMetadata, notebookUri?: URI): string {
+	return sessionStartReasonLabels[startReason.id](getLabelArgs(runtime, notebookUri, extensionId => extensionId)).original;
+}
+
+/**
  * Gets the user-facing label for why a session was started.
  *
  * @param session The session.
- * @param extensions The registered extensions, used to find the display name
- * of the extension that provides the session's runtime.
+ * @param extensions The registered extensions, used to find extension display
+ * names.
  * @returns The label, or undefined if the session has no start reason ID this
  * version knows, such as a session persisted before the ID existed.
  */
@@ -79,68 +112,7 @@ export function getSessionStartReasonLabel(session: Pick<ILanguageRuntimeSession
 	if (!createLabel) {
 		return undefined;
 	}
-	const extension = extensions.find(extension =>
-		ExtensionIdentifier.equals(extension.identifier, runtimeMetadata.extensionId));
-	return createLabel({
-		languageName: runtimeMetadata.languageName,
-		extensionName: extension?.displayName ?? runtimeMetadata.extensionId.value,
-		runtimeName: runtimeMetadata.runtimeName,
-		notebookFileName: metadata.notebookUri ? basename(metadata.notebookUri) : '',
-	}).value;
-}
-
-/**
- * Values that identify a request to start a session. They're appended to the
- * start reason's detail. The `language`, `extension`, `interpreter`, and
- * `notebook` values also fill in the English label at the start of the
- * detail, so they must describe what the console info popup reads from the
- * session.
- */
-export interface ISessionStartReasonValues {
-	/** The ID of the session's language, such as "python". */
-	readonly language?: string;
-	/**
-	 * The ID of the extension that provides the session's interpreter. Use
-	 * `requestingExtension` for the extension that asked for the session.
-	 */
-	readonly extension?: string;
-	/** The name of the session's interpreter, such as "Python 3.12.4 (Pyenv)". */
-	readonly interpreter?: string;
-	/** The file name of the session's notebook or Quarto document. */
-	readonly notebook?: string;
-	/** The ID of the notebook kernel. */
-	readonly kernel?: string;
-	/** The ID of the command that asked for the session. */
-	readonly command?: string;
-	/** The name of the session that was duplicated. */
-	readonly fromSession?: string;
-	/** Where the code sent to the console came from. */
-	readonly codeSource?: string;
-	/** Where the restart was requested from. */
-	readonly restartSource?: string;
-	/** The ID of the extension that asked for the session. */
-	readonly requestingExtension?: string;
-}
-
-/**
- * Creates the start reason for a request to start a runtime session. The
- * detail is the English label, followed by the values that identify the
- * request.
- *
- * @param id Why the session is being started.
- * @param values Values that identify the request, such as the language ID.
- * @returns The start reason.
- */
-export function createSessionStartReason(id: SessionStartReasonId, values: ISessionStartReasonValues = {}): IRuntimeSessionStartReason {
-	const label = sessionStartReasonLabels[id]({
-		languageName: values.language ?? '',
-		extensionName: values.extension ?? '',
-		runtimeName: values.interpreter ?? '',
-		notebookFileName: values.notebook ?? '',
-	}).original;
-	const entries = Object.entries(values).filter(([, value]) => value !== undefined);
-	const detail = entries.length ?
-		`${label} (${entries.map(([key, value]) => `${key}: ${value}`).join(', ')})` :
-		label;
-	return { id, detail };
+	const getDisplayName = (extensionId: string) => extensions.find(extension =>
+		ExtensionIdentifier.equals(extension.identifier, extensionId))?.displayName ?? extensionId;
+	return createLabel(getLabelArgs(runtimeMetadata, metadata.notebookUri, getDisplayName)).value;
 }
