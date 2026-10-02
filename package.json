@@ -103,6 +103,7 @@
     "watch-cli": "npm run gulp watch-cli",
     "mock-policy-server": "node --experimental-strip-types scripts/mock-policy-server/server.ts",
     "mock-update-server": "node --experimental-strip-types scripts/mock-update-server/server.ts",
+    "mock-aws-auth-server": "node --experimental-strip-types scripts/mock-aws-auth-server/server.ts",
     "eslint": "node --max-old-space-size=8192 build/eslint.ts",
     "stylelint": "node build/stylelint.ts",
     "playwright-install": "npm exec playwright install",

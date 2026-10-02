@@ -772,6 +772,27 @@
 			}
 		},
 		{
+			"label": "Mock AWS Auth Server",
+			"type": "npm",
+			"script": "mock-aws-auth-server",
+			"isBackground": true,
+			"presentation": {
+				"reveal": "always",
+				"panel": "dedicated"
+			},
+			"problemMatcher": {
+				"owner": "mock-aws-auth-server",
+				"pattern": {
+					"regexp": "^$"
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": "mock-aws-auth-server",
+					"endsPattern": "Mock AWS auth server on"
+				}
+			}
+		},
+		{
 			"label": "Echo E2E Status",
 			"type": "shell",
 			"command": "pwsh",
