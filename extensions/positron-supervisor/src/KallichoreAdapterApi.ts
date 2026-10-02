@@ -1490,7 +1490,8 @@ export class KCApi implements PositronSupervisorApi {
 			const definition = findInterpreterDefinition(
 				vscode.workspace.getConfiguration('interpreters').get('definitions'),
 				runtimeMetadata.languageId,
-				label);
+				label,
+				runtimeMetadata.runtimePath);
 			if (!definition) {
 				throw new Error(vscode.l10n.t(
 					'The interpreter "{0}" is no longer defined in the interpreters.definitions setting.',
@@ -1537,7 +1538,8 @@ export class KCApi implements PositronSupervisorApi {
 				const definition = findInterpreterDefinition(
 					vscode.workspace.getConfiguration('interpreters').get('definitions'),
 					session.runtimeMetadata.languageId,
-					label);
+					label,
+					session.runtimeMetadata.runtimePath);
 				if (definition) {
 					definitionEnv = await this.resolveDefinitionEnv(definition, undefined);
 					this._definitionEnvBySessionId.set(sessionId, definitionEnv);

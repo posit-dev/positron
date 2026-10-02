@@ -98,18 +98,27 @@ suite('getTerminalMutation', () => {
 suite('findInterpreterDefinition', () => {
 	const definition: InterpreterDefinition = { language: 'r', path: '/opt/R/4.4.3/bin/R', label: 'XX' };
 
-	test('finds the entry by language and label, ignoring malformed setting values', () => {
+	test('finds the entry by language, label, and path, ignoring malformed setting values', () => {
 		assert.deepStrictEqual([
 			findInterpreterDefinition([
 				null,
 				'r',
 				{ ...definition, language: 'python' },
+				{ ...definition, path: '/opt/R/4.4.4/bin/R' },
 				{ ...definition, env: ['R_LIBS_SITE=/bad'] },
 				{ ...definition, startupScript: 42 },
 				definition,
-			], 'r', 'XX'),
-			findInterpreterDefinition(definition, 'r', 'XX'),
-			findInterpreterDefinition(undefined, 'r', 'XX'),
-		], [definition, undefined, undefined]);
+			], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
+			findInterpreterDefinition([{ ...definition, path: '/opt/R/4.4.4/bin/R' }], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
+			findInterpreterDefinition(definition, 'r', 'XX', '/opt/R/4.4.3/bin/R'),
+			findInterpreterDefinition(undefined, 'r', 'XX', '/opt/R/4.4.3/bin/R'),
+		], [definition, undefined, undefined, undefined]);
+	});
+
+	test('does not match a retargeted definition with the same label', () => {
+		assert.deepStrictEqual([
+			findInterpreterDefinition([{ ...definition, path: '/opt/R/4.4.4/bin/R' }], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
+			findInterpreterDefinition([{ ...definition, path: '/opt/R/4.4.3/bin/R' }], 'r', 'XX', '/opt/R/4.4.3/bin/R'),
+		], [undefined, definition]);
 	});
 });

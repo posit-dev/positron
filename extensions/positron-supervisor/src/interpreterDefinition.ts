@@ -26,7 +26,7 @@ export interface InterpreterDefinition {
  * not type-checked when read, so malformed values are ignored rather than
  * throwing.
  */
-export function findInterpreterDefinition(definitions: unknown, languageId: string, label: string): InterpreterDefinition | undefined {
+export function findInterpreterDefinition(definitions: unknown, languageId: string, label: string, runtimePath: string): InterpreterDefinition | undefined {
 	if (!Array.isArray(definitions)) {
 		return undefined;
 	}
@@ -37,7 +37,7 @@ export function findInterpreterDefinition(definitions: unknown, languageId: stri
 		const candidate = definition as Record<string, unknown>;
 		return candidate.language === languageId &&
 			typeof candidate.path === 'string' &&
-			candidate.path.length > 0 &&
+			candidate.path === runtimePath &&
 			candidate.label === label &&
 			(candidate.env === undefined || isStringRecord(candidate.env)) &&
 			(candidate.startupScript === undefined || typeof candidate.startupScript === 'string');
