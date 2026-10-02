@@ -13,7 +13,11 @@ import * as vscode from 'vscode';
 import { getPyenvDir } from '../pythonEnvironments/common/environmentManagers/pyenv';
 import { getGlobalEnvironmentParent } from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getUserHomeDir } from '../common/utils/platform';
-import { getInterpreterDefinitionPaths, getResolvedFilterSettingPaths, isDefinitionsOnlyDiscovery } from './interpreterSettings';
+import {
+    getInterpreterDefinitionPaths,
+    getResolvedFilterSettingPaths,
+    isDefinitionsOnlyDiscovery,
+} from './interpreterSettings';
 
 /**
  * Hard-coded POSIX bin directories where Python installers commonly drop
