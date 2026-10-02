@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { modelDisplayName, parseLedger, parseReport, parseSystemLine, safeUrl } from './report-parse.mjs';
-import { renderReportHtml, skillVersion } from './html.mjs';
+import { previewSummary, renderReportHtml, skillVersion } from './html.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
@@ -2741,4 +2741,22 @@ test('with no findings and no linked issues, only the empty state shows', () => 
 	assert.doesNotMatch(f, /row-head|ki-grp|ki-list/);
 	assert.match(f, /ki-empty/);
 	assert.ok(!renderReportHtml(NO_FINDINGS).includes("closest('.ki-cnt')"), 'no list script');
+});
+
+test('renderReportHtml gives chat apps a link preview', () => {
+	const html = renderReportHtml('# Exploratory test: a "quoted" title\n\nbody');
+	assert.match(html, /<meta property="og:title" content="Exploratory test: a &quot;quoted&quot; title">/);
+	assert.match(html, /<meta property="og:description" content="No findings\.">/);
+});
+
+test('previewSummary names the PR and branch, then the findings and coverage counts', () => {
+	const report = {
+		pr: { number: 16378 },
+		chips: ['feature/interpreter-skill', 'f3f04ee7db'],
+		findingCount: 3,
+		severityCounts: { major: 1, moderate: 0, minor: 2 },
+		scenarios: { exercised: 5, pass: 4, issues: 1, notRun: 2 },
+	};
+	assert.equal(previewSummary(report), 'PR #16378 on feature/interpreter-skill. 3 findings: 1 major, 2 minor. 7 scenarios: 4 passed, 1 failed, 2 not run.');
+	assert.equal(previewSummary({ ...report, pr: null, findingCount: 1, severityCounts: { major: 0, moderate: 0, minor: 0 }, scenarios: { exercised: 0, pass: 0, issues: 0, notRun: 0 } }), 'feature/interpreter-skill. 1 finding.');
 });

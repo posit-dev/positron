@@ -160,6 +160,23 @@ function renderTiles(report) {
 	return `<section class="tiles">${findingsTile}${scenariosTile}${runTile}</section>`;
 }
 
+/** The line a chat app's link preview shows under the title: where, then the counts the tiles show. */
+export function previewSummary(report) {
+	const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+	const parts = pairs => pairs.filter(([n]) => n > 0).map(([n, word]) => `${n} ${word}`).join(', ');
+	const where = [report.pr ? `PR #${report.pr.number}` : '', report.chips[0] ?? ''].filter(Boolean).join(' on ');
+	const { severityCounts: sev, scenarios } = report;
+	const severities = parts([[sev.major, 'major'], [sev.moderate, 'moderate'], [sev.minor, 'minor']]);
+	const findings = report.findingCount
+		? `${count(report.findingCount, 'finding')}${severities ? `: ${severities}` : ''}.`
+		: 'No findings.';
+	const total = scenarios.exercised + scenarios.notRun;
+	const coverage = total
+		? ` ${count(total, 'scenario')}: ${parts([[scenarios.pass, 'passed'], [scenarios.issues, 'failed'], [scenarios.notRun, 'not run']])}.`
+		: '';
+	return `${where ? `${where}. ` : ''}${findings}${coverage}`;
+}
+
 function capitalize(text) {
 	return text ? text[0].toUpperCase() + text.slice(1) : text;
 }
@@ -1690,12 +1707,19 @@ export function renderReportHtml(markdown, options = {}) {
 		: '';
 	const chips = prLink + report.chips.map(c => `<code>${escapeHtml(c)}</code>`).join('');
 
+	// What Slack and other chat apps show when the link is pasted.
+	const previewText = escapeHtml(previewSummary(report));
+
 	const page = `<!DOCTYPE html>
 <html lang="en" data-theme="professional">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(report.title)}</title>
+<meta name="description" content="${previewText}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Exploratory test: ${escapeHtml(report.title)}">
+<meta property="og:description" content="${previewText}">
 <script>${BOOT_SCRIPT}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
