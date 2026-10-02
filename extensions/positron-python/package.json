@@ -1296,7 +1296,8 @@
             },
             "pyright.disableLanguageServices": true,
             "pyright.disableOrganizeImports": true,
-            "pyrefly.commentFoldingRanges": true
+            "pyrefly.commentFoldingRanges": true,
+            "python.analysis.completeFunctionParens": true
         },
         "debuggers": [
             {
