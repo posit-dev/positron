@@ -59,7 +59,9 @@ suite('AWS credential chain (web identity)', () => {
 	let globalState: Map<string, unknown>;
 	let chainCalls: number;
 	let stsFails: boolean;
-	let events: { added: number; changed: number };
+	let events: { added: number; changed: number; removed: number };
+	// Runs once the next exchange has read the token file, success or not.
+	let afterTokenRead: (() => Promise<void>) | undefined;
 	let chain: CredentialChainConfig;
 	let provider: AuthProvider;
 
@@ -68,7 +70,10 @@ suite('AWS credential chain (web identity)', () => {
 	// STS exchange it would then make is replaced by fresh credentials.
 	const fakeChain = () => async () => {
 		chainCalls++;
-		const idToken = await fs.promises.readFile(tokenFile, 'utf8');
+		const hook = afterTokenRead;
+		afterTokenRead = undefined;
+		const idToken = await fs.promises.readFile(tokenFile, 'utf8')
+			.finally(() => hook?.());
 		if (stsFails) {
 			throw new Error('STS unreachable');
 		}
@@ -96,6 +101,7 @@ suite('AWS credential chain (web identity)', () => {
 		created.onDidChangeSessions(e => {
 			events.added += e.added?.length ?? 0;
 			events.changed += e.changed?.length ?? 0;
+			events.removed += e.removed?.length ?? 0;
 		});
 		return created;
 	}
@@ -113,7 +119,8 @@ suite('AWS credential chain (web identity)', () => {
 		globalState = new Map();
 		chainCalls = 0;
 		stsFails = false;
-		events = { added: 0, changed: 0 };
+		events = { added: 0, changed: 0, removed: 0 };
+		afterTokenRead = undefined;
 		provider = createProvider({
 			AWS_WEB_IDENTITY_TOKEN_FILE: tokenFile,
 			AWS_ROLE_ARN: 'arn:aws:iam::123456789012:role/bedrock',
@@ -135,7 +142,7 @@ suite('AWS credential chain (web identity)', () => {
 
 		assert.deepStrictEqual(
 			{ atStartup, sessions: sessions.length, events },
-			{ atStartup: undefined, sessions: 1, events: { added: 1, changed: 0 } },
+			{ atStartup: undefined, sessions: 1, events: { added: 1, changed: 0, removed: 0 } },
 		);
 	});
 
@@ -157,7 +164,7 @@ suite('AWS credential chain (web identity)', () => {
 
 		assert.deepStrictEqual(
 			{ chainCalls, sessions: sessions.length, events },
-			{ chainCalls: 1, sessions: 1, events: { added: 1, changed: 0 } },
+			{ chainCalls: 1, sessions: 1, events: { added: 1, changed: 0, removed: 0 } },
 		);
 	});
 
@@ -197,7 +204,44 @@ suite('AWS credential chain (web identity)', () => {
 			watcher.dispose();
 		}
 
-		assert.deepStrictEqual(events, { added: 1, changed: 0 });
+		assert.deepStrictEqual(events, { added: 1, changed: 0, removed: 0 });
+	});
+
+	// The startup resolve's token read fails before the agent writes the file,
+	// but its failure lands only after the watcher's resolve has signed in.
+	test('a startup resolve that fails late does not sign out the watcher resolve', async () => {
+		let startupReadFailed!: () => void;
+		const startupRead = new Promise<void>(resolve => startupReadFailed = resolve);
+		let releaseStartup!: () => void;
+		const startupReleased = new Promise<void>(resolve => releaseStartup = resolve);
+		afterTokenRead = () => {
+			startupReadFailed();
+			return startupReleased;
+		};
+		const startup = provider.resolveChainCredentials();
+		await startupRead;
+
+		const env = { AWS_WEB_IDENTITY_TOKEN_FILE: tokenFile };
+		const watcher = watchWebIdentityTokenFile(env, chain, () => provider.resolveChainCredentials(), 20)!;
+		try {
+			const added = new Promise<void>(resolve => provider.onDidChangeSessions(e => {
+				if (e.added?.length) {
+					resolve();
+				}
+			}));
+			writeToken(0);
+			await added;
+		} finally {
+			watcher.dispose();
+		}
+		releaseStartup();
+		await startup;
+		const sessions = await provider.getSessions();
+
+		assert.deepStrictEqual(
+			{ sessions: sessions.length, events },
+			{ sessions: 1, events: { added: 1, changed: 0, removed: 0 } },
+		);
 	});
 
 	test('without web identity, a failed resolve is not retried by getSessions', async () => {
