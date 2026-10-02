@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename,
 });
 
-const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
+const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic'];
 
 test.describe('Posit Assistant', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN, tags.PLOTS],
@@ -31,7 +31,7 @@ test.describe('Posit Assistant', {
 				// the reload is a credentials change on a running host, which
 				// forces a fresh model listing.
 				await app.workbench.positAssistant.checkForDevBuildUpdate(settings, app.workbench.quickaccess);
-				await app.workbench.modelProviderModal.loginModelProvider(provider);
+				await app.workbench.providerManager.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');

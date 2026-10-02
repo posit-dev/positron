@@ -90,6 +90,9 @@ export function OptionsFixture() {
 			useExternalServer: project.useExternalServer,
 			externalServerUrl: project.externalServerUrl,
 			// --- Start Positron ---
+			// Local dev only, CI never sets this: set it to a Posit Assistant checkout (e.g. ~/dev/assistant/packages/positron)
+			// to run e2e against an unreleased Assistant instead of the bundled VSIX. Desktop only.
+			extensionDevelopmentPath: process.env.POSITRON_E2E_ASSISTANT_PATH,
 			// Memory runs force a GC in the shared process and extension host through
 			// these inspector ports before sampling; see utils/memory/gc.ts.
 			...(isMemoryScenario(process.env.MEMORY_SCENARIO) && !browser

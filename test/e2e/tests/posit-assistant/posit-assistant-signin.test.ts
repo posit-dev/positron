@@ -9,7 +9,7 @@ import { ModelProvider } from '../../pages/modelProviderShared';
 test.use({
 	suiteId: __filename,
 	// Launch the app with the auto-sign-in env vars unset so the API-key providers
-	// start disconnected and the test genuinely drives the modal's connect flow
+	// start disconnected and the test genuinely drives the provider manager's connect flow
 	// (typing ANTHROPIC_KEY / OPENAI_KEY) instead of finding them already signed in.
 	// AWS Bedrock keeps its environment credential chain (it has no key to type and
 	// authenticates from the environment by design).
@@ -26,10 +26,10 @@ test.use({
 // which is written before the app starts and so needs no reload.
 
 const POSIT_ASSISTANT_SIGNIN_PROVIDERS: ModelProvider[] = [
-	'anthropic-api',
-	'openai-api',
-	'amazon-bedrock',
-	'posit-ai',
+	'anthropic',
+	'openai',
+	'bedrock',
+	'positai',
 	// Microsoft Foundry (Azure) via API key + Base URL on desktop. The managed
 	// credentials path is covered separately in the workbench suite.
 	'ms-foundry',
@@ -41,7 +41,7 @@ test.describe('Posit Assistant Sign-in', {
 
 	for (const provider of POSIT_ASSISTANT_SIGNIN_PROVIDERS) {
 		test(`${provider} - Sign in, send hello, sign out`, async function ({ app }) {
-			await app.workbench.modelProviderModal.loginModelProvider(provider);
+			await app.workbench.providerManager.loginModelProvider(provider);
 
 			try {
 				await app.workbench.positAssistant.open();
@@ -62,7 +62,7 @@ test.describe('Posit Assistant Sign-in', {
 				const responseText = await app.workbench.positAssistant.getLastResponseText();
 				test.expect(responseText.length).toBeGreaterThan(0);
 			} finally {
-				await app.workbench.modelProviderModal.logoutModelProvider(provider);
+				await app.workbench.providerManager.logoutModelProvider(provider);
 			}
 		});
 	}

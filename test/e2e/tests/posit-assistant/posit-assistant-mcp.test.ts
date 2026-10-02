@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename,
 });
 
-const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
+const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic'];
 
 // Catches regressions where MCP servers in `.posit/assistant/settings.json`
 // are ignored — see posit-dev/assistant#1289 (fixed in #1293). Uses the `echo`
@@ -38,7 +38,7 @@ test.describe('Posit Assistant MCP', {
 					JSON.stringify({ mcpServers: { everything: { command } } }, null, 2),
 				);
 
-				await app.workbench.modelProviderModal.loginModelProvider(provider);
+				await app.workbench.providerManager.loginModelProvider(provider);
 				// Maximize the sidebar so the Posit Assistant webview is not
 				// obscured by outer-page elements on small CI viewports.
 				await app.workbench.quickaccess.runCommand('workbench.action.fullSizedSidebar');

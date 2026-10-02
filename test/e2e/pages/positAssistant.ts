@@ -54,11 +54,8 @@ const CHAT_FORM_OVERFLOW_BUTTON = '.chat-form button[aria-haspopup="menu"]:has(s
 // group containers when collapsed into the overflow (...) menu.
 const MODEL_RADIO_GROUP = '[data-slot="dropdown-menu-radio-group"]';
 const MODEL_MENU_GROUP = '[data-slot="dropdown-menu-group"]';
-// The inline model-picker trigger. ModeSelector (left) uses plain buttons and
-// the only other status-bar dropdown trigger with a chevron (the persona
-// selector) precedes the model selector in the DOM, so the model trigger is the
-// last chevron dropdown trigger in the chat form.
-const INLINE_MODEL_TRIGGER = '[data-slot="dropdown-menu-trigger"]:has(svg.lucide-chevron-down)';
+// The inline model-picker trigger.
+const INLINE_MODEL_TRIGGER = '[data-testid="model-selector"]';
 
 /**
  * Maps an e2e provider id to the provider's display name as shown in the model
@@ -66,12 +63,12 @@ const INLINE_MODEL_TRIGGER = '[data-slot="dropdown-menu-trigger"]:has(svg.lucide
  * (packages/core/src/platform/provider-registry.ts).
  */
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
-	'anthropic-api': 'Anthropic',
-	'amazon-bedrock': 'AWS Bedrock',
+	'anthropic': 'Anthropic',
+	'bedrock': 'AWS Bedrock',
 	'databricks': 'Databricks',
-	'openai-api': 'OpenAI',
+	'openai': 'OpenAI',
 	'ms-foundry': 'Microsoft Foundry',
-	'posit-ai': 'Posit AI Pass',
+	'positai': 'Posit AI Pass',
 	'snowflake-cortex': 'Snowflake Cortex',
 };
 
@@ -91,7 +88,7 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 const PROVIDER_DISPLAY_NAME_ALIASES: Record<string, string[]> = {
 	// Renamed to "Posit AI Pass" in the assistant's provider registry after the
 	// bootstrapped 1.2.0 release; mirrored here in #15858.
-	'posit-ai': ['Posit AI'],
+	'positai': ['Posit AI'],
 };
 
 /**
@@ -471,7 +468,7 @@ export class PositAssistant {
 	 *  - inline mode (wide status bar, e.g. a maximized sidebar): the model
 	 *    trigger opens a flat radio group whose provider headers are sibling divs.
 	 *
-	 * @param provider e2e provider id (e.g. 'anthropic-api', 'amazon-bedrock').
+	 * @param provider e2e provider id (e.g. 'anthropic', 'bedrock').
 	 */
 	async selectProviderModel(provider: string): Promise<void> {
 		const providerName = PROVIDER_DISPLAY_NAMES[provider];
@@ -578,7 +575,7 @@ export class PositAssistant {
 	 *    explicitly with Escape afterwards, or the overlay blocks the chat input.
 	 */
 	private async selectProviderModelInlineMode(providerNames: string[]): Promise<void> {
-		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER).last();
+		const trigger = this.frame.locator(INLINE_MODEL_TRIGGER);
 		const radioGroup = this.frame.locator(MODEL_RADIO_GROUP);
 		// Each alias needs its own full selector: a trailing combinator binds to the
 		// last item of a selector list, so it cannot be appended to the list as a
@@ -871,6 +868,11 @@ export class PositAssistant {
 		options: { toastTimeout?: number } = {},
 	): Promise<void> {
 		const { toastTimeout = 30000 } = options;
+
+		// A local Assistant checkout is the build under test; don't replace it with a dev build.
+		if (process.env.POSITRON_E2E_ASSISTANT_PATH) {
+			return;
+		}
 
 		// 1. Enable the auto dev-build update check setting.
 		await settings.set({ 'assistant.autoDevBuildUpdateCheck': true });
