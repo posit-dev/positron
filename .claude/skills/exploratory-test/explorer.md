@@ -357,15 +357,15 @@ Assistant". It prefixes the filed issue's title, as "console: <claim>".
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".
 
-The finding block's `**Affects:**` and `**Workaround:**` show under its title,
-about eight words each. Affects starts "anyone who" or "anyone whose" and
-names the trigger a user would recognize, not the symptom: "anyone whose
-columns take over 10 s to summarize". Workaround is an instruction you saw get
-past it, with a few words on why when that is not obvious: "run
-`df["<column>"].median()` in the console, which skips missing values". Or it is `none found`
-when you tried and nothing worked, or `none needed (wording only)` or `none
-needed (spacing only)`. Neither repeats the title or Observed, or claims wider
-than the cases you tried.
+The finding block's `**Affects:**` and `**Workaround:**` show as two rows under
+its title, about eight words each. Affects starts "anyone who" or "anyone
+whose" and names the trigger a user would recognize, not the symptom: "anyone
+whose columns take over 10 s to summarize". Workaround is an instruction you
+saw get past it, with a few words on why when that is not obvious: "run
+`df["<column>"].median()` in the console, which skips missing values". Or it is
+`none found` when you tried and nothing worked, or `none needed (wording only)`
+or `none needed (spacing only)`. Neither repeats the title or Observed, or
+claims wider than the cases you tried.
 
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
