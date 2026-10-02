@@ -499,7 +499,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// and position it via `_layoutCollapseButton()`.
 		this._collapseButton = this._createCollapseButton();
 
-		// Apply editor font to the output container
+		// Apply editor font to the styled container (inherits into the output)
 		this._applyEditorFont();
 
 		// Listen for font changes
@@ -598,11 +598,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
-	 * Apply the editor's font settings to the output container.
+	 * Apply the editor's font settings to the styled container. The font
+	 * inherits down into the output content, and applying it to the styled
+	 * container itself lets the container's em-based padding scale with the
+	 * editor font size.
 	 */
 	private _applyEditorFont(): void {
 		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
-		applyFontInfo(this._outputContainer, fontInfo);
+		applyFontInfo(this._styledContainer, fontInfo);
 	}
 
 	/**

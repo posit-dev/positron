@@ -24,10 +24,10 @@
 /* Main container for inline output view zone */
 .quarto-inline-output {
 	position: relative;
-	padding: 8px 12px;
-	padding-right: 32px;
+	padding: 0.6em 0.9em;
+	padding-right: 2.5em;
 	/* Space for close button */
-	margin: 4px 0;
+	margin: 0.3em 0;
 	background: var(--vscode-notebook-cellEditorBackground);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
@@ -119,14 +119,14 @@
 .quarto-output-content {
 	display: flex;
 	flex-direction: column;
-	gap: 4px;
+	gap: 0.3em;
 }
 
 /* Individual output item */
 .quarto-output-item {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 0.15em;
 }
 
 /* Standard output (stdout) */
@@ -191,13 +191,13 @@
 
 .quarto-output-html table {
 	border-collapse: collapse;
-	margin: 4px 0;
+	margin: 0.3em 0;
 }
 
 .quarto-output-html th,
 .quarto-output-html td {
 	border: 1px solid var(--vscode-panel-border);
-	padding: 4px 8px;
+	padding: 0.3em 0.6em;
 }
 
 .quarto-output-html th {
@@ -207,13 +207,13 @@
 
 /* Warning message for unsafe content */
 .quarto-output-warning {
-	padding: 4px 8px;
+	padding: 0.3em 0.6em;
 	background: var(--vscode-inputValidation-warningBackground);
 	border: 1px solid var(--vscode-inputValidation-warningBorder);
 	border-radius: 2px;
 	color: var(--vscode-inputValidation-warningForeground);
-	font-size: 12px;
-	margin-bottom: 4px;
+	font-size: 0.85em;
+	margin-bottom: 0.3em;
 }
 
 /* High contrast theme support */
@@ -259,7 +259,7 @@
 /* Escaped HTML output (fallback when webview unavailable) */
 .quarto-output-html-escaped {
 	margin: 0;
-	padding: 8px;
+	padding: 0.6em;
 	white-space: pre-wrap;
 	word-wrap: break-word;
 	/* Font is inherited from container which uses editor font settings, but slightly smaller */
@@ -274,7 +274,7 @@
 .quarto-output-loading {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 0.6em;
 	color: var(--vscode-descriptionForeground);
 	font-style: italic;
 }
@@ -297,12 +297,12 @@
 
 /* Truncation indicator (legacy) */
 .quarto-output-truncated {
-	padding: 4px 8px;
+	padding: 0.3em 0.6em;
 	background: var(--vscode-inputValidation-infoBackground);
 	border: 1px solid var(--vscode-inputValidation-infoBorder);
 	border-radius: 2px;
 	color: var(--vscode-inputValidation-infoForeground);
-	font-size: 12px;
+	font-size: 0.85em;
 	font-style: italic;
 }
 
@@ -310,7 +310,7 @@
 .quarto-output-truncation-header {
 	font-size: 0.85em;
 	color: var(--vscode-descriptionForeground);
-	margin-bottom: 4px;
+	margin-bottom: 0.3em;
 	user-select: none;
 	-webkit-user-select: none;
 }
