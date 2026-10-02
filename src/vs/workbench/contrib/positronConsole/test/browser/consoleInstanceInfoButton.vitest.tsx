@@ -133,7 +133,7 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		const user = userEvent.setup();
 		renderPopup('', id);
 
-		await user.click(screen.getByRole('button', { name: 'Change Startup Behavior' }));
+		await user.click(screen.getByRole('button', { name: 'You can change the startup behavior in settings' }));
 
 		expect(inspect).toHaveBeenCalledWith('interpreters.startupBehavior', { overrideIdentifier: 'python' });
 		expect(renderer.dispose).toHaveBeenCalled();
@@ -217,13 +217,13 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		renderPopup('', SessionStartReasonId.StartupBehaviorAlways);
 
 		expect(screen.getByTestId('session-start-reason')).toHaveTextContent(/^Start Reason: Startup Behavior is set to "Always" for Python$/);
-		expect(screen.getByRole('button', { name: 'Change Startup Behavior' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'You can change the startup behavior in settings' })).toBeInTheDocument();
 	});
 
 	it('omits the Startup Behavior setting link for other start reasons', () => {
 		renderPopup('', SessionStartReasonId.UserSelectedRuntime);
 
-		expect(screen.queryByRole('button', { name: 'Change Startup Behavior' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'You can change the startup behavior in settings' })).not.toBeInTheDocument();
 	});
 
 	it('omits the start reason line when the session has no start reason ID', () => {

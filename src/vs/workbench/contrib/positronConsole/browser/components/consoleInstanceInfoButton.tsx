@@ -30,7 +30,7 @@ import { IEditorPane } from '../../../../common/editor.js';
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
 
-const changeStartupBehaviorLabel = localize('positron.console.info.changeStartupBehavior', "Change Startup Behavior");
+const changeStartupBehaviorLabel = localize('positron.console.info.changeStartupBehavior', "You can change the startup behavior in settings");
 
 const OutputChannelNames = {
 	[LanguageRuntimeSessionChannel.Kernel]: localize('positron.console.info.kernel', 'Kernel'),
