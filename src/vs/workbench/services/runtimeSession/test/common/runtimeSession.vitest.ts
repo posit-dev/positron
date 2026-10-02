@@ -1296,6 +1296,26 @@ describe('Positron - RuntimeSessionService', () => {
 		expect(session.getWorkingDirectory(), 'Working directory should NOT update to new URI parent folder').toBe('');
 	});
 
+	it('updateNotebookSessionUri describes the start reason again with the new file name', async () => {
+		const untitledUri = URI.parse('untitled:Untitled-1.ipynb');
+		const savedUri = URI.file('/path/to/analysis.ipynb');
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+			runtime,
+			sessionName,
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			notebookUri: untitledUri,
+			startReasonId: SessionStartReasonId.NotebookEditorOpened,
+		});
+		const before = session.metadata.startReason;
+
+		await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
+
+		expect([before, session.metadata.startReason]).toEqual([
+			'Untitled-1.ipynb was opened',
+			'analysis.ipynb was opened',
+		]);
+	});
+
 	it('updateNotebookSessionUri returns undefined when session not found', async () => {
 		// Create URIs that don't have associated sessions
 		const nonExistentUri = URI.file('/path/to/nonexistent/notebook.ipynb');

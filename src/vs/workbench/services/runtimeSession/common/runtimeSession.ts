@@ -2778,6 +2778,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Remember the session ID and old working directory for return value
 		const sessionId = session.sessionId;
 		const oldQuartoNotebookUri = session.metadata.quartoNotebookUri;
+		const oldStartReason = session.metadata.startReason;
 		try {
 			// Operations are performed in a specific order to maintain atomic-like behavior
 			// The ordering ensures that even if interrupted between steps, the system won't lose
@@ -2796,6 +2797,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			session.metadata.notebookUri = newUri;
 			if (options?.quartoNotebookUri) {
 				session.metadata.quartoNotebookUri = options.quartoNotebookUri;
+			}
+			// The start reason names the notebook, so describe it again with the
+			// new file name. Sessions saved before start reason IDs keep their text.
+			if (session.metadata.startReasonId) {
+				session.metadata.startReason = describeSessionStartReason(
+					{ id: session.metadata.startReasonId, requestingExtensionId: session.metadata.requestingExtensionId },
+					session.runtimeMetadata,
+					newUri);
 			}
 
 			// 3. Finally remove the old mapping - we do this last because it's
@@ -2850,6 +2859,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			if (options?.quartoNotebookUri && isEqual(session.metadata.quartoNotebookUri, options.quartoNotebookUri)) {
 				session.metadata.quartoNotebookUri = oldQuartoNotebookUri;
 			}
+			session.metadata.startReason = oldStartReason;
 
 			return undefined;
 		}

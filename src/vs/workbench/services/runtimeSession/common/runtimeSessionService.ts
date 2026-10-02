@@ -530,6 +530,8 @@ export interface ILanguageRuntimeSession extends IDisposable {
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
 	notebookUri: URI;
 	quartoNotebookUri?: URI;
+	/** Described again when the notebook is saved under a new URI, so it names the current file. */
+	startReason: string;
 }
 
 export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession {
