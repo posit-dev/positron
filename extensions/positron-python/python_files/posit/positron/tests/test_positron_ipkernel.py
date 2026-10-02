@@ -7,7 +7,7 @@ import contextlib
 import logging
 import os
 from pathlib import Path
-from typing import Any, Tuple, cast
+from typing import Any, Iterable, Tuple, cast
 from unittest.mock import Mock
 
 import pytest
@@ -662,3 +662,52 @@ class TestEditorSysPath:
 
         # sys.path should be unchanged
         assert sys.path == sys_path_before
+
+
+class TestEditorDunderFile:
+    """Tests for setting `__file__` to the file that code was executed from."""
+
+    @pytest.fixture(autouse=True)
+    def _clean_dunder_file(self, shell: PositronShell) -> Iterable[None]:
+        shell.user_ns.pop("__file__", None)
+        shell.user_ns_hidden.pop("__file__", None)
+        yield
+        shell.user_ns.pop("__file__", None)
+        shell.user_ns_hidden.pop("__file__", None)
+
+    def test_sets_dunder_file_from_editor(self, shell: PositronShell, tmp_path: Path) -> None:
+        """`__file__` is the executed file, and stays set for later console input."""
+        test_file = tmp_path / "script.py"
+
+        with patch_positron_execute_request({"code_location": {"uri": test_file.as_uri()}}):
+            shell.run_cell("from_editor = __file__").raise_error()
+
+        # Code typed in the console (no code_location) still sees the last file
+        with patch_positron_execute_request():
+            shell.run_cell("from_console = __file__").raise_error()
+
+        assert shell.user_ns["from_editor"] == str(test_file)
+        assert shell.user_ns["from_console"] == str(test_file)
+        assert shell.kernel.variables_service._is_hidden("__file__", shell.user_ns["__file__"])  # noqa: SLF001
+
+    def test_updates_dunder_file_when_file_changes(
+        self, shell: PositronShell, tmp_path: Path
+    ) -> None:
+        """`__file__` follows the most recently executed file."""
+        for name in ["a.py", "b.py"]:
+            with patch_positron_execute_request(
+                {"code_location": {"uri": (tmp_path / name).as_uri()}}
+            ):
+                shell.run_cell("pass").raise_error()
+
+        assert shell.user_ns["__file__"] == str(tmp_path / "b.py")
+
+    @pytest.mark.parametrize("positron", [None, {"code_location": {"uri": "untitled:Untitled-1"}}])
+    def test_keeps_user_dunder_file(self, shell: PositronShell, positron: dict | None) -> None:
+        """Console input and non-file editors do not overwrite an existing `__file__`."""
+        shell.user_ns["__file__"] = "user_value"
+
+        with patch_positron_execute_request(positron):
+            shell.run_cell("pass").raise_error()
+
+        assert shell.user_ns["__file__"] == "user_value"
