@@ -307,6 +307,12 @@ export class KCApi implements PositronSupervisorApi {
 	private _terminalEnvironmentUpdates = 0;
 
 	/**
+	 * The names of the terminal environment variables set from the foreground
+	 * session's interpreter definition.
+	 */
+	private _terminalEnvironmentNames = new Set<string>();
+
+	/**
 	 * Per-workspace ephemeral storage for the server reconnect state. Used
 	 * instead of persistent workspace storage when the server shares the
 	 * application's lifetime, so that a stale reconnect target is never read
@@ -1512,13 +1518,15 @@ export class KCApi implements PositronSupervisorApi {
 	 * @param sessionId The ID of the foreground session, if any
 	 */
 	private async updateTerminalEnvironment(sessionId: string | undefined): Promise<void> {
+		// Number the update before any await, so it reflects the order the
+		// foreground changes happened in.
+		const update = ++this._terminalEnvironmentUpdates;
 		const session = sessionId ? await positron.runtime.getSession(sessionId) : undefined;
 		// Only consoles drive the terminal environment; a notebook coming to
 		// the foreground leaves the console's variables in place.
 		if (session && session.metadata.sessionMode !== positron.LanguageRuntimeSessionMode.Console) {
 			return;
 		}
-		const update = ++this._terminalEnvironmentUpdates;
 		let env: Record<string, string> = {};
 		const label = session?.runtimeMetadata.interpreterDefinition;
 		if (sessionId && session && label) {
@@ -1541,16 +1549,15 @@ export class KCApi implements PositronSupervisorApi {
 			return;
 		}
 
+		// Remove only the variables set here; the collection is shared with
+		// MCP's terminal variables.
 		const collection = this._context.environmentVariableCollection;
-		const staleNames: string[] = [];
-		collection.forEach(name => {
+		for (const name of this._terminalEnvironmentNames) {
 			if (env[name] === undefined) {
-				staleNames.push(name);
+				collection.delete(name);
 			}
-		});
-		for (const name of staleNames) {
-			collection.delete(name);
 		}
+		this._terminalEnvironmentNames = new Set(Object.keys(env));
 		const types = {
 			replace: vscode.EnvironmentVariableMutatorType.Replace,
 			prepend: vscode.EnvironmentVariableMutatorType.Prepend,

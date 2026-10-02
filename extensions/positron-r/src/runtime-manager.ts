@@ -119,7 +119,10 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 				yield runtime;
 			}
 			// Interpreters named in interpreters.definitions that discovery missed
-			yield* rDefinitionOnlyRuntimes(discoveredPaths);
+			for await (const runtime of rDefinitionOnlyRuntimes(discoveredPaths)) {
+				this._discoveredRuntimeCount++;
+				yield runtime;
+			}
 		} finally {
 			this._discoveryComplete = true;
 			this._onDidCompleteDiscoveryEmitter.fire();
