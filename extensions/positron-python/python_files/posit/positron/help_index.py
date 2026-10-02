@@ -14,7 +14,9 @@ import io
 import os
 import sys
 import tokenize
+import warnings
 import zipfile
+from bisect import bisect_left
 from dataclasses import dataclass
 from importlib.machinery import BYTECODE_SUFFIXES, EXTENSION_SUFFIXES, SOURCE_SUFFIXES
 from pathlib import Path
@@ -108,6 +110,26 @@ class Index:
         return tuple(sorted(matches, key=rank)[: max(0, min(limit, 50))])
 
 
+def _overlay_metadata(topics, loaded: LoadedSnapshot) -> None:
+    # Add loaded-only modules and their runtime summaries after traversal.
+    for module in loaded.modules:
+        previous = topics.get(module.name)
+        # Keep an existing source synopsis when it belongs to the same file.
+        # Otherwise the already-loaded object is the relevant help target.
+        same_source = previous is not None and previous.origin == module.origin
+        summary = (
+            previous.summary
+            if previous is not None and same_source and previous.summary is not None
+            else module.summary
+        )
+        kind = (
+            previous.kind
+            if previous and previous.kind == "builtin"
+            else ("package" if module.is_package else "module")
+        )
+        topics[module.name] = Topic(module.name, kind, module.origin, summary)
+
+
 @dataclass(frozen=True)
 class Location:
     path: Path
@@ -135,6 +157,7 @@ class Discovery:
         self.archives: dict[Path, zipfile.ZipFile] = {}
         self.zip_children: dict[Path, dict[str, dict[str, bool]]] = {}
         self.fingerprints: dict[Path, tuple | None] = {}
+        self.package_paths: dict[str, tuple[str, ...]] = {}
 
     def build(self, paths, builtins=None, loaded: LoadedSnapshot | None = None) -> Index:
         self.diagnostics = []
@@ -169,21 +192,7 @@ class Discovery:
             if module.is_package:
                 roots = [loc for path in module.paths if (loc := self.root(path)) is not None]
                 self.walk(roots, prefix, topics, module.name.count(".") + 1)
-        # Add loaded-only modules and their runtime summaries after traversal.
-        for module in loaded.modules:
-            previous = topics.get(module.name)
-            # Keep an existing source synopsis when it belongs to the same file.
-            # Otherwise the already-loaded object is the relevant help target.
-            same_source = previous is not None and previous.origin == module.origin
-            summary = (
-                previous.summary if same_source and previous.summary is not None else module.summary
-            )
-            kind = (
-                previous.kind
-                if previous and previous.kind == "builtin"
-                else ("package" if module.is_package else "module")
-            )
-            topics[module.name] = Topic(module.name, kind, module.origin, summary)
+        _overlay_metadata(topics, loaded)
 
     def root(self, value) -> Location | None:
         path = Path(value or Path.cwd()).absolute()
@@ -290,6 +299,7 @@ class Discovery:
                 self.summary(loc, filename),
             )
             if package:
+                self.package_paths[full] = (str(loc.path / loc.prefix),)
                 self.walk([loc], full + ".", topics, depth + 1)
         for name, portions in sorted(namespaces.items()):
             if name not in concrete and prefix + name not in topics:
@@ -297,6 +307,7 @@ class Discovery:
                 topics[full] = Topic(
                     full, "namespace", ";".join(p.origin("") for p in portions), None
                 )
+                self.package_paths[full] = tuple(str(p.path / p.prefix) for p in portions)
                 self.walk(portions, full + ".", topics, depth + 1)
 
     def summary(self, loc, filename):
@@ -345,7 +356,16 @@ def _source_summary(source: str) -> str | None:
             ):
                 parts.append(token.string)
             elif token.type == tokenize.NEWLINE:
-                value = ast.literal_eval("".join(parts))
+                # Reading installed documentation must not emit compiler warnings
+                # into the user's console. Older Python versions use DeprecationWarning.
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore", message=".*invalid escape sequence", category=SyntaxWarning
+                    )
+                    warnings.filterwarnings(
+                        "ignore", message=".*invalid escape sequence", category=DeprecationWarning
+                    )
+                    value = ast.literal_eval("".join(parts))
                 return value.strip().split("\n")[0].strip() if isinstance(value, str) else None
             elif token.type not in (tokenize.COMMENT, tokenize.NL):
                 return None
@@ -374,7 +394,10 @@ class HelpIndex:
     def __init__(self):
         self._lock = RLock()
         self._index: Index | None = None
+        self._filesystem: Index | None = None
         self._fingerprints: dict[Path, tuple | None] = {}
+        self._package_paths: dict[str, tuple[str, ...]] = {}
+        self._package_indexes: dict[tuple[str, ...], tuple[Index, dict]] = {}
         self._context: tuple = ()
         self.update_context()
 
@@ -382,18 +405,97 @@ class HelpIndex:
         paths = tuple(str(Path(p).absolute()) for p in sys.path if type(p) is str)
         context = (paths, snapshot_loaded_modules())
         with self._lock:
+            if not self._context or paths != self._context[0]:
+                self._filesystem = None
+                self._package_indexes.clear()
             if context != self._context:
                 self._context = context
                 self._index = None
 
+    @staticmethod
+    def _changed(fingerprints) -> bool:
+        return any(_fingerprint(path) != value for path, value in fingerprints.items())
+
     def get(self) -> Index:
         with self._lock:
-            if self._index is None or any(
-                _fingerprint(path) != value for path, value in self._fingerprints.items()
-            ):
+            paths, loaded = self._context
+            if self._filesystem is None or self._changed(self._fingerprints):
                 discovery = Discovery()
-                paths, loaded = self._context
-                index = discovery.build(paths, loaded=loaded)
+                self._filesystem = discovery.build(paths)
                 self._fingerprints = discovery.fingerprints
-                self._index = index
+                self._package_paths = discovery.package_paths
+                self._index = None
+            # Only runtime paths absent from the static tree need discovery. Cache
+            # these separately: importing a package with its ordinary __path__
+            # must not walk that package again, nor invalidate the main index.
+            active_paths = {
+                tuple(str(Path(p).absolute()) for p in module.paths)
+                for module in loaded.modules
+                if module.is_package
+                and module.paths is not None
+                and tuple(str(Path(p).absolute()) for p in module.paths)
+                != self._package_paths.get(module.name)
+            }
+            self._package_indexes = {
+                key: value for key, value in self._package_indexes.items() if key in active_paths
+            }
+            for package_paths in active_paths:
+                cached = self._package_indexes.get(package_paths)
+                if cached is None or self._changed(cached[1]):
+                    discovery = Discovery()
+                    index = (
+                        discovery.build(package_paths, builtins=())
+                        if package_paths
+                        else Index((), ())
+                    )
+                    self._package_indexes[package_paths] = (index, discovery.fingerprints)
+                    self._index = None
+            if self._index is None:
+                self._index = self._overlay(loaded)
             return self._index
+
+    def _overlay(self, loaded: LoadedSnapshot) -> Index:
+        """Apply immutable runtime metadata without walking or reading sources."""
+        assert self._filesystem is not None
+        topics = {topic.name: topic for topic in self._filesystem.topics}
+        names = tuple(topics)
+        children: dict[str, set[str]] = {}
+
+        def add(topic):
+            topics[topic.name] = topic
+            parent = topic.name.rpartition(".")[0]
+            children.setdefault(parent, set()).add(topic.name)
+
+        def remove_children(name):
+            pending = list(children.pop(name, ()))
+            while pending:
+                child = pending.pop()
+                pending.extend(children.pop(child, ()))
+                topics.pop(child, None)
+
+        for topic in self._filesystem.topics:
+            add(topic)
+        diagnostics = list(self._filesystem.diagnostics) + list(loaded.diagnostics)
+        for module in sorted(loaded.modules, key=lambda m: (m.name.count("."), m.name)):
+            if module.is_package and module.paths is None:
+                continue
+            remove_children(module.name)
+            if not module.is_package:
+                continue
+            assert module.paths is not None
+            package_paths = tuple(str(Path(p).absolute()) for p in module.paths)
+            prefix = module.name + "."
+            if package_paths == self._package_paths.get(module.name):
+                start = bisect_left(names, prefix)
+                for offset in range(start, len(self._filesystem.topics)):
+                    topic = self._filesystem.topics[offset]
+                    if not topic.name.startswith(prefix):
+                        break
+                    add(topic)
+            else:
+                index, _ = self._package_indexes[package_paths]
+                diagnostics.extend(index.diagnostics)
+                for topic in index.topics:
+                    add(Topic(prefix + topic.name, topic.kind, topic.origin, topic.summary))
+        _overlay_metadata(topics, loaded)
+        return Index(tuple(topics[name] for name in sorted(topics)), tuple(diagnostics))
