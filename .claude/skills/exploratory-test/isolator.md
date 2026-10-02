@@ -30,9 +30,8 @@ dialogs from two different features. Otherwise name only the ones you saw.
 
 Record the state the check depends on, not just the outcome:
 `document.activeElement` for a key, the context key for a when-clause
-(Developer: Inspect Context Keys). Run each case three times. You have 20
-minutes for all of them; when they are up, write up what you have and list the
-findings you did not reach.
+(Developer: Inspect Context Keys). Run each case three times. When you are told
+to write up, write up what you have and list the findings you did not reach.
 
 Write `<run dir>/isolation.md`: for each finding, `## Finding N`, then a table,
 

@@ -4,9 +4,10 @@ description: "Explore a running Positron instance as a real user to find genuine
 disable-model-invocation: true
 metadata:
   # Bump when the agent is told something new: this file, explorer.md,
-  # verifier.md, or the prompt CI builds in pr-exploratory-test's run.mjs and
-  # lib.mjs. Feedback is grouped by it, so a renderer change does not count.
-  version: "1.11"
+  # verifier.md, isolator.md, the text renderer/known-issues.mjs prints, or the
+  # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
+  # grouped by it, so a renderer change does not count.
+  version: "1.12"
 ---
 
 # Exploratory testing

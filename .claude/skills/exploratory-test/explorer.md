@@ -101,9 +101,6 @@ cannot reproduce from a description of a file.
   what it stands in for and what its command does, in a user's words. Its code
   is in the file; leave it out.
 
-The render step checks this: a file a setup names that is not saved and listed
-is a format problem.
-
 Write the report with Bash, as one quoted heredoc:
 `cat > "$RUN/report.md" <<'REPORT'`, so backticks and `$` pass through. Do not
 use the Write tool: it rejects a subagent's report file outright, and the run
@@ -162,8 +159,7 @@ the ledger's `Not run` list with the reason.
 Run details goes last: the branch and how you proved the build matches it
 (Branch verification), the state you manufactured and restored (State
 manipulation), and the local noise you ignored. The renderer adds the ledger's
-Environment. It is the one section that collapses; keep a blank line after
-`<summary>` and before `</details>`.
+Environment.
 
 ## Issues linked to the PR
 
@@ -297,20 +293,8 @@ Steps:
   on the web. Otherwise, testing where you are covers it. The same holds for
   `Not exercised`.
 
-**Steps.** Record them as you run them, not afterwards, in this grammar, in the
-ledger and in a finding:
-
-```
-N. <action text>
-N. VERIFY <expectation> -> PASS
-   Evidence: <file>
-N. VERIFY <expectation> -> FAIL - Finding K
-   Observed: <one line>
-   Evidence: <file>[, <file>]
-   Log: logs/<file>:<line> | <Renderer, Console, or Extension host> | <N>x[ (<when>)]
-     <the error message>
-       at <function> (<repo-relative path>:<line>)
-```
+**Steps.** Record them as you run them, not afterwards, in the grammar the
+ledger above shows, in the ledger and in a finding.
 
 - An action is one thing you did: "Run `%view df`.", "Click Continue." Two
   actions are two steps. Merge trivial waits into it, naming what you waited
@@ -342,8 +326,7 @@ for a second shot of the same step, `S03-06b.png`. Cite it as a bare file name
 on that step's `Evidence:` line. Never cite one shot for two checks, even when
 nothing changed between them; take another. A check about something off screen,
 such as a log line, still gets a shot of the app as it stood. The check counts
-only a file that is there: "none" or "DOM read only" does not satisfy it. The
-render step flags a VERIFY with no shot and a shot cited twice.
+only a file that is there: "none" or "DOM read only" does not satisfy it.
 
 ## Findings
 
