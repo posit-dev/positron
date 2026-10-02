@@ -113,6 +113,15 @@ outputs:
   comment-id:
     description: "Comment mode: the id of the comment posted or edited"
     value: ${{ steps.agent.outputs.comment_id }}
+  testable:
+    description: "Gate mode: false when the gate declined the run"
+    value: ${{ steps.agent.outputs.testable }}
+  reason:
+    description: "Gate mode: why it ruled as it did"
+    value: ${{ steps.agent.outputs.reason }}
+  cost:
+    description: "Gate mode: the gate's cost in USD"
+    value: ${{ steps.agent.outputs.cost }}
 runs:
   using: composite
   steps:
@@ -131,6 +140,7 @@ runs:
         node-version-file: .nvmrc
 
     - name: Install action dependencies
+      if: inputs.mode != 'comment'
       shell: bash
       working-directory: ${{ github.action_path }}
       run: npm ci --no-audit --no-fund
@@ -181,9 +191,7 @@ runs:
         PR_NUMBER: ${{ inputs.pr-number }}
         GH_TOKEN: ${{ inputs.github-token }}
         COMMENT_ID: ${{ inputs.comment-id }}
-        # run.mjs reads GATE directly; without it here the gate can decline a
-        # run and leave the caller no way to overrule it. VERIFY is deliberately
-        # absent: it defaults on, a job-level env var still reaches it for
+        # VERIFY is deliberately absent: it defaults on, a job-level env var still reaches it for
         # debugging, and verification is what makes an unattended report worth
         # trusting, so it is not a dispatch-time choice.
       run: node ${{ inputs.mode == 'gate' && 'gate.mjs' || inputs.mode == 'comment' && 'comment.mjs' || 'run.mjs' }}

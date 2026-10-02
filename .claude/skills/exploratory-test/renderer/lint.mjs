@@ -233,17 +233,6 @@ function ledgerPreconditions(ledger) {
 	return out;
 }
 
-/**
- * @param {string} markdown report.md
- * @param {string | undefined} ledger ledger.md, when the run wrote one
- * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
- * @returns {string[]} one line per problem; empty when the report is clean
- */
-/**
- * Finding screenshots with neither a `Step N:`/`Variant:` caption nor a step
- * that names them. Evidence groups by that tag, so one without it is a ledger
- * error, not a tile to show untagged.
- */
 /** The ledger's `Issue:` lines and issue-naming Not run rows, against the issues fetched for the PR. */
 function lintKnownIssues(ledger, knownIssues) {
 	const problems = [];
@@ -294,10 +283,21 @@ function lintKnownIssues(ledger, knownIssues) {
 	return problems;
 }
 
+/**
+ * Finding screenshots with neither a `Step N:`/`Variant:` caption nor a step
+ * that names them. Evidence groups by that tag, so one without it is a ledger
+ * error, not a tile to show untagged.
+ */
 export function untaggedShots(findings) {
 	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !e.step).map(e => ({ n: f.n, file: e.file })));
 }
 
+/**
+ * @param {string} markdown report.md
+ * @param {string | undefined} ledger ledger.md, when the run wrote one
+ * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
+ * @returns {string[]} one line per problem; empty when the report is clean
+ */
 export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues } = {}) {
 	const problems = [];
 	const lines = prose(markdown);

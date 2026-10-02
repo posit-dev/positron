@@ -16,7 +16,7 @@ export const PREVIEW_LINES = 400;
 // Text over this size is not embedded: Download links the file instead.
 export const EMBED_BYTES = 200 * 1024;
 // A table shows this many data rows under its header.
-export const PREVIEW_ROWS = 20;
+const PREVIEW_ROWS = 20;
 
 const TYPE = {
 	qmd: 'Quarto', rmd: 'R Markdown', ipynb: 'Notebook', py: 'Python', r: 'R', jl: 'Julia',
@@ -248,7 +248,7 @@ export function linkFilePaths(html, files) {
  * not there. `{ path: true }` labels it with its folder in the workspace too,
  * for a list where the reader has to know where each file goes.
  */
-export function fileChip(f, { path = false } = {}) {
+function fileChip(f, { path = false } = {}) {
 	const label = escapeHtml(path ? f.rel : f.name);
 	if (f.kind === 'missing') {
 		return `<code>${label}</code>`;

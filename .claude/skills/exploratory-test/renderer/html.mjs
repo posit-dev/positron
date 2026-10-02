@@ -14,7 +14,7 @@
 
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
@@ -22,7 +22,8 @@ import { CHECKS_FILE, summarizeChecks } from './stats.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
-import { CARD_HEIGHT, CARD_WIDTH } from './og-card.mjs';
+import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
+import { readKnownIssues } from './finish.mjs';
 
 const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -177,6 +178,11 @@ function capitalize(text) {
 	return text ? text[0].toUpperCase() + text.slice(1) : text;
 }
 
+/** A finding's status, lowercase: the verifier's verdict over the run's own. */
+function statusWord(f) {
+	return f.verified ?? (f.confirmed ? f.confirmed.toLowerCase() : null);
+}
+
 function renderAgents(report) {
 	const { passes, total, duration } = report.cost;
 	if (!passes.length) {
@@ -274,14 +280,13 @@ const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" ari
 
 function renderFindingsList(report, ki = null) {
 	const rows = report.findings.map(f => {
-		const word = f.verified ?? (f.confirmed ? f.confirmed.toLowerCase() : null);
+		const word = statusWord(f);
 		const verdict = word === 'confirmed'
 			? `<span class="status">${ICON.statusCheck}Confirmed</span>`
 			: word
-				? `<span class="status muted">${word[0].toUpperCase()}${word.slice(1)}</span>`
+				? `<span class="status muted">${capitalize(word)}</span>`
 				: '<span class="status muted"></span>';
-		// Plain numbers, not links: the whole row is already a link to the card, which has them.
-		// Plain text inside the row link, but it still previews on hover.
+		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
 		const nums = issues => issues.map(i => `<span class="ki-num-t"${kiData(i, ki)}>#${i.number}</span>`).join(', ');
 		const failed = ki?.fixFailed.get(f.n);
 		const back = ki?.cameBack.get(f.n);
@@ -489,7 +494,7 @@ function absolutePath(p, base) {
  * A log source that names a file beside the report, `logs/x.log:1182`, as
  * `{ path, line }`; null for prose, an absolute path, or one leaving the folder.
  */
-export function logFile(source) {
+function logFile(source) {
 	const m = /^([^\s`:]+?)(?::(\d+))?$/.exec(String(source ?? '').trim());
 	if (!m || /^([a-z][a-z0-9+.-]*:|\/|~|\.\.)/i.test(m[1]) || !/\.\w+$/.test(m[1])) {
 		return null;
@@ -603,14 +608,14 @@ function regressionTest(f) {
  * fields the card renders. A section with nothing in it is left out rather than
  * printed as an empty heading.
  */
-export function buildAgentPrompt(f, report, options = {}) {
+function buildAgentPrompt(f, report, options = {}) {
 	const base = options.base;
 	const t = f.text;
-	const word = f.verified ?? f.confirmed ?? '';
+	const word = statusWord(f);
 	const title = capitalize(safeLinks(/[.!?]$/.test(f.title) ? f.title : `${f.title}.`));
 	const out = [`## Finding ${f.n} \u2014 ${SEVERITY_LABEL[f.severity]}`, '', title, ''];
 	const status = [
-		word && `Status: ${word[0].toUpperCase()}${word.slice(1)}`,
+		word && `Status: ${capitalize(word)}`,
 		f.reproduced && `Reproduced: ${f.reproduced}`,
 	].filter(Boolean);
 	out.push(...status, '');
@@ -620,6 +625,11 @@ export function buildAgentPrompt(f, report, options = {}) {
 		}
 	};
 	section('Impact', t.impact);
+	// So the agent checks these before fixing or filing it again.
+	section('Possibly known issues', possiblyKnown(f, options.ki).map(n => {
+		const issue = options.ki?.byNumber.get(n);
+		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
+	}).join('\n'));
 	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 	section('Preconditions', t.preconditions.length === 1
@@ -823,7 +833,7 @@ function issueStep(step, observed) {
  * `trim` (0 to ISSUE_TRIMS.length) drops that many of ISSUE_TRIMS, least
  * needed first, for a body too long for the new-issue link.
  */
-export function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
+function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const drop = new Set(ISSUE_TRIMS.slice(0, trim));
 	const t = f.text;
 	const [branch, sha] = report.chips;
@@ -932,7 +942,7 @@ const ISSUE_TRIMS = ['fileText', 'regression', 'cause', 'errors'];
  * shortest does not fit, the link carries the title alone and `copy` is set:
  * the page copies `text`, the full body, on click instead.
  */
-export function issueLink(f, report, options = {}) {
+function issueLink(f, report, options = {}) {
 	// Positron issues are titled `<Feature>: <description>`.
 	const title = f.feature ? `${f.feature}: ${lowerFirstWord(f.title, f)}` : f.title;
 	const full = buildIssueBody(f, report, options);
@@ -1047,9 +1057,14 @@ function renderCardDetails(f, report, options = {}) {
 	return rows.length ? `<div class="card-details">${rows.join('')}</div>` : '';
 }
 
-/** The card's "Possibly known" line: the verifier's matches, less the finding's own issues. */
+/** The verifier's matches, less the finding's own issues. */
+function possiblyKnown(f, ki) {
+	return ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
+}
+
+/** The card's "Possibly known" line. */
 function renderPossiblyKnown(f, ki) {
-	const known = ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
+	const known = possiblyKnown(f, ki);
 	if (!known.length) {
 		return '';
 	}
@@ -1060,10 +1075,11 @@ function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
 	const issue = issueLink(f, report, options);
 	const context = [];
-	if (f.confirmed === 'Confirmed' || f.verified === 'confirmed') {
+	const word = statusWord(f);
+	if (word === 'confirmed') {
 		context.push(`<span class="confirmed">${ICON.check(12)}Confirmed</span>`);
-	} else if (f.confirmed) {
-		context.push(`<span class="confirmed">${escapeHtml(f.confirmed)}</span>`);
+	} else if (word) {
+		context.push(`<span class="confirmed">${escapeHtml(capitalize(word))}</span>`);
 	}
 	if (f.reproduced) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
@@ -1101,8 +1117,7 @@ function renderFindingCard(f, report, options) {
 		+ '</div>'
 		: '';
 
-	// Text only: every screenshot, including the one the report embedded here,
-	// now sits under Evidence.
+	// Text only: every screenshot sits under Evidence.
 	// Setup first, then actions, each under its own label: a reader can see what
 	// they need before they start without reading to find where it stops.
 	const preconditions = f.preconditions.length
@@ -1383,8 +1398,7 @@ ${report.verification.bodyHtml}
  * repeating it here ended the page on an invoice.
  *
  * The name links to the skill that wrote the report. The arrow says the link
- * leaves the page, so it has to actually go somewhere; the `data-skill-url`
- * placeholder the reference carries is gone now that there is a real URL.
+ * leaves the page.
  *
  * The copyright under it is dated by the run, not the render, so re-rendering
  * an old run keeps its year.
@@ -1562,13 +1576,13 @@ if(a.dataset.submit){var r=a.closest('.fb');send(a.dataset.submit);put(key(r),a.
 open(a.href);});
 })();`;
 
-// One handler for every copy button. Only a copy that worked says "Copied".
+// One handler for the code and agent-prompt copy buttons. Only a copy that worked says "Copied".
 const COPY_SCRIPT = `document.querySelectorAll('.cp-btn,.code-cp').forEach(function(b){var t,tip=b.dataset.tip;
 b.addEventListener('click',function(){var text;
 // A code block copies its source exactly; the agent button copies its prompt.
 if(b.classList.contains('code-cp')){var pre=b.parentNode.querySelector('pre');if(!pre){return;}text=pre.textContent;}
 else{var el=document.getElementById(b.dataset.prompt);if(!el){return;}
-// Undo renderPromptBlock's escapes, or the paste carries them.
+// Undo scriptText's escapes, or the paste carries them.
 text=el.textContent.trim().replace(/<\\\\(?=\\/script|!--)/gi,'<');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
@@ -1807,4 +1821,44 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${link ? `<script>${LINK_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}${lists ? `<script>${KI_LIST_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
+}
+
+/**
+ * What the page reads from the run directory besides report.md: the ledger,
+ * the linked issues known-issues.mjs fetched, and the files the report names.
+ */
+export function readRunDir(dir) {
+	const ledgerPath = join(dir, 'ledger.md');
+	const fileExists = path => existsSync(join(dir, path));
+	return {
+		ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
+		knownIssues: readKnownIssues(dir) ?? undefined,
+		fileExists,
+		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
+	};
+}
+
+/** The logs and test files the report lists that are not in the run directory. */
+export function missingFiles(parsed, fileExists) {
+	return {
+		logs: linkedLogs(parsed).filter(p => !fileExists(p)),
+		files: parsed.files.map(f => f.path).filter(p => !fileExists(p)),
+	};
+}
+
+/**
+ * Writes the page to `out`, with its link card beside it when `base` is a URL:
+ * chat apps need an absolute one to fetch the image from.
+ *
+ * @param {string} out
+ * @param {string} markdown report.md
+ * @param {{ severityCounts: object }} parsed the report, parsed with its ledger
+ * @param {object} options renderReportHtml's options; `base` is required
+ */
+export async function writeRunPage(out, markdown, parsed, options) {
+	const { base } = options;
+	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), parsed.severityCounts)
+		? `${base.replace(/\/$/, '')}/${CARD_FILE}`
+		: undefined;
+	writeFileSync(out, renderReportHtml(markdown, { ...options, ogImage }));
 }
