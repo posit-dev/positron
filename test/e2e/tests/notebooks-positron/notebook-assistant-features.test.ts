@@ -8,15 +8,25 @@ import { test } from './_test.setup.js';
 
 test.use({
 	suiteId: __filename,
-	// Signs in through the legacy provider dialog (pages/positronAssistant.ts),
-	// which is no longer the default. Remove the pin when that page object is
-	// ported to the new modal.
-	extraSettings: { 'assistant.newProviderModal': false },
 });
+
+// The Fix/Explain buttons and the Ask Assistant action only render once Posit
+// Assistant reports a usable chat model, so a real provider has to be connected
+// for the "visible" cases; the echo test provider is gone.
+const PROVIDER = 'anthropic-api';
 
 test.describe('Notebook Assistant: Feature Toggle', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WIN]
 }, () => {
+
+	test.beforeAll(async function ({ app }) {
+		await app.workbench.modelProviderModal.loginModelProvider(PROVIDER);
+	});
+
+	test.afterAll(async function ({ app, settings }) {
+		await settings.remove(['ai.enabled']);
+		await app.workbench.modelProviderModal.logoutModelProvider(PROVIDER);
+	});
 
 	test('Notebook AI features hidden when AI disabled', async function ({ app, settings }) {
 		const { notebooksPositron } = app.workbench;
@@ -38,12 +48,11 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		await notebooksPositron.expectErrorAssistantButtonsVisible(false);
 	});
 
-	test.skip('Notebook AI features visible when AI enabled', async function ({ app, settings }) {
-		const { notebooksPositron, assistant } = app.workbench;
+	test('Notebook AI features visible when AI enabled', async function ({ app, settings }) {
+		const { notebooksPositron } = app.workbench;
 
-		// Turn on the AI main switch, enable the assistant, and sign in to echo provider
-		await settings.set({ 'ai.enabled': true, 'positron.assistant.enable': true });
-		await assistant.loginModelProvider('echo');
+		// Turn on the AI main switch
+		await settings.set({ 'ai.enabled': true });
 
 		// Create a new notebook with a cell that produces an error
 		await notebooksPositron.createNewNotebook();
@@ -57,24 +66,29 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		// Verify assistant buttons ARE visible
 		await notebooksPositron.expectAssistantButtonsVisible(true);
 		await notebooksPositron.expectErrorAssistantButtonsVisible(true);
-		await assistant.logoutModelProvider('echo');
 	});
 });
 
-test.describe.skip('Notebook Assistant: Interaction Flow', {
+test.describe('Notebook Assistant: Interaction Flow', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WEB, tags.WIN]
 }, () => {
 
-	test.beforeAll(async function ({ assistant }) {
-		await assistant.loginModelProvider('echo');
+	test.beforeAll(async function ({ app }) {
+		const { modelProviderModal, positAssistant } = app.workbench;
+		await modelProviderModal.loginModelProvider(PROVIDER);
+		// Open the chat once up front: newChat against a webview that has never
+		// rendered submits before the model catalog has loaded and is rejected with
+		// "No model selected" (posit-dev/assistant#2646).
+		await positAssistant.open();
+		await positAssistant.waitForReady();
 	});
 
-	test.afterAll(async function ({ assistant }) {
-		await assistant.logoutModelProvider('echo');
+	test.afterAll(async function ({ app }) {
+		await app.workbench.modelProviderModal.logoutModelProvider(PROVIDER);
 	});
 
-	test.skip('Fix error button opens chat and sends error context', async function ({ app }) {
-		const { notebooksPositron, assistant } = app.workbench;
+	test('Fix error button opens chat and sends error context', async function ({ app }) {
+		const { notebooksPositron, positAssistant } = app.workbench;
 
 		// Create notebook
 		await notebooksPositron.createNewNotebook();
@@ -89,21 +103,21 @@ test.describe.skip('Notebook Assistant: Interaction Flow', {
 		await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
 		await notebooksPositron.expectNotebookErrorVisible();
 
-		// Click the Fix button and wait for response
+		// Click the Fix button and wait for the response, allowing any tool the
+		// model asks for on the way
 		await notebooksPositron.clickFixErrorButton();
-		await assistant.waitForResponseComplete();
+		await positAssistant.expectViewOpen();
+		await positAssistant.waitForResponseCompleteAllowingTools();
 
-		// Verify the chat panel is visible and received a response
-		await assistant.expectChatPanelVisible();
-		await assistant.expectChatResponseVisible();
-
-		// Verify the error context was sent
-		const responseText = await assistant.getChatResponseText(app.workspacePathOrFolder);
-		expect(responseText).toContain('undefined_var');
+		// Verify the prompt and the error attachment were sent
+		await positAssistant.expectUserMessageToContainText('Fix this notebook cell error.');
+		await positAssistant.expectUserMessageToContainText('Notebook Cell Error');
+		await positAssistant.expectResponseVisible();
+		expect(await positAssistant.getLastResponseText()).toContain('undefined_var');
 	});
 
-	test.skip('Explain error button opens chat and sends error context', async function ({ app }) {
-		const { notebooksPositron, assistant } = app.workbench;
+	test('Explain error button opens chat and sends error context', async function ({ app }) {
+		const { notebooksPositron, positAssistant } = app.workbench;
 
 		// Create notebook
 		await notebooksPositron.createNewNotebook();
@@ -114,16 +128,15 @@ test.describe.skip('Notebook Assistant: Interaction Flow', {
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 		await notebooksPositron.expectNotebookErrorVisible();
 
-		// Click the Explain button and wait for response
+		// Click the Explain button and wait for the response
 		await notebooksPositron.clickExplainErrorButton();
-		await assistant.waitForResponseComplete();
+		await positAssistant.expectViewOpen();
+		await positAssistant.waitForResponseCompleteAllowingTools();
 
-		// Verify the chat panel is visible and received a response
-		await assistant.expectChatPanelVisible();
-		await assistant.expectChatResponseVisible();
-
-		// Verify the error context was sent
-		const responseText = await assistant.getChatResponseText(app.workspacePathOrFolder);
-		expect(responseText).toContain('undefined_function');
+		// Verify the prompt and the error attachment were sent
+		await positAssistant.expectUserMessageToContainText('Explain this notebook cell error.');
+		await positAssistant.expectUserMessageToContainText('Notebook Cell Error');
+		await positAssistant.expectResponseVisible();
+		expect(await positAssistant.getLastResponseText()).toContain('undefined_function');
 	});
 });
