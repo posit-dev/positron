@@ -1039,7 +1039,7 @@ export interface IRuntimeSessionService {
 	 * @param runtimeId The runtime identifier of the runtime to start.
 	 * @param sessionName A human-readable (displayed) name for the session to start.
 	 * @param sessionMode The mode of the session to start.
-	 * @param startReason Why the runtime is being started, with a description for logs
+	 * @param startReason Why the runtime is being started.
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
@@ -1088,7 +1088,7 @@ export interface IRuntimeSessionService {
 	 * Automatically starts a runtime.
 	 *
 	 * @param runtime The runtime to start.
-	 * @param startReason Why the runtime is being started, with a description for logs.
+	 * @param startReason Why the runtime is being started.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
 	 *
@@ -1104,7 +1104,7 @@ export interface IRuntimeSessionService {
 	 * Selects a previously registered runtime as the active runtime.
 	 *
 	 * @param runtimeId The identifier of the runtime to select.
-	 * @param startReason Why the runtime is being selected, with a description for logs.
+	 * @param startReason Why the runtime is being selected.
 	 * @param notebookUri The URI of the notebook selecting the runtime, if any.
 	 */
 	selectRuntime(runtimeId: string, startReason: IRuntimeSessionStartReason, notebookUri?: URI): Promise<void>;

@@ -10,7 +10,7 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platf
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILanguageRuntimeMetadata } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionMetadata, SessionStartReasonId } from '../../common/runtimeSessionService.js';
-import { describeSessionStartReason, getSessionStartReasonLabel } from '../../common/sessionStartReasons.js';
+import { describeSessionStartReason, describeSessionStartReasonForLog, getSessionStartReasonLabel } from '../../common/sessionStartReasons.js';
 
 describe('getSessionStartReasonLabel', () => {
 	const extensions = [
@@ -147,5 +147,36 @@ describe('describeSessionStartReason', () => {
 				expect(describeSessionStartReason({ id, requestingExtensionId }, runtime, notebookUri), id).toBe(label);
 			}
 		}
+	});
+
+	it('uses the ID for a start reason this version does not know', () => {
+		expect(describeSessionStartReason({ id: 'futureReason' as SessionStartReasonId }, runtime)).toBe('futureReason');
+	});
+
+	it('does not throw when saved runtime metadata is missing fields', () => {
+		const partialRuntime = stubInterface<ILanguageRuntimeMetadata>({
+			languageName: undefined,
+			runtimeName: undefined,
+			extensionId: undefined,
+		});
+		expect(() => describeSessionStartReason({ id: SessionStartReasonId.ExtensionRecommendedRuntime }, partialRuntime)).not.toThrow();
+	});
+});
+
+describe('describeSessionStartReasonForLog', () => {
+	const runtime = stubInterface<ILanguageRuntimeMetadata>({
+		languageName: 'R',
+		runtimeName: 'R 4.4.1',
+		extensionId: new ExtensionIdentifier('positron.positron-r'),
+	});
+
+	it('adds the start reason ID and the requesting extension, since some reasons share a description', () => {
+		expect([
+			describeSessionStartReasonForLog({ id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, runtime),
+			describeSessionStartReasonForLog({ id: SessionStartReasonId.RestartUninitializedSession, requestingExtensionId: 'posit.shiny' }, runtime),
+		]).toEqual([
+			'A file written in R was opened [startReasonId: languageFileOpenedAtRegistration]',
+			'A restart was requested before this interpreter had started [startReasonId: restartUninitializedSession, requestingExtension: posit.shiny]',
+		]);
 	});
 });

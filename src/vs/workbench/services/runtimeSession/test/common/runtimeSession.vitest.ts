@@ -34,6 +34,8 @@ describe('Positron - RuntimeSessionService', () => {
 	const startSource: IRuntimeSessionStartReason = { id: SessionStartReasonId.NewConsoleCommand };
 	/** How a session started for `startSource` describes why it started. */
 	const startSourceDescription = 'A command requested a new console for this interpreter';
+	/** How log lines and errors describe `startSource`. */
+	const startSourceLogDescription = `${startSourceDescription} [startReasonId: ${SessionStartReasonId.NewConsoleCommand}]`;
 	const notebookUri = URI.file('/path/to/notebook');
 	const notebookParent = '/path/to';
 
@@ -511,7 +513,7 @@ describe('Positron - RuntimeSessionService', () => {
 					const error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
 						`be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
 						`is already starting for the notebook ${notebookUri.toString()}.`
-						+ (action !== 'restore' ? ` Request source: ${startSourceDescription}` : ''));
+						+ (action !== 'restore' ? ` Request source: ${startSourceLogDescription}` : ''));
 
 					await expect(
 						Promise.all([
@@ -525,7 +527,7 @@ describe('Positron - RuntimeSessionService', () => {
 					const error = new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
 						`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
 						`is already running for the URI ${notebookUri.toString()}.` +
-						(action !== 'restore' ? ` Request source: ${startSourceDescription}` : ''));
+						(action !== 'restore' ? ` Request source: ${startSourceLogDescription}` : ''));
 
 					await start(runtime);
 					await expect(

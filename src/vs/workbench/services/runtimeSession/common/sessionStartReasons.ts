@@ -97,10 +97,13 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
  * @param getExtensionName Gets the name to show for an extension ID.
  */
 function getLabelArgs(runtime: ILanguageRuntimeMetadata, notebookUri: URI | undefined, requestingExtensionId: string | undefined, getExtensionName: (extensionId: string) => string): ISessionStartReasonLabelArgs {
+	// Runtime metadata can come from storage, so a missing field must not stop
+	// a session from starting.
+	const extensionId = runtime.extensionId?.value;
 	return {
-		languageName: runtime.languageName,
-		extensionName: getExtensionName(runtime.extensionId.value),
-		runtimeName: runtime.runtimeName,
+		languageName: runtime.languageName ?? '',
+		extensionName: extensionId ? getExtensionName(extensionId) : '',
+		runtimeName: runtime.runtimeName ?? '',
 		notebookFileName: notebookUri ? basename(notebookUri) : '',
 		requestingExtensionName: requestingExtensionId ? getExtensionName(requestingExtensionId) : '',
 	};
@@ -117,7 +120,29 @@ function getLabelArgs(runtime: ILanguageRuntimeMetadata, notebookUri: URI | unde
  * @returns The description.
  */
 export function describeSessionStartReason(startReason: IRuntimeSessionStartReason, runtime: ILanguageRuntimeMetadata, notebookUri?: URI): string {
+	// A session saved by a newer version can carry an ID this version doesn't know.
+	if (!Object.hasOwn(sessionStartReasonLabels, startReason.id)) {
+		return startReason.id;
+	}
 	return sessionStartReasonLabels[startReason.id](getLabelArgs(runtime, notebookUri, startReason.requestingExtensionId, extensionId => extensionId)).original;
+}
+
+/**
+ * Describes why a session is being started, for log lines and errors. Several
+ * start reasons share a description, so this adds the start reason ID, and the
+ * requesting extension if there is one, so the log says which code path ran.
+ *
+ * @param startReason Why the session is being started.
+ * @param runtime The runtime the session is for.
+ * @param notebookUri The session's notebook, or undefined for a console session.
+ * @returns The description.
+ */
+export function describeSessionStartReasonForLog(startReason: IRuntimeSessionStartReason, runtime: ILanguageRuntimeMetadata, notebookUri?: URI): string {
+	const ids = [`startReasonId: ${startReason.id}`];
+	if (startReason.requestingExtensionId) {
+		ids.push(`requestingExtension: ${startReason.requestingExtensionId}`);
+	}
+	return `${describeSessionStartReason(startReason, runtime, notebookUri)} [${ids.join(', ')}]`;
 }
 
 /**

@@ -13,7 +13,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, RuntimeStartupPhase } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions, IUpdateNotebookSessionUriOptions, IRuntimeSessionStartReason, SessionStartReasonId } from './runtimeSessionService.js';
-import { describeSessionStartReason } from './sessionStartReasons.js';
+import { describeSessionStartReason, describeSessionStartReasonForLog } from './sessionStartReasons.js';
 import { RuntimeSessionDisplayInfo } from './runtimeSessionDisplayInfo.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -777,7 +777,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 
-		const source = describeSessionStartReason(startReason, languageRuntime, notebookUri);
+		const source = describeSessionStartReasonForLog(startReason, languageRuntime, notebookUri);
 		const runningSessionId = this.validateRuntimeSessionStart(sessionMode, languageRuntime, notebookUri, source);
 		if (runningSessionId) {
 			return runningSessionId;
@@ -1741,7 +1741,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		startReason: IRuntimeSessionStartReason,
 		activate: boolean
 	): Promise<string> {
-		const source = describeSessionStartReason(startReason, metadata);
+		const source = describeSessionStartReasonForLog(startReason, metadata);
 
 		// Check the setting to see if we should be auto-starting.
 		const startupBehavior = this._configurationService.getValue<LanguageStartupBehavior>(
@@ -1856,7 +1856,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		const runningSessionId = this.validateRuntimeSessionStart(sessionMode, metadata, notebookUri,
-			describeSessionStartReason(startReason, metadata, notebookUri));
+			describeSessionStartReasonForLog(startReason, metadata, notebookUri));
 		if (runningSessionId) {
 			return runningSessionId;
 		}
