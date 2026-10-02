@@ -157,6 +157,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 				required: a.required,
 			})),
 			returns: cmd.returns,
+			readOnly: cmd.readOnly,
 			source: {
 				type: cmd.source.type,
 				id: cmd.source.id,

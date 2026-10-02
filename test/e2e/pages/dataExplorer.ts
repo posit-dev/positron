@@ -1183,6 +1183,21 @@ export class ImportDataModal {
 		});
 	}
 
+	get variableNameInput(): Locator {
+		return this.workbench.dynamicModals.dialogBox.getByRole('textbox', { name: 'Variable Name' });
+	}
+
+	/**
+	 * Replaces the variable name that the generated code assigns the data to. The dialog derives
+	 * a default from the file name.
+	 */
+	async setVariableName(name: string) {
+		await test.step(`Set variable name: ${name}`, async () => {
+			await this.variableNameInput.fill(name);
+			await expect(this.variableNameInput).toHaveValue(name);
+		});
+	}
+
 	get includeFiltersAndSortsCheckbox(): Locator {
 		return this.workbench.dynamicModals.dialogBox.getByRole('checkbox', { name: 'Include current filters and sorts (experimental)' });
 	}

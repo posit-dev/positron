@@ -13,6 +13,7 @@ import * as vscode from 'vscode';
 import { getPyenvDir } from '../pythonEnvironments/common/environmentManagers/pyenv';
 import { getGlobalEnvironmentParent } from '../pythonEnvironments/common/environmentManagers/globalEnvironment';
 import { getUserHomeDir } from '../common/utils/platform';
+import { getResolvedFilterSettingPaths } from './interpreterSettings';
 
 /**
  * Hard-coded POSIX bin directories where Python installers commonly drop
@@ -285,13 +286,18 @@ export async function getPythonDiscoveryRootSignature(): Promise<positron.Runtim
  *     which enumerate different sets of interpreters.
  *   - `useEnvironmentsExtension`: switches discovery to the external Python
  *     Environments extension; the cache must rebuild when this flips.
+ *
+ * `interpreters.include`, `.exclude`, and `.override` are hashed after replacing
+ * `${workspaceFolder}`, so two workspaces with the same setting text don't
+ * share a cache entry.
  */
 function getFilterSettingsDigest(): string {
     const config = vscode.workspace.getConfiguration('python');
+    const filterPaths = getResolvedFilterSettingPaths();
     const payload = {
-        include: config.get<string[]>('interpreters.include') ?? [],
-        exclude: config.get<string[]>('interpreters.exclude') ?? [],
-        override: config.get<string[]>('interpreters.override') ?? [],
+        include: filterPaths.include,
+        exclude: filterPaths.exclude,
+        override: filterPaths.override,
         locator: config.get<string>('locator') ?? '',
         useEnvironmentsExtension: config.get<boolean>('useEnvironmentsExtension') ?? false,
     };

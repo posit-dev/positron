@@ -59,6 +59,13 @@ export interface ICommandMetadata {
 	 * `positron.ai.getAgentAllowedCommands()`.
 	 */
 	readonly agentCompatible?: boolean;
+
+	/**
+	 * When true, the command leaves the user's work and data as they were, so
+	 * an agent may run it without asking. It may still change what's on
+	 * screen, such as revealing a pane.
+	 */
+	readonly readOnly?: boolean;
 	// --- End Positron ---
 }
 

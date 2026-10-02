@@ -5,6 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
+import { timeout } from '../../../../../base/common/async.js';
 import { Event } from '../../../../../base/common/event.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { WebviewFindDelegate, WebviewFindWidget } from '../../browser/webviewFindWidget.js';
@@ -42,10 +43,12 @@ describe('WebviewFindWidget', () => {
 	const ctx = createTestContainer().withWorkbenchServices().build();
 
 	let findCalls: FindCall[];
+	let focusCalls: number;
 	let widget: WebviewFindWidget;
 
 	function createWidget(): void {
 		findCalls = [];
+		focusCalls = 0;
 		const delegate: WebviewFindDelegate = {
 			hasFindResult: Event.None,
 			onDidStopFind: Event.None,
@@ -55,7 +58,9 @@ describe('WebviewFindWidget', () => {
 			},
 			updateFind: () => { },
 			stopFind: () => { },
-			focus: () => { },
+			focus: () => {
+				focusCalls++;
+			},
 		};
 
 		widget = ctx.disposables.add(ctx.instantiationService.createInstance(WebviewFindWidget, delegate));
@@ -113,5 +118,16 @@ describe('WebviewFindWidget', () => {
 			expect(findCalls).toEqual([]);
 			expect(event.defaultPrevented).toBe(false);
 		});
+	});
+
+	it('focuses the webview when it hides only if it was showing', async () => {
+		createWidget();
+
+		widget.hide(false);
+		// The widget counts as hidden once its hide transition has run.
+		await timeout(0);
+		widget.hide(false);
+
+		expect(focusCalls).toBe(1);
 	});
 });

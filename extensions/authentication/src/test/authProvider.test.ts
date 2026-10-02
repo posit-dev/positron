@@ -8,6 +8,7 @@ import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { AuthProvider } from '../authProvider';
 import { log } from '../log';
+import { useFakeTimers } from './fakeTimers';
 
 function createMockContext(): vscode.ExtensionContext {
 	const secrets = new Map<string, string>();
@@ -501,7 +502,7 @@ suite('AuthProvider - credential chain refresh', () => {
 	});
 
 	test('a provider that refreshes on a timer still works (GEAP-style)', async () => {
-		const clock = sinon.useFakeTimers();
+		const clock = useFakeTimers();
 		let count = 0;
 		// Not tracked for teardown disposal: dispose() clears the interval and
 		// must run while the fake clock owns that timer, before clock.restore().

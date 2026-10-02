@@ -1523,14 +1523,20 @@ declare module 'positron' {
 	}
 
 	/**
-	 * Describes the code to analyze for missing packages. Callers supply either
-	 * raw code or the URI of a saved file (not both).
+	 * Describes the code to analyze for missing packages. Supply `code`,
+	 * `uri`, or both. When both are set, `code` is analyzed and `uri`
+	 * identifies the document it came from (for example, so the runtime
+	 * can resolve local imports relative to it); the runtime must not
+	 * read the code from `uri` in that case.
 	 */
 	export interface RuntimeMissingPackagesTarget {
-		/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). */
+		/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). Takes precedence over `uri`. */
 		readonly code?: string;
 
-		/** URI of a saved file to analyze. The runtime may read/parse it directly. */
+		/**
+		 * URI of the source document. When `code` is not set, the runtime may
+		 * read and parse it directly. When `code` is set, it is context only.
+		 */
 		readonly uri?: string;
 	}
 
@@ -4362,8 +4368,29 @@ declare module 'positron' {
 			args?: AgentCommandArg[];
 			/** Description of the command's return value, if meaningful. */
 			returns?: string;
+			/**
+			 * Whether the command leaves the user's work and data as they were, so
+			 * an agent may run it without asking. It may still change what's on
+			 * screen, such as revealing a pane.
+			 */
+			readOnly?: boolean;
 			/** Where the command was registered from. */
 			source: AgentCommandSource;
+		}
+
+		/**
+		 * An image an agent-compatible command returns for the agent to see,
+		 * rather than text. The bytes are base64, since a `Uint8Array` doesn't
+		 * survive a command result's serialization.
+		 */
+		export interface AgentCommandImage {
+			kind: 'image';
+			/** The image's type, such as `image/png`. */
+			mimeType: string;
+			/** The image, base64-encoded. */
+			data: string;
+			/** Text to go with the image, such as how it was made. */
+			note?: string;
 		}
 
 		/**

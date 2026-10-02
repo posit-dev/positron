@@ -11,7 +11,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { modelDisplayName, parseLedger, parseReport, parseSystemLine, safeUrl } from './report-parse.mjs';
-import { renderReportHtml, skillVersion } from './html.mjs';
+import { previewSummary, renderReportHtml, skillVersion } from './html.mjs';
+
+// The renders these tests spawn must not post usage rows.
+process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
 /** A minimal report with one of everything the template lays out. */
 function md(...body) {
@@ -304,8 +307,92 @@ test('renderReportHtml ships both themes, defaulting to Professional', () => {
 	assert.match(html, /:root\[data-theme="party"\]/);
 	// Applied before the first paint, so a saved choice does not flash.
 	assert.ok(html.indexOf('localStorage.getItem') < html.indexOf('<body>'));
-	assert.match(html, /aria-label="Switch to Party"/);
-	assert.match(html, /aria-pressed="true"/);
+	// One toggle, named for what it does: light and dark, never the theme names.
+	assert.match(html, /<button type="button" class="mode-tip th-sw" data-tip="Switch to dark mode" aria-label="Switch to dark mode"><svg class="th-moon"[^]*?<svg class="th-sun"/);
+	assert.doesNotMatch(html, /class="switch"|aria-pressed|Switch to (Party|Professional)/);
+	// Both themes share one layout: dark has no grid banner under the header.
+	assert.doesNotMatch(html, /class="motif"|rotateX|\.head\{padding-bottom/);
+	assert.match(html, /<p class="lead">.*<\/p>\n<\/header>/);
+	assert.match(html, /\.th-sw \.th-sun,:root\[data-theme="party"\] \.th-sw \.th-moon\{display:none\}/);
+});
+
+/** Runs the page script against a stub DOM; returns the toggle, the Share button and what happened. */
+function headerDom(html, { secure = true, clipboardFails = false } = {}) {
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('.th-sw'));
+	assert.ok(src);
+	const attrs = { 'data-theme': 'professional' };
+	const root = { getAttribute: k => attrs[k], setAttribute: (k, v) => { attrs[k] = v; } };
+	const el = () => {
+		const e = { dataset: {}, attrs: {}, classes: new Set(), handlers: {}, textContent: '' };
+		e.setAttribute = (k, v) => { e.attrs[k] = v; };
+		e.addEventListener = (type, fn) => { e.handlers[type] = fn; };
+		e.classList = { add: c => e.classes.add(c), remove: c => e.classes.delete(c), toggle() {} };
+		return e;
+	};
+	const sw = el();
+	const share = el();
+	const label = el();
+	label.textContent = 'Share';
+	share.querySelector = () => label;
+	const stored = {};
+	const copied = [];
+	const replaced = [];
+	const timers = [];
+	let execCopies = 0;
+	const document = {
+		documentElement: root,
+		querySelector: sel => ({ '.th-sw': sw, '.sh-btn': share })[sel] ?? null,
+		querySelectorAll: () => [],
+		getElementById: () => null,
+		addEventListener() {},
+		createElement: () => ({ style: {}, setAttribute() {}, select() {}, remove() {} }),
+		body: { appendChild: ta => copied.push(ta.value) },
+		execCommand: () => { execCopies++; return true; },
+	};
+	const thenable = ok => ({ then: (done, fail) => (ok ? done() : fail()) });
+	const window = { isSecureContext: secure, addEventListener() {}, scrollY: 0 };
+	const navigator = { clipboard: { writeText: text => { copied.push(text); return thenable(!clipboardFails); } } };
+	const location = { href: 'https://cdn.example/run1/index.html#f2', pathname: '/run1/index.html', search: '' };
+	const history = { replaceState: (s, t, url) => replaced.push(url) };
+	const localStorage = { setItem: (k, v) => { stored[k] = v; } };
+	new Function('document', 'window', 'navigator', 'location', 'history', 'localStorage', 'setTimeout', 'clearTimeout', src)(
+		document, window, navigator, location, history, localStorage, fn => timers.push(fn), () => {});
+	return { attrs, sw, share, label, stored, copied, replaced, timers, execCopies: () => execCopies };
+}
+
+test('header: the toggle switches between light and dark, says which it goes to, and remembers it', () => {
+	const h = headerDom(renderReportHtml(FULL));
+	assert.equal(h.sw.attrs['aria-label'], 'Switch to dark mode');
+	h.sw.handlers.click();
+	assert.equal(h.attrs['data-theme'], 'party');
+	assert.deepEqual([h.sw.dataset.tip, h.sw.attrs['aria-label']], ['Switch to light mode', 'Switch to light mode']);
+	assert.equal(h.stored['exploratory-report-theme'], 'party');
+	h.sw.handlers.click();
+	assert.equal(h.attrs['data-theme'], 'professional');
+	assert.equal(h.sw.dataset.tip, 'Switch to dark mode');
+});
+
+test('header: Share copies the report URL with no anchor, clears it from the address bar, and says Copied for a moment', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /<div class="eyebrow">.*<div class="hd-act hd-inline"><button type="button" class="mode-tip th-sw" [^>]*>.*<\/button><button type="button" class="sh-btn" aria-label="Share: copy a link to this report"><svg class="sh-ico"[^]*?<svg class="sh-ok"[^]*?<span class="sh-l">Share<\/span><\/button><\/div><\/div>/);
+	assert.match(html, /\.hd-act\.hd-inline\{[^}]*margin:0 0 0 auto/);
+	const h = headerDom(html);
+	h.share.handlers.click();
+	assert.deepEqual(h.copied, ['https://cdn.example/run1/index.html']);
+	assert.deepEqual(h.replaced, ['/run1/index.html']);
+	assert.ok(h.share.classes.has('is-copied'));
+	assert.equal(h.label.textContent, 'Copied');
+	h.timers.pop()();
+	assert.ok(!h.share.classes.has('is-copied'));
+	assert.equal(h.label.textContent, 'Share');
+	// Without the Clipboard API, or when it refuses, a hidden textarea copies it.
+	for (const opts of [{ secure: false }, { clipboardFails: true }]) {
+		const f = headerDom(html, opts);
+		f.share.handlers.click();
+		assert.equal(f.execCopies(), 1);
+		assert.equal(f.copied.at(-1), 'https://cdn.example/run1/index.html');
+		assert.equal(f.label.textContent, 'Copied');
+	}
 });
 
 test('renderReportHtml stays self-contained but for Google Fonts', () => {
@@ -966,8 +1053,8 @@ test('renderReportHtml writes each finding as an agent prompt, from the parsed f
 		'',
 		'Please investigate this finding using the repository and the evidence above.',
 	].join('\n'));
-	// One button per card, last in the meta row, pointing at its own block.
-	assert.match(html, /<span class="group context">[\s\S]*?<\/span><a class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><\/div>/);
+	// One button per card, before Copy link, pointing at its own block.
+	assert.match(html, /<span class="group context">[\s\S]*?<\/span><a class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><button type="button" class="ln-btn"/);
 	assert.match(html, /document\.querySelectorAll\('\.cp-btn,\.code-cp'\)/);
 });
 
@@ -1009,8 +1096,8 @@ test('renderReportHtml emits inline scripts that parse, cut where the HTML parse
 test('renderReportHtml renders no prompt buttons, blocks or script when agent prompts are off', () => {
 	const html = renderReportHtml(FULL, { agentPrompts: false });
 	assert.doesNotMatch(html, /cp-btn"|id="prompt-f|querySelectorAll\('\.cp-btn,\.code-cp'\)/);
-	// Filing an issue does not depend on the prompts.
-	assert.match(html, /<a class="gh-btn"[^>]*>[\s\S]*?<\/a><\/div>/);
+	// Filing an issue and copying a link do not depend on the prompts.
+	assert.match(html, /<a class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="ln-btn"[\s\S]*?<\/button><\/div>/);
 	assert.match(html, /<script type="text\/plain" id="issue-f1">/);
 });
 
@@ -1378,7 +1465,7 @@ test('renderReportHtml fences an error in the prompt so a ``` line inside cannot
 test('renderReportHtml links the PR in the header and the prompt, only when there is one', () => {
 	const withPr = RICH.replace('`branch/name` | `abc1234`\n', '`branch/name` | `abc1234`\n\nPR: posit-dev/positron#1234\n');
 	const html = renderReportHtml(withPr);
-	assert.match(html, /<span class="kicker">Exploratory test<\/span><span class="bullet"><\/span><a class="pr-link" href="https:\/\/github\.com\/posit-dev\/positron\/pull\/1234" target="_blank" rel="noopener" title="Open the pull request on GitHub">PR #1234<svg[^>]*>[\s\S]*?<\/svg><\/a><code>branch\/name<\/code><code>abc1234<\/code><\/div>/);
+	assert.match(html, /<span class="kicker">Exploratory test<\/span><span class="bullet"><\/span><a class="pr-link" href="https:\/\/github\.com\/posit-dev\/positron\/pull\/1234" target="_blank" rel="noopener" title="Open the pull request on GitHub">PR #1234<svg[^>]*>[\s\S]*?<\/svg><\/a><code>branch\/name<\/code><code>abc1234<\/code><div class="hd-act hd-inline">/);
 	assert.match(promptText(html, 1), /### Context\nPR: https:\/\/github\.com\/posit-dev\/positron\/pull\/1234\nBranch: branch\/name\n/);
 	assert.match(html, /\.pr-link\{font-weight:500;white-space:nowrap\}/);
 
@@ -1948,7 +2035,41 @@ test('issue: one button per card, directly before Copy prompt', () => {
 		}
 	}
 	const off = renderReportHtml(FULL, { agentPrompts: false });
-	assert.match(off, /class="gh-btn"[^>]*>[\s\S]*?<\/a><\/div>/);
+	assert.match(off, /class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="ln-btn"/);
+});
+
+// ---- Copy link to a finding -------------------------------------------------
+
+test('link: one button per card, last in the meta row, naming its own anchor', () => {
+	for (const options of [{}, { agentPrompts: false }]) {
+		const html = renderReportHtml(FULL, options);
+		const cards = html.split('<article id="f').slice(1);
+		assert.ok(cards.length >= 1);
+		for (const card of cards) {
+			const n = /^(\d+)"/.exec(card)[1];
+			assert.equal((card.match(/class="ln-btn"/g) || []).length, 1);
+			assert.match(card, new RegExp(`<button type="button" class="ln-btn" data-link-to="f${n}" data-tip="Copy link" aria-label="Copy link to finding ${n}"><svg class="ln-ico"[\\s\\S]*?<svg class="ln-ok"[\\s\\S]*?</button></div>`));
+		}
+		assert.match(html, /querySelectorAll\('\[data-link-to\]'\)/);
+	}
+});
+
+test('link: the script copies the page URL with the anchor and updates the address bar in place', () => {
+	const html = renderReportHtml(FULL);
+	const src = /<script>(document\.querySelectorAll\('\[data-link-to\]'\)[\s\S]*?)<\/script>/.exec(html)[1];
+	assert.match(src, /location\.href\.split\('#'\)\[0\]\+'#'\+id/);
+	assert.match(src, /history\.replaceState\(null,'','#'\+id\)/);
+	assert.match(src, /b\.dataset\.tip='Link copied'/);
+	assert.match(src, /document\.execCommand\('copy'\)/);
+});
+
+test('link: spacing matches the other icons, and a linked card rings briefly', () => {
+	const html = renderReportHtml(FULL);
+	assert.match(html, /\.cp-btn:has\(\+\.ln-btn\)\{margin-right:0\}/);
+	assert.match(html, /\.cp-btn\+\.ln-btn,\.gh-btn\+\.ln-btn\{margin-left:-19px\}/);
+	assert.match(html, /article\.card:target\{animation:ln-ring 2\.4s/);
+	assert.match(html, /prefers-reduced-motion:reduce\)\{\.ln-btn\{transition:none\}article\.card:target\{animation:none;box-shadow:0 0 0 2px var\(--ln-ring\)\}\}/);
+	assert.equal((html.match(/--ln-ring: rgba/g) || []).length, 2);
 });
 
 test('issue: the link opens a blank bug form titled as the card, with the embedded text as its body', () => {
@@ -2124,16 +2245,13 @@ test('issue: icons rest until their own button is hovered', () => {
 });
 
 const FINDING_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform';
-const REPORT_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform';
 
-/** Each feedback link's pre-filled answers, by form question; a finding row goes to the finding form, the header button to the report form. */
-function feedbackAnswers(html, cls) {
-	const hrefs = cls === 'fb-top'
-		? [...html.matchAll(/<a class="fb-top" href="([^"]+)"/g)].map(m => m[1])
-		: [...html.matchAll(/<div class="fb" [^>]*>(.*?)<\/div>/g)].flatMap(m => [...m[1].matchAll(/href="([^"]+)"/g)].map(h => h[1]));
+/** Each finding row's pre-filled answers, by form question. */
+function feedbackAnswers(html) {
+	const hrefs = [...html.matchAll(/<div class="fb" [^>]*>(.*?)<\/div>/g)].flatMap(m => [...m[1].matchAll(/href="([^"]+)"/g)].map(h => h[1]));
 	return hrefs.map(href => {
 		const url = new URL(href.replace(/&amp;/g, '&'));
-		assert.equal(`${url.origin}${url.pathname}`, cls === 'fb-top' ? REPORT_FORM : FINDING_FORM);
+		assert.equal(`${url.origin}${url.pathname}`, FINDING_FORM);
 		// The "Feedback on" question is gone from both forms.
 		assert.equal(url.searchParams.has('entry.857252905'), false);
 		return {
@@ -2147,7 +2265,7 @@ function feedbackAnswers(html, cls) {
 
 test('feedback: a published page asks about each finding, and the verdicts match the form exactly', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1/', skillVersion: '1.2' });
-	const answers = feedbackAnswers(html, 'fb');
+	const answers = feedbackAnswers(html);
 	const titles = parseReport(FULL).findings.map(f => f.title);
 	assert.equal(titles[0], 'a longer claim');
 	// In the form's order, which is also the buttons'.
@@ -2162,29 +2280,26 @@ test('feedback: a published page asks about each finding, and the verdicts match
 	assert.match(html, /<div class="fb" role="group" [^>]*aria-label="Provide feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
 });
 
-test('feedback: a published page has one header button for the whole report, beside the theme switch', () => {
+test('feedback: there is none for the whole report, only for each finding', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	assert.deepEqual(feedbackAnswers(html, 'fb-top'),
-		[{ report: 'https://cdn.example/run1/index.html', version: 'v1.2', finding: null, verdict: null }]);
-	assert.match(html, /<header class="head">\n<a class="fb-top" [^>]*>.*Give feedback<\/span><\/a>\n<nav class="switch"/);
+	assert.doesNotMatch(html, /fb-top|Give feedback|1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/);
+	assert.match(html, /exploratory-feedback/);
 });
 
 test('feedback: a local page asks too, naming the run by its directory, never its path', () => {
 	for (const base of ['/Users/someone/20261001T120000', '/Users/someone/20261001T120000/', '20261001T120000', 'C:\\Users\\someone\\20261001T120000', 'C:\\Users\\someone\\20261001T120000\\']) {
 		const html = renderReportHtml(FULL, { base, skillVersion: '1.2' });
-		assert.deepEqual(feedbackAnswers(html, 'fb-top').map(a => a.report), ['local:20261001T120000'], `base: ${base}`);
-		assert.deepEqual([...new Set(feedbackAnswers(html, 'fb').map(a => a.report))], ['local:20261001T120000#f1', 'local:20261001T120000#f2']);
+		assert.deepEqual([...new Set(feedbackAnswers(html).map(a => a.report))], ['local:20261001T120000#f1', 'local:20261001T120000#f2']);
 		assert.doesNotMatch([...html.matchAll(/(?:href|data-submit)="(https:\/\/docs\.google\.com[^"]*)"/g)].join(' '), /someone/);
 		assert.match(html, /exploratory-feedback/);
 	}
 	// Who ran it, when git knows; a published page never says.
 	const local = renderReportHtml(FULL, { base: '/Users/someone/20261001T120000', author: 'a@posit.co', skillVersion: '1.2' });
 	const published = renderReportHtml(FULL, { base: 'https://cdn.example/run1', author: 'a@posit.co', skillVersion: '1.2' });
-	assert.deepEqual(feedbackAnswers(local, 'fb-top').map(a => a.report), ['local:a@posit.co/20261001T120000']);
-	assert.equal(feedbackAnswers(local, 'fb')[0].report, 'local:a@posit.co/20261001T120000#f1');
+	assert.equal(feedbackAnswers(local)[0].report, 'local:a@posit.co/20261001T120000#f1');
 	assert.doesNotMatch(published, /a@posit\.co/);
 	// With no base at all there is nothing to name the report by.
-	assert.doesNotMatch(renderReportHtml(FULL, { skillVersion: '1.2' }), /docs\.google\.com|class="fb[ "]|class="fb-top"/);
+	assert.doesNotMatch(renderReportHtml(FULL, { skillVersion: '1.2' }), /docs\.google\.com|class="fb[ "]|exploratory-feedback/);
 });
 
 /** Runs the page's feedback script against a stub window; returns a click dispatcher and the window.open calls. */
@@ -2202,7 +2317,7 @@ function feedbackPopup(html, { blocked = false } = {}) {
 	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, window, { availWidth: 1440, availHeight: 900 }, null, () => {});
 	const click = (href, mods = {}) => {
 		const a = { href, dataset: {} };
-		const e = { button: 0, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, target: { closest: sel => sel === '.fb a, a.fb-top' ? a : null }, ...mods };
+		const e = { button: 0, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, target: { closest: sel => sel === '.fb a' ? a : null }, ...mods };
 		handler(e);
 		return e.defaultPrevented;
 	};
@@ -2212,7 +2327,7 @@ function feedbackPopup(html, { blocked = false } = {}) {
 test('feedback: a plain click opens the form in one reused pop-up over the report', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
 	// The links still work with script off.
-	assert.ok([...html.matchAll(/<a (?:class="fb-top" )?href="https:\/\/docs\.google\.com[^>]*>/g)].every(m => / target="_blank" rel="noopener"/.test(m[0])));
+	assert.ok([...html.matchAll(/<a href="https:\/\/docs\.google\.com[^>]*>/g)].every(m => / target="_blank" rel="noopener"/.test(m[0])));
 	const { click, opens, popup } = feedbackPopup(html);
 	assert.equal(click('https://forms.example/finding'), true);
 	// 680 x 820, which fits the 1440 x 900 screen; centred across, a third of the way down.
@@ -2433,7 +2548,7 @@ test('feedback: every finding answer from a browser carries the same random ID, 
 
 test('feedback: a missing skill version is sent as unknown, never blank', () => {
 	const html = renderReportHtml(FULL, { base: 'https://cdn.example/run1' });
-	assert.ok(feedbackAnswers(html, 'fb-top').every(a => a.version === 'unknown'));
+	assert.ok(feedbackAnswers(html).every(a => a.version === 'unknown'));
 });
 
 test('skillVersion reads SKILL.md\'s frontmatter, never its body, with no v', () => {
@@ -2738,4 +2853,32 @@ test('with no findings and no linked issues, only the empty state shows', () => 
 	assert.doesNotMatch(f, /row-head|ki-grp|ki-list/);
 	assert.match(f, /ki-empty/);
 	assert.ok(!renderReportHtml(NO_FINDINGS).includes("closest('.ki-cnt')"), 'no list script');
+});
+
+test('renderReportHtml gives chat apps a link preview', () => {
+	const html = renderReportHtml('# Exploratory test: a "quoted" title\n\nbody');
+	// The site name already says what it is, so the title is just the report's.
+	assert.match(html, /<meta property="og:site_name" content="Positron exploratory test">\n<meta property="og:title" content="A &quot;quoted&quot; title">/);
+	// No branch line, so no description rather than an empty one.
+	assert.doesNotMatch(html, /description/);
+});
+
+test('renderReportHtml adds the link image only when the caller wrote one', () => {
+	assert.doesNotMatch(renderReportHtml(FULL), /og:image/);
+	const tags = html => html.match(/<meta property="og:image[^>]*>/g);
+	assert.deepEqual(tags(renderReportHtml(FULL, { ogImage: 'https://cdn.example/run/og.png' })), [
+		'<meta property="og:image" content="https://cdn.example/run/og.png">',
+		'<meta property="og:image:width" content="1200">',
+		'<meta property="og:image:height" content="630">',
+		'<meta property="og:image:alt" content="1 major, 1 minor findings">',
+	]);
+	assert.match(renderReportHtml('# Exploratory test: x\n\nbody', { ogImage: 'https://cdn.example/og.png' }), /og:image:alt" content="No findings"/);
+	const one = md('## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '', '### Finding 1: a claim', '');
+	assert.match(renderReportHtml(one, { ogImage: 'https://cdn.example/og.png' }), /og:image:alt" content="1 minor finding"/);
+});
+
+test('previewSummary names the PR and branch only, since the image shows the counts', () => {
+	const report = { pr: { number: 16378 }, chips: ['feature/interpreter-skill', 'f3f04ee7db'] };
+	assert.equal(previewSummary(report), 'PR #16378 on feature/interpreter-skill');
+	assert.equal(previewSummary({ ...report, pr: null }), 'feature/interpreter-skill');
 });

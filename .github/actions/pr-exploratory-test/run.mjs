@@ -15,6 +15,7 @@ import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/r
 import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
+import { CARD_FILE, writeCard } from '../../../.claude/skills/exploratory-test/renderer/og-card.mjs';
 import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
@@ -436,6 +437,11 @@ async function main() {
 			const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
 			const fileExists = path => existsSync(join(WORK_DIR, path));
 			const readFile = path => (fileExists(path) && statSync(join(WORK_DIR, path)).isFile() ? readFileSync(join(WORK_DIR, path)) : null);
+			const parsed = parseReport(reportMarkdown, { ledger });
+			// The link image chat apps show; left out when there is no URL or it fails to render.
+			const ogImage = REPORT_BASE_URL && await writeCard(join(WORK_DIR, CARD_FILE), parsed.severityCounts)
+				? `${REPORT_BASE_URL}/${CARD_FILE}`
+				: undefined;
 			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown, {
 				agentPrompts: AGENT_PROMPTS,
 				// Coverage is built from the run's ledger when it wrote one.
@@ -448,9 +454,9 @@ async function main() {
 				readFile,
 				startedAt: STARTED_AT,
 				knownIssues,
+				ogImage,
 			}));
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
-			const parsed = parseReport(reportMarkdown, { ledger });
 			const missing = [...linkedLogs(parsed), ...parsed.files.map(f => f.path)].filter(p => !fileExists(p));
 			if (missing.length) {
 				console.error(`[report] WARN: files listed but not in the run directory: ${missing.join(', ')}`);

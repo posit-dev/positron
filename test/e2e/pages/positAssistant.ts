@@ -6,6 +6,7 @@
 import { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Toasts } from './dialog-toasts';
+import { HotKeys } from './hotKeys';
 
 // Webview frame selectors (Posit Assistant renders inside a VS Code webview)
 const OUTER_FRAME = '.webview';
@@ -113,7 +114,8 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
-const TOOL_CONFIRM_CARD = '.bg-warning';
+// `.bg-warning` alone also matches the legacy-config and restricted-mode banners.
+const TOOL_CONFIRM_CARD = '.bg-warning.border-warning-border';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
@@ -896,13 +898,13 @@ export class PositAssistant {
 		await toasts.clickButton('Update Now', { notificationFilter: /newer Posit Assistant dev build is available/i });
 
 		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
+		//    A visible .monaco-workbench is not enough afterwards: the provider modal
+		//    opened against a still-starting extension host took over 15s on Windows.
 		await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
-		await toasts.clickButton('Reload', { notificationFilter: /Posit Assistant has been updated\. You must reload Positron/i });
-
-		// 5. Clicking Reload reloads the window natively. Wait for the
-		//    workbench to come back up.
-		await this.code.driver.currentPage.waitForTimeout(3000);
-		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await new HotKeys(this.code).reloadWindowWith(
+			() => toasts.clickButton('Reload', { notificationFilter: /Posit Assistant has been updated\. You must reload Positron/i }),
+			true,
+		);
 	}
 
 }

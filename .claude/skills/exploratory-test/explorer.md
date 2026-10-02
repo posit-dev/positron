@@ -87,6 +87,9 @@ cannot reproduce from a description of a file.
   image, a database), save the script that made it too and list both.
 - In preconditions and steps, name it in backticks by its file name,
   `` `multi.qmd` ``; the page turns the name into a link that opens the file.
+  When two saved files share a name, write its `files/` path in place of the
+  name, once: "User settings are `files/seed-a/User/settings.json`: ...". The
+  page still shows it as `settings.json`, so never add the path beside the name.
   A file that exists before step 1 is named in Preconditions, never pasted
   into a step. Never describe a file's content instead of saving it.
   Never write "create a file with ..." as a step unless creating it is what
