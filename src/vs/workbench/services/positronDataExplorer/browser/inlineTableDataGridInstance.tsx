@@ -24,24 +24,7 @@ import { CustomContextMenuSeparator } from '../../../browser/positronComponents/
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/positronComponents/customContextMenu/customContextMenu.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { buildTableSelectionFromClipboardData } from './utils.js';
-
-import {
-	IInlineGridMetrics,
-	INLINE_GRID_COLUMN_HEADERS_HEIGHT,
-	INLINE_GRID_DEFAULT_ROW_HEIGHT,
-	INLINE_GRID_SCROLLBAR_THICKNESS,
-} from './inlineGridMetrics.js';
-
-/**
- * Grid layout constants used in the DataGridInstance constructor options.
- * Re-exported from inlineGridMetrics.ts for compatibility; prefer
- * getInlineGridMetrics() for font-scaled values.
- */
-export {
-	INLINE_GRID_COLUMN_HEADERS_HEIGHT,
-	INLINE_GRID_DEFAULT_ROW_HEIGHT,
-	INLINE_GRID_SCROLLBAR_THICKNESS,
-};
+import { IInlineGridMetrics } from './inlineGridMetrics.js';
 
 /**
  * Constants.

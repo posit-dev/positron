@@ -279,4 +279,26 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 
 		zone.dispose();
 	});
+
+	it('includes the styled container vertical margins in the zone height, rounded up', async () => {
+		const zone = createViewZone();
+		// Computed styles are empty for detached elements.
+		document.body.appendChild(zone.domNode);
+		// jsdom loads no stylesheets, so set the (normally em-based) margins
+		// inline to stand in for their computed values.
+		// eslint-disable-next-line no-restricted-syntax -- reach the styled container to simulate its stylesheet margins
+		const styled = zone.domNode.querySelector<HTMLElement>('.quarto-inline-output')!;
+		// Fractional, as 0.333em is at a 12px font.
+		styled.style.marginTop = '3.996px';
+		styled.style.marginBottom = '3.996px';
+
+		await act(async () => {
+			zone.addOutput({ outputId: 'out-1', items: [{ mime: 'text/plain', data: 'hello' }] });
+		});
+		// Rounded up to a whole pixel: 40 + 7.992 + 5 = 52.992.
+		expect(zone.heightInPx).toBe(53);
+
+		zone.dispose();
+		zone.domNode.remove();
+	});
 });

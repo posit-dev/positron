@@ -500,7 +500,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// and position it via `_layoutCollapseButton()`.
 		this._collapseButton = this._createCollapseButton();
 
-		// Apply editor font to the styled container (inherits into the output)
+		// Apply editor font to the output container
 		this._applyEditorFont();
 
 		// Listen for font changes
@@ -599,14 +599,15 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	}
 
 	/**
-	 * Apply the editor's font settings to the styled container. The font
-	 * inherits down into the output content, and applying it to the styled
-	 * container itself lets the container's em-based padding scale with the
-	 * editor font size.
+	 * Apply the editor's font settings to the output container. The styled
+	 * container gets only the font size, so its em-based padding scales with
+	 * the editor font. The collapsed summary inherits that size but keeps the
+	 * workbench font family.
 	 */
 	private _applyEditorFont(): void {
 		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
-		applyFontInfo(this._styledContainer, fontInfo);
+		applyFontInfo(this._outputContainer, fontInfo);
+		this._styledContainer.style.fontSize = `${fontInfo.fontSize}px`;
 		this._updateHeight();
 	}
 
@@ -3054,11 +3055,12 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		// Add the styled container's vertical margins plus 5px spacing below
 		// the widget. offsetHeight excludes margins, so read them from the
 		// computed style; they are em-based and scale with the editor font.
+		// Round up so the lines below the zone stay on whole pixels.
 		const containerStyle = dom.getComputedStyle(this._styledContainer);
 		const verticalMargins =
 			(parseFloat(containerStyle.marginTop) || 0) +
 			(parseFloat(containerStyle.marginBottom) || 0);
-		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + verticalMargins + 5);
+		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, Math.ceil(styledHeight + verticalMargins + 5));
 
 		if (newHeight !== this.heightInPx && this._zoneId) {
 			this.heightInPx = newHeight;

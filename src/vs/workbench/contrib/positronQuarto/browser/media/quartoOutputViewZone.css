@@ -21,13 +21,17 @@
 	z-index: 5;
 }
 
-/* Main container for inline output view zone */
+/*
+ * Main container for inline output view zone. Spacing in this file uses em
+ * units so it scales with the editor font size; the values match the original
+ * px design at a 12px editor font.
+ */
 .quarto-inline-output {
 	position: relative;
-	padding: 0.6em 0.9em;
-	padding-right: 2.5em;
-	/* Space for close button */
-	margin: 0.3em 0;
+	padding: 0.667em 1em;
+	/* Space for the close button, which has a fixed size, so this does not scale */
+	padding-right: 32px;
+	margin: 0.333em 0;
 	background: var(--vscode-notebook-cellEditorBackground);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
@@ -119,14 +123,14 @@
 .quarto-output-content {
 	display: flex;
 	flex-direction: column;
-	gap: 0.3em;
+	gap: 0.333em;
 }
 
 /* Individual output item */
 .quarto-output-item {
 	display: flex;
 	flex-direction: column;
-	gap: 0.15em;
+	gap: 0.167em;
 }
 
 /* Standard output (stdout) */
@@ -191,13 +195,13 @@
 
 .quarto-output-html table {
 	border-collapse: collapse;
-	margin: 0.3em 0;
+	margin: 0.333em 0;
 }
 
 .quarto-output-html th,
 .quarto-output-html td {
 	border: 1px solid var(--vscode-panel-border);
-	padding: 0.3em 0.6em;
+	padding: 0.333em 0.667em;
 }
 
 .quarto-output-html th {
@@ -207,13 +211,13 @@
 
 /* Warning message for unsafe content */
 .quarto-output-warning {
-	padding: 0.3em 0.6em;
+	padding: 0.333em 0.667em;
 	background: var(--vscode-inputValidation-warningBackground);
 	border: 1px solid var(--vscode-inputValidation-warningBorder);
 	border-radius: 2px;
 	color: var(--vscode-inputValidation-warningForeground);
 	font-size: 0.85em;
-	margin-bottom: 0.3em;
+	margin-bottom: 0.333em;
 }
 
 /* High contrast theme support */
@@ -259,7 +263,7 @@
 /* Escaped HTML output (fallback when webview unavailable) */
 .quarto-output-html-escaped {
 	margin: 0;
-	padding: 0.6em;
+	padding: 0.667em;
 	white-space: pre-wrap;
 	word-wrap: break-word;
 	/* Font is inherited from container which uses editor font settings, but slightly smaller */
@@ -274,7 +278,7 @@
 .quarto-output-loading {
 	display: flex;
 	align-items: center;
-	gap: 0.6em;
+	gap: 0.667em;
 	color: var(--vscode-descriptionForeground);
 	font-style: italic;
 }
@@ -297,7 +301,7 @@
 
 /* Truncation indicator (legacy) */
 .quarto-output-truncated {
-	padding: 0.3em 0.6em;
+	padding: 0.333em 0.667em;
 	background: var(--vscode-inputValidation-infoBackground);
 	border: 1px solid var(--vscode-inputValidation-infoBorder);
 	border-radius: 2px;
@@ -310,7 +314,7 @@
 .quarto-output-truncation-header {
 	font-size: 0.85em;
 	color: var(--vscode-descriptionForeground);
-	margin-bottom: 0.3em;
+	margin-bottom: 0.333em;
 	user-select: none;
 	-webkit-user-select: none;
 }
