@@ -342,7 +342,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verify Plot Zoom works (Fit vs. 200%)', { tag: [tags.WEB] },
-			async function ({ app, openFile, python, page }, testInfo) {
+			async function ({ app, openFile, python, page }) {
 				await openFile(path.join('workspaces', 'python-plots', 'matplotlib-zoom-example.py'));
 
 				await test.step('Run Python File in Console', async () => {
@@ -351,37 +351,24 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				});
 				// The example plot is a Seaborn plot, so use that in the image locator.
 				const imgLocator = page.getByRole('img', { name: /seaborn 1/ });
+				const imgWidth = async () => (await imgLocator.boundingBox())?.width;
 
 				await app.workbench.toasts.closeAll();
 
+				// Fit sizes the image to the pane and 200% to twice its natural width,
+				// so the rendered width must change and then change back.
 				await app.workbench.plots.setThePlotZoom('Fit');
-				await page.waitForTimeout(2000);
 				await dismissPlotZoomTooltip(page);
-				const bufferFit1 = await imgLocator.screenshot();
+				const fitWidth = await imgWidth();
+				expect(fitWidth).toBeGreaterThan(0);
+
 				await app.workbench.plots.setThePlotZoom('200%');
-
-				await page.waitForTimeout(2000);
 				await dismissPlotZoomTooltip(page);
-				const bufferZoom = await imgLocator.screenshot();
-				// Compare: Fit vs 200%
-				const resultZoom = await resembleCompareImages(bufferFit1, bufferZoom, options);
-				await testInfo.attach('fit-vs-zoom', {
-					body: resultZoom.getBuffer(true),
-					contentType: 'image/png'
-				});
-				expect(resultZoom.rawMisMatchPercentage).toBeGreaterThan(1.5); // should be large diff
+				await expect.poll(imgWidth).not.toBe(fitWidth);
 
 				await app.workbench.plots.setThePlotZoom('Fit');
-				await page.waitForTimeout(2000);
 				await dismissPlotZoomTooltip(page);
-				const bufferFit2 = await imgLocator.screenshot();
-				// Compare: Fit vs Fit again
-				const resultBack = await resembleCompareImages(bufferFit1, bufferFit2, options);
-				await testInfo.attach('fit-vs-fit', {
-					body: resultBack.getBuffer(true),
-					contentType: 'image/png'
-				});
-				expect(resultBack.rawMisMatchPercentage).toBeLessThan(0.75); // should be small diff
+				await expect.poll(imgWidth).toBe(fitWidth);
 			});
 
 	});

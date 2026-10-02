@@ -323,6 +323,8 @@ export class ModelProviderModal {
 	}
 
 	async clickConnectButton() {
+		// An open notifications center overlaps the footer and swallows the click.
+		await this.toasts.closeNotificationCenter();
 		await this.footerButton('Connect').click();
 	}
 
