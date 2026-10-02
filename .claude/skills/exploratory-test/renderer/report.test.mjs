@@ -1240,6 +1240,19 @@ test('the regression test follows the verdict: hidden when disputed, caveated wh
 	assert.match(card(renderReportHtml(verdict('confirmed')), 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
 });
 
+test('the card, the list and the prompt all show the verifier\'s verdict over the run\'s own', () => {
+	const verdict = word => RICH
+		.replace('| # | Finding | Severity | Reproduction |', '| # | Finding | Severity | Reproduction | Verified |')
+		.replace('|---|---|---|---|', '|---|---|---|---|---|')
+		.replace('| 1 | a claim | major | 3/3 |', `| 1 | a claim | major | 3/3 | ${word} |`);
+	const html = renderReportHtml(verdict('disputed'));
+	assert.match(card(html, 1), /<span class="confirmed">Disputed<\/span>/);
+	assert.doesNotMatch(card(html, 1), />Confirmed</);
+	assert.match(html, /<span class="status muted">Disputed<\/span>/);
+	assert.match(promptText(html, 1), /^Status: Disputed$/m);
+	assert.match(card(renderReportHtml(RICH), 1), /<span class="confirmed"><svg[^>]*>[\s\S]*?<\/svg>Confirmed<\/span>/, 'unverified keeps the run\'s own');
+});
+
 test('a finding the verifier matched to an issue says so on its card and in its prompt, and nowhere else', () => {
 	const known = FULL
 		.replace('| Reproduction | Verified |', '| Reproduction | Verified | Known |')

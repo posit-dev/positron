@@ -573,7 +573,7 @@ article.card:target{animation:ln-ring 2.4s ease-out 1}
 @media (prefers-reduced-motion:reduce){.ln-btn{transition:none}article.card:target{animation:none;box-shadow:0 0 0 2px var(--ln-ring)}}
 
 /* Code block in a step: its copy button shows on hover or focus, so at rest
-   the agent button is the only copy control on the card. */
+   it doesn't compete with the agent button. */
 .code-blk{position:relative;margin:8px 0 6px}
 .code-blk pre{margin:0;padding:12px 44px 12px 14px;background:var(--code-blk-bg);border:1px solid var(--code-blk-border);border-radius:8px;overflow-x:auto;white-space:pre}
 .code-blk pre code{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text)}
@@ -874,8 +874,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 /* The magnifier leaves as the check arrives, in place, rather than drifting
    back down the line while it fades. The check is the answer to the question it
    was asking, so once the check is there the magnifier has nothing left to do
-   and lingering read as though it were still looking. This is the one beat that
-   departs from report-reference-*.html. */
+   and lingering read as though it were still looking. */
 
 /* Reduced motion keeps the punchline and drops the performance: the line and
    the check, which is what the mark is actually saying. */

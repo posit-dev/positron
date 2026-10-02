@@ -316,11 +316,6 @@ jobs:
         with:
           mode: gate
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          # gate mode does not read the skill, but the harness copy is the one
-          # this job means either way; leaving it to default would quietly point
-          # at the branch under test the day gate mode does read it.
-          explorer-path: ${{ github.workspace }}/.harness/.claude/skills/exploratory-test/explorer.md
-          branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           diff-stat: ${{ steps.base.outputs.diff_stat }}
           pr-body-file: ${{ steps.pr-body.outputs.file }}
           base-sha: ${{ steps.base.outputs.base }}
@@ -392,7 +387,6 @@ jobs:
           mode: comment
           comment-state: running
           focus: ${{ needs.membership.outputs.focus }}
-          model: ${{ needs.membership.outputs.model }}
           pr-number: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}
@@ -510,10 +504,9 @@ jobs:
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Diff base: $BASE (origin/$BASE_REF)"
-          git --no-pager diff "$BASE"...HEAD --stat
           {
             echo "diff_stat<<DIFFEOF"
-            git --no-pager diff "$BASE"...HEAD --stat
+            git --no-pager diff "$BASE"...HEAD --stat=1000
             echo "DIFFEOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -659,7 +652,6 @@ jobs:
           skip-summary: "true"
 
       - name: Allocate run directory
-        id: rundir
         shell: bash
         run: |
           set -euo pipefail
@@ -787,22 +779,10 @@ jobs:
         if: always()
         shell: bash
         run: |
-          set -euo pipefail
-          for NAME in $(env -u E2E_POSTGRES_PASSWORD node .harness/.claude/skills/exploratory-test/renderer/scan-shots.mjs --names); do
-            VALUE=${!NAME:-}
-            # Short values would redact common words.
-            [ ${#VALUE} -ge 8 ] || continue
-            for DIR in /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace; do
-              [ -d "$DIR" ] || continue
-              # The uploads run even if this step fails, so a file that
-              # cannot be redacted is removed rather than left in place.
-              { grep -rlIF -- "${!NAME}" "$DIR" 2>/dev/null || true; } | while IFS= read -r FILE; do
-                echo "Redacting $NAME from $FILE"
-                SECRET="${!NAME}" perl -pi -e 's/\Q$ENV{SECRET}\E/[REDACTED]/g' "$FILE" \
-                  || { echo "::warning::Could not redact $NAME from $FILE; removed it."; rm -f "$FILE"; }
-              done
-            done
-          done
+          # The uploads run even if this step fails, so a file that cannot be
+          # redacted is removed rather than left in place.
+          env -u E2E_POSTGRES_PASSWORD bash .harness/.claude/skills/exploratory-test/renderer/redact.sh --remove \
+            /tmp/exploratory-run /tmp/positron-dev-launch /tmp/exploratory-workspace
 
       # The explorer blurs a key before it takes a screenshot. This reads each
       # one, paints over any secret still showing, and removes a shot it cannot
@@ -851,7 +831,7 @@ jobs:
   # was redacted before upload.
   publish:
     name: publish (${{ matrix.model }})
-    needs: [membership, worthiness, explore]
+    needs: [membership, explore]
     if: always() && needs.explore.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
@@ -985,7 +965,6 @@ jobs:
           mode: comment
           comment-state: result
           focus: ${{ needs.membership.outputs.focus }}
-          model: ${{ needs.membership.outputs.model }}
           # Empty when ack could not post; comment mode then posts a new one.
           comment-id: ${{ needs.ack.outputs.comment_id }}
           # A declined run never reaches explore; say so rather than "failed".

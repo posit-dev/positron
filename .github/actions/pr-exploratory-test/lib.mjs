@@ -6,7 +6,7 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
-import { modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
+import { formatMinutes, modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 
 /** Pick the latest assistant message that looks like the report. */
 export function pickReport(messages) {
@@ -91,13 +91,6 @@ export function parsePosIntEnv(name, fallback, rawValue) {
 	return n;
 }
 
-/** One-line footer for the step summary. */
-function minutes(ms) {
-	const m = Math.round(ms / 60000);
-	// A pass that took forty seconds did happen; "0m" reads as though it did not.
-	return m === 0 ? '<1m' : `${m}m`;
-}
-
 export function renderCostFooter(passes, maxTurns) {
 	const lines = [];
 	let total = null;
@@ -119,7 +112,7 @@ export function renderCostFooter(passes, maxTurns) {
 			bits.push(pass.main ? `${c.num_turns}/${maxTurns} turns` : `${c.num_turns} turns`);
 		}
 		if (typeof c.duration_ms === 'number') {
-			bits.push(minutes(c.duration_ms));
+			bits.push(formatMinutes(c.duration_ms));
 			elapsed += c.duration_ms;
 		}
 		lines.push(`_${pass.label}: ${bits.join(' | ')}_`);
@@ -134,7 +127,7 @@ export function renderCostFooter(passes, maxTurns) {
 		// Run tile describe different runs.
 		const bits = [`$${total.toFixed(2)}`];
 		if (elapsed > 0) {
-			bits.push(minutes(elapsed));
+			bits.push(formatMinutes(elapsed));
 		}
 		lines.push(`_total: ${bits.join(' | ')}_`);
 	}
@@ -210,7 +203,7 @@ export const ENVIRONMENT = [
 	'- Windows and macOS.',
 ].join('\n');
 
-export const PR_BODY_MAX = 4000;
+const PR_BODY_MAX = 4000;
 
 /**
  * The PR description for the gate's prompt, fenced as data: the gate has a
@@ -248,22 +241,6 @@ export function renderSummaryTarget(branch, repo, number, focus, timeLimit) {
 }
 
 /**
- * Renders the job's step summary.
- *
- * The whole report used to be pasted here, which made a reviewer scroll a
- * screenful of repro steps and log excerpts inside a page that cannot show a
- * screenshot properly. The report has its own rendered page now, so this is a
- * signpost: the verdict, and where to read the rest.
- *
- * `baseUrl` is the published run directory. Without one -- a local run, or an
- * upload that failed -- the links are omitted rather than written dead, and the
- * summary says where the report actually is.
- *
- * Nothing else belongs here. The links say what they are, and the cost of the
- * run is on the report's own Run tile; repeating either on the job page is a
- * second thing to read before getting to the one that matters.
- */
-/**
  * The per-severity breakdown ("2 moderate · 3 minor"). The total only shows
  * when there is nothing to break down: no findings, or none with a severity.
  */
@@ -277,6 +254,22 @@ function tallyFindings(markdown) {
 	return findingCount > 0 ? `${findingCount} finding${findingCount === 1 ? '' : 's'}` : 'No findings';
 }
 
+/**
+ * Renders the job's step summary.
+ *
+ * The whole report used to be pasted here, which made a reviewer scroll a
+ * screenful of repro steps and log excerpts inside a page that cannot show a
+ * screenshot properly. The report has its own rendered page now, so this is a
+ * signpost: the verdict, and where to read the rest.
+ *
+ * `baseUrl` is the published run directory. Without one -- a local run, or an
+ * upload that failed -- the link is omitted rather than written dead, and the
+ * summary says where the report actually is.
+ *
+ * Nothing else belongs here. The link says what it is, and the cost of the
+ * run is on the report's own Run tile; repeating either on the job page is a
+ * second thing to read before getting to the one that matters.
+ */
 export function renderStepSummary(markdown, baseUrl) {
 	const tally = tallyFindings(markdown);
 

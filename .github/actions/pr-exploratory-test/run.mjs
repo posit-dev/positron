@@ -7,15 +7,14 @@
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { existsSync, readFileSync, statSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderReportHtml, linkedLogs, skillVersion } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
+import { missingFiles, readRunDir, skillVersion, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
-import { CARD_FILE, writeCard } from '../../../.claude/skills/exploratory-test/renderer/og-card.mjs';
 import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
@@ -399,9 +398,9 @@ async function main() {
 		// the fallback write above.
 		let verdicts = null;
 		let verifyFailed = false;
+		const run = readRunDir(WORK_DIR);
 		// Linked issues the run ran into still need a severity.
-		const ledgerText = existsSync(join(WORK_DIR, 'ledger.md')) ? readFileSync(join(WORK_DIR, 'ledger.md'), 'utf8') : '';
-		const observed = observedLinked(knownIssues, ledgerText);
+		const observed = observedLinked(knownIssues, run.ledger);
 		if (VERIFY_ENABLED && !hasFindings(report) && !observed.length) {
 			console.log('[verify] skipped: the report has no findings to verify');
 		} else if (VERIFY_ENABLED) {
@@ -414,7 +413,7 @@ async function main() {
 				verifyFailed = true;
 				verdicts = `_Verification did not complete: ${err}. ${hasFindings(report) ? 'The findings above are unreviewed.' : 'The known issues above are unrated.'}_`;
 			}
-			for (const line of verifyLogLines(knownIssues, ledgerText, verifyFailed ? '' : verdicts)) {
+			for (const line of verifyLogLines(knownIssues, run.ledger, verifyFailed ? '' : verdicts)) {
 				console.log(`[verify] ${line}`);
 			}
 		}
@@ -433,31 +432,23 @@ async function main() {
 		// image URLs in it. The markdown stays: the verification pass reads it,
 		// and a file you can grep is worth keeping.
 		try {
-			const ledgerPath = join(WORK_DIR, 'ledger.md');
-			const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
-			const fileExists = path => existsSync(join(WORK_DIR, path));
-			const readFile = path => (fileExists(path) && statSync(join(WORK_DIR, path)).isFile() ? readFileSync(join(WORK_DIR, path)) : null);
-			const parsed = parseReport(reportMarkdown, { ledger });
-			// The link image chat apps show; left out when there is no URL or it fails to render.
-			const ogImage = REPORT_BASE_URL && await writeCard(join(WORK_DIR, CARD_FILE), parsed.severityCounts)
-				? `${REPORT_BASE_URL}/${CARD_FILE}`
-				: undefined;
-			writeFileSync(join(WORK_DIR, 'index.html'), renderReportHtml(reportMarkdown, {
+			const parsed = parseReport(reportMarkdown, { ledger: run.ledger });
+			await writeRunPage(join(WORK_DIR, 'index.html'), reportMarkdown, parsed, {
 				agentPrompts: AGENT_PROMPTS,
 				// Coverage is built from the run's ledger when it wrote one.
-				ledger,
+				ledger: run.ledger,
 				// Evidence in the prompt has to open from wherever it is pasted.
 				base: REPORT_BASE_URL || WORK_DIR,
 				skillVersion: skillVersion(),
 				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
-				fileExists,
-				readFile,
+				fileExists: run.fileExists,
+				readFile: run.readFile,
 				startedAt: STARTED_AT,
 				knownIssues,
-				ogImage,
-			}));
+			});
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
-			const missing = [...linkedLogs(parsed), ...parsed.files.map(f => f.path)].filter(p => !fileExists(p));
+			const { logs, files } = missingFiles(parsed, run.fileExists);
+			const missing = [...logs, ...files];
 			if (missing.length) {
 				console.error(`[report] WARN: files listed but not in the run directory: ${missing.join(', ')}`);
 			}

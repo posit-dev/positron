@@ -48,19 +48,8 @@ rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html" "$STAGE/og.png
 node "$(dirname "$0")/render.mjs" "$RUN/report.md" --base "$CDN/$DIR" --out "$STAGE/index.html" >/dev/null || true
 [ -s "$STAGE/index.html" ] || { echo "publish: the report did not render; nothing was uploaded." >&2; exit 1; }
 
-# Names only: a value is never printed. Short values would redact common words.
-# scan-shots.mjs owns the list, so text and screenshots are checked for the same
-# names.
-for NAME in $(node "$(dirname "$0")/scan-shots.mjs" --names); do
-	VALUE=${!NAME:-}
-	[ ${#VALUE} -ge 8 ] || continue
-	# No match is not a failure; a file that cannot be redacted stops the upload.
-	{ grep -rlIF -- "$VALUE" "$STAGE" 2>/dev/null || true; } | while IFS= read -r FILE; do
-		echo "Redacting $NAME from ${FILE#"$STAGE"/}"
-		SECRET="$VALUE" perl -pi -e 's/\Q$ENV{SECRET}\E/[REDACTED]/g' "$FILE" \
-			|| { echo "publish: could not redact $NAME from ${FILE#"$STAGE"/}; nothing was uploaded." >&2; exit 1; }
-	done
-done
+# A file that cannot be redacted stops the upload.
+bash "$(dirname "$0")/redact.sh" "$STAGE" || { echo "publish: nothing was uploaded." >&2; exit 1; }
 
 # Last, on the redacted copy: the scan names the shot, never the value.
 SCAN=0
