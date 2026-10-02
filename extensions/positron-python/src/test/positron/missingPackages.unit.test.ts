@@ -6,6 +6,7 @@
 import { expect } from 'chai';
 import * as path from 'path';
 import * as sinon from 'sinon';
+import { anything, when } from 'ts-mockito';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import {
@@ -14,6 +15,7 @@ import {
     pythonMissingPackageProbe,
 } from '../../client/positron/missingPackages';
 import { IPackageManager, PackageSession } from '../../client/positron/packages/types';
+import { mockedVSCodeNamespaces } from '../vscode-mock';
 
 suite('parsePythonImports', () => {
     test('extracts top-level modules from import and from statements, ignoring aliases and relatives', () => {
@@ -153,6 +155,93 @@ suite('listMissingPythonPackages', () => {
         });
 
         expect(callMethod.calledOnceWith('getMissingImports', ['helper'], [expectedRoot])).to.be.true;
+    });
+
+    suite('with workspace folders', () => {
+        teardown(() => {
+            when(mockedVSCodeNamespaces.workspace!.getWorkspaceFolder(anything())).thenReturn(undefined);
+        });
+
+        function workspaceFolderAt(fsPath: string): vscode.WorkspaceFolder {
+            return { uri: vscode.Uri.file(fsPath), name: path.basename(fsPath), index: 0 };
+        }
+
+        test('passes every directory up to the workspace folder as an import root', async () => {
+            const callMethod = sinon.stub().resolves([]);
+            const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
+            const manager = makeManager({});
+
+            const project = vscode.Uri.file(path.resolve('project')).fsPath;
+            const notebooks = path.join(project, 'notebooks');
+            const fileUri = vscode.Uri.file(path.join(notebooks, 'analysis.qmd'));
+            when(mockedVSCodeNamespaces.workspace!.getWorkspaceFolder(anything())).thenReturn(
+                workspaceFolderAt(project),
+            );
+
+            await listMissingPythonPackages(session, manager, {
+                uri: fileUri.toString(),
+                code: 'from utils import run',
+            });
+
+            // A `utils` module at the project root must count as local even though the
+            // document is one level down.
+            expect(callMethod.calledOnceWith('getMissingImports', ['utils'], [notebooks, project])).to.be.true;
+        });
+
+        test('walks up to the workspace folder for vscode-remote URIs (web/remote)', async () => {
+            const callMethod = sinon.stub().resolves([]);
+            const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
+            const manager = makeManager({});
+
+            // The remote extension host sees its workspace folders as `file` URIs,
+            // while the document URI arrives as `vscode-remote`, so the folder only
+            // matches when looked up by its on-disk path.
+            const folder = workspaceFolderAt('/home/user/project');
+            const uri = vscode.Uri.from({
+                scheme: 'vscode-remote',
+                authority: 'server',
+                path: '/home/user/project/notebooks/analysis.qmd',
+            });
+            when(mockedVSCodeNamespaces.workspace!.getWorkspaceFolder(anything())).thenCall((u: vscode.Uri) =>
+                u.scheme === 'file' ? folder : undefined,
+            );
+
+            await listMissingPythonPackages(session, manager, { uri: uri.toString(), code: 'from utils import run' });
+
+            expect(
+                callMethod.calledOnceWith(
+                    'getMissingImports',
+                    ['utils'],
+                    [path.dirname(uri.fsPath), folder.uri.fsPath],
+                ),
+            ).to.be.true;
+        });
+
+        test('uses only the file directory when the file is outside every workspace folder', async () => {
+            const callMethod = sinon.stub().resolves([]);
+            const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
+            const manager = makeManager({});
+
+            const fileUri = vscode.Uri.file(path.join(path.resolve('elsewhere'), 'app.py'));
+            when(mockedVSCodeNamespaces.workspace!.getWorkspaceFolder(anything())).thenReturn(undefined);
+
+            await listMissingPythonPackages(session, manager, { uri: fileUri.toString(), code: 'import utils' });
+
+            expect(callMethod.calledOnceWith('getMissingImports', ['utils'], [path.dirname(fileUri.fsPath)])).to.be
+                .true;
+        });
+
+        test('passes no import roots for an untitled document', async () => {
+            const callMethod = sinon.stub().resolves([]);
+            const session: PackageSession = { metadata: { sessionId: 'python-1' }, callMethod };
+            const manager = makeManager({});
+
+            const uri = vscode.Uri.from({ scheme: 'untitled', path: 'Untitled-1.qmd' });
+
+            await listMissingPythonPackages(session, manager, { uri: uri.toString(), code: 'import utils' });
+
+            expect(callMethod.calledOnceWith('getMissingImports', ['utils'], [])).to.be.true;
+        });
     });
 
     test('resolves through resolvePackageName and never runs a fuzzy search', async () => {

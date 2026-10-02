@@ -197,10 +197,12 @@ async function searchExact(
 
 /**
  * Extra import root directories to consider when deciding whether a module is
- * importable. When analyzing a saved file, the file's own directory is included:
- * running the file temporarily adds it to `sys.path`, so sibling modules there
- * (a local `helper` package) are importable and must not be flagged as missing.
- * Returns an empty list for inline code, which has no associated directory.
+ * importable: the document's own directory, then each parent directory up to
+ * and including the workspace folder that contains it. Running a file adds its
+ * directory to `sys.path`, and projects often import modules from the project
+ * root, so a same-named local module anywhere on that path is treated as local
+ * and never offered as a package to install. Returns an empty list for inline
+ * code and for URIs without an on-disk directory.
  */
 function importRoots(target: positron.RuntimeMissingPackagesTarget): string[] {
     if (!target.uri) {
@@ -217,7 +219,29 @@ function importRoots(target: positron.RuntimeMissingPackagesTarget): string[] {
         if (uri.scheme !== 'file' && uri.scheme !== 'vscode-remote') {
             return [];
         }
-        return [path.dirname(uri.fsPath)];
+        const dir = path.dirname(uri.fsPath);
+        // Look the folder up by on-disk path: the remote extension host sees its
+        // workspace folders as `file` URIs, which never match a `vscode-remote` URI.
+        const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(uri.fsPath));
+        if (!folder) {
+            return [dir];
+        }
+        const top = folder.uri.fsPath;
+        const relative = path.relative(top, dir);
+        if (relative.startsWith('..') || path.isAbsolute(relative)) {
+            return [dir];
+        }
+        const roots: string[] = [];
+        let current = dir;
+        for (;;) {
+            roots.push(current);
+            const parent = path.dirname(current);
+            if (path.relative(top, current) === '' || parent === current) {
+                break;
+            }
+            current = parent;
+        }
+        return roots;
     } catch {
         return [];
     }
