@@ -266,7 +266,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		await act(async () => {
 			zone.addOutput(errorOutput('err-1'));
 		});
-		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 5);
 
 		// Re-run: the same error is produced. A ResizeObserver would see no net
 		// change and stay silent, so the zone's own re-measure is what keeps the
@@ -275,7 +275,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		await act(async () => {
 			zone.addOutput(errorOutput('err-2'));
 		});
-		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 5);
 
 		zone.dispose();
 	});

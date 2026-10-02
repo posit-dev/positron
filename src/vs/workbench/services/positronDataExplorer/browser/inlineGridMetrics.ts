@@ -6,6 +6,7 @@
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { FontConfigurationManager } from '../../../browser/fontConfigurationManager.js';
+import { GOLDEN_LINE_HEIGHT_RATIO } from '../../../../editor/common/config/fontInfo.js';
 
 /**
  * Base grid layout constants, designed at the platform's default editor font
@@ -25,7 +26,14 @@ const INLINE_GRID_HORIZONTAL_CELL_PADDING = 5;
  * grid renders unchanged when the user has not customized the editor font
  * size.
  */
-const REFERENCE_FONT_SIZE = isMacintosh ? 12 : 14;
+export const REFERENCE_FONT_SIZE = isMacintosh ? 12 : 14;
+
+/**
+ * Vertical breathing room in a data row beyond the text's line height.
+ * Chosen so that the default line heights (1.5x on macOS, 1.35x elsewhere)
+ * at the reference font size still yield the designed row height.
+ */
+const INLINE_GRID_ROW_VERTICAL_PADDING = 3;
 
 /**
  * Inline grid metrics interface. Layout dimensions for the inline data
@@ -69,32 +77,49 @@ export interface IInlineGridMetrics {
 }
 
 /**
- * Computes the inline grid layout metrics scaled to the user's editor font
- * size. The inline data explorer renders cell text in the editor font (see
- * `useEditorFont` in InlineTableDataGridInstance), so its layout dimensions
- * must grow with the editor font size or text overflows its cells. Monospace
- * advance width scales linearly with font size, so a simple ratio is exact
- * for both heights and widths.
- * @param configurationService The configuration service, if available. When
- * undefined, unscaled metrics are returned.
- * @returns The inline grid metrics for the current editor font.
+ * Computes the inline grid layout metrics for the given editor font size and
+ * line height. Widths scale with the font size (monospace advance width is
+ * linear in font size). The row height additionally takes a floor of the
+ * line height plus padding, since a row must fit a full text line: a large
+ * custom editor.lineHeight would otherwise make text overlap adjacent rows.
+ * @param fontSize The editor font size in pixels.
+ * @param lineHeight The editor line height in pixels, or 0 to derive it from
+ * the font size using the editor's default line height ratio.
+ * @returns The inline grid metrics.
  */
-export function getInlineGridMetrics(configurationService: IConfigurationService | undefined): IInlineGridMetrics {
-	let fontSize = REFERENCE_FONT_SIZE;
-	if (configurationService) {
-		const measuredFontSize = FontConfigurationManager.getFontInfo(configurationService, 'editor').fontSize;
-		if (measuredFontSize > 0) {
-			fontSize = measuredFontSize;
-		}
-	}
+export function computeInlineGridMetrics(fontSize: number, lineHeight: number): IInlineGridMetrics {
 	const fontScale = fontSize / REFERENCE_FONT_SIZE;
+	const effectiveLineHeight = lineHeight > 0 ? lineHeight : fontSize * GOLDEN_LINE_HEIGHT_RATIO;
 	return {
 		fontScale,
 		columnHeadersHeight: Math.round(INLINE_GRID_COLUMN_HEADERS_HEIGHT * fontScale),
-		defaultRowHeight: Math.round(INLINE_GRID_DEFAULT_ROW_HEIGHT * fontScale),
+		defaultRowHeight: Math.max(
+			Math.round(INLINE_GRID_DEFAULT_ROW_HEIGHT * fontScale),
+			Math.ceil(effectiveLineHeight) + INLINE_GRID_ROW_VERTICAL_PADDING,
+		),
 		rowHeadersWidth: Math.round(INLINE_GRID_ROW_HEADERS_WIDTH * fontScale),
 		defaultColumnWidth: Math.round(INLINE_GRID_DEFAULT_COLUMN_WIDTH * fontScale),
 		horizontalCellPadding: Math.round(INLINE_GRID_HORIZONTAL_CELL_PADDING * fontScale),
 		scrollbarThickness: INLINE_GRID_SCROLLBAR_THICKNESS,
 	};
+}
+
+/**
+ * Computes the inline grid layout metrics scaled to the user's editor font.
+ * The inline data explorer renders cell text in the editor font (see
+ * `useEditorFont` in InlineTableDataGridInstance), so its layout dimensions
+ * must grow with the editor font size or text overflows its cells.
+ * @param configurationService The configuration service, if available. When
+ * undefined, unscaled metrics are returned.
+ * @returns The inline grid metrics for the current editor font.
+ */
+export function getInlineGridMetrics(configurationService: IConfigurationService | undefined): IInlineGridMetrics {
+	if (!configurationService) {
+		return computeInlineGridMetrics(REFERENCE_FONT_SIZE, 0);
+	}
+	const fontInfo = FontConfigurationManager.getFontInfo(configurationService, 'editor');
+	return computeInlineGridMetrics(
+		fontInfo.fontSize > 0 ? fontInfo.fontSize : REFERENCE_FONT_SIZE,
+		fontInfo.lineHeight,
+	);
 }

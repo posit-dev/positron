@@ -607,6 +607,7 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 	private _applyEditorFont(): void {
 		const fontInfo = this._editor.getOption(EditorOption.fontInfo);
 		applyFontInfo(this._styledContainer, fontInfo);
+		this._updateHeight();
 	}
 
 	/**
@@ -3050,8 +3051,14 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 			this._saveButton.style.display = containerHeight > 100 && this.hasSinglePlot() ? 'block' : 'none';
 		}
 
-		// Add margin space (4px top + 4px bottom) plus 5px spacing below the widget
-		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + 13);
+		// Add the styled container's vertical margins plus 5px spacing below
+		// the widget. offsetHeight excludes margins, so read them from the
+		// computed style; they are em-based and scale with the editor font.
+		const containerStyle = dom.getComputedStyle(this._styledContainer);
+		const verticalMargins =
+			(parseFloat(containerStyle.marginTop) || 0) +
+			(parseFloat(containerStyle.marginBottom) || 0);
+		const newHeight = Math.max(MIN_VIEW_ZONE_HEIGHT, styledHeight + verticalMargins + 5);
 
 		if (newHeight !== this.heightInPx && this._zoneId) {
 			this.heightInPx = newHeight;
