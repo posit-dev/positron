@@ -683,16 +683,32 @@ jobs:
           ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
         run: |
           set -euo pipefail
-          LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
-            --source-user-data-dir /tmp/positron-seed -- \
-            --folder-uri file:///tmp/exploratory-workspace \
-            --log debug \
-            --no-sandbox \
-            --disable-dev-shm-usage \
-            --use-gl=swiftshader \
-            --enable-unsafe-swiftshader \
-            --disable-gpu-compositing \
-            --password-store=basic)
+          # Electron occasionally segfaults at startup inside fontconfig, before
+          # any Positron code runs, and hangs until launch.sh times out. Each
+          # attempt gets a fresh profile and ports, so a retry is clean once the
+          # hung instance is killed.
+          for attempt in 1 2 3; do
+            if LAUNCH_JSON=$(.claude/skills/drive-positron/scripts/launch.sh \
+              --source-user-data-dir /tmp/positron-seed -- \
+              --folder-uri file:///tmp/exploratory-workspace \
+              --log debug \
+              --no-sandbox \
+              --disable-dev-shm-usage \
+              --use-gl=swiftshader \
+              --enable-unsafe-swiftshader \
+              --disable-gpu-compositing \
+              --password-store=basic); then
+              break
+            fi
+            if [[ "$attempt" == 3 ]]; then
+              echo "Positron failed to launch after $attempt attempts"; exit 1
+            fi
+            echo "::warning::Positron launch attempt $attempt failed; retrying"
+            # launch.sh leaves a failed instance running. Nothing else in this
+            # container runs the app, so match it by binary path.
+            pkill -KILL -f "$PWD/.build/electron/" || true
+            sleep 2
+          done
           echo "$LAUNCH_JSON"
           CDP_PORT=$(echo "$LAUNCH_JSON" | jq -r .cdpPort)
           test -n "$CDP_PORT" && test "$CDP_PORT" != "null" || {
