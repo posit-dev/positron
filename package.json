@@ -213,6 +213,7 @@
     "kerberos": "2.1.1",
     "mermaid": "^11.14.0",
     "minimist": "^1.2.8",
+    "modern-screenshot": "^4.7.0",
     "native-is-elevated": "0.9.0",
     "native-keymap": "^3.3.5",
     "node-addon-api": "^6.0.0",

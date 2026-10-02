@@ -69,10 +69,13 @@ export class Toasts {
 				toastLocator.first().waitFor({ state: 'attached', timeout }),
 				centerLocator.first().waitFor({ state: 'attached', timeout }),
 			]);
-		} finally {
-			// Close the center on timeout too, or it stays open over the next dialog.
-			await this.closeNotificationCenter();
+		} catch (error) {
+			// Left open, the center intercepts clicks on whatever dialog opens next.
+			await this.closeNotificationCenter().catch(() => { });
+			throw error;
 		}
+
+		await this.closeNotificationCenter();
 	}
 
 	async waitForDisappear(title?: string | RegExp, { timeout = 20000 } = {}) {

@@ -15,6 +15,9 @@ import { renderReportHtml } from './html.mjs';
 import { lintReport } from './lint.mjs';
 import { PREVIEW_LINES, EMBED_BYTES, findFile } from './repro-files.mjs';
 
+// The renders these tests spawn must not post usage rows.
+process.env.EXPLORATORY_TEST_NO_USAGE = '1';
+
 const DIR = new URL('./fixtures/logs-run/', import.meta.url);
 const REPORT = readFileSync(new URL('report.md', DIR), 'utf8');
 const LEDGER = readFileSync(new URL('ledger.md', DIR), 'utf8');

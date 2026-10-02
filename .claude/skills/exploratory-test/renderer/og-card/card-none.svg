@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<!-- Exploratory test report: link image when there are no findings. No placeholders. -->
+<rect width="1200" height="630" fill="#FBFAF7"/>
+<rect x="-230" y="-64" width="460" height="128" rx="64" fill="#2E7D5B" fill-opacity=".14" transform="translate(600 315)"/><circle cx="434" cy="315" r="50" fill="#2E7D5B"/><path d="M410 316 l17 17 l32 -34" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="510" y="335" font-family="IBM Plex Sans" font-size="56" fill="#1C1F23">No findings</text>
+</svg>

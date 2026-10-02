@@ -22,6 +22,7 @@ import { CHECKS_FILE, summarizeChecks } from './stats.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
+import { CARD_HEIGHT, CARD_WIDTH } from './og-card.mjs';
 
 const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -158,6 +159,17 @@ function renderTiles(report) {
 		+ legend(stages));
 
 	return `<section class="tiles">${findingsTile}${scenariosTile}${runTile}</section>`;
+}
+
+/** The line a chat app's link preview shows under the title; the image carries the counts. */
+export function previewSummary(report) {
+	return [report.pr ? `PR #${report.pr.number}` : '', report.chips[0] ?? ''].filter(Boolean).join(' on ');
+}
+
+/** "2 major, 1 minor": the severities with findings, worst first. */
+function severityWords(sev) {
+	return [[sev.major, 'major'], [sev.moderate, 'moderate'], [sev.minor, 'minor']]
+		.filter(([n]) => n > 0).map(([n, word]) => `${n} ${word}`).join(', ');
 }
 
 function capitalize(text) {
@@ -1690,12 +1702,27 @@ export function renderReportHtml(markdown, options = {}) {
 		: '';
 	const chips = prLink + report.chips.map(c => `<code>${escapeHtml(c)}</code>`).join('');
 
+	// What Slack and other chat apps show when the link is pasted.
+	const previewText = escapeHtml(previewSummary(report));
+	// Absolute, or chat apps show no image; the caller passes it only once og.png is written.
+	const severities = severityWords(report.severityCounts);
+	const { major, moderate, minor } = report.severityCounts;
+	const findings = major + moderate + minor === 1 ? 'finding' : 'findings';
+	const ogImage = options.ogImage ? `
+<meta property="og:image" content="${escapeHtml(options.ogImage)}">
+<meta property="og:image:width" content="${CARD_WIDTH}">
+<meta property="og:image:height" content="${CARD_HEIGHT}">
+<meta property="og:image:alt" content="${severities ? `${severities} ${findings}` : 'No findings'}">` : '';
+
 	const page = `<!DOCTYPE html>
 <html lang="en" data-theme="professional">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(report.title)}</title>
+${previewText ? `<meta name="description" content="${previewText}">\n` : ''}<meta property="og:type" content="website">
+<meta property="og:site_name" content="Positron exploratory test">
+<meta property="og:title" content="${escapeHtml(capitalize(report.title))}">${previewText ? `\n<meta property="og:description" content="${previewText}">` : ''}${ogImage}
 <script>${BOOT_SCRIPT}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

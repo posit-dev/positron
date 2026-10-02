@@ -5,6 +5,7 @@
 
 """Tests for the Positron Language Server (positron_lsp.py)."""
 
+import asyncio
 import contextlib
 import gc
 import os
@@ -21,15 +22,21 @@ import pytest
 
 from positron._vendor import cattrs
 from positron._vendor.lsprotocol.types import (
+    INITIALIZED,
+    WORKSPACE_DID_CHANGE_CONFIGURATION,
     ClientCapabilities,
     ClientCompletionItemOptions,
     CompletionClientCapabilities,
     CompletionItem,
     CompletionParams,
+    DidChangeConfigurationClientCapabilities,
+    DidChangeConfigurationParams,
     DidOpenNotebookDocumentParams,
     HoverParams,
+    InitializedParams,
     InitializeParams,
     InsertReplaceEdit,
+    InsertTextFormat,
     MarkupContent,
     MarkupKind,
     NotebookCell,
@@ -42,6 +49,7 @@ from positron._vendor.lsprotocol.types import (
     TextDocumentIdentifier,
     TextDocumentItem,
     TextDocumentPositionParams,
+    WorkspaceClientCapabilities,
 )
 from positron._vendor.pygls.workspace.text_document import TextDocument
 from positron.help_comm import ShowHelpTopicParams
@@ -54,6 +62,7 @@ from positron.positron_lsp import (
     _get_expression_at_position,
     _parse_os_imports,
     _parse_string_context,
+    _refresh_configuration,
     _safe_resolve_expression,
     _set_completion_priority,
     create_server,
@@ -67,6 +76,8 @@ def create_test_server(
     namespace: Optional[Dict[str, Any]] = None,
     root_path: Optional[Path] = None,
     working_directory: Optional[str] = None,
+    *,
+    snippet_support: Optional[bool] = None,
 ) -> PositronLanguageServer:
     """Create a test server with optional namespace."""
     server = create_server()
@@ -76,7 +87,8 @@ def create_test_server(
             text_document=TextDocumentClientCapabilities(
                 completion=CompletionClientCapabilities(
                     completion_item=ClientCompletionItemOptions(
-                        documentation_format=[MarkupKind.Markdown]
+                        documentation_format=[MarkupKind.Markdown],
+                        snippet_support=snippet_support,
                     ),
                 )
             )
@@ -156,6 +168,31 @@ class _ObjectWithProperty:
 
 
 object_with_property = _ObjectWithProperty()
+
+
+class _ObjectWithMethod:
+    def my_method(self) -> None:
+        pass
+
+
+class _CallableObject:
+    def __call__(self) -> None:
+        pass
+
+
+def _my_function() -> None:
+    pass
+
+
+# Namespace for function call parens tests: one item of each kind that matters.
+_parens_namespace = {
+    "my_function": _my_function,
+    "my_builtin": len,
+    "my_class": _ObjectWithMethod,
+    "my_callable": _CallableObject(),
+    "my_variable": 1,
+    "obj": _ObjectWithMethod(),
+}
 
 
 # Make a function with parameters to test signature help.
@@ -1288,6 +1325,229 @@ class TestCompletions:
         assert column_completions == [], (
             f"Expected no column completions, got {[c.label for c in column_completions]}"
         )
+
+    @pytest.mark.parametrize(
+        ("source", "label", "expected_insert_text"),
+        [
+            ("my_fu", "my_function", "my_function($0)"),
+            ("my_bu", "my_builtin", "my_builtin($0)"),
+            ("obj.my_m", "my_method", "my_method($0)"),
+            ("print(my_fu", "my_function", "my_function($0)"),
+            # Pyrefly only adds parens to functions and methods, so these must not get them.
+            ("my_cl", "my_class", None),
+            ("my_ca", "my_callable", None),
+            ("my_va", "my_variable", None),
+        ],
+    )
+    def test_function_call_parens(
+        self, source: str, label: str, expected_insert_text: Optional[str]
+    ) -> None:
+        """Routines get the same call parens snippet as Pyrefly when completeFunctionParens is on."""
+        server = create_test_server(namespace=_parens_namespace, snippet_support=True)
+        server._complete_function_parens = True  # noqa: SLF001
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+        item = next(c for c in self._completions(server, text_document) if c.label == label)
+
+        expected_format = InsertTextFormat.Snippet if expected_insert_text else None
+        assert (item.insert_text, item.insert_text_format) == (
+            expected_insert_text,
+            expected_format,
+        )
+
+    def test_function_call_parens_without_snippet_support(self) -> None:
+        """Without snippet support, routines get plain empty parens."""
+        server = create_test_server(namespace=_parens_namespace, snippet_support=False)
+        server._complete_function_parens = True  # noqa: SLF001
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, "my_fu")
+
+        item = next(c for c in self._completions(server, text_document) if c.label == "my_function")
+
+        assert (item.insert_text, item.insert_text_format) == (
+            "my_function()",
+            InsertTextFormat.PlainText,
+        )
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "my_fu",
+            "obj.my_m",
+        ],
+    )
+    def test_function_call_parens_setting_off(self, source: str) -> None:
+        """With completeFunctionParens off (the default), no item gets insert text."""
+        server = create_test_server(namespace=_parens_namespace, snippet_support=True)
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+        completions = self._completions(server, text_document)
+
+        assert completions
+        assert [c.insert_text for c in completions] == [None] * len(completions)
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "import my_fu",
+            "  import my_fu",
+            "from my_module import my_fu",
+            "import obj.my_m",
+            "from obj.my_m",
+            "def my_fu",
+            "async def my_fu",
+            "class my_fu",
+        ],
+    )
+    def test_function_call_parens_skipped_in_non_call_context(self, source: str) -> None:
+        """Like Pyrefly, no parens on import lines or definition names."""
+        server = create_test_server(namespace=_parens_namespace, snippet_support=True)
+        server._complete_function_parens = True  # noqa: SLF001
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
+
+        completions = self._completions(server, text_document)
+
+        assert [c.insert_text for c in completions] == [None] * len(completions)
+
+    @pytest.mark.parametrize(
+        ("source", "label", "expected_insert_text"),
+        [
+            # Expected values match what Pyrefly emits for the same source ("|" is the cursor).
+            # Bare names in store positions get no parens.
+            ("my_fu| = 1", "my_function", None),
+            ("x, my_fu| = 1, 2", "my_function", None),
+            ("my_fu|, x = 1, 2", "my_function", None),
+            ("my_f|u = 1", "my_function", None),
+            ("my_fu| += 1", "my_function", None),
+            ("(my_fu| := 1)", "my_function", None),
+            ("print(my_fu|=1)", "my_function", None),
+            ("for my_fu| in []: pass", "my_function", None),
+            ("for my_fu|", "my_function", None),
+            ("for a, my_fu| in []: pass", "my_function", None),
+            ("[y for my_fu| in []]", "my_function", None),
+            ("with open('x') as my_fu|: pass", "my_function", None),
+            ("del my_fu|", "my_function", None),
+            ("del a, my_fu|", "my_function", None),
+            ("global my_fu|", "my_function", None),
+            ("lambda my_fu|: 0", "my_function", None),
+            ("lambda a, my_fu|: 0", "my_function", None),
+            # Bare names in load positions get parens.
+            ("x = my_fu|", "my_function", "my_function($0)"),
+            ("my_fu| == 1", "my_function", "my_function($0)"),
+            ("my_fu| != 1", "my_function", "my_function($0)"),
+            ("my_fu| <= 1", "my_function", "my_function($0)"),
+            ("print(my_fu|, x=1)", "my_function", "my_function($0)"),
+            ("lambda x=my_fu|: 0", "my_function", "my_function($0)"),
+            ("print(x=my_fu|)", "my_function", "my_function($0)"),
+            ("x: my_fu| = 1", "my_function", "my_function($0)"),
+            ("for x in my_fu|", "my_function", "my_function($0)"),
+            ("[my_fu| for y in []]", "my_function", "my_function($0)"),
+            ("my_fu|()", "my_function", "my_function($0)"),
+            # Pyrefly always adds parens to attributes, even in store positions.
+            ("obj.my_m| = 1", "my_method", "my_method($0)"),
+            ("obj.my_m| += 1", "my_method", "my_method($0)"),
+            ("del obj.my_m|", "my_method", "my_method($0)"),
+            ("obj.my_m|()", "my_method", "my_method($0)"),
+        ],
+    )
+    def test_function_call_parens_expression_context(
+        self, source: str, label: str, expected_insert_text: Optional[str]
+    ) -> None:
+        """Parens depend on whether the name is loaded or stored, matching Pyrefly."""
+        server = create_test_server(namespace=_parens_namespace, snippet_support=True)
+        server._complete_function_parens = True  # noqa: SLF001
+        before, after = source.split("|")
+        text_document = create_text_document(server, TEST_DOCUMENT_URI, before + after)
+
+        completions = self._completions(server, text_document, character=len(before))
+        item = next(c for c in completions if c.label == label)
+
+        assert item.insert_text == expected_insert_text
+
+
+class TestRefreshConfiguration:
+    """Tests for reading python.analysis settings from the client."""
+
+    @pytest.mark.parametrize(
+        ("response", "expected"),
+        [
+            ([{"completeFunctionParens": True}], True),
+            ([{"completeFunctionParens": False}], False),
+            ([{}], False),
+            ([None], False),
+            ([], False),
+        ],
+    )
+    def test_complete_function_parens(self, response: List[Any], expected: bool) -> None:  # noqa: FBT001
+        """The setting is read from the python.analysis section."""
+        server = create_test_server()
+        server._complete_function_parens = not expected  # noqa: SLF001
+
+        async def workspace_configuration_async(_params: Any) -> List[Any]:
+            return response
+
+        with patch.object(server, "workspace_configuration_async", workspace_configuration_async):
+            asyncio.run(_refresh_configuration(server))
+
+        assert server._complete_function_parens is expected  # noqa: SLF001
+
+    def test_request_failure_keeps_value(self) -> None:
+        """A failed configuration request keeps the current value."""
+        server = create_test_server()
+        server._complete_function_parens = True  # noqa: SLF001
+
+        async def workspace_configuration_async(_params: Any) -> List[Any]:
+            raise RuntimeError("client went away")
+
+        with patch.object(server, "workspace_configuration_async", workspace_configuration_async):
+            asyncio.run(_refresh_configuration(server))
+
+        assert server._complete_function_parens is True  # noqa: SLF001
+
+    @pytest.mark.parametrize("dynamic_registration", [True, False])
+    def test_initialized(self, dynamic_registration: bool) -> None:  # noqa: FBT001
+        """On initialized, the server reads settings and, if allowed, registers for changes."""
+        server = create_test_server()
+        server.protocol.client_capabilities.workspace = WorkspaceClientCapabilities(
+            did_change_configuration=DidChangeConfigurationClientCapabilities(
+                dynamic_registration=dynamic_registration
+            )
+        )
+        registered_methods: List[str] = []
+
+        async def client_register_capability_async(params: Any) -> None:
+            registered_methods.extend(r.method for r in params.registrations)
+
+        async def workspace_configuration_async(_params: Any) -> List[Any]:
+            return [{"completeFunctionParens": True}]
+
+        handler = server.protocol.fm.features[INITIALIZED]
+        with patch.object(
+            server, "client_register_capability_async", client_register_capability_async
+        ), patch.object(server, "workspace_configuration_async", workspace_configuration_async):
+            asyncio.run(handler(InitializedParams()))
+
+        expected_methods = [WORKSPACE_DID_CHANGE_CONFIGURATION] if dynamic_registration else []
+        assert (registered_methods, server._complete_function_parens) == (expected_methods, True)  # noqa: SLF001
+
+    def test_did_change_configuration(self) -> None:
+        """A configuration change notification re-reads the settings."""
+        server = create_test_server()
+        server._complete_function_parens = True  # noqa: SLF001
+
+        async def workspace_configuration_async(_params: Any) -> List[Any]:
+            return [{"completeFunctionParens": False}]
+
+        handler = server.protocol.fm.features[WORKSPACE_DID_CHANGE_CONFIGURATION]
+        with patch.object(server, "workspace_configuration_async", workspace_configuration_async):
+            asyncio.run(handler(DidChangeConfigurationParams(settings=None)))
+
+        assert server._complete_function_parens is False  # noqa: SLF001
+
+    @pytest.mark.parametrize("snippet_support", [True, False, None])
+    def test_snippet_support_from_capabilities(self, snippet_support: Optional[bool]) -> None:  # noqa: FBT001
+        """Snippet support is read from the client capabilities on initialize."""
+        server = create_test_server(snippet_support=snippet_support)
+        assert server._snippet_support is bool(snippet_support)  # noqa: SLF001
 
 
 class TestSetCompletionPriority:

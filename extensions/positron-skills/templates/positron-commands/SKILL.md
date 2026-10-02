@@ -3,7 +3,8 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes,
   clearing the console, opening a file or data file in the right editor,
-  showing an HTML file or URL in the Viewer, discovering interpreters,
+  showing or reading an HTML file, URL or app in the Viewer,
+  discovering interpreters,
   listing, switching, starting, restarting or interrupting sessions, setting
   up Python, reading, installing or updating a session's packages, running or
   debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
@@ -20,15 +21,15 @@ description: >
 # Positron IDE commands
 
 These commands act on the Positron workbench itself -- layout, panes, editors,
-interpreter sessions, and packages. They do not run interpreter code; use
-`executeCode` for that.
+interpreter sessions, and packages. They do not run interpreter code; use the
+tool that runs code in a session for that.
 
 ## Calling these commands
 
-Invoke commands with the `positronCommand` tool, passing the command's literal
-`id` exactly as written in the reference files -- copy it, do not retype it from
-memory. Where a command takes arguments, fill `args` positionally in the order
-given under that command's "Arguments" entry. Omit `args` entirely for commands
+Invoke commands with the tool that runs Positron commands, passing the command's
+literal `id` exactly as written in the reference files -- copy it, do not retype
+it from memory. Where a command takes arguments, fill `args` positionally in the
+order given under that command's "Arguments" entry. Omit `args` entirely for commands
 that take none -- do not pass an empty object or array. Never invent an argument
 value the user hasn't given you or that isn't documented; if a required value is
 unknown, ask the user first.
@@ -80,9 +81,12 @@ open a file picker instead and hand the task back to the user.
 
 **Viewer** -- [references/viewer.md]({{skill_dir}}/references/viewer.md)
 Read when the user wants to see HTML you have written -- a page, chart, report,
-or prototype -- or asks to show a local HTML file or a URL in the Viewer. Read it
-**before** telling the user you can't display HTML: it documents the commands
-that show a file or URL in the Viewer pane.
+or prototype -- or asks to show a local HTML file or a URL in the Viewer, and
+when you need to see or use what's in the Viewer: to check that an app you
+started is up and what it shows, or to click, fill in or pick options in an app
+the user wants tested. Read it **before** telling the user you can't display
+HTML or can't see the Viewer: it documents the commands that show a file or URL
+in the Viewer pane, and those that read and use the page there.
 
 **Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
 Read when the user asks what interpreters are available, wants the registered
@@ -116,8 +120,8 @@ out which interpreter is currently active.
 **Interactive web apps** -- [references/interactive-apps.md]({{skill_dir}}/references/interactive-apps.md)
 Read when the user wants a web app running or debugged: "run my app", "start
 the shiny/flask/dash/streamlit/marimo app", "preview my dashboard". Read it
-**before** starting any app server yourself -- app servers must not be started via
-`executeCode` or a raw terminal command for supported app frameworks. The
+**before** starting any app server yourself -- app servers must not be started by
+running code in a session or a raw terminal command for supported app frameworks. The
 commands it documents manage the terminal, detect the app URL, set up any
 proxying the environment requires (on Posit Workbench, raw `localhost`
 URLs are not reachable from the user's browser), and preview the app -- in the
