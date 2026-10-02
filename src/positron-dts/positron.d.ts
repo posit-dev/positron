@@ -4785,8 +4785,29 @@ declare module 'positron' {
 			args?: AgentCommandArg[];
 			/** Description of the command's return value, if meaningful. */
 			returns?: string;
+			/**
+			 * Whether the command leaves the user's work and data as they were, so
+			 * an agent may run it without asking. It may still change what's on
+			 * screen, such as revealing a pane.
+			 */
+			readOnly?: boolean;
 			/** Where the command was registered from. */
 			source: AgentCommandSource;
+		}
+
+		/**
+		 * An image an agent-compatible command returns for the agent to see,
+		 * rather than text. The bytes are base64, since a `Uint8Array` doesn't
+		 * survive a command result's serialization.
+		 */
+		export interface AgentCommandImage {
+			kind: 'image';
+			/** The image's type, such as `image/png`. */
+			mimeType: string;
+			/** The image, base64-encoded. */
+			data: string;
+			/** Text to go with the image, such as how it was made. */
+			note?: string;
 		}
 
 		/**

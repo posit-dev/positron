@@ -49,11 +49,12 @@ describe('AgentAllowedCommandsService', () => {
 	/** Register a command and add it to the command palette (mirrors `registerAction2` with `f1: true`). */
 	function registerPaletteCommand(id: string, options: {
 		agentCompatible?: boolean;
+		readOnly?: boolean;
 		description?: string;
 		precondition?: ContextKeyExpression;
 		metadataArgs?: Parameters<typeof CommandsRegistry.registerCommand>[0] extends { metadata?: infer M }
-			? M extends { args?: infer A } ? A : never
-			: never;
+		? M extends { args?: infer A } ? A : never
+		: never;
 		metadataReturns?: string;
 	} = {}) {
 		store.add(CommandsRegistry.registerCommand({
@@ -62,6 +63,7 @@ describe('AgentAllowedCommandsService', () => {
 			metadata: {
 				description: options.description ?? id,
 				agentCompatible: options.agentCompatible,
+				readOnly: options.readOnly,
 				args: options.metadataArgs,
 				returns: options.metadataReturns,
 			},
@@ -73,6 +75,7 @@ describe('AgentAllowedCommandsService', () => {
 			metadata: {
 				description: options.description ?? id,
 				agentCompatible: options.agentCompatible,
+				readOnly: options.readOnly,
 				args: options.metadataArgs,
 				returns: options.metadataReturns,
 			},
@@ -114,6 +117,16 @@ describe('AgentAllowedCommandsService', () => {
 					{ name: 'second', schema: { type: 'number' }, required: false },
 				],
 			});
+		});
+
+		it('says which commands are read-only, so an agent can run them without asking', () => {
+			registerPaletteCommand('test.agent.reads', { agentCompatible: true, readOnly: true });
+			registerPaletteCommand('test.agent.writes', { agentCompatible: true });
+
+			const readOnly = Object.fromEntries(makeService().getAgentAllowedCommands()
+				.filter(c => c.id.startsWith('test.agent.')).map(c => [c.id, c.readOnly]));
+
+			expect(readOnly).toEqual({ 'test.agent.reads': true, 'test.agent.writes': undefined });
 		});
 
 		it('drops commands whose precondition does not currently hold', () => {

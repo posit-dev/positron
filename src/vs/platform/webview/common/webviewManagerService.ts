@@ -30,6 +30,23 @@ export interface WebviewFrameId {
 
 	/** The frame's routing identifier */
 	readonly routingId: number;
+
+	/**
+	 * The frame's place in the frame tree. Unlike the process and routing IDs,
+	 * it stays the same when the frame goes to another document.
+	 */
+	readonly frameTreeNodeId?: number;
+}
+
+/**
+ * Whether two frame IDs are for the same frame, even if it has gone to another
+ * document since.
+ */
+export function isSameWebviewFrame(a: WebviewFrameId, b: WebviewFrameId): boolean {
+	if (a.frameTreeNodeId !== undefined && b.frameTreeNodeId !== undefined) {
+		return a.frameTreeNodeId === b.frameTreeNodeId;
+	}
+	return a.processId === b.processId && a.routingId === b.routingId;
 }
 
 /**
@@ -107,5 +124,15 @@ export interface IWebviewManagerService {
 	 * @returns A promise that resolves to the result of the code execution.
 	 */
 	executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any>;
+
+	/**
+	 * Gets the URL of a webview frame, as the browser has it. It follows the
+	 * page's history changes, and the page can't fake it.
+	 *
+	 * @param frameId The ID of the frame.
+	 *
+	 * @returns The frame's URL, or undefined if the frame is gone.
+	 */
+	getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined>;
 	// --- End Positron ---
 }

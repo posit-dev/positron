@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, isRVersionsMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { getInterpreterOverridePaths, interpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { getInterpreterOverridePaths, getResolvedFilterSettingPaths, interpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
@@ -225,12 +225,17 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
  *     `definitionsOnly` changes which installations exist at all.
  *
  * `interpreters.override` contributes as path entries above, not here.
+ *
+ * `interpreters.exclude` and `interpreters.default` are hashed after replacing
+ * `${workspaceFolder}`, so two workspaces with the same setting text don't
+ * share a cache entry.
  */
 function getRFilterSettingsDigest(): string {
 	const config = vscode.workspace.getConfiguration('positron.r');
+	const filterPaths = getResolvedFilterSettingPaths();
 	const payload = {
-		exclude: config.get<string[]>('interpreters.exclude') ?? [],
-		default: config.get<string>('interpreters.default') ?? '',
+		exclude: filterPaths.exclude,
+		default: filterPaths.default,
 		condaDiscovery: config.get<boolean>('interpreters.condaDiscovery') ?? false,
 		pixiDiscovery: config.get<boolean>('interpreters.pixiDiscovery') ?? false,
 		pathDiscoveryMode: config.get<string>('interpreters.pathDiscoveryMode') ?? '',

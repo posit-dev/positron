@@ -316,12 +316,21 @@ window.addEventListener('load', () => {
 			openLinkInHost(link);
 		}
 	}
+});
 
-	// Notify the host that the webview has loaded its content
+// Notify the host that the webview has loaded its content. Positron injects
+// this script once the frame has gone to its page, which can be after the page
+// has loaded, so don't wait for a load that has already happened.
+const notifyLoaded = () => {
 	hostMessaging.postMessage('did-load-window', {
 		title: document.title,
 	});
-});
+};
+if (document.readyState === 'complete') {
+	notifyLoaded();
+} else {
+	window.addEventListener('load', notifyLoaded);
+}
 
 // Override the prompt function to return the default value or 'Untitled' if one isnt provided.
 // This is needed because the prompt function is not supported in webviews and the prompt function

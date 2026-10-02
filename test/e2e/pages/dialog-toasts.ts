@@ -64,10 +64,16 @@ export class Toasts {
 			? this.notificationsCenter.locator('.notification-list-item').filter({ hasText: title })
 			: this.notificationsCenter.locator('.notification-list-item');
 
-		await Promise.race([
-			toastLocator.first().waitFor({ state: 'attached', timeout }),
-			centerLocator.first().waitFor({ state: 'attached', timeout }),
-		]);
+		try {
+			await Promise.race([
+				toastLocator.first().waitFor({ state: 'attached', timeout }),
+				centerLocator.first().waitFor({ state: 'attached', timeout }),
+			]);
+		} catch (error) {
+			// Left open, the center intercepts clicks on whatever dialog opens next.
+			await this.closeNotificationCenter().catch(() => { });
+			throw error;
+		}
 
 		await this.closeNotificationCenter();
 	}

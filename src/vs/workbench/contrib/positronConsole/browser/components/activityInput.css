@@ -57,11 +57,12 @@
 	 */
 	font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 	font-size: 0.9em;
-	color: var(--vscode-descriptionForeground);
+	color: var(--vscode-editorCodeLens-foreground);
 }
 
 .activity-input .attribution .codicon {
 	font-size: 1em;
+	color: var(--vscode-editorInfo-foreground);
 }
 
 .activity-input.cancelled {

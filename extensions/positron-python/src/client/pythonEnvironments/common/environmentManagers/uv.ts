@@ -252,7 +252,13 @@ export async function execObservableLocatedUv(
     return execObservable(await getLocatedUvCommand(), ['--color', 'never', ...args], options);
 }
 
-async function getLocatedUvCommand(): Promise<string> {
+/**
+ * The uv command located by the probe, for callers that spawn uv themselves (in a terminal, or
+ * through a process service): `uv` when it is on PATH, or an absolute path when it is only in one
+ * of the known install locations.
+ * @throws When no uv could be found.
+ */
+export async function getLocatedUvCommand(): Promise<string> {
     const uvUtils = await UvUtils.getUvUtils();
     if (!uvUtils) {
         throw new Error('Could not find the uv executable.');

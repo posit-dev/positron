@@ -7,10 +7,55 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { LOGGER } from './extension';
 import { arePathsSame, isParentPath, normalizeUserPath } from './path-utils';
+import { SubstitutionResult, substituteWorkspaceFolder } from './setting-variables';
+
+/**
+ * Replaces `${workspaceFolder}` in a path from an R interpreter setting with the first
+ * workspace folder, then expands `~` and normalizes the result. Paths with a variable that
+ * cannot be resolved, and relative paths, are ignored.
+ * @param value The path from the setting
+ * @param description Names the path in log messages, e.g. 'R custom binary path'. If omitted, ignored paths are not logged.
+ * @returns The absolute path, or undefined if the path is ignored
+ */
+function resolveSettingPath(value: string, description?: string): string | undefined {
+	const result = substituteWorkspaceFolder(value, vscode.workspace.workspaceFolders?.[0]?.uri.fsPath);
+	if (result.resolved === false) {
+		if (description) {
+			LOGGER.info(`${description} ${value} ${describeUnresolved(result)}...ignoring`);
+		}
+		return undefined;
+	}
+	const resolved = normalizeUserPath(result.value);
+	if (!path.isAbsolute(resolved)) {
+		if (description) {
+			LOGGER.info(`${description} ${resolved} is not absolute...ignoring`);
+		}
+		return undefined;
+	}
+	return resolved;
+}
+
+function describeUnresolved(result: Extract<SubstitutionResult, { resolved: false }>): string {
+	switch (result.reason) {
+		case 'noFolder':
+			return `uses ${result.variable}, but no folder is open`;
+		case 'unsupported':
+			return `uses unsupported variable ${result.variable} (only \${workspaceFolder} is supported)`;
+	}
+}
+
+/**
+ * Resolves each path in a list setting. Ignored paths are dropped and the rest are kept.
+ */
+function resolveSettingPaths(values: string[], description?: string): string[] {
+	return values
+		.map(value => resolveSettingPath(value, description))
+		.filter((value): value is string => value !== undefined);
+}
 
 /**
  * Directory(ies) where this user keeps R installations.
- * Converts aliased paths to absolute paths. Relative paths are ignored.
+ * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns List of directories to scan for R installations.
  */
 export function userRHeadquarters(): string[] {
@@ -20,15 +65,7 @@ export function userRHeadquarters(): string[] {
 		LOGGER.debug('No custom root folders specified via positron.r.customRootFolders');
 		return [];
 	}
-	const userHqDirs = customRootFolders
-		.map((item) => normalizeUserPath(item))
-		.filter((item) => {
-			if (path.isAbsolute(item)) {
-				return true;
-			}
-			LOGGER.info(`R custom root folder path ${item} is not absolute...ignoring`);
-			return false;
-		});
+	const userHqDirs = resolveSettingPaths(customRootFolders, 'R custom root folder path');
 	const formattedPaths = JSON.stringify(userHqDirs, null, 2);
 	LOGGER.info(`Directories from 'positron.r.customRootFolders' to scan for R installations:\n${formattedPaths}`);
 	return userHqDirs;
@@ -45,15 +82,7 @@ export function userRBinaries(): string[] {
 		LOGGER.debug('No custom binaries specified via positron.r.customBinaries');
 		return [];
 	}
-	const userBinaries = customBinaries
-		.map((item) => normalizeUserPath(item))
-		.filter((item) => {
-			if (path.isAbsolute(item)) {
-				return true;
-			}
-			LOGGER.info(`R custom binary path ${item} is not absolute...ignoring`);
-			return false;
-		});
+	const userBinaries = resolveSettingPaths(customBinaries, 'R custom binary path');
 	const formattedPaths = JSON.stringify(userBinaries, null, 2);
 	LOGGER.info(`R binaries from 'positron.r.customBinaries' to discover:\n${formattedPaths}`);
 	return userBinaries;
@@ -86,7 +115,7 @@ export function isDefinitionsOnlyDiscovery(): boolean {
 
 /**
  * Gets the list of R installations excluded via settings.
- * Converts aliased paths to absolute paths. Relative paths are ignored.
+ * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns List of installation paths to exclude.
  */
 function getExcludedInstallations(): string[] {
@@ -96,15 +125,7 @@ function getExcludedInstallations(): string[] {
 		LOGGER.debug('No installation paths specified to exclude via positron.r.interpreters.exclude');
 		return [];
 	}
-	const excludedPaths = interpretersExclude
-		.map((item) => normalizeUserPath(item))
-		.filter((item) => {
-			if (path.isAbsolute(item)) {
-				return true;
-			}
-			LOGGER.info(`R installation path to exclude ${item} is not absolute...ignoring`);
-			return false;
-		});
+	const excludedPaths = resolveSettingPaths(interpretersExclude, 'R installation path to exclude');
 	const formattedPaths = JSON.stringify(excludedPaths, null, 2);
 	LOGGER.info(`R installation paths from 'positron.r.interpreters.exclude' to exclude:\n${formattedPaths}`);
 	return excludedPaths;
@@ -114,7 +135,7 @@ function getExcludedInstallations(): string[] {
  * Gets the list of R installations to override the installations we make available.
  * The override setting take precedence over the excluded installations, the custom binaries
  * and the custom root folders settings.
- * Converts aliased paths to absolute paths. Relative paths are ignored.
+ * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns List of installation paths to exclusively include.
  */
 export function getInterpreterOverridePaths(): string[] {
@@ -124,15 +145,7 @@ export function getInterpreterOverridePaths(): string[] {
 		LOGGER.debug('No installation paths specified to exclusively include via positron.r.interpreters.override');
 		return [];
 	}
-	const overridePaths = interpretersOverride
-		.map((item) => normalizeUserPath(item))
-		.filter((item) => {
-			if (path.isAbsolute(item)) {
-				return true;
-			}
-			LOGGER.info(`R installation path to exclusively include ${item} is not absolute...ignoring`);
-			return false;
-		});
+	const overridePaths = resolveSettingPaths(interpretersOverride, 'R installation path to exclusively include');
 	const formattedPaths = JSON.stringify(overridePaths, null, 2);
 	LOGGER.info(`R installation paths from 'positron.r.interpreters.override' to exclusively include:\n${formattedPaths}`);
 	return overridePaths;
@@ -167,22 +180,35 @@ export function isExcludedInstallation(binpath: string): boolean | undefined {
 
 /**
  * Get the default R interpreter path specified in Positron settings.
- * Converts aliased paths to absolute paths. Relative paths are ignored.
+ * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns The default R interpreter path specified in the settings, or undefined if not set.
  */
 export function getDefaultInterpreterPath(): string | undefined {
 	const config = vscode.workspace.getConfiguration('positron.r');
-	let defaultInterpreterPath = config.get<string>('interpreters.default');
-	if (defaultInterpreterPath) {
-		defaultInterpreterPath = normalizeUserPath(defaultInterpreterPath);
-		if (path.isAbsolute(defaultInterpreterPath)) {
-			LOGGER.info(`Default R interpreter path specified in 'positron.r.interpreters.default': ${defaultInterpreterPath}`);
-			return defaultInterpreterPath;
-		}
-		LOGGER.info(`Default R interpreter path ${defaultInterpreterPath} is not absolute...ignoring`);
+	const setting = config.get<string>('interpreters.default');
+	if (!setting) {
 		return undefined;
 	}
-	return undefined;
+	const defaultInterpreterPath = resolveSettingPath(setting, 'Default R interpreter path');
+	if (defaultInterpreterPath) {
+		LOGGER.info(`Default R interpreter path specified in 'positron.r.interpreters.default': ${defaultInterpreterPath}`);
+	}
+	return defaultInterpreterPath;
+}
+
+/**
+ * Get the resolved `interpreters.exclude` and `interpreters.default` paths without logging,
+ * for the discovery cache key. The key uses resolved paths because the same setting text,
+ * e.g. `${workspaceFolder}/env/bin/R`, names a different binary in each workspace.
+ * @returns The resolved paths. `default` is an empty string if unset or ignored.
+ */
+export function getResolvedFilterSettingPaths(): { exclude: string[]; default: string } {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const defaultSetting = config.get<string>('interpreters.default');
+	return {
+		exclude: resolveSettingPaths(config.get<string[]>('interpreters.exclude') ?? []),
+		default: (defaultSetting && resolveSettingPath(defaultSetting)) || '',
+	};
 }
 
 /**

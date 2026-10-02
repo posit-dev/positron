@@ -165,6 +165,7 @@ export class Console {
 		await test.step(`Type to console: ${text}`, async () => {
 			await this.code.driver.currentPage.waitForTimeout(500);
 			await this.activeConsole.click();
+			await this.expectFocusInsideActiveConsole();
 			await this.code.driver.currentPage.keyboard.type(text, { delay });
 
 			if (pressEnter) {
@@ -177,9 +178,26 @@ export class Console {
 	async clearInput() {
 		await test.step('Clear console input', async () => {
 			await this.focus();
+			// Select-all on an empty input selects the console output instead, and that
+			// DOM selection makes the next click on the console drop input focus.
+			const text = await this.activeConsole.locator(`${CONSOLE_INPUT} .view-line`).allTextContents();
+			if (!text.join('').trim()) {
+				return;
+			}
 			await this.hotKeys.selectAll();
 			await this.code.driver.currentPage.keyboard.press('Backspace');
 		});
+	}
+
+	// Keys typed before focus lands inside the active console are dropped silently.
+	private async expectFocusInsideActiveConsole() {
+		await expect.poll(
+			() => this.code.driver.currentPage.evaluate(
+				selector => !!document.activeElement?.closest(selector),
+				ACTIVE_CONSOLE_INSTANCE
+			),
+			{ message: 'focus is not inside the active console' }
+		).toBe(true);
 	}
 
 	async sendEnterKey() {
