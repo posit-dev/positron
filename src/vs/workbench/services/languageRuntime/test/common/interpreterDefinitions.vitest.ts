@@ -31,7 +31,8 @@ const xx: IInterpreterDefinition = { language: 'r', path: '/opt/R/4.4.3/bin/R', 
 
 describe('getMatchingDefinitions', () => {
 	it('matches on language and exact path, and drops incomplete and duplicate-label entries', () => {
-		const definitions = [
+		// Includes malformed entries, as a hand-edited setting can.
+		const definitions: unknown[] = [
 			xx,
 			{ ...xx, label: 'Other path', path: '/opt/R/4.3.0/bin/R' },
 			{ ...xx, label: 'Other language', language: 'python' },
@@ -40,7 +41,7 @@ describe('getMatchingDefinitions', () => {
 			{ ...xx, label: 'Bad startup script', startupScript: 42 },
 			{ ...xx, env: { R_LIBS_SITE: '/dup' } },
 		];
-		expect(getMatchingDefinitions(definitions, base)).toEqual([xx]);
+		expect(getMatchingDefinitions(definitions as IInterpreterDefinition[], base)).toEqual([xx]);
 	});
 
 	it('returns nothing when the setting is unset', () => {
