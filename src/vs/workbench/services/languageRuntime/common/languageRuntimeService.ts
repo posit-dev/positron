@@ -1283,13 +1283,6 @@ export interface ILanguageRuntimeService {
 	readonly onDidUnregisterRuntime: Event<string>;
 
 	/**
-	 * An event that fires when a definition-only runtime is registered. These
-	 * runtimes are not in `registeredRuntimes` and do not fire
-	 * `onDidRegisterRuntime`; only their variants do.
-	 */
-	readonly onDidRegisterDefinitionOnlyRuntime: Event<ILanguageRuntimeMetadata>;
-
-	/**
 	 * Event tracking the current startup phase.
 	 */
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;

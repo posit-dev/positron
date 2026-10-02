@@ -223,15 +223,10 @@ describe('Positron - LanguageRuntimeService', () => {
 
 		it('hides a definition-only runtime but shows its variants, and removes them with it', () => {
 			const service = ctx.disposables.add(ctx.instantiationService.createInstance(LanguageRuntimeService));
-			const definitionOnly: string[] = [];
-			ctx.disposables.add(service.onDidRegisterDefinitionOnlyRuntime(m => definitionOnly.push(m.runtimeId)));
 
 			service.registerRuntime({ ...r, definitionOnly: true });
 
-			expect([definitionOnly, service.registeredRuntimes.map(m => [m.runtimeName, m.definitionOnly])]).toEqual([
-				['r-base'],
-				[['R 4.4.3 (XX libs)', false]],
-			]);
+			expect(service.registeredRuntimes.map(m => [m.runtimeName, m.definitionOnly])).toEqual([['R 4.4.3 (XX libs)', false]]);
 
 			service.unregisterRuntime('r-base');
 			expect(service.registeredRuntimes).toEqual([]);

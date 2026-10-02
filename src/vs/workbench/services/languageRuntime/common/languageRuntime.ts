@@ -35,10 +35,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	private readonly _onDidUnregisterRuntimeEmitter =
 		this._register(new Emitter<string>);
 
-	// The event emitter for the onDidRegisterDefinitionOnlyRuntime event.
-	private readonly _onDidRegisterDefinitionOnlyRuntimeEmitter =
-		this._register(new Emitter<ILanguageRuntimeMetadata>);
-
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
 
@@ -124,9 +120,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	// An event that fires when a runtime is unregistered, carrying its runtimeId.
 	readonly onDidUnregisterRuntime = this._onDidUnregisterRuntimeEmitter.event;
 
-	// An event that fires when a definition-only runtime is registered.
-	readonly onDidRegisterDefinitionOnlyRuntime = this._onDidRegisterDefinitionOnlyRuntimeEmitter.event;
-
 	/**
 	 * Event tracking the current startup phase.
 	 */
@@ -198,7 +191,6 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 			INTERPRETER_DISCOVERY_KEY, { overrideIdentifier: enriched.languageId }) === 'definitionsOnly';
 		if (enriched.definitionOnly || definitionsOnly) {
 			this._definitionOnlyRuntimesByRuntimeId.set(enriched.runtimeId, enriched);
-			this._onDidRegisterDefinitionOnlyRuntimeEmitter.fire(enriched);
 			this._registerVariants(enriched);
 			return this._register(toDisposable(() => {
 				this.unregisterRuntime(metadata.runtimeId);
