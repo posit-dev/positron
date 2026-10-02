@@ -10,6 +10,7 @@ import { validateDeepSeekApiKey } from '../validation/deepseek';
 import { KEY_VALIDATION_TIMEOUT_MS } from '../constants';
 import { log } from '../log';
 import { stubValidationCatalog } from './validationTestUtils';
+import { useFakeTimers } from './fakeTimers';
 
 suite('validateDeepSeekApiKey', () => {
 	let originalFetch: typeof globalThis.fetch;
@@ -139,7 +140,7 @@ suite('validateDeepSeekApiKey', () => {
 	});
 
 	test('rejects on AbortError with timeout message', async () => {
-		const clock = sinon.useFakeTimers();
+		const clock = useFakeTimers();
 		globalThis.fetch = (_url, init) => {
 			return new Promise<Response>((_resolve, reject) => {
 				init?.signal?.addEventListener('abort', () => {

@@ -72,9 +72,13 @@ export function createAwsCredentialChain(
 	let credentialsHeld = false;
 	// Token file mtime seen by the last resolve; undefined if it was missing.
 	let attemptedMtime: number | undefined;
+	// Incremented each time a resolve starts, so a failure can tell whether a
+	// newer resolve has superseded it (mirrors AuthProvider's session state).
+	let resolveSeq = 0;
 
 	return {
 		resolve: async () => {
+			const seq = ++resolveSeq;
 			if (tokenFile) {
 				attemptedMtime = await getMtime(tokenFile);
 			}
@@ -91,7 +95,11 @@ export function createAwsCredentialChain(
 					expiration: resolved.expiration,
 				};
 			} catch (err) {
-				credentialsHeld = false;
+				// A stale failure landing after a newer resolve succeeded must
+				// not re-enable token file refreshes for the held credentials.
+				if (seq === resolveSeq) {
+					credentialsHeld = false;
+				}
 				throw err;
 			}
 		},

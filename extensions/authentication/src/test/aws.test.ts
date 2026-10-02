@@ -207,9 +207,12 @@ suite('AWS credential chain (web identity)', () => {
 		assert.deepStrictEqual(events, { added: 1, changed: 0, removed: 0 });
 	});
 
-	// The startup resolve's token read fails before the agent writes the file,
-	// but its failure lands only after the watcher's resolve has signed in.
-	test('a startup resolve that fails late does not sign out the watcher resolve', async () => {
+	/**
+	 * Race a startup resolve against the token file watcher: the startup
+	 * resolve's token read fails before the agent writes the file, but its
+	 * failure lands only after the watcher's resolve has signed in.
+	 */
+	async function signInWhileStartupFailsLate(): Promise<void> {
 		let startupReadFailed!: () => void;
 		const startupRead = new Promise<void>(resolve => startupReadFailed = resolve);
 		let releaseStartup!: () => void;
@@ -236,11 +239,28 @@ suite('AWS credential chain (web identity)', () => {
 		}
 		releaseStartup();
 		await startup;
+	}
+
+	test('a startup resolve that fails late does not sign out the watcher resolve', async () => {
+		await signInWhileStartupFailsLate();
 		const sessions = await provider.getSessions();
 
 		assert.deepStrictEqual(
 			{ sessions: sessions.length, events },
 			{ sessions: 1, events: { added: 1, changed: 0, removed: 0 } },
+		);
+	});
+
+	test('a startup resolve that fails late does not re-enable token file refreshes', async () => {
+		await signInWhileStartupFailsLate();
+		const chainCallsAfterSignIn = chainCalls;
+
+		writeToken(60);
+		const sessions = await provider.getSessions();
+
+		assert.deepStrictEqual(
+			{ newChainCalls: chainCalls - chainCallsAfterSignIn, sessions: sessions.length, events },
+			{ newChainCalls: 0, sessions: 1, events: { added: 1, changed: 0, removed: 0 } },
 		);
 	});
 
