@@ -1240,7 +1240,7 @@ test('the regression test follows the verdict: hidden when disputed, caveated wh
 	assert.match(card(renderReportHtml(verdict('confirmed')), 1), /Regression test<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
 });
 
-test('a finding the verifier matched to an issue says so on its card, and nowhere else', () => {
+test('a finding the verifier matched to an issue says so on its card and in its prompt, and nowhere else', () => {
 	const known = FULL
 		.replace('| Reproduction | Verified |', '| Reproduction | Verified | Known |')
 		.replace('|--------------|----------|', '|--------------|----------|---|')
@@ -1251,6 +1251,8 @@ test('a finding the verifier matched to an issue says so on its card, and nowher
 	const html = renderReportHtml(known);
 	assert.match(card(html, 1), /<\/h2><p class="ki-known"><span class="ki-i">[\s\S]*?<\/span><span>Possibly known: <a class="ki-num" href="https:\/\/github\.com\/posit-dev\/positron\/issues\/15102" target="_blank" rel="noopener">#15102<\/a>, <a class="ki-num" href="[^"]+\/issues\/14991"[^>]*>#14991<\/a><\/span><\/p>/);
 	assert.doesNotMatch(card(html, 2), /Possibly known/);
+	assert.ok(promptText(html, 1).includes('### Possibly known issues\n- https://github.com/posit-dev/positron/issues/15102\n- https://github.com/posit-dev/positron/issues/14991\n'));
+	assert.doesNotMatch(promptText(html, 2), /Possibly known/);
 	const row = /<a href="#f1" class="row findings-grid">.*?<\/a>\n/s.exec(html)[0];
 	assert.doesNotMatch(row, /Possibly known|15102/, 'the row does not repeat it');
 	// The cards carry it, so the verification fold does not repeat the raw line.
@@ -2793,6 +2795,9 @@ test('the card\'s Possibly known line sits under the title and drops the finding
 	assert.ok(card(html, 1).indexOf('card-title') < card(html, 1).indexOf('ki-known'), 'under the title');
 	assert.match(known(1), /<span class="ki-i"><svg[^>]*>[\s\S]*?<\/svg><\/span><span>Possibly known: <a class="ki-num" href="[^"]+\/issues\/15102" target="_blank" rel="noopener">#15102<\/a><\/span><\/p>$/);
 	assert.doesNotMatch(known(1), /#11/, 'its own fix');
+	// The prompt names the same issues, with the list's state and title where it has them.
+	assert.ok(promptText(html, 1).includes('### Possibly known issues\n- https://github.com/posit-dev/positron/issues/15102\n\n'));
+	assert.ok(promptText(html, 3).includes('### Possibly known issues\n- https://github.com/posit-dev/positron/issues/25 (open): similar\n- https://github.com/posit-dev/positron/issues/20 (open): also similar\n'));
 	assert.equal(known(2), '', 'its own regression');
 	assert.match(known(3), /#25<\/a>, <a class="ki-num"[^>]*data-title="also similar"[^>]*>#20<\/a><\/span><\/p>/);
 });

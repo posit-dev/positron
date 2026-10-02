@@ -620,6 +620,11 @@ export function buildAgentPrompt(f, report, options = {}) {
 		}
 	};
 	section('Impact', t.impact);
+	// So the agent checks these before fixing or filing it again.
+	section('Possibly known issues', possiblyKnown(f, options.ki).map(n => {
+		const issue = options.ki?.byNumber.get(n);
+		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
+	}).join('\n'));
 	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 	section('Preconditions', t.preconditions.length === 1
@@ -1047,9 +1052,14 @@ function renderCardDetails(f, report, options = {}) {
 	return rows.length ? `<div class="card-details">${rows.join('')}</div>` : '';
 }
 
-/** The card's "Possibly known" line: the verifier's matches, less the finding's own issues. */
+/** The verifier's matches, less the finding's own issues. */
+function possiblyKnown(f, ki) {
+	return ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
+}
+
+/** The card's "Possibly known" line. */
 function renderPossiblyKnown(f, ki) {
-	const known = ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
+	const known = possiblyKnown(f, ki);
 	if (!known.length) {
 		return '';
 	}
