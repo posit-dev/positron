@@ -30,25 +30,32 @@ import { IEditorPane } from '../../../../common/editor.js';
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
 
-const startupBehaviorSettingsLinkText = localize('positron.console.info.startupBehaviorSettingsLink', "settings");
 const startupBehaviorSettingsLinkLabel = localize('positron.console.info.openStartupBehaviorSettings', "Open Startup Behavior settings");
 
 /**
- * Renders a localized message with an element in place of a marker. The
- * message stays one string, so translators can move the element.
+ * Renders a localized message with the text between two markers shown as an
+ * element, such as a link. The message and the link text stay one string, so
+ * translators can word and place the link text to fit the sentence.
  *
- * @param message The localized message containing the marker.
- * @param marker The marker to replace.
- * @param element The element to show in place of the marker.
- * @returns The message with the element in place of the marker, or with the
- * element after it if a translation dropped the marker.
+ * @param message The localized message containing the markers.
+ * @param open The marker before the link text.
+ * @param close The marker after the link text.
+ * @param renderLink Renders the link for the given text.
+ * @param fallbackLinkText The link text to use if a translation dropped a marker.
+ * @returns The message with the marked text as a link, or the message followed
+ * by the link if a translation dropped a marker.
  */
-function replaceMarker(message: string, marker: string, element: ReactNode): ReactNode {
-	const index = message.indexOf(marker);
-	if (index === -1) {
-		return <>{message} {element}</>;
+function renderMarkedLink(message: string, open: string, close: string, renderLink: (text: string) => ReactNode, fallbackLinkText: string): ReactNode {
+	const start = message.indexOf(open);
+	const end = message.indexOf(close, start + open.length);
+	if (start === -1 || end === -1) {
+		return <>{message} {renderLink(fallbackLinkText)}</>;
 	}
-	return <>{message.slice(0, index)}{element}{message.slice(index + marker.length)}</>;
+	return <>
+		{message.slice(0, start)}
+		{renderLink(message.slice(start + open.length, end))}
+		{message.slice(end + close.length)}
+	</>;
 }
 
 const OutputChannelNames = {
@@ -265,19 +272,21 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 						{startReasonLabel &&
 							<p className='line' data-testid='session-start-reason'>
 								{hasStartupBehaviorLink ?
-									replaceMarker(
+									renderMarkedLink(
 										localize({
 											key: 'positron.console.info.startReasonWithSettingsLink',
-											comment: ['{0} is why the interpreter was started.', '{1} is a link with the text "settings" that opens the Startup Behavior setting.']
-										}, "Start Reason: {0}. Change the behavior in {1}.", startReasonLabel, '{1}'),
+											comment: ['{0} is why the interpreter was started.', 'The text between {1} and {2} is a link that opens the Startup Behavior setting. Keep both markers around the link text.']
+										}, "Start Reason: {0}. Change the behavior in {1}settings{2}.", startReasonLabel, '{1}', '{2}'),
 										'{1}',
-										<Button
+										'{2}',
+										text => <Button
 											ariaLabel={startupBehaviorSettingsLinkLabel}
 											className='inline-link'
 											onPressed={showStartupBehaviorSettingClickHandler}
 										>
-											{startupBehaviorSettingsLinkText}
-										</Button>
+											{text}
+										</Button>,
+										startupBehaviorSettingsLinkLabel,
 									) :
 									localize('positron.console.info.startReason', 'Start Reason: {0}', startReasonLabel)
 								}
