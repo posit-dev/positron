@@ -29,10 +29,16 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		.withReactServices()
 		.stub(IPreferencesService, { openUserSettings, openRemoteSettings, openWorkspaceSettings })
 		.stub(IExtensionService, {
-			extensions: [stubInterface<IExtensionDescription>({
-				identifier: new ExtensionIdentifier('positron.positron-python'),
-				displayName: 'Python',
-			})],
+			extensions: [
+				stubInterface<IExtensionDescription>({
+					identifier: new ExtensionIdentifier('positron.positron-python'),
+					displayName: 'Python',
+				}),
+				stubInterface<IExtensionDescription>({
+					identifier: new ExtensionIdentifier('posit.shiny'),
+					displayName: 'Shiny',
+				}),
+			],
 		})
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
@@ -45,7 +51,7 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		dispose: vi.fn(),
 	});
 
-	function renderPopup(detail: string, id?: SessionStartReasonId, extensionId = 'positron.positron-python', notebookUri?: URI) {
+	function renderPopup(detail: string, id?: SessionStartReasonId, extensionId = 'positron.positron-python', notebookUri?: URI, requestingExtensionId?: string) {
 		const session = stubInterface<ILanguageRuntimeSession>({
 			sessionId: 'python-1',
 			metadata: {
@@ -55,6 +61,7 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 				createdTimestamp: 0,
 				startReason: detail,
 				startReasonId: id,
+				requestingExtensionId,
 			},
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({
 				runtimeDisplayPath: '/usr/bin/python3',
@@ -88,25 +95,37 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 	it('names the extension that provides the session\'s interpreter', () => {
 		renderPopup('', SessionStartReasonId.ExtensionRecommendedRuntime);
 
-		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The Python extension recommended starting Python 3.12.4 for this workspace');
+		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The Python extension recommended this interpreter for this workspace');
 	});
 
 	it('names the session\'s language', () => {
 		renderPopup('', SessionStartReasonId.LanguageFileOpened);
 
-		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: This interpreter was started after a file written in Python was opened');
+		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: A file written in Python was opened');
 	});
 
 	it('falls back to the extension ID when the extension is not registered', () => {
 		renderPopup('', SessionStartReasonId.ExtensionRecommendedRuntime, 'example.missing');
 
-		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The example.missing extension recommended starting Python 3.12.4 for this workspace');
+		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The example.missing extension recommended this interpreter for this workspace');
+	});
+
+	it('names the extension that asked for the session', () => {
+		renderPopup('', SessionStartReasonId.ExtensionApiStart, undefined, undefined, 'posit.shiny');
+
+		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The Shiny extension started this interpreter');
+	});
+
+	it('falls back to the requesting extension ID when the extension is not registered', () => {
+		renderPopup('', SessionStartReasonId.ExtensionApiStart, undefined, undefined, 'example.missing');
+
+		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The example.missing extension started this interpreter');
 	});
 
 	it('names the session\'s notebook', () => {
 		renderPopup('', SessionStartReasonId.NotebookEditorOpened, undefined, URI.file('/work/analysis.ipynb'));
 
-		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: The analysis.ipynb notebook was opened');
+		expect(screen.getByTestId('session-start-reason')).toHaveTextContent('Start Reason: analysis.ipynb was opened');
 	});
 
 	async function clickStartupBehaviorLink(value: IConfigurationValue<string>, id = SessionStartReasonId.StartupBehaviorAlways) {

@@ -51,23 +51,23 @@ describe('RuntimeSessionCard', () => {
 	}
 
 	it('shows the start reason detail and ID', () => {
-		renderCard('This workspace\'s last used interpreter was started when Positron started', SessionStartReasonId.AffiliatedRuntime);
+		renderCard('Positron started the last interpreter used in this workspace', SessionStartReasonId.AffiliatedRuntime);
 
 		// The detail is the English label, so the label is not shown separately.
 		expect(screen.getAllByText(/Start Reason/).map(el => el.textContent)).toEqual([
-			'Start Reason: This workspace\'s last used interpreter was started when Positron started',
+			'Start Reason: Positron started the last interpreter used in this workspace',
 			'Start Reason ID: affiliatedRuntime',
 		]);
 	});
 
 	it('shows the requesting extension when an extension asked for the session', () => {
-		renderCard('An extension asked for this session through the Positron API', SessionStartReasonId.ExtensionApiStart, 'posit.shiny');
+		renderCard('The posit.shiny extension started this interpreter', SessionStartReasonId.ExtensionApiStart, 'posit.shiny');
 
 		expect(screen.getByText(/Requesting Extension/)).toHaveTextContent('Requesting Extension: posit.shiny');
 	});
 
 	it('omits the requesting extension when no extension asked for the session', () => {
-		renderCard('This workspace\'s last used interpreter was started when Positron started', SessionStartReasonId.AffiliatedRuntime);
+		renderCard('Positron started the last interpreter used in this workspace', SessionStartReasonId.AffiliatedRuntime);
 
 		expect(screen.queryByText(/Requesting Extension/)).not.toBeInTheDocument();
 	});

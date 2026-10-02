@@ -1035,7 +1035,7 @@ describe('Positron - RuntimeSessionService', () => {
 			expect(newSession!.metadata.notebookUri).toBe(session.metadata.notebookUri);
 			expect(newSession!.runtimeMetadata).toBe(session.runtimeMetadata);
 			expect(newSession!.metadata.startReasonId).toBe(SessionStartReasonId.RestartUninitializedSession);
-			expect(newSession!.metadata.startReason).toBe('A restart was requested for a session that never started');
+			expect(newSession!.metadata.startReason).toBe('A restart was requested before this interpreter had started');
 
 			assertActiveSessions([session, newSession!]);
 			assertCurrentSession(runtime, notebookUri, newSession!);

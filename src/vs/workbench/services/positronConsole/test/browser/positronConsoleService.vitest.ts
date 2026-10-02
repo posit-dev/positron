@@ -60,7 +60,7 @@ describe('PositronConsoleService', () => {
 
 		expect([session.metadata.startReasonId, session.metadata.startReason]).toEqual([
 			SessionStartReasonId.CodeExecutedWithoutSession,
-			`Code was sent to the console with no ${runtime.languageName} session`,
+			`Code was run with no ${runtime.languageName} console open`,
 		]);
 		// The code runs once the session is ready; this test only covers the start.
 		await executing.catch(() => { });
