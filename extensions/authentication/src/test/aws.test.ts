@@ -184,36 +184,15 @@ suite('AWS credential chain (web identity)', () => {
 		);
 	});
 
-	/**
-	 * Start the token file watcher once the file is missing, and wait for its
-	 * first poll. fs.watchFile takes its baseline stat on the thread pool, so
-	 * a file written before that stat lands would become the baseline and
-	 * never be reported as a change. A missing file reports one change with
-	 * zeroed stats, which marks the baseline as taken.
-	 */
-	async function watchTokenFile(): Promise<{ dispose(): void }> {
-		let polled!: () => void;
-		const firstPoll = new Promise<void>(resolve => polled = resolve);
-		const observed: CredentialChainConfig = {
-			...chain,
-			shouldRefresh: async () => {
-				try {
-					return await chain.shouldRefresh!();
-				} finally {
-					polled();
-				}
-			},
-		};
+	function watchTokenFile(): { dispose(): void } {
 		const env = { AWS_WEB_IDENTITY_TOKEN_FILE: tokenFile };
-		const watcher = watchWebIdentityTokenFile(env, observed, () => provider.resolveChainCredentials(), 20)!;
-		await firstPoll;
-		return watcher;
+		return watchWebIdentityTokenFile(env, chain, () => provider.resolveChainCredentials(), 20)!;
 	}
 
 	test('the token file watcher signs in without waiting for getSessions', async () => {
 		fs.rmSync(tokenDir, { recursive: true, force: true });
 		await provider.resolveChainCredentials();
-		const watcher = await watchTokenFile();
+		const watcher = watchTokenFile();
 		try {
 			const added = new Promise<void>(resolve => provider.onDidChangeSessions(e => {
 				if (e.added?.length) {
@@ -249,7 +228,7 @@ suite('AWS credential chain (web identity)', () => {
 		const startup = provider.resolveChainCredentials();
 		await startupRead;
 
-		const watcher = await watchTokenFile();
+		const watcher = watchTokenFile();
 		try {
 			const added = new Promise<void>(resolve => provider.onDidChangeSessions(e => {
 				if (e.added?.length) {

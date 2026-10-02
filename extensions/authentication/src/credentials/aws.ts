@@ -123,14 +123,17 @@ export function createAwsCredentialChain(
 }
 
 /**
- * Watch the web-identity token file and call `resolve` when `shouldRefresh`
+ * Poll the web-identity token file and call `resolve` when `shouldRefresh`
  * says a retry is due. `shouldRefresh` alone only runs when a consumer calls
  * `getSessions`, and a consumer that waits for a session event would never
  * make that call (#15292); resolving here fires the `added` event instead.
  *
- * Uses fs.watchFile rather than createFileSystemWatcher: the latter misses
- * the file's creation when its folder does not exist yet, and its fallback
- * for a missing path is this same stat polling. Returns undefined when
+ * Polls `shouldRefresh` directly rather than watching for change events:
+ * createFileSystemWatcher misses the file's creation when its folder does
+ * not exist yet, and fs.watchFile takes its baseline stat asynchronously, so
+ * a file written before that stat lands is never reported as a change.
+ * `shouldRefresh` compares against the last resolve's mtime instead, and
+ * skips the stat while credentials are held. Returns undefined when
  * web-identity auth is not in use.
  */
 export function watchWebIdentityTokenFile(
@@ -139,17 +142,27 @@ export function watchWebIdentityTokenFile(
 	resolve: () => Promise<unknown>,
 	intervalMs = 5000,
 ): { dispose(): void } | undefined {
-	const tokenFile = env.AWS_WEB_IDENTITY_TOKEN_FILE;
-	if (!tokenFile) {
+	if (!env.AWS_WEB_IDENTITY_TOKEN_FILE) {
 		return undefined;
 	}
-	const onTokenFile = async () => {
-		if (await credentialChain.shouldRefresh?.()) {
-			await resolve();
+	// Skip ticks while a check is in flight, so a slow STS exchange does not
+	// pile up overlapping resolves.
+	let checking = false;
+	const timer = setInterval(async () => {
+		if (checking) {
+			return;
 		}
-	};
-	fs.watchFile(tokenFile, { persistent: false, interval: intervalMs }, onTokenFile);
-	return { dispose: () => fs.unwatchFile(tokenFile, onTokenFile) };
+		checking = true;
+		try {
+			if (await credentialChain.shouldRefresh?.()) {
+				await resolve();
+			}
+		} finally {
+			checking = false;
+		}
+	}, intervalMs);
+	timer.unref();
+	return { dispose: () => clearInterval(timer) };
 }
 
 async function getMtime(file: string): Promise<number | undefined> {
