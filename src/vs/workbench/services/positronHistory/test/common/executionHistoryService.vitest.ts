@@ -421,7 +421,8 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 		createdTimestamp: 0,
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
-		startReason: 'Unit Test'
+		startReason: 'Unit Test',
+		owner: 'user',
 	};
 }
 

@@ -5,12 +5,14 @@
 
 // CSS.
 import './runtimeIcon.css';
+import '../assistantSessionIcon.css';
 
 // React.
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeSessionOwner } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getSessionIconClasses } from '../../common/sessionDisplayUtils.js';
@@ -32,10 +34,11 @@ export interface RuntimeIconProps {
 	sessionMode: LanguageRuntimeSessionMode;
 	notebookUri?: URI;
 	languageId: string;
+	owner?: RuntimeSessionOwner;
 	'data-testid'?: string;
 }
 
-export const RuntimeIcon = ({ sessionMode, notebookUri, languageId, 'data-testid': dataTestId }: RuntimeIconProps) => {
+export const RuntimeIcon = ({ sessionMode, notebookUri, languageId, owner, 'data-testid': dataTestId }: RuntimeIconProps) => {
 	const services = usePositronReactServicesContext();
 
 	const [iconThemeSettingsId, setIconThemeSettingsId] = useState(
@@ -50,7 +53,7 @@ export const RuntimeIcon = ({ sessionMode, notebookUri, languageId, 'data-testid
 	}, [services.themeService]);
 
 	const iconClasses = getSessionIconClasses(
-		{ sessionMode, notebookUri, languageId },
+		{ sessionMode, notebookUri, languageId, owner },
 		services.modelService,
 		services.languageService,
 	);

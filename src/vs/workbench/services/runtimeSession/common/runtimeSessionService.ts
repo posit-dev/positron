@@ -81,6 +81,12 @@ export interface ILanguageRuntimeSessionStateEvent {
 	new_state: RuntimeState;
 }
 
+/**
+ * Who a session belongs to. `user` for sessions the user starts; `assistant`
+ * for sessions Posit Assistant starts for itself.
+ */
+export type RuntimeSessionOwner = 'user' | 'assistant';
+
 export interface IStartNewRuntimeSessionOptions {
 	/**
 	 * True when the user explicitly selected this runtime. Passed in a trailing
@@ -95,6 +101,12 @@ export interface IStartNewRuntimeSessionOptions {
 	 * session belongs to a Quarto document; see `quartoNotebookUri`.
 	 */
 	readonly quartoNotebookUri?: URI;
+
+	/**
+	 * Who the session belongs to; see {@link RuntimeSessionOwner}. Defaults to
+	 * `user`.
+	 */
+	readonly owner?: RuntimeSessionOwner;
 }
 
 export interface IUpdateNotebookSessionUriOptions {
@@ -150,6 +162,13 @@ export interface IRuntimeSessionMetadata {
 	 * Computed once by core when the session starts.
 	 */
 	readonly quartoNotebookUri?: URI;
+
+	/**
+	 * Who the session belongs to. `user` for sessions the user starts;
+	 * `assistant` for sessions Posit Assistant starts for itself. Persists
+	 * across restore.
+	 */
+	readonly owner: RuntimeSessionOwner;
 }
 
 /**
@@ -410,6 +429,8 @@ export interface IRuntimeSessionDisplayInfo {
 	readonly sessionName: string;
 	readonly sessionMode: LanguageRuntimeSessionMode;
 	readonly notebookUri?: URI;
+	/** Who the session belongs to; see {@link RuntimeSessionOwner}. */
+	readonly owner: RuntimeSessionOwner;
 	readonly runtimeId: string;
 	readonly runtimeName: string;
 	readonly languageName: string;

@@ -60,7 +60,7 @@ import { IExecutionHistoryService } from '../../../services/positronHistory/comm
 import { getConsoleHistory } from '../../../services/positronHistory/common/helpers/sessionConsoleHistory.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { LanguageRuntimeDynState } from 'positron';
+import { LanguageRuntimeDynState, RuntimeSessionStartOptions } from 'positron';
 import { ICodeLocation } from '../../../services/positronConsole/common/codeLocation.js';
 import { IQuartoExecutionManager } from '../../../contrib/positronQuarto/common/quartoExecutionTypes.js';
 import * as perf from '../../../../base/common/performance.js';
@@ -2042,11 +2042,13 @@ export class MainThreadLanguageRuntime
 		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		notebookUri: URI | undefined): Promise<string> {
+		notebookUri: URI | undefined,
+		options: RuntimeSessionStartOptions | undefined): Promise<string> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
 
-		// Start the runtime session
+		// Start the runtime session. Extensions may omit the options: the
+		// session is then the user's and takes the foreground.
 		const sessionId = await this._runtimeSessionService.startNewRuntimeSession(
 			runtimeId,
 			sessionName,
@@ -2054,7 +2056,8 @@ export class MainThreadLanguageRuntime
 			uri,
 			'Extension-requested runtime selection via Positron API',
 			RuntimeStartMode.Starting,
-			true);
+			options?.activate ?? true,
+			{ owner: options?.owner ?? 'user' });
 
 		return sessionId;
 	}
