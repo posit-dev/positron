@@ -277,7 +277,11 @@ It prints one JSON line: the session it used, whether it switched consoles,
 whether the session was busy, and whether the code was echoed. It exits 1 when
 the code did not land in that console. The code is pasted as written, so `\n`
 inside a string stays a backslash and an `n`. It does not start a session; start
-one first. With two sessions of one language, pass `--name` with part of the
+one first. The way that works first time: from the top bar, Quick Launch
+Session... > Start Another..., then pick the interpreter, such as R 4.5.1, and
+wait for its console prompt before running code in it. A fresh window has
+usually started one Python session already, so check the console tabs before
+starting another. With two sessions of one language, pass `--name` with part of the
 session's name as its console tab shows it. `--no-enter` pastes without running,
 for checking completions or an unfinished line.
 
