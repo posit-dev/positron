@@ -22,7 +22,11 @@ For EACH finding, answer these five questions explicitly:
    trigger is what the file contains, not what the report says it contains.
    If the Cause is worded more widely than the cases the report tried, narrow
    it to what they show. Check each `**Impact:**` the same way, and against
-   the IMPACT rules below.
+   the IMPACT rules below. For each "any", "every", "all" or "always" in a
+   title or an Impact, name one case it covers that the run did not try and
+   check it against the code: "any even-length integer column" fails on
+   `c(1L, 3L)`, whose median 2 displays correctly. When the claim does not
+   hold, narrow it with a TITLE or IMPACT line.
 2. Could anything the reporting agent did to its own test environment produce
    the reported symptom? Read the action log, the ledger's `## Environment` and
    Run details for how it set the machine up, then ask whether that setup,
@@ -36,7 +40,9 @@ For EACH finding, answer these five questions explicitly:
 4. For each test file the report says already covers something (`exists,
    covers ...` under Test gap, or a note under Other tests), open it and
    say whether it does. A wrong claim does not change the verdict; name the
-   file and what it actually covers.
+   file and what it actually covers. If a test asserts the very behavior the
+   finding reports as wrong, such as expecting different counts from two
+   backends, say so: it may be intended, and the reader decides.
 5. Is it already a known issue? Check the linked issues file first, then search open and closed issues in
    `posit-dev/positron` with `{{SEARCH}} "<key terms>"`, a few searches per
    finding with different terms: the symptom, the UI element, an error
@@ -124,7 +130,11 @@ Leave them out when every Impact holds.
 Then keep it short. The table column is what a reviewer reads; this section is
 for what the column cannot say.
 
-- A finding you CONFIRM gets one line: what convinced you.
+- A finding you CONFIRM gets one line: the evidence that convinced you that
+  the report does not already cite, or `Matches the report's cause.` Don't
+  restate the cause.
+- A finding whose behavior a test asserts gets one line: the test, and that
+  it may be intended.
 - A finding on the KNOWN line gets one line per issue: why it is the same
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its

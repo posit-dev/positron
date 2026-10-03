@@ -530,8 +530,15 @@ function parseEvidenceBullet(text) {
 
 const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
 
-/** `at Fn (path/file.ts:212:7)` or `at path/file.ts:212` -> its parts, or null. */
+/**
+ * `at Fn (path/file.ts:212:7)`, `at path/file.ts:212`, or a Python traceback's
+ * `File "path/file.py", line 212, in fn` -> its parts, or null.
+ */
 function parseFrame(line) {
+	const py = /^File "([^"]+)", line (\d+)(?:, in (\S+))?\s*$/.exec(line.trim());
+	if (py) {
+		return { fn: py[3] ?? '', path: py[1], line: Number(py[2]) };
+	}
 	const m = /^at\s+(?:(.*?)\s+\(([^()]+?):(\d+)(?::\d+)?\)|([^\s()]+?):(\d+)(?::\d+)?)\s*$/.exec(line.trim());
 	if (!m) {
 		return null;
@@ -611,7 +618,8 @@ function errorFrom(source, meta, body) {
 		const text = raw.trim();
 		if (!text) { continue; }
 		const frame = parseFrame(text);
-		if (frame) { frames.push(frame); } else if (!frames.length) { message.push(text); }
+		// A Python traceback's header says nothing its frames do not.
+		if (frame) { frames.push(frame); } else if (!frames.length && !/^Traceback \(most recent call last\):$/.test(text)) { message.push(text); }
 	}
 	const count = meta.map(m => /(\d+)\s*(?:\u00d7|x\b)/i.exec(m)).find(Boolean);
 	return {
@@ -727,6 +735,15 @@ function parseFindingBody(lines) {
 			for (let j = i + 1; j < lines.length; j++) {
 				const bullet = lines[j].trim();
 				if (!bullet) { continue; }
+				// Reports written before Evidence lost its gallery embed one shot
+				// above the bullets; the bullets after it are still Evidence.
+				const image = /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.exec(bullet);
+				if (image) {
+					const src = safeUrl(image[2]);
+					if (src) { out.hero = { src, alt: image[1], file: basename(src) }; }
+					i = j;
+					continue;
+				}
 				if (!/^[-*]\s/.test(bullet)) { i = j - 1; break; }
 				out.evidence.push(parseEvidenceBullet(bullet.replace(/^[-*]\s+/, '')));
 				i = j;

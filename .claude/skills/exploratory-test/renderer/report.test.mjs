@@ -1313,6 +1313,41 @@ test('renderReportHtml shows only errors with a stack, and links frames at the c
 	assert.doesNotMatch(c, /no stack here/);
 });
 
+test('renderReportHtml shows a Python traceback as frames, and links only the repo\'s files', () => {
+	const c = card(renderReportHtml(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '',
+		'### Finding 1: a claim', '',
+		'**Error output** -- `logs/python-kernel.log:23` | Python kernel | Logged 4x', '',
+		'```',
+		'[positron.data_explorer] ERROR | invalid series dtype',
+		'Traceback (most recent call last):',
+		'  File "extensions/positron-python/python_files/posit/positron/data_explorer.py", line 2139, in _polars_summarize_string',
+		'    num_empty = (col.str.len_chars() == 0).sum()',
+		'  File ".venv/lib/python3.14/site-packages/polars/series/utils.py", line 104, in wrapper',
+		'polars.exceptions.SchemaError: invalid series dtype',
+		'```',
+	].join('\n'))), 1);
+	assert.match(c, /Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">4x<\/span><\/span>/);
+	assert.match(c, /<div class="err-msg">\[positron\.data_explorer\] ERROR \| invalid series dtype<\/div>/);
+	assert.match(c, /at _polars_summarize_string \(<a class="err-loc" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/[0-9a-f]+\/extensions\/positron-python\/python_files\/posit\/positron\/data_explorer\.py#L2139"[^>]*>data_explorer\.py:2139<\/a>\)/);
+	// An installed package is not in the repo, so its frame is not linked.
+	assert.match(c, /at wrapper \(<span class="err-loc" title="\.venv\/lib\/python3\.14\/site-packages\/polars\/series\/utils\.py">utils\.py:104<\/span>\)/);
+	assert.doesNotMatch(c, /Traceback \(most recent call last\)/);
+	assert.match(c, /<span title="Logged by the language runtime">Python kernel<\/span>/);
+});
+
+test('parseReport keeps the Evidence bullets that follow an embedded screenshot', () => {
+	const [f] = parseReport(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '',
+		'### Finding 1: a claim', '',
+		'**Evidence**', '',
+		'![](shots/S19-04.png)', '',
+		'- [shots/S18-03.png](shots/S18-03.png) -- Variant: the tibble reads the same',
+		'- `logs/k.log` -- line 27: `ERROR | invalid series dtype`',
+	].join('\n'))).findings;
+	assert.deepEqual(f.evidence.map(e => `${e.kind} ${e.file ?? e.path}`).sort(), ['log logs/k.log', 'shot S18-03.png', 'shot S19-04.png']);
+});
+
 test('renderReportHtml keeps every error in the prompt, stack or not', () => {
 	const text = promptText(renderReportHtml(RICH, { base: '/runs/r1' }), 1);
 	assert.match(text, /### Error output\n```\nError: get_column_profiles[\s\S]*?\n```\nLogged in \/runs\/r1\/logs\/app\.log \(Renderer\), 2x after each Retry\./);
@@ -1873,41 +1908,13 @@ test('logs: render.mjs fails the run when a listed log was not copied', () => {
 	rmSync(dir, { recursive: true, force: true });
 });
 
-test('Run details shows the explorer\'s format checks, with the rules it did not fix marked', () => {
-	const page = checks => renderReportHtml(LOGS_REPORT, {
-		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(checks.map(c => JSON.stringify(c)).join('\n')) : null),
+test('Run details leaves the explorer\'s format checks to stats.json', () => {
+	// They tune the skill, not the reader's view of the product.
+	const html = renderReportHtml(LOGS_REPORT, {
+		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(JSON.stringify({ problems: 1, rules: { 'report: x': 1 } })) : null),
 		fileExists: p => p === 'stats.json',
 	});
-	const blank = 'report: leave a blank line after </summary>';
-	const repro = 'report: finding # Reproduction must be N/M, got "…"';
-	const shot = 'ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own';
-
-	// Of three: the blank line fixed, one of two Reproductions left, and a
-	// screenshot rule that broke after the first check.
-	const html = page([
-		{ problems: 3, rules: { [blank]: 1, [repro]: 2 } },
-		{ problems: 2, rules: { [repro]: 1, [shot]: 1 } },
-	]);
-	assert.match(html, /<div class="format-checks">The explorer ran the report's format check 2 times\. The first time, it found 3 problems:<\/div><ul class="format-rules">/);
-	assert.match(html, /<\/ul><div class="format-raw"><a href="stats.json">Raw stats<\/a><\/div>/);
-	// Not fixed first, escaped, then the fixed one; a partial fix shows both counts.
-	assert.match(html, new RegExp([
-		'<ul class="format-rules">',
-		'<li><span class="num">2&times;</span> report: finding # Reproduction must be N/M, got &quot;…&quot; <span class="fixed">1 fixed</span> <span class="not-fixed">1 not fixed</span></li>',
-		'<li><span class="num">1&times;</span> ledger: S# step # VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own <span class="not-fixed">not fixed</span></li>',
-		'<li><span class="num">1&times;</span> report: leave a blank line after &lt;/summary&gt; <span class="fixed">fixed</span></li>',
-		'</ul>',
-	].join('').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-
-	// All fixed: every rule marked fixed, none not fixed.
-	const clean = page([{ problems: 2, rules: { [blank]: 2 } }, { problems: 0, rules: {} }]);
-	assert.match(clean, /report: leave a blank line after &lt;\/summary&gt; <span class="fixed">fixed<\/span>/);
-	assert.doesNotMatch(clean, /class="not-fixed"/);
-	// One clean check: the sentence, and no list.
-	const once = page([{ problems: 0, rules: {} }]);
-	assert.match(once, /format check once\. The first time, it found no problems\./);
-	assert.doesNotMatch(once, /<ul class="format-rules">/);
-	assert.doesNotMatch(renderReportHtml(LOGS_REPORT), /Format checks/);
+	assert.doesNotMatch(html, /Format checks|format-rules|Raw stats/);
 });
 
 test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {

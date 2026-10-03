@@ -132,8 +132,8 @@ test('render.mjs counts the explorer\'s checks, not the harness\'s renders, and 
 			'Could not make value fetches slow: the slow-hash trick only slows profiling',
 			'Desktop build only',
 		]);
-		// The page is written after stats.json, so Run details links it.
-		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /format check 2 times\. The first time, it found .*<div class="format-raw"><a href="stats.json">Raw stats<\/a><\/div>/s);
+		// The checks tune the skill, so they stay in stats.json and off the page.
+		assert.doesNotMatch(readFileSync(join(dir, 'index.html'), 'utf8'), /Format checks|Raw stats/);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
