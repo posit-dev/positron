@@ -620,19 +620,10 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
    column. Screenshots all live under Evidence, which answers "show me that it
    happened"; a featured shot here meant the same image appeared twice. */
 .repro{display:flex;flex-direction:column;gap:10px;max-width:var(--measure);margin-top:8px}
-/* What must be true first, then what to do. A "P" in the step-number column
-   marks setup, as Coverage does, so neither list needs a label. */
+/* What must be true first, then what to do. Setup is Coverage's P row, so
+   neither part needs a label. */
 .repro-group{display:flex;flex-direction:column;gap:4px}
 .repro-group.steps{margin-top:4px}
-/* Set exactly as the steps are -- 14px, the same indent -- because they are
-   read the same way; the marker and the lighter tone separate them. */
-ol.psteps{list-style:none;margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--secondary)}
-ol.psteps>li{position:relative;margin:0 0 6px;padding-left:4px}
-ol.psteps li>p{margin:0 0 8px}
-ol.psteps>li>.pm{position:absolute;left:-17px;font-size:13px;color:var(--faint);cursor:help;transition:color .15s ease}
-ol.psteps>li:hover>.pm{color:var(--link)}
-ol.psteps>li>.pm:hover::after{content:'Precondition';position:absolute;bottom:calc(100% + 6px);left:-8px;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:5}
-@media (prefers-reduced-motion:reduce){ol.psteps>li>.pm{transition:none}}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
@@ -784,6 +775,10 @@ span.rt-file{color:var(--body)}
 .pre-pop .pre-i+.pre-i{margin-top:8px;padding-top:8px;border-top:1px solid var(--pop-sep)}
 .pre-pop b{display:block;font-weight:600;color:var(--ink);font-size:12.5px;margin-bottom:2px}
 @media (prefers-reduced-motion:reduce){.cv-pre .pre-mark,.pre-pop,.cv-pre:hover .pre-pop{transition:none}}
+/* On a finding card the row sits over the steps: its text on the step text, its P over the digits. */
+.f-pre{margin:0 0 4px 20px;font-size:14px}
+.f-pre .pre-mark{position:absolute;left:auto;right:calc(100% + 8px);width:auto;margin:0;font-size:13px}
+.f-pre .pre-pop{left:-20px}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
 /* The screenshot icon supports the check: faint at rest, ink on hover or focus */

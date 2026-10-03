@@ -87,6 +87,13 @@ test('flags a finding with no Affects or Workaround line', () => {
 	assert.deepEqual(lint(REPORT.replace(/\*\*Workaround:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Workaround:** <what worked, or none found>" line']);
 });
 
+test('flags a finding precondition with no short name, or a long one', () => {
+	const pre = bullet => lint(REPORT.replace('1. Click Retry.', `**Preconditions:**\n- ${bullet}\n\n1. Click Retry.`));
+	assert.deepEqual(pre('Summaries paused | the summary setting is off'), []);
+	assert.deepEqual(pre('the summary setting is off'), ['report: Finding 1 precondition "the summary setting is off" needs "<short name> | <full text>"']);
+	assert.deepEqual(pre('the summary setting is turned off | for this run'), ['report: Finding 1 precondition name "the summary setting is turned off" is 6 words; keep it to 2 to 4']);
+});
+
 test('flags an Affects that names no one, and a none that is not an allowed form', () => {
 	assert.deepEqual(lint(REPORT.replace('anyone who opens the panel', 'the panel is blank')), ['report: Finding 1 Affects: starts "the panel is blank"; start it "anyone who" or "anyone whose"']);
 	assert.deepEqual(lint(REPORT.replace('none found', 'none, it is cosmetic')), ['report: Finding 1 Workaround: "none, it is cosmetic"; write "none found", "none needed (wording only)" or "none needed (spacing only)"']);

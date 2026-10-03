@@ -1314,10 +1314,15 @@ export function parseReport(markdown, { ledger } = {}) {
 		}
 		// The starting state and the configuration line are both answers to
 		// "what has to be true before step 1", so they render as one list.
-		const preconditions = [parsed.reproStart, ...parsed.preconditions]
+		// `<short name> | <full text>`, as the ledger writes them; older reports have no name.
+		const named = [parsed.reproStart, ...parsed.preconditions]
 			.map(t => String(t ?? '').trim())
 			.filter(t => t && !isDefaultsOnly(t))
-			.map(sentenceCase);
+			.map(t => {
+				const m = /^([^|\n]+?)\s+\|\s+(\S[\s\S]*)$/.exec(t);
+				return m && m[1].split(/\s+/).length <= 6 ? { name: m[1], text: sentenceCase(m[2]) } : { name: '', text: sentenceCase(t) };
+			});
+		const preconditions = named.map(p => p.text);
 
 		const steps = parsed.steps.map(typedStep);
 		const stepOf = new Map();
@@ -1362,6 +1367,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
 			// A starting state with a pasted file is the one multi-line item.
 			preconditions: preconditions.map(t => (t.includes('\n') ? block(t) : inline(t))),
+			preconditionNames: named.map(p => (p.name ? inline(p.name) : '')),
 			steps,
 			// A shot a step names is that step's, whatever its caption says.
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'

@@ -706,12 +706,12 @@ test('parseReport still reads the labels reports were published with', () => {
 	}
 });
 
-test('renderReportHtml marks the setup with P rows above the steps, with no subtitles', () => {
+test('renderReportHtml marks the setup with one P row above the steps, with no subtitles', () => {
 	const html = renderReportHtml(FULL);
 	const repro = html.slice(html.indexOf('<div class="repro">'));
-	assert.match(repro, /<ol class="psteps" aria-label="Preconditions"><li><span class="pm" aria-hidden="true">P<\/span>/);
+	assert.match(repro, /<div class="cv-pre f-pre" tabindex="0" aria-label="Preconditions"><span class="pre-mark" aria-hidden="true">P<\/span>/);
 	// Setup before actions, and none of the labels or phrasings this replaced.
-	assert.ok(repro.indexOf('class="psteps"') < repro.indexOf('class="repro-steps'));
+	assert.ok(repro.indexOf('f-pre') < repro.indexOf('class="repro-steps'));
 	assert.doesNotMatch(html, /repro-label|Only under|Start:/);
 });
 
@@ -726,11 +726,11 @@ test('renderReportHtml drops a preconditions list that says only "defaults"', ()
 	].join('\n')));
 	// Nothing to say, so no label and no empty list to read past.
 	const bare = build('Shipped defaults.');
-	assert.doesNotMatch(bare, /class="psteps"/);
+	assert.doesNotMatch(bare, /class="cv-pre f-pre"/);
 	assert.match(bare, /<div class="repro-group steps"><ol class="repro-steps/);
 	// Qualified, so it earns its line.
 	const qualified = build('Shipped defaults. Slowness is manufactured with a slow hash.');
-	assert.match(qualified, /<ol class="psteps"/);
+	assert.match(qualified, /class="cv-pre f-pre"/);
 	assert.match(qualified, /Slowness is manufactured/);
 });
 
@@ -851,8 +851,8 @@ test('parseReport reads bulleted preconditions as one item each, with a pasted f
 		'## Findings', '',
 		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
 		'', '### Finding 1: a claim', '',
-		'**Repro**', '', '**Preconditions:**', '- one', '- two', '', '1. First.',
-	].join('\n'))), /<ol class="psteps" aria-label="Preconditions"><li><span class="pm" aria-hidden="true">P<\/span>One<\/li><li><span class="pm" aria-hidden="true">P<\/span>Two<\/li><\/ol>/);
+		'**Repro**', '', '**Preconditions:**', '- One | the first state', '- `two.py` saved | the second state', '', '1. First.',
+	].join('\n'))), /P<\/span>One &middot; <code[^>]*>two\.py<\/code> saved<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions<\/span><span class="pre-i"><b>One<\/b>The first state<\/span><span class="pre-i"><b><code[^>]*>two\.py<\/code> saved<\/b>The second state<\/span><\/span><\/div>/);
 });
 
 test('parseReport widens a step fence past the source nested inside it', () => {
@@ -2608,7 +2608,8 @@ test('code copy: inline code in Reproduce copies on click, and nothing else on t
 		'**Observed:** the grid showed `None`.',
 	].join('\n')));
 	const chips = [...html.matchAll(/<code class="cc" data-tip="Copy">([^<]*)<\/code>/g)].map(m => m[1]);
-	assert.deepEqual(chips, ['slow.py', '%run -i slow.py', '%view df', 'df']);
+	// An unnamed precondition shows in the P row and again in its popover.
+	assert.deepEqual(chips, ['slow.py', '%run -i slow.py', 'slow.py', '%run -i slow.py', '%view df', 'df']);
 	// A code block keeps its own Copy button; Observed is prose, not a command.
 	assert.match(html, /<pre><code class="language-python">df\.head\(\)<\/code><\/pre>/);
 	assert.match(html, /<div class="oe-label">Observed<\/div><p>the grid showed <code>None<\/code>/);

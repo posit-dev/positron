@@ -429,7 +429,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 **Repro**
 
 **Preconditions:**
-- <one state per bullet, true before the app does anything: a non-default setting, a test file in backticks, an installed interpreter. Anything done in the app is a step. Leave the list out when nothing is needed.>
+- <short name, 2 to 4 words, e.g. `slow.py` loaded> | <one state per bullet, true before the app does anything: a non-default setting, a test file in backticks, an installed interpreter. Anything done in the app is a step. Leave the list out when nothing is needed.>
 
 1. <action>
 2. VERIFY <expectation> -> PASS

@@ -359,6 +359,13 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		const at = body.findIndex(l => /^\*\*Preconditions:\*\*\s*$/.test(l));
 		for (let k = at + 1; at !== -1 && /^[-*]\s+/.test(body[k] ?? ''); k++) {
 			needs.push([`Finding ${b.n}`, body[k]]);
+			// The card shows the short name, as Coverage does, and the full text on hover.
+			const name = /^[-*]\s+([^|]+?)\s+\|\s+\S/.exec(body[k])?.[1];
+			if (!name) {
+				problems.push(`report: Finding ${b.n} precondition "${body[k].replace(/^[-*]\s+/, '').slice(0, 40)}" needs "<short name> | <full text>"`);
+			} else if (name.split(/\s+/).length > 5) {
+				problems.push(`report: Finding ${b.n} precondition name "${name}" is ${name.split(/\s+/).length} words; keep it to 2 to 4`);
+			}
 		}
 		const pre = body.find(l => l.startsWith('**Preconditions:**'));
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {

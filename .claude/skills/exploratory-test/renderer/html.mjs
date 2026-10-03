@@ -1133,11 +1133,16 @@ function renderFindingCard(f, report, options) {
 		: '';
 
 	// Text only: every screenshot sits under Evidence.
-	// Setup first, then actions. A "P" in the step-number column marks setup, as
-	// Coverage does, so neither list needs a label.
+	// Setup is one P row of short names, as in Coverage, with each in full on hover.
+	// An older report has no names, so its row shows the text, less any pasted file.
+	const names = f.preconditions.map((p, k) => f.preconditionNames?.[k] || p.split(/<pre\b/)[0].trim() || p);
 	const preconditions = f.preconditions.length
-		? '<div class="repro-group"><ol class="psteps" aria-label="Preconditions">'
-		+ `${f.preconditions.map(p => `<li><span class="pm" aria-hidden="true">P</span>${withCodeCopy(p)}</li>`).join('')}</ol></div>`
+		? '<div class="cv-pre f-pre" tabindex="0" aria-label="Preconditions">'
+		+ '<span class="pre-mark" aria-hidden="true">P</span>'
+		+ names.join(' &middot; ')
+		+ '<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions</span>'
+		+ f.preconditions.map((p, k) => `<span class="pre-i">${f.preconditionNames?.[k] ? `<b>${f.preconditionNames[k]}</b>` : ''}${withCodeCopy(p)}</span>`).join('')
+		+ '</span></div>'
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when
 	// two failed checks saw different things.
