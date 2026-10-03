@@ -14,7 +14,7 @@ import { INotificationService } from '../../../../../platform/notification/commo
 import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode } from '../../common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../common/runtimeSessionService.js';
 import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
@@ -29,6 +29,8 @@ type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLang
 
 describe('Positron - RuntimeSessionService', () => {
 	const startReason = 'Test requested to start a runtime session';
+	// Not the test helper's default ID, so a hardcoded ID in the service fails the tests.
+	const startSource: IRuntimeSessionStartReason = { id: SessionStartReasonId.NewConsoleCommand, detail: startReason };
 	const notebookUri = URI.file('/path/to/notebook');
 	const notebookParent = '/path/to';
 
@@ -90,6 +92,7 @@ describe('Positron - RuntimeSessionService', () => {
 				runtime,
 				sessionName,
 				startReason,
+				startReasonId: startSource.id,
 				sessionMode,
 				notebookUri,
 			},
@@ -207,6 +210,7 @@ describe('Positron - RuntimeSessionService', () => {
 			createdTimestamp: Date.now(),
 			notebookUri: undefined,
 			startReason,
+			startReasonId: startSource.id,
 		};
 		return restoreSession(sessionMetadata, runtime);
 	}
@@ -218,12 +222,13 @@ describe('Positron - RuntimeSessionService', () => {
 			createdTimestamp: Date.now(),
 			notebookUri,
 			startReason,
+			startReasonId: startSource.id,
 		};
 		return restoreSession(sessionMetadata, runtime);
 	}
 
 	async function autoStartSession(runtime: ILanguageRuntimeMetadata) {
-		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
+		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startSource, true);
 		expect(sessionId).toBeTruthy();
 		const session = runtimeSessionService.getSession(sessionId);
 		expect(session instanceof TestLanguageRuntimeSession).toBe(true);
@@ -232,7 +237,7 @@ describe('Positron - RuntimeSessionService', () => {
 	}
 
 	async function selectRuntime(runtime: ILanguageRuntimeMetadata, notebookUri?: URI) {
-		await runtimeSessionService.selectRuntime(runtime.runtimeId, startReason, notebookUri);
+		await runtimeSessionService.selectRuntime(runtime.runtimeId, startSource, notebookUri);
 		let session: ILanguageRuntimeSession | undefined;
 		if (notebookUri) {
 			session = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
@@ -265,6 +270,7 @@ describe('Positron - RuntimeSessionService', () => {
 				expect(session.dynState.sessionName).toBe(sessionName);
 				expect(session.metadata.sessionMode).toBe(mode);
 				expect(session.metadata.startReason).toBe(startReason);
+				expect(session.metadata.startReasonId).toBe(startSource.id);
 				expect(session.runtimeMetadata).toBe(runtime);
 
 				if (mode === LanguageRuntimeSessionMode.Console) {
@@ -660,7 +666,7 @@ describe('Positron - RuntimeSessionService', () => {
 	it('auto start console does nothing if automatic startup is disabled', async () => {
 		configService.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
 
-		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
+		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startSource, true);
 
 		expect(sessionId).toBe('');
 
@@ -677,10 +683,10 @@ describe('Positron - RuntimeSessionService', () => {
 
 			let sessionId: string;
 			if (action === 'auto start') {
-				sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason, true);
+				sessionId = await runtimeSessionService.autoStartRuntime(runtime, startSource, true);
 			} else {
 				sessionId = await runtimeSessionService.startNewRuntimeSession(
-					runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startReason, RuntimeStartMode.Starting, true);
+					runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startSource, RuntimeStartMode.Starting, true);
 			}
 
 			expect(sessionId).toBe('');
@@ -722,7 +728,7 @@ describe('Positron - RuntimeSessionService', () => {
 			}
 
 			// Select the same runtime for the console.
-			await runtimeSessionService.selectRuntime(runtime.runtimeId, startReason);
+			await runtimeSessionService.selectRuntime(runtime.runtimeId, startSource);
 
 			assertActiveSessions([session]);
 			assertConsoleSessionForLanguage(runtime.languageId, session);
@@ -1020,6 +1026,9 @@ describe('Positron - RuntimeSessionService', () => {
 			expect(newSession!.metadata.sessionMode).toBe(session.metadata.sessionMode);
 			expect(newSession!.metadata.notebookUri).toBe(session.metadata.notebookUri);
 			expect(newSession!.runtimeMetadata).toBe(session.runtimeMetadata);
+			expect(newSession!.metadata.startReasonId).toBe(SessionStartReasonId.RestartUninitializedSession);
+			expect(newSession!.metadata.startReason).toBe(
+				`A restart was requested for a session that never started (restartSource: ${startReason})`);
 
 			assertActiveSessions([session, newSession!]);
 			assertCurrentSession(runtime, notebookUri, newSession!);
@@ -1763,7 +1772,7 @@ describe('Positron - RuntimeSessionService', () => {
 				sessionName,
 				LanguageRuntimeSessionMode.Console,
 				undefined,
-				startReason,
+				startSource,
 				RuntimeStartMode.Starting,
 				true,
 				{ userSelected: true },

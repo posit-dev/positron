@@ -8,7 +8,7 @@
 import { Disposable, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ILogService, NullLogService } from '../../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, ILanguageRuntimeSessionStateEvent, ILanguageRuntimeGlobalEvent, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent, INotebookSessionUriChangedEvent, INotebookLanguageRuntimeSession, IRuntimeSessionDisplayInfo } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryService, ExecutionEntryType, IExecutionHistoryEntry, projectExecutionEntriesToConsoleHistory, DEFAULT_CONSOLE_HISTORY_ENTRY_COUNT, CONSOLE_HISTORY_API_ENABLED_KEY } from '../../common/executionHistoryService.js';
 import { getConsoleHistory } from '../../common/helpers/sessionConsoleHistory.js';
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
@@ -190,7 +190,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	startNewRuntimeSession(_runtimeId: string, _sessionName: string, _sessionMode: any, _notebookUri: any, _source: string, _startMode: RuntimeStartMode, _activate: boolean): Promise<string> {
+	startNewRuntimeSession(_runtimeId: string, _sessionName: string, _sessionMode: any, _notebookUri: any, _startReason: IRuntimeSessionStartReason, _startMode: RuntimeStartMode, _activate: boolean): Promise<string> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -202,11 +202,11 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	autoStartRuntime(_metadata: any, _source: string, _activate: boolean): Promise<string> {
+	autoStartRuntime(_metadata: any, _startReason: IRuntimeSessionStartReason, _activate: boolean): Promise<string> {
 		throw new Error('Method not implemented.');
 	}
 
-	selectRuntime(_runtimeId: string, _source: string, _notebookUri?: any): Promise<void> {
+	selectRuntime(_runtimeId: string, _startReason: IRuntimeSessionStartReason, _notebookUri?: any): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 

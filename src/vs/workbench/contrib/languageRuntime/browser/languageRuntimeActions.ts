@@ -14,7 +14,8 @@ import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybindi
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
@@ -977,7 +978,7 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 				currentSession.dynState.sessionName,
 				LanguageRuntimeSessionMode.Console,
 				undefined,
-				`Duplicated session: ${currentSession.dynState.sessionName}`,
+				createSessionStartReason(SessionStartReasonId.DuplicatedConsoleSession, { fromSession: currentSession.dynState.sessionName }),
 				RuntimeStartMode.Starting,
 				true
 			);
@@ -987,7 +988,7 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 				currentSession.runtimeMetadata.runtimeName,
 				LanguageRuntimeSessionMode.Console,
 				undefined,
-				`Started console session from notebook session: ${currentSession.dynState.sessionName}`,
+				createSessionStartReason(SessionStartReasonId.DuplicatedNotebookSession, { interpreter: currentSession.runtimeMetadata.runtimeName, fromSession: currentSession.dynState.sessionName }),
 				RuntimeStartMode.Starting,
 				true
 			);
@@ -1083,7 +1084,9 @@ export class StartNewConsoleSessionAction extends Action2 {
 			selectedRuntime.runtimeName,
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			suppliedRuntimeId ? 'Runtime id supplied to startNewConsoleSession command' : 'User selected runtime',
+			suppliedRuntimeId ?
+				createSessionStartReason(SessionStartReasonId.NewConsoleCommand, { command: LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID }) :
+				createSessionStartReason(SessionStartReasonId.UserSelectedRuntime),
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: !suppliedRuntimeId }

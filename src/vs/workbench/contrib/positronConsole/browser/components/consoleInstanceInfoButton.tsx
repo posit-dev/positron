@@ -7,7 +7,7 @@
 import './consoleInstanceInfoButton.css';
 
 // React.
-import { useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -20,11 +20,36 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getSessionStartReasonLabel } from '../../../../services/runtimeSession/common/sessionStartReasons.js';
+import { ConfigurationTarget, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
+import { IOpenSettingsOptions } from '../../../../services/preferences/common/preferences.js';
+import { IEditorPane } from '../../../../common/editor.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
+
+const startupBehaviorSettingsLinkText = localize('positron.console.info.startupBehaviorSettingsLink', "settings");
+const startupBehaviorSettingsLinkLabel = localize('positron.console.info.openStartupBehaviorSettings', "Open Startup Behavior settings");
+
+/**
+ * Renders a localized message with an element in place of a marker. The
+ * message stays one string, so translators can move the element.
+ *
+ * @param message The localized message containing the marker.
+ * @param marker The marker to replace.
+ * @param element The element to show in place of the marker.
+ * @returns The message with the element in place of the marker, or with the
+ * element after it if a translation dropped the marker.
+ */
+function replaceMarker(message: string, marker: string, element: ReactNode): ReactNode {
+	const index = message.indexOf(marker);
+	if (index === -1) {
+		return <>{message} {element}</>;
+	}
+	return <>{message.slice(0, index)}{element}{message.slice(index + marker.length)}</>;
+}
 
 const OutputChannelNames = {
 	[LanguageRuntimeSessionChannel.Kernel]: localize('positron.console.info.kernel', 'Kernel'),
@@ -92,13 +117,53 @@ export const ConsoleInstanceInfoButton = () => {
 	);
 };
 
+const startupBehaviorSettingKey = 'interpreters.startupBehavior';
+
+/**
+ * Where the value of a setting that applies to a language is set.
+ */
+interface ISettingSource {
+	/** The settings tab the value is set on. */
+	readonly target: ConfigurationTarget.WORKSPACE | ConfigurationTarget.USER_REMOTE | ConfigurationTarget.USER_LOCAL;
+	/** Whether the value is set for the language rather than for all languages. */
+	readonly languageSpecific: boolean;
+}
+
+/**
+ * Finds where the value of a setting that applies to a language is set.
+ * Language-specific values win over values for all languages from any tab.
+ * Among values of the same kind, workspace values win over remote user
+ * values, which win over user values.
+ *
+ * @param value The setting inspected with the language as the override identifier.
+ * @param languageSpecific Whether to assume a language-specific value when
+ * no tab sets one.
+ * @returns Where the value is set, or the User tab if no tab sets it.
+ */
+function getSettingSource(value: IConfigurationValue<string>, languageSpecific: boolean): ISettingSource {
+	const tabs = [
+		{ target: ConfigurationTarget.WORKSPACE, inspectValue: value.workspace },
+		{ target: ConfigurationTarget.USER_REMOTE, inspectValue: value.userRemote },
+		{ target: ConfigurationTarget.USER_LOCAL, inspectValue: value.userLocal },
+	] as const;
+	for (const override of [true, false]) {
+		const tab = tabs.find(({ inspectValue }) =>
+			(override ? inspectValue?.override : inspectValue?.value) !== undefined);
+		if (tab) {
+			return { target: tab.target, languageSpecific: override };
+		}
+	}
+	return { target: ConfigurationTarget.USER_LOCAL, languageSpecific };
+}
+
 interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
 	renderer: PositronModalReactRenderer;
 	session: ILanguageRuntimeSession;
 }
 
-const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
+export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
+	const services = usePositronReactServicesContext();
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
 	const [channels, setChannels] = useState<LanguageRuntimeSessionChannel[]>([]);
 
@@ -137,8 +202,37 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		return () => { active = false; };
 	}, [props.session]);
 
+	const startReasonLabel = getSessionStartReasonLabel(props.session, services.extensionService.extensions);
+	const hasStartupBehaviorLink =
+		props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlways ||
+		props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlwaysAllLanguages;
+
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
+		props.renderer.dispose();
+	};
+
+	const showStartupBehaviorSettingClickHandler = () => {
+		// Open the settings tab the session's value comes from, so the user
+		// sees the value that started the session.
+		const languageId = props.session.runtimeMetadata.languageId;
+		const { target, languageSpecific } = getSettingSource(
+			services.configurationService.inspect<string>(startupBehaviorSettingKey, { overrideIdentifier: languageId }),
+			props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlways);
+		// The Settings editor uses the query. The JSON settings editor
+		// ignores it and uses the setting to reveal instead.
+		const options: IOpenSettingsOptions = languageSpecific ?
+			{ query: `@lang:${languageId} ${startupBehaviorSettingKey}`, revealSetting: { key: `[${languageId}]` } } :
+			{ query: startupBehaviorSettingKey, revealSetting: { key: startupBehaviorSettingKey } };
+		let opened: Promise<IEditorPane | undefined>;
+		if (target === ConfigurationTarget.WORKSPACE) {
+			opened = services.preferencesService.openWorkspaceSettings(options);
+		} else if (target === ConfigurationTarget.USER_REMOTE) {
+			opened = services.preferencesService.openRemoteSettings(options);
+		} else {
+			opened = services.preferencesService.openUserSettings(options);
+		}
+		opened.catch(err => services.logService.error(`Could not open the Startup Behavior setting: ${err}`));
 		props.renderer.dispose();
 	};
 
@@ -168,6 +262,27 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 							'positron.console.info.state', 'State: {0}',
 							sessionState)}
 						</p>
+						{startReasonLabel &&
+							<p className='line' data-testid='session-start-reason'>
+								{hasStartupBehaviorLink ?
+									replaceMarker(
+										localize({
+											key: 'positron.console.info.startReasonWithSettingsLink',
+											comment: ['{0} is why the interpreter was started.', '{1} is a link with the text "settings" that opens the Startup Behavior setting.']
+										}, "Start Reason: {0}. Change the behavior in {1}.", startReasonLabel, '{1}'),
+										'{1}',
+										<Button
+											ariaLabel={startupBehaviorSettingsLinkLabel}
+											className='inline-link'
+											onPressed={showStartupBehaviorSettingClickHandler}
+										>
+											{startupBehaviorSettingsLinkText}
+										</Button>
+									) :
+									localize('positron.console.info.startReason', 'Start Reason: {0}', startReasonLabel)
+								}
+							</p>
+						}
 					</div>
 					<div className='top-separator'>
 						<p className='line' data-testid='session-path'>{localize(

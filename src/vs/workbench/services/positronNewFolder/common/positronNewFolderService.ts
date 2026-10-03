@@ -21,7 +21,8 @@ import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from './positronN
 import { URI } from '../../../../base/common/uri.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
-import { IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
+import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasons.js';
 import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
 import { INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
 import { INotebookTextModel } from '../../../contrib/notebook/common/notebookCommon.js';
@@ -697,7 +698,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					sessionName,
 					LanguageRuntimeSessionMode.Notebook,
 					model.uri,
-					'New Folder Notebook Creation',
+					createSessionStartReason(SessionStartReasonId.NewFolderNotebook),
 					RuntimeStartMode.Starting,
 					true
 				);
