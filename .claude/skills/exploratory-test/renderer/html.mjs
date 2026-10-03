@@ -607,7 +607,6 @@ function buildAgentPrompt(f, report, options = {}) {
 			out.push(`### ${heading}`, safeLinks(body), '');
 		}
 	};
-	section('Impact', [t.impact, t.impactStatement].filter(Boolean).join('\n\n'));
 	// So the agent checks these before fixing or filing it again.
 	section('Possible duplicates', possiblyKnown(f, options.ki).map(n => {
 		const issue = options.ki?.byNumber.get(n);
@@ -844,8 +843,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	};
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
 
-	section('Describe the issue', capitalize([t.impact, t.prose].filter(Boolean).join('\n\n') || t.summary));
-	section('Impact', t.impactStatement);
+	section('Describe the issue', capitalize(t.prose || t.summary));
 
 	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
@@ -1101,13 +1099,6 @@ function cardIssueItems(f, word, ki, refs) {
 	return items;
 }
 
-/** Why this is worse than its title says, as one line under it; most cards have none. */
-function renderImpactLine(f) {
-	return f.impactHtml
-		? `<p class="f-impact"><span class="f-impact-l">Impact</span><span class="f-impact-sep" aria-hidden="true">&middot;</span>${f.impactHtml}</p>`
-		: '';
-}
-
 function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
 	const issue = issueLink(f, report, options);
@@ -1136,7 +1127,6 @@ function renderFindingCard(f, report, options) {
 
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
-		+ renderImpactLine(f)
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);

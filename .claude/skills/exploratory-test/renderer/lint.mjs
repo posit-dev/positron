@@ -299,52 +299,15 @@ function sentencesOf(text) {
 }
 
 /**
- * A finding's Impact is optional: one plain sentence saying why the finding is
- * worse than its title suggests, and nothing else. A minor finding needs none,
- * a workaround belongs in Observed, and a restated trigger or symptom says
- * nothing the title does not.
- */
-function impactProblems(n, impact, title) {
-	const problems = [];
-	const prose = impact.replace(/`[^`]*`/g, 'code');
-	const sentences = sentencesOf(impact);
-	if (/^Anyone (who|whose)\b/.test(impact)) {
-		problems.push(`report: Finding ${n} Impact: starts "Anyone who"; say why it is worse than the title suggests, not who hits it`);
-	}
-	if (/\bNothing breaks\b|\b(wording|spacing) only\b/i.test(impact)) {
-		problems.push(`report: Finding ${n} Impact: restates its severity; say what consequence it adds, or leave it out`);
-	} else if (/\bno (workaround|way out)\b/i.test(impact)) {
-		problems.push(`report: Finding ${n} Impact: names a workaround; a missing one goes unsaid, and one that worked goes at the end of Observed`);
-	}
-	if (/\b(could|may|might) (mislead|confuse|cause confusion)|\bmay cause\b/i.test(impact)) {
-		problems.push(`report: Finding ${n} Impact: is a generic consequence; say what makes this one worse, or leave Impact out`);
-	}
-	if (sentences.length > 1) {
-		problems.push(`report: Finding ${n} Impact: is ${sentences.length} sentences; write one`);
-	}
-	const words = prose.split(/\s+/).length;
-	if (words > 25) {
-		problems.push(`report: Finding ${n} Impact: is ${words} words; keep it to one short sentence`);
-	}
-	// Most of the title's words again means it restates the claim.
-	const stem = w => w.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/(?<=\w{4})s$/, '');
-	const titleWords = [...new Set(title.split(/\s+/).map(stem).filter(w => w.length >= 4))];
-	const said = new Set(prose.split(/\s+/).map(stem));
-	if (titleWords.length >= 3 && titleWords.filter(w => said.has(w)).length / titleWords.length >= 0.75) {
-		problems.push(`report: Finding ${n} Impact: repeats the title; say why it is worse than the title suggests, or leave it out`);
-	}
-	return problems;
-}
-
-/**
  * Observed and Expected sit side by side, so each is one or two sentences.
- * Observed may add one more for a workaround the run saw work.
+ * Observed may add one more for a fact the run saw that makes it worse or
+ * gets past it: no error shown, only reopening restores it, another trigger.
  */
 function comparisonProblems(n, label, text) {
 	const max = label === 'Observed' ? 3 : 2;
 	const count = sentencesOf(text).length;
 	return count > max
-		? [`report: Finding ${n} ${label}: is ${count} sentences; keep it to ${label === 'Observed' ? '1-2, plus one for a workaround you saw work' : '1-2'}, and move the rest to Reproduce or Evidence`]
+		? [`report: Finding ${n} ${label}: is ${count} sentences; keep it to ${label === 'Observed' ? '1-2, plus one for a fact such as no error shown or a workaround you saw work' : '1-2'}, and move the rest to Reproduce or Evidence`]
 		: [];
 }
 
@@ -382,7 +345,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		problems.push('report: drop the Introduced?/Origin column; origin goes in Cause, and only when the diff settles it');
 	}
 	if (rows.length && Object.keys(rows[0]).includes('impact')) {
-		problems.push('report: drop the Impact column; the title says what is broken, and a finding\'s **Impact:** line says why it is worse');
+		problems.push('report: drop the Impact column; the title says what is broken');
 	}
 	for (const row of rows) {
 		const n = row['#'];
@@ -434,9 +397,8 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (!body.some(l => /^\*\*Feature:\*\*\s*\S/.test(l))) {
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
 		}
-		const impact = body.find(l => /^\*\*Impact:\*\*/.test(l))?.replace(/^\*\*Impact:\*\*\s*/, '');
-		if (impact) {
-			problems.push(...impactProblems(b.n, impact, lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, '')));
+		if (body.some(l => /^\*\*Impact:\*\*/.test(l))) {
+			problems.push(`report: Finding ${b.n} has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed`);
 		}
 		for (const label of ['Observed', 'Expected']) {
 			// The first line of a labelled paragraph, through to the blank line after it.

@@ -25,8 +25,6 @@ const REPORT = `# Exploratory test: x
 
 **Feature:** console
 
-**Impact:** The panel stays empty with no error shown.
-
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
 
@@ -80,35 +78,23 @@ test('flags a finding with no Feature line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 });
 
-test('a finding needs no Impact line', () => {
-	assert.deepEqual(lint(REPORT.replace(/\*\*Impact:\*\*.*\n\n/, '')), []);
-});
-
-test('flags an Impact that names who hits it, calls itself minor, talks workarounds, is generic, runs long, or restates the title', () => {
-	const impact = text => lint(REPORT.replace('The panel stays empty with no error shown.', text));
-	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view.'), ['report: Finding 1 Impact: starts "Anyone who"; say why it is worse than the title suggests, not who hits it']);
-	assert.deepEqual(impact('Nothing breaks; it\'s wording only.'), ['report: Finding 1 Impact: restates its severity; say what consequence it adds, or leave it out']);
-	assert.deepEqual(impact('No workaround found.'), ['report: Finding 1 Impact: names a workaround; a missing one goes unsaid, and one that worked goes at the end of Observed']);
-	assert.deepEqual(impact('This could mislead users.'), ['report: Finding 1 Impact: is a generic consequence; say what makes this one worse, or leave Impact out']);
-	assert.deepEqual(impact('The panel stays empty. A reload does not bring it back.'), ['report: Finding 1 Impact: is 2 sentences; write one']);
-	assert.deepEqual(impact('The panel stays empty with no error shown, so the reader goes on believing it is still loading and waits for minutes before trying anything else at all.'), ['report: Finding 1 Impact: is 28 words; keep it to one short sentence']);
-	// A code span's dots do not end a sentence.
-	assert.deepEqual(impact('Only `df.median()` in the console gets the value back.'), []);
-	assert.deepEqual(impact('Clicking Retry does nothing at all.'), ['report: Finding 1 Impact: repeats the title; say why it is worse than the title suggests, or leave it out']);
+test('flags a finding that still has an Impact line', () => {
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console\n', '**Feature:** console\n\n**Impact:** The panel stays empty with no error shown.\n')),
+		['report: Finding 1 has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed']);
 });
 
 test('flags an Impact column in the findings table', () => {
 	const table = REPORT.replace('| # | Finding | Severity | Reproduction |\n|---|---------|----------|--------------|\n| 1 | Retry does nothing | moderate | 2/2 |',
 		'| # | Finding | Severity | Impact | Reproduction |\n|---|---------|----------|--------|--------------|\n| 1 | Retry does nothing | moderate | stays empty | 2/2 |');
-	assert.deepEqual(lint(table), ['report: drop the Impact column; the title says what is broken, and a finding\'s **Impact:** line says why it is worse']);
+	assert.deepEqual(lint(table), ['report: drop the Impact column; the title says what is broken']);
 });
 
 test('flags an Observed or Expected that runs past its sentences', () => {
-	const pair = (observed, expected) => lint(REPORT.replace('**Impact:** The panel stays empty with no error shown.\n', `**Impact:** The panel stays empty with no error shown.\n\n**Observed:** ${observed}\n\n**Expected:** ${expected}\n`));
-	// Observed gets one more, for a workaround the run saw work.
+	const pair = (observed, expected) => lint(REPORT.replace('**Feature:** console\n', `**Feature:** console\n\n**Observed:** ${observed}\n\n**Expected:** ${expected}\n`));
+	// Observed gets one more, for a fact the run saw such as a workaround.
 	assert.deepEqual(pair('The panel is empty. Retry shows the same. After a reload it loads.', 'The panel loads. Retry reloads it.'), []);
 	assert.deepEqual(pair('One. Two. Three. Four.', 'One. Two. Three.'), [
-		'report: Finding 1 Observed: is 4 sentences; keep it to 1-2, plus one for a workaround you saw work, and move the rest to Reproduce or Evidence',
+		'report: Finding 1 Observed: is 4 sentences; keep it to 1-2, plus one for a fact such as no error shown or a workaround you saw work, and move the rest to Reproduce or Evidence',
 		'report: Finding 1 Expected: is 3 sentences; keep it to 1-2, and move the rest to Reproduce or Evidence',
 	]);
 });

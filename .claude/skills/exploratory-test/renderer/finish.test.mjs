@@ -320,24 +320,9 @@ test('apply takes a VERDICTS: none reply and logs the issues it left unrated', (
 	}
 });
 
-test('applyVerification replaces the Impact of a finding on an IMPACT line only, semicolons and all', () => {
-	const report = BLOCKS.replace('**Feature:** modal dialogs', '**Feature:** modal dialogs\n\n**Impact:** The work is lost. Reopening it restores it.')
-		.replace('**Feature:** console', '**Feature:** console\n\n**Impact:** Every later line shifts.');
-	const reply = 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nIMPACT 1: The work is lost; nothing on screen says so.\n\n- 1: holds.';
-	const out = applyVerification(report, reply);
-	assert.deepEqual([...out.matchAll(/^\*\*Impact:\*\* .*$/gm)].map(m => m[0]), [
-		'**Impact:** The work is lost; nothing on screen says so.',
-		'**Impact:** Every later line shifts.',
-	]);
-	assert.equal(fromVerdictLine(`notes\n${reply}`.replace('VERDICTS', 'IMPACT 2: x\nVERDICTS')).split('\n')[0], 'IMPACT 2: x');
-});
-
-test('applyVerification removes an Impact on IMPACT <n>: none, and adds one a finding had none of', () => {
-	const report = BLOCKS.replace('**Feature:** modal dialogs', '**Feature:** modal dialogs\n\n**Impact:** It looks fine.');
-	const reply = 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nIMPACT 1: none\nIMPACT 2: Every later line shifts.\n\n- 1: holds.';
-	const out = applyVerification(report, reply);
-	// The removed line takes its blank line with it; the new one follows Feature.
-	assert.doesNotMatch(out, /It looks fine|\*\*Feature:\*\* modal dialogs\n\n\n/);
-	assert.match(out, /\*\*Feature:\*\* console\n\n\*\*Impact:\*\* Every later line shifts\.\n/);
-	assert.equal((out.match(/^\*\*Impact:\*\*/gm) ?? []).length, 1);
+test('applyVerification leaves a finding\'s lines alone when the reply has an old IMPACT line', () => {
+	// Impact is gone, so an old verifier's IMPACT line rewrites nothing.
+	const reply = 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nIMPACT 1: The work is lost.\n\n- 1: holds.';
+	const out = applyVerification(BLOCKS, reply);
+	assert.doesNotMatch(out.slice(0, out.indexOf('Verification details')), /\*\*Impact:\*\*/);
 });

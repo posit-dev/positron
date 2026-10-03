@@ -996,9 +996,6 @@ test('renderReportHtml writes each finding as an agent prompt, from the parsed f
 		'Status: Confirmed',
 		'Reproduced: 3/3',
 		'',
-		'### Impact',
-		'Blocks completion',
-		'',
 		'### Observed',
 		'It spun forever.',
 		'',
@@ -2108,7 +2105,8 @@ test('issue: the link opens a blank bug form titled as the card, with the embedd
 test('issue: the body follows the template and leaves out what triage sets', () => {
 	const body = issueCopied(logsIssueHtml(), 1);
 	const headings = [...body.matchAll(/^## (.+)$/gm)].map(m => m[1]);
-	assert.deepEqual(headings, ['System details', 'Describe the issue', 'Steps to reproduce', 'Observed', 'Expected', 'Error messages', 'Evidence']);
+	// With no summary prose there is nothing to describe beyond the title, so that section is left out.
+	assert.deepEqual(headings, ['System details', 'Steps to reproduce', 'Observed', 'Expected', 'Error messages', 'Evidence']);
 	assert.match(body, /^<sub>Reported by \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) of #1234 \(`[^`]+` @ `[0-9a-f]+`\)<\/sub>\n/);
 	assert.ok(body.includes([
 		'**Positron and OS:**  ',
@@ -2171,19 +2169,15 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
 });
-test('a finding\'s Impact is a labelled line under the card title, with no severity colour, and goes into the issue and prompt', () => {
+test('an older report\'s Impact line and column show nowhere: not on the card, the issue or the prompt', () => {
 	const impact = 'The only way to get the summaries back is to reopen the Data Explorer.';
 	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n**Impact:** ${impact}`);
 	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
-	assert.match(html, new RegExp(`</h2><p class="f-impact"><span class="f-impact-l">Impact</span><span class="f-impact-sep" aria-hidden="true">&middot;</span>${impact}</p>`));
-	const body = issueCopied(html, 1);
-	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]).slice(1, 3), ['Describe the issue', 'Impact']);
-	assert.match(body, new RegExp(`## Impact\\n${impact}\\n`));
-	assert.match(unescapeHtml(promptText(html, 1)), new RegExp(`### Impact\\n[^\\n]+\\n\\n${impact}\\n`));
-	assert.doesNotMatch(issueCopied(html, 2), /## Impact/);
-	// Optional: a card without one goes straight from the title to Observed.
-	assert.equal((html.match(/class="f-impact"/g) ?? []).length, 1);
-	assert.match(card(html, 2), /<\/h2><\/header>\s*<div class="f-cmp /);
+	assert.doesNotMatch(html, /class="f-impact|reopen the Data Explorer/);
+	assert.doesNotMatch(issueCopied(html, 1), /## Impact|reopen the Data Explorer/);
+	assert.doesNotMatch(unescapeHtml(promptText(html, 1)), /### Impact|reopen the Data Explorer/);
+	// The card goes straight from the title to Observed.
+	assert.match(card(html, 1), /<\/h2><\/header>\s*<div class="f-cmp /);
 });
 test('issue: the claim after the Feature starts lowercase unless its first word is a name', () => {
 	const title = (claim, extra = '') => {

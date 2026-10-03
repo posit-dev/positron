@@ -21,12 +21,14 @@ For EACH finding, answer these five questions explicitly:
    it does not mention. When the repro depends on a test file, read it: the
    trigger is what the file contains, not what the report says it contains.
    If the Cause is worded more widely than the cases the report tried, narrow
-   it to what they show. Check each `**Impact:**` the same way, and against
-   the IMPACT rules below. For each "any", "every", "all" or "always" in a
-   title or an Impact, name one case it covers that the run did not try and
-   check it against the code: "any even-length integer column" fails on
-   `c(1L, 3L)`, whose median 2 displays correctly. When the claim does not
-   hold, narrow it with a TITLE or IMPACT line.
+   it to what they show. For each "any", "every", "all" or "always" in a
+   title, name one case it covers that the run did not try and check it
+   against the code: "any even-length integer column" fails on `c(1L, 3L)`,
+   whose median 2 displays correctly. When the claim does not hold, narrow it
+   with a TITLE line. When Observed says no error appeared or nothing on
+   screen shows the problem, check that against the screenshots, the values
+   beside it included: a Max below the Mean on the same panel is on screen.
+   Say so when a screenshot contradicts it.
 2. Could anything the reporting agent did to its own test environment produce
    the reported symptom? Read the action log, the ledger's `## Environment` and
    Run details for how it set the machine up, then ask whether that setup,
@@ -106,32 +108,6 @@ TITLE: 1=project R is missing from the picker when its signature check times out
 
 Leave it out when every title holds.
 
-An `**Impact:**` line is optional: one sentence saying why the finding is worse
-than its title suggests, such as that nothing on screen warns the user, that
-the damage spreads, or that there is no way out short of reopening. Correct one
-that:
-
-- is worded more widely than the cases the report tried;
-- names a workaround, which belongs in Observed, and only when the steps and
-  action log show it working;
-- only repeats the title or Observed, or gives a generic consequence;
-- plays the finding down rather than amplifying it;
-- claims nothing on screen shows the problem, or that no error appears, when
-  a screenshot shows a clue, such as a Max below the Mean beside it. Check
-  each such claim against the screenshots. Never drop a true fact that
-  weakens an Impact: narrow the Impact to what holds, or remove it with
-  `none` when nothing is left to amplify.
-
-Give the corrected Impact on its own line, one per finding, since it may hold
-`;`. It replaces the line under the title. Write `none` to remove an Impact
-that nothing in the evidence supports, and give one to a finding that has none
-when the evidence shows it is worse than its title suggests:
-
-IMPACT 7: The moved profiles show the wrong column's statistics with no sign anything changed.
-IMPACT 3: none
-
-Leave them out when every Impact holds.
-
 Then keep it short. The table column is what a reviewer reads; this section is
 for what the column cannot say.
 
@@ -144,7 +120,7 @@ for what the column cannot say.
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its
   severity.
-- A finding on the FEATURE, TITLE or an IMPACT line gets one line: what moved it.
+- A finding on the FEATURE or TITLE line gets one line: what moved it.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have

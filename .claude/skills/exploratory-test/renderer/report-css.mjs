@@ -588,11 +588,6 @@ code.cc.is-copied::after{color:var(--pass-fill)}
 @media (prefers-reduced-motion:reduce){.code-cp{transition:none}}
 
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
-/* Why it is worse than the title says, when it is: a line of text, not a box.
-   The severity pill already says how serious it is, so no colour here. */
-.f-impact{margin:4px 0 0;font-size:16px;line-height:1.55;color:var(--ink)}
-.f-impact-l{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.f-impact-sep{color:var(--muted);margin:0 8px}
 .card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 
 /* Below the title, one 720px reading column of plain sections; the card's gap spaces them. */

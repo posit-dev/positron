@@ -342,18 +342,16 @@ The table opens the Findings section, worst first:
 ```
 
 A finding card has levels, and each part has one job. The title says what is
-broken, well enough to stand alone. Impact, when there is one, says why it is
-worse than the title suggests. Observed and Expected say exactly what differed,
-plainly. Reproduce proves it. Evidence, Cause and Test gap help the reader
+broken, well enough to stand alone. Observed and Expected say exactly what
+differed, plainly. Reproduce proves it. Evidence, Cause and Test gap help the reader
 investigate. Never restate the observed behavior outside Observed: if a part
 would only repeat another, shorten it or leave it out.
 
 `Severity` is `major` (blocks or materially breaks an important workflow),
 `moderate` (usable but meaningfully wrong or disruptive), or `minor` (small
 usability, visual, or polish problem). It must be justifiable from the title
-and Observed, plus the Impact line when there is one, to someone who knows
-nothing else. If a `major` or `moderate` is not, lower it or write the Impact
-that justifies it. Anchors: telling the user to take an action that cannot fix
+and Observed to someone who knows nothing else; if a `major` or `moderate` is
+not, lower it. Anchors: telling the user to take an action that cannot fix
 their problem is `major`; offering a choice that fails when taken is
 `moderate`, because they can get there another way; a control that wraps onto
 two lines is `minor`. Caution is not a tiebreaker.
@@ -363,52 +361,13 @@ reads only it knows what is broken. Name the thing and how it is wrong ("R
 integer column median is rounded to a whole number", not "Median display
 issue"), with the condition when it matters ("A column over 10 s to summarize
 never loads, and Retry cannot help"). State it as a fact, with no "may" or
-"seems to", in under about 90 characters, and leave impact and cause to their
-own parts. Don't write "any", "every" or "all" unless the run covered that
-range: with Impact optional, the title is often the only place scope is
-stated.
+"seems to", in under about 90 characters, and leave the cause to its own
+part. Don't write "any", "every" or "all" unless the run covered that range:
+the title is often the only place scope is stated.
 
 `Feature` is the area of Positron the finding is in, in lowercase except for
 proper names: "data explorer", "console", "notebooks", "R console", "Positron
 Assistant". It prefixes the filed issue's title, as "console: <claim>".
-
-`**Impact:**` is optional, and most findings should not have one.
-
-Include Impact only when the finding has an important consequence that is
-**not already clear from the title or Observed**. Good reasons include a
-silent failure, broader effects than the specific case demonstrated, loss of
-work or data, or a meaningful lack of recovery.
-
-Impact **amplifies; it never summarizes**.
-
-Write one short, factual sentence describing the additional consequence.
-Describe only what the exploratory run established; do not speculate about
-users, frequency, or reach.
-
-A silent failure is the easiest reason to reach for, so it needs the most
-care. Claim that nothing on screen shows the problem only after checking the
-whole view in your screenshot: the other stats beside the value, the
-histogram, tooltips and the status bar. A Max below the Mean on the same panel
-is on screen. Then name what makes the wrong value look right ("shown as a
-full integer, so nothing shows it was rounded"), not just that it looks
-valid. Refer to the problem directly, not as "this state" or "it" with nothing
-before it to point at.
-
-Good examples:
-- `"The incorrect median appears as a valid statistic with no indication that it is wrong."`
-- `"Retry cannot recover the summaries; reopening the Data Explorer is required."`
-- `"The operation modifies columns outside the visible selection as well."`
-
-Omit Impact when it would merely:
-- restate the title, trigger, symptom, severity, or Observed behavior;
-- make a generic claim such as `"could mislead users"` or `"may cause confusion"`;
-- speculate about scope with words such as `"common"`, `"most users"`, `"any"`, `"every"`, or `"all"`;
-- describe a workaround that was tested and worked. Put a verified workaround
-  at the end of **Observed** instead.
-
-Do not create Impact just because a finding is Major or Moderate, and do not
-automatically exclude it because a finding is Minor. **If there is no
-distinct, evidence-backed consequence to add, omit the field.**
 
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
@@ -468,8 +427,6 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 **Feature:** <feature>
 
-**Impact:** <why it is worse than the title suggests, in one sentence; leave the line out when nothing is>
-
 **Repro**
 
 **Preconditions:**
@@ -483,7 +440,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
    Observed: <what happened instead, one line>
    Evidence: <file>
 
-**Observed:** <exactly what happened, in one or two sentences, plus one for a workaround you saw work>
+**Observed:** <exactly what happened, in one or two sentences, plus one for a fact you saw that makes it worse or gets past it>
 
 **Expected:** <what should have happened, in one or two sentences>
 
@@ -518,9 +475,15 @@ Keep the blank lines, and keep steps at the left margin.
 first, so keep each to one or two short sentences. Lead with the exact
 difference: "Median 6" against "Median 5.5". Keep a comparison in Observed when
 it is part of the proof ("pandas shows 5.50 for the same data"), and add one
-sentence only when the difference alone is not enough for a behavior bug. A
-workaround you saw work goes at the end of Observed as a fact ("After Continue
-the stats load."). Leave out the setup and source data, which Reproduce has,
+sentence only when the difference alone is not enough for a behavior bug. End
+with one more sentence only for a fact the run saw that makes the finding
+worse or gets past it, stated as what happened, not as a consequence: no error
+was shown ("No error appears."), only reopening restored it, another trigger
+does the same ("A filter that leaves one row does it too."), or a workaround
+worked ("After Continue the stats load."). Claim that nothing on screen shows
+the problem only after checking the whole view in your screenshot, the stats
+beside the value included: a Max below the Mean on the same panel is on
+screen. Leave out the setup and source data, which Reproduce has,
 and any other values that were right, extra runs or log lines, which go in
 Reproduce or Evidence. Plain words: no "unfortunately", "incorrectly" or
 "confusingly".
