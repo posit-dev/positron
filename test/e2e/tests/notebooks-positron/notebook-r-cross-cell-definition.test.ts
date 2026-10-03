@@ -17,6 +17,10 @@ test.describe('Positron Notebooks: R Cross-Cell Go to Definition', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ARK, tags.WEB, tags.WIN]
 }, () => {
 
+	test.afterAll(async function ({ cleanup }) {
+		await cleanup.restoreFiles([path.join('workspaces', 'cross_cell_definition', 'cross_cell_definition.ipynb')]);
+	});
+
 	test('Go to Definition in an R cell lands on a definition in an earlier cell', async function ({ app, page }) {
 		const { notebooksPositron } = app.workbench;
 
