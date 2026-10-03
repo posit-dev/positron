@@ -382,7 +382,11 @@ pre-existing anywhere else in the report.
 `Reproduction` is `<N>/<M>`, and the table is the only place it goes; the
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
 and "one in three" are different bugs. 0/M means you saw it but could not
-reproduce it, and renders as Unproven. Make at least one of the M a cold replay:
+reproduce it, and renders as Unproven. Repeat the steps in the same instance
+for the rate. A cold replay is optional: use one only when the finding may
+depend on state the run built up, timing or machine load, such as a cache, a
+restored session or a race, since a deterministic bug reproduces the same way
+in a fresh instance and the replay costs exploring time. To replay cold,
 launch a second instance beside the first, attach to it under its own Playwright
 session (`-s=replay`), do only what the finding's preconditions and steps say,
 then collect its logs and stop it with `stop.sh`. Keep one replay instance at a
