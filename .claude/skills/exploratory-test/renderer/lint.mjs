@@ -311,6 +311,41 @@ function comparisonProblems(n, label, text) {
 		: [];
 }
 
+// Backends a reference to the right answer usually comes from.
+const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\bR\b/]];
+
+/**
+ * Observed and Expected read as sentences about one thing, each number written
+ * one way. The checks are narrow on purpose: each names its fix.
+ * - A semicolon joins notes; write sentences.
+ * - A backend the title does not name is the reference that shows the right
+ *   answer, so it belongs in Expected.
+ * - The same number grouped in one place and ungrouped in another reads as
+ *   two numbers.
+ */
+function clarityProblems(n, title, observed, expected) {
+	const problems = [];
+	const prose = text => text.replace(/`[^`]*`/g, '');
+	for (const [label, text] of [['Observed', observed], ['Expected', expected]]) {
+		if (text && prose(text).includes(';')) {
+			problems.push(`report: Finding ${n} ${label}: joins notes with a semicolon; write it as sentences`);
+		}
+	}
+	if (observed) {
+		const named = BACKENDS.filter(([, re]) => re.test(prose(observed)) && !re.test(title)).map(([name]) => name);
+		if (named.length) {
+			problems.push(`report: Finding ${n} Observed: names ${named.join(' and ')}, which the title does not; the reference that shows the right answer goes in Expected ("as ${named[0]} shows for the same data")`);
+		}
+	}
+	const both = prose(`${observed ?? ''} ${expected ?? ''}`);
+	const grouped = new Set([...both.matchAll(/\b\d{1,3}(?:,\d{3})+\b/g)].map(m => m[0].replace(/,/g, '')));
+	const mixed = [...new Set([...both.matchAll(/(?<![\d,.])\d{4,}(?![\d,])/g)].map(m => m[0]))].filter(d => grouped.has(d));
+	if (mixed.length) {
+		problems.push(`report: Finding ${n} writes ${mixed[0]} both with and without digit grouping; write each number one way (1,234,567), except a value quoted exactly as the UI shows it`);
+	}
+	return problems;
+}
+
 /**
  * @param {string} markdown report.md
  * @param {string | undefined} ledger ledger.md, when the run wrote one
@@ -400,15 +435,17 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (body.some(l => /^\*\*Impact:\*\*/.test(l))) {
 			problems.push(`report: Finding ${b.n} has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed`);
 		}
+		const said = {};
 		for (const label of ['Observed', 'Expected']) {
 			// The first line of a labelled paragraph, through to the blank line after it.
 			const at = body.findIndex(l => l.startsWith(`**${label}:**`));
 			if (at !== -1) {
 				const end = body.findIndex((l, k) => k > at && !l.trim());
-				const text = body.slice(at, end === -1 ? body.length : end).join(' ').slice(label.length + 5).trim();
-				problems.push(...comparisonProblems(b.n, label, text));
+				said[label] = body.slice(at, end === -1 ? body.length : end).join(' ').slice(label.length + 5).trim();
+				problems.push(...comparisonProblems(b.n, label, said[label]));
 			}
 		}
+		problems.push(...clarityProblems(b.n, lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, ''), said.Observed, said.Expected));
 		// Steps are instructions for the reader; which scenario ran them, and how, is the ledger's.
 		for (const step of body.filter(l => /^\d+\.\s/.test(l))) {
 			const id = /\b[SN]\d{2,}\b/.exec(step.replace(/`[^`]*`/g, ''));

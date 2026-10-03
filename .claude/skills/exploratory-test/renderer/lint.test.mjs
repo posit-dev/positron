@@ -271,6 +271,20 @@ test('a step with more than two screenshots, or a second that repeats the first,
 		['report: Finding 1 step 2 has 3 screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out']);
 });
 
+test('flags an Observed or Expected written as notes, with the reference in Observed, or with a number written two ways', () => {
+	const pair = (observed, expected) => lint(REPORT.replace('**Feature:** console\n', `**Feature:** console\n\n**Observed:** ${observed}\n\n**Expected:** ${expected}\n`));
+	assert.deepEqual(pair('The `n` column, whose largest value is 1,500, shows Max 1.', '`n` shows Max 1,500, as pandas shows for the same data.'), []);
+	assert.deepEqual(pair('Max 1 for 1,500; Min 1 for 1,234,567.', 'Max 1,500.'), ['report: Finding 1 Observed: joins notes with a semicolon; write it as sentences']);
+	assert.deepEqual(pair('`n` shows Max 1. pandas shows Max 1,500.', 'Max 1,500.'),
+		['report: Finding 1 Observed: names pandas, which the title does not; the reference that shows the right answer goes in Expected ("as pandas shows for the same data")']);
+	assert.deepEqual(pair('`pop` shows Min 1.', 'Min 1,234,567, as pandas shows 1234567.'),
+		['report: Finding 1 writes 1234567 both with and without digit grouping; write each number one way (1,234,567), except a value quoted exactly as the UI shows it']);
+	// A value the UI shows, quoted as it is, differs from the right one, so it is not the same number twice.
+	assert.deepEqual(pair('`pop` shows Max 12300000.', 'Max 12,345,678.'), []);
+	// A semicolon inside code is the reader's to type.
+	assert.deepEqual(pair('Running `a; b` shows Max 1.', 'Max 1,500.'), []);
+});
+
 test('a finding step that carries a run note is a format problem', () => {
 	const noted = REPORT.replace('1. Click Retry.', '1. Click Retry (S05 ran this together with two other values).');
 	assert.deepEqual(lint(noted), ['report: Finding 1 step "1. Click Retry (S05 ran this together with two oth" names S05; steps are instructions for the reader, so leave run notes out']);

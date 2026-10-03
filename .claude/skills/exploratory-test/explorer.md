@@ -492,6 +492,26 @@ and any other values that were right, extra runs or log lines, which go in
 Reproduce or Evidence. Plain words: no "unfortunately", "incorrectly" or
 "confusingly".
 
+For example, not this:
+
+```
+**Observed:** Max 1 for 1,500; Min 1 and Max 3 for 1,234,567 and 3,456,789. pandas shows Min 1234567 and Max 3456789 for the same data.
+
+**Expected:** Min and Max show the integer values, 1500, 1234567 and 3456789.
+```
+
+but this, which names each column, writes each number one way, and moves the
+pandas reference to Expected:
+
+```
+**Observed:** The `n` column, whose largest value is 1,500, shows Max 1. The `pop` column, 1,234,567 to 3,456,789, shows Min 1 and Max 3.
+
+**Expected:** `n` shows Max 1,500, and `pop` shows Min 1,234,567 and Max 3,456,789, as pandas shows for the same `pop` data.
+```
+
+Lint flags a semicolon in either, a backend in Observed that the title does
+not name, and a number written both with and without digit grouping.
+
 Keep every step's `Evidence:` line when you copy steps from the ledger into a
 finding: the card puts each step's shot on its step, captioned with the check,
 and opens on the one the step cites first. Every screenshot opens from the step
