@@ -119,7 +119,8 @@ for what the column cannot say.
 - Read every passing scenario's `Result:` in the ledger too. One that
   describes behavior a user would not expect, such as a prompt left
   unanswered that went ahead anyway, gets one line: the scenario and what
-  looks wrong. It may be a finding the run missed.
+  looks wrong. It may be a finding the run missed. Read the ledger's Noticed
+  list the same way, and name any entry the code shows is a real defect.
 - A finding on the KNOWN line gets one line per issue: why it is the same
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its

@@ -1470,10 +1470,21 @@ test('report CSS lines up every coverage row on one Scenario | Result | chevron 
 	assert.match(html, /\.cov-dot\.none\{background:var\(--dot-neutral\)\}/);
 });
 
+test('ledger: Noticed lists what the run saw but did not check, after the failures, apart from Not run', () => {
+	const ledger = LEDGER.replace('## Not run', '## Noticed\n- O01 - The summary shows 16% for 2 of 12 missing values - seen in S01, not checked\n\n## Not run');
+	const cov = coverageOf(renderReportHtml(TYPED, { ledger }));
+	assert.match(cov, /<div class="row coverage-grid cf-r cf-o" id="cv-row-\d+"><span class="cov-scenario"><span class="cov-dot noticed" aria-hidden="true"><\/span><span>The summary shows 16% for 2 of 12 missing values<\/span><\/span><span class="cov-notrun"><span class="cov-nr">Noticed, not checked<\/span> &middot; Seen in S01, not checked<\/span><\/div>/);
+	assert.match(cov, /<label for="cf-o" class="cf-tab cf-tab-o"><span class="cf-l">Noticed <span class="cf-cnt">1<\/span>/);
+	// After the failed rows, before the passes; Not run keeps only what was not reached.
+	assert.ok(cov.indexOf('cf-r cf-o') > cov.lastIndexOf('cf-r cf-i'));
+	assert.ok(cov.indexOf('cf-r cf-o') < cov.indexOf('cf-r cf-p'));
+	assert.doesNotMatch(cov, /Not run<\/span> &middot; Seen in S01/);
+});
+
 test('report CSS filters rows by the checked tab and keeps Show all to All', () => {
 	const html = renderReportHtml(RICH);
-	assert.match(html, /#cf-i:checked~\.cf-card \.cf-r:not\(\.cf-i\),#cf-p:checked~\.cf-card \.cf-r:not\(\.cf-p\),#cf-n:checked~\.cf-card \.cf-r:not\(\.cf-n\)\{display:none !important\}/);
-	assert.match(html, /#cf-i:checked~\.cf-card \.cov-more,#cf-p:checked~\.cf-card \.cov-more,#cf-n:checked~\.cf-card \.cov-more\{display:none !important\}/);
+	assert.match(html, /#cf-i:checked~\.cf-card \.cf-r:not\(\.cf-i\),#cf-o:checked~\.cf-card \.cf-r:not\(\.cf-o\),#cf-p:checked~\.cf-card \.cf-r:not\(\.cf-p\),#cf-n:checked~\.cf-card \.cf-r:not\(\.cf-n\)\{display:none !important\}/);
+	assert.match(html, /#cf-i:checked~\.cf-card \.cov-more,#cf-o:checked~\.cf-card \.cov-more,#cf-p:checked~\.cf-card \.cov-more,#cf-n:checked~\.cf-card \.cov-more\{display:none !important\}/);
 	assert.match(html, /#cf-p:checked~\.cf-card details\.cov-extra\.cf-p\{display:block !important\}/);
 	// Selected is ink, not an accent, and the focus ring sits off the label.
 	assert.match(html, /\.cf-tab-n\{color:var\(--ink\);border-bottom-color:var\(--ink\)\}/);

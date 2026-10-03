@@ -250,6 +250,9 @@ Steps:
 
 ---
 
+## Noticed
+- O01 - <what you saw that looked wrong> - <where you saw it, and why you did not check it>
+
 ## Not run
 - N01 - <scenario> - <why it was out of reach, in a phrase>
 - N02 - <scenario> - Already filed as #<N>
@@ -263,7 +266,7 @@ Steps:
   that something did *not* happen says which surface you checked and when. A
   pass that showed something you did not expect is not a pass yet: add a
   VERIFY step for it, and if that fails it is a finding; if there is no time,
-  list it under Not run. Never leave it in a Result, where nobody checks it. For a
+  list it under Noticed. Never leave it in a Result, where nobody checks it. For a
   fail it is the rate only, "Fails 3/3", for the ledger's reader: the Coverage
   row shows just the link to its finding, which has the bug and its rate, so
   never describe the bug here.
@@ -292,10 +295,13 @@ Steps:
   installed interpreter. Anything done in the app to get there, such as
   starting a console or opening a file, is a step, even if it is only setup.
   Steps never start with "With X open, ..."; open it as step 1.
-- `Not run` covers surfaces you could not reach and threads you abandoned. A
-  gap that deserves more than a phrase, such as an untested mechanism that
-  probably shares a fault with a tested one, gets it in the reason. There is no
-  follow-up list.
+- `Noticed` is what you saw that looked wrong and did not check: a value that
+  seems off, a behavior that surprised you. It shows ahead of the passes in
+  Coverage, since it may be a bug. Leave the section out when there is nothing.
+- `Not run` covers surfaces you could not reach and threads you abandoned, and
+  nothing else: something you saw goes under Noticed, not here. A gap that
+  deserves more than a phrase, such as an untested mechanism that probably
+  shares a fault with a tested one, gets it in the reason.
 - Don't list a surface only because this environment can't reach it; every run
   shares those limits, so the row says nothing about this change. List it when
   the change could behave differently there: code specific to that surface
@@ -338,7 +344,9 @@ check depends on, such as the same panel still loading 15 s later. Cite it as a 
 on that step's `Evidence:` line. Never cite one shot for two checks, even when
 nothing changed between them; take another. A check about something off screen,
 such as a log line, still gets a shot of the app as it stood. The check counts
-only a file that is there: "none" or "DOM read only" does not satisfy it.
+only a file that is there: "none" or "DOM read only" does not satisfy it. If you
+find a check you ran has no shot, take it now when the screen still shows that
+state, or run the check again; never move a check you ran to Not run.
 
 ## Findings
 

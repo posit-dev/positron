@@ -248,7 +248,8 @@ function coverageOrder(coverage) {
 	const isIssue = r => r.status === 'fail' || Boolean(r.finding);
 	const issues = coverage.exercised.filter(isIssue).sort((a, b) => (a.finding ?? Infinity) - (b.finding ?? Infinity));
 	const passes = coverage.exercised.filter(r => !isIssue(r));
-	const ordered = [...issues, ...passes, ...coverage.notExercised];
+	// Noticed rows come last here so the rows before them keep their ids.
+	const ordered = [...issues, ...passes, ...coverage.notExercised, ...(coverage.noticed ?? [])];
 	return { issues, passes, rowId: new Map(ordered.map((row, i) => [row, `cv-row-${i + 1}`])) };
 }
 
@@ -1198,7 +1199,7 @@ function renderCoverage(report, options = {}) {
 	// One table, in a fixed order. Rows are numbered in display order, so a
 	// precondition can link to the row of the scenario that created its state.
 	const { issues, passes, rowId } = coverageOrder(report.coverage);
-	const total = exercised.length + notExercised.length;
+	const total = exercised.length + notExercised.length + (report.coverage.noticed?.length ?? 0);
 	const hidden = Math.max(0, passes.length - COVERAGE_PASSES_SHOWN);
 	const ki = options.ki;
 	// What the row showed about the linked issues leads its result, after any
@@ -1289,11 +1290,20 @@ function renderCoverage(report, options = {}) {
 		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span>${row.reasonHtml ? ` &middot; ${linkIssues(row.reasonHtml, options.refs)}` : ''}</span>`
 		+ '</div>');
 
+	// Seen during the run but not checked: possibly a bug, so these follow the
+	// failures rather than sit among what the run did not reach.
+	const noticed = report.coverage.noticed ?? [];
+	const noticedRows = noticed.map(row => `<div class="row coverage-grid cf-r cf-o" id="${rowId.get(row)}">`
+		+ scenario(row, 'noticed')
+		+ `<span class="cov-notrun"><span class="cov-nr">Noticed, not checked</span>${row.reasonHtml ? ` &middot; ${linkIssues(row.reasonHtml, options.refs)}` : ''}</span>`
+		+ '</div>');
+
 	// Visually hidden radios ahead of the tabs and card, so CSS can filter the
 	// rows and arrow keys move between tabs. A kind with no rows gets no tab.
 	const kinds = [
 		{ id: 'all', label: 'All', n: total },
 		{ id: 'i', label: 'Failed', n: issues.length },
+		{ id: 'o', label: 'Noticed', n: noticed.length },
 		{ id: 'p', label: 'Passed', n: passes.length },
 		{ id: 'n', label: 'Not run', n: notExercised.length },
 	].filter(k => k.id === 'all' || k.n > 0);
@@ -1318,7 +1328,7 @@ ${radios}
 <div class="panel cf-card">
 <div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario</span><span>Result</span><span></span></div>
 <div class="cov-rows">
-${hidden ? `<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all ${total} scenarios">\n` : ''}${[...issueRows, ...passRows, ...notRows].join('\n')}
+${hidden ? `<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all ${total} scenarios">\n` : ''}${[...issueRows, ...noticedRows, ...passRows, ...notRows].join('\n')}
 ${hidden ? `<label for="cov-all" class="cov-more"><span class="cov-all">Show all ${total} scenarios</span><span class="cov-less">Show fewer</span>${ICON.down}</label>` : ''}
 </div>
 </div>${empty}
