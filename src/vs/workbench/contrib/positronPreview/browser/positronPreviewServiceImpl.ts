@@ -147,6 +147,22 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return this._items.get(this._selectedItemId);
 	}
 
+	get canSelectPreviousPreview(): boolean {
+		return this.activePreviewIndex > 0;
+	}
+
+	get canSelectNextPreview(): boolean {
+		const index = this.activePreviewIndex;
+		return index >= 0 && index < this.previewWebviews.length - 1;
+	}
+
+	/**
+	 * Gets the index of the active preview in the Viewer history.
+	 */
+	private get activePreviewIndex(): number {
+		return this.previewWebviews.findIndex(preview => preview.previewId === this._selectedItemId);
+	}
+
 	clearAllPreviews(): void {
 		// Set the active preview to nothing; this has the side effect of
 		// clearing the preview pane.
@@ -188,6 +204,22 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		}
 	}
 
+	selectPreviousPreview(): void {
+		const previews = this.previewWebviews;
+		const index = this.activePreviewIndex;
+		if (index > 0) {
+			this.activePreviewWebviewId = previews[index - 1].previewId;
+		}
+	}
+
+	selectNextPreview(): void {
+		const previews = this.previewWebviews;
+		const index = this.activePreviewIndex;
+		if (index >= 0 && index < previews.length - 1) {
+			this.activePreviewWebviewId = previews[index + 1].previewId;
+		}
+	}
+
 	onDidChangeActivePreviewWebview: Event<string>;
 
 	onDidCreatePreviewWebview: Event<PreviewWebview>;
@@ -199,8 +231,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		preserveFocus?: boolean | undefined): PreviewWebview {
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const preview = this.createPreviewWebview(previewId, webview, viewType, title);
-		this._items.set(preview.previewId, preview);
-		this.openPreviewWebview(preview, preserveFocus);
+		this.addAndActivatePreview(preview, preserveFocus);
 		return preview;
 	}
 
@@ -296,10 +327,20 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// Remove any other previews from the item list; they can be expensive
 		// to keep around.
 		this._items.clearAndDisposeAll();
-		this._items.set(preview.previewId, preview);
 
 		// Open the preview
-		this.openPreviewWebview(preview);
+		this.addAndActivatePreview(preview);
+	}
+
+	/**
+	 * Adds a preview to the Viewer history and makes it active.
+	 */
+	private addAndActivatePreview(
+		preview: PreviewWebview,
+		preserveFocus?: boolean
+	): void {
+		this._items.set(preview.previewId, preview);
+		this.openPreviewWebview(preview, preserveFocus);
 	}
 
 	/**
@@ -345,8 +386,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// Create the preview
 		const preview = this.createPreviewHtml('', previewId, extension, uri, evt);
 
-		// Make the preview active and return it
-		this.makeActivePreview(preview);
+		// Add the preview to the Viewer history and return it.
+		this.addAndActivatePreview(preview);
 		return preview;
 	}
 
@@ -455,8 +496,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 				'notebookRenderer',
 				session.dynState.sessionName
 			);
-			this._items.set(preview.previewId, preview);
-			this.openPreviewWebview(preview, false);
+			this.addAndActivatePreview(preview, false);
 		}
 	}
 
@@ -475,7 +515,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// Create the preview
 		const preview = this.createPreviewHtml(session.sessionId, previewId, webviewExtension, event.uri, event.event);
 
-		this.makeActivePreview(preview);
+		this.addAndActivatePreview(preview);
 	}
 
 	/**
@@ -607,7 +647,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 */
 	public openWebview(previewId: string, webview: IOverlayWebview, title: string): PreviewWebview {
 		const preview = this.createPreviewWebview(previewId, webview, 'notebookRenderer', title);
-		this.makeActivePreview(preview);
+		this.addAndActivatePreview(preview);
 		return preview;
 	}
 
@@ -670,7 +710,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		</html>`);
 
 		const preview = new PreviewWebview(POSITRON_PREVIEW_HTML_VIEW_TYPE, previewId, title, overlay);
-		this.makeActivePreview(preview);
+		this.addAndActivatePreview(preview);
 		return preview;
 	}
 }
