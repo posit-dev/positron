@@ -40,6 +40,14 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 	const toggleEditor = useCallback(() => cell.toggleEditor(), [cell]);
 	const selectCell = useCallback(() => cell.select(CellSelectionType.Normal), [cell]);
 
+	// Don't enter edit mode when double-clicking a <summary> disclosure toggle.
+	const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+		if ((e.target as HTMLElement).closest?.('summary')) {
+			return;
+		}
+		toggleEditor();
+	}, [toggleEditor]);
+
 	const { showContextMenu } = useCellContextMenu({
 		cell,
 		menuId: MenuId.PositronNotebookCellContext,
@@ -113,7 +121,7 @@ export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownC
 						aria-label={renderedMarkdownContent}
 						className='cell-contents positron-notebook-cell-outputs'
 						onContextMenu={handleContextMenu}
-						onDoubleClick={toggleEditor}
+						onDoubleClick={handleDoubleClick}
 					>
 						<NotebookErrorBoundary
 							componentName='MarkdownOutput'
