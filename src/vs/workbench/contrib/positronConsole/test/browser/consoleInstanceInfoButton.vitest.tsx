@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../base/common/event.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
@@ -133,7 +133,7 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		const user = userEvent.setup();
 		renderPopup('', id);
 
-		await user.click(screen.getByRole('button', { name: 'You can change the startup behavior in settings' }));
+		await user.click(screen.getByRole('link', { name: 'You can change the startup behavior in settings' }));
 
 		expect(inspect).toHaveBeenCalledWith('interpreters.startupBehavior', { overrideIdentifier: 'python' });
 		expect(renderer.dispose).toHaveBeenCalled();
@@ -213,17 +213,18 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		});
 	});
 
-	it('links to the Startup Behavior setting below the start reason', () => {
+	it('links to the Startup Behavior setting right after the start reason', () => {
 		renderPopup('', SessionStartReasonId.StartupBehaviorAlways);
 
-		expect(screen.getByTestId('session-start-reason')).toHaveTextContent(/^Start Reason: Startup Behavior is set to "Always" for Python$/);
-		expect(screen.getByRole('button', { name: 'You can change the startup behavior in settings' })).toBeInTheDocument();
+		const reasonLine = screen.getByTestId('session-start-reason');
+		expect(reasonLine).toHaveTextContent(/^Start Reason: Startup Behavior is set to "Always" for Python\. You can change the startup behavior in settings$/);
+		expect(within(reasonLine).getByRole('link', { name: 'You can change the startup behavior in settings' })).toBeInTheDocument();
 	});
 
 	it('omits the Startup Behavior setting link for other start reasons', () => {
 		renderPopup('', SessionStartReasonId.UserSelectedRuntime);
 
-		expect(screen.queryByRole('button', { name: 'You can change the startup behavior in settings' })).not.toBeInTheDocument();
+		expect(screen.queryByRole('link', { name: 'You can change the startup behavior in settings' })).not.toBeInTheDocument();
 	});
 
 	it('omits the start reason line when the session has no start reason ID', () => {

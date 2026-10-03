@@ -27,10 +27,11 @@
 
 .console-instance-info .content .inline-link {
 	color: var(--vscode-textLink-foreground);
-	font-size: inherit;
-	line-height: inherit;
-	padding: 0;
 	text-decoration: underline;
+}
+
+.console-instance-info .content .inline-link:hover {
+	color: var(--vscode-textLink-activeForeground);
 }
 
 .console-instance-info .actions .link {

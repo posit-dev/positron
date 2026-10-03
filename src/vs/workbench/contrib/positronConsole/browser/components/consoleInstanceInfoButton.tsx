@@ -245,18 +245,23 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 						</p>
 						{startReasonLabel &&
 							<p className='line' data-testid='session-start-reason'>
-								{localize('positron.console.info.startReason', 'Start Reason: {0}', startReasonLabel)}
-							</p>
-						}
-						{startReasonLabel && hasStartupBehaviorLink &&
-							<p className='line'>
-								<Button
-									ariaLabel={changeStartupBehaviorLabel}
-									className='inline-link'
-									onPressed={showStartupBehaviorSettingClickHandler}
-								>
-									{changeStartupBehaviorLabel}
-								</Button>
+								{hasStartupBehaviorLink ?
+									<>
+										{localize('positron.console.info.startReasonSentence', 'Start Reason: {0}.', startReasonLabel)}
+										{' '}
+										<a
+											className='inline-link'
+											href='#'
+											onClick={e => {
+												e.preventDefault();
+												showStartupBehaviorSettingClickHandler();
+											}}
+										>
+											{changeStartupBehaviorLabel}
+										</a>
+									</> :
+									localize('positron.console.info.startReason', 'Start Reason: {0}', startReasonLabel)
+								}
 							</p>
 						}
 					</div>
