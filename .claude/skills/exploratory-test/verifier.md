@@ -115,7 +115,12 @@ that:
 - names a workaround, which belongs in Observed, and only when the steps and
   action log show it working;
 - only repeats the title or Observed, or gives a generic consequence;
-- plays the finding down rather than amplifying it.
+- plays the finding down rather than amplifying it;
+- claims nothing on screen shows the problem, or that no error appears, when
+  a screenshot shows a clue, such as a Max below the Mean beside it. Check
+  each such claim against the screenshots. Never drop a true fact that
+  weakens an Impact: narrow the Impact to what holds, or remove it with
+  `none` when nothing is left to amplify.
 
 Give the corrected Impact on its own line, one per finding, since it may hold
 `;`. It replaces the line under the title. Write `none` to remove an Impact

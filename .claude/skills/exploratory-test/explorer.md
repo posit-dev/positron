@@ -385,6 +385,15 @@ Write one short, factual sentence describing the additional consequence.
 Describe only what the exploratory run established; do not speculate about
 users, frequency, or reach.
 
+A silent failure is the easiest reason to reach for, so it needs the most
+care. Claim that nothing on screen shows the problem only after checking the
+whole view in your screenshot: the other stats beside the value, the
+histogram, tooltips and the status bar. A Max below the Mean on the same panel
+is on screen. Then name what makes the wrong value look right ("shown as a
+full integer, so nothing shows it was rounded"), not just that it looks
+valid. Refer to the problem directly, not as "this state" or "it" with nothing
+before it to point at.
+
 Good examples:
 - `"The incorrect median appears as a valid statistic with no indication that it is wrong."`
 - `"Retry cannot recover the summaries; reopening the Data Explorer is required."`
