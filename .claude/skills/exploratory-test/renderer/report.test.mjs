@@ -1432,7 +1432,7 @@ test('renderReportHtml opens a passing coverage row on its steps, not a finding 
 	// No steps, nothing to open.
 	assert.match(cov, /<div class="row coverage-grid cf-r cf-p" id="cv-row-\d+"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
 	// The finding link leads, and the row does not expand.
-	assert.match(cov, /<div class="row coverage-grid cf-r cf-i" id="cv-row-1"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1" class="cv-f">Finding 1<\/a> &middot; Fails 3\/3<\/span>/);
+	assert.match(cov, /<div class="row coverage-grid cf-r cf-i" id="cv-row-1"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1" class="cv-f">Finding 1<\/a><\/span>/);
 	assert.doesNotMatch(cov, /Should not render/);
 	assert.match(cov, /<span class="cov-head-scenario">Scenario<\/span><span>Result<\/span><span><\/span><\/div>/);
 });
@@ -1688,7 +1688,7 @@ test('ledger: Coverage and the Coverage tile come from the ledger, not the repor
 	assert.deepEqual(order.map(o => o.split(':').slice(0, 2).join(':')), [
 		'1:issue', '2:issue', '3:pass', '4:pass', '5:pass', '6:pass', '7:pass', '8:pass', '9:none', '10:none', '11:none',
 	]);
-	assert.match(cov, /<a href="#f1" class="cv-f">Finding 1<\/a> &middot; Fails 3\/3/);
+	assert.match(cov, /<a href="#f1" class="cv-f">Finding 1<\/a><\/span>/);
 	// Two passes past the first four wait behind Show all, which counts every row.
 	assert.equal((cov.match(/cov-extra/g) || []).length, 2);
 	assert.match(cov, /<span class="cov-all">Show all 11 scenarios<\/span><span class="cov-less">Show fewer<\/span>/);
@@ -2836,9 +2836,9 @@ test('the card\'s meta line ends with its linked issues: the fix or regression, 
 
 test('Coverage leads each row\'s result with its fixes and linked issues, after any finding link, and adds a Not run row for an unrecorded fix', () => {
 	const c = coverageOf(kiHtml()).replace(/<a class="ki-num"[^>]*>/g, '<a>');
-	// A finding's row maps to it and its rate; the card says what went wrong.
-	assert.match(c, /Finding 1<\/a> &middot; Fails 3\/3 &middot; Fix didn&rsquo;t hold for <a>#11<\/a><\/span>/);
-	assert.match(c, /Finding 2<\/a> &middot; Fails 2\/2 &middot; Regressed <a>#21<\/a><\/span>/);
+	// A finding's row only maps to it; the card has the bug and its rate.
+	assert.match(c, /Finding 1<\/a> &middot; Fix didn&rsquo;t hold for <a>#11<\/a><\/span>/);
+	assert.match(c, /Finding 2<\/a> &middot; Regressed <a>#21<\/a><\/span>/);
 	assert.match(c, /"cov-result">Fix verified for <a>#10<\/a> &middot; Also observed <a>#26<\/a> &middot; Loads/);
 	assert.match(c, /"cov-result">Also observed <a>#22<\/a>, <a>#23<\/a>, <a>#26<\/a> &middot; Fine/);
 	assert.match(c, /Not run<\/span> &middot; Fix for <a>#12<\/a> not exercised: desktop only/);

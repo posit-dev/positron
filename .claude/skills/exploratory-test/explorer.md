@@ -255,9 +255,9 @@ Steps:
   see Issues linked to the PR.
 - `Result:` is the outcome for a pass, in one line. A cell reporting that
   something did *not* happen says which surface you checked and when. For a
-  fail it is the rate only, "Fails 3/3": the Coverage row maps the scenario to
-  its finding, and the finding says what went wrong, so never describe the bug
-  here.
+  fail it is the rate only, "Fails 3/3", for the ledger's reader: the Coverage
+  row shows just the link to its finding, which has the bug and its rate, so
+  never describe the bug here.
 - `## Environment` holds only what is true for the whole run: the build, how the
   app was launched, the interpreters. Run details shows it; do not repeat it
   there. The first bullet is the system line, in exactly this shape:

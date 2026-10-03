@@ -1262,17 +1262,13 @@ function renderCoverage(report, options = {}) {
 	};
 
 	// The finding link leads: it is where a reader goes next. A finding row does
-	// not expand: its steps are on the card it links to. It maps the scenario to
-	// the finding and its rate; the card explains the bug, so the row does not.
-	const rateOf = new Map(report.findings.map(f => [f.n, f.reproduced]));
+	// not expand: its steps are on the card it links to. It only maps the
+	// scenario to its findings; the card has the bug and its rate.
 	const issueRows = issues.map(row => {
 		// Every finding the row hit, not just its first: a step can fail on another.
-		const ns = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(Boolean))];
+		const ns = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(Boolean).map(Number))].sort((a, b) => a - b);
 		const links = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`);
-		const rate = ns.length === 1 && rateOf.get(Number(ns[0]));
-		const html = ns.length
-			? [...links, rate && (/^0\//.test(rate) ? 'Unproven' : `Fails ${escapeHtml(rate)}`), ...kiTags(row)].filter(Boolean).join(' &middot; ')
-			: result(row);
+		const html = ns.length ? [...links, ...kiTags(row)].join(' &middot; ') : result(row);
 		return `<div class="row coverage-grid cf-r cf-i" id="${rowId.get(row)}">`
 			+ scenario(row, 'issue')
 			+ `<span class="cov-result">${html}</span>`
