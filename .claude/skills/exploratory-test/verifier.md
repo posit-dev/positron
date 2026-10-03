@@ -34,7 +34,7 @@ For EACH finding, answer these five questions explicitly:
    evidence in place of a base build: a feature sharing the mechanism that the
    diff does not touch. Check the diff to confirm it is untouched.
 4. For each test file the report says already covers something (`exists,
-   covers ...` under Regression test, or a note under Other tests), open it and
+   covers ...` under Test gap, or a note under Other tests), open it and
    say whether it does. A wrong claim does not change the verdict; name the
    file and what it actually covers.
 5. Is it already a known issue? Check the linked issues file first, then search open and closed issues in
@@ -100,19 +100,24 @@ TITLE: 1=project R is missing from the picker when its signature check times out
 
 Leave it out when every title holds.
 
-Each `**Impact:**` is the first thing a reader acts on, so correct one that:
+An `**Impact:**` line is optional: one sentence saying why the finding is worse
+than its title suggests, such as that nothing on screen warns the user, that
+the damage spreads, or that there is no way out short of reopening. Correct one
+that:
 
 - is worded more widely than the cases the report tried;
-- names a workaround the steps and action log do not show working;
-- says `wording only` or `spacing only` when the data, grouping or behavior
-  is wrong too;
-- only repeats the title or Actual, saying nothing about reach or cost.
+- names a workaround, which belongs in Observed, and only when the steps and
+  action log show it working;
+- only repeats the title or Observed, or gives a generic consequence;
+- plays the finding down rather than amplifying it.
 
 Give the corrected Impact on its own line, one per finding, since it may hold
-`;`. Start it "Anyone who" or "Anyone whose", and add a second sentence only
-for a way out the run shows working. It replaces the box under the title:
+`;`. It replaces the line under the title. Write `none` to remove an Impact
+that nothing in the evidence supports, and give one to a finding that has none
+when the evidence shows it is worse than its title suggests:
 
-IMPACT 7: Anyone who deletes a column while profiles are open sees them move to other columns.
+IMPACT 7: The moved profiles show the wrong column's statistics with no sign anything changed.
+IMPACT 3: none
 
 Leave them out when every Impact holds.
 

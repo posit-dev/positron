@@ -53,7 +53,8 @@ const LEDGER = template(/^# Test ledger/);
 const VALUES = {
 	'<version>': ['2026.10.0', '1.105.0', '22.04', '3.12.3'],
 	'<n>': '12',
-	'<A way out you saw work; leave it out if none.>': 'Reopening the panel brings it back.',
+	'<why it is worse than the title suggests, in one sentence; leave the line out when nothing is>': 'Nothing on screen says the view is unfinished.',
+	'<M>': '3',
 	'<dev build | release build>': 'dev build',
 	'<OS>': 'Ubuntu',
 	'<platform>': 'Linux',
@@ -70,7 +71,7 @@ const VALUES = {
 	'<how to set it up, with the files/ path of any file it needs>': 'Open `data.csv`.',
 	'<what exists before step 1, naming each test file in backticks>': '`data.csv` open in an editor',
 	'<surfaces the change touches that you did not reach, or `none`>': 'the web build',
-	'<Renderer, Console, or Extension host>': 'Renderer',
+	'<Renderer process, Extension host, Main process, Python kernel or R kernel>': 'Renderer process',
 	'<Unit, Extension, or E2E>': 'Unit',
 	'<exists, covers ... | new file>': 'new file',
 	'<repo-relative test file, or leave out when unsure>': 'src/vs/example/test/example.vitest.ts',

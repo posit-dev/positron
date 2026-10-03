@@ -186,8 +186,8 @@ export function applyTitles(report, titles) {
 }
 
 /**
- * `IMPACT 7: Anyone who ...`, one line per finding, since an Impact holds `;`:
- * the Impact narrowed to what the run showed.
+ * `IMPACT 7: <sentence>`, one line per finding, since an Impact holds `;`:
+ * the Impact narrowed to what the run showed, or `none` to remove it.
  */
 export function parseImpacts(text) {
 	const out = new Map();
@@ -197,10 +197,55 @@ export function parseImpacts(text) {
 	return out;
 }
 
-/** The report with each finding's `**Impact:**` line replaced by its IMPACT line. */
+/**
+ * The report with each finding's `**Impact:**` line replaced by its IMPACT
+ * line. Impact is optional, so `none` removes the line, and a finding that had
+ * none gets one after its `**Feature:**` line, or its heading.
+ */
 export function applyImpacts(report, impacts) {
-	return rewriteLabel(report, 'Impact', impacts);
+	if (!(impacts instanceof Map) || !impacts.size) {
+		return report;
+	}
+	const lines = report.split('\n');
+	const out = [];
+	const done = new Set();
+	let n = null;
+	let anchor = -1;
+	// Adds the Impact a finding had no line for, once its block has ended.
+	const close = () => {
+		if (n !== null && anchor !== -1 && impacts.has(n) && !done.has(n) && !isNone(impacts.get(n))) {
+			out.splice(anchor + 1, 0, '', `**Impact:** ${impacts.get(n)}`);
+		}
+	};
+	for (const line of lines) {
+		const heading = /^###\s+Finding\s+(\d+):/.exec(line);
+		if (heading || /^(<details>|## )/.test(line)) {
+			close();
+			n = heading ? Number(heading[1]) : null;
+			anchor = heading ? out.length : -1;
+			out.push(line);
+			continue;
+		}
+		if (n !== null && line.startsWith('**Feature:**')) {
+			anchor = out.length;
+		}
+		if (n !== null && impacts.has(n) && line.startsWith('**Impact:**')) {
+			done.add(n);
+			if (isNone(impacts.get(n))) {
+				// Drop the blank line before it too, so no gap is left behind.
+				if (out.at(-1) === '') { out.pop(); }
+				continue;
+			}
+			out.push(`**Impact:** ${impacts.get(n)}`);
+			continue;
+		}
+		out.push(line);
+	}
+	close();
+	return out.join('\n');
 }
+
+const isNone = value => /^none\.?$/i.test(value.trim());
 
 /**
  * The report with each `**Feature:**` line on the FEATURE line rewritten. The

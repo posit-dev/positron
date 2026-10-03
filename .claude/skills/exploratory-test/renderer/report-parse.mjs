@@ -843,7 +843,8 @@ function parseFindingBody(lines) {
 			i = end - 1;
 			continue;
 		}
-		if (label === 'regression test' || label === 'regression tests') {
+		// `Regression test` is what this was called before.
+		if (label === 'test gap' || label === 'regression test' || label === 'regression tests') {
 			const { items, end } = readBullets(lines, i);
 			out.tests.cases.push(...items.map(parseTestCase));
 			out.matched++;
@@ -1171,7 +1172,9 @@ export function parseLedger(markdown) {
 }
 
 function withMetaHtml(e) {
-	return { ...e, metaHtml: e.meta.map(m => inline(m.replace(/(\d)\s*x\b/g, '$1\u00d7'))) };
+	// A letter x sits on the baseline where a multiplication sign floats; the
+	// span keeps it lowercase inside an uppercase label.
+	return { ...e, metaHtml: e.meta.map(m => inline(m).replace(/(\d+)\s*(?:x\b|\u00d7)/g, '<span class="n-x">$1x</span>')) };
 }
 
 /** Scenario tallies for the tile, from Coverage rows. */

@@ -231,14 +231,14 @@ Steps:
 
 ## S02 - <scenario>
 Status: fail - Finding 1
-Result: <what happened, one line>
+Result: Fails <N>/<M>
 
 Steps:
 1. <action>
 2. VERIFY <expectation> -> FAIL - Finding 1
    Observed: <one line>
    Evidence: <file>[, <file>]
-   Log: logs/<file>:<line> | <Renderer, Console, or Extension host> | <N>x[ (<when>)]
+   Log: logs/<file>:<line> | <Renderer process, Extension host, Main process, Python kernel or R kernel> | <N>x[ (<when>)]
      <the error message>
        at <function> (<repo-relative path>:<line>)
 
@@ -253,9 +253,11 @@ Steps:
   run. Never renumber.
 - `Issue:` only when the scenario ran into a linked issue or tested a fix;
   see Issues linked to the PR.
-- `Result:` is the outcome for a pass, a short symptom or rate for a fail
-  ("Fails 3/3"). A cell reporting that something did *not* happen says which
-  surface you checked and when.
+- `Result:` is the outcome for a pass, in one line. A cell reporting that
+  something did *not* happen says which surface you checked and when. For a
+  fail it is the rate only, "Fails 3/3": the Coverage row maps the scenario to
+  its finding, and the finding says what went wrong, so never describe the bug
+  here.
 - `## Environment` holds only what is true for the whole run: the build, how the
   app was launched, the interpreters. Run details shows it; do not repeat it
   there. The first bullet is the system line, in exactly this shape:
@@ -333,43 +335,54 @@ only a file that is there: "none" or "DOM read only" does not satisfy it.
 The table opens the Findings section, worst first:
 
 ```
-| # | Finding | Severity | Impact | Reproduction |
-|---|---------|----------|--------|--------------|
-| 1 | <short claim> | major | <the user consequence, in a phrase> | 3/3 |
+| # | Finding | Severity | Reproduction |
+|---|---------|----------|--------------|
+| 1 | <short claim> | major | 3/3 |
 ```
+
+A finding card has levels, and each part has one job. The title says what is
+broken, well enough to stand alone. Impact, when there is one, says why it is
+worse than the title suggests. Observed and Expected say exactly what differed,
+plainly. Reproduce proves it. Evidence, Cause and Test gap help the reader
+investigate. Never restate the observed behavior outside Observed: if a part
+would only repeat another, shorten it or leave it out.
 
 `Severity` is `major` (blocks or materially breaks an important workflow),
 `moderate` (usable but meaningfully wrong or disruptive), or `minor` (small
-usability, visual, or polish problem). Read it off the impact phrase: if the
-phrase does not justify the label to someone who knows nothing else, the label
-is wrong. Anchors: telling the user to take an action that cannot fix their
-problem is `major`; offering a choice that fails when taken is `moderate`,
-because they can get there another way; a control that wraps onto two lines is
-`minor`. Caution is not a tiebreaker.
+usability, visual, or polish problem). It must be justifiable from the title
+and Observed, plus the Impact line when there is one, to someone who knows
+nothing else. If a `major` or `moderate` is not, lower it or write the Impact
+that justifies it. Anchors: telling the user to take an action that cannot fix
+their problem is `major`; offering a choice that fails when taken is
+`moderate`, because they can get there another way; a control that wraps onto
+two lines is `minor`. Caution is not a tiebreaker.
 
-`Finding` is the claim, in under about twelve words that state the symptom and
-its consequence, such as "A column over 10 s never loads, and Retry cannot help".
+`Finding` is the title, and the one line that must be excellent: someone who
+reads only it knows what is broken. Name the thing and how it is wrong ("R
+integer column median is rounded to a whole number", not "Median display
+issue"), with the condition when it matters ("A column over 10 s to summarize
+never loads, and Retry cannot help"). State it as a fact, with no "may" or
+"seems to", in under about 90 characters, and leave impact and cause to their
+own parts. Don't write "any", "every" or "all" unless the run covered that
+range: with Impact optional, the title is often the only place scope is
+stated.
 
 `Feature` is the area of Positron the finding is in, in lowercase except for
 proper names: "data explorer", "console", "notebooks", "R console", "Positron
 Assistant". It prefixes the filed issue's title, as "console: <claim>".
 
-`Impact` is the user consequence and only that: "blocks completion", "silently
-creates no environment". Not the rate, and not a scale like "High".
-
-The finding block's `**Impact:**` is the box under its title, and the first
-thing a reader decides from, so it says what the title and Actual do not. First,
-who is hit and what it costs them: "Anyone who" or "Anyone whose", the trigger
-as the data, setting or workflow a user would recognize, then the cost to their
-work, such as how far it reaches or that nothing on screen warns them: "Anyone
-whose columns take over 10 s to summarize loses those summaries." Then, only if
-you saw one work in this run, the way out, with a few words on why when that is
-not obvious ("The only way back is to reopen the Data Explorer."). With no way
-out, stop after the first sentence. For a finding where only the text or
-spacing is wrong, add `Nothing breaks; it's wording only.` (or `spacing only`).
-Never a workaround you did not try. Don't restate the symptom or Actual ("users
-can't load summaries", "sees Unique 5"), and don't claim wider than the cases
-you tried.
+`**Impact:**` is optional, and most findings have none. Write it only when
+something makes the finding worse than its title suggests: it is silent, so
+nothing on screen says the result is wrong or unfinished; it spreads past the
+one value, cell or view; or there is no way out short of reopening,
+restarting or losing work. Those are reasons to write it, not words to put in
+it. Write one plain sentence, about a line long, with no prefix or bold of its
+own: "The only way to get the summaries back is to reopen the Data
+Explorer." It only amplifies: a minor or cosmetic finding has none, since its
+severity and title already say so, and a workaround you saw work goes at the
+end of Observed, never here. Don't restate the trigger or the symptom, don't
+give a generic consequence ("could mislead users"), and don't claim reach
+("common", "most users", "any", "every", "all") the run did not exercise.
 
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
@@ -426,7 +439,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 **Feature:** <feature>
 
-**Impact:** Anyone who <trigger a user would recognize> <what it costs them>. <A way out you saw work; leave it out if none.>
+**Impact:** <why it is worse than the title suggests, in one sentence; leave the line out when nothing is>
 
 **Repro**
 
@@ -441,18 +454,16 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
    Observed: <what happened instead, one line>
    Evidence: <file>
 
-**Observed:** <what happened>
+**Observed:** <exactly what happened, in one or two sentences, plus one for a workaround you saw work>
 
-**Expected:** <what should have happened>
+**Expected:** <what should have happened, in one or two sentences>
 
 **Evidence**
 
-![](shots/<file>)
-
-- [shots/<file>](shots/<file>) -- Step <N>: <a better caption than the check gives it>
+- [shots/<file>](shots/<file>) -- Variant: <another scenario's run of the same bug>
 - `<log path>` -- <quoted line with its timestamp>
 
-**Error output** -- `<log path>` | <Renderer, Console, or Extension host> | Logged <N>x (<when>)
+**Error output** -- `<log path>` | <Renderer process, Extension host, Main process, Python kernel or R kernel> | Logged <N>x (<when>)
 
 ```
 <the error message>
@@ -463,7 +474,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 **Cause (hypothesis):** <one sentence naming the suspect, then the detail and
 the code pointers>
 
-**Regression test**
+**Test gap**
 
 - <the missing case, as a sentence> -- <Unit, Extension, or E2E> `<repo-relative test file, or leave out when unsure>` (<exists, covers ... | new file>)
 
@@ -474,15 +485,25 @@ the code pointers>
 
 Keep the blank lines, and keep steps at the left margin.
 
-Keep every step's `Evidence:` line when you copy steps from the ledger into a
-finding: the card shows each step's shot in its gallery, captioned with the
-check. Embed one image with `![](shots/<file>)`: the shot that shows the failure
-best. List a shot under Evidence only to give it a better caption, `Step N:`,
-or when it follows no step, `Variant:`. Note the step in `actions.log` when you
-take the shot.
+`**Observed:**` and `**Expected:**` sit side by side on the card, Observed
+first, so keep each to one or two short sentences. Lead with the exact
+difference: "Median 6" against "Median 5.5". Keep a comparison in Observed when
+it is part of the proof ("pandas shows 5.50 for the same data"), and add one
+sentence only when the difference alone is not enough for a behavior bug. A
+workaround you saw work goes at the end of Observed as a fact ("After Continue
+the stats load."). Leave out the setup and source data, which Reproduce has,
+and any other values that were right, extra runs or log lines, which go in
+Reproduce or Evidence. Plain words: no "unfortunately", "incorrectly" or
+"confusingly".
 
-Evidence holds only what proves the behavior happened. A path to suspect code is
-where to look, so it goes in Cause.
+Keep every step's `Evidence:` line when you copy steps from the ledger into a
+finding: the card puts each step's shot on its step, captioned with the check.
+List a shot under Evidence only to give it a better caption, `Step N:`, or when
+it follows no step, `Variant:`. Note the step in `actions.log` when you take
+the shot.
+
+Evidence holds only proof that is not tied to a step: a log line, an error, a
+variant. A path to suspect code is where to look, so it goes in Cause.
 
 Report genuine problems only. A finding a human cannot verify from its
 artifacts is wasted work, so prefer one finding with a timestamped log excerpt
@@ -501,8 +522,8 @@ are, and keeps 10 frames. Paste what it prints.
 node <map-stack.mjs> < stack.txt
 ```
 
-`**Regression test**` is what a suite would need to catch this next time: a
-fact and a suggestion. Write only what you checked; a wrong file or a test at
+`**Test gap**` is what a suite would need to catch this next time: a fact and a
+suggestion, in a line or two, without describing the bug again. Write only what you checked; a wrong file or a test at
 the wrong level is worse than leaving the block out.
 
 The fact is which tests already touch the changed code. Find them by

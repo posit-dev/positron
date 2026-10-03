@@ -292,41 +292,59 @@ export function untaggedShots(findings) {
 	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !e.step).map(e => ({ n: f.n, file: e.file })));
 }
 
-// The way out when there isn't one: said the same way every time.
-const COSMETIC = /^Nothing breaks; it's (wording|spacing) only\.$/;
+/** Sentences in prose, with code spans masked so a `.` inside one cannot end a sentence. */
+function sentencesOf(text) {
+	return text.replace(/`[^`]*`/g, 'code').split(/(?<=[.!?])\s+(?=["A-Z])/).filter(Boolean);
+}
 
 /**
- * A finding's Impact is two sentences: who is hit and what it costs them, then
- * the way out. It earns its place under the title only by saying something the
- * title does not.
+ * A finding's Impact is optional: one plain sentence saying why the finding is
+ * worse than its title suggests, and nothing else. A minor finding needs none,
+ * a workaround belongs in Observed, and a restated trigger or symptom says
+ * nothing the title does not.
  */
 function impactProblems(n, impact, title) {
 	const problems = [];
 	const prose = impact.replace(/`[^`]*`/g, 'code');
-	const sentences = prose.split(/(?<=[.!?])\s+(?=["A-Z])/).filter(Boolean);
-	if (!/^Anyone (who|whose)\b/.test(impact)) {
-		problems.push(`report: Finding ${n} Impact: starts "${impact.slice(0, 30)}"; start it "Anyone who" or "Anyone whose"`);
+	const sentences = sentencesOf(impact);
+	if (/^Anyone (who|whose)\b/.test(impact)) {
+		problems.push(`report: Finding ${n} Impact: starts "Anyone who"; say why it is worse than the title suggests, not who hits it`);
 	}
-	if (sentences.length > 2) {
-		problems.push(`report: Finding ${n} Impact: is ${sentences.length} sentences; write who is hit and what it costs them, then a way out you saw work`);
-	} else if (/^No (workaround|way out|fix)\b/i.test(sentences[1] ?? '')) {
-		// Saying nothing works tells the reader nothing; the missing way out says it.
-		problems.push(`report: Finding ${n} Impact: "${sentences[1]}"; with no way out, stop after the first sentence`);
-	} else if (/^Nothing breaks\b/.test(sentences[1] ?? '') && !COSMETIC.test(sentences[1])) {
-		problems.push(`report: Finding ${n} Impact: "${sentences[1]}"; write "Nothing breaks; it's wording only." or "Nothing breaks; it's spacing only."`);
+	if (/\bNothing breaks\b|\b(wording|spacing) only\b/i.test(impact)) {
+		problems.push(`report: Finding ${n} Impact: says it is minor; leave Impact out, since Minor and the title say so`);
+	} else if (/\bno (workaround|way out)\b/i.test(impact)) {
+		problems.push(`report: Finding ${n} Impact: names a workaround; a missing one goes unsaid, and one that worked goes at the end of Observed`);
+	}
+	if (/\b(could|may|might) (mislead|confuse|cause confusion)|\bmay cause\b/i.test(impact)) {
+		problems.push(`report: Finding ${n} Impact: is a generic consequence; say what makes this one worse, or leave Impact out`);
+	}
+	if (sentences.length > 1) {
+		problems.push(`report: Finding ${n} Impact: is ${sentences.length} sentences; write one`);
 	}
 	const words = prose.split(/\s+/).length;
-	if (words > 40) {
-		problems.push(`report: Finding ${n} Impact: is ${words} words; keep it to two short sentences`);
+	if (words > 25) {
+		problems.push(`report: Finding ${n} Impact: is ${words} words; keep it to one short sentence`);
 	}
-	// Most of the title's words again means it restates the claim, not who it hits.
+	// Most of the title's words again means it restates the claim.
 	const stem = w => w.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/(?<=\w{4})s$/, '');
 	const titleWords = [...new Set(title.split(/\s+/).map(stem).filter(w => w.length >= 4))];
 	const said = new Set(prose.split(/\s+/).map(stem));
 	if (titleWords.length >= 3 && titleWords.filter(w => said.has(w)).length / titleWords.length >= 0.75) {
-		problems.push(`report: Finding ${n} Impact: repeats the title; say who is hit and what it costs them`);
+		problems.push(`report: Finding ${n} Impact: repeats the title; say why it is worse than the title suggests, or leave it out`);
 	}
 	return problems;
+}
+
+/**
+ * Observed and Expected sit side by side, so each is one or two sentences.
+ * Observed may add one more for a workaround the run saw work.
+ */
+function comparisonProblems(n, label, text) {
+	const max = label === 'Observed' ? 3 : 2;
+	const count = sentencesOf(text).length;
+	return count > max
+		? [`report: Finding ${n} ${label}: is ${count} sentences; keep it to ${label === 'Observed' ? '1-2, plus one for a workaround you saw work' : '1-2'}, and move the rest to Reproduce or Evidence`]
+		: [];
 }
 
 /**
@@ -361,6 +379,9 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	}
 	if (rows.length && Object.keys(rows[0]).some(k => /^introduced|^origin/.test(k))) {
 		problems.push('report: drop the Introduced?/Origin column; origin goes in Cause, and only when the diff settles it');
+	}
+	if (rows.length && Object.keys(rows[0]).includes('impact')) {
+		problems.push('report: drop the Impact column; the title says what is broken, and a finding\'s **Impact:** line says why it is worse');
 	}
 	for (const row of rows) {
 		const n = row['#'];
@@ -413,10 +434,17 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
 		}
 		const impact = body.find(l => /^\*\*Impact:\*\*/.test(l))?.replace(/^\*\*Impact:\*\*\s*/, '');
-		if (!impact) {
-			problems.push(`report: Finding ${b.n} has no "**Impact:** Anyone who <trigger> <cost>. <A way out, if one worked.>" line`);
-		} else {
+		if (impact) {
 			problems.push(...impactProblems(b.n, impact, lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, '')));
+		}
+		for (const label of ['Observed', 'Expected']) {
+			// The first line of a labelled paragraph, through to the blank line after it.
+			const at = body.findIndex(l => l.startsWith(`**${label}:**`));
+			if (at !== -1) {
+				const end = body.findIndex((l, k) => k > at && !l.trim());
+				const text = body.slice(at, end === -1 ? body.length : end).join(' ').slice(label.length + 5).trim();
+				problems.push(...comparisonProblems(b.n, label, text));
+			}
 		}
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }

@@ -17,15 +17,15 @@ const REPORT = `# Exploratory test: x
 
 ## Findings
 
-| # | Finding | Severity | Impact | Reproduction |
-|---|---------|----------|--------|--------------|
-| 1 | Retry does nothing | moderate | stays empty | 2/2 |
+| # | Finding | Severity | Reproduction |
+|---|---------|----------|--------------|
+| 1 | Retry does nothing | moderate | 2/2 |
 
 ### Finding 1: Retry does nothing
 
 **Feature:** console
 
-**Impact:** Anyone who opens the panel waits on an empty view.
+**Impact:** The panel stays empty with no error shown.
 
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
@@ -80,21 +80,37 @@ test('flags a finding with no Feature line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 });
 
-test('flags a finding with no Impact line', () => {
-	assert.deepEqual(lint(REPORT.replace(/\*\*Impact:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Impact:** Anyone who <trigger> <cost>. <A way out, if one worked.>" line']);
+test('a finding needs no Impact line', () => {
+	assert.deepEqual(lint(REPORT.replace(/\*\*Impact:\*\*.*\n\n/, '')), []);
 });
 
-test('flags an Impact that names no one, runs past two sentences, says no way out, or restates the title', () => {
-	const impact = text => lint(REPORT.replace('Anyone who opens the panel waits on an empty view.', text));
-	assert.deepEqual(impact('The panel is blank for everyone.'), ['report: Finding 1 Impact: starts "The panel is blank for everyon"; start it "Anyone who" or "Anyone whose"']);
-	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. Reopening it does nothing. Nor does a reload.'), ['report: Finding 1 Impact: is 3 sentences; write who is hit and what it costs them, then a way out you saw work']);
-	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. No workaround found.'), ['report: Finding 1 Impact: "No workaround found."; with no way out, stop after the first sentence']);
-	assert.deepEqual(impact('Anyone who opens the panel sees a typo. Nothing breaks, just text.'), ['report: Finding 1 Impact: "Nothing breaks, just text."; write "Nothing breaks; it\'s wording only." or "Nothing breaks; it\'s spacing only."']);
-	assert.deepEqual(impact('Anyone who opens the panel sees a typo. Nothing breaks; it\'s wording only.'), []);
-	assert.deepEqual(impact('Anyone who opens the panel sees the wrong label. Nothing breaks; it\'s wording only.'), []);
+test('flags an Impact that names who hits it, calls itself minor, talks workarounds, is generic, runs long, or restates the title', () => {
+	const impact = text => lint(REPORT.replace('The panel stays empty with no error shown.', text));
+	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view.'), ['report: Finding 1 Impact: starts "Anyone who"; say why it is worse than the title suggests, not who hits it']);
+	assert.deepEqual(impact('Nothing breaks; it\'s wording only.'), ['report: Finding 1 Impact: says it is minor; leave Impact out, since Minor and the title say so']);
+	assert.deepEqual(impact('No workaround found.'), ['report: Finding 1 Impact: names a workaround; a missing one goes unsaid, and one that worked goes at the end of Observed']);
+	assert.deepEqual(impact('This could mislead users.'), ['report: Finding 1 Impact: is a generic consequence; say what makes this one worse, or leave Impact out']);
+	assert.deepEqual(impact('The panel stays empty. A reload does not bring it back.'), ['report: Finding 1 Impact: is 2 sentences; write one']);
+	assert.deepEqual(impact('The panel stays empty with no error shown, so the reader goes on believing it is still loading and waits for minutes before trying anything else at all.'), ['report: Finding 1 Impact: is 28 words; keep it to one short sentence']);
 	// A code span's dots do not end a sentence.
-	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. Running `df.median()` in the console gets the value.'), []);
-	assert.deepEqual(impact('Anyone who clicks Retry finds Retry does nothing.'), ['report: Finding 1 Impact: repeats the title; say who is hit and what it costs them']);
+	assert.deepEqual(impact('Only `df.median()` in the console gets the value back.'), []);
+	assert.deepEqual(impact('Clicking Retry does nothing at all.'), ['report: Finding 1 Impact: repeats the title; say why it is worse than the title suggests, or leave it out']);
+});
+
+test('flags an Impact column in the findings table', () => {
+	const table = REPORT.replace('| # | Finding | Severity | Reproduction |\n|---|---------|----------|--------------|\n| 1 | Retry does nothing | moderate | 2/2 |',
+		'| # | Finding | Severity | Impact | Reproduction |\n|---|---------|----------|--------|--------------|\n| 1 | Retry does nothing | moderate | stays empty | 2/2 |');
+	assert.deepEqual(lint(table), ['report: drop the Impact column; the title says what is broken, and a finding\'s **Impact:** line says why it is worse']);
+});
+
+test('flags an Observed or Expected that runs past its sentences', () => {
+	const pair = (observed, expected) => lint(REPORT.replace('**Impact:** The panel stays empty with no error shown.\n', `**Impact:** The panel stays empty with no error shown.\n\n**Observed:** ${observed}\n\n**Expected:** ${expected}\n`));
+	// Observed gets one more, for a workaround the run saw work.
+	assert.deepEqual(pair('The panel is empty. Retry shows the same. After a reload it loads.', 'The panel loads. Retry reloads it.'), []);
+	assert.deepEqual(pair('One. Two. Three. Four.', 'One. Two. Three.'), [
+		'report: Finding 1 Observed: is 4 sentences; keep it to 1-2, plus one for a workaround you saw work, and move the rest to Reproduce or Evidence',
+		'report: Finding 1 Expected: is 3 sentences; keep it to 1-2, and move the rest to Reproduce or Evidence',
+	]);
 });
 
 test('fenced code does not count as a heading', () => {
@@ -108,15 +124,15 @@ test('flags a missing summary label and a question-shaped Result', () => {
 });
 
 test('flags table values outside the allowed words', () => {
-	const problems = lint(REPORT.replace('| moderate | stays empty | 2/2 |', '| High | stays empty | often |'));
+	const problems = lint(REPORT.replace('| moderate | 2/2 |', '| High | often |'));
 	assert.equal(problems.filter(p => /finding 1 (Severity|Reproduction)/.test(p)).length, 2);
 });
 
 test('flags an Introduced? or Origin column', () => {
 	const table = REPORT
-		.replace('| Impact | Reproduction |', '| Impact | Introduced? | Reproduction |')
-		.replace('|--------|--------------|', '|--------|---|--------------|')
-		.replace('| stays empty | 2/2 |', '| stays empty | yes | 2/2 |');
+		.replace('| Severity | Reproduction |', '| Severity | Introduced? | Reproduction |')
+		.replace('|----------|--------------|', '|----------|---|--------------|')
+		.replace('| moderate | 2/2 |', '| moderate | yes | 2/2 |');
 	assert.ok(lint(table).some(p => /drop the Introduced\?\/Origin column/.test(p)));
 });
 
@@ -191,7 +207,7 @@ test('a repro is one scenario\'s steps, and that scenario failed for the finding
 test('flags a test file that is not in the repository, but not one marked new', () => {
 	const tests = REPORT.replace('- [shots/a.png](shots/a.png) -- Step 2: empty panel\n', [
 		'- [shots/a.png](shots/a.png) -- Step 2: empty panel', '',
-		'**Regression test**', '',
+		'**Test gap**', '',
 		'- Retry loads the panel. -- Unit `src/a.test.ts` (exists)',
 		'- A new case. -- E2E `test/e2e/tests/b.test.ts` (new file)', '',
 		'**Other tests that touch this code**', '',

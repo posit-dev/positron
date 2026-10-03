@@ -51,13 +51,12 @@ const PROFESSIONAL = `
 	--stage-1: #5E646C;
 	--stage-2: #CFCAC0;
 
-	--imp-ink: #1C1F23;
-	--imp-major-bg: #FBF1EE;
-	--imp-major-rule: #D8654F;
-	--imp-moderate-bg: #FDF6EC;
-	--imp-moderate-rule: #D9953A;
-	--imp-minor-bg: #F3F4F6;
-	--imp-minor-rule: #A3ABB6;
+	--cmp-major: #D8654F;
+	--cmp-moderate: #D9953A;
+	--cmp-minor: #A3ABB6;
+	--cmp-tint: 5%;
+	--cmp-exp-rule: #E4E1DA;
+	--cmp-exp-bg: #FAFAF8;
 
 	--thumb-border: #EFEDE7;
 	--thumb-a: #F9F8F5;
@@ -197,13 +196,12 @@ const PARTY = `
 	--stage-1: #5CE1E6;
 	--stage-2: #6E64A8;
 
-	--imp-ink: #F5F1FF;
-	--imp-major-bg: #2E1A3A;
-	--imp-major-rule: #FF6B8B;
-	--imp-moderate-bg: #2C2236;
-	--imp-moderate-rule: #FFB547;
-	--imp-minor-bg: #231F3D;
-	--imp-minor-rule: #8E86C4;
+	--cmp-major: #FF6B8B;
+	--cmp-moderate: #FFB547;
+	--cmp-minor: #8E86C4;
+	--cmp-tint: 9%;
+	--cmp-exp-rule: rgba(255,255,255,.14);
+	--cmp-exp-bg: rgba(255,255,255,.025);
 
 	--thumb-border: #2A2250;
 	--thumb-a: #1C1636;
@@ -450,7 +448,6 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell{display:flex;flex-direction:column;gap:4px}
 .finding-cell .claim{font-size:15px;font-weight:500;color:var(--ink);line-height:1.4}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
-.finding-cell .impact{font-size:13px;color:var(--muted)}
 .rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
 .status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
 .status-check{stroke:var(--pass-fill)}
@@ -600,10 +597,11 @@ code.cc.is-copied::after{color:var(--pass-fill)}
 @media (prefers-reduced-motion:reduce){.code-cp{transition:none}}
 
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
-/* Who it hits and the way out: the one tinted element on the card, by severity. */
-.f-impact{margin:4px 0 0;max-width:720px;padding:14px 18px;border-left:3px solid var(--imp-minor-rule);border-radius:0 10px 10px 0;background:var(--imp-minor-bg);font-size:15.5px;line-height:1.6;color:var(--imp-ink)}
-.f-impact.major{background:var(--imp-major-bg);border-left-color:var(--imp-major-rule)}
-.f-impact.moderate{background:var(--imp-moderate-bg);border-left-color:var(--imp-moderate-rule)}
+/* Why it is worse than the title says, when it is: a line of text, not a box.
+   The severity pill already says how serious it is, so no colour here. */
+.f-impact{margin:4px 0 0;font-size:16px;line-height:1.55;color:var(--ink)}
+.f-impact-l{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.f-impact-sep{color:var(--muted);margin:0 8px}
 .card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 
 /* Below the title, one 720px reading column of plain sections; the card's gap spaces them. */
@@ -611,6 +609,18 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 .f-lab{font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body)}
 .f-txt{margin:0;font-size:15px;line-height:1.6;color:var(--body)}
 article.card .card-details{max-width:720px}
+/* Observed and Expected read as one comparison. Severity colour marks Observed
+   as the problem; Expected is quieter by its rule, fill and label only, so its
+   text never looks disabled. */
+.f-cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;--sev:var(--cmp-minor);--sev-t:var(--minor-text)}
+.f-cmp.major{--sev:var(--cmp-major);--sev-t:var(--major-text)}
+.f-cmp.moderate{--sev:var(--cmp-moderate);--sev-t:var(--moderate-text)}
+.f-cmp>div{display:flex;flex-direction:column;gap:8px;padding:14px 18px;border-left:3px solid;border-radius:0 8px 8px 0}
+.f-cmp>.f-cmp-o{border-left-color:var(--sev);background:color-mix(in srgb,var(--sev) var(--cmp-tint),transparent)}
+.f-cmp-o .f-lab{color:var(--sev-t)}
+.f-cmp>.f-cmp-e{border-left-color:var(--cmp-exp-rule);background:var(--cmp-exp-bg)}
+.f-cmp-e .f-lab{color:var(--muted)}
+@media (max-width:640px){.f-cmp{grid-template-columns:1fr}}
 
 
 /* Reproduce answers "how do I make this happen?", so it is text only and one
@@ -651,6 +661,11 @@ a.shot[hidden]{display:none}
 .lc>summary:hover{color:var(--ink)}
 .lc>summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
 .lc-tail{font-weight:500;color:var(--faint)}
+/* A count reads "2x" with a letter on the baseline, kept lowercase in an uppercase label. */
+.n-x{text-transform:none;letter-spacing:.02em}
+.ev-log{font-size:12.5px;line-height:1.6;color:var(--body);min-width:0;overflow-wrap:anywhere}
+.ev-sep{color:var(--faint)}
+.ev-note{color:var(--muted)}
 .lc .lc-chev{flex:none;transition:transform .15s ease}
 .lc[open] .lc-chev{transform:rotate(90deg)}
 .lc-body{padding:0 0 16px 20px;display:flex;flex-direction:column;gap:14px}
@@ -792,6 +807,15 @@ span.rt-file{color:var(--body)}
 /* The tag already separates the icon from the text */
 .st-rs+.st-sep{display:none}
 .st-ev .st-n{font-size:.86em;margin-left:2px}
+/* A finding step's screenshot, previewed above its icon on hover or focus;
+   below it when there is no room above. Clicking still opens the lightbox. */
+a.st-ev{position:relative}
+.ev-pop{position:absolute;bottom:calc(100% + 8px);left:-12px;z-index:6;width:260px;box-sizing:border-box;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--pop-border);box-shadow:var(--pop-shadow);display:flex;flex-direction:column;gap:6px;white-space:normal;cursor:zoom-in;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
+.ev-pop img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top center;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
+.ev-cap{font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.3;letter-spacing:0;color:var(--muted)}
+a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{visibility:visible;opacity:1;transition:opacity .12s ease .12s,visibility 0s linear .12s}
+a.st-ev.ev-below .ev-pop{bottom:auto;top:calc(100% + 8px)}
+@media (prefers-reduced-motion:reduce){.ev-pop{transition:none}}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
 .steps li:target{background:var(--st-target)}

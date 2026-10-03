@@ -304,16 +304,14 @@ function renderFindingsList(report, ki = null) {
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span>`
-			+ (f.impact ? `<span class="impact">${f.impact}</span>` : '')
-			+ '</span>'
+			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span></span>`
 			+ `<span class="rate">${escapeHtml(f.reproduced)}</span>`
 			+ status
 			+ '</a>';
 	});
 
 	const head = rows.length
-		? '<div class="row row-head findings-grid"><span>Severity</span><span>Finding and impact</span><span class="right">Reproduced</span><span class="right">Status</span></div>\n'
+		? '<div class="row row-head findings-grid"><span>Severity</span><span>Finding</span><span class="right">Reproduced</span><span class="right">Status</span></div>\n'
 		: '';
 
 	return `<section id="findings" class="section">
@@ -412,14 +410,24 @@ function renderStep(step, { id = '', observed = false, tail = '', ev = '' } = {}
 	return `<li${attr}><span class="st-v">${step.html}</span>${result}${ev}${obs}${tail}${withCodeCopy(step.blockHtml)}</li>`;
 }
 
-/** A finding's screenshots, the ones the gallery shows. */
+/** A finding's screenshots, in step order. */
 function findingShots(f) {
 	return f.evidence.filter(item => item.kind === 'shot');
 }
 
-function renderEvidence(f) {
-	// Screenshots only: a log line is not evidence a reader can see, and the one
-	// worth reading is under Error output. Logs stay in the agent prompt.
+/** Whether a screenshot opens from one of the card's steps, rather than standing alone as a variant does. */
+function onStep(f, item) {
+	const order = item.step?.order;
+	return Number.isInteger(order) && order >= 1 && order <= f.steps.length;
+}
+
+/**
+ * The lightbox's links to a finding's screenshots. A step's shots are hidden
+ * links: its icon opens them, so the card never shows them twice. A shot tied
+ * to no step, such as a variant, is a thumbnail in the Evidence row; `loose`
+ * returns those, and the default returns the hidden rest.
+ */
+function renderShotLinks(f, { loose = false } = {}) {
 	const shots = findingShots(f);
 	if (!shots.length) {
 		return '';
@@ -439,7 +447,7 @@ function renderEvidence(f) {
 			if (label) { byLabel.set(label, groups.at(-1)); }
 		}
 	});
-	const tiles = groups.map((group, g) => group.map(({ item, i }, k) => {
+	const tiles = groups.map((group, g) => (onStep(f, group[0].item) === loose ? '' : group.map(({ item, i }, k) => {
 		// A real link to the raw image, so the thumbnail still works without
 		// JavaScript; the script intercepts the click and opens the lightbox.
 		// The full-size view links the step back, when there is one to land on.
@@ -449,7 +457,7 @@ function renderEvidence(f) {
 			+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
 			+ (step ? ` data-step="${escapeHtml(step.label)}"` : '')
 			+ (stepHref ? ` data-step-href="${stepHref}"` : '');
-		if (k > 0) {
+		if (k > 0 || !loose) {
 			return `<a class="shot" ${attrs} hidden></a>`;
 		}
 		const stack = group.length > 1;
@@ -460,15 +468,19 @@ function renderEvidence(f) {
 			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy">`
 			+ (step ? `<span class="shot-step" aria-hidden="true">${escapeHtml(step.label)}${stack ? `<span class="shot-n">${group.length}</span>` : ''}</span>` : '')
 			+ '</a>';
-	}).join('')).map(t => `<figure>${t}</figure>`).join('');
+	}).join(''))).filter(Boolean);
 
-	return `<div class="f-sec evidence" id="f${n}-evidence"><div class="f-lab">Evidence</div>`
-		+ `<div class="shots">${tiles}</div></div>`;
+	if (!tiles.length) {
+		return '';
+	}
+	return loose
+		? `<div class="shots">${tiles.map(t => `<figure>${t}</figure>`).join('')}</div>`
+		: `<div class="shot-links" hidden>${tiles.join('')}</div>`;
 }
 
 /**
- * A finding step's screenshot icon: opens the first of that step's shots in
- * the gallery, with a count when there is more than one.
+ * A finding step's screenshot icon: previews the first of that step's shots
+ * and opens it full size, with a count when there is more than one.
  */
 function stepShotIcon(f, k) {
 	const shots = findingShots(f);
@@ -478,8 +490,13 @@ function stepShotIcon(f, k) {
 	}
 	const count = mine.length;
 	const label = count > 1 ? `${count} screenshots for this step` : 'Screenshot for this step';
+	// A preview on hover or focus keeps the screenshot a glance away without
+	// putting it in the reading flow. Lazy, so it loads only once it shows.
+	const pop = '<span class="ev-pop" aria-hidden="true">'
+		+ `<img src="${escapeHtml(mine[0].item.src)}" alt="" loading="lazy">`
+		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click to enlarge` : 'Click to enlarge'}</span></span>`;
 	return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f${f.n}-${mine[0].i + 1}" data-open="shot-f${f.n}-${mine[0].i + 1}"`
-		+ ` aria-label="${label}">${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
+		+ ` aria-label="${label}">${pop}${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
 }
 
 /** `/a/b`, `~/x` and URLs stand as written; anything else is relative to `base`. */
@@ -513,9 +530,9 @@ export function linkedLogs(report) {
 	return [...new Set(paths)];
 }
 
-/** `Logged 2\u00d7 (after each Retry)` -> `2\u00d7 after each Retry`. */
+/** `Logged 2x (after each Retry)` -> `2x after each Retry`. */
 function countText(meta) {
-	return String(meta ?? '').replace(/^logged\s+/i, '').replace(/\(([^)]*)\)/g, '$1').replace(/(\d)\s*x\b/g, '$1\u00d7').trim();
+	return String(meta ?? '').replace(/^logged\s+/i, '').replace(/\(([^)]*)\)/g, '$1').replace(/(\d)\s*(?:x\b|\u00d7)/g, '$1x').trim();
 }
 
 /**
@@ -588,7 +605,7 @@ function errorOutput(f, where, clip = text => text) {
 	}).join('\n\n');
 }
 
-/** The suggested regression cases as `{ heading, body }`, or null when there are none to suggest. */
+/** The test gap's suggested cases as `{ heading, body }`, or null when there are none to suggest. */
 function regressionTest(f) {
 	const { cases, related } = f.tests;
 	if (!cases.length || f.verified === 'disputed') {
@@ -597,7 +614,7 @@ function regressionTest(f) {
 	const named = new Set(cases.map(c => c.path));
 	const others = related.filter(r => !named.has(r.path));
 	return {
-		heading: f.verified === 'unresolved' ? 'Regression test (suggestion; the verifier left this finding unresolved)' : 'Regression test (suggestion)',
+		heading: f.verified === 'unresolved' ? 'Test gap (suggestion; the verifier left this finding unresolved)' : 'Test gap (suggestion)',
 		body: [
 			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : c.level ? ` \u2192 ${c.level} test; place it per the repo's test guidance` : ''}`),
 			others.length && `Other tests that touch this code: ${others.map(r => `${r.path}${r.level ? ` (${r.level})` : ''}`).join(', ')}`,
@@ -885,8 +902,8 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 		preconditions.map(p => `- ${p.replace(/\n/g, '\n  ')}`).join('\n'),
 		f.steps.map((st, i) => `${i + 1}. ${issueStep(st, observed).replace(/\n/g, '\n   ')}`).join('\n'),
 	].filter(Boolean).join('\n\n'));
+	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
-	section('Actual', capitalize(t.observed));
 
 	const clip = raw => {
 		const lines = raw.split('\n');
@@ -984,20 +1001,45 @@ function logLink(path, text, exists, cls = 'log-link') {
 		: `<span class="${cls}">${escapeHtml(text)}</span>`;
 }
 
-function renderErrorOutput(f, sha, exists) {
+// Where an error was logged, named so a developer knows where to look.
+const PROCESSES = [
+	[/^renderer( process)?$/i, 'Renderer process', 'Logged by Positron’s renderer process (the UI), not the extension host or a language runtime'],
+	[/^extension host$/i, 'Extension host', 'Logged by the extension host, the process extensions run in'],
+	[/^main( process)?$/i, 'Main process', 'Logged by Positron’s main process, which runs the app and its windows'],
+	[/^(python|r) (kernel|console)$/i, null, 'Logged by the language runtime'],
+];
+
+/** The process field of an error's meta, with a tooltip saying what it means. */
+function processHtml(text, html) {
+	const known = PROCESSES.find(([re]) => re.test(text.trim()));
+	return known
+		? `<span title="${escapeHtml(known[2])}">${known[1] ? escapeHtml(known[1]) : html}</span>`
+		: `<span>${html}</span>`;
+}
+
+/**
+ * Proof that is not tied to a step: logged errors, log lines, notes, and
+ * screenshots no step names. Step screenshots are on their steps, so a card
+ * with nothing else has no Evidence row.
+ */
+function renderEvidenceRow(f, sha, exists) {
 	// A message with no stack and no file:line is not something a reader can act
 	// on here; it stays in the agent prompt.
 	const errors = f.errors.filter(e => e.frames.length || /[\w.-]+\.\w+:\d+/.test(e.message));
-	if (!errors.length) {
+	const logs = f.evidence.filter(e => e.kind === 'log');
+	const notes = f.evidence.filter(e => e.kind === 'note');
+	const shots = renderShotLinks(f, { loose: true });
+	const looseShots = findingShots(f).filter(e => !onStep(f, e)).length;
+	if (!errors.length && !logs.length && !notes.length && !shots) {
 		return '';
 	}
-	const body = errors.map(e => {
+	const errorHtml = errors.map(e => {
 		const meta = [
 			e.source && (logFile(e.source)
 				// The line is in the text, not the href: a static file cannot jump to it.
 				? logLink(logFile(e.source).path, e.source, exists, 'log-link err-src')
 				: `<span class="err-src">${escapeHtml(e.source)}</span>`),
-			...e.metaHtml.map(m => `<span>${m}</span>`),
+			...e.metaHtml.map((m, k) => (k === 0 ? processHtml(e.meta[0], m) : `<span>${m}</span>`)),
 		].filter(Boolean).join('');
 		const frames = e.frames.map(fr => {
 			const loc = fileLink(fr.path, sourceHref(fr.path, sha, fr.line), 'err-loc', `:${fr.line}`);
@@ -1008,11 +1050,21 @@ function renderErrorOutput(f, sha, exists) {
 			+ `<div class="err-code">${e.message ? `<div class="err-msg">${escapeHtml(e.message)}</div>` : ''}${frames}</div>`
 			+ '</div>';
 	}).join('');
-	const count = errors[0].count;
-	const tail = errors.length === 1
-		? `1 error${count > 1 ? `, ${count}\u00d7` : ''}`
-		: `${errors.length} errors`;
-	return collapsedRow('', 'Error output', tail, body);
+	const logHtml = logs.map(e => '<div class="ev-log">'
+		+ logLink(logFile(e.path)?.path ?? e.path, e.path, exists, 'log-link err-src')
+		+ ` <span class="ev-sep" aria-hidden="true">&middot;</span> <span class="ev-quote">${e.quoteHtml}</span>`
+		+ (e.noteHtml ? ` <span class="ev-note">(${e.noteHtml})</span>` : '')
+		+ '</div>').join('');
+	const noteHtml = notes.map(e => `<p>${e.textHtml}</p>`).join('');
+	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+	const count = errors[0]?.count ?? 1;
+	const tail = [
+		errors.length === 1 ? `1 error${count > 1 ? `, <span class="n-x">${count}x</span>` : ''}` : errors.length ? plural(errors.length, 'error') : '',
+		logs.length ? plural(logs.length, 'log line') : '',
+		looseShots ? plural(looseShots, 'screenshot') : '',
+		!errors.length && !logs.length && !looseShots && notes.length ? plural(notes.length, 'note') : '',
+	].filter(Boolean).join(', ');
+	return collapsedRow(' ev', 'Evidence', tail, errorHtml + logHtml + noteHtml + shots);
 }
 
 function renderRegressionTest(f, sha) {
@@ -1043,17 +1095,17 @@ function renderRegressionTest(f, sha) {
 			+ '</ul></div>'
 		: '';
 	const tail = `${cases.length} missing case${plural ? 's' : ''}${f.verified === 'unresolved' ? ' \u00b7 finding unresolved' : ''}`;
-	return collapsedRow(' regtest', 'Regression test', tail,
+	return collapsedRow(' regtest', 'Test gap', tail,
 		`<div class="rt-group"><div class="rt-label">Suggested case${plural ? 's' : ''}</div>`
 		+ `<ol class="rt-cases">${cases.map(c => `<li>${c.textHtml}${where(c)}</li>`).join('')}</ol></div>`
 		+ othersHtml);
 }
 
-/** Fact, then hypothesis, then suggestion; each only when it has something to say. */
+/** Proof, then hypothesis, then the missing test; each only when it has something to say. */
 function renderCardDetails(f, report, options = {}) {
 	const sha = report.chips[1];
 	const rows = [
-		renderErrorOutput(f, sha, options.fileExists),
+		renderEvidenceRow(f, sha, options.fileExists),
 		f.causeHtml ? collapsedRow(' hyp', 'Likely cause', 'Hypothesis', `<p>${f.causeHtml}</p>`) : '',
 		renderRegressionTest(f, sha),
 	].filter(Boolean);
@@ -1074,9 +1126,11 @@ function renderPossiblyKnown(f, ki, refs) {
 	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, refs)).join(', ')}</span></p>`;
 }
 
-/** Who it hits and the way out, in a box tinted by severity under the card title. */
-function renderImpactBox(f) {
-	return f.impactHtml ? `<p class="f-impact ${f.severity}">${f.impactHtml}</p>` : '';
+/** Why this is worse than its title says, as one line under it; most cards have none. */
+function renderImpactLine(f) {
+	return f.impactHtml
+		? `<p class="f-impact"><span class="f-impact-l">Impact</span><span class="f-impact-sep" aria-hidden="true">&middot;</span>${f.impactHtml}</p>`
+		: '';
 }
 
 function renderFindingCard(f, report, options) {
@@ -1105,7 +1159,7 @@ function renderFindingCard(f, report, options) {
 
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
-		+ renderImpactBox(f)
+		+ renderImpactLine(f)
 		+ renderPossiblyKnown(f, options.ki, options.refs)
 		+ '</header>';
 
@@ -1119,11 +1173,14 @@ function renderFindingCard(f, report, options) {
 		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkIssues(linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files), options.refs)}${feedback}${promptBlock}</article>`;
 	}
 
-	// The claim's facts before the procedure: what should happen, then what the run saw.
-	const sec = (label, html) => (html ? `<div class="f-sec"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
-	const expectedActual = sec('Expected', f.expectedHtml) + sec('Actual', f.observedHtml);
+	// The claim's facts before the procedure, as one comparison: what the run
+	// saw, marked by severity, beside what should have happened.
+	const half = (cls, label, html) => (html ? `<div class="${cls}"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
+	const comparison = f.observedHtml || f.expectedHtml
+		? `<div class="f-cmp ${f.severity}">${half('f-cmp-o', 'Observed', f.observedHtml)}${half('f-cmp-e', 'Expected', f.expectedHtml)}</div>`
+		: '';
 
-	// Text only: every screenshot sits under Evidence.
+	// Text only: each step's screenshots open from its icon.
 	// Setup is one P row of short names, as in Coverage, with each in full on hover.
 	// An older report has no names, so its row shows the text, less any pasted file.
 	const names = f.preconditions.map((p, k) => f.preconditionNames?.[k] || p.split(/<pre\b/)[0].trim() || p);
@@ -1152,10 +1209,10 @@ function renderFindingCard(f, report, options) {
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
 ${linkIssues(linkFiles(`${head}
-${expectedActual}
+${comparison}
 ${repro}
-${renderEvidence(f)}
 ${details}`, files), options.refs)}
+${renderShotLinks(f)}
 ${feedback}
 ${promptBlock}
 </article>`;
@@ -1229,14 +1286,20 @@ function renderCoverage(report, options = {}) {
 	};
 
 	// The finding link leads: it is where a reader goes next. A finding row does
-	// not expand: its steps are on the card it links to.
+	// not expand: its steps are on the card it links to. It maps the scenario to
+	// the finding and its rate; the card explains the bug, so the row does not.
+	const rateOf = new Map(report.findings.map(f => [f.n, f.reproduced]));
 	const issueRows = issues.map(row => {
 		// Every finding the row hit, not just its first: a step can fail on another.
 		const ns = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(Boolean))];
 		const links = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`);
+		const rate = ns.length === 1 && rateOf.get(Number(ns[0]));
+		const html = ns.length
+			? [...links, rate && (/^0\//.test(rate) ? 'Unproven' : `Fails ${escapeHtml(rate)}`), ...kiTags(row)].filter(Boolean).join(' &middot; ')
+			: result(row);
 		return `<div class="row coverage-grid cf-r cf-i" id="${rowId.get(row)}">`
 			+ scenario(row, 'issue')
-			+ `<span class="cov-result">${result(row, links)}</span>`
+			+ `<span class="cov-result">${html}</span>`
 			+ '<span></span></div>';
 	});
 
@@ -1314,7 +1377,7 @@ function runFiles(report, options) {
 			+ [l.sourceHtml, l.noteHtml].filter(Boolean).map(t => `${sep}<span class="log-note">${t}</span>`).join('')
 			+ '</li>');
 		parts.push({ title: 'Logs', html: '<p>Everything captured during the run, saved next to this report. '
-			+ 'Error lines are also in each finding\u2019s Error output and agent prompt.</p>'
+			+ 'Error lines are also in each finding\u2019s Evidence and agent prompt.</p>'
 			+ `<ul class="log-list">${rows.join('')}</ul>` });
 	}
 	const files = renderTestFilesPart(options.files ?? []);
@@ -1476,6 +1539,11 @@ function openRun(){var d=document.getElementById('run-details');if(d){d.open=tru
 document.querySelectorAll('a[href="#run-details"]').forEach(function(a){a.addEventListener('click',openRun);});
 window.addEventListener('hashchange',function(){if(location.hash==='#run-details'){openRun();}});
 if(location.hash==='#run-details'){openRun();}
+// A step's screenshot preview opens above its icon, or below when that would
+// run off the top of the window.
+document.querySelectorAll('a.st-ev .ev-pop').forEach(function(p){var a=p.parentNode;
+function place(){a.classList.toggle('ev-below',a.getBoundingClientRect().top<p.offsetHeight+16);}
+a.addEventListener('mouseenter',place);a.addEventListener('focus',place);});
 // Lightbox. The thumbnails are links to the raw image, so everything here is an
 // enhancement: without it, or before it runs, clicking one still shows the
 // full-size screenshot.
