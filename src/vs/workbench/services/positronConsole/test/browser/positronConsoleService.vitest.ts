@@ -10,7 +10,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
-import { CodeAttributionSource } from '../../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, USER_INITIATED_METADATA_KEY } from '../../common/positronConsoleCodeExecution.js';
 import { IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance } from '../../browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../browser/positronConsoleService.js';
 
@@ -55,7 +55,7 @@ describe('PositronConsoleService', () => {
 		{ name: 'code the user ran from an editor', attribution: { source: CodeAttributionSource.Script }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
 		{ name: 'code the user ran from the History pane', attribution: { source: CodeAttributionSource.Interactive }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
 		{ name: 'code an AI assistant ran', attribution: { source: CodeAttributionSource.Assistant }, expected: { id: SessionStartReasonId.AssistantRanCodeWithoutSession, requestingExtensionId: undefined } },
-		{ name: 'chat code the user ran with Run in Console', attribution: { source: CodeAttributionSource.Assistant, metadata: { userInitiated: true } }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'chat code the user ran with Run in Console', attribution: { source: CodeAttributionSource.Assistant, metadata: { [USER_INITIATED_METADATA_KEY]: true } }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
 		{ name: 'code from an unknown caller', attribution: { source: CodeAttributionSource.Extension }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: undefined } },
 	])('records why it started a console for $name', async ({ attribution, expected }) => {
 		const consoleService = ctx.disposables.add(

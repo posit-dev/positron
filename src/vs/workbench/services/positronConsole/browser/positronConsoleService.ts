@@ -54,7 +54,7 @@ import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } 
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified } from '../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified, isUserInitiated } from '../common/positronConsoleCodeExecution.js';
 import { fragmentCodeLocation, ICodeLocation } from '../common/codeLocation.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -132,7 +132,7 @@ const getCodeStartReason = (attribution: IConsoleCodeAttribution): IRuntimeSessi
 		case CodeAttributionSource.Assistant:
 			// Chat code the user chose to run, such as with a code block's Run in
 			// Console button, was run by the user, not by the assistant.
-			return attribution.metadata?.userInitiated === true ?
+			return isUserInitiated(attribution) ?
 				{ id: SessionStartReasonId.UserRanCodeWithoutSession } :
 				{ id: SessionStartReasonId.AssistantRanCodeWithoutSession };
 		default:
