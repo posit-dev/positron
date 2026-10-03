@@ -102,6 +102,7 @@ const PROFESSIONAL = `
 	--tile-shadow: none;
 	--major-card-shadow: none;
 	--focus: #2E6B5E;
+	--ln-ring: rgba(46,107,94,.35);
 
 	--sig-bug: #6A6F76;
 	--sig-bug-glow: none;
@@ -143,16 +144,12 @@ const PROFESSIONAL = `
 	--totop-icon-hover: #1C1F23;
 	--totop-shadow: 0 2px 8px rgba(28,31,35,.08);
 
-	--switch-bg: #FFFFFF;
-	--switch-border: #E7E4DC;
+	--pill-bg: #FFFFFF;
+	--pill-border: #E7E4DC;
+	--th-sw-icon: #8A8F96;
+	--th-sw-hover-bg: #EFEDE7;
 	--fb-done-bg: rgba(46,107,94,.08);
 	--fb-done-hover-bg: rgba(46,107,94,.16);
-	--switch-on-bg: #F6F5F1;
-	--switch-on-icon: #2B2F35;
-	--switch-on-shadow: inset 0 0 0 1px #E7E4DC;
-	--switch-off-icon: #6F747B;
-	--switch-off-hover-icon: #2B2F35;
-	--switch-off-hover-bg: transparent;
 `;
 
 /** Party: dark 80s synthwave. */
@@ -250,6 +247,7 @@ const PARTY = `
 	--tile-shadow: 6px 6px 0 #0B0719;
 	--major-card-shadow: 0 0 0 1px #FF4F81, 0 0 32px rgba(255,79,129,0.18);
 	--focus: #5CE1E6;
+	--ln-ring: rgba(92,225,230,.4);
 
 	--sig-bug: #FF6AC1;
 	--sig-bug-glow: drop-shadow(0 0 3px rgba(255,106,193,.6));
@@ -291,16 +289,12 @@ const PARTY = `
 	--totop-icon-hover: #F5F1FF;
 	--totop-shadow: 4px 4px 0 #0B0719;
 
-	--switch-bg: #1E1838;
-	--switch-border: #342A5C;
+	--pill-bg: #1E1838;
+	--pill-border: #342A5C;
+	--th-sw-icon: #9D95C6;
+	--th-sw-hover-bg: #2A2250;
 	--fb-done-bg: rgba(92,225,230,.10);
 	--fb-done-hover-bg: rgba(92,225,230,.20);
-	--switch-on-bg: #FF6AC1;
-	--switch-on-icon: #15102B;
-	--switch-on-shadow: 0 0 12px rgba(255,106,193,.45);
-	--switch-off-icon: #C4BCEB;
-	--switch-off-hover-icon: #F5F1FF;
-	--switch-off-hover-bg: rgba(197,188,235,.07);
 `;
 
 export const FONT_HREF = 'https://fonts.googleapis.com/css2'
@@ -335,9 +329,6 @@ ol li{margin:0 0 8px;padding-left:4px}
 ol li:last-child{margin-bottom:0}
 img{max-width:100%}
 
-/* The gutter is a token because the Party motif bleeds out to the page edge by
-   exactly this much; hardcoding the desktop value pushed it past the viewport
-   on a phone. */
 /* One measure for every run of prose on the page. Containers stay full card
    width; only the text inside them is capped, so every box edge lines up with
    the card and every paragraph ends on the same line. */
@@ -347,9 +338,7 @@ img{max-width:100%}
 
 /* Header */
 .head{position:relative;display:flex;flex-direction:column;gap:16px}
-/* The switch sits over this row, so the row keeps clear of it: on a phone, or
-   with a long branch name, the chips otherwise wrapped underneath it. */
-.eyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;color:var(--muted);padding-right:80px;min-height:36px}
+.eyebrow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-size:12px;color:var(--muted);min-height:36px}
 .eyebrow .kicker{text-transform:uppercase;letter-spacing:var(--eyebrow-ls);font-weight:var(--eyebrow-weight);color:var(--eyebrow-color);font-family:var(--label-font)}
 .eyebrow .bullet{width:3px;height:3px;border-radius:50%;background:var(--sep)}
 .pr-link{font-weight:500;white-space:nowrap}
@@ -358,37 +347,32 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .lead{font-size:16px;line-height:1.6;color:var(--body);max-width:var(--measure)}
 .lead strong{color:var(--ink);font-weight:600}
 
-/* Party motif: a neon grid floor under the lead. Professional has none, and
-   that restraint is part of its character. */
-.motif{display:none}
-:root[data-theme="party"] .head{padding-bottom:180px;margin-bottom:-24px}
-:root[data-theme="party"] .motif{display:block;position:absolute;left:calc(-1 * var(--gutter));right:calc(-1 * var(--gutter));bottom:0;height:170px;overflow:hidden;pointer-events:none;
-	-webkit-mask-image:radial-gradient(ellipse 60% 120% at 50% 100%, #000 45%, transparent 100%),linear-gradient(to top, transparent 0, rgba(0,0,0,.35) 22px, #000 48px);
-	-webkit-mask-composite:source-in;
-	mask-image:radial-gradient(ellipse 60% 120% at 50% 100%, #000 45%, transparent 100%),linear-gradient(to top, transparent 0, rgba(0,0,0,.35) 22px, #000 48px);
-	mask-composite:intersect}
-.motif .plane{position:absolute;left:-100%;right:-100%;top:0;height:900px;transform-origin:50% 0;transform:perspective(360px) rotateX(58deg);
-	background-image:linear-gradient(90deg, rgba(255,106,193,0.5) 1px, transparent 1px),linear-gradient(0deg, rgba(255,106,193,0.5) 1px, transparent 1px);
-	background-size:64px 64px;background-position:center top}
-.motif .horizon{position:absolute;left:0;right:0;top:0;height:1px;background:rgba(92,225,230,0.5);box-shadow:0 0 12px rgba(92,225,230,0.6)}
+/* Header actions: the theme toggle and Share, at the end of the eyebrow. When
+   the row wraps, margin-left:auto keeps them right-aligned on their own line. */
+.hd-act.hd-inline{display:inline-flex;align-items:center;margin:0 0 0 auto;gap:8px}
+.mode-tip{position:relative;transition:background-color .15s ease,color .15s ease}
+.mode-tip:hover::after,.mode-tip:focus-visible::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;letter-spacing:0;text-transform:none;pointer-events:none;z-index:3}
+.mode-tip:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.th-sw{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;padding:0;border:0;border-radius:999px;background:transparent;color:var(--th-sw-icon);cursor:pointer}
+.th-sw:hover{color:var(--ink);background:var(--th-sw-hover-bg)}
+.th-sw svg{width:14px;height:14px}
+.th-sw .th-sun,:root[data-theme="party"] .th-sw .th-moon{display:none}
+:root[data-theme="party"] .th-sw .th-sun{display:block}
+.sh-btn{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:28px;padding:0 11px;gap:5px;border:1px solid var(--pill-border);border-radius:999px;background:var(--pill-bg);color:var(--body);font:500 12px/1 var(--sans);cursor:pointer;transition:color .15s ease,border-color .15s ease}
+.sh-btn:hover{color:var(--ink);border-color:var(--hover-border)}
+.sh-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.sh-btn svg{width:13px;height:13px}
+.sh-btn .sh-ok{display:none}
+.sh-btn.is-copied{color:var(--pass-fill)}
+.sh-btn.is-copied .sh-ok{display:block}
+.sh-btn.is-copied .sh-ico{display:none}
+@media (prefers-reduced-motion:reduce){.mode-tip,.sh-btn{transition:none}}
 
-/* Theme switch */
-.switch{position:absolute;top:-4px;right:0;display:inline-flex;gap:2px;padding:3px;border:1px solid var(--switch-border);border-radius:999px;background:var(--switch-bg);z-index:2}
-.switch button{position:relative;display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;padding:0;border:0;border-radius:999px;background:transparent;color:var(--switch-off-icon);cursor:pointer;transition:background-color .15s ease,color .15s ease,box-shadow .15s ease}
-.switch button:hover{color:var(--switch-off-hover-icon);background:var(--switch-off-hover-bg)}
-.switch button[aria-pressed="true"]{background:var(--switch-on-bg);color:var(--switch-on-icon);box-shadow:var(--switch-on-shadow)}
-.switch button[aria-pressed="true"]:hover{background:var(--switch-on-bg);color:var(--switch-on-icon)}
-.switch button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-
-/* Posit team feedback: pre-filled Google Form links, on a published page only.
-   The header button sits left of the switch, so the eyebrow keeps clear of both. */
+/* Posit team feedback: pre-filled Google Form links, on a published page only. */
 .fb{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding-top:16px;border-top:1px solid var(--hairline)}
 .fb-q{font-size:13px;font-weight:600;color:var(--body);margin-right:6px}
 .fb a{font-size:12.5px;font-weight:500;line-height:1.2;padding:5px 11px;border-radius:999px;border:1px solid var(--dash);background:transparent;color:var(--body);text-decoration:none;transition:color .15s ease,border-color .15s ease}
 .fb a:hover,.fb a:focus-visible{color:var(--link);border-color:var(--link);outline:none}
-.fb-top{position:absolute;top:-4px;right:78px;display:inline-flex;align-items:center;gap:6px;height:38px;box-sizing:border-box;padding:0 14px;border:1px solid var(--switch-border);border-radius:999px;background:var(--switch-bg);color:var(--body);font-size:13px;font-weight:500;text-decoration:none;z-index:2;transition:color .15s ease,border-color .15s ease}
-.fb-top:hover,.fb-top:focus-visible{color:var(--ink);border-color:var(--hover-border);outline:none}
-.head:has(.fb-top) .eyebrow{padding-right:232px}
 /* A recorded verdict: the pill is the button that changes it. */
 .fb-done{display:inline-flex;align-items:center;gap:5px;font:600 12.5px/1.2 var(--sans);padding:5px 9px 5px 11px;border-radius:999px;border:1px solid var(--link);color:var(--link);background:var(--fb-done-bg);cursor:pointer;transition:background-color .15s ease}
 .fb-done:hover,.fb-done:focus-visible{background:var(--fb-done-hover-bg);outline:none}
@@ -397,13 +381,12 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .fb-done.tip::after{left:50%;bottom:calc(100% + 6px);transform:translateX(-50%)}
 .fb .fb-act{font:500 12.5px/1.2 var(--sans);margin-left:4px;padding:5px 2px;border:0;border-bottom:1px dashed transparent;border-radius:0;background:none;color:var(--body);cursor:pointer;text-decoration:none}
 .fb .fb-act:hover,.fb .fb-act:focus-visible{color:var(--link);border-bottom-color:currentColor;outline:none}
-@media (prefers-reduced-motion:reduce){.fb a,.fb-top,.fb-done{transition:none}}
+@media (prefers-reduced-motion:reduce){.fb a,.fb-done{transition:none}}
 
-/* One tooltip style for the whole page: tiles, theme switch, back to top. */
+/* One tooltip style for the whole page: tiles, back to top. */
 .tip{position:relative}
 .tip::after{content:attr(data-tip);position:absolute;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;letter-spacing:0;text-transform:none;pointer-events:none;opacity:0;transition:opacity .15s ease;z-index:3}
 .tip:hover::after,.tip:focus-visible::after{opacity:1}
-.switch .tip::after{top:calc(100% + 6px);right:0}
 
 /* Summary tiles */
 .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
@@ -514,10 +497,12 @@ a.ki-num,.ki-num-t{font-family:var(--mono);font-size:12px}
 .ki-num-t[data-title]:hover{text-decoration:underline dotted;text-decoration-thickness:1px}
 a.ki-num:hover,a.ki-num:focus-visible,a.ki-ev:hover,a.ki-ev:focus-visible{color:var(--link-hover);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:currentColor;outline:none}
 a.ki-num:focus-visible,a.ki-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
-.ki-empty{display:flex;align-items:flex-start;gap:12px;padding:20px}
+.ki-empty{display:flex;align-items:center;gap:12px;padding:20px}
 .ki-empty-ic{width:28px;height:28px;border-radius:50%;background:var(--pass-bg);color:var(--pass-fill);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .ki-empty b{display:block;font-size:15px;font-weight:600;color:var(--ink);line-height:1.4}
-.ki-empty b+span{font-size:13px;color:var(--muted);line-height:1.5}
+.ki-empty-sum{font-size:13px;line-height:1.6;color:var(--muted)}
+.ki-empty-sum b{display:inline;font-size:13px;font-weight:500;color:var(--body)}
+a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .ki-card{position:fixed;z-index:60;width:340px;max-width:calc(100vw - 24px);box-sizing:border-box;background:var(--tip-bg);border:1px solid var(--pop-border);border-radius:10px;box-shadow:var(--pop-shadow);padding:12px 14px;display:none;flex-direction:column;gap:6px;pointer-events:none;font-family:var(--sans);text-align:left}
 .ki-card.is-open{display:flex}
 .ki-card-top{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
@@ -571,9 +556,24 @@ a.ki-num:focus-visible,a.ki-ev:focus-visible{outline:2px solid var(--focus);outl
 .cp-btn.is-copied{color:var(--pass-fill) !important}
 .cp-btn.is-copied .cp-ok{display:block}
 .cp-btn.is-copied .cp-ico{display:none}
+/* Copy link: last in the row, after Copy prompt. Same look as Copy prompt. */
+.ln-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
+.cp-btn:has(+.ln-btn){margin-right:0}
+.cp-btn+.ln-btn,.gh-btn+.ln-btn{margin-left:-19px}
+.card .ln-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
+.card .ln-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
+.ln-btn:hover::after,.ln-btn:focus-visible::after,.ln-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
+.ln-btn .ln-ok{display:none}
+.ln-btn.is-copied{color:var(--pass-fill) !important}
+.ln-btn.is-copied .ln-ok{display:block}
+.ln-btn.is-copied .ln-ico{display:none}
+/* Opened from a shared link: a short ring shows which finding was meant. */
+article.card:target{animation:ln-ring 2.4s ease-out 1}
+@keyframes ln-ring{0%,40%{box-shadow:0 0 0 4px var(--ln-ring)}100%{box-shadow:0 0 0 4px transparent}}
+@media (prefers-reduced-motion:reduce){.ln-btn{transition:none}article.card:target{animation:none;box-shadow:0 0 0 2px var(--ln-ring)}}
 
 /* Code block in a step: its copy button shows on hover or focus, so at rest
-   the agent button is the only copy control on the card. */
+   it doesn't compete with the agent button. */
 .code-blk{position:relative;margin:8px 0 6px}
 .code-blk pre{margin:0;padding:12px 44px 12px 14px;background:var(--code-blk-bg);border:1px solid var(--code-blk-border);border-radius:8px;overflow-x:auto;white-space:pre}
 .code-blk pre code{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text)}
@@ -874,8 +874,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 /* The magnifier leaves as the check arrives, in place, rather than drifting
    back down the line while it fades. The check is the answer to the question it
    was asking, so once the check is there the magnifier has nothing left to do
-   and lingering read as though it were still looking. This is the one beat that
-   departs from report-reference-*.html. */
+   and lingering read as though it were still looking. */
 
 /* Reduced motion keeps the punchline and drops the performance: the line and
    the check, which is what the mark is actually saying. */
@@ -965,9 +964,5 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.ki-st{align-items:flex-start;text-align:left}
 	.to-top{right:16px;bottom:16px}
 	h1.title{font-size:28px}
-	/* Icon only on a phone: the label would push the chips into a narrow column. */
-	.fb-top{width:38px;padding:0;justify-content:center}
-	.fb-top-label{display:none}
-	.head:has(.fb-top) .eyebrow{padding-right:128px}
 }
 `;

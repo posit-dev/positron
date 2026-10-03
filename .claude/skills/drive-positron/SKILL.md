@@ -328,6 +328,8 @@ instance is gone.
 
 `stop.sh` signals the process that owns the CDP port, waits for the port to stop answering, forces the stop if it does not, and then removes the run directory. It exits non-zero if the instance is still reachable, so a silent failure to clean up is not possible.
 
+`launch.sh` and `stop.sh` each add a timestamped line to `instances.log` beside the run directories (`/tmp/positron-dev-launch/` by default), so you can see how many instances were running at once.
+
 Do not signal the Electron helper processes yourself. Positron reads a terminated renderer as a window crash: it respawns the helpers, shows a "window terminated unexpectedly" dialog, and then ignores the signal sent to the main process, leaving the instance running.
 
 Pass `--run-dir` only when it is the exact `runDir` the launcher reported. The script refuses any path that does not contain a generated `positron-dev-launch` component, and stops the instance without deleting anything when `--run-dir` is omitted.

@@ -19,6 +19,7 @@ import { ITerminalServiceFactory } from '../../client/common/terminal/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { UvPackageManager } from '../../client/positron/packages/uvPackageManager';
 import { PackageSession } from '../../client/positron/packages/types';
+import * as uvUtils from '../../client/pythonEnvironments/common/environmentManagers/uv';
 
 /**
  * Interface for emitting messages to the Positron console (matches the one in uvPackageManager.ts)
@@ -45,6 +46,8 @@ suite('UvPackageManager Tests', () => {
     // let uvSandbox: sinon.SinonStub;
 
     setup(() => {
+        sinon.stub(uvUtils, 'getLocatedUvCommand').resolves('uv');
+
         // Capture requirements written to the temp file.
         let writtenContent = '';
         fileSystem = {
@@ -347,6 +350,25 @@ version = "0.1.0"`;
                 '--python',
                 '/path/to/python',
             ]);
+        });
+
+        test('runs the located uv when it is not on PATH', async () => {
+            // A uv installed this session is only found in its install location.
+            const locatedUv = path.join('/home/user', '.local', 'bin', 'uv');
+            (uvUtils.getLocatedUvCommand as sinon.SinonStub).resolves(locatedUv);
+            processService.exec
+                .withArgs(locatedUv, sinon.match.array.startsWith(['pip', 'list', '--outdated']))
+                .resolves({ stdout: JSON.stringify([{ name: 'werkzeug', latest_version: '3.1.8' }]), stderr: '' })
+                .withArgs(locatedUv, sinon.match.array.startsWith(['pip', 'freeze']))
+                .resolves({ stdout: 'werkzeug==2.0.3\n', stderr: '' });
+
+            await uvPackageManager.updateAllPackages();
+
+            const spawned = [
+                ...processService.exec.getCalls().map((call) => call.args[0]),
+                terminalService.sendCommand.firstCall.args[0],
+            ];
+            expect(spawned).to.deep.equal([locatedUv, locatedUv, locatedUv]);
         });
 
         test('installPackages names the full installed set and adds the new package', async () => {

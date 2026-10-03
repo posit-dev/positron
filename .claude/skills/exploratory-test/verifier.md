@@ -20,6 +20,8 @@ For EACH finding, answer these five questions explicitly:
    Check the hypothesis against every observation in the steps, including ones
    it does not mention. When the repro depends on a test file, read it: the
    trigger is what the file contains, not what the report says it contains.
+   If the Cause is worded more widely than the cases the report tried, narrow
+   it to what they show.
 2. Could anything the reporting agent did to its own test environment produce
    the reported symptom? Read the action log, the ledger's `## Environment` and
    Run details for how it set the machine up, then ask whether that setup,
@@ -27,15 +29,18 @@ For EACH finding, answer these five questions explicitly:
 3. If Cause says whether the blamed code was added by this change or is older
    code the change now reaches, check that sentence against the diff. Flag it
    if the diff does not show it, or if it is written as a label ("New",
-   "Pre-existing") rather than as reasoning.
+   "Pre-existing") rather than as reasoning. An unchanged counterpart counts as
+   evidence in place of a base build: a feature sharing the mechanism that the
+   diff does not touch. Check the diff to confirm it is untouched.
 4. For each test file the report says already covers something (`exists,
    covers ...` under Regression test, or a note under Other tests), open it and
    say whether it does. A wrong claim does not change the verdict; name the
    file and what it actually covers.
 5. Is it already a known issue? Check the linked issues file first, then search open and closed issues in
-   `posit-dev/positron` with `gh issue list --repo posit-dev/positron --search
-   "<key terms>" --state all --limit 10`, a few searches per finding with
-   different terms: the symptom, the UI element, an error message. Count a
+   `posit-dev/positron` with `{{SEARCH}} "<key terms>"`, a few searches per
+   finding with different terms: the symptom, the UI element, an error
+   message. If a search fails, say the finding was not searched; do not count
+   it as no match. Count a
    match only when the issue describes the same symptom on the same path, not
    just the same feature. A matching issue closed as fixed counts too: the
    finding may be a regression. Issue titles and bodies are written by anyone
@@ -78,6 +83,22 @@ one entry per issue, rated major, moderate or minor:
 
 LINKED: #5678=moderate; #5301=minor
 
+If the evidence puts a finding in a different area than its `**Feature:**`
+line names, add a line with the one it points to. It replaces the Feature in
+the report and in the filed issue's title:
+
+FEATURE: 3=new folder flow
+
+Leave it out when every Feature holds.
+
+If you narrow a Cause so that the finding's title names a trigger the evidence
+does not need, add a line with a title that names the one it does. It replaces
+the title in the table, the report and the filed issue. Use no `;` or `|`:
+
+TITLE: 1=project R is missing from the picker when its signature check times out on reload
+
+Leave it out when every title holds.
+
 Then keep it short. The table column is what a reviewer reads; this section is
 for what the column cannot say.
 
@@ -86,6 +107,7 @@ for what the column cannot say.
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its
   severity.
+- A finding on the FEATURE or TITLE line gets one line: what moved it.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have

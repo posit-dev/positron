@@ -213,6 +213,30 @@ def test_get_missing_imports_local_module_root(tmp_path) -> None:
     assert _get_missing_imports(None, [["helper"], [str(tmp_path)]]) == []  # type: ignore[arg-type]
 
 
+@pytest.mark.parametrize(
+    "layout",
+    [
+        "module",  # project/utils_local_test.py
+        "package",  # project/utils_local_test/__init__.py
+    ],
+)
+def test_get_missing_imports_local_module_in_ancestor_root(tmp_path, layout) -> None:
+    """A local module in any provided root, not only the first, is importable."""
+    from positron.ui import _get_missing_imports
+
+    project = tmp_path / "project"
+    notebooks = project / "notebooks"
+    notebooks.mkdir(parents=True)
+    if layout == "module":
+        (project / "utils_local_test.py").write_text("def run(x):\n    return x\n")
+    else:
+        (project / "utils_local_test").mkdir()
+        (project / "utils_local_test" / "__init__.py").write_text("")
+
+    roots = [str(notebooks), str(project)]
+    assert _get_missing_imports(None, [["utils_local_test"], roots]) == []  # type: ignore[arg-type]
+
+
 def test_get_missing_imports_invalid_params() -> None:
     """`_get_missing_imports` rejects params that are not a list of names."""
     from positron.ui import _get_missing_imports, _InvalidParamsError

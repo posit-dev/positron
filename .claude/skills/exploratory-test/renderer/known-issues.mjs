@@ -12,6 +12,11 @@
 //     writes <file> and prints the brief's section, or nothing when no issue
 //     is linked. Best effort: on any failure it writes an empty list and
 //     exits 0, since a run without the list is still a run.
+//   node known-issues.mjs --search "<terms>" [--repo posit-dev/positron]
+//     prints open and closed issues matching the terms, one per line, or
+//     `no matches`. For the verifier, local and CI alike: with no token (CI)
+//     it searches unauthenticated, which allows 10 searches a minute. A
+//     failed search exits 1, so it cannot pass for no matches.
 
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -28,15 +33,17 @@ const SUMMARY_MAX = 240;
 const SEVERITY_RANK = { major: 0, moderate: 1, minor: 2 };
 
 /**
- * Issue numbers a PR body says it closes, with GitHub's closing keywords:
- * `Fixes #12`, `closes posit-dev/positron#12`, or a full issue URL. Refs to
- * other repos are left out: the run cannot check them.
+ * Issue numbers a PR body says it does the work of: GitHub's closing keywords
+ * (`Fixes #12`, `closes posit-dev/positron#12`, or a full issue URL), and the
+ * ones that do not close it (`Addresses #12`, `Implements #12`). `Part of`
+ * and `toward` are left out: they name an umbrella issue, not this PR's work.
+ * Refs to other repos are left out: the run cannot check them.
  */
 export function closingRefs(body, repo = DEFAULT_REPO) {
 	const text = String(body ?? '');
 	const out = new Set();
 	const ref = String.raw`(?:#\d+|[\w.-]+\/[\w.-]+#\d+|https?:\/\/github\.com\/[\w.-]+\/[\w.-]+\/issues\/\d+)`;
-	const re = new RegExp(String.raw`\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?)\b:?\s+(${ref}(?:(?:\s*,\s*|\s+and\s+)${ref})*)`, 'gi');
+	const re = new RegExp(String.raw`\b(?:fix(?:e[sd])?|close[sd]?|resolve[sd]?|address(?:e[sd])?|implement(?:s|ed)?)\b:?\s+(${ref}(?:(?:\s*,\s*|\s+and\s+)${ref})*)`, 'gi');
 	for (const m of text.matchAll(re)) {
 		for (const r of m[1].matchAll(new RegExp(ref, 'g'))) {
 			const n = sameRepoNumber(r[0], repo);
@@ -395,12 +402,35 @@ export async function fetchKnownIssues(pr, repo = DEFAULT_REPO, { auth = token()
 	return { repo, pr, fetchedAt: new Date().toISOString(), issues };
 }
 
+/** Open and closed issues matching `terms`. Throws on a failed request, a rate limit included. */
+export async function searchIssues(terms, repo = DEFAULT_REPO, { auth = token() } = {}) {
+	const q = encodeURIComponent(`repo:${repo} is:issue ${terms}`);
+	return (await github(`/search/issues?q=${q}&per_page=10`, auth)).items ?? [];
+}
+
+/** A search's results as `#12 (closed): "title"` lines, or `no matches`. Titles are quoted as data. */
+export function formatSearch(items) {
+	const issues = (items ?? []).filter(i => !i.pull_request);
+	return issues.length
+		? issues.map(i => `#${i.number} (${i.state === 'closed' ? 'closed' : 'open'}): ${JSON.stringify(i.title ?? '')}`).join('\n')
+		: 'no matches';
+}
+
 async function main() {
-	const { values } = parseArgs({ options: { pr: { type: 'string' }, repo: { type: 'string' }, out: { type: 'string' } } });
+	const { values } = parseArgs({ options: { pr: { type: 'string' }, repo: { type: 'string' }, out: { type: 'string' }, search: { type: 'string' } } });
 	const pr = Number(values.pr);
 	const repo = values.repo || DEFAULT_REPO;
+	if (values.search !== undefined) {
+		try {
+			console.log(formatSearch(await searchIssues(values.search, repo)));
+		} catch (err) {
+			console.error(`known-issues: search failed, so nothing was searched: ${err.message}`);
+			process.exit(1);
+		}
+		return;
+	}
 	if (!values.out || !Number.isInteger(pr) || pr <= 0) {
-		console.error('usage: known-issues.mjs --pr <number> --out <file> [--repo <owner/name>]');
+		console.error('usage: known-issues.mjs --pr <number> --out <file> [--repo <owner/name>]\n       known-issues.mjs --search "<terms>" [--repo <owner/name>]');
 		process.exit(2);
 	}
 	let data;

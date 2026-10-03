@@ -15,7 +15,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -47,22 +47,15 @@ const { dependencies } = JSON.parse(readFileSync(join(here, 'package.json'), 'ut
 if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules', name)))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { renderReportHtml, linkedLogs, skillVersion } = await import('./html.mjs');
-const { modelDisplayName, parseReport } = await import('./report-parse.mjs');
+const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./html.mjs');
+const { formatMinutes, modelDisplayName, parseReport } = await import('./report-parse.mjs');
 const { lintReport, untaggedShots } = await import('./lint.mjs');
 const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
+const { reportUsageOnce } = await import('./usage.mjs');
 
 let markdown = readFileSync(input, 'utf8');
-// Coverage is built from the run's ledger when it wrote one.
 const dir = dirname(resolve(input));
-const ledgerPath = join(dir, 'ledger.md');
-const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined;
-// Issues linked to the PR, fetched before the run by known-issues.mjs.
-const knownIssues = (() => {
-	try { return JSON.parse(readFileSync(join(dir, 'known-issues.json'), 'utf8')); } catch { return undefined; }
-})();
-const fileExists = path => existsSync(join(dir, path));
-const readFile = path => (existsSync(join(dir, path)) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null);
+const { ledger, knownIssues, fileExists, readFile } = readRunDir(dir);
 // Every file saved under files/, so lint can find one the ledger never listed.
 const listFiles = () => {
 	const root = join(dir, 'files');
@@ -100,17 +93,13 @@ if (flags.check) {
 if (flags['duration-ms']) {
 	// Written here rather than by the action's renderCostFooter (lib.mjs):
 	// a local run has no bill, and that footer drops any pass without one.
-	const time = ms => {
-		const minutes = Math.round(ms / 60000);
-		return minutes === 0 ? '<1m' : `${minutes}m`;
-	};
-	const line = (label, model, turns, ms) => `_${label}: ${[modelDisplayName(model), turns && `${turns} turns`, time(ms)].filter(Boolean).join(' | ')}_`;
+	const line = (label, model, turns, ms) => `_${label}: ${[modelDisplayName(model), turns && `${turns} turns`, formatMinutes(ms)].filter(Boolean).join(' | ')}_`;
 	const explore = Number(flags['duration-ms']);
 	const verify = Number(flags['verify-duration-ms']);
 	// The total covers both passes, as CI's does; with one pass there is none.
 	// Its flag, not its value, says there was a verify pass: 0 ms is still one.
 	const footer = flags['verify-duration-ms'] !== undefined
-		? [line('explore', flags.model, flags.turns, explore), line('verify', flags['verify-model'], flags['verify-turns'], verify), `_total: ${time(explore + verify)}_`].join('\n')
+		? [line('explore', flags.model, flags.turns, explore), line('verify', flags['verify-model'], flags['verify-turns'], verify), `_total: ${formatMinutes(explore + verify)}_`].join('\n')
 		: line('explore', flags.model, flags.turns, explore);
 	// Re-rendering must not stack a second footer under the first; only the
 	// labels a footer is written with, so a body line like `_note: x_` survives.
@@ -127,51 +116,67 @@ const parsed = parseReport(markdown, { ledger });
 
 // The Run tile's render is the run's last: record its stats, as CI's run.mjs
 // does, before the page is written, so the page can link them.
-if (flags['duration-ms']) {
-	writeFileSync(join(dir, 'stats.json'), `${JSON.stringify(buildStats({
-		where: 'local',
-		date: (born.getTime() > 0 ? born : new Date()).toISOString(),
-		version: skillVersion(),
-		model: flags.model,
-		// A subagent's tool_uses, which is what the footer calls turns here.
-		turns: flags.turns ? Number(flags.turns) : null,
-		durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0),
-		parsed,
-		checks: readChecks(dir),
-	}), null, 2)}\n`);
+const stats = flags['duration-ms'] ? buildStats({
+	where: 'local',
+	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
+	version: skillVersion(),
+	model: flags.model,
+	// A subagent's tool_uses, which is what the footer calls turns here.
+	turns: flags.turns ? Number(flags.turns) : null,
+	durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0),
+	parsed,
+	checks: readChecks(dir),
+}) : null;
+if (stats) {
+	writeFileSync(join(dir, 'stats.json'), `${JSON.stringify(stats, null, 2)}\n`);
+}
+
+/** Who a local page's feedback says ran it; none when git has no email. */
+function gitEmail() {
+	try {
+		return execFileSync('git', ['config', 'user.email'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+	} catch {
+		return null;
+	}
 }
 
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
-writeFileSync(out, renderReportHtml(markdown, {
+await writeRunPage(out, markdown, parsed, {
+	// Coverage is built from the run's ledger when it wrote one.
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],
 	// Evidence in the prompt has to open from wherever it is pasted.
 	base: flags.base || dir,
-	// Sent with feedback, which only a published page (--base) asks for.
+	// Sent with feedback.
 	skillVersion: skillVersion(),
+	author: gitEmail(),
 	fileExists,
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,
 	knownIssues,
-}));
+});
 console.log(out);
 
 // Printed, not fatal: the page still renders. Fix each line and render again.
-printProblems();
+const problems = printProblems();
 
 // A listed log that was never copied is a dead link; the page shows it unlinked,
 // and the run fails so it gets copied rather than shipped.
-const missing = linkedLogs(parsed).filter(p => !fileExists(p));
+const { logs: missing, files: missingTestFiles } = missingFiles(parsed, fileExists);
 if (missing.length) {
 	console.error(`missing log files, listed but not beside the report:\n${missing.map(p => `  ${p}`).join('\n')}`);
 }
 // The same for test files: a finding that names one nobody can open cannot be reproduced.
-const missingFiles = parsed.files.map(f => f.path).filter(p => !fileExists(p));
-if (missingFiles.length) {
-	console.error(`missing test files, listed in ## Files but not beside the report:\n${missingFiles.map(p => `  ${p}`).join('\n')}`);
+if (missingTestFiles.length) {
+	console.error(`missing test files, listed in ## Files but not beside the report:\n${missingTestFiles.map(p => `  ${p}`).join('\n')}`);
 }
 // Evidence groups by step, so a shot with none has nowhere to go; lint names it.
 const untagged = untaggedShots(parsed.findings);
-if (missing.length || missingFiles.length || untagged.length) {
+// Sent last, so the row says whether the render failed the run.
+if (stats) {
+	const final = { problems: problems.length, missingLogs: missing.length, missingFiles: missingTestFiles.length, untaggedShots: untagged.length };
+	await reportUsageOnce(dir, { email: gitEmail(), event: 'finished', runId: basename(dir), stats: { ...stats, final } });
+}
+if (missing.length || missingTestFiles.length || untagged.length) {
 	process.exit(1);
 }

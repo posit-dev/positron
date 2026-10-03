@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import {
@@ -11,6 +14,7 @@ import {
 	constructSnowflakeBaseUrl,
 	detectSnowflakeCredentials,
 	getSnowflakeConnectionsTomlPath,
+	readSnowflakeManagedCredentials,
 } from '../credentials/snowflake';
 
 suite('Snowflake Credentials', () => {
@@ -94,6 +98,22 @@ suite('Snowflake Credentials', () => {
 			);
 			assert.strictEqual(getSnowflakeConnectionsTomlPath({}), undefined);
 			assert.strictEqual(getSnowflakeConnectionsTomlPath(undefined), undefined);
+		});
+
+		test('readSnowflakeManagedCredentials returns regional accounts that the Cortex URL rejects', () => {
+			const home = fs.mkdtempSync(path.join(os.tmpdir(), 'snowflake-home-'));
+			try {
+				fs.writeFileSync(
+					path.join(home, 'connections.toml'),
+					'[workbench]\naccount = "xy12345.us-east-2.aws"\ntoken = "abc"\n'
+				);
+				assert.deepStrictEqual(
+					readSnowflakeManagedCredentials({ home }),
+					{ account: 'xy12345.us-east-2.aws', token: 'abc' }
+				);
+			} finally {
+				fs.rmSync(home, { recursive: true, force: true });
+			}
 		});
 	});
 });

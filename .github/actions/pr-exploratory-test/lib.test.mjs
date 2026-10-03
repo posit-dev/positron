@@ -195,19 +195,19 @@ const SUMMARY_MD = [
 	'**Observed:** it broke.',
 ].join('\n');
 
-test('renderStepSummary is a tally and two links, and nothing else', () => {
+test('renderStepSummary is a tally and a link, and nothing else', () => {
 	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run');
 	assert.match(summary, /^\*\*1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
 	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
-	assert.match(summary, /\[Agent Report\]\(https:\/\/cdn\.example\/run\/report\.md\)/);
+	assert.doesNotMatch(summary, /report\.md/);
 	// The body of the report belongs on its own page, not pasted in here.
 	assert.doesNotMatch(summary, /Observed|a claim/);
-	// The links say what they are, and the cost is on the report's Run tile.
+	// The link says what it is, and the cost is on the report's Run tile.
 	assert.doesNotMatch(summary, /interactive report|structured Markdown/);
-	// Only the tally is bold; the links carry their own weight as links.
+	// Only the tally is bold; the link carries its own weight as a link.
 	assert.doesNotMatch(summary, /\*\*\[|\]\([^)]*\)\*\*/);
 	assert.doesNotMatch(summary, /\$|turns|explore|verify|total/);
-	assert.equal(summary.trim().split('\n').filter(Boolean).length, 3);
+	assert.equal(summary.trim().split('\n').filter(Boolean).length, 2);
 });
 
 test('renderStepSummary counts the table when the report wrote up no blocks', () => {

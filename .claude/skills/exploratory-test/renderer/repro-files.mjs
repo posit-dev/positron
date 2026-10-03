@@ -16,7 +16,7 @@ export const PREVIEW_LINES = 400;
 // Text over this size is not embedded: Download links the file instead.
 export const EMBED_BYTES = 200 * 1024;
 // A table shows this many data rows under its header.
-export const PREVIEW_ROWS = 20;
+const PREVIEW_ROWS = 20;
 
 const TYPE = {
 	qmd: 'Quarto', rmd: 'R Markdown', ipynb: 'Notebook', py: 'Python', r: 'R', jl: 'Julia',
@@ -36,6 +36,12 @@ const FENCE = { py: 'python', r: 'r', rmd: 'rmd', sh: 'bash', yml: 'yaml', jl: '
  * one, since a word follows the extension.
  */
 export const FILE_NAME = /(?<![\w/.:@-])((?:[\w-]+\/)*[\w-][\w.-]*\.(?:qmd|rmd|ipynb|py|r|jl|sql|csv|tsv|jsonl?|toml|ya?ml|md|txt|parquet|feather|arrow|sqlite|db|duckdb|xlsx?|rds|rdata|sh))(?!\w|\.\w)/gi;
+
+/**
+ * A saved file named in prose by its `files/` path. Its extension may hold a
+ * hyphen (`mr.code-workspace`); a path with no extension is not matched.
+ */
+export const FILES_PATH = /(?<![\w/.-])(files\/[\w./-]*\.\w+(?:-\w+)*)(?![\w/-]|\.\w)/g;
 
 function extOf(path) {
 	const m = /\.([^./]+)$/.exec(path);
@@ -228,7 +234,7 @@ export function linkFilePaths(html, files) {
 			else if (/^<\/(a|code)>/i.test(part)) { skip = Math.max(0, skip - 1); }
 			return part;
 		}
-		return skip ? part : part.replace(/(?<![\w/.-])(files\/[\w./-]*\.\w+)(?!\w|\.\w)/g, (whole, path) => {
+		return skip ? part : part.replace(FILES_PATH, (whole, path) => {
 			const f = findFile(files, path);
 			return f && f.kind !== 'missing'
 				? `<a class="fn-view" href="${escapeHtml(f.path)}" data-file="${f.id}">view ${escapeHtml(f.name)}</a>`
@@ -242,7 +248,7 @@ export function linkFilePaths(html, files) {
  * not there. `{ path: true }` labels it with its folder in the workspace too,
  * for a list where the reader has to know where each file goes.
  */
-export function fileChip(f, { path = false } = {}) {
+function fileChip(f, { path = false } = {}) {
 	const label = escapeHtml(path ? f.rel : f.name);
 	if (f.kind === 'missing') {
 		return `<code>${label}</code>`;

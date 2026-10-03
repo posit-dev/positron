@@ -161,11 +161,13 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		}
 		// Build a synthetic target for this session + code and run it through the
 		// same compute path as resource-based analysis, so the console-error
-		// onramp shares the cache, in-flight dedupe, and resilience guards.
+		// onramp gets the cache, in-flight dedupe, and resilience guards. Its
+		// cache entries are separate from resource-based ones, because inline
+		// code has no document directory to use as an import root.
 		const target: IResolvedTarget = {
 			sessionId,
 			languageId: session.runtimeMetadata.languageId,
-			cacheKey: `${sessionId}:${hash(code)}`,
+			cacheKey: this._cacheKey(sessionId, code),
 			target: { code },
 		};
 		return this._computeTarget(target);
@@ -329,6 +331,9 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 	 * Languages without a usable session (or without `listMissingPackages`
 	 * support) are skipped; the cache invalidates on session start, so the badge
 	 * recomputes once a session is available.
+	 *
+	 * The document URI is forwarded so the runtime can treat the document's
+	 * directory as an import root, as for scripts.
 	 */
 	private _buildQuartoTargets(model: ITextModel): IResolvedTarget[] {
 		const quartoModel = this._quartoDocumentModelService.getModel(model);
@@ -359,8 +364,8 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 				return [];
 			}
 			const code = chunks.join('\n');
-			const cacheKey = `${session.sessionId}:${hash(code)}`;
-			return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code } }];
+			const cacheKey = this._cacheKey(session.sessionId, code, model.uri);
+			return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code, uri: model.uri.toString() } }];
 		}
 
 		// Console output: route each language's chunks to its console session.
@@ -371,8 +376,8 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 				continue;
 			}
 			const code = chunks.join('\n');
-			const cacheKey = `${session.sessionId}:${hash(code)}`;
-			targets.push({ sessionId: session.sessionId, languageId, cacheKey, target: { code } });
+			const cacheKey = this._cacheKey(session.sessionId, code, model.uri);
+			targets.push({ sessionId: session.sessionId, languageId, cacheKey, target: { code, uri: model.uri.toString() } });
 		}
 		return targets;
 	}
@@ -389,7 +394,7 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		if (!session || !session.listMissingPackages) {
 			return [];
 		}
-		const cacheKey = `${session.sessionId}:${hash(content)}`;
+		const cacheKey = this._cacheKey(session.sessionId, content, uri);
 		return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code: content, uri: uri?.toString() } }];
 	}
 
@@ -414,8 +419,8 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 		if (!code.trim()) {
 			return [];
 		}
-		const cacheKey = `${session.sessionId}:${hash(code)}`;
-		return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code } }];
+		const cacheKey = this._cacheKey(session.sessionId, code, notebookUri);
+		return [{ sessionId: session.sessionId, languageId, cacheKey, target: { code, uri: notebookUri.toString() } }];
 	}
 
 	/**
@@ -488,6 +493,16 @@ export class MissingPackagesService extends Disposable implements IMissingPackag
 				result => { store.dispose(); resolve(result); },
 				err => { store.dispose(); reject(err); });
 		});
+	}
+
+	/**
+	 * The cache key for a target. Resource targets include the document URI,
+	 * because the runtime treats the document's directory as an import root: the
+	 * same code can have different missing packages in different directories. The
+	 * `${sessionId}:` prefix is what session invalidation matches on.
+	 */
+	private _cacheKey(sessionId: string, code: string, uri?: URI): string {
+		return `${sessionId}:${hash(uri ? `${uri.toString()}\n${code}` : code)}`;
 	}
 
 	private _composeResult(resource: URI, groups: IMissingPackagesGroup[]): IMissingPackagesResult {

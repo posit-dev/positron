@@ -6,6 +6,7 @@
 import { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Toasts } from './dialog-toasts';
+import { HotKeys } from './hotKeys';
 
 // Webview frame selectors (Posit Assistant renders inside a VS Code webview)
 const OUTER_FRAME = '.webview';
@@ -116,7 +117,8 @@ const CODE_BLOCK_INSERT_CURSOR_BUTTON = 'button[aria-label="Insert At Cursor"]';
 const CODE_BLOCK_INSERT_FILE_BUTTON = 'button[aria-label="Insert into New File"]';
 
 // Tool confirmation UI
-const TOOL_CONFIRM_CARD = '.bg-warning';
+// `.bg-warning` alone also matches the legacy-config and restricted-mode banners.
+const TOOL_CONFIRM_CARD = '.bg-warning.border-warning-border';
 const TOOL_ALLOW_BUTTON = 'button.rounded-r-none:has-text("Allow")';
 const TOOL_ALLOW_DROPDOWN_TRIGGER = 'button[aria-label="More allow options"]';
 const TOOL_ALLOW_SESSION_MENU_ITEM = '[role="menuitem"]:has-text("for this session")';
@@ -404,38 +406,44 @@ export class PositAssistant {
 	 * @param modelName Exact model name as displayed in the menu (e.g. "GPT-5.4 Mini").
 	 */
 	async selectModel(modelName: string): Promise<void> {
-		// 1. Open the chat-form overflow menu.
-		await this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON).click();
-
-		// 2. Open the "Model" submenu. The SubTrigger is identifiable as a
-		//    menuitem with aria-haspopup="menu" that contains the literal
-		//    "Model" label span; that label is stable across states.
-		await this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))').click();
-
-		// 3. Locate the desired model. `:text-is()` is exact-match so
-		//    "GPT-5.4" does not collide with "GPT-5.4 Mini". Within each provider
-		//    group, less-preferred models (e.g. those flagged with a warning note,
-		//    like Microsoft Foundry's "model-router") are collapsed under a "More
-		//    models" inline disclosure -- a plain <button>, not a menuitem. When
-		//    more than one provider group is signed in, several "More models"
-		//    disclosures render at once, so the locator must not assume a single
-		//    match. Wait for the submenu to render (the model itself or a
-		//    disclosure), then expand disclosures one at a time -- re-querying,
-		//    since clicking removes the button -- until the model is shown or every
-		//    group has been expanded.
+		const overflow = this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON);
+		// The SubTrigger is a menuitem with aria-haspopup="menu" containing the
+		// literal "Model" label span; that label is stable across states.
+		const modelSubmenu = this.frame.locator('[role="menuitem"][aria-haspopup="menu"]:has(span:text-is("Model"))');
+		// `:text-is()` is exact-match so "GPT-5.4" does not collide with "GPT-5.4 Mini".
 		const model = this.frame.locator(`[role="menuitem"]:has(span.flex-1:text-is("${modelName}"))`);
+		// Within each provider group, less-preferred models (e.g. Microsoft
+		// Foundry's "model-router") are collapsed under a "More models" inline
+		// disclosure -- a plain <button>, not a menuitem -- and several groups can
+		// show one at once, so the locator must not assume a single match.
 		const moreModels = this.frame.getByRole('button', { name: 'More models' });
-		await expect(model.or(moreModels.first()).first()).toBeVisible();
-		for (let remaining = await moreModels.count(); remaining > 0 && !(await model.isVisible()); remaining--) {
-			await moreModels.first().click();
-		}
+		const submenuRendered = model.or(moreModels.first()).first();
 
-		// 4. Click the model.
-		await model.click();
+		// Retry the open->select->close cycle with short per-step timeouts, as in
+		// selectProviderModelMenuMode: the "Model" submenu only exists once a
+		// provider has delivered models, and a list populated by a live fetch can
+		// re-render mid-click. A stalled step fails fast and is retried against the
+		// current menu instead of hanging for the whole budget.
+		await expect(async () => {
+			if (!(await submenuRendered.isVisible().catch(() => false))) {
+				if (await overflow.getAttribute('aria-expanded') !== 'true') {
+					await overflow.click({ timeout: 5000 });
+				}
+				await modelSubmenu.click({ timeout: 5000 });
+				await expect(submenuRendered).toBeVisible({ timeout: 5000 });
+			}
 
-		// Menu closes on selection; wait for the trigger to collapse so
-		// subsequent actions (e.g. Send) don't race an open overlay.
-		await expect(this.frame.locator(CHAT_FORM_OVERFLOW_BUTTON)).toHaveAttribute('aria-expanded', 'false');
+			// Expand disclosures one at a time, re-querying since a click removes
+			// the button, until the model is shown or every group is expanded.
+			for (let remaining = await moreModels.count(); remaining > 0 && !(await model.isVisible()); remaining--) {
+				await moreModels.first().click({ timeout: 5000 });
+			}
+			await model.click({ timeout: 5000 });
+
+			// Menu closes on selection; wait for the trigger to collapse so
+			// subsequent actions (e.g. Send) don't race an open overlay.
+			await expect(overflow).toHaveAttribute('aria-expanded', 'false', { timeout: 5000 });
+		}).toPass({ timeout: 30000 });
 	}
 
 	/**
@@ -888,13 +896,13 @@ export class PositAssistant {
 		await toasts.clickButton('Update Now', { notificationFilter: /newer Posit Assistant dev build is available/i });
 
 		// 4. Wait for the follow-up "reload to apply changes" toast and click "Reload".
+		//    A visible .monaco-workbench is not enough afterwards: the provider modal
+		//    opened against a still-starting extension host took over 15s on Windows.
 		await toasts.waitForAppear(/Posit Assistant has been updated\. You must reload Positron/i, { timeout: toastTimeout });
-		await toasts.clickButton('Reload', { notificationFilter: /Posit Assistant has been updated\. You must reload Positron/i });
-
-		// 5. Clicking Reload reloads the window natively. Wait for the
-		//    workbench to come back up.
-		await this.code.driver.currentPage.waitForTimeout(3000);
-		await this.code.driver.currentPage.locator('.monaco-workbench').waitFor({ state: 'visible' });
+		await new HotKeys(this.code).reloadWindowWith(
+			() => toasts.clickButton('Reload', { notificationFilter: /Posit Assistant has been updated\. You must reload Positron/i }),
+			true,
+		);
 	}
 
 }

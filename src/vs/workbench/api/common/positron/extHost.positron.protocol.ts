@@ -419,6 +419,7 @@ export interface ISerializedAgentCommand {
 	description?: string;
 	args?: ISerializedAgentCommandArg[];
 	returns?: string;
+	readOnly?: boolean;
 	source: ISerializedAgentCommandSource;
 }
 

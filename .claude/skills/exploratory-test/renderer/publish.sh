@@ -38,8 +38,8 @@ DIR="exploratory-report-local-$(date -u +%Y%m%d-%H%M%S)-$(openssl rand -hex 4)"
 STAGE=$(mktemp -d "${TMPDIR:-/tmp}/exploratory-publish.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT
 cp -a "$RUN/." "$STAGE/"
-# The verifier's prompt names local paths, and its reply is in the report already.
-rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html" "$STAGE/verify-prompt.md" "$STAGE/verify-reply.md"
+# The verifier's prompt and instances.jsonl name local paths, and the reply is in the report already.
+rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html" "$STAGE/og.png" "$STAGE/verify-prompt.md" "$STAGE/verify-reply.md" "$STAGE/instances.jsonl"
 # From the run directory, whose logs and start time the page reads. The render
 # exits non-zero for a listed file that is missing, to fail the run that wrote
 # it; the page is written first and shows that file unlinked, so publishing
@@ -48,19 +48,8 @@ rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html" "$STAGE/verify
 node "$(dirname "$0")/render.mjs" "$RUN/report.md" --base "$CDN/$DIR" --out "$STAGE/index.html" >/dev/null || true
 [ -s "$STAGE/index.html" ] || { echo "publish: the report did not render; nothing was uploaded." >&2; exit 1; }
 
-# Names only: a value is never printed. Short values would redact common words.
-# scan-shots.mjs owns the list, so text and screenshots are checked for the same
-# names.
-for NAME in $(node "$(dirname "$0")/scan-shots.mjs" --names); do
-	VALUE=${!NAME:-}
-	[ ${#VALUE} -ge 8 ] || continue
-	# No match is not a failure; a file that cannot be redacted stops the upload.
-	{ grep -rlIF -- "$VALUE" "$STAGE" 2>/dev/null || true; } | while IFS= read -r FILE; do
-		echo "Redacting $NAME from ${FILE#"$STAGE"/}"
-		SECRET="$VALUE" perl -pi -e 's/\Q$ENV{SECRET}\E/[REDACTED]/g' "$FILE" \
-			|| { echo "publish: could not redact $NAME from ${FILE#"$STAGE"/}; nothing was uploaded." >&2; exit 1; }
-	done
-done
+# A file that cannot be redacted stops the upload.
+bash "$(dirname "$0")/redact.sh" "$STAGE" || { echo "publish: nothing was uploaded." >&2; exit 1; }
 
 # Last, on the redacted copy: the scan names the shot, never the value.
 SCAN=0

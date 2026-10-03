@@ -14,27 +14,27 @@ test.use({
 
 const POSIT_ASSISTANT_PROVIDERS: ModelProvider[] = ['anthropic-api'];
 
-// Catches regressions where MCP servers in `.positai/settings.json` are
-// ignored — see posit-dev/assistant#1289 (fixed in #1293). Uses the `echo`
+// Catches regressions where MCP servers in `.posit/assistant/settings.json`
+// are ignored — see posit-dev/assistant#1289 (fixed in #1293). Uses the `echo`
 // tool from @modelcontextprotocol/server-everything as a stable reference.
-test.describe.skip('Posit Assistant MCP', { // skipping while investigating failures
+test.describe('Posit Assistant MCP', {
 	tag: [tags.ASSISTANT, tags.WEB, tags.WIN],
 }, () => {
 
 	for (const provider of POSIT_ASSISTANT_PROVIDERS) {
 		test.describe(provider, () => {
 			test.beforeAll(async function ({ app, settings }) {
-				// Write `.positai/settings.json` before activating the assistant
-				// so we don't rely on the file watcher for the first MCP startup.
-				const positaiDir = join(app.workspacePathOrFolder, '.positai');
-				mkdirSync(positaiDir, { recursive: true });
+				// Write the settings file before activating the assistant so we
+				// don't rely on the file watcher for the first MCP startup.
+				const configDir = join(app.workspacePathOrFolder, '.posit', 'assistant');
+				mkdirSync(configDir, { recursive: true });
 				// On Windows `npx` is a .cmd shim; wrap with `cmd /c` so the
 				// assistant's stdio launcher can spawn it.
 				const command = process.platform === 'win32'
 					? ['cmd', '/c', 'npx', '-y', '@modelcontextprotocol/server-everything']
 					: ['npx', '-y', '@modelcontextprotocol/server-everything'];
 				writeFileSync(
-					join(positaiDir, 'settings.json'),
+					join(configDir, 'settings.json'),
 					JSON.stringify({ mcpServers: { everything: { command } } }, null, 2),
 				);
 
@@ -49,10 +49,10 @@ test.describe.skip('Posit Assistant MCP', { // skipping while investigating fail
 				// No logout: the `app` fixture is worker-scoped and tears down
 				// after this spec finishes, so signing out adds no isolation - it
 				// only adds flake surface.
-				await cleanup.removeTestFolder('.positai');
+				await cleanup.removeTestFolder('.posit/assistant');
 			});
 
-			test(`${provider} - Use echo tool from MCP server configured in .positai/settings.json`, async function ({ app }) {
+			test(`${provider} - Use echo tool from MCP server configured in .posit/assistant/settings.json`, async function ({ app }) {
 				await app.workbench.positAssistant.open();
 				await app.workbench.positAssistant.waitForReady();
 				await app.workbench.positAssistant.startNewConversation();

@@ -7,9 +7,10 @@ import * as assert from 'assert';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as typemoq from 'typemoq';
-import { WorkspaceConfiguration } from 'vscode';
+import { Uri, WorkspaceConfiguration } from 'vscode';
 import { anything, when } from 'ts-mockito';
 import * as platformApis from '../../client/common/utils/platform';
+import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import { getPythonDiscoveryRootSignature } from '../../client/positron/discoveryRootSignature';
 import { mockedVSCodeNamespaces } from '../vscode-mock';
 
@@ -19,15 +20,21 @@ suite('Python discovery root signature', () => {
     const homeDir = path.join('/', 'nonexistent-home-for-tests');
     let getEnvironmentVariableStub: sinon.SinonStub;
     let getUserHomeDirStub: sinon.SinonStub;
+    let getWorkspaceFoldersStub: sinon.SinonStub;
+    let include: string[] | undefined;
 
     setup(() => {
+        include = undefined;
         getUserHomeDirStub = sinon.stub(platformApis, 'getUserHomeDir').returns(homeDir);
         getEnvironmentVariableStub = sinon.stub(platformApis, 'getEnvironmentVariable');
         getEnvironmentVariableStub.returns(undefined);
 
         const configMock = typemoq.Mock.ofType<WorkspaceConfiguration>();
         configMock.setup((c) => c.get(typemoq.It.isAnyString())).returns(() => undefined);
+        configMock.setup((c) => c.get('interpreters.include')).returns(() => include);
         when(mockedVSCodeNamespaces.workspace!.getConfiguration(anything())).thenReturn(configMock.object);
+        sinon.stub(workspaceApis, 'getConfiguration').returns(configMock.object);
+        getWorkspaceFoldersStub = sinon.stub(workspaceApis, 'getWorkspaceFolders').returns(undefined);
     });
 
     teardown(() => {
@@ -79,5 +86,16 @@ suite('Python discovery root signature', () => {
 
         const paths = signature.entries.map((e) => e.path);
         assert.strictEqual(new Set(paths).size, paths.length, `duplicate roots in ${JSON.stringify(paths)}`);
+    });
+
+    test('Gives a different digest for the same ${workspaceFolder} text in different folders', async () => {
+        include = ['${workspaceFolder}/.venv'];
+        const opaqueFor = async (folder: string) => {
+            getWorkspaceFoldersStub.returns([{ uri: Uri.file(folder), name: path.basename(folder), index: 0 }]);
+            return (await getPythonDiscoveryRootSignature()).opaque;
+        };
+        const first = await opaqueFor(path.join('/', 'work', 'first'));
+        const second = await opaqueFor(path.join('/', 'work', 'second'));
+        assert.notStrictEqual(first, second);
     });
 });

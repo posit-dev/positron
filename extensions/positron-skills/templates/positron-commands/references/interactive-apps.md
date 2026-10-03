@@ -41,10 +41,13 @@ adding workarounds -- re-run it with the matching command below.
 3. **Do not read the result as proof the app is up.** These commands return
    nothing, and they return nothing whether the app is serving or failed to
    start. You cannot read the app's terminal or console output either, and
-   Positron may have shown the user an error notification you cannot see, so
-   you have no evidence of your own about the app's state.
-4. **Say what you ran and where the preview should appear, then let the user
-   confirm.** Every command previews the app once Positron detects its URL --
+   Positron may have shown the user an error notification you cannot see.
+   When the app previews in the Viewer (see "Settings"), check for yourself
+   with `positronViewer.read` (see [viewer.md]({{skill_dir}}/references/viewer.md)).
+   Otherwise you have no evidence of your own about the app's state.
+4. **Say what you ran and where the preview should appear.** If the Viewer
+   showed the app, say it is running and what it shows. Otherwise let the user
+   confirm. Every command previews the app once Positron detects its URL --
    in the Viewer pane by default, but the user's preview mode setting can point
    it at an editor tab or their own browser instead, so name the Viewer only
    when you know that is where it went (see "Settings"). Ask the user to paste

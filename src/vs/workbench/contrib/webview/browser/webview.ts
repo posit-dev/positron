@@ -298,6 +298,10 @@ export interface IWebview extends IDisposable {
 	hideFind(animated?: boolean, keepSelection?: boolean): void;
 	captureContentsAsPng(): Promise<VSBuffer | undefined>;
 	executeJavaScript(frameId: WebviewFrameId, code: string): Promise<any>;
+	// The frame showing a URI loaded with setUri (Electron only), for executeJavaScript.
+	getContentFrameId(): WebviewFrameId | undefined;
+	// The URL of a frame as the browser has it (Electron only).
+	getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined>;
 	onDidNavigate: Event<URI>;
 	onDidLoad: Event<string>;
 	// --- End Positron

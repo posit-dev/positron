@@ -44,7 +44,22 @@ export interface IAgentCommandDescriptor {
 	readonly description?: string;
 	readonly args?: readonly IAgentCommandArg[];
 	readonly returns?: string;
+	/** See `ICommandMetadata.readOnly`. */
+	readonly readOnly?: boolean;
 	readonly source: IAgentCommandSource;
+}
+
+/**
+ * An image an agent-compatible command returns for the agent to see. The bytes
+ * are base64, since a buffer doesn't survive a command result's serialization.
+ * See `positron.ai.AgentCommandImage`.
+ */
+export interface IAgentCommandImage {
+	readonly kind: 'image';
+	readonly mimeType: string;
+	readonly data: string;
+	/** Text to go with the image, such as how it was made. */
+	readonly note?: string;
 }
 
 /**
@@ -167,6 +182,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 				required: a.isOptional !== true,
 			})),
 			returns: meta.returns,
+			readOnly: meta.readOnly,
 			source: source
 				? { type: 'extension', id: source.id, displayName: source.title }
 				: { type: 'builtin' },

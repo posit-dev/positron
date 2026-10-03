@@ -13,7 +13,11 @@ import importPlugin from 'eslint-plugin-import';
 import js from '@eslint/js';
 import noBadGdprCommentPlugin from './.eslintplugin/no-bad-gdpr-comment.js'; // Ensure the path is correct
 
-export default [
+// --- Start Positron ---
+// Named so the Positron block at the end of the file can extend it.
+// export default [
+const config = [
+    // --- End Positron ---
     {
         ignores: ['**/node_modules/**', '**/out/**'],
     },
@@ -391,3 +395,39 @@ export default [
         },
     },
 ];
+
+// --- Start Positron ---
+// A uv installed this session is not on the PATH the extension host was launched with, so
+// spawning the bare name fails with ENOENT (#15835). Scoped to src/client because tests fake
+// the located-uv helpers with a bare `uv`. Restating the rule replaces the upstream array, so
+// its entries are carried over.
+const bareUvMessage =
+    'Spawning bare `uv` fails when uv was installed this session and is not on PATH. ' +
+    'Use execLocatedUv(), execObservableLocatedUv(), or getLocatedUvCommand() from environmentManagers/uv.ts.';
+const spawnCallee = '/^(exec|execSync|execFile|execObservable|execUv|spawn|spawnSync|shellExec|sendCommand)$/';
+const [, ...upstreamRestrictedSyntax] = config.find((block) => block.rules?.['no-restricted-syntax']).rules[
+    'no-restricted-syntax'
+];
+
+export default [
+    ...config,
+    {
+        files: ['src/client/**/*.ts'],
+        rules: {
+            'no-restricted-syntax': [
+                'error',
+                ...upstreamRestrictedSyntax,
+                {
+                    selector: `CallExpression:matches([callee.name=${spawnCallee}], [callee.property.name=${spawnCallee}]) > Literal.arguments:first-child[value="uv"]`,
+                    message: bareUvMessage,
+                },
+                {
+                    selector:
+                        'VariableDeclarator[id.name=/^(execPath|command|executable)$/] > Literal.init[value="uv"]',
+                    message: bareUvMessage,
+                },
+            ],
+        },
+    },
+];
+// --- End Positron ---

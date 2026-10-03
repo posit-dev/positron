@@ -1,0 +1,1025 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/// <reference types="vitest/globals" />
+
+import { mainWindow } from '../../../../../base/browser/window.js';
+import { createViewerBridge, viewerBridgeScript } from '../../browser/viewerBridge.js';
+import { IViewerBridge, IViewerSnapshotOptions, ViewerAction } from '../../common/positronViewerAgent.js';
+
+type AppWindow = Window & typeof globalThis;
+
+// The markup Shiny generates for the prototype's test app (sidebarLayout with a
+// slider, text input, selectize dropdown and button), trimmed to what matters.
+const SHINY_APP = `
+	<div class="container-fluid">
+		<h2>Viewer spike</h2>
+		<div class="row">
+			<div class="col-sm-4">
+				<form class="well" role="complementary">
+					<div class="form-group shiny-input-container">
+						<label class="control-label" id="bins-label" for="bins">Number of bins:</label>
+						<span class="irs irs--shiny"><span class="irs-handle">30</span></span>
+						<input class="js-range-slider" id="bins" data-min="1" data-max="50" value="30" style="display: none">
+					</div>
+					<div class="form-group shiny-input-container">
+						<label class="control-label" id="label-label" for="label">Plot title:</label>
+						<input id="label" type="text" class="shiny-input-text form-control" value="Old Faithful">
+					</div>
+					<div class="form-group shiny-input-container">
+						<label class="control-label" id="color-label" for="color">Bar color:</label>
+						<select id="color" style="display: none"><option value="steelblue" selected>steelblue</option></select>
+						<div class="selectize-control single"><div class="selectize-input">steelblue</div></div>
+					</div>
+					<button class="btn btn-default action-button" id="go" type="button">Count clicks</button>
+				</form>
+			</div>
+			<div class="col-sm-8" role="main">
+				<div class="shiny-plot-output"><img src="data:image/png;base64," alt="Plot object"></div>
+				<div id="clicks" class="shiny-text-output">Button clicked 0 times</div>
+				<div role="log" aria-live="polite"></div>
+			</div>
+		</div>
+	</div>`;
+
+describe('createViewerBridge', () => {
+	let frame: HTMLIFrameElement;
+
+	beforeEach(() => {
+		// The app lives in its own frame, as in the Viewer, so the bridge runs
+		// in this realm but reads another one.
+		frame = mainWindow.document.createElement('iframe');
+		mainWindow.document.body.appendChild(frame);
+	});
+
+	afterEach(() => {
+		frame.remove();
+	});
+
+	function loadApp(html: string, title = 'Test app'): AppWindow {
+		const doc = frame.contentDocument!;
+		doc.title = title;
+		doc.body.innerHTML = html;
+		return frame.contentWindow as AppWindow;
+	}
+
+	function snapshotText(html: string, options?: IViewerSnapshotOptions): string {
+		return createViewerBridge(loadApp(html)).snapshot(options).text;
+	}
+
+	/** Stubs the widget objects that Shiny's jQuery widgets keep for the slider and dropdown. */
+	function stubShinyWidgets(win: AppWindow): void {
+		const ionRangeSlider = { result: { from: 30, min: 1, max: 50 } };
+		Object.assign(win, { jQuery: () => ({ data: () => ionRangeSlider }) });
+		// The bridge reads plain fixture markup in another frame, not a React tree, so there's no RTL query for it.
+		// eslint-disable-next-line no-restricted-syntax
+		Object.assign(win.document.getElementById('color')!, {
+			selectize: {
+				options: {
+					steelblue: { value: 'steelblue' },
+					darkorange: { value: 'darkorange' },
+					seagreen: { value: 'seagreen' },
+				},
+				settings: { valueField: 'value' },
+				getValue: () => 'steelblue',
+			},
+		});
+	}
+
+	it('outlines a Shiny app, reading its jQuery widgets through their adapters', () => {
+		const win = loadApp(SHINY_APP);
+		stubShinyWidgets(win);
+
+		const snapshot = createViewerBridge(win).snapshot();
+
+		// The empty role="log" container is left out.
+		expect(snapshot.text).toMatchInlineSnapshot(`
+			"- heading "Viewer spike" [level=2]
+			- complementary
+			  - slider "Number of bins:" [ref=e1] value=30 min=1 max=50
+			  - textbox "Plot title:" [ref=e2] value="Old Faithful"
+			  - combobox "Bar color:" [ref=e3] value="steelblue" options=["steelblue","darkorange","seagreen"]
+			  - button "Count clicks" [ref=e4]
+			- main
+			  - img "Plot object"
+			  - text "Button clicked 0 times""
+		`);
+		expect({ title: snapshot.title, truncated: snapshot.truncated }).toEqual({ title: 'Test app', truncated: false });
+	});
+
+	it('lists only the controls with interactiveOnly', () => {
+		const win = loadApp(SHINY_APP);
+		stubShinyWidgets(win);
+
+		expect(createViewerBridge(win).snapshot({ interactiveOnly: true }).text).toMatchInlineSnapshot(`
+			"- slider "Number of bins:" [ref=e1] value=30 min=1 max=50
+			- textbox "Plot title:" [ref=e2] value="Old Faithful"
+			- combobox "Bar color:" [ref=e3] value="steelblue" options=["steelblue","darkorange","seagreen"]
+			- button "Count clicks" [ref=e4]"
+		`);
+	});
+
+	it('reads ARIA widgets: sliders, listbox options and popup dropdowns named from a wrapper label', () => {
+		// Dash 4's markup: the component id (and so the <label for>) is on a wrapper.
+		const text = snapshotText(`
+			<label for="bins">Number of bins</label>
+			<div id="bins"><span role="slider" tabindex="0" aria-valuenow="20" aria-valuemin="1" aria-valuemax="50"></span></div>
+			<label for="color">Bar color</label>
+			<div id="color"><button aria-haspopup="listbox" aria-expanded="false"><span>steelblue</span></button></div>
+			<div role="listbox" aria-label="Units">
+				<div role="option" aria-selected="true">minutes</div>
+				<div role="option" aria-selected="false">seconds</div>
+			</div>
+			<div role="checkbox" aria-checked="false">Show data table</div>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- slider "Number of bins" [ref=e1] value=20 min=1 max=50
+			- combobox "Bar color" [ref=e2] value="steelblue"
+			- listbox "Units"
+			  - option "minutes" [ref=e3] selected
+			  - option "seconds" [ref=e4]
+			- checkbox "Show data table" [ref=e5] unchecked"
+		`);
+	});
+
+	it('names a control from its other labels when aria-labelledby names nothing', () => {
+		const text = snapshotText(`
+			<span role="slider" aria-labelledby="missing" aria-label="Bins" aria-valuenow="5" aria-valuemin="1" aria-valuemax="50"></span>
+			<label for="title">Plot title</label><input id="title" aria-labelledby="also-missing" value="Old Faithful">`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- slider "Bins" [ref=e1] value=5 min=1 max=50
+			- textbox "Plot title" [ref=e2] value="Old Faithful""
+		`);
+	});
+
+	it('keeps the text of a label tied to no control, as Dash\'s html.Label often is, unless it\'s hidden from assistive technology', () => {
+		// Streamlit hides its labels' text, and names its widgets with aria-label.
+		// A label holding only an icon or an image is tied to nothing.
+		const text = snapshotText(`
+			<label>Fruit</label>
+			<div><button aria-haspopup="listbox"><span>Apple</span></button></div>
+			<label for="gone">Colors</label>
+			<label id="count-label">Count</label>
+			<span role="slider" aria-labelledby="count-label" aria-valuenow="3" aria-valuemin="1" aria-valuemax="9"></span>
+			<label for="title">Plot title</label><input id="title" value="Old Faithful">
+			<label><input type="checkbox"> Show table</label>
+			<div data-testid="stRadio"><label data-testid="stWidgetLabel"><span aria-hidden="true"><p>Units</p></span></label>
+				<div role="radiogroup" aria-label="Units"><div role="radio" aria-checked="true">minutes</div></div></div>
+			<label><span>Threshold</span><svg></svg></label><input type="range" min="0" max="9" value="3">
+			<label><img alt="Info"> Scale</label>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- text "Fruit"
+			- combobox [ref=e1] value="Apple"
+			- text "Colors"
+			- slider "Count" [ref=e2] value=3 min=1 max=9
+			- textbox "Plot title" [ref=e3] value="Old Faithful"
+			- checkbox "Show table" [ref=e4] unchecked
+			- radiogroup "Units"
+			  - radio "minutes" [ref=e5] checked
+			- text "Threshold"
+			- slider [ref=e6] value=3 min=0 max=9
+			- text "Scale"
+			- img "Info""
+		`);
+	});
+
+	it('reads text around parts hidden from assistive technology as one piece, leaving them out', () => {
+		// An icon, and KaTeX, which shows math twice: once for screen readers and once, hidden from them, on screen.
+		const text = snapshotText(`
+			<h2>Notes</h2>
+			<p>Click <b>here</b> to continue <i class="icon" aria-hidden="true">arrow_forward</i></p>
+			<p>The area is <span class="katex"><span class="katex-mathml">x squared</span><span class="katex-html" aria-hidden="true">x2</span></span> units.</p>
+			<div><div>First line</div><div>Second line</div><span aria-hidden="true">*</span></div>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- heading "Notes" [level=2]
+			- text "Click here to continue"
+			- text "The area is x squared units."
+			- text "First line Second line""
+		`);
+	});
+
+	it('marks disabled controls', () => {
+		// The bridge checks :disabled, which in browsers also covers controls in a
+		// disabled <fieldset>. happy-dom's :disabled only reads the element's own
+		// attribute, so that case was checked in Chromium instead.
+		const text = snapshotText(`
+			<button disabled>Apply</button><input aria-label="Name" disabled>
+			<span role="button" aria-disabled="true">Undo</span><button>Reset</button>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- button "Apply" [ref=e1] disabled
+			- textbox "Name" [ref=e2] value="" disabled
+			- button "Undo" [ref=e3] disabled
+			- button "Reset" [ref=e4]"
+		`);
+	});
+
+	it('summarizes tables one row per line and walks rows that hold controls', () => {
+		const text = snapshotText(`
+			<table>
+				<caption>Waiting times</caption>
+				<tr><th>id</th><th>waiting</th></tr>
+				<tr><td>1</td><td>74.1</td></tr>
+				<tr><td>2</td><td><button>Details</button></td></tr>
+			</table>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- table "Waiting times"
+			  - row "id | waiting"
+			  - row "1 | 74.1"
+			  - text "2"
+			  - button "Details" [ref=e1]"
+		`);
+	});
+
+	it('caps the rows it lists per table, not counting hidden and empty rows', () => {
+		// 60 data rows, each followed by an empty row and a hidden one.
+		const rows = Array.from({ length: 60 }, (_, i) => `<tr><td>${i}</td></tr><tr><td></td></tr><tr style="display: none"><td>hidden</td></tr>`).join('');
+		const lines = snapshotText(`<table>${rows}</table>`).split('\n');
+
+		expect({ lines: lines.length, lastRow: lines.at(-2), more: lines.at(-1) }).toEqual({
+			lines: 52,
+			lastRow: '  - row "49"',
+			more: '  - text "(up to 32 more rows)"',
+		});
+	});
+
+	it('reads the accessible table inside a canvas (Streamlit st.dataframe)', () => {
+		// glide-data-grid draws the cells on the canvas and keeps the values in
+		// fallback content, which is never rendered.
+		const text = snapshotText(`
+			<canvas aria-label="Data grid">
+				<table role="grid">
+					<thead role="rowgroup"><tr role="row"><th role="columnheader">waiting</th></tr></thead>
+					<tbody role="rowgroup">
+						<tr role="row"><td role="gridcell">74.147</td></tr>
+						<tr role="row"><td role="gridcell">79.8594</td></tr>
+					</tbody>
+				</table>
+			</canvas>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- canvas "Data grid"
+			  - grid
+			    - row "waiting"
+			    - row "74.147"
+			    - row "79.8594""
+		`);
+	});
+
+	it('summarizes Plotly charts from their data', () => {
+		const win = loadApp('');
+		const graph = win.document.createElement('div');
+		graph.className = 'js-plotly-plot';
+		graph.innerHTML = '<svg><text>0</text></svg>';
+		win.document.body.appendChild(graph);
+		Object.assign(graph, {
+			data: [{ type: 'histogram' }],
+			layout: { title: { text: 'Waiting times' } },
+			calcdata: [[
+				{ p: 42.5, s: 1, trace: { type: 'histogram' } },
+				{ p: 47.5, s: 3 },
+			]],
+		});
+
+		expect(createViewerBridge(win).snapshot().text).toMatchInlineSnapshot(`
+			"- chart "Waiting times" (plotly)
+			  - histogram n=2 [42.5:1 47.5:3]"
+		`);
+	});
+
+	it('summarizes Plotly WebGL traces from their full data, which calcdata leaves out', () => {
+		// scattergl's calcdata is a single placeholder point; the values are in _fullData.
+		const win = loadApp('');
+		const graph = win.document.createElement('div');
+		graph.className = 'js-plotly-plot';
+		graph.innerHTML = '<canvas></canvas>';
+		win.document.body.appendChild(graph);
+		Object.assign(graph, {
+			data: [{ type: 'scattergl' }],
+			layout: { title: { text: 'WebGL scatter' } },
+			calcdata: [[{ x: false, y: false, trace: { type: 'scattergl' } }]],
+			_fullData: [{ x: new Float64Array([1.5, 2.25, 3]), y: [4, 5, 6] }],
+		});
+
+		expect(createViewerBridge(win).snapshot().text).toMatchInlineSnapshot(`
+			"- chart "WebGL scatter" (plotly)
+			  - scattergl n=3 [1.5:4 2.25:5 3:6]"
+		`);
+	});
+
+	it('leaves out Streamlit\'s hover toolbars', () => {
+		expect(snapshotText(`
+			<div data-testid="stElementToolbar"><button>Download as CSV</button><button>Fullscreen</button></div>
+			<button>Count clicks</button>`)).toBe('- button "Count clicks" [ref=e1]');
+	});
+
+	it('leaves out hidden content, but not what a descendant of a visibility:hidden element shows', () => {
+		const text = snapshotText(`
+			<div role="alert">Saved</div>
+			<div hidden>hidden attribute</div>
+			<div style="display: none">display none</div>
+			<div aria-hidden="true">aria-hidden</div>
+			<div style="visibility: hidden">visibility hidden<button style="visibility: visible">Shown</button></div>
+			<nav><a href="#top">Top</a></nav>`);
+
+		expect(text).toMatchInlineSnapshot(`
+			"- alert
+			  - text "Saved"
+			- button "Shown" [ref=e1]
+			- navigation
+			  - link "Top" [ref=e2]"
+		`);
+	});
+
+	it('walks into open shadow roots, in the page and in same-origin iframes', () => {
+		const win = loadApp('');
+		const host = win.document.body.appendChild(win.document.createElement('my-widget'));
+		host.attachShadow({ mode: 'open' }).innerHTML = '<button>In the page</button>';
+		const innerDoc = win.document.body.appendChild(win.document.createElement('iframe')).contentDocument!;
+		const innerHost = innerDoc.body.appendChild(innerDoc.createElement('div')).appendChild(innerDoc.createElement('my-widget'));
+		innerHost.attachShadow({ mode: 'open' }).innerHTML = '<button>In the iframe</button>';
+
+		expect(createViewerBridge(win).snapshot().text).toMatchInlineSnapshot(`
+			"- button "In the page" [ref=e1]
+			- iframe
+			  - button "In the iframe" [ref=e2]"
+		`);
+	});
+
+	it('limits the snapshot to a selector, and says when it matches nothing', () => {
+		const bridge = createViewerBridge(loadApp('<h1>Title</h1><div id="part"><button>Go</button></div>'));
+
+		expect(bridge.snapshot({ selector: '#part' }).text).toBe('- button "Go" [ref=e1]');
+		expect(() => bridge.snapshot({ selector: '#missing' })).toThrow('Nothing in the Viewer matches the selector "#missing".');
+	});
+
+	it('cuts the snapshot at whole lines to fit maxChars', () => {
+		const buttons = Array.from({ length: 20 }, (_, i) => `<button>Button ${i}</button>`).join('');
+		const snapshot = createViewerBridge(loadApp(buttons)).snapshot({ maxChars: 100 });
+
+		expect(snapshot.truncated).toBe(true);
+		expect(snapshot.text.length).toBeLessThanOrEqual(100);
+		expect(snapshot.text.split('\n').at(-1)).toMatch(/^- button "Button \d+" \[ref=e\d+\]$/);
+	});
+
+	it('says why a snapshot is empty: no content, no controls, or nothing fits in maxChars', () => {
+		expect([
+			snapshotText(''),
+			snapshotText('<p>Just text</p>', { interactiveOnly: true }),
+			snapshotText('<h1>A heading far longer than the budget</h1>', { maxChars: 10 }),
+		]).toEqual(['(no content)', '(no controls)', '(nothing fits in maxChars=10; ask for more)']);
+	});
+});
+
+describe('act', () => {
+	let frame: HTMLIFrameElement;
+	let win: AppWindow;
+	// The apps here are plain markup, so they settle at once.
+	const QUICK = { quietMs: 10, timeoutMs: 1000 };
+
+	beforeEach(() => {
+		frame = mainWindow.document.createElement('iframe');
+		mainWindow.document.body.appendChild(frame);
+		win = frame.contentWindow as AppWindow;
+	});
+
+	afterEach(() => {
+		frame.remove();
+	});
+
+	/**
+	 * Loads the markup, runs `setup` (to stub framework widgets), then takes a
+	 * snapshot, which hands out the refs.
+	 */
+	function load(html: string, setup?: () => void): IViewerBridge {
+		win.document.body.innerHTML = html;
+		setup?.();
+		const bridge = createViewerBridge(win);
+		bridge.snapshot();
+		return bridge;
+	}
+
+	// The fixtures are plain markup in another frame, not a React tree, so there's no RTL query for them.
+	// eslint-disable-next-line no-restricted-syntax
+	const byId = (id: string) => win.document.getElementById(id)!;
+
+	/** Records the events of the given types that reach an element. */
+	function recordEvents(el: Element, types: readonly string[]): string[] {
+		const events: string[] = [];
+		for (const type of types) {
+			el.addEventListener(type, () => events.push(type));
+		}
+		return events;
+	}
+
+	/** Makes an element an ARIA slider that moves by `step` for arrow keys and `page` for page keys. */
+	function makeSlider(el: Element, { step = 1, page = 0 } = {}): string[] {
+		const keys: string[] = [];
+		el.addEventListener('keydown', event => {
+			const key = (event as KeyboardEvent).key;
+			keys.push(key);
+			const deltas: Record<string, number> = { ArrowRight: step, ArrowLeft: -step, PageUp: page, PageDown: -page };
+			const value = Number(el.getAttribute('aria-valuenow')) + (deltas[key] ?? 0);
+			const clamped = Math.min(Number(el.getAttribute('aria-valuemax')), Math.max(Number(el.getAttribute('aria-valuemin')), value));
+			el.setAttribute('aria-valuenow', String(clamped));
+		});
+		return keys;
+	}
+
+	/**
+	 * Stubs Shiny's slider and dropdown widgets, and the inputs its server
+	 * received. With `range`, the slider has two handles (from 30, to 40).
+	 */
+	function stubShiny({ serverUpdates = true, range = false } = {}): void {
+		const inputValues: Record<string, unknown> = { bins: range ? [30, 40] : 30, color: 'steelblue' };
+		const result = { from: 30, min: 1, max: 50 };
+		const slider = { result, update: ({ from }: { from: number }) => result.from = Math.min(50, Math.max(1, from)) };
+		const sendSlider = () => inputValues.bins = range ? [result.from, 40] : result.from;
+		Object.assign(win, {
+			jQuery: () => ({ data: () => slider, trigger: () => serverUpdates && sendSlider() }),
+			Shiny: { shinyapp: { $inputValues: inputValues } },
+		});
+		let color = 'steelblue';
+		const option = (value: string) => ({ value, label: value });
+		Object.assign(byId('color'), {
+			selectize: {
+				options: { steelblue: option('steelblue'), darkorange: option('darkorange'), seagreen: option('seagreen') },
+				settings: { valueField: 'value', labelField: 'label', maxItems: 1 },
+				getValue: () => color,
+				setValue: (value: string) => {
+					color = value;
+					if (serverUpdates) {
+						inputValues.color = value;
+					}
+				},
+			},
+		});
+	}
+
+	it('keeps refs across snapshots, and gives new controls the next ones', () => {
+		const bridge = load('<button id="one">One</button><button>Two</button>');
+		const added = win.document.createElement('button');
+		added.textContent = 'New';
+		byId('one').before(added);
+
+		expect(bridge.snapshot().text).toMatchInlineSnapshot(`
+			"- button "New" [ref=e3]
+			- button "One" [ref=e1]
+			- button "Two" [ref=e2]"
+		`);
+	});
+
+	it('clicks with the pointer and mouse events a user sends', async () => {
+		const bridge = load('<button id="go">Go</button>');
+		const events = recordEvents(byId('go'), ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']);
+
+		const outcome = await bridge.act({ kind: 'click', ref: 'e1' }, QUICK);
+
+		expect({ outcome, events }).toEqual({
+			outcome: { message: 'Clicked the button "Go".', navigated: false, timedOut: false },
+			events: ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'],
+		});
+	});
+
+	it('leaves focus where it is when the page cancels mousedown, as react-aria\'s options do', async () => {
+		const bridge = load('<input id="color" aria-label="Bar color"><div role="option" id="option" tabindex="-1">darkorange</div>');
+		byId('option').addEventListener('mousedown', event => event.preventDefault());
+		byId('color').focus();
+
+		await bridge.act({ kind: 'click', ref: 'e2' }, QUICK);
+
+		expect(win.document.activeElement?.id).toBe('color');
+	});
+
+	it('focuses a control again after Positron has taken focus back from the page', async () => {
+		const bridge = load('<input id="name" aria-label="Name">');
+		byId('name').focus();
+		// The input is still the page's active element, but the page lost focus and it was blurred.
+		win.document.hasFocus = () => false;
+		const events = recordEvents(byId('name'), ['focus']);
+
+		await bridge.act({ kind: 'click', ref: 'e1' }, QUICK);
+
+		expect(events).toContain('focus');
+	});
+
+	it('checks that a click toggled a checkbox', async () => {
+		const bridge = load('<label><input type="checkbox"> Show table</label><label><input type="checkbox" id="locked"> Locked</label>');
+		byId('locked').addEventListener('click', event => event.preventDefault());
+
+		const toggled = await bridge.act({ kind: 'click', ref: 'e1' }, QUICK);
+
+		expect(toggled.message).toBe('Clicked the checkbox "Show table"; it\'s now checked.');
+		await expect(bridge.act({ kind: 'click', ref: 'e2' }, QUICK)).rejects.toThrow('Clicked the checkbox "Locked", but it\'s still unchecked.');
+	});
+
+	it('fills a text box, then sends the events of leaving it rather than Enter', async () => {
+		const bridge = load('<label for="name">Name</label><input id="name">');
+		const events = recordEvents(byId('name'), ['input', 'change', 'blur', 'focusout', 'keydown']);
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: 'Hello' }, QUICK);
+
+		expect({ message: outcome.message, value: (byId('name') as HTMLInputElement).value, events }).toEqual({
+			message: 'Filled the textbox "Name" with "Hello".',
+			value: 'Hello',
+			events: ['input', 'change', 'blur', 'focusout'],
+		});
+	});
+
+	it('says when the app undid a fill', async () => {
+		const bridge = load('<input id="name" aria-label="Name" value="locked">');
+		const input = byId('name') as HTMLInputElement;
+		input.addEventListener('change', () => input.value = 'locked');
+
+		await expect(bridge.act({ kind: 'fill', ref: 'e1', value: 'Hello' }, QUICK))
+			.rejects.toThrow('Filled the textbox "Name", but it shows "locked", not "Hello".');
+	});
+
+	it('moves an ARIA slider through its own keyboard handling, page keys first', async () => {
+		const bridge = load('<span role="slider" id="bins" aria-label="Bins" aria-valuenow="20" aria-valuemin="1" aria-valuemax="50"></span>');
+		const keys = makeSlider(byId('bins'), { page: 10 });
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '33' }, QUICK);
+
+		expect({ message: outcome.message, value: byId('bins').getAttribute('aria-valuenow'), keys }).toEqual({
+			message: 'Set the slider "Bins" to 33.',
+			value: '33',
+			keys: ['PageUp', 'PageUp', ...Array(7).fill('ArrowLeft')],
+		});
+	});
+
+	it('moves a right-to-left slider, whose arrow keys work the other way round', async () => {
+		const bridge = load('<span role="slider" id="bins" aria-label="Bins" aria-valuenow="20" aria-valuemin="1" aria-valuemax="50"></span>');
+		const keys = makeSlider(byId('bins'), { step: -1 });
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '23' }, QUICK);
+
+		expect({ message: outcome.message, value: byId('bins').getAttribute('aria-valuenow'), keys }).toEqual({
+			message: 'Set the slider "Bins" to 23.',
+			value: '23',
+			keys: ['PageUp', 'ArrowRight', ...Array(4).fill('ArrowLeft')],
+		});
+	});
+
+	it('stops a slider at the closest value its steps allow, and says so', async () => {
+		const bridge = load('<span role="slider" id="n" aria-label="Sample size" aria-valuenow="10" aria-valuemin="0" aria-valuemax="100"></span>');
+		makeSlider(byId('n'), { step: 5 });
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '13' }, QUICK);
+
+		expect(outcome.message).toBe('Set the slider "Sample size" to 15, the closest it goes to 13.');
+	});
+
+	it('moves a range input with keys when a widget handles them, as Streamlit\'s react-aria slider does', async () => {
+		const bridge = load('<label for="bins">Bins</label><input type="range" id="bins" min="1" max="50" value="20">');
+		const input = byId('bins') as HTMLInputElement;
+		// react-aria reports a change to the app only when it moves the value for a key.
+		const reported: string[] = [];
+		input.addEventListener('keydown', event => {
+			const deltas: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, PageUp: 5, PageDown: -5 };
+			input.value = String(Number(input.value) + (deltas[(event as KeyboardEvent).key] ?? 0));
+			reported.push(input.value);
+		});
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '27' }, QUICK);
+
+		expect({ message: outcome.message, reported }).toEqual({ message: 'Set the slider "Bins" to 27.', reported: ['25', '30', '29', '28', '27'] });
+	});
+
+	it('sets a plain range input by its value', async () => {
+		const bridge = load('<label for="bins">Bins</label><input type="range" id="bins" min="1" max="50" value="30">');
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '10' }, QUICK);
+
+		expect({ message: outcome.message, value: (byId('bins') as HTMLInputElement).value }).toEqual({ message: 'Set the slider "Bins" to 10.', value: '10' });
+	});
+
+	it('drives Shiny\'s slider and dropdown through their widgets', async () => {
+		const bridge = load(SHINY_APP, () => stubShiny());
+
+		const messages = [
+			(await bridge.act({ kind: 'fill', ref: 'e1', value: '10' }, QUICK)).message,
+			(await bridge.act({ kind: 'select', ref: 'e3', value: 'seagreen' }, QUICK)).message,
+		];
+
+		expect(messages).toEqual(['Set the slider "Number of bins:" to 10.', 'Picked "seagreen" in the combobox "Bar color:".']);
+	});
+
+	it('checks the from handle of a two-handle Shiny slider, which the server gets as [from, to]', async () => {
+		const bridge = load(SHINY_APP, () => stubShiny({ range: true }));
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '20' }, QUICK);
+
+		expect(outcome.message).toBe('Set the slider "Number of bins:" to 20.');
+	});
+
+	it('says when a Shiny app\'s server didn\'t get the value the page shows', async () => {
+		const bridge = load(SHINY_APP, () => stubShiny({ serverUpdates: false }));
+
+		await expect(bridge.act({ kind: 'fill', ref: 'e1', value: '10' }, QUICK))
+			.rejects.toThrow('The slider "Number of bins:" shows "10" on the page, but the Shiny app received "30".');
+	});
+
+	/**
+	 * Loads a Shiny dateInput with a stub of its datepicker and of the input
+	 * values Shiny has sent. Like the real datepicker, it drops a date outside
+	 * its range, 2026-01-01 to `max` (updateDateInput changes that, but not the
+	 * input's data-max-date), and takes the dates the app disabled. Returns
+	 * what Shiny sent for the date.
+	 */
+	function loadShinyDate({ serverUpdates = true, max = '2026-12-31', disabled = [] as string[] } = {}): { bridge: IViewerBridge; sent: () => unknown } {
+		const inputValues: Record<string, unknown> = { 'day:shiny.date': '2026-01-10' };
+		const bridge = load(`<div id="day" class="shiny-date-input"><label id="day-label" for="day">Day</label>
+			<input id="day-input" type="text" aria-labelledby="day-label" data-min-date="2026-01-01" data-max-date="2026-12-31" value="2026-01-10"></div>`, () => {
+			const input = byId('day-input') as HTMLInputElement;
+			const isoOf = (d: Date) => d.toISOString().slice(0, 10);
+			const picker = {
+				o: { startDate: new win.Date('2026-01-01T00:00:00Z'), endDate: new win.Date(`${max}T00:00:00Z`) },
+				dateWithinRange: (d: Date) => d.getTime() >= picker.o.startDate.getTime() && d.getTime() <= picker.o.endDate.getTime(),
+				dateIsDisabled: (d: Date) => disabled.includes(isoOf(d)),
+			};
+			let date: Date | null = new win.Date('2026-01-10T00:00:00Z');
+			const bsDatepicker = (method: string, value?: Date) => {
+				if (method === 'getUTCDate') {
+					return date;
+				}
+				date = picker.dateWithinRange(value!) ? value! : null;
+				input.value = date ? isoOf(date) : '';
+				if (serverUpdates) {
+					inputValues['day:shiny.date'] = date ? isoOf(date) : null;
+				}
+				return undefined;
+			};
+			Object.assign(win, {
+				jQuery: () => ({ data: (key: string) => key === 'datepicker' ? picker : undefined, bsDatepicker }),
+				Shiny: { shinyapp: { $inputValues: inputValues } },
+			});
+		});
+		return { bridge, sent: () => inputValues['day:shiny.date'] };
+	}
+
+	it('sets a Shiny date through its datepicker, and checks the server got it', async () => {
+		const { bridge, sent } = loadShinyDate();
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: '2026-02-03' }, QUICK);
+		const shown = (byId('day-input') as HTMLInputElement).value;
+		const unsent = loadShinyDate({ serverUpdates: false }).bridge.act({ kind: 'fill', ref: 'e1', value: '2026-02-03' }, QUICK);
+
+		expect({ message: outcome.message, shown, sent: sent() }).toEqual({ message: 'Set the textbox "Day" to 2026-02-03.', shown: '2026-02-03', sent: '2026-02-03' });
+		await expect(unsent).rejects.toThrow('The textbox "Day" shows 2026-02-03 on the page, but the Shiny app received "2026-01-10".');
+	});
+
+	it('refuses dates a Shiny date input won\'t take, by the widget\'s own range and disabled dates, and leaves its date as it was', async () => {
+		// As after updateDateInput(max = "2026-06-30"), with datesdisabled.
+		const { bridge, sent } = loadShinyDate({ max: '2026-06-30', disabled: ['2026-05-04'] });
+
+		const errors: string[] = [];
+		for (const value of ['02/03/2026', '2026-02-30', '2026-08-01', '2026-05-04']) {
+			errors.push(await bridge.act({ kind: 'fill', ref: 'e1', value }, QUICK).then(() => 'ok', (error: Error) => error.message));
+		}
+
+		expect({ errors, shown: (byId('day-input') as HTMLInputElement).value, sent: sent() }).toEqual({
+			errors: [
+				'The textbox "Day" takes a date as YYYY-MM-DD, such as 2026-02-03, not "02/03/2026".',
+				'The textbox "Day" takes a date as YYYY-MM-DD, such as 2026-02-03, not "2026-02-30".',
+				'The textbox "Day" takes dates from 2026-01-01 to 2026-06-30, not 2026-08-01.',
+				'The textbox "Day" doesn\'t take 2026-05-04: the app has disabled that date.',
+			],
+			shown: '2026-01-10',
+			sent: '2026-01-10',
+		});
+	});
+
+	it('says when a Shiny app has disconnected from its server, and won\'t act on it', async () => {
+		const bridge = load(`${SHINY_APP}<div id="shiny-disconnected-overlay"></div>`, () => stubShiny());
+
+		const click = await bridge.act({ kind: 'click', ref: 'e4' }, QUICK).then(() => 'ok', (error: Error) => error.message);
+		const wait = await bridge.act({ kind: 'wait', for: 'idle' }, QUICK);
+
+		expect({ first: bridge.snapshot().text.split('\n')[0], click, wait: wait.message }).toEqual({
+			first: '(The Shiny app has disconnected from its server, so its controls do nothing. Run the app again.)',
+			click: 'The Shiny app in the Viewer has disconnected from its server, so the action would do nothing. Run the app again, then read the page.',
+			wait: expect.stringMatching(/^The app settled/),
+		});
+	});
+
+	it('picks an option in a native select by its text or value, and lists the options when none match', async () => {
+		const bridge = load('<label for="color">Bar color</label><select id="color"><option value="blue">Steel blue</option><option value="orange">Dark orange</option></select>');
+
+		const outcome = await bridge.act({ kind: 'select', ref: 'e1', value: 'Dark orange' }, QUICK);
+
+		expect({ message: outcome.message, value: (byId('color') as HTMLSelectElement).value })
+			.toEqual({ message: 'Picked "Dark orange" in the combobox "Bar color".', value: 'orange' });
+		await expect(bridge.act({ kind: 'fill', ref: 'e1', value: 'purple' }, QUICK))
+			.rejects.toThrow('The combobox "Bar color" has no option "purple" (its options: "Steel blue", "Dark orange").');
+	});
+
+	it('picks in a combobox by typing the option and taking the first match', async () => {
+		const bridge = load('<label for="color">Bar color</label><input id="color" role="combobox" value="steelblue">');
+		const input = byId('color') as HTMLInputElement;
+		// Like Streamlit's selectbox: Enter takes the first option matching the text, and leaving shows the choice.
+		let chosen = 'steelblue';
+		input.addEventListener('keydown', event => {
+			if ((event as KeyboardEvent).key === 'Enter') {
+				chosen = ['steelblue', 'darkorange'].find(option => option.startsWith(input.value)) ?? chosen;
+			}
+		});
+		input.addEventListener('blur', () => input.value = chosen);
+
+		const outcome = await bridge.act({ kind: 'select', ref: 'e1', value: 'darkorange' }, QUICK);
+
+		expect(outcome.message).toBe('Picked "darkorange" in the combobox "Bar color".');
+		await expect(bridge.act({ kind: 'select', ref: 'e1', value: 'purple' }, QUICK))
+			.rejects.toThrow('Picked "purple" in the combobox "Bar color", but it shows "darkorange".');
+	});
+
+	it('picks the combobox option with exactly the text, not the first one that contains it', async () => {
+		const bridge = load('<label for="color">Bar color</label><input id="color" role="combobox" aria-controls="list" value="steelblue"><div role="listbox" id="list"></div>');
+		const input = byId('color') as HTMLInputElement;
+		const list = byId('list');
+		// Like Streamlit's selectbox: typing filters the list, and clicking an option picks it.
+		input.addEventListener('input', () => list.replaceChildren(...['dark green', 'green']
+			.filter(text => text.includes(input.value))
+			.map(text => {
+				const option = win.document.createElement('div');
+				option.setAttribute('role', 'option');
+				option.textContent = text;
+				option.addEventListener('click', () => input.value = text);
+				return option;
+			})));
+
+		const outcome = await bridge.act({ kind: 'select', ref: 'e1', value: 'green' }, QUICK);
+
+		expect({ message: outcome.message, value: input.value }).toEqual({ message: 'Picked "green" in the combobox "Bar color".', value: 'green' });
+		await expect(bridge.act({ kind: 'select', ref: 'e1', value: 'gree' }, QUICK))
+			.rejects.toThrow('The combobox "Bar color" has no option "gree" (options with that text: "dark green", "green").');
+	});
+
+	it('keeps free text filled into a combobox that only suggests options', async () => {
+		const bridge = load('<input id="search" role="combobox" aria-label="Search" aria-controls="hints"><div role="listbox" id="hints"><div role="option">Old Faithful dataset</div></div>');
+
+		const outcome = await bridge.act({ kind: 'fill', ref: 'e1', value: 'Old' }, QUICK);
+
+		expect({ message: outcome.message, value: (byId('search') as HTMLInputElement).value })
+			.toEqual({ message: 'Filled the combobox "Search" with "Old".', value: 'Old' });
+	});
+
+	/**
+	 * Loads a stub of Streamlit's multiselect: typing lists the options not yet
+	 * picked that contain the text (or "No results"), or only a note once there
+	 * are `max` picks, and picks show as tags, hidden from assistive
+	 * technology, with a remove button.
+	 */
+	function loadMultiSelect(picked: readonly string[], max = 0): IViewerBridge {
+		return load(`<div data-testid="stMultiSelect"><div data-testid="stMultiSelectTagsContainer">
+			<span role="group" aria-hidden="true" id="tags"></span><input id="colors" role="combobox" aria-label="Colors" aria-controls="list"></div></div>
+			<div role="listbox" id="list" aria-multiselectable="true"></div>`, () => {
+			const input = byId('colors') as HTMLInputElement;
+			const list = byId('list');
+			const tags = byId('tags');
+			const addTag = (value: string) => {
+				const tag = tags.appendChild(win.document.createElement('span'));
+				tag.dataset.tag = '';
+				tag.setAttribute('aria-label', value);
+				tag.textContent = value;
+				const remove = tag.appendChild(win.document.createElement('button'));
+				remove.setAttribute('aria-label', `Remove ${value}`);
+				remove.addEventListener('click', () => tag.remove());
+			};
+			picked.forEach(addTag);
+			input.addEventListener('input', () => {
+				const taken = picks();
+				const full = max > 0 && taken.length >= max;
+				const matches = full ? [] : ['Red', 'Green', 'Blue'].filter(o => !taken.includes(o) && o.toLowerCase().includes(input.value.toLowerCase()));
+				const note = full ? `You can only select up to ${max} option. Remove an option first.` : 'No results';
+				list.replaceChildren(...(matches.length ? matches : [note]).map(text => {
+					const option = win.document.createElement('div');
+					option.setAttribute('role', 'option');
+					option.textContent = text;
+					if (matches.length) {
+						option.setAttribute('aria-selected', 'false');
+						option.addEventListener('click', () => {
+							addTag(text);
+							input.value = '';
+							list.replaceChildren();
+						});
+					}
+					return option;
+				}));
+			});
+		});
+	}
+	const picks = () => [...byId('tags').children].map(tag => tag.getAttribute('aria-label'));
+
+	it('makes the values given the picks of a Streamlit multiselect, and shows them in snapshots', async () => {
+		const bridge = loadMultiSelect(['Green']);
+
+		const both = await bridge.act({ kind: 'select', ref: 'e1', value: ['Red', 'Blue'] }, QUICK);
+		const line = bridge.snapshot({ interactiveOnly: true }).text;
+		const one = await bridge.act({ kind: 'fill', ref: 'e1', value: 'Blue' }, QUICK);
+
+		expect({ both: both.message, line, one: one.message, picks: picks() }).toEqual({
+			both: 'Picked "Red, Blue" in the combobox "Colors".',
+			line: '- combobox "Colors" [ref=e1] value="" selected=["Red","Blue"]',
+			one: 'Picked "Blue" in the combobox "Colors".',
+			picks: ['Blue'],
+		});
+	});
+
+	it('leaves a Streamlit multiselect as it was when a value isn\'t one of its options', async () => {
+		const bridge = loadMultiSelect(['Blue']);
+
+		await expect(bridge.act({ kind: 'select', ref: 'e1', value: ['Green', 'Purple'] }, QUICK))
+			.rejects.toThrow('The combobox "Colors" has no option "Purple".');
+		expect(picks()).toEqual(['Blue']);
+	});
+
+	it('swaps the pick of a Streamlit multiselect that has all it takes, and says when it\'s given more', async () => {
+		const bridge = loadMultiSelect(['Red'], 1);
+
+		const swapped = await bridge.act({ kind: 'select', ref: 'e1', value: ['Blue'] }, QUICK);
+		const tooMany = await bridge.act({ kind: 'select', ref: 'e1', value: ['Blue', 'Green'] }, QUICK).then(() => 'ok', (error: Error) => error.message);
+
+		expect({ swapped: swapped.message, tooMany, picks: picks() }).toEqual({
+			swapped: 'Picked "Blue" in the combobox "Colors".',
+			tooMany: 'The combobox "Colors" can\'t take "Green": "You can only select up to 1 option. Remove an option first."',
+			picks: ['Blue'],
+		});
+	});
+
+	it('opens a popup dropdown and clicks the option in it', async () => {
+		// Dash 4's dcc.Dropdown: the component id, and so the label, is on a wrapper.
+		const bridge = load('<label for="color">Bar color</label><div id="color"><button id="open" aria-haspopup="listbox"><span>steelblue</span></button></div>');
+		const button = byId('open');
+		button.addEventListener('click', () => {
+			const popup = win.document.createElement('div');
+			popup.setAttribute('role', 'listbox');
+			for (const text of ['steelblue', 'darkorange']) {
+				const option = popup.appendChild(win.document.createElement('div'));
+				option.setAttribute('role', 'option');
+				option.textContent = text;
+				option.addEventListener('click', () => {
+					button.firstElementChild!.textContent = text;
+					popup.remove();
+				});
+			}
+			win.document.body.appendChild(popup);
+		});
+
+		const outcome = await bridge.act({ kind: 'select', ref: 'e1', value: 'darkorange' }, QUICK);
+
+		expect({ message: outcome.message, shown: button.textContent }).toEqual({ message: 'Picked "darkorange" in the combobox "Bar color".', shown: 'darkorange' });
+	});
+
+	it('presses a key in a control', async () => {
+		const bridge = load('<input id="chat" aria-label="Message">');
+		const keys: string[] = [];
+		byId('chat').addEventListener('keydown', event => keys.push(`${(event as KeyboardEvent).key}/${(event as KeyboardEvent).code}`));
+
+		const outcome = await bridge.act({ kind: 'press', key: 'Enter', ref: 'e1' }, QUICK);
+
+		expect({ message: outcome.message, keys }).toEqual({ message: 'Pressed Enter in the textbox "Message".', keys: ['Enter/Enter'] });
+	});
+
+	it('scrolls a control\'s own scrolling area or the page, never an unrelated one', async () => {
+		const bridge = load('<button>Go</button><div id="table" style="overflow-y: auto; height: 100px"></div>');
+		// A scrolling area elsewhere on the page, which the button isn't in.
+		const table = byId('table');
+		Object.defineProperties(table, { scrollHeight: { value: 1000 }, clientHeight: { value: 100 }, scrollTop: { value: 0, writable: true } });
+
+		const outcome = await bridge.act({ kind: 'scroll', ref: 'e1', dy: 300 }, QUICK);
+
+		expect({ tableTop: table.scrollTop, page: outcome.message.includes('the page') }).toEqual({ tableTop: 0, page: true });
+	});
+
+	it('waits for text to show up, including where only the snapshot sees it (a shadow root)', async () => {
+		const bridge = load('<div id="out">Loading</div><div id="host"></div>');
+		const shadow = byId('host').attachShadow({ mode: 'open' });
+		win.setTimeout(() => {
+			byId('out').textContent = 'Done: 42 rows';
+			shadow.innerHTML = '<p>Chart drawn</p>';
+		}, 50);
+		const waitFor = (text: string, timeoutMs = 2000) => bridge.act({ kind: 'wait', for: 'text', text, timeoutMs }, QUICK);
+
+		expect((await waitFor('Done')).message).toMatch(/^The text "Done" is on the page \(after \d+ ms\)\.$/);
+		expect((await waitFor('Chart drawn')).message).toMatch(/^The text "Chart drawn" is on the page/);
+		await expect(waitFor('Never', 100)).rejects.toThrow('The text "Never" didn\'t show up on the page within 100 ms.');
+	});
+
+	it('reports a page going to another address, rather than waiting on it', async () => {
+		const bridge = load('<a href="/next" id="next">Next</a>');
+		byId('next').addEventListener('click', event => {
+			// Stand in for the navigation, which the test page can't do.
+			event.preventDefault();
+			win.dispatchEvent(new win.Event('pagehide'));
+		});
+
+		const outcome = await bridge.act({ kind: 'click', ref: 'e1' }, { quietMs: 2000, timeoutMs: 2000 });
+
+		expect(outcome).toEqual({ message: 'Clicked the link "Next". The page went to another address.', navigated: true, timedOut: false });
+	});
+
+	it('refuses controls it can\'t use, with a way forward', async () => {
+		const bridge = load('<button id="gone">Gone</button><button disabled>Off</button><div id="box"><button>Later hidden</button></div>');
+		byId('gone').remove();
+		byId('box').style.display = 'none';
+
+		const errors = await Promise.all(['e1', 'e2', 'e3', 'e99'].map(ref =>
+			bridge.act({ kind: 'click', ref }, QUICK).then(() => 'ok', (error: Error) => error.message)));
+
+		expect(errors).toEqual([
+			'The control e1 is gone from the page, probably because the app redrew it. Read the page again and use a ref from it.',
+			'The button "Off" is disabled.',
+			'The button "Later hidden" is hidden right now. Read the page again to see what\'s showing.',
+			'There\'s no control e99 on this page. Read the page again and use a ref from it.',
+		]);
+	});
+
+	it('explains actions it can\'t make sense of', async () => {
+		const bridge = load('<input aria-label="Name"><div role="listbox" aria-label="Units"><div role="option">minutes</div></div>');
+		// Actions arrive from extensions, so they can be malformed.
+		const malformed = [{ kind: 'drag', ref: 'e1' }, { kind: 'fill', ref: 'e1' }, { kind: 'wait', for: 'forever' }, { kind: 'select', ref: 'e2', value: 'minutes' }];
+
+		const errors = await Promise.all(malformed.map(action =>
+			bridge.act(action as unknown as ViewerAction, QUICK).then(() => 'ok', (error: Error) => error.message)));
+
+		expect(errors).toEqual([
+			'Unknown action "drag". Use click, hover, fill, select, press, scroll or wait.',
+			'fill needs a value, as a string.',
+			'A wait needs "for": "idle" or "text".',
+			'Can\'t select in the option "minutes". select works on dropdowns; to pick an option in a list, click the option.',
+		]);
+	});
+});
+
+describe('waitForIdle', () => {
+	let frame: HTMLIFrameElement;
+	let win: AppWindow;
+
+	beforeEach(() => {
+		frame = mainWindow.document.createElement('iframe');
+		mainWindow.document.body.appendChild(frame);
+		win = frame.contentWindow as AppWindow;
+	});
+
+	afterEach(() => {
+		frame.remove();
+	});
+
+	it('resolves once the page has been quiet, but not while Shiny is busy', async () => {
+		const bridge = createViewerBridge(win);
+		const quiet = await bridge.waitForIdle({ quietMs: 20, timeoutMs: 1000 });
+		win.document.documentElement.classList.add('shiny-busy');
+		const busy = await bridge.waitForIdle({ quietMs: 20, timeoutMs: 200 });
+
+		expect({ quiet: quiet.timedOut, busy: busy.timedOut }).toEqual({ quiet: false, busy: true });
+	});
+});
+
+describe('viewerBridgeScript', () => {
+	let frame: HTMLIFrameElement;
+
+	beforeEach(() => {
+		frame = mainWindow.document.createElement('iframe');
+		mainWindow.document.body.appendChild(frame);
+	});
+
+	afterEach(() => {
+		frame.remove();
+	});
+
+	// On Desktop the bridge is serialized and run in the app's own frame, so it
+	// must not depend on anything outside createViewerBridge's body.
+	function runInApp(script: string): Promise<unknown> {
+		return (frame.contentWindow as AppWindow).eval(script);
+	}
+
+	it('runs a bridge method inside the app frame, where a missing argument arrives as null', async () => {
+		frame.contentDocument!.body.innerHTML = '<button>Go</button>';
+
+		const result = await runInApp(viewerBridgeScript('snapshot', [undefined]));
+
+		expect(result).toEqual({ ok: true, value: { text: '- button "Go" [ref=e1]', title: '', truncated: false } });
+	});
+
+	it('keeps refs between runs in the app frame, so an action can use a snapshot\'s refs', async () => {
+		frame.contentDocument!.body.innerHTML = '<button>Go</button>';
+
+		await runInApp(viewerBridgeScript('snapshot', [undefined]));
+		const result = await runInApp(viewerBridgeScript('act', [{ kind: 'click', ref: 'e1' }, { quietMs: 10 }]));
+
+		expect(result).toEqual({ ok: true, value: { message: 'Clicked the button "Go".', navigated: false, timedOut: false } });
+	});
+
+	it('reports errors as data', async () => {
+		const result = await runInApp(viewerBridgeScript('snapshot', [{ selector: '#missing' }]));
+
+		expect(result).toEqual({ ok: false, error: 'Nothing in the Viewer matches the selector "#missing".' });
+	});
+});

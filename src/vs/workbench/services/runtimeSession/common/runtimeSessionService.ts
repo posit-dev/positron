@@ -703,14 +703,20 @@ export interface IRuntimeMissingPackage {
 }
 
 /**
- * Describes the code to analyze for missing packages. Callers supply either
- * raw code or the URI of a saved file (not both).
+ * Describes the code to analyze for missing packages. Supply `code`,
+ * `uri`, or both. When both are set, `code` is analyzed and `uri`
+ * identifies the document it came from (for example, so the runtime
+ * can resolve local imports relative to it); the runtime must not
+ * read the code from `uri` in that case.
  */
 export interface IRuntimeMissingPackagesTarget {
-	/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). */
+	/** Raw code to analyze (notebook cells, quarto chunks, unsaved buffers). Takes precedence over `uri`. */
 	readonly code?: string;
 
-	/** URI of a saved file to analyze. The runtime may read/parse it directly. */
+	/**
+	 * URI of the source document. When `code` is not set, the runtime may
+	 * read and parse it directly. When `code` is set, it is context only.
+	 */
 	readonly uri?: string;
 }
 

@@ -4,10 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Turns the report markdown into structured data the template can lay out on
-// purpose. The old renderer handed the whole body to marked and styled the
-// result, which meant nothing below the header was understood: Observed could
-// not sit beside Expected, and a screenshot could not become a thumbnail,
-// because by then it was all just <p> and <li>.
+// purpose: Observed beside Expected, a screenshot as a thumbnail.
 //
 // Every field here is something the agent already writes. Where a field cannot
 // be recovered, the parser keeps the prose rather than dropping it: a finding
@@ -113,7 +110,7 @@ function block(text) {
  * column where they read as statements. Skipped when the cell opens with code,
  * a link or a quote, where a forced capital would corrupt an identifier.
  */
-export function sentenceCase(text) {
+function sentenceCase(text) {
 	const s = String(text ?? '');
 	if (!/^[a-z]/.test(s)) {
 		return s;
@@ -203,6 +200,42 @@ function readLabelled(lines, start) {
 }
 
 /**
+ * A finding's `**Preconditions:**`, one item per bullet. Older reports wrote
+ * it as one line of prose, which stays one item. A file pasted under a bullet
+ * stays with that bullet.
+ */
+function readPreconditions(lines, start) {
+	if (lines[start].replace(/^\*\*[^*]+[:*]*\*\*:?\s*/, '').trim()) {
+		const { text, end } = readLabelled(lines, start);
+		return { items: [text], end };
+	}
+	const items = [];
+	let i = start + 1;
+	while (i < lines.length) {
+		const t = lines[i].trim();
+		if (/^[-*]\s+/.test(t)) {
+			items.push(t.replace(/^[-*]\s+/, ''));
+			i++;
+			continue;
+		}
+		if (!items.length && !t) { i++; continue; }
+		if (items.length && t && /^\s+/.test(lines[i]) && !/^ {0,3}(`{3,}|~{3,})/.test(lines[i])) {
+			items[items.length - 1] += ` ${t}`;
+			i++;
+			continue;
+		}
+		const source = items.length ? readSourceBlock(lines, i) : null;
+		if (source) {
+			items[items.length - 1] += `\n\n${source.text}`;
+			i = source.end;
+			continue;
+		}
+		break;
+	}
+	return { items, end: i };
+}
+
+/**
  * A precondition that says nothing but "defaults" is not a precondition.
  *
  * The skill makes the agent state where the finding sits on the configuration
@@ -283,6 +316,13 @@ export function basename(url) {
 	return String(url ?? '').split(/[?#]/)[0].split('/').pop();
 }
 
+/** A duration in whole minutes, for a run's footer. */
+export function formatMinutes(ms) {
+	const m = Math.round(ms / 60000);
+	// A pass that took forty seconds did happen; "0m" reads as though it did not.
+	return m === 0 ? '<1m' : `${m}m`;
+}
+
 /** `claude-opus-5-5` reads `Opus 5.5`. An id it does not recognise passes through. */
 export function modelDisplayName(id) {
 	if (!id) {
@@ -295,7 +335,7 @@ export function modelDisplayName(id) {
 	return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
 }
 
-export function parseSeverity(value) {
+function parseSeverity(value) {
 	const v = String(value ?? '').trim().toLowerCase();
 	return ['major', 'moderate', 'minor'].includes(v) ? v : 'minor';
 }
@@ -339,16 +379,10 @@ function parseStatusStrip(line) {
 }
 
 /**
- * Parses one Evidence bullet.
- *
- * A bullet that links an image becomes a thumbnail; one that names a log path
- * becomes a text tile. Anything else keeps its prose so nothing is dropped.
- */
-/**
  * Splits `Step 3: <caption>` or `Variant: <caption>` into the step and the rest.
  * The order sorts the gallery: steps by number, then variants, then untagged.
  */
-export function splitStepTag(text) {
+function splitStepTag(text) {
 	const m = /^\s*(?:step\s*(\d+)|(variant))\s*[:.\u2014-]+\s*/i.exec(String(text ?? ''));
 	if (!m) {
 		return { step: null, text: String(text ?? '').trim() };
@@ -389,7 +423,7 @@ function stepEvidence(text) {
  * from its lines. A step with no `-> PASS|FAIL` is a verify only when it says
  * so, and then carries no result: one that was never recorded is not invented.
  */
-export function parseStep(lines) {
+function parseStep(lines) {
 	const head = String(lines[0] ?? '').trim();
 	const step = { kind: 'action', md: head, result: null, finding: null, observed: '', evidence: [], log: '', logBody: [], error: null, rest: [] };
 	const marked = STEP_RESULT.exec(head);
@@ -449,6 +483,12 @@ function stepText(step) {
 	return [step.md + result, ...step.rest, ...log].join('\n');
 }
 
+/**
+ * Parses one Evidence bullet.
+ *
+ * A bullet that links an image becomes a thumbnail; one that names a log path
+ * becomes a text tile. Anything else keeps its prose so nothing is dropped.
+ */
 function parseEvidenceBullet(text) {
 	const link = /^\[([^\]]*)\]\(([^)]+)\)\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
 	if (link && IMAGE_EXT.test(basename(link[2]))) {
@@ -652,7 +692,7 @@ function parseFindingBody(lines) {
 	const out = {
 		status: { confirmed: null, reproduced: null },
 		summary: [],
-		observed: '', expected: '', preconditions: '',
+		observed: '', expected: '', preconditions: [],
 		feature: '',
 		reproStart: '', steps: [],
 		evidence: [],
@@ -716,8 +756,8 @@ function parseFindingBody(lines) {
 			while (scan < lines.length && !lines[scan].trim()) { scan++; }
 			const early = labelOf(lines[scan] ?? '');
 			if (['preconditions', 'configuration', 'only under'].includes(early)) {
-				const { text: value, end } = readLabelled(lines, scan);
-				out.preconditions = value;
+				const { items, end } = readPreconditions(lines, scan);
+				out.preconditions = items;
 				i = end - 1;
 			}
 
@@ -769,11 +809,16 @@ function parseFindingBody(lines) {
 		// setting -- but reports already published use them.
 		if (label === 'observed' || label === 'expected'
 			|| label === 'preconditions' || label === 'configuration' || label === 'only under') {
-			const { text, end } = readLabelled(lines, i);
-			const key = label === 'observed' || label === 'expected' ? label : 'preconditions';
-			out[key] = text;
+			if (label === 'observed' || label === 'expected') {
+				const { text, end } = readLabelled(lines, i);
+				out[label] = text;
+				i = end - 1;
+			} else {
+				const { items, end } = readPreconditions(lines, i);
+				out.preconditions = items;
+				i = end - 1;
+			}
 			out.matched++;
-			i = end - 1;
 			continue;
 		}
 		if (label === 'feature') {
@@ -1104,6 +1149,7 @@ export function parseLedger(markdown) {
 			id: r.id,
 			scenarioHtml: inline(r.name),
 			reasonHtml: inline(sentenceCase(r.reason)),
+			reason: plainText(r.reason),
 			issues: r.issues,
 		})),
 		// A ledger always lists what it did not run, so an empty list means none.
@@ -1263,7 +1309,7 @@ export function parseReport(markdown, { ledger } = {}) {
 		}
 		// The starting state and the configuration line are both answers to
 		// "what has to be true before step 1", so they render as one list.
-		const preconditions = [parsed.reproStart, parsed.preconditions]
+		const preconditions = [parsed.reproStart, ...parsed.preconditions]
 			.map(t => String(t ?? '').trim())
 			.filter(t => t && !isDefaultsOnly(t))
 			.map(sentenceCase);
@@ -1403,13 +1449,14 @@ export function parseReport(markdown, { ledger } = {}) {
 	const notExercised = (notExercisedTable?.rows ?? []).filter(row => !isPlaceholder(row['scenario'])).map(row => ({
 		scenarioHtml: inline(row['scenario'] ?? ''),
 		reasonHtml: inline(sentenceCase(row['reason'] ?? row._cells?.[1] ?? '')),
+		reason: plainText(row['reason'] ?? row._cells?.[1] ?? ''),
 	}));
 
-	// Whether the report wrote a Not exercised heading at all, so an empty one
-	// can say so rather than vanish.
 	const fromLedger = parseLedger(ledger);
 	const coverage = fromLedger && (fromLedger.exercised.length || fromLedger.notExercised.length)
 		? fromLedger
+		// Whether the report wrote a Not exercised heading at all, so an empty one
+		// can say so rather than vanish.
 		: { exercised, notExercised, notExercisedListed: notExercisedHeading !== -1 };
 
 	// A finding whose report wrote no Error output takes the errors its ledger
