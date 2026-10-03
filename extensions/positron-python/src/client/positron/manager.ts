@@ -21,7 +21,12 @@ import { IConfigurationService, IDisposable, IDisposableRegistry } from '../comm
 import { getActivePythonSessions, PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { getPythonDiscoveryRootSignature } from './discoveryRootSignature';
-import { EXTENSION_ROOT_DIR } from '../common/constants';
+import {
+    EXTENSION_ROOT_DIR,
+    INTERPRETERS_EXCLUDE_SETTING_KEY,
+    INTERPRETERS_INCLUDE_SETTING_KEY,
+    INTERPRETERS_OVERRIDE_SETTING_KEY,
+} from '../common/constants';
 import { JupyterKernelSpec } from '../positron-supervisor.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
@@ -627,6 +632,35 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             throw new Error(`Failed to resolve interpreter ${resolvePath}; the environment may no longer be usable`);
         }
         return createPythonRuntimeMetadata(interpreter, this.serviceContainer, false);
+    }
+
+    /**
+     * Registers the interpreter at a path and adds it to the include setting so
+     * future discovery finds it.
+     *
+     * @param pythonPath The path to the Python interpreter.
+     * @returns The runtime metadata for the interpreter.
+     */
+    async registerRuntimeFromPath(pythonPath: string): Promise<positron.LanguageRuntimeMetadata> {
+        if (!shouldIncludeInterpreter(pythonPath)) {
+            throw new Error(
+                `${pythonPath} is excluded by the python.${INTERPRETERS_EXCLUDE_SETTING_KEY} or python.${INTERPRETERS_OVERRIDE_SETTING_KEY} setting.`,
+            );
+        }
+        const metadata = await this.resolveRuntimeMetadataFromPath(pythonPath);
+        if (!metadata) {
+            throw new Error(`${pythonPath} is not a Python interpreter Positron can use.`);
+        }
+        const config = getConfiguration('python');
+        const included = config.inspect<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY)?.globalValue ?? [];
+        if (!included.includes(pythonPath)) {
+            await config.update(
+                INTERPRETERS_INCLUDE_SETTING_KEY,
+                [...included, pythonPath],
+                vscode.ConfigurationTarget.Global,
+            );
+        }
+        return metadata;
     }
 
     /**

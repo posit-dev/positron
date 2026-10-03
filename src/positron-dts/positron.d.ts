@@ -1262,6 +1262,18 @@ declare module 'positron' {
 			Thenable<LanguageRuntimeMetadata>;
 
 		/**
+		 * An optional function that makes the interpreter at the given path
+		 * available, e.g. one that discovery did not find. Positron registers
+		 * the returned runtime. Implementations should remember the path (for
+		 * example, in a setting) so future discovery finds it too.
+		 *
+		 * @param path The path to the interpreter.
+		 * @returns A Thenable that resolves with the runtime's metadata, or
+		 *   rejects with an error explaining why the interpreter can't be used.
+		 */
+		registerRuntimeFromPath?(path: string): Thenable<LanguageRuntimeMetadata>;
+
+		/**
 		 * An optional session validation function. If provided, Positron will
 		 * validate any stored session metadata before reconnecting to the
 		 * session.
