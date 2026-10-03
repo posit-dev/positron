@@ -7,7 +7,7 @@ metadata:
   # verifier.md, isolator.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.17"
+  version: "1.18"
 ---
 
 # Exploratory testing
@@ -72,9 +72,11 @@ reply exactly as returned to `<run dir>/verify-reply.md`.
 If the reply's VERDICTS line has an UNRESOLVED finding, isolate it before
 applying anything. Spawn one fresh agent with `subagent_type: "general-purpose"`
 and `model: "sonnet"`, tell it to read `<base>/isolator.md` and do what it says,
-and give it the run directory, the checkout, the base and head SHAs, and the
-UNRESOLVED findings by name ("Finding 3"). If it is still running after 25
-minutes, tell it to write up. When it returns, run `stop-instances.sh` again,
+and give it the run directory, the checkout, the base and head SHAs, the
+UNRESOLVED findings by name ("Finding 3"), and for each the evidence the
+verifier said is missing, quoted from its reply: that is the control to run
+first. Start a timer, `sleep 720`, as a background command; if the isolator is
+still running when it ends, tell it to write up. When it returns, run `stop-instances.sh` again,
 then send the verifier, with SendMessage: "Read `<run dir>/isolation.md`,
 revise those findings' verdicts, and name the Cause and Feature it points to,
 with a FEATURE line when the Feature changes and a TITLE line when the title names the wrong trigger. If a cause is broader than the
@@ -84,10 +86,12 @@ Then run
 `node <base>/renderer/finish.mjs apply <run dir> <run dir>/verify-reply.md`.
 The verdicts are advisory: do not edit them or drop a finding over them.
 
-Then put both runs on the report's Run tile, as CI does. Each agent's
-completion notice carries `duration_ms` and `tool_uses`; re-render with them,
-leaving out the `--verify-*` flags when there was nothing to verify:
-`node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses> --verify-model <model id> --verify-duration-ms <duration_ms> --verify-turns <tool_uses>`.
+Then put every run on the report's Run tile, as CI does. Each agent's
+completion notice carries `duration_ms` and `tool_uses`; re-render with them.
+Sum the verifier's passes when you sent it back after isolation. Leave out the
+`--verify-*` flags when there was nothing to verify, and the `--isolate-*` flags
+when nothing was isolated:
+`node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses> --verify-model <model id> --verify-duration-ms <duration_ms> --verify-turns <tool_uses> --isolate-model <model id> --isolate-duration-ms <duration_ms> --isolate-turns <tool_uses>`.
 The agents cannot do this themselves, because they do not see their own totals.
 
 ## Present it, then offer to publish

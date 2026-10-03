@@ -85,7 +85,7 @@ function clip(text, max) {
  * One run's stats record. `parsed` is parseReport's result for the finished
  * report, so findings and verdicts are counted the way the page shows them.
  */
-export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, parsed, checks, timeLimit }) {
+export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, checks, timeLimit }) {
 	const verdicts = {};
 	for (const f of parsed?.findings ?? []) {
 		if (f.verified) {
@@ -104,6 +104,8 @@ export function buildStats({ where, date, run, version, model, turns, maxTurns, 
 		maxTurns: maxTurns ?? null,
 		costUsd: typeof costUsd === 'number' ? Math.round(costUsd * 100) / 100 : null,
 		durationMs: durationMs ?? null,
+		// `{ durationMs, turns }` when an isolation pass ran, else null.
+		isolate: isolate ?? null,
 		findings: parsed?.findings?.length ?? 0,
 		severity: parsed?.severityCounts ?? null,
 		verdicts,

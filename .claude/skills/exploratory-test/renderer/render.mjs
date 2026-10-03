@@ -6,7 +6,8 @@
 // Renders a local run's report.md as index.html beside it, the same page CI
 // publishes. Usage:
 //   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>]
-//     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>] [--no-agent-prompts] [--base <url> --out <file>]
+//     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>]
+//     [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n>] [--no-agent-prompts] [--base <url> --out <file>]
 // The flags record the explore agent's run, and the verifier's when there was
 // one, on the Run tile, as CI's cost footer does. Given --duration-ms, they replace the report's footer lines.
 // --no-agent-prompts leaves out the findings' copy-for-agent buttons.
@@ -29,6 +30,9 @@ const { values: flags, positionals } = parseArgs({
 		'verify-model': { type: 'string' },
 		'verify-duration-ms': { type: 'string' },
 		'verify-turns': { type: 'string' },
+		'isolate-model': { type: 'string' },
+		'isolate-duration-ms': { type: 'string' },
+		'isolate-turns': { type: 'string' },
 		'no-agent-prompts': { type: 'boolean' },
 		check: { type: 'boolean' },
 		base: { type: 'string' },
@@ -37,7 +41,7 @@ const { values: flags, positionals } = parseArgs({
 });
 const input = positionals[0];
 if (!input) {
-	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
+	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>] [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
 	process.exit(1);
 }
 
@@ -97,14 +101,19 @@ if (flags['duration-ms']) {
 	const line = (label, model, turns, ms) => `_${label}: ${[modelDisplayName(model), turns && `${turns} turns`, formatMinutes(ms)].filter(Boolean).join(' | ')}_`;
 	const explore = Number(flags['duration-ms']);
 	const verify = Number(flags['verify-duration-ms']);
-	// The total covers both passes, as CI's does; with one pass there is none.
-	// Its flag, not its value, says there was a verify pass: 0 ms is still one.
-	const footer = flags['verify-duration-ms'] !== undefined
-		? [line('explore', flags.model, flags.turns, explore), line('verify', flags['verify-model'], flags['verify-turns'], verify), `_total: ${formatMinutes(explore + verify)}_`].join('\n')
+	const isolate = Number(flags['isolate-duration-ms']);
+	// The total covers every pass, as CI's does; with one pass there is none.
+	// Its flag, not its value, says there was a pass: 0 ms is still one.
+	const later = [
+		flags['verify-duration-ms'] !== undefined && line('verify', flags['verify-model'], flags['verify-turns'], verify),
+		flags['isolate-duration-ms'] !== undefined && line('isolate', flags['isolate-model'], flags['isolate-turns'], isolate),
+	].filter(Boolean);
+	const footer = later.length
+		? [line('explore', flags.model, flags.turns, explore), ...later, `_total: ${formatMinutes(explore + (verify || 0) + (isolate || 0))}_`].join('\n')
 		: line('explore', flags.model, flags.turns, explore);
 	// Re-rendering must not stack a second footer under the first; only the
 	// labels a footer is written with, so a body line like `_note: x_` survives.
-	const body = markdown.split('\n').filter(l => !/^_(explore|verify|total):.*_$/.test(l.trim())).join('\n').trimEnd();
+	const body = markdown.split('\n').filter(l => !/^_(explore|verify|isolate|total):.*_$/.test(l.trim())).join('\n').trimEnd();
 	markdown = `${body}\n\n${footer}\n`;
 	writeFileSync(input, markdown);
 }
@@ -124,7 +133,11 @@ const stats = flags['duration-ms'] ? buildStats({
 	model: flags.model,
 	// A subagent's tool_uses, which is what the footer calls turns here.
 	turns: flags.turns ? Number(flags.turns) : null,
-	durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0),
+	durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0) + (Number(flags['isolate-duration-ms']) || 0),
+	// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
+	isolate: flags['isolate-duration-ms'] !== undefined
+		? { durationMs: Number(flags['isolate-duration-ms']), turns: flags['isolate-turns'] ? Number(flags['isolate-turns']) : null }
+		: null,
 	parsed,
 	checks: readChecks(dir),
 }) : null;
