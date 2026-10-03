@@ -32,7 +32,8 @@ const ALLOWABLE_COMMANDS = [
 	'editor.action.clipboardCutAction',
 	'editor.action.clipboardPasteAction',
 	'workbench.action.quit',
-	'workbench.action.reloadWindow'
+	'workbench.action.reloadWindow',
+	'quickInput.hide'
 ];
 
 /**
