@@ -1266,15 +1266,16 @@ test('a finding the verifier matched to an issue says so on its card and in its 
 		.replace('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE', 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nKNOWN: 1=#15102,#14991');
 	assert.deepEqual(parseReport(known).findings.map(f => f.known), [[15102, 14991], []]);
 	const html = renderReportHtml(known);
-	assert.match(card(html, 1), /<\/h2><p class="ki-known"><span class="ki-i">[\s\S]*?<\/span><span>Possibly known: <a class="ki-num" href="https:\/\/github\.com\/posit-dev\/positron\/issues\/15102" target="_blank" rel="noopener">#15102<\/a>, <a class="ki-num" href="[^"]+\/issues\/14991"[^>]*>#14991<\/a><\/span><\/p>/);
-	assert.doesNotMatch(card(html, 2), /Possibly known/);
-	assert.ok(promptText(html, 1).includes('### Possibly known issues\n- https://github.com/posit-dev/positron/issues/15102\n- https://github.com/posit-dev/positron/issues/14991\n'));
-	assert.doesNotMatch(promptText(html, 2), /Possibly known/);
+	// The meta line ends with it, after Reproduced; the title goes straight on.
+	assert.match(card(html, 1), /Reproduced 3\/3<\/span><span class="sep" aria-hidden="true">&middot;<\/span><span class="f-ki">Dupe\? <a class="ki-num" href="https:\/\/github\.com\/posit-dev\/positron\/issues\/15102" target="_blank" rel="noopener">#15102<\/a> <a class="ki-num" href="[^"]+\/issues\/14991"[^>]*>#14991<\/a><\/span><\/span>/);
+	assert.doesNotMatch(card(html, 2), /Dupe\?/);
+	assert.ok(promptText(html, 1).includes('### Possible duplicates\n- https://github.com/posit-dev/positron/issues/15102\n- https://github.com/posit-dev/positron/issues/14991\n'));
+	assert.doesNotMatch(promptText(html, 2), /Possible duplicates/);
 	const row = /<a href="#f1" class="row findings-grid">.*?<\/a>\n/s.exec(html)[0];
-	assert.doesNotMatch(row, /Possibly known|15102/, 'the row does not repeat it');
+	assert.doesNotMatch(row, /Dupe|15102/, 'the row does not repeat it');
 	// The cards carry it, so the verification fold does not repeat the raw line.
 	assert.doesNotMatch(html, /KNOWN:/);
-	assert.doesNotMatch(renderReportHtml(FULL), /class="ki-known"/);
+	assert.doesNotMatch(renderReportHtml(FULL), /class="f-ki"|Possibly known|ki-known/);
 });
 
 test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
@@ -2799,7 +2800,7 @@ test('a fix that did not hold and a closed issue that came back are findings wit
 	const one = findingRow(html, 1);
 	assert.match(one, /<span class="ki-st"><span class="ki-reg"><span class="ki-x"><svg[^>]*>[\s\S]*?<\/svg><\/span>Fix didn&rsquo;t hold<\/span><span class="ki-state">Fixes <span class="ki-num-t"[^>]*>#11<\/span><\/span><\/span>/);
 	assert.doesNotMatch(one.slice(1), /<a /, 'no link inside the row link');
-	assert.doesNotMatch(one, /Possibly known/, 'the card carries it');
+	assert.doesNotMatch(one, /Dupe/, 'the card carries it');
 	const back = findingRow(renderReportHtml(KI_REPORT.replace('| disputed |', '| confirmed |'), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2);
 	assert.match(back, /<span class="ki-reg"><span class="ki-x">[\s\S]*?<\/span>Regressed<\/span><span class="ki-state">Closed &middot; <span class="ki-num-t"[^>]*>#21<\/span><\/span>/);
 });
@@ -2817,30 +2818,32 @@ test('a verdict other than Confirmed takes the label\'s place, with the issue li
 	assert.doesNotMatch(two, /Regressed|ki-x/);
 });
 
-test('a finding that matches an open linked issue says Similar to under its verdict, with a count past the first', () => {
+test('a finding that matches an open linked issue says Dupe? under its verdict, with a count past the first', () => {
 	const three = findingRow(kiHtml(), 3);
-	assert.match(three, /<span class="ki-st"><span class="status muted">Unresolved<\/span><span class="ki-state">Similar to <span class="ki-num-t"[^>]*>#25<\/span> \+1<\/span><\/span>/);
+	assert.match(three, /<span class="ki-st"><span class="status muted">Unresolved<\/span><span class="ki-state">Dupe\? <span class="ki-num-t"[^>]*>#25<\/span> \+1<\/span><\/span>/);
 	const one = findingRow(kiHtml({ knownIssues: { ...KI_ISSUES, issues: KI_ISSUES.issues.filter(i => i.number !== 20) } }), 3);
-	assert.match(one, /Similar to <span class="ki-num-t"[^>]*>#25<\/span><\/span>/);
-	assert.doesNotMatch(findingRow(kiHtml(), 1), /Similar to/, 'a match on a fix or an unlisted issue changes no Status');
+	assert.match(one, /Dupe\? <span class="ki-num-t"[^>]*>#25<\/span><\/span>/);
+	assert.doesNotMatch(findingRow(kiHtml(), 1), /Dupe/, 'a match on a fix or an unlisted issue changes no Status');
 	// A finding's own issue wins, so the cell stays two lines and the match stays on the card.
 	const mixed = renderReportHtml(KI_REPORT.replace('| #11, #15102 |', '| #11, #25 |').replace('KNOWN: 1=#11,#15102', 'KNOWN: 1=#11,#25'), { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
 	assert.equal((findingRow(mixed, 1).match(/ki-state/g) ?? []).length, 1);
-	assert.doesNotMatch(findingRow(mixed, 1), /Similar to/);
-	assert.match(card(mixed, 1), /Possibly known: <a class="ki-num"[^>]*>#25<\/a>/);
+	assert.doesNotMatch(findingRow(mixed, 1), /Dupe/);
+	assert.match(card(mixed, 1), /<span class="f-ki">Dupe\? <a class="ki-num"[^>]*>#25<\/a><\/span>/);
 });
 
-test('the card\'s Possibly known line sits under the title and drops the finding\'s own issue', () => {
+test('the card\'s meta line ends with its linked issues: the fix or regression, then any dupes, never its own issue twice', () => {
 	const html = kiHtml();
-	const known = n => /<p class="ki-known">[\s\S]*?<\/p>/.exec(card(html, n))?.[0] ?? '';
-	assert.ok(card(html, 1).indexOf('card-title') < card(html, 1).indexOf('ki-known'), 'under the title');
-	assert.match(known(1), /<span class="ki-i"><svg[^>]*>[\s\S]*?<\/svg><\/span><span>Possibly known: <a class="ki-num" href="[^"]+\/issues\/15102" target="_blank" rel="noopener">#15102<\/a><\/span><\/p>$/);
-	assert.doesNotMatch(known(1), /#11/, 'its own fix');
+	const items = n => [...card(html, n).matchAll(/<span class="f-ki">([\s\S]*?)<\/span>/g)].map(m => m[1].replace(/<a class="ki-num"[^>]*>(#\d+)<\/a>/g, '$1'));
+	assert.ok(card(html, 1).indexOf('f-ki') < card(html, 1).indexOf('card-title'), 'in the meta line, above the title');
+	assert.deepEqual(items(1), ['Fix didn&rsquo;t hold #11', 'Dupe? #15102']);
+	// Verify disputed it, so its issue line stands in without the claim.
+	assert.deepEqual(items(2), ['Closed &middot; #21']);
+	assert.deepEqual(items(3), ['Dupe? #25 #20']);
+	assert.match(card(html, 3), /<a class="ki-num"[^>]*data-title="also similar"[^>]*>#20<\/a>/, 'the number keeps its preview');
 	// The prompt names the same issues, with the list's state and title where it has them.
-	assert.ok(promptText(html, 1).includes('### Possibly known issues\n- https://github.com/posit-dev/positron/issues/15102\n\n'));
-	assert.ok(promptText(html, 3).includes('### Possibly known issues\n- https://github.com/posit-dev/positron/issues/25 (open): similar\n- https://github.com/posit-dev/positron/issues/20 (open): also similar\n'));
-	assert.equal(known(2), '', 'its own regression');
-	assert.match(known(3), /#25<\/a>, <a class="ki-num"[^>]*data-title="also similar"[^>]*>#20<\/a><\/span><\/p>/);
+	assert.ok(promptText(html, 1).includes('### Possible duplicates\n- https://github.com/posit-dev/positron/issues/15102\n\n'));
+	assert.ok(promptText(html, 3).includes('### Possible duplicates\n- https://github.com/posit-dev/positron/issues/25 (open): similar\n- https://github.com/posit-dev/positron/issues/20 (open): also similar\n'));
+	assert.match(html, /\.meta \.f-ki\{color:var\(--faint-rate\);white-space:nowrap\}/);
 });
 
 test('Coverage leads each row\'s result with its fixes and linked issues, after any finding link, and adds a Not run row for an unrecorded fix', () => {

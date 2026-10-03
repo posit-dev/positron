@@ -458,7 +458,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .status.muted{color:var(--muted)}
 
 /* Known issues: the Findings table's Status labels and closed "Linked issues"
-   row, the card's Possibly known line, GitHub issue links, and their preview card */
+   row, the card's linked issues, GitHub issue links, and their preview card */
 .ki-title{font-size:15px;font-weight:500;color:var(--body);line-height:1.4}
 .ki-sub{font-size:13px;color:var(--muted)}
 .ki-st{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;font-size:13px;color:var(--body)}
@@ -490,8 +490,6 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 a.ki-lc-n{font-family:var(--mono);font-size:12px;color:var(--link);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--link) 50%,transparent);text-underline-offset:3px}
 a.ki-lc-n:hover,a.ki-lc-n:focus-visible{text-decoration:underline dotted;text-decoration-color:currentColor}
 @media (prefers-reduced-motion:reduce){.ki-chev{transition:none}}
-.ki-known{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
-.ki-known .ki-i{display:inline-flex;color:var(--faint)}
 /* The summary and the line draw their own top border. */
 .row:has(+ .ki-grp){border-bottom:0}
 /* A dotted text underline, never a border: the global a:hover underline would draw a second line. */
@@ -541,6 +539,8 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .meta .confirmed{display:inline-flex;align-items:baseline;gap:4px;color:var(--muted);font-weight:400}
 .meta .confirmed svg{align-self:center;color:var(--pass-text)}
 .meta .reproduced{color:var(--faint-rate)}
+/* A finding's linked issues end the meta line; a label never wraps away from its number. */
+.meta .f-ki{color:var(--faint-rate);white-space:nowrap}
 .cp-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
 .card .cp-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
 .card .cp-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}

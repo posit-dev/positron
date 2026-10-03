@@ -32,7 +32,6 @@ const ICON = {
 	// currentColor, which is the body-coloured word beside it.
 	statusCheck: '<svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	x: '<span class="ki-x"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"></path></svg></span>',
-	info: '<span class="ki-i"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2v3.6"></path><circle cx="8" cy="5" r=".7" fill="currentColor" stroke="none"></circle></svg></span>',
 	copy: '<svg class="cp-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6"></rect><path d="M3 10.5V4.1c0-.6.5-1.1 1.1-1.1h6.4"></path></svg>',
 	// The simplified bug: four legs, no centre line, drawn level with Copy's top edge.
 	bug: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
@@ -298,7 +297,7 @@ function renderFindingsList(report, ki = null) {
 		const top = label && (!word || word === 'confirmed') ? `<span class="ki-reg">${ICON.x}${label}</span>` : verdict;
 		// One issue per cell: the finding's own wins over a match.
 		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
-		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : similar ? `Similar to ${first(similar)}` : '';
+		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : similar ? `Dupe? ${first(similar)}` : '';
 		const below = issueLine ? [`<span class="ki-state">${issueLine}</span>`] : [];
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
@@ -645,7 +644,7 @@ function buildAgentPrompt(f, report, options = {}) {
 	};
 	section('Impact', [t.impact, t.impactStatement].filter(Boolean).join('\n\n'));
 	// So the agent checks these before fixing or filing it again.
-	section('Possibly known issues', possiblyKnown(f, options.ki).map(n => {
+	section('Possible duplicates', possiblyKnown(f, options.ki).map(n => {
 		const issue = options.ki?.byNumber.get(n);
 		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
 	}).join('\n'));
@@ -1117,13 +1116,27 @@ function possiblyKnown(f, ki) {
 	return ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
 }
 
-/** The card's "Possibly known" line. */
-function renderPossiblyKnown(f, ki, refs) {
-	const known = possiblyKnown(f, ki);
-	if (!known.length) {
-		return '';
+/**
+ * The card's linked-issue status, as items for the end of its meta line: a fix
+ * that did not hold or an issue that came back, then any likely duplicates.
+ * When verify rejected the finding, its issue line stands in without the claim.
+ */
+function cardIssueItems(f, word, ki, refs) {
+	const rejected = word && word !== 'confirmed';
+	const failed = ki?.fixFailed.get(f.n) ?? [];
+	const back = ki?.cameBack.get(f.n) ?? [];
+	const item = (label, numbers) => `<span class="f-ki">${label} ${numbers.map(n => kiNum(n, refs)).join(' ')}</span>`;
+	const items = [];
+	if (failed.length) {
+		items.push(item(rejected ? 'Fixes' : 'Fix didn&rsquo;t hold', failed.map(i => i.number)));
+	} else if (back.length) {
+		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}
-	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, refs)).join(', ')}</span></p>`;
+	const known = possiblyKnown(f, ki);
+	if (known.length) {
+		items.push(item('Dupe?', known));
+	}
+	return items;
 }
 
 /** Why this is worse than its title says, as one line under it; most cards have none. */
@@ -1146,6 +1159,8 @@ function renderFindingCard(f, report, options) {
 	if (f.reproduced) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
+	// Linked issues describe the finding as these do, so they close the meta line.
+	context.push(...cardIssueItems(f, word, options.ki, options.refs));
 	const contextHtml = context.join('<span class="sep" aria-hidden="true">&middot;</span>');
 
 	const meta = '<div class="meta">'
@@ -1160,7 +1175,6 @@ function renderFindingCard(f, report, options) {
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
 		+ renderImpactLine(f)
-		+ renderPossiblyKnown(f, options.ki, options.refs)
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
