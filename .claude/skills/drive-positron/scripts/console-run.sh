@@ -114,7 +114,7 @@ page_js() {
 	node "$(dirname "${BASH_SOURCE[0]}")/console-run-page.ts" "$1" "$LANGUAGE" "$NAME" "$TEXT"
 }
 
-SELECTED=$(run_js "$(page_js select)") || exit 1
+SELECTED=$(run_js "$(page_js select)") || { echo "$SELECTED"; exit 1; }
 if [[ "$(echo "$SELECTED" | jq -r '.ok')" != "true" ]]; then
 	echo "$SELECTED"
 	exit 1
@@ -126,7 +126,7 @@ BEFORE=$(echo "$SELECTED" | jq -r '.before')
 "${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} press "${SELECT_ALL_MOD}+a" >/dev/null 2>&1 || true
 "${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} press Backspace >/dev/null 2>&1 || true
 
-PASTED=$(run_js "$(page_js paste)") || exit 1
+PASTED=$(run_js "$(page_js paste)") || { echo "$PASTED"; exit 1; }
 if [[ "$(echo "$PASTED" | jq -r '.ok')" != "true" ]]; then
 	echo "$SELECTED" | jq -c --argjson p "$PASTED" '. + {ok: false, error: $p.error} | del(.before)'
 	exit 1
@@ -144,7 +144,7 @@ fi
 ECHOED=false
 DEADLINE=$(( $(date +%s) + TIMEOUT ))
 while (( $(date +%s) <= DEADLINE )); do
-	NOW=$(run_js "$(page_js count)") || exit 1
+	NOW=$(run_js "$(page_js count)") || { echo "$NOW"; exit 1; }
 	if [[ "$(echo "$NOW" | jq -r '.id')" != "$TARGET" ]]; then
 		echo "$SELECTED" | jq -c '. + {ok: false, echoed: false, error: "another console became active before the code ran"} | del(.before)'
 		exit 1
