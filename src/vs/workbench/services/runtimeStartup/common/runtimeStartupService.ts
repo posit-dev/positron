@@ -101,7 +101,8 @@ export interface IRuntimeStartupService {
 	 * @param languageId The language identifier.
 	 * @param path The path to the interpreter.
 	 * @returns The registered runtime's metadata. Throws if no manager for the
-	 *  language supports registering by path, or if the manager rejects it.
+	 *  language is disabled, no manager for the language supports registering
+	 *  by path, or the manager rejects it.
 	 */
 	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata>;
 

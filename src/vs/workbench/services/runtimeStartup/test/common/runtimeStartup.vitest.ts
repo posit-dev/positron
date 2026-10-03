@@ -926,6 +926,45 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			expect(cache.getEntries('ms.python', 'python').map(e => e.metadata)).toEqual([registered]);
 		});
 	});
+
+	describe('registerRuntimeFromPath', () => {
+		function registerManager(svc: RuntimeStartupService, register: (md: ILanguageRuntimeMetadata) => void) {
+			const manager = makeManager({ id: 1, owns: [] });
+			const md = metadata();
+			const registerRuntimeFromPath = vi.fn(async () => {
+				register(md);
+				return md;
+			});
+			ctx.disposables.add(svc.registerRuntimeManager({ ...manager, registerRuntimeFromPath }));
+			return { md, registerRuntimeFromPath };
+		}
+
+		it('rejects a disabled language without asking the manager', async () => {
+			await config.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
+			const svc = makeService();
+			const { registerRuntimeFromPath } = registerManager(svc, () => { });
+
+			await expect(svc.registerRuntimeFromPath('python', '/usr/bin/python3')).rejects.toThrow(/disabled/);
+			expect(registerRuntimeFromPath).not.toHaveBeenCalled();
+		});
+
+		it('rejects a runtime the manager returned but that never registered', async () => {
+			const svc = makeService();
+			registerManager(svc, () => { });
+
+			await expect(svc.registerRuntimeFromPath('python', '/usr/bin/python3')).rejects.toThrow(/could not be registered/);
+		});
+
+		it('returns the registered entry', async () => {
+			const svc = makeService();
+			const languageRuntimeService = ctx.get(ILanguageRuntimeService);
+			const { md } = registerManager(svc, m => ctx.disposables.add(languageRuntimeService.registerRuntime(m)));
+
+			const result = await svc.registerRuntimeFromPath('python', '/usr/bin/python3');
+
+			expect(result).toBe(languageRuntimeService.getRegisteredRuntime(md.runtimeId));
+		});
+	});
 });
 
 describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
