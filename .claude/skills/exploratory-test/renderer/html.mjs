@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
 import { CHECKS_FILE, summarizeChecks } from './stats.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
-import { knownIssueOutcomes, openedLabel } from './known-issues.mjs';
+import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
 import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
 import { readKnownIssues } from './finish.mjs';
@@ -211,24 +211,26 @@ function renderAgents(report) {
 }
 
 /**
- * A GitHub issue number as a link. An issue on the run's list carries what the
+ * A GitHub issue or PR number as a link. One the run fetched carries what the
  * preview card shows; the text is from GitHub, so every attribute is escaped.
  */
-function kiNum(n, ki) {
-	return `<a class="ki-num" href="${REPO_URL}/issues/${Number(n)}" target="_blank" rel="noopener"${kiData(ki?.byNumber.get(n), ki)}>#${Number(n)}</a>`;
+function kiNum(n, refs) {
+	const issue = refs?.byNumber.get(n);
+	return `<a class="ki-num" href="${REPO_URL}/${issue?.kind === 'pr' ? 'pull' : 'issues'}/${Number(n)}" target="_blank" rel="noopener"${kiData(issue, refs)}>#${Number(n)}</a>`;
 }
 
-/** What the preview card shows, as escaped data attributes; empty for an issue not on the list. */
-function kiData(issue, ki) {
+/** What the preview card shows, as escaped data attributes; empty for a number the run did not fetch. */
+function kiData(issue, refs) {
+	const state = issue?.state === 'merged' || issue?.state === 'closed' ? issue.state : 'open';
 	return issue
-		? ` data-state="${issue.state === 'closed' ? 'closed' : 'open'}" data-opened="${escapeHtml(openedLabel(issue.createdAt, ki.now))}"`
+		? ` data-state="${state}"${issue.kind === 'pr' ? ' data-kind="pr"' : ''} data-opened="${escapeHtml(openedLabel(issue.createdAt, refs.now))}"`
 		+ ` data-title="${escapeHtml(issue.title)}" data-summary="${escapeHtml(issue.summary ?? '')}"`
 		: '';
 }
 
-/** Links the listed issue numbers in rendered text, leaving tags and existing links alone. */
-function linkIssues(html, ki) {
-	if (!ki?.byNumber.size) {
+/** Links the fetched issue and PR numbers in rendered text, leaving tags and existing links alone. */
+function linkIssues(html, refs) {
+	if (!refs?.byNumber.size) {
 		return html;
 	}
 	let inLink = 0;
@@ -237,7 +239,7 @@ function linkIssues(html, ki) {
 			inLink += /^<a\b/i.test(part) ? 1 : /^<\/a>/i.test(part) ? -1 : 0;
 			return part;
 		}
-		return inLink ? part : part.replace(/(?<![\w&#/])#(\d+)\b/g, (whole, n) => ki.byNumber.has(Number(n)) ? kiNum(Number(n), ki) : whole);
+		return inLink ? part : part.replace(/(?<![\w&#/])#(\d+)\b/g, (whole, n) => refs.byNumber.has(Number(n)) ? kiNum(Number(n), refs) : whole);
 	}).join('');
 }
 
@@ -1064,12 +1066,12 @@ function possiblyKnown(f, ki) {
 }
 
 /** The card's "Possibly known" line. */
-function renderPossiblyKnown(f, ki) {
+function renderPossiblyKnown(f, ki, refs) {
 	const known = possiblyKnown(f, ki);
 	if (!known.length) {
 		return '';
 	}
-	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, ki)).join(', ')}</span></p>`;
+	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, refs)).join(', ')}</span></p>`;
 }
 
 /** Who it hits and the way out, in a box tinted by severity under the card title. */
@@ -1104,7 +1106,7 @@ function renderFindingCard(f, report, options) {
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
 		+ renderImpactBox(f)
-		+ renderPossiblyKnown(f, options.ki)
+		+ renderPossiblyKnown(f, options.ki, options.refs)
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
@@ -1114,7 +1116,7 @@ function renderFindingCard(f, report, options) {
 	const files = options.files ?? [];
 
 	if (f.proseHtml) {
-		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${feedback}${promptBlock}</article>`;
+		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkIssues(linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files), options.refs)}${feedback}${promptBlock}</article>`;
 	}
 
 	// The claim's facts before the procedure: what should happen, then what the run saw.
@@ -1149,11 +1151,11 @@ function renderFindingCard(f, report, options) {
 	const details = renderCardDetails(f, report, options);
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
-${linkFiles(`${head}
+${linkIssues(linkFiles(`${head}
 ${expectedActual}
 ${repro}
 ${renderEvidence(f)}
-${details}`, files)}
+${details}`, files), options.refs)}
 ${feedback}
 ${promptBlock}
 </article>`;
@@ -1189,7 +1191,7 @@ function renderCoverage(report, options = {}) {
 		}
 		return [...groups].map(([label, nums]) => `${label} ${nums.join(', ')}`);
 	};
-	const result = (row, lead = []) => [...lead, ...kiTags(row), row.resultHtml && linkIssues(row.resultHtml, ki)].filter(Boolean).join(' &middot; ');
+	const result = (row, lead = []) => [...lead, ...kiTags(row), row.resultHtml && linkIssues(row.resultHtml, options.refs)].filter(Boolean).join(' &middot; ');
 	const byLedgerId = new Map(exercised.filter(r => r.id).map(r => [r.id, r]));
 
 	// A passing row's screenshot hangs off the verify step it proves rather than
@@ -1259,7 +1261,7 @@ function renderCoverage(report, options = {}) {
 	// Result and chevron columns.
 	const notRows = notExercised.map(row => `<div class="row coverage-grid cf-r cf-n" id="${rowId.get(row)}">`
 		+ scenario(row, 'none')
-		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span>${row.reasonHtml ? ` &middot; ${linkIssues(row.reasonHtml, ki)}` : ''}</span>`
+		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span>${row.reasonHtml ? ` &middot; ${linkIssues(row.reasonHtml, options.refs)}` : ''}</span>`
 		+ '</div>');
 
 	// Visually hidden radios ahead of the tabs and card, so CSS can filter the
@@ -1686,13 +1688,13 @@ var card=document.createElement('div');card.className='ki-card';card.id='ki-card
 var cur=null,tapped=null,pointer='mouse',SEL='a.ki-num[data-title],.ki-num-t[data-title]';
 function el(tag,cls,text){var e=document.createElement(tag);if(cls){e.className=cls;}if(text!=null){e.textContent=text;}return e;}
 function find(t){return t&&t.closest?t.closest(SEL):null;}
-function build(a){var d=a.dataset,closed=d.state==='closed';card.textContent='';
-var top=el('div','ki-card-top'),s=el('span','ki-s '+(closed?'is-closed':'is-open'));
-s.innerHTML=ICON[closed?'closed':'open'];s.appendChild(document.createTextNode(' '+(closed?'Closed':'Open')));
+function build(a){var d=a.dataset,st=d.state==='merged'?'merged':d.state==='closed'?'closed':'open',pr=d.kind==='pr';card.textContent='';
+var top=el('div','ki-card-top'),s=el('span','ki-s is-'+st);
+s.innerHTML=ICON[st==='open'?'open':'closed'];s.appendChild(document.createTextNode(' '+{open:'Open',closed:'Closed',merged:'Merged'}[st]+(pr?' PR':'')));
 top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
 card.appendChild(top);card.appendChild(el('div','ki-card-t',d.title||''));
 if(d.summary){card.appendChild(el('div','ki-card-x',d.summary));}
-card.appendChild(el('div','ki-card-f','From the issue\\u2019s description'+(a.tagName!=='A'?'':' \\u00b7 '+(pointer==='touch'?'tap again':'click')+' to open on GitHub')));}
+card.appendChild(el('div','ki-card-f','From the '+(pr?'PR':'issue')+'\\u2019s description'+(a.tagName!=='A'?'':' \\u00b7 '+(pointer==='touch'?'tap again':'click')+' to open on GitHub')));}
 function place(a){var r=a.getBoundingClientRect(),w=card.offsetWidth,h=card.offsetHeight,m=12;
 var left=Math.min(Math.max(m,r.left+r.width/2-w/2),window.innerWidth-w-m);
 var top=r.top-h-8;if(top<m){top=r.bottom+8;}card.style.left=left+'px';card.style.top=top+'px';}
@@ -1728,6 +1730,11 @@ export function renderReportHtml(markdown, options = {}) {
 		? { ...knownIssueOutcomes(options.knownIssues, report.coverage, report.verification?.linked, new Map(report.findings.map(f => [f.n, f.known ?? []]))), now: options.startedAt ?? new Date() }
 		: null;
 	options.ki = ki;
+	// Every issue or PR the report names, for its preview card: the PR's list, then the rest it mentions.
+	options.refs = {
+		byNumber: new Map([...(options.issueRefs ?? []).map(i => [i.number, i]), ...(ki?.byNumber ?? [])]),
+		now: options.startedAt ?? new Date(),
+	};
 	// A fix the ledger says nothing about is still listed: an untested fix is never invisible.
 	for (const issue of ki?.unaccounted ?? []) {
 		report.coverage.notExercised.push({
@@ -1784,7 +1791,7 @@ ${previewText ? `<meta name="description" content="${previewText}">\n` : ''}<met
 <header class="head">
 <div class="eyebrow"><span class="kicker">Exploratory test</span>${chips ? '<span class="bullet"></span>' : ''}${chips}${HEADER_ACTIONS}</div>
 <h1 class="title">${escapeHtml(report.title)}</h1>
-${report.leadHtml ? `<p class="lead">${report.leadHtml}</p>` : ''}
+${report.leadHtml ? `<p class="lead">${linkIssues(report.leadHtml, options.refs)}</p>` : ''}
 </header>
 
 ${renderTiles(report)}
@@ -1795,7 +1802,7 @@ ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
 ${linkFiles(renderCoverage(report, options), options.files)}
 
-${renderFolds(report, options)}
+${linkIssues(renderFolds(report, options), options.refs)}
 
 ${renderSignature(options.startedAt, options.skillVersion)}
 
@@ -1842,6 +1849,7 @@ export function readRunDir(dir) {
 	return {
 		ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
 		knownIssues: readKnownIssues(dir) ?? undefined,
+		issueRefs: readIssueRefs(dir),
 		fileExists,
 		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
 	};

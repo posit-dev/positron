@@ -2914,3 +2914,25 @@ test('previewSummary names the PR and branch only, since the image shows the cou
 	assert.equal(previewSummary(report), 'PR #16378 on feature/interpreter-skill');
 	assert.equal(previewSummary({ ...report, pr: null }), 'feature/interpreter-skill');
 });
+
+test('an issue or PR named in a card gets a preview link, and a PR opens as a pull', () => {
+	const report = md(FINDINGS.replace('it should have stopped.', 'it should have stopped, as #2330 says, since #8126.'));
+	const issueRefs = [
+		{ number: 2330, kind: 'issue', state: 'open', title: 'Zoom spec', createdAt: '2026-08-20T00:00:00Z', summary: 'sizes' },
+		{ number: 8126, kind: 'pr', state: 'merged', title: 'Zoom plots', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+	];
+	const card = /<article id="f1"[\s\S]*?<\/article>/.exec(renderReportHtml(report, { issueRefs }))[0];
+	assert.deepEqual([...card.matchAll(/<a class="ki-num" href="([^"]+)"[^>]*data-state="(\w+)"[^>]*>#(\d+)/g)].map(m => [m[1].replace(/.*\.com\//, ''), m[2], m[3]]), [
+		['posit-dev/positron/issues/2330', 'open', '2330'],
+		['posit-dev/positron/pull/8126', 'merged', '8126'],
+	]);
+	assert.doesNotMatch(renderReportHtml(report), /class="ki-num"/, 'a number with no preview stays text');
+});
+
+test('an issue named in the lead or the verifier notes gets a preview link too', () => {
+	const issueRefs = [{ number: 3698, kind: 'issue', state: 'open', title: 'Blurry labels', createdAt: '2026-08-20T00:00:00Z', summary: '' }];
+	const report = md(FINDINGS, '', '<details>', '<summary>Verification details</summary>', '', 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED', '', 'Searches returned only #3698 (open).', '', '</details>');
+	const html = renderReportHtml(report, { issueRefs });
+	const verification = html.slice(html.lastIndexOf('Searches returned'));
+	assert.match(verification, /only <a class="ki-num" href="[^"]+\/issues\/3698"[^>]*data-title="Blurry labels"/);
+});

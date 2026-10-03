@@ -511,6 +511,7 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .ki-card-top .ki-s{font-weight:500}
 .ki-card-top .ki-s.is-open{color:var(--pass-fill)}
 .ki-card-top .ki-s.is-closed{color:var(--ki-closed)}
+.ki-card-top .ki-s.is-merged{color:var(--ki-closed)}
 .ki-card-top .ki-n{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
 .ki-card-top .ki-d{margin-left:auto;color:var(--faint)}
 .ki-card-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.35}

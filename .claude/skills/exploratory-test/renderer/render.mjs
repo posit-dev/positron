@@ -50,6 +50,7 @@ if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules'
 const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./html.mjs');
 const { formatMinutes, modelDisplayName, parseReport } = await import('./report-parse.mjs');
 const { lintReport, untaggedShots } = await import('./lint.mjs');
+const { loadIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
 const { reportUsageOnce } = await import('./usage.mjs');
 
@@ -140,6 +141,9 @@ function gitEmail() {
 	}
 }
 
+// Every issue or PR the report names gets its preview card. Not under test, which must not reach GitHub.
+const issueRefs = await loadIssueRefs(dir, markdown, knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
+
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
 await writeRunPage(out, markdown, parsed, {
 	// Coverage is built from the run's ledger when it wrote one.
@@ -154,6 +158,7 @@ await writeRunPage(out, markdown, parsed, {
 	readFile,
 	startedAt: born.getTime() > 0 ? born : undefined,
 	knownIssues,
+	issueRefs,
 });
 console.log(out);
 
