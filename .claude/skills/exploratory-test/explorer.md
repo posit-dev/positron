@@ -357,10 +357,10 @@ their problem is `major`; offering a choice that fails when taken is
 two lines is `minor`. Caution is not a tiebreaker.
 
 `Finding` is the title, and the one line that must be excellent: someone who
-reads only it knows what is broken. Name the thing and how it is wrong ("R
-integer column median is rounded to a whole number", not "Median display
-issue"), with the condition when it matters ("A column over 10 s to summarize
-never loads, and Retry cannot help"). State it as a fact, with no "may" or
+reads only it knows what is broken. Name the thing and how it is wrong ("A
+saved plot PNG is smaller than the plot in the pane", not "Plot export
+issue"), with the condition when it matters ("A notebook cell over 10 s never
+finishes, and Interrupt cannot stop it"). State it as a fact, with no "may" or
 "seems to", in under about 90 characters, and leave the cause to its own
 part. Don't write "any", "every" or "all" unless the run covered that range:
 the title is often the only place scope is stated.
@@ -419,9 +419,8 @@ as a cold replay, goes under Evidence captioned with the step it proves.
 
 Every finding's steps stand on their own: no "as Finding 1", no "same as
 above". Repeat the preconditions in full each time. Steps are instructions for
-the reader, so they carry no run notes: not which scenario ran them, how often,
-or what else ran alongside ("S05 ran this together with two other values").
-That belongs in the ledger.
+the reader, so they carry no run notes, such as which scenario ran them; that
+belongs in the ledger.
 
 Use this block for every finding. `N` is the table's row number; it ties the
 block to that row and to ledger scenarios whose `Status:` names Finding N.
@@ -476,45 +475,41 @@ the code pointers>
 Keep the blank lines, and keep steps at the left margin.
 
 `**Observed:**` and `**Expected:**` sit side by side on the card, Observed
-first, so keep each to one or two short sentences, written as sentences, not
-notes joined by semicolons. Lead with the exact difference, and name what it is
-on: "The `id` column shows Median 6" against "Median 5.5". A reference that
-shows the right answer, such as another backend, goes in Expected, not
-Observed: "Median 5.5, as pandas shows for the same data". Write each number
-one way throughout both: with digit grouping (1,234,567), unless you quote the
-UI exactly, and then as it shows. Add one sentence only when the difference
-alone is not enough for a behavior bug. End
-with one more sentence only for a fact the run saw that makes the finding
-worse or gets past it, stated as what happened, not as a consequence: no error
-was shown ("No error appears."), only reopening restored it, another trigger
-does the same ("A filter that leaves one row does it too."), or a workaround
-worked ("After Continue the stats load."). Claim that nothing on screen shows
-the problem only after checking the whole view in your screenshot, the stats
-beside the value included: a Max below the Mean on the same panel is on
-screen. Leave out the setup and source data, which Reproduce has,
+first, so keep each to one or two short sentences. Lead with the exact
+difference, and name what it is on. A reference that shows the right answer,
+such as another language or a terminal, goes in Expected. Write each number
+one way, with digit grouping unless you quote the UI exactly. Add one sentence
+only when the difference alone is not enough for a behavior bug. End with one
+more sentence only for a fact the run saw that makes the finding worse or gets
+past it, stated as what happened, not as a consequence: no error was shown,
+only reopening restored it, another trigger does the same, or a workaround
+worked. Claim that nothing on screen shows the problem only after checking the
+whole view in your screenshot, including anything beside the value that
+contradicts it. Leave out the setup and source data, which Reproduce has,
 and any other values that were right, extra runs or log lines, which go in
 Reproduce or Evidence. Plain words: no "unfortunately", "incorrectly" or
 "confusingly".
 
-For example, not this:
+Two examples, each before and after:
 
 ```
-**Observed:** Max 1 for 1,500; Min 1 and Max 3 for 1,234,567 and 3,456,789. pandas shows Min 1234567 and Max 3456789 for the same data.
+**Observed:** PNG 800x600 vs pane 1200x900; legend cut off.
+**Expected:** Same size as pane.
 
-**Expected:** Min and Max show the integer values, 1500, 1234567 and 3456789.
+**Observed:** The saved PNG is 800 by 600 pixels, and its legend is cut off. The plot in the pane is 1,200 by 900.
+**Expected:** The PNG is 1,200 by 900, like the plot in the pane, with the whole legend.
 ```
 
-but this, which names each column, writes each number one way, and moves the
-pandas reference to Expected:
-
 ```
-**Observed:** The `n` column, whose largest value is 1,500, shows Max 1. The `pop` column, 1,234,567 to 3,456,789, shows Min 1 and Max 3.
+**Observed:** Stuck at +; ) doesn't run it. Terminal R is fine.
+**Expected:** Runs.
 
-**Expected:** `n` shows Max 1,500, and `pop` shows Min 1,234,567 and Max 3,456,789, as pandas shows for the same `pop` data.
+**Observed:** After pasting the three-line function, the R console waits at a `+` prompt, and typing `)` does not run it.
+**Expected:** The function runs once `)` is typed, as it does in R in a terminal.
 ```
 
-Lint flags a semicolon in either, a backend in Observed that the title does
-not name, and a number written both with and without digit grouping.
+Each "after" names what it is on, writes sentences, and puts the reference that
+shows the right answer in Expected. Lint flags the rest.
 
 Keep every step's `Evidence:` line when you copy steps from the ledger into a
 finding: the card puts each step's shot on its step, captioned with the check,
