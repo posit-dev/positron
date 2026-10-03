@@ -22,10 +22,6 @@ const PROFESSIONAL = `
 	--secondary: #4F535A;
 	--dot-neutral: #CFCAC0;
 	--sep: #B8B4AA;
-	--shot-step-bg: rgba(255,255,255,.86);
-	--shot-step-text: #3D4148;
-	--shot-step-border: rgba(28,31,35,.12);
-	--shot-step-shadow: 0 1px 2px rgba(28,31,35,.10);
 	--divider: #CFCAC0;
 	--legend-sep: #CFCAC0;
 	--hover-border: #CFCAC0;
@@ -113,9 +109,6 @@ const PROFESSIONAL = `
 	--sig-ok: #2F7A4F;
 	--sig-ok-glow: none;
 	--sig-legal: #A8A49A;
-	--shot-n-bg: rgba(239,237,231,.92);
-	--shot-n-text: #6A6F76;
-	--shot-n-border: rgba(28,31,35,.12);
 	--lb-nav-bg: #FFFFFF;
 	--lb-nav-border: #E7E4DC;
 	--lb-nav-text: #3D4148;
@@ -169,10 +162,6 @@ const PARTY = `
 	--secondary: #B8B0DE;
 	--dot-neutral: #4E4580;
 	--sep: #5B4F92;
-	--shot-step-bg: rgba(30,24,56,.84);
-	--shot-step-text: #CFC8EA;
-	--shot-step-border: rgba(157,149,198,.28);
-	--shot-step-shadow: 0 1px 2px rgba(0,0,0,.25);
 	--divider: #4A3F7A;
 	--legend-sep: #5B4F92;
 	--hover-border: #5B4F92;
@@ -260,9 +249,6 @@ const PARTY = `
 	--sig-ok: #5CE1E6;
 	--sig-ok-glow: drop-shadow(0 0 4px rgba(92,225,230,.75));
 	--sig-legal: #6E66A0;
-	--shot-n-bg: rgba(42,34,80,.92);
-	--shot-n-text: #9D95C6;
-	--shot-n-border: rgba(157,149,198,.28);
 	--lb-nav-bg: #241D42;
 	--lb-nav-border: #5B4F92;
 	--lb-nav-text: #F5F1FF;
@@ -579,8 +565,9 @@ article.card:target{animation:ln-ring 2.4s ease-out 1}
 /* Code block in a step: its copy button shows on hover or focus, so at rest
    it doesn't compete with the agent button. */
 .code-blk{position:relative;margin:8px 0 6px}
-.code-blk pre{margin:0;padding:12px 44px 12px 14px;background:var(--code-blk-bg);border:1px solid var(--code-blk-border);border-radius:8px;overflow-x:auto;white-space:pre}
-.code-blk pre code{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text)}
+.code-blk pre{margin:0;padding:12px 44px 12px 14px;background:var(--code-blk-bg);border:1px solid var(--code-blk-border);border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+/* A step's code wraps rather than scrolls: a scrollbar the OS hides reads as text cut off at the card's edge. Copy keeps the lines as written. */
+.code-blk pre code{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text);white-space:inherit;overflow-wrap:inherit}
 .code-cp{position:absolute;top:7px;right:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;padding:0;border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
 .code-blk:hover .code-cp,.code-blk:focus-within .code-cp,.code-cp.is-copied{opacity:1}
 .code-cp:hover{color:var(--ink);background:var(--code-cp-hover-bg)}
@@ -637,25 +624,6 @@ article.card .card-details{max-width:720px}
 .repro-group.steps{margin-top:4px}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
 
-figure{margin:0;display:flex;flex-direction:column;gap:8px}
-figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}
-
-/* Four across whatever the count, so thumbnails are one size report-wide. */
-.shots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.shots img{aspect-ratio:16/10;object-fit:cover;object-position:top center;border-radius:6px}
-a.shot{display:block;position:relative;border-radius:6px;cursor:zoom-in;text-decoration:none}
-/* Quiet metadata: the screenshot draws the eye, and a step number is not a result. */
-.shot-step{position:absolute;left:8px;bottom:8px;font-size:10.5px;font-weight:500;line-height:1;padding:3px 5px;border-radius:4px;background:var(--shot-step-bg);color:var(--shot-step-text);border:1px solid var(--shot-step-border);box-shadow:var(--shot-step-shadow);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);letter-spacing:.01em;pointer-events:none}
-a.shot img{transition:border-color .15s ease}
-a.shot:hover img{border-color:var(--hover-border)}
-a.shot:hover{text-decoration:none}
-a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-a.shot[hidden]{display:none}
-/* A step's several shots share one tile: one sheet peeks out behind it, into
-   the grid gap, and the tag carries the count. */
-.shot.stk>img{position:relative;z-index:2}.shot.stk .shot-step{z-index:3}
-/* The negative margins cancel the tag's padding, so the count runs flush to its edge. */
-.shot-n{display:inline-block;margin:-3px -5px -3px 5px;padding:3px 5px;border-left:1px solid var(--shot-n-border);background:var(--shot-n-bg);color:var(--shot-n-text);border-radius:0 3px 3px 0}
 /* The end of a card: closed rows, fact then hypothesis then suggestion. Solid
    for what the run saw or found, dashed for the guess. */
 .card-details{display:flex;flex-direction:column;gap:8px}
@@ -664,7 +632,9 @@ a.shot[hidden]{display:none}
 .lc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:14px 0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body);transition:color .15s ease}
 .lc>summary::-webkit-details-marker{display:none}
 .lc>summary:hover{color:var(--ink)}
-.lc>summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+/* The ring follows the row's own rounded border, open or closed, rather than circling the summary line inside it. */
+.lc>summary:focus-visible{outline:none}
+.lc:has(>summary:focus-visible){outline:2px solid var(--focus);outline-offset:-1px}
 .lc-tail{font-weight:500;color:var(--faint)}
 /* A count reads "2x" with a letter on the baseline, kept lowercase in an uppercase label. */
 .n-x{text-transform:none;letter-spacing:.02em}
@@ -673,14 +643,14 @@ a.shot[hidden]{display:none}
 .ev-note{color:var(--muted)}
 .lc .lc-chev{flex:none;transition:transform .15s ease}
 .lc[open] .lc-chev{transform:rotate(90deg)}
-.lc-body{padding:0 0 16px 20px;display:flex;flex-direction:column;gap:14px}
+.lc-body{padding:0 0 16px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .lc-body p{font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 .err{display:flex;flex-direction:column;gap:8px;min-width:0}
 .err-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
 .err-src{font-family:var(--mono)}
 .err-code{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--body);background:var(--thead);border:1px solid var(--hairline);border-radius:6px;padding:10px 14px;overflow-x:auto}
 .err-msg{color:var(--major-text);white-space:pre-wrap}
-.err-frame{padding-left:16px;white-space:nowrap}
+.err-frame{padding-left:16px;overflow-wrap:anywhere}
 /* Regression test: one label style, one meta style; sizes fixed so the block never inherits the page's. */
 .rt-group{display:flex;flex-direction:column;gap:6px}
 .rt-group+.rt-group{gap:4px}
@@ -756,6 +726,8 @@ span.rt-file{color:var(--body)}
 .cv>summary::-webkit-details-marker{display:none}
 .cv>summary:hover{background:var(--thead)}
 .cv>summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+/* The open row's divider would cut through the ring's bottom edge. */
+.cv[open]>summary:focus-visible::after{display:none}
 .cv[open]>summary{background:var(--cv-open);position:relative}
 .cv[open]>summary:hover{background:var(--cv-open-hover)}
 .cv[open]>summary::after{content:"";position:absolute;left:41px;right:20px;bottom:0;height:1px;background:var(--border)}
@@ -968,7 +940,6 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	.row-head{display:none}
 	.cov-notrun{grid-column:auto}
 	.cv-chev-cell{justify-content:flex-start}
-	.shots{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.lb{padding:12px}
 	.fv-m{display:none}
 	.fv-b{padding:0 7px}

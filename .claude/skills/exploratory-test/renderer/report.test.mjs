@@ -432,44 +432,18 @@ test('renderReportHtml marks a major finding card only for the Party theme', () 
 	assert.match(html, /--major-card-shadow: none;/);
 });
 
-test('renderReportHtml renders thumbnails as lazy images that open the lightbox', () => {
-	const html = renderReportHtml(FULL);
-	const thumbs = [...html.matchAll(/<a class="shot" [^>]*>\s*<img [^>]*>/g)].map(m => m[0]);
-	assert.ok(thumbs.length >= 1);
-	for (const thumb of thumbs) {
-		assert.match(thumb, /loading="lazy"/);
-		assert.match(thumb, /alt="[^"]+"/);
-		// A real link to the raw image, so it still works before the script runs.
-		assert.match(thumb, /href="https:\/\/cdn\.example\/shots\//);
-		assert.match(thumb, /aria-label="View full size: [^"]+"/);
-	}
+test('renderReportHtml puts no thumbnail on a card: each screenshot is a link its step opens', () => {
+	const html = renderReportHtml(TYPED);
+	const c = html.slice(html.indexOf('<article id="f2"'), html.indexOf('</article>', html.indexOf('<article id="f2"')));
+	assert.doesNotMatch(c, /<figure|class="shots"/);
+	// The only image is the step icon's preview; the full-size one is a hidden link to the raw file.
+	assert.equal((c.match(/<img [^>]*23-continue-visible-still-empty\.png"/g) || []).length, 1);
+	assert.match(c, /<a class="shot" id="shot-f2-1" href="shots\/23-continue-visible-still-empty\.png"[^>]*data-step-href="#f2-s5" hidden><\/a>/);
 	assert.match(html, /<div class="lb" id="lightbox"[^>]*hidden>/);
-});
-
-test('renderReportHtml shows each screenshot once, under Evidence', () => {
-	const html = renderReportHtml(FULL);
-	const card = html.slice(html.indexOf('<article id="f1"'), html.indexOf('<article id="f2"'));
-	// The embedded shot used to be rendered beside Reproduce as well.
-	assert.equal((card.match(/<img src="[^"]*01-stuck\.png"/g) || []).length, 1);
-	// The issue link carries the file name too, so look past the header.
-	assert.ok(card.indexOf('01-stuck.png', card.indexOf('</header>')) > card.indexOf('>Evidence<'));
-	assert.doesNotMatch(card.slice(card.indexOf('>Reproduce<'), card.indexOf('>Evidence<')), /<img /);
-});
-
-test('renderReportHtml lays every gallery out four across, whatever the count', () => {
-	const gallery = body => {
-		const html = renderReportHtml(md([
-			'## Findings', '',
-			'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
-			'', '### Finding 1: a claim', '', '**Evidence**', '', ...body,
-		].join('\n')));
-		return (/<div class="shots[^"]*"/.exec(html) || [])[0];
-	};
-	const shot = n => `- [shots/${n}.png](https://cdn.example/shots/${n}.png) -- shot ${n}`;
-	assert.equal(gallery([shot(1)]), '<div class="shots"');
-	assert.equal(gallery([shot(1), shot(2), shot(3), shot(4), shot(5)]), '<div class="shots"');
-	const css = renderReportHtml(md(['## Findings'].join('\n')));
-	assert.match(css, /\.shots\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\);gap:12px\}/);
+	// A shot that names no step has nowhere to open from, so only the prompt lists it.
+	const full = renderReportHtml(FULL);
+	assert.doesNotMatch(card(full, 1), /01-stuck\.png"/);
+	assert.match(promptText(full, 1), /01-stuck\.png/);
 });
 
 test('renderReportHtml renders a run with no findings and no issues', () => {
@@ -1222,8 +1196,8 @@ test('renderReportHtml ends a card with closed rows: evidence, cause, test gap',
 	const rows = [...c.matchAll(/<details class="(lc[^"]*)">/g)].map(m => m[1]);
 	assert.deepEqual(rows, ['lc ev', 'lc hyp', 'lc regtest']);
 	assert.doesNotMatch(c, /<details class="lc[^"]*" open/);
-	// Evidence holds what no step does: the error, the log line and the variant shot.
-	assert.match(c, /Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">2x<\/span>, 1 log line, 1 screenshot<\/span>/);
+	// Evidence holds what no step does, as text: the error and the log line.
+	assert.match(c, /Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">2x<\/span>, 1 log line<\/span>/);
 	assert.match(c, /Likely cause<span class="lc-tail"> &middot; Hypothesis<\/span>/);
 	assert.match(c, /Test gap<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
 	assert.doesNotMatch(c, /Error output|Regression test/);
@@ -1405,7 +1379,7 @@ test('renderReportHtml writes the test gap into the prompt after the cause', () 
 	].join('\n')));
 });
 
-test('renderReportHtml puts a step\'s screenshots on its icon, and a variant in the Evidence row', () => {
+test('renderReportHtml puts a step\'s screenshots on its icon, and keeps the Evidence row text only', () => {
 	const html = renderReportHtml(RICH, { base: '/runs/r1' });
 	const c = card(html, 1);
 	assert.doesNotMatch(c, /logtile|class="f-sec evidence"|<figcaption/);
@@ -1414,9 +1388,10 @@ test('renderReportHtml puts a step\'s screenshots on its icon, and a variant in 
 	const hidden = /<div class="shot-links" hidden>([\s\S]*?)<\/div>/.exec(c)[1];
 	assert.deepEqual([...hidden.matchAll(/data-file="([^"]+)"/g)].map(m => m[1]), ['a.png', 'b.png']);
 	assert.match(hidden, /data-step="Step 2" data-step-href="#f1-s2" hidden><\/a>/);
-	// A shot no step names is proof of its own, so it is a thumbnail under Evidence.
+	// Evidence never holds an image or says "screenshot"; a bare Variant has no step to open from.
 	const evidence = /<details class="lc ev">[\s\S]*?<\/details>/.exec(c)[0];
-	assert.match(evidence, /data-step="Variant" aria-label="Variant screenshot, view full size: Five columns">.*?<span class="shot-step" aria-hidden="true">Variant<\/span>/);
+	assert.doesNotMatch(evidence, /<img|<a class="shot|screenshot/i);
+	assert.doesNotMatch(c, /c\.png"/);
 	assert.match(evidence, /<div class="ev-log"><a href="logs\/app\.log"[^>]*>logs\/app\.log<\/a> <span class="ev-sep" aria-hidden="true">&middot;<\/span> <span class="ev-quote">timed out<\/span> <span class="ev-note">\(Twice\)<\/span><\/div>/);
 	const text = promptText(html, 1);
 	assert.match(text, /### Evidence\n- https:\/\/cdn\.example\/shots\/a\.png — Step 2: The notice\n- https:\/\/cdn\.example\/shots\/b\.png — Step 3: After Retry\n- https:\/\/cdn\.example\/shots\/c\.png — Variant: Five columns\n- \/runs\/r1\/logs\/app\.log/);
@@ -1772,7 +1747,6 @@ test('lightbox: the caption names the step and links it; the copy button shows t
 	const html = renderReportHtml(TYPED);
 	assert.match(html, /st\.className='lb-step'/);
 	assert.match(html, /\.lb-step\{font-weight:600;color:var\(--ink\);text-decoration:none\}/);
-	assert.match(html, /\.shot-step\{position:absolute;left:8px;bottom:8px;font-size:10\.5px;font-weight:500;[^}]*color:var\(--shot-step-text\);border:1px solid var\(--shot-step-border\)/);
 	assert.match(html, /<svg class="cp-ico"[^>]*><rect x="5\.5" y="5\.5" width="8" height="8" rx="1\.6"><\/rect>/);
 	assert.doesNotMatch(html, /M7 3c\.35 2\.7/);
 });
@@ -2037,7 +2011,7 @@ test('renderReportHtml pages a stack in the lightbox without wrapping', () => {
 	assert.match(html, /<\/div>\n<span class="lb-pos" hidden><\/span>\n<button type="button" class="lb-close"/);
 	assert.doesNotMatch(html, /lb-dots/);
 	assert.doesNotMatch(html, /\.shot\.stk::after/);
-	assert.match(html, /a\.shot\[hidden\]\{display:none\}/);
+	assert.match(html, /<a class="shot" id="shot-f1-2" [^>]*hidden><\/a>/);
 });
 
 // ---- File a GitHub issue --------------------------------------------------

@@ -130,7 +130,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 /**
  * A finding's repro is one ledger scenario's steps: every screenshot its steps
  * cite comes from a single scenario, and that scenario failed for this finding.
- * Other runs belong under Evidence as a Variant.
+ * Another run's screenshots go under Evidence, captioned with the step they prove.
  */
 function lintReproScenario(findings, scenarios) {
 	const problems = [];
@@ -142,7 +142,7 @@ function lintReproScenario(findings, scenarios) {
 		const whole = owners.filter(o => cited.every(shot => o.shots.has(shot))).map(o => o.s);
 		if (!whole.length) {
 			const ids = owners.filter(o => cited.some(shot => o.shots.has(shot))).map(o => o.s.id);
-			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and other runs go under Evidence as a Variant`);
+			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and another run's screenshots go under Evidence, captioned "Step N:" for the step they prove`);
 		} else if (!whole.some(s => s.findings.includes(f.n) || s.steps.some(st => st.finding === f.n))) {
 			problems.push(`report: Finding ${f.n}'s steps come from ${whole.map(s => s.id).join(' or ')}, whose Status does not name Finding ${f.n}`);
 		}
@@ -284,12 +284,13 @@ function lintKnownIssues(ledger, knownIssues) {
 }
 
 /**
- * Finding screenshots with neither a `Step N:`/`Variant:` caption nor a step
- * that names them. Evidence groups by that tag, so one without it is a ledger
- * error, not a tile to show untagged.
+ * Finding screenshots that name no step on the card: no `Step N:` caption and
+ * no step citing them, a step past the last, or a bare `Variant:`. A screenshot
+ * opens only from the step it proves, so one of these has nowhere to show.
  */
 export function untaggedShots(findings) {
-	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !e.step).map(e => ({ n: f.n, file: e.file })));
+	const onStep = (f, e) => Number.isInteger(e.step?.order) && e.step.order >= 1 && e.step.order <= f.steps.length;
+	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !onStep(f, e)).map(e => ({ n: f.n, file: e.file })));
 }
 
 /** Sentences in prose, with code spans masked so a `.` inside one cannot end a sentence. */
@@ -446,6 +447,13 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 				problems.push(...comparisonProblems(b.n, label, text));
 			}
 		}
+		// Steps are instructions for the reader; which scenario ran them, and how, is the ledger's.
+		for (const step of body.filter(l => /^\d+\.\s/.test(l))) {
+			const id = /\b[SN]\d{2,}\b/.exec(step.replace(/`[^`]*`/g, ''));
+			if (id) {
+				problems.push(`report: Finding ${b.n} step "${step.slice(0, 50)}" names ${id[0]}; steps are instructions for the reader, so leave run notes out`);
+			}
+		}
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }
 	});
@@ -488,7 +496,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 
 	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? []));
 	for (const { n, file } of untaggedShots(parseReport(text).findings)) {
-		problems.push(`report: Finding ${n} screenshot ${file} has no step; caption it "Step N:" after the step it follows, or "Variant:"`);
+		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves, and if no step matches, add the step`);
 	}
 	if (repoFileExists) {
 		for (const f of parseReport(text).findings) {

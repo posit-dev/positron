@@ -195,7 +195,7 @@ test('a repro is one scenario\'s steps, and that scenario failed for the finding
 		'**Repro** -- starting state: the panel open\n\n' + shots.map((shot, k) => `${k + 1}. VERIFY step ${k + 1} -> ${k === shots.length - 1 ? 'FAIL - Finding 1' : 'PASS'}\n   Evidence: ${shot}\n`).join(''));
 	const repro = report => lintReport(report, ledger, { fileExists: () => true }).filter(p => /steps (mix|come from)/.test(p));
 	assert.deepEqual(repro(withShots('r1.png', 'r2.png')), []);
-	assert.deepEqual(repro(withShots('r2.png', 'o1.png')), ["report: Finding 1's steps mix S02 and S03; the repro is one scenario's steps, and other runs go under Evidence as a Variant"]);
+	assert.deepEqual(repro(withShots('r2.png', 'o1.png')), ["report: Finding 1's steps mix S02 and S03; the repro is one scenario's steps, and another run's screenshots go under Evidence, captioned \"Step N:\" for the step they prove"]);
 	assert.deepEqual(repro(withShots('p.png')), ["report: Finding 1's steps come from S01, whose Status does not name Finding 1"]);
 	// A screenshot no scenario cites is another rule's problem.
 	assert.deepEqual(repro(withShots('r2.png', 'stray.png')), []);
@@ -261,12 +261,22 @@ test('without a ledger, the ledger checks are skipped', () => {
 	assert.deepEqual(lintReport(REPORT, undefined, { fileExists: () => true }), []);
 });
 
-test('a finding screenshot with no step is a format problem', () => {
-	const shot = caption => REPORT.replace('- [shots/a.png](shots/a.png) -- Step 2: empty panel', `**Evidence**\n\n- [shots/a.png](shots/a.png) -- ${caption}`);
-	assert.ok(lint(shot('empty panel')).some(p => /Finding 1 screenshot a\.png has no step/.test(p)));
-	for (const caption of ['Step 2: empty panel', 'Variant: empty panel']) {
-		assert.ok(!lint(shot(caption)).some(p => /has no step/.test(p)), caption);
+test('a finding screenshot that names no step on the card is a format problem', () => {
+	const shot = caption => REPORT.replace('1. Click Retry.', '**Repro**\n\n1. Click Retry.')
+		.replace('- [shots/a.png](shots/a.png) -- Step 2: empty panel', `**Evidence**\n\n- [shots/a.png](shots/a.png) -- ${caption}`);
+	const flagged = caption => lint(shot(caption)).some(p => /Finding 1 screenshot a\.png names no step; caption it "Step N:" for the step it proves, and if no step matches, add the step/.test(p));
+	// Every screenshot opens from the step it proves, so a bare Variant or a step past the last has nowhere to go.
+	for (const caption of ['empty panel', 'Variant: empty panel', 'Step 3: empty panel']) {
+		assert.ok(flagged(caption), caption);
 	}
+	assert.ok(!flagged('Step 2: empty panel'));
+});
+
+test('a finding step that carries a run note is a format problem', () => {
+	const noted = REPORT.replace('1. Click Retry.', '1. Click Retry (S05 ran this together with two other values).');
+	assert.deepEqual(lint(noted), ['report: Finding 1 step "1. Click Retry (S05 ran this together with two oth" names S05; steps are instructions for the reader, so leave run notes out']);
+	// An ID inside code is the reader's to type, not a note.
+	assert.deepEqual(lint(REPORT.replace('1. Click Retry.', '1. Run `S05 = 1`.')), []);
 });
 
 test('a finding ends where Run details or the verification starts', () => {

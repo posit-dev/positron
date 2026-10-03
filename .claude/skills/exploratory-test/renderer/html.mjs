@@ -413,67 +413,32 @@ function findingShots(f) {
 	return f.evidence.filter(item => item.kind === 'shot');
 }
 
-/** Whether a screenshot opens from one of the card's steps, rather than standing alone as a variant does. */
+/** Whether a screenshot opens from one of the card's steps. */
 function onStep(f, item) {
 	const order = item.step?.order;
 	return Number.isInteger(order) && order >= 1 && order <= f.steps.length;
 }
 
 /**
- * The lightbox's links to a finding's screenshots. A step's shots are hidden
- * links: its icon opens them, so the card never shows them twice. A shot tied
- * to no step, such as a variant, is a thumbnail in the Evidence row; `loose`
- * returns those, and the default returns the hidden rest.
+ * The lightbox's links to a finding's screenshots, one group per step, as
+ * hidden links: the step's icon opens them, so the card shows each once. A
+ * shot that names no step on the card has nowhere to open from, so lint
+ * requires one; it stays in the agent prompt's Evidence.
  */
-function renderShotLinks(f, { loose = false } = {}) {
-	const shots = findingShots(f);
-	if (!shots.length) {
-		return '';
-	}
+function renderShotLinks(f) {
 	const n = f.n;
-	// One tile per step label, where its first shot was. The rest of a stack are
-	// hidden links, so the lightbox and the step icons still reach them by id.
-	const groups = [];
-	const byLabel = new Map();
-	shots.forEach((item, i) => {
-		const label = item.step?.label;
-		const group = label && byLabel.get(label);
-		if (group) {
-			group.push({ item, i });
-		} else {
-			groups.push([{ item, i }]);
-			if (label) { byLabel.set(label, groups.at(-1)); }
+	const groups = new Map();
+	findingShots(f).forEach((item, i) => {
+		if (onStep(f, item)) {
+			groups.set(item.step.order, [...(groups.get(item.step.order) ?? []), { item, i }]);
 		}
 	});
-	const tiles = groups.map((group, g) => (onStep(f, group[0].item) === loose ? '' : group.map(({ item, i }, k) => {
-		// A real link to the raw image, so the thumbnail still works without
-		// JavaScript; the script intercepts the click and opens the lightbox.
-		// The full-size view links the step back, when there is one to land on.
-		const step = item.step;
-		const stepHref = step && Number.isInteger(step.order) && step.order <= f.steps.length ? `#f${n}-s${step.order}` : '';
-		const attrs = `id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
-			+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
-			+ (step ? ` data-step="${escapeHtml(step.label)}"` : '')
-			+ (stepHref ? ` data-step-href="${stepHref}"` : '');
-		if (k > 0 || !loose) {
-			return `<a class="shot" ${attrs} hidden></a>`;
-		}
-		const stack = group.length > 1;
-		const label = stack
-			? `${step.label}: ${group.length} screenshots, view full size`
-			: `${step ? `${step.label} screenshot, view` : 'View'} full size: ${item.caption}`;
-		return `<a class="shot${stack ? ' stk' : ''}" ${attrs} aria-label="${escapeHtml(label)}">`
-			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy">`
-			+ (step ? `<span class="shot-step" aria-hidden="true">${escapeHtml(step.label)}${stack ? `<span class="shot-n">${group.length}</span>` : ''}</span>` : '')
-			+ '</a>';
-	}).join(''))).filter(Boolean);
-
-	if (!tiles.length) {
-		return '';
-	}
-	return loose
-		? `<div class="shots">${tiles.map(t => `<figure>${t}</figure>`).join('')}</div>`
-		: `<div class="shot-links" hidden>${tiles.join('')}</div>`;
+	// A real link to the raw image, so it still works without JavaScript; the
+	// script intercepts the click and opens the lightbox, which links the step back.
+	const links = [...groups.values()].map((group, g) => group.map(({ item, i }) => `<a class="shot" id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
+		+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
+		+ ` data-step="${escapeHtml(item.step.label)}" data-step-href="#f${n}-s${item.step.order}" hidden></a>`).join('')).join('');
+	return links ? `<div class="shot-links" hidden>${links}</div>` : '';
 }
 
 /**
@@ -1017,9 +982,9 @@ function processHtml(text, html) {
 }
 
 /**
- * Proof that is not tied to a step: logged errors, log lines, notes, and
- * screenshots no step names. Step screenshots are on their steps, so a card
- * with nothing else has no Evidence row.
+ * Proof that is not tied to a step, as text only: logged errors, log lines and
+ * notes. Every screenshot is on the step it proves, so a card with nothing
+ * else has no Evidence row.
  */
 function renderEvidenceRow(f, sha, exists) {
 	// A message with no stack and no file:line is not something a reader can act
@@ -1027,9 +992,7 @@ function renderEvidenceRow(f, sha, exists) {
 	const errors = f.errors.filter(e => e.frames.length || /[\w.-]+\.\w+:\d+/.test(e.message));
 	const logs = f.evidence.filter(e => e.kind === 'log');
 	const notes = f.evidence.filter(e => e.kind === 'note');
-	const shots = renderShotLinks(f, { loose: true });
-	const looseShots = findingShots(f).filter(e => !onStep(f, e)).length;
-	if (!errors.length && !logs.length && !notes.length && !shots) {
+	if (!errors.length && !logs.length && !notes.length) {
 		return '';
 	}
 	const errorHtml = errors.map(e => {
@@ -1060,10 +1023,9 @@ function renderEvidenceRow(f, sha, exists) {
 	const tail = [
 		errors.length === 1 ? `1 error${count > 1 ? `, <span class="n-x">${count}x</span>` : ''}` : errors.length ? plural(errors.length, 'error') : '',
 		logs.length ? plural(logs.length, 'log line') : '',
-		looseShots ? plural(looseShots, 'screenshot') : '',
-		!errors.length && !logs.length && !looseShots && notes.length ? plural(notes.length, 'note') : '',
+		!errors.length && !logs.length && notes.length ? plural(notes.length, 'note') : '',
 	].filter(Boolean).join(', ');
-	return collapsedRow(' ev', 'Evidence', tail, errorHtml + logHtml + noteHtml + shots);
+	return collapsedRow(' ev', 'Evidence', tail, errorHtml + logHtml + noteHtml);
 }
 
 function renderRegressionTest(f, sha) {

@@ -441,11 +441,14 @@ in Run details.
 A finding's steps are the minimal sequence from the scenario that found it: its
 actions plus the verify steps that matter, keeping PASS checks that show what
 still works just before the failure. Every step is one that scenario ran; stop
-at the failure unless it went on. Another scenario's run of the same bug goes
-under Evidence as a `Variant:`.
+at the failure unless it went on. Another scenario's run of the same bug, such
+as a cold replay, goes under Evidence captioned with the step it proves.
 
 Every finding's steps stand on their own: no "as Finding 1", no "same as
-above". Repeat the preconditions in full each time.
+above". Repeat the preconditions in full each time. Steps are instructions for
+the reader, so they carry no run notes: not which scenario ran them, how often,
+or what else ran alongside ("S05 ran this together with two other values").
+That belongs in the ledger.
 
 Use this block for every finding. `N` is the table's row number; it ties the
 block to that row and to ledger scenarios whose `Status:` names Finding N.
@@ -476,7 +479,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 **Evidence**
 
-- [shots/<file>](shots/<file>) -- Variant: <another scenario's run of the same bug>
+- [shots/<file>](shots/<file>) -- Step <N>: <what another scenario's run of this step shows>
 - `<log path>` -- <quoted line with its timestamp>
 
 **Error output** -- `<log path>` | <Renderer process, Extension host, Main process, Python kernel or R kernel> | Logged <N>x (<when>)
@@ -514,12 +517,14 @@ Reproduce or Evidence. Plain words: no "unfortunately", "incorrectly" or
 
 Keep every step's `Evidence:` line when you copy steps from the ledger into a
 finding: the card puts each step's shot on its step, captioned with the check.
-List a shot under Evidence only to give it a better caption, `Step N:`, or when
-it follows no step, `Variant:`. Note the step in `actions.log` when you take
-the shot.
+Every screenshot opens from the step it proves, so list a shot under Evidence
+only to give it a better caption or to add another run's shot of a step, and
+caption it `Step N:` for that step; a step can hold several. If another run's
+shot matches no step, the steps are missing one: add it. Note the step in
+`actions.log` when you take the shot.
 
-Evidence holds only proof that is not tied to a step: a log line, an error, a
-variant. A path to suspect code is where to look, so it goes in Cause.
+On the card, Evidence is text only: an error, a stack, a log line. A path to
+suspect code is where to look, so it goes in Cause.
 
 Report genuine problems only. A finding a human cannot verify from its
 artifacts is wasted work, so prefer one finding with a timestamped log excerpt
