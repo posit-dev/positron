@@ -7,7 +7,7 @@ metadata:
   # verifier.md, isolator.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.18"
+  version: "1.19"
 ---
 
 # Exploratory testing
@@ -27,8 +27,11 @@ narrow re-test of one known scenario; it is not good enough for discovery.
 The brief is the only context the agent has, so make it self-contained: the
 checkout path, the branch, the base and head SHAs and the `git diff` that shows
 the change between them, what the change is meant to
-do as a user would describe it, and the blast radius you are nervous about.
-State intent and risk; do not state what you expect to work.
+do as a user would describe it, and the blast radius you are nervous about,
+riskiest first. State intent and risk; do not state what you expect to work.
+Fit the blast radius to the time: under 20 minutes, name at most three areas,
+since a run reaches about one area every three to five minutes and what it
+does not reach is lost.
 
 Exploring stops after 30 minutes unless the person names another limit
 ("spend an hour on it", "no limit"). When you spawn the agent, tell them the

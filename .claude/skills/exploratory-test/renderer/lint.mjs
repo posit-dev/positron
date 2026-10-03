@@ -47,6 +47,9 @@ function evidenceFiles(value) {
 	return value.split(/[\s,;()[\]]+/).map(t => t.replace(/^shots\//, '')).filter(t => /^[\w.-]+\.[a-z0-9]{2,5}$/i.test(t));
 }
 
+// A one-line Result, as explorer.md asks; anything longer is a scenario's worth of notes.
+const RESULT_MAX = 160;
+
 function lintLedger(ledger, findingNumbers, fileExists) {
 	const problems = [];
 	const lines = prose(ledger);
@@ -64,6 +67,8 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		if (!current) { continue; }
 		const status = /^Status:\s*(.*)$/.exec(line);
 		if (status) { current.status = status[1].trim(); }
+		const result = /^Result:\s*(.*)$/.exec(line);
+		if (result) { current.result = result[1].trim(); }
 		const verify = /^\s*(\d+)\.\s+VERIFY\b/i.exec(line);
 		if (verify) {
 			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), observed: false, evidence: false, log: false });
@@ -103,6 +108,11 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			}
 		}
 		if (!s.verifies.length) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
+		// A Result that runs on is usually carrying something the run did not
+		// expect, and in a pass that is where a finding goes unnoticed.
+		if (s.result && (s.result.length > RESULT_MAX || sentencesOf(s.result).length > 1)) {
+			problems.push(`ledger: ${s.id} Result: is ${sentencesOf(s.result).length > 1 ? `${sentencesOf(s.result).length} sentences` : `${s.result.length} characters`}; keep it to one short sentence, and give anything you did not expect its own VERIFY step`);
+		}
 		for (const v of s.verifies) {
 			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own`); }
 			const missing = v.fail ? ['observed', 'log'].filter(key => !v[key]) : [];

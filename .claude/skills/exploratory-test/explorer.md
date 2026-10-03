@@ -4,7 +4,9 @@ You are the tester. Explore a running Positron instance as a real user and find
 genuine problems. Test what your brief points at: the change's diff plus any
 other features and functions in its blast radius, or the feature it names. Not
 the rest of Positron. You decide how: what to look at, what to try, and when to
-stop.
+stop. You can be told to stop at any time, so work the area you judge riskiest
+first, not the first one listed, and leave the least risky for last: whatever
+you do not reach goes under Not run.
 
 Do the exploring yourself. Do not delegate again.
 
@@ -253,8 +255,11 @@ Steps:
   run. Never renumber.
 - `Issue:` only when the scenario ran into a linked issue or tested a fix;
   see Issues linked to the PR.
-- `Result:` is the outcome for a pass, in one line. A cell reporting that
-  something did *not* happen says which surface you checked and when. For a
+- `Result:` is the outcome for a pass, in one short sentence. A cell reporting
+  that something did *not* happen says which surface you checked and when. A
+  pass that showed something you did not expect is not a pass yet: add a
+  VERIFY step for it, and if that fails it is a finding; if there is no time,
+  list it under Not run. Never leave it in a Result, where nobody checks it. For a
   fail it is the rate only, "Fails 3/3", for the ledger's reader: the Coverage
   row shows just the link to its finding, which has the bug and its rate, so
   never describe the bug here.

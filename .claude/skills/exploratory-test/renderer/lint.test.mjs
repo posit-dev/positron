@@ -204,6 +204,15 @@ test('flags a test file that is not in the repository, but not one marked new', 
 	assert.deepEqual(lint(tests), []);
 });
 
+test('flags a ledger Result longer than one short sentence', () => {
+	const result = text => lint(REPORT, LEDGER.replace('Result: loads', `Result: ${text}`)).filter(p => /Result:/.test(p));
+	assert.deepEqual(result('The panel loads with every row.'), []);
+	assert.deepEqual(result('The panel loads. Restart went ahead without an answer.'),
+		['ledger: S01 Result: is 2 sentences; keep it to one short sentence, and give anything you did not expect its own VERIFY step']);
+	assert.deepEqual(result(`The panel loads ${'and keeps going '.repeat(10)}to the end`),
+		['ledger: S01 Result: is 186 characters; keep it to one short sentence, and give anything you did not expect its own VERIFY step']);
+});
+
 test('flags a FAIL without Log:, a pass without a screenshot and a bad Status', () => {
 	const ledger = LEDGER
 		.replace('   Log: none found in logs/r.log\n', '')
