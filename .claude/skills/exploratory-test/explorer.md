@@ -323,8 +323,9 @@ ledger above shows, in the ledger and in a finding.
 no exceptions: a reviewer reads each check against the picture of the app at
 that moment. Take it in the same tool call as the check (snapshot or `eval`,
 then `screenshot`), so it shows the state the check judged and costs no extra
-turn. Name it `<scenario>-<step>.png`, such as `S03-06.png`, and add a letter
-for a second shot of the same step, `S03-06b.png`. Cite it as a bare file name
+turn. Name it `<scenario>-<step>.png`, such as `S03-06.png`. One shot shows a
+check; take a second, `S03-06b.png`, only when it shows a different moment the
+check depends on, such as the same panel still loading 15 s later. Cite it as a bare file name
 on that step's `Evidence:` line. Never cite one shot for two checks, even when
 nothing changed between them; take another. A check about something off screen,
 such as a log line, still gets a shot of the app as it stood. The check counts
@@ -516,12 +517,18 @@ Reproduce or Evidence. Plain words: no "unfortunately", "incorrectly" or
 "confusingly".
 
 Keep every step's `Evidence:` line when you copy steps from the ledger into a
-finding: the card puts each step's shot on its step, captioned with the check.
-Every screenshot opens from the step it proves, so list a shot under Evidence
-only to give it a better caption or to add another run's shot of a step, and
-caption it `Step N:` for that step; a step can hold several. If another run's
-shot matches no step, the steps are missing one: add it. Note the step in
-`actions.log` when you take the shot.
+finding: the card puts each step's shot on its step, captioned with the check,
+and opens on the one the step cites first. Every screenshot opens from the step
+it proves, so list a shot under Evidence only to give it a better caption or to
+add another run's shot of a step, and caption it `Step N:` for that step. A
+step shows one screenshot, the one that shows its check, and at most one more:
+a different moment, such as "still loading 15 s later", or another run of the
+same step. Caption that second one with what it shows that the first does not;
+lint flags a second that repeats the first's caption, and a third. A control
+that proves Expected, such as pandas showing the right values, is not proof of
+the failing step: make it a PASS step of its own, or leave it out when
+Observed already states it. If another run's shot matches no step, the steps
+are missing one: add it. Note the step in `actions.log` when you take the shot.
 
 On the card, Evidence is text only: an error, a stack, a log line. A path to
 suspect code is where to look, so it goes in Cause.

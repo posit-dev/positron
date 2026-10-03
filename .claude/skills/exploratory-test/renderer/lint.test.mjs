@@ -272,6 +272,19 @@ test('a finding screenshot that names no step on the card is a format problem', 
 	assert.ok(!flagged('Step 2: empty panel'));
 });
 
+test('a step with more than two screenshots, or a second that repeats the first, is a format problem', () => {
+	const shots = (cited, extra = []) => REPORT.replace('1. Click Retry.', '**Repro**\n\n1. Click Retry.')
+		.replace('- [shots/a.png](shots/a.png) -- Step 2: empty panel', ['**Evidence**', '', ...extra].join('\n'))
+		.replace('2. VERIFY the panel loads -> FAIL - Finding 1', `2. VERIFY the panel loads -> FAIL - Finding 1\n   Evidence: ${cited}`);
+	const problems = report => lint(report).filter(p => /screenshot/.test(p));
+	assert.deepEqual(problems(shots('a.png')), []);
+	// A second shot with its own caption is a different moment; with the check's caption it is a repeat.
+	assert.deepEqual(problems(shots('a.png, b.png', ['- [shots/b.png](shots/b.png) -- Step 2: still empty 15 s later'])), []);
+	assert.deepEqual(problems(shots('a.png, b.png')), ["report: Finding 1 step 2's second screenshot b.png repeats the first one's caption; caption it under Evidence with what it shows that the first does not"]);
+	assert.deepEqual(problems(shots('a.png, b.png', ['- [shots/b.png](shots/b.png) -- Step 2: later', '- [shots/c.png](shots/c.png) -- Step 2: pandas loads'])),
+		['report: Finding 1 step 2 has 3 screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out']);
+});
+
 test('a finding step that carries a run note is a format problem', () => {
 	const noted = REPORT.replace('1. Click Retry.', '1. Click Retry (S05 ran this together with two other values).');
 	assert.deepEqual(lint(noted), ['report: Finding 1 step "1. Click Retry (S05 ran this together with two oth" names S05; steps are instructions for the reader, so leave run notes out']);

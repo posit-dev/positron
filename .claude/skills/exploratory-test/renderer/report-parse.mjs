@@ -1363,10 +1363,16 @@ export function parseReport(markdown, { ledger } = {}) {
 				parsed.evidence.push({ kind: 'shot', src: e.href, file: e.file, caption: plainText(step.md) });
 			}
 		}
-		// Screenshots in step order, so the gallery reads like the repro; logs and
-		// notes keep their order after them. Sort is stable.
+		// Screenshots in step order, so they read like the repro. Within a step,
+		// the shots its own Evidence: line cites come first, in that order: the
+		// step's icon opens on the one that shows its check, and any extra follows.
+		// Logs and notes keep their order after them. Sort is stable.
 		const order = e => (stepOf.get(e.file) ?? e.step)?.order ?? Number.MAX_SAFE_INTEGER;
-		const shots = parsed.evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b));
+		const citedAt = e => {
+			const k = steps[order(e) - 1]?.evidence.findIndex(x => x.file === e.file) ?? -1;
+			return k === -1 ? Number.MAX_SAFE_INTEGER : k;
+		};
+		const shots = parsed.evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b) || citedAt(a) - citedAt(b));
 		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
 
 		return {

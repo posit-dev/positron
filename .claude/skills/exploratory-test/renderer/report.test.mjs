@@ -1311,6 +1311,20 @@ test('renderReportHtml shows a Python traceback as frames, and links only the re
 	assert.match(c, /<span title="Logged by the language runtime">Python kernel<\/span>/);
 });
 
+test('a step opens on the screenshot it cites, before any listed under Evidence for it', () => {
+	const [f] = parseReport(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '',
+		'### Finding 1: a claim', '', '**Repro**', '',
+		'1. Run `%view df`.',
+		'2. VERIFY it loads -> FAIL - Finding 1', '   Evidence: S03-03.png, S03-03b.png', '',
+		'**Evidence**', '',
+		'- [shots/S03-13.png](shots/S03-13.png) -- Step 2: pandas loads the same column',
+		'- [shots/S03-03b.png](shots/S03-03b.png) -- Step 2: still loading 15 s later',
+	].join('\n'))).findings;
+	assert.deepEqual(f.evidence.filter(e => e.kind === 'shot').map(e => `${e.file} ${e.caption}`),
+		['S03-03.png Verify it loads', 'S03-03b.png Still loading 15 s later', 'S03-13.png Pandas loads the same column']);
+});
+
 test('parseReport keeps the Evidence bullets that follow an embedded screenshot', () => {
 	const [f] = parseReport(md([
 		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '',

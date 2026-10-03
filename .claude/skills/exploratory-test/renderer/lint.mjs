@@ -498,6 +498,21 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	for (const { n, file } of untaggedShots(parseReport(text).findings)) {
 		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves, and if no step matches, add the step`);
 	}
+	// One screenshot shows a check; a second earns its place only by showing a
+	// different moment, and says so. A control proves Expected, not the failure.
+	for (const f of parseReport(text).findings) {
+		const byStep = new Map();
+		for (const e of f.evidence.filter(e => e.kind === 'shot' && Number.isInteger(e.step?.order) && e.step.order <= f.steps.length)) {
+			byStep.set(e.step.order, [...(byStep.get(e.step.order) ?? []), e]);
+		}
+		for (const [k, shots] of byStep) {
+			if (shots.length > 2) {
+				problems.push(`report: Finding ${f.n} step ${k} has ${shots.length} screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out`);
+			} else if (shots.length === 2 && shots[0].caption === shots[1].caption) {
+				problems.push(`report: Finding ${f.n} step ${k}'s second screenshot ${shots[1].file} repeats the first one's caption; caption it under Evidence with what it shows that the first does not`);
+			}
+		}
+	}
 	if (repoFileExists) {
 		for (const f of parseReport(text).findings) {
 			const paths = [...f.tests.cases.filter(c => c.path && !isNewTestFile(c)), ...f.tests.related].map(t => t.path);
