@@ -20,6 +20,10 @@ Pass whatever its launch section says is yours to pass, put launcher arguments
 before the `--`, and do not opt out of the arguments the launcher supplies; its
 launch section says why each one matters.
 
+Run code in a console only with drive-positron's `console-run.sh`, naming the
+language, never with a helper of your own: with a Python and an R session open,
+code typed into the active console lands in the wrong one.
+
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. A run made of single Playwright
 commands each returning a line or two is the pattern to avoid. Batch

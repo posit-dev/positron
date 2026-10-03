@@ -260,6 +260,27 @@ Do not use `type` or `fill` for notebook cell editors or chat inputs backed by M
 
 Use individual `press` operations when testing actual keyboard handling.
 
+### Run code in a console
+
+With more than one session open, the active console is whichever was used
+last, so typing into "the console" sends R code to Python as often as not. Run
+code with `console-run.sh` instead of a helper of your own. It makes the named
+language's console active, pastes into its input, presses Enter, and checks
+that the code was echoed in that console:
+
+```bash
+.claude/skills/drive-positron/scripts/console-run.sh --session positron --language r 'x <- 1:10'
+printf 'def f(x):\n    return x + 1\n' | .claude/skills/drive-positron/scripts/console-run.sh --session positron --language python
+```
+
+It prints one JSON line: the session it used, whether it switched consoles,
+whether the session was busy, and whether the code was echoed. It exits 1 when
+the code did not land in that console. The code is pasted as written, so `\n`
+inside a string stays a backslash and an `n`. It does not start a session; start
+one first. With two sessions of one language, pass `--name` with part of the
+session's name as its console tab shows it. `--no-enter` pastes without running,
+for checking completions or an unfinished line.
+
 ### Read a whole quick pick
 
 Do not count `.monaco-list-row` elements and do not set `scrollTop`. Quick picks
