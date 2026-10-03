@@ -693,7 +693,7 @@ function parseFindingBody(lines) {
 		status: { confirmed: null, reproduced: null },
 		summary: [],
 		observed: '', expected: '', preconditions: [],
-		feature: '', affects: '', workaround: '',
+		feature: '', impact: '',
 		reproStart: '', steps: [],
 		evidence: [],
 		cause: '',
@@ -821,8 +821,13 @@ function parseFindingBody(lines) {
 			out.matched++;
 			continue;
 		}
+		if (label === 'impact') {
+			out.impact = trimmed.replace(/^\*\*[^*]+:\*\*\s*/, '');
+			out.matched++;
+			continue;
+		}
+		// Replaced by Impact; an older report's lines are read and dropped.
 		if (label === 'affects' || label === 'workaround') {
-			out[label] = trimmed.replace(/^\*\*[^*]+:\*\*\s*/, '');
 			out.matched++;
 			continue;
 		}
@@ -1353,8 +1358,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			rowTitle: row['finding'] ? inline(row['finding']) : inline(start.claim),
 			impact: row['impact'] ? inline(sentenceCase(row['impact'])) : '',
 			// Who hits it and how to get past it, one clause each, under the card title.
-			affectsHtml: parsed.affects ? inline(parsed.affects) : '',
-			workaroundHtml: parsed.workaround ? inline(parsed.workaround) : '',
+			impactHtml: parsed.impact ? inline(parsed.impact) : '',
 			severity: parseSeverity(row['severity']),
 			reproduced,
 			// Unproven is 0/M by definition, so the rate settles it when no strip was written.
@@ -1386,8 +1390,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			// from this parse rather than the rendered card, so the two cannot disagree.
 			text: {
 				impact: row['impact'] ? sentenceCase(row['impact']) : '',
-				affects: parsed.affects,
-				workaround: parsed.workaround,
+				impactStatement: parsed.impact,
 				observed: parsed.observed ?? '',
 				expected: parsed.expected ?? '',
 				preconditions,

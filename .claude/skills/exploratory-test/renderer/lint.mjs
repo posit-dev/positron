@@ -292,6 +292,40 @@ export function untaggedShots(findings) {
 	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !e.step).map(e => ({ n: f.n, file: e.file })));
 }
 
+// The way out when there isn't one: said the same way every time.
+const NO_WAY_OUT = /^(No workaround found|Nothing breaks; it's (wording|spacing) only)\.$/;
+
+/**
+ * A finding's Impact is two sentences: who is hit and what it costs them, then
+ * the way out. It earns its place under the title only by saying something the
+ * title does not.
+ */
+function impactProblems(n, impact, title) {
+	const problems = [];
+	const prose = impact.replace(/`[^`]*`/g, 'code');
+	const sentences = prose.split(/(?<=[.!?])\s+(?=["A-Z])/).filter(Boolean);
+	if (!/^Anyone (who|whose)\b/.test(impact)) {
+		problems.push(`report: Finding ${n} Impact: starts "${impact.slice(0, 30)}"; start it "Anyone who" or "Anyone whose"`);
+	}
+	if (sentences.length !== 2) {
+		problems.push(`report: Finding ${n} Impact: is ${sentences.length} sentence${sentences.length === 1 ? '' : 's'}; write two: who is hit and what it costs them, then the way out`);
+	} else if (/^(No workaround|Nothing breaks)\b/.test(sentences[1]) && !NO_WAY_OUT.test(sentences[1])) {
+		problems.push(`report: Finding ${n} Impact: "${sentences[1]}"; write "No workaround found.", "Nothing breaks; it's wording only." or "Nothing breaks; it's spacing only."`);
+	}
+	const words = prose.split(/\s+/).length;
+	if (words > 40) {
+		problems.push(`report: Finding ${n} Impact: is ${words} words; keep it to two short sentences`);
+	}
+	// Most of the title's words again means it restates the claim, not who it hits.
+	const stem = w => w.toLowerCase().replace(/[^a-z0-9]/g, '').replace(/(?<=\w{4})s$/, '');
+	const titleWords = [...new Set(title.split(/\s+/).map(stem).filter(w => w.length >= 4))];
+	const said = new Set(prose.split(/\s+/).map(stem));
+	if (titleWords.length >= 3 && titleWords.filter(w => said.has(w)).length / titleWords.length >= 0.75) {
+		problems.push(`report: Finding ${n} Impact: repeats the title; say who is hit and what it costs them`);
+	}
+	return problems;
+}
+
 /**
  * @param {string} markdown report.md
  * @param {string | undefined} ledger ledger.md, when the run wrote one
@@ -375,23 +409,11 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (!body.some(l => /^\*\*Feature:\*\*\s*\S/.test(l))) {
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
 		}
-		const affects = body.find(l => /^\*\*Affects:\*\*/.test(l))?.replace(/^\*\*Affects:\*\*\s*/, '');
-		if (!affects) {
-			problems.push(`report: Finding ${b.n} has no "**Affects:** anyone who <trigger>" line`);
-		} else if (!/^anyone (who|whose)\b/.test(affects)) {
-			problems.push(`report: Finding ${b.n} Affects: starts "${affects.slice(0, 30)}"; start it "anyone who" or "anyone whose"`);
-		}
-		const workaround = body.find(l => /^\*\*Workaround:\*\*/.test(l))?.replace(/^\*\*Workaround:\*\*\s*/, '');
-		if (!workaround) {
-			problems.push(`report: Finding ${b.n} has no "**Workaround:** <what worked, or none found>" line`);
-		} else if (/^none\b/i.test(workaround) && !/^none (found|needed \((wording|spacing) only\))$/.test(workaround)) {
-			problems.push(`report: Finding ${b.n} Workaround: "${workaround.slice(0, 40)}"; write "none found", "none needed (wording only)" or "none needed (spacing only)"`);
-		}
-		// One line under the title: about eight words each, and room for a Workaround's short reason.
-		for (const [label, text, limit] of [['Affects', affects, 10], ['Workaround', workaround, 12]]) {
-			if (text && text.split(/\s+/).length > limit) {
-				problems.push(`report: Finding ${b.n} ${label}: is ${text.split(/\s+/).length} words; keep it to about eight`);
-			}
+		const impact = body.find(l => /^\*\*Impact:\*\*/.test(l))?.replace(/^\*\*Impact:\*\*\s*/, '');
+		if (!impact) {
+			problems.push(`report: Finding ${b.n} has no "**Impact:** Anyone who <trigger> <cost>. <The way out.>" line`);
+		} else {
+			problems.push(...impactProblems(b.n, impact, lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, '')));
 		}
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }

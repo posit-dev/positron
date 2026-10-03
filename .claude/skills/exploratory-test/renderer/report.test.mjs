@@ -456,7 +456,7 @@ test('renderReportHtml shows each screenshot once, under Evidence', () => {
 	assert.doesNotMatch(card.slice(card.indexOf('>Reproduce<'), card.indexOf('>Evidence<')), /<img /);
 });
 
-test('renderReportHtml lays every gallery out six across, whatever the count', () => {
+test('renderReportHtml lays every gallery out four across, whatever the count', () => {
 	const gallery = body => {
 		const html = renderReportHtml(md([
 			'## Findings', '',
@@ -469,7 +469,7 @@ test('renderReportHtml lays every gallery out six across, whatever the count', (
 	assert.equal(gallery([shot(1)]), '<div class="shots"');
 	assert.equal(gallery([shot(1), shot(2), shot(3), shot(4), shot(5)]), '<div class="shots"');
 	const css = renderReportHtml(md(['## Findings'].join('\n')));
-	assert.match(css, /\.shots\{display:grid;grid-template-columns:repeat\(6,minmax\(0,1fr\)\);gap:12px\}/);
+	assert.match(css, /\.shots\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\);gap:12px\}/);
 });
 
 test('renderReportHtml renders a run with no findings and no issues', () => {
@@ -708,7 +708,7 @@ test('parseReport still reads the labels reports were published with', () => {
 
 test('renderReportHtml marks the setup with one P row above the steps, with no subtitles', () => {
 	const html = renderReportHtml(FULL);
-	const repro = html.slice(html.indexOf('<div class="repro">'));
+	const repro = html.slice(html.indexOf('<div class="f-sec repro">'));
 	assert.match(repro, /<div class="cv-pre f-pre" tabindex="0" aria-label="Preconditions"><span class="pre-mark" aria-hidden="true">P<\/span>/);
 	// Setup before actions, and none of the labels or phrasings this replaced.
 	assert.ok(repro.indexOf('f-pre') < repro.indexOf('class="repro-steps'));
@@ -1208,10 +1208,12 @@ function card(html, n) {
 	return html.slice(start, prompt !== -1 && prompt < end ? prompt : end);
 }
 
-test('renderReportHtml puts nothing between a finding title and Observed', () => {
-	const c = card(renderReportHtml(RICH), 1);
-	assert.doesNotMatch(c, /card-summary|repeats Observed/);
-	assert.match(c, /<\/h2><\/header>\s*<div class="two">/);
+test('renderReportHtml follows a finding title with Expected, Actual, Reproduce and Evidence, as plain sections', () => {
+	const c = card(renderReportHtml(RICH.replace('**Observed:** it never loads.', '**Expected:** it loads.\n\n**Observed:** it never loads.')), 1);
+	assert.doesNotMatch(c, /card-summary|repeats Observed|class="two"|class="oe/);
+	assert.match(c, /<\/h2><\/header>\s*<div class="f-sec"><div class="f-lab">Expected<\/div>/);
+	const labels = [...c.matchAll(/<div class="f-lab">([^<]+)<\/div>/g)].map(m => m[1]);
+	assert.deepEqual(labels, ['Expected', 'Actual', 'Reproduce', 'Evidence']);
 });
 
 test('renderReportHtml ends a card with closed rows: error, cause, regression test', () => {
@@ -2168,17 +2170,17 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
 });
-test('a finding\'s Affects and Workaround go under the card title, and into the issue and prompt as Impact', () => {
-	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, '$1\n\n**Affects:** anyone whose columns take over 10 s\n\n**Workaround:** reopen the Data Explorer');
+test('a finding\'s Impact is a box under the card title, tinted by severity, and goes into the issue and prompt', () => {
+	const impact = 'Anyone whose columns take over 10 s loses those summaries. The only way back is to reopen the Data Explorer.';
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n**Impact:** ${impact}`);
 	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
-	assert.match(html, /<\/h2><div class="f-imp"><span class="f-imp-l">Affects<\/span><span class="f-imp-t">anyone whose columns take over 10 s<\/span><span class="f-imp-l">Workaround<\/span><span class="f-imp-t">reopen the Data Explorer<\/span><\/div>/);
-	const lines = '- \\*\\*Affects:\\*\\* anyone whose columns take over 10 s\\n- \\*\\*Workaround:\\*\\* reopen the Data Explorer\\n';
+	assert.match(html, new RegExp(`</h2><p class="f-impact (major|moderate|minor)">${impact}</p>`));
 	const body = issueCopied(html, 1);
 	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]).slice(1, 3), ['Describe the issue', 'Impact']);
-	assert.match(body, new RegExp(`## Impact\\n${lines}`));
-	assert.match(unescapeHtml(promptText(html, 1)), new RegExp(`### Impact\\n[^\\n]+\\n\\n${lines}`));
+	assert.match(body, new RegExp(`## Impact\\n${impact}\\n`));
+	assert.match(unescapeHtml(promptText(html, 1)), new RegExp(`### Impact\\n[^\\n]+\\n\\n${impact}\\n`));
 	assert.doesNotMatch(issueCopied(html, 2), /## Impact/);
-	assert.equal((html.match(/class="f-imp"/g) ?? []).length, 1);
+	assert.equal((html.match(/class="f-impact /g) ?? []).length, 1);
 });
 test('issue: the claim after the Feature starts lowercase unless its first word is a name', () => {
 	const title = (claim, extra = '') => {
@@ -2612,7 +2614,7 @@ test('code copy: inline code in Reproduce copies on click, and nothing else on t
 	assert.deepEqual(chips, ['slow.py', '%run -i slow.py', 'slow.py', '%run -i slow.py', '%view df', 'df']);
 	// A code block keeps its own Copy button; Observed is prose, not a command.
 	assert.match(html, /<pre><code class="language-python">df\.head\(\)<\/code><\/pre>/);
-	assert.match(html, /<div class="oe-label">Observed<\/div><p>the grid showed <code>None<\/code>/);
+	assert.match(html, /<div class="f-lab">Actual<\/div><p class="f-txt">the grid showed <code>None<\/code>/);
 	assert.match(html, /code\.cc'\)\.forEach/);
 });
 

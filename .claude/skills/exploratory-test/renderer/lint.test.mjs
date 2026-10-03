@@ -25,9 +25,7 @@ const REPORT = `# Exploratory test: x
 
 **Feature:** console
 
-**Affects:** anyone who opens the panel
-
-**Workaround:** none found
+**Impact:** Anyone who opens the panel waits on an empty view. No workaround found.
 
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
@@ -82,25 +80,19 @@ test('flags a finding with no Feature line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 });
 
-test('flags a finding with no Affects or Workaround line', () => {
-	assert.deepEqual(lint(REPORT.replace(/\*\*Affects:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Affects:** anyone who <trigger>" line']);
-	assert.deepEqual(lint(REPORT.replace(/\*\*Workaround:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Workaround:** <what worked, or none found>" line']);
+test('flags a finding with no Impact line', () => {
+	assert.deepEqual(lint(REPORT.replace(/\*\*Impact:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Impact:** Anyone who <trigger> <cost>. <The way out.>" line']);
 });
 
-test('flags a finding precondition with no short name, or a long one', () => {
-	const pre = bullet => lint(REPORT.replace('1. Click Retry.', `**Preconditions:**\n- ${bullet}\n\n1. Click Retry.`));
-	assert.deepEqual(pre('Summaries paused | the summary setting is off'), []);
-	assert.deepEqual(pre('the summary setting is off'), ['report: Finding 1 precondition "the summary setting is off" needs "<short name> | <full text>"']);
-	assert.deepEqual(pre('the summary setting is turned off | for this run'), ['report: Finding 1 precondition name "the summary setting is turned off" is 6 words; keep it to 2 to 4']);
-});
-
-test('flags an Affects that names no one, and a none that is not an allowed form', () => {
-	assert.deepEqual(lint(REPORT.replace('anyone who opens the panel', 'the panel is blank')), ['report: Finding 1 Affects: starts "the panel is blank"; start it "anyone who" or "anyone whose"']);
-	assert.deepEqual(lint(REPORT.replace('none found', 'none, it is cosmetic')), ['report: Finding 1 Workaround: "none, it is cosmetic"; write "none found", "none needed (wording only)" or "none needed (spacing only)"']);
-	assert.deepEqual(lint(REPORT.replace('none found', 'none needed (wording only)')), []);
-	assert.deepEqual(lint(REPORT.replace('none found', 'reopen the panel')), []);
-	assert.deepEqual(lint(REPORT.replace('none found', 'reopen the panel, which reloads it')), []);
-	assert.deepEqual(lint(REPORT.replace('anyone who opens the panel', 'anyone who opens the panel from the view menu while a long job runs')), ['report: Finding 1 Affects: is 14 words; keep it to about eight']);
+test('flags an Impact that names no one, is not two sentences, or restates the title', () => {
+	const impact = text => lint(REPORT.replace('Anyone who opens the panel waits on an empty view. No workaround found.', text));
+	assert.deepEqual(impact('The panel is blank for everyone. No workaround found.'), ['report: Finding 1 Impact: starts "The panel is blank for everyon"; start it "Anyone who" or "Anyone whose"']);
+	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view.'), ['report: Finding 1 Impact: is 1 sentence; write two: who is hit and what it costs them, then the way out']);
+	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. No workaround.'), ['report: Finding 1 Impact: "No workaround."; write "No workaround found.", "Nothing breaks; it\'s wording only." or "Nothing breaks; it\'s spacing only."']);
+	assert.deepEqual(impact('Anyone who opens the panel sees the wrong label. Nothing breaks; it\'s wording only.'), []);
+	// A code span's dots do not end a sentence.
+	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. Running `df.median()` in the console gets the value.'), []);
+	assert.deepEqual(impact('Anyone who clicks Retry finds Retry does nothing. No workaround found.'), ['report: Finding 1 Impact: repeats the title; say who is hit and what it costs them']);
 });
 
 test('fenced code does not count as a heading', () => {

@@ -53,6 +53,7 @@ const LEDGER = template(/^# Test ledger/);
 const VALUES = {
 	'<version>': ['2026.10.0', '1.105.0', '22.04', '3.12.3'],
 	'<n>': '12',
+	'<A way out you saw work, or No workaround found.>': 'No workaround found.',
 	'<dev build | release build>': 'dev build',
 	'<OS>': 'Ubuntu',
 	'<platform>': 'Linux',

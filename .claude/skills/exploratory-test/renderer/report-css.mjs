@@ -51,12 +51,13 @@ const PROFESSIONAL = `
 	--stage-1: #5E646C;
 	--stage-2: #CFCAC0;
 
-	--observed-bg: #FBF5F3;
-	--observed-rule: #D8654F;
-	--observed-label: #A12C1F;
-	--expected-bg: #F7F6F2;
-	--expected-rule: #A7ACB2;
-	--expected-label: #3D4148;
+	--imp-ink: #1C1F23;
+	--imp-major-bg: #FBF1EE;
+	--imp-major-rule: #D8654F;
+	--imp-moderate-bg: #FDF6EC;
+	--imp-moderate-rule: #D9953A;
+	--imp-minor-bg: #F3F4F6;
+	--imp-minor-rule: #A3ABB6;
 
 	--thumb-border: #EFEDE7;
 	--thumb-a: #F9F8F5;
@@ -196,12 +197,13 @@ const PARTY = `
 	--stage-1: #5CE1E6;
 	--stage-2: #6E64A8;
 
-	--observed-bg: #2A1733;
-	--observed-rule: #FF4F81;
-	--observed-label: #FF8FA8;
-	--expected-bg: #221C40;
-	--expected-rule: #6A61A0;
-	--expected-label: #CFC8EA;
+	--imp-ink: #F5F1FF;
+	--imp-major-bg: #2E1A3A;
+	--imp-major-rule: #FF6B8B;
+	--imp-moderate-bg: #2C2236;
+	--imp-moderate-rule: #FFB547;
+	--imp-minor-bg: #231F3D;
+	--imp-minor-rule: #8E86C4;
 
 	--thumb-border: #2A2250;
 	--thumb-a: #1C1636;
@@ -597,29 +599,22 @@ code.cc.is-copied::after{color:var(--pass-fill)}
 @media (prefers-reduced-motion:reduce){.code-cp{transition:none}}
 
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
-/* Labels in one column, so both texts start at the same point and wrap under themselves. */
-.f-imp{display:grid;grid-template-columns:max-content minmax(0,1fr);column-gap:12px;row-gap:3px;align-items:baseline;margin-top:-2px;font-size:14px;line-height:1.5;color:var(--muted)}
-.f-imp-l{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+/* Who it hits and the way out: the one tinted element on the card, by severity. */
+.f-impact{margin:4px 0 0;max-width:720px;padding:14px 18px;border-left:3px solid var(--imp-minor-rule);border-radius:0 10px 10px 0;background:var(--imp-minor-bg);font-size:15.5px;line-height:1.6;color:var(--imp-ink)}
+.f-impact.major{background:var(--imp-major-bg);border-left-color:var(--imp-major-rule)}
+.f-impact.moderate{background:var(--imp-moderate-bg);border-left-color:var(--imp-moderate-rule)}
 .card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 
-/* Observed | Expected: the strongest sub-section in the card. */
-.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.oe{border-radius:0 8px 8px 0;padding:14px 18px 16px;display:flex;flex-direction:column;gap:6px}
-.oe .oe-label{font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase}
-.oe p{font-size:15px;line-height:1.6;color:var(--ink)}
-.oe.observed{background:var(--observed-bg);border-left:3px solid var(--observed-rule)}
-.oe.observed .oe-label{color:var(--observed-label)}
-.oe.expected{background:var(--expected-bg);border-left:3px solid var(--expected-rule)}
-.oe.expected .oe-label{color:var(--expected-label)}
+/* Below the title, one 720px reading column of plain sections; the card's gap spaces them. */
+.f-sec{display:flex;flex-direction:column;gap:10px;max-width:720px}
+.f-lab{font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body)}
+.f-txt{margin:0;font-size:15px;line-height:1.6;color:var(--body)}
+article.card .card-details{max-width:720px}
 
-/* One style for every secondary heading: darker than supporting text, but with
-   no panel or rule, so Observed and Expected stay dominant. */
-.sub{font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body)}
 
 /* Reproduce answers "how do I make this happen?", so it is text only and one
    column. Screenshots all live under Evidence, which answers "show me that it
    happened"; a featured shot here meant the same image appeared twice. */
-.repro{display:flex;flex-direction:column;gap:10px;max-width:var(--measure);margin-top:8px}
 /* What must be true first, then what to do. Setup is Coverage's P row, so
    neither part needs a label. */
 .repro-group{display:flex;flex-direction:column;gap:4px}
@@ -629,9 +624,8 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 figure{margin:0;display:flex;flex-direction:column;gap:8px}
 figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}
 
-.evidence{display:flex;flex-direction:column;gap:10px}
-/* Six across whatever the count, so thumbnails are one size report-wide. */
-.shots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+/* Four across whatever the count, so thumbnails are one size report-wide. */
+.shots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 .shots img{aspect-ratio:16/10;object-fit:cover;object-position:top center;border-radius:6px}
 a.shot{display:block;position:relative;border-radius:6px;cursor:zoom-in;text-decoration:none}
 /* Quiet metadata: the screenshot draws the eye, and a step number is not a result. */
@@ -947,7 +941,6 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	:root{--gutter:16px}
 	.tiles{grid-template-columns:minmax(0,1fr)}
 	.agents-row{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) auto auto;gap:10px}
-	.two{grid-template-columns:minmax(0,1fr);gap:16px}
 	.row{grid-template-columns:minmax(0,1fr) !important;gap:8px}
 	.row-head{display:none}
 	.cov-notrun{grid-column:auto}

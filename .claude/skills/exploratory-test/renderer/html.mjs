@@ -460,7 +460,7 @@ function renderEvidence(f) {
 			+ '</a>';
 	}).join('')).map(t => `<figure>${t}</figure>`).join('');
 
-	return `<div class="evidence" id="f${n}-evidence"><div class="sub">Evidence</div>`
+	return `<div class="f-sec evidence" id="f${n}-evidence"><div class="f-lab">Evidence</div>`
 		+ `<div class="shots">${tiles}</div></div>`;
 }
 
@@ -624,7 +624,7 @@ function buildAgentPrompt(f, report, options = {}) {
 			out.push(`### ${heading}`, safeLinks(body), '');
 		}
 	};
-	section('Impact', [t.impact, impactLines(t)].filter(Boolean).join('\n\n'));
+	section('Impact', [t.impact, t.impactStatement].filter(Boolean).join('\n\n'));
 	// So the agent checks these before fixing or filing it again.
 	section('Possibly known issues', possiblyKnown(f, options.ki).map(n => {
 		const issue = options.ki?.byNumber.get(n);
@@ -862,7 +862,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
 
 	section('Describe the issue', capitalize([t.impact, t.prose].filter(Boolean).join('\n\n') || t.summary));
-	section('Impact', impactLines(t));
+	section('Impact', t.impactStatement);
 
 	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
@@ -1072,17 +1072,9 @@ function renderPossiblyKnown(f, ki) {
 	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, ki)).join(', ')}</span></p>`;
 }
 
-/** Affects and Workaround as markdown bullets, for the filed issue and the agent prompt. */
-function impactLines(t) {
-	return [['Affects', t.affects], ['Workaround', t.workaround]]
-		.filter(([, v]) => v).map(([k, v]) => `- **${k}:** ${v}`).join('\n');
-}
-
-/** The rows under the card title: who hits it, and how to get past it. */
-function renderImpactLine(f) {
-	const rows = [['Affects', f.affectsHtml], ['Workaround', f.workaroundHtml]]
-		.filter(([, v]) => v).map(([k, v]) => `<span class="f-imp-l">${k}</span><span class="f-imp-t">${v}</span>`);
-	return rows.length ? `<div class="f-imp">${rows.join('')}</div>` : '';
+/** Who it hits and the way out, in a box tinted by severity under the card title. */
+function renderImpactBox(f) {
+	return f.impactHtml ? `<p class="f-impact ${f.severity}">${f.impactHtml}</p>` : '';
 }
 
 function renderFindingCard(f, report, options) {
@@ -1111,7 +1103,7 @@ function renderFindingCard(f, report, options) {
 
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
-		+ renderImpactLine(f)
+		+ renderImpactBox(f)
 		+ renderPossiblyKnown(f, options.ki)
 		+ '</header>';
 
@@ -1125,12 +1117,9 @@ function renderFindingCard(f, report, options) {
 		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${feedback}${promptBlock}</article>`;
 	}
 
-	const observedExpected = (f.observedHtml || f.expectedHtml)
-		? '<div class="two">'
-		+ (f.observedHtml ? `<div class="oe observed"><div class="oe-label">Observed</div><p>${f.observedHtml}</p></div>` : '')
-		+ (f.expectedHtml ? `<div class="oe expected"><div class="oe-label">Expected</div><p>${f.expectedHtml}</p></div>` : '')
-		+ '</div>'
-		: '';
+	// The claim's facts before the procedure: what should happen, then what the run saw.
+	const sec = (label, html) => (html ? `<div class="f-sec"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
+	const expectedActual = sec('Expected', f.expectedHtml) + sec('Actual', f.observedHtml);
 
 	// Text only: every screenshot sits under Evidence.
 	// Setup is one P row of short names, as in Coverage, with each in full on hover.
@@ -1154,14 +1143,14 @@ function renderFindingCard(f, report, options) {
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
-		? copyableCode(linkFiles(`<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`, files))
+		? copyableCode(linkFiles(`<div class="f-sec repro"><div class="f-lab">Reproduce</div>${preconditions}${steps}</div>`, files))
 		: '';
 
 	const details = renderCardDetails(f, report, options);
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
 ${linkFiles(`${head}
-${observedExpected}
+${expectedActual}
 ${repro}
 ${renderEvidence(f)}
 ${details}`, files)}

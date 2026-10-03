@@ -357,15 +357,18 @@ Assistant". It prefixes the filed issue's title, as "console: <claim>".
 `Impact` is the user consequence and only that: "blocks completion", "silently
 creates no environment". Not the rate, and not a scale like "High".
 
-The finding block's `**Affects:**` and `**Workaround:**` show as two rows under
-its title, about eight words each. Affects starts "anyone who" or "anyone
-whose" and names the trigger a user would recognize, not the symptom: "anyone
-whose columns take over 10 s to summarize". Workaround is an instruction you
-saw get past it, with a few words on why when that is not obvious: "run
-`df["<column>"].median()` in the console, which skips missing values". Or it is
-`none found` when you tried and nothing worked, or `none needed (wording only)`
-or `none needed (spacing only)`. Neither repeats the title or Observed, or
-claims wider than the cases you tried.
+The finding block's `**Impact:**` is the box under its title, and the first
+thing a reader decides from, so it is two plain sentences that say what the
+title and Actual do not. First, who is hit and what it costs them: "Anyone
+who" or "Anyone whose", the trigger as the data, setting or workflow a user
+would recognize, then the cost to their work: "Anyone whose columns take over
+10 s to summarize loses those summaries." Then the way out: a workaround you saw
+work in this run, with a few words on why when that is not obvious ("The only
+way back is to reopen the Data Explorer."), or `No workaround found.` when you
+tried and nothing worked, or `Nothing breaks; it's wording only.` (or `spacing
+only`) for a cosmetic finding. Never a workaround you did not try. Don't
+restate the symptom ("users can't load summaries"), and don't claim wider than
+the cases you tried.
 
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
@@ -422,9 +425,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 **Feature:** <feature>
 
-**Affects:** anyone who <trigger, as the data, setting or workflow a user would recognize>
-
-**Workaround:** <a step you saw work, or none found>
+**Impact:** Anyone who <trigger a user would recognize> <what it costs them>. <A way out you saw work, or No workaround found.>
 
 **Repro**
 
