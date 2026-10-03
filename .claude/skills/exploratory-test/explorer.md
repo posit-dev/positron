@@ -409,7 +409,8 @@ longer Y" -- since that decides whether a reader reverts or fixes forward.
 
 Append every action to `actions.log` in the run directory as you take it, with a
 timestamp, including incidental ones: a reload, a setting toggle, a wait. Have
-your scripts append it themselves. `Repro` is a transcription of that file, and
+your scripts append it themselves. A line that runs code says how it was sent and
+where: `console-run.sh r: x <- 1:10`, or the editor command that ran it. `Repro` is a transcription of that file, and
 a precondition that only existed in your head is how a finding stops
 reproducing. So is state you did not create. Before writing a finding, compare
 the screen at its first step with what its steps and preconditions produce: a
