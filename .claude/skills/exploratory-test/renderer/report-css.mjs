@@ -53,10 +53,12 @@ const PROFESSIONAL = `
 
 	--cmp-major: #D8654F;
 	--cmp-moderate: #D9953A;
-	--cmp-minor: #A3ABB6;
+	--cmp-minor: #8E98A8;
+	--cmp-minor-t: #46505F;
 	--cmp-tint: 5%;
-	--cmp-exp-rule: #E4E1DA;
-	--cmp-exp-bg: #FAFAF8;
+	--cmp-minor-tint: 9%;
+	--cmp-exp-rule: #E3E6EB;
+	--cmp-exp-bg: #FAFBFC;
 
 	--thumb-border: #EFEDE7;
 	--thumb-a: #F9F8F5;
@@ -199,9 +201,11 @@ const PARTY = `
 	--cmp-major: #FF6B8B;
 	--cmp-moderate: #FFB547;
 	--cmp-minor: #8E86C4;
+	--cmp-minor-t: #C9C2EE;
 	--cmp-tint: 9%;
-	--cmp-exp-rule: rgba(255,255,255,.14);
-	--cmp-exp-bg: rgba(255,255,255,.025);
+	--cmp-minor-tint: 12%;
+	--cmp-exp-rule: rgba(142,134,196,.30);
+	--cmp-exp-bg: rgba(142,134,196,.05);
 
 	--thumb-border: #2A2250;
 	--thumb-a: #1C1636;
@@ -611,12 +615,13 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
 article.card .card-details{max-width:720px}
 /* Observed and Expected read as one comparison. Severity colour marks Observed
    as the problem; Expected is quieter by its rule, fill and label only, so its
-   text never looks disabled. */
-.f-cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;--sev:var(--cmp-minor);--sev-t:var(--minor-text)}
-.f-cmp.major{--sev:var(--cmp-major);--sev-t:var(--major-text)}
-.f-cmp.moderate{--sev:var(--cmp-moderate);--sev-t:var(--moderate-text)}
+   text never looks disabled. Expected is a cool grey, so on a Minor card the two
+   are darker and lighter steps of one grey rather than two temperatures. */
+.f-cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;--sev:var(--cmp-minor);--sev-t:var(--cmp-minor-t);--tint:var(--cmp-minor-tint)}
+.f-cmp.major{--sev:var(--cmp-major);--sev-t:var(--major-text);--tint:var(--cmp-tint)}
+.f-cmp.moderate{--sev:var(--cmp-moderate);--sev-t:var(--moderate-text);--tint:var(--cmp-tint)}
 .f-cmp>div{display:flex;flex-direction:column;gap:8px;padding:14px 18px;border-left:3px solid;border-radius:0 8px 8px 0}
-.f-cmp>.f-cmp-o{border-left-color:var(--sev);background:color-mix(in srgb,var(--sev) var(--cmp-tint),transparent)}
+.f-cmp>.f-cmp-o{border-left-color:var(--sev);background:color-mix(in srgb,var(--sev) var(--tint),transparent)}
 .f-cmp-o .f-lab{color:var(--sev-t)}
 .f-cmp>.f-cmp-e{border-left-color:var(--cmp-exp-rule);background:var(--cmp-exp-bg)}
 .f-cmp-e .f-lab{color:var(--muted)}
