@@ -8,7 +8,7 @@ description: >
   sessions, setting up Python, reading, installing or updating a session's
   packages, running or debugging a web app (Shiny, Flask, Dash, Streamlit,
   FastAPI, Gradio, marimo), reading the Data Connections pane, including a
-  live connection's tables and columns, and creating, editing or running
+  connection's tables and columns, and creating, editing or running
   Jupyter notebook cells. Use when the user wants Positron itself to act, or
   to know what is installed, rather than to run R or Python code. Triggers:
   "show the variables pane", "open data.csv", "show this HTML in the Viewer",
