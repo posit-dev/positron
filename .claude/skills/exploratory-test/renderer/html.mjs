@@ -1133,18 +1133,18 @@ function renderFindingCard(f, report, options) {
 		: '';
 
 	// Text only: every screenshot sits under Evidence.
-	// Setup first, then actions, each under its own label: a reader can see what
-	// they need before they start without reading to find where it stops.
+	// Setup first, then actions. A "P" in the step-number column marks setup, as
+	// Coverage does, so neither list needs a label.
 	const preconditions = f.preconditions.length
-		? '<div class="repro-group"><div class="repro-label">Preconditions</div>'
-		+ `<ul class="preconditions">${f.preconditions.map(p => `<li>${withCodeCopy(p)}</li>`).join('')}</ul></div>`
+		? '<div class="repro-group"><ol class="psteps" aria-label="Preconditions">'
+		+ `${f.preconditions.map(p => `<li><span class="pm" aria-hidden="true">P</span>${withCodeCopy(p)}</li>`).join('')}</ol></div>`
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when
 	// two failed checks saw different things.
 	const failed = f.steps.filter(st => st.result === 'fail');
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
 	const steps = f.steps.length
-		? '<div class="repro-group steps"><div class="repro-label">Steps</div>'
+		? '<div class="repro-group steps">'
 		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1) : '' })).join('\n')}</ol></div>`
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.

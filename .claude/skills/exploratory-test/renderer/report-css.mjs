@@ -620,20 +620,19 @@ h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600
    column. Screenshots all live under Evidence, which answers "show me that it
    happened"; a featured shot here meant the same image appeared twice. */
 .repro{display:flex;flex-direction:column;gap:10px;max-width:var(--measure);margin-top:8px}
-/* What must be true first, then what to do: two labelled groups so a reader can
-   tell setup from actions at a glance instead of reading a paragraph to find
-   where one ends. */
+/* What must be true first, then what to do. A "P" in the step-number column
+   marks setup, as Coverage does, so neither list needs a label. */
 .repro-group{display:flex;flex-direction:column;gap:4px}
 .repro-group.steps{margin-top:4px}
-.repro-label{font-size:12px;font-weight:600;color:var(--body)}
-/* Set exactly as the steps are -- 14px, the same indent, the same spacing --
-   because they are read the same way. Only the marker and the slightly lighter
-   tone separate them, so the two groups read as one list of instructions in two
-   parts rather than a caption above a list. */
-.preconditions{margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--secondary)}
-.preconditions li{margin:0 0 8px;padding-left:4px}
-.preconditions li:last-child{margin-bottom:0}
-.preconditions li>p{margin:0 0 8px}
+/* Set exactly as the steps are -- 14px, the same indent -- because they are
+   read the same way; the marker and the lighter tone separate them. */
+ol.psteps{list-style:none;margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--secondary)}
+ol.psteps>li{position:relative;margin:0 0 6px;padding-left:4px}
+ol.psteps li>p{margin:0 0 8px}
+ol.psteps>li>.pm{position:absolute;left:-17px;font-size:13px;color:var(--faint);cursor:help;transition:color .15s ease}
+ol.psteps>li:hover>.pm{color:var(--link)}
+ol.psteps>li>.pm:hover::after{content:'Precondition';position:absolute;bottom:calc(100% + 6px);left:-8px;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:5}
+@media (prefers-reduced-motion:reduce){ol.psteps>li>.pm{transition:none}}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
 
 figure{margin:0;display:flex;flex-direction:column;gap:8px}

@@ -706,14 +706,13 @@ test('parseReport still reads the labels reports were published with', () => {
 	}
 });
 
-test('renderReportHtml labels the setup and the actions separately', () => {
+test('renderReportHtml marks the setup with P rows above the steps, with no subtitles', () => {
 	const html = renderReportHtml(FULL);
 	const repro = html.slice(html.indexOf('<div class="repro">'));
-	assert.match(repro, /<div class="repro-label">Preconditions<\/div><ul class="preconditions">/);
-	assert.match(repro, /<div class="repro-label">Steps<\/div>/);
-	// Setup before actions, and neither of the phrasings this replaced.
-	assert.ok(repro.indexOf('Preconditions') < repro.indexOf('>Steps<'));
-	assert.doesNotMatch(html, /Only under|Start:/);
+	assert.match(repro, /<ol class="psteps" aria-label="Preconditions"><li><span class="pm" aria-hidden="true">P<\/span>/);
+	// Setup before actions, and none of the labels or phrasings this replaced.
+	assert.ok(repro.indexOf('class="psteps"') < repro.indexOf('class="repro-steps'));
+	assert.doesNotMatch(html, /repro-label|Only under|Start:/);
 });
 
 test('renderReportHtml drops a preconditions list that says only "defaults"', () => {
@@ -727,11 +726,11 @@ test('renderReportHtml drops a preconditions list that says only "defaults"', ()
 	].join('\n')));
 	// Nothing to say, so no label and no empty list to read past.
 	const bare = build('Shipped defaults.');
-	assert.doesNotMatch(bare, /repro-label">Preconditions/);
-	assert.match(bare, /<div class="repro-label">Steps<\/div>/);
+	assert.doesNotMatch(bare, /class="psteps"/);
+	assert.match(bare, /<div class="repro-group steps"><ol class="repro-steps/);
 	// Qualified, so it earns its line.
 	const qualified = build('Shipped defaults. Slowness is manufactured with a slow hash.');
-	assert.match(qualified, /<div class="repro-label">Preconditions<\/div>/);
+	assert.match(qualified, /<ol class="psteps"/);
 	assert.match(qualified, /Slowness is manufactured/);
 });
 
@@ -853,7 +852,7 @@ test('parseReport reads bulleted preconditions as one item each, with a pasted f
 		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
 		'', '### Finding 1: a claim', '',
 		'**Repro**', '', '**Preconditions:**', '- one', '- two', '', '1. First.',
-	].join('\n'))), /<ul class="preconditions"><li>One<\/li><li>Two<\/li><\/ul>/);
+	].join('\n'))), /<ol class="psteps" aria-label="Preconditions"><li><span class="pm" aria-hidden="true">P<\/span>One<\/li><li><span class="pm" aria-hidden="true">P<\/span>Two<\/li><\/ol>/);
 });
 
 test('parseReport widens a step fence past the source nested inside it', () => {
