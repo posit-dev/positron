@@ -311,7 +311,7 @@ function impactProblems(n, impact, title) {
 		problems.push(`report: Finding ${n} Impact: starts "Anyone who"; say why it is worse than the title suggests, not who hits it`);
 	}
 	if (/\bNothing breaks\b|\b(wording|spacing) only\b/i.test(impact)) {
-		problems.push(`report: Finding ${n} Impact: says it is minor; leave Impact out, since Minor and the title say so`);
+		problems.push(`report: Finding ${n} Impact: restates its severity; say what consequence it adds, or leave it out`);
 	} else if (/\bno (workaround|way out)\b/i.test(impact)) {
 		problems.push(`report: Finding ${n} Impact: names a workaround; a missing one goes unsaid, and one that worked goes at the end of Observed`);
 	}

@@ -87,7 +87,7 @@ test('a finding needs no Impact line', () => {
 test('flags an Impact that names who hits it, calls itself minor, talks workarounds, is generic, runs long, or restates the title', () => {
 	const impact = text => lint(REPORT.replace('The panel stays empty with no error shown.', text));
 	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view.'), ['report: Finding 1 Impact: starts "Anyone who"; say why it is worse than the title suggests, not who hits it']);
-	assert.deepEqual(impact('Nothing breaks; it\'s wording only.'), ['report: Finding 1 Impact: says it is minor; leave Impact out, since Minor and the title say so']);
+	assert.deepEqual(impact('Nothing breaks; it\'s wording only.'), ['report: Finding 1 Impact: restates its severity; say what consequence it adds, or leave it out']);
 	assert.deepEqual(impact('No workaround found.'), ['report: Finding 1 Impact: names a workaround; a missing one goes unsaid, and one that worked goes at the end of Observed']);
 	assert.deepEqual(impact('This could mislead users.'), ['report: Finding 1 Impact: is a generic consequence; say what makes this one worse, or leave Impact out']);
 	assert.deepEqual(impact('The panel stays empty. A reload does not bring it back.'), ['report: Finding 1 Impact: is 2 sentences; write one']);

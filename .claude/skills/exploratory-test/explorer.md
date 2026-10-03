@@ -371,18 +371,34 @@ stated.
 proper names: "data explorer", "console", "notebooks", "R console", "Positron
 Assistant". It prefixes the filed issue's title, as "console: <claim>".
 
-`**Impact:**` is optional, and most findings have none. Write it only when
-something makes the finding worse than its title suggests: it is silent, so
-nothing on screen says the result is wrong or unfinished; it spreads past the
-one value, cell or view; or there is no way out short of reopening,
-restarting or losing work. Those are reasons to write it, not words to put in
-it. Write one plain sentence, about a line long, with no prefix or bold of its
-own: "The only way to get the summaries back is to reopen the Data
-Explorer." It only amplifies: a minor or cosmetic finding has none, since its
-severity and title already say so, and a workaround you saw work goes at the
-end of Observed, never here. Don't restate the trigger or the symptom, don't
-give a generic consequence ("could mislead users"), and don't claim reach
-("common", "most users", "any", "every", "all") the run did not exercise.
+`**Impact:**` is optional, and most findings should not have one.
+
+Include Impact only when the finding has an important consequence that is
+**not already clear from the title or Observed**. Good reasons include a
+silent failure, broader effects than the specific case demonstrated, loss of
+work or data, or a meaningful lack of recovery.
+
+Impact **amplifies; it never summarizes**.
+
+Write one short, factual sentence describing the additional consequence.
+Describe only what the exploratory run established; do not speculate about
+users, frequency, or reach.
+
+Good examples:
+- `"The incorrect median appears as a valid statistic with no indication that it is wrong."`
+- `"Retry cannot recover the summaries; reopening the Data Explorer is required."`
+- `"The operation modifies columns outside the visible selection as well."`
+
+Omit Impact when it would merely:
+- restate the title, trigger, symptom, severity, or Observed behavior;
+- make a generic claim such as `"could mislead users"` or `"may cause confusion"`;
+- speculate about scope with words such as `"common"`, `"most users"`, `"any"`, `"every"`, or `"all"`;
+- describe a workaround that was tested and worked. Put a verified workaround
+  at the end of **Observed** instead.
+
+Do not create Impact just because a finding is Major or Moderate, and do not
+automatically exclude it because a finding is Minor. **If there is no
+distinct, evidence-backed consequence to add, omit the field.**
 
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
