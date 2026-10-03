@@ -358,17 +358,18 @@ Assistant". It prefixes the filed issue's title, as "console: <claim>".
 creates no environment". Not the rate, and not a scale like "High".
 
 The finding block's `**Impact:**` is the box under its title, and the first
-thing a reader decides from, so it is two plain sentences that say what the
-title and Actual do not. First, who is hit and what it costs them: "Anyone
-who" or "Anyone whose", the trigger as the data, setting or workflow a user
-would recognize, then the cost to their work: "Anyone whose columns take over
-10 s to summarize loses those summaries." Then the way out: a workaround you saw
-work in this run, with a few words on why when that is not obvious ("The only
-way back is to reopen the Data Explorer."), or `No workaround found.` when you
-tried and nothing worked, or `Nothing breaks; it's wording only.` (or `spacing
-only`) for a cosmetic finding. Never a workaround you did not try. Don't
-restate the symptom ("users can't load summaries"), and don't claim wider than
-the cases you tried.
+thing a reader decides from, so it says what the title and Actual do not. First,
+who is hit and what it costs them: "Anyone who" or "Anyone whose", the trigger
+as the data, setting or workflow a user would recognize, then the cost to their
+work, such as how far it reaches or that nothing on screen warns them: "Anyone
+whose columns take over 10 s to summarize loses those summaries." Then, only if
+you saw one work in this run, the way out, with a few words on why when that is
+not obvious ("The only way back is to reopen the Data Explorer."). With no way
+out, stop after the first sentence. For a finding where only the text or
+spacing is wrong, add `Nothing breaks; it's wording only.` (or `spacing only`).
+Never a workaround you did not try. Don't restate the symptom or Actual ("users
+can't load summaries", "sees Unique 5"), and don't claim wider than the cases
+you tried.
 
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
@@ -425,7 +426,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 
 **Feature:** <feature>
 
-**Impact:** Anyone who <trigger a user would recognize> <what it costs them>. <A way out you saw work, or No workaround found.>
+**Impact:** Anyone who <trigger a user would recognize> <what it costs them>. <A way out you saw work; leave it out if none.>
 
 **Repro**
 

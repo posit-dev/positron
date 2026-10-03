@@ -319,3 +319,15 @@ test('apply takes a VERDICTS: none reply and logs the issues it left unrated', (
 		rmSync(dir, { recursive: true, force: true });
 	}
 });
+
+test('applyVerification replaces the Impact of a finding on an IMPACT line only, semicolons and all', () => {
+	const report = BLOCKS.replace('**Feature:** modal dialogs', '**Feature:** modal dialogs\n\n**Impact:** Anyone who opens it loses work. Reopening it restores it.')
+		.replace('**Feature:** console', '**Feature:** console\n\n**Impact:** Anyone who types sees it.');
+	const reply = 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nIMPACT 1: Anyone who opens it loses work; nothing on screen says so.\n\n- 1: holds.';
+	const out = applyVerification(report, reply);
+	assert.deepEqual([...out.matchAll(/^\*\*Impact:\*\* .*$/gm)].map(m => m[0]), [
+		'**Impact:** Anyone who opens it loses work; nothing on screen says so.',
+		'**Impact:** Anyone who types sees it.',
+	]);
+	assert.equal(fromVerdictLine(`notes\n${reply}`.replace('VERDICTS', 'IMPACT 2: x\nVERDICTS')).split('\n')[0], 'IMPACT 2: x');
+});

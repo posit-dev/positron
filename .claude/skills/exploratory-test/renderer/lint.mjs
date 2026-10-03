@@ -293,7 +293,7 @@ export function untaggedShots(findings) {
 }
 
 // The way out when there isn't one: said the same way every time.
-const NO_WAY_OUT = /^(No workaround found|Nothing breaks; it's (wording|spacing) only)\.$/;
+const COSMETIC = /^Nothing breaks; it's (wording|spacing) only\.$/;
 
 /**
  * A finding's Impact is two sentences: who is hit and what it costs them, then
@@ -307,10 +307,13 @@ function impactProblems(n, impact, title) {
 	if (!/^Anyone (who|whose)\b/.test(impact)) {
 		problems.push(`report: Finding ${n} Impact: starts "${impact.slice(0, 30)}"; start it "Anyone who" or "Anyone whose"`);
 	}
-	if (sentences.length !== 2) {
-		problems.push(`report: Finding ${n} Impact: is ${sentences.length} sentence${sentences.length === 1 ? '' : 's'}; write two: who is hit and what it costs them, then the way out`);
-	} else if (/^(No workaround|Nothing breaks)\b/.test(sentences[1]) && !NO_WAY_OUT.test(sentences[1])) {
-		problems.push(`report: Finding ${n} Impact: "${sentences[1]}"; write "No workaround found.", "Nothing breaks; it's wording only." or "Nothing breaks; it's spacing only."`);
+	if (sentences.length > 2) {
+		problems.push(`report: Finding ${n} Impact: is ${sentences.length} sentences; write who is hit and what it costs them, then a way out you saw work`);
+	} else if (/^No (workaround|way out|fix)\b/i.test(sentences[1] ?? '')) {
+		// Saying nothing works tells the reader nothing; the missing way out says it.
+		problems.push(`report: Finding ${n} Impact: "${sentences[1]}"; with no way out, stop after the first sentence`);
+	} else if (/^Nothing breaks\b/.test(sentences[1] ?? '') && !COSMETIC.test(sentences[1])) {
+		problems.push(`report: Finding ${n} Impact: "${sentences[1]}"; write "Nothing breaks; it's wording only." or "Nothing breaks; it's spacing only."`);
 	}
 	const words = prose.split(/\s+/).length;
 	if (words > 40) {
@@ -411,7 +414,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		}
 		const impact = body.find(l => /^\*\*Impact:\*\*/.test(l))?.replace(/^\*\*Impact:\*\*\s*/, '');
 		if (!impact) {
-			problems.push(`report: Finding ${b.n} has no "**Impact:** Anyone who <trigger> <cost>. <The way out.>" line`);
+			problems.push(`report: Finding ${b.n} has no "**Impact:** Anyone who <trigger> <cost>. <A way out, if one worked.>" line`);
 		} else {
 			problems.push(...impactProblems(b.n, impact, lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, '')));
 		}

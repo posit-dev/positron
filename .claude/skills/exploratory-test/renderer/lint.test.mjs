@@ -25,7 +25,7 @@ const REPORT = `# Exploratory test: x
 
 **Feature:** console
 
-**Impact:** Anyone who opens the panel waits on an empty view. No workaround found.
+**Impact:** Anyone who opens the panel waits on an empty view.
 
 1. Click Retry.
 2. VERIFY the panel loads -> FAIL - Finding 1
@@ -81,18 +81,20 @@ test('flags a finding with no Feature line', () => {
 });
 
 test('flags a finding with no Impact line', () => {
-	assert.deepEqual(lint(REPORT.replace(/\*\*Impact:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Impact:** Anyone who <trigger> <cost>. <The way out.>" line']);
+	assert.deepEqual(lint(REPORT.replace(/\*\*Impact:\*\*.*\n\n/, '')), ['report: Finding 1 has no "**Impact:** Anyone who <trigger> <cost>. <A way out, if one worked.>" line']);
 });
 
-test('flags an Impact that names no one, is not two sentences, or restates the title', () => {
-	const impact = text => lint(REPORT.replace('Anyone who opens the panel waits on an empty view. No workaround found.', text));
-	assert.deepEqual(impact('The panel is blank for everyone. No workaround found.'), ['report: Finding 1 Impact: starts "The panel is blank for everyon"; start it "Anyone who" or "Anyone whose"']);
-	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view.'), ['report: Finding 1 Impact: is 1 sentence; write two: who is hit and what it costs them, then the way out']);
-	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. No workaround.'), ['report: Finding 1 Impact: "No workaround."; write "No workaround found.", "Nothing breaks; it\'s wording only." or "Nothing breaks; it\'s spacing only."']);
+test('flags an Impact that names no one, runs past two sentences, says no way out, or restates the title', () => {
+	const impact = text => lint(REPORT.replace('Anyone who opens the panel waits on an empty view.', text));
+	assert.deepEqual(impact('The panel is blank for everyone.'), ['report: Finding 1 Impact: starts "The panel is blank for everyon"; start it "Anyone who" or "Anyone whose"']);
+	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. Reopening it does nothing. Nor does a reload.'), ['report: Finding 1 Impact: is 3 sentences; write who is hit and what it costs them, then a way out you saw work']);
+	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. No workaround found.'), ['report: Finding 1 Impact: "No workaround found."; with no way out, stop after the first sentence']);
+	assert.deepEqual(impact('Anyone who opens the panel sees a typo. Nothing breaks, just text.'), ['report: Finding 1 Impact: "Nothing breaks, just text."; write "Nothing breaks; it\'s wording only." or "Nothing breaks; it\'s spacing only."']);
+	assert.deepEqual(impact('Anyone who opens the panel sees a typo. Nothing breaks; it\'s wording only.'), []);
 	assert.deepEqual(impact('Anyone who opens the panel sees the wrong label. Nothing breaks; it\'s wording only.'), []);
 	// A code span's dots do not end a sentence.
 	assert.deepEqual(impact('Anyone who opens the panel waits on an empty view. Running `df.median()` in the console gets the value.'), []);
-	assert.deepEqual(impact('Anyone who clicks Retry finds Retry does nothing. No workaround found.'), ['report: Finding 1 Impact: repeats the title; say who is hit and what it costs them']);
+	assert.deepEqual(impact('Anyone who clicks Retry finds Retry does nothing.'), ['report: Finding 1 Impact: repeats the title; say who is hit and what it costs them']);
 });
 
 test('fenced code does not count as a heading', () => {

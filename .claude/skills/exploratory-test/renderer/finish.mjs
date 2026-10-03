@@ -64,7 +64,7 @@ export function fromVerdictLine(text) {
 		return text;
 	}
 	const lines = text.split('\n');
-	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED|FEATURE|TITLE):/.test(l.trim().toUpperCase()));
+	const at = lines.findIndex(l => /^(?:(?:VERDICTS|KNOWN|LINKED|FEATURE|TITLE)|IMPACT \d+):/.test(l.trim().toUpperCase()));
 	return at > 0 ? lines.slice(at).join('\n') : text;
 }
 
@@ -186,12 +186,34 @@ export function applyTitles(report, titles) {
 }
 
 /**
+ * `IMPACT 7: Anyone who ...`, one line per finding, since an Impact holds `;`:
+ * the Impact narrowed to what the run showed.
+ */
+export function parseImpacts(text) {
+	const out = new Map();
+	for (const m of String(text ?? '').matchAll(/^IMPACT (\d+):[ \t]*(\S.*?)\s*$/gm)) {
+		out.set(Number(m[1]), m[2]);
+	}
+	return out;
+}
+
+/** The report with each finding's `**Impact:**` line replaced by its IMPACT line. */
+export function applyImpacts(report, impacts) {
+	return rewriteLabel(report, 'Impact', impacts);
+}
+
+/**
  * The report with each `**Feature:**` line on the FEATURE line rewritten. The
  * explorer picks Feature before the cause is known, and it prefixes the filed
  * issue's title. A finding with no Feature line is left for lint to catch.
  */
 export function applyFeatures(report, features) {
-	if (!(features instanceof Map) || !features.size) {
+	return rewriteLabel(report, 'Feature', features);
+}
+
+/** The report with the `**<label>:**` line of each finding in `values` replaced. */
+function rewriteLabel(report, label, values) {
+	if (!(values instanceof Map) || !values.size) {
 		return report;
 	}
 	let n = null;
@@ -201,8 +223,8 @@ export function applyFeatures(report, features) {
 			n = Number(heading[1]);
 		} else if (/^(<details>|## )/.test(line)) {
 			n = null;
-		} else if (n !== null && features.has(n) && /^\*\*Feature:\*\*/.test(line)) {
-			return `**Feature:** ${features.get(n)}`;
+		} else if (n !== null && values.has(n) && line.startsWith(`**${label}:**`)) {
+			return `**${label}:** ${values.get(n)}`;
 		}
 		return line;
 	}).join('\n');
@@ -315,7 +337,7 @@ export function applyVerification(report, verdicts, { failed = false } = {}) {
 	const section = failed
 		? `## Verification\n\n${verdicts}\n`
 		: `<details>\n<summary>Verification details</summary>\n\n${PREAMBLE}\n\n${verdicts}\n\n</details>\n`;
-	const revised = failed ? report : applyTitles(applyFeatures(report, parseFeatures(verdicts)), parseTitles(verdicts));
+	const revised = failed ? report : applyImpacts(applyTitles(applyFeatures(report, parseFeatures(verdicts)), parseTitles(verdicts)), parseImpacts(verdicts));
 	return `${annotateFindingsTable(revised, parseVerdicts(verdicts), parseKnown(verdicts))}\n\n${section}`;
 }
 

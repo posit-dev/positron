@@ -20,9 +20,9 @@ For EACH finding, answer these five questions explicitly:
    Check the hypothesis against every observation in the steps, including ones
    it does not mention. When the repro depends on a test file, read it: the
    trigger is what the file contains, not what the report says it contains.
-   If the Cause or the `**Impact:**` is worded more widely than the cases the
-   report tried, narrow it to what they show. If Impact names a workaround the
-   steps and action log do not show working, say so.
+   If the Cause is worded more widely than the cases the report tried, narrow
+   it to what they show. Check each `**Impact:**` the same way, and against
+   the IMPACT rules below.
 2. Could anything the reporting agent did to its own test environment produce
    the reported symptom? Read the action log, the ledger's `## Environment` and
    Run details for how it set the machine up, then ask whether that setup,
@@ -100,6 +100,22 @@ TITLE: 1=project R is missing from the picker when its signature check times out
 
 Leave it out when every title holds.
 
+Each `**Impact:**` is the first thing a reader acts on, so correct one that:
+
+- is worded more widely than the cases the report tried;
+- names a workaround the steps and action log do not show working;
+- says `wording only` or `spacing only` when the data, grouping or behavior
+  is wrong too;
+- only repeats the title or Actual, saying nothing about reach or cost.
+
+Give the corrected Impact on its own line, one per finding, since it may hold
+`;`. Start it "Anyone who" or "Anyone whose", and add a second sentence only
+for a way out the run shows working. It replaces the box under the title:
+
+IMPACT 7: Anyone who deletes a column while profiles are open sees them move to other columns.
+
+Leave them out when every Impact holds.
+
 Then keep it short. The table column is what a reviewer reads; this section is
 for what the column cannot say.
 
@@ -108,7 +124,7 @@ for what the column cannot say.
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its
   severity.
-- A finding on the FEATURE or TITLE line gets one line: what moved it.
+- A finding on the FEATURE, TITLE or an IMPACT line gets one line: what moved it.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have
