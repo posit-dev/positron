@@ -18,7 +18,7 @@
 # Usage:
 #   launch.sh [--agents] [--source-user-data-dir <path>] [--repo <vscode-repo-root>]
 #             [--clone-extensions] [--full] [--no-default-app-args]
-#             [-- <extra code.sh args>]
+#             [--keep-first-run-prompts] [-- <extra code.sh args>]
 #
 # Flags:
 #   --clone-extensions  Copy the source extensions/ into the new profile (~10s).
@@ -26,6 +26,11 @@
 #                       and conflict-free, but no third-party extensions.
 #   --full              Copy the entire profile (incl. extensions). Use if the
 #                       slim copy is missing something you need.
+#   --keep-first-run-prompts
+#                       Show the prompts a fresh profile raises on startup (import
+#                       settings from VS Code; let a coding agent on PATH run code).
+#                       Default: suppress them in the disposable profile, since
+#                       every run would otherwise dismiss them by hand.
 #
 # Defaults:
 #   --source-user-data-dir  $POSITRON_DEV_USER_DATA_DIR (else ~/.positron-dev)
@@ -125,6 +130,7 @@ EXTRA_ARGS=()
 CLONE_EXTENSIONS=0
 FULL=0
 DEFAULT_APP_ARGS=1
+FIRST_RUN_PROMPTS=0
 
 # Supplied by the launcher, not the caller: without --disable-workspace-trust a
 # fresh profile starts in restricted mode with extensions disabled, which reads
@@ -142,6 +148,7 @@ while [[ $# -gt 0 ]]; do
 		--clone-extensions|--copy-extensions) CLONE_EXTENSIONS=1; shift ;;
 		--full) FULL=1; shift ;;
 		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
+		--keep-first-run-prompts) FIRST_RUN_PROMPTS=1; shift ;;
 		--) shift; EXTRA_ARGS=("$@"); break ;;
 		*) echo "Unknown arg: $1" >&2; exit 2 ;;
 	esac
@@ -223,13 +230,15 @@ SETTINGS_FILE="$DEST_UDD/User/settings.json"
 mkdir -p "$(dirname "$SETTINGS_FILE")"
 # Update the keys without parsing and rewriting the entire JSONC document,
 # preserving comments and strings that contain `//`.
-if ! node - "$SETTINGS_FILE" <<'NODE'
+if ! node - "$SETTINGS_FILE" "$FIRST_RUN_PROMPTS" <<'NODE'
 const fs = require('fs');
 const f = process.argv[2];
 // Keys forced into the disposable profile, with the JSON text of each value.
 const FORCED = [
 	['files.simpleDialog.enable', 'true'],
 	['window.dialogStyle', '"custom"'],
+	// A fresh profile offers to import VS Code settings on startup.
+	...(process.argv[3] === '1' ? [] : [['workbench.settings.importFromVSCode.enabled', 'false']]),
 ];
 
 let text;
@@ -302,6 +311,33 @@ then
 	exit 1
 fi
 echo "[launch.sh] ensured files.simpleDialog.enable=true and window.dialogStyle=custom in $SETTINGS_FILE" >&2
+
+# positron-supervisor offers, once per profile, to let a coding agent it finds on
+# PATH run code in the window's sessions. There is no setting that only hides it:
+# it records that it asked in its global state, so mark it asked here. The key
+# is positron-supervisor's ENABLE_PROMPT_SHOWN_KEY (McpAgentConfig.ts).
+if [[ "$FIRST_RUN_PROMPTS" == "0" ]]; then
+	STATE_DB="$DEST_UDD/User/globalStorage/state.vscdb"
+	if command -v sqlite3 >/dev/null 2>&1; then
+		mkdir -p "$(dirname "$STATE_DB")"
+		EXT_KEY='positron.positron-supervisor'
+		sqlite3 "$STATE_DB" 'CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB);'
+		CURRENT=$(sqlite3 "$STATE_DB" "SELECT value FROM ItemTable WHERE key = '$EXT_KEY';")
+		MERGED=$(node -e '
+			let state = {};
+			try { state = JSON.parse(process.argv[1] || "{}"); } catch {}
+			state["positron-supervisor.mcp.enablePromptShown"] = true;
+			process.stdout.write(JSON.stringify(state).replace(/\x27/g, "\x27\x27"));
+		' "$CURRENT")
+		if sqlite3 "$STATE_DB" "INSERT INTO ItemTable (key, value) VALUES ('$EXT_KEY', '$MERGED');"; then
+			echo "[launch.sh] suppressed the coding-agent prompt and the VS Code settings import prompt (pass --keep-first-run-prompts to see them)" >&2
+		else
+			echo "[launch.sh] could not mark the coding-agent prompt as shown; it may appear once" >&2
+		fi
+	else
+		echo "[launch.sh] sqlite3 not on PATH; the coding-agent prompt may appear once" >&2
+	fi
+fi
 
 # Integrated terminals may inherit ELECTRON_RUN_AS_NODE, which breaks code.sh.
 unset ELECTRON_RUN_AS_NODE
