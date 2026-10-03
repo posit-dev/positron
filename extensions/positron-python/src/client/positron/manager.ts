@@ -196,7 +196,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      *   picker from its own earlier Created event -- and register the survivor
      *   with forceRefresh so a stale cached version for the survivor path is
      *   re-resolved and superseded rather than returned as is.
-     *   Same-path changes are metadata refreshes and leave the registration as is.
+     * - Changed in place (`old` and `new` with the same path): re-resolve the
+     *   path. If its runtime changed (e.g. a venv deleted and recreated with a
+     *   different Python version, which the file watcher reports as an update
+     *   rather than a removal and an addition), replace the registered runtime
+     *   and shut down sessions still backed by the old one.
      */
     private async handleInterpreterChange(event: PythonEnvironmentsChangedEvent): Promise<void> {
         if (!event.old && event.new) {
@@ -208,20 +212,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
         } else if (event.old && !event.new) {
             const deletedPath = event.old.path;
             this.unregisterRuntimeForPath(deletedPath);
-            try {
-                // Only Python sessions; other languages' sessions may not even have
-                // extraRuntimeData (e.g. restored from a serialized state).
-                const sessions = await getActivePythonSessions();
-                const toShutdown = sessions.filter(
-                    (s) => (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath === deletedPath,
-                );
-                if (toShutdown.length > 0) {
-                    traceInfo(`Shutting down ${toShutdown.length} session(s) for deleted interpreter ${deletedPath}`);
-                    await Promise.all(toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)));
-                }
-            } catch (error) {
-                traceError(`Failed to clean up sessions for deleted interpreter ${deletedPath}: ${error}`);
-            }
+            await this.shutdownSessionsForPath(deletedPath, 'deleted interpreter');
         } else if (event.old && event.new && event.old.path !== event.new.path) {
             this.unregisterRuntimeForPath(event.old.path);
             await this.registerLanguageRuntimeFromPath(
@@ -229,6 +220,46 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
                 /* recreateRuntime */ false,
                 /* forceRefresh */ true,
             );
+        } else if (event.old && event.new) {
+            const changedPath = event.new.path;
+            const previous = this.registeredPythonRuntimes.get(changedPath);
+            if (!previous) {
+                return;
+            }
+            const current = await this.registerLanguageRuntimeFromPath(
+                changedPath,
+                /* recreateRuntime */ false,
+                /* forceRefresh */ true,
+            );
+            if (current && current.runtimeId !== previous.runtimeId) {
+                await this.shutdownSessionsForPath(changedPath, 'replaced interpreter', current.runtimeId);
+            }
+        }
+    }
+
+    /**
+     * Shut down the Python sessions backed by an interpreter path.
+     *
+     * @param pythonPath The interpreter path whose sessions to shut down.
+     * @param reason Describes the interpreter in the log, e.g. 'deleted interpreter'.
+     * @param keepRuntimeId A runtime ID whose sessions are left running.
+     */
+    private async shutdownSessionsForPath(pythonPath: string, reason: string, keepRuntimeId?: string): Promise<void> {
+        try {
+            // Only Python sessions; other languages' sessions may not even have
+            // extraRuntimeData (e.g. restored from a serialized state).
+            const sessions = await getActivePythonSessions();
+            const toShutdown = sessions.filter(
+                (s) =>
+                    (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath === pythonPath &&
+                    (keepRuntimeId === undefined || s.runtimeMetadata.runtimeId !== keepRuntimeId),
+            );
+            if (toShutdown.length > 0) {
+                traceInfo(`Shutting down ${toShutdown.length} session(s) for ${reason} ${pythonPath}`);
+                await Promise.all(toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)));
+            }
+        } catch (error) {
+            traceError(`Failed to clean up sessions for ${reason} ${pythonPath}: ${error}`);
         }
     }
 

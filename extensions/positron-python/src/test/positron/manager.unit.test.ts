@@ -837,9 +837,13 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
     });
 
     /** Build a fake that passes the `instanceof PythonRuntimeSession` filter without invoking the constructor. */
-    function createFakePythonSession(extraRuntimeData: unknown, shutdown: sinon.SinonStub): PythonRuntimeSession {
+    function createFakePythonSession(
+        extraRuntimeData: unknown,
+        shutdown: sinon.SinonStub,
+        runtimeId?: string,
+    ): PythonRuntimeSession {
         return Object.assign(Object.create(PythonRuntimeSession.prototype), {
-            runtimeMetadata: { extraRuntimeData },
+            runtimeMetadata: { runtimeId, extraRuntimeData },
             shutdown,
         });
     }
@@ -897,6 +901,47 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
 
         assert.strictEqual(pythonRuntimeManager.registeredPythonRuntimes.has(oldPath), false);
         sinon.assert.calledOnceWithExactly(registerStub, newPath, false, true);
+    });
+
+    test('interpreter changed in place: replaces the runtime and shuts down sessions on the old one', async () => {
+        // A venv deleted and recreated with a different Python version arrives as
+        // a same-path update, not as a removal and an addition.
+        const venvPath = '/path/to/.venv/bin/python';
+        pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, {
+            runtimeId: 'python-3.12',
+            extraRuntimeData: { pythonPath: venvPath },
+        } as any);
+        const registerStub = sinon
+            .stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath')
+            .resolves({ runtimeId: 'python-3.11', extraRuntimeData: { pythonPath: venvPath } } as any);
+        const staleShutdown = sinon.stub().resolves();
+        const staleSession = createFakePythonSession({ pythonPath: venvPath }, staleShutdown, 'python-3.12');
+        const currentShutdown = sinon.stub().resolves();
+        const currentSession = createFakePythonSession({ pythonPath: venvPath }, currentShutdown, 'python-3.11');
+        getActiveSessionsImpl = async () => [staleSession, currentSession];
+
+        onDidChangeInterpretersEmitter.fire({ old: { path: venvPath } as any, new: { path: venvPath } as any });
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.calledOnceWithExactly(registerStub, venvPath, false, true);
+        sinon.assert.calledOnce(staleShutdown);
+        sinon.assert.notCalled(currentShutdown);
+    });
+
+    test('interpreter changed in place: leaves sessions running when the runtime is unchanged', async () => {
+        const venvPath = '/path/to/.venv/bin/python';
+        const runtime = { runtimeId: 'python-3.12', extraRuntimeData: { pythonPath: venvPath } } as any;
+        pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, runtime);
+        sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(runtime);
+        const shutdown = sinon.stub().resolves();
+        getActiveSessionsImpl = async () => [
+            createFakePythonSession({ pythonPath: venvPath }, shutdown, 'python-3.12'),
+        ];
+
+        onDidChangeInterpretersEmitter.fire({ old: { path: venvPath } as any, new: { path: venvPath } as any });
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.notCalled(shutdown);
     });
 
     test('a rejected change handler does not poison the queue for later events', async () => {
