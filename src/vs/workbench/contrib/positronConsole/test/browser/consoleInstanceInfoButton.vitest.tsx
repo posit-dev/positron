@@ -144,70 +144,17 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 		};
 	}
 
-	const languageOptions = { query: '@lang:python interpreters.startupBehavior', revealSetting: { key: '[python]' } };
-	const allLanguagesOptions = { query: 'interpreters.startupBehavior', revealSetting: { key: 'interpreters.startupBehavior' } };
-
-	it('opens the User settings tab when the value comes from user settings', async () => {
-		expect(await clickStartupBehaviorLink({ userLocal: { override: 'always' }, value: 'always' })).toEqual({
-			user: [[languageOptions]],
+	it('opens the language-specific Startup Behavior setting for its start reason', async () => {
+		expect(await clickStartupBehaviorLink({ value: 'auto' })).toEqual({
+			user: [[{ query: '@lang:python interpreters.startupBehavior', revealSetting: { key: '[python]' } }]],
 			remote: [],
 			workspace: [],
 		});
 	});
 
-	it('opens the Remote settings tab when the value comes from remote user settings', async () => {
-		expect(await clickStartupBehaviorLink({ userRemote: { override: 'always' }, value: 'always' })).toEqual({
-			user: [],
-			remote: [[languageOptions]],
-			workspace: [],
-		});
-	});
-
-	it('opens the Workspace settings tab when the value comes from workspace settings', async () => {
-		expect(await clickStartupBehaviorLink({ workspace: { override: 'always' }, value: 'always' })).toEqual({
-			user: [],
-			remote: [],
-			workspace: [[languageOptions]],
-		});
-	});
-
-	it('opens the tab with the language-specific value over a tab with a value for all languages', async () => {
-		// A language-specific user value wins over a workspace value for all languages.
-		expect(await clickStartupBehaviorLink({ workspace: { value: 'auto' }, userLocal: { override: 'always' }, value: 'always' })).toEqual({
-			user: [[languageOptions]],
-			remote: [],
-			workspace: [],
-		});
-	});
-
-	it('opens the Workspace settings tab over the User settings tab when both set a language-specific value', async () => {
-		expect(await clickStartupBehaviorLink({ workspace: { override: 'always' }, userLocal: { override: 'manual' }, value: 'always' })).toEqual({
-			user: [],
-			remote: [],
-			workspace: [[languageOptions]],
-		});
-	});
-
-	it('opens the Remote settings tab over the User settings tab when both set a language-specific value', async () => {
-		expect(await clickStartupBehaviorLink({ userRemote: { override: 'always' }, userLocal: { override: 'manual' }, value: 'always' })).toEqual({
-			user: [],
-			remote: [[languageOptions]],
-			workspace: [],
-		});
-	});
-
-	it('opens the User settings tab for the start reason\'s setting when no tab sets a value', async () => {
-		// Such as when the setting changed after the session started.
+	it('opens the Startup Behavior setting for all languages for its start reason', async () => {
 		expect(await clickStartupBehaviorLink({ value: 'auto' }, SessionStartReasonId.StartupBehaviorAlwaysAllLanguages)).toEqual({
-			user: [[allLanguagesOptions]],
-			remote: [],
-			workspace: [],
-		});
-	});
-
-	it('opens the setting for all languages when the value is set for all languages', async () => {
-		expect(await clickStartupBehaviorLink({ userLocal: { value: 'always' }, value: 'always' }, SessionStartReasonId.StartupBehaviorAlwaysAllLanguages)).toEqual({
-			user: [[allLanguagesOptions]],
+			user: [[{ query: 'interpreters.startupBehavior', revealSetting: { key: 'interpreters.startupBehavior' } }]],
 			remote: [],
 			workspace: [],
 		});

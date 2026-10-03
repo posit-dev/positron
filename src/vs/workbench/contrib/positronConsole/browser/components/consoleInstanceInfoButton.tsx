@@ -23,9 +23,7 @@ import { PositronModalReactRenderer } from '../../../../../base/browser/positron
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { getSessionStartReasonLabel } from '../../../../services/runtimeSession/common/sessionStartReasons.js';
-import { ConfigurationTarget, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
-import { IOpenSettingsOptions } from '../../../../services/preferences/common/preferences.js';
-import { IEditorPane } from '../../../../common/editor.js';
+import { openSettingWhereSet } from '../../../../services/preferences/common/positronSettingsUtils.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
@@ -98,45 +96,6 @@ export const ConsoleInstanceInfoButton = () => {
 	);
 };
 
-const startupBehaviorSettingKey = 'interpreters.startupBehavior';
-
-/**
- * Where the value of a setting that applies to a language is set.
- */
-interface ISettingSource {
-	/** The settings tab the value is set on. */
-	readonly target: ConfigurationTarget.WORKSPACE | ConfigurationTarget.USER_REMOTE | ConfigurationTarget.USER_LOCAL;
-	/** Whether the value is set for the language rather than for all languages. */
-	readonly languageSpecific: boolean;
-}
-
-/**
- * Finds where the value of a setting that applies to a language is set.
- * Language-specific values win over values for all languages from any tab.
- * Among values of the same kind, workspace values win over remote user
- * values, which win over user values.
- *
- * @param value The setting inspected with the language as the override identifier.
- * @param languageSpecific Whether to assume a language-specific value when
- * no tab sets one.
- * @returns Where the value is set, or the User tab if no tab sets it.
- */
-function getSettingSource(value: IConfigurationValue<string>, languageSpecific: boolean): ISettingSource {
-	const tabs = [
-		{ target: ConfigurationTarget.WORKSPACE, inspectValue: value.workspace },
-		{ target: ConfigurationTarget.USER_REMOTE, inspectValue: value.userRemote },
-		{ target: ConfigurationTarget.USER_LOCAL, inspectValue: value.userLocal },
-	] as const;
-	for (const override of [true, false]) {
-		const tab = tabs.find(({ inspectValue }) =>
-			(override ? inspectValue?.override : inspectValue?.value) !== undefined);
-		if (tab) {
-			return { target: tab.target, languageSpecific: override };
-		}
-	}
-	return { target: ConfigurationTarget.USER_LOCAL, languageSpecific };
-}
-
 interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
 	renderer: PositronModalReactRenderer;
@@ -196,24 +155,13 @@ export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPop
 	const showStartupBehaviorSettingClickHandler = () => {
 		// Open the settings tab the session's value comes from, so the user
 		// sees the value that started the session.
-		const languageId = props.session.runtimeMetadata.languageId;
-		const { target, languageSpecific } = getSettingSource(
-			services.configurationService.inspect<string>(startupBehaviorSettingKey, { overrideIdentifier: languageId }),
-			props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlways);
-		// The Settings editor uses the query. The JSON settings editor
-		// ignores it and uses the setting to reveal instead.
-		const options: IOpenSettingsOptions = languageSpecific ?
-			{ query: `@lang:${languageId} ${startupBehaviorSettingKey}`, revealSetting: { key: `[${languageId}]` } } :
-			{ query: startupBehaviorSettingKey, revealSetting: { key: startupBehaviorSettingKey } };
-		let opened: Promise<IEditorPane | undefined>;
-		if (target === ConfigurationTarget.WORKSPACE) {
-			opened = services.preferencesService.openWorkspaceSettings(options);
-		} else if (target === ConfigurationTarget.USER_REMOTE) {
-			opened = services.preferencesService.openRemoteSettings(options);
-		} else {
-			opened = services.preferencesService.openUserSettings(options);
-		}
-		opened.catch(err => services.logService.error(`Could not open the Startup Behavior setting: ${err}`));
+		openSettingWhereSet(
+			services.preferencesService,
+			services.configurationService,
+			'interpreters.startupBehavior',
+			props.session.runtimeMetadata.languageId,
+			props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlways,
+		).catch(err => services.logService.error(`Could not open the Startup Behavior setting: ${err}`));
 		props.renderer.dispose();
 	};
 
