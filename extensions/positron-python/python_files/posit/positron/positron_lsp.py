@@ -63,6 +63,9 @@ _HELP_TOPIC = "positron/textDocument/helpTopic"
 _PRIORITY_HIGH = 1
 _PRIORITY_LOW = -1
 
+# Client settings section that holds completeFunctionParens (shared with Pyrefly).
+_ANALYSIS_CONFIG_SECTION = "python.analysis"
+
 
 @attrs.define
 class PositronHover:
@@ -118,6 +121,9 @@ _RE_TRAILING_WORD = re.compile(r"(\w*)$")
 
 Group: (1) word prefix, possibly empty"""
 
+_RE_LEADING_WORD = re.compile(r"^\w*")
+"""Leading word characters (rest of the identifier after the cursor)"""
+
 _RE_ALIAS_ENVIRON = re.compile(r"^(\w+)\.environ$")
 """Static detection of `<alias>.environ`
 
@@ -157,6 +163,27 @@ _RE_LEADING_PERCENT = re.compile(r"^(%*)")
 """Leading percent signs for magic commands
 
 Group: (1) percent characters"""
+
+_RE_NO_CALL_PARENS_CONTEXT = re.compile(r"^\s*(?:import\s|from\s|(?:async\s+)?def\s|class\s)")
+"""Lines where Pyrefly does not add call parens: imports and def/class names"""
+
+_RE_ASSIGNMENT_AFTER = re.compile(r"^\s*(?:[-+*/%&|^@:]|//|\*\*|<<|>>)?=(?!=)")
+"""Text after a name that makes it an assignment target or keyword argument name: `= 1`, `+= 1`, `:= 1`"""
+
+_RE_TARGET_LIST_AFTER = re.compile(r"^\s*,[\w\s,.*]*=(?!=)")
+"""Text after a name that makes it the first item of an assignment target list: `, y = 1, 2`"""
+
+_RE_STORE_TARGET_BEFORE = re.compile(
+    r"(?:^|[\s(\[{;])"
+    r"(?:(?:del|global|nonlocal)\s+(?:[\w.]+\s*,\s*)*"
+    r"|for\s+(?:\*?\w+\s*,\s*)*\*?"
+    r"|as\s+"
+    r"|lambda\s+(?:\**\w+\s*,\s*)*\**)$"
+)
+"""Text before a name that makes it a store target: `del`, `global`, `nonlocal`, `for`, `as`, lambda params"""
+
+_RE_ANNOTATION_BEFORE = re.compile(r":\s*$")
+"""Text before a name that makes it an annotation, which is loaded: `x: `"""
 
 _ANY_POSITIONAL = -1
 """Sentinel for variadic positional parameters (e.g., polars `select(*exprs)`)."""
@@ -467,6 +494,12 @@ class PositronLanguageServerProtocol(LanguageServerProtocol):
         # Store the working directory (using params.root_path since workspace may not be initialized yet)
         server._working_directory = init_opts.working_directory or params.root_path  # noqa: SLF001
 
+        completion = (
+            params.capabilities.text_document and params.capabilities.text_document.completion
+        )
+        completion_item = completion and completion.completion_item
+        server._snippet_support = bool(completion_item and completion_item.snippet_support)  # noqa: SLF001
+
         # Yield to parent implementation which handles workspace setup
         return (yield from super().lsp_initialize(params))
 
@@ -504,6 +537,10 @@ class PositronLanguageServer(LanguageServer):
 
         # Cache for magic completions
         self._magic_completions: dict[str, tuple] = {}
+
+        # Client capabilities and settings that shape completion insert text
+        self._snippet_support = False
+        self._complete_function_parens = False
 
     def start_tcp(self, host: str) -> None:
         """Start the TCP server."""
@@ -693,6 +730,33 @@ def create_server() -> PositronLanguageServer:
 def _register_features(server: PositronLanguageServer) -> None:
     """Register LSP features with the server."""
 
+    # --- Configuration ---
+    @server.feature(types.INITIALIZED)
+    async def initialized(_params: types.InitializedParams) -> None:
+        """Read client settings, and ask the client to report when they change."""
+        dynamic_registration = _client_supports_did_change_configuration_registration(server)
+        if dynamic_registration:
+            try:
+                await server.client_register_capability_async(
+                    types.RegistrationParams(
+                        registrations=[
+                            types.Registration(
+                                id="positron-did-change-configuration",
+                                method=types.WORKSPACE_DID_CHANGE_CONFIGURATION,
+                                register_options={"section": _ANALYSIS_CONFIG_SECTION},
+                            )
+                        ]
+                    )
+                )
+            except Exception:
+                logger.warning("Failed to register for configuration changes", exc_info=True)
+        await _refresh_configuration(server)
+
+    @server.feature(types.WORKSPACE_DID_CHANGE_CONFIGURATION)
+    async def did_change_configuration(_params: types.DidChangeConfigurationParams) -> None:
+        """Re-read client settings."""
+        await _refresh_configuration(server)
+
     # --- Completion ---
     @server.feature(
         types.TEXT_DOCUMENT_COMPLETION,
@@ -730,6 +794,29 @@ def _register_features(server: PositronLanguageServer) -> None:
     def help_topic(params: HelpTopicParams) -> ShowHelpTopicParams | None:
         """Return the help topic for the symbol at the cursor."""
         return _handle_help_topic(server, params)
+
+
+def _client_supports_did_change_configuration_registration(server: PositronLanguageServer) -> bool:
+    """Whether the client accepts dynamic registration for configuration changes."""
+    workspace = server.client_capabilities.workspace
+    did_change = workspace and workspace.did_change_configuration
+    return bool(did_change and did_change.dynamic_registration)
+
+
+async def _refresh_configuration(server: PositronLanguageServer) -> None:
+    """Pull the settings this server uses from the client."""
+    try:
+        result = await server.workspace_configuration_async(
+            types.ConfigurationParams(
+                items=[types.ConfigurationItem(section=_ANALYSIS_CONFIG_SECTION)]
+            )
+        )
+    except Exception:
+        logger.warning("Failed to read %s settings", _ANALYSIS_CONFIG_SECTION, exc_info=True)
+        return
+
+    config = result[0] if result and isinstance(result[0], dict) else {}
+    server._complete_function_parens = config.get("completeFunctionParens") is True  # noqa: SLF001
 
 
 # --- Completion Handlers ---
@@ -841,7 +928,10 @@ def _handle_completion(
             # When inside a function call, don't filter by prefix to allow any namespace item
             items.extend(
                 _get_namespace_completions(
-                    server, text_before_cursor, filter_prefix=not inside_function_call
+                    server,
+                    text_before_cursor,
+                    text_after_cursor,
+                    filter_prefix=not inside_function_call,
                 )
             )
 
@@ -949,13 +1039,18 @@ def _get_parameter_completions(
 
 
 def _get_namespace_completions(
-    server: PositronLanguageServer, text_before_cursor: str, *, filter_prefix: bool = True
+    server: PositronLanguageServer,
+    text_before_cursor: str,
+    text_after_cursor: str = "",
+    *,
+    filter_prefix: bool = True,
 ) -> list[types.CompletionItem]:
     """Get completions from the shell's namespace.
 
     Args:
         server: The language server instance
         text_before_cursor: The text before the cursor position
+        text_after_cursor: The text after the cursor position
         filter_prefix: If True, filter completions by the partial word being typed.
                       If False, return all namespace items (useful when inside function calls
                       where user might want to use items as positional arguments).
@@ -969,6 +1064,10 @@ def _get_namespace_completions(
     assert match is not None
     prefix = match.group(1)
 
+    add_call_parens = _should_add_call_parens(
+        server, text_before_cursor
+    ) and not _is_name_store_context(text_before_cursor[: match.start()], text_after_cursor)
+
     for name, obj in server.shell.user_ns.items():
         # Skip private names unless explicitly typing underscore
         if name.startswith("_") and not prefix.startswith("_"):
@@ -978,16 +1077,55 @@ def _get_namespace_completions(
             continue
 
         kind = _get_completion_kind(obj)
-        items.append(
-            types.CompletionItem(
-                label=name,
-                kind=kind,
-                sort_text=f"a{name}",  # Sort after parameter completions
-                detail=type(obj).__name__,
-            )
+        item = types.CompletionItem(
+            label=name,
+            kind=kind,
+            sort_text=f"a{name}",  # Sort after parameter completions
+            detail=type(obj).__name__,
         )
+        if add_call_parens:
+            _add_call_parens(server, item, obj)
+        items.append(item)
 
     return items
+
+
+def _should_add_call_parens(server: PositronLanguageServer, text_before_cursor: str) -> bool:
+    """Whether routine completions should insert call parens at this position."""
+    return server._complete_function_parens and not _RE_NO_CALL_PARENS_CONTEXT.match(  # noqa: SLF001
+        text_before_cursor
+    )
+
+
+def _is_name_store_context(text_before_name: str, text_after_cursor: str) -> bool:
+    """Whether a bare name at the cursor is stored (assigned, deleted, bound) rather than loaded.
+
+    Pyrefly adds no call parens to names in store contexts or to keyword argument names,
+    so this matches its rules for the common cases without a full parse.
+    """
+    text_after_name = _RE_LEADING_WORD.sub("", text_after_cursor, count=1)
+    if _RE_ASSIGNMENT_AFTER.match(text_after_name):
+        return not _RE_ANNOTATION_BEFORE.search(text_before_name)
+    if _RE_TARGET_LIST_AFTER.match(text_after_name) and _find_enclosing_paren(text_before_name) < 0:
+        return True
+    return _RE_STORE_TARGET_BEFORE.search(text_before_name) is not None
+
+
+def _add_call_parens(server: PositronLanguageServer, item: types.CompletionItem, obj: Any) -> None:
+    """Make a routine's completion insert call parens, matching Pyrefly's insert text.
+
+    Core deduplicates completions by insert text, so this must match what Pyrefly emits
+    exactly. Pyrefly only adds parens to functions and methods, which is why this uses
+    ``inspect.isroutine`` rather than ``callable`` (classes and callable instances are excluded).
+    """
+    if not inspect.isroutine(obj):
+        return
+    if server._snippet_support:  # noqa: SLF001
+        item.insert_text = f"{item.label}($0)"
+        item.insert_text_format = types.InsertTextFormat.Snippet
+    else:
+        item.insert_text = f"{item.label}()"
+        item.insert_text_format = types.InsertTextFormat.PlainText
 
 
 def _get_dict_key_completions(
@@ -1525,6 +1663,8 @@ def _get_attribute_completions(
     except Exception:
         attrs = []
 
+    add_call_parens = _should_add_call_parens(server, text_before_cursor)
+
     for name in attrs:
         # Skip private/dunder unless typing underscore
         if name.startswith("_") and not attr_prefix.startswith("_"):
@@ -1537,17 +1677,19 @@ def _get_attribute_completions(
             kind = _get_completion_kind(attr)
             detail = type(attr).__name__
         except Exception:
+            attr = None
             kind = types.CompletionItemKind.Property
             detail = None
 
-        items.append(
-            types.CompletionItem(
-                label=name,
-                kind=kind,
-                sort_text=f"a{name}",
-                detail=detail,
-            )
+        item = types.CompletionItem(
+            label=name,
+            kind=kind,
+            sort_text=f"a{name}",
+            detail=detail,
         )
+        if add_call_parens:
+            _add_call_parens(server, item, attr)
+        items.append(item)
 
     return items
 

@@ -12,7 +12,7 @@
  */
 
 import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
-import { FILE_NAME, findFile } from './repro-files.mjs';
+import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
 function prose(markdown) {
@@ -171,7 +171,7 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 	// Only one with an extension: "files/lines" in a sentence is prose.
 	const named = new Set();
 	for (const { line } of [...prose(markdown), ...prose(ledger)]) {
-		for (const m of line.matchAll(/(?<![\w/.-])(files\/[\w./-]*\.\w+)(?!\w|\.\w)/g)) { named.add(m[1]); }
+		for (const m of line.matchAll(FILES_PATH)) { named.add(m[1]); }
 	}
 	for (const p of named) {
 		if (!listed.has(p)) { problems.push(`ledger: ${p} is named but not listed in ## Files`); }
@@ -183,7 +183,19 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 	// One line per file, naming every setup that needs it.
 	const unsaved = new Map();
 	for (const [where, text] of needs) {
+		// A files/ path already shows as its file name, so the bare name beside it repeats it.
+		// A ledger row's later fields say how the state was made, so only the state counts.
+		const state = String(text).split(' | ')[0];
+		const twice = new Set();
+		for (const [, path] of state.matchAll(FILES_PATH)) {
+			const name = basename(path);
+			if (!twice.has(name) && state.includes(`\`${name}\``)) {
+				twice.add(name);
+				problems.push(`${where} names ${name} twice, bare and as ${path}; write \`${path}\` once in place of the name, and the page shows it as ${name}`);
+			}
+		}
 		for (const m of String(text).matchAll(FILE_NAME)) {
+			if (twice.has(m[1])) { continue; }
 			// "user settings.json" is the app's own file; the setting goes in the step.
 			// A files/ path is the rule above's.
 			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/')) { continue; }
@@ -221,17 +233,6 @@ function ledgerPreconditions(ledger) {
 	return out;
 }
 
-/**
- * @param {string} markdown report.md
- * @param {string | undefined} ledger ledger.md, when the run wrote one
- * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
- * @returns {string[]} one line per problem; empty when the report is clean
- */
-/**
- * Finding screenshots with neither a `Step N:`/`Variant:` caption nor a step
- * that names them. Evidence groups by that tag, so one without it is a ledger
- * error, not a tile to show untagged.
- */
 /** The ledger's `Issue:` lines and issue-naming Not run rows, against the issues fetched for the PR. */
 function lintKnownIssues(ledger, knownIssues) {
 	const problems = [];
@@ -282,10 +283,21 @@ function lintKnownIssues(ledger, knownIssues) {
 	return problems;
 }
 
+/**
+ * Finding screenshots with neither a `Step N:`/`Variant:` caption nor a step
+ * that names them. Evidence groups by that tag, so one without it is a ledger
+ * error, not a tile to show untagged.
+ */
 export function untaggedShots(findings) {
 	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !e.step).map(e => ({ n: f.n, file: e.file })));
 }
 
+/**
+ * @param {string} markdown report.md
+ * @param {string | undefined} ledger ledger.md, when the run wrote one
+ * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
+ * @returns {string[]} one line per problem; empty when the report is clean
+ */
 export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues } = {}) {
 	const problems = [];
 	const lines = prose(markdown);
@@ -342,6 +354,11 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		const body = lines.slice(b.k + 1, end).map(l => l.line);
 		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
 			needs.push([`Finding ${b.n}`, l]);
+		}
+		// The bullets under a bare Preconditions: line are its setup too.
+		const at = body.findIndex(l => /^\*\*Preconditions:\*\*\s*$/.test(l));
+		for (let k = at + 1; at !== -1 && /^[-*]\s+/.test(body[k] ?? ''); k++) {
+			needs.push([`Finding ${b.n}`, body[k]]);
 		}
 		const pre = body.find(l => l.startsWith('**Preconditions:**'));
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { isBuiltinProviderId, mintCustomProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type Protocol, type ProvidersConfig, type ResolvedConnection, type ResolvedProvider, type SupportedCustomClientKind } from 'ai-config';
+import { isBuiltinProviderId, mintCustomProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type Protocol, type ProviderConfigSource, type ProviderConfigSourceKind, type ProvidersConfig, type ResolvedConnection, type ResolvedProvider, type SupportedCustomClientKind } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
 import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
@@ -212,6 +212,7 @@ export async function initProviderCatalog(
 	const { watchResolvedProviderCatalog } = await import('ai-config/node');
 	cache = toMap(await loadCatalog(options));
 	userConfig = await loadUserConfig(options);
+	await logDisabledProviders(options);
 
 	watcher = watchResolvedProviderCatalog(
 		// Serialized: the handler has to read the user layer before applying,
@@ -234,6 +235,60 @@ export async function initProviderCatalog(
 		}
 	);
 	context.subscriptions.push({ dispose: () => watcher?.dispose() });
+}
+
+/**
+ * Logs each provider that resolved to `enabled: false` at startup, and whether
+ * the user's providers.json or an admin policy disabled it. Answers "why is
+ * this provider missing" from the log alone.
+ *
+ * ai-config doesn't expose which layer decided `enabled` (its `resolveEnabled`
+ * is internal), so this repeats that "first layer that defines it wins" walk
+ * over the layers `loadConfigSources` returns: enforced, then user, then
+ * default. That seam omits the legacy POSITRON_ENFORCED_SETTINGS layer, which
+ * ranks between enforced and user; a provider none of the three disables must
+ * have been disabled there. A legacy pin that agrees with a user `false` is
+ * reported as the user's, which is still true of the file.
+ */
+async function logDisabledProviders(options: ProviderCatalogOptions): Promise<void> {
+	const disabled = [...cache.values()].filter(provider => !provider.enabled).map(provider => provider.id);
+	if (disabled.length === 0) {
+		return;
+	}
+	const { loadConfigSources } = await import('ai-config/node');
+	// No logger: loadCatalog has already reported these sources' issues.
+	const sources = await loadConfigSources({ configPath: options.configPath, env: options.envVars });
+	const layer = (kind: ProviderConfigSourceKind) => sources.find(source => source.kind === kind);
+	const enforced = layer('enforced');
+	const user = layer('user');
+	const fallback = layer('default');
+	const configPath = await resolveProvidersConfigPath(options);
+	for (const id of disabled) {
+		if (definesEnabled(enforced, id)) {
+			log.info(`Provider ${id} is disabled by an admin policy (${enforced?.label ?? 'POSIT_AI_PROVIDERS_ENFORCED'}), which overrides ${configPath}.`);
+		} else if (definesEnabled(user, id)) {
+			log.info(`Provider ${id} is disabled in ${configPath}. Set "enabled" to true there to turn it back on.`);
+		} else if (definesEnabled(fallback, id)) {
+			log.info(
+				`Provider ${id} is disabled by an admin default (${fallback?.label ?? 'POSIT_AI_PROVIDERS_DEFAULT'}). `
+				+ `Set "enabled" to true in ${configPath} to turn it back on.`
+			);
+		} else {
+			log.info(`Provider ${id} is disabled by an admin policy (POSITRON_ENFORCED_SETTINGS), which overrides ${configPath}.`);
+		}
+	}
+}
+
+/**
+ * Whether a config layer decides a provider's `enabled`, either in the
+ * provider's own block or in the layer's `default` block -- the same test
+ * ai-config's `resolveEnabled` uses to pick the winning layer.
+ */
+function definesEnabled(source: ProviderConfigSource | undefined, id: string): boolean {
+	const providers = source?.config.providers;
+	const block = (providers as Record<string, { enabled?: boolean } | undefined> | undefined)?.[id]
+		?? providers?.custom?.[id];
+	return block?.enabled !== undefined || providers?.default?.enabled !== undefined;
 }
 
 /** Synchronous read over the cached catalog; undefined before init. */
@@ -415,6 +470,21 @@ export async function refreshProviderCatalog(options?: ProviderCatalogOptions): 
 
 function effectiveOptions(override?: ProviderCatalogOptions): ProviderCatalogOptions {
 	return override ?? currentOptions ?? {};
+}
+
+/**
+ * The providers.json path these helpers read and write: the `configPath`
+ * override when a test supplies one, otherwise ai-config's real location. Kept
+ * here so callers that only need the path for a message don't have to import
+ * ai-config themselves.
+ */
+export async function resolveProvidersConfigPath(options?: ProviderCatalogOptions): Promise<string> {
+	const configPath = effectiveOptions(options).configPath;
+	if (configPath) {
+		return configPath;
+	}
+	const { PROVIDERS_CONFIG_PATH } = await import('ai-config/node');
+	return PROVIDERS_CONFIG_PATH;
 }
 
 /** All providers these helpers write are built-ins, so their blocks are `BuiltinProviderBlock`. */
@@ -631,21 +701,29 @@ export async function saveDatabricksHost(
 /**
  * Writes providers.<id>.enabled, then refreshes the cache. With `onlyIfUnset`,
  * leaves an already-set `enabled` value untouched.
+ *
+ * Returns whether the value was written: false means `onlyIfUnset` found an
+ * existing `enabled` and left it alone. Callers that report what they did to
+ * the user's file need that distinction, which the write itself doesn't
+ * surface.
  */
 export async function saveProviderEnabled(
 	catalogId: string,
 	enabled: boolean,
 	onlyIfUnset: boolean,
 	options?: ProviderCatalogOptions
-): Promise<void> {
+): Promise<boolean> {
 	const opts = effectiveOptions(options);
+	let wrote = false;
 	await mutate(providers => {
 		const block = providers[catalogId] ?? {};
 		if (onlyIfUnset && block.enabled !== undefined) {
 			return;
 		}
 		providers[catalogId] = { ...block, enabled };
+		wrote = true;
 	}, opts);
+	return wrote;
 }
 
 // ---------------------------------------------------------------------------

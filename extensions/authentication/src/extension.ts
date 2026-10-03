@@ -37,7 +37,8 @@ import {
 	validateSnowflakeApiKey
 } from './validation';
 import { FOUNDRY_MANAGED_CREDENTIALS, hasManagedCredentials } from './managedCredentials';
-import { resolveAwsChainInit } from './credentials/aws';
+import { createManagedCredentialsApi } from './managedCredentialsApi';
+import { createAwsCredentialChain, watchWebIdentityTokenFile } from './credentials/aws';
 import { createAwsSsoRecovery } from './awsRecovery';
 import { resolveGeapCredential } from './credentials/geap';
 import {
@@ -339,6 +340,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		// Lets `next-edit-suggestions` read a resolved connection value without
 		// duplicating the catalog here.
 		getResolvedProviderBaseUrl: (catalogId: string) => getCachedProvider(catalogId)?.connection.baseUrl,
+		// Lets the Snowflake and Databricks data connection drivers offer a "Workbench managed
+		// credentials" mechanism without parsing Workbench's credential files themselves.
+		managedCredentials: createManagedCredentialsApi(),
 	};
 }
 
@@ -411,25 +415,15 @@ async function registerAwsProvider(
 ): Promise<void> {
 	const logger = new AuthProviderLogger('AWS');
 
+	const credentialChain = createAwsCredentialChain(
+		() => getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws,
+		process.env,
+		fromNodeProviderChain,
+	);
 	const provider = new AuthProvider(
 		AWS_AUTH_PROVIDER_ID, 'AWS', context,
 		undefined,
-		{
-			resolve: async () => {
-				const aws = getCachedProvider(PROVIDER_METADATA.amazonBedrock.catalogId!)?.connection.aws;
-				const chainInit = resolveAwsChainInit(aws, process.env);
-				const credentialProvider = fromNodeProviderChain(chainInit);
-				const resolved = await credentialProvider();
-				return {
-					token: JSON.stringify({
-						accessKeyId: resolved.accessKeyId,
-						secretAccessKey: resolved.secretAccessKey,
-						sessionToken: resolved.sessionToken,
-					}),
-					expiration: resolved.expiration,
-				};
-			},
-		}
+		credentialChain
 	);
 	context.subscriptions.push(
 		vscode.authentication.registerAuthenticationProvider(
@@ -455,6 +449,13 @@ async function registerAwsProvider(
 			)?.connection.aws?.profile,
 		}),
 	});
+
+	const tokenWatcher = watchWebIdentityTokenFile(
+		process.env, credentialChain, () => provider.resolveChainCredentials()
+	);
+	if (tokenWatcher) {
+		context.subscriptions.push(tokenWatcher);
+	}
 	await provider.resolveChainCredentials();
 	logger.info('Registered auth provider');
 }

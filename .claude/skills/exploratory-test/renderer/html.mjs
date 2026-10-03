@@ -14,7 +14,7 @@
 
 // escapeHtml is shared with the parser rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
@@ -22,6 +22,8 @@ import { CHECKS_FILE, summarizeChecks } from './stats.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
+import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
+import { readKnownIssues } from './finish.mjs';
 
 const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -37,6 +39,8 @@ const ICON = {
 	bug: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
 		+ '<path d="M6.2 5.1a1.8 1.8 0 0 1 3.6 0"/><rect x="4.75" y="5.5" width="6.5" height="8" rx="3.25"/>'
 		+ '<path d="M4.75 8.6H2.5M13.5 8.6h-2.25M4.9 11.7 3 13M11.1 11.7 13 13"/></svg>',
+	link: '<svg class="ln-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2.2-2.2a2.6 2.6 0 0 0-3.7-3.7l-.8.8"></path><path d="M9.2 6.8a2.6 2.6 0 0 0-3.7 0L3.3 9a2.6 2.6 0 0 0 3.7 3.7l.8-.8"></path></svg>',
+	linked: '<svg class="ln-ok" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	copied: '<svg class="cp-ok" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	down: '<svg class="cov-chev" aria-hidden="true" width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>',
 	// The collapsed rows' and the Coverage rows' disclosure: 12px, right-pointing.
@@ -50,9 +54,8 @@ const ICON = {
 	next: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"></path></svg>',
 	close: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg>',
 	up: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3.5"></path><path d="M4 7.5l4-4 4 4"></path></svg>',
-	briefcase: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path><path d="M3 12.5h18"></path><path d="M11 12.5v1.5h2v-1.5"></path></svg>',
-	speech: '<svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 4.2c0-.9.7-1.7 1.7-1.7h7.6c.9 0 1.7.8 1.7 1.7v5.1c0 .9-.8 1.7-1.7 1.7H7l-3 2.5V11h.2c-.9 0-1.7-.8-1.7-1.7z"></path></svg>',
-	party: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l4.5-12 7.5 7.5z"></path><path d="M7 16l1.5 1.5"></path><path d="M14 4.5c.5 1-.2 2 .3 3"></path><path d="M19.5 10c-1-.5-2 .2-3-.3"></path><path d="M17 3v2"></path><path d="M21 7h-2"></path><circle cx="20" cy="3.5" r=".6" fill="currentColor"></circle><circle cx="12" cy="3" r=".6" fill="currentColor"></circle><circle cx="21" cy="12.5" r=".6" fill="currentColor"></circle></svg>',
+	moon: '<svg class="th-moon" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 9.6A5.5 5.5 0 0 1 6.4 2.8a5.5 5.5 0 1 0 6.8 6.8z"></path></svg>',
+	sun: '<svg class="th-sun" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="2.8"></circle><path d="M8 1.5v1.4M8 13.1v1.4M1.5 8h1.4M13.1 8h1.4M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"></path></svg>',
 };
 
 const SEVERITY_LABEL = { major: 'Major', moderate: 'Moderate', minor: 'Minor' };
@@ -160,8 +163,24 @@ function renderTiles(report) {
 	return `<section class="tiles">${findingsTile}${scenariosTile}${runTile}</section>`;
 }
 
+/** The line a chat app's link preview shows under the title; the image carries the counts. */
+export function previewSummary(report) {
+	return [report.pr ? `PR #${report.pr.number}` : '', report.chips[0] ?? ''].filter(Boolean).join(' on ');
+}
+
+/** "2 major, 1 minor": the severities with findings, worst first. */
+function severityWords(sev) {
+	return [[sev.major, 'major'], [sev.moderate, 'moderate'], [sev.minor, 'minor']]
+		.filter(([n]) => n > 0).map(([n, word]) => `${n} ${word}`).join(', ');
+}
+
 function capitalize(text) {
 	return text ? text[0].toUpperCase() + text.slice(1) : text;
+}
+
+/** A finding's status, lowercase: the verifier's verdict over the run's own. */
+function statusWord(f) {
+	return f.verified ?? (f.confirmed ? f.confirmed.toLowerCase() : null);
 }
 
 function renderAgents(report) {
@@ -235,28 +254,39 @@ function coverageOrder(coverage) {
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-/** The row that stands in for the finding rows when there are none. */
-function renderNoFindings(report) {
+/**
+ * The block that stands in for the finding rows when there are none: the
+ * scenario counts, plus the linked-issue counts when no linked issue was
+ * observed (there's no "Linked issues" row then).
+ */
+function renderNoFindings(report, ki) {
 	const { exercised = 0, pass = 0, notRun = 0 } = report.scenarios ?? {};
-	const ran = !exercised ? (notRun ? 'No scenarios were exercised' : '')
-		: pass === exercised ? (exercised === 1 ? 'The one exercised scenario passed' : `All ${exercised} exercised scenarios passed`)
-			: `${pass} of ${plural(exercised, 'exercised scenario', 'exercised scenarios')} passed`;
-	const skipped = notRun ? `; ${notRun} ${notRun === 1 ? 'wasn&rsquo;t' : 'weren&rsquo;t'} run` : '';
-	const see = exercised + notRun ? ' <a class="ki-ev" href="#coverage">See Coverage</a>' : '';
+	const observed = ki?.observed?.length ?? 0;
+	const held = ki?.fixesHeld?.length ?? 0;
+	const unseen = ki?.notObserved?.length ?? 0;
+	const counts = [
+		pass ? `<b>${pass}</b> passed` : '',
+		notRun ? `<b>${notRun}</b> not run` : '',
+		!observed && held ? kiCnt('ki-list-fix', `${plural(held, 'fix', 'fixes')} verified`) : '',
+		!observed && unseen ? kiCnt('ki-list-no', `${plural(unseen, 'linked issue', 'linked issues')} not observed`) : '',
+	].filter(Boolean).join(KI_DOT);
+	const see = exercised + notRun ? '<a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a>' : '';
 	return `<div class="ki-empty"><span class="ki-empty-ic">${ICON.check(14)}</span>`
-		+ `<span><b>No new findings</b>${ran ? `<span>${ran}${skipped}.${see}</span>` : ''}</span></div>`;
+		+ `<span><b>No new findings</b>${counts ? `<span class="ki-empty-sum">${counts}</span>` : ''}</span>${see}</div>`;
 }
+
+const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
 function renderFindingsList(report, ki = null) {
 	const rows = report.findings.map(f => {
-		const word = f.verified ?? (f.confirmed ? f.confirmed.toLowerCase() : null);
+		const word = statusWord(f);
 		const verdict = word === 'confirmed'
 			? `<span class="status">${ICON.statusCheck}Confirmed</span>`
 			: word
-				? `<span class="status muted">${word[0].toUpperCase()}${word.slice(1)}</span>`
+				? `<span class="status muted">${capitalize(word)}</span>`
 				: '<span class="status muted"></span>';
-		// Plain numbers, not links: the whole row is already a link to the card, which has them.
-		// Plain text inside the row link, but it still previews on hover.
+		// Plain numbers, not links: the whole row is already a link to the card. They still preview on hover.
 		const nums = issues => issues.map(i => `<span class="ki-num-t"${kiData(i, ki)}>#${i.number}</span>`).join(', ');
 		const failed = ki?.fixFailed.get(f.n);
 		const back = ki?.cameBack.get(f.n);
@@ -287,7 +317,7 @@ function renderFindingsList(report, ki = null) {
 	return `<section id="findings" class="section">
 <h2 class="section-label">Findings</h2>
 <div class="panel">
-${head}${[...(rows.length ? rows : [renderNoFindings(report)]), renderLinkedIssues(report, ki)].filter(Boolean).join('\n')}
+${head}${[...(rows.length ? rows : [renderNoFindings(report, ki)]), renderLinkedIssues(report, ki, !rows.length)].filter(Boolean).join('\n')}
 </div>
 </section>`;
 }
@@ -296,9 +326,11 @@ ${head}${[...(rows.length ? rows : [renderNoFindings(report)]), renderLinkedIssu
  * The "Linked issues" row under the findings. It opens only onto the open
  * linked issues the run ran into, which are not findings, so no number, card
  * or count. The fix-verified and not-observed counts show their lists on hover.
- * Nothing when every count is zero.
+ * Nothing when every count is zero. With no findings it opens by default, and
+ * with nothing observed either its counts move into the empty block, leaving
+ * only the lists.
  */
-function renderLinkedIssues(report, ki) {
+function renderLinkedIssues(report, ki, noFindings = false) {
 	const observed = ki?.observed ?? [];
 	const held = ki?.fixesHeld ?? [];
 	const unseen = ki?.notObserved ?? [];
@@ -316,13 +348,11 @@ function renderLinkedIssues(report, ki) {
 			+ `<span class="rate">${o.rows.length}</span>`
 			+ `<span class="ki-st"><span>${kiState(o.issue)} &middot; ${kiNum(o.issue.number, ki)}</span></span></div>`;
 	});
-	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
-	const cnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 	const counts = [
 		observed.length ? `${observed.length} observed` : '',
-		held.length ? cnt('ki-list-fix', `${held.length} fix verified`) : '',
-		unseen.length ? cnt('ki-list-no', `${unseen.length} not observed`) : '',
-	].filter(Boolean).join(dot);
+		held.length ? kiCnt('ki-list-fix', `${held.length} fix verified`) : '',
+		unseen.length ? kiCnt('ki-list-no', `${unseen.length} not observed`) : '',
+	].filter(Boolean).join(KI_DOT);
 	// Hidden sources the script copies into its panel as they are, so every
 	// title and scenario name is escaped here.
 	const item = (issue, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="${REPO_URL}/issues/${Number(issue.number)}" target="_blank" rel="noopener">#${Number(issue.number)}</a>`
@@ -331,10 +361,13 @@ function renderLinkedIssues(report, ki) {
 	const skipped = ki?.skipped ?? new Set();
 	const lists = list('ki-list-fix', 'Fix verified this run', held.map(h => item(h.issue, `passed in &ldquo;${h.rows[0].scenarioHtml}&rdquo;`)))
 		+ list('ki-list-no', 'Linked to this PR, not observed', unseen.map(i => item(i, skipped.has(i.number) ? 'skipped on purpose, see Coverage' : 'no scenario reached it')));
+	if (noFindings && !rows.length) {
+		return lists;
+	}
 	const head = `<span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${counts}</span>`;
 	// Only observed issues need rows, so with none there is nothing to open.
 	const row = rows.length
-		? `<details class="ki-grp"><summary>${head}${ICON.disclose('ki-chev')}</summary>${rows.join('')}</details>`
+		? `<details class="ki-grp"${noFindings ? ' open' : ''}><summary>${head}${ICON.disclose('ki-chev')}</summary>${rows.join('')}</details>`
 		: `<div class="ki-grp"><div class="ki-hd">${head}</div></div>`;
 	return row + lists;
 }
@@ -461,7 +494,7 @@ function absolutePath(p, base) {
  * A log source that names a file beside the report, `logs/x.log:1182`, as
  * `{ path, line }`; null for prose, an absolute path, or one leaving the folder.
  */
-export function logFile(source) {
+function logFile(source) {
 	const m = /^([^\s`:]+?)(?::(\d+))?$/.exec(String(source ?? '').trim());
 	if (!m || /^([a-z][a-z0-9+.-]*:|\/|~|\.\.)/i.test(m[1]) || !/\.\w+$/.test(m[1])) {
 		return null;
@@ -575,14 +608,14 @@ function regressionTest(f) {
  * fields the card renders. A section with nothing in it is left out rather than
  * printed as an empty heading.
  */
-export function buildAgentPrompt(f, report, options = {}) {
+function buildAgentPrompt(f, report, options = {}) {
 	const base = options.base;
 	const t = f.text;
-	const word = f.verified ?? f.confirmed ?? '';
+	const word = statusWord(f);
 	const title = capitalize(safeLinks(/[.!?]$/.test(f.title) ? f.title : `${f.title}.`));
 	const out = [`## Finding ${f.n} \u2014 ${SEVERITY_LABEL[f.severity]}`, '', title, ''];
 	const status = [
-		word && `Status: ${word[0].toUpperCase()}${word.slice(1)}`,
+		word && `Status: ${capitalize(word)}`,
 		f.reproduced && `Reproduced: ${f.reproduced}`,
 	].filter(Boolean);
 	out.push(...status, '');
@@ -592,6 +625,11 @@ export function buildAgentPrompt(f, report, options = {}) {
 		}
 	};
 	section('Impact', t.impact);
+	// So the agent checks these before fixing or filing it again.
+	section('Possibly known issues', possiblyKnown(f, options.ki).map(n => {
+		const issue = options.ki?.byNumber.get(n);
+		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
+	}).join('\n'));
 	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 	section('Preconditions', t.preconditions.length === 1
@@ -628,8 +666,13 @@ function fenced(text, lang = '') {
 }
 
 function renderCopyButton(f) {
-	return `<button type="button" class="cp-btn" data-tip="Copy prompt for agent" data-prompt="prompt-f${f.n}" aria-label="Copy prompt for an agent: finding ${f.n}">`
+	return `<button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f${f.n}" aria-label="Copy prompt for an agent: finding ${f.n}">`
 		+ `${ICON.copy}${ICON.copied}</button>`;
+}
+
+function renderLinkButton(f) {
+	return `<button type="button" class="ln-btn" data-link-to="f${f.n}" data-tip="Copy link" aria-label="Copy link to finding ${f.n}">`
+		+ `${ICON.link}${ICON.linked}</button>`;
 }
 
 /**
@@ -656,13 +699,9 @@ function reportUrl(base) {
 	return /^https?:\/\//i.test(base ?? '') ? `${base.replace(/\/+$/, '')}/index.html` : null;
 }
 
-// Posit team feedback: one Google Form per finding, one for the whole report,
-// each pre-filled by entry ID. The finding form takes anyone, since a
+// Posit team feedback: one Google Form per finding, pre-filled by entry ID. The finding form takes anyone, since a
 // background submit cannot tell when Google refuses a signed-out reader.
-const FEEDBACK_FORM_URL = {
-	finding: 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform?usp=pp_url',
-	report: 'https://docs.google.com/forms/d/e/1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/viewform?usp=pp_url',
-};
+const FEEDBACK_FORM_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform?usp=pp_url';
 const FEEDBACK_SUBMIT_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/formResponse';
 const FEEDBACK_ENTRY = { report: 'entry.1746253506', version: 'entry.1873070470', finding: 'entry.890833928', verdict: 'entry.427792690' };
 // A random ID kept per browser, so a count can take each browser's latest
@@ -698,29 +737,39 @@ export function skillVersion(skillMd) {
 }
 
 /**
- * A pre-filled link to the finding form when given a finding, to the report
- * form otherwise. The finding is shown above its verdict, so the form says
- * which one it asks about.
+ * A finding's pre-filled answers. The finding is shown above its verdict, so
+ * the form says which one it asks about.
  */
 function feedbackValues(report, version, finding, verdict) {
 	return [
 		[FEEDBACK_ENTRY.report, report],
 		// With a v, so Sheets keeps it as text: 1.10 would otherwise read as 1.1.
 		[FEEDBACK_ENTRY.version, version ? `v${version}` : 'unknown'],
-		...(finding ? [[FEEDBACK_ENTRY.finding, `Finding ${finding.n} \u00B7 ${finding.title}`], [FEEDBACK_ENTRY.verdict, verdict]] : []),
+		[FEEDBACK_ENTRY.finding, `Finding ${finding.n} \u00B7 ${finding.title}`],
+		[FEEDBACK_ENTRY.verdict, verdict],
 	].map(([entry, value]) => `${entry}=${encodeURIComponent(value)}`);
 }
 
 function feedbackHref(report, version, finding, verdict) {
-	return FEEDBACK_FORM_URL[finding ? 'finding' : 'report'] + feedbackValues(report, version, finding, verdict).map(v => `&${v}`).join('');
+	return FEEDBACK_FORM_URL + feedbackValues(report, version, finding, verdict).map(v => `&${v}`).join('');
 }
 
-// Only a published page asks for feedback, so every answer points at a report
-// someone can open. A local page has only a path, which is never sent.
+/**
+ * What an answer names the report by: its URL once published. A local page
+ * has only a path, which is never sent, so it sends `local:`, who ran it, and
+ * the run directory's name, the run's timestamp. A published page is public,
+ * so it never carries who ran it.
+ */
+function feedbackReport(base, author) {
+	// Either separator, so a Windows path is cut to its name too.
+	const name = (base ?? '').replace(/[\\/]+$/, '').split(/[\\/]/).pop();
+	return reportUrl(base) ?? (name ? `local:${author ? `${author}/` : ''}${name}` : null);
+}
+
 // A verdict's `href` is the pre-filled form, for "Add a note" and a modified
 // click; `data-submit` records it in one click.
 function renderFeedbackRow(f, options) {
-	const url = reportUrl(options.base);
+	const url = feedbackReport(options.base, options.author);
 	if (!url) {
 		return '';
 	}
@@ -729,17 +778,7 @@ function renderFeedbackRow(f, options) {
 		const submit = `${FEEDBACK_SUBMIT_URL}?${feedbackValues(report, options.skillVersion, f, verdict).join('&')}&submit=Submit`;
 		return `<a href="${escapeHtml(feedbackHref(report, options.skillVersion, f, verdict))}" data-submit="${escapeHtml(submit)}" data-verdict="${escapeHtml(verdict)}" target="_blank" rel="noopener">${label}</a>`;
 	});
-	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Posit team feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
-}
-
-function renderFeedbackButton(options) {
-	const url = reportUrl(options.base);
-	if (!url) {
-		return '';
-	}
-	return `<a class="fb-top" href="${escapeHtml(feedbackHref(url, options.skillVersion))}" target="_blank" rel="noopener"`
-		+ ' title="Posit team feedback on this report (opens a Posit-only form)" aria-label="Give feedback (opens a Posit-only form)">'
-		+ `${ICON.speech}<span class="fb-top-label">Give feedback</span></a>`;
+	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Provide feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 
 /** Positron and OS, then the session, each value on its own line under its label. */
@@ -794,7 +833,7 @@ function issueStep(step, observed) {
  * `trim` (0 to ISSUE_TRIMS.length) drops that many of ISSUE_TRIMS, least
  * needed first, for a body too long for the new-issue link.
  */
-export function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
+function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const drop = new Set(ISSUE_TRIMS.slice(0, trim));
 	const t = f.text;
 	const [branch, sha] = report.chips;
@@ -903,7 +942,7 @@ const ISSUE_TRIMS = ['fileText', 'regression', 'cause', 'errors'];
  * shortest does not fit, the link carries the title alone and `copy` is set:
  * the page copies `text`, the full body, on click instead.
  */
-export function issueLink(f, report, options = {}) {
+function issueLink(f, report, options = {}) {
 	// Positron issues are titled `<Feature>: <description>`.
 	const title = f.feature ? `${f.feature}: ${lowerFirstWord(f.title, f)}` : f.title;
 	const full = buildIssueBody(f, report, options);
@@ -1018,9 +1057,14 @@ function renderCardDetails(f, report, options = {}) {
 	return rows.length ? `<div class="card-details">${rows.join('')}</div>` : '';
 }
 
-/** The card's "Possibly known" line: the verifier's matches, less the finding's own issues. */
+/** The verifier's matches, less the finding's own issues. */
+function possiblyKnown(f, ki) {
+	return ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
+}
+
+/** The card's "Possibly known" line. */
 function renderPossiblyKnown(f, ki) {
-	const known = ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
+	const known = possiblyKnown(f, ki);
 	if (!known.length) {
 		return '';
 	}
@@ -1031,10 +1075,11 @@ function renderFindingCard(f, report, options) {
 	const prompts = options.agentPrompts !== false;
 	const issue = issueLink(f, report, options);
 	const context = [];
-	if (f.confirmed === 'Confirmed' || f.verified === 'confirmed') {
+	const word = statusWord(f);
+	if (word === 'confirmed') {
 		context.push(`<span class="confirmed">${ICON.check(12)}Confirmed</span>`);
-	} else if (f.confirmed) {
-		context.push(`<span class="confirmed">${escapeHtml(f.confirmed)}</span>`);
+	} else if (word) {
+		context.push(`<span class="confirmed">${escapeHtml(capitalize(word))}</span>`);
 	}
 	if (f.reproduced) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
@@ -1047,6 +1092,7 @@ function renderFindingCard(f, report, options) {
 		+ `<span class="group context">${contextHtml}</span>`
 		+ renderIssueButton(f, issue)
 		+ (prompts ? renderCopyButton(f) : '')
+		+ renderLinkButton(f)
 		+ '</div>';
 
 	const head = `<header>${meta}`
@@ -1071,8 +1117,7 @@ function renderFindingCard(f, report, options) {
 		+ '</div>'
 		: '';
 
-	// Text only: every screenshot, including the one the report embedded here,
-	// now sits under Evidence.
+	// Text only: every screenshot sits under Evidence.
 	// Setup first, then actions, each under its own label: a reader can see what
 	// they need before they start without reading to find where it stops.
 	const preconditions = f.preconditions.length
@@ -1353,8 +1398,7 @@ ${report.verification.bodyHtml}
  * repeating it here ended the page on an invoice.
  *
  * The name links to the skill that wrote the report. The arrow says the link
- * leaves the page, so it has to actually go somewhere; the `data-skill-url`
- * placeholder the reference carries is gone now that there is a real URL.
+ * leaves the page.
  *
  * The copyright under it is dated by the run, not the render, so re-rendering
  * an old run keeps its year.
@@ -1380,17 +1424,35 @@ function renderSignature(startedAt = new Date(), version = null, skillUrl = SKIL
 </footer>`;
 }
 
+// The theme toggle shows the moon on light and the sun on dark, by CSS, so a
+// saved choice applied before paint shows the right icon.
+const HEADER_ACTIONS = '<div class="hd-act hd-inline">'
+	+ `<button type="button" class="mode-tip th-sw" data-tip="Switch to dark mode" aria-label="Switch to dark mode">${ICON.moon}${ICON.sun}</button>`
+	+ '<button type="button" class="sh-btn" aria-label="Share: copy a link to this report">'
+	+ `${ICON.link.replace('ln-ico', 'sh-ico')}${ICON.linked.replace('ln-ok', 'sh-ok')}<span class="sh-l">Share</span></button></div>`;
+
 const BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('exploratory-report-theme');
 if(t==='party'||t==='professional'){document.documentElement.setAttribute('data-theme',t);}}catch(e){}})();`;
 
 const PAGE_SCRIPT = `(function(){
 var root=document.documentElement;
-var buttons=Array.prototype.slice.call(document.querySelectorAll('.switch button'));
+var sw=document.querySelector('.th-sw');
 function apply(theme){root.setAttribute('data-theme',theme);
-buttons.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.theme===theme));});}
-buttons.forEach(function(b){b.addEventListener('click',function(){apply(b.dataset.theme);
-try{localStorage.setItem('exploratory-report-theme',b.dataset.theme);}catch(e){}});});
+var label=theme==='party'?'Switch to light mode':'Switch to dark mode';sw.dataset.tip=label;sw.setAttribute('aria-label',label);}
+sw.addEventListener('click',function(){var theme=root.getAttribute('data-theme')==='party'?'professional':'party';apply(theme);
+try{localStorage.setItem('exploratory-report-theme',theme);}catch(e){}});
 apply(root.getAttribute('data-theme')||'professional');
+
+var share=document.querySelector('.sh-btn'),shareLabel=share.querySelector('.sh-l'),shareTimer;
+share.addEventListener('click',function(){var text=location.href.split('#')[0];
+try{history.replaceState(null,'',location.pathname+location.search);}catch(_){}
+function done(){share.classList.add('is-copied');shareLabel.textContent='Copied';clearTimeout(shareTimer);
+shareTimer=setTimeout(function(){share.classList.remove('is-copied');shareLabel.textContent='Share';},1600);}
+function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
+else{fallback();}});
 
 var top=document.querySelector('.to-top');
 if(top){var sync=function(){var show=(window.scrollY||document.documentElement.scrollTop||0)>900;
@@ -1507,24 +1569,38 @@ if(a){answer(row,a);}else{put(key(row),null);}});
 document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target:null;if(!t){return;}
 var change=t.closest('.fb-done');
 if(change){var row=change.closest('.fb');put(key(row),null);reset(row);verdicts(row)[0].focus();return;}
-var a=t.closest('.fb a, a.fb-top');
+var a=t.closest('.fb a');
 if(!a||e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey){return;}
 e.preventDefault();
 if(a.dataset.submit){var r=a.closest('.fb');send(a.dataset.submit);put(key(r),a.dataset.verdict);answer(r,a).focus();return;}
 open(a.href);});
 })();`;
 
-// One handler for every copy button. Only a copy that worked says "Copied".
+// One handler for the code and agent-prompt copy buttons. Only a copy that worked says "Copied".
 const COPY_SCRIPT = `document.querySelectorAll('.cp-btn,.code-cp').forEach(function(b){var t,tip=b.dataset.tip;
 b.addEventListener('click',function(){var text;
 // A code block copies its source exactly; the agent button copies its prompt.
 if(b.classList.contains('code-cp')){var pre=b.parentNode.querySelector('pre');if(!pre){return;}text=pre.textContent;}
 else{var el=document.getElementById(b.dataset.prompt);if(!el){return;}
-// Undo renderPromptBlock's escapes, or the paste carries them.
+// Undo scriptText's escapes, or the paste carries them.
 text=el.textContent.trim().replace(/<\\\\(?=\\/script|!--)/gi,'<');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
 // A frame that blocks the clipboard API can still allow execCommand.
+function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
+else{fallback();}});});`;
+
+// Copy link: this page's URL with the finding's anchor. The address bar
+// follows without scrolling or adding a history entry.
+const LINK_SCRIPT = `document.querySelectorAll('[data-link-to]').forEach(function(b){var t,tip=b.dataset.tip;
+b.addEventListener('click',function(e){e.preventDefault();var id=b.dataset.linkTo;
+var text=location.href.split('#')[0]+'#'+id;
+try{history.replaceState(null,'','#'+id);}catch(_){}
+function done(){b.classList.add('is-copied');b.dataset.tip='Link copied';clearTimeout(t);
+t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},1600);}
 function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
 ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
 var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
@@ -1665,12 +1741,27 @@ export function renderReportHtml(markdown, options = {}) {
 		: '';
 	const chips = prLink + report.chips.map(c => `<code>${escapeHtml(c)}</code>`).join('');
 
+	// What Slack and other chat apps show when the link is pasted.
+	const previewText = escapeHtml(previewSummary(report));
+	// Absolute, or chat apps show no image; the caller passes it only once og.png is written.
+	const severities = severityWords(report.severityCounts);
+	const { major, moderate, minor } = report.severityCounts;
+	const findings = major + moderate + minor === 1 ? 'finding' : 'findings';
+	const ogImage = options.ogImage ? `
+<meta property="og:image" content="${escapeHtml(options.ogImage)}">
+<meta property="og:image:width" content="${CARD_WIDTH}">
+<meta property="og:image:height" content="${CARD_HEIGHT}">
+<meta property="og:image:alt" content="${severities ? `${severities} ${findings}` : 'No findings'}">` : '';
+
 	const page = `<!DOCTYPE html>
 <html lang="en" data-theme="professional">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(report.title)}</title>
+${previewText ? `<meta name="description" content="${previewText}">\n` : ''}<meta property="og:type" content="website">
+<meta property="og:site_name" content="Positron exploratory test">
+<meta property="og:title" content="${escapeHtml(capitalize(report.title))}">${previewText ? `\n<meta property="og:description" content="${previewText}">` : ''}${ogImage}
 <script>${BOOT_SCRIPT}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1682,15 +1773,9 @@ export function renderReportHtml(markdown, options = {}) {
 <main class="wrap">
 
 <header class="head">
-${renderFeedbackButton(options)}
-<nav class="switch" aria-label="Report theme">
-<button type="button" class="tip" data-theme="professional" data-tip="Professional" aria-label="Switch to Professional" aria-pressed="true">${ICON.briefcase}</button>
-<button type="button" class="tip" data-theme="party" data-tip="Party" aria-label="Switch to Party" aria-pressed="false">${ICON.party}</button>
-</nav>
-<div class="eyebrow"><span class="kicker">Exploratory test</span>${chips ? '<span class="bullet"></span>' : ''}${chips}</div>
+<div class="eyebrow"><span class="kicker">Exploratory test</span>${chips ? '<span class="bullet"></span>' : ''}${chips}${HEADER_ACTIONS}</div>
 <h1 class="title">${escapeHtml(report.title)}</h1>
 ${report.leadHtml ? `<p class="lead">${report.leadHtml}</p>` : ''}
-<div class="motif" aria-hidden="true"><div class="plane"></div><div class="horizon"></div></div>
 </header>
 
 ${renderTiles(report)}
@@ -1728,11 +1813,52 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 	// Code blocks in steps have copy buttons even when agent prompts are off.
 	const copy = prompts || page.includes('class="code-cp"');
 	const issue = page.includes(' data-issue="');
+	const link = page.includes(' data-link-to="');
 	const codeCopy = page.includes('<code class="cc"');
 	const preview = page.includes(' data-title="');
 	const lists = page.includes('<span class="ki-cnt"');
-	const feedback = page.includes('<a class="fb-top" ');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}${lists ? `<script>${KI_LIST_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
+	const feedback = page.includes('<div class="fb" ');
+	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${link ? `<script>${LINK_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}${lists ? `<script>${KI_LIST_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
 </html>
 `;
+}
+
+/**
+ * What the page reads from the run directory besides report.md: the ledger,
+ * the linked issues known-issues.mjs fetched, and the files the report names.
+ */
+export function readRunDir(dir) {
+	const ledgerPath = join(dir, 'ledger.md');
+	const fileExists = path => existsSync(join(dir, path));
+	return {
+		ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
+		knownIssues: readKnownIssues(dir) ?? undefined,
+		fileExists,
+		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
+	};
+}
+
+/** The logs and test files the report lists that are not in the run directory. */
+export function missingFiles(parsed, fileExists) {
+	return {
+		logs: linkedLogs(parsed).filter(p => !fileExists(p)),
+		files: parsed.files.map(f => f.path).filter(p => !fileExists(p)),
+	};
+}
+
+/**
+ * Writes the page to `out`, with its link card beside it when `base` is a URL:
+ * chat apps need an absolute one to fetch the image from.
+ *
+ * @param {string} out
+ * @param {string} markdown report.md
+ * @param {{ severityCounts: object }} parsed the report, parsed with its ledger
+ * @param {object} options renderReportHtml's options; `base` is required
+ */
+export async function writeRunPage(out, markdown, parsed, options) {
+	const { base } = options;
+	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), parsed.severityCounts)
+		? `${base.replace(/\/$/, '')}/${CARD_FILE}`
+		: undefined;
+	writeFileSync(out, renderReportHtml(markdown, { ...options, ogImage }));
 }

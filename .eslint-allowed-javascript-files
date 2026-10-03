@@ -220,6 +220,7 @@ test/unit/reporter.js
 .claude/skills/exploratory-test/renderer/map-stack.mjs
 .claude/skills/exploratory-test/renderer/map-stack.test.mjs
 .claude/skills/exploratory-test/renderer/collect-logs.test.mjs
+.claude/skills/exploratory-test/renderer/stop-instances.test.mjs
 .claude/skills/exploratory-test/renderer/publish.test.mjs
 .claude/skills/exploratory-test/renderer/report-css.mjs
 .claude/skills/exploratory-test/renderer/report-parse.mjs
@@ -283,3 +284,7 @@ versions/create-anchor.cjs
 versions/show-version.cjs
 # --- End Positron ---
 #
+.claude/skills/exploratory-test/renderer/usage.mjs
+.claude/skills/exploratory-test/renderer/usage.test.mjs
+.claude/skills/exploratory-test/renderer/og-card.mjs
+.claude/skills/exploratory-test/renderer/og-card.test.mjs

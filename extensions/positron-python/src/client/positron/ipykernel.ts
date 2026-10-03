@@ -148,10 +148,11 @@ export async function getIpykernelBundle(
 
     // Select bundle paths (defined in gulpfile.js) for the interpreter's architecture.
     const arch = getArchString(architecture, interpreter.path);
-    const cpxSpecifier = `cp${version.major}${version.minor}`;
+    // Python 3.12 and later share one abi3 install of the cpx packages (pyzmq).
+    const cpxSpecifier = version.minor >= 12 ? 'cp312-abi3' : `cp${version.major}${version.minor}`;
 
     // On macOS, packages have different wheel availability:
-    // - cpx packages (pyzmq): Only have universal2 wheels, stored in universal2/cpXX
+    // - cpx packages (pyzmq): Only have universal2 wheels, stored in universal2/cpXX or universal2/cp312-abi3
     // - cp3 packages (psutil, tornado): Only have arch-specific wheels, stored in {arch}/cp3
     // On other platforms, all native packages are architecture-specific.
     const cpxPath =

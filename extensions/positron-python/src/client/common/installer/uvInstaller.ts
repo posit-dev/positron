@@ -11,7 +11,7 @@ import { ModuleInstallerType } from '../../pythonEnvironments/info';
 import { ExecutionInfo, IConfigurationService, Product } from '../types';
 import { ModuleInstaller, translateProductToModule } from './moduleInstaller';
 import { InterpreterUri, ModuleInstallFlags } from './types';
-import { isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
+import { getLocatedUvCommand, isUvInstalled } from '../../pythonEnvironments/common/environmentManagers/uv';
 import { IServiceContainer } from '../../ioc/types';
 import { isResource } from '../utils/misc';
 import { IWorkspaceService } from '../application/types';
@@ -55,8 +55,9 @@ export class UVInstaller extends ModuleInstaller {
         resource?: InterpreterUri,
         flags: ModuleInstallFlags = 0,
     ): Promise<ExecutionInfo> {
-        // If the resource isSupported, then the uv binary exists
-        const execPath = 'uv';
+        // isSupported() found uv, possibly only in a known install location: a uv installed this
+        // session is not on the PATH the extension host was launched with, so the bare name would ENOENT.
+        const execPath = await getLocatedUvCommand();
 
         // Don't use 'uv add' for ipykernel since it's only being used to enable the Console
         const isIpykernel = moduleName === translateProductToModule(Product.ipykernel);

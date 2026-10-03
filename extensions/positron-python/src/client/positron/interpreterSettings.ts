@@ -5,7 +5,7 @@
 
 import path from 'path';
 import { traceError, traceInfo, traceVerbose, traceWarn } from '../logging';
-import { getConfiguration } from '../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 import {
     arePathsSame,
     isDirectorySync,
@@ -24,24 +24,62 @@ import {
     comparePythonVersionDescending,
     isVersionSupported,
 } from '../interpreter/configuration/environmentTypeComparer';
+import { SubstitutionResult, substituteWorkspaceFolder } from './settingVariables';
+
+/**
+ * Replaces `${workspaceFolder}` in a path from a Python interpreter setting with the first
+ * workspace folder, then expands `~`. Paths with a variable that cannot be resolved, and
+ * relative paths, are ignored.
+ * @param value The path from the setting
+ * @param description Names the path in log messages, e.g. '[shouldIncludeInterpreter]: included interpreter path'.
+ * If omitted, ignored paths are not logged.
+ * @returns The absolute path, or undefined if the path is ignored
+ */
+function resolveSettingPath(value: string, description?: string): string | undefined {
+    const result = substituteWorkspaceFolder(value, getWorkspaceFolders()?.[0]?.uri.fsPath);
+    if (result.resolved === false) {
+        if (description) {
+            traceInfo(`${description} ${value} ${describeUnresolved(result)}...ignoring`);
+        }
+        return undefined;
+    }
+    const resolved = untildify(result.value);
+    if (!path.isAbsolute(resolved)) {
+        if (description) {
+            traceInfo(`${description} ${resolved} is not absolute...ignoring`);
+        }
+        return undefined;
+    }
+    return resolved;
+}
+
+function describeUnresolved(result: Extract<SubstitutionResult, { resolved: false }>): string {
+    switch (result.reason) {
+        case 'noFolder':
+            return `uses ${result.variable}, but no folder is open`;
+        case 'unsupported':
+            return `uses unsupported variable ${result.variable} (only \${workspaceFolder} is supported)`;
+    }
+}
+
+/**
+ * Resolves each path in a list setting. Ignored paths are dropped and the rest are kept.
+ */
+function resolveSettingPaths(values: string[], description?: string): string[] {
+    return values
+        .map((value) => resolveSettingPath(value, description))
+        .filter((value): value is string => value !== undefined);
+}
 
 /**
  * Gets the list of interpreters included in the settings.
- * Converts aliased paths to absolute paths. Relative paths are not included.
+ * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of interpreters included in the settings.
  */
 function getIncludedInterpreters(): string[] {
     const interpretersInclude = getConfiguration('python').get<string[]>(INTERPRETERS_INCLUDE_SETTING_KEY) ?? [];
     if (interpretersInclude.length > 0) {
-        return interpretersInclude
-            .map((item) => untildify(item))
-            .filter((item) => {
-                if (path.isAbsolute(item)) {
-                    return true;
-                }
-                traceInfo(`[shouldIncludeInterpreter]: included interpreter path ${item} is not absolute...ignoring`);
-                return false;
-            });
+        return resolveSettingPaths(interpretersInclude, '[shouldIncludeInterpreter]: included interpreter path');
     }
     traceVerbose(`[shouldIncludeInterpreter]: No interpreters specified via ${INTERPRETERS_INCLUDE_SETTING_KEY}`);
     return [];
@@ -49,21 +87,13 @@ function getIncludedInterpreters(): string[] {
 
 /**
  * Gets the list of interpreters excluded in the settings.
- * Converts aliased paths to absolute paths. Relative paths are not included.
+ * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of interpreters excluded in the settings.
  */
 function getExcludedInterpreters(): string[] {
     const interpretersExclude = getConfiguration('python').get<string[]>(INTERPRETERS_EXCLUDE_SETTING_KEY) ?? [];
     if (interpretersExclude.length > 0) {
-        return interpretersExclude
-            .map((item) => untildify(item))
-            .filter((item) => {
-                if (path.isAbsolute(item)) {
-                    return true;
-                }
-                traceInfo(`[shouldIncludeInterpreter]: excluded interpreter path ${item} is not absolute...ignoring`);
-                return false;
-            });
+        return resolveSettingPaths(interpretersExclude, '[shouldIncludeInterpreter]: excluded interpreter path');
     }
     traceVerbose(`[shouldIncludeInterpreter]: No interpreters specified via ${INTERPRETERS_EXCLUDE_SETTING_KEY}`);
     return [];
@@ -71,24 +101,32 @@ function getExcludedInterpreters(): string[] {
 
 /**
  * Gets the exclusive list of interpreters that should be included in the list of discovered interpreters.
- * Converts aliased paths to absolute paths. Relative paths are not included.
+ * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are not included.
  * @returns List of the only interpreters that should be included in the list of discovered interpreters.
  */
 function getOverrideInterpreters(): string[] {
     const interpretersOverride = getConfiguration('python').get<string[]>(INTERPRETERS_OVERRIDE_SETTING_KEY) ?? [];
     if (interpretersOverride.length > 0) {
-        return interpretersOverride
-            .map((item) => untildify(item))
-            .filter((item) => {
-                if (path.isAbsolute(item)) {
-                    return true;
-                }
-                traceInfo(`[shouldIncludeInterpreter]: override interpreter path ${item} is not absolute...ignoring`);
-                return false;
-            });
+        return resolveSettingPaths(interpretersOverride, '[shouldIncludeInterpreter]: override interpreter path');
     }
     traceVerbose(`[shouldIncludeInterpreter]: No interpreters specified via ${INTERPRETERS_OVERRIDE_SETTING_KEY}`);
     return [];
+}
+
+/**
+ * Get the resolved `interpreters.include`, `.exclude`, and `.override` paths without logging,
+ * for the discovery cache key. The key uses resolved paths because the same setting text,
+ * e.g. `${workspaceFolder}/.venv`, names a different interpreter in each workspace.
+ * @returns The resolved paths. Ignored paths are dropped.
+ */
+export function getResolvedFilterSettingPaths(): { include: string[]; exclude: string[]; override: string[] } {
+    const config = getConfiguration('python');
+    const resolve = (key: string) => resolveSettingPaths(config.get<string[]>(key) ?? []);
+    return {
+        include: resolve(INTERPRETERS_INCLUDE_SETTING_KEY),
+        exclude: resolve(INTERPRETERS_EXCLUDE_SETTING_KEY),
+        override: resolve(INTERPRETERS_OVERRIDE_SETTING_KEY),
+    };
 }
 
 /**
@@ -412,6 +450,15 @@ function mapInterpreterToInstallDir(interpreterPath: string): string | undefined
 /**
  * Retrieves the user's default Python interpreter path from VS Code settings
  *
+ * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths
+ * and paths with a variable that cannot be resolved are ignored.
+ *
+ * Upstream code also reads `python.defaultInterpreterPath` (`common/configSettings.ts`,
+ * `common/interpreterPathService.ts`), but resolves it with `SystemVariables`, which is more
+ * lenient: it accepts other variables, turns an unset `${env:NAME}` into '', and uses the
+ * extension's install folder for `${workspaceFolder}` when no folder is open. For a resource
+ * in the first workspace folder, both give the same path for any value this function accepts.
+ *
  * @returns The configured Python interpreter path if it exists and is not 'python',
  *          otherwise returns an empty string
  */
@@ -426,12 +473,7 @@ export function getUserDefaultInterpreter(scope?: Resource): InspectInterpreterS
             return '';
         }
         if (value) {
-            value = untildify(value);
-            if (!path.isAbsolute(value)) {
-                traceInfo(`[getUserDefaultInterpreter]: interpreter path ${value} is not absolute...ignoring`);
-                return '';
-            }
-            return value;
+            return resolveSettingPath(value, '[getUserDefaultInterpreter]: interpreter path') ?? '';
         }
         return value ?? '';
     };

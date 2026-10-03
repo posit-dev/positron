@@ -48,32 +48,34 @@ export async function WorkbenchApp(
 
 		// Get the browser context for OAuth flows
 		const context = app.code.driver.currentPage.context();
-		await app.positWorkbench.dashboard.openSession('test-files', context, managedCredentials);
+		const newProjectCreated = await app.positWorkbench.dashboard.openSession('test-files', context, managedCredentials);
 
 		// Wait for Positron to be ready
 		await app.code.driver.currentPage.waitForSelector('.monaco-workbench', { timeout: 60000 });
 
-		// For the Azure shard, the dashboard's createNewProject skipped the Open Folder step
-		// because the JIT user (rstudio-ide-test) doesn't have test-files in their home
-		// dir at launch time. Now that PAM has created /home/rstudio-ide-test (triggered by the
-		// session launch), copy the workspace in and open it the same way the other shards do.
 		if (managedCredentials === 'azure') {
-			await runDockerCommand(
-				`docker exec ${CONTAINER_NAME} bash -c "cp -r /home/user1/test-files /home/rstudio-ide-test/ && chown -R rstudio-ide-test /home/rstudio-ide-test/test-files"`,
-				'Copy test-files into rstudio-ide-test home (Azure JIT user)'
-			);
 			// The Azure session runs as the JIT user rstudio-ide-test, which reads
 			// settings from its own home dir (created by PAM on session launch), not
 			// user1's. Provision the same settings there so the workspace opens trusted
 			// (security.workspace.trust.enabled=false) and provider settings like the
-			// Foundry endpoint reach the session. openWorkspaceFolder reloads the window
-			// into the folder, so the freshly-written settings take effect.
+			// Foundry endpoint reach the session.
 			await provisionUserSettings(
 				'/home/rstudio-ide-test/.positron-server/',
 				'rstudio-ide-test',
 				dockerSettingsOverrides({ useLegacyNotebookEditor, enableDataConnections, enableFoundryAssistant, extraSettings })
 			);
-			await app.positWorkbench.dashboard.openWorkspaceFolder('test-files');
+			// createNewProject skipped the Open Folder step: the JIT user has no test-files
+			// at launch time. Copy it in now that PAM created the home dir and open it like
+			// the other shards do (the reload also applies the settings written above).
+			// A relaunched project (e.g. on a retry) already opens in the folder, so the
+			// Explorer's "Open Folder" button does not exist on that path.
+			if (newProjectCreated) {
+				await runDockerCommand(
+					`docker exec ${CONTAINER_NAME} bash -c "mkdir -p /home/rstudio-ide-test/test-files && cp -r /home/user1/test-files/. /home/rstudio-ide-test/test-files/ && chown -R rstudio-ide-test /home/rstudio-ide-test/test-files"`,
+					'Copy test-files into rstudio-ide-test home (Azure JIT user)'
+				);
+				await app.positWorkbench.dashboard.openWorkspaceFolder('test-files');
+			}
 		}
 		// The Azure shard runs as a freshly-provisioned JIT user (rstudio-ide-test)
 		// whose interpreter discovery / runtime startup does not settle the way

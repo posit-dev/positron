@@ -66,6 +66,9 @@ export class AuthProvider
 	private _chainSession: vscode.AuthenticationSession | undefined;
 	private _chainExpiration: Date | undefined;
 	private _chainResolution: Promise<vscode.AuthenticationSession | undefined> | undefined;
+	// Incremented each time a chain resolve starts, so a failure can tell
+	// whether a newer resolve has superseded it.
+	private _chainResolveSeq = 0;
 	private _refreshTimer: ReturnType<typeof setInterval> | undefined;
 	private _disposed = false;
 	private readonly logger: AuthProviderLogger;
@@ -437,6 +440,7 @@ export class AuthProvider
 			return undefined;
 		}
 
+		const seq = ++this._chainResolveSeq;
 		try {
 			const result = await this.credentialChain.resolve();
 			if (this._disposed) {
@@ -484,7 +488,9 @@ export class AuthProvider
 				this.logger.logCredentialResolution('failed', message);
 			}
 
-			if (this._chainSession) {
+			// A newer resolve started after this one owns the session now; a
+			// stale failure landing late must not sign out what it resolved.
+			if (this._chainSession && seq === this._chainResolveSeq) {
 				const removed = this._chainSession;
 				this._chainSession = undefined;
 				this._chainExpiration = undefined;

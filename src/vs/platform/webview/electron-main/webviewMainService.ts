@@ -162,7 +162,8 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 				_isMainFrame: boolean,
 				frameProcessId: number,
 				frameRoutingId: number) => {
-				const frameId = { processId: frameProcessId, routingId: frameRoutingId };
+				const frameTreeNodeId = webFrameMain.fromId(frameProcessId, frameRoutingId)?.frameTreeNodeId;
+				const frameId = { processId: frameProcessId, routingId: frameRoutingId, frameTreeNodeId };
 				this.onFrameNavigated(frameId, url);
 			};
 			window.win!.webContents.on('did-frame-navigate', onNavigated);
@@ -213,11 +214,42 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	 * @returns The result of evaluating the code.
 	 */
 	public async executeJavaScript(frameId: WebviewFrameId, script: string): Promise<any> {
-		const frame = webFrameMain.fromId(frameId.processId, frameId.routingId);
+		const frame = this.findFrame(frameId);
 		if (!frame) {
 			throw new Error(`No frame found with frameId: ${JSON.stringify(frameId)}`);
 		}
 		return frame.executeJavaScript(script);
+	}
+
+	/**
+	 * Gets the URL of a webview frame, as the browser has it.
+	 *
+	 * @param frameId The ID of the frame.
+	 * @returns The frame's URL, or undefined if the frame is gone.
+	 */
+	public async getFrameUrl(frameId: WebviewFrameId): Promise<string | undefined> {
+		return this.findFrame(frameId)?.url;
+	}
+
+	/**
+	 * Finds a frame by its ID. If the frame has gone to another document, the
+	 * saved process and routing IDs point at a gone or detached frame, so find
+	 * the frame by its place in the frame tree instead.
+	 */
+	private findFrame(frameId: WebviewFrameId): WebFrameMain | undefined {
+		const frame = webFrameMain.fromId(frameId.processId, frameId.routingId);
+		if (frame && !frame.detached) {
+			return frame;
+		}
+		if (frameId.frameTreeNodeId !== undefined) {
+			for (const contents of webContents.getAllWebContents()) {
+				const current = contents.mainFrame.framesInSubtree.find(f => f.frameTreeNodeId === frameId.frameTreeNodeId);
+				if (current) {
+					return current;
+				}
+			}
+		}
+		return undefined;
 	}
 
 	/**
