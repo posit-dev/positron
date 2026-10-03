@@ -1043,8 +1043,8 @@ function notRunIssue(reason) {
  * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
  * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
  * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
- * numbered typed `Steps:`; `## Noticed` lists `- O01 · <what> · <where>`, things seen
- * but not checked; `## Not run` lists `- N01 · <name> · <reason>`;
+ * numbered typed `Steps:`; `## Noticed` holds notes on what the run saw and did not
+ * check, which stay in the ledger and are not rendered; `## Not run` lists `- N01 · <name> · <reason>`;
  * `## Files` lists `- files/<path> | <what it is> | <scenarios and findings>`.
  */
 export function parseLedger(markdown) {
@@ -1108,7 +1108,7 @@ export function parseLedger(markdown) {
 			const m = /^[-*]\s+(?:(O\d+)\s*(?:·|-|\||:)\s*)?(.+)$/.exec(t);
 			if (m) {
 				const sep = LEDGER_SEP.exec(m[2]);
-				noticed.push({ id: m[1] ?? '', name: (sep ? m[2].slice(0, sep.index) : m[2]).trim(), where: (sep ? m[2].slice(sep.index + sep[0].length) : '').trim() });
+				noticed.push({ id: m[1] ?? '', name: (sep ? m[2].slice(0, sep.index) : m[2]).trim() });
 			}
 			continue;
 		}
@@ -1189,8 +1189,6 @@ export function parseLedger(markdown) {
 		})),
 		// A ledger always lists what it did not run, so an empty list means none.
 		notExercisedListed: true,
-		// Seen but not checked: kept apart from Not run, which is what the run did not reach.
-		noticed: noticed.map(r => ({ id: r.id, scenarioHtml: inline(r.name), reasonHtml: inline(sentenceCase(r.where)) })),
 		logs,
 		files,
 		environment,
@@ -1502,7 +1500,7 @@ export function parseReport(markdown, { ledger } = {}) {
 	}));
 
 	const fromLedger = parseLedger(ledger);
-	const coverage = fromLedger && (fromLedger.exercised.length || fromLedger.notExercised.length || fromLedger.noticed.length)
+	const coverage = fromLedger && (fromLedger.exercised.length || fromLedger.notExercised.length)
 		? fromLedger
 		// Whether the report wrote a Not exercised heading at all, so an empty one
 		// can say so rather than vanish.

@@ -8,6 +8,7 @@ Its scenario ledger, with each scenario's steps and checks: `{{LEDGER}}`
 The test files its scenarios used, saved as they were used and listed in the ledger's `## Files` (absent when it saved none): `{{FILES}}`
 The GitHub issues linked to the PR, fetched before the run (absent when the run had no PR): `{{KNOWN_ISSUES}}`. Its `relation` is `fixes` for an issue the PR says it fixes, `linked` for one that mentions the PR.
 Repository: `{{REPO}}`. Read files at a ref with `git show <ref>:<path>`. Do not modify anything.
+The R kernel, Ark, is in the repository too, under `extensions/positron-r/ark/` (Rust, in `crates/ark/src/`): read it before saying an R cause cannot be checked.
 
 See the change under test with `git -C {{REPO}} diff {{DIFF}}`.
 
@@ -119,8 +120,8 @@ for what the column cannot say.
 - Read every passing scenario's `Result:` in the ledger too. One that
   describes behavior a user would not expect, such as a prompt left
   unanswered that went ahead anyway, gets one line: the scenario and what
-  looks wrong. It may be a finding the run missed. Read the ledger's Noticed
-  list the same way, and name any entry the code shows is a real defect.
+  looks wrong. It may be a finding the run missed. If the code shows an entry
+  in the ledger's Noticed notes is a real defect, say so in one line.
 - A finding on the KNOWN line gets one line per issue: why it is the same
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its

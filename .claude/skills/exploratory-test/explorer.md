@@ -265,9 +265,10 @@ Steps:
   see Issues linked to the PR.
 - `Result:` is the outcome for a pass, in one short sentence. A cell reporting
   that something did *not* happen says which surface you checked and when. A
-  pass that showed something you did not expect is not a pass yet: add a
-  VERIFY step for it, and if that fails it is a finding; if there is no time,
-  list it under Noticed. Never leave it in a Result, where nobody checks it. For a
+  pass that showed something you did not expect is not a pass yet: check it
+  before you move to the next area, with a VERIFY step, and if that fails it is
+  a finding. Only when time runs out first, note it under Noticed. Never leave
+  it in a Result. For a
   fail it is the rate only, "Fails 3/3", for the ledger's reader: the Coverage
   row shows just the link to its finding, which has the bug and its rate, so
   never describe the bug here.
@@ -296,9 +297,10 @@ Steps:
   installed interpreter. Anything done in the app to get there, such as
   starting a console or opening a file, is a step, even if it is only setup.
   Steps never start with "With X open, ..."; open it as step 1.
-- `Noticed` is what you saw that looked wrong and did not check: a value that
-  seems off, a behavior that surprised you. It shows ahead of the passes in
-  Coverage, since it may be a bug. Leave the section out when there is nothing.
+- `Noticed` is what you saw that looked wrong and had no time to check. It is a
+  note for whoever plans the next run, kept in the ledger only: the report
+  shows only what the run checked, so nothing under Noticed reaches it. Leave
+  the section out when there is nothing.
 - `Not run` covers surfaces you could not reach and threads you abandoned, and
   nothing else: something you saw goes under Noticed, not here. A gap that
   deserves more than a phrase, such as an untested mechanism that probably

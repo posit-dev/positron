@@ -682,12 +682,12 @@ span.rt-file{color:var(--body)}
 .cf-tab .cf-g{visibility:hidden;font-weight:600;padding-right:3px}
 .cf-tab .cf-cnt{color:var(--faint);font-weight:400;margin-left:3px}
 .cf-tab:hover{color:var(--ink)}
-#cf-all:checked~.cf-tabs .cf-tab-all,#cf-i:checked~.cf-tabs .cf-tab-i,#cf-o:checked~.cf-tabs .cf-tab-o,#cf-p:checked~.cf-tabs .cf-tab-p,#cf-n:checked~.cf-tabs .cf-tab-n{color:var(--ink);border-bottom-color:var(--ink)}
-#cf-all:checked~.cf-tabs .cf-tab-all .cf-l,#cf-i:checked~.cf-tabs .cf-tab-i .cf-l,#cf-o:checked~.cf-tabs .cf-tab-o .cf-l,#cf-p:checked~.cf-tabs .cf-tab-p .cf-l,#cf-n:checked~.cf-tabs .cf-tab-n .cf-l{font-weight:600}
-#cf-all:focus-visible~.cf-tabs .cf-tab-all,#cf-i:focus-visible~.cf-tabs .cf-tab-i,#cf-o:focus-visible~.cf-tabs .cf-tab-o,#cf-p:focus-visible~.cf-tabs .cf-tab-p,#cf-n:focus-visible~.cf-tabs .cf-tab-n{outline:2px solid var(--focus);outline-offset:4px;border-radius:3px}
-#cf-i:checked~.cf-card .cf-r:not(.cf-i),#cf-o:checked~.cf-card .cf-r:not(.cf-o),#cf-p:checked~.cf-card .cf-r:not(.cf-p),#cf-n:checked~.cf-card .cf-r:not(.cf-n){display:none !important}
+#cf-all:checked~.cf-tabs .cf-tab-all,#cf-i:checked~.cf-tabs .cf-tab-i,#cf-p:checked~.cf-tabs .cf-tab-p,#cf-n:checked~.cf-tabs .cf-tab-n{color:var(--ink);border-bottom-color:var(--ink)}
+#cf-all:checked~.cf-tabs .cf-tab-all .cf-l,#cf-i:checked~.cf-tabs .cf-tab-i .cf-l,#cf-p:checked~.cf-tabs .cf-tab-p .cf-l,#cf-n:checked~.cf-tabs .cf-tab-n .cf-l{font-weight:600}
+#cf-all:focus-visible~.cf-tabs .cf-tab-all,#cf-i:focus-visible~.cf-tabs .cf-tab-i,#cf-p:focus-visible~.cf-tabs .cf-tab-p,#cf-n:focus-visible~.cf-tabs .cf-tab-n{outline:2px solid var(--focus);outline-offset:4px;border-radius:3px}
+#cf-i:checked~.cf-card .cf-r:not(.cf-i),#cf-p:checked~.cf-card .cf-r:not(.cf-p),#cf-n:checked~.cf-card .cf-r:not(.cf-n){display:none !important}
 /* "Show all" belongs to All: a single kind lists every row and has no footer. */
-#cf-i:checked~.cf-card .cov-more,#cf-o:checked~.cf-card .cov-more,#cf-p:checked~.cf-card .cov-more,#cf-n:checked~.cf-card .cov-more{display:none !important}
+#cf-i:checked~.cf-card .cov-more,#cf-p:checked~.cf-card .cov-more,#cf-n:checked~.cf-card .cov-more{display:none !important}
 #cf-p:checked~.cf-card details.cov-extra.cf-p{display:block !important}
 #cf-p:checked~.cf-card .row.cov-extra.cf-p{display:grid !important}
 /* Every row keeps its hairline; the -1px tucks whichever row is last in the
@@ -705,8 +705,6 @@ span.rt-file{color:var(--body)}
 .cov-dot.pass{background:var(--pass-fill)}
 .cov-dot.issue{background:var(--moderate-dot)}
 .cov-dot.none{background:var(--dot-neutral)}
-/* Noticed, not checked: a possible bug, so it shares the failures' warning colour. */
-.cov-dot.noticed{background:var(--moderate-dot)}
 /* Indented by the dot plus the gap, so the label starts where the text does. */
 .cov-head-scenario{padding-left:21px}
 .cov-result{color:var(--body)}
