@@ -584,3 +584,26 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 		}).not.toThrow();
 	});
 });
+
+describe('ExtHostLanguageRuntime - queueCode', function () {
+
+	it('sends the session of the kernel that sent the code to the main thread', async () => {
+		const executeCode = vi.fn<MainThreadLanguageRuntimeShape['$executeCode']>(async () => 'session-1');
+		const shape = new class extends mock<MainThreadLanguageRuntimeShape>() {
+			override $executeCode(...args: Parameters<MainThreadLanguageRuntimeShape['$executeCode']>): Promise<string> {
+				return executeCode(...args);
+			}
+		};
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		await runtime.queueCode('r', '1 + 1', 'positron.positron-supervisor', false, false, 'r-notebook-1');
+
+		const [call] = executeCode.mock.calls;
+		expect({ languageId: call[0], extensionId: call[1], code: call[3], callerSessionId: call[12] }).toEqual({
+			languageId: 'r',
+			extensionId: 'positron.positron-supervisor',
+			code: '1 + 1',
+			callerSessionId: 'r-notebook-1',
+		});
+	});
+});

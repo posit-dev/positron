@@ -17,7 +17,7 @@ import { RuntimeSessionCard } from '../../browser/components/runtimeSessionCard.
 describe('RuntimeSessionCard', () => {
 	const rtl = setupRTLRenderer();
 
-	function renderCard(detail: string, id?: SessionStartReasonId) {
+	function renderCard(detail: string, id?: SessionStartReasonId, requestingExtensionId?: string) {
 		const session = stubInterface<ILanguageRuntimeSession>({
 			metadata: {
 				sessionId: 'python-1',
@@ -26,6 +26,7 @@ describe('RuntimeSessionCard', () => {
 				createdTimestamp: 0,
 				startReason: detail,
 				startReasonId: id,
+				requestingExtensionId,
 			},
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({
 				runtimeName: 'Python 3.12',
@@ -50,14 +51,25 @@ describe('RuntimeSessionCard', () => {
 	}
 
 	it('shows the start reason detail and ID', () => {
-		renderCard('This workspace\'s last used interpreter was started when Positron started (language: python)', SessionStartReasonId.AffiliatedRuntime);
+		renderCard('Positron started the last interpreter used in this workspace', SessionStartReasonId.AffiliatedRuntime);
 
-		// The detail already starts with the English label, so the label is
-		// not shown separately.
+		// The detail is the English label, so the label is not shown separately.
 		expect(screen.getAllByText(/Start Reason/).map(el => el.textContent)).toEqual([
-			'Start Reason: This workspace\'s last used interpreter was started when Positron started (language: python)',
+			'Start Reason: Positron started the last interpreter used in this workspace',
 			'Start Reason ID: affiliatedRuntime',
 		]);
+	});
+
+	it('shows the requesting extension when an extension asked for the session', () => {
+		renderCard('The posit.shiny extension started this interpreter', SessionStartReasonId.ExtensionApiStart, 'posit.shiny');
+
+		expect(screen.getByText(/Requesting Extension/)).toHaveTextContent('Requesting Extension: posit.shiny');
+	});
+
+	it('omits the requesting extension when no extension asked for the session', () => {
+		renderCard('Positron started the last interpreter used in this workspace', SessionStartReasonId.AffiliatedRuntime);
+
+		expect(screen.queryByText(/Requesting Extension/)).not.toBeInTheDocument();
 	});
 
 	it('shows only the detail when the session has no start reason ID', () => {

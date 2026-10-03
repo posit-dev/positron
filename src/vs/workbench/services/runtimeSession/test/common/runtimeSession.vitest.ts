@@ -13,6 +13,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IOpener } from '../../../../../platform/opener/common/opener.js';
 import { IWorkspaceTrustManagementService } from '../../../../../platform/workspace/common/workspaceTrust.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageStartupBehavior, RuntimeExitReason, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, reviveRuntimeSessionMetadata, RuntimeClientType, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../common/runtimeSessionService.js';
 import { FORCE_QUIT_GRACE_MS, SHUTDOWN_GRACE_MS } from '../../common/runtimeSession.js';
@@ -30,7 +31,11 @@ type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLang
 describe('Positron - RuntimeSessionService', () => {
 	const startReason = 'Test requested to start a runtime session';
 	// Not the test helper's default ID, so a hardcoded ID in the service fails the tests.
-	const startSource: IRuntimeSessionStartReason = { id: SessionStartReasonId.NewConsoleCommand, detail: startReason };
+	const startSource: IRuntimeSessionStartReason = { id: SessionStartReasonId.NewConsoleCommand };
+	/** How a session started for `startSource` describes why it started. */
+	const startSourceDescription = 'A command requested a new console for this interpreter';
+	/** How log lines and errors describe `startSource`. */
+	const startSourceLogDescription = `${startSourceDescription} [startReasonId: ${SessionStartReasonId.NewConsoleCommand}]`;
 	const notebookUri = URI.file('/path/to/notebook');
 	const notebookParent = '/path/to';
 
@@ -71,7 +76,12 @@ describe('Positron - RuntimeSessionService', () => {
 		unrelatedRuntime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		sessionName = runtime.runtimeName;
 		// eslint-disable-next-line local/code-no-dangerous-type-assertions
-		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as unknown as ILanguageRuntimeMetadata;
+		unregisteredRuntime = {
+			runtimeId: 'unregistered-runtime-id',
+			runtimeName: 'Unregistered Runtime',
+			languageName: 'Test',
+			extensionId: new ExtensionIdentifier('test.unregistered'),
+		} as unknown as ILanguageRuntimeMetadata;
 
 		// Enable automatic startup.
 		configService.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Auto);
@@ -91,7 +101,6 @@ describe('Positron - RuntimeSessionService', () => {
 			{
 				runtime,
 				sessionName,
-				startReason,
 				startReasonId: startSource.id,
 				sessionMode,
 				notebookUri,
@@ -269,7 +278,8 @@ describe('Positron - RuntimeSessionService', () => {
 				expect(session.getRuntimeState()).toBe(RuntimeState.Starting);
 				expect(session.dynState.sessionName).toBe(sessionName);
 				expect(session.metadata.sessionMode).toBe(mode);
-				expect(session.metadata.startReason).toBe(startReason);
+				// A restored session keeps the description it was saved with.
+				expect(session.metadata.startReason).toBe(action === 'restore' ? startReason : startSourceDescription);
 				expect(session.metadata.startReasonId).toBe(startSource.id);
 				expect(session.runtimeMetadata).toBe(runtime);
 
@@ -503,7 +513,7 @@ describe('Positron - RuntimeSessionService', () => {
 					const error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
 						`be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
 						`is already starting for the notebook ${notebookUri.toString()}.`
-						+ (action !== 'restore' ? ` Request source: ${startReason}` : ''));
+						+ (action !== 'restore' ? ` Request source: ${startSourceLogDescription}` : ''));
 
 					await expect(
 						Promise.all([
@@ -517,7 +527,7 @@ describe('Positron - RuntimeSessionService', () => {
 					const error = new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
 						`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
 						`is already running for the URI ${notebookUri.toString()}.` +
-						(action !== 'restore' ? ` Request source: ${startReason}` : ''));
+						(action !== 'restore' ? ` Request source: ${startSourceLogDescription}` : ''));
 
 					await start(runtime);
 					await expect(
@@ -1027,12 +1037,28 @@ describe('Positron - RuntimeSessionService', () => {
 			expect(newSession!.metadata.notebookUri).toBe(session.metadata.notebookUri);
 			expect(newSession!.runtimeMetadata).toBe(session.runtimeMetadata);
 			expect(newSession!.metadata.startReasonId).toBe(SessionStartReasonId.RestartUninitializedSession);
-			expect(newSession!.metadata.startReason).toBe(
-				`A restart was requested for a session that never started (restartSource: ${startReason})`);
+			expect(newSession!.metadata.startReason).toBe('A restart was requested before this interpreter had started');
 
 			assertActiveSessions([session, newSession!]);
 			assertCurrentSession(runtime, notebookUri, newSession!);
 			expect(newSession!.getRuntimeState()).toBe(RuntimeState.Starting);
+		});
+
+		it(`restart ${mode} in 'uninitialized' state records the extension that requested the restart`, async () => {
+			const willStartSessionDisposable = runtimeSessionService.onWillStartSession(e => {
+				vi.spyOn(e.session, 'start').mockRejectedValue(new Error('Session failed to start'));
+			});
+			await expect(start(runtime)).rejects.toThrow('Session failed to start');
+			const session = runtimeSessionService.activeSessions[0];
+			ctx.disposables.add(session);
+			willStartSessionDisposable.dispose();
+
+			const willStart = Event.toPromise(runtimeSessionService.onWillStartSession);
+			await runtimeSessionService.restartSession(session.sessionId, startReason, false, 'posit.shiny');
+			const { session: newSession } = await willStart;
+			ctx.disposables.add(newSession);
+
+			expect(newSession.metadata.requestingExtensionId).toBe('posit.shiny');
 		});
 
 		it(`restart ${mode} in 'starting' state`, async () => {
@@ -1268,6 +1294,26 @@ describe('Positron - RuntimeSessionService', () => {
 		// This is the expected behavior because not all users want the working directory for the notebook session
 		// to change automatically. There is a different process for updating the working directory
 		expect(session.getWorkingDirectory(), 'Working directory should NOT update to new URI parent folder').toBe('');
+	});
+
+	it('updateNotebookSessionUri describes the start reason again with the new file name', async () => {
+		const untitledUri = URI.parse('untitled:Untitled-1.ipynb');
+		const savedUri = URI.file('/path/to/analysis.ipynb');
+		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+			runtime,
+			sessionName,
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			notebookUri: untitledUri,
+			startReasonId: SessionStartReasonId.NotebookEditorOpened,
+		});
+		const before = session.metadata.startReason;
+
+		await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
+
+		expect([before, session.metadata.startReason]).toEqual([
+			'Untitled-1.ipynb was opened',
+			'analysis.ipynb was opened',
+		]);
 	});
 
 	it('updateNotebookSessionUri returns undefined when session not found', async () => {
@@ -1820,7 +1866,7 @@ describe('Positron - RuntimeSessionService', () => {
 				sessionName,
 				LanguageRuntimeSessionMode.Notebook,
 				quartoSourceUri,
-				startReason,
+				startSource,
 				RuntimeStartMode.Starting,
 				false,
 				{ quartoNotebookUri: quartoCellsUri },
@@ -1846,7 +1892,7 @@ describe('Positron - RuntimeSessionService', () => {
 			const savedCellsUri = URI.from({ scheme: 'quarto-cells', path: '/path/to/saved.qmd.ipynb' });
 			const sessionId = await runtimeSessionService.startNewRuntimeSession(
 				runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Notebook, untitledUri,
-				startReason, RuntimeStartMode.Starting, false,
+				startSource, RuntimeStartMode.Starting, false,
 				{ quartoNotebookUri: URI.from({ scheme: 'quarto-cells', path: 'Untitled-1.qmd.ipynb' }) },
 			);
 			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;

@@ -10,7 +10,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
-import { CodeAttributionSource } from '../../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, USER_INITIATED_METADATA_KEY } from '../../common/positronConsoleCodeExecution.js';
 import { IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance } from '../../browser/interfaces/positronConsoleService.js';
 import { PositronConsoleService } from '../../browser/positronConsoleService.js';
 
@@ -48,21 +48,27 @@ describe('PositronConsoleService', () => {
 		expect(consoleService.activePositronConsoleInstance).toBeUndefined();
 	});
 
-	it('starts a console with the code\'s source in the start reason when no console is running', async () => {
+	it.each([
+		{ name: 'code an extension sent', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny' } }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: 'posit.shiny' } },
+		{ name: 'code an extension sent for a file', attribution: { source: CodeAttributionSource.Script, metadata: { extensionId: 'positron.positron-r' } }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: 'positron.positron-r' } },
+		{ name: 'code a kernel sent through an extension', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'positron.positron-supervisor', callerSessionId: 'r-notebook-1' } }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code the user ran from an editor', attribution: { source: CodeAttributionSource.Script }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code the user ran from the History pane', attribution: { source: CodeAttributionSource.Interactive }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code an AI assistant ran', attribution: { source: CodeAttributionSource.Assistant }, expected: { id: SessionStartReasonId.AssistantRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'chat code the user ran with Run in Console', attribution: { source: CodeAttributionSource.Assistant, metadata: { [USER_INITIATED_METADATA_KEY]: true } }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code from an unknown caller', attribution: { source: CodeAttributionSource.Extension }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: undefined } },
+	])('records why it started a console for $name', async ({ attribution, expected }) => {
 		const consoleService = ctx.disposables.add(
 			ctx.instantiationService.createInstance(PositronConsoleService));
 		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
 		const willStart = Event.toPromise(ctx.get(IRuntimeSessionService).onWillStartSession);
 
-		const executing = consoleService.executeCode(runtime.languageId, undefined, '1 + 1', { source: CodeAttributionSource.Script }, false);
+		const executing = consoleService.executeCode(runtime.languageId, undefined, '1 + 1', attribution, false);
 		const { session } = await willStart;
 		ctx.disposables.add(session);
 
-		expect([session.metadata.startReasonId, session.metadata.startReason]).toEqual([
-			SessionStartReasonId.CodeExecutedWithoutSession,
-			`Code was sent to the console with no ${runtime.languageId} session (language: ${runtime.languageId}, codeSource: script)`,
-		]);
-		// The code runs once the session is ready; this test only covers the start.
+		const { startReasonId: id, requestingExtensionId } = session.metadata;
+		expect({ id, requestingExtensionId }).toEqual(expected);
 		await executing.catch(() => { });
 	});
 });

@@ -126,8 +126,25 @@ export enum SessionStartReasonId {
 	/** The user duplicated a notebook session into a console. */
 	DuplicatedNotebookSession = 'duplicatedNotebookSession',
 
-	/** Code was sent to the console and no session for its language was running. */
+	/**
+	 * Code was sent to the console and no session for its language was
+	 * running. Used when an extension sent the code, or when who sent it
+	 * isn't known.
+	 */
 	CodeExecutedWithoutSession = 'codeExecutedWithoutSession',
+
+	/**
+	 * The user ran code, such as from an editor, the History pane, or a chat
+	 * code block's Run in Console button, and no session for its language was
+	 * running.
+	 */
+	UserRanCodeWithoutSession = 'userRanCodeWithoutSession',
+
+	/**
+	 * An AI assistant ran code through a chat tool and no session for its
+	 * language was running.
+	 */
+	AssistantRanCodeWithoutSession = 'assistantRanCodeWithoutSession',
 
 	/** A restart was requested for a session that had never started. */
 	RestartUninitializedSession = 'restartUninitializedSession',
@@ -161,8 +178,9 @@ export enum SessionStartReasonId {
 
 	/**
 	 * An extension selected the runtime through the Positron API's
-	 * `selectLanguageRuntime`. The R and Python interpreter pickers call it
-	 * when the user picks an interpreter.
+	 * `selectLanguageRuntime`. The R and Python interpreter pickers call it when
+	 * the user picks an interpreter, but extensions also call it without a user
+	 * action, such as when `python.defaultInterpreterPath` changes.
 	 */
 	ExtensionApiSelect = 'extensionApiSelect',
 
@@ -177,8 +195,11 @@ export interface IRuntimeSessionStartReason {
 	/** Why the session is being started. */
 	readonly id: SessionStartReasonId;
 
-	/** A description of the request for logs; non-localized. */
-	readonly detail: string;
+	/**
+	 * The ID of the extension that asked for the session through a Positron
+	 * API, if any.
+	 */
+	readonly requestingExtensionId?: string;
 }
 
 export interface IStartNewRuntimeSessionOptions {
@@ -235,6 +256,12 @@ export interface IRuntimeSessionMetadata {
 	 * reason IDs existed.
 	 */
 	readonly startReasonId?: SessionStartReasonId;
+
+	/**
+	 * The ID of the extension that asked for the session through a Positron
+	 * API, if any. Absent for sessions persisted before it was recorded.
+	 */
+	readonly requestingExtensionId?: string;
 
 	/**
 	 * True when the session is being created because the user explicitly
@@ -503,6 +530,8 @@ export interface ILanguageRuntimeSession extends IDisposable {
 export interface INotebookRuntimeSessionMetadata extends IRuntimeSessionMetadata {
 	notebookUri: URI;
 	quartoNotebookUri?: URI;
+	/** Described again when the notebook is saved under a new URI, so it names the current file. */
+	startReason: string;
 }
 
 export interface INotebookLanguageRuntimeSession extends ILanguageRuntimeSession {
@@ -1018,7 +1047,7 @@ export interface IRuntimeSessionService {
 	 * @param runtimeId The runtime identifier of the runtime to start.
 	 * @param sessionName A human-readable (displayed) name for the session to start.
 	 * @param sessionMode The mode of the session to start.
-	 * @param startReason Why the runtime is being started, with a description for logs
+	 * @param startReason Why the runtime is being started.
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
@@ -1067,7 +1096,7 @@ export interface IRuntimeSessionService {
 	 * Automatically starts a runtime.
 	 *
 	 * @param runtime The runtime to start.
-	 * @param startReason Why the runtime is being started, with a description for logs.
+	 * @param startReason Why the runtime is being started.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
 	 *
@@ -1083,7 +1112,7 @@ export interface IRuntimeSessionService {
 	 * Selects a previously registered runtime as the active runtime.
 	 *
 	 * @param runtimeId The identifier of the runtime to select.
-	 * @param startReason Why the runtime is being selected, with a description for logs.
+	 * @param startReason Why the runtime is being selected.
 	 * @param notebookUri The URI of the notebook selecting the runtime, if any.
 	 */
 	selectRuntime(runtimeId: string, startReason: IRuntimeSessionStartReason, notebookUri?: URI): Promise<void>;
@@ -1106,12 +1135,15 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
+	 * @param interrupt Whether to offer to interrupt the session if it is busy.
+	 * @param requestingExtensionId The ID of the extension that requested the
+	 *  restart, if any.
 	 * @returns `true` if the session was restarted (or a restart already
 	 *  in progress completed), `false` if the restart was declined by
 	 *  the user. Rejects if the session is not found or not in a
 	 *  restartable state.
 	 */
-	restartSession(sessionId: string, source: string, interrupt?: boolean): Promise<boolean>;
+	restartSession(sessionId: string, source: string, interrupt?: boolean, requestingExtensionId?: string): Promise<boolean>;
 
 	/**
 	 * Interrupt a runtime session.

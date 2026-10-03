@@ -971,7 +971,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			'My Python Session',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			{ id: SessionStartReasonId.DuplicatedConsoleSession, detail: 'A console was duplicated (fromSession: My Python Session)' },
+			{ id: SessionStartReasonId.DuplicatedConsoleSession },
 			RuntimeStartMode.Starting,
 			true
 		);
@@ -987,7 +987,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			'Python 3.12',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			{ id: SessionStartReasonId.DuplicatedNotebookSession, detail: 'A console was started from the Python 3.12 notebook session (interpreter: Python 3.12, fromSession: My Notebook Session)' },
+			{ id: SessionStartReasonId.DuplicatedNotebookSession },
 			RuntimeStartMode.Starting,
 			true
 		);
@@ -1047,7 +1047,7 @@ describe('StartNewConsoleSessionAction', () => {
 			'Python 3.12 (System)',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			{ id: SessionStartReasonId.NewConsoleCommand, detail: 'A command requested a new console for this interpreter (command: workbench.action.language.runtime.startNewConsoleSession)' },
+			{ id: SessionStartReasonId.NewConsoleCommand },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: false }
@@ -1079,7 +1079,7 @@ describe('StartNewConsoleSessionAction', () => {
 			'R 4.4.1',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			{ id: SessionStartReasonId.UserSelectedRuntime, detail: 'You selected this interpreter' },
+			{ id: SessionStartReasonId.UserSelectedRuntime },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: true }

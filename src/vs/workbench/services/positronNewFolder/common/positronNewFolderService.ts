@@ -22,7 +22,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasons.js';
 import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
 import { INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
 import { INotebookTextModel } from '../../../contrib/notebook/common/notebookCommon.js';
@@ -698,7 +697,7 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 					sessionName,
 					LanguageRuntimeSessionMode.Notebook,
 					model.uri,
-					createSessionStartReason(SessionStartReasonId.NewFolderNotebook),
+					{ id: SessionStartReasonId.NewFolderNotebook },
 					RuntimeStartMode.Starting,
 					true
 				);
