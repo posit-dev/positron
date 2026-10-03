@@ -95,6 +95,13 @@ run_js() {
 		return 1
 	}
 	line=$(echo "$raw" | grep -A 1 '### Result' | tail -n1)
+	# The CLI reports some failures, such as a session that is not attached, as
+	# plain text with exit status 0, so an empty result is a failure too.
+	if [[ -z "$line" ]]; then
+		echo "{\"ok\":false,\"error\":$(echo "$raw" | head -n1 | jq -Rs .)}"
+		echo "$raw" >&2
+		return 1
+	fi
 	echo "$line" | jq -c 'fromjson' 2>/dev/null || {
 		echo '{"ok":false,"error":"no result from the page"}'
 		echo "$raw" >&2
