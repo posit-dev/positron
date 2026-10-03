@@ -472,10 +472,14 @@ the code pointers>
 Keep the blank lines, and keep steps at the left margin.
 
 `**Observed:**` and `**Expected:**` sit side by side on the card, Observed
-first, so keep each to one or two short sentences. Lead with the exact
-difference: "Median 6" against "Median 5.5". Keep a comparison in Observed when
-it is part of the proof ("pandas shows 5.50 for the same data"), and add one
-sentence only when the difference alone is not enough for a behavior bug. End
+first, so keep each to one or two short sentences, written as sentences, not
+notes joined by semicolons. Lead with the exact difference, and name what it is
+on: "The `id` column shows Median 6" against "Median 5.5". A reference that
+shows the right answer, such as another backend, goes in Expected, not
+Observed: "Median 5.5, as pandas shows for the same data". Write each number
+one way throughout both: with digit grouping (1,234,567), unless you quote the
+UI exactly, and then as it shows. Add one sentence only when the difference
+alone is not enough for a behavior bug. End
 with one more sentence only for a fact the run saw that makes the finding
 worse or gets past it, stated as what happened, not as a consequence: no error
 was shown ("No error appears."), only reopening restored it, another trigger
