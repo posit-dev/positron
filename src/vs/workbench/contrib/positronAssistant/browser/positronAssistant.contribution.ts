@@ -129,7 +129,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 				const attribution: IConsoleCodeAttribution = {
 					source: CodeAttributionSource.Assistant,
 					// The user clicked this button, so the code is theirs to run.
-					metadata: { commandId: 'workbench.action.positronAssistant.runInConsole' },
+					metadata: { userInitiated: true },
 				};
 				consoleService.executeCode(
 					context.languageId || '',
