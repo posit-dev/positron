@@ -516,6 +516,15 @@ and any other values that were right, extra runs or log lines, which go in
 Reproduce or Evidence. Plain words: no "unfortunately", "incorrectly" or
 "confusingly".
 
+Claim no more than the run checked, in the title, Observed and Expected alike.
+Each fact needs a step in the ledger or a screenshot that shows it: a reference
+in Expected was run in this instance (plain Python, R in a terminal, the same
+call in code), and a count or a word such as "every", "all" or "never" covers
+only the cases the steps tried. Name those cases instead ("data frame columns
+show 0 Bytes", not "every child shows 0 Bytes"), and say what does recover it
+when a step found something ("until the row is expanded again", not "never").
+Describe punctuation and spacing only as the screenshot shows them.
+
 Two examples, each before and after:
 
 ```
