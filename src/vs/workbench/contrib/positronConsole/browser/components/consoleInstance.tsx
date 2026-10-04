@@ -770,6 +770,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	return (
 		<div
 			ref={consoleInstanceRef}
+			aria-hidden={!props.active}
 			aria-labelledby={`console-panel-${props.positronConsoleInstance.sessionMetadata.sessionId}`}
 			className='console-instance'
 			data-testid={`console-${props.positronConsoleInstance.sessionMetadata.sessionId}`}

@@ -51,6 +51,9 @@ describe('Plot gallery removal', () => {
 		// The gallery shows one "Remove plot" button per plot thumbnail.
 		expect(screen.getAllByRole('button', { name: 'Remove plot' })).toHaveLength(3);
 
+		// Exactly one thumbnail, the selected plot's, reports itself as pressed.
+		expect(screen.getAllByRole('button', { pressed: true })).toHaveLength(1);
+
 		// Remove a single (non-selected) plot, as the user would by clicking the
 		// Remove button on its thumbnail.
 		act(() => {
