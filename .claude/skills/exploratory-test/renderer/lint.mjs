@@ -81,7 +81,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			if (key === 'evidence') {
 				// A check with nothing on screen to show (a file's content on disk,
 				// a port that should be closed) cites a saved output instead.
-				const saved = [...field[2].matchAll(/(?:^|[\s,(`])((?:logs|files)\/[\w./-]+\.\w{1,5})/g)].map(m => m[1]);
+				const saved = [...field[2].matchAll(/(?:^|[\s,(`])((?:logs|files)\/[\w./-]+\.\w+)/g)].map(m => m[1]);
 				const missingSaved = fileExists ? saved.filter(f => !fileExists(f)) : [];
 				for (const f of missingSaved) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in the run directory`); }
 				const files = evidenceFiles(field[2].replace(/(?:logs|files)\/[\w./-]+/g, ''));

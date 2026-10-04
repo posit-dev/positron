@@ -147,6 +147,14 @@ test('a check with nothing on screen may cite a saved output under logs/ or file
 	assert.deepEqual(problems, ['ledger: S01 cites Evidence: logs/missing.txt, which is not in the run directory', 'ledger: S01 step 2 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own']);
 });
 
+test('a file saved under a mirrored folder is found by its bare name, and a long extension is kept', () => {
+	const report = REPORT.replace('**Feature:** console\n\n1. Click Retry.', '**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- app | `app.R` in the `rapp` folder of the workspace\n\n1. Click Retry.');
+	const ledger = '# Test ledger\n\n## Files\n- files/rapp/app.R | app | S01; Finding 1\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY rows -> PASS\n   Evidence: logs/S01-products.parquet\n';
+	const has = p => ['files/rapp/app.R', 'logs/S01-products.parquet'].includes(p);
+	const problems = lintReport(report, ledger, { fileExists: has, listFiles: () => ['files/rapp/app.R'] }).filter(p => /app\.R|parquet|parqu/.test(p));
+	assert.deepEqual(problems, []);
+});
+
 test('flags a cited screenshot that actions.log never took by that name', () => {
 	const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-02.png, S01-02b.png\n2. VERIFY b -> PASS\n   Evidence: shots/S01-04.png\n';
 	const log = '20:00:01 screenshot S01-02\n20:00:02 playwright screenshot --filename=/r/shots/S01-02b.png\n20:00:03 screenshot S01-03.png\n';
