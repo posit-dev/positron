@@ -12,6 +12,9 @@
 # Flags:
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)
 #   --rows N        how many of the top rows to read (default 10)
+#   --title TEXT    the editor tab the grid must be in, such as "Data: df";
+#                   refuses when the active tab is another, so a grid left
+#                   open from an earlier step is never read by mistake
 #
 # Stdout: one JSON line:
 #   {"ok":true,"title":"Data: df","status":"Showing 12 rows ...","columns":["id","name",...],
@@ -25,11 +28,13 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 SESSION=""
 ROWS=10
+TITLE=
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--session) SESSION="$2"; shift 2 ;;
 		--session=*) SESSION="${1#--session=}"; shift ;;
 		--rows) ROWS="$2"; shift 2 ;;
+		--title) TITLE="$2"; shift 2 ;;
 		-h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		*) echo "de-read.sh: unknown arg $1" >&2; exit 2 ;;
 	esac
@@ -38,11 +43,14 @@ pw_setup "$SESSION"
 
 JS="(async () => {
 	const ROWS = $ROWS;
+	const TITLE = $(jq -Rn --arg v "$TITLE" '$v');
 	const clean = el => el ? el.textContent.replace(/\\s+/g, ' ').trim() : '';
 	const group = document.querySelector('.editor-group-container.active') || document;
 	// The summary panel is a grid too; the table is the one with column headers.
 	const waffle = [...group.querySelectorAll('.data-grid-waffle')].find(w => w.offsetParent !== null && w.querySelector('.data-grid-column-headers'));
 	if (!waffle) { return JSON.stringify({ ok: false, error: 'no Data Explorer grid in the active editor' }); }
+	const activeTitle = clean(group.querySelector('.tab.active .label-name'));
+	if (TITLE && activeTitle !== TITLE) { return JSON.stringify({ ok: false, error: 'the active tab is ' + activeTitle + ', not ' + TITLE }); }
 	const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 	const wheel = dx => waffle.dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: 0, bubbles: true, cancelable: true }));
 	const headers = () => [...waffle.querySelectorAll('.data-grid-column-header')].filter(h => h.offsetParent !== null)

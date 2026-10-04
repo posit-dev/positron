@@ -53,7 +53,12 @@ if [[ -n "$DIR" && "$(echo "$CHOSEN" | jq -r '.description')" != *"$DIR"* ]]; th
 fi
 pw press Enter >/dev/null 2>&1
 for _ in 1 2 3 4 5 6 7 8 9 10; do
-	ACTIVE=$(run_js "(() => JSON.stringify({ ok: true, tab: (document.querySelector('.tab.active .label-name') || {}).textContent || '' }))()") || break
+	# A custom editor (a .parquet or .csv viewer) may title its tab differently,
+	# so also accept a tab whose title or label names the file.
+	ACTIVE=$(run_js "(() => { const t = document.querySelector('.editor-group-container.active .tab.active'); const n = $(jq -Rn --arg v "$NAME" '$v');
+		const label = (t?.querySelector('.label-name') || {}).textContent || '';
+		const named = [label, t?.getAttribute('title') || '', t?.getAttribute('aria-label') || ''].some(x => x === n || x.includes('/' + n) || x.startsWith(n + ',') || x.includes(n));
+		return JSON.stringify({ ok: true, tab: named ? n : label }); })()") || break
 	[[ "$(echo "$ACTIVE" | jq -r '.tab')" == "$NAME" ]] && break
 	sleep 0.3
 done

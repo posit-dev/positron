@@ -368,23 +368,59 @@ execution count, state (running, pending, success, error), first source line
 and output text, plus the kernel badge and whether the tab is modified. `run N`
 clicks cell N's own Run button; `wait` waits until nothing is running. Each
 refuses when the named notebook is not the active editor, so a cell never runs
-in the wrong file. Run All goes through `palette-run.sh`.
+in the wrong file. Run All goes through `palette-run.sh`. More commands:
+
+```bash
+.claude/skills/drive-positron/scripts/nb.sh --session positron --notebook py.ipynb kernel 'R 4.5'
+.claude/skills/drive-positron/scripts/nb.sh --session positron --notebook py.ipynb ready
+.claude/skills/drive-positron/scripts/nb.sh --session positron --notebook py.ipynb restart     # also: interrupt, clear
+.claude/skills/drive-positron/scripts/nb.sh --session positron --notebook py.ipynb move 3 up
+.claude/skills/drive-positron/scripts/nb.sh --session positron --notebook py.ipynb --editor 2 read
+```
+
+`kernel` picks the picker row holding every word given and refuses, typing
+nothing, when no picker opens: keys typed into a notebook in command mode edit
+it (`3` turns a cell into Markdown). `ready` waits for the kernel badge to show
+idle after a start, restart or kernel change, in place of a fixed sleep.
+`restart`, `interrupt` and `clear` click the notebook toolbar's own buttons, and
+`move` uses the cell's More Cell Actions menu, since the palette has no notebook
+interrupt or move. `--editor N` picks the Nth editor from the left when the same
+notebook is open in a split.
 
 ### Read a Data Explorer grid or a view
 
 ```bash
-.claude/skills/drive-positron/scripts/de-read.sh --session positron --rows 5
+.claude/skills/drive-positron/scripts/de-read.sh --session positron --title 'Data: df' --rows 5
 .claude/skills/drive-positron/scripts/view-read.sh --session positron --view Variables
 .claude/skills/drive-positron/scripts/view-read.sh --session positron --view Viewer
 ```
 
 The grid draws only the columns in view; `de-read.sh` scrolls it sideways and
 returns every column's name and the top rows' values, plus the status bar, so
-there is no need to widen the window. `view-read.sh` prints what a view shows,
+there is no need to widen the window; `--title` makes it refuse a grid in any
+other tab, so one left open from an earlier step is never read by mistake.
+`view-read.sh` prints what a view shows,
 leaving out the stacked instances behind it (the Variables pane keeps one per
 session); for the Viewer it prints the URL and the page's text from the frames.
 A list or tree draws only its visible rows: scroll or filter before saying a row
 is missing.
+
+### Drive a tree and its context menus
+
+```bash
+.claude/skills/drive-positron/scripts/tree.sh --session positron --view 'Data Connections' rows
+.claude/skills/drive-positron/scripts/tree.sh --session positron --view 'Data Connections' expand Tables --nth 2
+.claude/skills/drive-positron/scripts/tree.sh --session positron --view 'Data Connections' menu orders 'Open in Data Explorer'
+```
+
+For Positron's own trees (Data Connections, which is a data grid with no tree
+roles) and upstream ones (Explorer, Outline). `rows` prints each visible row's
+level, state (expanded, collapsed, loading, leaf) and text. A row is found by a
+label that is the whole text of one of its pieces, such as a table's name
+without its "Table ·" prefix; repeated labels take `--nth`. `menu` right-clicks
+the row and picks the item by its label without the icon or shortcut, and
+closes the menu, running nothing, when the item is not in it. Clicks are real
+mouse clicks: Positron's buttons ignore a click from page script.
 
 ### Run an app
 
@@ -398,6 +434,18 @@ Clicks the active editor's Run App button, whatever its label ("Run Shiny App",
 a click from page script, and reports `started: false` when no toast, terminal,
 console or busy session followed within 5 s. Then check `notifications.sh`: a
 busy session asks first, in a toast.
+
+The Viewer's own toolbar:
+
+```bash
+.claude/skills/drive-positron/scripts/viewer.sh --session positron buttons
+.claude/skills/drive-positron/scripts/viewer.sh --session positron reload       # also: back, forward, clear, interrupt
+.claude/skills/drive-positron/scripts/viewer.sh --session positron open editor  # or: open browser
+.claude/skills/drive-positron/scripts/viewer.sh --session positron shot S04-02.png
+```
+
+`shot` takes and logs a screenshot of the Viewer pane alone, readable without
+cropping. The page itself is read with `view-read.sh --view Viewer`.
 
 ### Read and answer notifications
 

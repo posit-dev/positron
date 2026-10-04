@@ -70,8 +70,9 @@ const steps: Record<string, string> = {
 				separator: !!r.querySelector('.quick-input-list-separator-as-item') }))
 			.filter(r => Number.isFinite(r.index) && !r.separator);
 		const key = (k, code) => { input.focus(); input.dispatchEvent(new KeyboardEvent('keydown', { key: k, code: k, keyCode: code, which: code, bubbles: true, cancelable: true })); };
-		// Whole words, so "R" does not match the r in "positron-python".
-		const words = WANT.split(/\\s+/).filter(Boolean).map(x => new RegExp('(^|[^\\\\w.-])' + x.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '($|[^\\\\w.-])', 'i'));
+		// Whole words, so "R" does not match the r in "positron-python"; a word may
+		// end at a dot, so "4" and "4.5" match the version "4.5.1".
+		const words = WANT.split(/\\s+/).filter(Boolean).map(x => new RegExp('(^|[^\\\\w.-])' + x.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '($|[^\\\\w-])', 'i'));
 		const matches = r => MODE === 'exact' ? r.label === WANT : words.every(x => x.test(r.label + ' ' + r.description));
 
 		// The list may still be filtering; give it a moment to settle.
