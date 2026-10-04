@@ -3,6 +3,10 @@
 # @playwright/cli CDP session. It dispatches a ClipboardEvent with a DataTransfer
 # payload, avoiding the system clipboard and supporting parallel instances.
 #
+# It replaces the editor's whole text unless --append is passed: right for a
+# chat input, but in a file editor (a .qmd, an .R script) it wipes the file.
+# To change one line of a file, go to the line and type, or edit it on disk.
+#
 # Monaco's native-edit-context does not respond reliably to Playwright's fill or
 # type operations. Using pbcopy would work for one instance but introduces a
 # process-wide clipboard race.

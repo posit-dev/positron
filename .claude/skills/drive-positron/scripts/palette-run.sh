@@ -55,7 +55,11 @@ page() { node "$(dirname "${BASH_SOURCE[0]}")/quickpick-page.ts" "$@"; }
 
 # Close whatever quick input is open, and take focus out of a webview, where
 # the palette shortcut never reaches the workbench.
-pw press Escape >/dev/null 2>&1 || true
+# Close a quick input left open, but press Escape only when one is: in a .qmd
+# with a cell running, Escape is bound to Quarto: Interrupt Kernel, and in a
+# notebook it leaves edit mode.
+OPEN_NOW=$(run_js "$(page open)" 2>/dev/null | jq -r '.ok' 2>/dev/null)
+[[ "$OPEN_NOW" == "true" ]] && pw press Escape >/dev/null 2>&1
 run_js "$(page blur)" >/dev/null || true
 pw press "${CMD_MOD}+Shift+p" >/dev/null 2>&1
 OPEN=$(run_js "$(page open)") || { echo "$OPEN"; exit 1; }
