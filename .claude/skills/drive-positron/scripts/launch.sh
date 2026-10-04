@@ -385,6 +385,16 @@ if [[ "$DEFAULT_APP_ARGS" == "1" ]]; then
 		fi
 	done
 fi
+# Positron keeps logs under ~/.local/state/positron/logs/<launch second>, not
+# in the profile, so two instances started in the same second share one folder
+# and write into the same renderer.log. Give each its own, in its run directory.
+logs_supplied=0
+for extra_arg in ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; do
+	[[ "$extra_arg" == --logsPath || "$extra_arg" == --logsPath=* ]] && logs_supplied=1
+done
+if (( logs_supplied == 0 )); then
+	ARGS+=("--logsPath=$(to_native_path "$RUN_DIR/logs")")
+fi
 if (( ${#EXTRA_ARGS[@]} )); then
 	ARGS+=("${EXTRA_ARGS[@]}")
 fi
