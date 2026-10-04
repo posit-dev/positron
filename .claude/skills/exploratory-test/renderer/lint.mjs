@@ -227,8 +227,10 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 				problems.push(`${where} names ${name} twice, bare and as ${path}; write \`${path}\` once in place of the name, and the page shows it as ${name}`);
 			}
 		}
+		// A setup that is about a file not being there names it on purpose.
+		const absent = /\b(does not exist|doesn't exist|nonexistent|non-existent|missing|absent|not there|deleted)\b/i.test(String(text).replace(/`[^`]*`/g, ''));
 		for (const m of String(text).matchAll(FILE_NAME)) {
-			if (twice.has(m[1])) { continue; }
+			if (twice.has(m[1]) || absent) { continue; }
 			// "user settings.json" is the app's own file; the setting goes in the step.
 			// A files/ path is the rule above's.
 			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/')) { continue; }

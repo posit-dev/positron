@@ -111,7 +111,10 @@ cannot reproduce from a description of a file.
 
 - Write it to `files/` in the run directory first, then copy it into the
   workspace, so the saved copy is exactly what the scenario used. Mirror its
-  workspace path: `files/proj/src/app.py`.
+  workspace path: `files/proj/src/app.py`. Give each test file a name no other
+  has (`shiny_app.py`, `flask_app.py`, not four `app.py` in four folders), so a
+  step can name it by its file name alone. A file a scenario needs to be
+  missing is named as such ("`missing.sqlite` does not exist"), and is not saved.
 - If a scenario edits it partway through, keep the saved copy from before the
   edit and put the edit in the step as a code block. A later scenario that
   starts from the edited file saves that version too, named for the scenario
@@ -243,7 +246,7 @@ PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
 ## Environment
 - Positron <version> build <n>, <dev build | release build> of <short sha> (Code - OSS <version>), on <OS> <version> (<platform> <arch>).
 - <Python or R> <version> with <the packages the run used>.
-- <anything else true for the whole run: launch, workspace, window>
+- <anything else true for the whole run: launch, workspace, window, and the machine's time zone (`date +%Z`) when a check involves dates or times>
 
 ## Logs
 - logs/<file> | <what wrote it> | <errors it holds, or "no errors">
@@ -299,8 +302,9 @@ Steps:
   before you move to the next area, with a VERIFY step, and if that fails it is
   a finding. Only when time runs out first, note it under Noticed. Never leave
   it in a Result. When told to stop, first check each Noticed line that one
-  VERIFY can settle, while the instance is still up: one seen again on a later
-  screen is usually a finding. For a
+  VERIFY can settle, before you run `stop.sh` and while the instance is still
+  up: one seen again on a later screen is usually a finding. Then compare
+  listeners with `--tree`, which needs the instance running, then stop it. For a
   fail it is the rate only, "Fails 3/3", for the ledger's reader: the Coverage
   row shows just the link to its finding, which has the bug and its rate, so
   never describe the bug here.
@@ -411,8 +415,9 @@ what ties a shot to its step. One shot shows a check; take a second only when
 it shows a different moment the check depends on, such as the same panel still
 loading 15 s later. Cite it as a bare file name on that step's `Evidence:` line.
 Never cite one shot for two checks, even when nothing changed between them;
-take another. The one exception: when two findings show on the same screen,
-each gets its own check in its own scenario, and both may cite that one shot. A check about something off screen,
+take another. The one exception: when two or more findings show on the same
+screen, each gets its own check in its own scenario, and all may cite that one
+shot. A check about something off screen,
 such as a log line, still gets a shot of the app as it stood. A check with
 nothing on screen to show, such as a file's content on disk or a port that
 should be closed, cites the saved output instead: copy the file, or save the
@@ -550,8 +555,10 @@ step numbers, so write the second field as that line:
 - When another finding has the same setup, point to it: "Any table with
   summaries paused (Finding 2, steps 1-2)".
 
-Use this block for every finding. `N` is the table's row number; it ties the
-block to that row and to ledger scenarios whose `Status:` names Finding N.
+Use this block for every finding. `N` is the finding's number, given in the
+order you found them and never changed; it ties the block to its table row and
+to ledger scenarios whose `Status:` names Finding N. The table lists findings
+worst first, so its numbers need not run in order: never renumber to sort.
 
 ````
 ### Finding N: <concise claim>

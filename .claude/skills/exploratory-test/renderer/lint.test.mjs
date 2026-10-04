@@ -166,6 +166,12 @@ test('one screenshot may serve failed checks of two different findings, and noth
 	assert.equal(shared(ledger(1)).length, 1);
 });
 
+test('a precondition about a file that does not exist does not ask for it to be saved', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- db | ${p}\n\n1. Click Retry.`)).filter(x => /missing\.sqlite/.test(x));
+	assert.deepEqual(pre('`missing.sqlite` does not exist in the workspace'), []);
+	assert.equal(pre('`missing.sqlite` in the workspace').length, 1);
+});
+
 test('flags a cited screenshot that actions.log never took by that name', () => {
 	const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-02.png, S01-02b.png\n2. VERIFY b -> PASS\n   Evidence: shots/S01-04.png\n';
 	const log = '20:00:01 screenshot S01-02\n20:00:02 playwright screenshot --filename=/r/shots/S01-02b.png\n20:00:03 screenshot S01-03.png\n';
