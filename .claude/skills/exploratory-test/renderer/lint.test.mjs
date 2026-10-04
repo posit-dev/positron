@@ -125,6 +125,15 @@ test('flags a failed step whose finding is not the one the scenario\'s Status na
 	assert.deepEqual(mixed, ["ledger: S01 step 2 fails Finding 2 but the scenario's Status names Finding 1; give Finding 2's check a scenario of its own"]);
 });
 
+test('flags a title that starts lowercase or names code, but not a lowercase package name', () => {
+	const titled = t => lint(REPORT.replace(/^### Finding 1: .*$/m, `### Finding 1: ${t}`)).filter(p => /Finding 1 title/.test(p));
+	assert.equal(titled('a package installed from the console is missing').length, 1);
+	assert.equal(titled('R doubles are formatted by Rust f64::to_string').length, 1);
+	assert.deepEqual(titled('polars integer Min/Max shows only the leading digits'), []);
+	assert.deepEqual(titled('Attached state stays stale after `library()` until Refresh'), []);
+	assert.deepEqual(titled('Help for `dplyr::filter` lands on the stats page'), []);
+});
+
 test('flags a cited screenshot that actions.log never took by that name', () => {
 	const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-02.png, S01-02b.png\n2. VERIFY b -> PASS\n   Evidence: shots/S01-04.png\n';
 	const log = '20:00:01 screenshot S01-02\n20:00:02 playwright screenshot --filename=/r/shots/S01-02b.png\n20:00:03 screenshot S01-03.png\n';

@@ -103,9 +103,11 @@ Leave it out when every Feature holds.
 
 If you narrow a Cause so that the finding's title names a trigger the evidence
 does not need, add a line with a title that names the one it does. It replaces
-the title in the table, the report and the filed issue. Use no `;` or `|`:
+the title in the table, the report and the filed issue. Write it as the report
+writes titles: what a user sees and what triggers it, starting with a capital,
+with no function, file or type names, which belong in Cause. Use no `;` or `|`:
 
-TITLE: 1=project R is missing from the picker when its signature check times out on reload
+TITLE: 1=Project R is missing from the picker when its signature check times out on reload
 
 Leave it out when every title holds.
 

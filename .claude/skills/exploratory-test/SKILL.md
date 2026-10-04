@@ -7,7 +7,7 @@ metadata:
   # verifier.md, isolator.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.30"
+  version: "1.31"
 ---
 
 # Exploratory testing
@@ -38,8 +38,8 @@ Exploring stops after 30 minutes unless the person names another limit
 limit and that they can change it at any time. Keep it out of the brief: told
 its budget, the agent rushes and wraps up early. Start a timer, `sleep
 <seconds>` as a background command. When it ends, if the agent is still
-exploring, send it a message to stop exploring, list what it did not reach
-under Not run, and write up. If the person changes the limit, stop the timer
+exploring, send it a message to stop exploring, check each Noticed line that
+one VERIFY can settle, list what it did not reach under Not run, and write up. If the person changes the limit, stop the timer
 and start one for the time left. This is for local runs; CI sets its own limit
 and does not read this file.
 

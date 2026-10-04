@@ -114,7 +114,7 @@ function fill(text, shots) {
 				assert.ok(v.length, `ran out of values for ${p}`);
 				return v.shift();
 			}
-			return v ?? `filler ${++filler}`;
+			return v ?? `Filler ${++filler}`;
 		});
 }
 

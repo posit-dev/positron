@@ -276,7 +276,9 @@ Steps:
   pass that showed something you did not expect is not a pass yet: check it
   before you move to the next area, with a VERIFY step, and if that fails it is
   a finding. Only when time runs out first, note it under Noticed. Never leave
-  it in a Result. For a
+  it in a Result. When told to stop, first check each Noticed line that one
+  VERIFY can settle, while the instance is still up: one seen again on a later
+  screen is usually a finding. For a
   fail it is the rate only, "Fails 3/3", for the ledger's reader: the Coverage
   row shows just the link to its finding, which has the bug and its rate, so
   never describe the bug here.

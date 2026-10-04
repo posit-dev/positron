@@ -337,8 +337,19 @@ const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\
  * - The same number grouped in one place and ungrouped in another reads as
  *   two numbers.
  */
+const LOWERCASE_NAMES = new Set(['pandas', 'polars', 'numpy', 'dplyr', 'ggplot2', 'tibble', 'data.table', 'pip', 'uv', 'pak', 'renv', 'reticulate', 'ipykernel', 'matplotlib', 'plotly', 'shiny', 'knitr', 'rmarkdown']);
+
 function clarityProblems(n, title, observed, expected) {
 	const problems = [];
+	// A title says what a user sees, so it reads as a sentence, not as code.
+	// Package names that are lowercase by convention may lead it.
+	const first = /^([a-z][\w.]*)/.exec(title)?.[1];
+	if (first && !LOWERCASE_NAMES.has(first)) {
+		problems.push(`report: Finding ${n} title starts with a lowercase letter; start it with a capital`);
+	}
+	if (/\w::\w/.test(title.replace(/`[^`]*`/g, ''))) {
+		problems.push(`report: Finding ${n} title names code; say what a user sees and what triggers it, and leave the mechanism to Cause`);
+	}
 	const prose = text => text.replace(/`[^`]*`/g, '');
 	for (const [label, text] of [['Observed', observed], ['Expected', expected]]) {
 		if (text && prose(text).includes(';')) {
