@@ -287,6 +287,25 @@ starting another. With two sessions of one language, pass `--name` with part of 
 session's name as its console tab shows it. `--no-enter` pastes without running,
 for checking completions or an unfinished line.
 
+### Run a command in a terminal
+
+Keys typed into "the terminal" go wherever focus is, and a console often has
+it, so a shell command runs as R or Python instead. Run commands with
+`terminal-run.sh`. It pastes into the terminal's own input, focuses it, presses
+Enter, and checks that focus stayed there:
+
+```bash
+.claude/skills/drive-positron/scripts/terminal-run.sh --session positron 'node mcp.mjs list'
+.claude/skills/drive-positron/scripts/terminal-run.sh --session positron --index 2 'ls'
+```
+
+Open the terminal first (Terminal: Create New Terminal, or Terminal: Create New
+Terminal in Editor Area). Only visible terminals count. With more than one
+visible, pass `--index`, numbered left to right then top to bottom. It prints
+one JSON line and exits 1 when the command did not go to the terminal. It
+cannot read the output, which the terminal draws on a canvas: take a
+screenshot, or have the command write a file and read that.
+
 ### Read a whole quick pick
 
 Do not count `.monaco-list-row` elements and do not set `scrollTop`. Quick picks
