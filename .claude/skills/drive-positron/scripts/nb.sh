@@ -26,6 +26,10 @@
 #             of a busy kernel asks first: answer it with notifications.sh)
 #   move N up|down
 #             select cell N and move it
+#   show N    scroll cell N into view
+#   click-output N LABEL
+#             click the button or link labelled LABEL inside cell N's output,
+#             such as Retry or Open in Data Explorer
 #
 # Flags:
 #   --editor N  with the same notebook open in a split, the Nth editor from the
@@ -112,11 +116,38 @@ toolbar_click() {
 	echo "$m"
 }
 case "$CMD" in
+	show|click-output)
+		[[ "$ARG" =~ ^[0-9]+$ ]] || { echo '{"ok":false,"error":"give a cell number"}'; exit 2; }
+		G=$(run_js "$GUARD_JS") || { echo "$G"; exit 1; }
+		[[ "$(echo "$G" | jq -r '.ok')" == "true" ]] || { echo "$G"; exit 1; }
+		M=$(run_js "(() => {$COMMON document.querySelectorAll('[data-dp-target]').forEach(e => e.removeAttribute('data-dp-target'));
+			const c = cells[$ARG - 1]; if (!c) { return JSON.stringify({ ok: false, error: 'the notebook has ' + cells.length + ' cells' }); }
+			c.scrollIntoView({ block: 'center' });
+			if ('$CMD' === 'show') { return JSON.stringify({ ok: true, shown: $ARG }); }
+			const want = $(jq -Rn --arg v "$ARG2" '$v');
+			const hit = [...c.querySelectorAll('button, a, [role=button]')].find(b => clean(b) === want || b.getAttribute('aria-label') === want);
+			if (!hit) { return JSON.stringify({ ok: false, error: 'cell $ARG has no ' + want + ' in its output', found: [...c.querySelectorAll('button, a, [role=button]')].map(b => clean(b) || b.getAttribute('aria-label')).filter(Boolean).slice(0, 15) }); }
+			c.setAttribute('data-dp-hover', '1'); hit.setAttribute('data-dp-target', '1');
+			return JSON.stringify({ ok: true, clicked: want }); })()") || { echo "$M"; exit 1; }
+		[[ "$(echo "$M" | jq -r '.ok')" == "true" ]] || { echo "$M"; exit 1; }
+		if [[ "$CMD" == click-output ]]; then
+			pw hover '[data-dp-hover="1"]' >/dev/null 2>&1
+			pw click '[data-dp-target="1"]' >/dev/null 2>&1
+			run_js "(() => { document.querySelectorAll('[data-dp-target],[data-dp-hover]').forEach(e => { e.removeAttribute('data-dp-target'); e.removeAttribute('data-dp-hover'); }); return '{}'; })()" >/dev/null
+			log_action "nb.sh" "click "$ARG2" in cell $ARG output of $(basename "$NOTEBOOK")"
+		fi
+		echo "$M"; exit 0 ;;
 	restart|interrupt|clear|kernel|move)
 		G=$(run_js "$GUARD_JS") || { echo "$G"; exit 1; }
 		[[ "$(echo "$G" | jq -r '.ok')" == "true" ]] || { echo "$G"; exit 1; }
 		case "$CMD" in
-			restart) toolbar_click 'Restart Kernel'; exit $? ;;
+			restart)
+				R=$(toolbar_click 'Restart Kernel') || { echo "$R"; exit 1; }
+				# A busy kernel asks first, in a toast that can come and go quickly.
+				sleep 1
+				T=$("$HERE/notifications.sh" ${PW_SESSION_NAME:+--session "$PW_SESSION_NAME"} 2>/dev/null | jq -c '[.notifications[]? | {message, buttons}]' 2>/dev/null || echo '[]')
+				echo "$R" | jq -c --argjson t "${T:-[]}" '. + {prompts: $t}'
+				exit 0 ;;
 			interrupt) toolbar_click 'Stop Execution'; exit $? ;;
 			clear) toolbar_click 'Clear All Outputs'; exit $? ;;
 			kernel)
@@ -195,6 +226,16 @@ case "$CMD" in
 					lines: src.length,
 					output: outs ? outs.innerText.replace(/\\s+\\n/g, '\\n').trim().slice(0, 400) : '',
 					error: !!c.querySelector('.notebook-error'),
+					// What kind each output is, so an HTML table reads apart from the live grid.
+					types: outs ? [...new Set([
+						outs.querySelector('.inline-data-explorer-container') && 'data-grid',
+						outs.querySelector('img, canvas') && 'image',
+						outs.querySelector('.notebook-error') && 'error',
+						outs.querySelector('iframe, webview, .positron-notebook-html-output, table') && 'html',
+						outs.querySelector('.json-output') && 'json',
+						outs.querySelector('.positron-notebook-latex-output') && 'latex',
+						outs.querySelector('.empty-output-msg') && 'empty',
+					].filter(Boolean))] : [],
 					images: outs ? outs.querySelectorAll('img').length : 0,
 				};
 			});

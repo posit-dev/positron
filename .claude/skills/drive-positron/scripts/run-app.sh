@@ -80,4 +80,9 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do
 	sleep 0.5
 done
 log_action "run-app.sh" "$LABEL_FOUND"
-echo "$RESULT" | jq -c --argjson s "$STARTED" '{ok: true, clicked: .label, started: $s, buttons, hint: (if $s then null else "nothing visibly started within 5 s: check notifications.sh and the App Launcher output" end)}'
+# Flask defaults to port 5000, which macOS gives to the AirPlay Receiver.
+PORT_HINT=""
+if [[ "$LABEL_FOUND" == *Flask* ]] && lsof -nP -iTCP:5000 -sTCP:LISTEN 2>/dev/null | grep -q ControlCenter; then
+	PORT_HINT="port 5000 is held by the AirPlay Receiver (ControlCenter): a Flask app that keeps the default port gets AirPlay's 403 in the Viewer; set another port in the app"
+fi
+echo "$RESULT" | jq -c --argjson s "$STARTED" '{ok: true, clicked: .label, started: $s, buttons, hint: (if $s then null else "nothing visibly started within 5 s: check notifications.sh and the App Launcher output" end)} + (if $p != "" then {port: $p} else {} end)' --arg p "$PORT_HINT"

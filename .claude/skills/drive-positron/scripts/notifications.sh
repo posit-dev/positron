@@ -65,7 +65,7 @@ JS="(async () => {
 		};
 	};
 	// Modal dialogs: the upstream one, and Positron's own React modals.
-	const dialogs = [...document.querySelectorAll('.monaco-dialog-box, .positron-modal-dialog-box')].filter(d => d.offsetParent !== null);
+	const dialogs = [...document.querySelectorAll('.monaco-dialog-box, .positron-modal-dialog-box, .positron-dynamic-modal-dialog-box')].filter(d => d.offsetParent !== null);
 	const readDialog = d => ({
 		kind: 'dialog',
 		message: clean(d.querySelector('.dialog-message-text, .simple-title-bar, .title')),

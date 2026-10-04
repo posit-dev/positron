@@ -7,7 +7,7 @@
 // script so the JavaScript needs no shell quoting.
 //
 //   node tree-page.ts rows <view> '' 0
-//   node tree-page.ts mark <view> <label> <nth> <row|twisty>
+//   node tree-page.ts mark <view> <label> <nth> <row|twisty> [<under>]
 //   node tree-page.ts menu-mark <item>
 //   node tree-page.ts unmark
 //
@@ -16,7 +16,7 @@
 // the element to click with data-dp-target, so tree.sh can click it with a real
 // mouse click: Positron's buttons ignore a click() from page script.
 
-const [step, view, label, nth, part]: string[] = process.argv.slice(2);
+const [step, view, label, nth, part, under]: string[] = process.argv.slice(2);
 
 const common = `
 	const VIEW = ${JSON.stringify((view ?? '').toLowerCase())};
@@ -44,11 +44,26 @@ const common = `
 		const level = positron
 			? Math.round((indent?.getBoundingClientRect().width || 0) / (parseFloat(getComputedStyle(indent || r).getPropertyValue('--positron-tree-indent-width')) || 8))
 			: Number(r.getAttribute('aria-level') || 1) - 1;
-		const pieces = [...content.querySelectorAll('*')].filter(e => e.children.length === 0).map(clean).filter(Boolean);
+		// Each piece, and each part of a piece joined by " · " ("Shop · SQLite"),
+		// is a label the row can be found by.
+		const leaves = [...content.querySelectorAll('*')].filter(e => e.children.length === 0).map(clean).filter(Boolean);
+		const pieces = [...new Set([...leaves, ...leaves.flatMap(p => p.split(/\\s+·\\s+/)), ...clean(content).split(/\\s+·\\s+/)])];
 		return { level, state, text: clean(content), pieces, el: r, twisty };
 	};
-	const find = (want, n) => {
-		const all = rows().map(readRow).filter(x => x.pieces.includes(want) || x.text === want);
+	// With an "under" label, only rows below that row and deeper than it.
+	const scoped = underLabel => {
+		const all = rows().map(readRow);
+		if (!underLabel) { return all; }
+		const i = all.findIndex(x => x.pieces.includes(underLabel) || x.text === underLabel);
+		if (i < 0) { return null; }
+		const out = [];
+		for (let j = i + 1; j < all.length && all[j].level > all[i].level; j++) { out.push(all[j]); }
+		return out;
+	};
+	const find = (want, n, underLabel) => {
+		const pool = scoped(underLabel);
+		if (pool === null) { return { error: 'no visible row labelled "' + underLabel + '" to search under' }; }
+		const all = pool.filter(x => x.pieces.includes(want) || x.text === want);
 		if (all.length === 0) { return { error: 'no visible row labelled "' + want + '"; expand its parent or scroll' }; }
 		if (!n && all.length > 1) { return { error: all.length + ' rows labelled "' + want + '"; pass --nth (1 = top)', matches: all.map(x => x.text) }; }
 		const hit = all[(n || 1) - 1];
@@ -65,7 +80,7 @@ const steps: Record<string, string> = {
 
 	mark: `(() => {${common}
 		unmark();
-		const { hit, error, matches } = find(${JSON.stringify(label ?? '')}, ${Number(nth) || 0});
+		const { hit, error, matches } = find(${JSON.stringify(label ?? '')}, ${Number(nth) || 0}, ${JSON.stringify(under ?? '')});
 		if (error) { return JSON.stringify({ ok: false, error, matches }); }
 		const target = ${JSON.stringify(part)} === 'twisty' ? hit.twisty : (hit.el.querySelector('.positron-tree-content, .monaco-tl-contents') || hit.el);
 		if (!target) { return JSON.stringify({ ok: false, error: 'the row has no expand button: it is a leaf' }); }

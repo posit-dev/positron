@@ -292,7 +292,8 @@ prints what was shown:
 .claude/skills/drive-positron/scripts/palette-run.sh --session positron --dry-run 'Notebook: Run All Cells'
 ```
 
-The title includes its category, as the palette shows it. It takes focus out
+The title includes its category, as the palette shows it. When two rows share
+a title, `--desc` picks the one whose grey description holds the text given. It takes focus out
 of a webview first, where keyboard shortcuts never reach the workbench. A
 command that is "not listed" is a fact about the app's state: record it.
 
@@ -385,7 +386,10 @@ idle after a start, restart or kernel change, in place of a fixed sleep.
 `restart`, `interrupt` and `clear` click the notebook toolbar's own buttons, and
 `move` uses the cell's More Cell Actions menu, since the palette has no notebook
 interrupt or move. `--editor N` picks the Nth editor from the left when the same
-notebook is open in a split.
+notebook is open in a split. `read` also lists each output's kinds (data-grid,
+html, image, error, json, latex), and `restart` reports any question it raised.
+`show N` scrolls to a cell, and `click-output N LABEL` clicks a button or link
+inside a cell's output, such as Open in Data Explorer or Retry.
 
 ### Read a Data Explorer grid or a view
 
@@ -417,7 +421,13 @@ For Positron's own trees (Data Connections, which is a data grid with no tree
 roles) and upstream ones (Explorer, Outline). `rows` prints each visible row's
 level, state (expanded, collapsed, loading, leaf) and text. A row is found by a
 label that is the whole text of one of its pieces, such as a table's name
-without its "Table ·" prefix; repeated labels take `--nth`. `menu` right-clicks
+without its "Table ·" prefix, or a part of a piece joined by " · " (`Shop` for
+"Shop · SQLite"); repeated labels take `--under PARENT`, which looks only below
+that row, or `--nth`. Positron folds some levels (the tables of a connection's
+Tables group show at its indent), so start `--under` from the connection.
+`expand` and `collapse` report the row's state after the click and fail when it
+did not reach the asked-for state, as a row in an error state can collapse
+instead. `menu` right-clicks
 the row and picks the item by its label without the icon or shortcut, and
 closes the menu, running nothing, when the item is not in it. Clicks are real
 mouse clicks: Positron's buttons ignore a click from page script.
@@ -445,7 +455,50 @@ The Viewer's own toolbar:
 ```
 
 `shot` takes and logs a screenshot of the Viewer pane alone, readable without
-cropping. The page itself is read with `view-read.sh --view Viewer`.
+cropping. The page itself is read with `view-read.sh --view Viewer`, and
+driven with:
+
+```bash
+.claude/skills/drive-positron/scripts/viewer.sh --session positron wait-content 20
+.claude/skills/drive-positron/scripts/viewer.sh --session positron fill Name Ada
+.claude/skills/drive-positron/scripts/viewer.sh --session positron click Greet
+```
+
+`wait-content` says whether the page ever showed anything, which a snapshot
+alone cannot tell from one still loading. `click` and `fill` find the element
+by its name in a fresh snapshot of the Viewer's frames, so a ref left over from
+before a reload is never used. `run-app.sh` warns when a Flask app will land on
+port 5000, which the AirPlay Receiver holds.
+
+### Fill a dialog
+
+```bash
+.claude/skills/drive-positron/scripts/form.sh --session positron read
+.claude/skills/drive-positron/scripts/form.sh --session positron --in SQLite click Connect
+.claude/skills/drive-positron/scripts/form.sh --session positron fill 'Database File' /tmp/shop.sqlite
+.claude/skills/drive-positron/scripts/form.sh --session positron check 'Read Only'
+.claude/skills/drive-positron/scripts/form.sh --session positron click Save
+```
+
+For Positron's modal dialogs (Add Connection, New Folder) and upstream ones.
+Fields and buttons are found by their visible label; `--in` narrows to the
+row that also shows a text, for a list with one button per row. `read` lists
+the fields with their values and the buttons with whether each is enabled.
+
+### Switch panel tabs, terminals and sessions
+
+```bash
+.claude/skills/drive-positron/scripts/panel.sh --session positron tab Terminal
+.claude/skills/drive-positron/scripts/panel.sh --session positron terminals
+.claude/skills/drive-positron/scripts/panel.sh --session positron terminal 2
+.claude/skills/drive-positron/scripts/panel.sh --session positron delete-session 'R 4.5.1'
+.claude/skills/drive-positron/scripts/panel.sh --session positron editors
+```
+
+`delete-session` uses the console tab's context menu, since the tab's trash
+button hides when the tab list is narrow; a busy session asks first, and the
+command reports the question rather than a deletion. `editors` lists every
+editor tab by group, with which is active and which are modified.
 
 ### Read and answer notifications
 

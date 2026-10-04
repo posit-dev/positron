@@ -28,6 +28,8 @@
 #   --view TITLE     the view the tree is in, as its pane header reads; leave it
 #                    out to search every view on screen
 #   --nth N          which of several rows with the same label, 1 = top
+#   --under LABEL    look only below that row, among its descendants, so a
+#                    repeated label ("Tables") needs no counting across the tree
 #
 # Trees draw only the rows in view: a row scrolled out reads as missing. Expand
 # its parent or scroll first. Stdout: one JSON line. Exit code: 0 on success,
@@ -39,6 +41,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 SESSION=""
 VIEW=""
 NTH=0
+UNDER=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -46,6 +49,7 @@ while [[ $# -gt 0 ]]; do
 		--session=*) SESSION="${1#--session=}"; shift ;;
 		--view) VIEW="$2"; shift 2 ;;
 		--nth) NTH="$2"; shift 2 ;;
+		--under) UNDER="$2"; shift 2 ;;
 		-h|--help) sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		*) ARGS+=("$1"); shift ;;
 	esac
@@ -62,7 +66,7 @@ case "$CMD" in
 		run_js "$(page rows "$VIEW" '' 0)"; exit $? ;;
 	expand|collapse)
 		[[ -n "$LABEL" ]] || { echo '{"ok":false,"error":"give the row label"}'; exit 2; }
-		MARK=$(run_js "$(page mark "$VIEW" "$LABEL" "$NTH" twisty)") || { echo "$MARK"; exit 1; }
+		MARK=$(run_js "$(page mark "$VIEW" "$LABEL" "$NTH" twisty "$UNDER")") || { echo "$MARK"; exit 1; }
 		[[ "$(echo "$MARK" | jq -r '.ok')" == "true" ]] || { echo "$MARK"; exit 1; }
 		STATE=$(echo "$MARK" | jq -r '.state')
 		if [[ "$CMD" == "expand" && "$STATE" == "expanded" ]] || [[ "$CMD" == "collapse" && "$STATE" != "expanded" ]]; then
@@ -74,18 +78,23 @@ case "$CMD" in
 		run_js "$(page unmark)" >/dev/null
 		# Wait for the row to settle: loading children can take a moment.
 		for _ in 1 2 3 4 5 6 7 8 9 10; do
-			NOW=$(run_js "$(page mark "$VIEW" "$LABEL" "$NTH" row)") || break
+			NOW=$(run_js "$(page mark "$VIEW" "$LABEL" "$NTH" row "$UNDER")") || break
 			run_js "$(page unmark)" >/dev/null
 			S=$(echo "$NOW" | jq -r '.state')
 			[[ "$S" != "loading" && "$S" != "$STATE" ]] && break
 			sleep 0.3
 		done
 		log_action "tree.sh" "$CMD \"$LABEL\"$([[ "$NTH" != 0 ]] && echo " (nth $NTH)") in ${VIEW:-any view}"
-		echo "${NOW:-$MARK}" | jq -c '. + {changed: true}'
+		# Report what the row is now: a row in an error state can collapse when
+		# clicked, so "changed" says whether it reached the asked-for state.
+		AFTER=$(echo "${NOW:-$MARK}" | jq -r '.state')
+		WANTED=$([[ "$CMD" == expand ]] && echo expanded || echo collapsed)
+		echo "${NOW:-$MARK}" | jq -c --arg b "$STATE" --arg w "$WANTED" '. + {before: $b, changed: (.state != $b), reached: (.state == $w)} | if .reached then . else . + {ok: false, error: ("the row is " + .state + ", not " + $w + ", after the click")} end'
+		[[ "$AFTER" == "$WANTED" ]] || exit 1
 		;;
 	click)
 		[[ -n "$LABEL" ]] || { echo '{"ok":false,"error":"give the row label"}'; exit 2; }
-		MARK=$(run_js "$(page mark "$VIEW" "$LABEL" "$NTH" row)") || { echo "$MARK"; exit 1; }
+		MARK=$(run_js "$(page mark "$VIEW" "$LABEL" "$NTH" row "$UNDER")") || { echo "$MARK"; exit 1; }
 		[[ "$(echo "$MARK" | jq -r '.ok')" == "true" ]] || { echo "$MARK"; exit 1; }
 		pw click "$target" >/dev/null 2>&1
 		run_js "$(page unmark)" >/dev/null
@@ -94,7 +103,7 @@ case "$CMD" in
 		;;
 	menu)
 		[[ -n "$LABEL" && -n "$ITEM" ]] || { echo '{"ok":false,"error":"give the row label and the menu item"}'; exit 2; }
-		MARK=$(run_js "$(page mark "$VIEW" "$LABEL" "$NTH" row)") || { echo "$MARK"; exit 1; }
+		MARK=$(run_js "$(page mark "$VIEW" "$LABEL" "$NTH" row "$UNDER")") || { echo "$MARK"; exit 1; }
 		[[ "$(echo "$MARK" | jq -r '.ok')" == "true" ]] || { echo "$MARK"; exit 1; }
 		pw click "$target" right >/dev/null 2>&1
 		run_js "$(page unmark)" >/dev/null

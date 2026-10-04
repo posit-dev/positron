@@ -17,7 +17,7 @@
 // Command Palette highlights its best guess, which can be a "similar commands"
 // entry such as Delete All Cells, so Enter on a near miss runs the wrong thing.
 
-const [step, mode, text, flag]: string[] = process.argv.slice(2);
+const [step, mode, text, flag, desc]: string[] = process.argv.slice(2);
 
 const common = `
 	const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
@@ -73,7 +73,9 @@ const steps: Record<string, string> = {
 		// Whole words, so "R" does not match the r in "positron-python"; a word may
 		// end at a dot, so "4" and "4.5" match the version "4.5.1".
 		const words = WANT.split(/\\s+/).filter(Boolean).map(x => new RegExp('(^|[^\\\\w.-])' + x.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '($|[^\\\\w-])', 'i'));
-		const matches = r => MODE === 'exact' ? r.label === WANT : words.every(x => x.test(r.label + ' ' + r.description));
+		const DESC = ${JSON.stringify(desc ?? '')};
+		const matches = r => (MODE === 'exact' ? r.label === WANT : words.every(x => x.test(r.label + ' ' + r.description)))
+			&& (!DESC || r.description.includes(DESC));
 
 		// The list may still be filtering; give it a moment to settle.
 		let found = [];

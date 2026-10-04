@@ -18,6 +18,13 @@
 #   shot NAME    a screenshot of the Viewer pane only, saved and logged like
 #                shot.sh
 #   buttons      the toolbar's buttons and whether each is enabled
+#   click NAME   click the element named NAME inside the page (a button,
+#                link or text), found in a fresh snapshot of the Viewer's frames
+#   fill NAME T  type T into the field named NAME inside the page
+#   wait-content [SECS]
+#                wait up to SECS (default 15) for the page to show anything;
+#                says "blank" when it never does, which a snapshot alone cannot
+#                tell from a page still loading
 #
 # Read the page itself with view-read.sh --view Viewer.
 # Stdout: one JSON line (shot: the path). Exit code: 0 on success, 1 when the
@@ -107,5 +114,27 @@ case "$CMD" in
 			return JSON.stringify({ ok: true, buttons: [...pane.querySelectorAll('[aria-label]')].filter(b => b.offsetParent !== null)
 				.map(b => ({ label: b.getAttribute('aria-label'), enabled: !(b.disabled || b.getAttribute('aria-disabled') === 'true' || /disabled/.test(b.className)) })) });
 		})()" ;;
-	*) echo '{"ok":false,"error":"command: reload, back, forward, clear, interrupt, open, shot or buttons"}'; exit 2 ;;
+	click|fill)
+		[[ -n "$ARG" ]] || { echo '{"ok":false,"error":"give the element name"}'; exit 2; }
+		# Frame refs change after every reload, so take them from a fresh snapshot.
+		SNAP=$(pw snapshot 2>/dev/null | grep -E '\[ref=f[0-9]+e')
+		REF=$(printf '%s\n' "$SNAP" | NAME="$ARG" awk 'index($0, "\"" ENVIRON["NAME"] "\"") || $0 ~ (": " ENVIRON["NAME"] "$") { match($0, /ref=f[0-9]+e[0-9]+/); print substr($0, RSTART + 4, RLENGTH - 4) }' | head -1)
+		if [[ -z "$REF" ]]; then
+			printf '%s\n' "$SNAP" | head -30 | jq -Rsc --arg n "$ARG" '{ok: false, error: ("nothing named " + $n + " in the Viewer page"), page: (split("\n") | map(select(length > 0) | sub(" \\[ref=[^]]+\\]"; "")))}'
+			exit 1
+		fi
+		if [[ "$CMD" == click ]]; then pw click "$REF" >/dev/null 2>&1; else pw fill "$REF" "${ARGS[2]:-}" >/dev/null 2>&1; fi
+		log_action "viewer.sh" "$CMD \"$ARG\" in the Viewer page"
+		jq -cn --arg c "$CMD" --arg n "$ARG" --arg r "$REF" '{ok: true, action: $c, element: $n, ref: $r}' ;;
+	wait-content)
+		END=$(( $(date +%s) + ${ARG:-15} ))
+		while (( $(date +%s) <= END )); do
+			# Anything in the frames beyond the frame and document nodes themselves.
+			N=$(pw snapshot 2>/dev/null | grep -E '\[ref=f[0-9]+e' | grep -vcE '^\s*- (iframe|document)( \[|:)')
+			(( N > 0 )) && { jq -cn --argjson n "$N" '{ok: true, content: true, nodes: $n}'; exit 0; }
+			sleep 1
+		done
+		jq -cn --arg s "${ARG:-15}" '{ok: false, content: false, error: ("the Viewer page is blank after " + $s + " s")}'
+		exit 1 ;;
+	*) echo '{"ok":false,"error":"command: reload, back, forward, clear, interrupt, open, shot, buttons, click, fill or wait-content"}'; exit 2 ;;
 esac

@@ -14,6 +14,8 @@
 # Flags:
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)
 #   --dry-run       find and highlight the command, but do not run it
+#   --desc TEXT     when two rows share the title, take the one whose
+#                   description (the grey text beside it) holds TEXT
 #
 # The title is the label the palette shows, category included ("Interpreter:
 # Start New Console Session"). When it is not listed, nothing runs: the script
@@ -31,12 +33,14 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 SESSION=""
 DRY=0
+DESC=""
 TITLE=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--session) SESSION="$2"; shift 2 ;;
 		--session=*) SESSION="${1#--session=}"; shift ;;
 		--dry-run) DRY=1; shift ;;
+		--desc) DESC="$2"; shift 2 ;;
 		-h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		-*) echo "palette-run.sh: unknown flag $1" >&2; exit 2 ;;
 		*) TITLE="$1"; shift ;;
@@ -63,7 +67,7 @@ fi
 FILLED=$(run_js "$(page fill ">$TITLE")") || { echo "$FILLED"; exit 1; }
 # Highlight the row in the page, then press Enter from outside it: a command
 # such as Developer: Reload Window tears the page down mid-eval otherwise.
-CHOSEN=$(run_js "$(page choose exact "$TITLE" --dry)") || { echo "$CHOSEN"; pw press Escape >/dev/null 2>&1; exit 1; }
+CHOSEN=$(run_js "$(page choose exact "$TITLE" --dry "$DESC")") || { echo "$CHOSEN"; pw press Escape >/dev/null 2>&1; exit 1; }
 if [[ "$(echo "$CHOSEN" | jq -r '.ok')" != "true" ]]; then
 	pw press Escape >/dev/null 2>&1
 	echo "$CHOSEN" | jq -c '. + {hint: "not listed: the command may not exist under that title, or its precondition is false right now"}'
