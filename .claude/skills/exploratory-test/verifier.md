@@ -122,6 +122,13 @@ for what the column cannot say.
   unanswered that went ahead anyway, gets one line: the scenario and what
   looks wrong. It may be a finding the run missed. If the code shows an entry
   in the ledger's Noticed notes is a real defect, say so in one line.
+- Check each failed step's `Observed:` against the finding it names. One that
+  shows a different behavior gets one line: the step and the behavior, which
+  is a finding the run filed under the wrong number.
+- Check each VERIFY, passing ones too, against what its steps and the action
+  log show. One that passes on either of two outcomes, or claims a condition
+  the action log contradicts (commands "back to back" that went seconds apart,
+  a reference that was never run), gets one line.
 - A finding on the KNOWN line gets one line per issue: why it is the same
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its

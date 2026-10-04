@@ -22,7 +22,10 @@ launch section says why each one matters.
 
 Run code in a console only with drive-positron's `console-run.sh`, naming the
 language, never with a helper of your own: with a Python and an R session open,
-code typed into the active console lands in the wrong one.
+code typed into the active console lands in the wrong one. It waits for each
+command to echo, so commands sent one call at a time arrive seconds apart: to
+test changes in quick succession, send them in one call, as a loop or as
+statements on one line.
 
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. A run made of single Playwright
@@ -516,14 +519,18 @@ and any other values that were right, extra runs or log lines, which go in
 Reproduce or Evidence. Plain words: no "unfortunately", "incorrectly" or
 "confusingly".
 
-Claim no more than the run checked, in the title, Observed and Expected alike.
+Claim no more than the run checked, in the title, Observed and Expected alike,
+and in the ledger's VERIFY and `Result:` lines, which a pass rests on too.
 Each fact needs a step in the ledger or a screenshot that shows it: a reference
 in Expected was run in this instance (plain Python, R in a terminal, the same
 call in code), and a count or a word such as "every", "all" or "never" covers
 only the cases the steps tried. Name those cases instead ("data frame columns
 show 0 Bytes", not "every child shows 0 Bytes"), and say what does recover it
 when a step found something ("until the row is expanded again", not "never").
-Describe punctuation and spacing only as the screenshot shows them.
+Describe punctuation and spacing only as the screenshot shows them. A VERIFY
+names one expected outcome: one that passes on either of two outcomes checks
+nothing. A failed step names the finding whose behavior its Observed shows; a
+different behavior seen there is its own finding, even when it looks related.
 
 Two examples, each before and after:
 
