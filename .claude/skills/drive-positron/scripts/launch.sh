@@ -18,7 +18,7 @@
 # Usage:
 #   launch.sh [--agents] [--source-user-data-dir <path>] [--repo <vscode-repo-root>]
 #             [--clone-extensions] [--full] [--no-default-app-args]
-#             [--keep-first-run-prompts] [-- <extra code.sh args>]
+#             [--keep-first-run-prompts] [--no-pyrefly] [-- <extra code.sh args>]
 #
 # Flags:
 #   --clone-extensions  Copy the source extensions/ into the new profile (~10s).
@@ -31,6 +31,10 @@
 #                       settings from VS Code; let a coding agent on PATH run code).
 #                       Default: suppress them in the disposable profile, since
 #                       every run would otherwise dismiss them by hand.
+#   --no-pyrefly        Disable the Pyrefly extension (meta.pyrefly), which gives
+#                       Python files hover, completions, outline and diagnostics,
+#                       through the same `extensions.allowed` entry the e2e tests
+#                       use. Default: leave it on, as users have it.
 #
 # Defaults:
 #   --source-user-data-dir  $POSITRON_DEV_USER_DATA_DIR (else ~/.positron-dev)
@@ -131,6 +135,7 @@ CLONE_EXTENSIONS=0
 FULL=0
 DEFAULT_APP_ARGS=1
 FIRST_RUN_PROMPTS=0
+NO_PYREFLY=0
 
 # Supplied by the launcher, not the caller: without --disable-workspace-trust a
 # fresh profile starts in restricted mode with extensions disabled, which reads
@@ -149,6 +154,7 @@ while [[ $# -gt 0 ]]; do
 		--full) FULL=1; shift ;;
 		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
 		--keep-first-run-prompts) FIRST_RUN_PROMPTS=1; shift ;;
+		--no-pyrefly) NO_PYREFLY=1; shift ;;
 		--) shift; EXTRA_ARGS=("$@"); break ;;
 		*) echo "Unknown arg: $1" >&2; exit 2 ;;
 	esac
@@ -230,7 +236,7 @@ SETTINGS_FILE="$DEST_UDD/User/settings.json"
 mkdir -p "$(dirname "$SETTINGS_FILE")"
 # Update the keys without parsing and rewriting the entire JSONC document,
 # preserving comments and strings that contain `//`.
-if ! node - "$SETTINGS_FILE" "$FIRST_RUN_PROMPTS" <<'NODE'
+if ! node - "$SETTINGS_FILE" "$FIRST_RUN_PROMPTS" "$NO_PYREFLY" <<'NODE'
 const fs = require('fs');
 const f = process.argv[2];
 // Keys forced into the disposable profile, with the JSON text of each value.
@@ -239,6 +245,8 @@ const FORCED = [
 	['window.dialogStyle', '"custom"'],
 	// A fresh profile offers to import VS Code settings on startup.
 	...(process.argv[3] === '1' ? [] : [['workbench.settings.importFromVSCode.enabled', 'false']]),
+	// --no-pyrefly: an extension that is not allowed is disabled even when installed.
+	...(process.argv[4] === '1' ? [['extensions.allowed', '{ "meta.pyrefly": false, "*": true }']] : []),
 ];
 
 let text;
@@ -262,6 +270,8 @@ for (const [KEY, VALUE] of FORCED) {
 	const keyValueRe = new RegExp('("' + KEY.replace(/\./g, '\\.') + '"\\s*:\\s*)(true|false|null|"[^"\\n]*"|-?\\d+(?:\\.\\d+)?)', 'g');
 	if (keyValueRe.test(text)) {
 		text = text.replace(keyValueRe, '$1' + VALUE);
+	} else if (text.includes('"' + KEY + '"')) {
+		console.error('[launch.sh] ' + KEY + ' is already set to an object in ' + f + '; left as it is');
 	} else {
 		missing.push([KEY, VALUE]);
 	}
@@ -311,6 +321,7 @@ then
 	exit 1
 fi
 echo "[launch.sh] ensured files.simpleDialog.enable=true and window.dialogStyle=custom in $SETTINGS_FILE" >&2
+[[ "$NO_PYREFLY" == "1" ]] && echo "[launch.sh] disabled Pyrefly (meta.pyrefly) through extensions.allowed" >&2
 
 # positron-supervisor offers, once per profile, to let a coding agent it finds on
 # PATH run code in the window's sessions. There is no setting that only hides it:

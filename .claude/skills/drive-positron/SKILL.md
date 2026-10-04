@@ -130,6 +130,8 @@ The launcher reads the source profile with a one-way `rsync` into the run direct
 
 It also suppresses, in the disposable copy only, the two prompts a fresh profile raises on startup: the offer to import settings from VS Code (`workbench.settings.importFromVSCode.enabled` set to `false`) and positron-supervisor's offer to let a coding agent found on PATH run code in the window's sessions (marked as already asked in the profile's global state, which needs `sqlite3`). Every run would otherwise dismiss them by hand. Pass `--keep-first-run-prompts` before the `--` when either prompt is what you are testing.
 
+Pyrefly, the extension behind Python hover, completions, outline and diagnostics, stays on, as users have it. Pass `--no-pyrefly` before the `--` to disable it in the disposable copy, through the same `extensions.allowed` entry the e2e tests use, when its startup notices get in the way of a run that does not touch Python editing.
+
 It excludes lock files, sockets, singleton state, caches, logs, and workspace storage so the copied profile can run alongside a normal development instance.
 
 To avoid reading the normal development profile at all, create a minimal seed:
