@@ -129,6 +129,12 @@ for what the column cannot say.
   log show. One that passes on either of two outcomes, or claims a condition
   the action log contradicts (commands "back to back" that went seconds apart,
   a reference that was never run), gets one line.
+- Check each scenario's action steps against the action log, in order. A step
+  done another way than the log shows (a tab "clicked" where the log runs
+  code), a state change in the log that no step or precondition covers, or a
+  retry the steps leave out gets one line: the step and what the log shows.
+- Check that each screenshot a step cites was taken at that point in the
+  action log, and name any the log shows under another name.
 - A finding on the KNOWN line gets one line per issue: why it is the same
   symptom, and whether the issue is open or closed.
 - An issue on the LINKED line gets one line: what the run saw that set its

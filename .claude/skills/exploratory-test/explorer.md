@@ -25,7 +25,8 @@ language, never with a helper of your own: with a Python and an R session open,
 code typed into the active console lands in the wrong one. It waits for each
 command to echo, so commands sent one call at a time arrive seconds apart: to
 test changes in quick succession, send them in one call, as a loop or as
-statements on one line.
+statements on one line. Run a command in a terminal only with drive-positron's
+`terminal-run.sh`: typed keys go wherever focus is, and a console often has it.
 
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. A run made of single Playwright
@@ -300,6 +301,17 @@ Steps:
   installed interpreter. Anything done in the app to get there, such as
   starting a console or opening a file, is a step, even if it is only setup.
   Steps never start with "With X open, ..."; open it as step 1.
+- Steps are a replay of `actions.log`, not a tidier story. Each one does what
+  the log shows, the way it was done: a session switched by running code is
+  "Run `pass` in the Python console", not "Click the Python tab". Every command
+  that changed state the later steps rely on is a step, or the scenario's
+  precondition names the scenario that ran it. A retry or an extra run is a
+  step, or the scenario is run again from step 1; never explain away a value
+  with an action no step took. Screenshots keep the names they were taken
+  with: renumber a scenario before taking its shots, not after.
+- Everything the run tried is in the ledger. A check you made with no
+  scenario, such as filter text tried in passing, becomes a scenario if you
+  can name what you saw, or a Noticed line if you cannot.
 - `Noticed` is what you saw that looked wrong and had no time to check. It is a
   note for whoever plans the next run, kept in the ledger only: the report
   shows only what the run checked, so nothing under Noticed reaches it. Leave
