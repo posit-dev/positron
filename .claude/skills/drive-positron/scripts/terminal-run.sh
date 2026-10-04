@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Runs a command in a terminal, and checks the keys went to it. Typing into
 # "the terminal" goes wherever focus is, and a console often has it, so a
-# command meant for a shell runs as R or Python instead. This script pastes into
-# the terminal's own input, focuses it, presses Enter, and checks focus stayed.
+# command meant for a shell runs as R or Python instead. This script focuses
+# the terminal, pastes into its own input, presses Enter, and checks
+# focus stayed. A terminal's sticky-scroll overlay does not count as a terminal.
 #
 # It does not open a terminal: open one first (Terminal: Create New Terminal,
 # or Terminal: Create New Terminal in Editor Area). It cannot read the
@@ -106,12 +107,6 @@ fi
 if [[ "$ENTER" == "0" ]]; then
 	echo "$PASTED" | jq -c '. + {entered: false}'
 	exit 0
-fi
-
-FOCUSED=$(run_js "$(page_js focus)") || { echo "$FOCUSED"; exit 1; }
-if [[ "$(echo "$FOCUSED" | jq -r '.ok')" != "true" ]]; then
-	echo "$PASTED" | jq -c --argjson f "$FOCUSED" '. + {ok: false, entered: false, error: $f.error}'
-	exit 1
 fi
 
 "${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} press Enter >/dev/null 2>&1

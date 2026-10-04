@@ -81,6 +81,10 @@ return.
 Write every screenshot straight to `$RUN/shots/` with `--filename`, never to a
 scratch directory to copy later: drive-positron's cleanup deletes its run
 directory, and a shot left there is lost.
+Keep your own helper scripts and scratch files in `$RUN/tmp/`, never in a
+scratchpad or `/tmp` path another run could share: runs on one machine often
+start together, and a helper another run overwrites drives its instance, not
+yours. Name your Playwright session in every helper, never rely on a default.
 
 **Test files.** Any file a scenario needs -- one you create, copy from the repo
 or a fixture, download, or edit -- is evidence, like a screenshot. A reader
