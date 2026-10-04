@@ -572,10 +572,13 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 	return (
 		<div
 			ref={outerRef}
-			aria-hidden={!props.active}
 			className={'variables-instance state-' + clientState}
+			data-testid={`variables-${props.positronVariablesInstance.session.sessionId}`}
+			// An inactive instance sits behind the active one (z-index), so take it out of
+			// the accessibility tree and the tab order too.
+			inert={!props.active}
 			style={{ width: props.width, height: props.height, zIndex: props.active ? 1 : -1 }}
-			tabIndex={props.active ? 0 : -1}
+			tabIndex={0}
 			onBlur={blurHandler}
 			onFocus={focusHandler}
 			onKeyDown={keyDownHandler}
