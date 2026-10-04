@@ -397,8 +397,12 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (!['major', 'moderate', 'minor'].includes(row.severity?.toLowerCase())) {
 			problems.push(`report: finding ${n} Severity must be major, moderate or minor, got "${row.severity ?? ''}"`);
 		}
-		if (!/^\d+\/\d+$/.test(row.reproduction ?? '')) {
+		const rate = /^(\d+)\/(\d+)$/.exec(row.reproduction ?? '');
+		if (!rate) {
 			problems.push(`report: finding ${n} Reproduction must be N/M, got "${row.reproduction ?? ''}"`);
+		} else if (Number(rate[2]) < 2 && ['major', 'moderate'].includes(row.severity?.toLowerCase())) {
+			// One sighting reads as thin to a reviewer, and a repeat in the same instance is cheap.
+			problems.push(`report: finding ${n} is ${row.severity.toLowerCase()} but was tried once (${row.reproduction}); repeat its steps in the same instance and give the rate over at least 2 tries`);
 		}
 	}
 

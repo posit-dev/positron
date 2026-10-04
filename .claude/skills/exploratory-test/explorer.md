@@ -389,6 +389,10 @@ the title is often the only place scope is stated.
 proper names: "data explorer", "console", "notebooks", "R console", "Positron
 Assistant". It prefixes the filed issue's title, as "console: <claim>".
 
+R's kernel, Ark, is in this checkout under `extensions/positron-r/ark/` (Rust, in
+`crates/ark/src/`), so an R cause can be read there: never write that its
+source is not available.
+
 Cause blames the defective line, not the line that made it reachable. If the
 diff clearly shows whether that code was added by this change, or is older code
 the change now reaches, say so in one sentence as part of the reasoning: "The
@@ -403,7 +407,8 @@ pre-existing anywhere else in the report.
 renderer puts it on the finding. Always give the rate, even 5/5: "every time"
 and "one in three" are different bugs. 0/M means you saw it but could not
 reproduce it, and renders as Unproven. Repeat the steps in the same instance
-for the rate. A cold replay is optional: use one only when the finding may
+for the rate: a `major` or `moderate` finding needs at least two tries, and lint
+fails one tried once. A cold replay is optional: use one only when the finding may
 depend on state the run built up, timing or machine load, such as a cache, a
 restored session or a race, since a deterministic bug reproduces the same way
 in a fresh instance and the replay costs exploring time. To replay cold,

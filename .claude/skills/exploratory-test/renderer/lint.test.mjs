@@ -114,6 +114,14 @@ test('flags table values outside the allowed words', () => {
 	assert.equal(problems.filter(p => /finding 1 (Severity|Reproduction)/.test(p)).length, 2);
 });
 
+test('flags a moderate or major finding tried only once', () => {
+	const rate = (sev, r) => lint(REPORT.replace('| moderate | 2/2 |', `| ${sev} | ${r} |`)).filter(p => /tried once/.test(p));
+	assert.deepEqual(rate('moderate', '1/1'), ['report: finding 1 is moderate but was tried once (1/1); repeat its steps in the same instance and give the rate over at least 2 tries']);
+	assert.equal(rate('major', '1/1').length, 1);
+	assert.deepEqual(rate('minor', '1/1'), []);
+	assert.deepEqual(rate('moderate', '1/2'), []);
+});
+
 test('flags an Introduced? or Origin column', () => {
 	const table = REPORT
 		.replace('| Severity | Reproduction |', '| Severity | Introduced? | Reproduction |')
