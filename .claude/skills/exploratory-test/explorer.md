@@ -20,6 +20,11 @@ Pass whatever its launch section says is yours to pass, put launcher arguments
 before the `--`, and do not opt out of the arguments the launcher supplies; its
 launch section says why each one matters.
 
+The shell is zsh, which does not split a variable into words: a command or its
+flags kept in a variable (`PW="playwright-cli -s=x"`, then `$PW click ...`)
+runs as one word and fails. Use a shell function or an array, or write the
+command out.
+
 Run code in a console only with drive-positron's `console-run.sh`, naming the
 language, never with a helper of your own: with a Python and an R session open,
 code typed into the active console lands in the wrong one. It waits for each
@@ -149,6 +154,11 @@ loses its entire output.
 Then render it: `node <render.mjs from your brief> "$RUN/report.md"`. It writes
 `index.html` beside the report and prints its path. It also prints any
 `format problems`: fix every line and render again until there are none. If it fails outright, say so and point at `report.md`.
+Most runs need a second render for the same few slips, so check these before
+the first: no semicolon in an Observed or Expected; each `Result:` one sentence
+under 160 characters; a `Log:` on each scenario's first FAIL; every screenshot
+under a finding's Evidence captioned `Step N:` for the step it proves; and a
+finding's steps and their shots from one scenario.
 
 Outcome first, evidence second, execution detail last. The shape:
 
@@ -399,8 +409,9 @@ ledger above shows, in the ledger and in a finding.
 - Multi-line code to paste goes in a fenced block indented under its step; if
   the code has a fence of its own, the outer one is longer. A short command
   stays inline.
-- Every FAIL gets a `Log:`: look in the logs before moving on, while the
-  timestamp still narrows it down. Write the message and its stack indented
+- A scenario's first FAIL gets a `Log:`: look in the logs before moving on,
+  while the timestamp still narrows it down; a later FAIL in the same
+  scenario gets one only when its logs differ. Write the message and its stack indented
   under it, mapped as Error output below describes. When you found nothing,
   say where you looked: `Log: none found in logs/<a>.log, logs/<b>.log`.
 

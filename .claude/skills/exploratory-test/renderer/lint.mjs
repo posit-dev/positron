@@ -123,9 +123,12 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		if (s.result && (s.result.length > RESULT_MAX || sentencesOf(s.result).length > 1)) {
 			problems.push(`ledger: ${s.id} Result: is ${sentencesOf(s.result).length > 1 ? `${sentencesOf(s.result).length} sentences` : `${s.result.length} characters`}; keep it to one short sentence, and give anything you did not expect its own VERIFY step`);
 		}
+		// A repeat failure in the same scenario searches the same logs, so only the
+		// scenario's first failed check needs its Log: line.
+		const firstFail = s.verifies.find(v => v.fail);
 		for (const v of s.verifies) {
 			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own`); }
-			const missing = v.fail ? ['observed', 'log'].filter(key => !v[key]) : [];
+			const missing = v.fail ? ['observed', ...(v === firstFail ? ['log'] : [])].filter(key => !v[key]) : [];
 			if (missing.length) {
 				problems.push(`ledger: ${s.id} step ${v.step} FAIL is missing ${missing.map(m => `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
 			}
