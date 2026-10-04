@@ -478,6 +478,24 @@ above". Repeat the preconditions in full each time. Steps are instructions for
 the reader, so they carry no run notes, such as which scenario ran them; that
 belongs in the ledger.
 
+Each precondition is one line on the finding card, with its own P beside the
+step numbers, so write the second field as that line:
+
+- One item per thing: never a catch-all such as "Data scripts".
+- Show the useful detail in the line: versions ("pandas 3.0.3 in `.venv`", "R
+  4.5.1 with dplyr"), the file by its name in backticks so it links, and the
+  exact command that loads or opens it.
+- Never restate: the line is not the short name again ("`x.py` in workspace --
+  `x.py` is in the workspace folder").
+- Package names keep their real case: dplyr, not Dplyr.
+- A precondition is a state the reader sets up, not an explanation of how a
+  test file works. Context that helps goes in a short clause on the line that
+  sets it up, or in the file's description.
+- A precondition is where the steps start: no step runs it again. If `slow.py`
+  is loaded here, step 1 does not run `%run -i slow.py`. Lint checks this.
+- When another finding has the same setup, point to it: "Any table with
+  summaries paused (Finding 2, steps 1-2)".
+
 Use this block for every finding. `N` is the table's row number; it ties the
 block to that row and to ledger scenarios whose `Status:` names Finding N.
 
@@ -489,7 +507,7 @@ block to that row and to ledger scenarios whose `Status:` names Finding N.
 **Repro**
 
 **Preconditions:**
-- <short name, 2 to 4 words, e.g. `slow.py` loaded> | <one state per bullet, true before the app does anything: a non-default setting, a test file in backticks, an installed interpreter. Anything done in the app is a step. Leave the list out when nothing is needed.>
+- <short name, 2 to 4 words, for Coverage, e.g. `slow.py` loaded> | <the full line the finding card shows, e.g. `slow.py` loaded with `%run -i slow.py`, which builds tables that are slow to summarize. Leave the list out when nothing is needed.>
 
 1. <action>
 2. VERIFY <expectation> -> PASS

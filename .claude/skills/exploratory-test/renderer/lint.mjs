@@ -11,7 +11,7 @@
  * can check, returned as one line each for the agent to fix and re-render.
  */
 
-import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, LOWERCASE_NAMES, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -337,13 +337,12 @@ const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\
  * - The same number grouped in one place and ungrouped in another reads as
  *   two numbers.
  */
-const LOWERCASE_NAMES = new Set(['pandas', 'polars', 'numpy', 'dplyr', 'ggplot2', 'tibble', 'data.table', 'pip', 'uv', 'pak', 'renv', 'reticulate', 'ipykernel', 'matplotlib', 'plotly', 'shiny', 'knitr', 'rmarkdown']);
 
 function clarityProblems(n, title, observed, expected) {
 	const problems = [];
 	// A title says what a user sees, so it reads as a sentence, not as code.
 	// Package names that are lowercase by convention may lead it.
-	const first = /^([a-z][\w.]*)/.exec(title)?.[1];
+	const first = /^([a-z][\w.-]*)/.exec(title)?.[1];
 	if (first && !LOWERCASE_NAMES.has(first)) {
 		problems.push(`report: Finding ${n} title starts with a lowercase letter; start it with a capital`);
 	}
@@ -523,6 +522,18 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	}
 
 	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? []));
+	// A precondition is the state the steps start from, so no step runs it again.
+	for (const f of parseReport(text).findings) {
+		const commands = f.preconditions
+			.flatMap(p => [...p.matchAll(/<code[^>]*>([^<]+)<\/code>/g)].map(m => m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim()))
+			.filter(c => /[\s(]|^[%!]/.test(c));
+		f.steps.forEach((st, k) => {
+			const again = commands.find(c => (st.md ?? '').includes('`' + c + '`'));
+			if (again) {
+				problems.push(`report: Finding ${f.n} step ${k + 1} runs \`${again}\`, which a precondition already sets up; start the steps after it`);
+			}
+		});
+	}
 	for (const { n, file } of untaggedShots(parseReport(text).findings)) {
 		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves, and if no step matches, add the step`);
 	}

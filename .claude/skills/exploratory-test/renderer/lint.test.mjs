@@ -134,6 +134,12 @@ test('flags a title that starts lowercase or names code, but not a lowercase pac
 	assert.deepEqual(titled('Help for `dplyr::filter` lands on the stats page'), []);
 });
 
+test('flags a step that runs a precondition\'s command again', () => {
+	const repro = (pre, step) => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${pre}\n\n1. ${step}`)).filter(p => /precondition already/.test(p));
+	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Run `%run -i slow.py` in the Python console.'), ['report: Finding 1 step 1 runs `%run -i slow.py`, which a precondition already sets up; start the steps after it']);
+	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Click Retry.'), []);
+});
+
 test('flags a cited screenshot that actions.log never took by that name', () => {
 	const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-02.png, S01-02b.png\n2. VERIFY b -> PASS\n   Evidence: shots/S01-04.png\n';
 	const log = '20:00:01 screenshot S01-02\n20:00:02 playwright screenshot --filename=/r/shots/S01-02b.png\n20:00:03 screenshot S01-03.png\n';

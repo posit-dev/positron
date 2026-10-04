@@ -680,12 +680,13 @@ test('parseReport still reads the labels reports were published with', () => {
 	}
 });
 
-test('renderReportHtml marks the setup with one P row above the steps, with no subtitles', () => {
+test('renderReportHtml lists each precondition on its own line with its own P, above the steps, with no popover', () => {
 	const html = renderReportHtml(FULL);
-	const repro = html.slice(html.indexOf('<div class="f-sec repro">'));
-	assert.match(repro, /<div class="cv-pre f-pre" tabindex="0" aria-label="Preconditions"><span class="pre-mark" aria-hidden="true">P<\/span>/);
-	// Setup before actions, and none of the labels or phrasings this replaced.
-	assert.ok(repro.indexOf('f-pre') < repro.indexOf('class="repro-steps'));
+	const repro = html.slice(html.indexOf('<div class="f-sec repro">'), html.indexOf('</article>', html.indexOf('<div class="f-sec repro">')));
+	assert.match(repro, /<ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P<\/span>/);
+	// Setup before actions; no hover popover on the card, and none of the labels this replaced.
+	assert.ok(repro.indexOf('f-pl') < repro.indexOf('class="repro-steps'));
+	assert.doesNotMatch(repro, /pre-pop|cv-pre/);
 	assert.doesNotMatch(html, /repro-label|Only under|Start:/);
 });
 
@@ -700,11 +701,11 @@ test('renderReportHtml drops a preconditions list that says only "defaults"', ()
 	].join('\n')));
 	// Nothing to say, so no label and no empty list to read past.
 	const bare = build('Shipped defaults.');
-	assert.doesNotMatch(bare, /class="cv-pre f-pre"/);
+	assert.doesNotMatch(bare, /class="f-pl"/);
 	assert.match(bare, /<div class="repro-group steps"><ol class="repro-steps/);
 	// Qualified, so it earns its line.
 	const qualified = build('Shipped defaults. Slowness is manufactured with a slow hash.');
-	assert.match(qualified, /class="cv-pre f-pre"/);
+	assert.match(qualified, /class="f-pl"/);
 	assert.match(qualified, /Slowness is manufactured/);
 });
 
@@ -826,7 +827,7 @@ test('parseReport reads bulleted preconditions as one item each, with a pasted f
 		'| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |',
 		'', '### Finding 1: a claim', '',
 		'**Repro**', '', '**Preconditions:**', '- One | the first state', '- `two.py` saved | the second state', '', '1. First.',
-	].join('\n'))), /P<\/span>One &middot; <code[^>]*>two\.py<\/code> saved<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions<\/span><span class="pre-i"><b>One<\/b>The first state<\/span><span class="pre-i"><b><code[^>]*>two\.py<\/code> saved<\/b>The second state<\/span><\/span><\/div>/);
+	].join('\n'))), /<ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P<\/span>The first state<\/li><li><span class="f-pl-p" aria-hidden="true">P<\/span>The second state<\/li><\/ul>/);
 });
 
 test('parseReport widens a step fence past the source nested inside it', () => {
@@ -1319,7 +1320,7 @@ test('a step opens on the screenshot it cites, before any listed under Evidence 
 		'- [shots/S03-03b.png](shots/S03-03b.png) -- Step 2: still loading 15 s later',
 	].join('\n'))).findings;
 	assert.deepEqual(f.evidence.filter(e => e.kind === 'shot').map(e => `${e.file} ${e.caption}`),
-		['S03-03.png Verify it loads', 'S03-03b.png Still loading 15 s later', 'S03-13.png Pandas loads the same column']);
+		['S03-03.png Verify it loads', 'S03-03b.png Still loading 15 s later', 'S03-13.png pandas loads the same column']);
 });
 
 test('parseReport keeps the Evidence bullets that follow an embedded screenshot', () => {
@@ -2615,8 +2616,8 @@ test('code copy: inline code in Reproduce copies on click, and nothing else on t
 		'**Observed:** the grid showed `None`.',
 	].join('\n')));
 	const chips = [...html.matchAll(/<code class="cc" data-tip="Copy">([^<]*)<\/code>/g)].map(m => m[1]);
-	// An unnamed precondition shows in the P row and again in its popover.
-	assert.deepEqual(chips, ['slow.py', '%run -i slow.py', 'slow.py', '%run -i slow.py', '%view df', 'df']);
+	// A precondition shows once, on its own line; there is no popover to repeat it.
+	assert.deepEqual(chips, ['slow.py', '%run -i slow.py', '%view df', 'df']);
 	// A code block keeps its own Copy button; Observed is prose, not a command.
 	assert.match(html, /<pre><code class="language-python">df\.head\(\)<\/code><\/pre>/);
 	assert.match(html, /<div class="f-lab">Observed<\/div><p class="f-txt">the grid showed <code>None<\/code>/);

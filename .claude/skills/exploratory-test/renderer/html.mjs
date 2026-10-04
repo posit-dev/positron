@@ -1147,16 +1147,13 @@ function renderFindingCard(f, report, options) {
 		: '';
 
 	// Text only: each step's screenshots open from its icon.
-	// Setup is one P row of short names, as in Coverage, with each in full on hover.
-	// An older report has no names, so its row shows the text, less any pasted file.
-	const names = f.preconditions.map((p, k) => f.preconditionNames?.[k] || p.split(/<pre\b/)[0].trim() || p);
+	// Setup is a list, one line per precondition, each with its own P over the
+	// step numbers. The line is the full item, with its versions, file and
+	// command in view; Coverage keeps the short names.
 	const preconditions = f.preconditions.length
-		? '<div class="cv-pre f-pre" tabindex="0" aria-label="Preconditions">'
-		+ '<span class="pre-mark" aria-hidden="true">P</span>'
-		+ names.join(' &middot; ')
-		+ '<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions</span>'
-		+ f.preconditions.map((p, k) => `<span class="pre-i">${f.preconditionNames?.[k] ? `<b>${f.preconditionNames[k]}</b>` : ''}${withCodeCopy(p)}</span>`).join('')
-		+ '</span></div>'
+		? '<ul class="f-pl" aria-label="Preconditions">'
+		+ f.preconditions.map((p, k) => `<li><span class="f-pl-p" aria-hidden="true">P</span>${withCodeCopy(p || f.preconditionNames?.[k] || '')}</li>`).join('')
+		+ '</ul>'
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when
 	// two failed checks saw different things.

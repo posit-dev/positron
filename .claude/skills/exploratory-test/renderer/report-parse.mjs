@@ -110,9 +110,16 @@ function block(text) {
  * column where they read as statements. Skipped when the cell opens with code,
  * a link or a quote, where a forced capital would corrupt an identifier.
  */
+/** Package and tool names written in lowercase by convention; a sentence may start with one. */
+export const LOWERCASE_NAMES = new Set(['pandas', 'polars', 'numpy', 'dplyr', 'ggplot2', 'tibble', 'data.table', 'pip', 'uv', 'pak', 'renv', 'reticulate', 'ipykernel', 'matplotlib', 'plotly', 'shiny', 'knitr', 'rmarkdown', 'rlang', 'tidyr', 'readr', 'purrr', 'scikit-learn', 'scipy', 'pyarrow', 'duckdb']);
+
 function sentenceCase(text) {
 	const s = String(text ?? '');
 	if (!/^[a-z]/.test(s)) {
+		return s;
+	}
+	// A package name keeps its real case: dplyr, not Dplyr.
+	if (LOWERCASE_NAMES.has(/^[a-z][\w.-]*/.exec(s)[0])) {
 		return s;
 	}
 	// A bare identifier keeps its case: `polars frame` is prose, `df.copy()` is not.

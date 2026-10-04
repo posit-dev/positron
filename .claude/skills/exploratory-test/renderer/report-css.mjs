@@ -758,9 +758,9 @@ span.rt-file{color:var(--body)}
 .pre-pop b{display:block;font-weight:600;color:var(--ink);font-size:12.5px;margin-bottom:2px}
 @media (prefers-reduced-motion:reduce){.cv-pre .pre-mark,.pre-pop,.cv-pre:hover .pre-pop{transition:none}}
 /* On a finding card the row sits over the steps: its text on the step text, its P over the digits. */
-.f-pre{margin:0 0 4px 20px;font-size:14px}
-.f-pre .pre-mark{position:absolute;left:auto;right:calc(100% + 8px);width:auto;margin:0;font-size:13px}
-.f-pre .pre-pop{left:-20px}
+.f-pl{list-style:none;margin:0 0 10px 20px;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.6;color:var(--body)}
+.f-pl li{position:relative}
+.f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint)}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
 /* The screenshot icon supports the check: faint at rest, ink on hover or focus */
