@@ -9,6 +9,8 @@
 #   scripts/panel.sh --session NAME terminal 2
 #   scripts/panel.sh --session NAME delete-session 'R 4.5.1'
 #   scripts/panel.sh --session NAME editors
+#   scripts/panel.sh --session NAME layout
+#   scripts/panel.sh --session NAME resize secondary 600
 #
 # Commands:
 #   tab NAME             show the panel tab whose label starts with NAME
@@ -19,6 +21,13 @@
 #                        through the tab's context menu; a busy session may ask
 #                        first (notifications.sh)
 #   editors              every editor tab, group by group: title, active, modified
+#   layout               each workbench part's size in pixels, or hidden:
+#                        sidebar, secondary (where Plots and Variables are),
+#                        panel, editor
+#   resize PART PX       drag the edge of sidebar, secondary or panel until it
+#                        is PX wide (panel: PX tall), as a person drags the
+#                        sash; a pane too narrow hides things (the Plots
+#                        filmstrip), and a part has a minimum size
 #
 # Stdout: one JSON line. Exit code: 0 on success, 1 when the tab, terminal or
 # session is not there, 2 on a usage error.
@@ -32,7 +41,7 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--session) SESSION="$2"; shift 2 ;;
 		--session=*) SESSION="${1#--session=}"; shift ;;
-		-h|--help) sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+		-h|--help) sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		*) ARGS+=("$1"); shift ;;
 	esac
 done
@@ -46,6 +55,11 @@ click_marked() {
 	run_js "(() => { document.querySelectorAll('[data-dp-target],[data-dp-hover]').forEach(e => { e.removeAttribute('data-dp-target'); e.removeAttribute('data-dp-hover'); }); return '{}'; })()" >/dev/null
 }
 want() { jq -Rn --arg v "$1" '$v'; }
+LAYOUT_JS="(() => {
+	const r = s => { const e = document.querySelector(s); if (!e || !e.getClientRects().length || getComputedStyle(e).display === 'none') { return 'hidden'; }
+		const b = e.getBoundingClientRect(); return { left: Math.round(b.left), top: Math.round(b.top), width: Math.round(b.width), height: Math.round(b.height) }; };
+	return JSON.stringify({ ok: true, window: { width: innerWidth, height: innerHeight }, sidebar: r('.part.sidebar'), secondary: r('.part.auxiliarybar'), panel: r('.part.panel'), editor: r('.part.editor') });
+})()"
 
 case "$CMD" in
 	tab)
@@ -102,5 +116,39 @@ case "$CMD" in
 				.sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
 			return JSON.stringify({ ok: true, groups: groups.map((g, i) => ({ group: i + 1, active: g.classList.contains('active'),
 				tabs: [...g.querySelectorAll('.tab')].map(t => ({ title: clean(t.querySelector('.label-name')), active: t.classList.contains('active'), modified: t.classList.contains('dirty') })) })) }); })()" ;;
-	*) echo '{"ok":false,"error":"command: tab, terminals, terminal, delete-session or editors"}'; exit 2 ;;
+	layout) run_js "$LAYOUT_JS" ;;
+	resize)
+		PX="${ARGS[2]:-}"
+		[[ ( "$ARG" == sidebar || "$ARG" == secondary || "$ARG" == panel ) && "$PX" =~ ^[0-9]+$ ]] || { echo '{"ok":false,"error":"give sidebar, secondary or panel, and the size in pixels"}'; exit 2; }
+		# The sash on the part's inner edge: right of the sidebar, left of the
+		# secondary side bar, top of the panel. Its centre is where to grab.
+		M=$(run_js "(() => {
+			const part = $(want "$ARG");
+			const e = document.querySelector({ sidebar: '.part.sidebar', secondary: '.part.auxiliarybar', panel: '.part.panel' }[part]);
+			if (!e || !e.getClientRects().length) { return JSON.stringify({ ok: false, error: part + ' is hidden; show it first' }); }
+			const b = e.getBoundingClientRect();
+			const sashes = [...document.querySelectorAll('.monaco-sash')].filter(x => x.getClientRects().length && !x.classList.contains('disabled')).map(x => ({ x, r: x.getBoundingClientRect() }));
+			const near = (a, c) => Math.abs(a - c) < 5;
+			const s = part === 'panel'
+				? sashes.find(({ x, r }) => x.classList.contains('horizontal') && near(r.top + r.height / 2, b.top) && r.left < b.right && r.right > b.left)
+				: sashes.find(({ x, r }) => x.classList.contains('vertical') && near(r.left + r.width / 2, part === 'sidebar' ? b.right : b.left) && r.height > b.height / 2);
+			if (!s) { return JSON.stringify({ ok: false, error: 'no sash on the edge of ' + part }); }
+			const px = $PX;
+			const from = { x: Math.round(s.r.left + s.r.width / 2), y: Math.round(s.r.top + s.r.height / 2) };
+			const to = part === 'sidebar' ? { x: Math.round(b.left + px), y: from.y } : part === 'secondary' ? { x: Math.round(b.right - px), y: from.y } : { x: from.x, y: Math.round(b.bottom - px) };
+			return JSON.stringify({ ok: true, from, to, before: part === 'panel' ? Math.round(b.height) : Math.round(b.width) });
+		})()") || { echo "$M"; exit 1; }
+		[[ "$(echo "$M" | jq -r '.ok')" == "true" ]] || { echo "$M"; exit 1; }
+		FX=$(echo "$M" | jq -r '.from.x'); FY=$(echo "$M" | jq -r '.from.y'); TX=$(echo "$M" | jq -r '.to.x'); TY=$(echo "$M" | jq -r '.to.y')
+		pw mousemove "$FX" "$FY" >/dev/null 2>&1
+		pw mousedown >/dev/null 2>&1
+		pw mousemove $(( (FX + TX) / 2 )) $(( (FY + TY) / 2 )) >/dev/null 2>&1
+		pw mousemove "$TX" "$TY" >/dev/null 2>&1
+		pw mouseup >/dev/null 2>&1
+		log_action "panel.sh" "resize $ARG to $PX px"
+		sleep 0.3
+		L=$(run_js "$LAYOUT_JS")
+		echo "$L" | jq -c --arg p "$ARG" --argjson m "$M" --argjson want "$PX" '(.[$p] | if type == "object" then (if $p == "panel" then .height else .width end) else null end) as $now
+			| {ok: true, part: $p, before: $m.before, asked: $want, now: $now} + (if $now != null and ($now - $want | fabs) > 8 then {note: "it stopped short of the size asked: the part or its neighbours have a minimum or maximum size"} else {} end)' ;;
+	*) echo '{"ok":false,"error":"command: tab, terminals, terminal, delete-session, editors, layout or resize"}'; exit 2 ;;
 esac

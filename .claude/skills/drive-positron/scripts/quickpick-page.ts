@@ -66,7 +66,7 @@ const steps: Record<string, string> = {
 		const input = w.querySelector('.quick-input-box input') || w;
 		const rows = () => [...list.querySelectorAll('.monaco-list-row')].filter(r => r.offsetParent !== null)
 			.map(r => ({ el: r, index: Number(r.getAttribute('data-index')), label: clean(r.querySelector('.label-name')),
-				description: clean(r.querySelector('.label-description')), focused: r.classList.contains('focused'),
+				description: clean([...r.querySelectorAll('.label-description')].find(d => d.getBoundingClientRect().height > 0)), focused: r.classList.contains('focused'),
 				separator: !!r.querySelector('.quick-input-list-separator-as-item') }))
 			.filter(r => Number.isFinite(r.index) && !r.separator);
 		const key = (k, code) => { input.focus(); input.dispatchEvent(new KeyboardEvent('keydown', { key: k, code: k, keyCode: code, which: code, bubbles: true, cancelable: true })); };

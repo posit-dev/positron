@@ -86,9 +86,9 @@ WAIT_JS="(() => {
 	const active = (document.querySelector('.console-instance[style*=\"z-index: auto\"]')?.getAttribute('data-testid') || '').replace(/^console-/, '');
 	// With one session there are no tabs; the active console is the new one.
 	const id = fresh[0] || (tabs.length === 0 && active.startsWith('$LANGUAGE-') && !before.includes(active) ? active : '');
-	const inst = id && document.querySelector('[data-testid=\"console-' + id + '\"]');
+	const inst = id ? document.querySelector('[data-testid=\"console-' + id + '\"]') : null;
 	const ready = !!inst && !!inst.querySelector('.console-input .native-edit-context') && !document.querySelector('.codicon-positron-interrupt-runtime');
-	const tab = id && document.querySelector('[data-testid=\"console-tab-' + id + '\"]');
+	const tab = id ? document.querySelector('[data-testid=\"console-tab-' + id + '\"]') : null;
 	return JSON.stringify({ ok: ready, sessionId: id || null, session: tab?.getAttribute('aria-label') || null });
 })()"
 while (( $(date +%s) <= DEADLINE )); do
@@ -96,6 +96,12 @@ while (( $(date +%s) <= DEADLINE )); do
 	if [[ "$(echo "$STATE" | jq -r '.ok')" == "true" ]]; then
 		echo "$STATE" | jq -c --arg r "$RUNTIME" '{ok: true, runtime: $r, sessionId, session}'
 		exit 0
+	fi
+	# A dialog (create a virtual environment?) holds start-up until answered.
+	P=$("$(dirname "${BASH_SOURCE[0]}")/notifications.sh" ${PW_SESSION_NAME:+--session "$PW_SESSION_NAME"} 2>/dev/null | jq -c '[.notifications[]? | select(.kind == "dialog")]' 2>/dev/null)
+	if [[ -n "$P" && "$P" != "[]" ]]; then
+		echo "$STATE" | jq -c --arg r "$RUNTIME" --argjson p "$P" '{ok: false, runtime: $r, sessionId, error: "a dialog is waiting for an answer; answer it with notifications.sh --click, then run this again or wait for the console", dialogs: $p}'
+		exit 1
 	fi
 	sleep 1
 done

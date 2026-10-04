@@ -261,6 +261,9 @@ Do not use `type` or `fill` for notebook cell editors or chat inputs backed by M
 ```
 
 Use individual `press` operations when testing actual keyboard handling.
+Key names are Playwright's, case and all: `Backspace`, `Enter`, `Escape`,
+`ArrowDown`, `Meta+Shift+p`. An unknown name such as `BackSpace` is rejected,
+so the key is never pressed and the edit you meant does not happen.
 
 ### Log every action
 
@@ -274,6 +277,10 @@ export DRIVE_POSITRON_LOG="$RUN/actions.log" DRIVE_POSITRON_SHOTS="$RUN/shots"
 .claude/skills/drive-positron/scripts/shot.sh --session positron S03-01.png
 .claude/skills/drive-positron/scripts/shot.sh --session positron S03-02.png '.positron-variables'
 ```
+
+An element shot's selector must match exactly one visible element; with two
+(a selector list, a class used twice) Playwright writes nothing, so `shot.sh`
+refuses and names the count.
 
 Log what the scripts cannot see yourself: a raw `playwright-cli` click or key,
 a shell command run outside the app (`lsof`, `sed` on a workspace file), a wait.
@@ -342,11 +349,15 @@ inside a string stays a backslash and an `n`. It does not start a session; use
 `start-session.sh`. A fresh window has usually started one Python session
 already, so check the console tabs before starting another. With two sessions
 of one language, pass `--name` with part of the session's name as its console
-tab shows it. `--no-enter` pastes without running, for checking completions or
+tab shows it, or with the session ID (`r-9760fdda`) when two have the same
+name. `--no-enter` pastes without running, for checking completions or
 an unfinished line. `--capture` waits for the code to finish and returns what
 it printed as `output`, so there is no need to write results to a file and read
 them back. When the Console view is behind another panel tab, it brings it
-forward first.
+forward first. Code the console takes as unfinished (a Python block with no
+blank line after it, an open bracket) leaves it at its continuation prompt
+(`...`, R's `+`) with nothing run; the script then fails and says so, so end a
+Python block with an empty line.
 
 To read a console without running anything, including one Run App started
 (named after the app, such as "Shiny"):
@@ -355,6 +366,82 @@ To read a console without running anything, including one Run App started
 .claude/skills/drive-positron/scripts/console-read.sh --session positron --language r --tail 20
 .claude/skills/drive-positron/scripts/console-read.sh --session positron --name Shiny
 ```
+
+`--prompt` prints only the prompt the console shows now: R's `Browse[1]>`
+while paused in the debugger, `>` once it has left, `+` mid-expression.
+
+### Move the cursor in an editor
+
+Breakpoints, Run Cell, and most editor commands act on the cursor's line:
+
+```bash
+.claude/skills/drive-positron/scripts/editor.sh --session positron goto 9
+.claude/skills/drive-positron/scripts/editor.sh --session positron cursor
+```
+
+`goto` uses Go to Line in the quick open and reports where the cursor landed,
+failing when that is not the line asked for.
+
+### Debug
+
+```bash
+.claude/skills/drive-positron/scripts/debug.sh --session positron break dbg.R 7
+.claude/skills/drive-positron/scripts/debug.sh --session positron state
+.claude/skills/drive-positron/scripts/debug.sh --session positron step over      # continue, into, out, restart, disconnect
+.claude/skills/drive-positron/scripts/debug.sh --session positron frame 2
+.claude/skills/drive-positron/scripts/debug.sh --session positron watch 'x * 10'
+.claude/skills/drive-positron/scripts/debug.sh --session positron filter Errors on
+.claude/skills/drive-positron/scripts/debug.sh --session positron eval 'Sys.Date()'
+```
+
+`state` reads what a person sees: why the session paused (the Call Stack
+header, such as "Paused on step"), the toolbar, the call stack with the
+focused frame, the frame line and breakpoint glyphs in each editor, and the
+Debug Variables, Watch, and Breakpoints rows, each breakpoint with its icon
+(`breakpoint`, `breakpoint-unverified`, `breakpoint-disabled`). `step` clicks a
+toolbar button found when it clicks: the toolbar redraws after every step, so a
+snapshot ref taken before a step silently clicks nothing after it. It reports
+the state once the call stack or frame line changes. `break` toggles, so the
+same command removes a breakpoint. A breakpoint added while paused may show as
+unverified until the file is sourced again; that is what a person sees too.
+
+### Run a Quarto document
+
+Inline output is opt-in: set `"quarto.inlineOutput.enabled": true` first.
+
+```bash
+.claude/skills/drive-positron/scripts/qmd.sh --session positron cells
+.claude/skills/drive-positron/scripts/qmd.sh --session positron run 2
+.claude/skills/drive-positron/scripts/qmd.sh --session positron wait 2 60
+.claude/skills/drive-positron/scripts/qmd.sh --session positron stop 2
+.claude/skills/drive-positron/scripts/qmd.sh --session positron read
+```
+
+`cells` numbers the code cells from the saved file. `run`, `stop`, and
+`button` move the cursor to the cell (its toolbar shows only near the cursor)
+and click its toolbar for real. `read` lists each visible output with the line
+it sits under, its status and footer, its kinds, and its text; output scrolled
+off screen is not in the page. In a `.qmd` with a cell running, Escape is
+Quarto: Interrupt Kernel, so do not press it to close something; the helpers
+here press it only when a quick input is open.
+
+### Read and drive the Plots pane
+
+```bash
+.claude/skills/drive-positron/scripts/plots.sh --session positron read
+.claude/skills/drive-positron/scripts/plots.sh --session positron prev      # also: next
+.claude/skills/drive-positron/scripts/plots.sh --session positron select 2
+.claude/skills/drive-positron/scripts/plots.sh --session positron clear
+.claude/skills/drive-positron/scripts/plots.sh --session positron save      # then form.sh fill/click
+```
+
+`read` gives the plot's name, size, and a pixel check: `colours` counts the
+distinct colours on a 10 x 10 grid of its pixels, so 1 is a blank image, and
+`blank: true` means the pane shows no plot at all. Names such as "matplotlib 3"
+do not say which plot is which; draw each test plot in its own colour and
+check `topLeft`. The history filmstrip shows only with several plots and room
+for it: widen the pane with `panel.sh resize secondary 600`, or set
+`plots.historyPolicy` to `always`.
 
 ### Run cells in a notebook
 
@@ -493,12 +580,17 @@ the fields with their values and the buttons with whether each is enabled.
 .claude/skills/drive-positron/scripts/panel.sh --session positron terminal 2
 .claude/skills/drive-positron/scripts/panel.sh --session positron delete-session 'R 4.5.1'
 .claude/skills/drive-positron/scripts/panel.sh --session positron editors
+.claude/skills/drive-positron/scripts/panel.sh --session positron layout
+.claude/skills/drive-positron/scripts/panel.sh --session positron resize secondary 600   # also: sidebar, panel
 ```
 
 `delete-session` uses the console tab's context menu, since the tab's trash
 button hides when the tab list is narrow; a busy session asks first, and the
 command reports the question rather than a deletion. `editors` lists every
-editor tab by group, with which is active and which are modified.
+editor tab by group, with which is active and which are modified. `layout`
+gives each part's size; `resize` drags the sash on a part's inner edge until
+the side bar, the secondary side bar (Plots, Variables), or the panel is that
+many pixels, and says so when a minimum size stopped it short.
 
 ### Read and answer notifications
 
@@ -514,7 +606,9 @@ did nothing, and answer one by its button:
 ```
 
 It reads modal dialogs too ("Do you want to save the changes you made to
-py.ipynb?"), listed with `"kind": "dialog"` ahead of the toasts. Clear old
+py.ipynb?", "Create a virtual environment for this workspace?"), listed with
+`"kind": "dialog"` ahead of the toasts, and clicks a dialog's button with a
+real click. `start-session.sh` stops and names a dialog that holds start-up. Clear old
 toasts with `--clear` once answered, so the next listing shows only new ones.
 
 ### Run a command in a terminal
@@ -557,6 +651,12 @@ prints it) to see only your own instance's kernels and servers, not other runs':
 .claude/skills/drive-positron/scripts/listeners.sh --save "$RUN/tmp/listeners-before.txt"
 .claude/skills/drive-positron/scripts/listeners.sh --tree "$PID" --diff "$RUN/tmp/listeners-before.txt"
 ```
+
+With `--tree` each line ends with how the listener descends from your
+instance, such as `(ark 73987 < kcserver 73136 < bash 72882 < Positron Helper
+72858 < instance 72736)`. Each instance starts its own kernel supervisor
+(`kcserver`), so a kernel under an unfamiliar parent PID in that chain is still
+yours.
 
 Port 5000 on a Mac belongs to the AirPlay Receiver (ControlCenter): an app on
 it gets a 403 from AirPlay, and a check that the port closed always fails. Run

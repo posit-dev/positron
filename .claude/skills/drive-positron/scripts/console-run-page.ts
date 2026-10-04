@@ -27,10 +27,10 @@ const steps: Record<string, string> = {
 	select: `(async () => {${common}
 		const want = ${JSON.stringify(name)};
 		const tabs = [...document.querySelectorAll('[data-testid^="console-tab-' + lang + '-"]')]
-			.filter(t => !want || (t.getAttribute('aria-label') || '').includes(want));
+			.filter(t => !want || (t.getAttribute('aria-label') || '').includes(want) || idOf(t) === want);
 		let target;
 		if (tabs.length > 1) {
-			return JSON.stringify({ ok: false, error: 'several ' + lang + ' sessions; pass --name with part of one: ' + tabs.map(t => t.getAttribute('aria-label')).join(', ') });
+			return JSON.stringify({ ok: false, error: 'several ' + lang + ' sessions; pass --name with part of one, or its id: ' + tabs.map(t => t.getAttribute('aria-label') + ' (' + idOf(t) + ')').join(', ') });
 		} else if (tabs.length === 1) {
 			target = idOf(tabs[0]);
 		} else if (!document.querySelector('[data-testid^="console-tab-"]') && idOf(active()).startsWith(lang + '-')) {

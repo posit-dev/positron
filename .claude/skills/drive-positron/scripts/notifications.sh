@@ -68,19 +68,20 @@ JS="(async () => {
 	const dialogs = [...document.querySelectorAll('.monaco-dialog-box, .positron-modal-dialog-box, .positron-dynamic-modal-dialog-box')].filter(d => d.offsetParent !== null);
 	const readDialog = d => ({
 		kind: 'dialog',
-		message: clean(d.querySelector('.dialog-message-text, .simple-title-bar, .title')),
-		detail: clean(d.querySelector('.dialog-message-detail')),
-		buttons: [...d.querySelectorAll('.dialog-buttons .monaco-button, .ok-cancel-action-bar button, .button-row button, button.action-bar-button')].map(b => clean(b)).filter(Boolean),
+		message: clean(d.querySelector('.dialog-message-text, .simple-title-bar, .title-bar-title, .title')),
+		detail: clean(d.querySelector('.dialog-message-detail, .content-area')),
+		buttons: [...d.querySelectorAll('.dialog-buttons .monaco-button, .ok-cancel-action-bar button, .button-row button, button.action-bar-button, button.dialog-button')].map(b => clean(b)).filter(Boolean),
 	});
 	const list = [...dialogs.map(readDialog), ...items.map(r => ({ kind: 'notification', ...read(r) }))];
 	if (CLICK && dialogs.length) {
 		const d = dialogs.find(x => readDialog(x).buttons.includes(CLICK) && (!MATCH || (readDialog(x).message + ' ' + readDialog(x).detail).includes(MATCH)));
 		if (d) {
-			const b = [...d.querySelectorAll('.dialog-buttons .monaco-button, .ok-cancel-action-bar button, .button-row button, button.action-bar-button')].find(x => clean(x) === CLICK);
-			const message = readDialog(d).message;
-			b.click();
-			await new Promise(r => setTimeout(r, 300));
-			return JSON.stringify({ ok: true, clicked: CLICK, message, kind: 'dialog' });
+			const b = [...d.querySelectorAll('.dialog-buttons .monaco-button, .ok-cancel-action-bar button, .button-row button, button.action-bar-button, button.dialog-button')].find(x => clean(x) === CLICK);
+			// Positron's dialog buttons ignore a click() from page script, so the
+			// shell clicks the marked button with a real mouse click.
+			document.querySelectorAll('[data-dp-target]').forEach(e => e.removeAttribute('data-dp-target'));
+			b.setAttribute('data-dp-target', '1');
+			return JSON.stringify({ ok: true, clicked: CLICK, message: readDialog(d).message, kind: 'dialog', realClick: true });
 		}
 	}
 	if (CLICK) {
@@ -100,6 +101,12 @@ JS="(async () => {
 	return JSON.stringify({ ok: true, notifications: list });
 })()"
 RESULT=$(run_js "$JS") || { echo "$RESULT"; exit 1; }
+if [[ "$(echo "$RESULT" | jq -r '.realClick // false')" == "true" ]]; then
+	pw click '[data-dp-target="1"]' >/dev/null 2>&1
+	sleep 0.3
+	GONE=$(run_js "(() => { const b = document.querySelector('[data-dp-target=\"1\"]'); if (b) { b.removeAttribute('data-dp-target'); } return JSON.stringify({ ok: true, gone: !b || b.offsetParent === null }); })()" | jq -r '.gone')
+	RESULT=$(echo "$RESULT" | jq -c --argjson g "${GONE:-false}" 'del(.realClick) + {closed: $g}')
+fi
 if [[ -n "$CLICK" && "$(echo "$RESULT" | jq -r '.ok')" == "true" ]]; then
 	log_action "notifications.sh" "clicked \"$CLICK\" on \"$(echo "$RESULT" | jq -r '.message' | cut -c1-80)\""
 fi

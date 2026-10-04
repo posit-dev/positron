@@ -11,11 +11,15 @@
 #
 # Other runs on the machine start and stop servers too. Pass --tree with your
 # instance's PID (launch.sh prints it as "pid") to keep only listeners in its
-# process tree: its kernels and the apps they started.
+# process tree: its kernels and the apps they started. Each line then ends
+# with the chain from the listener up to the instance, through the kernel
+# supervisor (kcserver) and the kernels, which are this instance's own: every
+# instance starts its own supervisor.
 #
 #   scripts/listeners.sh --tree 12345 --diff "$RUN/tmp/listeners-before.txt"
 #
 # Stdout: one line per listener, "<port> <pid> <command>", sorted by port.
+#   With --tree, also "(<command> <pid> < ... < instance <pid>)".
 #   With --diff, only the listeners not in the saved list.
 # Exit code: 0, or 1 with --diff when there is a new listener.
 #
@@ -40,12 +44,21 @@ descendants() {
 	done
 	echo $all
 }
+# How a process descends from the instance: "ark 73987 < kcserver 73136 < ... < 72736".
+chain() {
+	local p="$1" out=""
+	while [[ -n "$p" && "$p" != "$TREE" && "$p" != 1 ]]; do
+		out="$out$(basename "$(ps -o comm= -p "$p" 2>/dev/null)") $p < "
+		p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+	done
+	echo "${out}instance $TREE"
+}
 list() {
 	local rows
 	rows=$(lsof -nP -iTCP -sTCP:LISTEN 2>/dev/null | awk 'NR > 1 { n = split($9, a, ":"); print a[n], $2, $1 }' | sort -u -n)
 	if [[ -n "$TREE" ]]; then
 		local keep=" $(descendants "$TREE") "
-		printf '%s\n' "$rows" | while read -r port pid cmd; do [[ "$keep" == *" $pid "* ]] && echo "$port $pid $cmd"; done
+		printf '%s\n' "$rows" | while read -r port pid cmd; do [[ "$keep" == *" $pid "* ]] && echo "$port $pid $cmd  ($(chain "$pid"))"; done
 	else
 		printf '%s\n' "$rows" | sed '/^$/d'
 	fi
@@ -60,6 +73,6 @@ case "${1:-}" in
 		fi
 		;;
 	"") list ;;
-	-h|--help) sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//' ;;
+	-h|--help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//' ;;
 	*) echo "listeners.sh: unknown arg $1" >&2; exit 2 ;;
 esac

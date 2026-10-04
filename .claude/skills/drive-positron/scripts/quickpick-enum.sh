@@ -115,8 +115,9 @@ JS=$(cat <<'JSEOF'
 			index: indexOf(row),
 			kind: entry && entry.classList.contains('quick-input-list-separator-as-item') ? 'group' : 'item',
 			label: clean(head && head.querySelector('.label-name')),
-			description: clean(head && head.querySelector('.label-description')),
-			detail: clean(row.querySelector('.quick-input-list-label-meta'))
+			// A recycled row can keep the description of an earlier pick in a hidden element.
+			description: clean([...(head ? head.querySelectorAll('.label-description') : [])].find(d => d.getBoundingClientRect().height > 0)),
+			detail: clean([...row.querySelectorAll('.quick-input-list-label-meta')].find(d => d.getBoundingClientRect().height > 0))
 		};
 	};
 

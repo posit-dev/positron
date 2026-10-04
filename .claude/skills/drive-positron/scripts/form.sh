@@ -53,7 +53,9 @@ COMMON="
 	const fields = () => [...dialog.querySelectorAll('input, textarea, select, [role=checkbox], [role=combobox]')].filter(e => e.offsetParent !== null && e.type !== 'hidden').map(e => {
 		const own = e.closest('label') || (e.id && dialog.querySelector('label[for=\"' + e.id + '\"]'));
 		const near = e.closest('.labeled-text-input, .checkbox, .labeled-folder-input, .radio-button, div')?.querySelector('label');
-		const label = clean(own) || clean(near) || e.getAttribute('aria-label') || e.getAttribute('placeholder') || '';
+		// A label's own words, without a button or field inside it (Directory, not DirectoryBrowse...).
+		const words = l => { if (!l) { return ''; } const c = l.cloneNode(true); c.querySelectorAll('button, input, textarea, select, [role=button]').forEach(x => x.remove()); return clean(c); };
+		const label = words(own) || words(near) || e.getAttribute('aria-label') || e.getAttribute('placeholder') || '';
 		const kind = e.getAttribute('role') === 'checkbox' || e.type === 'checkbox' ? 'checkbox' : e.type === 'radio' ? 'radio' : e.tagName === 'SELECT' || e.getAttribute('role') === 'combobox' ? 'select' : 'text';
 		const checked = kind === 'checkbox' || kind === 'radio' ? (e.checked === true || e.getAttribute('aria-checked') === 'true') : undefined;
 		return { el: e, label, kind, value: kind === 'text' || kind === 'select' ? (e.value ?? clean(e)) : undefined, checked, placeholder: e.getAttribute('placeholder') || undefined };

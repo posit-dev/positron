@@ -17,7 +17,8 @@
 # Flags:
 #   --session NAME   the @playwright/cli session attached to the instance (or $PW_SESSION)
 #   --language LANG  python or r
-#   --name TEXT      part of the session's name, as its console tab shows it;
+#   --name TEXT      part of the session's name, as its console tab shows it,
+#                    or its session id (r-9760fdda) when two share a name;
 #                    needed only when several sessions share the language
 #   --no-enter       paste the code but do not run it
 #   --timeout SECS   how long to wait for the code to echo (default 10)
@@ -168,6 +169,15 @@ done
 
 if [[ "$ECHOED" == "true" ]]; then
 	log_action "console-run.sh" "$LANGUAGE: $(printf '%s' "$TEXT" | head -n1 | cut -c1-200)"
+	# An incomplete block (a Python loop with no blank line after it, an open
+	# bracket) leaves the console at its continuation prompt, waiting, and
+	# nothing has run.
+	sleep 0.4
+	PROMPT=$("$(dirname "${BASH_SOURCE[0]}")/console-read.sh" ${SESSION:+--session "$SESSION"} --language "$LANGUAGE" ${NAME:+--name "$NAME"} --prompt 2>/dev/null)
+	if [[ "$PROMPT" == "..." || "$PROMPT" == "+" ]]; then
+		echo "$SELECTED" | jq -c --arg p "$PROMPT" '. + {ok: false, echoed: true, prompt: $p, error: ("the console is waiting for more input (prompt " + $p + "): the code is incomplete and did not run. End a Python block with a blank line, or close the open bracket; press Escape in the console to clear it")} | del(.before)'
+		exit 1
+	fi
 	if [[ "$CAPTURE" == "1" ]]; then
 		# Done when the session has gone busy and come back, or never went busy
 		# within 1.5 s (a quick command); then read what followed the code.
