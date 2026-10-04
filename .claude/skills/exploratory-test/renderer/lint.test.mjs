@@ -155,6 +155,17 @@ test('a file saved under a mirrored folder is found by its bare name, and a long
 	assert.deepEqual(problems, []);
 });
 
+test('one screenshot may serve failed checks of two different findings, and nothing else', () => {
+	const ledger = n2 => ['# Test ledger', '',
+		'## S01 - x', 'Status: fail - Finding 1', 'Result: Fails 1/1', '', 'Steps:',
+		'1. VERIFY dates read right -> FAIL - Finding 1', '   Observed: x', '   Evidence: S01-01.png', '   Log: none found', '',
+		'## S02 - y', `Status: fail - Finding ${n2}`, 'Result: Fails 1/1', '', 'Steps:',
+		`1. VERIFY structs read right -> FAIL - Finding ${n2}`, '   Observed: y', '   Evidence: S01-01.png', '   Log: none found', ''].join('\n');
+	const shared = l => lintReport(REPORT, l, { fileExists: () => true }).filter(p => /is Evidence for/.test(p));
+	assert.deepEqual(shared(ledger(2)), []);
+	assert.equal(shared(ledger(1)).length, 1);
+});
+
 test('flags a cited screenshot that actions.log never took by that name', () => {
 	const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-02.png, S01-02b.png\n2. VERIFY b -> PASS\n   Evidence: shots/S01-04.png\n';
 	const log = '20:00:01 screenshot S01-02\n20:00:02 playwright screenshot --filename=/r/shots/S01-02b.png\n20:00:03 screenshot S01-03.png\n';

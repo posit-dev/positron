@@ -34,8 +34,12 @@ sections in its SKILL.md: `palette-run.sh` for any Command Palette command
 commands" entry highlighted, and one of those deletes every notebook cell),
 `start-session.sh` to start a console, `console-run.sh --capture` and
 `console-read.sh` to read output, `notifications.sh` after any action that
-might ask a question, and `terminal-run.sh --key Control+c` to stop a server.
-Write a helper only for what none of them does, in `$RUN/tmp/`.
+might ask a question (toasts and dialogs), `terminal-run.sh --key Control+c` to
+stop a server, `shot.sh` for every screenshot, `open-file.sh` to open a file,
+`nb.sh` to read and run notebook cells, `de-read.sh` to read a Data Explorer
+grid, `view-read.sh` to read a view such as Connections, Variables or the
+Viewer, and `run-app.sh` for an editor's Run App button. Write a helper only
+for what none of them does, in `$RUN/tmp/`, and log its actions yourself.
 
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. A run made of single Playwright
@@ -85,9 +89,12 @@ under `shots/` beside it. Make it in one step, so two runs that start in the
 same second cannot share it:
 `RUN=$(mktemp -d "$HOME/.claude/skills/exploratory-test/output/$(date +%Y%m%dT%H%M%S)-XXXX")`.
 Never write into an existing run directory. Right after making it, run
-`export DRIVE_POSITRON_LOG="$RUN/actions.log"`, so every drive-positron script
-logs its own actions there, and save the listening ports with
-`listeners.sh --save "$RUN/tmp/listeners-before.txt"`. Make it before you launch, and pipe every launch through
+`export DRIVE_POSITRON_LOG="$RUN/actions.log" DRIVE_POSITRON_SHOTS="$RUN/shots"`,
+so every drive-positron script logs its own actions there and `shot.sh` saves
+and logs each screenshot, and save the listening ports with
+`listeners.sh --save "$RUN/tmp/listeners-before.txt"`; after cleanup compare
+with `listeners.sh --tree <your instance's pid> --diff` so other runs' servers
+do not show. Make it before you launch, and pipe every launch through
 `tee -a "$RUN/instances.jsonl"` so an instance left running is stopped after you
 return.
 Write every screenshot straight to `$RUN/shots/` with `--filename`, never to a
@@ -325,8 +332,9 @@ Steps:
 - Some state lives with a file, not the profile: a notebook remembers its
   kernel, and Reopen Editor With remembers its editor. A scenario that needs a
   file as it was before the app touched it says so, "a fresh copy of
-  `rnb.ipynb` that has not been opened", and makes the copy as its step 1 or
-  from `files/`.
+  `rnb.ipynb` that has not been opened", and makes the copy as its step 1
+  ("Copy `rnb.ipynb` to `rnb-try2.ipynb`."). A copy a step makes is not a new
+  test file: save and list only the original.
 - State a run set up outside the product is a precondition, worded as what it
   is and that the run made it: "`shiny` 1.9.1 installed into the run's venv",
   "posit.shiny 1.4.3 installed (bundled)", "an `.Rprofile` that puts a
@@ -343,8 +351,7 @@ Steps:
   nothing, such as a click repeated because the first did not register, a
   snapshot, or an Escape that closed nothing; a note in the log is enough.
   Screenshots keep the names they were taken with, and lint checks each cited
-  one against `actions.log`: renumber a scenario before taking its shots, or
-  log the rename.
+  one against `actions.log`; never rename one.
 - Steps use placeholders for values that change each launch, such as a
   session ID or a port: `<Python session ID from list_sessions>`, not
   `python-4cddf9ca`.
@@ -397,11 +404,15 @@ ledger above shows, in the ledger and in a finding.
 no exceptions: a reviewer reads each check against the picture of the app at
 that moment. Take it in the same tool call as the check (snapshot or `eval`,
 then `screenshot`), so it shows the state the check judged and costs no extra
-turn. Name it `<scenario>-<step>.png`, such as `S03-06.png`. One shot shows a
-check; take a second, `S03-06b.png`, only when it shows a different moment the
-check depends on, such as the same panel still loading 15 s later. Cite it as a bare file name
-on that step's `Evidence:` line. Never cite one shot for two checks, even when
-nothing changed between them; take another. A check about something off screen,
+turn. Take it with drive-positron's `shot.sh`, which logs it. Name it for the
+scenario and the order you took it in, `S03-01.png`, `S03-02.png`, not for a
+step number, which you do not know yet while exploring: the `Evidence:` line is
+what ties a shot to its step. One shot shows a check; take a second only when
+it shows a different moment the check depends on, such as the same panel still
+loading 15 s later. Cite it as a bare file name on that step's `Evidence:` line.
+Never cite one shot for two checks, even when nothing changed between them;
+take another. The one exception: when two findings show on the same screen,
+each gets its own check in its own scenario, and both may cite that one shot. A check about something off screen,
 such as a log line, still gets a shot of the app as it stood. A check with
 nothing on screen to show, such as a file's content on disk or a port that
 should be closed, cites the saved output instead: copy the file, or save the
@@ -474,7 +485,11 @@ give the rate of the steps it shows. A fault that showed once in several tries
 is still a finding when a log line or the code shows its mechanism; give the
 true rate (1/4), not a rounded-up one. A fault on the first start of something
 (a session, an app, an install) needs a cold replay before an in-instance retry
-counts, since a retry is no longer a first start. A cold replay is optional: use one only when the finding may
+counts, since a retry is no longer a first start. A try under a different setup
+(an R session in front instead of a Python one, a different file) is neither a
+pass nor a fail of the finding: name the setup the finding needs in its title or
+preconditions, give the rate of tries under that setup, and say in a sentence
+what the other setup did. A cold replay is optional: use one only when the finding may
 depend on state the run built up, timing or machine load, such as a cache, a
 restored session or a race, since a deterministic bug reproduces the same way
 in a fresh instance and the replay costs exploring time. To replay cold,

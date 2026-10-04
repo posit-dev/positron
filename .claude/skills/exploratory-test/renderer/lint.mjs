@@ -91,7 +91,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 				if (saved.length > missingSaved.length && !present.length) { check[key] = true; continue; }
 				for (const f of new Set(present)) {
 					if (!citedBy.has(f)) { citedBy.set(f, []); }
-					citedBy.get(f).push(`${current.id} step ${check.step}`);
+					citedBy.get(f).push({ at: `${current.id} step ${check.step}`, finding: check.fail ? check.finding : null });
 				}
 				named = present.length > 0;
 			}
@@ -131,8 +131,12 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			}
 		}
 	}
+	// Two findings seen on one screen share its shot: each check is its own
+	// step, failing a different finding. Any other reuse is a check left unshot.
 	for (const [f, checks] of citedBy) {
-		if (checks.length > 1) { problems.push(`ledger: ${f} is Evidence for ${checks.join(' and ')}; take a screenshot for each check`); }
+		const findings = checks.map(c => c.finding);
+		const shared = findings.every(n => n !== null) && new Set(findings).size === findings.length;
+		if (checks.length > 1 && !shared) { problems.push(`ledger: ${f} is Evidence for ${checks.map(c => c.at).join(' and ')}; take a screenshot for each check`); }
 	}
 	// The issue button's System details come from this line, so it has to parse.
 	const env = lines.findIndex(({ line }) => /^##\s+Environment\b/i.test(line));
@@ -165,6 +169,15 @@ function lintReproScenario(findings, scenarios) {
 			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and another run's screenshots go under Evidence, captioned "Step N:" for the step they prove`);
 		} else if (!whole.some(s => s.findings.includes(f.n) || s.steps.some(st => st.finding === f.n))) {
 			problems.push(`report: Finding ${f.n}'s steps come from ${whole.map(s => s.id).join(' or ')}, whose Status does not name Finding ${f.n}`);
+		} else {
+			// The steps and their shots are one scenario's, so the files they name are too.
+			// The drive-positron scripts a step was run with are not the scenario's files.
+			const names = steps => new Set(steps.flatMap(st => [...String(st.md ?? '').matchAll(FILE_NAME)].map(m => basename(m[1]))).filter(n => !/\.sh$/.test(n)));
+			const used = new Set(whole.flatMap(s => [...names(s.steps)]));
+			const stray = [...names(f.steps)].filter(n => !used.has(n));
+			if (stray.length && used.size) {
+				problems.push(`report: Finding ${f.n}'s steps name ${stray.join(', ')}, which ${whole.map(s => s.id).join(' or ')} never used (it used ${[...used].join(', ')}); write the steps the screenshots show`);
+			}
 		}
 	}
 	return problems;
