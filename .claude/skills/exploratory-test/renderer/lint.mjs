@@ -71,7 +71,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		if (result) { current.result = result[1].trim(); }
 		const verify = /^\s*(\d+)\.\s+VERIFY\b/i.exec(line);
 		if (verify) {
-			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), observed: false, evidence: false, log: false });
+			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), finding: Number(/->\s*FAIL\s*-\s*Finding\s+(\d+)/i.exec(line)?.[1]) || null, observed: false, evidence: false, log: false });
 		}
 		const field = /^\s+(Observed|Evidence|Log):(.*)$/i.exec(line);
 		const check = current.verifies.at(-1);
@@ -105,6 +105,10 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 				problems.push(`ledger: ${s.id} Status: must be "pass" or "fail - Finding N", got "${s.status}"`);
 			} else if (!findingNumbers.has(Number(m[1]))) {
 				problems.push(`ledger: ${s.id} names Finding ${m[1]}, which the report does not have`);
+			}
+			// A scenario fails one finding, so its rate counts only checks of that finding.
+			for (const v of s.verifies.filter(v => v.finding && v.finding !== Number(m?.[1]))) {
+				problems.push(`ledger: ${s.id} step ${v.step} fails Finding ${v.finding} but the scenario's Status names Finding ${m?.[1]}; give Finding ${v.finding}'s check a scenario of its own`);
 			}
 		}
 		if (!s.verifies.length) { problems.push(`ledger: ${s.id} has no VERIFY step`); }

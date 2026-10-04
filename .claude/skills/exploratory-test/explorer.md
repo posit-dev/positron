@@ -317,6 +317,11 @@ Steps:
   Screenshots keep the names they were taken with, and lint checks each cited
   one against `actions.log`: renumber a scenario before taking its shots, or
   log the rename.
+- Steps use placeholders for values that change each launch, such as a
+  session ID or a port: `<Python session ID from list_sessions>`, not
+  `python-4cddf9ca`.
+- Each run stands alone. Never read another run's output directory, and never
+  cite another run as coverage: what this run did not try goes under Not run.
 - Everything the run tried is in the ledger. A check you made with no
   scenario, such as filter text tried in passing, becomes a scenario if you
   can name what you saw, or a Noticed line if you cannot.
@@ -551,6 +556,12 @@ Describe punctuation and spacing only as the screenshot shows them. A VERIFY
 names one expected outcome: one that passes on either of two outcomes checks
 nothing. A failed step names the finding whose behavior its Observed shows; a
 different behavior seen there is its own finding, even when it looks related.
+A failed check is about one finding, and its Observed describes only that
+finding: a value of another finding seen on the same screen gets its own
+VERIFY in a scenario of its own, so each rate counts only checks of its
+finding. Expected comes from what a user would expect or from a reference --
+the same value printed in R or Python, the docs, another app -- never from
+reading the code: code tells you why, not whether it is right.
 
 Two examples, each before and after:
 

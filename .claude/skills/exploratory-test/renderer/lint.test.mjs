@@ -114,6 +114,17 @@ test('flags table values outside the allowed words', () => {
 	assert.equal(problems.filter(p => /finding 1 (Severity|Reproduction)/.test(p)).length, 2);
 });
 
+test('flags a failed step whose finding is not the one the scenario\'s Status names', () => {
+	const ledger = [
+		'# Test ledger', '',
+		'## S01 - Values', 'Status: fail - Finding 1', 'Result: fails', '', 'Steps:',
+		'1. VERIFY a reads right -> FAIL - Finding 1', '   Observed: x', '   Evidence: a.png', '   Log: none found',
+		'2. VERIFY b reads right -> FAIL - Finding 2', '   Observed: y', '   Evidence: b.png', '   Log: none found', '',
+	].join('\n');
+	const mixed = lintReport(REPORT, ledger, { fileExists: () => true }).filter(p => /Status names/.test(p));
+	assert.deepEqual(mixed, ["ledger: S01 step 2 fails Finding 2 but the scenario's Status names Finding 1; give Finding 2's check a scenario of its own"]);
+});
+
 test('flags a cited screenshot that actions.log never took by that name', () => {
 	const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-02.png, S01-02b.png\n2. VERIFY b -> PASS\n   Evidence: shots/S01-04.png\n';
 	const log = '20:00:01 screenshot S01-02\n20:00:02 playwright screenshot --filename=/r/shots/S01-02b.png\n20:00:03 screenshot S01-03.png\n';
