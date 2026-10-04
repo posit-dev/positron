@@ -140,6 +140,13 @@ test('flags a step that runs a precondition\'s command again', () => {
 	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Click Retry.'), []);
 });
 
+test('a check with nothing on screen may cite a saved output under logs/ or files/', () => {
+	const ledger = '# Test ledger\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY port 8000 is closed -> PASS\n   Evidence: logs/listeners-after.txt\n2. VERIFY the file says 1 -> PASS\n   Evidence: logs/missing.txt\n';
+	const has = p => p === 'logs/listeners-after.txt';
+	const problems = lintReport(REPORT, ledger, { fileExists: has }).filter(p => /S01/.test(p));
+	assert.deepEqual(problems, ['ledger: S01 cites Evidence: logs/missing.txt, which is not in the run directory', 'ledger: S01 step 2 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own']);
+});
+
 test('flags a cited screenshot that actions.log never took by that name', () => {
 	const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-02.png, S01-02b.png\n2. VERIFY b -> PASS\n   Evidence: shots/S01-04.png\n';
 	const log = '20:00:01 screenshot S01-02\n20:00:02 playwright screenshot --filename=/r/shots/S01-02b.png\n20:00:03 screenshot S01-03.png\n';

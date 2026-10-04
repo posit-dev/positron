@@ -79,10 +79,16 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			const key = field[1].toLowerCase();
 			let named = true;
 			if (key === 'evidence') {
-				const files = evidenceFiles(field[2]);
+				// A check with nothing on screen to show (a file's content on disk,
+				// a port that should be closed) cites a saved output instead.
+				const saved = [...field[2].matchAll(/(?:^|[\s,(`])((?:logs|files)\/[\w./-]+\.\w{1,5})/g)].map(m => m[1]);
+				const missingSaved = fileExists ? saved.filter(f => !fileExists(f)) : [];
+				for (const f of missingSaved) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in the run directory`); }
+				const files = evidenceFiles(field[2].replace(/(?:logs|files)\/[\w./-]+/g, ''));
 				const missing = fileExists ? files.filter(f => !fileExists(`shots/${f}`)) : [];
 				for (const f of missing) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`); }
 				const present = files.filter(f => !missing.includes(f));
+				if (saved.length > missingSaved.length && !present.length) { check[key] = true; continue; }
 				for (const f of new Set(present)) {
 					if (!citedBy.has(f)) { citedBy.set(f, []); }
 					citedBy.get(f).push(`${current.id} step ${check.step}`);

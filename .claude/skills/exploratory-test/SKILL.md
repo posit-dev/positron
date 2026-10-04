@@ -7,7 +7,7 @@ metadata:
   # verifier.md, isolator.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.32"
+  version: "1.33"
 ---
 
 # Exploratory testing
@@ -29,6 +29,11 @@ checkout path, the branch, the base and head SHAs and the `git diff` that shows
 the change between them, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about,
 riskiest first. State intent and risk; do not state what you expect to work.
+When the feature has variants a setting chooses, such as the Positron and the
+legacy notebook editor, or the Data Connections and the older Connections pane,
+check which is the default (`git log` on the feature, its configuration file)
+and name in the brief the one to test and the setting that selects it. An agent
+on the other variant reports its gaps as bugs.
 Fit the blast radius to the time: under 20 minutes, name at most three areas,
 since a run reaches about one area every three to five minutes and what it
 does not reach is lost.

@@ -28,6 +28,15 @@ test changes in quick succession, send them in one call, as a loop or as
 statements on one line. Run a command in a terminal only with drive-positron's
 `terminal-run.sh`: typed keys go wherever focus is, and a console often has it.
 
+Use drive-positron's other helpers before writing your own, and read their
+sections in its SKILL.md: `palette-run.sh` for any Command Palette command
+(never type a title and press Enter: an unavailable command leaves a "similar
+commands" entry highlighted, and one of those deletes every notebook cell),
+`start-session.sh` to start a console, `console-run.sh --capture` and
+`console-read.sh` to read output, `notifications.sh` after any action that
+might ask a question, and `terminal-run.sh --key Control+c` to stop a server.
+Write a helper only for what none of them does, in `$RUN/tmp/`.
+
 Every tool call is a turn, and every turn re-sends the whole context, so turn
 count drives cost far more than output size. A run made of single Playwright
 commands each returning a line or two is the pattern to avoid. Batch
@@ -75,7 +84,10 @@ Write findings to a fresh run directory, with `report.md` in it and evidence
 under `shots/` beside it. Make it in one step, so two runs that start in the
 same second cannot share it:
 `RUN=$(mktemp -d "$HOME/.claude/skills/exploratory-test/output/$(date +%Y%m%dT%H%M%S)-XXXX")`.
-Never write into an existing run directory. Make it before you launch, and pipe every launch through
+Never write into an existing run directory. Right after making it, run
+`export DRIVE_POSITRON_LOG="$RUN/actions.log"`, so every drive-positron script
+logs its own actions there, and save the listening ports with
+`listeners.sh --save "$RUN/tmp/listeners-before.txt"`. Make it before you launch, and pipe every launch through
 `tee -a "$RUN/instances.jsonl"` so an instance left running is stopped after you
 return.
 Write every screenshot straight to `$RUN/shots/` with `--filename`, never to a
@@ -97,6 +109,9 @@ cannot reproduce from a description of a file.
   edit and put the edit in the step as a code block. A later scenario that
   starts from the edited file saves that version too, named for the scenario
   that made it: `files/multi.S06.qmd`.
+- A file the app or a scenario's code wrote, such as a notebook the app saved
+  or a database built in the console, is not a test file: copy it to `logs/`
+  when a check depends on its content, named for the step, and cite it there.
 - List it in the ledger's `## Files`. A copy of a repo fixture is saved anyway;
   say where it came from on its line. For a generated binary (`.parquet`, an
   image, a database), save the script that made it too and list both.
@@ -307,6 +322,17 @@ Steps:
   installed interpreter. Anything done in the app to get there, such as
   starting a console or opening a file, is a step, even if it is only setup.
   Steps never start with "With X open, ..."; open it as step 1.
+- Some state lives with a file, not the profile: a notebook remembers its
+  kernel, and Reopen Editor With remembers its editor. A scenario that needs a
+  file as it was before the app touched it says so, "a fresh copy of
+  `rnb.ipynb` that has not been opened", and makes the copy as its step 1 or
+  from `files/`.
+- State a run set up outside the product is a precondition, worded as what it
+  is and that the run made it: "`shiny` 1.9.1 installed into the run's venv",
+  "posit.shiny 1.4.3 installed (bundled)", "an `.Rprofile` that puts a
+  temporary library first". Install packages only into the run's own venv or a
+  temporary R library (drive-positron's run-venv.sh), never into a venv other
+  runs share.
 - Steps are a replay of `actions.log`, not a tidier story. Each one does what
   the log shows, the way it was done: a session switched by running code is
   "Run `pass` in the Python console", not "Click the Python tab". Every action
@@ -376,8 +402,12 @@ check; take a second, `S03-06b.png`, only when it shows a different moment the
 check depends on, such as the same panel still loading 15 s later. Cite it as a bare file name
 on that step's `Evidence:` line. Never cite one shot for two checks, even when
 nothing changed between them; take another. A check about something off screen,
-such as a log line, still gets a shot of the app as it stood. The check counts
-only a file that is there: "none" or "DOM read only" does not satisfy it. If you
+such as a log line, still gets a shot of the app as it stood. A check with
+nothing on screen to show, such as a file's content on disk or a port that
+should be closed, cites the saved output instead: copy the file, or save the
+command's output, to `logs/` and cite it as `logs/<name>` on the `Evidence:`
+line. The check counts only a file that is there: "none" or "DOM read only"
+does not satisfy it. If you
 find a check you ran has no shot, take it now when the screen still shows that
 state, or run the check again; never move a check you ran to Not run.
 
@@ -438,7 +468,13 @@ renderer puts it on the finding. Always give the rate, even 5/5: "every time"
 and "one in three" are different bugs. 0/M means you saw it but could not
 reproduce it, and renders as Unproven. Repeat the steps in the same instance
 for the rate: a `major` or `moderate` finding needs at least two tries, and lint
-fails one tried once. A cold replay is optional: use one only when the finding may
+fails one tried once. The rate counts tries of the same steps. Other triggers of
+the same fault are one finding, not more tries: list them in the finding, and
+give the rate of the steps it shows. A fault that showed once in several tries
+is still a finding when a log line or the code shows its mechanism; give the
+true rate (1/4), not a rounded-up one. A fault on the first start of something
+(a session, an app, an install) needs a cold replay before an in-instance retry
+counts, since a retry is no longer a first start. A cold replay is optional: use one only when the finding may
 depend on state the run built up, timing or machine load, such as a cache, a
 restored session or a race, since a deterministic bug reproduces the same way
 in a fresh instance and the replay costs exploring time. To replay cold,
@@ -454,8 +490,11 @@ When behavior that used to work is now broken, say so in the claim -- "X no
 longer Y" -- since that decides whether a reader reverts or fixes forward.
 
 Append every action to `actions.log` in the run directory as you take it, with a
-timestamp, including incidental ones: a reload, a setting toggle, a wait. Have
-your scripts append it themselves. A line that runs code says how it was sent and
+timestamp, including incidental ones: a reload, a setting toggle, a wait. The
+drive-positron scripts append their own lines when `DRIVE_POSITRON_LOG` is set;
+log the rest yourself, including commands run outside the app (`lsof`, `sed` on
+a workspace file, `uv pip install`), since the verifier checks steps against
+this file. A line that runs code says how it was sent and
 where: `console-run.sh r: x <- 1:10`, or the editor command that ran it. `Repro` is a transcription of that file, and
 a precondition that only existed in your head is how a finding stops
 reproducing. So is state you did not create. Before writing a finding, compare
