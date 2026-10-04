@@ -394,8 +394,10 @@ is missing.
 ```
 
 Clicks the active editor's Run App button, whatever its label ("Run Shiny App",
-"Run Flask App in Terminal"), and fails when the editor has none. Then check
-`notifications.sh`: a busy session asks first, in a toast.
+"Run Flask App in Terminal"), with a real mouse click, since the button ignores
+a click from page script, and reports `started: false` when no toast, terminal,
+console or busy session followed within 5 s. Then check `notifications.sh`: a
+busy session asks first, in a toast.
 
 ### Read and answer notifications
 

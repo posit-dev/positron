@@ -24,6 +24,11 @@
 set -u
 TREE=""
 if [[ "${1:-}" == "--tree" ]]; then TREE="$2"; shift 2; fi
+# A stopped instance has no tree, and an empty list would read as "all clean".
+if [[ -n "$TREE" ]] && ! kill -0 "$TREE" 2>/dev/null; then
+	echo "listeners.sh: process $TREE is not running, so its tree is gone; run --tree before stop.sh, or diff without --tree and check each new port's PID" >&2
+	exit 2
+fi
 # The PID and every process under it.
 descendants() {
 	local all="$1" frontier="$1" next

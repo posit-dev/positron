@@ -54,13 +54,30 @@ JS="(async () => {
 	if (apps.length !== 1) {
 		return JSON.stringify({ ok: false, error: apps.length ? apps.length + ' run buttons match; pass --label' : 'the active editor has no Run App button', buttons: labels });
 	}
-	apps[0].el.click();
-	await new Promise(r => setTimeout(r, 300));
-	return JSON.stringify({ ok: true, clicked: apps[0].label, buttons: labels });
+	return JSON.stringify({ ok: true, label: apps[0].label, buttons: labels });
 })()"
 RESULT=$(run_js "$JS") || { echo "$RESULT"; exit 1; }
-if [[ "$(echo "$RESULT" | jq -r '.ok')" == "true" && "$LIST" == 0 ]]; then
-	log_action "run-app.sh" "$(echo "$RESULT" | jq -r '.clicked')"
+if [[ "$(echo "$RESULT" | jq -r '.ok')" != "true" || "$LIST" == 1 ]]; then
+	echo "$RESULT"
+	[[ "$(echo "$RESULT" | jq -r '.ok')" == "true" ]]
+	exit $?
 fi
-echo "$RESULT"
-[[ "$(echo "$RESULT" | jq -r '.ok')" == "true" ]]
+# A real mouse click: Positron's action bar buttons ignore a click() from the
+# page, so the app would silently not start.
+LABEL_FOUND=$(echo "$RESULT" | jq -r '.label')
+STATE_JS="(() => JSON.stringify({ toasts: document.querySelectorAll('.notification-toast').length, busy: !!document.querySelector('.codicon-positron-interrupt-runtime'), terminals: document.querySelectorAll('.xterm').length, consoles: document.querySelectorAll('[data-testid^=\"console-tab-\"]').length }))()"
+BEFORE=$(run_js "$STATE_JS") || BEFORE='{}'
+pw click ".editor-group-container.active [aria-label=\"$LABEL_FOUND\"]" >/dev/null 2>&1 || {
+	echo "$RESULT" | jq -c '. + {ok: false, error: "the click on the button failed"}'
+	exit 1
+}
+# Confirm something started: a toast, or the button state changing, within 5 s.
+STARTED=false
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+	SEEN=$(run_js "$STATE_JS") || break
+	# Started: a new toast, terminal or console, or a session went busy.
+	if [[ "$(jq -rn --argjson a "$BEFORE" --argjson b "$SEEN" '($b.toasts > ($a.toasts // 0)) or ($b.terminals > ($a.terminals // 0)) or ($b.consoles > ($a.consoles // 0)) or ($b.busy and (($a.busy // false) | not))')" == "true" ]]; then STARTED=true; break; fi
+	sleep 0.5
+done
+log_action "run-app.sh" "$LABEL_FOUND"
+echo "$RESULT" | jq -c --argjson s "$STARTED" '{ok: true, clicked: .label, started: $s, buttons, hint: (if $s then null else "nothing visibly started within 5 s: check notifications.sh and the App Launcher output" end)}'
