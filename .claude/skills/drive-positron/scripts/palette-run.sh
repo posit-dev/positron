@@ -61,7 +61,9 @@ if [[ "$(echo "$OPEN" | jq -r '.ok')" != "true" ]]; then
 fi
 
 FILLED=$(run_js "$(page fill ">$TITLE")") || { echo "$FILLED"; exit 1; }
-CHOSEN=$(run_js "$(page choose exact "$TITLE" $([[ "$DRY" == 1 ]] && echo --dry))") || { echo "$CHOSEN"; pw press Escape >/dev/null 2>&1; exit 1; }
+# Highlight the row in the page, then press Enter from outside it: a command
+# such as Developer: Reload Window tears the page down mid-eval otherwise.
+CHOSEN=$(run_js "$(page choose exact "$TITLE" --dry)") || { echo "$CHOSEN"; pw press Escape >/dev/null 2>&1; exit 1; }
 if [[ "$(echo "$CHOSEN" | jq -r '.ok')" != "true" ]]; then
 	pw press Escape >/dev/null 2>&1
 	echo "$CHOSEN" | jq -c '. + {hint: "not listed: the command may not exist under that title, or its precondition is false right now"}'
@@ -69,8 +71,10 @@ if [[ "$(echo "$CHOSEN" | jq -r '.ok')" != "true" ]]; then
 fi
 if [[ "$DRY" == 1 ]]; then
 	pw press Escape >/dev/null 2>&1
-else
-	log_action "palette-run.sh" "$TITLE"
+	echo "$CHOSEN"
+	exit 0
 fi
-echo "$CHOSEN"
+pw press Enter >/dev/null 2>&1
+log_action "palette-run.sh" "$TITLE"
+echo "$CHOSEN" | jq -c 'del(.dry)'
 exit 0

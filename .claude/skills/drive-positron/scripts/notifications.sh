@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Lists the notifications on screen, with their buttons, and clicks one. A
-# prompt often arrives as a toast ("The runtime is busy... interrupt it and
+# Lists the notifications and dialogs on screen, with their buttons, and clicks
+# one. A prompt often arrives as a toast ("The runtime is busy... interrupt it and
 # restart?") that a screenshot misses and a click elsewhere hides, so after an
 # action that might ask something, run this before deciding it did nothing.
 #
@@ -16,8 +16,8 @@
 #                   needed when several notifications have that button
 #   --clear         close every notification toast
 #
-# Reads toasts and, when it is open, the notification center (View: Toggle
-# Notifications). Hidden toasts stay in the center, so open it with
+# Reads toasts, the notification center when it is open, and any modal dialog
+# ("Do you want to save the changes...?"), which comes back as kind "dialog". Hidden toasts stay in the center, so open it with
 # palette-run.sh 'Notifications: Show Notifications' to read older ones.
 #
 # Stdout: one JSON line, e.g.
@@ -64,7 +64,25 @@ JS="(async () => {
 			inCenter: !!r.closest('.notifications-center'),
 		};
 	};
-	const list = items.map(read);
+	// Modal dialogs: the upstream one, and Positron's own React modals.
+	const dialogs = [...document.querySelectorAll('.monaco-dialog-box, .positron-modal-dialog-box')].filter(d => d.offsetParent !== null);
+	const readDialog = d => ({
+		kind: 'dialog',
+		message: clean(d.querySelector('.dialog-message-text, .simple-title-bar, .title')),
+		detail: clean(d.querySelector('.dialog-message-detail')),
+		buttons: [...d.querySelectorAll('.dialog-buttons .monaco-button, .ok-cancel-action-bar button, .button-row button, button.action-bar-button')].map(b => clean(b)).filter(Boolean),
+	});
+	const list = [...dialogs.map(readDialog), ...items.map(r => ({ kind: 'notification', ...read(r) }))];
+	if (CLICK && dialogs.length) {
+		const d = dialogs.find(x => readDialog(x).buttons.includes(CLICK) && (!MATCH || (readDialog(x).message + ' ' + readDialog(x).detail).includes(MATCH)));
+		if (d) {
+			const b = [...d.querySelectorAll('.dialog-buttons .monaco-button, .ok-cancel-action-bar button, .button-row button, button.action-bar-button')].find(x => clean(x) === CLICK);
+			const message = readDialog(d).message;
+			b.click();
+			await new Promise(r => setTimeout(r, 300));
+			return JSON.stringify({ ok: true, clicked: CLICK, message, kind: 'dialog' });
+		}
+	}
 	if (CLICK) {
 		const row = items.find(r => { const n = read(r); return n.buttons.includes(CLICK) && (!MATCH || n.message.includes(MATCH)); });
 		const candidates = items.filter(r => read(r).buttons.includes(CLICK) && (!MATCH || read(r).message.includes(MATCH)));

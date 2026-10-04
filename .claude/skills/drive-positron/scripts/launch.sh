@@ -113,7 +113,7 @@ copy_tree() {
 		for pattern in "$@"; do
 			excl+=("--exclude=$pattern")
 		done
-		rsync -a "${excl[@]}" "$src/" "$dst/"
+		rsync -a ${excl[@]+"${excl[@]}"} "$src/" "$dst/"
 		return
 	fi
 
@@ -124,7 +124,7 @@ copy_tree() {
 			excl+=("--exclude=$pattern")
 		fi
 	done
-	( cd "$src" && tar -cf - "${excl[@]}" . ) | ( cd "$dst" && tar -xf - )
+	( cd "$src" && tar -cf - ${excl[@]+"${excl[@]}"} . ) | ( cd "$dst" && tar -xf - )
 }
 
 AGENTS=0

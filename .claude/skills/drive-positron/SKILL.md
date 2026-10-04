@@ -266,10 +266,13 @@ Use individual `press` operations when testing actual keyboard handling.
 
 Set `DRIVE_POSITRON_LOG` to a file and every script below appends one line per
 action to it, as `<UTC time> <script> -s=<session>: <what>`, so a run's action
-log needs no wrapper scripts:
+log needs no wrapper scripts. Set `DRIVE_POSITRON_SHOTS` to the folder
+screenshots go in, and take every one with `shot.sh`, which logs it:
 
 ```bash
-export DRIVE_POSITRON_LOG="$RUN/actions.log"
+export DRIVE_POSITRON_LOG="$RUN/actions.log" DRIVE_POSITRON_SHOTS="$RUN/shots"
+.claude/skills/drive-positron/scripts/shot.sh --session positron S03-01.png
+.claude/skills/drive-positron/scripts/shot.sh --session positron S03-02.png '.positron-variables'
 ```
 
 Log what the scripts cannot see yourself: a raw `playwright-cli` click or key,
@@ -292,6 +295,18 @@ prints what was shown:
 The title includes its category, as the palette shows it. It takes focus out
 of a webview first, where keyboard shortcuts never reach the workbench. A
 command that is "not listed" is a fact about the app's state: record it.
+
+### Open a file
+
+```bash
+.claude/skills/drive-positron/scripts/open-file.sh --session positron app.R
+.claude/skills/drive-positron/scripts/open-file.sh --session positron rapp/app.R
+```
+
+It moves focus out of any webview, opens Quick Open, and picks the row whose
+name is exactly the file's (with the folder in its description, when you give
+one), then waits for the tab. Cmd+P typed by hand while focus is in the Viewer
+or a notebook output goes to the page instead.
 
 ### Start a session
 
@@ -340,6 +355,48 @@ To read a console without running anything, including one Run App started
 .claude/skills/drive-positron/scripts/console-read.sh --session positron --name Shiny
 ```
 
+### Run cells in a notebook
+
+```bash
+.claude/skills/drive-positron/scripts/nb.sh --session positron --notebook py.ipynb read
+.claude/skills/drive-positron/scripts/nb.sh --session positron --notebook py.ipynb run 2
+.claude/skills/drive-positron/scripts/nb.sh --session positron --notebook py.ipynb wait
+```
+
+For the Positron notebook editor. `read` prints every cell's number, kind,
+execution count, state (running, pending, success, error), first source line
+and output text, plus the kernel badge and whether the tab is modified. `run N`
+clicks cell N's own Run button; `wait` waits until nothing is running. Each
+refuses when the named notebook is not the active editor, so a cell never runs
+in the wrong file. Run All goes through `palette-run.sh`.
+
+### Read a Data Explorer grid or a view
+
+```bash
+.claude/skills/drive-positron/scripts/de-read.sh --session positron --rows 5
+.claude/skills/drive-positron/scripts/view-read.sh --session positron --view Variables
+.claude/skills/drive-positron/scripts/view-read.sh --session positron --view Viewer
+```
+
+The grid draws only the columns in view; `de-read.sh` scrolls it sideways and
+returns every column's name and the top rows' values, plus the status bar, so
+there is no need to widen the window. `view-read.sh` prints what a view shows,
+leaving out the stacked instances behind it (the Variables pane keeps one per
+session); for the Viewer it prints the URL and the page's text from the frames.
+A list or tree draws only its visible rows: scroll or filter before saying a row
+is missing.
+
+### Run an app
+
+```bash
+.claude/skills/drive-positron/scripts/run-app.sh --session positron --list
+.claude/skills/drive-positron/scripts/run-app.sh --session positron
+```
+
+Clicks the active editor's Run App button, whatever its label ("Run Shiny App",
+"Run Flask App in Terminal"), and fails when the editor has none. Then check
+`notifications.sh`: a busy session asks first, in a toast.
+
 ### Read and answer notifications
 
 A question often arrives as a toast ("The runtime is busy. Do you want to
@@ -350,7 +407,12 @@ did nothing, and answer one by its button:
 ```bash
 .claude/skills/drive-positron/scripts/notifications.sh --session positron
 .claude/skills/drive-positron/scripts/notifications.sh --session positron --click No --match 'runtime is busy'
+.claude/skills/drive-positron/scripts/notifications.sh --session positron --click "Don't Save"
 ```
+
+It reads modal dialogs too ("Do you want to save the changes you made to
+py.ipynb?"), listed with `"kind": "dialog"` ahead of the toasts. Clear old
+toasts with `--clear` once answered, so the next listing shows only new ones.
 
 ### Run a command in a terminal
 
@@ -385,12 +447,17 @@ ln -s "$RUN/tmp/venv" "$WORKSPACE/.venv"
 ```
 
 Save the listening ports before launching and compare after cleanup; a new one
-is a server left running, and its PID and command say whose:
+is a server left running. Pass `--tree` with your instance's PID (launch.sh
+prints it) to see only your own instance's kernels and servers, not other runs':
 
 ```bash
 .claude/skills/drive-positron/scripts/listeners.sh --save "$RUN/tmp/listeners-before.txt"
-.claude/skills/drive-positron/scripts/listeners.sh --diff "$RUN/tmp/listeners-before.txt"
+.claude/skills/drive-positron/scripts/listeners.sh --tree "$PID" --diff "$RUN/tmp/listeners-before.txt"
 ```
+
+Port 5000 on a Mac belongs to the AirPlay Receiver (ControlCenter): an app on
+it gets a 403 from AirPlay, and a check that the port closed always fails. Run
+Flask and the like on another port.
 
 ### Read a whole quick pick
 
@@ -426,7 +493,8 @@ widgets left behind by closed pickers, and how separators are rendered.
 - Notebook: Run All Cells is hidden from the palette and toolbar while a cell runs; the toolbar shows Stop Execution in its place.
 - Notebook cells are `[role=article]`, not `<article>` elements.
 - Keyboard shortcuts do nothing while focus is inside a webview (the Viewer, an HTML output, a Shiny app). `palette-run.sh` moves focus out first; for a raw key press, click the editor or a pane first.
-- The Viewer's content is in nested iframes that snapshots reach (refs like `f4e3`), but their refs change after every reload or app restart; take a fresh snapshot each time. A frame that failed to load shows only as `iframe`, the same as one still loading.
+- The Viewer's content is in nested iframes that snapshots reach (refs like `f4e3`), but their refs change after every reload or app restart; take a fresh snapshot each time.
+- After Developer: Reload Window, snapshot refs restart with a frame prefix (`f1e12`), so a helper that greps `ref=e` finds nothing. Take a fresh snapshot, and if a command still fails, `attach` the session again. A frame that failed to load shows only as `iframe`, the same as one still loading.
 - A terminal created while hidden, or a window resized through CDP, can draw its text at the wrong size. Before reporting a display problem in a terminal, compare a terminal opened by hand at the same window size.
 - Modal message boxes are clickable because the launcher forces `window.dialogStyle: "custom"`. Without it Electron draws a native dialog that CDP can neither see nor dismiss, and the blocked renderer looks like a hung app. Judge such a dialog's wording from this path but not its appearance; a real user sees the native one.
 - Two things are called a modal. `.positron-modal-dialog-box`, which the `Modals` page object matches, is Positron's own React modal such as the New Folder flow. A `showInformationMessage(..., { modal: true })` raised from inside it is the upstream `.monaco-dialog-box`, which that page object will not find.
@@ -475,7 +543,7 @@ Pass `--run-dir` only when it is the exact `runDir` the launcher reported. The s
 
 Do not use `kill "$PID"` on its own. On Windows the reported `pid` belongs to the MSYS shell that exec'd the native Electron binary, so killing it can leave the application running. `stop.sh` locates the real process through the CDP port on every platform.
 
-Remove `.playwright-cli` only if it is the session directory created in the intended workspace.
+Never remove `.playwright-cli`. It holds the snapshot files of every run that calls `playwright-cli` from that folder, and other runs on the machine share it; sessions themselves are not stored there, so removing it frees nothing.
 
 To confirm independently that no process remains, check that the CDP port no longer answers:
 
