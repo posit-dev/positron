@@ -138,6 +138,7 @@ test('flags a step that runs a precondition\'s command again', () => {
 	const repro = (pre, step) => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${pre}\n\n1. ${step}`)).filter(p => /precondition already/.test(p));
 	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Run `%run -i slow.py` in the Python console.'), ['report: Finding 1 step 1 runs `%run -i slow.py`, which a precondition already sets up; start the steps after it']);
 	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Click Retry.'), []);
+	assert.deepEqual(repro('`debug_demo.R` defines `outer_fn()`', 'Run `outer_fn()` in the R console.'), []);
 });
 
 test('a check with nothing on screen may cite a saved output under logs/ or files/', () => {

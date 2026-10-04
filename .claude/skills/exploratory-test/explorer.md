@@ -114,6 +114,11 @@ Keep your own helper scripts and scratch files in `$RUN/tmp/`, never in a
 scratchpad or `/tmp` path another run could share: runs on one machine often
 start together, and a helper another run overwrites drives its instance, not
 yours. Name your Playwright session in every helper, never rely on a default.
+Shell variables do not survive from one command to the next, so do not save
+`$RUN` to a file to find it again: a file outside `$RUN` is one another run can
+overwrite, and one run that did opened its instance in another run's folder.
+Print the path once, then write it out in full in every later command, or put
+it in `$RUN/tmp/env.sh` with your exports and source that file by its full path.
 
 **Test files.** Any file a scenario needs -- one you create, copy from the repo
 or a fixture, download, or edit -- is evidence, like a screenshot. A reader

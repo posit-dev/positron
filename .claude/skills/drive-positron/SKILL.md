@@ -432,7 +432,10 @@ here press it only when a quick input is open.
 .claude/skills/drive-positron/scripts/plots.sh --session positron prev      # also: next
 .claude/skills/drive-positron/scripts/plots.sh --session positron select 2
 .claude/skills/drive-positron/scripts/plots.sh --session positron clear
-.claude/skills/drive-positron/scripts/plots.sh --session positron save      # then form.sh fill/click
+.claude/skills/drive-positron/scripts/plots.sh --session positron save      # then form.sh fill/choose/click
+.claude/skills/drive-positron/scripts/plots.sh --session positron remove 2
+.claude/skills/drive-positron/scripts/plots.sh --session positron zoom 50%
+.claude/skills/drive-positron/scripts/plots.sh --session positron open 'editor tab'
 ```
 
 `read` gives the plot's name, size, and a pixel check: `colours` counts the
@@ -441,7 +444,8 @@ distinct colours on a 10 x 10 grid of its pixels, so 1 is a blank image, and
 do not say which plot is which; draw each test plot in its own colour and
 check `topLeft`. The history filmstrip shows only with several plots and room
 for it: widen the pane with `panel.sh resize secondary 600`, or set
-`plots.historyPolicy` to `always`.
+`plots.historyPolicy` to `always`. A narrow pane moves Save, Copy, and zoom into
+the toolbar's overflow; `zoom` and `save` then say the button is missing.
 
 ### Run cells in a notebook
 
@@ -565,12 +569,18 @@ port 5000, which the AirPlay Receiver holds.
 .claude/skills/drive-positron/scripts/form.sh --session positron fill 'Database File' /tmp/shop.sqlite
 .claude/skills/drive-positron/scripts/form.sh --session positron check 'Read Only'
 .claude/skills/drive-positron/scripts/form.sh --session positron click Save
+.claude/skills/drive-positron/scripts/form.sh --session positron choose Format SVG
 ```
 
 For Positron's modal dialogs (Add Connection, New Folder) and upstream ones.
 Fields and buttons are found by their visible label; `--in` narrows to the
 row that also shows a text, for a list with one button per row. `read` lists
 the fields with their values and the buttons with whether each is enabled.
+A field the dialog has disabled says so, and `fill` refuses it. A checkbox's
+state is the check mark drawn: Positron's checkbox starts with `aria-checked`
+false even when drawn checked, and `read` adds a note when the two disagree.
+`choose` opens a drop-down (Format) and picks a row of its list, which opens
+outside the dialog.
 
 ### Switch panel tabs, terminals and sessions
 

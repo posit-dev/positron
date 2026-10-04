@@ -83,11 +83,22 @@ PW_SESSION_NAME="$SESSION"
 if [[ -n "${TEXT_ARG:-}" ]]; then
 	TEXT="$TEXT_ARG"
 else
-	TEXT=$(cat)
+	# $(cat) drops trailing newlines, and with them the blank line that ends a
+	# Python block; the x keeps them.
+	TEXT=$(cat; printf x)
+	TEXT="${TEXT%x}"
 fi
 if [[ -z "$TEXT" ]]; then
 	echo '{"ok":false,"error":"empty input"}'
 	exit 2
+fi
+# The Python console runs an indented block only after a blank line, as a
+# person would type it; add one when the code ends inside a block.
+if [[ "$LANGUAGE" == python ]]; then
+	LAST_LINE=$(printf '%s' "$TEXT" | awk 'NF { l = $0 } END { print l }')
+	if [[ "$LAST_LINE" =~ ^[[:space:]] && ! "$TEXT" =~ $'\n'[[:space:]]*$'\n'[[:space:]]*$ ]]; then
+		TEXT="${TEXT%$'\n'}"$'\n\n'
+	fi
 fi
 
 case "${OSTYPE:-$(uname -s)}" in

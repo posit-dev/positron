@@ -550,7 +550,8 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	for (const f of parseReport(text).findings) {
 		const commands = f.preconditions
 			.flatMap(p => [...p.matchAll(/<code[^>]*>([^<]+)<\/code>/g)].map(m => m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim()))
-			.filter(c => /[\s(]|^[%!]/.test(c));
+			// A bare name() names a function the file defines, not a command run.
+			.filter(c => /[\s(]|^[%!]/.test(c) && !/^[\w.$]+\(\)$/.test(c));
 		f.steps.forEach((st, k) => {
 			const again = commands.find(c => (st.md ?? '').includes('`' + c + '`'));
 			if (again) {

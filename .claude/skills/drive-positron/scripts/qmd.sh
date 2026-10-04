@@ -84,7 +84,8 @@ READ_JS="(() => {$COMMON
 		const w = o.closest('.quarto-inline-output-wrapper') || o;
 		const icon = w.querySelector('.code-cell-footer-icon');
 		const status = ['running', 'pending', 'success', 'error'].find(s => icon?.classList.contains(s));
-		return { afterLine: lineAbove(o), status, footer: [...(w.querySelector('.code-cell-footer-text')?.children || [])].map(clean).filter(Boolean).join(' | ') || undefined,
+		const above = lineAbove(o);
+		return { afterLine: above ?? (ls.length && o.getBoundingClientRect().top < Math.min(...ls.map(l => l.top)) ? 'above view' : null), status, footer: [...(w.querySelector('.code-cell-footer-text')?.children || [])].map(clean).filter(Boolean).join(' | ') || undefined,
 			kinds, collapsed: !!o.querySelector('.quarto-output-summary') && o.querySelector('.quarto-output-content')?.offsetParent === null,
 			text: (o.querySelector('.quarto-output-content')?.innerText || '').replace(/\\u00A0/g, ' ').trim().slice(0, 2000) };
 	});
@@ -99,6 +100,8 @@ cells() {
 	f=$(run_js "$FILE_JS") || { echo "$f"; return 1; }
 	ok "$f" || { echo "$f"; return 1; }
 	path=$(echo "$f" | jq -r '.path')
+	# A file under the home folder shows as ~/... on its tab.
+	[[ "$path" == "~/"* ]] && path="$HOME/${path#\~/}"
 	[[ -f "$path" ]] || { echo "$f" | jq -c '{ok: false, error: ("cannot find the file on disk: " + .path + "; save it first")}'; return 1; }
 	awk -v dirty="$(echo "$f" | jq -r '.dirty')" -v name="$(echo "$f" | jq -r '.name')" '
 		BEGIN { n = 0; open = 0; out = "" }
@@ -108,18 +111,28 @@ cells() {
 		END { if (open) { out = out "}" } printf "{\"ok\":true,\"file\":\"%s\",\"dirty\":%s,\"cells\":[%s]}\n", name, dirty, out }
 	' "$path"
 }
-cell_line() {
+# Sets LINE (the opening fence) and END (the closing fence) of cell $1.
+cell_info() {
 	local c
 	c=$(cells) || { echo "$c"; return 1; }
-	echo "$c" | jq -r --argjson n "$1" '.cells[] | select(.n == $n) | .fenceLine'
+	LINE=$(echo "$c" | jq -r --argjson n "$1" '.cells[] | select(.n == $n) | .fenceLine')
+	END=$(echo "$c" | jq -r --argjson n "$1" '.cells[] | select(.n == $n) | .endLine // .fenceLine')
+	[[ "$LINE" =~ ^[0-9]+$ ]] || { echo "{\"ok\":false,\"error\":\"no cell $1 in the saved file\"}"; return 1; }
+}
+# Whether cell $1's toolbar is on screen now (it shows only near the cursor).
+on_screen() {
+	run_js "(() => {$COMMON return JSON.stringify({ ok: !!ed && toolbars().some(x => x.line === $LINE) }); })()" | jq -r '.ok'
+}
+goto_cell() {
+	"$DIR/editor.sh" "${SFLAG[@]}" goto $((LINE + 1)) >/dev/null || { echo '{"ok":false,"error":"could not go to the cell"}'; return 1; }
+	sleep 0.3
 }
 # Brings cell N on screen and marks its toolbar button labelled $2 (empty: the run/stop button).
 mark() {
 	local line m
-	line=$(cell_line "$1")
-	[[ "$line" =~ ^[0-9]+$ ]] || { echo "{\"ok\":false,\"error\":\"no cell $1 in the saved file\"}"; return 1; }
-	"$DIR/editor.sh" "${SFLAG[@]}" goto $((line + 1)) >/dev/null || { echo '{"ok":false,"error":"could not go to the cell"}'; return 1; }
-	sleep 0.3
+	cell_info "$1" || return 1
+	line=$LINE
+	[[ "$(on_screen)" == true ]] || goto_cell || return 1
 	m=$(run_js "(() => {$COMMON
 		const t = toolbars().find(x => x.line === $line);
 		if (!t) { return JSON.stringify({ ok: false, error: 'no toolbar on line $line; is inline output on (quarto.inlineOutput.enabled)?' }); }
@@ -133,10 +146,12 @@ mark() {
 	echo "$m"
 	ok "$m"
 }
+# Cell $1's toolbar state and the output under its closing fence; brings it on
+# screen first, since off-screen cells and outputs are not in the page.
 cell_state() {
-	local line
-	line=$(cell_line "$1")
-	run_js "$READ_JS" | jq -c --argjson l "${line:-0}" --argjson n "$1" '{ok: .ok, cell: $n, fenceLine: $l} + ((.cells[] | select(.line == $l) | {state, run}) // {state: "not on screen"}) + {output: ([.outputs[] | select(.afterLine != null and .afterLine >= $l)][0] // null)}'
+	[[ -n "${LINE:-}" ]] || cell_info "$1" >/dev/null || { echo "{\"ok\":false,\"error\":\"no cell $1 in the saved file\"}"; return 1; }
+	[[ "$(on_screen)" == true ]] || goto_cell >/dev/null
+	run_js "$READ_JS" | jq -c --argjson l "$LINE" --argjson e "$END" --argjson n "$1" '{ok: .ok, cell: $n, fenceLine: $l} + ((.cells[] | select(.line == $l) | {state, run}) // {state: "not on screen"}) + {output: ([.outputs[] | select(.afterLine == $e)][0] // null)}'
 }
 
 case "$CMD" in
@@ -150,7 +165,12 @@ case "$CMD" in
 		B=$(echo "$M" | jq -r '.button')
 		if [[ "$CMD" == run && "$B" != "Run this cell" ]]; then echo "$M" | jq -c '{ok: false, error: ("the cell is " + .state + "; its button is " + .button)}'; exit 1; fi
 		if [[ "$CMD" == stop && "$B" == "Run this cell" ]]; then echo "$M" | jq -c '{ok: false, error: "the cell is not running or queued"}'; exit 1; fi
-		pw click '[data-dp-target="1"]' >/dev/null 2>&1
+		# Click only while the button still has that label: a cell that finishes
+		# between the check and the click turns Stop back into Run.
+		if ! pw click "[data-dp-target=\"1\"][aria-label=\"$B\"]" >/dev/null 2>&1; then
+			cell_state "$N" | jq -c --arg b "$B" '. + {ok: false, error: ("the button stopped being \"" + $b + "\" before the click (the cell finished or started); nothing was clicked")}'
+			exit 1
+		fi
 		log_action "qmd.sh" "cell $N: click $B"
 		sleep 0.8
 		cell_state "$N" | jq -c --arg b "$B" '. + {clicked: $b}' ;;

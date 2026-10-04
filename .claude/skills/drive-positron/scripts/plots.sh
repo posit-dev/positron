@@ -8,6 +8,9 @@
 #   scripts/plots.sh --session NAME prev            # also: next
 #   scripts/plots.sh --session NAME select 2
 #   scripts/plots.sh --session NAME clear
+#   scripts/plots.sh --session NAME remove 2
+#   scripts/plots.sh --session NAME zoom 50%
+#   scripts/plots.sh --session NAME open 'editor tab'
 #   scripts/plots.sh --session NAME save            # opens the Save Plot dialog; fill it with form.sh
 #
 # Commands:
@@ -22,6 +25,10 @@
 #             only with several plots and room for it (plots.historyPolicy
 #             "auto"); set it to "always" in the workspace settings to use this
 #             in a small pane
+#   remove N  hover the Nth thumbnail and click its Remove plot button
+#   zoom L    pick zoom level L (Fit, 50%, 75%, 100%, 200%) from the zoom menu
+#   open W    pick W from the "Select where to open plot" menu (its words,
+#             such as "editor tab" or "new window")
 #   clear     click Clear All Plots, and report any prompt it raised
 #   save      click Save Plot and report the dialog it opened (form.sh read)
 #
@@ -37,7 +44,7 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--session) SESSION="$2"; shift 2 ;;
 		--session=*) SESSION="${1#--session=}"; shift ;;
-		-h|--help) sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+		-h|--help) sed -n '2,36p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		*) ARGS+=("$1"); shift ;;
 	esac
 done
@@ -79,7 +86,8 @@ READ_JS="(async () => {$COMMON
 	}
 	const other = !img ? clean(pane.querySelector('.selected-plot')) || undefined : undefined;
 	const t = thumbs();
-	return JSON.stringify({ ok: true, blank: !img && !other, plot, otherContent: other,
+	const zoom = [...pane.querySelectorAll('.action-bars button[aria-haspopup=menu]')].map(x => x.getAttribute('aria-label')).find(l => /^(Fit|\\d+%)$/.test(l || ''));
+	return JSON.stringify({ ok: true, blank: !img && !other, plot, otherContent: other, zoom,
 		toolbar: buttons().map(b => b.enabled ? b.label : b.label + ' (off)'),
 		filmstrip: t.length ? t.map((x, i) => ({ n: i + 1, selected: x.classList.contains('selected'), name: x.querySelector('img')?.alt || clean(x) || undefined })) : 'not shown' });
 })()"
@@ -134,5 +142,56 @@ case "$CMD" in
 		click_button "Save Plot" || exit 1
 		sleep 0.8
 		"$DIR/form.sh" "${SFLAG[@]}" read ;;
-	*) echo '{"ok":false,"error":"command: read, prev, next, select, clear or save"}'; exit 2 ;;
+	remove)
+		[[ "$ARG" =~ ^[0-9]+$ ]] || { echo '{"ok":false,"error":"give the thumbnail number, 1 = first"}'; exit 2; }
+		BEFORE=$(read_pane)
+		M=$(run_js "(() => {$COMMON
+			if (!pane) { return JSON.stringify({ ok: false, error: 'the Plots pane is not on screen' }); }
+			const t = thumbs();
+			if (!t.length) { return JSON.stringify({ ok: false, error: 'the filmstrip is not shown: widen the pane (panel.sh resize secondary 600) or set plots.historyPolicy to always' }); }
+			const x = t[$ARG - 1];
+			if (!x) { return JSON.stringify({ ok: false, error: 'only ' + t.length + ' thumbnails' }); }
+			const b = x.querySelector('.plot-close, button[title=\"Remove plot\"]');
+			if (!b) { return JSON.stringify({ ok: false, error: 'no Remove plot button on that thumbnail' }); }
+			x.setAttribute('data-dp-hover', '1');
+			b.setAttribute('data-dp-target', '1');
+			return JSON.stringify({ ok: true, name: x.querySelector('img')?.alt });
+		})()") || { echo "$M"; exit 1; }
+		ok "$M" || { echo "$M"; exit 1; }
+		pw hover '[data-dp-hover="1"]' >/dev/null 2>&1
+		pw click '[data-dp-target="1"]' >/dev/null 2>&1
+		run_js "(() => { document.querySelectorAll('[data-dp-hover]').forEach(e => e.removeAttribute('data-dp-hover')); return '{}'; })()" >/dev/null
+		log_action "plots.sh" "remove plot thumbnail $ARG ($(echo "$M" | jq -r '.name'))"
+		sleep 0.6
+		AFTER=$(read_pane)
+		echo "$AFTER" | jq -c --argjson b "$BEFORE" '{ok: ((.filmstrip | length) < ($b.filmstrip | length))} + (if (.filmstrip | length) < ($b.filmstrip | length) then {} else {error: "the filmstrip did not shrink: the click did not land"} end) + del(.ok)'
+		[[ "$(echo "$AFTER" | jq '.filmstrip | length')" -lt "$(echo "$BEFORE" | jq '.filmstrip | length')" ]] ;;
+	zoom|open)
+		[[ -n "$ARG" ]] || { echo '{"ok":false,"error":"give the menu item"}'; exit 2; }
+		M=$(run_js "(() => {$COMMON
+			if (!pane) { return JSON.stringify({ ok: false, error: 'the Plots pane is not on screen' }); }
+			const menus = [...pane.querySelectorAll('.action-bars button[aria-haspopup=menu]')];
+			const b = '$CMD' === 'zoom' ? menus.find(x => /^(Fit|\\d+%)$/.test(x.getAttribute('aria-label') || ''))
+				: menus.find(x => x.getAttribute('aria-label') === 'Select where to open plot');
+			if (!b) { return JSON.stringify({ ok: false, error: 'no ' + ('$CMD' === 'zoom' ? 'zoom' : 'open') + ' menu in the toolbar; the pane may be too narrow', menus: menus.map(x => x.getAttribute('aria-label')) }); }
+			b.setAttribute('data-dp-target', '1');
+			return JSON.stringify({ ok: true, before: b.getAttribute('aria-label') });
+		})()") || { echo "$M"; exit 1; }
+		ok "$M" || { echo "$M"; exit 1; }
+		pw click '[data-dp-target="1"]' >/dev/null 2>&1
+		run_js "(() => { document.querySelectorAll('[data-dp-target]').forEach(e => e.removeAttribute('data-dp-target')); return '{}'; })()" >/dev/null
+		sleep 0.4
+		# The menu's rows are matched by their whole text, or for open, by words in it.
+		WANT="$ARG"
+		if [[ "$CMD" == open ]]; then
+			WANT=$(run_js "(() => { const w = $(jq -Rn --arg v "$ARG" '$v').toLowerCase(); const rows = [...document.querySelectorAll('.action-menu-item, .custom-context-menu-item, [role=menuitem]')].filter(e => e.offsetParent !== null).map(e => e.textContent.trim()); const l = r => r.toLowerCase(); const hits = [rows.filter(r => l(r) === w), rows.filter(r => l(r).endsWith(w)), rows.filter(r => l(r).includes(w))].find(h => h.length === 1) || []; return JSON.stringify({ ok: hits.length === 1, item: hits[0] || '', rows }); })()" | jq -r 'if .ok then .item else "" end')
+			[[ -n "$WANT" ]] || { pw press Escape >/dev/null 2>&1; echo "{\"ok\":false,\"error\":\"no single open-menu row holds $ARG\"}"; exit 1; }
+		fi
+		I=$(run_js "$(node "$DIR/tree-page.ts" menu-mark "$WANT")") || { pw press Escape >/dev/null 2>&1; echo "$I"; exit 1; }
+		ok "$I" || { pw press Escape >/dev/null 2>&1; echo "$I"; exit 1; }
+		pw click '[data-dp-target="1"]' >/dev/null 2>&1
+		log_action "plots.sh" "$CMD: $WANT"
+		sleep 0.6
+		read_pane | jq -c --arg c "$CMD" --arg w "$WANT" --argjson m "$M" '. + {chose: $w, menuBefore: $m.before}' ;;
+	*) echo '{"ok":false,"error":"command: read, prev, next, select, remove, zoom, open, clear or save"}'; exit 2 ;;
 esac
