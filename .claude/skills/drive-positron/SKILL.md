@@ -262,6 +262,50 @@ Do not use `type` or `fill` for notebook cell editors or chat inputs backed by M
 
 Use individual `press` operations when testing actual keyboard handling.
 
+### Log every action
+
+Set `DRIVE_POSITRON_LOG` to a file and every script below appends one line per
+action to it, as `<UTC time> <script> -s=<session>: <what>`, so a run's action
+log needs no wrapper scripts:
+
+```bash
+export DRIVE_POSITRON_LOG="$RUN/actions.log"
+```
+
+Log what the scripts cannot see yourself: a raw `playwright-cli` click or key,
+a shell command run outside the app (`lsof`, `sed` on a workspace file), a wait.
+
+### Run a Command Palette command
+
+Typing a title into the palette and pressing Enter runs whatever is
+highlighted, and when the command is unavailable, as Notebook: Run All Cells
+is while a cell runs, the highlight falls on a "similar commands" entry, which
+can delete every cell. Run palette commands with `palette-run.sh`, which runs
+only the row whose label is exactly the title, and otherwise runs nothing and
+prints what was shown:
+
+```bash
+.claude/skills/drive-positron/scripts/palette-run.sh --session positron 'Console: Focus on Console View'
+.claude/skills/drive-positron/scripts/palette-run.sh --session positron --dry-run 'Notebook: Run All Cells'
+```
+
+The title includes its category, as the palette shows it. It takes focus out
+of a webview first, where keyboard shortcuts never reach the workbench. A
+command that is "not listed" is a fact about the app's state: record it.
+
+### Start a session
+
+```bash
+.claude/skills/drive-positron/scripts/start-session.sh --session positron --language r
+.claude/skills/drive-positron/scripts/start-session.sh --session positron --language python --name uv
+```
+
+It runs Interpreter: Start New Console Session, picks the interpreter whose
+row names the language (and `--name`, when several match), and waits until the
+new console is ready. It prints the new session's ID. The console's Quick
+Launch control is a menu, not a quick pick, and its references change between
+snapshots, so do not drive it by hand.
+
 ### Run code in a console
 
 With more than one session open, the active console is whichever was used
@@ -278,14 +322,35 @@ printf 'def f(x):\n    return x + 1\n' | .claude/skills/drive-positron/scripts/c
 It prints one JSON line: the session it used, whether it switched consoles,
 whether the session was busy, and whether the code was echoed. It exits 1 when
 the code did not land in that console. The code is pasted as written, so `\n`
-inside a string stays a backslash and an `n`. It does not start a session; start
-one first. The way that works first time: from the top bar, Quick Launch
-Session... > Start Another..., then pick the interpreter, such as R 4.5.1, and
-wait for its console prompt before running code in it. A fresh window has
-usually started one Python session already, so check the console tabs before
-starting another. With two sessions of one language, pass `--name` with part of the
-session's name as its console tab shows it. `--no-enter` pastes without running,
-for checking completions or an unfinished line.
+inside a string stays a backslash and an `n`. It does not start a session; use
+`start-session.sh`. A fresh window has usually started one Python session
+already, so check the console tabs before starting another. With two sessions
+of one language, pass `--name` with part of the session's name as its console
+tab shows it. `--no-enter` pastes without running, for checking completions or
+an unfinished line. `--capture` waits for the code to finish and returns what
+it printed as `output`, so there is no need to write results to a file and read
+them back. When the Console view is behind another panel tab, it brings it
+forward first.
+
+To read a console without running anything, including one Run App started
+(named after the app, such as "Shiny"):
+
+```bash
+.claude/skills/drive-positron/scripts/console-read.sh --session positron --language r --tail 20
+.claude/skills/drive-positron/scripts/console-read.sh --session positron --name Shiny
+```
+
+### Read and answer notifications
+
+A question often arrives as a toast ("The runtime is busy. Do you want to
+interrupt it and restart?") that a screenshot misses and the next click hides.
+After an action that might ask something, list the toasts before deciding it
+did nothing, and answer one by its button:
+
+```bash
+.claude/skills/drive-positron/scripts/notifications.sh --session positron
+.claude/skills/drive-positron/scripts/notifications.sh --session positron --click No --match 'runtime is busy'
+```
 
 ### Run a command in a terminal
 
@@ -302,9 +367,30 @@ Enter, and checks that focus stayed there:
 Open the terminal first (Terminal: Create New Terminal, or Terminal: Create New
 Terminal in Editor Area). Only visible terminals count. With more than one
 visible, pass `--index`, numbered left to right then top to bottom. It prints
-one JSON line and exits 1 when the command did not go to the terminal. It
-cannot read the output, which the terminal draws on a canvas: take a
-screenshot, or have the command write a file and read that.
+one JSON line and exits 1 when the command did not go to the terminal. Send a
+key, such as Ctrl+C to stop a server, with `--key Control+c`. It cannot read the
+output, which the terminal draws on a canvas: take a screenshot, or have the
+command write a file and read that.
+
+### Keep a run's servers and packages to itself
+
+Several runs often share the machine. Install Python packages only into a venv
+of the run's own, a copy of the development venv made in seconds, linked as the
+workspace `.venv`; never into `extensions/positron-python/.venv`, which other
+runs use at the same time:
+
+```bash
+.claude/skills/drive-positron/scripts/run-venv.sh "$RUN/tmp/venv"
+ln -s "$RUN/tmp/venv" "$WORKSPACE/.venv"
+```
+
+Save the listening ports before launching and compare after cleanup; a new one
+is a server left running, and its PID and command say whose:
+
+```bash
+.claude/skills/drive-positron/scripts/listeners.sh --save "$RUN/tmp/listeners-before.txt"
+.claude/skills/drive-positron/scripts/listeners.sh --diff "$RUN/tmp/listeners-before.txt"
+```
 
 ### Read a whole quick pick
 
@@ -336,7 +422,12 @@ widgets left behind by closed pickers, and how separators are rendered.
   ```
 
 - Allow interpreter discovery and marketplace extension installation to finish before concluding that a kernel is unavailable.
-- Set `positron.notebook.enabled` to `true` in the workspace or seed profile when testing the Positron notebook editor.
+- `positron.notebook.enabled` defaults to `true`, so an `.ipynb` opens in the Positron notebook editor; its toolbar reads "Positron Notebook". Set it to `false` only to test the legacy editor. Reopen Editor With sticks to the file, so a later open of the same file uses the editor chosen last.
+- Notebook: Run All Cells is hidden from the palette and toolbar while a cell runs; the toolbar shows Stop Execution in its place.
+- Notebook cells are `[role=article]`, not `<article>` elements.
+- Keyboard shortcuts do nothing while focus is inside a webview (the Viewer, an HTML output, a Shiny app). `palette-run.sh` moves focus out first; for a raw key press, click the editor or a pane first.
+- The Viewer's content is in nested iframes that snapshots reach (refs like `f4e3`), but their refs change after every reload or app restart; take a fresh snapshot each time. A frame that failed to load shows only as `iframe`, the same as one still loading.
+- A terminal created while hidden, or a window resized through CDP, can draw its text at the wrong size. Before reporting a display problem in a terminal, compare a terminal opened by hand at the same window size.
 - Modal message boxes are clickable because the launcher forces `window.dialogStyle: "custom"`. Without it Electron draws a native dialog that CDP can neither see nor dismiss, and the blocked renderer looks like a hung app. Judge such a dialog's wording from this path but not its appearance; a real user sees the native one.
 - Two things are called a modal. `.positron-modal-dialog-box`, which the `Modals` page object matches, is Positron's own React modal such as the New Folder flow. A `showInformationMessage(..., { modal: true })` raised from inside it is the upstream `.monaco-dialog-box`, which that page object will not find.
 - Expect selectors to change. Prefer the maintained page objects under `test/e2e/pages/` when locating Positron controls; otherwise take a fresh snapshot.

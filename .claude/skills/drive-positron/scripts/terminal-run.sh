@@ -18,6 +18,8 @@
 #   --index N        which visible terminal, numbered left to right then top to
 #                    bottom; needed only when more than one is visible
 #   --no-enter       paste the command but do not run it
+#   --key KEY        send a key instead of a command, such as Control+c to stop
+#                    a server, or Control+d; KEY is a Playwright key name
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"index":1,"visible":1,"entered":true}
@@ -26,6 +28,7 @@
 # Required tools on PATH: node, jq.
 
 set -u
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 PW_CLI=("$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)/node_modules/.bin/playwright-cli")
 if [[ ! -x "${PW_CLI[0]}" ]]; then
@@ -34,6 +37,7 @@ fi
 
 INDEX=""
 ENTER=1
+KEY=""
 TEXT_ARG=""
 PW_SESSION_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
@@ -42,6 +46,7 @@ while [[ $# -gt 0 ]]; do
 		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; shift ;;
 		--index) INDEX="$2"; shift 2 ;;
 		--no-enter) ENTER=0; shift ;;
+		--key) KEY="$2"; shift 2 ;;
 		-h|--help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		--) shift; TEXT_ARG="${*-}"; break ;;
 		-*) echo "terminal-run.sh: unknown flag $1" >&2; exit 2 ;;
@@ -59,6 +64,18 @@ done
 SESSION="${PW_SESSION_OVERRIDE:-${PW_SESSION:-}}"
 PW_ARGS=()
 [[ -n "$SESSION" ]] && PW_ARGS=("-s=$SESSION")
+PW_SESSION_NAME="$SESSION"
+
+if [[ -n "$KEY" ]]; then
+	FOCUSED=$(run_js "$(node "$(dirname "${BASH_SOURCE[0]}")/terminal-run-page.ts" focus "$INDEX" "")") || { echo "$FOCUSED"; exit 1; }
+	if [[ "$(echo "$FOCUSED" | jq -r '.ok')" != "true" ]]; then echo "$FOCUSED"; exit 1; fi
+	"${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} press "$KEY" >/dev/null 2>&1
+	CHECKED=$(run_js "$(node "$(dirname "${BASH_SOURCE[0]}")/terminal-run-page.ts" check "$INDEX" "")") || { echo "$CHECKED"; exit 1; }
+	if [[ "$(echo "$CHECKED" | jq -r '.ok')" != "true" ]]; then echo "$CHECKED" | jq -c '. + {sent: null}'; exit 1; fi
+	log_action "terminal-run.sh" "key $KEY in terminal $(echo "$FOCUSED" | jq -r '.index')"
+	echo "$FOCUSED" | jq -c --arg k "$KEY" '. + {sent: $k}'
+	exit 0
+fi
 
 if [[ -n "${TEXT_ARG:-}" ]]; then
 	TEXT="$TEXT_ARG"
@@ -116,5 +133,6 @@ if [[ "$(echo "$CHECKED" | jq -r '.ok')" != "true" ]]; then
 	echo "$PASTED" | jq -c --argjson c "$CHECKED" '. + {ok: false, entered: null, error: $c.error}'
 	exit 1
 fi
+log_action "terminal-run.sh" "terminal $(echo "$PASTED" | jq -r '.index'): $(printf '%s' "$TEXT" | head -n1 | cut -c1-200)"
 echo "$PASTED" | jq -c '. + {entered: true}'
 exit 0

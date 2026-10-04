@@ -21,6 +21,8 @@
 #                    needed only when several sessions share the language
 #   --no-enter       paste the code but do not run it
 #   --timeout SECS   how long to wait for the code to echo (default 10)
+#   --capture        also wait for the code to finish (up to --capture-timeout,
+#                    default 60 s) and return what it printed, as "output"
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"session":"R 4.5.1","sessionId":"r-cf28f473","switched":true,"busy":false,"echoed":true}
@@ -29,6 +31,7 @@
 # Required tools on PATH: node, jq.
 
 set -u
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 PW_CLI=("$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)/node_modules/.bin/playwright-cli")
 if [[ ! -x "${PW_CLI[0]}" ]]; then
@@ -39,6 +42,8 @@ LANGUAGE=""
 NAME=""
 ENTER=1
 TIMEOUT=10
+CAPTURE=0
+CAPTURE_TIMEOUT=60
 TEXT_ARG=""
 PW_SESSION_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
@@ -49,7 +54,9 @@ while [[ $# -gt 0 ]]; do
 		--name) NAME="$2"; shift 2 ;;
 		--no-enter) ENTER=0; shift ;;
 		--timeout) TIMEOUT="$2"; shift 2 ;;
-		-h|--help) sed -n '2,32p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+		--capture) CAPTURE=1; shift ;;
+		--capture-timeout) CAPTURE_TIMEOUT="$2"; shift 2 ;;
+		-h|--help) sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
 		--) shift; TEXT_ARG="${*-}"; break ;;
 		-*) echo "console-run.sh: unknown flag $1" >&2; exit 2 ;;
 		*) TEXT_ARG="$1"; shift ;;
@@ -70,6 +77,7 @@ done
 SESSION="${PW_SESSION_OVERRIDE:-${PW_SESSION:-}}"
 PW_ARGS=()
 [[ -n "$SESSION" ]] && PW_ARGS=("-s=$SESSION")
+PW_SESSION_NAME="$SESSION"
 
 if [[ -n "${TEXT_ARG:-}" ]]; then
 	TEXT="$TEXT_ARG"
@@ -114,6 +122,7 @@ page_js() {
 	node "$(dirname "${BASH_SOURCE[0]}")/console-run-page.ts" "$1" "$LANGUAGE" "$NAME" "$TEXT"
 }
 
+ensure_console_view
 SELECTED=$(run_js "$(page_js select)") || { echo "$SELECTED"; exit 1; }
 if [[ "$(echo "$SELECTED" | jq -r '.ok')" != "true" ]]; then
 	echo "$SELECTED"
@@ -133,6 +142,7 @@ if [[ "$(echo "$PASTED" | jq -r '.ok')" != "true" ]]; then
 fi
 
 if [[ "$ENTER" == "0" ]]; then
+	log_action "console-run.sh" "$LANGUAGE (pasted, not run): $(printf '%s' "$TEXT" | head -n1 | cut -c1-200)"
 	echo "$SELECTED" | jq -c '. + {echoed: null} | del(.before)'
 	exit 0
 fi
@@ -157,6 +167,28 @@ while (( $(date +%s) <= DEADLINE )); do
 done
 
 if [[ "$ECHOED" == "true" ]]; then
+	log_action "console-run.sh" "$LANGUAGE: $(printf '%s' "$TEXT" | head -n1 | cut -c1-200)"
+	if [[ "$CAPTURE" == "1" ]]; then
+		# Done when the session has gone busy and come back, or never went busy
+		# within 1.5 s (a quick command); then read what followed the code.
+		END=$(( $(date +%s) + CAPTURE_TIMEOUT ))
+		START=$(date +%s)
+		SEEN_BUSY=0
+		while (( $(date +%s) <= END )); do
+			BUSY=$(run_js "(() => JSON.stringify({ busy: !!document.querySelector('.codicon-positron-interrupt-runtime') }))()") || break
+			if [[ "$(echo "$BUSY" | jq -r '.busy')" == "true" ]]; then
+				SEEN_BUSY=1
+			elif (( SEEN_BUSY == 1 || $(date +%s) - START >= 2 )); then
+				break
+			fi
+			sleep 0.3
+		done
+		sleep 0.3
+		LAST=$(printf '%s' "$TEXT" | awk 'NF { line = $0 } END { gsub(/^[ \t]+|[ \t]+$/, "", line); print line }')
+		OUTPUT=$("$(dirname "${BASH_SOURCE[0]}")/console-read.sh" ${SESSION:+--session "$SESSION"} --language "$LANGUAGE" ${NAME:+--name "$NAME"} --after "$LAST" --tail 0 2>/dev/null)
+		echo "$SELECTED" | jq -c --arg out "$OUTPUT" '. + {echoed: true, output: $out} | del(.before)'
+		exit 0
+	fi
 	echo "$SELECTED" | jq -c '. + {echoed: true} | del(.before)'
 	exit 0
 fi
