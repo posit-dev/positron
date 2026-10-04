@@ -307,12 +307,16 @@ Steps:
   Steps never start with "With X open, ..."; open it as step 1.
 - Steps are a replay of `actions.log`, not a tidier story. Each one does what
   the log shows, the way it was done: a session switched by running code is
-  "Run `pass` in the Python console", not "Click the Python tab". Every command
-  that changed state the later steps rely on is a step, or the scenario's
-  precondition names the scenario that ran it. A retry or an extra run is a
-  step, or the scenario is run again from step 1; never explain away a value
-  with an action no step took. Screenshots keep the names they were taken
-  with: renumber a scenario before taking its shots, not after.
+  "Run `pass` in the Python console", not "Click the Python tab". Every action
+  that changed state a later step or screenshot depends on is a step, or the
+  scenario's precondition names the scenario that did it: a command, a click
+  that expanded or toggled something, a second run of the same code. Never
+  explain away a value with an action no step took. Leave out what changed
+  nothing, such as a click repeated because the first did not register, a
+  snapshot, or an Escape that closed nothing; a note in the log is enough.
+  Screenshots keep the names they were taken with, and lint checks each cited
+  one against `actions.log`: renumber a scenario before taking its shots, or
+  log the rename.
 - Everything the run tried is in the ledger. A check you made with no
   scenario, such as filter text tried in passing, becomes a scenario if you
   can name what you saw, or a Noticed line if you cannot.

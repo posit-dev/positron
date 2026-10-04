@@ -362,7 +362,7 @@ function clarityProblems(n, title, observed, expected) {
  * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
  * @returns {string[]} one line per problem; empty when the report is clean
  */
-export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues } = {}) {
+export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues, actionsLog } = {}) {
 	const problems = [];
 	const lines = prose(markdown);
 	const text = String(markdown ?? '');
@@ -546,6 +546,26 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (knownIssues?.issues?.length) {
 			problems.push(...lintKnownIssues(ledger, knownIssues));
 		}
+		if (actionsLog !== undefined) {
+			problems.push(...lintShotNames(ledger, actionsLog));
+		}
 	}
 	return problems;
+}
+
+/**
+ * Every screenshot the ledger cites must appear in actions.log under that name,
+ * so a reader can find when it was taken. A shot renamed after the fact is
+ * missing from the log, and the log no longer says what it shows.
+ */
+export function lintShotNames(ledger, actionsLog) {
+	const cited = new Set();
+	for (const { line } of prose(ledger)) {
+		const evidence = /^\s+Evidence:(.*)$/i.exec(line);
+		if (evidence) { evidenceFiles(evidence[1]).filter(f => /\.png$/i.test(f)).forEach(f => cited.add(f)); }
+	}
+	const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return [...cited]
+		.filter(f => !new RegExp(`(^|[^\\w-])${escape(f.replace(/\.png$/i, ''))}(\\.png)?(?![\\w-])`, 'm').test(actionsLog))
+		.map(f => `ledger: ${f} is cited as Evidence but actions.log never takes a shot by that name; keep the name a shot was taken with, or log the rename`);
 }

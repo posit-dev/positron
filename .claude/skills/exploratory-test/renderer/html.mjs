@@ -1834,6 +1834,7 @@ export function readRunDir(dir) {
 	const fileExists = path => existsSync(join(dir, path));
 	return {
 		ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
+		actionsLog: existsSync(join(dir, 'actions.log')) ? readFileSync(join(dir, 'actions.log'), 'utf8') : undefined,
 		knownIssues: readKnownIssues(dir) ?? undefined,
 		issueRefs: readIssueRefs(dir),
 		fileExists,

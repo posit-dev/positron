@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { lintReport } from './lint.mjs';
+import { lintReport, lintShotNames } from './lint.mjs';
 
 const REPORT = `# Exploratory test: x
 
@@ -112,6 +112,13 @@ test('flags a missing summary label and a question-shaped Result', () => {
 test('flags table values outside the allowed words', () => {
 	const problems = lint(REPORT.replace('| moderate | 2/2 |', '| High | often |'));
 	assert.equal(problems.filter(p => /finding 1 (Severity|Reproduction)/.test(p)).length, 2);
+});
+
+test('flags a cited screenshot that actions.log never took by that name', () => {
+	const ledger = '## S01 - x\nStatus: pass\n\nSteps:\n1. VERIFY a -> PASS\n   Evidence: S01-02.png, S01-02b.png\n2. VERIFY b -> PASS\n   Evidence: shots/S01-04.png\n';
+	const log = '20:00:01 screenshot S01-02\n20:00:02 playwright screenshot --filename=/r/shots/S01-02b.png\n20:00:03 screenshot S01-03.png\n';
+	assert.deepEqual(lintShotNames(ledger, log), ['ledger: S01-04.png is cited as Evidence but actions.log never takes a shot by that name; keep the name a shot was taken with, or log the rename']);
+	assert.deepEqual(lintShotNames(ledger, log + '20:00:04 renamed S01-03.png to S01-04.png\n'), []);
 });
 
 test('flags a moderate or major finding tried only once', () => {
