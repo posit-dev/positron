@@ -116,8 +116,11 @@ export class ZedObjectExplorer {
 			case 'search':
 				return this.search(String(params.query), params.max_depth, params.max_results);
 
-			case 'format_value':
-				return { content: this.resolve(params.path).display_value };
+			case 'format_value': {
+				const content = this.resolve(params.path).display_value;
+				const maxLength = params.max_length ?? content.length;
+				return { content: content.substring(0, maxLength), is_truncated: content.length > maxLength };
+			}
 
 			case 'open_object_explorer':
 				return this.openObjectExplorer();

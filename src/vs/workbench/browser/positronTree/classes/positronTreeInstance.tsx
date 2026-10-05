@@ -196,6 +196,9 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	// Pending roots fetch. Same idea for getRoots / refresh.
 	private _pendingRootsFetch: Promise<void> | undefined;
 
+	// Row heights that differ from the default, keyed by node id.
+	private readonly _nodeHeights = new Map<string, number>();
+
 	// The current flat projection. Rebuilt whenever structural state changes.
 	private _visibleNodes: readonly VisibleNode<T>[] = [];
 
@@ -625,6 +628,25 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		this.fireOnDidUpdateEvent();
 	}
 
+	/**
+	 * Sets the height of a node's row, or restores the default height.
+	 * @param id The node id.
+	 * @param height The height in pixels, or undefined for the default height.
+	 */
+	setNodeHeight(id: string, height: number | undefined): void {
+		if (this._nodeHeights.get(id) === height) {
+			return;
+		}
+
+		if (height === undefined) {
+			this._nodeHeights.delete(id);
+		} else {
+			this._nodeHeights.set(id, height);
+		}
+		this._applyNodeHeights();
+		this.fireOnDidUpdateEvent();
+	}
+
 	setRenderNode(renderNode: PositronTreeRenderNode<T>): void {
 		this._renderNode = renderNode;
 		this.fireOnDidUpdateEvent();
@@ -890,6 +912,22 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		return fetchPromise;
 	}
 
+	/**
+	 * Applies the node heights to the rows of the projection.
+	 */
+	private _applyNodeHeights(): void {
+		this._rowLayoutManager.clearSizeOverrides();
+		if (this._nodeHeights.size === 0) {
+			return;
+		}
+		this._visibleNodes.forEach((visible, index) => {
+			const height = this._nodeHeights.get(visible.node.id);
+			if (height !== undefined) {
+				this._rowLayoutManager.setSizeOverride(index, height);
+			}
+		});
+	}
+
 	private _rebuildProjection(): void {
 		this._visibleNodes = buildVisibleNodes<T>({
 			roots: this._roots,
@@ -901,8 +939,8 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 			recentlyRefreshed: this._recentlyRefreshed,
 		});
 
-		// All rows are the same height; the row layout manager just needs the count.
 		this._rowLayoutManager.setEntries(this._visibleNodes.length);
+		this._applyNodeHeights();
 
 		// If the cursor landed past the last visible row (e.g. after a collapse), pull it back.
 		if (this._visibleNodes.length === 0) {
@@ -944,8 +982,15 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 
 	override stickyRows(): readonly RowDescriptor[] {
 		return this._stickyScroll ?
-			computeStickyRows(this._visibleNodes, this.verticalScrollOffset, this.defaultRowHeight, MAX_STICKY_ROWS) :
+			computeStickyRows(this._visibleNodes, index => this.rowTop(index), this.verticalScrollOffset, this.defaultRowHeight, MAX_STICKY_ROWS) :
 			[];
+	}
+
+	/**
+	 * Gets the top of the row at an index; past the last row, the bottom of the rows.
+	 */
+	rowTop(index: number): number {
+		return this._rowLayoutManager.getLayoutEntry(index)?.start ?? this._rowLayoutManager.unpinnedLayoutEntriesSize;
 	}
 
 	/**

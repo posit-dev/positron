@@ -128,7 +128,21 @@ def test_format_value(oe_service: ObjectExplorerService):
 
     result = _request(oe_service, comm_id, "format_value", path=[encode_access_key("long")])
 
-    assert result["content"] == repr(value["long"])
+    assert result == {"content": repr(value["long"]), "is_truncated": False}
+
+
+def test_format_value_max_length(oe_service: ObjectExplorerService):
+    comm_id = _open(oe_service, {"s": "one\ntwo", "n": 12345})
+
+    def format_value(key: str, max_length: int) -> dict:
+        path = [encode_access_key(key)]
+        return _request(oe_service, comm_id, "format_value", path=path, max_length=max_length)
+
+    assert [format_value("s", 100), format_value("s", 3), format_value("n", 3)] == [
+        {"content": "one\ntwo", "is_truncated": False},
+        {"content": "one", "is_truncated": True},
+        {"content": "123", "is_truncated": True},
+    ]
 
 
 def test_open_object_explorer_opens_another(oe_service: ObjectExplorerService):

@@ -6,7 +6,7 @@
 /// <reference types="vitest/globals" />
 
 // Testing libraries.
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -18,6 +18,7 @@ import { stubGridLayoutWithSize } from '../../../../../test/vitest/stubGridLayou
 import { IClipboardService } from '../../../../../platform/clipboard/common/clipboardService.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { PositronTree } from '../../../positronTree/positronTree.js';
 import { ObjectExplorerClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeObjectExplorerClient.js';
 import { JsonObjectExplorerBackend } from '../../../../services/positronObjectExplorer/common/jsonObjectExplorerBackend.js';
@@ -56,6 +57,7 @@ describe('ObjectExplorerTreeInstance', () => {
 		const columnWidths = store.add(new ObjectExplorerColumnWidths());
 		const clipboardService = stubInterface<IClipboardService>({ writeText: vi.fn(async () => { }) });
 		const notificationService = stubInterface<INotificationService>({ error: vi.fn() });
+		const editorService = stubInterface<IEditorService>({ openEditor: vi.fn(async () => undefined) });
 		const search = query === undefined ? undefined :
 			{ query, root: await backend.getRoot(), result: await backend.search(query, maxDepth, 1000) };
 		const tree = store.add(new ObjectExplorerTreeInstance(
@@ -65,13 +67,14 @@ describe('ObjectExplorerTreeInstance', () => {
 			search,
 			clipboardService,
 			notificationService,
+			editorService,
 			ctx.get(IHoverService),
 			ctx.get(IConfigurationService)
 		));
 		await tree.setSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 		await waitFor(() => expect(tree.isExpanded(objectNodeId([]))).toBe(true));
 		await waitFor(() => expect(tree.isLoading(objectNodeId([]))).toBe(false));
-		return { tree, backend, clipboardService, notificationService };
+		return { tree, backend, clipboardService, notificationService, editorService };
 	}
 
 	const rowNames = (tree: ObjectExplorerTreeInstance) => tree.visibleNodes.map(visible =>
@@ -137,6 +140,42 @@ describe('ObjectExplorerTreeInstance', () => {
 		await tree.copyToClipboard();
 
 		expect(clipboardService.writeText).toHaveBeenCalledWith('{\n  "a": 1\n}');
+	});
+
+	it('expands the selected leaf to show its whole value, line breaks included', async () => {
+		const { tree } = await createTree({ a: 'one\ntwo', b: { c: 1 } });
+		rtl.render(<PositronTree instance={tree} />);
+		const expandedValues = () => screen.queryAllByTestId('object-explorer-row')
+			.filter(row => row.classList.contains('expanded'))
+			.map(row => within(row).getByTestId('object-explorer-value-text').textContent);
+
+		tree.setCursorRow(1);
+		tree.selectRow(1);
+		await waitFor(() => expect(expandedValues()).toEqual(['one\ntwo']));
+
+		// A parent's value summarizes its children, so it does not expand.
+		tree.setCursorRow(2);
+		tree.selectRow(2);
+		await waitFor(() => expect(expandedValues()).toEqual([]));
+		expect(tree.rowTop(2) - tree.rowTop(1)).toBe(24);
+	});
+
+	it('cuts a long expanded value and opens the full value in an editor', async () => {
+		const value = 'y'.repeat(2000);
+		const { tree, editorService } = await createTree({ a: value });
+		rtl.render(<PositronTree instance={tree} />);
+
+		tree.setCursorRow(1);
+		tree.selectRow(1);
+		await waitFor(() => {
+			const expanded = screen.getAllByTestId('object-explorer-row').find(row => row.classList.contains('expanded'))!;
+			expect(within(expanded).getByTestId('object-explorer-value-text')).toHaveTextContent(/^y{1024}\u2026$/);
+		});
+		screen.getByTestId('object-explorer-open-value').click();
+
+		await waitFor(() => expect(editorService.openEditor).toHaveBeenCalledWith(
+			{ resource: undefined, contents: value, options: { pinned: true } }
+		));
 	});
 
 	it('does not let nodes at the maximum depth expand', async () => {

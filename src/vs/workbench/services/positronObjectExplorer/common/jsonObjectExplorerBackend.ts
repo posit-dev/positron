@@ -5,7 +5,7 @@
 
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ChildrenResult, IObjectExplorerBackend, ObjectExplorerState, ObjectNode, ObjectNodeKind, SearchResult, SearchRow, SearchRowMatchKind } from './objectExplorerBackend.js';
+import { ChildrenResult, FormattedValue, IObjectExplorerBackend, ObjectExplorerState, ObjectNode, ObjectNodeKind, SearchResult, SearchRow, SearchRowMatchKind } from './objectExplorerBackend.js';
 
 /**
  * The most nodes a search visits before it stops early.
@@ -143,15 +143,14 @@ export class JsonObjectExplorerBackend extends Disposable implements IObjectExpl
 		return { rows, total_matches: matches, truncated };
 	}
 
-	async formatValue(path: string[]): Promise<string> {
+	async formatValue(path: string[], maxLength?: number): Promise<FormattedValue> {
 		const { value } = this.resolve(path);
-		if (typeof value === 'string') {
-			return value;
-		}
-		if (value !== null && typeof value === 'object') {
-			return JSON.stringify(value, undefined, 2);
-		}
-		return String(value);
+		const content = typeof value === 'string' ? value :
+			value !== null && typeof value === 'object' ? JSON.stringify(value, undefined, 2) :
+				String(value);
+		return maxLength !== undefined && content.length > maxLength ?
+			{ content: content.substring(0, maxLength), is_truncated: true } :
+			{ content, is_truncated: false };
 	}
 
 	/**

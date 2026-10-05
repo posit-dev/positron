@@ -22,8 +22,8 @@ function rows(...depths: number[]) {
 /**
  * Summarizes the band as rowIndex@top pairs.
  */
-function band(depths: number[], scrollTop: number, maxRows = 5) {
-	return computeStickyRows(rows(...depths), scrollTop, H, maxRows).map(row => `${row.rowIndex}@${row.top}`);
+function band(depths: number[], scrollTop: number, maxRows = 5, rowTop = (i: number) => i * H) {
+	return computeStickyRows(rows(...depths), rowTop, scrollTop, H, maxRows).map(row => `${row.rowIndex}@${row.top}`);
 }
 
 describe('computeStickyRows', () => {
@@ -53,6 +53,13 @@ describe('computeStickyRows', () => {
 
 	it('pushes the root out as the tree ends', () => {
 		expect(band(tree, 125)).toEqual(['0@-5']);
+	});
+
+	it('accounts for a taller row', () => {
+		// a1 (row 2) is 50 tall, so a's subtree ends at y = 110.
+		const rowTop = (i: number) => i * H + (i > 2 ? 40 : 0);
+		expect(band(tree, 85, 5, rowTop)).toEqual(['0@0', '1@10']);
+		expect(band(tree, 95, 5, rowTop)).toEqual(['0@0', '1@5']);
 	});
 
 	it('limits the band to the maximum number of rows', () => {

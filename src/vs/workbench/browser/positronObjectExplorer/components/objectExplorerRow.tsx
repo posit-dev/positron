@@ -7,11 +7,11 @@
 import './objectExplorerRow.css';
 
 // React.
-import { CSSProperties, MouseEvent, ReactNode } from 'react';
+import { CSSProperties, MouseEvent, ReactNode, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { ObjectNode, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
+import { FormattedValue, ObjectNode, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
 /**
@@ -72,18 +72,41 @@ interface ObjectExplorerRowProps {
 	readonly query?: string;
 	/** Which of the row's fields matched the search query. */
 	readonly match?: SearchRowMatchKind;
+	/** Whether the row shows its full value, up to a limit. */
+	readonly expanded: boolean;
+	/** The value an expanded row shows, once it has been fetched. */
+	readonly expandedValue?: FormattedValue;
+	/** Called with the height of an expanded row's content after it renders. */
+	readonly onDidMeasure: (height: number) => void;
+	/** Opens the node's full value in an editor. */
+	readonly onOpenValue: () => void;
 }
 
 /**
  * ObjectExplorerRow component. The Name, Type, and Value cells of one node.
  */
-export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached, hoverManager, query, match }: ObjectExplorerRowProps) => {
+export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached, hoverManager, query, match, expanded, expandedValue, onDidMeasure, onOpenValue }: ObjectExplorerRowProps) => {
+	const valueCellRef = useRef<HTMLDivElement>(null);
+	const valueTextRef = useRef<HTMLDivElement>(null);
+	const [clamped, setClamped] = useState(false);
+
+	useLayoutEffect(() => {
+		if (expanded && valueCellRef.current && valueTextRef.current) {
+			setClamped(valueTextRef.current.scrollHeight > valueTextRef.current.clientHeight);
+			onDidMeasure(valueCellRef.current.offsetHeight);
+		}
+	}, [expanded, onDidMeasure]);
+
+	const openValueLabel = localize('positron.objectExplorer.openValueInEditor', "Open Value in Editor");
 	const nameMatched = match === SearchRowMatchKind.Name || match === SearchRowMatchKind.NameAndValue;
 	const valueMatched = match === SearchRowMatchKind.Value || match === SearchRowMatchKind.NameAndValue;
 
 	const value = node.is_cycle ?
 		localize('positron.objectExplorer.circularReference', "(circular reference)") :
 		node.display_value;
+	const shownValue = !expandedValue ? value :
+		expandedValue.is_truncated ? `${expandedValue.content}\u2026` : expandedValue.content;
+	const truncated = expandedValue ? expandedValue.is_truncated : node.is_truncated;
 
 	const onNameMouseOver = (e: MouseEvent<HTMLElement>) => {
 		if (maxDepthReached) {
@@ -97,7 +120,7 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 	};
 
 	return (
-		<div className='object-explorer-row' data-testid='object-explorer-row' style={rowStyle(nameWidth, typeWidth)}>
+		<div className={`object-explorer-row${expanded ? ' expanded' : ''}`} data-testid='object-explorer-row' style={rowStyle(nameWidth, typeWidth)}>
 			<div
 				className='object-explorer-cell name'
 				data-testid='object-explorer-name'
@@ -118,13 +141,35 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 				{node.display_type}
 			</div>
 			<div
+				ref={valueCellRef}
 				className={`object-explorer-cell value${node.is_cycle ? ' cycle' : ''}`}
 				data-testid='object-explorer-value'
 				role='presentation'
 				onMouseLeave={() => hoverManager.hideHover()}
-				onMouseOver={e => showTruncatedHover(hoverManager, e, value)}
 			>
-				{highlight(value, valueMatched ? query : undefined)}
+				<div
+					ref={valueTextRef}
+					className='value-text'
+					data-testid='object-explorer-value-text'
+					role='presentation'
+					onMouseOver={e => !expanded && showTruncatedHover(hoverManager, e, value)}
+				>
+					{highlight(shownValue, valueMatched ? query : undefined)}
+				</div>
+				{expanded && (truncated || clamped) &&
+					<button
+						aria-label={openValueLabel}
+						className='open-value codicon codicon-file-text'
+						data-testid='object-explorer-open-value'
+						type='button'
+						onClick={e => {
+							e.stopPropagation();
+							onOpenValue();
+						}}
+						onMouseDown={e => e.stopPropagation()}
+						onMouseOver={e => hoverManager.showHover(e.currentTarget, openValueLabel)}
+					/>
+				}
 			</div>
 		</div>
 	);

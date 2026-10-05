@@ -119,11 +119,15 @@ class SearchResult(BaseModel):
 
 class FormattedValue(BaseModel):
     """
-    A value formatted for the clipboard
+    A value formatted as plain text
     """
 
     content: StrictStr = Field(
         description="The formatted value",
+    )
+
+    is_truncated: StrictBool = Field(
+        description="Whether the content was cut at max_length",
     )
 
 
@@ -210,7 +214,7 @@ class ObjectExplorerBackendRequest(str, enum.Enum):
     # Search names and values
     Search = "search"
 
-    # Format a node's full value for the clipboard
+    # Format a node's value as plain text
     FormatValue = "format_value"
 
     # Open a full object explorer for an inline explorer
@@ -334,19 +338,26 @@ class SearchRequest(BaseModel):
 
 class FormatValueParams(BaseModel):
     """
-    Returns the complete (untruncated, within reason) plain-text
-    representation of the node at 'path'.
+    Returns the plain-text representation of the node at 'path', for the
+    clipboard or for reading in full. Strings are returned as their
+    contents, without quotes or escapes.
     """
 
     path: List[StrictStr] = Field(
         description="Access keys from the root to the node",
     )
 
+    max_length: Optional[StrictInt] = Field(
+        default=None,
+        description="The most characters to return. The whole value is returned when omitted.",
+    )
+
 
 class FormatValueRequest(BaseModel):
     """
-    Returns the complete (untruncated, within reason) plain-text
-    representation of the node at 'path'.
+    Returns the plain-text representation of the node at 'path', for the
+    clipboard or for reading in full. Strings are returned as their
+    contents, without quotes or escapes.
     """
 
     params: FormatValueParams = Field(

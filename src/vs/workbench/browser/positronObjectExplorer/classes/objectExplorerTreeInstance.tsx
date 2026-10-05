@@ -14,15 +14,16 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../positronTree/classes/treeNode.js';
 import { PositronTreeInstance } from '../../positronTree/classes/positronTreeInstance.js';
-import { MouseSelectionType } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { MouseSelectionType, RowSelectionState } from '../../positronDataGrid/classes/dataGridInstance.js';
 import { AnchorPoint } from '../../positronComponents/positronModalPopup/positronModalPopup.js';
 import { CustomContextMenuItem } from '../../positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../positronComponents/customContextMenu/customContextMenu.js';
-import { ObjectNode, SearchResult, SearchRow, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
+import { FormattedValue, ObjectNode, SearchResult, SearchRow, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { ObjectExplorerClientInstance } from '../../../services/languageRuntime/common/languageRuntimeObjectExplorerClient.js';
 import { ObjectExplorerMoreRow, ObjectExplorerRow } from '../components/objectExplorerRow.js';
 
@@ -35,6 +36,11 @@ export const OBJECT_EXPLORER_ROW_HEIGHT = 24;
  * The number of children fetched per page.
  */
 export const CHILDREN_PAGE_SIZE = 1000;
+
+/**
+ * The most characters of a value an expanded row shows.
+ */
+const MAX_EXPANDED_VALUE_LENGTH = 1024;
 
 /**
  * The per-level indent, in pixels.
@@ -131,6 +137,13 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	// in pre-order.
 	private readonly _searchChildren = new Map<string, TreeNode<ObjectNodeData>[]>();
 
+	// The expanded row, which shows its full value, and its height.
+	private _expandedRowId: string | undefined;
+	private _expandedRowHeight = OBJECT_EXPLORER_ROW_HEIGHT;
+
+	// The value of the selected leaf, and the node it is (being) fetched for.
+	private _expandedValue: { readonly node: ObjectNode; readonly value?: FormattedValue } | undefined;
+
 	/**
 	 * Constructor.
 	 * @param _client The object explorer client.
@@ -145,6 +158,7 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 		private readonly _search: ObjectExplorerSearchResults | undefined,
 		private readonly _clipboardService: IClipboardService,
 		private readonly _notificationService: INotificationService,
+		private readonly _editorService: IEditorService,
 		hoverService: IHoverService,
 		configurationService: IConfigurationService,
 	) {
@@ -164,6 +178,19 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 		this._hoverManager = this._register(new PositronActionBarHoverManager(true, configurationService, hoverService));
 
 		this._register(this._columnWidths.onDidChange(() => this.fireOnDidUpdateEvent()));
+
+		// Collapse the expanded row once it is no longer the selected cursor row, and fetch the
+		// value of a newly selected leaf. A reload replaces the node, so its value is fetched again.
+		this._register(this.onDidUpdate(() => {
+			const selected = this._selectedLeaf();
+			if (this._expandedRowId !== undefined && this._expandedRowId !== selected?.id) {
+				this.setNodeHeight(this._expandedRowId, undefined);
+				this._expandedRowId = undefined;
+			}
+			if (selected && this._expandedValue?.node !== selected.data.node) {
+				void this._fetchExpandedValue(selected.data.path, selected.data.node);
+			}
+		}));
 
 		if (this._search) {
 			groupSearchRows(this._search.result.rows, this._searchChildren);
@@ -196,12 +223,33 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 			return;
 		}
 		try {
-			const text = await this._client.formatValue([...data.path]);
-			await this._clipboardService.writeText(text);
+			const { content } = await this._client.formatValue([...data.path]);
+			await this._clipboardService.writeText(content);
 		} catch (err) {
 			this._notificationService.error(localize(
 				'positron.objectExplorer.copyValueFailed',
 				"Could not copy the value: {0}",
+				errorMessage(err)
+			));
+		}
+	}
+
+	/**
+	 * Opens the full value of the node at a row in an untitled editor.
+	 * @param rowIndex The row index.
+	 */
+	async openValue(rowIndex: number): Promise<void> {
+		const data = this.visibleNodes[rowIndex]?.node.data;
+		if (data?.type !== 'node') {
+			return;
+		}
+		try {
+			const { content } = await this._client.formatValue([...data.path]);
+			await this._editorService.openEditor({ resource: undefined, contents: content, options: { pinned: true } });
+		} catch (err) {
+			this._notificationService.error(localize(
+				'positron.objectExplorer.openValueFailed',
+				"Could not open the value: {0}",
 				errorMessage(err)
 			));
 		}
@@ -454,7 +502,7 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	private _rowAnchorPoint(anchorElement: HTMLElement, rowIndex: number): AnchorPoint {
 		const rect = anchorElement.getBoundingClientRect();
 		const visible = this.visibleNodes[rowIndex];
-		const rowTop = rowIndex * OBJECT_EXPLORER_ROW_HEIGHT - this.verticalScrollOffset;
+		const rowTop = this.rowTop(rowIndex) - this.verticalScrollOffset;
 		return {
 			clientX: rect.left + (visible?.indentLevel ?? 0) * this.indentWidth + TWISTY_WIDTH + 8,
 			clientY: rect.top + rowTop + OBJECT_EXPLORER_ROW_HEIGHT
@@ -462,9 +510,57 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	}
 
 	/**
+	 * Gets the cursor row's node if it is a selected leaf, which is the row that expands.
+	 */
+	private _selectedLeaf(): { readonly id: string; readonly data: Extract<ObjectNodeData, { type: 'node' }> } | undefined {
+		const visible = this.visibleNodes[this.cursorRowIndex];
+		const data = visible?.node.data;
+		return data?.type === 'node' && !data.node.has_children &&
+			this.rowSelectionState(this.cursorRowIndex) !== RowSelectionState.None ?
+			{ id: visible.node.id, data } :
+			undefined;
+	}
+
+	/**
+	 * Fetches the value an expanded row shows.
+	 */
+	private async _fetchExpandedValue(path: readonly string[], node: ObjectNode): Promise<void> {
+		this._expandedValue = { node };
+		try {
+			const value = await this._client.formatValue([...path], MAX_EXPANDED_VALUE_LENGTH);
+			if (this._expandedValue?.node === node) {
+				this._expandedValue = { node, value };
+				this.fireOnDidUpdateEvent();
+			}
+		} catch {
+			// The row keeps showing the display value.
+		}
+	}
+
+	/**
+	 * Sizes the expanded row to its content, and reveals it when it grows.
+	 */
+	private _setExpandedRowHeight(id: string, height: number): void {
+		height = Math.max(OBJECT_EXPLORER_ROW_HEIGHT, height);
+		if (id === this._expandedRowId && height === this._expandedRowHeight) {
+			return;
+		}
+		if (this._expandedRowId !== undefined && this._expandedRowId !== id) {
+			this.setNodeHeight(this._expandedRowId, undefined);
+		}
+		const grew = id !== this._expandedRowId || height > this._expandedRowHeight;
+		this._expandedRowId = id;
+		this._expandedRowHeight = height;
+		this.setNodeHeight(id, height > OBJECT_EXPLORER_ROW_HEIGHT ? height : undefined);
+		if (grew) {
+			void this.scrollToCursor();
+		}
+	}
+
+	/**
 	 * Renders a row's cells.
 	 */
-	private _renderRow(visible: VisibleNode<ObjectNodeData>, _context: TreeNodeContext): ReactNode {
+	private _renderRow(visible: VisibleNode<ObjectNodeData>, context: TreeNodeContext): ReactNode {
 		const nameWidth = Math.max(
 			MINIMUM_NAME_CELL_WIDTH,
 			this._columnWidths.name - visible.indentLevel * this.indentWidth - TWISTY_WIDTH
@@ -484,8 +580,12 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 			);
 		}
 
+		const id = visible.node.id;
+		const expanded = id === this._selectedLeaf()?.id;
 		return (
 			<ObjectExplorerRow
+				expanded={expanded}
+				expandedValue={expanded && this._expandedValue?.node === data.node ? this._expandedValue.value : undefined}
 				hoverManager={this._hoverManager}
 				match={data.match}
 				maxDepthReached={!this._search && isExpandable(data.node) && data.path.length >= this._maxDepth()}
@@ -493,6 +593,8 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 				node={data.node}
 				query={this._search?.query}
 				typeWidth={typeWidth}
+				onDidMeasure={height => this._setExpandedRowHeight(id, height)}
+				onOpenValue={() => this.openValue(context.index)}
 			/>
 		);
 	}

@@ -48,3 +48,10 @@
 	background-color: var(--vscode-editorStickyScroll-background);
 	box-shadow: var(--vscode-editorStickyScroll-shadow) 0 4px 2px -2px;
 }
+
+/*
+ * Each sticky row is opaque, so the last, as it slides under the others, is hidden behind them.
+ */
+.data-grid-sticky-rows .data-grid-row {
+	background-color: var(--vscode-editorStickyScroll-background);
+}

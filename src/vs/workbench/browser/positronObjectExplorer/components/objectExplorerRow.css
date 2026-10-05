@@ -52,3 +52,52 @@
 	outline-offset: -1px;
 	border-radius: 2px;
 }
+
+/*
+ * An expanded row shows its value wrapped, up to ten lines, with the Name and Type on its first line.
+ */
+.object-explorer-row.expanded {
+	align-items: start;
+}
+
+.object-explorer-row.expanded .object-explorer-cell.name,
+.object-explorer-row.expanded .object-explorer-cell.type {
+	line-height: 24px;
+}
+
+.object-explorer-row.expanded .object-explorer-cell.value {
+	position: relative;
+	padding: 3px 24px 3px 0;
+	line-height: 18px;
+}
+
+.object-explorer-row .value-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.object-explorer-row.expanded .value-text {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 10;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.object-explorer-row .open-value {
+	position: absolute;
+	right: 4px;
+	bottom: 3px;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	border: 0;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+}
+
+.object-explorer-row .open-value:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}

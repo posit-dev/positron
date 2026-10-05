@@ -80,18 +80,18 @@ describe('ObjectExplorerCommBackend', () => {
 		return { runtimeClient, backend };
 	};
 
-	it('sends RPCs with named parameters and unwraps formatted values', async () => {
+	it('sends RPCs with named parameters', async () => {
 		const { runtimeClient, backend } = createBackend();
 		const requests: unknown[] = [];
 		runtimeClient.rpcHandler = async request => {
 			requests.push(request);
-			return { data: { result: { content: 'full value' } }, buffers: [] };
+			return { data: { result: { content: 'full value', is_truncated: false } }, buffers: [] };
 		};
 
-		const text = await backend.formatValue(['a', 'b']);
+		const value = await backend.formatValue(['a', 'b'], 10);
 
-		expect(text).toBe('full value');
-		expect(requests).toMatchObject([{ method: 'format_value', params: { path: ['a', 'b'] } }]);
+		expect(value).toEqual({ content: 'full value', is_truncated: false });
+		expect(requests).toMatchObject([{ method: 'format_value', params: { path: ['a', 'b'], max_length: 10 } }]);
 		expect(backend.identifier).toBe('comm-id');
 	});
 

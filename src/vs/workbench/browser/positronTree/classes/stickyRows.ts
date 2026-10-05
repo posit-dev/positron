@@ -15,14 +15,16 @@ import { RowDescriptor } from '../../positronDataGrid/classes/dataGridInstance.j
  * last ancestor's subtree ends inside its slot, the ancestor is pushed up by the overlap, so it
  * slides out of the band as its last descendant scrolls away.
  *
- * @param rows The visible rows, in order. Every row has the same height.
+ * @param rows The visible rows, in order.
+ * @param rowTop Gets the top of the row at an index; at rows.length, the bottom of the last row.
  * @param scrollTop The vertical scroll offset.
- * @param rowHeight The height of a row.
+ * @param rowHeight The height of a row in the band.
  * @param maxRows The most rows in the band.
  * @returns The sticky rows, with tops relative to the band.
  */
 export function computeStickyRows(
 	rows: readonly Pick<VisibleNode<unknown>, 'depth' | 'expandState'>[],
+	rowTop: (index: number) => number,
 	scrollTop: number,
 	rowHeight: number,
 	maxRows: number
@@ -32,7 +34,7 @@ export function computeStickyRows(
 
 	for (let slot = 0; slot < maxRows; slot++) {
 		const slotTop = slot * rowHeight;
-		const probeIndex = Math.floor((scrollTop + slotTop) / rowHeight);
+		const probeIndex = rowAt(rows.length, rowTop, scrollTop + slotTop);
 		if (probeIndex >= rows.length) {
 			break;
 		}
@@ -42,8 +44,8 @@ export function computeStickyRows(
 			break;
 		}
 
-		const ancestorTop = ancestorIndex * rowHeight - scrollTop;
-		const bottom = subtreeEnd(rows, ancestorIndex) * rowHeight - scrollTop;
+		const ancestorTop = rowTop(ancestorIndex) - scrollTop;
+		const bottom = rowTop(subtreeEnd(rows, ancestorIndex)) - scrollTop;
 		if (ancestorTop >= slotTop || bottom <= slotTop) {
 			break;
 		}
@@ -59,6 +61,23 @@ export function computeStickyRows(
 	}
 
 	return stickyRows;
+}
+
+/**
+ * Finds the index of the row containing an offset, or the row count if the offset is past the rows.
+ */
+function rowAt(count: number, rowTop: (index: number) => number, offset: number): number {
+	let low = 0;
+	let high = count;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if (rowTop(middle + 1) <= offset) {
+			low = middle + 1;
+		} else {
+			high = middle;
+		}
+	}
+	return low;
 }
 
 /**

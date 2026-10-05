@@ -7,7 +7,7 @@ import { Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { ObjectExplorerBackendRequest, PositronObjectExplorerComm } from '../../languageRuntime/common/positronObjectExplorerComm.js';
-import { ChildrenResult, IObjectExplorerBackend, ObjectExplorerState, ObjectNode, SearchResult } from './objectExplorerBackend.js';
+import { ChildrenResult, FormattedValue, IObjectExplorerBackend, ObjectExplorerState, ObjectNode, SearchResult } from './objectExplorerBackend.js';
 
 /**
  * Timeout for RPCs that may walk a large part of the object.
@@ -58,8 +58,8 @@ export class ObjectExplorerCommBackend extends Disposable implements IObjectExpl
 		return this._comm.search(query, maxDepth, maxResults);
 	}
 
-	async formatValue(path: string[]): Promise<string> {
-		return (await this._comm.formatValue(path)).content;
+	formatValue(path: string[], maxLength?: number): Promise<FormattedValue> {
+		return this._comm.formatValue(path, maxLength);
 	}
 
 	openObjectExplorer(): Promise<string> {

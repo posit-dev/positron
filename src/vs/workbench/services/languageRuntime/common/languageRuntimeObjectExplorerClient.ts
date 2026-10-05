@@ -6,7 +6,7 @@
 import { localize } from '../../../../nls.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ChildrenResult, IObjectExplorerBackend, ObjectExplorerState, ObjectNode, SearchResult } from '../../positronObjectExplorer/common/objectExplorerBackend.js';
+import { ChildrenResult, FormattedValue, IObjectExplorerBackend, ObjectExplorerState, ObjectNode, SearchResult } from '../../positronObjectExplorer/common/objectExplorerBackend.js';
 
 /**
  * The status of an object explorer client.
@@ -114,8 +114,8 @@ export class ObjectExplorerClientInstance extends Disposable {
 		return this.runBackendTask(() => this._backend.search(query, maxDepth, maxResults));
 	}
 
-	formatValue(path: string[]): Promise<string> {
-		return this.runBackendTask(() => this._backend.formatValue(path));
+	formatValue(path: string[], maxLength?: number): Promise<FormattedValue> {
+		return this.runBackendTask(() => this._backend.formatValue(path, maxLength));
 	}
 
 	openObjectExplorer(): Promise<string> {

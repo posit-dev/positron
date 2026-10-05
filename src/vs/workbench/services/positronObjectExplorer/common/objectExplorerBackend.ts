@@ -5,9 +5,9 @@
 
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { ChildrenResult, ObjectExplorerState, ObjectNode, SearchResult } from '../../languageRuntime/common/positronObjectExplorerComm.js';
+import { ChildrenResult, FormattedValue, ObjectExplorerState, ObjectNode, SearchResult } from '../../languageRuntime/common/positronObjectExplorerComm.js';
 
-export type { ChildrenResult, ObjectExplorerState, ObjectNode, SearchResult, SearchRow } from '../../languageRuntime/common/positronObjectExplorerComm.js';
+export type { ChildrenResult, FormattedValue, ObjectExplorerState, ObjectNode, SearchResult, SearchRow } from '../../languageRuntime/common/positronObjectExplorerComm.js';
 export { ObjectNodeKind, SearchRowMatchKind } from '../../languageRuntime/common/positronObjectExplorerComm.js';
 
 /**
@@ -33,7 +33,7 @@ export interface IObjectExplorerBackend extends IDisposable {
 	getRoot(): Promise<ObjectNode>;
 	getChildren(path: string[], start: number, limit: number): Promise<ChildrenResult>;
 	search(query: string, maxDepth: number, maxResults: number): Promise<SearchResult>;
-	formatValue(path: string[]): Promise<string>;
+	formatValue(path: string[], maxLength?: number): Promise<FormattedValue>;
 
 	/**
 	 * Opens a full object explorer on the same object and returns its identifier. Only runtime

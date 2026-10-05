@@ -68,11 +68,18 @@ describe('JsonObjectExplorerBackend', () => {
 		await expect(createBackend({ a: [1] }).getChildren(['a', '5'], 0, 10)).rejects.toThrow();
 	});
 
-	it('formats full values for the clipboard', async () => {
+	it('formats values as plain text, up to a maximum length', async () => {
 		const backend = createBackend({ s: 'text', o: { a: 1 } });
 
-		expect(await backend.formatValue(['s'])).toBe('text');
-		expect(await backend.formatValue(['o'])).toBe('{\n  "a": 1\n}');
+		expect(await Promise.all([
+			backend.formatValue(['s']),
+			backend.formatValue(['o']),
+			backend.formatValue(['s'], 2),
+		])).toEqual([
+			{ content: 'text', is_truncated: false },
+			{ content: '{\n  "a": 1\n}', is_truncated: false },
+			{ content: 'te', is_truncated: true },
+		]);
 	});
 
 	it('fires onDidUpdate when the root is replaced', async () => {

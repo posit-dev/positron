@@ -179,7 +179,15 @@ class ObjectExplorerView:
 
     def format_value(self, params: FormatValueParams) -> FormattedValue:
         value, _, _ = self._resolve(params.path)
-        return FormattedValue(content=_format_value(value, ClipboardFormatFormat.TextPlain))
+        max_length = params.max_length
+        if isinstance(value, str):
+            # Slice before copying, in case the string is huge.
+            content = value if max_length is None else value[: max_length + 1]
+        else:
+            content = _format_value(value, ClipboardFormatFormat.TextPlain)
+        if max_length is not None and len(content) > max_length:
+            return FormattedValue(content=content[:max_length], is_truncated=True)
+        return FormattedValue(content=content, is_truncated=False)
 
     def _resolve(self, path: list[str]) -> tuple[Any, str | None, set[int]]:
         """

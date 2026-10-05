@@ -74,13 +74,18 @@ export interface SearchResult {
 }
 
 /**
- * A value formatted for the clipboard
+ * A value formatted as plain text
  */
 export interface FormattedValue {
 	/**
 	 * The formatted value
 	 */
 	content: string;
+
+	/**
+	 * Whether the content was cut at max_length
+	 */
+	is_truncated: boolean;
 
 }
 
@@ -245,6 +250,12 @@ export interface FormatValueParams {
 	 * Access keys from the root to the node
 	 */
 	path: Array<string>;
+
+	/**
+	 * The most characters to return. The whole value is returned when
+	 * omitted.
+	 */
+	max_length?: number;
 }
 
 /**
@@ -338,17 +349,20 @@ export class PositronObjectExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Format a node's full value for the clipboard
+	 * Format a node's value as plain text
 	 *
-	 * Returns the complete (untruncated, within reason) plain-text
-	 * representation of the node at 'path'.
+	 * Returns the plain-text representation of the node at 'path', for the
+	 * clipboard or for reading in full. Strings are returned as their
+	 * contents, without quotes or escapes.
 	 *
 	 * @param path Access keys from the root to the node
+	 * @param maxLength The most characters to return. The whole value is
+	 * returned when omitted.
 	 *
-	 * @returns A value formatted for the clipboard
+	 * @returns A value formatted as plain text
 	 */
-	formatValue(path: Array<string>): Promise<FormattedValue> {
-		return super.performRpc('format_value', ['path'], [path]);
+	formatValue(path: Array<string>, maxLength: number | undefined): Promise<FormattedValue> {
+		return super.performRpc('format_value', ['path', 'max_length'], [path, maxLength]);
 	}
 
 	/**

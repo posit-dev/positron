@@ -746,6 +746,20 @@ describe('PositronTreeInstance', () => {
 			focusedId: tree.focusedId, // cursor still on r0
 		}).toEqual({ rows: 4, focusedId: 'r0' });
 	});
+
+	it('keeps a node\'s row height as rows above it come and go', async () => {
+		const tree = await newTree(3, 2);
+		tree.setNodeHeight('r1', 100);
+		await tree.expand('r0');
+		const expanded = [tree.rowTop(3), tree.rowTop(4)];
+
+		tree.setNodeHeight('r1', undefined);
+
+		expect({ expanded, restored: tree.rowTop(4) }).toEqual({
+			expanded: [3 * ROW_HEIGHT, 3 * ROW_HEIGHT + 100],
+			restored: 4 * ROW_HEIGHT,
+		});
+	});
 });
 
 describe('PositronTree keyboard navigation', () => {

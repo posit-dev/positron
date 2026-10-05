@@ -228,6 +228,7 @@ export class PositronObjectExplorerInstance extends Disposable implements IPosit
 			search,
 			this._clipboardService,
 			this._notificationService,
+			this._editorService,
 			this._hoverService,
 			this._configurationService
 		);
