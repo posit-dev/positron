@@ -63,6 +63,7 @@ describe('ObjectExplorerTreeInstance', () => {
 		const notificationService = stubInterface<INotificationService>({ error: vi.fn() });
 		const editorService = stubInterface<IEditorService>({ openEditor: vi.fn(async () => undefined) });
 		const dataExplorerService = stubInterface<IPositronDataExplorerService>({ getInstance: vi.fn(() => undefined) });
+		const clearSearch = vi.fn();
 		const search = query === undefined ? undefined :
 			{ query, root: await backend.getRoot(), result: await backend.search(query, maxDepth, 1000) };
 		const tree = store.add(new ObjectExplorerTreeInstance(
@@ -70,6 +71,7 @@ describe('ObjectExplorerTreeInstance', () => {
 			columnWidths,
 			() => maxDepth,
 			search,
+			clearSearch,
 			undefined,
 			clipboardService,
 			notificationService,
@@ -81,7 +83,7 @@ describe('ObjectExplorerTreeInstance', () => {
 		await tree.setSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 		await waitFor(() => expect(tree.isExpanded(objectNodeId([]))).toBe(true));
 		await waitFor(() => expect(tree.isLoading(objectNodeId([]))).toBe(false));
-		return { tree, backend, clipboardService, notificationService, editorService, dataExplorerService };
+		return { tree, backend, clipboardService, notificationService, editorService, dataExplorerService, clearSearch };
 	}
 
 	const rowNames = (tree: ObjectExplorerTreeInstance) => tree.visibleNodes.map(visible =>
@@ -276,6 +278,17 @@ describe('ObjectExplorerTreeInstance', () => {
 		await waitFor(() => expect(rowNames(tree)).toEqual(['data', 'alpha', 'beta', '[0]', 'needles']));
 		const matches = await screen.findAllByTestId('object-explorer-match');
 		expect(matches.map(match => match.textContent)).toEqual(['needle', 'needle']);
+	});
+
+	it('follows search results with their count and a link that clears the search', async () => {
+		const user = userEvent.setup();
+		const { tree, clearSearch } = await createTree({ alpha: { beta: ['needle', 'hay'] }, needles: 1 }, 10, 'needle');
+		rtl.render(<PositronTree instance={tree} />);
+
+		const footer = await screen.findByTestId('object-explorer-search-footer');
+		expect(footer).toHaveTextContent(`2 matches for 'needle' (clear search)`);
+		await user.click(within(footer).getByRole('link', { name: '(clear search)' }));
+		expect(clearSearch).toHaveBeenCalledOnce();
 	});
 });
 

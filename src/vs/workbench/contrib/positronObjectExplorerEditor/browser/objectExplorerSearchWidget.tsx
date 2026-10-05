@@ -8,6 +8,7 @@ import { KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
+import { combinedDisposable } from '../../../../base/common/lifecycle.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -53,7 +54,15 @@ export function ObjectExplorerSearchBox({ instance }: { readonly instance: IPosi
 	const filterRef = useRef<ActionBarFilterHandle>(null);
 
 	useEffect(() => {
-		const disposable = instance.onDidRequestSearchFocus(() => filterRef.current?.focus());
+		const disposable = combinedDisposable(
+			instance.onDidRequestSearchFocus(() => filterRef.current?.focus()),
+			// The search can be cleared from outside the box.
+			instance.onDidChangeSearch(() => {
+				if (!instance.searchText) {
+					filterRef.current?.setFilterText('');
+				}
+			})
+		);
 		return () => disposable.dispose();
 	}, [instance]);
 
@@ -64,10 +73,7 @@ export function ObjectExplorerSearchBox({ instance }: { readonly instance: IPosi
 		}
 		e.preventDefault();
 		e.stopPropagation();
-		filterRef.current?.setFilterText('');
-
-		// Clearing the search swaps the tree back in; focus it once it has rendered.
-		setTimeout(() => instance.treeInstance.requestFocus());
+		instance.clearSearch();
 	};
 
 	return (

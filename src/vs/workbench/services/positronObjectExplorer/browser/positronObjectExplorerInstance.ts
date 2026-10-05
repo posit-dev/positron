@@ -191,6 +191,13 @@ export class PositronObjectExplorerInstance extends Disposable implements IPosit
 		this._searchTimer.value = disposableTimeout(() => this.search().catch(onUnexpectedError), delay);
 	}
 
+	clearSearch(): void {
+		this.setSearchText('');
+
+		// Clearing the search swaps the tree back in; focus it once it has rendered.
+		setTimeout(() => this.treeInstance.requestFocus());
+	}
+
 	focusSearch(): void {
 		this._onDidRequestSearchFocusEmitter.fire();
 	}
@@ -234,6 +241,7 @@ export class PositronObjectExplorerInstance extends Disposable implements IPosit
 			this.columnWidths,
 			() => objectExplorerMaxDepth(this._configurationService),
 			search,
+			() => this.clearSearch(),
 			this._sessionId ? text => this.sendToConsole(text).catch(onUnexpectedError) : undefined,
 			this._clipboardService,
 			this._notificationService,

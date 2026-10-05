@@ -122,3 +122,25 @@
 .object-explorer-row .view-table:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }
+
+.object-explorer-search-footer {
+	height: 100%;
+	padding: 0 8px;
+	line-height: 32px;
+	text-align: center;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-style: italic;
+	color: var(--vscode-list-deemphasizedForeground);
+}
+
+.object-explorer-search-footer a {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+}
+
+.object-explorer-search-footer a:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}

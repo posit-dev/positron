@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { JSX } from 'react';
+import { JSX, ReactNode } from 'react';
 
 // Other dependencies.
 import { IDataColumn } from '../interfaces/dataColumn.js';
@@ -1252,6 +1252,27 @@ export abstract class DataGridInstance extends Disposable {
 		return last ? last.top + last.height : 0;
 	}
 
+	/**
+	 * Gets the height of the footer painted after the last row. None by default.
+	 */
+	get footerHeight(): number {
+		return 0;
+	}
+
+	/**
+	 * Renders the footer painted after the last row.
+	 */
+	renderFooter(): ReactNode {
+		return undefined;
+	}
+
+	/**
+	 * Gets the top of the footer, relative to the unpinned rows at the current scroll offset.
+	 */
+	get footerTop(): number {
+		return this._rowLayoutManager.unpinnedLayoutEntriesSize - this._verticalScrollOffset;
+	}
+
 	//#endregion Public Properties - Settings
 
 	//#region Public Properties
@@ -1295,7 +1316,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the scroll height.
 	 */
 	get scrollHeight() {
-		return (this._rowsMargin * 2) + this._rowLayoutManager.unpinnedLayoutEntriesSize + this._scrollbarOverscroll;
+		return (this._rowsMargin * 2) + this._rowLayoutManager.unpinnedLayoutEntriesSize + this.footerHeight + this._scrollbarOverscroll;
 	}
 
 	/**

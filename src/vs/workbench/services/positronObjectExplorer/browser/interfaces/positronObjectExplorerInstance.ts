@@ -112,6 +112,11 @@ export interface IPositronObjectExplorerInstance {
 	setSearchText(text: string): void;
 
 	/**
+	 * Clears the search and focuses the tree.
+	 */
+	clearSearch(): void;
+
+	/**
 	 * Requests focus for the search box.
 	 */
 	focusSearch(): void;

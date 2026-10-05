@@ -59,7 +59,10 @@ function searchStatus(searchResults: ObjectExplorerSearchResults | undefined): s
 		return undefined;
 	}
 	const { total_matches, truncated } = searchResults.result;
-	return truncated ?
-		localize('positron.objectExplorer.searchTruncated', "{0} matches (search stopped early)", total_matches) :
+	const matches = total_matches === 1 ?
+		localize('positron.objectExplorer.searchStatusOne', "1 match") :
 		localize('positron.objectExplorer.searchStatus', "{0} matches", total_matches);
+	return truncated ?
+		localize('positron.objectExplorer.searchTruncated', "{0} (search stopped early)", matches) :
+		matches;
 }

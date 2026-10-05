@@ -227,3 +227,37 @@ export const ObjectExplorerMoreRow = ({ pageSize, remaining, loading, nameWidth,
 		</div>
 	);
 };
+
+/**
+ * ObjectExplorerSearchFooterProps interface.
+ */
+interface ObjectExplorerSearchFooterProps {
+	readonly query: string;
+	readonly totalMatches: number;
+	readonly truncated: boolean;
+	readonly onClearSearch: () => void;
+}
+
+/**
+ * ObjectExplorerSearchFooter component. Follows the results of a search with their count.
+ */
+export const ObjectExplorerSearchFooter = ({ query, totalMatches, truncated, onClearSearch }: ObjectExplorerSearchFooterProps) => {
+	const matches = totalMatches === 1 ?
+		localize('positron.objectExplorer.searchFooterOne', "1 match for '{0}'", query) :
+		localize('positron.objectExplorer.searchFooter', "{0} matches for '{1}'", totalMatches.toLocaleString(), query);
+	return (
+		<div className='object-explorer-search-footer' data-testid='object-explorer-search-footer'>
+			{matches}{' '}
+			{truncated && <>{localize('positron.objectExplorer.searchFooterTruncated', "(search stopped early)")}{' '}</>}
+			<a
+				href='#'
+				onClick={e => {
+					e.preventDefault();
+					onClearSearch();
+				}}
+			>
+				{localize('positron.objectExplorer.clearSearch', "(clear search)")}
+			</a>
+		</div>
+	);
+};

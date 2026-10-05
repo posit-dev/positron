@@ -26,12 +26,17 @@ import { CustomContextMenuSeparator } from '../../positronComponents/customConte
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../positronComponents/customContextMenu/customContextMenu.js';
 import { FormattedValue, ObjectNode, ObjectNodeKind, SearchResult, SearchRow, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { ObjectExplorerClientInstance } from '../../../services/languageRuntime/common/languageRuntimeObjectExplorerClient.js';
-import { ObjectExplorerMoreRow, ObjectExplorerRow } from '../components/objectExplorerRow.js';
+import { ObjectExplorerMoreRow, ObjectExplorerRow, ObjectExplorerSearchFooter } from '../components/objectExplorerRow.js';
 
 /**
  * The height of a row, in pixels.
  */
 export const OBJECT_EXPLORER_ROW_HEIGHT = 24;
+
+/**
+ * The height of the footer following the results of a search, in pixels.
+ */
+const SEARCH_FOOTER_HEIGHT = 32;
 
 /**
  * The number of children fetched per page.
@@ -154,6 +159,7 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	 * @param _columnWidths The column widths.
 	 * @param _maxDepth Returns the maximum depth a node can be expanded at.
 	 * @param _search The search results to show, or undefined to show the explored object.
+	 * @param _clearSearch Clears the search.
 	 * @param _sendToConsole Sends text to the input of the console of the explored object's
 	 * session, or undefined when there is no session.
 	 */
@@ -162,6 +168,7 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 		private readonly _columnWidths: ObjectExplorerColumnWidths,
 		private readonly _maxDepth: () => number,
 		private readonly _search: ObjectExplorerSearchResults | undefined,
+		private readonly _clearSearch: () => void,
 		private readonly _sendToConsole: ((text: string) => void) | undefined,
 		private readonly _clipboardService: IClipboardService,
 		private readonly _notificationService: INotificationService,
@@ -335,6 +342,20 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	//#endregion Public Methods
 
 	//#region DataGridInstance Overrides
+
+	override get footerHeight(): number {
+		return this._search ? SEARCH_FOOTER_HEIGHT : 0;
+	}
+
+	override renderFooter(): ReactNode {
+		return this._search &&
+			<ObjectExplorerSearchFooter
+				query={this._search.query}
+				totalMatches={this._search.result.total_matches}
+				truncated={this._search.result.truncated}
+				onClearSearch={this._clearSearch}
+			/>;
+	}
 
 	override get hoverManager(): PositronActionBarHoverManager {
 		return this._hoverManager;

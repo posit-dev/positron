@@ -880,6 +880,17 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					}}
 				>
 					{dataGridRows}
+					{context.instance.footerHeight > 0 &&
+						<div
+							className='data-grid-footer'
+							style={{
+								top: rowDescriptors.pinnedRowDescriptorsHeight + context.instance.footerTop,
+								height: context.instance.footerHeight
+							}}
+						>
+							{context.instance.renderFooter()}
+						</div>
+					}
 				</div>
 				{stickyRowElements.length > 0 &&
 					<div

@@ -55,3 +55,9 @@
 .data-grid-sticky-rows .data-grid-row {
 	background-color: var(--vscode-editorStickyScroll-background);
 }
+
+.data-grid-footer {
+	position: absolute;
+	left: 0;
+	right: 0;
+}

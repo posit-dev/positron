@@ -11,7 +11,6 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { ObjectExplorerTreeInstance } from '../../../../browser/positronObjectExplorer/classes/objectExplorerTreeInstance.js';
 import { IPositronObjectExplorerInstance } from '../../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerInstance.js';
 import { ObjectExplorerSearchBox } from '../../browser/objectExplorerSearchWidget.js';
 
@@ -21,16 +20,18 @@ describe('ObjectExplorerSearchBox', () => {
 
 	function renderSearchBox() {
 		const onDidRequestSearchFocus = ctx.disposables.add(new Emitter<void>());
+		const onDidChangeSearch = ctx.disposables.add(new Emitter<void>());
 		const setSearchText = vi.fn();
-		const requestFocus = vi.fn();
+		const clearSearch = vi.fn();
 		const instance = stubInterface<IPositronObjectExplorerInstance>({
 			searchText: '',
 			setSearchText,
+			clearSearch,
 			onDidRequestSearchFocus: onDidRequestSearchFocus.event,
-			treeInstance: stubInterface<ObjectExplorerTreeInstance>({ requestFocus }),
+			onDidChangeSearch: onDidChangeSearch.event,
 		});
 		rtl.render(<ObjectExplorerSearchBox instance={instance} />);
-		return { setSearchText, requestFocus, onDidRequestSearchFocus, input: screen.getByPlaceholderText('Search names and values') };
+		return { setSearchText, clearSearch, onDidRequestSearchFocus, onDidChangeSearch, input: screen.getByPlaceholderText('Search names and values') };
 	}
 
 	it('passes typed text to the instance', async () => {
@@ -50,19 +51,22 @@ describe('ObjectExplorerSearchBox', () => {
 		expect(input).toHaveFocus();
 	});
 
-	it('clears the search and returns to the tree on Escape', async () => {
-		vi.useFakeTimers({ shouldAdvanceTime: true });
-		try {
-			const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-			const { setSearchText, requestFocus, input } = renderSearchBox();
+	it('clears the search on Escape', async () => {
+		const user = userEvent.setup();
+		const { clearSearch, input } = renderSearchBox();
 
-			await user.type(input, 'x{Escape}');
-			await vi.runAllTimersAsync();
+		await user.type(input, 'x{Escape}');
 
-			expect([setSearchText.mock.calls.at(-1), requestFocus.mock.calls.length]).toEqual([[''], 1]);
-			expect(input).toHaveValue('');
-		} finally {
-			vi.useRealTimers();
-		}
+		expect(clearSearch).toHaveBeenCalledOnce();
+	});
+
+	it('empties when the search is cleared', async () => {
+		const user = userEvent.setup();
+		const { input, onDidChangeSearch } = renderSearchBox();
+
+		await user.type(input, 'x');
+		act(() => onDidChangeSearch.fire());
+
+		expect(input).toHaveValue('');
 	});
 });
