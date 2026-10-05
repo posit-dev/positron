@@ -176,6 +176,7 @@ jobs:
           test -s "$HEAL_DIR/smoke-1.json"
 
       - name: Rerun failures
+        id: rerun
         shell: bash
         run: |
           # shellcheck disable=SC2086
@@ -231,12 +232,15 @@ jobs:
         shell: bash
         env:
           ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
+          GITHUB_TOKEN: ''
+          GH_TOKEN: ''
         run: |
           # shellcheck disable=SC2086
           node .claude/skills/drive-positron/heal/finder.ts --dir "$HEAL_DIR" --runner "$RUNNER" --minutes 45 -- $APP_ARGS
 
       # fix-loop commits, and refuses a dirty tree. The container runs as root over a checkout.
       - name: Set up git
+        if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -245,6 +249,7 @@ jobs:
 
       # What the build steps leave behind that .gitignore does not cover.
       - name: Exclude build residue from git status
+        if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
         run: |
           {
@@ -255,6 +260,7 @@ jobs:
           } >> "$(git rev-parse --git-path info/exclude)"
 
       - name: Show the tree state
+        if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
         run: |
           echo "git status --porcelain (a non-empty list makes the Fixer exit 2):"
@@ -262,9 +268,12 @@ jobs:
 
       # No `if:` on purpose: the finder may have written findings after "Any findings yet?".
       - name: Fixer
+        if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
         env:
           ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
+          GITHUB_TOKEN: ''
+          GH_TOKEN: ''
         run: |
           set +e -uo pipefail
           if [ -z "$(ls -A "$HEAL_DIR/findings" 2>/dev/null)" ]; then echo "no findings"; exit 0; fi
@@ -329,6 +338,10 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
 
+      # Patches are fixer-written; every links/report call below runs from this pristine copy.
+      - name: Copy the pristine skill
+        run: cp -r .claude/skills/drive-positron "$RUNNER_TEMP/dp"
+
       - uses: actions/setup-node@v7.0.0
         with:
           node-version-file: .nvmrc
@@ -342,8 +355,8 @@ jobs:
         id: has
         shell: bash
         run: |
-          # The artifact keeps the uploads' common root; find the heal dir in it.
-          state=$(find /tmp/night -name state.json -path '*heal*' | head -n 1)
+          # The artifact is rooted at /tmp or at /tmp/heal, depending on what was uploaded.
+          state=$(find /tmp/night -maxdepth 2 -name state.json -not -path '*/positron-dev-launch/*' | head -n 1)
           if [ -z "$state" ]; then echo "no state.json in the artifact"; exit 0; fi
           dir=$(dirname "$state")
           echo "dir=$dir" >> "$GITHUB_OUTPUT"
@@ -368,13 +381,14 @@ jobs:
           git config user.name positron-bot
           git config user.email positron-bot@posit.co
           git am --no-gpg-sign "$DIR"/patches/*.patch
-          L=.claude/skills/drive-positron/heal/links.ts
-          R=.claude/skills/drive-positron/heal/report.ts
-          branch=$(node $L candidate --run-id "$GITHUB_RUN_ID")
+          L="$RUNNER_TEMP/dp/heal/links.ts"
+          R="$RUNNER_TEMP/dp/heal/report.ts"
+          branch=$(node "$L" candidate --run-id "$GITHUB_RUN_ID")
+          [[ $branch == automated/drive-positron/* ]] || { echo "refusing to push $branch"; exit 1; }
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          title=$(node $R --dir "$DIR" --run-url "$run_url" title)
-          node $R --dir "$DIR" --run-url "$run_url" body > "$RUNNER_TEMP/body.md"
-          link=$(node $L compare --branch "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md" --run-url "$run_url")
+          title=$(node "$R" --dir "$DIR" --run-url "$run_url" title)
+          node "$R" --dir "$DIR" --run-url "$run_url" body > "$RUNNER_TEMP/body.md"
+          link=$(node "$L" compare --branch "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md" --run-url "$run_url")
           if [ "$DRYRUN" = true ]; then echo "[dryrun] would push $branch"; else git push origin "HEAD:refs/heads/$branch"; fi
           echo "link=$link" >> "$GITHUB_OUTPUT"
 
@@ -388,8 +402,12 @@ jobs:
           set -euo pipefail
           git apply --index "$DIR"/patches/*.patch
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          echo "title=$(node .claude/skills/drive-positron/heal/report.ts --dir "$DIR" --run-url "$run_url" title)" >> "$GITHUB_OUTPUT"
-          { echo 'body<<HEAL_EOF'; node .claude/skills/drive-positron/heal/report.ts --dir "$DIR" --run-url "$run_url" body; echo 'HEAL_EOF'; } >> "$GITHUB_OUTPUT"
+          R="$RUNNER_TEMP/dp/heal/report.ts"
+          d="HEAL_EOF_$(openssl rand -hex 8)"
+          {
+            echo "title<<$d"; node "$R" --dir "$DIR" --run-url "$run_url" title; echo "$d"
+            echo "body<<$d"; node "$R" --dir "$DIR" --run-url "$run_url" body; echo "$d"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Detect the managed PR (live)
         id: detect
@@ -425,7 +443,8 @@ jobs:
           set +e -uo pipefail
           git ls-remote --heads origin 'automated/drive-positron/*' | awk '{ sub("refs/heads/", "", $2); print $2 }' > "$RUNNER_TEMP/branches"
           gh pr list --state open --search 'head:automated/drive-positron/' --json headRefName --jq '.[].headRefName' > "$RUNNER_TEMP/open"
-          node .claude/skills/drive-positron/heal/links.ts stale --branches "$RUNNER_TEMP/branches" --open "$RUNNER_TEMP/open" | while read -r b; do
+          node "$RUNNER_TEMP/dp/heal/links.ts" stale --branches "$RUNNER_TEMP/branches" --open "$RUNNER_TEMP/open" | while read -r b; do
+            [[ $b == automated/drive-positron/* ]] || { echo "refusing to delete $b"; continue; }
             if [ "$DRYRUN" = true ]; then echo "[dryrun] would delete $b"; else git push origin --delete "$b"; fi
           done
 
@@ -465,7 +484,7 @@ jobs:
           LINK_KIND: ${{ needs.publish.outputs.link_kind }}
         run: |
           set +e -uo pipefail
-          state=$(find /tmp/night -name state.json -path '*heal*' 2>/dev/null | head -n 1)
+          state=$(find /tmp/night -maxdepth 2 -name state.json -not -path '*/positron-dev-launch/*' 2>/dev/null | head -n 1)
           dir=/tmp/none
           [ -n "$state" ] && dir=$(dirname "$state")
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
