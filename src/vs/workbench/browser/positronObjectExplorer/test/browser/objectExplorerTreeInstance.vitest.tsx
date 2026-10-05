@@ -169,7 +169,7 @@ describe('ObjectExplorerTreeInstance', () => {
 
 		tree.setCursorRow(1);
 		tree.selectRow(1);
-		await waitFor(() => expect(expandedValues()).toEqual(['one\ntwo']));
+		await waitFor(() => expect(expandedValues()).toEqual(['"one\ntwo"']));
 
 		// A parent's value summarizes its children, so it does not expand.
 		tree.setCursorRow(2);
@@ -187,7 +187,7 @@ describe('ObjectExplorerTreeInstance', () => {
 		tree.selectRow(1);
 		await waitFor(() => {
 			const expanded = screen.getAllByTestId('object-explorer-row').find(row => row.classList.contains('expanded'))!;
-			expect(within(expanded).getByTestId('object-explorer-value-text')).toHaveTextContent(/^y{1024}\u2026$/);
+			expect(within(expanded).getByTestId('object-explorer-value-text')).toHaveTextContent(/^"y{1024}\u2026$/);
 		});
 		screen.getByTestId('object-explorer-open-value').click();
 

@@ -11,7 +11,7 @@ import { CSSProperties, MouseEvent, ReactNode, useLayoutEffect, useRef, useState
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { FormattedValue, ObjectNode, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
+import { FormattedValue, ObjectNode, ObjectNodeKind, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 
 /**
@@ -109,8 +109,10 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 	const value = node.is_cycle ?
 		localize('positron.objectExplorer.circularReference', "(circular reference)") :
 		node.display_value;
+	// An expanded string keeps the quotes its display value has.
+	const quote = node.kind === ObjectNodeKind.String ? /^["']/.exec(node.display_value)?.[0] ?? '' : '';
 	const shownValue = !expandedValue ? value :
-		expandedValue.is_truncated ? `${expandedValue.content}\u2026` : expandedValue.content;
+		`${quote}${expandedValue.content}${expandedValue.is_truncated ? '\u2026' : quote}`;
 	const truncated = expandedValue ? expandedValue.is_truncated : node.is_truncated;
 
 	const onNameMouseOver = (e: MouseEvent<HTMLElement>) => {
