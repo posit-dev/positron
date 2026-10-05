@@ -71,8 +71,9 @@ jobs:
         shell: bash
         run: |
           set -uo pipefail
-          node .claude/skills/drive-positron/test/drift.ts > /tmp/drift.txt
-          code=$?
+          # The shell runs with -e: capture drift's exit code instead of stopping on it.
+          code=0
+          node .claude/skills/drive-positron/test/drift.ts > /tmp/drift.txt || code=$?
           cat /tmp/drift.txt
           {
             echo "### drive-positron: UI drift"
@@ -88,7 +89,7 @@ jobs:
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-          grep '^MISSING' /tmp/drift.txt | while read -r _ key value; do
+          { grep '^MISSING' /tmp/drift.txt || true; } | while read -r _ key value; do
             echo "::warning file=.claude/skills/drive-positron/scripts/selectors.ts,title=drive-positron UI drift::$key $value is no longer in src/ (see the job summary)"
           done
           exit "$code"
