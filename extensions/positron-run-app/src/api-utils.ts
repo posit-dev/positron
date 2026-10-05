@@ -130,6 +130,43 @@ export async function showUrlDetectionTimedOutMessage(
 }
 
 /**
+ * Show a message explaining that the app stopped before its URL appeared in
+ * its output, which usually means it failed to start, e.g. due to an import
+ * error or a port that is already in use.
+ * @param appName The name of the app e.g. `'Shiny'`.
+ * @param options.sessionId The console session that ran the app, if any. Used
+ *  to offer to focus the session, which is where the app's own output is.
+ * @param options.terminal The terminal that ran the app, if any. Used to offer
+ *  to show the terminal, which is where the app's own output is.
+ */
+export async function showAppFailedToStartMessage(
+	appName: string,
+	options: { sessionId?: string; terminal?: vscode.Terminal },
+): Promise<void> {
+	const showConsole = vscode.l10n.t('Show Console');
+	const showTerminal = vscode.l10n.t('Show Terminal');
+	const showLog = vscode.l10n.t('Show Log');
+	const actions = [
+		...(options.sessionId ? [showConsole] : []),
+		...(options.terminal ? [showTerminal] : []),
+		showLog,
+	];
+
+	const message = options.terminal
+		? vscode.l10n.t('The {0} app failed to start. Check the terminal output for details.', appName)
+		: vscode.l10n.t('The {0} app failed to start. Check the console output for details.', appName);
+	const selection = await vscode.window.showErrorMessage(message, ...actions);
+
+	if (selection === showConsole && options.sessionId) {
+		positron.runtime.focusSession(options.sessionId);
+	} else if (selection === showTerminal && options.terminal) {
+		options.terminal.show();
+	} else if (selection === showLog) {
+		log.show();
+	}
+}
+
+/**
  * Check if the Positron proxy should be used for the given app.
  * Generally, we should avoid skipping the proxy unless there is a good reason to do so, as the
  * proxy gives us the ability to intercept requests and responses to the app, which is useful for

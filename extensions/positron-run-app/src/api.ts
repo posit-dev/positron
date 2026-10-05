@@ -13,7 +13,10 @@ import { AppUrlDetector } from './appUrlDetector';
 import { buildCommandLine, raceTimeout, SequencerByKey } from './utils';
 import { DAP_CONFIGURATION_TIMEOUT, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, LATE_URL_DETECTION_TIMEOUT, SHELL_INTEGRATION_TIMEOUT } from './constants.js';
 import { AppPreviewOptions, Config, PositronProxyInfo } from './types.js';
-import { shouldUsePositronProxy, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage, showUrlDetectionTimedOutMessage } from './api-utils.js';
+import { shouldUsePositronProxy, showAppFailedToStartMessage, showShellIntegrationNotSupportedMessage, showEnableShellIntegrationMessage, showUrlDetectionTimedOutMessage } from './api-utils.js';
+
+/** Sentinel for an app that stopped before its URL was found. */
+const APP_STOPPED: unique symbol = Symbol('appStopped');
 
 function readDefaultPreviewMode(): PreviewMode {
 	const setting = vscode.workspace.getConfiguration().get<string>(Config.PreviewMode);
@@ -272,7 +275,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			// Wait for the server URL in the execution output.
 			if (preview !== 'none') {
 				const previewOptions: AppPreviewOptions = {
+					appName: options.name,
 					preview,
+					terminal,
 					terminalPid: await terminal.processId,
 					proxyInfo,
 					urlPath: options.urlPath,
@@ -447,10 +452,24 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				case 'editor':
 				case 'manual': {
 					const url = await raceTimeout(
-						detector.found,
+						Promise.race([detector.found, executionFinished.then((): typeof APP_STOPPED => APP_STOPPED)]),
 						options.urlDetectionTimeout ?? readUrlDetectionTimeout(),
 						() => log.warn(`Timed out waiting for ${options.name} app URL in console output`),
 					);
+
+					// The app stopped before printing its URL, so it most likely
+					// failed to start. Say so now rather than after the timeout.
+					if (url === APP_STOPPED) {
+						log.warn(`${options.name} app stopped before its URL appeared in console output`);
+						if (preview === 'manual') {
+							throw new Error(vscode.l10n.t(
+								'The {0} app failed to start. Check the console output for details.',
+								options.name,
+							));
+						}
+						showAppFailedToStartMessage(options.name, { sessionId }).catch(() => { });
+						break;
+					}
 
 					if (!url) {
 						if (preview === 'manual') {
@@ -614,7 +633,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 							if (await e.terminal.processId === processId) {
 								const previewOptions: AppPreviewOptions = {
+									appName: options.name,
 									preview,
+									terminal: e.terminal,
 									terminalPid: processId,
 									proxyInfo,
 									urlPath: options.urlPath,
@@ -622,9 +643,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 									appUrlStrings: options.appUrlStrings,
 									urlDetectionTimeout: options.urlDetectionTimeout,
 								};
-								if (await this.previewUrlInExecutionOutput(e.execution, previewOptions)) {
-									resolve(true);
-								}
+								// Resolve even when the URL was not found, so that the
+								// progress notification ends with URL detection rather
+								// than waiting out the outer timeout.
+								resolve(!!await this.previewUrlInExecutionOutput(e.execution, previewOptions));
 							}
 						});
 					}
@@ -755,20 +777,33 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		// Feed the stream into the detector. The loop breaks once the URL is
 		// found, or ends when the terminal process exits.
-		(async () => {
+		const streamEnded = (async () => {
 			for await (const data of stream) {
 				log.trace('Execution:', execution.commandLine.value, data);
 				if (detector.processOutput(data)) {
 					break;
 				}
 			}
-		})();
+		})().catch(error => {
+			log.error(`Error reading terminal output: ${error}`);
+		});
 
 		const url = await raceTimeout(
-			detector.found,
+			Promise.race([detector.found, streamEnded.then((): typeof APP_STOPPED => APP_STOPPED)]),
 			options.urlDetectionTimeout ?? readUrlDetectionTimeout(),
 			() => log.error('Timed out waiting for server output in terminal'),
 		);
+
+		// The app exited before printing its URL, so it most likely failed to
+		// start. Say so now rather than after the timeout.
+		if (url === APP_STOPPED) {
+			log.warn(`${options.appName} app exited before its URL appeared in terminal output`);
+			// The caller reports a manual preview's failure itself.
+			if (options.preview !== 'manual') {
+				showAppFailedToStartMessage(options.appName, { terminal: options.terminal }).catch(() => { });
+			}
+			return undefined;
+		}
 
 		if (!url) {
 			log.error('Cannot preview URL. App is not ready or URL not found in terminal output.');

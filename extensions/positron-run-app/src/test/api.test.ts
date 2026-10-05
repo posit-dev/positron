@@ -209,6 +209,32 @@ suite('PositronRunApp', () => {
 		);
 	});
 
+	test('appLauncher: reports an app that exits before printing its URL', async () => {
+		// An app that fails to start, e.g. due to an import error, should be
+		// reported as soon as it exits rather than after the URL detection timeout.
+		const showErrorMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+		const showWarningMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+		const didRun = runAppApi.runApplication({
+			...runAppOptions,
+			getTerminalOptions() {
+				return { command: 'node', args: ['-e', 'process.exit(1)'] };
+			},
+			// Longer than the test timeout, so the test fails if the run waits it out.
+			urlDetectionTimeout: 120_000,
+		}).then(() => true);
+		assert.ok(await raceTimeout(didRun, 30_000), 'The run should end when the app exits');
+
+		sinon.assert.notCalled(previewUrlStub);
+		sinon.assert.notCalled(showWarningMessageStub);
+		sinon.assert.calledOnceWithExactly(
+			showErrorMessageStub,
+			sinon.match(/failed to start.*terminal output/),
+			'Show Terminal',
+			'Show Log',
+		);
+	});
+
 	suite('runApplicationInConsole', () => {
 		const consoleAppOptions: RunConsoleAppOptions = {
 			name: 'Test Console App',
@@ -331,6 +357,32 @@ suite('PositronRunApp', () => {
 
 			await waitFor(() => previewUrlStub.called, 'Timed out waiting for the app to be previewed');
 			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		});
+
+		test('reports an app that stops before printing its URL', async () => {
+			// An app that fails to start, e.g. due to an error in the app's code,
+			// should be reported as soon as its execution ends rather than after
+			// the URL detection timeout.
+			const showErrorMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				// Longer than the test timeout, so the test fails if the run waits it out.
+				urlDetectionTimeout: 120_000,
+			});
+
+			await waitFor(() => finishExecution !== undefined, 'Timed out waiting for code execution');
+			finishExecution!();
+			await runPromise;
+
+			sinon.assert.notCalled(previewUrlStub);
+			sinon.assert.notCalled(showWarningMessageStub);
+			sinon.assert.calledOnceWithExactly(
+				showErrorMessageStub,
+				sinon.match(/failed to start.*console output/),
+				'Show Console',
+				'Show Log',
+			);
 		});
 
 		test('stops watching when the console execution finishes without a URL', async () => {
