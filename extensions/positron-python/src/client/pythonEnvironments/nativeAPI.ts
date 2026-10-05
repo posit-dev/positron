@@ -823,9 +823,6 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             watcher.onDidWorkspaceEnvChanged(async (e) => {
                 await this.workspaceEventHandler(e);
             }),
-            // --- Start Positron ---
-            watcher.onDidWorkspacePathDeleted((e) => this.removeEnvsInDeletedPath(e.path)),
-            // --- End Positron ---
             onDidChangeWorkspaceFolders((e: WorkspaceFoldersChangeEvent) => {
                 e.removed.forEach((wf) => watcher.unwatchWorkspace(wf));
                 e.added.forEach((wf) => watcher.watchWorkspace(wf));
@@ -871,21 +868,19 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 // --- End Positron ---
             }
         } else {
-            this.removeEnv(e.executable);
+            // --- Start Positron ---
+            // The deleted path can be a folder holding envs (e.g. `.venv`), since
+            // the watcher reports a deleted folder rather than each file in it.
+            // Remove every env whose executable is the deleted path or inside it.
+            // this.removeEnv(e.executable);
+            this._envIdentities.delete(e.executable);
+            this.evictResolvedEnv(e.executable);
+            this._envs
+                .filter((env) => isParentPath(env.executable.filename, e.executable))
+                .forEach((env) => this.removeEnv(env));
+            // --- End Positron ---
         }
     }
-
-    // --- Start Positron ---
-    /**
-     * Remove the envs whose executable is the deleted path or was inside it,
-     * e.g. every env under a deleted `.venv` folder.
-     */
-    private removeEnvsInDeletedPath(deletedPath: string): void {
-        this._envs
-            .filter((env) => isParentPath(env.executable.filename, deletedPath))
-            .forEach((env) => this.removeEnv(env));
-    }
-    // --- End Positron ---
 }
 
 export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscoveryAPI & Disposable {

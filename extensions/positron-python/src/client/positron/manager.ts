@@ -196,11 +196,13 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      *   picker from its own earlier Created event -- and register the survivor
      *   with forceRefresh so a stale cached version for the survivor path is
      *   re-resolved and superseded rather than returned as is.
-     * - Changed in place (`old` and `new` with the same path): re-resolve the
-     *   path. If its runtime changed (e.g. a venv deleted and recreated with a
-     *   different Python version, which the file watcher reports as an update
-     *   rather than a removal and an addition), replace the registered runtime
-     *   and shut down sessions still backed by the old one.
+     * - Changed in place (`old` and `new` with the same path): if the major or
+     *   minor version changed (e.g. a venv deleted and recreated with another
+     *   Python, which the file watcher can report as an update rather than a
+     *   removal and an addition), re-register the path and shut down sessions
+     *   still backed by the old runtime. A patch-only change is ignored, since
+     *   discovery and a live resolve can disagree on the patch version of the
+     *   same interpreter.
      */
     private async handleInterpreterChange(event: PythonEnvironmentsChangedEvent): Promise<void> {
         if (!event.old && event.new) {
@@ -222,16 +224,22 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             );
         } else if (event.old && event.new) {
             const changedPath = event.new.path;
-            const previous = this.registeredPythonRuntimes.get(changedPath);
-            if (!previous) {
+            const oldVersion = event.old.version;
+            const newVersion = event.new.version;
+            if (oldVersion?.major === newVersion?.major && oldVersion?.minor === newVersion?.minor) {
+                traceInfo(
+                    `Interpreter ${changedPath} changed in place (${oldVersion?.raw} -> ${newVersion?.raw}); ` +
+                        'same minor version, keeping its runtime and sessions',
+                );
                 return;
             }
+            traceInfo(`Interpreter ${changedPath} changed in place (${oldVersion?.raw} -> ${newVersion?.raw})`);
             const current = await this.registerLanguageRuntimeFromPath(
                 changedPath,
                 /* recreateRuntime */ false,
                 /* forceRefresh */ true,
             );
-            if (current && current.runtimeId !== previous.runtimeId) {
+            if (current) {
                 await this.shutdownSessionsForPath(changedPath, 'replaced interpreter', current.runtimeId);
             }
         }
@@ -729,20 +737,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             return alreadyRegisteredRuntime;
         }
         if (alreadyRegisteredRuntime && recreateRuntime) {
-            const sessions = await getActivePythonSessions();
-            // Find any active sessions using this runtime
-            const sessionsToShutdown = sessions.filter((session) => {
-                const sessionRuntime = session.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData;
-                return sessionRuntime.pythonPath === pythonPath;
-            });
-
             // Shut down all sessions for this runtime before recreating it
-            if (sessionsToShutdown.length > 0) {
-                traceInfo(`Shutting down ${sessionsToShutdown.length} sessions using Python runtime at ${pythonPath}`);
-                await Promise.all(
-                    sessionsToShutdown.map((session) => session.shutdown(positron.RuntimeExitReason.Shutdown)),
-                );
-            }
+            await this.shutdownSessionsForPath(pythonPath, 'recreated runtime');
 
             // clear stale entry so registerLanguageRuntime below fires _onDidDiscoverRuntime
             // for the new runtime vs. leaving Positron with an orphaned stale entry.

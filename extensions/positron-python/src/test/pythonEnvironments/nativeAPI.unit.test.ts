@@ -1290,13 +1290,22 @@ suite('Native Python API', () => {
             version: '3.12.0',
             prefix: venvDir,
         };
-        let pathDeleted: EventEmitter<pw.PythonWorkspacePathDeletedEvent>;
+        let workspaceEnvChanged: EventEmitter<pw.PythonWorkspaceEnvEvent>;
         let changes: PythonEnvCollectionChangedEvent[];
+
+        // The watcher reports a deleted folder as one delete for the folder.
+        function fireDeleted(deletedPath: string): void {
+            workspaceEnvChanged.fire({
+                type: FileChangeType.Deleted,
+                workspaceFolder: {} as WorkspaceFolder,
+                executable: deletedPath,
+            });
+        }
 
         setup(async () => {
             sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
-            pathDeleted = new EventEmitter();
-            mockWatcher.setup((w) => w.onDidWorkspacePathDeleted).returns(() => pathDeleted.event);
+            workspaceEnvChanged = new EventEmitter();
+            mockWatcher.setup((w) => w.onDidWorkspaceEnvChanged).returns(() => workspaceEnvChanged.event);
             mockFinder.setup((f) => f.resolve(venvPython)).returns(() => Promise.resolve(venvEnv));
             api = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
 
@@ -1307,11 +1316,11 @@ suite('Native Python API', () => {
         });
 
         teardown(() => {
-            pathDeleted.dispose();
+            workspaceEnvChanged.dispose();
         });
 
         test('deleting the folder that holds an env removes the env', () => {
-            pathDeleted.fire({ workspaceFolder: {} as WorkspaceFolder, path: venvDir });
+            fireDeleted(venvDir);
 
             assert.equal(api.getEnvs().length, 0);
             assert.deepEqual(
@@ -1321,7 +1330,7 @@ suite('Native Python API', () => {
         });
 
         test('a deleted executable is not resolved back into the list', async () => {
-            pathDeleted.fire({ workspaceFolder: {} as WorkspaceFolder, path: venvDir });
+            fireDeleted(venvDir);
             pathExistsStub.withArgs(venvPython).resolves(false);
 
             assert.isUndefined(await api.resolveEnv(venvPython));
@@ -1330,10 +1339,7 @@ suite('Native Python API', () => {
         });
 
         test('deleting a path outside the env leaves the env', () => {
-            pathDeleted.fire({
-                workspaceFolder: {} as WorkspaceFolder,
-                path: path.join(path.sep, 'home', 'user', 'project', '.venv-data'),
-            });
+            fireDeleted(path.join(path.sep, 'home', 'user', 'project', '.venv-data'));
 
             assert.equal(api.getEnvs().length, 1);
             assert.deepEqual(changes, []);

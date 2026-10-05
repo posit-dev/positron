@@ -903,14 +903,23 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         sinon.assert.calledOnceWithExactly(registerStub, newPath, false, true);
     });
 
-    test('interpreter changed in place: replaces the runtime and shuts down sessions on the old one', async () => {
-        // A venv deleted and recreated with a different Python version arrives as
-        // a same-path update, not as a removal and an addition.
+    /** A same-path change event whose interpreter version went from `oldVersion` to `newVersion`. */
+    function changedInPlace(pythonPath: string, oldVersion: string, newVersion: string) {
+        const version = (raw: string) => {
+            const [major, minor, patch] = raw.split('.').map(Number);
+            return { raw, major, minor, patch };
+        };
+        return {
+            old: { path: pythonPath, version: version(oldVersion) } as any,
+            new: { path: pythonPath, version: version(newVersion) } as any,
+        };
+    }
+
+    test('interpreter changed in place: a new minor version replaces the runtime and shuts down sessions on the old one', async () => {
+        // A venv deleted and recreated with another Python can arrive as a
+        // same-path update. Nothing is registered for the path here, as when the
+        // session's runtime came from the workspace recommendation.
         const venvPath = '/path/to/.venv/bin/python';
-        pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, {
-            runtimeId: 'python-3.12',
-            extraRuntimeData: { pythonPath: venvPath },
-        } as any);
         const registerStub = sinon
             .stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath')
             .resolves({ runtimeId: 'python-3.11', extraRuntimeData: { pythonPath: venvPath } } as any);
@@ -920,7 +929,7 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         const currentSession = createFakePythonSession({ pythonPath: venvPath }, currentShutdown, 'python-3.11');
         getActiveSessionsImpl = async () => [staleSession, currentSession];
 
-        onDidChangeInterpretersEmitter.fire({ old: { path: venvPath } as any, new: { path: venvPath } as any });
+        onDidChangeInterpretersEmitter.fire(changedInPlace(venvPath, '3.12.14', '3.11.16'));
         await new Promise((r) => setTimeout(r, 0));
 
         sinon.assert.calledOnceWithExactly(registerStub, venvPath, false, true);
@@ -928,19 +937,26 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         sinon.assert.notCalled(currentShutdown);
     });
 
-    test('interpreter changed in place: leaves sessions running when the runtime is unchanged', async () => {
+    test('interpreter changed in place: a patch-only change keeps the runtime and its sessions', async () => {
+        // Discovery and a live resolve can disagree on the patch version of the
+        // same interpreter; that must not shut down a working session.
         const venvPath = '/path/to/.venv/bin/python';
-        const runtime = { runtimeId: 'python-3.12', extraRuntimeData: { pythonPath: venvPath } } as any;
-        pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, runtime);
-        sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(runtime);
+        pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, {
+            runtimeId: 'python-3.14.4',
+            extraRuntimeData: { pythonPath: venvPath },
+        } as any);
+        const registerStub = sinon
+            .stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath')
+            .resolves({ runtimeId: 'python-3.14.6', extraRuntimeData: { pythonPath: venvPath } } as any);
         const shutdown = sinon.stub().resolves();
         getActiveSessionsImpl = async () => [
-            createFakePythonSession({ pythonPath: venvPath }, shutdown, 'python-3.12'),
+            createFakePythonSession({ pythonPath: venvPath }, shutdown, 'python-3.14.4'),
         ];
 
-        onDidChangeInterpretersEmitter.fire({ old: { path: venvPath } as any, new: { path: venvPath } as any });
+        onDidChangeInterpretersEmitter.fire(changedInPlace(venvPath, '3.14.4', '3.14.6'));
         await new Promise((r) => setTimeout(r, 0));
 
+        sinon.assert.notCalled(registerStub);
         sinon.assert.notCalled(shutdown);
     });
 
