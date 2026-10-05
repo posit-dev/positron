@@ -7,7 +7,7 @@
 
 import type * as positron from 'positron';
 import type { Uri } from 'vscode';
-import { canInlineBody, formatFilePrompt, formatInlinePrompt, getClaudeCodeSurface, getErrorPrompt } from './claudeCodeLaunch';
+import { canInlineBody, formatFilePrompt, formatInlinePrompt, getErrorPrompt } from './errorPrompt';
 
 /** A stand-in URI; prompts only see it through getPath. */
 const notebookUri = { path: '/work/analysis.ipynb' } as Uri;
@@ -51,25 +51,25 @@ describe('getErrorPrompt', () => {
 		);
 	});
 
-	it('points Claude at the MCP server for the session when it is configured', () => {
+	it('points the agent at the MCP server for the session when it is configured', () => {
 		expect(getErrorPrompt('fix', consoleContext, getPath, 'positron').lead).toBe(
 			'Code run in the Positron console session "Python 3.12.1 (Venv: .venv)" raised an error. The code may not be saved in any file. Fix the error. Only edit project files if the cause is in one of them. ' +
-			'Positron\'s MCP server (`positron`) can inspect this session (session_id: python-1234). If no `mcp__positron__*` tools are listed yet, the server may still be connecting: use ToolSearch to find tools whose names start with `mcp__positron__`, which waits for it. Don\'t conclude you lack access.'
+			'Positron\'s MCP server (`positron`) can inspect this session (session_id: python-1234). Its tools may take a moment to connect; don\'t conclude you lack access.'
 		);
 	});
 
-	it('points Claude at the notebook\'s kernel session for inspection only', () => {
+	it('points the agent at the notebook\'s kernel session for inspection only', () => {
 		expect(getErrorPrompt('fix', {
 			error: 'boom',
 			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2, sessionId: 'python-5678' },
 		}, getPath, 'positron').lead).toBe(
 			'Cell 3 of analysis.ipynb raised an error. Fix the error. ' +
-			'Positron\'s MCP server (`positron`) can inspect the notebook\'s kernel session (session_id: python-5678). If no `mcp__positron__*` tools are listed yet, the server may still be connecting: use ToolSearch to find tools whose names start with `mcp__positron__`, which waits for it. Don\'t conclude you lack access. ' +
+			'Positron\'s MCP server (`positron`) can inspect the notebook\'s kernel session (session_id: python-5678). Its tools may take a moment to connect; don\'t conclude you lack access. ' +
 			'Use it to inspect the kernel\'s state, not to run code that changes it.'
 		);
 	});
 
-	it('points Claude at the Quarto document\'s kernel session', () => {
+	it('points the agent at the Quarto document\'s kernel session', () => {
 		expect(getErrorPrompt('explain', {
 			error: 'boom',
 			location: { kind: 'quarto', uri: { path: '/work/report.qmd' } as Uri, languageId: 'r', startLine: 10, endLine: 12, sessionId: 'r-9012' },
@@ -154,25 +154,3 @@ describe('formatFilePrompt', () => {
 			.toBe('Fix the error. The details are in @"C:\\Users\\Ada Lovelace\\error.md"');
 	});
 });
-
-describe('getClaudeCodeSurface', () => {
-	it('opens a new chat when useTerminal is off', () => {
-		expect(getClaudeCodeSurface('2.1.282', false)).toBe('chat');
-	});
-
-	it('opens a new terminal session when useTerminal is on', () => {
-		expect(getClaudeCodeSurface('2.1.282', true)).toBe('terminal');
-	});
-
-	it('accepts the first versions that take a prompt', () => {
-		expect(getClaudeCodeSurface('2.0.35', false)).toBe('chat');
-		expect(getClaudeCodeSurface('2.0.24', true)).toBe('terminal');
-	});
-
-	it('rejects versions that ignore the prompt', () => {
-		expect(getClaudeCodeSurface('2.0.34', false)).toBeUndefined();
-		expect(getClaudeCodeSurface('2.0.23', true)).toBeUndefined();
-		expect(getClaudeCodeSurface('1.0.126', false)).toBeUndefined();
-	});
-});
-

@@ -1,0 +1,4 @@
+{
+	"displayName": "Coding Agents for Positron",
+	"description": "Sends console, notebook, and Quarto errors to coding agents like Claude Code, Codex, and Gemini CLI from the Fix and Explain actions."
+}
