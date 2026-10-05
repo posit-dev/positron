@@ -19,7 +19,7 @@ import { IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO } from '../../../
 import { DataConnectionNodeDetailsEditorInput } from '../../browser/editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { DataConnectionNodeKind, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
-import { IDataConnectionRevealOptions, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionRevealOptions, IDataConnectionNodeRevealRequest, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 
 // The tree's hover manager hides the hover when the tree is disposed; nothing here shows one.
 const hoverService = stubInterface<IHoverService>({ hideHover: vi.fn() });
@@ -113,7 +113,7 @@ describe('dataConnectionsTreeInstance reloadKey', () => {
 			reloadKey(dtoNode({ kind: 'table', name: 'orders' })),
 			// dataType / isPrimaryKey / hasPreview are not part of the identity: a column whose
 			// type changed between fetches is still the same column.
-			reloadKey(dtoNode({ kind: 'table', name: 'users', dataType: 'int', isPrimaryKey: true, hasPreview: true })),
+			reloadKey(dtoNode({ kind: 'table', name: 'users', dataType: 'int', isPrimaryKey: true, hasPreview: true, hasDetails: false })),
 		];
 
 		expect(keys).toMatchInlineSnapshot(`
@@ -192,7 +192,7 @@ describe('DataConnectionsTreeInstance', () => {
 			hasDetails: false,
 		}],
 		// A reveal recorded before the tree exists, as one that had to open the pane would be.
-		initialPendingReveal?: IDataConnectionRevealRequest,
+		initialPendingReveal?: IDataConnectionNodeRevealRequest,
 		// Seeded with the indent keys the tree reads, since the real configuration service always
 		// has them: both are registered with numeric defaults.
 		configurationService = new TestConfigurationService({
@@ -226,8 +226,8 @@ describe('DataConnectionsTreeInstance', () => {
 		const nodeGetChildren = vi.fn(async (_handle: number) => [] as IDataConnectionNodeDTO[]);
 
 		let liveInstance = connected ? instance : undefined;
-		const onDidRequestReveal = new Emitter<IDataConnectionRevealRequest>();
-		let pendingReveal: IDataConnectionRevealRequest | undefined = initialPendingReveal;
+		const onDidRequestReveal = new Emitter<IDataConnectionNodeRevealRequest>();
+		let pendingReveal: IDataConnectionNodeRevealRequest | undefined = initialPendingReveal;
 		const service = stubInterface<IPositronDataConnectionsService>({
 			onDidChangeProfiles: Event.None,
 			onDidChangeInstances: onDidChangeInstances.event,
@@ -259,7 +259,7 @@ describe('DataConnectionsTreeInstance', () => {
 		};
 
 		// Stands in for the service: record the request, then tell the tree to claim it.
-		const requestReveal = (request: IDataConnectionRevealRequest) => {
+		const requestReveal = (request: IDataConnectionNodeRevealRequest) => {
 			pendingReveal = request;
 			onDidRequestReveal.fire(request);
 		};
@@ -586,7 +586,7 @@ describe('DataConnectionsTreeInstance', () => {
 		const { tree } = createTreeOverNodes(
 			[nodeDto({ nodeHandle: 1, name: 'Tables', kind: 'group-tables' })],
 			nodeHandle => nodeHandle === 1
-				? [nodeDto({ nodeHandle: 2, name: 'flights', kind: 'table', hasGetChildren: false, hasPreview: true })]
+				? [nodeDto({ nodeHandle: 2, name: 'flights', kind: 'table', hasGetChildren: false, hasPreview: true, hasDetails: false })]
 				: []
 		);
 		await tree.refresh();
@@ -881,14 +881,14 @@ describe('DataConnectionsTreeInstance', () => {
 		 */
 		function createNestedTree() {
 			const built = createTree(true, [], [
-				{ nodeHandle: 7, name: 'Tables', kind: 'group-tables', hasGetChildren: true, hasPreview: false },
+				{ nodeHandle: 7, name: 'Tables', kind: 'group-tables', hasGetChildren: true, hasPreview: false, hasDetails: false },
 			]);
 			built.nodeGetChildren.mockImplementation(async (handle: number) => {
 				if (handle === 7) {
-					return [{ nodeHandle: 8, name: 'flights', kind: 'table', hasGetChildren: true, hasPreview: true }];
+					return [{ nodeHandle: 8, name: 'flights', kind: 'table', hasGetChildren: true, hasPreview: true, hasDetails: false }];
 				}
 				if (handle === 8) {
-					return [{ nodeHandle: 9, name: 'dep_time', kind: 'field', hasGetChildren: false, hasPreview: false }];
+					return [{ nodeHandle: 9, name: 'dep_time', kind: 'field', hasGetChildren: false, hasPreview: false, hasDetails: false }];
 				}
 				return [];
 			});
@@ -943,8 +943,8 @@ describe('DataConnectionsTreeInstance', () => {
 		it('prefers a name in the same case over one that only matches without it', async () => {
 			// Quoted identifiers let a database keep both; the path asked for the lower-case one.
 			const { tree } = createTree(true, [], [
-				{ nodeHandle: 7, name: 'Users', kind: 'table', hasGetChildren: false, hasPreview: true },
-				{ nodeHandle: 8, name: 'users', kind: 'table', hasGetChildren: false, hasPreview: true },
+				{ nodeHandle: 7, name: 'Users', kind: 'table', hasGetChildren: false, hasPreview: true, hasDetails: false },
+				{ nodeHandle: 8, name: 'users', kind: 'table', hasGetChildren: false, hasPreview: true, hasDetails: false },
 			]);
 			await tree.refresh();
 

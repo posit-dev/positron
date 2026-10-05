@@ -310,10 +310,10 @@ describe('MainThreadDataConnections', () => {
 		it('summarizes a live connection\'s schema', async () => {
 			instances = [instance('p1', {
 				getChildren: async () => [
-					{ name: 'orders', kind: 'table', nodeHandle: 2, hasGetChildren: true, hasPreview: true },
+					{ name: 'orders', kind: 'table', nodeHandle: 2, hasGetChildren: true, hasPreview: true, hasDetails: false },
 				],
 				nodeGetChildren: async () => [
-					{ name: 'id', kind: 'field', dataType: 'int', nodeHandle: 3, hasGetChildren: false, hasPreview: false },
+					{ name: 'id', kind: 'field', dataType: 'int', nodeHandle: 3, hasGetChildren: false, hasPreview: false, hasDetails: false },
 				],
 			})];
 
@@ -341,8 +341,8 @@ describe('MainThreadDataConnections', () => {
 			// name the user got wrong.
 			instances = [instance('p1', {
 				getChildren: async () => [
-					{ name: 'a', kind: 'table', nodeHandle: 2, hasGetChildren: false, hasPreview: true },
-					{ name: 'b', kind: 'table', nodeHandle: 3, hasGetChildren: false, hasPreview: true },
+					{ name: 'a', kind: 'table', nodeHandle: 2, hasGetChildren: false, hasPreview: true, hasDetails: false },
+					{ name: 'b', kind: 'table', nodeHandle: 3, hasGetChildren: false, hasPreview: true, hasDetails: false },
 				],
 			})];
 

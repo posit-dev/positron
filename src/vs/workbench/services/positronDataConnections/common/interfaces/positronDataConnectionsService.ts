@@ -33,7 +33,7 @@ export interface IDataConnectionNodeStep {
  * A request to reveal one row of a connection's tree: expand down to it, select it, scroll it
  * into view. Raised by {@link IPositronDataConnectionsService.revealNode}.
  */
-export interface IDataConnectionRevealRequest {
+export interface IDataConnectionNodeRevealRequest {
 	// The profile whose tree holds the row.
 	readonly profileId: string;
 
@@ -106,7 +106,7 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]>;
 
 	// Fires when something has asked for a row of a connection's tree to be revealed.
-	onDidRequestReveal: Event<IDataConnectionRevealRequest>;
+	onDidRequestReveal: Event<IDataConnectionNodeRevealRequest>;
 
 	// Fires when a connection should be shown in the Data Connections pane. A nudge, not the
 	// request itself: the profile to show comes from takePendingRevealConnection, so the tree
@@ -379,7 +379,7 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * yet when this is called; see {@link takePendingReveal}.
 	 * @param request The row to reveal.
 	 */
-	revealNode(request: IDataConnectionRevealRequest): Promise<void>;
+	revealNode(request: IDataConnectionNodeRevealRequest): Promise<void>;
 
 	/**
 	 * Takes the reveal request the pane has not handled yet, if any, clearing it.
@@ -388,7 +388,7 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * listening, so the request waits here rather than being lost. Returns undefined once
 	 * consumed, so one request is never acted on twice.
 	 */
-	takePendingReveal(): IDataConnectionRevealRequest | undefined;
+	takePendingReveal(): IDataConnectionNodeRevealRequest | undefined;
 
 	/**
 	 * Gets all data connection instances.

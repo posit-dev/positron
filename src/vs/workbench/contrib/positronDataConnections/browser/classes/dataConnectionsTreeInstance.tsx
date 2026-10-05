@@ -30,7 +30,7 @@ import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnect
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { Event } from '../../../../../base/common/event.js';
 import { raceTimeout } from '../../../../../base/common/async.js';
-import { IDataConnectionNodeOpener, IDataConnectionNodeStep, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { IDataConnectionNodeOpener, IDataConnectionNodeStep, IDataConnectionNodeRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { DataConnectionNodeKind, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
@@ -584,7 +584,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * which is not worth an error dialog over a click.
 	 * @param request The row to reveal.
 	 */
-	async reveal(request: IDataConnectionRevealRequest): Promise<void> {
+	async reveal(request: IDataConnectionNodeRevealRequest): Promise<void> {
 		// The roots may still be loading when a reveal arrives with the view: expand() no-ops on a
 		// node the tree does not have yet, which would lose the reveal silently.
 		await raceTimeout(this._whenRootsLoaded(), REVEAL_ROOTS_TIMEOUT_MS);
