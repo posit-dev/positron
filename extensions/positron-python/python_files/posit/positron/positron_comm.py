@@ -16,6 +16,7 @@ from . import (
     connections_comm,
     data_explorer_comm,
     help_comm,
+    object_explorer_comm,
     plot_comm,
     ui_comm,
     variables_comm,
@@ -60,6 +61,7 @@ T_content = TypeVar(
     variables_comm.VariablesBackendMessageContent,
     ui_comm.UiBackendMessageContent,
     connections_comm.ConnectionsBackendMessageContent,
+    object_explorer_comm.ObjectExplorerBackendMessageContent,
 )
 
 

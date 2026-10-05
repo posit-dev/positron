@@ -206,6 +206,7 @@ export enum RuntimeClientType {
 	Lsp = 'positron.lsp',
 	Plot = 'positron.plot',
 	DataExplorer = 'positron.dataExplorer',
+	ObjectExplorer = 'positron.objectExplorer',
 	Ui = 'positron.ui',
 	Help = 'positron.help',
 	Connection = 'positron.connection',

@@ -59,6 +59,7 @@ import { IPositronWebviewPreloadService } from '../../workbench/services/positro
 import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IPositronDataConnectionsService } from '../../workbench/services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronObjectExplorerService } from '../../workbench/services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { ILanguageFeaturesService } from '../../editor/common/services/languageFeatures.js';
 import { ILanguageConfigurationService } from '../../editor/common/languages/languageConfigurationRegistry.js';
 import { IQuickChatService } from '../../workbench/contrib/chat/browser/chat.js';
@@ -126,6 +127,7 @@ export class PositronReactServices {
 		@IPositronModalDialogsService public readonly positronModalDialogsService: IPositronModalDialogsService,
 		@IPositronNewFolderService public readonly positronNewFolderService: IPositronNewFolderService,
 		@IPositronNotebookOutputWebviewService public readonly positronNotebookOutputWebviewService: IPositronNotebookOutputWebviewService,
+		@IPositronObjectExplorerService public readonly positronObjectExplorerService: IPositronObjectExplorerService,
 		@IPositronPackagesService public readonly positronPackagesService: IPositronPackagesService,
 		@IPositronPlotsService public readonly positronPlotsService: IPositronPlotsService,
 		@IPositronPreviewService public readonly positronPreviewService: IPositronPreviewService,

@@ -1,0 +1,275 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Object Explorer Backend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "get_state",
+			"summary": "Get the explorer state",
+			"description": "Returns the title and connection state of the explored object. Used on first open and when reconnecting to an existing comm.",
+			"params": [],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "object_explorer_state",
+					"description": "The state of an object explorer",
+					"required": ["title", "connected"],
+					"properties": {
+						"title": {
+							"type": "string",
+							"description": "Title for the editor tab, usually the variable name or expression that was viewed"
+						},
+						"connected": {
+							"type": "boolean",
+							"description": "False when the explored object no longer exists; the frontend shows a disconnected state"
+						},
+						"error_message": {
+							"type": "string",
+							"description": "Optional message explaining why the explorer is disconnected"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "get_root",
+			"summary": "Get the root node",
+			"description": "Returns the node describing the explored object itself (path []).",
+			"params": [],
+			"result": {
+				"schema": {
+					"$ref": "#/components/schemas/object_node"
+				}
+			}
+		},
+		{
+			"name": "get_children",
+			"summary": "Get one page of a node's children",
+			"description": "Returns up to 'limit' children of the node at 'path', starting at child index 'start'. Never descends more than one level.",
+			"params": [
+				{
+					"name": "path",
+					"description": "Access keys from the root to the parent node; [] is the root",
+					"schema": {
+						"type": "array",
+						"items": { "type": "string" }
+					}
+				},
+				{
+					"name": "start",
+					"description": "Zero-based index of the first child to return",
+					"schema": { "type": "integer" }
+				},
+				{
+					"name": "limit",
+					"description": "Maximum number of children to return",
+					"schema": { "type": "integer" }
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "children_result",
+					"description": "A page of child nodes",
+					"required": ["children", "total"],
+					"properties": {
+						"children": {
+							"type": "array",
+							"description": "The requested page of children, in the object's natural order",
+							"items": { "$ref": "#/components/schemas/object_node" }
+						},
+						"total": {
+							"type": "integer",
+							"description": "Total number of children the parent has (may exceed the number returned)"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "search",
+			"summary": "Search names and values",
+			"description": "Depth-first, case-insensitive substring search over node display names, and over the display values of leaves (nodes that are neither containers nor cycles), bounded by max_depth and an internal node budget. Returns matches and every ancestor of a match, in pre-order, so the frontend can render the results as a tree.",
+			"params": [
+				{
+					"name": "query",
+					"description": "The text to search for",
+					"schema": { "type": "string" }
+				},
+				{
+					"name": "max_depth",
+					"description": "Maximum depth below the root to descend (root children are depth 1)",
+					"schema": { "type": "integer" }
+				},
+				{
+					"name": "max_results",
+					"description": "Maximum number of matching nodes to return",
+					"schema": { "type": "integer" }
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "search_result",
+					"description": "Search results",
+					"required": ["rows", "total_matches", "truncated"],
+					"properties": {
+						"rows": {
+							"type": "array",
+							"description": "Matches and their ancestors in pre-order",
+							"items": { "$ref": "#/components/schemas/search_row" }
+						},
+						"total_matches": {
+							"type": "integer",
+							"description": "Number of matching nodes in 'rows'"
+						},
+						"truncated": {
+							"type": "boolean",
+							"description": "True if the search stopped early because max_results or the node budget was reached"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "format_value",
+			"summary": "Format a node's full value for the clipboard",
+			"description": "Returns the complete (untruncated, within reason) plain-text representation of the node at 'path'.",
+			"params": [
+				{
+					"name": "path",
+					"description": "Access keys from the root to the node",
+					"schema": {
+						"type": "array",
+						"items": { "type": "string" }
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "formatted_value",
+					"description": "A value formatted for the clipboard",
+					"required": ["content"],
+					"properties": {
+						"content": {
+							"type": "string",
+							"description": "The formatted value"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "open_object_explorer",
+			"summary": "Open a full object explorer for an inline explorer",
+			"description": "Asks the backend to open a new, non-inline object explorer comm on the same object. Returns the new comm id.",
+			"params": [],
+			"result": {
+				"schema": {
+					"type": "string",
+					"description": "The comm id of the newly opened object explorer"
+				}
+			}
+		}
+	],
+	"components": {
+		"schemas": {
+			"object_node": {
+				"type": "object",
+				"description": "One node in the explored object",
+				"required": [
+					"access_key",
+					"display_name",
+					"display_type",
+					"display_value",
+					"kind",
+					"length",
+					"has_children",
+					"is_truncated",
+					"is_cycle"
+				],
+				"properties": {
+					"access_key": {
+						"type": "string",
+						"description": "The path segment that selects this node within its parent; same semantics as the variables comm"
+					},
+					"display_name": {
+						"type": "string",
+						"description": "The node's name (key, index, slot, or attribute), formatted for display"
+					},
+					"display_type": {
+						"type": "string",
+						"description": "The node's type, formatted for display using the same formatter as the variables comm"
+					},
+					"display_value": {
+						"type": "string",
+						"description": "The node's value, formatted for display and possibly truncated, using the same formatter as the variables comm"
+					},
+					"kind": {
+						"type": "string",
+						"description": "The kind of value, using the same vocabulary as the variables comm",
+						"enum": [
+							"boolean",
+							"bytes",
+							"class",
+							"collection",
+							"empty",
+							"function",
+							"map",
+							"number",
+							"other",
+							"string",
+							"table",
+							"lazy",
+							"connection"
+						]
+					},
+					"length": {
+						"type": "integer",
+						"description": "The number of children or elements, if known; 0 otherwise"
+					},
+					"has_children": {
+						"type": "boolean",
+						"description": "Whether get_children would return anything for this node"
+					},
+					"is_truncated": {
+						"type": "boolean",
+						"description": "True if display_value is a truncated representation"
+					},
+					"is_cycle": {
+						"type": "boolean",
+						"description": "True if this node is the same object as one of its ancestors; such nodes never report children"
+					},
+					"accessor": {
+						"type": "string",
+						"description": "A language expression that evaluates to this node's value. Absent when no expression exists."
+					}
+				}
+			},
+			"search_row": {
+				"type": "object",
+				"description": "A row in a search result: a match or an ancestor of a match",
+				"required": ["path", "node", "match_kind"],
+				"properties": {
+					"path": {
+						"type": "array",
+						"description": "Access keys from the root to this node",
+						"items": { "type": "string" }
+					},
+					"node": {
+						"$ref": "#/components/schemas/object_node",
+						"description": "The node at this path"
+					},
+					"match_kind": {
+						"type": "string",
+						"description": "Which field matched; 'ancestor' for ancestors included only for context",
+						"enum": ["ancestor", "name", "value", "name_and_value"]
+					}
+				}
+			}
+		}
+	}
+}

@@ -12,6 +12,7 @@ import { IVariableItem } from '../../../positronVariables/common/interfaces/vari
 import { IPositronDataExplorerInstance } from '../../browser/interfaces/positronDataExplorerInstance.js';
 import { IPositronDataExplorerService } from '../../browser/interfaces/positronDataExplorerService.js';
 import { canViewVariableItem, viewVariableItem } from '../../browser/positronDataExplorerViewVariableItem.js';
+import { IPositronObjectExplorerService } from '../../../positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 
 const SESSION_ID = 'test-session-id';
 const ITEM_ID = 'test-item-id';
@@ -31,19 +32,25 @@ const makeItem = (overrides: Partial<IVariableItem> = {}): MockItem =>
 	...overrides,
 } as unknown as MockItem);
 
-const makeDataExplorerService = (overrides: Partial<IPositronDataExplorerService> = {}) => {
+const makeRegistry = <T,>(overrides: Partial<T> = {}) => {
 	const service = {
 		getInstanceForVar: vi.fn().mockReturnValue(undefined),
 		getInstanceForVariablePath: vi.fn().mockReturnValue(undefined),
 		setInstanceForVar: vi.fn(),
 		...overrides,
 	};
-	return service as unknown as IPositronDataExplorerService & {
+	return service as unknown as T & {
 		getInstanceForVar: ReturnType<typeof vi.fn>;
 		getInstanceForVariablePath: ReturnType<typeof vi.fn>;
 		setInstanceForVar: ReturnType<typeof vi.fn>;
 	};
 };
+
+const makeDataExplorerService = (overrides: Partial<IPositronDataExplorerService> = {}) =>
+	makeRegistry<IPositronDataExplorerService>(overrides);
+
+const makeObjectExplorerService = (overrides: Partial<IPositronObjectExplorerService> = {}) =>
+	makeRegistry<IPositronObjectExplorerService>(overrides);
 
 const makeNotificationService = () => {
 	const service = { error: vi.fn() };
@@ -64,10 +71,11 @@ describe('viewVariableItem', () => {
 		const dataExplorerService = makeDataExplorerService({
 			getInstanceForVar: vi.fn().mockReturnValue(existing) as unknown as IPositronDataExplorerService['getInstanceForVar'],
 		});
+		const objectExplorerService = makeObjectExplorerService();
 		const notificationService = makeNotificationService();
 		const item = makeItem({ path: ['df'] });
 
-		await viewVariableItem(SESSION_ID, item, dataExplorerService, notificationService);
+		await viewVariableItem(SESSION_ID, item, dataExplorerService, objectExplorerService, notificationService);
 
 		expect(existing.requestFocus).toHaveBeenCalledTimes(1);
 		expect(dataExplorerService.getInstanceForVariablePath).not.toHaveBeenCalled();
@@ -80,10 +88,11 @@ describe('viewVariableItem', () => {
 		const dataExplorerService = makeDataExplorerService({
 			getInstanceForVariablePath: vi.fn().mockReturnValue(existing) as unknown as IPositronDataExplorerService['getInstanceForVariablePath'],
 		});
+		const objectExplorerService = makeObjectExplorerService();
 		const notificationService = makeNotificationService();
 		const item = makeItem({ path: ['df'] });
 
-		await viewVariableItem(SESSION_ID, item, dataExplorerService, notificationService);
+		await viewVariableItem(SESSION_ID, item, dataExplorerService, objectExplorerService, notificationService);
 
 		expect(existing.requestFocus).toHaveBeenCalledTimes(1);
 		expect(dataExplorerService.getInstanceForVariablePath.mock.calls[0]).toEqual([SESSION_ID, ['df']]);
@@ -92,21 +101,24 @@ describe('viewVariableItem', () => {
 
 	it('skips path lookup when item.path is empty', async () => {
 		const dataExplorerService = makeDataExplorerService();
+		const objectExplorerService = makeObjectExplorerService();
 		const notificationService = makeNotificationService();
 		const item = makeItem({ path: [] });
 
-		await viewVariableItem(SESSION_ID, item, dataExplorerService, notificationService);
+		await viewVariableItem(SESSION_ID, item, dataExplorerService, objectExplorerService, notificationService);
 
 		expect(dataExplorerService.getInstanceForVariablePath).not.toHaveBeenCalled();
+		expect(objectExplorerService.getInstanceForVariablePath).not.toHaveBeenCalled();
 		expect(item.view).toHaveBeenCalledTimes(1);
 	});
 
 	it('falls through to view() when neither id nor path lookup finds an instance', async () => {
 		const dataExplorerService = makeDataExplorerService();
+		const objectExplorerService = makeObjectExplorerService();
 		const notificationService = makeNotificationService();
 		const item = makeItem({ path: ['df'] });
 
-		await viewVariableItem(SESSION_ID, item, dataExplorerService, notificationService);
+		await viewVariableItem(SESSION_ID, item, dataExplorerService, objectExplorerService, notificationService);
 
 		expect(dataExplorerService.getInstanceForVariablePath.mock.calls[0]).toEqual([SESSION_ID, ['df']]);
 		expect(item.view).toHaveBeenCalledTimes(1);
@@ -114,21 +126,39 @@ describe('viewVariableItem', () => {
 
 	it('binds viewer id to variable id on successful view()', async () => {
 		const dataExplorerService = makeDataExplorerService();
+		const objectExplorerService = makeObjectExplorerService();
 		const notificationService = makeNotificationService();
 		const item = makeItem();
 
-		await viewVariableItem(SESSION_ID, item, dataExplorerService, notificationService);
+		await viewVariableItem(SESSION_ID, item, dataExplorerService, objectExplorerService, notificationService);
 
 		expect(item.view).toHaveBeenCalledTimes(1);
 		expect(dataExplorerService.setInstanceForVar.mock.calls[0]).toEqual([VIEWER_ID, ITEM_ID]);
+		expect(objectExplorerService.setInstanceForVar.mock.calls[0]).toEqual([VIEWER_ID, ITEM_ID]);
+	});
+
+	it('focuses an existing object explorer instance', async () => {
+		const existing = makeExistingInstance();
+		const dataExplorerService = makeDataExplorerService();
+		const objectExplorerService = makeObjectExplorerService({
+			getInstanceForVariablePath: vi.fn().mockReturnValue(existing) as unknown as IPositronObjectExplorerService['getInstanceForVariablePath'],
+		});
+		const notificationService = makeNotificationService();
+		const item = makeItem({ path: ['d'] });
+
+		await viewVariableItem(SESSION_ID, item, dataExplorerService, objectExplorerService, notificationService);
+
+		expect(existing.requestFocus).toHaveBeenCalledTimes(1);
+		expect(item.view).not.toHaveBeenCalled();
 	});
 
 	it('does not bind when view() resolves without a viewer id', async () => {
 		const dataExplorerService = makeDataExplorerService();
+		const objectExplorerService = makeObjectExplorerService();
 		const notificationService = makeNotificationService();
 		const item = makeItem({ view: vi.fn().mockResolvedValue(undefined) as unknown as IVariableItem['view'] });
 
-		await viewVariableItem(SESSION_ID, item, dataExplorerService, notificationService);
+		await viewVariableItem(SESSION_ID, item, dataExplorerService, objectExplorerService, notificationService);
 
 		expect(dataExplorerService.setInstanceForVar).not.toHaveBeenCalled();
 		expect(notificationService.error).not.toHaveBeenCalled();
@@ -136,12 +166,13 @@ describe('viewVariableItem', () => {
 
 	it('notifies and does not bind when view() rejects', async () => {
 		const dataExplorerService = makeDataExplorerService();
+		const objectExplorerService = makeObjectExplorerService();
 		const notificationService = makeNotificationService();
 		const item = makeItem({
 			view: vi.fn().mockRejectedValue(new Error('boom')) as unknown as IVariableItem['view'],
 		});
 
-		await viewVariableItem(SESSION_ID, item, dataExplorerService, notificationService);
+		await viewVariableItem(SESSION_ID, item, dataExplorerService, objectExplorerService, notificationService);
 
 		expect(notificationService.error).toHaveBeenCalledTimes(1);
 		expect(dataExplorerService.setInstanceForVar).not.toHaveBeenCalled();

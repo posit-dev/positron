@@ -14,7 +14,8 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { disposableTimeout, Limiter } from '../../../../base/common/async.js';
 import { IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { DataGridInstance, MouseSelectionType, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { DataGridInstance, MouseSelectionType, RowDescriptor, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { computeStickyRows } from './stickyRows.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from './treeNode.js';
 import { buildVisibleNodes, findParentIndex } from './treeProjection.js';
 
@@ -78,6 +79,10 @@ interface PositronTreeBaseOptions<T> {
 
 	// Whether to apply default focused/selected styling on the row wrapper. Defaults to true.
 	readonly useDefaultStyling?: boolean;
+
+	// Whether the expanded ancestors of the rows at the top of the viewport stick to the top, as in
+	// the editor's sticky scroll. Defaults to false.
+	readonly stickyScroll?: boolean;
 }
 
 /**
@@ -101,6 +106,11 @@ const REFRESHED_HIGHLIGHT_DURATION = 1500;
  * doesn't fan out into dozens of simultaneous queries against the source.
  */
 const RESTORE_FETCH_CONCURRENCY = 8;
+
+/**
+ * The most ancestors that stick to the top of the viewport.
+ */
+const MAX_STICKY_ROWS = 5;
 
 /**
  * ExpansionSnapshot type. The shape of an expanded subtree, captured before a reload drops it.
@@ -151,6 +161,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	// Per-level indent width in pixels and whether to apply default focus/selection styling.
 	private _indentWidth: number;
 	private readonly _useDefaultStyling: boolean;
+	private readonly _stickyScroll: boolean;
 
 	// Structural tree state.
 	private _roots: readonly TreeNode<T>[] = [];
@@ -238,6 +249,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		this._getReloadKey = options.getReloadKey ?? (node => node.id);
 		this._indentWidth = options.indentWidth;
 		this._useDefaultStyling = options.useDefaultStyling ?? true;
+		this._stickyScroll = options.stickyScroll ?? false;
 
 		// Lock the column count to one.
 		this._columnLayoutManager.setEntries(1);
@@ -470,6 +482,13 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	 */
 	hasLoadedChildren(id: string): boolean {
 		return this._children.has(id);
+	}
+
+	/**
+	 * The given node's loaded children, or undefined if they are not loaded.
+	 */
+	getLoadedChildren(id: string): readonly TreeNode<T>[] | undefined {
+		return this._children.get(id);
 	}
 
 	/**
@@ -923,13 +942,27 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		return columnIndex === 0 ? this.layoutWidth : undefined;
 	}
 
+	override stickyRows(): readonly RowDescriptor[] {
+		return this._stickyScroll ?
+			computeStickyRows(this._visibleNodes, this.verticalScrollOffset, this.defaultRowHeight, MAX_STICKY_ROWS) :
+			[];
+	}
+
+	/**
+	 * Selects the row. A row clicked in the band of sticky rows is also scrolled into view, as the
+	 * editor does for a sticky line.
+	 */
 	override async mouseSelectCell(
 		_columnIndex: number,
 		rowIndex: number,
 		_pinned: boolean,
 		mouseSelectionType: MouseSelectionType
 	): Promise<void> {
+		const sticky = this.stickyRows().some(row => row.rowIndex === rowIndex);
 		await this.mouseSelectRow(rowIndex, mouseSelectionType);
+		if (sticky) {
+			await this.scrollToRow(rowIndex);
+		}
 	}
 
 	/**

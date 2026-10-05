@@ -743,6 +743,23 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		);
 	}
 
+	// Create the sticky rows, painted in a band over the top of the rows. Each stacks above the one
+	// after it, so that the last, as it is pushed up and out of the band, slides under the others.
+	const stickyRows = context.instance.stickyRows();
+	const stickyRowElements = stickyRows.map((stickyRow, index) =>
+		<DataGridRow
+			key={`sticky-row-${stickyRow.rowIndex}`}
+			clipTop={0}
+			columnDescriptors={columnDescriptors}
+			height={stickyRow.height}
+			pinned={true}
+			rowIndex={stickyRow.rowIndex}
+			top={stickyRow.top}
+			width={width}
+			zIndex={stickyRows.length - index}
+		/>
+	);
+
 	// Whether any column header is being painted. The top-left corner is header chrome rather than
 	// data, so it belongs on screen exactly when the header band is. Gating it on the column count
 	// the data source reports instead let the two disagree: the headers come from the layout
@@ -864,6 +881,15 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				>
 					{dataGridRows}
 				</div>
+				{stickyRowElements.length > 0 &&
+					<div
+						className='data-grid-sticky-rows'
+						data-testid='data-grid-sticky-rows'
+						style={{ height: context.instance.stickyRowsHeight }}
+					>
+						{stickyRowElements}
+					</div>
+				}
 			</div>
 			{/* Last, so that it paints over the (empty) rows container rather than under it. */}
 			{loading && <DataGridLoadingIndicator />}

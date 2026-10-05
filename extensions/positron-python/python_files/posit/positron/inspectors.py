@@ -613,6 +613,10 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
             or safe_isinstance(self.value, "fastcore.foundation", "L")
         )
 
+    def has_viewer(self) -> bool:
+        # Lists and tuples open in the Object Explorer.
+        return isinstance(self.value, (list, tuple)) and self.has_children()
+
     def value_to_json(self) -> JsonData:
         if isinstance(self.value, range):
             return {
@@ -826,6 +830,10 @@ class MapInspector(_BaseMapInspector[Mapping]):
 
     def is_mutable(self) -> bool:
         return isinstance(self.value, MutableMapping)
+
+    def has_viewer(self) -> bool:
+        # Mappings open in the Object Explorer.
+        return self.has_children()
 
     def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         prefix, suffix = "{", "}"

@@ -87,6 +87,9 @@ const viewLabel = (variableItem: IVariableItem) => {
 			return localize('positron.variables.viewTable', 'View Data Table');
 		case 'connection':
 			return localize('positron.variables.viewConnection', 'View Connection');
+		case 'map':
+		case 'collection':
+			return localize('positron.variables.openInObjectExplorer', "Open in Object Explorer");
 		default:
 			return localize('positron.variables.view', 'View');
 	}
@@ -154,6 +157,7 @@ export const VariableItem = (props: VariableItemProps) => {
 			props.positronVariablesInstance.session.sessionId,
 			item,
 			services.positronDataExplorerService,
+			services.positronObjectExplorerService,
 			services.notificationService,
 		);
 
@@ -406,6 +410,8 @@ export const VariableItem = (props: VariableItemProps) => {
 				icon = 'codicon codicon-table';
 			} else if (props.variableItem.kind === 'connection') {
 				icon = 'codicon codicon-database';
+			} else if (props.variableItem.kind === 'map' || props.variableItem.kind === 'collection') {
+				icon = 'codicon codicon-list-tree';
 			}
 			const enablement = isViewLoading ? 'disabled' : 'enabled';
 			icon = `viewer-icon ${enablement} ${icon} ${props.variableItem.kind}`;

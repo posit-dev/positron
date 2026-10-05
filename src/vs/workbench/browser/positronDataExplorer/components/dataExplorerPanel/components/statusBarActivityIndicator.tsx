@@ -3,17 +3,30 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS.
-import './statusBarActivityIndicator.css';
-
 // React.
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 
 // Other dependencies.
-import { localize } from '../../../../../../nls.js';
-import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import { Event } from '../../../../../../base/common/event.js';
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
 import { DataExplorerClientStatus } from '../../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { ActivityStatus, ActivityStatusIndicator } from '../../../../positronComponents/activityStatusIndicator/activityStatusIndicator.js';
+
+/**
+ * Maps a data explorer client status to an activity status.
+ */
+function toActivityStatus(status: DataExplorerClientStatus): ActivityStatus {
+	switch (status) {
+		case DataExplorerClientStatus.Idle:
+			return 'idle';
+		case DataExplorerClientStatus.Computing:
+			return 'computing';
+		case DataExplorerClientStatus.Disconnected:
+			return 'disconnected';
+		case DataExplorerClientStatus.Error:
+			return 'error';
+	}
+}
 
 /**
  * StatusBarActivityIndicator component.
@@ -22,84 +35,11 @@ import { DataExplorerClientStatus } from '../../../../../services/languageRuntim
 export const StatusBarActivityIndicator = () => {
 	// Context hooks.
 	const context = usePositronDataExplorerContext();
+	const client = context.instance.dataExplorerClientInstance;
 
-	// State hooks.
-	const [dataExplorerClientStatus, setDataExplorerClientStatus] = useState(
-		context.instance.dataExplorerClientInstance.status
-	);
-
-	// Main useEffect.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Set up onDidStatusUpdate event handler.
-		let debounceTimeout: Timeout | undefined = undefined;
-		disposableStore.add(context.instance.dataExplorerClientInstance.onDidStatusUpdate(
-			newDataExplorerClientStatus => {
-				// If there is a debounce timeout in flight, clear it.
-				if (debounceTimeout) {
-					clearTimeout(debounceTimeout);
-					debounceTimeout = undefined;
-				}
-
-				// When transitioning from idle to something else, update the data explorer client
-				// status immediately. Otherwise, debounce the status update.
-				if (dataExplorerClientStatus === DataExplorerClientStatus.Idle &&
-					dataExplorerClientStatus !== newDataExplorerClientStatus
-				) {
-					setDataExplorerClientStatus(newDataExplorerClientStatus);
-				} else {
-					debounceTimeout = setTimeout(
-						() => setDataExplorerClientStatus(newDataExplorerClientStatus),
-						250
-					);
-				}
-			}
-		));
-
-		// Return the cleanup function that will dispose of the event handlers.
-		return () => disposableStore.dispose();
-	}, [context.instance.dataExplorerClientInstance, dataExplorerClientStatus]);
-
-	// Set the status text.
-	const statusText = (() => {
-		switch (dataExplorerClientStatus) {
-			case DataExplorerClientStatus.Idle:
-				return localize('positron.dataExplorer.idle', 'Idle');
-
-			case DataExplorerClientStatus.Computing:
-				return localize('positron.dataExplorer.computing', 'Computing');
-
-			case DataExplorerClientStatus.Disconnected:
-				return localize('positron.dataExplorer.disconnected', 'Disconnected');
-
-			case DataExplorerClientStatus.Error:
-				return localize('positron.dataExplorer.error', 'Error');
-		}
-	})();
-
-	// Set the status class name.
-	const statusClassName = (() => {
-		switch (dataExplorerClientStatus) {
-			case DataExplorerClientStatus.Idle:
-				return 'idle';
-
-			case DataExplorerClientStatus.Computing:
-				return 'computing';
-
-			case DataExplorerClientStatus.Disconnected:
-				return 'disconnected';
-
-			case DataExplorerClientStatus.Error:
-				return 'error';
-		}
-	})();
+	// The mapped event must keep its identity across renders, or the indicator resubscribes.
+	const onDidChangeStatus = useMemo(() => Event.map(client.onDidStatusUpdate, toActivityStatus), [client]);
 
 	// Render.
-	return (
-		<div className='status-bar-indicator'>
-			<div aria-label={statusText} className={`icon ${statusClassName}`} title={statusText} />
-		</div>
-	);
+	return <ActivityStatusIndicator status={toActivityStatus(client.status)} onDidChangeStatus={onDidChangeStatus} />;
 };

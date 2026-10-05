@@ -33,3 +33,18 @@
 .data-grid-rows {
 	position: relative;
 }
+
+/*
+ * The band of sticky rows over the top of the rows, styled like the editor's sticky scroll. It
+ * clips the last row as it is pushed up and out of the band.
+ */
+.data-grid-sticky-rows {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	overflow: hidden;
+	z-index: 2;
+	background-color: var(--vscode-editorStickyScroll-background);
+	box-shadow: var(--vscode-editorStickyScroll-shadow) 0 4px 2px -2px;
+}

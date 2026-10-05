@@ -1,0 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.object-explorer-status-bar {
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	border-top: 1px solid var(--vscode-positronDataExplorer-border);
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.object-explorer-status-bar .label {
+	min-width: 0;
+	padding-right: 8px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	opacity: 80%;
+}

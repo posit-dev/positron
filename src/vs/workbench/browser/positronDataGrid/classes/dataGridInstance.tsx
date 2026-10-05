@@ -296,6 +296,11 @@ export interface RowDescriptor {
 }
 
 /**
+ * The most times the vertical scroll offset is refined to reveal a row below the sticky rows.
+ */
+const MAXIMUM_STICKY_ROW_REVEAL_STEPS = 10;
+
+/**
  * RowDescriptors interface.
  */
 export interface RowDescriptors {
@@ -1228,6 +1233,23 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get hoverManager(): PositronActionBarHoverManager | undefined {
 		return undefined;
+	}
+
+	/**
+	 * Gets the rows painted in a band at the top of the viewport at the current scroll offset, such
+	 * as the ancestors of the rows of a tree, with tops relative to the band. None by default.
+	 */
+	stickyRows(): readonly RowDescriptor[] {
+		return [];
+	}
+
+	/**
+	 * Gets the height of the band of sticky rows at the current scroll offset.
+	 */
+	get stickyRowsHeight(): number {
+		const rows = this.stickyRows();
+		const last = rows[rows.length - 1];
+		return last ? last.top + last.height : 0;
 	}
 
 	//#endregion Public Properties - Settings
@@ -2343,8 +2365,8 @@ export abstract class DataGridInstance extends Disposable {
 
 		// If the row isn't visible, adjust the vertical scroll offset to scroll to it.
 		if (this.layoutHeight > 0) {
-			if (rowLayoutEntry.start < this._verticalScrollOffset) {
-				this._verticalScrollOffset = rowLayoutEntry.start;
+			if (rowLayoutEntry.start < this._verticalScrollOffset + this.stickyRowsHeight) {
+				this._verticalScrollOffset = this.verticalScrollOffsetToReveal(rowLayoutEntry.start);
 				scrollOffsetUpdated = true;
 			} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
 				this._verticalScrollOffset = rowIndex === this._rowLayoutManager.lastIndex ?
@@ -2418,8 +2440,8 @@ export abstract class DataGridInstance extends Disposable {
 		}
 
 		// If the row isn't visible, scroll to it.
-		if (rowLayoutEntry.start < this._verticalScrollOffset) {
-			await this.setVerticalScrollOffset(rowLayoutEntry.start);
+		if (rowLayoutEntry.start < this._verticalScrollOffset + this.stickyRowsHeight) {
+			await this.setVerticalScrollOffset(this.verticalScrollOffsetToReveal(rowLayoutEntry.start));
 		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
 			await this.setVerticalScrollOffset(rowLayoutEntry.end - this.layoutHeight);
 		}
@@ -3784,6 +3806,28 @@ export abstract class DataGridInstance extends Disposable {
 		this._cellSelectionIndexes = undefined;
 		this._columnSelectionIndexes = undefined;
 		this._rowSelectionIndexes = undefined;
+	}
+
+	/**
+	 * Gets the vertical scroll offset that reveals a row at the top of the viewport, below the band
+	 * of sticky rows. The band depends on the scroll offset, so the offset is refined until the row
+	 * clears the band there.
+	 * @param rowStart The start of the row.
+	 * @returns The vertical scroll offset.
+	 */
+	private verticalScrollOffsetToReveal(rowStart: number): number {
+		const verticalScrollOffset = this._verticalScrollOffset;
+		let offset = Math.min(verticalScrollOffset, rowStart);
+		for (let i = 0; i < MAXIMUM_STICKY_ROW_REVEAL_STEPS; i++) {
+			this._verticalScrollOffset = offset;
+			const stickyRowsHeight = this.stickyRowsHeight;
+			if (rowStart >= offset + stickyRowsHeight) {
+				break;
+			}
+			offset = Math.max(0, rowStart - stickyRowsHeight);
+		}
+		this._verticalScrollOffset = verticalScrollOffset;
+		return offset;
 	}
 
 	/**

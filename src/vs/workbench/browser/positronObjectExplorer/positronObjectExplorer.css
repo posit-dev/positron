@@ -1,0 +1,26 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.positron-object-explorer {
+	position: relative;
+	display: grid;
+	grid-template-rows: 24px minmax(0, 1fr) 24px;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+	color: var(--vscode-positronDataExplorer-foreground);
+	background-color: var(--vscode-positronDataExplorer-background);
+}
+
+.positron-object-explorer .object-explorer-tree {
+	position: relative;
+	min-width: 0;
+	min-height: 0;
+}
+
+.positron-object-explorer .positron-tree-row:not(.selected):hover {
+	background-color: var(--vscode-list-hoverBackground);
+}
