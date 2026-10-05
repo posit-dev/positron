@@ -12,6 +12,7 @@ import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { ICommandActionSource, ILocalizedString } from '../../../../platform/action/common/action.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 
 export const IAgentAllowedCommandsService = createDecorator<IAgentAllowedCommandsService>('agentAllowedCommandsService');
 
@@ -68,7 +69,10 @@ export interface IAgentCommandImage {
  * by the developer action; not exposed to extensions.
  */
 export interface IAgentCommandDebugDescriptor extends IAgentCommandDescriptor {
-	/** Whether the command's precondition currently evaluates to true. `true` when there is no precondition. */
+	/**
+	 * Whether the command's precondition currently evaluates to true in the
+	 * active editor's context. `true` when there is no precondition.
+	 */
 	readonly enabled: boolean;
 	/** Serialized precondition expression, if any. */
 	readonly precondition?: string;
@@ -143,7 +147,27 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		@ILogService private readonly _logService: ILogService,
 		@IProductService private readonly _productService: IProductService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IEditorService private readonly _editorService: IEditorService,
 	) { }
+
+	/**
+	 * Whether a command's precondition currently holds. It is checked in the
+	 * active editor's context, the same one the editor's title bar checks its
+	 * buttons against, because many preconditions use keys that exist only
+	 * there, such as `editorLangId`. An agent runs commands from outside the
+	 * editor, so the window's context alone would report those commands
+	 * disabled even with the right file open (posit-dev/positron#16375).
+	 */
+	private _preconditionHolds(precondition: ContextKeyExpression | undefined): boolean {
+		if (!precondition) {
+			return true;
+		}
+		const activeEditorPane = this._editorService.activeEditorPane;
+		const contextKeyService = activeEditorPane
+			? activeEditorPane.scopedContextKeyService ?? activeEditorPane.group.scopedContextKeyService
+			: this._contextKeyService;
+		return contextKeyService.contextMatchesRules(precondition);
+	}
 
 	private _isTrustedCommandSource(source: ICommandActionSource | undefined): boolean {
 		if (!source) {
@@ -186,7 +210,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 			source: source
 				? { type: 'extension', id: source.id, displayName: source.title }
 				: { type: 'builtin' },
-			enabled: !precondition || this._contextKeyService.contextMatchesRules(precondition),
+			enabled: this._preconditionHolds(precondition),
 			precondition: precondition?.serialize(),
 			inPalette: paletteIds.has(id),
 		};
@@ -271,7 +295,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		// (populated by registerAction2 when f1: true). Non-Action2 commands have no
 		// recorded precondition and are treated as always enabled.
 		const precondition = MenuRegistry.getCommand(commandId)?.precondition;
-		if (precondition && !this._contextKeyService.contextMatchesRules(precondition)) {
+		if (precondition && !this._preconditionHolds(precondition)) {
 			return {
 				ok: false,
 				reason: 'disabled',

@@ -8,13 +8,18 @@
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { MenuId, MenuRegistry } from '../../../../../platform/actions/common/actions.js';
-import { ContextKeyExpr, IContextKeyService, ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService, ContextKeyExpression, ContextKeyValue } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { AgentAllowedCommandsService, IGetAgentAllowedCommandsOptions } from '../../common/agentAllowedCommandsService.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IEditorGroup } from '../../../../services/editor/common/editorGroupsService.js';
+import { IVisibleEditorPane } from '../../../../common/editor.js';
 
 describe('AgentAllowedCommandsService', () => {
 	const disposables = ensureNoLeakedDisposables();
@@ -28,13 +33,16 @@ describe('AgentAllowedCommandsService', () => {
 	function makeService(overrides: {
 		executeCommand?: ICommandService['executeCommand'];
 		contextMatchesRules?: IContextKeyService['contextMatchesRules'];
+		/** The window's context. Takes precedence over `contextMatchesRules`. */
+		contextKeyService?: IContextKeyService;
+		activeEditorPane?: IVisibleEditorPane;
 		trustedPublishers?: string[];
 		extensions?: IExtensionService['extensions'];
 	} = {}) {
 		const commandService = stubInterface<ICommandService>({
 			executeCommand: overrides.executeCommand ?? vi.fn(async () => undefined),
 		});
-		const contextKeyService = stubInterface<IContextKeyService>({
+		const contextKeyService = overrides.contextKeyService ?? stubInterface<IContextKeyService>({
 			contextMatchesRules: overrides.contextMatchesRules ?? (() => true),
 		});
 		const productService = stubInterface<IProductService>({
@@ -43,8 +51,31 @@ describe('AgentAllowedCommandsService', () => {
 		const extensionService = stubInterface<IExtensionService>({
 			extensions: overrides.extensions ?? [],
 		});
-		return new AgentAllowedCommandsService(commandService, contextKeyService, new NullLogService(), productService, extensionService);
+		const editorService = stubInterface<IEditorService>({
+			activeEditorPane: overrides.activeEditorPane,
+		});
+		return new AgentAllowedCommandsService(commandService, contextKeyService, new NullLogService(), productService, extensionService, editorService);
 	}
+
+	/**
+	 * A real window context with an editor's context scoped inside it, the way
+	 * a code editor binds `editorLangId` on its own context key service. Keys
+	 * set on the window still resolve in the editor's context.
+	 */
+	function makeEditorContext(windowKeys: Record<string, ContextKeyValue>, editorKeys: Record<string, ContextKeyValue>) {
+		const windowContext = store.add(new ContextKeyService(new TestConfigurationService()));
+		for (const [key, value] of Object.entries(windowKeys)) {
+			windowContext.createKey(key, value);
+		}
+		const editorContext = store.add(windowContext.createScoped(document.createElement('div')));
+		for (const [key, value] of Object.entries(editorKeys)) {
+			editorContext.createKey(key, value);
+		}
+		return { windowContext, editorContext };
+	}
+
+	/** Shiny's `shiny.r.runApp` enablement, which gates on the editor's language. */
+	const runRAppPrecondition = ContextKeyExpr.deserialize('editorLangId == r && shellExecutionSupported')!;
 
 	/** Register a command and add it to the command palette (mirrors `registerAction2` with `f1: true`). */
 	function registerPaletteCommand(id: string, options: {
@@ -309,6 +340,19 @@ describe('AgentAllowedCommandsService', () => {
 			});
 		});
 
+		it('reports a command enabled when its precondition holds in the active editor', () => {
+			registerPaletteCommand('test.agent.editorGated', { agentCompatible: true, precondition: runRAppPrecondition });
+			const { windowContext, editorContext } = makeEditorContext({ shellExecutionSupported: true }, { editorLangId: 'r' });
+
+			const enabled = (activeEditorPane: IVisibleEditorPane | undefined) => makeService({ contextKeyService: windowContext, activeEditorPane })
+				.getAllAgentCompatibleCommands().find(c => c.id === 'test.agent.editorGated')?.enabled;
+
+			expect({
+				withREditor: enabled(stubInterface<IVisibleEditorPane>({ scopedContextKeyService: editorContext })),
+				withNoEditor: enabled(undefined),
+			}).toEqual({ withREditor: true, withNoEditor: false });
+		});
+
 		it('excludes a command from an untrusted non-builtin extension', () => {
 			store.add(MenuRegistry.addCommand({
 				id: 'untrusted.agentCmd',
@@ -365,6 +409,45 @@ describe('AgentAllowedCommandsService', () => {
 				precondition: precondition.serialize(),
 			});
 			expect(executeCommand).not.toHaveBeenCalled();
+		});
+
+		// The agent calls from outside the editor, so `editorLangId` is never in
+		// the window's context; only the active editor's context has it.
+		it.each([
+			{ editorLangId: 'r', ok: true },
+			{ editorLangId: 'python', ok: false },
+		])('checks the precondition in the active editor\'s context ($editorLangId editor -> ok: $ok)', async ({ editorLangId, ok }) => {
+			store.add(CommandsRegistry.registerCommand('test.agent.runRApp', () => { }));
+			store.add(MenuRegistry.addCommand({ id: 'test.agent.runRApp', title: 'Run R App', precondition: runRAppPrecondition }));
+			const { windowContext, editorContext } = makeEditorContext({ shellExecutionSupported: true }, { editorLangId });
+			const executeCommand = vi.fn(async () => undefined) as unknown as ICommandService['executeCommand'];
+			const service = makeService({
+				executeCommand,
+				contextKeyService: windowContext,
+				activeEditorPane: stubInterface<IVisibleEditorPane>({ scopedContextKeyService: editorContext }),
+			});
+
+			const result = await service.validateAndExecute('test.agent.runRApp');
+
+			expect(windowContext.contextMatchesRules(runRAppPrecondition)).toBe(false);
+			expect(result.ok).toBe(ok);
+			expect(executeCommand).toHaveBeenCalledTimes(ok ? 1 : 0);
+		});
+
+		it('falls back to the editor group\'s context for an editor without its own', async () => {
+			const precondition = ContextKeyExpr.equals('groupKey', 'set')!;
+			store.add(CommandsRegistry.registerCommand('test.agent.groupGated', () => { }));
+			store.add(MenuRegistry.addCommand({ id: 'test.agent.groupGated', title: 'Group Gated', precondition }));
+			const { windowContext, editorContext: groupContext } = makeEditorContext({}, { groupKey: 'set' });
+			const service = makeService({
+				contextKeyService: windowContext,
+				activeEditorPane: stubInterface<IVisibleEditorPane>({
+					scopedContextKeyService: undefined,
+					group: stubInterface<IEditorGroup>({ scopedContextKeyService: groupContext }),
+				}),
+			});
+
+			expect(await service.validateAndExecute('test.agent.groupGated')).toEqual({ ok: true, result: undefined });
 		});
 
 		it('returns { ok: false, reason: "error", message } when the handler throws', async () => {
