@@ -842,6 +842,32 @@ declare module 'positron' {
 		 * automatic, restored, duplicated, and programmatic starts.
 		 */
 		readonly userSelected?: boolean;
+
+		/**
+		 * Who the session belongs to. `user` for sessions the user starts;
+		 * `agent` for sessions an AI agent starts for itself. When absent, the
+		 * session belongs to the user.
+		 */
+		readonly owner?: RuntimeSessionOwner;
+	}
+
+	/**
+	 * Who a session belongs to. `user` for sessions the user starts;
+	 * `agent` for sessions an AI agent starts for itself.
+	 */
+	export type RuntimeSessionOwner = 'user' | 'agent';
+
+	/** Options for {@link runtime.startLanguageRuntime}. */
+	export interface RuntimeSessionStartOptions {
+		/** Who the session belongs to. Defaults to `user`. */
+		readonly owner?: RuntimeSessionOwner;
+
+		/**
+		 * Whether the session becomes the foreground session once started.
+		 * Defaults to `true`. Pass `false` to start it in the background and
+		 * leave the user's selected session in place.
+		 */
+		readonly activate?: boolean;
 	}
 
 	/**
@@ -3512,12 +3538,14 @@ declare module 'positron' {
 		 * @param sessionName A human-readable name for the new session.
 		 * @param notebookUri If the session is associated with a notebook,
 		 *   the notebook URI.
+		 * @param options Options for the new session.
 		 *
 		 * Returns a Thenable that resolves with the newly created session.
 		 */
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
-			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
+			notebookUri?: vscode.Uri,
+			options?: RuntimeSessionStartOptions): Thenable<LanguageRuntimeSession>;
 
 		/**
 		 * Interrupt a running session.

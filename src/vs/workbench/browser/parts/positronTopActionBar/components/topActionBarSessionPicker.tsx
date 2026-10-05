@@ -81,6 +81,7 @@ export const TopActionBarSessionPicker = () => {
 						data-testid='session-picker-icon'
 						languageId={displayInfo.languageId}
 						notebookUri={displayInfo.notebookUri}
+						owner={displayInfo.owner}
 						sessionMode={displayInfo.sessionMode}
 					/>
 					: <ActionBarButtonIcon

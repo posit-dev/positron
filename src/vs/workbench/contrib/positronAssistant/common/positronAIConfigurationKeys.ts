@@ -53,3 +53,12 @@ export const MCP_ENABLED_KEY = 'ai.mcp.enabled';
  * supervisor's Quick Pick.
  */
 export const MCP_STATUS_BAR_KEY = 'ai.mcp.statusBar';
+
+/**
+ * Whether AI agents can work in console sessions of their own. Gates only the
+ * ways to start one: the Start Agent Console Session command here, while an
+ * agent is expected to read it before starting a session of its own. Existing
+ * agent sessions are recorded and shown as such either way. The command also
+ * requires {@link AI_ENABLED_KEY}.
+ */
+export const AGENT_SESSIONS_ENABLED_KEY = 'ai.agentSessions.enabled';
