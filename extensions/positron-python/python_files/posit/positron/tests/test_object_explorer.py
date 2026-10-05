@@ -7,6 +7,7 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING, Any
 
+import pandas as pd
 import pytest
 
 from positron.access_keys import encode_access_key
@@ -152,6 +153,20 @@ def test_open_object_explorer_opens_another(oe_service: ObjectExplorerService):
 
     assert new_id != comm_id
     assert oe_service.views[new_id].root is oe_service.views[comm_id].root
+
+
+def test_view_table_opens_data_explorer(oe_service: ObjectExplorerService, de_service):
+    df = pd.DataFrame({"a": [1, 2]})
+    comm_id = _open(oe_service, {"df": df})
+
+    de_comm_id = _request(
+        oe_service, comm_id, "view_table", path=[encode_access_key("df")], title="df"
+    )
+
+    assert de_service.table_views[de_comm_id].table is df
+    assert (
+        de_comm_id in de_service.path_to_comm_ids[(encode_access_key("x"), encode_access_key("df"))]
+    )
 
 
 SEARCH_FIXTURE = {"alpha": {"beta": [1, "needle", {"gamma": "needle"}]}, "delta": "haystack"}

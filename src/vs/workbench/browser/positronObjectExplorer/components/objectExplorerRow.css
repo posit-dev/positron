@@ -84,10 +84,30 @@
 	overflow-wrap: anywhere;
 }
 
+/*
+ * A table's value is followed by the button that opens it in a Data Explorer.
+ */
+.object-explorer-row .object-explorer-cell.value.table {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding-right: 4px;
+}
+
+.object-explorer-row .object-explorer-cell.value.table .value-text {
+	flex: 1;
+	min-width: 0;
+}
+
 .object-explorer-row .open-value {
 	position: absolute;
 	right: 4px;
 	bottom: 3px;
+}
+
+.object-explorer-row .open-value,
+.object-explorer-row .view-table {
+	flex: none;
 	width: 18px;
 	height: 18px;
 	padding: 0;
@@ -98,6 +118,7 @@
 	cursor: pointer;
 }
 
-.object-explorer-row .open-value:hover {
+.object-explorer-row .open-value:hover,
+.object-explorer-row .view-table:hover {
 	background-color: var(--vscode-toolbar-hoverBackground);
 }

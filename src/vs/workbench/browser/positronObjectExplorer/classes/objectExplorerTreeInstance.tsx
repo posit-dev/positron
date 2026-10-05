@@ -15,6 +15,7 @@ import { IClipboardService } from '../../../../platform/clipboard/common/clipboa
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from '../../positronTree/classes/treeNode.js';
 import { PositronTreeInstance } from '../../positronTree/classes/positronTreeInstance.js';
@@ -23,7 +24,7 @@ import { AnchorPoint } from '../../positronComponents/positronModalPopup/positro
 import { CustomContextMenuItem } from '../../positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../positronComponents/customContextMenu/customContextMenu.js';
-import { FormattedValue, ObjectNode, SearchResult, SearchRow, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
+import { FormattedValue, ObjectNode, ObjectNodeKind, SearchResult, SearchRow, SearchRowMatchKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { ObjectExplorerClientInstance } from '../../../services/languageRuntime/common/languageRuntimeObjectExplorerClient.js';
 import { ObjectExplorerMoreRow, ObjectExplorerRow } from '../components/objectExplorerRow.js';
 
@@ -144,6 +145,9 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	// The value of the selected leaf, and the node it is (being) fetched for.
 	private _expandedValue: { readonly node: ObjectNode; readonly value?: FormattedValue } | undefined;
 
+	// The Data Explorers opened on tables, keyed by node id, so a table opens only once.
+	private readonly _tableViewers = new Map<string, Promise<string>>();
+
 	/**
 	 * Constructor.
 	 * @param _client The object explorer client.
@@ -159,6 +163,7 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 		private readonly _clipboardService: IClipboardService,
 		private readonly _notificationService: INotificationService,
 		private readonly _editorService: IEditorService,
+		private readonly _dataExplorerService: IPositronDataExplorerService,
 		hoverService: IHoverService,
 		configurationService: IConfigurationService,
 	) {
@@ -250,6 +255,37 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 			this._notificationService.error(localize(
 				'positron.objectExplorer.openValueFailed',
 				"Could not open the value: {0}",
+				errorMessage(err)
+			));
+		}
+	}
+
+	/**
+	 * Opens the table at a row in a Data Explorer, or focuses the one already open.
+	 * @param rowIndex The row index.
+	 */
+	async viewTable(rowIndex: number): Promise<void> {
+		const visible = this.visibleNodes[rowIndex];
+		const data = visible?.node.data;
+		if (data?.type !== 'node') {
+			return;
+		}
+		const id = visible.node.id;
+		const existing = await this._tableViewers.get(id)?.catch(() => undefined);
+		const instance = existing !== undefined ? this._dataExplorerService.getInstance(existing) : undefined;
+		if (instance) {
+			instance.requestFocus();
+			return;
+		}
+		const viewer = this._client.viewTable([...data.path], data.node.display_name);
+		this._tableViewers.set(id, viewer);
+		try {
+			await viewer;
+		} catch (err) {
+			this._tableViewers.delete(id);
+			this._notificationService.error(localize(
+				'positron.objectExplorer.viewTableFailed',
+				"Could not open the table: {0}",
 				errorMessage(err)
 			));
 		}
@@ -595,6 +631,9 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 				typeWidth={typeWidth}
 				onDidMeasure={height => this._setExpandedRowHeight(id, height)}
 				onOpenValue={() => this.openValue(context.index)}
+				onViewTable={data.node.kind === ObjectNodeKind.Table && this._client.canViewTable ?
+					() => this.viewTable(context.index) :
+					undefined}
 			/>
 		);
 	}

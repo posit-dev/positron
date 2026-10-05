@@ -259,6 +259,21 @@ export interface FormatValueParams {
 }
 
 /**
+ * Parameters for the ViewTable method.
+ */
+export interface ViewTableParams {
+	/**
+	 * Access keys from the root to the node
+	 */
+	path: Array<string>;
+
+	/**
+	 * Title for the data explorer, usually the node's display name
+	 */
+	title: string;
+}
+
+/**
  * Event: The explored object changed
  */
 export interface UpdateEvent {
@@ -274,6 +289,7 @@ export enum ObjectExplorerBackendRequest {
 	GetChildren = 'get_children',
 	Search = 'search',
 	FormatValue = 'format_value',
+	ViewTable = 'view_table',
 	OpenObjectExplorer = 'open_object_explorer'
 }
 
@@ -363,6 +379,22 @@ export class PositronObjectExplorerComm extends PositronBaseComm {
 	 */
 	formatValue(path: Array<string>, maxLength: number | undefined): Promise<FormattedValue> {
 		return super.performRpc('format_value', ['path', 'max_length'], [path, maxLength]);
+	}
+
+	/**
+	 * Open a node in the Data Explorer
+	 *
+	 * Asks the backend to open a data explorer comm on the node at 'path',
+	 * which must be a table. Returns the new comm id.
+	 *
+	 * @param path Access keys from the root to the node
+	 * @param title Title for the data explorer, usually the node's display
+	 * name
+	 *
+	 * @returns The comm id of the newly opened data explorer
+	 */
+	viewTable(path: Array<string>, title: string): Promise<string> {
+		return super.performRpc('view_table', ['path', 'title'], [path, title]);
 	}
 
 	/**

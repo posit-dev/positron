@@ -173,6 +173,32 @@
 			}
 		},
 		{
+			"name": "view_table",
+			"summary": "Open a node in the Data Explorer",
+			"description": "Asks the backend to open a data explorer comm on the node at 'path', which must be a table. Returns the new comm id.",
+			"params": [
+				{
+					"name": "path",
+					"description": "Access keys from the root to the node",
+					"schema": {
+						"type": "array",
+						"items": { "type": "string" }
+					}
+				},
+				{
+					"name": "title",
+					"description": "Title for the data explorer, usually the node's display name",
+					"schema": { "type": "string" }
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "string",
+					"description": "The comm id of the newly opened data explorer"
+				}
+			}
+		},
+		{
 			"name": "open_object_explorer",
 			"summary": "Open a full object explorer for an inline explorer",
 			"description": "Asks the backend to open a new, non-inline object explorer comm on the same object. Returns the new comm id.",

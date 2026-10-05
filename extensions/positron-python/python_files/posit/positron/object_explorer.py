@@ -46,6 +46,8 @@ from .variables_comm import ClipboardFormatFormat, VariableKind
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from .data_explorer import DataExplorerService
+
 logger = logging.getLogger(__name__)
 
 # The kinds of value whose children the Object Explorer shows, and whose identity is tracked to
@@ -117,7 +119,7 @@ class ObjectExplorerView:
         return node
 
     def get_children(self, params: GetChildrenParams) -> ChildrenResult:
-        parent, accessor, ancestors = self._resolve(params.path)
+        parent, accessor, ancestors = self.resolve(params.path)
         inspector = get_inspector(parent)
         if not inspector.has_children():
             return ChildrenResult(children=[], total=0)
@@ -178,7 +180,7 @@ class ObjectExplorerView:
         return SearchResult(rows=rows, total_matches=matches, truncated=truncated)
 
     def format_value(self, params: FormatValueParams) -> FormattedValue:
-        value, _, _ = self._resolve(params.path)
+        value, _, _ = self.resolve(params.path)
         max_length = params.max_length
         if isinstance(value, str):
             # Slice before copying, in case the string is huge.
@@ -189,7 +191,7 @@ class ObjectExplorerView:
             return FormattedValue(content=content[:max_length], is_truncated=True)
         return FormattedValue(content=content, is_truncated=False)
 
-    def _resolve(self, path: list[str]) -> tuple[Any, str | None, set[int]]:
+    def resolve(self, path: list[str]) -> tuple[Any, str | None, set[int]]:
         """
         Resolve the value at an access key path.
 
@@ -292,8 +294,9 @@ def _match_kind(node: ObjectNode, needle: str) -> SearchRowMatchKind | None:
 class ObjectExplorerService:
     """Opens and serves object explorer comms."""
 
-    def __init__(self, comm_target: str) -> None:
+    def __init__(self, comm_target: str, data_explorer_service: DataExplorerService) -> None:
         self.comm_target = comm_target
+        self.data_explorer_service = data_explorer_service
         self.comms: dict[str, PositronComm] = {}
         self.views: dict[str, ObjectExplorerView] = {}
         # The variable path each explorer was opened on, if any.
@@ -365,9 +368,18 @@ class ObjectExplorerService:
                 list(path) if path is not None else None,
                 root_accessor=view.root_accessor,
             )
+        elif request.method == ObjectExplorerBackendRequest.ViewTable:
+            result = self._view_table(comm_id, request.params.path, request.params.title)
         else:
             result = getattr(view, request.method.value)(getattr(request, "params", None)).dict()
         self.comms[comm_id].send_result(result)
+
+    def _view_table(self, comm_id: str, path: list[str], title: str) -> str:
+        """Open a data explorer on the table at a path, returning its comm id."""
+        value, _, _ = self.views[comm_id].resolve(path)
+        root_path = self.comm_id_to_path.get(comm_id)
+        variable_path = [*root_path, *path] if root_path is not None else None
+        return self.data_explorer_service.register_table(value, title, variable_path=variable_path)
 
     def variable_has_active_explorers(self, name: str) -> bool:
         return any(True for _ in self._comm_ids_for_variable(name))

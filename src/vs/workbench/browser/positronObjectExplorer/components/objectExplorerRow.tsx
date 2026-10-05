@@ -80,12 +80,14 @@ interface ObjectExplorerRowProps {
 	readonly onDidMeasure: (height: number) => void;
 	/** Opens the node's full value in an editor. */
 	readonly onOpenValue: () => void;
+	/** Opens the node in a Data Explorer, for tables. */
+	readonly onViewTable?: () => void;
 }
 
 /**
  * ObjectExplorerRow component. The Name, Type, and Value cells of one node.
  */
-export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached, hoverManager, query, match, expanded, expandedValue, onDidMeasure, onOpenValue }: ObjectExplorerRowProps) => {
+export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached, hoverManager, query, match, expanded, expandedValue, onDidMeasure, onOpenValue, onViewTable }: ObjectExplorerRowProps) => {
 	const valueCellRef = useRef<HTMLDivElement>(null);
 	const valueTextRef = useRef<HTMLDivElement>(null);
 	const [clamped, setClamped] = useState(false);
@@ -98,6 +100,7 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 	}, [expanded, onDidMeasure]);
 
 	const openValueLabel = localize('positron.objectExplorer.openValueInEditor', "Open Value in Editor");
+	const viewTableLabel = localize('positron.objectExplorer.viewTable', "View Data Table");
 	const nameMatched = match === SearchRowMatchKind.Name || match === SearchRowMatchKind.NameAndValue;
 	const valueMatched = match === SearchRowMatchKind.Value || match === SearchRowMatchKind.NameAndValue;
 
@@ -142,7 +145,7 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 			</div>
 			<div
 				ref={valueCellRef}
-				className={`object-explorer-cell value${node.is_cycle ? ' cycle' : ''}`}
+				className={`object-explorer-cell value${node.is_cycle ? ' cycle' : ''}${onViewTable ? ' table' : ''}`}
 				data-testid='object-explorer-value'
 				role='presentation'
 				onMouseLeave={() => hoverManager.hideHover()}
@@ -168,6 +171,20 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 						}}
 						onMouseDown={e => e.stopPropagation()}
 						onMouseOver={e => hoverManager.showHover(e.currentTarget, openValueLabel)}
+					/>
+				}
+				{onViewTable &&
+					<button
+						aria-label={viewTableLabel}
+						className='view-table codicon codicon-table'
+						data-testid='object-explorer-view-table'
+						type='button'
+						onClick={e => {
+							e.stopPropagation();
+							onViewTable();
+						}}
+						onMouseDown={e => e.stopPropagation()}
+						onMouseOver={e => hoverManager.showHover(e.currentTarget, viewTableLabel)}
 					/>
 				}
 			</div>

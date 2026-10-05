@@ -40,4 +40,10 @@ export interface IObjectExplorerBackend extends IDisposable {
 	 * backends implement this.
 	 */
 	openObjectExplorer?(): Promise<string>;
+
+	/**
+	 * Opens a Data Explorer on the table at a path and returns its identifier. Only runtime
+	 * backends implement this.
+	 */
+	viewTable?(path: string[], title: string): Promise<string>;
 }

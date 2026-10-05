@@ -65,4 +65,8 @@ export class ObjectExplorerCommBackend extends Disposable implements IObjectExpl
 	openObjectExplorer(): Promise<string> {
 		return this._comm.openObjectExplorer();
 	}
+
+	viewTable(path: string[], title: string): Promise<string> {
+		return this._comm.viewTable(path, title);
+	}
 }

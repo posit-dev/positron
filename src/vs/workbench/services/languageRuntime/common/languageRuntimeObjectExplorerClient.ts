@@ -81,6 +81,13 @@ export class ObjectExplorerClientInstance extends Disposable {
 	}
 
 	/**
+	 * Whether the backend can open a Data Explorer on a table.
+	 */
+	get canViewTable(): boolean {
+		return this._backend.viewTable !== undefined;
+	}
+
+	/**
 	 * Puts the client in the error state until the next request completes, or clears the error
 	 * when no message is given.
 	 * @param message The error message.
@@ -124,6 +131,15 @@ export class ObjectExplorerClientInstance extends Disposable {
 				throw new Error('The backend cannot open an object explorer.');
 			}
 			return this._backend.openObjectExplorer();
+		});
+	}
+
+	viewTable(path: string[], title: string): Promise<string> {
+		return this.runBackendTask(() => {
+			if (!this._backend.viewTable) {
+				throw new Error('The backend cannot open a data explorer.');
+			}
+			return this._backend.viewTable(path, title);
 		});
 	}
 

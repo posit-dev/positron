@@ -14,6 +14,7 @@ import { IClipboardService } from '../../../../platform/clipboard/common/clipboa
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../editor/common/editorService.js';
+import { IPositronDataExplorerService } from '../../positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronObjectExplorerUri } from '../common/positronObjectExplorerUri.js';
 import { IPositronObjectExplorerInstance } from './interfaces/positronObjectExplorerInstance.js';
 import { OBJECT_EXPLORER_MAX_DEPTH_KEY, objectExplorerMaxDepth } from './positronObjectExplorerConfiguration.js';
@@ -84,6 +85,7 @@ export class PositronObjectExplorerInstance extends Disposable implements IPosit
 		@IEditorService private readonly _editorService: IEditorService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService,
 	) {
 		super();
 
@@ -229,6 +231,7 @@ export class PositronObjectExplorerInstance extends Disposable implements IPosit
 			this._clipboardService,
 			this._notificationService,
 			this._editorService,
+			this._dataExplorerService,
 			this._hoverService,
 			this._configurationService
 		);

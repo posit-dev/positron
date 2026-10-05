@@ -9,13 +9,14 @@ import { IConfigurationChangeEvent, IConfigurationService } from '../../../../..
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { IPositronDataExplorerService } from '../../../positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { ObjectExplorerClientInstance } from '../../../languageRuntime/common/languageRuntimeObjectExplorerClient.js';
 import { JsonObjectExplorerBackend } from '../../common/jsonObjectExplorerBackend.js';
 import { PositronObjectExplorerInstance } from '../../browser/positronObjectExplorerInstance.js';
 import { OBJECT_EXPLORER_MAX_DEPTH_KEY } from '../../browser/positronObjectExplorerConfiguration.js';
 
 describe('PositronObjectExplorerInstance', () => {
-	const ctx = createTestContainer().withWorkbenchServices().build();
+	const ctx = createTestContainer().withWorkbenchServices().stub(IPositronDataExplorerService, {}).build();
 
 	function createInstance() {
 		const backend = new JsonObjectExplorerBackend('json:test', 'data.json', { a: 1 });

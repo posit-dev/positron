@@ -19,9 +19,12 @@ import { IClipboardService } from '../../../../../platform/clipboard/common/clip
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IPositronDataExplorerService } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronDataExplorerInstance } from '../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { PositronTree } from '../../../positronTree/positronTree.js';
 import { ObjectExplorerClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeObjectExplorerClient.js';
 import { JsonObjectExplorerBackend } from '../../../../services/positronObjectExplorer/common/jsonObjectExplorerBackend.js';
+import { ObjectNodeKind } from '../../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { ObjectExplorerColumnWidths, ObjectExplorerTreeInstance, objectNodeId } from '../../classes/objectExplorerTreeInstance.js';
 
 const { mockShowCustomContextMenu } = vi.hoisted(() => ({ mockShowCustomContextMenu: vi.fn() }));
@@ -58,6 +61,7 @@ describe('ObjectExplorerTreeInstance', () => {
 		const clipboardService = stubInterface<IClipboardService>({ writeText: vi.fn(async () => { }) });
 		const notificationService = stubInterface<INotificationService>({ error: vi.fn() });
 		const editorService = stubInterface<IEditorService>({ openEditor: vi.fn(async () => undefined) });
+		const dataExplorerService = stubInterface<IPositronDataExplorerService>({ getInstance: vi.fn(() => undefined) });
 		const search = query === undefined ? undefined :
 			{ query, root: await backend.getRoot(), result: await backend.search(query, maxDepth, 1000) };
 		const tree = store.add(new ObjectExplorerTreeInstance(
@@ -68,13 +72,14 @@ describe('ObjectExplorerTreeInstance', () => {
 			clipboardService,
 			notificationService,
 			editorService,
+			dataExplorerService,
 			ctx.get(IHoverService),
 			ctx.get(IConfigurationService)
 		));
 		await tree.setSize(VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
 		await waitFor(() => expect(tree.isExpanded(objectNodeId([]))).toBe(true));
 		await waitFor(() => expect(tree.isLoading(objectNodeId([]))).toBe(false));
-		return { tree, backend, clipboardService, notificationService, editorService };
+		return { tree, backend, clipboardService, notificationService, editorService, dataExplorerService };
 	}
 
 	const rowNames = (tree: ObjectExplorerTreeInstance) => tree.visibleNodes.map(visible =>
@@ -198,6 +203,28 @@ describe('ObjectExplorerTreeInstance', () => {
 
 		expect(await screen.findByText('(circular reference)')).toBeInTheDocument();
 		expect(tree.visibleNodes[1].expandState).toBe('leaf');
+	});
+
+	it('opens a table in a Data Explorer once, then focuses it', async () => {
+		const { tree, backend, dataExplorerService } = await createTree({ t: {} });
+		const page = await backend.getChildren([], 0, 10);
+		vi.spyOn(backend, 'getChildren').mockResolvedValue({
+			children: [{ ...page.children[0], kind: ObjectNodeKind.Table }],
+			total: 1
+		});
+		const viewTable = vi.fn(async () => 'data-explorer');
+		Object.assign(backend, { viewTable });
+		await tree.reloadAll();
+		rtl.render(<PositronTree instance={tree} />);
+
+		(await screen.findByTestId('object-explorer-view-table')).click();
+		await waitFor(() => expect(viewTable).toHaveBeenCalledWith(['t'], 't'));
+
+		const requestFocus = vi.fn();
+		vi.mocked(dataExplorerService.getInstance).mockReturnValue(stubInterface<IPositronDataExplorerInstance>({ requestFocus }));
+		screen.getByTestId('object-explorer-view-table').click();
+		await waitFor(() => expect(requestFocus).toHaveBeenCalled());
+		expect(viewTable).toHaveBeenCalledTimes(1);
 	});
 
 	it('offers Copy Value, Copy Accessor, and Expand in the context menu', async () => {

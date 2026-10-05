@@ -639,7 +639,9 @@ class PositronIPyKernel(IPythonKernel):
 
         # Create Positron services
         self.data_explorer_service = DataExplorerService(_CommTarget.DataExplorer, self.job_queue)
-        self.object_explorer_service = ObjectExplorerService(_CommTarget.ObjectExplorer)
+        self.object_explorer_service = ObjectExplorerService(
+            _CommTarget.ObjectExplorer, self.data_explorer_service
+        )
         self.plots_service = PlotsService(_CommTarget.Plot, self.session_mode)
         self.ui_service = UiService(self)
         self.help_service = HelpService()

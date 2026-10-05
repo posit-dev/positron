@@ -217,6 +217,9 @@ class ObjectExplorerBackendRequest(str, enum.Enum):
     # Format a node's value as plain text
     FormatValue = "format_value"
 
+    # Open a node in the Data Explorer
+    ViewTable = "view_table"
+
     # Open a full object explorer for an inline explorer
     OpenObjectExplorer = "open_object_explorer"
 
@@ -374,6 +377,41 @@ class FormatValueRequest(BaseModel):
     )
 
 
+class ViewTableParams(BaseModel):
+    """
+    Asks the backend to open a data explorer comm on the node at 'path',
+    which must be a table. Returns the new comm id.
+    """
+
+    path: List[StrictStr] = Field(
+        description="Access keys from the root to the node",
+    )
+
+    title: StrictStr = Field(
+        description="Title for the data explorer, usually the node's display name",
+    )
+
+
+class ViewTableRequest(BaseModel):
+    """
+    Asks the backend to open a data explorer comm on the node at 'path',
+    which must be a table. Returns the new comm id.
+    """
+
+    params: ViewTableParams = Field(
+        description="Parameters to the ViewTable method",
+    )
+
+    method: Literal[ObjectExplorerBackendRequest.ViewTable] = Field(
+        description="The JSON-RPC method name (view_table)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class OpenObjectExplorerRequest(BaseModel):
     """
     Asks the backend to open a new, non-inline object explorer comm on the
@@ -398,6 +436,7 @@ class ObjectExplorerBackendMessageContent(BaseModel):
         GetChildrenRequest,
         SearchRequest,
         FormatValueRequest,
+        ViewTableRequest,
         OpenObjectExplorerRequest,
     ] = Field(..., discriminator="method")
 
@@ -439,5 +478,9 @@ SearchRequest.update_forward_refs()
 FormatValueParams.update_forward_refs()
 
 FormatValueRequest.update_forward_refs()
+
+ViewTableParams.update_forward_refs()
+
+ViewTableRequest.update_forward_refs()
 
 OpenObjectExplorerRequest.update_forward_refs()
