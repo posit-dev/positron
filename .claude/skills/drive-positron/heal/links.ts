@@ -16,11 +16,16 @@ export function compareUrl(branch: string, title: string, body: string, runUrl: 
 	const tail = `\n\nFull run: ${runUrl}`;
 	const build = (b: string) => `${REPO}/compare/main...${branch}?expand=1&title=${encodeURIComponent(title)}&body=${encodeURIComponent(b + tail)}`;
 	if (build(body).length <= max) { return build(body); }
-	// Cut by characters, not by encoded length, so no %XX escape is split.
+	// Cut by characters, not by encoded length, avoiding breaking surrogate pairs.
 	let lo = 0, hi = body.length;
 	while (lo < hi) {
 		const mid = Math.ceil((lo + hi) / 2);
-		if (build(`${body.slice(0, mid)}\n\n(trimmed)`).length <= max) { lo = mid; } else { hi = mid - 1; }
+		let cutPoint = mid;
+		// Back off one char if we land after a high surrogate (first half of a surrogate pair)
+		if (cutPoint > 0 && body.charCodeAt(cutPoint - 1) >= 0xD800 && body.charCodeAt(cutPoint - 1) <= 0xDBFF) {
+			cutPoint--;
+		}
+		if (build(`${body.slice(0, cutPoint)}\n\n(trimmed)`).length <= max) { lo = cutPoint; } else { hi = mid - 1; }
 	}
 	return build(`${body.slice(0, lo)}\n\n(trimmed)`);
 }

@@ -34,3 +34,17 @@ test('a patch line that only looks like a header inside a hunk is ignored', () =
 	const patch = ['diff --git a/.claude/skills/drive-positron/c.md b/.claude/skills/drive-positron/c.md', '@@ -1 +1 @@', '-x', '+rename to src/evil.ts'].join('\n');
 	assert.deepEqual(outside(pathsFromPatch(patch)), []);
 });
+
+test('quoted patch header with mode-only change on path outside skill', () => {
+	const patch = ['diff --git "a/src/evil.ts" "b/src/evil.ts"', 'old mode 100644', 'new mode 100755'].join('\n');
+	assert.deepEqual(outside(pathsFromPatch(patch)), ['src/evil.ts']);
+});
+
+test('a path containing .. is outside', () => {
+	assert.deepEqual(outside(['.claude/skills/drive-positron/../x.ts', '.claude/skills/drive-positron/x.ts']), ['.claude/skills/drive-positron/../x.ts']);
+});
+
+test('status: copy entry', () => {
+	const z = ['C  .claude/skills/drive-positron/old.ts', '.claude/skills/drive-positron/new.ts', ''].join('\0');
+	assert.deepEqual(pathsFromStatus(z), ['.claude/skills/drive-positron/old.ts', '.claude/skills/drive-positron/new.ts']);
+});
