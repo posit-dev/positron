@@ -113,3 +113,30 @@ test('loadNight on an empty dir is a quiet green night', () => {
 	const n = loadNight(mkdtempSync(join(tmpdir(), 'report-')), false, null);
 	assert.equal(shouldNotify(n), false);
 });
+
+test('PR body stays under the GitHub limit with a huge diff and many findings', () => {
+	const many = Array.from({ length: 300 }, (_, i) => f(`f${i}`, { outcome: 'fixed', smokeChecksChanged: true, reason: 'r'.repeat(300), observed: 'o'.repeat(500) }));
+	const body = prBody(night({ findings: many, smokeDiff: '+x\n'.repeat(100000) }), 'https://run');
+	assert.ok(body.length < 65536, String(body.length));
+	assert.match(body, /truncated, see the run/);
+	assert.match(body, /and 260 more, see the run summary/);
+});
+
+test('the diff fence outgrows backticks inside the diff', () => {
+	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', smokeChecksChanged: true })], smokeDiff: '+```js\n+x\n+```' }), 'u');
+	assert.match(body, /````diff\n\+```js/);
+});
+
+test('changed smoke checks with a blank diff say so instead of an empty fence', () => {
+	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', smokeChecksChanged: true })], smokeDiff: '  \n' }), 'u');
+	assert.match(body, /\(diff unavailable\)/);
+	assert.doesNotMatch(body, /```diff/);
+});
+
+test('slack text escapes mrkdwn and drops empty links', () => {
+	const t = slackText(night({ jobFailed: 'A <b> & C' }), '', null);
+	assert.match(t, /A &lt;b&gt; &amp; C/);
+	assert.doesNotMatch(t, /<\|/);
+	assert.doesNotMatch(t, /<b>/);
+	assert.match(slackText(night(), 'https://run', { kind: 'pr', url: '' }), /<https:\/\/run\|run>$/);
+});

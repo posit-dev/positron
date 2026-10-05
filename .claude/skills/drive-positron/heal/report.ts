@@ -66,10 +66,21 @@ const label = (f: Finding) => f.rejected ? `fix rejected: ${f.rejected}` : f.not
 const line = (f: Finding) => `- **${f.id}** (${f.helper}, ${label(f)}): ${String(f.observed).slice(0, 200)}. Runs: ${f.reproductions.map(r => `${r.by} ${r.result}: ${String(r.observed).slice(0, 120)}`).join(' / ')}${f.reason ? `. Reason: ${f.reason.slice(0, 300)}` : ''}`;
 const problemLines = (n: Night) => n.problems?.length ? ['**Report problems** (these inputs were skipped):', ...n.problems.map(p => `- ${p}`), ''] : [];
 
+const MAX_DIFF = 20000;
+const MAX_LISTED = 40;
+
+/** A code fence longer than any backtick run in the text, so the text cannot close it. */
+function fenced(text: string, info: string): string {
+	const fence = '`'.repeat(Math.max(3, ...(text.match(/`+/g) ?? []).map(r => r.length + 1)));
+	return `${fence}${info}\n${text}\n${fence}`;
+}
+
 function smokeSection(n: Night): string {
 	const changed = n.findings.filter(f => f.smokeChecksChanged && !f.rejected);
 	if (!changed.length) { return ''; }
-	return ['### Smoke checks changed', '', ...changed.map(f => `- ${f.id}: ${f.reason ?? ''}`), '', '```diff', n.smokeDiff.trim(), '```', '', ''].join('\n');
+	const diff = n.smokeDiff.trim();
+	const body = !diff ? '(diff unavailable)' : fenced(diff.length > MAX_DIFF ? diff.slice(0, MAX_DIFF) : diff, 'diff') + (diff.length > MAX_DIFF ? '\n(truncated, see the run)' : '');
+	return ['### Smoke checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${(f.reason ?? '').slice(0, 300)}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', body, '', ''].join('\n');
 }
 
 export function prTitle(n: Night): string {
@@ -78,7 +89,7 @@ export function prTitle(n: Night): string {
 }
 
 export function prBody(n: Night, runUrl: string): string {
-	return [smokeSection(n) + '### Summary', '', `Nightly self-heal: ${countLine(n)}. ${gateLine(n)}`.trim(), '', ...problemLines(n), ...n.findings.map(line), '', `Run: ${runUrl}`].join('\n');
+	return [smokeSection(n) + '### Summary', '', `Nightly self-heal: ${countLine(n)}. ${gateLine(n)}`.trim(), '', ...problemLines(n), ...n.findings.slice(0, MAX_LISTED).map(line), ...(n.findings.length > MAX_LISTED ? [`- and ${n.findings.length - MAX_LISTED} more, see the run summary`] : []), '', `Run: ${runUrl}`].join('\n');
 }
 
 export function summaryMarkdown(n: Night, runUrl: string): string {
@@ -96,12 +107,14 @@ export function summaryMarkdown(n: Night, runUrl: string): string {
 	return out.join('\n');
 }
 
+const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
 export function slackText(n: Night, runUrl: string, link: { kind: 'compare' | 'pr' | 'patch'; url: string } | null): string {
-	const head = n.jobFailed ? `drive-positron nightly broke at "${n.jobFailed}"` : n.state.wholesale ? 'drive-positron smoke broke wholesale' : 'drive-positron nightly';
-	const go = link ? ` | <${link.url}|${link.kind === 'compare' ? 'open the PR' : link.kind === 'pr' ? 'the PR' : 'the patch'}>` : '';
-	const gate = gateLine(n);
+	const head = n.jobFailed ? `drive-positron nightly broke at "${esc(n.jobFailed)}"` : n.state.wholesale ? 'drive-positron smoke broke wholesale' : 'drive-positron nightly';
+	const links = [runUrl ? `<${runUrl}|run>` : '', link?.url ? `<${link.url}|${link.kind === 'compare' ? 'open the PR' : link.kind === 'pr' ? 'the PR' : 'the patch'}>` : ''].filter(Boolean).join(' | ');
+	const gate = esc(gateLine(n));
 	const bad = n.problems?.length ? ` ${n.problems.length} report input${n.problems.length === 1 ? '' : 's'} unreadable.` : '';
-	return `*${head}*: ${countLine(n)}.${gate ? ` ${gate}` : ''}${bad} Cost $${totalCost(n.costs).total.toFixed(2)}. <${runUrl}|run>${go}`;
+	return `*${head}*: ${countLine(n)}.${gate ? ` ${gate}` : ''}${bad} Cost $${totalCost(n.costs).total.toFixed(2)}.${links ? ` ${links}` : ''}`;
 }
 
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
