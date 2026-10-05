@@ -101,7 +101,8 @@ const nb: PageFn<Args> = async (page, a, lib) => {
 	// The notebook editor's own toolbar, by button name.
 	const editorButton = async (name: string) => {
 		const b = group.getByRole('button', { name, exact: true }).filter({ visible: true });
-		if (await b.count() !== 1) { return { ok: false, error: `the notebook toolbar has ${await b.count() || 'no'} "${name}" button${await b.count() > 1 ? 's' : ''} now` }; }
+		const count = await b.count();
+		if (count !== 1) { return { ok: false, error: `the notebook toolbar has ${count || 'no'} "${name}" button${count > 1 ? 's' : ''} now` }; }
 		await b.click({ timeout: 3000 });
 		return { ok: true, clicked: name };
 	};

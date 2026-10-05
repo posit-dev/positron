@@ -191,7 +191,9 @@ export function drift(root: string): Result[] {
 			const generic = !/\s/.test(value);
 			if (generic && ix === all) { add(key, value, 'SKIPPED', `SKIPPED-generic: a single word, and names.${g} has no AREA`); continue; }
 			// A palette title is "Category: Title", each localized on its own.
-			const parts = g === 'palette' ? (ix.lits.has(value) ? [value] : [value.slice(0, value.indexOf(': ')), value.slice(value.indexOf(': ') + 2)]) : [value];
+			// "Category: Title" is localized as two strings; a title with no category is one.
+			const sep = value.indexOf(': ');
+			const parts = g === 'palette' && sep > 0 && !ix.lits.has(value) ? [value.slice(0, sep), value.slice(sep + 2)] : [value];
 			const missing = parts.filter(p => !hasName(ix, p));
 			add(key, value, missing.length ? 'MISSING' : 'FOUND', missing.length ? `no string ${missing.map(m => `"${m}"`).join(' or ')}${ix === all ? '' : ` in ${AREA[`names.${g}`].join(', ')}`}` : parts.map(p => hasName(ix, p)).join(' + '));
 		}
