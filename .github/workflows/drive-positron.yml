@@ -80,9 +80,10 @@ jobs:
             if [ "$code" -eq 0 ]; then
               echo "No drift. $(tail -n 1 /tmp/drift.txt)"
             else
-              echo "This PR removes or renames UI that drive-positron's helpers find things by."
-              echo "Update each entry below in \`.claude/skills/drive-positron/scripts/selectors.ts\` to what src/ now has,"
-              echo "then run \`node .claude/skills/drive-positron/test/check.ts\` (and \`test/smoke.ts\` if you can)."
+              echo "Heads up: this PR renames or removes some UI text or classes that the **drive-positron** skill uses to drive Positron during exploratory testing. This check is informational and doesn't block your merge."
+              echo
+              echo "To keep drive-positron running smoothly, please update each entry below in \`.claude/skills/drive-positron/scripts/selectors.ts\` to what the UI now uses (usually a one-line change), then run \`node .claude/skills/drive-positron/test/check.ts\`. Thank you! More in \`.claude/skills/drive-positron/CONTRIBUTING.md\`."
+              echo
               echo '```'
               awk '/^MISSING/ { on = 1 } /^(FOUND|SKIPPED|drift:)/ { on = 0 } on' /tmp/drift.txt
               tail -n 1 /tmp/drift.txt
@@ -90,7 +91,7 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           { grep '^MISSING' /tmp/drift.txt || true; } | while read -r _ key value; do
-            echo "::warning file=.claude/skills/drive-positron/scripts/selectors.ts,title=drive-positron UI drift::$key $value is no longer in src/ (see the job summary)"
+            echo "::warning file=.claude/skills/drive-positron/scripts/selectors.ts,title=drive-positron UI drift::drive-positron uses $value, which this PR no longer has. Please update $key in selectors.ts (see the job summary)."
           done
           exit "$code"
 
