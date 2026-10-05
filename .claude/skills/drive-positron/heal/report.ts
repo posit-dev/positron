@@ -53,7 +53,7 @@ function gateText(n: Night): string | null {
 		case 'pass': return 'passed';
 		case 'fail': return 'failed; do not merge';
 		case 'none': return 'not run (no fix was accepted)';
-		default: return 'unknown (the fix loop did not finish); the fixes are unchecked';
+		default: return n.findings.length ? 'unknown (the fix loop did not finish); the fixes are unchecked' : null;
 	}
 }
 const gateLine = (n: Night) => { const g = gateText(n); return g === null ? '' : `Gate: ${g}.`; };
