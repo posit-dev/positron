@@ -16,8 +16,10 @@
 //! is walking the token list for the keywords that introduce a table and reading the name after
 //! each one.
 
-use sqlparser::keywords::Keyword;
+use sqlparser::keywords::{Keyword, RESERVED_FOR_TABLE_ALIAS};
 use sqlparser::tokenizer::{Token, TokenWithSpan, Word};
+
+use crate::tokens::{qualified, word};
 
 /// A table the statement names, with the alias it was given.
 pub struct SourceRef {
@@ -75,14 +77,7 @@ fn is_join_noise(keyword: Keyword) -> bool {
     )
 }
 
-fn word(token: &TokenWithSpan) -> Option<&Word> {
-    match &token.token {
-        Token::Word(word) => Some(word),
-        _ => None,
-    }
-}
-
-/// Whether a word can be read as a table name or an alias.
+/// Whether a word can be read as a table name.
 ///
 /// Deliberately not "is not a keyword". sqlparser keeps one keyword table for every dialect and
 /// it holds over a thousand entries, so ordinary names -- `warehouse`, `value`, `source`, `year`
@@ -95,6 +90,18 @@ fn can_be_name(word: &Word) -> bool {
         || !(ends_table_list(word.keyword)
             || is_join_noise(word.keyword)
             || introduces_table(word.keyword))
+}
+
+/// Whether a word can be read as the alias of the table before it.
+///
+/// After an explicit `AS` any word is an alias, as it is to sqlparser. Without one, the word must
+/// also not be one sqlparser reserves from being a table alias -- `ANTI`, `ASOF`, `TABLESAMPLE`,
+/// `PIVOT` and the rest -- since those continue the table reference rather than naming it, and
+/// the parser's own list is the one that knows which they are.
+fn can_be_alias(word: &Word, explicit: bool) -> bool {
+    explicit
+        || word.quote_style.is_some()
+        || (can_be_name(word) && !RESERVED_FOR_TABLE_ALIAS.contains(&word.keyword))
 }
 
 /// Every table named by a statement's tokens.
@@ -171,13 +178,8 @@ fn read_table(tokens: &[TokenWithSpan], mut at: usize) -> Option<(SourceRef, usi
         break;
     }
 
-    // Read from the right: the last part is the table, the one before it the schema, the one
-    // before that the catalog.
-    let part = |back: usize| parts.len().checked_sub(back).and_then(|at| parts.get(at)).cloned();
-    Some((
-        SourceRef { name: part(1)?, schema: part(2), catalog: part(3), alias: None },
-        at,
-    ))
+    let (name, schema, catalog) = qualified(&parts)?;
+    Some((SourceRef { name, schema, catalog, alias: None }, at))
 }
 
 /// Reads the alias a table was given, if it has one, and where it ended.
@@ -191,7 +193,7 @@ fn read_alias(tokens: &[TokenWithSpan], mut at: usize) -> (Option<String>, usize
     }
     // `FROM orders WHERE` must not read `WHERE` as the alias of `orders`.
     match tokens.get(at).and_then(word) {
-        Some(word) if can_be_name(word) => (Some(word.value.clone()), at + 1),
+        Some(word) if can_be_alias(word, explicit) => (Some(word.value.clone()), at + 1),
         _ => (None, at),
     }
 }

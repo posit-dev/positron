@@ -92,6 +92,14 @@ fn a_trailing_comment_is_not_swallowed_by_the_statement_above_it() {
 }
 
 #[test]
+fn a_trailing_comment_is_not_swallowed_by_an_unterminated_statement_above_it() {
+    // The range is what Cmd+Enter sends to the console, so the comment lines below must not ride
+    // along with it.
+    assert_eq!(split("SELECT 1\n-- afterwards\n"), [("SELECT 1".into(), false)]);
+    assert_eq!(split("SELECT 1 /* note */"), [("SELECT 1".into(), false)]);
+}
+
+#[test]
 fn statements_are_still_split_around_an_unterminated_literal() {
     // The quote is closed at the end of its line, so the statement holding it is whole rather
     // than cut off where the tokenizer stopped.
