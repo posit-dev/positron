@@ -16,7 +16,6 @@ import {
 	FOUNDRY_AUTH_PROVIDER_ID,
 	GEMINI_AUTH_PROVIDER_ID,
 	GOOGLE_CLOUD_AUTH_PROVIDER_ID,
-	IS_RUNNING_ON_PWB,
 	OPENAI_AUTH_PROVIDER_ID,
 	POSIT_AUTH_PROVIDER_ID,
 	POSITRON_CUSTOM_AUTH_PROVIDER_ID,
@@ -499,38 +498,21 @@ function registerFoundryProvider(context: vscode.ExtensionContext): void {
 		})
 	);
 
-	seedFoundryEndpoint(logger);
-
-	// hasManagedCredentials is false until rstudio.rstudio-workbench activates.
-	const workbenchExt = vscode.extensions.getExtension('rstudio.rstudio-workbench');
-	if (IS_RUNNING_ON_PWB && workbenchExt && !workbenchExt.isActive) {
-		workbenchExt.activate().then(() => {
-			seedFoundryEndpoint(logger);
-			provider.fireSessionsChanged({ added: [], removed: [], changed: [] });
-		}, err => logger.logOperationError('wait for Workbench extension', err));
-	}
-}
-
-/**
- * Seeds the Workbench-managed Foundry endpoint into the catalog so the
- * provider reads it from providers.json like a user-configured base URL.
- */
-function seedFoundryEndpoint(logger: AuthProviderLogger): void {
-	if (!hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
-		return;
-	}
-	const endpoint = vscode.workspace
-		.getConfiguration('posit.workbench.foundry')
-		.get<string>('endpoint', '');
-	if (!endpoint) {
-		return;
-	}
-	const catalogId = PROVIDER_METADATA.foundry.catalogId!;
-	const normalized = normalizeToV1Url(endpoint);
-	if (getCachedProvider(catalogId)?.connection.baseUrl !== normalized) {
-		saveProviderBaseUrl(catalogId, normalized).then(undefined, err =>
-			logger.logOperationError('sync Foundry endpoint', err)
-		);
+	// Seed the Workbench-managed Foundry endpoint into the catalog so the
+	// provider reads it from providers.json like a user-configured base URL.
+	if (hasManagedCredentials(FOUNDRY_MANAGED_CREDENTIALS)) {
+		const endpoint = vscode.workspace
+			.getConfiguration('posit.workbench.foundry')
+			.get<string>('endpoint', '');
+		const catalogId = PROVIDER_METADATA.foundry.catalogId!;
+		if (endpoint) {
+			const normalized = normalizeToV1Url(endpoint);
+			if (getCachedProvider(catalogId)?.connection.baseUrl !== normalized) {
+				saveProviderBaseUrl(catalogId, normalized).then(undefined, err =>
+					logger.logOperationError('sync Foundry endpoint', err)
+				);
+			}
+		}
 	}
 }
 
