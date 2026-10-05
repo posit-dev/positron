@@ -11,7 +11,8 @@ import { GOLDEN_LINE_HEIGHT_RATIO } from '../../../../editor/common/config/fontI
 /**
  * Base grid layout constants, designed at the platform's default editor font
  * size. Use {@link getInlineGridMetrics} to get these scaled to the user's
- * actual editor font size.
+ * actual editor font size. The header sizes do not scale: the headers use the
+ * workbench font, same as the full Data Explorer.
  */
 export const INLINE_GRID_COLUMN_HEADERS_HEIGHT = 34;
 export const INLINE_GRID_DEFAULT_ROW_HEIGHT = 22;
@@ -47,7 +48,8 @@ export interface IInlineGridMetrics {
 	readonly fontScale: number;
 
 	/**
-	 * The height of the column headers.
+	 * The height of the column headers. Not scaled: headers use the workbench
+	 * font.
 	 */
 	readonly columnHeadersHeight: number;
 
@@ -57,7 +59,7 @@ export interface IInlineGridMetrics {
 	readonly defaultRowHeight: number;
 
 	/**
-	 * The width of the row headers.
+	 * The width of the row headers. Not scaled: headers use the workbench font.
 	 */
 	readonly rowHeadersWidth: number;
 
@@ -79,8 +81,9 @@ export interface IInlineGridMetrics {
 
 /**
  * Computes the inline grid layout metrics for the given editor font size and
- * line height. Widths scale with the font size (monospace advance width is
- * linear in font size). The row height additionally takes a floor of the
+ * line height. Data cell widths scale with the font size (monospace advance
+ * width is linear in font size), while the header sizes stay fixed. The row
+ * height additionally takes a floor of the
  * line height plus padding, since a row must fit a full text line: a large
  * custom editor.lineHeight would otherwise make text overlap adjacent rows.
  * @param fontSize The editor font size in pixels.
@@ -93,12 +96,12 @@ export function computeInlineGridMetrics(fontSize: number, lineHeight: number): 
 	const effectiveLineHeight = lineHeight > 0 ? lineHeight : fontSize * GOLDEN_LINE_HEIGHT_RATIO;
 	return {
 		fontScale,
-		columnHeadersHeight: Math.round(INLINE_GRID_COLUMN_HEADERS_HEIGHT * fontScale),
+		columnHeadersHeight: INLINE_GRID_COLUMN_HEADERS_HEIGHT,
 		defaultRowHeight: Math.max(
 			Math.round(INLINE_GRID_DEFAULT_ROW_HEIGHT * fontScale),
 			Math.ceil(effectiveLineHeight) + INLINE_GRID_ROW_VERTICAL_PADDING,
 		),
-		rowHeadersWidth: Math.round(INLINE_GRID_ROW_HEADERS_WIDTH * fontScale),
+		rowHeadersWidth: INLINE_GRID_ROW_HEADERS_WIDTH,
 		defaultColumnWidth: Math.round(INLINE_GRID_DEFAULT_COLUMN_WIDTH * fontScale),
 		horizontalCellPadding: Math.round(INLINE_GRID_HORIZONTAL_CELL_PADDING * fontScale),
 		scrollbarThickness: INLINE_GRID_SCROLLBAR_THICKNESS,

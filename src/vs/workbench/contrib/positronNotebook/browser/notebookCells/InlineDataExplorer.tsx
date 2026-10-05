@@ -7,18 +7,16 @@
 import './InlineDataExplorer.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { InlineTableDataGridInstance } from '../../../../services/positronDataExplorer/browser/inlineTableDataGridInstance.js';
 import { IInlineGridMetrics } from '../../../../services/positronDataExplorer/browser/inlineGridMetrics.js';
 import { useInlineGridMetrics } from '../../../../services/positronDataExplorer/browser/useInlineGridMetrics.js';
 import { TableDataCache } from '../../../../services/positronDataExplorer/common/tableDataCache.js';
 import { PositronDataGrid } from '../../../../browser/positronDataGrid/positronDataGrid.js';
-import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { ParsedDataExplorerOutput } from '../PositronNotebookCells/IPositronNotebookCell.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_MAX_HEIGHT_KEY } from '../../common/positronNotebookConfig.js';
@@ -106,32 +104,6 @@ export function InlineDataExplorerHeader({ title, shape, actionContext, contextK
 						))
 				)}
 			</div>
-		</div>
-	);
-}
-
-/**
- * Wraps the inline grid in an element that carries the editor font. The data
- * grid applies the editor font only to its data cells, and the row and column
- * headers inherit theirs from this element, so the header text scales with the
- * font-scaled header boxes. In Quarto, the output container plays this role.
- */
-export function InlineDataExplorerGrid({ children }: PropsWithChildren) {
-	const services = usePositronReactServicesContext();
-	const gridRef = useRef<HTMLDivElement>(null);
-
-	useEffect(() => {
-		const disposable = FontConfigurationManager.fontConfigurationWatcher(
-			services.configurationService,
-			'editor',
-			gridRef.current!
-		);
-		return () => disposable.dispose();
-	}, [services.configurationService]);
-
-	return (
-		<div ref={gridRef} className='inline-data-explorer-grid'>
-			{children}
 		</div>
 	);
 }
@@ -320,11 +292,9 @@ export function InlineDataExplorer(props: InlineDataExplorerProps) {
 					</div>
 				)}
 				{state.status === 'connected' && !isGridStale && (
-					<InlineDataExplorerGrid>
-						<PositronDataGrid
-							instance={state.gridInstance}
-						/>
-					</InlineDataExplorerGrid>
+					<PositronDataGrid
+						instance={state.gridInstance}
+					/>
 				)}
 				{state.status === 'connected' && isGridStale && (
 					<div className='inline-data-explorer-disconnected'>

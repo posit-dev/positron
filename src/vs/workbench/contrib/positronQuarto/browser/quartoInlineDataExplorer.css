@@ -6,8 +6,9 @@
 /*
  * Overrides for the inline data explorer when rendered inside a Quarto editor
  * view zone. The output container carries the editor font via inline styles,
- * so the header and status areas would otherwise inherit its size and
- * line-height. Use the full Data Explorer's workbench size instead.
+ * so the header, status areas, and grid row and column headers would
+ * otherwise inherit its size and line-height. Use the full Data Explorer's
+ * workbench size instead.
  * InlineDataExplorer.css sets the workbench font family.
  *
  * Note: the font size CSS variable is only injected into webviews, not
@@ -19,7 +20,9 @@
 	.inline-data-explorer-header,
 	.inline-data-explorer-loading,
 	.inline-data-explorer-disconnected,
-	.inline-data-explorer-error
+	.inline-data-explorer-error,
+	.data-grid-column-headers,
+	.data-grid-row-headers
 ) {
 	font-size: 13px;
 	line-height: 1.4em;

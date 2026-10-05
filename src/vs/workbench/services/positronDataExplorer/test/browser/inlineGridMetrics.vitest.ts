@@ -23,16 +23,23 @@ describe('computeInlineGridMetrics', () => {
 		expect(metrics.scrollbarThickness).toBe(INLINE_GRID_SCROLLBAR_THICKNESS);
 	});
 
-	it('scales linearly with the font size', () => {
+	it('scales the data cells linearly with the font size', () => {
 		// Use a font size large enough that the line-height floor does not
 		// take over the row height.
 		const base = computeInlineGridMetrics(REFERENCE_FONT_SIZE, 0);
 		const doubled = computeInlineGridMetrics(REFERENCE_FONT_SIZE * 2, 0);
 		expect(doubled.fontScale).toBe(2);
 		expect(doubled.defaultRowHeight).toBe(base.defaultRowHeight * 2);
-		expect(doubled.columnHeadersHeight).toBe(base.columnHeadersHeight * 2);
 		expect(doubled.defaultColumnWidth).toBe(base.defaultColumnWidth * 2);
-		expect(doubled.rowHeadersWidth).toBe(base.rowHeadersWidth * 2);
+		expect(doubled.horizontalCellPadding).toBe(base.horizontalCellPadding * 2);
+	});
+
+	it('does not scale the headers with the font size', () => {
+		// The headers use the workbench font, same as the full Data Explorer.
+		const base = computeInlineGridMetrics(REFERENCE_FONT_SIZE, 0);
+		const doubled = computeInlineGridMetrics(REFERENCE_FONT_SIZE * 2, 0);
+		expect(doubled.columnHeadersHeight).toBe(base.columnHeadersHeight);
+		expect(doubled.rowHeadersWidth).toBe(base.rowHeadersWidth);
 	});
 
 	it('floors the row height at the line height plus padding', () => {
