@@ -7,6 +7,7 @@
 
 // Testing libraries.
 import { screen, waitFor, within } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -114,6 +115,18 @@ describe('ObjectExplorerTreeInstance', () => {
 
 		await tree.onSpaceKey();
 		expect(rowNames(tree)).toEqual(['data', 'a', 'b']);
+	});
+
+	it('toggles a row with a double click', async () => {
+		const { tree } = await createTree({ a: 1, b: { c: 'x' } });
+		rtl.render(<PositronTree instance={tree} />);
+		const user = userEvent.setup();
+
+		await user.dblClick((await screen.findAllByTestId('object-explorer-row'))[2]);
+		await waitFor(() => expect(rowNames(tree)).toEqual(['data', 'a', 'b', 'c']));
+
+		await user.dblClick(screen.getAllByTestId('object-explorer-row')[2]);
+		await waitFor(() => expect(rowNames(tree)).toEqual(['data', 'a', 'b']));
 	});
 
 	it('pages large nodes, loading the next page from the "more" row', async () => {

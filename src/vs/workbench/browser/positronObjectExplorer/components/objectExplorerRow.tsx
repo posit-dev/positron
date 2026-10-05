@@ -78,6 +78,8 @@ interface ObjectExplorerRowProps {
 	readonly expandedValue?: FormattedValue;
 	/** Called with the height of an expanded row's content after it renders. */
 	readonly onDidMeasure: (height: number) => void;
+	/** Expands or collapses the node. */
+	readonly onDoubleClick: () => void;
 	/** Opens the node's full value in an editor. */
 	readonly onOpenValue: () => void;
 	/** Opens the node in a Data Explorer, for tables. */
@@ -87,7 +89,7 @@ interface ObjectExplorerRowProps {
 /**
  * ObjectExplorerRow component. The Name, Type, and Value cells of one node.
  */
-export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached, hoverManager, query, match, expanded, expandedValue, onDidMeasure, onOpenValue, onViewTable }: ObjectExplorerRowProps) => {
+export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached, hoverManager, query, match, expanded, expandedValue, onDidMeasure, onDoubleClick, onOpenValue, onViewTable }: ObjectExplorerRowProps) => {
 	const valueCellRef = useRef<HTMLDivElement>(null);
 	const valueTextRef = useRef<HTMLDivElement>(null);
 	const [clamped, setClamped] = useState(false);
@@ -123,7 +125,7 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 	};
 
 	return (
-		<div className={`object-explorer-row${expanded ? ' expanded' : ''}`} data-testid='object-explorer-row' style={rowStyle(nameWidth, typeWidth)}>
+		<div className={`object-explorer-row${expanded ? ' expanded' : ''}`} data-testid='object-explorer-row' role='presentation' style={rowStyle(nameWidth, typeWidth)} onDoubleClick={onDoubleClick}>
 			<div
 				className='object-explorer-cell name'
 				data-testid='object-explorer-name'
@@ -169,6 +171,7 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 							e.stopPropagation();
 							onOpenValue();
 						}}
+						onDoubleClick={e => e.stopPropagation()}
 						onMouseDown={e => e.stopPropagation()}
 						onMouseOver={e => hoverManager.showHover(e.currentTarget, openValueLabel)}
 					/>
@@ -183,6 +186,7 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 							e.stopPropagation();
 							onViewTable();
 						}}
+						onDoubleClick={e => e.stopPropagation()}
 						onMouseDown={e => e.stopPropagation()}
 						onMouseOver={e => hoverManager.showHover(e.currentTarget, viewTableLabel)}
 					/>

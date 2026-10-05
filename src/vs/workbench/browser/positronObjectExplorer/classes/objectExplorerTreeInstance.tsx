@@ -630,6 +630,7 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 				query={this._search?.query}
 				typeWidth={typeWidth}
 				onDidMeasure={height => this._setExpandedRowHeight(id, height)}
+				onDoubleClick={() => this._activate(context.index)}
 				onOpenValue={() => this.openValue(context.index)}
 				onViewTable={data.node.kind === ObjectNodeKind.Table && this._client.canViewTable ?
 					() => this.viewTable(context.index) :
