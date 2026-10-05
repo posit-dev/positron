@@ -57,6 +57,18 @@ export function launchFixture(opts: { session: string; root: string; appArgs: st
 	throw new Error('the workbench did not answer within 60 s');
 }
 
+/** The state file launch wrote: null when it is missing, an Error when it is unusable. */
+export function readFixtureState(file: string): { cdpPort: number; runDir: string } | null | Error {
+	if (!existsSync(file)) { return null; }
+	let v: unknown;
+	try { v = JSON.parse(readFileSync(file, 'utf8')); } catch (e) { return new Error(`state file ${file} is unreadable: ${e instanceof Error ? e.message : String(e)}`); }
+	const o = v as { cdpPort?: unknown; runDir?: unknown } | null;
+	if (!o || typeof o !== 'object' || !Number.isInteger(o.cdpPort) || (o.cdpPort as number) < 1 || typeof o.runDir !== 'string' || !o.runDir) {
+		return new Error(`state file ${file} needs a positive integer cdpPort and a runDir`);
+	}
+	return { cdpPort: o.cdpPort as number, runDir: o.runDir };
+}
+
 /** True when the instance stopped. */
 export function stopFixture(app: App, opts?: { keep?: boolean }): boolean {
 	if (opts?.keep) { return true; }
@@ -101,9 +113,10 @@ function main(): number {
 			throw e;
 		}
 	}
-	if (!existsSync(state)) { console.log(`fixture-app: no state file ${state}`); return 1; }
-	const { cdpPort, runDir } = JSON.parse(readFileSync(state, 'utf8')) as { cdpPort: number; runDir: string };
-	if (!stopFixture({ session, root, cdpPort, runDir })) { return 1; }
+	const saved = readFixtureState(state);
+	if (saved === null) { console.log(`fixture-app: no state file ${state}`); return 1; }
+	if (saved instanceof Error) { console.log(`fixture-app: ${saved.message}`); return 1; }
+	if (!stopFixture({ session, root, ...saved })) { return 1; }
 	rmSync(state, { force: true });
 	return 0;
 }

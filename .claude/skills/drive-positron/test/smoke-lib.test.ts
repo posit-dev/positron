@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { firstRow, flagValue, nameWords, selectCases, threwResult } from './smoke-lib.ts';
+import { firstRow, flagValue, nameWords, selectCases, threwResult, unknownArg } from './smoke-lib.ts';
 
 test('nameWords keeps the version and the env name', () => {
 	assert.equal(nameWords('Python 3.10.12 (uv: ws)'), '3.10.12 ws');
@@ -59,4 +59,24 @@ test('flagValue reads a value, null when absent, an error when missing', () => {
 test('threwResult records a failure with the case command', () => {
 	assert.deepEqual(threwResult('c', ['x.sh', '--a'], new Error('boom'), 5), { name: 'c', status: 'FAIL', helper: 'x.sh', args: ['--a'], problem: 'threw: boom', ms: 5 });
 	assert.equal(threwResult('c', [], 'oops', 1).helper, '');
+});
+
+test('unknownArg accepts known flags with values, even a dashed value', () => {
+	assert.equal(unknownArg(['--dir', '/x'], ['--dir']), null);
+	assert.equal(unknownArg(['--dir', '-x'], ['--dir']), null);
+	assert.equal(unknownArg([], ['--dir']), null);
+});
+
+test('unknownArg rejects glued, bare, unknown and extra arguments', () => {
+	assert.equal(unknownArg(['--dir=x'], ['--dir']), '--dir=x');
+	assert.equal(unknownArg(['x'], ['--dir']), 'x');
+	assert.equal(unknownArg(['--bogus'], ['--dir']), '--bogus');
+	assert.equal(unknownArg(['--dir', '/x', 'extra'], ['--dir']), 'extra');
+});
+
+test('unknownArg skips a leading subcommand only', () => {
+	assert.equal(unknownArg(['launch', '--dir', '/x'], ['--dir'], ['launch', 'stop']), null);
+	assert.equal(unknownArg(['launch'], ['--dir'], ['launch', 'stop']), null);
+	assert.equal(unknownArg(['--dir', '/x', 'launch'], ['--dir'], ['launch', 'stop']), 'launch');
+	assert.equal(unknownArg(['start', '--dir', '/x'], ['--dir'], ['launch', 'stop']), 'start');
 });

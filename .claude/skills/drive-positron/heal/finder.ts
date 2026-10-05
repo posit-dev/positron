@@ -14,7 +14,7 @@ import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { launchFixture, stopFixture, type App } from '../test/fixture-app.ts';
+import { launchFixture, readFixtureState, stopFixture, type App } from '../test/fixture-app.ts';
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
 import { readFindings, validateFinding } from './finding.ts';
 import { isoWeek, pickArea, type Area } from './finder-lib.ts';
@@ -77,11 +77,15 @@ function main(): number {
 		if (r.error) { sessionProblem = `could not run the session: ${r.error.message}`; }
 		else if (r.status !== 0) { sessionProblem = `the session exited ${r.status ?? `on signal ${r.signal}`}`; }
 	} finally {
-		const current = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) as { cdpPort: number; runDir: string } : null;
+		const current = readFixtureState(stateFile);
 		const first = app as App | null;
-		// The state file names the live instance; it is gone once the agent stopped it without a relaunch.
-		if (current && first && !stopFixture({ ...first, cdpPort: current.cdpPort, runDir: current.runDir })) { sessionProblem ||= 'the instance did not stop'; }
-		if (current && first && first.cdpPort !== current.cdpPort) { stopFixture(first); }
+		if (current instanceof Error) {
+			console.log(`finder: ${current.message}; stopping the original instance`);
+			if (first) { stopFixture(first); }
+		} else if (current && first) {
+			if (!stopFixture({ ...first, ...current })) { sessionProblem ||= 'the instance did not stop'; }
+			if (first.cdpPort !== current.cdpPort) { stopFixture(first); }
+		}
 	}
 
 	const rejected: { file: string; problems: string[] }[] = [];
