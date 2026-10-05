@@ -17,18 +17,20 @@ suite('Discover Web app frameworks', () => {
 
     /** Create a fake document. Detected apps are forgotten in teardown. */
     function createDocument(uri: string, text: string, scheme = 'file'): vscode.TextDocument {
-        const document = ({
+        const document = {
             getText: () => text,
             languageId: 'python',
             uri: { scheme, toString: () => uri },
-        } as unknown) as vscode.TextDocument;
+        } as unknown as vscode.TextDocument;
         documents.push(document);
         return document;
     }
 
     /** The value most recently set for a context key. */
     function getContext(key: string): unknown {
-        const calls = executeCommandStub.getCalls().filter((call) => call.args[0] === 'setContext' && call.args[1] === key);
+        const calls = executeCommandStub
+            .getCalls()
+            .filter((call) => call.args[0] === 'setContext' && call.args[1] === key);
         return calls[calls.length - 1]?.args[2];
     }
 
@@ -116,7 +118,13 @@ suite('Discover Web app frameworks', () => {
     });
 
     test('should not track notebook cell documents', () => {
-        detectWebApp(createDocument('vscode-notebook-cell:/nb.ipynb#cell', 'import dash\napp = Dash(__name__)', 'vscode-notebook-cell'));
+        detectWebApp(
+            createDocument(
+                'vscode-notebook-cell:/nb.ipynb#cell',
+                'import dash\napp = Dash(__name__)',
+                'vscode-notebook-cell',
+            ),
+        );
 
         assert.ok(executeCommandStub.notCalled);
     });
