@@ -44,10 +44,11 @@
 # would read a stale list from a previous picker.
 
 set -u
+DIR="$(dirname "${BASH_SOURCE[0]}")"
 
 # Call the repo's playwright-cli directly: npx resolves the same package but
 # costs about a second per invocation. Located from this script, not from $PWD.
-PW_CLI=("$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)/node_modules/.bin/playwright-cli")
+PW_CLI=("$(cd "$DIR/../../../.." && pwd)/node_modules/.bin/playwright-cli")
 if [[ ! -x "${PW_CLI[0]}" ]]; then
 	PW_CLI=(npx @playwright/cli)
 fi
@@ -57,14 +58,12 @@ JSON=0
 PW_SESSION_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--max) MAX="$2"; shift 2 ;;
+		--max) MAX="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--max=*) MAX="${1#--max=}"; shift ;;
 		--json) JSON=1; shift ;;
-		--session) PW_SESSION_OVERRIDE="$2"; shift 2 ;;
+		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; shift ;;
-		-h|--help)
-			sed -n '2,45p' "$0" | sed 's/^# \{0,1\}//'
-			exit 0 ;;
+		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "quickpick-enum.sh: unknown arg $1" >&2; exit 2 ;;
 	esac
 done
@@ -91,32 +90,34 @@ PW_ARGS=()
 JS=$(cat <<'JSEOF'
 (async () => {
 	const MAX = __MAX__;
-	const widget = Array.from(document.querySelectorAll('.quick-input-widget'))
+	const S = __SEL__;
+	const widget = Array.from(document.querySelectorAll(S.quickInput.widget))
 		.find(w => w.offsetParent !== null);
 	if (!widget) {
 		return JSON.stringify({ ok: false, error: 'no visible quick-input widget' });
 	}
-	const list = widget.querySelector('.quick-input-list');
+	const list = widget.querySelector(S.quickInput.list);
 	if (!list) {
 		return JSON.stringify({ ok: false, error: 'visible quick-input widget has no list' });
 	}
-	const input = widget.querySelector('.quick-input-box input');
+	const input = widget.querySelector(S.quickInput.filter);
 
 	const frame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 	const clean = el => el ? el.textContent.replace(/\s+/g, ' ').trim() : '';
-	const focused = () => list.querySelector('.monaco-list-row.focused');
-	const indexOf = row => row ? Number(row.getAttribute('data-index')) : NaN;
+	const focused = () => list.querySelector(S.list.focusedRow);
+	const indexOf = row => row ? Number(row.getAttribute(S.list.indexAttr)) : NaN;
 
 	const readRow = row => {
-		const entry = row.querySelector('.quick-input-list-entry');
-		const cells = row.querySelectorAll('.quick-input-list-rows > .quick-input-list-row');
+		const entry = row.querySelector(S.quickInput.entry);
+		const cells = row.querySelectorAll(S.quickInput.rowCells);
 		const head = cells[0];
 		return {
 			index: indexOf(row),
-			kind: entry && entry.classList.contains('quick-input-list-separator-as-item') ? 'group' : 'item',
-			label: clean(head && head.querySelector('.label-name')),
-			description: clean(head && head.querySelector('.label-description')),
-			detail: clean(row.querySelector('.quick-input-list-label-meta'))
+			kind: entry && entry.matches(S.quickInput.separatorRow) ? 'group' : 'item',
+			label: clean(head && head.querySelector(S.label.name)),
+			// A recycled row can keep the description of an earlier pick in a hidden element.
+			description: clean([...(head ? head.querySelectorAll(S.label.description) : [])].find(d => d.getBoundingClientRect().height > 0)),
+			detail: clean([...row.querySelectorAll(S.quickInput.meta)].find(d => d.getBoundingClientRect().height > 0))
 		};
 	};
 
@@ -126,7 +127,7 @@ JS=$(cat <<'JSEOF'
 	// its text, so a stale heading from a previous item stays readable. Take it
 	// only while it is actually displayed.
 	const readAttachedGroup = row => {
-		const separator = row.querySelector('.quick-input-list-separator');
+		const separator = row.querySelector(S.quickInput.separator);
 		if (!separator || separator.offsetParent === null) { return undefined; }
 		const label = clean(separator);
 		return label ? label : undefined;
@@ -137,7 +138,7 @@ JS=$(cat <<'JSEOF'
 	const seen = new Map();
 	const groups = new Map();
 	const harvest = () => {
-		for (const row of list.querySelectorAll('.monaco-list-row')) {
+		for (const row of list.querySelectorAll(S.list.row)) {
 			if (row.offsetParent === null) { continue; }
 			const read = readRow(row);
 			if (!Number.isFinite(read.index)) { continue; }
@@ -206,6 +207,7 @@ JS=$(cat <<'JSEOF'
 JSEOF
 )
 JS="${JS//__MAX__/$MAX}"
+JS="${JS//__SEL__/$(node "$DIR/selectors.ts" css quickInput list label)}"
 
 RAW=$("${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {
 	echo "quickpick-enum.sh: @playwright/cli eval failed" >&2

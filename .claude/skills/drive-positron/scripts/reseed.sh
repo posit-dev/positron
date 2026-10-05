@@ -40,7 +40,7 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 RUN_DIR=""
 SEED=""
@@ -51,15 +51,13 @@ EXTRA=()
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--run-dir) RUN_DIR="$2"; shift 2 ;;
-		--seed) SEED="$2"; shift 2 ;;
-		--cdp-port) CDP_PORT="$2"; shift 2 ;;
+		--run-dir) RUN_DIR="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--seed) SEED="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--cdp-port) CDP_PORT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--keep-running) KEEP_RUNNING=1; shift ;;
-		--include) EXTRA+=("$2"); shift 2 ;;
+		--include) EXTRA+=("${2-}"); shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--list-keys) LIST_KEYS=1; shift ;;
-		-h|--help)
-			sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'
-			exit 0 ;;
+		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "reseed.sh: unknown arg $1" >&2; exit 2 ;;
 	esac
 done
@@ -79,7 +77,7 @@ if [[ -n "$CDP_PORT" && "$KEEP_RUNNING" != "1" ]]; then
 	# No --run-dir here on purpose: that argument is what makes stop.sh delete
 	# the directory we are about to read.
 	echo "[reseed.sh] stopping the instance on CDP port $CDP_PORT, keeping $RUN_DIR" >&2
-	"$SCRIPT_DIR/stop.sh" --cdp-port "$CDP_PORT"
+	"$DIR/stop.sh" --cdp-port "$CDP_PORT"
 elif [[ "$KEEP_RUNNING" != "1" ]]; then
 	echo "reseed.sh: pass --cdp-port to stop the instance, or --keep-running if it has already exited" >&2
 	exit 2

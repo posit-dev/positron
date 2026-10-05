@@ -21,6 +21,7 @@
 
 import * as positron from 'positron';
 import { DatabricksClient } from './databricksClient.js';
+import { formatFileSize } from './fileSize.js';
 import {
 	describeTableSql,
 	metadataString,
@@ -279,22 +280,6 @@ async function listPath(client: DatabricksClient, path: string): Promise<positro
 			// The tree renders dataType as a trailing label, which is where a file's size belongs.
 			dataType: entry.size === undefined ? undefined : formatFileSize(entry.size),
 		});
-}
-
-/** Formats a byte count for display next to a file name. */
-export function formatFileSize(bytes: number): string {
-	if (!isFinite(bytes) || bytes < 0) {
-		return '';
-	}
-	const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-	let value = bytes;
-	let unit = 0;
-	while (value >= 1024 && unit < units.length - 1) {
-		value /= 1024;
-		unit++;
-	}
-	// Whole bytes need no decimal; every larger unit reads better with one.
-	return unit === 0 ? `${value} B` : `${value.toFixed(1)} ${units[unit]}`;
 }
 
 /** Creates a table or view node that expands to a single "Columns" group. */

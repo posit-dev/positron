@@ -52,18 +52,15 @@ export class Connections {
 	}
 
 	async viewConnection(name: string) {
-		// Check if we're already viewing this connection (wait up to 1s for UI to settle)
-		let isAlreadyViewing = false;
-		try {
-			await this.currentConnectionName.filter({ hasText: name }).waitFor({ state: 'visible', timeout: 5000 });
-			isAlreadyViewing = true;
-		} catch {
-			// Not already viewing this connection
-		}
-
-		if (!isAlreadyViewing) {
-			await this.connectionItems.filter({ hasText: name }).locator(this.connectIcon).click();
-		}
+		const details = this.currentConnectionName.filter({ hasText: name });
+		const connectIcon = this.connectionItems.filter({ hasText: name }).locator(this.connectIcon);
+		// The kernel's late focus event swaps list for details mid-wait; accept either.
+		await expect(async () => {
+			if (await details.isVisible()) {
+				return;
+			}
+			await connectIcon.click({ timeout: 5000 });
+		}).toPass({ timeout: 60000 });
 	}
 
 	async openTree() {

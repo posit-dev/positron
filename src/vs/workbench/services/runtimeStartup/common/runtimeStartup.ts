@@ -623,10 +623,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		try {
-			// Revive the URIs in the session metadata.
+			// Revive the URIs in the session metadata. Sessions stored before
+			// owners existed have none; they belong to the user.
 			this._restoredSessions = storedSessions.map(session => ({
 				...session,
-				metadata: reviveRuntimeSessionMetadata(session.metadata),
+				metadata: {
+					...reviveRuntimeSessionMetadata(session.metadata),
+					owner: session.metadata.owner ?? 'user',
+				},
 			}));
 		} catch (err) {
 			this._logService.error(`Could not restore workspace sessions: ${err?.stack ?? err} ` +
@@ -1759,6 +1763,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			?? registered(this.getAffiliatedRuntimeMetadata(languageId))
 			?? registered(this._mostRecentlyStartedRuntimesByLanguageId.get(languageId))
 			?? this._languageRuntimeService.registeredRuntimes.find(info => info.languageId === languageId);
+	}
+
+	public async registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
+		// Check up front, since the manager persists the path before the
+		// registration reaches the language runtime service.
+		if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled) {
+			throw new Error(`Cannot register an interpreter because the '${languageId}' language is disabled.`);
+		}
+		for (const manager of this._runtimeManagers) {
+			const metadata = await manager.registerRuntimeFromPath(languageId, path);
+			if (metadata) {
+				const registered = this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId);
+				if (!registered) {
+					throw new Error(`The interpreter at '${path}' was found but could not be registered.`);
+				}
+				return registered;
+			}
+		}
+		throw new Error(`No '${languageId}' runtime manager supports registering an interpreter by path.`);
 	}
 
 	/**

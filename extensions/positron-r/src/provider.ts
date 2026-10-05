@@ -21,6 +21,7 @@ import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
 import { discoverModuleBinaries, getEnvironmentModulesApi } from './provider-module.js';
 import { discoverRVersionsBinaries } from './provider-rversions.js';
+import { packagerMetadataForPath } from './packager-detection.js';
 
 // We don't give this a type so it's compatible with both the VS Code
 // and the LSP types
@@ -1114,7 +1115,11 @@ function discoverUserSpecifiedBinaries(): RBinary[] {
 	const userMoreBinaries = discoverAdHocBinaries(userRBinaries());
 	const userBinaries = userHqBinaries.concat(userMoreBinaries);
 	// Return the binaries, overwriting the ReasonDiscovered with ReasonDiscovered.userSetting
-	return userBinaries.map(b => ({ path: b.path, reasons: [ReasonDiscovered.userSetting] }));
+	return userBinaries.map(b => ({
+		path: b.path,
+		reasons: [ReasonDiscovered.userSetting],
+		packagerMetadata: packagerMetadataForPath(b.path),
+	}));
 }
 
 /**

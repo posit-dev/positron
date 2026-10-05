@@ -202,6 +202,15 @@ test('lint: setting keys, the app\'s own config files and prose are not test fil
 	assert.deepEqual(fileProblems(report.replace('## Coverage', 'Points to specific files/lines.\n\n## Coverage'), LEDGER), []);
 });
 
+test('lint: a drive-positron helper a precondition names is not a test file', () => {
+	const ledger = LEDGER.replace('| | files/slow.py, then run', '| | Made the run venv with `run-venv.sh`, set `plots.freeze` with `settings.sh`, files/slow.py, then run');
+	assert.deepEqual(fileProblems(REPORT, ledger), []);
+	// A script of the run's own is still one to save.
+	assert.deepEqual(fileProblems(REPORT, ledger.replace('`settings.sh`', '`seed.sh`')), [
+		'seed.sh is named by S04 but not saved; save it to files/ as it was when used and list it under ## Files in the ledger',
+	]);
+});
+
 test('files: render.mjs fails the run when a listed file was not saved', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'files-run-'));
 	cpSync(fileURLToPath(DIR), dir, { recursive: true });

@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { annotateFindingsTable, applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseTitles, parseVerdicts, verifyLogLines } from './finish.mjs';
+import { annotateFindingsTable, applyVerification, buildVerifyPrompt, findingNumbers, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseTitles, parseVerdicts, verdictMismatch, verifyLogLines } from './finish.mjs';
 
 const TABLE = [
 	'# Exploratory test: something',
@@ -160,6 +160,18 @@ test('buildVerifyPrompt fills verifier.md with the run paths and diff range', ()
 	assert.match(prompt, /\nKNOWN: 2=#15102; 3=#14991,#15153\n/);
 });
 
+test('buildVerifyPrompt gives the verifier lint\'s check of actions.log', () => {
+	const check = actionsLog => buildVerifyPrompt(VERIFIER, { ...RUN, actionsLog }).split('\n').filter(l => /lint's check of it|^- actions\.log:/.test(l));
+	assert.deepEqual(check('2026-10-05T03:59:24Z shot.sh -s=p: screenshot S01-01.png\n'), [
+		'The reporting agent\'s own action log, with timestamps: `/tmp/run/actions.log`. Only the helpers write it, and only by appending; lint\'s check of it: clean: every line is stamped as the helpers stamp it, in time order.',
+	]);
+	const backdated = check('2026-10-05T03:59:24Z shot.sh -s=p: screenshot S01-01.png\n2026-10-05T03:58:25Z raw press Escape\n');
+	assert.equal(backdated.length, 2);
+	assert.match(backdated[1], /^- actions\.log: line 2 \(2026-10-05T03:58:25Z\) is earlier than line 1 above it/);
+	// No log at the run's path: said so, not passed off as clean.
+	assert.match(buildVerifyPrompt(VERIFIER, RUN), /lint's check of it: no actions\.log in the run directory\./);
+});
+
 test('buildVerifyPrompt throws when the template and its values drift apart', () => {
 	assert.throws(() => buildVerifyPrompt(`${VERIFIER}\n{{NEW_THING}}`, RUN), /no value for \{\{NEW_THING\}\}/);
 	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
@@ -249,7 +261,7 @@ test('apply refuses a reply file that is not there, and leaves the report free f
 		const before = readFileSync(join(dir, 'report.md'), 'utf8');
 		assert.throws(() => execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'typo.md')], { stdio: 'pipe' }), e => e.status === 2 && /reply file not found/.test(e.stderr));
 		assert.equal(readFileSync(join(dir, 'report.md'), 'utf8'), before);
-		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: 1=CONFIRMED');
+		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED');
 		execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')]);
 		assert.match(readFileSync(join(dir, 'report.md'), 'utf8'), /\| 1 \| first claim .* \| confirmed \|/);
 	} finally {
@@ -318,4 +330,55 @@ test('apply takes a VERDICTS: none reply and logs the issues it left unrated', (
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
+});
+
+test('applyVerification leaves a finding\'s lines alone when the reply has an old IMPACT line', () => {
+	// Impact is gone, so an old verifier's IMPACT line rewrites nothing.
+	const reply = 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nIMPACT 1: The work is lost.\n\n- 1: holds.';
+	const out = applyVerification(BLOCKS, reply);
+	assert.doesNotMatch(out.slice(0, out.indexOf('Verification details')), /\*\*Impact:\*\*/);
+});
+
+// A table sorted by severity, as reports write it: row 1 is Finding 4.
+const SORTED = [
+	'## Findings',
+	'',
+	'| # | Finding | Severity | Impact | Reproduction |',
+	'|---|---------|----------|--------|--------------|',
+	'| 4 | data lost | major | blocks completion | 3/3 |',
+	'| 1 | wrong label | minor | cosmetic | 2/2 |',
+	'| 2 | slow reload | minor | cosmetic | 2/2 |',
+	'',
+].join('\n');
+
+test('findingNumbers reads the # column in table order', () => {
+	assert.deepEqual(findingNumbers(SORTED), [4, 1, 2]);
+	assert.deepEqual(findingNumbers('no table'), []);
+});
+
+test('verdictMismatch names the numbers a reply keyed by row order gets wrong', () => {
+	assert.equal(verdictMismatch(SORTED, 'VERDICTS: 4=CONFIRMED; 1=CONFIRMED; 2=FALSE POSITIVE'), '');
+	const why = verdictMismatch(SORTED, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED; 3=FALSE POSITIVE');
+	assert.match(why, /gives findings 1, 2, 3, but the report's findings are 1, 2, 4; missing 4; not in the report: 3\./);
+	assert.match(why, /by the Finding number as written/);
+});
+
+test('apply refuses verdicts keyed to other numbers, writes nothing, and takes a corrected reply', () => {
+	const dir = runDir(`# Exploratory test: x\n\n${SORTED}\n`);
+	try {
+		const before = readFileSync(join(dir, 'report.md'), 'utf8');
+		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED; 3=FALSE POSITIVE\n\n- 3: no.');
+		assert.throws(() => execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')], { stdio: 'pipe' }), e => e.status === 1 && /missing 4; not in the report: 3/.test(e.stderr));
+		assert.equal(readFileSync(join(dir, 'report.md'), 'utf8'), before);
+		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: 4=FALSE POSITIVE; 1=CONFIRMED; 2=CONFIRMED\n\n- 4: no.');
+		execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')]);
+		assert.match(readFileSync(join(dir, 'report.md'), 'utf8'), /\| 4 \| data lost .* \| disputed \|/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('the verify prompt says to key verdicts by Finding number, not row order', () => {
+	assert.match(VERIFIER, /Key every entry, on this line and every line below, by\nthe Finding number as written/);
+	assert.match(VERIFIER, /Never by the row's position/);
 });

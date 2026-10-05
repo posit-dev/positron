@@ -842,6 +842,32 @@ declare module 'positron' {
 		 * automatic, restored, duplicated, and programmatic starts.
 		 */
 		readonly userSelected?: boolean;
+
+		/**
+		 * Who the session belongs to. `user` for sessions the user starts;
+		 * `agent` for sessions an AI agent starts for itself. When absent, the
+		 * session belongs to the user.
+		 */
+		readonly owner?: RuntimeSessionOwner;
+	}
+
+	/**
+	 * Who a session belongs to. `user` for sessions the user starts;
+	 * `agent` for sessions an AI agent starts for itself.
+	 */
+	export type RuntimeSessionOwner = 'user' | 'agent';
+
+	/** Options for {@link runtime.startLanguageRuntime}. */
+	export interface RuntimeSessionStartOptions {
+		/** Who the session belongs to. Defaults to `user`. */
+		readonly owner?: RuntimeSessionOwner;
+
+		/**
+		 * Whether the session becomes the foreground session once started.
+		 * Defaults to `true`. Pass `false` to start it in the background and
+		 * leave the user's selected session in place.
+		 */
+		readonly activate?: boolean;
 	}
 
 	/**
@@ -1260,6 +1286,18 @@ declare module 'positron' {
 		 */
 		validateMetadata?(metadata: LanguageRuntimeMetadata):
 			Thenable<LanguageRuntimeMetadata>;
+
+		/**
+		 * An optional function that makes the interpreter at the given path
+		 * available, e.g. one that discovery did not find. Positron registers
+		 * the returned runtime. Implementations should remember the path (for
+		 * example, in a setting) so future discovery finds it too.
+		 *
+		 * @param path The path to the interpreter.
+		 * @returns A Thenable that resolves with the runtime's metadata, or
+		 *   rejects with an error explaining why the interpreter can't be used.
+		 */
+		registerRuntimeFromPath?(path: string): Thenable<LanguageRuntimeMetadata>;
 
 		/**
 		 * An optional session validation function. If provided, Positron will
@@ -2497,10 +2535,13 @@ declare module 'positron' {
 		// A Unity Catalog volume: a governed location for non-tabular files
 		// (positron-data-driver-databricks).
 		Volume = 'volume',
-		// A directory inside a volume, and a file inside one. Both hold files rather than rows, so they
-		// are browsable but not previewable in the Data Explorer.
+		// A directory inside a volume or stage, and a file inside one. Both hold files rather than rows,
+		// so they are browsable but not previewable in the Data Explorer.
 		Directory = 'directory',
 		File = 'file',
+		// A note in the tree rather than an object, e.g. that a long listing was cut short. Give it no
+		// children, preview, details, or path.
+		Notice = 'notice',
 		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
@@ -2556,6 +2597,23 @@ declare module 'positron' {
 		 * Columns under views are not part of a primary key, so this is left unset for them.
 		 */
 		isPrimaryKey?: boolean;
+
+		/**
+		 * The node's full path, in the form the source itself accepts, for copying: e.g. a table's
+		 * quoted three-part name (`"DB"."PUBLIC"."ORDERS"`) or a file's location
+		 * (`@"DB"."PUBLIC"."STAGE"/2024/orders.csv`). Positron offers "Copy Path" for nodes that set
+		 * it. Leave it unset for nodes that have no path of their own, such as groups.
+		 */
+		path?: string;
+
+		/**
+		 * What double-clicking the node opens, for a node that has both a preview and details.
+		 * Defaults to `'preview'`: a table's data is what users reach for. Set `'details'` for a node
+		 * whose details are what it holds, and whose preview opens something else's data -- e.g. a
+		 * semantic view's logical table, which previews its base table. Either way a single click
+		 * shows the details, and the context menu offers both.
+		 */
+		defaultAction?: 'preview' | 'details';
 
 		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
@@ -3512,12 +3570,14 @@ declare module 'positron' {
 		 * @param sessionName A human-readable name for the new session.
 		 * @param notebookUri If the session is associated with a notebook,
 		 *   the notebook URI.
+		 * @param options Options for the new session.
 		 *
 		 * Returns a Thenable that resolves with the newly created session.
 		 */
 		export function startLanguageRuntime(runtimeId: string,
 			sessionName: string,
-			notebookUri?: vscode.Uri): Thenable<LanguageRuntimeSession>;
+			notebookUri?: vscode.Uri,
+			options?: RuntimeSessionStartOptions): Thenable<LanguageRuntimeSession>;
 
 		/**
 		 * Interrupt a running session.
