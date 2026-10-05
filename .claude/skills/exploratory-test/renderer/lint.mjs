@@ -8,10 +8,14 @@
  *
  * The parser is lenient on purpose, so a malformed report still renders; that
  * also means it renders wrong without saying so. These are the rules a script
- * can check, returned as one line each for the agent to fix and re-render.
+ * can check, returned as one line each. splitProblems sorts them into errors,
+ * which make a repro or its evidence wrong, and warnings, which are wording.
  */
 
-import { basename, isDefaultsOnly, isNewTestFile, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
+import { readdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { basename, isDefaultsOnly, isNewTestFile, LOWERCASE_NAMES, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -47,6 +51,41 @@ function evidenceFiles(value) {
 	return value.split(/[\s,;()[\]]+/).map(t => t.replace(/^shots\//, '')).filter(t => /^[\w.-]+\.[a-z0-9]{2,5}$/i.test(t));
 }
 
+// A one-line Result, as explorer.md asks; anything longer is a scenario's worth of notes.
+const RESULT_MAX = 160;
+
+// A step is one action, so the verifier can match it to one line of
+// actions.log and a check can sit between any two. A lowercase verb after
+// "then" is a second action; a capitalized word is a menu item ("More, then Insert Cell Above").
+const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times)\b/i;
+const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
+// Where an action stops running code and starts quoting what it waits for.
+const READS_OUTPUT = /\b(?:until|shows?|showing|prints?|printed|reads|displays?|output)\b/i;
+// A session ID changes every launch, so a step that names one cannot be replayed.
+const SESSION_ID = /\b(?:python|r)-[0-9a-f]{8}\b/i;
+
+/** The rules every action step follows, in the ledger and on a finding card. */
+function stepProblems(where, text) {
+	const problems = [];
+	const plain = text.replace(/`[^`]*`/g, 'code');
+	const repeated = REPEATED.exec(plain);
+	if (repeated) {
+		problems.push(`${where} repeats an action ("${repeated[1]}"); a step is one action, so write each one as its own step`);
+	}
+	const then = THEN_ACTION.exec(plain);
+	if (then) {
+		problems.push(`${where} is two actions ("then ${then[1]}"); write each as its own step`);
+	}
+	if (/^With\b/.test(plain)) {
+		problems.push(`${where} starts "With ..."; make what it assumes a precondition, or do it as a step of its own`);
+	}
+	const id = SESSION_ID.exec(text);
+	if (id) {
+		problems.push(`${where} names ${id[0]}, which changes every launch; write a placeholder such as <Python session ID>`);
+	}
+	return problems;
+}
+
 function lintLedger(ledger, findingNumbers, fileExists) {
 	const problems = [];
 	const lines = prose(ledger);
@@ -64,9 +103,13 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		if (!current) { continue; }
 		const status = /^Status:\s*(.*)$/.exec(line);
 		if (status) { current.status = status[1].trim(); }
+		const result = /^Result:\s*(.*)$/.exec(line);
+		if (result) { current.result = result[1].trim(); }
+		const action = /^\s*(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(line);
+		if (action) { problems.push(...stepProblems(`ledger: ${current.id} step ${action[1]}`, action[2])); }
 		const verify = /^\s*(\d+)\.\s+VERIFY\b/i.exec(line);
 		if (verify) {
-			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), observed: false, evidence: false, log: false });
+			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), finding: Number(/->\s*FAIL\s*-\s*Finding\s+(\d+)/i.exec(line)?.[1]) || null, observed: false, evidence: false, log: false });
 		}
 		const field = /^\s+(Observed|Evidence|Log):(.*)$/i.exec(line);
 		const check = current.verifies.at(-1);
@@ -74,15 +117,20 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			const key = field[1].toLowerCase();
 			let named = true;
 			if (key === 'evidence') {
-				const files = evidenceFiles(field[2]);
+				// A saved output (a file's content on disk) or a helper's reading in
+				// actions.log may sit beside a check's screenshot, never in place of it.
+				const saved = [...field[2].matchAll(/(?:^|[\s,(`])((?:logs|files)\/[\w./-]+\.\w+)/g)].map(m => m[1]);
+				const missingSaved = fileExists ? saved.filter(f => !fileExists(f)) : [];
+				for (const f of missingSaved) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in the run directory`); }
+				const files = evidenceFiles(field[2].replace(/(?:logs|files)\/[\w./-]+/g, ''));
 				const missing = fileExists ? files.filter(f => !fileExists(`shots/${f}`)) : [];
 				for (const f of missing) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`); }
 				const present = files.filter(f => !missing.includes(f));
 				for (const f of new Set(present)) {
 					if (!citedBy.has(f)) { citedBy.set(f, []); }
-					citedBy.get(f).push(`${current.id} step ${check.step}`);
+					citedBy.get(f).push({ at: `${current.id} step ${check.step}`, finding: check.fail ? check.finding : null });
 				}
-				named = present.length > 0;
+				named = present.some(f => /\.png$/i.test(f));
 			}
 			if (named) { check[key] = true; }
 		}
@@ -98,21 +146,41 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			const m = /^fail\s*-\s*Finding\s+(\d+)$/i.exec(s.status);
 			if (!m) {
 				problems.push(`ledger: ${s.id} Status: must be "pass" or "fail - Finding N", got "${s.status}"`);
-			} else if (!findingNumbers.has(Number(m[1]))) {
+			} else if (findingNumbers && !findingNumbers.has(Number(m[1]))) {
 				problems.push(`ledger: ${s.id} names Finding ${m[1]}, which the report does not have`);
+			}
+			// The Coverage row links to the finding, which says what broke.
+			if (m && s.result && !/^Fails \d+\/\d+\.?$/i.test(s.result)) {
+				problems.push(`ledger: ${s.id} Result: of a failed scenario is its rate only, "Fails N/M"; the finding says what broke`);
+			}
+			// A scenario fails one finding, so its rate counts only checks of that finding.
+			for (const v of s.verifies.filter(v => v.finding && v.finding !== Number(m?.[1]))) {
+				problems.push(`ledger: ${s.id} step ${v.step} fails Finding ${v.finding} but the scenario's Status names Finding ${m?.[1]}; give Finding ${v.finding}'s check a scenario of its own`);
 			}
 		}
 		if (!s.verifies.length) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
+		// A Result that runs on is usually carrying something the run did not
+		// expect, and in a pass that is where a finding goes unnoticed.
+		if (s.result && (s.result.length > RESULT_MAX || sentencesOf(s.result).length > 1)) {
+			problems.push(`ledger: ${s.id} Result: is ${sentencesOf(s.result).length > 1 ? `${sentencesOf(s.result).length} sentences` : `${s.result.length} characters`}; keep it to one short sentence, and give anything you did not expect its own VERIFY step`);
+		}
+		// A repeat failure in the same scenario searches the same logs, so only the
+		// scenario's first failed check needs its Log: line.
+		const firstFail = s.verifies.find(v => v.fail);
 		for (const v of s.verifies) {
-			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own`); }
-			const missing = v.fail ? ['observed', 'log'].filter(key => !v[key]) : [];
+			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it`); }
+			const missing = v.fail ? ['observed', ...(v === firstFail ? ['log'] : [])].filter(key => !v[key]) : [];
 			if (missing.length) {
 				problems.push(`ledger: ${s.id} step ${v.step} FAIL is missing ${missing.map(m => `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
 			}
 		}
 	}
+	// Two findings seen on one screen share its shot: each check is its own
+	// step, failing a different finding. Any other reuse is a check left unshot.
 	for (const [f, checks] of citedBy) {
-		if (checks.length > 1) { problems.push(`ledger: ${f} is Evidence for ${checks.join(' and ')}; take a screenshot for each check`); }
+		const findings = checks.map(c => c.finding);
+		const shared = findings.every(n => n !== null) && new Set(findings).size === findings.length;
+		if (checks.length > 1 && !shared) { problems.push(`ledger: ${f} is Evidence for ${checks.map(c => c.at).join(' and ')}; take a screenshot for each check`); }
 	}
 	// The issue button's System details come from this line, so it has to parse.
 	const env = lines.findIndex(({ line }) => /^##\s+Environment\b/i.test(line));
@@ -130,7 +198,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 /**
  * A finding's repro is one ledger scenario's steps: every screenshot its steps
  * cite comes from a single scenario, and that scenario failed for this finding.
- * Other runs belong under Evidence as a Variant.
+ * Another run's screenshots go under Evidence, captioned with the step they prove.
  */
 function lintReproScenario(findings, scenarios) {
 	const problems = [];
@@ -142,9 +210,18 @@ function lintReproScenario(findings, scenarios) {
 		const whole = owners.filter(o => cited.every(shot => o.shots.has(shot))).map(o => o.s);
 		if (!whole.length) {
 			const ids = owners.filter(o => cited.some(shot => o.shots.has(shot))).map(o => o.s.id);
-			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and other runs go under Evidence as a Variant`);
+			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and another run's screenshots go under Evidence, captioned "Step N:" for the step they prove`);
 		} else if (!whole.some(s => s.findings.includes(f.n) || s.steps.some(st => st.finding === f.n))) {
 			problems.push(`report: Finding ${f.n}'s steps come from ${whole.map(s => s.id).join(' or ')}, whose Status does not name Finding ${f.n}`);
+		} else {
+			// The steps and their shots are one scenario's, so the files they name are too.
+			// The drive-positron scripts a step was run with are not the scenario's files.
+			const names = steps => new Set(steps.flatMap(st => [...String(st.md ?? '').matchAll(FILE_NAME)].map(m => basename(m[1]))).filter(n => !/\.sh$/.test(n)));
+			const used = new Set(whole.flatMap(s => [...names(s.steps)]));
+			const stray = [...names(f.steps)].filter(n => !used.has(n));
+			if (stray.length && used.size) {
+				problems.push(`report: Finding ${f.n}'s steps name ${stray.join(', ')}, which ${whole.map(s => s.id).join(' or ')} never used (it used ${[...used].join(', ')}); write the steps the screenshots show`);
+			}
 		}
 	}
 	return problems;
@@ -194,11 +271,14 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 				problems.push(`${where} names ${name} twice, bare and as ${path}; write \`${path}\` once in place of the name, and the page shows it as ${name}`);
 			}
 		}
+		// A setup that is about a file not being there names it on purpose.
+		const absent = /\b(does not exist|doesn't exist|nonexistent|non-existent|missing|absent|not there|deleted)\b/i.test(String(text).replace(/`[^`]*`/g, ''));
 		for (const m of String(text).matchAll(FILE_NAME)) {
-			if (twice.has(m[1])) { continue; }
+			if (twice.has(m[1]) || absent) { continue; }
 			// "user settings.json" is the app's own file; the setting goes in the step.
 			// A files/ path is the rule above's.
-			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/')) { continue; }
+			// A drive-positron helper the run set up with is not a test file.
+			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/') || HELPERS.has(basename(m[1]))) { continue; }
 			const same = files.filter(f => basename(f.path) === basename(m[1]));
 			if (same.length > 1) {
 				problems.push(`${where} names ${m[1]}, which matches ${same.map(f => f.path).join(' and ')}; name it by its files/ path`);
@@ -218,6 +298,15 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 // The app's own configuration files, named by where a setting lives.
 const APP_CONFIG = /^(settings|keybindings|launch|tasks|extensions|argv)\.json$/i;
 
+// drive-positron's helper scripts (run-venv.sh, settings.sh, ...), read from its folder.
+const HELPERS = (() => {
+	try {
+		return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'drive-positron', 'scripts')));
+	} catch {
+		return new Set();
+	}
+})();
+
 /** Each scenario's precondition bullets, as `[where, text]`. */
 function ledgerPreconditions(ledger) {
 	const out = [];
@@ -234,7 +323,7 @@ function ledgerPreconditions(ledger) {
 }
 
 /** The ledger's `Issue:` lines and issue-naming Not run rows, against the issues fetched for the PR. */
-function lintKnownIssues(ledger, knownIssues) {
+function lintKnownIssues(ledger, knownIssues, { final = true } = {}) {
 	const problems = [];
 	const byNumber = new Map((knownIssues?.issues ?? []).map(i => [i.number, i]));
 	let id = null;
@@ -255,7 +344,10 @@ function lintKnownIssues(ledger, knownIssues) {
 			} else if (issue.relation === 'fixes' && (kind === 'observed' || kind === 'back')) {
 				problems.push(`ledger: ${s.id} #${n} is a fix the PR claims; record "fix held" or "fix did not hold", not "${kind === 'back' ? 'came back' : 'observed'}"`);
 			} else if (issue.relation !== 'fixes' && (kind === 'held' || kind === 'failed')) {
-				problems.push(`ledger: ${s.id} #${n} is a linked issue, not one the PR fixes; record "${issue.state === 'closed' ? 'came back' : 'observed'}"`);
+				// "fix held" tests the PR's claim; a linked issue makes none, so not seeing it says nothing.
+				problems.push(issue.state === 'closed'
+					? `ledger: ${s.id} #${n} is a closed linked issue, not one the PR fixes; record "came back" only if it showed up again, otherwise leave the Issue: line out`
+					: `ledger: ${s.id} #${n} is an open linked issue, not one the PR fixes; record "observed" only if the scenario ran into it, otherwise leave the Issue: line out`);
 			} else if (kind === 'observed' && issue.state === 'closed') {
 				problems.push(`ledger: ${s.id} #${n} is closed, so seeing it again is a finding; record "came back" with Status: FAIL`);
 			} else if (kind === 'back' && issue.state !== 'closed') {
@@ -275,7 +367,8 @@ function lintKnownIssues(ledger, knownIssues) {
 		}
 	}
 	const accounted = new Set([...(parsed?.exercised ?? []), ...(parsed?.notExercised ?? [])].flatMap(r => (r.issues ?? []).map(i => i.n)));
-	for (const i of byNumber.values()) {
+	// Mid-run, a fix not yet tested is one still to come.
+	for (const i of final ? byNumber.values() : []) {
 		if (i.relation === 'fixes' && !accounted.has(i.number)) {
 			problems.push(`ledger: the PR fixes #${i.number}; record "Issue: #${i.number} fix held" or "fix did not hold" under a scenario, or a Not run row "Fix for #${i.number} not exercised: <reason>"`);
 		}
@@ -284,12 +377,84 @@ function lintKnownIssues(ledger, knownIssues) {
 }
 
 /**
- * Finding screenshots with neither a `Step N:`/`Variant:` caption nor a step
- * that names them. Evidence groups by that tag, so one without it is a ledger
- * error, not a tile to show untagged.
+ * Finding screenshots that name no step on the card: no `Step N:` caption and
+ * no step citing them, a step past the last, or a bare `Variant:`. A screenshot
+ * opens only from the step it proves, so one of these has nowhere to show.
  */
 export function untaggedShots(findings) {
-	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !e.step).map(e => ({ n: f.n, file: e.file })));
+	const onStep = (f, e) => Number.isInteger(e.step?.order) && e.step.order >= 1 && e.step.order <= f.steps.length;
+	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !onStep(f, e)).map(e => ({ n: f.n, file: e.file })));
+}
+
+/** Sentences in prose, with code spans masked so a `.` inside one cannot end a sentence. */
+function sentencesOf(text) {
+	return text.replace(/`[^`]*`/g, 'code').split(/(?<=[.!?])\s+(?=["A-Z])/).filter(Boolean);
+}
+
+/**
+ * Observed and Expected sit side by side, so each is one or two sentences.
+ * Observed may add one more for a fact the run saw that makes it worse or
+ * gets past it: no error shown, only reopening restores it, another trigger.
+ */
+function comparisonProblems(n, label, text) {
+	const max = label === 'Observed' ? 3 : 2;
+	const count = sentencesOf(text).length;
+	return count > max
+		? [`report: Finding ${n} ${label}: is ${count} sentences; keep it to ${label === 'Observed' ? '1-2, plus one for a fact such as no error shown or a workaround you saw work' : '1-2'}, and move the rest to Reproduce or Evidence`]
+		: [];
+}
+
+// Backends a reference to the right answer usually comes from.
+const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\bR\b/]];
+
+/**
+ * Observed and Expected read as sentences about one thing, each number written
+ * one way. The checks are narrow on purpose: each names its fix.
+ * - A semicolon joins notes; write sentences.
+ * - A backend the title does not name is the reference that shows the right
+ *   answer, so it belongs in Expected.
+ * - The same number grouped in one place and ungrouped in another reads as
+ *   two numbers.
+ */
+
+function clarityProblems(n, title, observed, expected) {
+	const problems = [];
+	// A title says what a user sees, so it reads as a sentence, not as code.
+	// Package names that are lowercase by convention may lead it.
+	const first = /^([a-z][\w.-]*)/.exec(title)?.[1];
+	if (first && !LOWERCASE_NAMES.has(first)) {
+		problems.push(`report: Finding ${n} title starts with a lowercase letter; start it with a capital`);
+	}
+	if (/\w::\w/.test(title.replace(/`[^`]*`/g, ''))) {
+		problems.push(`report: Finding ${n} title names code; say what a user sees and what triggers it, and leave the mechanism to Cause`);
+	}
+	const prose = text => text.replace(/`[^`]*`/g, '');
+	const hedge = /\b(may|might|seems?|appears? to)\b/i.exec(prose(title));
+	if (hedge) {
+		problems.push(`report: Finding ${n} title hedges with "${hedge[1]}"; state what the run saw as a fact`);
+	}
+	for (const [label, text] of [['Observed', observed], ['Expected', expected]]) {
+		if (text && prose(text).includes(';')) {
+			problems.push(`report: Finding ${n} ${label}: joins notes with a semicolon; write it as sentences`);
+		}
+		const judged = text && /\b(unfortunately|incorrectly|confusingly|wrongly|strangely)\b/i.exec(prose(text));
+		if (judged) {
+			problems.push(`report: Finding ${n} ${label}: says "${judged[1]}"; say what happened in plain words and let the difference speak`);
+		}
+	}
+	if (observed) {
+		const named = BACKENDS.filter(([, re]) => re.test(prose(observed)) && !re.test(title)).map(([name]) => name);
+		if (named.length) {
+			problems.push(`report: Finding ${n} Observed: names ${named.join(' and ')}, which the title does not; the reference that shows the right answer goes in Expected ("as ${named[0]} shows for the same data")`);
+		}
+	}
+	const both = prose(`${observed ?? ''} ${expected ?? ''}`);
+	const grouped = new Set([...both.matchAll(/\b\d{1,3}(?:,\d{3})+\b/g)].map(m => m[0].replace(/,/g, '')));
+	const mixed = [...new Set([...both.matchAll(/(?<![\d,.])\d{4,}(?![\d,])/g)].map(m => m[0]))].filter(d => grouped.has(d));
+	if (mixed.length) {
+		problems.push(`report: Finding ${n} writes ${mixed[0]} both with and without digit grouping; write each number one way (1,234,567), except a value quoted exactly as the UI shows it`);
+	}
+	return problems;
 }
 
 /**
@@ -298,8 +463,10 @@ export function untaggedShots(findings) {
  * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
  * @returns {string[]} one line per problem; empty when the report is clean
  */
-export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues } = {}) {
+export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues, actionsLog } = {}) {
 	const problems = [];
+	// The verifier's section is its own words, added by finish.mjs apply; the explorer cannot fix them.
+	markdown = withoutVerification(markdown);
 	const lines = prose(markdown);
 	const text = String(markdown ?? '');
 
@@ -318,20 +485,27 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		problems.push('report: **Result:** answers a question; state what the change does instead');
 	}
 
+	// A block with no table row (or no table at all) is flagged below, block by block.
 	const rows = tableRows(lines, h => h.includes('finding') && h.includes('severity')) ?? [];
-	if (!rows.length && !/^\s*no findings\b/im.test(text) && lines.some(({ line }) => /^###\s+Finding\b/.test(line))) {
-		problems.push('report: findings have blocks but no findings table');
-	}
 	if (rows.length && Object.keys(rows[0]).some(k => /^introduced|^origin/.test(k))) {
 		problems.push('report: drop the Introduced?/Origin column; origin goes in Cause, and only when the diff settles it');
+	}
+	if (rows.length && Object.keys(rows[0]).includes('impact')) {
+		problems.push('report: drop the Impact column; the title says what is broken');
 	}
 	for (const row of rows) {
 		const n = row['#'];
 		if (!['major', 'moderate', 'minor'].includes(row.severity?.toLowerCase())) {
 			problems.push(`report: finding ${n} Severity must be major, moderate or minor, got "${row.severity ?? ''}"`);
 		}
-		if (!/^\d+\/\d+$/.test(row.reproduction ?? '')) {
+		const rate = /^(\d+)\/(\d+)$/.exec(row.reproduction ?? '');
+		if (!rate) {
 			problems.push(`report: finding ${n} Reproduction must be N/M, got "${row.reproduction ?? ''}"`);
+		} else if (Number(rate[2]) < 2 && ['major', 'moderate'].includes(row.severity?.toLowerCase())) {
+			// One sighting reads as thin to a reviewer, and a repeat in the same instance
+			// is cheap. A warning, never an error: severity is the user's impact, and an
+			// error here would reward rating a finding lower to get past it.
+			problems.push(`report: finding ${n} is ${row.severity.toLowerCase()} and was tried once (${row.reproduction}); keep the severity, and repeat its steps if the instance is still up`);
 		}
 	}
 
@@ -359,6 +533,13 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		const at = body.findIndex(l => /^\*\*Preconditions:\*\*\s*$/.test(l));
 		for (let k = at + 1; at !== -1 && /^[-*]\s+/.test(body[k] ?? ''); k++) {
 			needs.push([`Finding ${b.n}`, body[k]]);
+			// The card shows the short name, as Coverage does, and the full text on hover.
+			const name = /^[-*]\s+([^|]+?)\s+\|\s+\S/.exec(body[k])?.[1];
+			if (!name) {
+				problems.push(`report: Finding ${b.n} precondition "${body[k].replace(/^[-*]\s+/, '').slice(0, 40)}" needs "<short name> | <full text>"`);
+			} else if (name.split(/\s+/).length > 5) {
+				problems.push(`report: Finding ${b.n} precondition name "${name}" is ${name.split(/\s+/).length} words; keep it to 2 to 4`);
+			}
 		}
 		const pre = body.find(l => l.startsWith('**Preconditions:**'));
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {
@@ -367,6 +548,29 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		// The filed issue's title is `<Feature>: <claim>`.
 		if (!body.some(l => /^\*\*Feature:\*\*\s*\S/.test(l))) {
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
+		}
+		if (body.some(l => /^\*\*Impact:\*\*/.test(l))) {
+			problems.push(`report: Finding ${b.n} has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed`);
+		}
+		const said = {};
+		for (const label of ['Observed', 'Expected']) {
+			// The first line of a labelled paragraph, through to the blank line after it.
+			const at = body.findIndex(l => l.startsWith(`**${label}:**`));
+			if (at !== -1) {
+				const end = body.findIndex((l, k) => k > at && !l.trim());
+				said[label] = body.slice(at, end === -1 ? body.length : end).join(' ').slice(label.length + 5).trim();
+				problems.push(...comparisonProblems(b.n, label, said[label]));
+			}
+		}
+		problems.push(...clarityProblems(b.n, lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, ''), said.Observed, said.Expected));
+		// Steps are instructions for the reader; which scenario ran them, and how, is the ledger's.
+		for (const step of body.filter(l => /^\d+\.\s/.test(l))) {
+			const action = /^(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(step);
+			if (action) { problems.push(...stepProblems(`report: Finding ${b.n} step ${action[1]}`, action[2])); }
+			const id = /\b[SN]\d{2,}\b/.exec(step.replace(/`[^`]*`/g, ''));
+			if (id) {
+				problems.push(`report: Finding ${b.n} step "${step.slice(0, 50)}" names ${id[0]}; steps are instructions for the reader, so leave run notes out`);
+			}
 		}
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }
@@ -409,8 +613,64 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	}
 
 	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? []));
+	// Readers never see scenario IDs, so a finding's prose says what a run was in words.
+	for (const f of parseReport(text).findings) {
+		const fields = [['title', f.title], ['Observed', f.observedHtml], ['Expected', f.expectedHtml], ['Cause', f.causeHtml]];
+		for (const [label, value] of fields) {
+			const words = String(value ?? '').replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/`[^`]*`/g, '').replace(/<[^>]+>/g, '');
+			const ids = [...new Set([...words.matchAll(/(?<![\w/.-])[SN]\d{2,}(?![\w-])/g)].map(m => m[0]))];
+			if (ids.length) {
+				problems.push(`report: Finding ${f.n} ${label} names ${ids.join(', ')}; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs`);
+			}
+		}
+	}
+	// A precondition is the state the steps start from, so no step runs it again.
+	for (const f of parseReport(text).findings) {
+		const commands = f.preconditions
+			.flatMap(p => [...p.matchAll(/<code[^>]*>([^<]+)<\/code>/g)].map(m => m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim()))
+			// A bare name() names a function the file defines, not a command run.
+			.filter(c => /[\s(]|^[%!]/.test(c) && !/^[\w.$]+\(\)$/.test(c));
+		f.steps.forEach((st, k) => {
+			// A check quotes what it reads, and an action that waits on output
+			// ("until the console shows `tick 0`") runs only what comes before it.
+			if (st.kind === 'verify') { return; }
+			const runs = (st.md ?? '').split(READS_OUTPUT)[0];
+			const again = commands.find(c => runs.includes('`' + c + '`'));
+			if (again) {
+				problems.push(`report: Finding ${f.n} step ${k + 1} runs \`${again}\`, which a precondition already sets up; start the steps after it`);
+			}
+		});
+	}
 	for (const { n, file } of untaggedShots(parseReport(text).findings)) {
-		problems.push(`report: Finding ${n} screenshot ${file} has no step; caption it "Step N:" after the step it follows, or "Variant:"`);
+		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step`);
+	}
+	// A shot captioned with a scenario is that scenario's run of the bug, so the ledger shows it there.
+	const exercised = parseLedger(ledger)?.exercised;
+	for (const f of exercised ? parseReport(text).findings : []) {
+		for (const e of f.evidence.filter(e => e.kind === 'shot' && e.scenario)) {
+			const s = exercised.find(s => s.id === e.scenario);
+			if (!s) {
+				problems.push(`report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, which the ledger does not have; name the scenario that took it`);
+			} else if (!s.steps.some(st => st.evidence.some(x => basename(x.file || x.href) === e.file))) {
+				problems.push(`report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, but ${e.scenario} never cites it as Evidence; name the scenario that took it`);
+			}
+		}
+	}
+	// One screenshot shows a check; a second earns its place only by showing a
+	// different moment, and says so. A control proves Expected, not the failure.
+	for (const f of parseReport(text).findings) {
+		f.steps.forEach((st, i) => {
+			// A step's moments are the shots its own Evidence: line cites. One
+			// listed under Evidence for the step but not cited by it is another
+			// run's, as is another scenario's: not a second moment of this one.
+			const own = new Set(st.evidence.map(x => x.file));
+			const shots = f.evidence.filter(e => e.kind === 'shot' && !e.scenario && own.has(e.file));
+			if (shots.length > 2) {
+				problems.push(`report: Finding ${f.n} step ${i + 1} has ${shots.length} screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out`);
+			} else if (shots.length === 2 && shots[0].caption === shots[1].caption) {
+				problems.push(`report: Finding ${f.n} step ${i + 1}'s second screenshot ${shots[1].file} repeats the first one's caption; caption it under Evidence with what it shows that the first does not`);
+			}
+		});
 	}
 	if (repoFileExists) {
 		for (const f of parseReport(text).findings) {
@@ -432,6 +692,212 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		if (knownIssues?.issues?.length) {
 			problems.push(...lintKnownIssues(ledger, knownIssues));
 		}
+		if (actionsLog !== undefined) {
+			problems.push(...lintShotNames(ledger, actionsLog));
+			problems.push(...lintShotTiming(ledger, actionsLog));
+		}
+	}
+	if (actionsLog !== undefined) {
+		problems.push(...lintActionsLog(actionsLog));
 	}
 	return problems;
+}
+
+/**
+ * The ledger alone, mid-run: what can be fixed while the instance is still up,
+ * such as a check with no shot or a FAIL with no Log:. Nothing that needs the
+ * report, and no linked fix still to be tested.
+ * @returns {string[]} one line per problem, as lintReport's
+ */
+export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog } = {}) {
+	const problems = [...lintLedger(ledger, null, fileExists).problems];
+	problems.push(...lintFiles('', ledger, ledgerPreconditions(ledger), { fileExists, listFiles }));
+	if (knownIssues?.issues?.length) {
+		problems.push(...lintKnownIssues(ledger, knownIssues, { final: false }));
+	}
+	if (actionsLog !== undefined) {
+		problems.push(...lintShotNames(ledger, actionsLog), ...lintShotTiming(ledger, actionsLog), ...lintActionsLog(actionsLog));
+	}
+	return problems;
+}
+
+/** The report without the Verification section finish.mjs apply appends. */
+function withoutVerification(markdown) {
+	const lines = String(markdown ?? '').split('\n');
+	const summary = lines.findIndex((l, i) => l.trim() === '<summary>Verification details</summary>' && lines[i - 1]?.trim() === '<details>');
+	if (summary !== -1) {
+		const close = lines.findIndex((l, i) => i > summary && /^\s*<\/details>/.test(l));
+		lines.splice(summary - 1, (close === -1 ? lines.length : close + 1) - (summary - 1));
+		return lines.join('\n');
+	}
+	const failed = lines.findIndex((l, i) => l === '## Verification' && /^_Verification did not complete/.test(lines[i + 2] ?? ''));
+	if (failed !== -1) {
+		const next = lines.findIndex((l, i) => i > failed && /^## /.test(l));
+		lines.splice(failed, (next === -1 ? lines.length : next) - failed);
+	}
+	return lines.join('\n');
+}
+
+// How every line drive-positron's log writer (write() in dp-lib.ts) appends
+// starts: the UTC time to the second, then a space.
+const LOG_TIME = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) /;
+// Two helpers running at once can append a second out of order; more is an edit.
+const LOG_SLACK_MS = 1000;
+
+/**
+ * actions.log is append-only and written only by the helpers and `dp.ts log`,
+ * so every line starts with the time the writer stamps, and no line is earlier
+ * than one above it. A line in another format was written by hand, and one that
+ * goes back in time was backdated or moved: either way the log no longer says
+ * what happened when, which is what the verifier checks the steps against.
+ * @returns {string[]} one line per kind of problem, as lintReport's
+ */
+export function lintActionsLog(actionsLog) {
+	const unstamped = [];
+	const back = [];
+	let latest = null;
+	String(actionsLog ?? '').split('\n').forEach((line, i) => {
+		if (!line.trim()) { return; }
+		const m = LOG_TIME.exec(line);
+		if (!m) {
+			unstamped.push({ n: i + 1, line: line.trim() });
+			return;
+		}
+		const t = Date.parse(m[1]);
+		if (latest && t < latest.t - LOG_SLACK_MS) {
+			back.push({ n: i + 1, at: m[1], after: latest });
+		} else if (!latest || t > latest.t) {
+			latest = { n: i + 1, t, at: m[1] };
+		}
+	});
+	const lines = list => `${list.length > 1 ? 'lines' : 'line'} ${list.slice(0, 3).map(x => x.n).join(', ')}${list.length > 3 ? ` and ${list.length - 3} more` : ''}`;
+	const problems = [];
+	if (unstamped.length) {
+		const first = unstamped[0].line;
+		problems.push(`actions.log: ${lines(unstamped)} ${unstamped.length > 1 ? 'do' : 'does'} not start with the UTC time the helpers write ("2026-01-02T03:04:05Z "), such as "${first.length > 50 ? `${first.slice(0, 47)}...` : first}"; log what no helper logged with \`dp.ts log\`, and never write or rewrite a line yourself`);
+	}
+	if (back.length) {
+		const [b] = back;
+		const first = `line ${b.n} (${b.at}) is earlier than line ${b.after.n} above it (${b.after.at})`;
+		problems.push(`actions.log: ${back.length > 1 ? `${lines(back)} are earlier than a line above them, first ${first}` : first}; the log is append-only, so log a missed action as a note when you notice it, and never backdate or move a line`);
+	}
+	return problems;
+}
+
+/**
+ * Every screenshot the ledger cites must appear in actions.log under that name,
+ * so a reader can find when it was taken. A shot renamed after the fact is
+ * missing from the log, and the log no longer says what it shows.
+ */
+export function lintShotNames(ledger, actionsLog) {
+	const cited = new Set();
+	for (const { line } of prose(ledger)) {
+		const evidence = /^\s+Evidence:(.*)$/i.exec(line);
+		if (evidence) { evidenceFiles(evidence[1]).filter(f => /\.png$/i.test(f)).forEach(f => cited.add(f)); }
+	}
+	const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return [...cited]
+		.filter(f => !new RegExp(`(^|[^\\w-])${escape(f.replace(/\.png$/i, ''))}(\\.png)?(?![\\w-])`, 'm').test(actionsLog))
+		.map(f => `ledger: ${f} is cited as Evidence but actions.log never takes a shot by that name; keep the name a shot was taken with, or log the rename`);
+}
+
+/**
+ * A step cites the shot taken at its check. shot.sh logs each one, so a
+ * scenario whose cited shots run backwards in the log cites one for a step it
+ * was not taken at. A name taken twice is a file holding only the last capture:
+ * fine when that capture falls between the scenario's checks before and after
+ * the one citing it, and the wrong picture when it does not.
+ */
+export function lintShotTiming(ledger, actionsLog) {
+	const problems = [];
+	const taken = new Map();
+	String(actionsLog ?? '').split('\n').forEach((line, i) => {
+		const m = /\bshot\.sh\b[^:]*:\s*screenshot\s+(\S+?\.png)\b/i.exec(line);
+		if (m) { taken.set(m[1], [...(taken.get(m[1]) ?? []), i]); }
+	});
+	// Each scenario's cited shots, in the order its steps cite them.
+	const scenarios = [];
+	let step = null;
+	for (const { line } of prose(ledger)) {
+		const head = /^##\s+(\S+)/.exec(line);
+		if (head) {
+			if (/^S\d+$/.test(head[1])) { scenarios.push({ id: head[1], cited: [] }); } else { scenarios.push(null); }
+			continue;
+		}
+		const current = scenarios.at(-1);
+		if (!current) { continue; }
+		const numbered = /^\s*(\d+)\.\s/.exec(line);
+		if (numbered) { step = numbered[1]; continue; }
+		const evidence = /^\s+Evidence:(.*)$/i.exec(line);
+		if (!evidence) { continue; }
+		for (const f of evidenceFiles(evidence[1]).filter(f => taken.has(f))) {
+			current.cited.push({ f, step, when: taken.get(f).at(-1) });
+		}
+	}
+	const twice = new Set();
+	for (const { id, cited } of scenarios.filter(Boolean)) {
+		let last = null;
+		cited.forEach((c, k) => {
+			const at = taken.get(c.f);
+			if (at.length > 1 && !twice.has(c.f)) {
+				twice.add(c.f);
+				const next = cited.slice(k + 1).find(n => n.f !== c.f);
+				const inPlace = (!last || c.when > last.when) && (!next || c.when < next.when);
+				problems.push(inPlace
+					? `ledger: ${c.f} was taken ${at.length} times in actions.log; the file is the last capture, taken before ${id} step ${c.step}'s check and after the one before it, so check that it shows step ${c.step}`
+					: `ledger: ${c.f} was taken ${at.length} times in actions.log, so the file is only the last capture; give each capture its own name and cite the one taken at the check`);
+			}
+			if (last && c.when < last.when) {
+				problems.push(`ledger: ${id} step ${c.step} cites ${c.f}, which actions.log took before ${last.f} (step ${last.step}); cite the shot taken at each check`);
+			} else {
+				last = c;
+			}
+		});
+	}
+	return problems;
+}
+
+// Errors make a repro or its evidence wrong, or leave the page unable to show
+// it: they block a clean render. Warnings are wording and length: worth fixing
+// when quick, never worth another render. A rule not listed here is an error.
+const WARNINGS = [
+	/ repeats an action \(/,
+	/ is two actions \(/,
+	/ starts "With \.\.\."/,
+	/Result: of a failed scenario is its rate only/,
+	/Result: is \S+ (?:characters|sentences)/,
+	/\*\*Result:\*\* answers a question/,
+	/drop the Introduced\?\/Origin column/,
+	/drop the Impact column/,
+	/ precondition ".*?" needs "/,
+	/ precondition name ".*?" is \S+ words/,
+	/ Preconditions: says only "/,
+	/ has an Impact line/,
+	/ (?:Observed|Expected): is \S+ sentences/,
+	/ title starts with a lowercase letter/,
+	/ title names code/,
+	/ title hedges with /,
+	/ joins notes with a semicolon/,
+	/ (?:Observed|Expected): says "/,
+	/ Observed: names .*, which the title does not/,
+	/ both with and without digit grouping/,
+	/steps are instructions for the reader, so leave run notes out/,
+	/cite shots as \[shots\//,
+	/map compiled frames to source paths/,
+	/, which a precondition already sets up/,
+	/ has \S+ screenshots; keep the one/,
+	/ repeats the first one's caption/,
+	/ twice, bare and as /,
+	/; the file is the last capture, taken before /,
+	/ and was tried once \(/,
+];
+
+/** True when a lint line is a warning: wording or length, not a wrong repro or evidence. */
+export function isWarning(problem) {
+	return WARNINGS.some(re => re.test(problem));
+}
+
+/** Lint lines split into the errors to fix before the report is done and the warnings to fix if quick. */
+export function splitProblems(problems) {
+	return { errors: problems.filter(p => !isWarning(p)), warnings: problems.filter(p => isWarning(p)) };
 }

@@ -38,14 +38,14 @@ export function ruleKey(message) {
 		.replace(/(?:Finding #|S#)(?: step #)?(?:(?:, | and )(?:Finding #|S#)(?: step #)?)+/g, '<places>');
 }
 
-/** Records one format check the explorer ran: how many problems, and which rules. */
-export function recordCheck(runDir, problems) {
+/** Records one format check the explorer ran: how many problems, how many of them errors, and which rules. */
+export function recordCheck(runDir, problems, errors) {
 	const rules = {};
 	for (const p of problems) {
 		const key = ruleKey(p);
 		rules[key] = (rules[key] ?? 0) + 1;
 	}
-	appendFileSync(join(runDir, CHECKS_FILE), `${JSON.stringify({ at: new Date().toISOString(), problems: problems.length, rules })}\n`);
+	appendFileSync(join(runDir, CHECKS_FILE), `${JSON.stringify({ at: new Date().toISOString(), problems: problems.length, ...(errors === undefined ? {} : { errors }), rules })}\n`);
 }
 
 /**
@@ -66,7 +66,7 @@ export function summarizeChecks(text) {
 	}
 	return {
 		rounds: checks.length,
-		first: { problems: checks[0].problems, rules: checks[0].rules ?? {} },
+		first: { problems: checks[0].problems, ...(checks[0].errors === undefined ? {} : { errors: checks[0].errors }), rules: checks[0].rules ?? {} },
 		last: checks.at(-1).problems,
 		lastRules: checks.at(-1).rules ?? {},
 	};
@@ -85,7 +85,7 @@ function clip(text, max) {
  * One run's stats record. `parsed` is parseReport's result for the finished
  * report, so findings and verdicts are counted the way the page shows them.
  */
-export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, parsed, checks, timeLimit }) {
+export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, checks, timeLimit }) {
 	const verdicts = {};
 	for (const f of parsed?.findings ?? []) {
 		if (f.verified) {
@@ -104,6 +104,8 @@ export function buildStats({ where, date, run, version, model, turns, maxTurns, 
 		maxTurns: maxTurns ?? null,
 		costUsd: typeof costUsd === 'number' ? Math.round(costUsd * 100) / 100 : null,
 		durationMs: durationMs ?? null,
+		// `{ durationMs, turns }` when an isolation pass ran, else null.
+		isolate: isolate ?? null,
 		findings: parsed?.findings?.length ?? 0,
 		severity: parsed?.severityCounts ?? null,
 		verdicts,
