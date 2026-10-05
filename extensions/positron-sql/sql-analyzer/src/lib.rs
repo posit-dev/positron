@@ -35,6 +35,7 @@ pub mod scopes;
 pub mod sources;
 pub mod statements;
 pub mod text;
+pub mod tokens;
 
 use std::alloc::{alloc, dealloc, Layout};
 

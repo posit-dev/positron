@@ -44,6 +44,7 @@ use sqlparser::tokenizer::{Token, TokenWithSpan, Word};
 
 use crate::statements::Statement;
 use crate::text::TextIndex;
+use crate::tokens::{self, word};
 
 /// Where the cursor is, as far as the keywords that belong there are concerned.
 ///
@@ -420,42 +421,10 @@ pub fn at(statement: Option<&Statement>, offset: u32, index: &TextIndex) -> Posi
     let Some(statement) = statement else {
         return Position::StatementStart;
     };
-    let tokens = completed(&statement.tokens, offset, index);
-    place(tokens)
-}
-
-/// The tokens the user has finished typing, given where the cursor is.
-///
-/// The token under the cursor is the word being completed, not a word the statement contains: at
-/// `SELECT * FROM orders WHERE` the user has typed five characters of a word that will become
-/// `WHERE`, and reading it as a finished `WHERE` would answer for the position *after* the clause
-/// keyword rather than the position of the keyword itself. Dropping it never hides it, because the
-/// position that offers a word is by definition the position the user is in while typing it.
-///
-/// Only a word is dropped. Punctuation ending at the cursor is finished by construction -- there
-/// is no half-typed `=` -- and `WHERE x =` must read as a value slot rather than as the position
-/// after `x`.
-fn completed<'a>(tokens: &'a [TokenWithSpan], offset: u32, index: &TextIndex) -> &'a [TokenWithSpan] {
-    let mut end = 0;
-    for (at, token) in tokens.iter().enumerate() {
-        match index.span(token.span) {
-            // Spans are half open, so a token occupying `[start, end)` is finished when its end
-            // has been reached.
-            Some((_, token_end)) if token_end > offset => break,
-            _ => end = at + 1,
-        }
-    }
-    // The word being typed ends exactly where the cursor is.
-    if let Some(last) = end.checked_sub(1) {
-        let ends_at_cursor = index
-            .span(tokens[last].span)
-            .map(|(start, token_end)| token_end == offset && start < offset)
-            .unwrap_or(false);
-        if ends_at_cursor && matches!(tokens[last].token, Token::Word(_)) {
-            end = last;
-        }
-    }
-    &tokens[..end]
+    // Only what the user has finished typing: at `WHERE|` the five characters are a word becoming
+    // `WHERE`, and reading them as a finished one would answer for the position after it.
+    let (finished, _) = tokens::around(&statement.tokens, offset, index);
+    place(finished)
 }
 
 /// What the parenthesis the cursor sits inside was opened by.
@@ -610,9 +579,12 @@ fn introduces_name(keyword: Keyword) -> bool {
     )
 }
 
-/// Whether a word may be read as a name.
+/// Whether a word may be read as a name, and so finishes a value.
 ///
-/// Deliberately not "is not a keyword", for the reason [`crate::sources`] spells out at length:
+/// Not [`crate::sources`]'s rule for the same question, though the two look alike: this one also
+/// has to rule out the words that dictate what follows them (`IS`, `NULLS`, `PARTITION`), which
+/// are perfectly good names to sources' scan. Deliberately not "is not a keyword", for the reason
+/// [`crate::sources`] spells out at length:
 /// sqlparser's keyword table is global and over a thousand entries, so ordinary names --
 /// `warehouse`, `value`, `year`, `source` -- are in it. What has to be excluded is the handful of
 /// words that mean something structural right here.
@@ -621,13 +593,6 @@ fn can_be_name(word: &Word) -> bool {
         || !(clause_keyword(word.keyword).is_some()
             || is_join_word(word.keyword)
             || obligatory(word.keyword).is_some())
-}
-
-fn word(token: &TokenWithSpan) -> Option<&Word> {
-    match &token.token {
-        Token::Word(word) => Some(word),
-        _ => None,
-    }
 }
 
 /// Whether a token finishes a value, so that what follows continues one rather than begins one.
@@ -705,7 +670,11 @@ fn decide(
             {
                 return Position::SelectStart;
             }
-            if is_ddl_verb(previous_word.keyword) || is_ddl_modifier(previous_word.keyword) {
+            // A modifier only counts inside a DDL statement: `OR` is a connective after `WHERE a
+            // = 1`, and `temp` or `unique` is as likely to be a column as a modifier.
+            if is_ddl_verb(previous_word.keyword)
+                || (verb.is_some_and(is_ddl_verb) && is_ddl_modifier(previous_word.keyword))
+            {
                 return Position::Ddl;
             }
             if starts_value(previous_word.keyword) {

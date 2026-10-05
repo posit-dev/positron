@@ -151,6 +151,32 @@ fn the_position_of_the_cursor_is_recognized() {
 }
 
 #[test]
+fn a_ddl_modifier_only_counts_inside_a_ddl_statement() {
+    // `OR`, `TEMP` and `UNIQUE` modify a CREATE, but elsewhere `OR` is a connective and `temp` or
+    // `unique` is a column, and offering `DATABASE` or `INDEX` after them is nonsense.
+    let found: Vec<(&str, String)> = [
+        "CREATE OR |",
+        "CREATE TEMP |",
+        "SELECT * FROM orders WHERE a = 1 OR |",
+        "SELECT temp |",
+        "SELECT * FROM orders WHERE unique |",
+    ]
+    .iter()
+    .map(|marked| (*marked, position(marked)))
+    .collect();
+    assert_eq!(
+        found,
+        [
+            ("CREATE OR |", "ddl".to_string()),
+            ("CREATE TEMP |", "ddl".to_string()),
+            ("SELECT * FROM orders WHERE a = 1 OR |", "value".to_string()),
+            ("SELECT temp |", "selectItem".to_string()),
+            ("SELECT * FROM orders WHERE unique |", "expression".to_string()),
+        ]
+    );
+}
+
+#[test]
 fn every_position_covered_by_the_table_is_reachable() {
     // A position nothing classifies as would be a rule that never fires, and a generated row
     // nobody reads.

@@ -40,6 +40,7 @@ use crate::scopes::{self, Analysis};
 use crate::sources::SourceRef;
 use crate::statements::Statement;
 use crate::text::TextIndex;
+use crate::tokens;
 
 /// The identifier written into the hole the cursor is in.
 ///
@@ -70,7 +71,9 @@ pub fn at(
     dialect: &dyn Dialect,
     index: &TextIndex,
 ) -> Option<AtCursor> {
-    let (before, after) = split(&statement.tokens, offset, index);
+    // The word being typed is dropped, so the statement parsed is about the slot it sits in rather
+    // than about a table called `ord`; the marker takes its place.
+    let (before, after) = tokens::around(&statement.tokens, offset, index);
     let marker = marker(offset, index);
 
     let whole: Vec<TokenWithSpan> =
@@ -98,47 +101,6 @@ fn marker(offset: u32, index: &TextIndex) -> [TokenWithSpan; 1] {
         }),
         span: Span::new(at, at),
     }]
-}
-
-/// The tokens on either side of the cursor, with the word being typed dropped.
-///
-/// The token under the cursor is the word being completed, not a word the statement contains: at
-/// `SELECT * FROM ord|` the user has typed three characters of a table name, and keeping them
-/// would parse a statement about a table called `ord` rather than about the slot it sits in. The
-/// marker takes its place.
-fn split<'a>(
-    tokens: &'a [TokenWithSpan],
-    offset: u32,
-    index: &TextIndex,
-) -> (&'a [TokenWithSpan], &'a [TokenWithSpan]) {
-    let mut cut = 0;
-    let mut resume = tokens.len();
-
-    for (at, token) in tokens.iter().enumerate() {
-        let Some((start, end)) = index.span(token.span) else { continue };
-        if end <= offset {
-            cut = at + 1;
-            continue;
-        }
-        // The first token the cursor has not run past. It either straddles the cursor, and is the
-        // one being typed, or begins at or after it and is untouched.
-        resume = if start < offset { at + 1 } else { at };
-        break;
-    }
-
-    // A word ending exactly where the cursor is is also one being typed, since that is what the
-    // cursor sits at the end of while it is being written.
-    if let Some(last) = cut.checked_sub(1) {
-        let typing = index
-            .span(tokens[last].span)
-            .map(|(start, end)| end == offset && start < offset)
-            .unwrap_or(false);
-        if typing && matches!(tokens[last].token, Token::Word(_)) {
-            cut = last;
-        }
-    }
-
-    (&tokens[..cut], &tokens[resume.max(cut)..])
 }
 
 /// Closes any parenthesis the cursor is still inside.

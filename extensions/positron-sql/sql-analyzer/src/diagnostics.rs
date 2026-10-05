@@ -55,12 +55,12 @@ pub fn parse(tokenized: &Tokenized, dialect: &dyn Dialect, index: &TextIndex) ->
     // A construct that could not be closed truncates whatever statement it landed in, and since
     // tokenizing stops there that can only be the last statement collected. Parsing it would
     // report that it ends unexpectedly, which is true and useless: it ends where the tokenizer
-    // gave up, and that is already the diagnostic above.
-    let truncated = tokenized
-        .errors
-        .iter()
-        .any(|error| !error.repaired)
-        .then(|| tokenized.statements.len().saturating_sub(1));
+    // gave up, and that is already the diagnostic above. Unless that statement was closed by a
+    // semicolon -- then the construct began after it, landed in no statement, and the one above
+    // is whole and is parsed like any other.
+    let truncated = (tokenized.errors.iter().any(|error| !error.repaired)
+        && tokenized.statements.last().is_some_and(|last| !last.terminated))
+    .then(|| tokenized.statements.len() - 1);
 
     for (at, statement) in tokenized.statements.iter().enumerate() {
         if Some(at) == truncated {
