@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from '../../../../nls.js';
+import { localize, localize2 } from '../../../../nls.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
@@ -20,6 +20,7 @@ import { ActiveEditorContext, ResourceContextKey } from '../../../common/context
 import { ExplorerFolderContext, TEXT_FILE_EDITOR_ID } from '../../files/common/files.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 import { IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IPositronObjectExplorerService } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { ObjectNodeKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
@@ -363,14 +364,28 @@ class OpenJsonFileAction extends Action2 {
 			id: PositronObjectExplorerCommandId.OpenJsonFile,
 			title: localize2('positron.objectExplorer.openJsonFile', "Open in Object Explorer"),
 			category,
-			f1: true,
-			precondition: JSON_TEXT_EDITOR_IS_ACTIVE,
+			// No precondition, so agents can open a file by path whatever editor is active.
 			icon: Codicon.listTree,
 			positronActionBarOptions: {
 				controlType: 'button',
 				displayTitle: true
 			},
+			metadata: {
+				description: localize('positron.objectExplorer.openJsonFile.description', "Open a JSON file in the Object Explorer, which shows its nested structure as a searchable tree."),
+				agentCompatible: true,
+				readOnly: true,
+				args: [{
+					name: 'path',
+					isOptional: true,
+					description: 'Absolute path or file URI of the JSON file to open. Defaults to the file in the active editor.',
+					schema: { type: 'string' }
+				}]
+			},
 			menu: [
+				{
+					id: MenuId.CommandPalette,
+					when: JSON_TEXT_EDITOR_IS_ACTIVE
+				},
 				{
 					id: MenuId.EditorActionsLeft,
 					group: '0_json',
@@ -392,12 +407,16 @@ class OpenJsonFileAction extends Action2 {
 
 	/**
 	 * Runs the action.
-	 * @param resource The file, supplied by the Explorer context menu; otherwise the file in the
-	 * active editor.
+	 * @param resource The file, as a URI (from the Explorer context menu) or a path or URI string
+	 * (from an agent); otherwise the file in the active editor.
 	 */
 	async run(accessor: ServicesAccessor, resource?: unknown): Promise<void> {
 		const objectExplorerService = accessor.get(IPositronObjectExplorerService);
-		const fileUri = URI.isUri(resource) ? resource : activeFile(accessor);
+		const pathService = accessor.get(IPathService);
+		let fileUri = URI.isUri(resource) ? resource : activeFile(accessor);
+		if (typeof resource === 'string') {
+			fileUri = /^[a-z][a-z0-9+.-]+:\/\//i.test(resource) ? URI.parse(resource) : await pathService.fileURI(resource);
+		}
 		if (fileUri) {
 			await objectExplorerService.openWithJsonFile(fileUri);
 		}
