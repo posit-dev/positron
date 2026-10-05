@@ -1034,6 +1034,16 @@ function quoteLiteral(value: string): string {
 }
 
 /**
+ * Returns a stage location in the form a query accepts as written. Snowflake takes a plain stage
+ * reference unquoted, but one with a space or other special character in its stage name or path
+ * only as a string literal, so only those are quoted.
+ * @param location The stage location, e.g. `@"DB"."PUBLIC"."STAGE"/2024/orders.csv`.
+ */
+function stageLocationPath(location: string): string {
+	return /^[A-Za-z0-9_@"./$=-]*$/.test(location) ? location : quoteLiteral(location);
+}
+
+/**
  * Lists a folder of a stage: its subfolders, then its files, each in name order -- the ordering a
  * file browser uses. Each folder lists its own prefix when it is expanded, so what it shows is
  * current, and refreshing it picks up what has changed under it. LIST always lists everything under
@@ -1085,19 +1095,19 @@ async function listStageFolder(client: SnowflakeClient, stage: IStageLocation, p
 		nodes.push({
 			name,
 			kind: positron.DataConnectionNodeKind.Directory,
-			path: `${stage.path}/${folderPrefix}`,
+			path: stageLocationPath(`${stage.path}/${folderPrefix}`),
 			getChildren: () => listStageFolder(client, stage, folderPrefix),
 		});
 	}
 	for (const { name, file } of [...folder.files].sort((a, b) => a.name.localeCompare(b.name))) {
-		nodes.push(createStageFileNode(`${stage.path}/${prefix}${file.path}`, name, file.row));
+		nodes.push(createStageFileNode(stageLocationPath(`${stage.path}/${prefix}${file.path}`), name, file.row));
 	}
 	return nodes;
 }
 
 /**
  * Creates a file node in a stage's listing, with details from its LIST row.
- * @param path The file's path, e.g. `@"DB"."PUBLIC"."STAGE"/2024/orders.csv`.
+ * @param path The file's path as stageLocationPath gives it, e.g. `@"DB"."PUBLIC"."STAGE"/2024/orders.csv`.
  * @param name The file's name.
  * @param row The file's row from LIST.
  */
@@ -1137,12 +1147,12 @@ function createStageNode(client: SnowflakeClient, database: string, schemaName: 
 	return {
 		name: stageName,
 		kind: positron.DataConnectionNodeKind.Stage,
-		path: stage.path,
+		path: stageLocationPath(stage.path),
 		getChildren: () => listStageFolder(client, stage, ''),
 		async getDetails() {
 			const type = showValue(showRow.type);
 			const overview = propertiesSection([
-				{ name: vscode.l10n.t('Path'), value: stage.path },
+				{ name: vscode.l10n.t('Path'), value: stageLocationPath(stage.path) },
 				{ name: vscode.l10n.t('Type'), value: type },
 				{ name: vscode.l10n.t('URL'), value: stage.url },
 				{ name: vscode.l10n.t('Cloud'), value: showValue(showRow.cloud) },
