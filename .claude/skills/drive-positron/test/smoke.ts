@@ -21,6 +21,7 @@
 import { spawn, spawnSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { firstRow, nameWords } from './smoke-lib.ts';
 
 const test = dirname(new URL(import.meta.url).pathname);
 const scripts = resolve(test, '../scripts');
@@ -73,10 +74,10 @@ const cases: Case[] = [
 	{ name: 'console-read the only session', quick: true, run: ['console-read.sh', '--prompt'], check: o => (!/\(python-[0-9a-f]+\)/.test(o.stderr) && `no python session id in ${o.stderr}`) || void (found.first = o.stderr.match(/\(python-([0-9a-f]+)\)/)![1]) },
 	{ name: 'console-run only session, wrong --name', run: ['console-run.sh', '--language', 'python', '--name', 'no-such-session', 'x'], fail: true },
 	{ name: 'console-run only session, bare id --name', quick: true, run: () => ['console-run.sh', '--language', 'python', '--name', found.first, '--capture', 'print("only", 6 * 7)'], check: o => includes(o.json!.output, 'only 42') },
-	// The workspace's .R files may have started R already: either way one R session, with its id.
-	{ name: 'start-session r', quick: true, run: ['start-session.sh', '--language', 'r'], check: o => keys(o.json, 'started', 'sessionId', 'session') || (!/^r-/.test(o.json!.sessionId) && 'sessionId is not r-*') || void (found.r = o.json!.sessionId) },
-	{ name: 'start-session python, one open already', run: ['start-session.sh', '--language', 'python', '--name', 'positron-python'], check: o => (o.json!.started !== false && 'started another') || (o.json!.sessionId !== `python-${found.first}` && `sessionId ${o.json!.sessionId}`) },
-	{ name: 'start-session python --new', run: ['start-session.sh', '--language', 'python', '--name', 'positron-python', '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (o.json!.started !== true && 'not started') || (!/^python-/.test(o.json!.sessionId) && 'sessionId is not python-*') || (o.json!.sessionId === `python-${found.first}` && 'the old session') || void (found.py = o.json!.sessionId) },
+	// The workspace's .R files may have started R already: either way one R session, with its id. --name is the picker's first R, since an image can have several.
+	{ name: 'start-session r', quick: true, run: () => ['start-session.sh', '--language', 'r', '--name', found.rName], check: o => keys(o.json, 'started', 'sessionId', 'session') || (!/^r-/.test(o.json!.sessionId) && 'sessionId is not r-*') || void (found.r = o.json!.sessionId) },
+	{ name: 'start-session python, one open already', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName], check: o => (o.json!.started !== false && 'started another') || (o.json!.sessionId !== `python-${found.first}` && `sessionId ${o.json!.sessionId}`) },
+	{ name: 'start-session python --new', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName, '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (o.json!.started !== true && 'not started') || (!/^python-/.test(o.json!.sessionId) && 'sessionId is not python-*') || (o.json!.sessionId === `python-${found.first}` && 'the old session') || void (found.py = o.json!.sessionId) },
 	{ name: 'panel sessions', run: ['panel.sh', 'sessions'], check: o => (o.json!.sessions?.filter((x: Json) => x.language === 'python').length !== 2 && `python sessions: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.id === found.r && x.language === 'r') && 'no r session') || (o.json!.sessions?.filter((x: Json) => x.active).length !== 1 && 'not one active') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
 	// Switching the active console without running code: by language, name or id, never two.
@@ -433,13 +434,43 @@ function settle(): void {
 	throw new Error('the Python session the workspace starts was not ready within 90 s');
 }
 
+/**
+ * The names the session cases ask for, read from what this machine has: the
+ * Python session the workspace started, and the first R row of the runtime
+ * picker. A CI image can have two R versions and a venv not named positron-python.
+ */
+function pickNames(): void {
+	const s = sh([join(scripts, 'panel.sh'), '--session', SESSION, 'sessions']);
+	const py = nameWords(s.json?.sessions?.find((x: Json) => x.language === 'python')?.name ?? '');
+	if (!py) { throw new Error(`no Python session name in panel.sh sessions: ${s.text.slice(0, 200)}`); }
+	found.pyName = py;
+	// Discovery lists R after Python: reopen the picker until it shows an R row, as start-session does.
+	let labels: string[] = [];
+	let r: string | null = null;
+	for (let i = 0; i < 15 && !r; i++) {
+		const open = sh([join(scripts, 'palette-run.sh'), '--session', SESSION, 'Interpreter: Start New Console Session']);
+		if (!open.json?.ok) { throw new Error(`could not open the runtime picker: ${open.text.slice(0, 200)}`); }
+		const rows = sh([join(scripts, 'quickpick-enum.sh'), '--session', SESSION, '--json']);
+		spawnSync(join(repo, 'node_modules/.bin/playwright-cli'), [`-s=${SESSION}`, 'press', 'Escape'], { cwd: repo, stdio: 'ignore' });
+		// --json prints the object indented, so sh()'s last-line parse misses it.
+		let picker: Json = {};
+		try { picker = JSON.parse(rows.text); } catch { /* no rows this time */ }
+		labels = (picker.rows ?? []).map((x: Json) => x.label);
+		r = nameWords(firstRow(picker.rows ?? [], 'r') ?? '');
+		if (!r) { spawnSync('sleep', ['2']); }
+	}
+	if (!r) { throw new Error(`no R row in the runtime picker after 30 s, labels: ${JSON.stringify(labels)}`); }
+	found.rName = r;
+}
+
 const start = Date.now();
 const tally = { PASS: 0, FAIL: 0, KNOWN: 0 };
 try {
 	const t = Date.now();
 	launch();
 	settle();
-	console.log(`PASS ${String(Date.now() - t).padStart(6)} ms  launch, attach, first Python session ready (cdp ${instance!.cdpPort})`);
+	pickNames();
+	console.log(`PASS ${String(Date.now() - t).padStart(6)} ms  launch, attach, first Python session ready, names: R ${found.rName}, Python ${found.pyName} (cdp ${instance!.cdpPort})`);
 	for (const c of quickOnly ? cases.filter(x => x.quick) : cases) {
 		if (c.wait) { spawnSync('sleep', [String(c.wait / 1000)]); }
 		const args = typeof c.run === 'function' ? c.run() : c.run;
