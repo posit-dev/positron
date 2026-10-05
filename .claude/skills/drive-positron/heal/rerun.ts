@@ -12,9 +12,9 @@
 // state.json (wholesale). Exits 1 when either run could not launch the app.
 
 import { spawnSync } from 'child_process';
-import { existsSync, writeFileSync } from 'fs';
+import { existsSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { readResults } from '../test/smoke-lib.ts';
+import { flagValue, readResults } from '../test/smoke-lib.ts';
 import { writeFinding, writeState as saveState, type State } from './finding.ts';
 import { classify, lastFailed, smokeFinding, wholesale } from './rerun-lib.ts';
 
@@ -22,7 +22,9 @@ const here = dirname(new URL(import.meta.url).pathname);
 const dash = process.argv.indexOf('--');
 const own = process.argv.slice(2, dash < 0 ? undefined : dash);
 const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
-const dir = own.includes('--dir') ? own[own.indexOf('--dir') + 1] : '/tmp/heal';
+const dirArg = flagValue(own, '--dir');
+if (typeof dirArg !== 'string') { console.error('rerun: --dir needs a value'); process.exit(2); }
+const dir = dirArg;
 const writeState = (patch: State) => saveState(dir, patch);
 
 const first = readResults(join(dir, 'smoke-1.json'));
@@ -32,7 +34,9 @@ if (!last) { console.log('rerun: smoke had no failures'); writeState({ wholesale
 
 const smoke = resolve(here, '../test/smoke.ts');
 const out = join(dir, 'smoke-rerun.json');
-spawnSync(process.execPath, [smoke, '--until', last, '--results', out, '--', ...appArgs], { stdio: 'inherit' });
+rmSync(out, { force: true });
+const ran = spawnSync(process.execPath, [smoke, '--until', last, '--results', out, '--', ...appArgs], { stdio: 'inherit' });
+if (ran.status === 2) { console.log(`rerun: smoke rejected its arguments (--until "${last}")`); process.exit(1); }
 if (!existsSync(out)) { console.log('rerun: smoke wrote no results'); process.exit(1); }
 const second = readResults(out);
 if (second.launch === 'FAIL') { console.log(`rerun: the rerun did not launch: ${second.launchProblem}`); process.exit(1); }
