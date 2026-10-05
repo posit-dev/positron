@@ -70,6 +70,7 @@ describe('ObjectExplorerTreeInstance', () => {
 			columnWidths,
 			() => maxDepth,
 			search,
+			undefined,
 			clipboardService,
 			notificationService,
 			editorService,
@@ -240,7 +241,7 @@ describe('ObjectExplorerTreeInstance', () => {
 		expect(viewTable).toHaveBeenCalledTimes(1);
 	});
 
-	it('offers Copy Value, Copy Accessor, and Expand in the context menu', async () => {
+	it('offers copy, send, and expand actions in the context menu', async () => {
 		const { tree } = await createTree({ a: { b: 1 } });
 
 		await tree.showCellContextMenu(0, 1, document.body, { clientX: 0, clientY: 0 });
@@ -251,9 +252,21 @@ describe('ObjectExplorerTreeInstance', () => {
 			['Copy Value', false],
 			['Copy Accessor', false],
 			undefined,
+			['Send Accessor to Console', true],
+			undefined,
 			['Expand', false],
 		]);
 		expect(tree.getSelectedNode()?.id).toBe(objectNodeId(['a']));
+	});
+
+	it('offers Open Text in Editor in the context menu for text', async () => {
+		const { tree } = await createTree({ s: 'text' });
+
+		await tree.showCellContextMenu(0, 1, document.body, { clientX: 0, clientY: 0 });
+
+		const { entries, onClose } = mockShowCustomContextMenu.mock.calls[0][0];
+		onClose();
+		expect(entries.map((entry: { options?: { label: string } }) => entry.options?.label)).toContain('Open Text in Editor');
 	});
 
 	it('shows search results with their ancestors expanded and the matches highlighted', async () => {

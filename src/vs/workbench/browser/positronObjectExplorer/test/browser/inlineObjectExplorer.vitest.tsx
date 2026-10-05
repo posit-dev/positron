@@ -37,7 +37,7 @@ describe('InlineObjectExplorer', () => {
 	function createInstance() {
 		const backend = new JsonObjectExplorerBackend('json:test', 'config', { a: 1, b: { c: 2 } });
 		const client = new ObjectExplorerClientInstance(backend);
-		instance = ctx.disposables.add(ctx.instantiationService.createInstance(PositronObjectExplorerInstance, 'JSON', client, true, undefined));
+		instance = ctx.disposables.add(ctx.instantiationService.createInstance(PositronObjectExplorerInstance, 'JSON', client, true, undefined, undefined));
 		return { backend };
 	}
 

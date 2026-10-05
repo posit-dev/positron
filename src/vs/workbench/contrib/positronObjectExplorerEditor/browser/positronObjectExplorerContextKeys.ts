@@ -29,3 +29,11 @@ export const POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED = new RawContextKey<boolean
 	'positronObjectExplorerIsFileBacked',
 	false
 );
+
+/**
+ * The kind of the selected node, or an empty string when no node is selected.
+ */
+export const POSITRON_OBJECT_EXPLORER_SELECTED_KIND = new RawContextKey<string>(
+	'positronObjectExplorerSelectedKind',
+	''
+);

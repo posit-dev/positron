@@ -156,7 +156,7 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 
 		const backend = new JsonObjectExplorerBackend(identifier, basename(uri), value);
 		const client = new ObjectExplorerClientInstance(backend);
-		this.registerInstance(JSON_LANGUAGE_NAME, client, false, uri);
+		this.registerInstance(JSON_LANGUAGE_NAME, client, false, uri, undefined);
 		this._instanceStores.get(identifier)?.add(this.watchJsonFile(uri, backend, client));
 		return identifier;
 	}
@@ -214,7 +214,7 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 	): void {
 		try {
 			const client = new ObjectExplorerClientInstance(new ObjectExplorerCommBackend(runtimeClient));
-			this.registerInstance(session.runtimeMetadata.languageName, client, inline, undefined);
+			this.registerInstance(session.runtimeMetadata.languageName, client, inline, undefined, session.sessionId);
 			if (variablePath && variablePath.length > 0) {
 				this._variablePathToInstanceId.set(variablePathKey(session.sessionId, variablePath), client.identifier);
 			}
@@ -233,9 +233,9 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 	/**
 	 * Registers an instance for a client so that editors can find it.
 	 */
-	private registerInstance(languageName: string, client: ObjectExplorerClientInstance, inline: boolean, fileUri: URI | undefined): PositronObjectExplorerInstance {
+	private registerInstance(languageName: string, client: ObjectExplorerClientInstance, inline: boolean, fileUri: URI | undefined, sessionId: string | undefined): PositronObjectExplorerInstance {
 		const store = new DisposableStore();
-		const instance = store.add(this._instantiationService.createInstance(PositronObjectExplorerInstance, languageName, client, inline, fileUri));
+		const instance = store.add(this._instantiationService.createInstance(PositronObjectExplorerInstance, languageName, client, inline, fileUri, sessionId));
 		const identifier = client.identifier;
 		this._instances.set(identifier, instance);
 		this._instanceStores.set(identifier, store);

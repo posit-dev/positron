@@ -14,6 +14,8 @@ import { IClipboardService } from '../../../../platform/clipboard/common/clipboa
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorService } from '../../editor/common/editorService.js';
+import { IViewsService } from '../../views/common/viewsService.js';
+import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronDataExplorerService } from '../../positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronObjectExplorerUri } from '../common/positronObjectExplorerUri.js';
 import { IPositronObjectExplorerInstance } from './interfaces/positronObjectExplorerInstance.js';
@@ -74,18 +76,22 @@ export class PositronObjectExplorerInstance extends Disposable implements IPosit
 	 * @param client The client. The instance takes ownership of it.
 	 * @param isInline Whether the instance backs an inline view whose comm the runtime owns.
 	 * @param fileUri The file the object was read from, for file-backed instances.
+	 * @param sessionId The runtime session serving the object, for runtime-backed instances.
 	 */
 	constructor(
 		readonly languageName: string,
 		readonly client: ObjectExplorerClientInstance,
 		readonly isInline: boolean,
 		readonly fileUri: URI | undefined,
+		private readonly _sessionId: string | undefined,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService,
+		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
+		@IViewsService private readonly _viewsService: IViewsService,
 	) {
 		super();
 
@@ -228,6 +234,7 @@ export class PositronObjectExplorerInstance extends Disposable implements IPosit
 			this.columnWidths,
 			() => objectExplorerMaxDepth(this._configurationService),
 			search,
+			this._sessionId ? text => this.sendToConsole(text).catch(onUnexpectedError) : undefined,
 			this._clipboardService,
 			this._notificationService,
 			this._editorService,
@@ -235,6 +242,19 @@ export class PositronObjectExplorerInstance extends Disposable implements IPosit
 			this._hoverService,
 			this._configurationService
 		);
+	}
+
+	/**
+	 * Shows the console of the session serving the object and pastes text into its input.
+	 */
+	private async sendToConsole(text: string): Promise<void> {
+		const consoleInstance = this._consoleService.positronConsoleInstances.find(c => c.sessionId === this._sessionId);
+		if (!consoleInstance) {
+			return;
+		}
+		this._consoleService.setActivePositronConsoleSession(consoleInstance.sessionId);
+		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+		consoleInstance.pasteText(text);
 	}
 
 	/**

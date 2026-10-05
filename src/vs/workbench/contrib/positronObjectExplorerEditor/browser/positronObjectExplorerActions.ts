@@ -12,7 +12,7 @@ import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/c
 import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { PositronObjectExplorerEditor } from './positronObjectExplorerEditor.js';
-import { POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED, POSITRON_OBJECT_EXPLORER_IS_FOCUSED } from './positronObjectExplorerContextKeys.js';
+import { POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED, POSITRON_OBJECT_EXPLORER_IS_FOCUSED, POSITRON_OBJECT_EXPLORER_SELECTED_KIND } from './positronObjectExplorerContextKeys.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { EditorResourceAccessor } from '../../../common/editor.js';
@@ -22,6 +22,8 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { IPositronDataImporterRegistry } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { IPositronObjectExplorerService } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
+import { ObjectNodeKind } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
+import { ObjectExplorerTreeInstance } from '../../../browser/positronObjectExplorer/classes/objectExplorerTreeInstance.js';
 import { showImportDataDialogForFile } from '../../positronDataExplorerEditor/browser/positronDataExplorerImportData.js';
 
 /**
@@ -31,6 +33,9 @@ export const enum PositronObjectExplorerCommandId {
 	Refresh = 'workbench.action.positronObjectExplorer.refresh',
 	CopyValue = 'workbench.action.positronObjectExplorer.copyValue',
 	CopyAccessor = 'workbench.action.positronObjectExplorer.copyAccessor',
+	SendAccessorToConsole = 'workbench.action.positronObjectExplorer.sendAccessorToConsole',
+	OpenTextInEditor = 'workbench.action.positronObjectExplorer.openTextInEditor',
+	OpenInDataExplorer = 'workbench.action.positronObjectExplorer.openInDataExplorer',
 	ShowContextMenu = 'workbench.action.positronObjectExplorer.showContextMenu',
 	FocusSearch = 'workbench.action.positronObjectExplorer.focusSearch',
 	ImportData = 'workbench.action.positronObjectExplorer.importData',
@@ -47,6 +52,24 @@ const OBJECT_EXPLORER_FOCUSED = ContextKeyExpr.and(
 	POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR,
 	POSITRON_OBJECT_EXPLORER_IS_FOCUSED.isEqualTo(true)
 );
+
+/**
+ * True when an object explorer is the active editor and a node is selected.
+ */
+const OBJECT_EXPLORER_HAS_SELECTION = ContextKeyExpr.and(
+	POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR,
+	POSITRON_OBJECT_EXPLORER_SELECTED_KIND.notEqualsTo('')
+);
+
+/**
+ * True when an object explorer is the active editor and the selected node is of a kind.
+ */
+function objectExplorerSelectionIs(kind: ObjectNodeKind) {
+	return ContextKeyExpr.and(
+		POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR,
+		POSITRON_OBJECT_EXPLORER_SELECTED_KIND.isEqualTo(kind)
+	);
+}
 
 /**
  * True when the active editor is the text editor for a JSON file.
@@ -72,6 +95,13 @@ function activeObjectExplorerEditor(accessor: ServicesAccessor): PositronObjectE
 	return editorPane instanceof PositronObjectExplorerEditor ? editorPane : undefined;
 }
 
+/**
+ * Gets the tree shown by the active object explorer editor, if there is one.
+ */
+function activeObjectExplorerTree(accessor: ServicesAccessor): ObjectExplorerTreeInstance | undefined {
+	return activeObjectExplorerEditor(accessor)?.instance?.activeTreeInstance;
+}
+
 class RefreshAction extends Action2 {
 	constructor() {
 		super({
@@ -88,6 +118,7 @@ class RefreshAction extends Action2 {
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
+					group: '0_refresh',
 					when: POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR,
 					order: 1
 				},
@@ -112,11 +143,22 @@ class CopyValueAction extends Action2 {
 			title: localize2('positron.objectExplorer.copyValueAction', "Copy Value"),
 			category,
 			f1: true,
-			precondition: OBJECT_EXPLORER_FOCUSED,
+			icon: Codicon.copy,
+			precondition: OBJECT_EXPLORER_HAS_SELECTION,
 			keybinding: {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyCode.KeyC,
 				when: OBJECT_EXPLORER_FOCUSED
+			},
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: '1_selection',
+				when: POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR,
+				order: 1
 			}
 		});
 	}
@@ -144,6 +186,92 @@ class CopyAccessorAction extends Action2 {
 
 	async run(accessor: ServicesAccessor): Promise<void> {
 		await activeObjectExplorerEditor(accessor)?.instance?.copyAccessorAtCursor();
+	}
+}
+
+class SendAccessorToConsoleAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronObjectExplorerCommandId.SendAccessorToConsole,
+			title: localize2('positron.objectExplorer.sendAccessorToConsoleAction', "Send Accessor to Console"),
+			category,
+			f1: true,
+			icon: Codicon.insert,
+			precondition: ContextKeyExpr.and(OBJECT_EXPLORER_HAS_SELECTION, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED.negate()),
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: false
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: '1_selection',
+				when: ContextKeyExpr.and(POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED.negate()),
+				order: 2
+			}
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const tree = activeObjectExplorerTree(accessor);
+		tree?.sendAccessorToConsole(tree.cursorRowIndex);
+	}
+}
+
+class OpenTextInEditorAction extends Action2 {
+	constructor() {
+		const when = objectExplorerSelectionIs(ObjectNodeKind.String);
+		super({
+			id: PositronObjectExplorerCommandId.OpenTextInEditor,
+			title: localize2('positron.objectExplorer.openTextInEditorAction', "Open in Editor"),
+			category,
+			f1: true,
+			icon: Codicon.fileText,
+			precondition: when,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: '1_selection',
+				when,
+				order: 3
+			}
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const tree = activeObjectExplorerTree(accessor);
+		await tree?.openValue(tree.cursorRowIndex);
+	}
+}
+
+class OpenInDataExplorerAction extends Action2 {
+	constructor() {
+		const when = objectExplorerSelectionIs(ObjectNodeKind.Table);
+		super({
+			id: PositronObjectExplorerCommandId.OpenInDataExplorer,
+			title: localize2('positron.objectExplorer.openInDataExplorerAction', "Open in Data Explorer"),
+			category,
+			f1: true,
+			icon: Codicon.table,
+			precondition: when,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true
+			},
+			menu: {
+				id: MenuId.EditorActionsLeft,
+				group: '1_selection',
+				when,
+				order: 4
+			}
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const tree = activeObjectExplorerTree(accessor);
+		await tree?.viewTable(tree.cursorRowIndex);
 	}
 }
 
@@ -207,8 +335,9 @@ class ImportDataAction extends Action2 {
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
+					group: '2_import',
 					when,
-					order: 2
+					order: 1
 				},
 				{
 					id: MenuId.EditorTitle,
@@ -336,6 +465,9 @@ export function registerPositronObjectExplorerActions(): void {
 	registerAction2(RefreshAction);
 	registerAction2(CopyValueAction);
 	registerAction2(CopyAccessorAction);
+	registerAction2(SendAccessorToConsoleAction);
+	registerAction2(OpenTextInEditorAction);
+	registerAction2(OpenInDataExplorerAction);
 	registerAction2(ShowContextMenuAction);
 	registerAction2(FocusSearchAction);
 	registerAction2(ImportDataAction);

@@ -21,7 +21,7 @@ describe('PositronObjectExplorerInstance', () => {
 	function createInstance() {
 		const backend = new JsonObjectExplorerBackend('json:test', 'data.json', { a: 1 });
 		const client = new ObjectExplorerClientInstance(backend);
-		const instance = ctx.disposables.add(ctx.instantiationService.createInstance(PositronObjectExplorerInstance, 'JSON', client, false, undefined));
+		const instance = ctx.disposables.add(ctx.instantiationService.createInstance(PositronObjectExplorerInstance, 'JSON', client, false, undefined, undefined));
 		const reloadAll = vi.spyOn(instance.treeInstance, 'reloadAll');
 		return { backend, instance, reloadAll };
 	}

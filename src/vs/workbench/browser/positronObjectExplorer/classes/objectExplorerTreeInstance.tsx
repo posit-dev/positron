@@ -154,12 +154,15 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	 * @param _columnWidths The column widths.
 	 * @param _maxDepth Returns the maximum depth a node can be expanded at.
 	 * @param _search The search results to show, or undefined to show the explored object.
+	 * @param _sendToConsole Sends text to the input of the console of the explored object's
+	 * session, or undefined when there is no session.
 	 */
 	constructor(
 		private readonly _client: ObjectExplorerClientInstance,
 		private readonly _columnWidths: ObjectExplorerColumnWidths,
 		private readonly _maxDepth: () => number,
 		private readonly _search: ObjectExplorerSearchResults | undefined,
+		private readonly _sendToConsole: ((text: string) => void) | undefined,
 		private readonly _clipboardService: IClipboardService,
 		private readonly _notificationService: INotificationService,
 		private readonly _editorService: IEditorService,
@@ -303,6 +306,17 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	}
 
 	/**
+	 * Sends the accessor of the node at a row to the console input, without running it.
+	 * @param rowIndex The row index.
+	 */
+	sendAccessorToConsole(rowIndex: number): void {
+		const accessor = this.accessorAt(rowIndex);
+		if (accessor !== undefined) {
+			this._sendToConsole?.(accessor);
+		}
+	}
+
+	/**
 	 * Gets the accessor of the node at a row, if it has one.
 	 * @param rowIndex The row index.
 	 */
@@ -391,6 +405,7 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 		}
 
 		const id = visible.node.id;
+		const node = visible.node.data.node;
 		const entries: CustomContextMenuEntry[] = [
 			new CustomContextMenuItem({
 				icon: 'copy',
@@ -399,9 +414,32 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 			}),
 			new CustomContextMenuItem({
 				label: localize('positron.objectExplorer.copyAccessor', "Copy Accessor"),
-				disabled: visible.node.data.node.accessor === undefined,
+				disabled: node.accessor === undefined,
 				onSelected: () => this.copyAccessor(rowIndex)
 			}),
+			new CustomContextMenuSeparator(),
+			new CustomContextMenuItem({
+				icon: 'insert',
+				label: localize('positron.objectExplorer.sendAccessorToConsole', "Send Accessor to Console"),
+				disabled: !this._sendToConsole || node.accessor === undefined,
+				onSelected: () => this.sendAccessorToConsole(rowIndex)
+			}),
+		];
+		if (node.kind === ObjectNodeKind.String) {
+			entries.push(new CustomContextMenuItem({
+				icon: 'file-text',
+				label: localize('positron.objectExplorer.openTextInEditor', "Open Text in Editor"),
+				onSelected: () => this.openValue(rowIndex)
+			}));
+		}
+		if (this._canViewTable(node)) {
+			entries.push(new CustomContextMenuItem({
+				icon: 'table',
+				label: localize('positron.objectExplorer.openInDataExplorer', "Open in Data Explorer"),
+				onSelected: () => this.viewTable(rowIndex)
+			}));
+		}
+		entries.push(
 			new CustomContextMenuSeparator(),
 			visible.expandState === 'expanded' ?
 				new CustomContextMenuItem({
@@ -412,8 +450,8 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 					label: localize('positron.objectExplorer.expand', "Expand"),
 					disabled: visible.expandState !== 'collapsed',
 					onSelected: () => this.expand(id)
-				}),
-		];
+				})
+		);
 
 		// Keep the row painted as focused while the menu holds DOM focus.
 		const hold = this.holdFocusAppearance();
@@ -422,7 +460,6 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 			anchorPoint: anchorPoint ?? this._rowAnchorPoint(anchorElement, rowIndex),
 			popupPosition: 'auto',
 			popupAlignment: 'auto',
-			width: 220,
 			entries,
 			onClose: () => hold.dispose()
 		});
@@ -546,6 +583,13 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 	}
 
 	/**
+	 * Whether a node can be opened in a Data Explorer.
+	 */
+	private _canViewTable(node: ObjectNode): boolean {
+		return node.kind === ObjectNodeKind.Table && this._client.canViewTable;
+	}
+
+	/**
 	 * Gets the cursor row's node if it is a selected leaf, which is the row that expands.
 	 */
 	private _selectedLeaf(): { readonly id: string; readonly data: Extract<ObjectNodeData, { type: 'node' }> } | undefined {
@@ -632,7 +676,7 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 				onDidMeasure={height => this._setExpandedRowHeight(id, height)}
 				onDoubleClick={() => this._activate(context.index)}
 				onOpenValue={() => this.openValue(context.index)}
-				onViewTable={data.node.kind === ObjectNodeKind.Table && this._client.canViewTable ?
+				onViewTable={this._canViewTable(data.node) ?
 					() => this.viewTable(context.index) :
 					undefined}
 			/>

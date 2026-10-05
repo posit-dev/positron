@@ -10,6 +10,7 @@ import './positronObjectExplorerEditor.css';
 import * as DOM from '../../../../base/browser/dom.js';
 import { IEditorOpenContext } from '../../../common/editor.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { IContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
@@ -24,7 +25,7 @@ import { IPositronObjectExplorerService } from '../../../services/positronObject
 import { IPositronObjectExplorerInstance } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerInstance.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
 import { PositronObjectExplorerEditorInput } from './positronObjectExplorerEditorInput.js';
-import { POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED, POSITRON_OBJECT_EXPLORER_IS_FOCUSED } from './positronObjectExplorerContextKeys.js';
+import { POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED, POSITRON_OBJECT_EXPLORER_IS_FOCUSED, POSITRON_OBJECT_EXPLORER_SELECTED_KIND } from './positronObjectExplorerContextKeys.js';
 
 /**
  * How long to wait for the instance behind an editor to be registered.
@@ -44,6 +45,7 @@ export class PositronObjectExplorerEditor extends EditorPane {
 
 	private readonly _isFocusedContextKey: IContextKey<boolean>;
 	private readonly _isFileBackedContextKey: IContextKey<boolean>;
+	private readonly _selectedKindContextKey: IContextKey<string>;
 
 	constructor(
 		group: IEditorGroup,
@@ -58,6 +60,7 @@ export class PositronObjectExplorerEditor extends EditorPane {
 
 		this._isFocusedContextKey = POSITRON_OBJECT_EXPLORER_IS_FOCUSED.bindTo(group.scopedContextKeyService);
 		this._isFileBackedContextKey = POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED.bindTo(group.scopedContextKeyService);
+		this._selectedKindContextKey = POSITRON_OBJECT_EXPLORER_SELECTED_KIND.bindTo(group.scopedContextKeyService);
 
 		const focusTracker = this._register(DOM.trackFocus(this._container));
 		this._register(focusTracker.onDidFocus(() => this._isFocusedContextKey.set(true)));
@@ -103,6 +106,7 @@ export class PositronObjectExplorerEditor extends EditorPane {
 
 		if (!instance) {
 			this._isFileBackedContextKey.reset();
+			this._selectedKindContextKey.reset();
 			this._renderer.render(
 				<PositronDataExplorerClosed closedReason={PositronDataExplorerClosedStatus.UNAVAILABLE} onClose={onClose} />
 			);
@@ -113,6 +117,22 @@ export class PositronObjectExplorerEditor extends EditorPane {
 		this._isFileBackedContextKey.set(instance.isFileBacked);
 		input.setTitle(instance.title);
 		this._renderer.register(instance.onDidChangeTitle(title => input.setTitle(title)));
+
+		// Track the selection of the tree being shown, which changes as searches come and go.
+		const treeListener = new MutableDisposable();
+		this._renderer.register(treeListener);
+		const watchActiveTree = () => {
+			const tree = instance.activeTreeInstance;
+			const update = () => {
+				const data = tree.getSelectedNode()?.data;
+				this._selectedKindContextKey.set(data?.type === 'node' ? data.node.kind : '');
+			};
+			treeListener.value = tree.onDidUpdate(update);
+			update();
+		};
+		this._renderer.register(instance.onDidChangeSearch(watchActiveTree));
+		watchActiveTree();
+
 		this._renderer.render(<PositronObjectExplorer instance={instance} onClose={onClose} />);
 
 		if (this.isVisible()) {
@@ -125,6 +145,7 @@ export class PositronObjectExplorerEditor extends EditorPane {
 		this.releaseInstance();
 		this.disposeRenderer();
 		this._isFileBackedContextKey.reset();
+		this._selectedKindContextKey.reset();
 		super.clearInput();
 	}
 
