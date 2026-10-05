@@ -7,10 +7,10 @@ name: "drive-positron: UI Drift"
 # the entry in the same PR.
 #
 #   drift  test/drift.ts, no install, ~1 min (the full test/check.ts when the
-#          skill changed). Runs nightly and on a manual run; on PRs touching
-#          UI source it is off for now (the pull_request trigger is commented
-#          out below).
-#   smoke  nightly on main (and on a manual run): builds Positron the way
+#          skill changed). Runs on a manual run; on PRs touching UI source
+#          it is off for now (the pull_request trigger is commented out below).
+#   smoke  on a manual run; the nightly run is drive-positron-heal.yml, which
+#          runs smoke and fixes what it finds. Builds Positron the way
 #          test-e2e-ubuntu.yml does and runs test/smoke.ts. Not per PR, because
 #          no PR job shares its build and a build costs ~20 min.
 #
@@ -40,8 +40,6 @@ on:
   #     - "src/vs/workbench/contrib/notebook/browser/**"
   #     - ".claude/skills/drive-positron/**"
   #     - ".github/workflows/drive-positron.yml"
-  schedule:
-    - cron: "30 3 * * 1-5" # 03:30 UTC, Mon-Fri
   workflow_dispatch:
 
 permissions:
@@ -123,7 +121,7 @@ jobs:
 
   smoke:
     name: smoke
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     continue-on-error: true
     # The build is the one test-e2e-ubuntu.yml uses, in the same image.
     timeout-minutes: 75

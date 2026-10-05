@@ -1,0 +1,488 @@
+name: "drive-positron: Nightly Self-Heal"
+
+# Keeps drive-positron's helpers working. Runs smoke, reruns the failures once
+# to keep only the ones that hold up, explores one area on explore nights, and
+# has an agent fix helper bugs one at a time, each checked by check.ts and a
+# full smoke run. Burn-in: a passing fix is pushed to a candidate branch and
+# linked in a Slack DM. Live: it goes to one rolling PR. Never merges.
+# Design: .claude/skills/drive-positron/heal/README.md.
+
+on:
+  schedule:
+    - cron: "30 3 * * 1-5" # 03:30 UTC, Mon-Fri
+  workflow_dispatch:
+    inputs:
+      dryrun:
+        description: "Push nothing and print the Slack message instead of sending it"
+        type: boolean
+        default: false
+      explore:
+        description: "Run the finder: auto (nightly in burn-in, Mondays when live), on, or off"
+        type: choice
+        options: [auto, "on", "off"]
+        default: auto
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drive-positron-heal
+  cancel-in-progress: false
+
+env:
+  HEAL_DIR: /tmp/heal
+  PHASE: ${{ vars.DRIVE_POSITRON_HEAL_PHASE || 'burn-in' }}
+
+jobs:
+  heal:
+    name: heal
+    timeout-minutes: 330
+    runs-on: ubuntu-latest-amd64-8-core
+    permissions:
+      contents: read
+      packages: read
+      actions: read
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
+      options: --user 0:0 --init
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
+    outputs:
+      smoke_red: ${{ steps.smoke.outputs.red }}
+      failed_step: ${{ steps.failed.outputs.step }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0
+      HOME: /root
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      RETICULATE_PYTHON: /root/.venv/bin/python
+      APP_ARGS: --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --disable-gpu-compositing --password-store=basic
+    steps:
+      - uses: actions/checkout@v7
+        id: build-checkout
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Restore caches
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      - name: Install node dependencies
+        id: build-install
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'
+          POSITRON_NPM_CONCURRENCY: '10'
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          NPM_CONFIG_DEVDIR: '.node-gyp-cache'
+          DOCKER_CONFIG: /tmp/.docker
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: bash scripts/install-npm-parallel.sh
+
+      - name: Download binaries (Ark, Kallichore)
+        id: build-binaries
+        uses: ./.github/actions/download-binaries
+        with:
+          cache-hit: ${{ steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' ||
+                         steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' }}
+
+      - name: Compile Positron and Download Electron
+        id: build-compile
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      - name: Prelaunch
+        id: build-prelaunch
+        run: npm run prelaunch
+
+      # After Prelaunch, which can re-extract Electron and reset permissions.
+      - name: Set permissions on SUID sandbox helper
+        id: build-suid
+        run: |
+          ELECTRON_ROOT=.build/electron
+          sudo chown root $ELECTRON_ROOT/chrome-sandbox
+          sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+
+      # launch.sh and the helpers parse JSON with jq; stop.sh finds the
+      # instance with lsof. Neither is in the image.
+      - name: Install jq and lsof
+        id: build-jq
+        run: sudo apt-get update && sudo apt-get install -y jq lsof
+
+      # A from-source build bundles no Quarto CLI (see release-screenshots.yml).
+      - name: Set up Quarto
+        id: build-quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # smoke.ts links the fixture's .venv to positron-python's venv; in the
+      # image the interpreter with the e2e packages is /root/.venv.
+      - name: Point the fixture at the image's Python
+        id: build-python
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -e extensions/positron-python/.venv || ln -s /root/.venv extensions/positron-python/.venv
+          /root/.venv/bin/python -c "import matplotlib, ipykernel" \
+            || /root/.venv/bin/python -m pip install matplotlib ipykernel
+          /root/.venv/bin/python -c "import matplotlib.pyplot as plt; plt.figure()"
+
+      - name: Setup Xvfb
+        id: build-xvfb
+        uses: ./.github/actions/setup-xvfb
+
+      - name: Alter AppArmor restrictions
+        id: build-apparmor
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Install the agent runner
+        working-directory: .github/actions/pr-exploratory-test
+        run: |
+          npm ci --no-audit --no-fund
+          # claude-agent-sdk-typescript#296: the resolver picks musl over glibc on Linux.
+          npm install -g @anthropic-ai/claude-code
+          echo "CLAUDE_CODE_PATH=$(which claude)" >> "$GITHUB_ENV"
+          echo "RUNNER=$PWD/session-cli.mjs" >> "$GITHUB_ENV"
+
+      # A fresh dir every night: fix-loop refuses to add fields twice to a finding.
+      - name: Smoke
+        id: smoke
+        shell: bash
+        run: |
+          rm -rf "$HEAL_DIR"; mkdir -p "$HEAL_DIR"
+          set +e -uo pipefail
+          # shellcheck disable=SC2086
+          node .claude/skills/drive-positron/test/smoke.ts --results "$HEAL_DIR/smoke-1.json" -- $APP_ARGS 2>&1 | tee "$HEAL_DIR/smoke-1.txt"
+          code=${PIPESTATUS[0]}
+          echo "red=$([ "$code" -ne 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          test -s "$HEAL_DIR/smoke-1.json"
+
+      - name: Rerun failures
+        shell: bash
+        run: |
+          # shellcheck disable=SC2086
+          node .claude/skills/drive-positron/heal/rerun.ts --dir "$HEAL_DIR" -- $APP_ARGS
+
+      - name: Explore night?
+        id: explore
+        shell: bash
+        env:
+          WANT: ${{ inputs.explore || 'auto' }}
+        run: |
+          want="$WANT"
+          if [ "$want" = auto ]; then
+            if [ "$PHASE" = burn-in ] || [ "$(date -u +%u)" = 1 ]; then want=on; else want=off; fi
+          fi
+          echo "run=$([ "$want" = on ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      # The artifact's root depends on what was uploaded, so the findings dir is found, not assumed.
+      - name: Fetch the past week's findings
+        if: steps.explore.outputs.run == 'true'
+        shell: bash
+        run: |
+          set +e -uo pipefail
+          mkdir -p "$HEAL_DIR/recent"
+          if ! command -v gh > /dev/null; then echo "::warning::gh is not in the image; the finder runs without the past week's findings"; exit 0; fi
+          since=$(date -u -d '7 days ago' +%Y-%m-%d)
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow drive-positron-heal.yml --status completed --created ">=$since" --json databaseId --jq '.[].databaseId' |
+            while read -r id; do
+              tmp="$HEAL_DIR/recent/.dl-$id"
+              gh run download "$id" --repo "$GITHUB_REPOSITORY" --name drive-positron-heal --dir "$tmp" 2> /dev/null || { rm -rf "$tmp"; continue; }
+              f=$(find "$tmp" -type d -name findings | head -n 1)
+              if [ -n "$f" ]; then mkdir -p "$HEAL_DIR/recent/$id" && mv "$f"/* "$HEAL_DIR/recent/$id/" 2> /dev/null || true; fi
+              rm -rf "$tmp"
+            done
+
+      - name: Any findings yet?
+        id: any
+        shell: bash
+        run: echo "findings=$([ -n "$(ls -A "$HEAL_DIR/findings" 2>/dev/null)" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      - name: Load the Anthropic key
+        # hashFiles only sees the workspace, so the findings check is a step output.
+        if: steps.explore.outputs.run == 'true' || steps.any.outputs.findings == 'true'
+        uses: 1password/load-secrets-action@v5
+        with:
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
+
+      - name: Finder
+        if: steps.explore.outputs.run == 'true'
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
+        run: |
+          # shellcheck disable=SC2086
+          node .claude/skills/drive-positron/heal/finder.ts --dir "$HEAL_DIR" --runner "$RUNNER" --minutes 45 -- $APP_ARGS
+
+      # fix-loop commits, and refuses a dirty tree. The container runs as root over a checkout.
+      - name: Set up git
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config --global user.name positron-bot
+          git config --global user.email positron-bot@posit.co
+
+      # What the build steps leave behind that .gitignore does not cover.
+      - name: Exclude build residue from git status
+        shell: bash
+        run: |
+          {
+            echo '/extensions/positron-python/.venv'
+            echo '/.node-gyp-cache/'
+            echo '/.npm-cache/'
+            echo '/.playwright-browsers/'
+          } >> "$(git rev-parse --git-path info/exclude)"
+
+      - name: Show the tree state
+        shell: bash
+        run: |
+          echo "git status --porcelain (a non-empty list makes the Fixer exit 2):"
+          git status --porcelain --untracked-files=all
+
+      # No `if:` on purpose: the finder may have written findings after "Any findings yet?".
+      - name: Fixer
+        shell: bash
+        env:
+          ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
+        run: |
+          set +e -uo pipefail
+          if [ -z "$(ls -A "$HEAL_DIR/findings" 2>/dev/null)" ]; then echo "no findings"; exit 0; fi
+          # shellcheck disable=SC2086
+          node .claude/skills/drive-positron/heal/fix-loop.ts --dir "$HEAL_DIR" --runner "$RUNNER" --cap 5 -- $APP_ARGS
+          code=$?
+          if [ -d "$HEAL_DIR/patches" ]; then
+            git diff --no-color "$GITHUB_SHA..HEAD" -- .claude/skills/drive-positron/test/smoke.ts > "$HEAL_DIR/smoke.diff"
+          fi
+          exit "$code"
+
+      - name: Step summary
+        if: always()
+        shell: bash
+        env:
+          SMOKE_RED: ${{ steps.smoke.outputs.red }}
+        run: |
+          args=(--dir "$HEAL_DIR" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
+          [ "$SMOKE_RED" = true ] && args+=(--smoke-red)
+          node .claude/skills/drive-positron/heal/report.ts "${args[@]}" summary >> "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Name the failed step
+        id: failed
+        if: failure()
+        shell: bash
+        run: |
+          step=
+          if command -v gh > /dev/null; then
+            step=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
+              --jq '.jobs[] | select(.name == "heal") | .steps[] | select(.conclusion == "failure") | .name' | head -n 1) || true
+          fi
+          echo "step=${step:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the night
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: drive-positron-heal
+          path: |
+            /tmp/heal/
+            !/tmp/heal/recent/
+            /tmp/positron-dev-launch/
+          if-no-files-found: ignore
+
+  publish:
+    name: publish
+    needs: heal
+    if: needs.heal.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      link: ${{ steps.burnin.outputs.link || steps.sync.outputs.pr_url }}
+      link_kind: ${{ steps.burnin.outputs.link && 'compare' || steps.sync.outputs.pr_url && 'pr' || '' }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DRYRUN: ${{ inputs.dryrun || false }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: drive-positron-heal
+          path: /tmp/night
+
+      - name: Anything to publish?
+        id: has
+        shell: bash
+        run: |
+          # The artifact keeps the uploads' common root; find the heal dir in it.
+          state=$(find /tmp/night -name state.json -path '*heal*' | head -n 1)
+          if [ -z "$state" ]; then echo "no state.json in the artifact"; exit 0; fi
+          dir=$(dirname "$state")
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          if ls "$dir"/patches/*.patch > /dev/null 2>&1 && jq -e '.gate == "pass"' "$state" > /dev/null; then
+            echo "yes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Re-check the patch paths
+        if: steps.has.outputs.yes == 'true'
+        env:
+          DIR: ${{ steps.has.outputs.dir }}
+        run: node .claude/skills/drive-positron/heal/scope.ts --patch "$DIR"/patches/*.patch
+
+      - name: Push the candidate branch (burn-in)
+        id: burnin
+        if: steps.has.outputs.yes == 'true' && env.PHASE == 'burn-in'
+        shell: bash
+        env:
+          DIR: ${{ steps.has.outputs.dir }}
+        run: |
+          set -euo pipefail
+          git config user.name positron-bot
+          git config user.email positron-bot@posit.co
+          git am --no-gpg-sign "$DIR"/patches/*.patch
+          L=.claude/skills/drive-positron/heal/links.ts
+          R=.claude/skills/drive-positron/heal/report.ts
+          branch=$(node $L candidate --run-id "$GITHUB_RUN_ID")
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          title=$(node $R --dir "$DIR" --run-url "$run_url" title)
+          node $R --dir "$DIR" --run-url "$run_url" body > "$RUNNER_TEMP/body.md"
+          link=$(node $L compare --branch "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md" --run-url "$run_url")
+          if [ "$DRYRUN" = true ]; then echo "[dryrun] would push $branch"; else git push origin "HEAD:refs/heads/$branch"; fi
+          echo "link=$link" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare the rolling PR (live)
+        id: live
+        if: steps.has.outputs.yes == 'true' && env.PHASE == 'live'
+        shell: bash
+        env:
+          DIR: ${{ steps.has.outputs.dir }}
+        run: |
+          set -euo pipefail
+          git apply --index "$DIR"/patches/*.patch
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          echo "title=$(node .claude/skills/drive-positron/heal/report.ts --dir "$DIR" --run-url "$run_url" title)" >> "$GITHUB_OUTPUT"
+          { echo 'body<<HEAL_EOF'; node .claude/skills/drive-positron/heal/report.ts --dir "$DIR" --run-url "$run_url" body; echo 'HEAL_EOF'; } >> "$GITHUB_OUTPUT"
+
+      - name: Detect the managed PR (live)
+        id: detect
+        if: steps.live.outcome == 'success'
+        uses: ./.github/actions/detect-managed-pr
+        with:
+          branch-prefix: automated/drive-positron-heal
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+
+      - name: Commit and sync the PR (live)
+        id: sync
+        if: steps.live.outcome == 'success'
+        uses: ./.github/actions/commit-and-sync-pr
+        with:
+          github-token: ${{ steps.detect.outputs.github-token }}
+          exists: ${{ steps.detect.outputs.exists }}
+          mode: ${{ steps.detect.outputs.mode }}
+          pr_number: ${{ steps.detect.outputs.pr_number }}
+          pr_url: ${{ steps.detect.outputs.pr_url }}
+          pr_branch: ${{ steps.detect.outputs.pr_branch }}
+          branch-prefix: automated/drive-positron-heal
+          commit-message: "drive-positron: helper fixes from the nightly run"
+          title: ${{ steps.live.outputs.title }}
+          body: ${{ steps.live.outputs.body }}
+          dryrun: ${{ inputs.dryrun || false }}
+          clear-stale-branch-on-empty-reset: "false"
+
+      - name: Clean up old candidate branches
+        if: always()
+        shell: bash
+        run: |
+          set +e -uo pipefail
+          git ls-remote --heads origin 'automated/drive-positron/*' | awk '{ sub("refs/heads/", "", $2); print $2 }' > "$RUNNER_TEMP/branches"
+          gh pr list --state open --search 'head:automated/drive-positron/' --json headRefName --jq '.[].headRefName' > "$RUNNER_TEMP/open"
+          node .claude/skills/drive-positron/heal/links.ts stale --branches "$RUNNER_TEMP/branches" --open "$RUNNER_TEMP/open" | while read -r b; do
+            if [ "$DRYRUN" = true ]; then echo "[dryrun] would delete $b"; else git push origin --delete "$b"; fi
+          done
+
+  notify:
+    name: notify
+    needs: [heal, publish]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: |
+            .claude/skills/drive-positron
+            .nvmrc
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          name: drive-positron-heal
+          path: /tmp/night
+
+      - name: Send the DM
+        shell: bash
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          CHANNEL: ${{ vars.DRIVE_POSITRON_SLACK_CHANNEL }}
+          DRYRUN: ${{ inputs.dryrun || false }}
+          FAILED: ${{ needs.heal.result != 'success' && (needs.heal.outputs.failed_step || needs.heal.result) || needs.publish.result == 'failure' && 'publish' || '' }}
+          SMOKE_RED: ${{ needs.heal.outputs.smoke_red }}
+          LINK: ${{ needs.publish.outputs.link }}
+          LINK_KIND: ${{ needs.publish.outputs.link_kind }}
+        run: |
+          set +e -uo pipefail
+          state=$(find /tmp/night -name state.json -path '*heal*' 2>/dev/null | head -n 1)
+          dir=/tmp/none
+          [ -n "$state" ] && dir=$(dirname "$state")
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          args=(--dir "$dir" --run-url "$run_url")
+          [ -n "$FAILED" ] && args+=(--job-failed "$FAILED")
+          [ "$SMOKE_RED" = true ] && args+=(--smoke-red)
+          if [ -z "$LINK" ] && ls "$dir"/patches/*.patch > /dev/null 2>&1; then LINK="$run_url#artifacts"; LINK_KIND="patch"; fi
+          [ -n "$LINK" ] && args+=(--link-kind "$LINK_KIND" --link "$LINK")
+          R=.claude/skills/drive-positron/heal/report.ts
+          if [ "$(node $R "${args[@]}" 'notify?')" != true ]; then echo "nothing to report"; exit 0; fi
+          PAYLOAD=$(jq -n --arg channel "$CHANNEL" --arg text "$(node $R "${args[@]}" slack)" '{ channel: $channel, text: $text }')
+          if [ "$DRYRUN" = true ]; then
+            echo "[dryrun] Would post to Slack:"
+            printf '%s\n' "$PAYLOAD" | sed 's/^/[dryrun]   /'
+            exit 0
+          fi
+          curl -sf -X POST https://slack.com/api/chat.postMessage \
+            -H "Authorization: Bearer $SLACK_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD" | jq -e '.ok' > /dev/null

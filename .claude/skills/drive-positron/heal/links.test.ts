@@ -5,7 +5,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { candidateBranch, compareUrl, smokeChecksChanged, staleBranches } from './links.ts';
+import { writeFileSync, mkdtempSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
+import { candidateBranch, cli, compareUrl, smokeChecksChanged, staleBranches } from './links.ts';
 
 test('candidateBranch', () => {
 	assert.equal(candidateBranch(new Date('2026-10-06T03:30:00Z'), '123'), 'automated/drive-positron/2026-10-06-123');
@@ -46,4 +49,28 @@ test('staleBranches: older than 14 days by the date in the name, without an open
 test('smokeChecksChanged', () => {
 	assert.equal(smokeChecksChanged(['.claude/skills/drive-positron/test/smoke.ts']), true);
 	assert.equal(smokeChecksChanged(['.claude/skills/drive-positron/scripts/dp-ui.ts']), false);
+});
+
+test('cli candidate and usage errors', () => {
+	assert.deepEqual(cli(['candidate', '--run-id', '7'], new Date('2026-10-06T00:00:00Z')), { code: 0, out: 'automated/drive-positron/2026-10-06-7' });
+	assert.equal(cli([]).code, 2);
+	assert.equal(cli(['nope']).code, 2);
+	assert.equal(cli(['candidate']).code, 2);
+	assert.equal(cli(['candidate', '--run-id']).code, 2);
+	assert.equal(cli(['candidate', '--run-id', '7', '--bogus', 'x']).code, 2);
+	assert.equal(cli(['compare', '--branch', 'b']).code, 2);
+});
+
+test('cli compare and stale read their files', () => {
+	const d = mkdtempSync(join(tmpdir(), 'links-'));
+	writeFileSync(join(d, 'body'), 'a & b\n');
+	const c = cli(['compare', '--branch', 'b', '--title', 't', '--body-file', join(d, 'body'), '--run-url', 'https://run']);
+	assert.equal(c.code, 0);
+	assert.equal(new URL(c.out).searchParams.get('body'), 'a & b\n\n\nFull run: https://run');
+	const old = 'automated/drive-positron/2026-01-01-1';
+	const open = 'automated/drive-positron/2026-01-02-2';
+	writeFileSync(join(d, 'br'), `${old}\n${open}\nother\n`);
+	writeFileSync(join(d, 'op'), `${open}\n`);
+	assert.deepEqual(cli(['stale', '--branches', join(d, 'br'), '--open', join(d, 'op')], new Date('2026-10-06T00:00:00Z')), { code: 0, out: old });
+	assert.throws(() => cli(['stale', '--branches', join(d, 'missing'), '--open', join(d, 'op')]));
 });

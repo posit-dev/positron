@@ -141,7 +141,7 @@ node .claude/skills/drive-positron/test/smoke.ts --quick   # one happy path per 
 ```
 
 In CI, `.github/workflows/drive-positron.yml` runs drift.ts (and check.ts
-when this skill changed) nightly on main, with smoke.ts, or on a manual run.
+when this skill changed), with smoke.ts, on a manual run.
 The drift check on PRs that touch UI source is off for now: its
 `pull_request` trigger is commented out. Both
 jobs are warn-only (`continue-on-error: true`); to make one required, remove
@@ -150,3 +150,4 @@ that line and add the job to branch protection.
 Every new command needs a smoke case, marked `quick: true` when it is the
 helper's one happy path, and at least one failure case, in `test/smoke.ts`. [test/README.md](test/README.md) says what each check covers,
 how a case is written, and how to tell product drift from a bug in a helper.
+A nightly workflow runs smoke and fixes helper bugs it finds; see heal/README.md.
