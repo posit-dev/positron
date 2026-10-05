@@ -195,14 +195,17 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 		this._register(this._columnWidths.onDidChange(() => this.fireOnDidUpdateEvent()));
 
 		// Collapse the expanded row once it is no longer the selected cursor row, and fetch the
-		// value of a newly selected leaf. A reload replaces the node, so its value is fetched again.
+		// value of a newly selected leaf when it could differ from its display value: a truncated
+		// value, or a string, which expands unescaped. A reload replaces the node, so its value is
+		// fetched again.
 		this._register(this.onDidUpdate(() => {
 			const selected = this._selectedLeaf();
 			if (this._expandedRowId !== undefined && this._expandedRowId !== selected?.id) {
 				this.setNodeHeight(this._expandedRowId, undefined);
 				this._expandedRowId = undefined;
 			}
-			if (selected && this._expandedValue?.node !== selected.data.node) {
+			if (selected && this._expandedValue?.node !== selected.data.node &&
+				(selected.data.node.is_truncated || selected.data.node.kind === ObjectNodeKind.String)) {
 				void this._fetchExpandedValue(selected.data.path, selected.data.node);
 			}
 		}));
