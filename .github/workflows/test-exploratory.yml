@@ -413,6 +413,7 @@ jobs:
       packages: read
     outputs:
       outcome: ${{ steps.explore.outputs.outcome }}
+      outdated: ${{ steps.helpers.outputs.reason }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -490,10 +491,14 @@ jobs:
       # branch under test. A branch older than the helper rewrite lacks the
       # helpers they name, so stop before the build with what to do about it.
       - name: Check the branch has the current helpers
+        id: helpers
         shell: bash
         run: |
           if [[ ! -f .claude/skills/drive-positron/scripts/dp.ts ]]; then
-            echo "::error::This branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and run again."
+            # The result comment shows this reason, so the author need not open the run.
+            REASON="this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again."
+            echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+            echo "::error::${REASON^}"
             exit 1
           fi
 
@@ -978,9 +983,10 @@ jobs:
           focus: ${{ needs.membership.outputs.focus }}
           # Empty when ack could not post; comment mode then posts a new one.
           comment-id: ${{ needs.ack.outputs.comment_id }}
-          # A declined run never reaches explore; say so rather than "failed".
-          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outcome }}
-          decline-reason: ${{ needs.worthiness.outputs.reason }}
+          # A declined run never reaches explore, and an outdated branch stops
+          # before the build; say which rather than "failed".
+          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
+          decline-reason: ${{ needs.worthiness.outputs.reason || needs.explore.outputs.outdated }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.publish.outputs.report_base_url }}
           pr-number: ${{ github.event.issue.number }}
@@ -995,7 +1001,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
-          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outcome }}
+          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \
