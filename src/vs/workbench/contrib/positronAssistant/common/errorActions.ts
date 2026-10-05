@@ -40,6 +40,8 @@ export interface INotebookErrorLocation {
 	readonly uri: UriComponents;
 	/** 0-based index of the cell; undefined when the cell no longer exists. */
 	readonly cellIndex?: number;
+	/** ID of the notebook's runtime session; undefined when it has none. */
+	readonly sessionId?: string;
 }
 
 /** An error raised by a Quarto code chunk. Mirrors `positron.ai.QuartoErrorLocation`. */
@@ -52,6 +54,8 @@ export interface IQuartoErrorLocation {
 	readonly startLine: number;
 	/** 1-based last line of the chunk's code, inclusive. */
 	readonly endLine: number;
+	/** ID of the document's runtime session; undefined when it has none. */
+	readonly sessionId?: string;
 }
 
 /** Where an error was raised. Mirrors `positron.ai.ErrorLocation`. */

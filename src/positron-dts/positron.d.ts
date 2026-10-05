@@ -4982,6 +4982,9 @@ declare module 'positron' {
 
 			/** The 0-based index of the cell. Undefined when the cell no longer exists. */
 			readonly cellIndex?: number;
+
+			/** The ID of the notebook's runtime session. Undefined when it has none. */
+			readonly sessionId?: string;
 		}
 
 		/** An error raised by a code chunk in a Quarto document. */
@@ -4999,6 +5002,9 @@ declare module 'positron' {
 
 			/** The 1-based last line of the chunk's code, inclusive. */
 			readonly endLine: number;
+
+			/** The ID of the document's runtime session. Undefined when it has none. */
+			readonly sessionId?: string;
 		}
 
 		/**

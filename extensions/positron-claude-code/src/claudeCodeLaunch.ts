@@ -65,7 +65,7 @@ export function getErrorPrompt(
 			source = `Code run in the Positron console session "${location.sessionName}" raised an error. ` +
 				'The code may not be saved in any file.';
 			if (mcpServerName) {
-				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId);
+				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId, 'this session');
 			}
 			if (location.code) {
 				blocks.push(`Code:\n\n${fence(location.code, location.languageId)}`);
@@ -75,10 +75,18 @@ export function getErrorPrompt(
 			source = location.cellIndex === undefined
 				? `A cell in ${getPath(location.uri)} raised an error.`
 				: `Cell ${location.cellIndex + 1} of ${getPath(location.uri)} raised an error.`;
+			if (mcpServerName && location.sessionId) {
+				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId, 'the notebook\'s kernel session') +
+					' ' + INSPECT_ONLY;
+			}
 			break;
 		case 'quarto':
 			source = `The ${location.languageId} code chunk at lines ${location.startLine}-${location.endLine} ` +
 				`of ${getPath(location.uri)} raised an error.`;
+			if (mcpServerName && location.sessionId) {
+				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId, 'the document\'s kernel session') +
+					' ' + INSPECT_ONLY;
+			}
 			break;
 	}
 	if (context.error) {
@@ -95,14 +103,20 @@ export function getErrorPrompt(
 }
 
 /**
+ * Keeps Claude from running code in a notebook or Quarto kernel, which would
+ * change the state the user's cells depend on.
+ */
+const INSPECT_ONLY = 'Use it to inspect the kernel\'s state, not to run code that changes it.';
+
+/**
  * Point Claude at the MCP server's tools for a session. A new Claude Code
  * session does not wait for MCP servers before its first request, so the
  * tools may be missing from the first turn; without this, Claude concludes it
  * has no access. Tool search waits for servers that are still connecting.
  */
-function getMcpHint(serverName: string, sessionId: string): string {
+function getMcpHint(serverName: string, sessionId: string, sessionDescription: string): string {
 	const prefix = `mcp__${serverName}__`;
-	return `Positron's MCP server (\`${serverName}\`) can inspect this session (session_id: ${sessionId}). ` +
+	return `Positron's MCP server (\`${serverName}\`) can inspect ${sessionDescription} (session_id: ${sessionId}). ` +
 		`If no \`${prefix}*\` tools are listed yet, the server may still be connecting: ` +
 		`use ToolSearch to find tools whose names start with \`${prefix}\`, which waits for it. ` +
 		`Don't conclude you lack access.`;

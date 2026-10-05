@@ -14,6 +14,8 @@ import { POSIT_HAS_CHAT_MODELS_KEY } from '../../positronAssistant/browser/posit
 import { AssistantErrorQuickFix, AssistantErrorPayload } from '../../positronNotebook/browser/notebookCells/AssistantErrorQuickFix.js';
 import { useErrorActionHandler } from '../../positronAssistant/browser/useErrorActionHandler.js';
 import { QuartoCellErrorContext } from '../common/quartoExecutionTypes.js';
+import { IQuartoKernelManager } from './quartoKernelManager.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 const fixPrompt = localize('positronQuartoAssistantFixPrompt', "Fix this Quarto inline output error.");
 const explainPrompt = localize('positronQuartoAssistantExplainPrompt', "Explain this Quarto inline output error.");
@@ -44,6 +46,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const errorActionHandler = useErrorActionHandler();
 
 	const { errorContent, cellContext, onLayout } = props;
+	const quartoKernelManager = usePositronReactServicesContext().get(IQuartoKernelManager);
 
 	// Notify the host after every commit (declared before the early return so it
 	// runs whether or not the buttons render). Layout effects fire once the DOM
@@ -72,9 +75,10 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 				languageId: cellContext.language,
 				startLine: cellContext.codeStartLine,
 				endLine: cellContext.codeEndLine,
+				sessionId: quartoKernelManager.getSessionForDocument(cellContext.uri)?.sessionId,
 			},
 		};
-	}, [cellContext, errorContent]);
+	}, [cellContext, errorContent, quartoKernelManager]);
 
 	if (aiEnabled === false || (errorActionHandler === undefined && !hasChatModels)) {
 		return null;

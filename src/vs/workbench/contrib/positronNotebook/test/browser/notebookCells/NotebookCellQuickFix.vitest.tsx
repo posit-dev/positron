@@ -9,6 +9,8 @@ import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { Event } from '../../../../../../base/common/event.js';
 import { URI } from '../../../../../../base/common/uri.js';
+import { constObservable } from '../../../../../../base/common/observable.js';
+import { ILanguageRuntimeSession } from '../../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILabelService } from '../../../../../../platform/label/common/label.js';
@@ -23,6 +25,9 @@ import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IP
 import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
 import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
 
+/** The notebook's kernel session. */
+const runtimeSession = constObservable(stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-5678' }));
+
 const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
 describe('NotebookCellQuickFix', () => {
@@ -36,7 +41,7 @@ describe('NotebookCellQuickFix', () => {
 
 	it('tells the registered error action handler which cell failed', async () => {
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY, true);
-		const instance = stubInterface<IPositronNotebookInstance>({ uri: URI.file('/work/analysis.ipynb') });
+		const instance = stubInterface<IPositronNotebookInstance>({ uri: URI.file('/work/analysis.ipynb'), runtimeSession });
 		const cell = stubInterface<IPositronNotebookCell>({ index: 2, getContent: () => 'x + 1' });
 
 		const user = userEvent.setup();
@@ -51,13 +56,13 @@ describe('NotebookCellQuickFix', () => {
 
 		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
 			error: 'NameError: x',
-			location: { kind: 'notebook', uri: instance.uri, cellIndex: 2 },
+			location: { kind: 'notebook', uri: instance.uri, cellIndex: 2, sessionId: 'python-5678' },
 		}]);
 	});
 
 	it('omits the cell index once the cell is removed from the notebook', async () => {
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY, true);
-		const instance = stubInterface<IPositronNotebookInstance>({ uri: URI.file('/work/analysis.ipynb') });
+		const instance = stubInterface<IPositronNotebookInstance>({ uri: URI.file('/work/analysis.ipynb'), runtimeSession });
 		const cell = stubInterface<IPositronNotebookCell>({ index: -1, getContent: () => 'x + 1' });
 
 		const user = userEvent.setup();
@@ -72,7 +77,7 @@ describe('NotebookCellQuickFix', () => {
 
 		expect(run.mock.calls.at(-1)?.slice(1)).toEqual(['fix', {
 			error: 'NameError: x',
-			location: { kind: 'notebook', uri: instance.uri },
+			location: { kind: 'notebook', uri: instance.uri, sessionId: 'python-5678' },
 		}]);
 	});
 });

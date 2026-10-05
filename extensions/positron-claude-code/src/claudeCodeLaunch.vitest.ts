@@ -58,7 +58,25 @@ describe('getErrorPrompt', () => {
 		);
 	});
 
-	it('does not mention the MCP server for a notebook error, which has no session ID', () => {
+	it('points Claude at the notebook\'s kernel session for inspection only', () => {
+		expect(getErrorPrompt('fix', {
+			error: 'boom',
+			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2, sessionId: 'python-5678' },
+		}, getPath, 'positron').lead).toBe(
+			'Cell 3 of analysis.ipynb raised an error. Fix the error. ' +
+			'Positron\'s MCP server (`positron`) can inspect the notebook\'s kernel session (session_id: python-5678). If no `mcp__positron__*` tools are listed yet, the server may still be connecting: use ToolSearch to find tools whose names start with `mcp__positron__`, which waits for it. Don\'t conclude you lack access. ' +
+			'Use it to inspect the kernel\'s state, not to run code that changes it.'
+		);
+	});
+
+	it('points Claude at the Quarto document\'s kernel session', () => {
+		expect(getErrorPrompt('explain', {
+			error: 'boom',
+			location: { kind: 'quarto', uri: { path: '/work/report.qmd' } as Uri, languageId: 'r', startLine: 10, endLine: 12, sessionId: 'r-9012' },
+		}, getPath, 'positron').lead).toContain('can inspect the document\'s kernel session (session_id: r-9012).');
+	});
+
+	it('does not mention the MCP server for a notebook without a session', () => {
 		expect(getErrorPrompt('fix', {
 			error: 'boom',
 			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2 },

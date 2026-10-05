@@ -59,6 +59,8 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// actions aren't recreated on every render. Resolved at click time so the
 	// cell number reflects any cells added or moved since the error.
 	const getPayload = useCallback((): AssistantErrorPayload => {
+		const sessionId = instance.runtimeSession.get()?.sessionId;
+
 		// The cell's index is -1 once it is removed from the notebook.
 		if (!cell || cell.index < 0) {
 			return {
@@ -66,7 +68,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				explainPrompt,
 				attachmentContent: errorContent,
 				errorOutput: errorContent,
-				errorLocation: { kind: 'notebook', uri: instance.uri },
+				errorLocation: { kind: 'notebook', uri: instance.uri, sessionId },
 			};
 		}
 		const cellNumber = cell.index + 1;
@@ -79,7 +81,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 			explainPrompt: localize('positronNotebookAssistantExplainPromptWithContext', "Explain the error from cell {0} of {1}. The failing code and its error output are attached.", cellNumber, path),
 			attachmentContent: `${header}\n\n${codeHeader}\n${cell.getContent()}\n\n${errorHeader}\n${errorContent}`,
 			errorOutput: errorContent,
-			errorLocation: { kind: 'notebook', uri: instance.uri, cellIndex: cell.index },
+			errorLocation: { kind: 'notebook', uri: instance.uri, cellIndex: cell.index, sessionId },
 		};
 	}, [cell, errorContent, instance, labelService]);
 

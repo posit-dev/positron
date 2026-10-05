@@ -21,11 +21,20 @@ import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssi
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { QuartoCellErrorContext } from '../../common/quartoExecutionTypes.js';
 import { URI } from '../../../../../base/common/uri.js';
+import { IQuartoKernelManager } from '../../browser/quartoKernelManager.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+
+/** Kernel manager whose documents all share one session. */
+const quartoKernelManager: Partial<IQuartoKernelManager> = {
+	getSessionForDocument: () => stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-5678' }),
+};
 
 describe('QuartoOutputQuickFix', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
+		.stub(IQuartoKernelManager, quartoKernelManager)
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -158,6 +167,7 @@ describe('QuartoOutputQuickFix with a registered error action handler', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, run })
+		.stub(IQuartoKernelManager, quartoKernelManager)
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -173,7 +183,7 @@ describe('QuartoOutputQuickFix with a registered error action handler', () => {
 
 		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
 			error: 'RuntimeError: boom',
-			location: { kind: 'quarto', uri: URI.file('/work/report.qmd'), languageId: 'python', startLine: 8, endLine: 9 },
+			location: { kind: 'quarto', uri: URI.file('/work/report.qmd'), languageId: 'python', startLine: 8, endLine: 9, sessionId: 'python-5678' },
 		}]);
 	});
 });
