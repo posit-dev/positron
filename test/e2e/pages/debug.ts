@@ -65,6 +65,11 @@ export class Debug {
 	 */
 	async setUnverifiedBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
 		await test.step(`Debug: Set unverified breakpoint on line ${lineNumber}`, async () => {
+			// The editor may reopen at a remembered scroll position, leaving the line unrendered
+			await this.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await this.code.driver.currentPage.keyboard.type(String(lineNumber));
+			await this.code.driver.currentPage.keyboard.press('Enter');
+
 			const glyphArea = this.code.driver.currentPage.locator(glyphAreaForLine(lineNumber));
 			await expect(glyphArea).toBeVisible();
 			await glyphArea.click({ position: { x: 5, y: 5 }, force: true });
