@@ -117,8 +117,8 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			const key = field[1].toLowerCase();
 			let named = true;
 			if (key === 'evidence') {
-				// A check with nothing on screen to show (a file's content on disk,
-				// a port that should be closed) cites a saved output instead.
+				// A saved output (a file's content on disk) or a helper's reading in
+				// actions.log may sit beside a check's screenshot, never in place of it.
 				const saved = [...field[2].matchAll(/(?:^|[\s,(`])((?:logs|files)\/[\w./-]+\.\w+)/g)].map(m => m[1]);
 				const missingSaved = fileExists ? saved.filter(f => !fileExists(f)) : [];
 				for (const f of missingSaved) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in the run directory`); }
@@ -126,14 +126,11 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 				const missing = fileExists ? files.filter(f => !fileExists(`shots/${f}`)) : [];
 				for (const f of missing) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`); }
 				const present = files.filter(f => !missing.includes(f));
-				// A check across more than one screen holds (cells, outputs) cites the helpers' readings.
-				const logged = /(?:^|[\s,(`])actions\.log:\d+/.test(field[2]);
-				if ((saved.length > missingSaved.length || logged) && !present.length) { check[key] = true; continue; }
 				for (const f of new Set(present)) {
 					if (!citedBy.has(f)) { citedBy.set(f, []); }
 					citedBy.get(f).push({ at: `${current.id} step ${check.step}`, finding: check.fail ? check.finding : null });
 				}
-				named = present.length > 0;
+				named = present.some(f => /\.png$/i.test(f));
 			}
 			if (named) { check[key] = true; }
 		}
@@ -171,7 +168,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		// scenario's first failed check needs its Log: line.
 		const firstFail = s.verifies.find(v => v.fail);
 		for (const v of s.verifies) {
-			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own`); }
+			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it`); }
 			const missing = v.fail ? ['observed', ...(v === firstFail ? ['log'] : [])].filter(key => !v[key]) : [];
 			if (missing.length) {
 				problems.push(`ledger: ${s.id} step ${v.step} FAIL is missing ${missing.map(m => `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
@@ -616,6 +613,17 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	}
 
 	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? []));
+	// Readers never see scenario IDs, so a finding's prose says what a run was in words.
+	for (const f of parseReport(text).findings) {
+		const fields = [['title', f.title], ['Observed', f.observedHtml], ['Expected', f.expectedHtml], ['Cause', f.causeHtml]];
+		for (const [label, value] of fields) {
+			const words = String(value ?? '').replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/`[^`]*`/g, '').replace(/<[^>]+>/g, '');
+			const ids = [...new Set([...words.matchAll(/(?<![\w/.-])[SN]\d{2,}(?![\w-])/g)].map(m => m[0]))];
+			if (ids.length) {
+				problems.push(`report: Finding ${f.n} ${label} names ${ids.join(', ')}; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs`);
+			}
+		}
+	}
 	// A precondition is the state the steps start from, so no step runs it again.
 	for (const f of parseReport(text).findings) {
 		const commands = f.preconditions

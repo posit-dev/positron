@@ -25,8 +25,8 @@ function tempDir() {
 
 test('ruleKey gives one key per rule, whatever run-specific details a message carries', () => {
 	assert.equal(
-		ruleKey('ledger: S17 step 2 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own'),
-		ruleKey('ledger: S03 step 11 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own'),
+		ruleKey('ledger: S17 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it'),
+		ruleKey('ledger: S03 step 11 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it'),
 	);
 	assert.equal(
 		ruleKey('report: finding 2 Severity must be major, moderate or minor, got "High"'),

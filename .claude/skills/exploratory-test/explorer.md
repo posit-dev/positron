@@ -192,11 +192,15 @@ Lint flags each of these, so get them right the first time:
   gets a scenario of its own.
 - A failed scenario's `Result:` is `Fails N/M`, counting tries; a pass's is one
   sentence under 160 characters. No semicolons in Observed or Expected.
+- Every VERIFY cites a screenshot; a log line or saved file goes beside it,
+  never instead.
 - A shot is taken once, at its check, and cited by that check only.
 - Every shot under a finding's Evidence is captioned `Step N:` for the step it
   proves, or `S06:` for the scenario that took it (another run of the bug). A
   control that proves no step is a PASS step or left out.
 - A finding's steps and their shots are one scenario's, the one that failed for it.
+- A finding's title, Observed, Expected and Cause name no scenario ID (S05,
+  N01); readers never see them, so say it in words.
 - One action per step: "Run `View: Close Editor`." and "Open `x.qmd`." are two.
 
 ## Record as you go: the ledger
@@ -363,12 +367,12 @@ its step. `shot.sh` refuses a name already taken and prints the next free one. T
 depends on, such as the same panel still loading 15 s later. Leave a shot no
 check cites where it is; it is harmless.
 
-A check about something off screen, such as a log line, still gets a shot of
-the app as it stood. A check with nothing on screen to show, such as a file's
-content on disk or a port that should be closed, cites a saved output instead:
-copy the file, or save the command's output, to `logs/` and cite it as
-`logs/<name>`. A check that reads more than the screen holds at once, such as
-every cell's output, cites the helpers' readings instead: `actions.log:<line>`.
+A check about something off screen, such as a log line, a file's content on
+disk or a port that should be closed, still gets a shot of the app as it stood,
+and cites a saved output beside it: copy the file, or save the command's
+output, to `logs/` and cite it as `logs/<name>`. A check that reads more than
+the screen holds, such as every cell's output, cites a screenshot of what is on
+screen and adds the readings from `actions.log`: `actions.log:<line>`.
 If you find a check you ran has no shot, take it now while the
 screen still shows that state, or run the check again; never move a check you
 ran to Not run.

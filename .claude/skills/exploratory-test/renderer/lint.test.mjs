@@ -151,17 +151,36 @@ test('flags a step that runs a precondition\'s command again', () => {
 	assert.deepEqual(repro('`py.qmd` whose cell prints `tick 0` to `tick 4`', 'Click Run this cell and wait until the output shows `tick 0`.'), []);
 });
 
-test('a check with nothing on screen may cite a saved output under logs/ or files/', () => {
-	const ledger = '# Test ledger\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY port 8000 is closed -> PASS\n   Evidence: logs/listeners-after.txt\n2. VERIFY the file says 1 -> PASS\n   Evidence: logs/missing.txt\n';
-	const has = p => p === 'logs/listeners-after.txt';
+test('a saved output under logs/ or files/ sits beside a check\'s screenshot, never in place of it', () => {
+	const ledger = '# Test ledger\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY port 8000 is closed -> PASS\n   Evidence: logs/listeners-after.txt\n2. VERIFY the notebook saves its outputs -> PASS\n   Evidence: files/saved.ipynb\n3. VERIFY the file says 1 -> PASS\n   Evidence: S01-01.png, logs/missing.txt\n4. VERIFY the notebook saves its outputs -> PASS\n   Evidence: S01-02.png, files/saved.ipynb\n';
+	const has = p => p !== 'logs/missing.txt';
 	const problems = lintReport(REPORT, ledger, { fileExists: has }).filter(p => /S01/.test(p));
-	assert.deepEqual(problems, ['ledger: S01 cites Evidence: logs/missing.txt, which is not in the run directory', 'ledger: S01 step 2 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own']);
+	assert.deepEqual(problems, [
+		'ledger: S01 cites Evidence: logs/missing.txt, which is not in the run directory',
+		'ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it',
+		'ledger: S01 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it',
+	]);
 });
 
-test('a check of more than one screen holds may cite the helpers\' readings in actions.log', () => {
-	const ledger = '# Test ledger\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY cells 1 to 9 each show their output -> PASS\n   Evidence: actions.log:41, actions.log:44\n2. VERIFY the file says 1 -> PASS\n   Evidence: none, read in the console\n';
+test('a reading in actions.log sits beside a check\'s screenshot, never in place of it', () => {
+	const ledger = '# Test ledger\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY cell 4 fails with NameError -> PASS\n   Evidence: actions.log:5\n2. VERIFY cells 1 to 9 each show their output -> PASS\n   Evidence: S01-01.png, actions.log:41, actions.log:44\n3. VERIFY the file says 1 -> PASS\n   Evidence: none, read in the console\n';
 	const problems = lintReport(REPORT, ledger, { fileExists: () => true }).filter(p => /S01/.test(p));
-	assert.deepEqual(problems, ['ledger: S01 step 2 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own']);
+	assert.deepEqual(problems, ['ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it', 'ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it']);
+	// The ledger-only check run mid-run finds it too, while the instance is up.
+	assert.deepEqual(lintLedgerOnly(ledger, { fileExists: () => true }).filter(p => /S01 step/.test(p)), ['ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it', 'ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it']);
+});
+
+test('a finding\'s prose names no scenario ID, but an Evidence caption may', () => {
+	const pair = (observed, expected) => lint(REPORT.replace('**Feature:** console\n', `**Feature:** console\n\n**Observed:** ${observed}\n\n**Expected:** ${expected}\n`));
+	assert.deepEqual(pair('The panel stays empty.', 'The panel loads, as it did after Restart Kernel (S05, S06).'),
+		['report: Finding 1 Expected names S05, S06; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs']);
+	assert.deepEqual(pair('The panel stays empty, unlike N01.', 'The panel loads.'),
+		['report: Finding 1 Observed names N01; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs']);
+	assert.deepEqual(lint(REPORT.replace('### Finding 1: Retry does nothing', '### Finding 1: Retry does nothing in S03')),
+		['report: Finding 1 title names S03; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs']);
+	// A shot's name, or code, is not prose; a caption may name the scenario that took a shot.
+	assert.deepEqual(pair('The panel stays empty in `S05`, see shots/S06-01.png.', 'The panel loads.'), []);
+	assert.deepEqual(lint(REPORT.replace('- [shots/a.png](shots/a.png) -- Step 2: empty panel', '- [shots/a.png](shots/a.png) -- Step 2: empty panel\n- [shots/b.png](shots/b.png) -- S06: empty again after a restart')), []);
 });
 
 test('a file saved under a mirrored folder is found by its bare name, and a long extension is kept', () => {
@@ -332,13 +351,13 @@ test('flags a FAIL without Log:, a pass without a screenshot and a bad Status', 
 		.replace('Status: fail - Finding 1', 'Status: failed');
 	const problems = lint(REPORT, ledger);
 	assert.ok(problems.some(p => /S02 step 2 FAIL is missing Log:/.test(p)));
-	assert.ok(problems.some(p => /S01 step 2 VERIFY has no Evidence/.test(p)));
+	assert.ok(problems.some(p => /S01 step 2 VERIFY cites no screenshot/.test(p)));
 	assert.ok(problems.some(p => /S02 Status: must be/.test(p)));
 });
 
 test('every VERIFY needs its own screenshot, not just one per scenario', () => {
 	const ledger = LEDGER.replace('   Evidence: p.png\n', '   Evidence: p.png\n3. VERIFY the header shows -> PASS\n');
-	assert.deepEqual(lint(REPORT, ledger), ['ledger: S01 step 3 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own']);
+	assert.deepEqual(lint(REPORT, ledger), ['ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it']);
 
 	const reused = LEDGER.replace('Evidence: p.png', 'Evidence: a.png');
 	assert.deepEqual(lint(REPORT, reused), ['ledger: a.png is Evidence for S01 step 2 and S02 step 2; take a screenshot for each check']);
@@ -347,12 +366,12 @@ test('every VERIFY needs its own screenshot, not just one per scenario', () => {
 test('Evidence: counts only a file that is in shots/', () => {
 	const prose = LEDGER.replace(/Evidence: [ap]\.png/g, 'Evidence: none; DOM read only');
 	const problems = lint(REPORT, prose);
-	assert.ok(problems.some(p => /S01 step 2 VERIFY has no Evidence: naming a screenshot/.test(p)));
-	assert.ok(problems.some(p => /S02 step 2 VERIFY has no Evidence: naming a screenshot/.test(p)));
+	assert.ok(problems.some(p => /S01 step 2 VERIFY cites no screenshot/.test(p)));
+	assert.ok(problems.some(p => /S02 step 2 VERIFY cites no screenshot/.test(p)));
 
 	const invented = lintReport(REPORT, LEDGER.replace('Evidence: p.png', 'Evidence: shots/made-up.png'), { fileExists: f => f === 'shots/a.png' });
 	assert.ok(invented.some(p => /S01 cites Evidence: made-up\.png, which is not in shots\//.test(p)));
-	assert.ok(invented.some(p => /S01 step 2 VERIFY has no Evidence/.test(p)));
+	assert.ok(invented.some(p => /S01 step 2 VERIFY cites no screenshot/.test(p)));
 });
 
 test('flags a Status naming a finding the report does not have', () => {
@@ -568,7 +587,7 @@ test('errors are what makes a repro or its evidence wrong; wording and length ar
 test('each rule is an error or a warning, as the table in lint.mjs says', () => {
 	const errors = [
 		'ledger: S02 step 2 FAIL is missing Log:',
-		'ledger: S02 step 2 VERIFY has no Evidence: naming a screenshot in shots/; every check gets its own',
+		'ledger: S02 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it',
 		'ledger: a.png is Evidence for S01 step 2 and S02 step 2; take a screenshot for each check',
 		'report: Finding 1\'s steps mix S01 and S02; the repro is one scenario\'s steps, and another run\'s screenshots go under Evidence, captioned "Step N:" for the step they prove',
 		'report: Finding 1 screenshot a.png names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step',
