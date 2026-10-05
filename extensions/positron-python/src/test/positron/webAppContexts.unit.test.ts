@@ -7,41 +7,89 @@ import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { assert } from 'chai';
 import * as cmdApis from '../../client/common/vscodeApis/commandApis';
-import { detectWebApp, getFramework } from '../../client/positron/webAppContexts';
+import { detectWebApp, forgetWebApp, getFramework } from '../../client/positron/webAppContexts';
 import { IDisposableRegistry } from '../../client/common/types';
 
 suite('Discover Web app frameworks', () => {
-    let document: vscode.TextDocument;
     let executeCommandStub: sinon.SinonStub;
     const disposables: IDisposableRegistry = [];
+    const documents: vscode.TextDocument[] = [];
+
+    /** Create a fake document. Detected apps are forgotten in teardown. */
+    function createDocument(uri: string, text: string, scheme = 'file'): vscode.TextDocument {
+        const document = ({
+            getText: () => text,
+            languageId: 'python',
+            uri: { scheme, toString: () => uri },
+        } as unknown) as vscode.TextDocument;
+        documents.push(document);
+        return document;
+    }
+
+    /** The value most recently set for a context key. */
+    function getContext(key: string): unknown {
+        const calls = executeCommandStub.getCalls().filter((call) => call.args[0] === 'setContext' && call.args[1] === key);
+        return calls[calls.length - 1]?.args[2];
+    }
 
     setup(() => {
         executeCommandStub = sinon.stub(cmdApis, 'executeCommand');
-        document = {
-            getText: () => '',
-            languageId: 'python',
-            uri: { scheme: 'file' },
-        } as unknown as vscode.TextDocument;
     });
 
     teardown(() => {
+        documents.forEach(forgetWebApp);
+        documents.splice(0, documents.length);
         sinon.restore();
         disposables.forEach((d) => d.dispose());
     });
 
-    const texts = {
-        'import streamlit': 'streamlit',
-        'from fastapi import FastAPI': 'fastapi',
-        'import numpy': 'numpy',
-    };
-    Object.entries(texts).forEach(([text, framework]) => {
-        const expected = text.includes('numpy') ? undefined : framework;
-        test('should set context pythonAppFramework if application is found', () => {
-            document.getText = () => text;
-            detectWebApp(document);
+    test('should set the app resource contexts if an application is found', () => {
+        detectWebApp(createDocument('file:///app.py', 'from fastapi import FastAPI'));
 
-            assert.ok(executeCommandStub.calledOnceWith('setContext', 'pythonAppFramework', expected));
-        });
+        assert.deepStrictEqual(getContext('pythonAppResources'), ['file:///app.py']);
+        assert.deepStrictEqual(getContext('pythonAppResources.fastapi'), ['file:///app.py']);
+        assert.deepStrictEqual(getContext('pythonAppResources.streamlit'), []);
+    });
+
+    test('should track the framework of each open document separately', () => {
+        // Regression test: a single context value for the active editor made the
+        // run app actions of every other editor reflect the active editor's app.
+        detectWebApp(createDocument('file:///dash_app.py', 'from dash import Dash\napp = Dash(__name__)'));
+        detectWebApp(createDocument('file:///flask_app.py', 'from flask import Flask\napp = Flask(__name__)'));
+        detectWebApp(createDocument('file:///script.py', 'import numpy'));
+
+        assert.deepStrictEqual(getContext('pythonAppResources'), ['file:///dash_app.py', 'file:///flask_app.py']);
+        assert.deepStrictEqual(getContext('pythonAppResources.dash'), ['file:///dash_app.py']);
+        assert.deepStrictEqual(getContext('pythonAppResources.flask'), ['file:///flask_app.py']);
+    });
+
+    test('should not set contexts for a document that is not an application', () => {
+        detectWebApp(createDocument('file:///script.py', 'import numpy'));
+
+        assert.ok(executeCommandStub.notCalled);
+    });
+
+    test('should stop tracking a document that is no longer an application', () => {
+        let text = 'import streamlit';
+        const document = createDocument('file:///app.py', '');
+        document.getText = () => text;
+        detectWebApp(document);
+
+        text = 'import numpy';
+        detectWebApp(document);
+
+        assert.deepStrictEqual(getContext('pythonAppResources'), []);
+        assert.deepStrictEqual(getContext('pythonAppResources.streamlit'), []);
+    });
+
+    test('should stop tracking a closed document', () => {
+        const document = createDocument('file:///app.py', 'import streamlit');
+        detectWebApp(document);
+
+        forgetWebApp(document);
+
+        assert.deepStrictEqual(getContext('pythonAppResources'), []);
+        assert.deepStrictEqual(getContext('pythonAppResources.streamlit'), []);
     });
 
     const frameworks = ['marimo', 'streamlit', 'gradio', 'flask', 'fastapi', 'numpy'];
@@ -67,15 +115,10 @@ suite('Discover Web app frameworks', () => {
         });
     });
 
-    test('should clear context for notebook cell documents', () => {
-        const notebookDocument = {
-            getText: () => 'import dash\napp = Dash(__name__)',
-            languageId: 'python',
-            uri: { scheme: 'vscode-notebook-cell' },
-        } as unknown as vscode.TextDocument;
-        detectWebApp(notebookDocument);
+    test('should not track notebook cell documents', () => {
+        detectWebApp(createDocument('vscode-notebook-cell:/nb.ipynb#cell', 'import dash\napp = Dash(__name__)', 'vscode-notebook-cell'));
 
-        assert.ok(executeCommandStub.calledOnceWith('setContext', 'pythonAppFramework', undefined));
+        assert.ok(executeCommandStub.notCalled);
     });
 
     // Tests for app creation patterns
