@@ -55,22 +55,42 @@ export class SqlStatementRangeProvider implements positron.StatementRangeProvide
  * The statement to run for a cursor position: the first one the cursor has not already passed.
  *
  * A cursor before or inside a statement runs that statement, so putting it on the comment above
- * one, or anywhere within it, does what the user means. Only spaces and tabs after a statement
- * still count as being in it -- once the cursor is on the next line, the statement above has been
- * left behind, and there is nothing to run until the next one starts.
+ * one, or anywhere within it, does what the user means. The rest of the line after a statement
+ * still counts as being in it when that is only spaces, tabs and comments, so a cursor at the end
+ * of `SELECT 1; -- note` runs `SELECT 1`. Once the cursor is on the next line, the statement above
+ * has been left behind, and there is nothing to run until the next one starts.
  */
 export function statementAt(
 	text: string,
 	statements: readonly StatementSpan[],
 	offset: number,
 ): StatementSpan | undefined {
-	return statements.find(statement => offset <= endOfTrailingSpace(text, statement.end));
+	return statements.find(statement => offset <= endOfTrailingLine(text, statement.end));
 }
 
-function endOfTrailingSpace(text: string, offset: number): number {
+/**
+ * Where the spaces, tabs and comments that follow `offset` on its line end. A block comment only
+ * counts when it closes on the same line: one that runs on to later lines is treated like those
+ * lines, as leading up to the next statement.
+ */
+function endOfTrailingLine(text: string, offset: number): number {
 	let at = offset;
-	while (at < text.length && (text[at] === ' ' || text[at] === '\t')) {
-		at += 1;
+	while (at < text.length) {
+		if (text[at] === ' ' || text[at] === '\t') {
+			at += 1;
+		} else if (text.startsWith('--', at)) {
+			const newline = text.indexOf('\n', at);
+			return newline === -1 ? text.length : newline;
+		} else if (text.startsWith('/*', at)) {
+			const close = text.indexOf('*/', at + 2);
+			const newline = text.indexOf('\n', at);
+			if (close === -1 || (newline !== -1 && newline < close)) {
+				return at;
+			}
+			at = close + 2;
+		} else {
+			return at;
+		}
 	}
 	return at;
 }

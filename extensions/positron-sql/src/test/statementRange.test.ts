@@ -47,6 +47,17 @@ SELECT 1;
 		assertRangeEqual(result.range, 1, 0, 1, 9);
 	});
 
+	test('a cursor after a trailing comment selects the statement on its line', async () => {
+		const code = `SELECT 1; /* one */ -- note
+SELECT 2;
+`;
+
+		const result = await getStatementRange(code, new vscode.Position(0, 27));
+
+		assert.ok(result, 'Expected a statement range result');
+		assertRangeEqual(result.range, 0, 0, 0, 9);
+	});
+
 	test('no result past the last statement', async () => {
 		const result = await getStatementRange('SELECT 1;\n\n', new vscode.Position(2, 0));
 
