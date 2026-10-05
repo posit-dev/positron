@@ -50,18 +50,34 @@ export function pathsFromNumstatZ(out: string): string[] {
 }
 
 // Plain --numstat reports only the new name of a pure rename, so the source comes from
-// `--summary -z` ("rename A => B (N%)"). A path may itself contain " => ", so take every split.
+// `--summary -z`: "rename A => B (N%)" or git's brace form "rename pre/{A => B}/suf (N%)".
+// A name may itself contain " => ", so every split of the arrow is taken (fail closed).
 export function pathsFromSummaryZ(out: string): string[] {
 	const paths: string[] = [];
+	const bad = (line: string) => new Error(`unparseable summary line: ${JSON.stringify(line)}`);
+	const splits = (s: string): Array<[string, string]> => {
+		const names = s.split(' => ');
+		const r: Array<[string, string]> = [];
+		for (let k = 1; k < names.length; k++) { r.push([names.slice(0, k).join(' => '), names.slice(k).join(' => ')]); }
+		return r;
+	};
 	for (const line of out.split('\n')) {
 		if (!/^ (?:rename|copy) /.test(line)) { continue; }
 		const m = line.match(/^ (?:rename|copy) ([\s\S]*) \(\d+%\)$/);
-		if (!m) { throw new Error(`unparseable summary line: ${JSON.stringify(line)}`); }
-		const names = m[1].split(' => ');
-		if (names.length < 2) { throw new Error(`unparseable summary line: ${JSON.stringify(line)}`); }
-		for (let k = 1; k < names.length; k++) {
-			paths.push(names.slice(0, k).join(' => '), names.slice(k).join(' => '));
+		if (!m) { throw bad(line); }
+		const spec = m[1];
+		if (!/[{}]/.test(spec)) {
+			const s = splits(spec);
+			if (!s.length) { throw bad(line); }
+			for (const [x, y] of s) { paths.push(x, y); }
+			continue;
 		}
+		const b = spec.match(/^([^{}]*)\{([^{}]*)\}([^{}]*)$/);
+		if (!b) { throw bad(line); }
+		const inner = splits(b[2]);
+		if (!inner.length) { throw bad(line); }
+		const join = (mid: string) => (b[1] + mid + b[3]).replace(/\/{2,}/g, '/');
+		for (const [x, y] of inner) { paths.push(join(x), join(y)); }
 	}
 	return paths;
 }
