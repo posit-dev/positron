@@ -5,7 +5,7 @@
 
 import { CommandsRegistry, ICommandMetadata, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { isIMenuItem, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
-import { ContextKeyExpression, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
@@ -13,6 +13,7 @@ import { ICommandActionSource, ILocalizedString } from '../../../../platform/act
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 
 export const IAgentAllowedCommandsService = createDecorator<IAgentAllowedCommandsService>('agentAllowedCommandsService');
 
@@ -143,29 +144,28 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IProductService private readonly _productService: IProductService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 	) { }
 
 	/**
 	 * Whether a command's precondition currently holds. It is checked in the
-	 * active editor's context, the same one the editor's title bar checks its
-	 * buttons against, because many preconditions use keys that exist only
-	 * there, such as `editorLangId`. An agent runs commands from outside the
-	 * editor, so the window's context alone would report those commands
-	 * disabled even with the right file open (posit-dev/positron#16375).
+	 * active editor's context, falling back to the active editor group's, the
+	 * same way the Command Palette decides which commands to offer. Many
+	 * preconditions use keys that exist only there, such as `editorLangId`. An
+	 * agent runs commands from outside the editor, so the window's context
+	 * alone would report those commands disabled even with the right file open
+	 * (posit-dev/positron#16375).
 	 */
 	private _preconditionHolds(precondition: ContextKeyExpression | undefined): boolean {
 		if (!precondition) {
 			return true;
 		}
-		const activeEditorPane = this._editorService.activeEditorPane;
-		const contextKeyService = activeEditorPane
-			? activeEditorPane.scopedContextKeyService ?? activeEditorPane.group.scopedContextKeyService
-			: this._contextKeyService;
+		const contextKeyService = this._editorService.activeEditorPane?.scopedContextKeyService
+			?? this._editorGroupsService.activeGroup.scopedContextKeyService;
 		return contextKeyService.contextMatchesRules(precondition);
 	}
 

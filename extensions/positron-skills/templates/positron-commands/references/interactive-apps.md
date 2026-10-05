@@ -69,10 +69,11 @@ terminal -- which you cannot see -- rather than as a failed call. When the user
 reports that nothing appeared, ask for that output, then fix the URI or command
 and re-run rather than switching to a raw terminal run. The Python commands
 have no precondition, so they never come back `disabled`. The Shiny commands
-check the active editor: a `disabled` result means it is not a file in the
-command's language (R for `shiny.r.runApp`, Python for `shiny.python.runApp`),
-usually because the app file was never opened or another editor became active
-after it. Open the app file with `vscode.open` and run the command again.
+check the active editor: a `disabled` result almost always means it is not a
+file in the command's language (R for `shiny.r.runApp`, Python for
+`shiny.python.runApp`), usually because the app file was never opened or
+another editor became active after it. Open the app file with `vscode.open` and
+run the command again.
 
 Lifecycle: re-running a command restarts the app (Positron closes the app's
 old terminal first). **You cannot stop a running app yourself**: no command
