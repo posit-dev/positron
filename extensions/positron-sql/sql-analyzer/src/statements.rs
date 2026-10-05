@@ -29,7 +29,7 @@
 use std::borrow::Cow;
 
 use sqlparser::dialect::Dialect;
-use sqlparser::tokenizer::{Location, Token, TokenWithSpan, Tokenizer, Whitespace};
+use sqlparser::tokenizer::{Location, Token, TokenWithSpan, Tokenizer};
 
 use crate::text::TextIndex;
 
@@ -73,14 +73,6 @@ fn is_significant(token: &Token) -> bool {
     !matches!(token, Token::Whitespace(_) | Token::EOF)
 }
 
-/// Whether a whitespace token is a comment, which the tokenizer models as whitespace.
-fn is_comment(token: &Token) -> bool {
-    matches!(
-        token,
-        Token::Whitespace(Whitespace::SingleLineComment { .. } | Whitespace::MultiLineComment(_))
-    )
-}
-
 /// How many constructs a document will have closed for it before the analyzer stops trying.
 ///
 /// A bound rather than a loop to exhaustion: each closure is a guess about what the author meant,
@@ -97,9 +89,9 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
 
     let mut statements: Vec<Statement> = Vec::new();
     let mut current: Vec<TokenWithSpan> = Vec::new();
-    // Offset just past the last significant token or comment, which is where an unterminated
-    // final statement ends. Tracked as it goes so a trailing comment is not swallowed into the
-    // statement above it.
+    // Offset just past the last significant token, which is where an unterminated final statement
+    // ends. Comments are not counted, so one after the last statement is not swallowed into it and
+    // sent along with it to the console.
     let mut last_end: u32 = 0;
 
     for token in tokens {
@@ -109,12 +101,10 @@ pub fn split(text: &str, dialect: &dyn Dialect, index: &TextIndex) -> Tokenized 
             last_end = end;
             continue;
         }
-        if let Some((_, end)) = index.span(token.span) {
-            if is_significant(&token.token) || is_comment(&token.token) {
+        if is_significant(&token.token) {
+            if let Some((_, end)) = index.span(token.span) {
                 last_end = end;
             }
-        }
-        if is_significant(&token.token) {
             current.push(token);
         }
     }

@@ -25,6 +25,7 @@ use sqlparser::ast::{
 };
 
 use crate::text::TextIndex;
+use crate::tokens::qualified;
 
 /// One real table named by the statement, and where it sits.
 pub struct TableRef {
@@ -157,15 +158,12 @@ impl<'a> Collector<'a> {
             return None;
         }
 
-        // A dotted name is read from the right: the last part is the table, the one before it
-        // the schema, the one before that the catalog. A name with fewer parts simply says less.
-        let part = |back: usize| {
-            parts.len().checked_sub(back).and_then(|at| parts.get(at)).map(|part| part.value.clone())
-        };
+        let values: Vec<String> = parts.iter().map(|part| part.value.clone()).collect();
+        let (name, schema, catalog) = qualified(&values)?;
         let table = TableRef {
-            name: last.value.clone(),
-            schema: part(2),
-            catalog: part(3),
+            name,
+            schema,
+            catalog,
             alias,
             start,
             end,

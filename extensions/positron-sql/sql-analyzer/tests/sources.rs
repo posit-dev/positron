@@ -252,6 +252,21 @@ fn a_statement_the_parse_cannot_rescue_falls_back_to_its_tokens() {
 }
 
 #[test]
+fn the_token_scan_reads_aliases_the_way_the_parser_does() {
+    // `ANTI` and `TABLESAMPLE` continue the table reference rather than naming it, which
+    // sqlparser's own reserved list knows; after an explicit `AS`, any word is the alias. The
+    // doubled comma keeps these on the token scan rather than the parse.
+    let scanned = |marked: &str| {
+        let (sources, _, _, origin) = all_at_cursor(marked);
+        assert_eq!(origin, "tokens", "at {marked:?}");
+        sources
+    };
+    assert_eq!(scanned("SELECT a,, | FROM orders ANTI JOIN refunds r"), ["orders", "refunds AS r"]);
+    assert_eq!(scanned("SELECT a,, | FROM orders TABLESAMPLE (10)"), ["orders"]);
+    assert_eq!(scanned("SELECT a,, | FROM orders AS order"), ["orders AS order"]);
+}
+
+#[test]
 fn the_answer_says_which_way_it_was_reached() {
     // A scoped answer and a flat one are worth telling apart in the log, since a surprising list
     // is otherwise indistinguishable from a broken one.

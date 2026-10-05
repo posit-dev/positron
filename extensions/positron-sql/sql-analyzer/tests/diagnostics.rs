@@ -129,6 +129,16 @@ fn a_quote_that_cannot_be_closed_reports_the_rest_of_the_document() {
 }
 
 #[test]
+fn a_construct_that_cannot_be_closed_after_a_semicolon_spares_the_statement_above() {
+    // The unclosed bracket starts after the first statement's semicolon, so it truncates nothing
+    // the first statement holds, and that statement's own error is still reported.
+    let text = "SELECT * FROM t WHERE;\n[abc";
+    let reported: Vec<String> =
+        diagnostics_of(&analyze_as("tsql", text), text).into_iter().map(|(at, _)| at).collect();
+    assert_eq!(reported, ["SELECT * FROM t WHERE;", "[abc"]);
+}
+
+#[test]
 fn messages_do_not_leak_internal_positions() {
     // The position is already the position of the squiggle; repeating it reads like debug output.
     for (_, message) in diagnostics("SELECT * FRM t") {
