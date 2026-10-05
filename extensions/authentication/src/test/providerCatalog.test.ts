@@ -86,6 +86,13 @@ suite('providerCatalog', () => {
 		assert.strictEqual(getCachedProvider('does-not-exist'), undefined);
 	});
 
+	test('the cached provider carries its models block', async () => {
+		writeConfig(configPath, { anthropic: { models: { discovery: 'off' } } });
+		await initProviderCatalog(context, { configPath });
+
+		assert.deepStrictEqual(getCachedProvider('anthropic')?.models, { discovery: 'off' });
+	});
+
 	// The only test here that depends on fs.watch delivery. Delivery is normally
 	// ~700ms (300ms debounce plus the settle) but has been observed taking
 	// several seconds under extension-host load, so the wait is deliberately

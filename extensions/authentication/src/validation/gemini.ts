@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { GEMINI_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { log } from '../log';
+import { getCachedProvider } from '../providerCatalog';
 import { PROVIDER_METADATA } from '../providerSources';
 import { getValidationHeaders } from './validationHeaders';
 
@@ -20,6 +22,10 @@ export async function validateGeminiApiKey(
 	apiKey: string,
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
+	if (getCachedProvider(PROVIDER_METADATA.google.catalogId!)?.models?.discovery === 'off') {
+		log.info('[Gemini] Model discovery is off; skipping API key validation.');
+		return;
+	}
 	const baseUrl = (
 		config.baseUrl?.trim() || GEMINI_DEFAULT_BASE_URL
 	).replace(/\/+$/, '');
