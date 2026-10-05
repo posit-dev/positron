@@ -28,6 +28,15 @@ test('compareUrl trims a long body, keeps the run link, never splits an escape',
 	assert.ok(got.endsWith('(trimmed)\n\nFull run: https://run/1'));
 });
 
+test('compareUrl terminates on emoji bodies and never splits a pair', { timeout: 5000 }, () => {
+	const body = 'x'.repeat(50) + '\u{1F600}'.repeat(300);
+	const url = compareUrl('b', 't', body, 'https://run/1', 500);
+	assert.ok(url.length <= 500);
+	const got = new URL(url).searchParams.get('body')!;
+	assert.equal(decodeURIComponent(url.slice(url.indexOf('body=') + 5)), got);
+	assert.ok(got.endsWith('(trimmed)\n\nFull run: https://run/1'));
+});
+
 test('staleBranches: older than 14 days by the date in the name, without an open PR', () => {
 	const now = new Date('2026-10-30T00:00:00Z');
 	const branches = ['automated/drive-positron/2026-10-01-1', 'automated/drive-positron/2026-10-02-2', 'automated/drive-positron/2026-10-20-3', 'automated/drive-positron/odd'];

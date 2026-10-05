@@ -10,9 +10,9 @@
 //   node .claude/skills/drive-positron/heal/scope.ts --patch FILE...
 
 import { spawnSync } from 'child_process';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { realpathSync } from 'fs';
+import { resolve } from 'path';
 
 export const SKILL_PREFIX = '.claude/skills/drive-positron/';
 
@@ -24,104 +24,99 @@ export function pathsFromStatus(porcelainZ: string): string[] {
 		if (e.length < 4) { continue; }
 		out.push(e.slice(3));
 		// A rename or copy is followed by its source path as its own entry.
-		if (/^[RC]/.test(e) || /^.[RC]/.test(e)) { out.push(parts[++i]); }
+		if (/^[RC]/.test(e) || /^.[RC]/.test(e)) {
+			if (i + 1 >= parts.length) { throw new Error('truncated status rename entry'); }
+			out.push(parts[++i]);
+		}
 	}
 	return out;
 }
 
-function decodeGitPath(s: string): string {
-	// Unquote and decode C-style escapes from git diff paths
-	if (s.startsWith('"') && s.endsWith('"')) {
-		s = s.slice(1, -1);
-		// Decode octal \NNN as UTF-8 bytes, plus \t, \n, \", \\
-		let out = '';
-		for (let i = 0; i < s.length; i++) {
-			if (s[i] === '\\' && i + 1 < s.length) {
-				const c = s[i + 1];
-				if (c === 't') { out += '\t'; i++; }
-				else if (c === 'n') { out += '\n'; i++; }
-				else if (c === '"') { out += '"'; i++; }
-				else if (c === '\\') { out += '\\'; i++; }
-				else if (c >= '0' && c <= '7' && i + 3 < s.length && s[i + 2] >= '0' && s[i + 2] <= '7' && s[i + 3] >= '0' && s[i + 3] <= '7') {
-					// Octal escape: collect up to 3 digits
-					const octal = s.slice(i + 1, i + 4);
-					const byte = parseInt(octal, 8);
-					out += String.fromCharCode(byte);
-					i += 3;
-				} else {
-					out += s[i];
-				}
-			} else {
-				out += s[i];
-			}
-		}
-		return out;
+// `git apply --numstat -z` lists "added\tdeleted\tpath" per file, NUL-separated and unquoted.
+// A rename or copy is "added\tdeleted\t" followed by the old and new paths as their own entries.
+export function pathsFromNumstatZ(out: string): string[] {
+	const parts = out.split('\0');
+	if (parts[parts.length - 1] === '') { parts.pop(); }
+	const paths: string[] = [];
+	for (let i = 0; i < parts.length; i++) {
+		const m = parts[i].match(/^(?:\d+|-)\t(?:\d+|-)\t([\s\S]*)$/);
+		if (!m) { throw new Error(`unparseable numstat entry: ${JSON.stringify(parts[i])}`); }
+		if (m[1] !== '') { paths.push(m[1]); continue; }
+		if (i + 2 >= parts.length) { throw new Error('truncated numstat rename entry'); }
+		paths.push(parts[i + 1], parts[i + 2]);
+		i += 2;
 	}
-	return s;
+	return paths;
 }
 
-export function pathsFromPatch(patch: string): string[] {
-	const out = new Set<string>();
-	let inHeader = false;
-	for (const line of patch.split('\n')) {
-		let d = line.match(/^diff --git "a\/(.*)" "b\/(.*)"\s*$/);
-		if (!d) { d = line.match(/^diff --git a\/(.*) b\/(.*)$/); }
-		if (d) {
-			const aPath = decodeGitPath(d[1]);
-			const bPath = decodeGitPath(d[2]);
-			if (!aPath || !bPath) { throw new Error(`Invalid diff --git line: ${line}`); }
-			out.add(aPath);
-			out.add(bPath);
-			inHeader = true;
-			continue;
+// Plain --numstat reports only the new name of a pure rename, so the source comes from
+// `--summary -z` ("rename A => B (N%)"). A path may itself contain " => ", so take every split.
+export function pathsFromSummaryZ(out: string): string[] {
+	const paths: string[] = [];
+	for (const line of out.split('\n')) {
+		if (!/^ (?:rename|copy) /.test(line)) { continue; }
+		const m = line.match(/^ (?:rename|copy) ([\s\S]*) \(\d+%\)$/);
+		if (!m) { throw new Error(`unparseable summary line: ${JSON.stringify(line)}`); }
+		const names = m[1].split(' => ');
+		if (names.length < 2) { throw new Error(`unparseable summary line: ${JSON.stringify(line)}`); }
+		for (let k = 1; k < names.length; k++) {
+			paths.push(names.slice(0, k).join(' => '), names.slice(k).join(' => '));
 		}
-		if (line.startsWith('@@')) { inHeader = false; continue; }
-		if (!inHeader) { continue; }
-		const m = line.match(/^(?:rename from|rename to|copy from|copy to) (.+)$/) ?? line.match(/^(?:---|\+\+\+) [ab]\/(.*)$/);
-		if (m) { out.add(decodeGitPath(m[1])); }
 	}
-	return [...out];
+	return paths;
+}
+
+function git(args: string[], cwd: string): string {
+	const r = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+	if (r.error || r.status !== 0) { throw new Error(`git ${args[0]} failed: ${r.error?.message || r.stderr}`); }
+	return r.stdout;
+}
+
+export function repoRootOf(cwd: string): string {
+	return git(['rev-parse', '--show-toplevel'], cwd).trim();
+}
+
+/** Paths a patch file touches, as git itself reads them. Throws on any failure or on a patch with no paths. */
+export function pathsFromPatch(patchFile: string, repoRoot: string): string[] {
+	const file = resolve(patchFile);
+	const paths = [
+		...pathsFromNumstatZ(git(['apply', '--numstat', '-z', file], repoRoot)),
+		...pathsFromSummaryZ(git(['apply', '--summary', '-z', file], repoRoot)),
+	];
+	if (!paths.length) { throw new Error(`no paths found in ${patchFile}`); }
+	return paths;
 }
 
 export function outside(paths: string[]): string[] {
-	return paths.filter(p => !p.startsWith(SKILL_PREFIX) || p.includes('..'));
+	return paths.filter(p => !p.startsWith(SKILL_PREFIX) || p.includes('..') || /[\x00-\x1f]/.test(p));
 }
 
-try {
-	if (fileURLToPath(import.meta.url) === realpathSync(process.argv[1])) {
-		const args = process.argv.slice(2);
-		let paths: string[];
-		if (args[0] === '--worktree') {
-			const s = spawnSync('git', ['status', '--porcelain=v1', '-z', '--untracked-files=all'], { encoding: 'utf8' });
-			if (s.error || s.status !== 0) {
-				console.log(`scope: git failed: ${s.error?.message || s.stderr}`);
-				process.exit(1);
-			}
-			paths = pathsFromStatus(s.stdout);
-		} else if (args[0] === '--patch') {
-			const files = args.slice(1);
-			if (!files.length) {
-				console.log('usage: scope.ts --worktree | --patch FILE...');
-				process.exit(1);
-			}
-			try {
-				paths = files.flatMap(f => pathsFromPatch(readFileSync(f, 'utf8')));
-			} catch (e) {
-				console.log(`scope: ${e instanceof Error ? e.message : String(e)}`);
-				process.exit(1);
-			}
-			if (!paths.length) {
-				console.log('scope: no paths found in patch');
-				process.exit(1);
-			}
-		} else {
-			console.log('usage: scope.ts --worktree | --patch FILE...');
-			process.exit(2);
-		}
-		const bad = outside(paths);
-		for (const p of bad) { console.log(`outside ${SKILL_PREFIX}: ${p}`); }
-		process.exitCode = bad.length ? 1 : 0;
+function isMain(): boolean {
+	try { return fileURLToPath(import.meta.url) === realpathSync(process.argv[1]); } catch { return false; }
+}
+
+function main(): number {
+	const args = process.argv.slice(2);
+	const repoRoot = repoRootOf(process.cwd());
+	let paths: string[];
+	if (args[0] === '--worktree') {
+		paths = pathsFromStatus(git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], repoRoot));
+	} else if (args[0] === '--patch' && args.length > 1) {
+		paths = args.slice(1).flatMap(f => pathsFromPatch(f, repoRoot));
+	} else {
+		console.log('usage: scope.ts --worktree | --patch FILE...');
+		return 2;
 	}
-} catch {
-	// Not running as CLI script, likely imported as module
+	const bad = outside(paths);
+	for (const p of bad) { console.log(`outside ${SKILL_PREFIX}: ${p}`); }
+	return bad.length ? 1 : 0;
+}
+
+if (isMain()) {
+	try {
+		process.exitCode = main();
+	} catch (e) {
+		console.log(`scope: ${e instanceof Error ? e.message : String(e)}`);
+		process.exitCode = 1;
+	}
 }

@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { outside, pathsFromPatch, pathsFromStatus } from './scope.ts';
+import { outside, pathsFromNumstatZ, pathsFromStatus, pathsFromSummaryZ } from './scope.ts';
 
 test('status: modified, untracked and both sides of a rename', () => {
 	const z = [' M .claude/skills/drive-positron/scripts/dp-ui.ts', '?? .claude/skills/drive-positron/heal/x.ts', 'R  src/vs/new.ts', '.claude/skills/drive-positron/old.ts', ''].join('\0');
@@ -16,28 +16,25 @@ test('a look-alike sibling directory is outside', () => {
 	assert.deepEqual(outside(['.claude/skills/drive-positron-old/a.ts', '.claude/skills/drive-positron/a.ts', '.claude/skills/drive-positron']), ['.claude/skills/drive-positron-old/a.ts', '.claude/skills/drive-positron']);
 });
 
-test('patch: both sides of a rename, and new and deleted files', () => {
-	const patch = [
-		'diff --git a/.claude/skills/drive-positron/a.ts b/src/a.ts',
-		'similarity index 100%',
-		'rename from .claude/skills/drive-positron/a.ts',
-		'rename to src/a.ts',
-		'diff --git a/.claude/skills/drive-positron/b.ts b/.claude/skills/drive-positron/b.ts',
-		'new file mode 100644',
-		'--- /dev/null',
-		'+++ b/.claude/skills/drive-positron/b.ts',
-	].join('\n');
-	assert.deepEqual(outside(pathsFromPatch(patch)), ['src/a.ts']);
+test('numstat: plain, rename and non-ASCII entries', () => {
+	const z = ['1\t0\t.claude/skills/drive-positron/a.ts', '0\t0\t', 'src/old.ts', '.claude/skills/drive-positron/new.ts', '-\t-\tsrc/\u00e9.ts', ''].join('\0');
+	assert.deepEqual(pathsFromNumstatZ(z), ['.claude/skills/drive-positron/a.ts', 'src/old.ts', '.claude/skills/drive-positron/new.ts', 'src/\u00e9.ts']);
+	assert.deepEqual(outside(pathsFromNumstatZ(z)), ['src/old.ts', 'src/\u00e9.ts']);
 });
 
-test('a patch line that only looks like a header inside a hunk is ignored', () => {
-	const patch = ['diff --git a/.claude/skills/drive-positron/c.md b/.claude/skills/drive-positron/c.md', '@@ -1 +1 @@', '-x', '+rename to src/evil.ts'].join('\n');
-	assert.deepEqual(outside(pathsFromPatch(patch)), []);
+test('numstat: garbage and truncated renames throw', () => {
+	assert.throws(() => pathsFromNumstatZ('not numstat\0'));
+	assert.throws(() => pathsFromNumstatZ('0\t0\t\0only-one\0'));
 });
 
-test('quoted patch header with mode-only change on path outside skill', () => {
-	const patch = ['diff --git "a/src/evil.ts" "b/src/evil.ts"', 'old mode 100644', 'new mode 100755'].join('\n');
-	assert.deepEqual(outside(pathsFromPatch(patch)), ['src/evil.ts']);
+test('summary: rename source, and every split of an ambiguous arrow', () => {
+	assert.deepEqual(pathsFromSummaryZ(' rename src/a.ts => .claude/skills/drive-positron/b.ts (100%)\n create mode 100644 x\n'), ['src/a.ts', '.claude/skills/drive-positron/b.ts']);
+	assert.deepEqual(pathsFromSummaryZ(' copy a => b => c (90%)\n'), ['a', 'b => c', 'a => b', 'c']);
+	assert.throws(() => pathsFromSummaryZ(' rename nonsense\n'));
+});
+
+test('control characters in a path are outside', () => {
+	assert.deepEqual(outside(['.claude/skills/drive-positron/a\nb.ts']), ['.claude/skills/drive-positron/a\nb.ts']);
 });
 
 test('a path containing .. is outside', () => {

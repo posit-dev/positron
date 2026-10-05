@@ -16,17 +16,18 @@ export function compareUrl(branch: string, title: string, body: string, runUrl: 
 	const tail = `\n\nFull run: ${runUrl}`;
 	const build = (b: string) => `${REPO}/compare/main...${branch}?expand=1&title=${encodeURIComponent(title)}&body=${encodeURIComponent(b + tail)}`;
 	if (build(body).length <= max) { return build(body); }
-	// Cut by characters, not by encoded length, avoiding breaking surrogate pairs.
+	// Search on plain indices; the probe and the final cut both step back off a split surrogate
+	// pair, since encodeURIComponent throws on a lone surrogate.
+	const snap = (n: number) => {
+		const c = body.charCodeAt(n - 1);
+		return n > 0 && c >= 0xD800 && c <= 0xDBFF ? n - 1 : n;
+	};
 	let lo = 0, hi = body.length;
 	while (lo < hi) {
 		const mid = Math.ceil((lo + hi) / 2);
-		let cutPoint = mid;
-		// Back off one char if we land after a high surrogate (first half of a surrogate pair)
-		if (cutPoint > 0 && body.charCodeAt(cutPoint - 1) >= 0xD800 && body.charCodeAt(cutPoint - 1) <= 0xDBFF) {
-			cutPoint--;
-		}
-		if (build(`${body.slice(0, cutPoint)}\n\n(trimmed)`).length <= max) { lo = cutPoint; } else { hi = mid - 1; }
+		if (build(`${body.slice(0, snap(mid))}\n\n(trimmed)`).length <= max) { lo = mid; } else { hi = mid - 1; }
 	}
+	lo = snap(lo);
 	return build(`${body.slice(0, lo)}\n\n(trimmed)`);
 }
 
