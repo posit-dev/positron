@@ -845,17 +845,17 @@ declare module 'positron' {
 
 		/**
 		 * Who the session belongs to. `user` for sessions the user starts;
-		 * `assistant` for sessions Posit Assistant starts for itself. When
-		 * absent, the session belongs to the user.
+		 * `agent` for sessions an AI agent starts for itself. When absent, the
+		 * session belongs to the user.
 		 */
 		readonly owner?: RuntimeSessionOwner;
 	}
 
 	/**
 	 * Who a session belongs to. `user` for sessions the user starts;
-	 * `assistant` for sessions Posit Assistant starts for itself.
+	 * `agent` for sessions an AI agent starts for itself.
 	 */
-	export type RuntimeSessionOwner = 'user' | 'assistant';
+	export type RuntimeSessionOwner = 'user' | 'agent';
 
 	/** Options for {@link runtime.startLanguageRuntime}. */
 	export interface RuntimeSessionStartOptions {

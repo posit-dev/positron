@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Assistant-owned sessions draw the sparkle codicon in place of their language
+ * Agent-owned sessions draw the sparkle codicon in place of their language
  * glyph, wherever session icons are shown (console tab list, session quick
  * pick). The file icon theme's color for the language still applies, so they
  * match the other sessions. `!important` beats the theme's glyph rules, which
@@ -14,7 +14,7 @@
  * it replaces, so nudge it into line. The same offset applies wherever the icon
  * shows, so the console tab and the quick pick agree.
  */
-.show-file-icons .assistant-session-icon::before {
+.show-file-icons .agent-session-icon::before {
 	font-family: codicon !important;
 	content: "\ec10" !important;
 	font-size: 16px !important;

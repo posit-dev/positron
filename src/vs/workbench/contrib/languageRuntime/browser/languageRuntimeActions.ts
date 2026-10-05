@@ -19,7 +19,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
-import '../../positronConsole/browser/assistantSessionIcon.css';
+import '../../positronConsole/browser/agentSessionIcon.css';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IRuntimeDiscoveryCache } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
@@ -37,7 +37,7 @@ import { IProgressService, ProgressLocation } from '../../../../platform/progres
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getErrorMessage } from '../../../../base/common/errors.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
+import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -80,7 +80,7 @@ export const LANGUAGE_RUNTIME_CLEAR_INTERPRETER_CACHE_ID = 'workbench.action.lan
 // Console Session Specific Action IDs
 export const LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.startNewConsoleSession';
 export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveConsoleSession';
-export const LANGUAGE_RUNTIME_START_NEW_ASSISTANT_SESSION_ID = 'positron.languageRuntime.startNewAssistantSession';
+export const LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID = 'positron.languageRuntime.startNewAgentSession';
 
 // Notebook Session Specific Action IDs
 export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.action.languageRuntime.selectLegacyNotebookRuntime';
@@ -1097,11 +1097,11 @@ export class StartNewConsoleSessionAction extends Action2 {
 }
 
 /**
- * Start an Assistant-owned console session for a runtime. Started by the user,
+ * Start an agent-owned console session for a runtime. Started by the user,
  * it takes the foreground like any session they start; only its owner differs.
  * @returns The new session's id.
  */
-export function startNewAssistantSession(
+export function startNewAgentSession(
 	runtimeSessionService: IRuntimeSessionService,
 	runtime: ILanguageRuntimeMetadata,
 ): Promise<string> {
@@ -1110,27 +1110,27 @@ export function startNewAssistantSession(
 		runtime.runtimeName,
 		LanguageRuntimeSessionMode.Console,
 		undefined,
-		'User started an Assistant session',
+		'User started an agent session',
 		RuntimeStartMode.Starting,
 		true,
-		{ userSelected: true, owner: 'assistant' }
+		{ userSelected: true, owner: 'agent' }
 	);
 }
 
 /**
- * Action that lets the user pick a runtime and start it as an Assistant-owned
+ * Action that lets the user pick a runtime and start it as an agent-owned
  * console session.
  */
-export class StartNewAssistantSessionAction extends Action2 {
+export class StartNewAgentSessionAction extends Action2 {
 	constructor() {
 		super({
-			id: LANGUAGE_RUNTIME_START_NEW_ASSISTANT_SESSION_ID,
-			title: localize2('positron.languageRuntime.startNewAssistantSession', 'Start Assistant Session...'),
+			id: LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID,
+			title: localize2('positron.languageRuntime.startNewAgentSession', 'Start Agent Console Session...'),
 			category,
 			f1: true,
 			precondition: ContextKeyExpr.and(
 				ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
-				ContextKeyExpr.has(`config.${ASSISTANT_SESSIONS_ENABLED_KEY}`),
+				ContextKeyExpr.has(`config.${AGENT_SESSIONS_ENABLED_KEY}`),
 			),
 		});
 	}
@@ -1140,14 +1140,14 @@ export class StartNewAssistantSessionAction extends Action2 {
 
 		// Prompt for a runtime, focusing the foreground session's runtime.
 		const runtime = await selectNewLanguageRuntime(accessor, {
-			title: localize('positron.languageRuntime.startNewAssistantSession.quickPickTitle', 'Start Assistant Session'),
+			title: localize('positron.languageRuntime.startNewAgentSession.quickPickTitle', 'Start Agent Console Session'),
 			currentRuntimeId: runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId,
 		});
 		if (!runtime) {
 			return undefined;
 		}
 
-		return startNewAssistantSession(runtimeSessionService, runtime);
+		return startNewAgentSession(runtimeSessionService, runtime);
 	}
 }
 
@@ -1335,7 +1335,7 @@ export function registerLanguageRuntimeActions() {
 
 	registerAction2(StartNewConsoleSessionAction);
 
-	registerAction2(StartNewAssistantSessionAction);
+	registerAction2(StartNewAgentSessionAction);
 
 	/**
 	 * Action that allows the user to rename an active session.

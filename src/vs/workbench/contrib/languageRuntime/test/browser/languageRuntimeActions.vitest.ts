@@ -12,7 +12,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAssistantSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -30,7 +30,7 @@ import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } fr
 import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
+import { AGENT_SESSIONS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';
@@ -766,25 +766,25 @@ describe('selectNewLanguageRuntime', () => {
 	});
 });
 
-describe('selectLanguageRuntimeSession - Assistant session icon', () => {
+describe('selectLanguageRuntimeSession - agent session icon', () => {
 	let pickItems: QuickPickItem[] = [];
 	const pickFn = vi.fn(async (items: QuickPickItem[]): Promise<QuickPickItem | undefined> => {
 		pickItems = items;
 		return undefined;
 	});
 
-	const assistantSession = stubInterface<ILanguageRuntimeSession>({
-		sessionId: 'assistant-session-1',
+	const agentSession = stubInterface<ILanguageRuntimeSession>({
+		sessionId: 'agent-session-1',
 		metadata: {
-			sessionId: 'assistant-session-1',
+			sessionId: 'agent-session-1',
 			sessionMode: LanguageRuntimeSessionMode.Console,
 			notebookUri: undefined,
 			createdTimestamp: 0,
 			startReason: 'test',
-			owner: 'assistant',
+			owner: 'agent',
 		},
 		runtimeMetadata: makeRuntime(),
-		dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'Python (Assistant)' }),
+		dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'Python (Agent)' }),
 		getRuntimeState: () => RuntimeState.Idle,
 	});
 
@@ -792,7 +792,7 @@ describe('selectLanguageRuntimeSession - Assistant session icon', () => {
 		.withRuntimeServices()
 		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
 			foregroundSession: undefined,
-			activeSessions: [assistantSession],
+			activeSessions: [agentSession],
 		}))
 		.stub(IModelService, { getModel: () => null })
 		.stub(IQuickInputService, stubInterface<IQuickInputService>({
@@ -800,13 +800,13 @@ describe('selectLanguageRuntimeSession - Assistant session icon', () => {
 		}))
 		.build();
 
-	// The setting gates starting Assistant sessions, not how existing ones look.
-	it('marks an Assistant session even while the ai.assistantSessions.enabled setting is off', async () => {
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
+	// The setting gates starting agent sessions, not how existing ones look.
+	it('marks an agent session even while the ai.agentSessions.enabled setting is off', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(AGENT_SESSIONS_ENABLED_KEY, false);
 		await ctx.instantiationService.invokeFunction(accessor => selectLanguageRuntimeSession(accessor));
 		const item = pickItems.find((item): item is IQuickPickItem =>
-			item.type !== 'separator' && item.id === assistantSession.sessionId);
-		expect(item?.iconClasses).toContain('assistant-session-icon');
+			item.type !== 'separator' && item.id === agentSession.sessionId);
+		expect(item?.iconClasses).toContain('agent-session-icon');
 	});
 });
 
@@ -1168,17 +1168,17 @@ describe('StartNewConsoleSessionAction', () => {
 	});
 });
 
-describe('startNewAssistantSession', () => {
+describe('startNewAgentSession', () => {
 	const ctx = createTestContainer().withRuntimeServices().build();
 
-	async function startAssistantSessionBesideUserSession() {
+	async function startAgentSessionBesideUserSession() {
 		const runtimeSessionService = ctx.get(IRuntimeSessionService);
 		const userSession = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
 		await waitForRuntimeState(userSession, RuntimeState.Ready);
 		expect(runtimeSessionService.foregroundSession).toBe(userSession);
 
 		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
-		const sessionId = await startNewAssistantSession(runtimeSessionService, runtime);
+		const sessionId = await startNewAgentSession(runtimeSessionService, runtime);
 		const session = runtimeSessionService.getSession(sessionId)!;
 		ctx.disposables.add(session);
 		await waitForRuntimeState(session, RuntimeState.Ready);
@@ -1197,14 +1197,14 @@ describe('startNewAssistantSession', () => {
 		};
 	}
 
-	it('starts the runtime as an Assistant-owned console session that takes the foreground', async () => {
-		const { runtime, sessionId, summary } = await startAssistantSessionBesideUserSession();
+	it('starts the runtime as an agent-owned console session that takes the foreground', async () => {
+		const { runtime, sessionId, summary } = await startAgentSessionBesideUserSession();
 
 		expect(summary).toEqual({
 			runtimeId: runtime.runtimeId,
 			sessionName: runtime.runtimeName,
 			sessionMode: LanguageRuntimeSessionMode.Console,
-			owner: 'assistant',
+			owner: 'agent',
 			foregroundSessionId: sessionId,
 		});
 	});

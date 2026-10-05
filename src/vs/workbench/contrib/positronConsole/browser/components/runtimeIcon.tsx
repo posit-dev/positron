@@ -5,7 +5,7 @@
 
 // CSS.
 import './runtimeIcon.css';
-import '../assistantSessionIcon.css';
+import '../agentSessionIcon.css';
 
 // React.
 import { useEffect, useState } from 'react';

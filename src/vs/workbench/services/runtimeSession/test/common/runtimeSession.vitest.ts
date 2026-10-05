@@ -24,7 +24,7 @@ import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
+import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY } from '../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
 type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
@@ -1874,8 +1874,8 @@ describe('Positron - RuntimeSessionService', () => {
 		});
 	});
 
-	describe('assistant owner', () => {
-		async function startConsoleOwnedByAssistant() {
+	describe('agent owner', () => {
+		async function startConsoleOwnedByAgent() {
 			const userSession = await startConsole(runtime);
 			await waitForRuntimeState(userSession, RuntimeState.Ready);
 
@@ -1888,7 +1888,7 @@ describe('Positron - RuntimeSessionService', () => {
 				startReason,
 				RuntimeStartMode.Starting,
 				false,
-				{ owner: 'assistant' },
+				{ owner: 'agent' },
 			);
 			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;
 			ctx.disposables.add(session);
@@ -1904,14 +1904,14 @@ describe('Positron - RuntimeSessionService', () => {
 
 		// The owner is recorded whatever the settings say; only how sessions
 		// are presented is gated on them.
-		it('is kept without taking the foreground while the ai.assistantSessions.enabled setting is off', async () => {
+		it('is kept without taking the foreground while the ai.agentSessions.enabled setting is off', async () => {
 			configService.setUserConfiguration(AI_ENABLED_KEY, true);
-			configService.setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
+			configService.setUserConfiguration(AGENT_SESSIONS_ENABLED_KEY, false);
 
-			const result = await startConsoleOwnedByAssistant();
+			const result = await startConsoleOwnedByAgent();
 
 			expect({ owner: result.owner, foregroundSessionId: result.foregroundSessionId })
-				.toEqual({ owner: 'assistant', foregroundSessionId: result.userSessionId });
+				.toEqual({ owner: 'agent', foregroundSessionId: result.userSessionId });
 		});
 	});
 

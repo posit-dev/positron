@@ -82,10 +82,10 @@ export interface ILanguageRuntimeSessionStateEvent {
 }
 
 /**
- * Who a session belongs to. `user` for sessions the user starts; `assistant`
- * for sessions Posit Assistant starts for itself.
+ * Who a session belongs to. `user` for sessions the user starts; `agent` for
+ * sessions an AI agent starts for itself.
  */
-export type RuntimeSessionOwner = 'user' | 'assistant';
+export type RuntimeSessionOwner = 'user' | 'agent';
 
 export interface IStartNewRuntimeSessionOptions {
 	/**
@@ -165,8 +165,8 @@ export interface IRuntimeSessionMetadata {
 
 	/**
 	 * Who the session belongs to. `user` for sessions the user starts;
-	 * `assistant` for sessions Posit Assistant starts for itself. Persists
-	 * across restore.
+	 * `agent` for sessions an AI agent starts for itself. Persists across
+	 * restore.
 	 */
 	readonly owner: RuntimeSessionOwner;
 }

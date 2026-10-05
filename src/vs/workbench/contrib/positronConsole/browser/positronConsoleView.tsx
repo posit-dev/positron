@@ -32,8 +32,8 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 import { IActionViewItem } from '../../../../base/browser/ui/actionbar/actionbar.js';
 import { IDropdownMenuActionViewItemOptions } from '../../../../base/browser/ui/dropdown/dropdownActionViewItem.js';
 import { Action, IAction, Separator } from '../../../../base/common/actions.js';
-import { LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_ASSISTANT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
-import { AI_ENABLED_KEY, ASSISTANT_SESSIONS_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
+import { LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/browser/dropdownWithPrimaryActionViewItem.js';
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
@@ -236,10 +236,10 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._register(this.runtimeSessionService.onDidChangeForegroundSession(() => this.updateActions()));
 		this._register(this.runtimeSessionService.onDidDeleteRuntimeSession(() => this.updateActions()));
 
-		// Rebuild the session dropdown so "Start Assistant Session..." follows
-		// ai.enabled and ai.assistantSessions.enabled.
+		// Rebuild the session dropdown so "Start Agent Console Session..." follows
+		// ai.enabled and ai.agentSessions.enabled.
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(AI_ENABLED_KEY) || e.affectsConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY)) {
+			if (e.affectsConfiguration(AI_ENABLED_KEY) || e.affectsConfiguration(AGENT_SESSIONS_ENABLED_KEY)) {
 				this.updateActions();
 			}
 		}));
@@ -396,16 +396,16 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		);
 
 		if (this.configurationService.getValue<boolean>(AI_ENABLED_KEY) === true &&
-			this.configurationService.getValue<boolean>(ASSISTANT_SESSIONS_ENABLED_KEY) === true) {
-			// Set apart from the user's own sessions: this starts one for the Assistant.
+			this.configurationService.getValue<boolean>(AGENT_SESSIONS_ENABLED_KEY) === true) {
+			// Set apart from the user's own sessions: this starts one for an agent.
 			dropdownMenuActions.push(new Separator());
 			dropdownMenuActions.push(new Action(
-				'console.startSession.assistant',
-				localize('console.startSession.assistant', 'Start Assistant Session...'),
+				'console.startSession.agent',
+				localize('console.startSession.agent', 'Start Agent Console Session...'),
 				undefined,
 				true,
 				() => {
-					this.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_ASSISTANT_SESSION_ID);
+					this.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID);
 				})
 			);
 		}

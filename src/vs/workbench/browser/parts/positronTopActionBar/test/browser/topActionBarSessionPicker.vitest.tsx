@@ -19,7 +19,7 @@ import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_
 import { ICommandService } from '../../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { ASSISTANT_SESSIONS_ENABLED_KEY } from '../../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
+import { AGENT_SESSIONS_ENABLED_KEY } from '../../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -149,24 +149,24 @@ describe('TopActionBarSessionPicker', () => {
 		});
 	});
 
-	describe('assistant-owned console session', () => {
-		const assistantInfo = makeDisplayInfo({ owner: 'assistant' });
+	describe('agent-owned console session', () => {
+		const agentInfo = makeDisplayInfo({ owner: 'agent' });
 		const displayInfoEmitter = new Emitter<IRuntimeSessionDisplayInfo | undefined>();
 		const ctx = createTestContainer()
 			.withReactServices()
 			.stub(IRuntimeSessionService, {
-				foregroundSessionDisplayInfo: assistantInfo,
+				foregroundSessionDisplayInfo: agentInfo,
 				activeSessions: [makeConsoleSessionStub() as ILanguageRuntimeSession],
 				onDidChangeForegroundSessionDisplayInfo: displayInfoEmitter.event,
 			})
 			.build();
 		const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-		// The setting gates starting Assistant sessions, not how existing ones look.
-		it('marks the icon as an Assistant session, keeping the language class, even while the ai.assistantSessions.enabled setting is off', () => {
-			(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ASSISTANT_SESSIONS_ENABLED_KEY, false);
+		// The setting gates starting agent sessions, not how existing ones look.
+		it('marks the icon as an agent session, keeping the language class, even while the ai.agentSessions.enabled setting is off', () => {
+			(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(AGENT_SESSIONS_ENABLED_KEY, false);
 			rtl.render(<TopActionBarSessionPicker />);
-			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'python-lang-file-icon', 'assistant-session-icon');
+			expect(screen.getByTestId(SESSION_PICKER_ICON_TEST_ID)).toHaveClass('runtime-session-icon', 'python-lang-file-icon', 'agent-session-icon');
 		});
 	});
 

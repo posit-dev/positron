@@ -1173,7 +1173,7 @@ describe('RuntimeStartupService - restored sessions', () => {
 			'positron.workspaceSessionList.v3',
 			JSON.stringify([
 				storedSession('pre-owner-session', 2),
-				storedSession('assistant-session', 1, 'assistant'),
+				storedSession('agent-session', 1, 'agent'),
 			]),
 			StorageScope.WORKSPACE,
 			StorageTarget.MACHINE,
@@ -1185,7 +1185,7 @@ describe('RuntimeStartupService - restored sessions', () => {
 
 		expect(sessions.map(session => [session.metadata.sessionId, session.metadata.owner])).toEqual([
 			['pre-owner-session', 'user'],
-			['assistant-session', 'assistant'],
+			['agent-session', 'agent'],
 		]);
 	});
 });

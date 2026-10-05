@@ -128,8 +128,8 @@ export function getFittedSessionName(
 	return '';
 }
 
-/** Marks an Assistant-owned session's icon; styled in assistantSessionIcon.css. */
-const ASSISTANT_SESSION_ICON_CLASS = 'assistant-session-icon';
+/** Marks an agent-owned session's icon; styled in agentSessionIcon.css. */
+const AGENT_SESSION_ICON_CLASS = 'agent-session-icon';
 
 /**
  * The subset of session info needed to determine the session icon.
@@ -152,11 +152,11 @@ export function getSessionIconClasses(
 	modelService: IModelService,
 	languageService: ILanguageService,
 ): string[] {
-	// Assistant-owned sessions keep their language's file icon classes, so the
+	// Agent-owned sessions keep their language's file icon classes, so the
 	// theme colors them like other sessions, plus a class that swaps in the
-	// sparkle glyph (see assistantSessionIcon.css).
-	if (info.owner === 'assistant') {
-		return [...getSessionIconClasses({ ...info, owner: 'user' }, modelService, languageService), ASSISTANT_SESSION_ICON_CLASS];
+	// sparkle glyph (see agentSessionIcon.css).
+	if (info.owner === 'agent') {
+		return [...getSessionIconClasses({ ...info, owner: 'user' }, modelService, languageService), AGENT_SESSION_ICON_CLASS];
 	}
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
 		return getIconClasses(modelService, languageService, info.notebookUri, FileKind.FILE);
