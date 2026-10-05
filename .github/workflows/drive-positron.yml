@@ -51,7 +51,7 @@ concurrency:
 
 jobs:
   drift:
-    name: drift (warn-only)
+    name: drift
     continue-on-error: true
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -119,7 +119,7 @@ jobs:
         run: node .claude/skills/drive-positron/test/check.ts
 
   smoke:
-    name: smoke (warn-only)
+    name: smoke
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     continue-on-error: true
     # The build is the one test-e2e-ubuntu.yml uses, in the same image.
