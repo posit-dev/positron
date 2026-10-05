@@ -32,7 +32,6 @@ describe('AgentAllowedCommandsService', () => {
 
 	function makeService(overrides: {
 		executeCommand?: ICommandService['executeCommand'];
-		/** Stubs the active editor group's context. */
 		contextMatchesRules?: IContextKeyService['contextMatchesRules'];
 		/** The active editor group's context. Takes precedence over `contextMatchesRules`. */
 		groupContext?: IContextKeyService;
@@ -62,12 +61,7 @@ describe('AgentAllowedCommandsService', () => {
 		return new AgentAllowedCommandsService(commandService, new NullLogService(), productService, extensionService, editorService, editorGroupsService);
 	}
 
-	/**
-	 * Real contexts nested the way the workbench nests them: the window's, an
-	 * editor group's inside it, and a code editor's inside that, where the
-	 * editor binds keys such as `editorLangId`. Keys set on an outer context
-	 * resolve in the inner ones.
-	 */
+	/** Real window, editor group and editor contexts, nested as in the workbench. */
 	function makeContexts(keys: {
 		window?: Record<string, ContextKeyValue>;
 		group?: Record<string, ContextKeyValue>;
@@ -424,8 +418,6 @@ describe('AgentAllowedCommandsService', () => {
 			expect(executeCommand).not.toHaveBeenCalled();
 		});
 
-		// The agent calls from outside the editor, so `editorLangId` is never in
-		// the window's context; only the active editor's context has it.
 		it.each([
 			{ editorLangId: 'r', ok: true },
 			{ editorLangId: 'python', ok: false },

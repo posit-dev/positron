@@ -152,13 +152,9 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 	) { }
 
 	/**
-	 * Whether a command's precondition currently holds. It is checked in the
-	 * active editor's context, falling back to the active editor group's, the
-	 * same way the Command Palette decides which commands to offer. Many
-	 * preconditions use keys that exist only there, such as `editorLangId`. An
-	 * agent runs commands from outside the editor, so the window's context
-	 * alone would report those commands disabled even with the right file open
-	 * (posit-dev/positron#16375).
+	 * Checks the precondition where the Command Palette does: in the active
+	 * editor's context, which has editor-only keys such as `editorLangId` that
+	 * the window's context lacks (posit-dev/positron#16375).
 	 */
 	private _preconditionHolds(precondition: ContextKeyExpression | undefined): boolean {
 		if (!precondition) {
