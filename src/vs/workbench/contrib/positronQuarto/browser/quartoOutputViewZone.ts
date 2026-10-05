@@ -34,7 +34,7 @@ import { POSITRON_NOTEBOOK_INLINE_DATA_EXPLORER_ENABLED_KEY, POSITRON_NOTEBOOK_I
 import { QuartoInlineDataExplorer } from './quartoInlineDataExplorer.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { calculateInlineDataExplorerHeight } from './quartoInlineDataExplorerLayout.js';
-import { getInlineGridMetrics } from '../../../services/positronDataExplorer/browser/inlineGridMetrics.js';
+import { getInlineGridMetrics, REFERENCE_FONT_SIZE } from '../../../services/positronDataExplorer/browser/inlineGridMetrics.js';
 import { ResourceUsageGraph } from '../../positronConsole/browser/components/resourceUsageGraph.js';
 import { IResourceUsageHistoryService } from '../../../services/positronConsole/browser/resourceUsageHistoryService.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -421,6 +421,10 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 		this._styledContainer.setAttribute('role', 'region');
 		this._styledContainer.setAttribute('aria-label', localize('quartoOutput', 'Cell output'));
 		this._styledContainer.setAttribute('tabindex', '0');
+		// The em-based spacing in quartoOutputViewZone.css divides by this
+		// value, so it matches the original px design at the platform's
+		// default editor font size, the same reference the inline grid uses.
+		this._styledContainer.style.setProperty('--quarto-output-reference-font-size', `${REFERENCE_FONT_SIZE}`);
 		this.domNode.appendChild(this._styledContainer);
 
 		// Create button container for close and copy buttons

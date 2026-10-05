@@ -30,8 +30,9 @@ export const REFERENCE_FONT_SIZE = isMacintosh ? 12 : 14;
 
 /**
  * Vertical breathing room in a data row beyond the text's line height.
- * Chosen so that the default line heights (1.5x on macOS, 1.35x elsewhere)
- * at the reference font size still yield the designed row height.
+ * Chosen so that, at the reference font size with the default line height,
+ * the line-height floor (line height + padding) stays at or below the
+ * designed row height: 21px on macOS and 22px elsewhere.
  */
 const INLINE_GRID_ROW_VERTICAL_PADDING = 3;
 

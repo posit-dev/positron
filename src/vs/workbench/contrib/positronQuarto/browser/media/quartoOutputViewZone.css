@@ -23,15 +23,20 @@
 
 /*
  * Main container for inline output view zone. Spacing in this file uses em
- * units so it scales with the editor font size; the values match the original
- * px design at a 12px editor font.
+ * units so it scales with the editor font size. Each value is written as
+ * calc(<px>em / var(--quarto-output-reference-font-size)), where <px> is the
+ * original px design value. The reference font size is the platform's default
+ * editor font size (set from JavaScript), so the spacing matches the original
+ * px design when the user has not changed the editor font size. Rules that
+ * set a smaller font-size also divide by that scale, so their spacing is
+ * measured against the editor font size.
  */
 .quarto-inline-output {
 	position: relative;
-	padding: 0.667em 1em;
+	padding: calc(8em / var(--quarto-output-reference-font-size)) calc(12em / var(--quarto-output-reference-font-size));
 	/* Space for the close button, which has a fixed size, so this does not scale */
 	padding-right: 32px;
-	margin: 0.333em 0;
+	margin: calc(4em / var(--quarto-output-reference-font-size)) 0;
 	background: var(--vscode-notebook-cellEditorBackground);
 	border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.35));
 	border-radius: 4px;
@@ -123,14 +128,14 @@
 .quarto-output-content {
 	display: flex;
 	flex-direction: column;
-	gap: 0.333em;
+	gap: calc(4em / var(--quarto-output-reference-font-size));
 }
 
 /* Individual output item */
 .quarto-output-item {
 	display: flex;
 	flex-direction: column;
-	gap: 0.167em;
+	gap: calc(2em / var(--quarto-output-reference-font-size));
 }
 
 /* Standard output (stdout) */
@@ -195,13 +200,13 @@
 
 .quarto-output-html table {
 	border-collapse: collapse;
-	margin: 0.333em 0;
+	margin: calc(4em / var(--quarto-output-reference-font-size)) 0;
 }
 
 .quarto-output-html th,
 .quarto-output-html td {
 	border: 1px solid var(--vscode-panel-border);
-	padding: 0.333em 0.667em;
+	padding: calc(4em / var(--quarto-output-reference-font-size)) calc(8em / var(--quarto-output-reference-font-size));
 }
 
 .quarto-output-html th {
@@ -211,13 +216,12 @@
 
 /* Warning message for unsafe content */
 .quarto-output-warning {
-	padding: 0.333em 0.667em;
+	padding: calc(4em / var(--quarto-output-reference-font-size)) calc(8em / var(--quarto-output-reference-font-size));
 	background: var(--vscode-inputValidation-warningBackground);
 	border: 1px solid var(--vscode-inputValidation-warningBorder);
 	border-radius: 2px;
 	color: var(--vscode-inputValidation-warningForeground);
-	font-size: 0.85em;
-	margin-bottom: 0.333em;
+	margin-bottom: calc(4em / var(--quarto-output-reference-font-size));
 }
 
 /* High contrast theme support */
@@ -263,7 +267,7 @@
 /* Escaped HTML output (fallback when webview unavailable) */
 .quarto-output-html-escaped {
 	margin: 0;
-	padding: 0.667em;
+	padding: calc(8em / var(--quarto-output-reference-font-size) / 0.85);
 	white-space: pre-wrap;
 	word-wrap: break-word;
 	/* Font is inherited from container which uses editor font settings, but slightly smaller */
@@ -278,7 +282,7 @@
 .quarto-output-loading {
 	display: flex;
 	align-items: center;
-	gap: 0.667em;
+	gap: calc(8em / var(--quarto-output-reference-font-size));
 	color: var(--vscode-descriptionForeground);
 	font-style: italic;
 }
@@ -301,12 +305,11 @@
 
 /* Truncation indicator (legacy) */
 .quarto-output-truncated {
-	padding: 0.333em 0.667em;
+	padding: calc(4em / var(--quarto-output-reference-font-size)) calc(8em / var(--quarto-output-reference-font-size));
 	background: var(--vscode-inputValidation-infoBackground);
 	border: 1px solid var(--vscode-inputValidation-infoBorder);
 	border-radius: 2px;
 	color: var(--vscode-inputValidation-infoForeground);
-	font-size: 0.85em;
 	font-style: italic;
 }
 
@@ -314,7 +317,7 @@
 .quarto-output-truncation-header {
 	font-size: 0.85em;
 	color: var(--vscode-descriptionForeground);
-	margin-bottom: 0.333em;
+	margin-bottom: calc(4em / var(--quarto-output-reference-font-size) / 0.85);
 	user-select: none;
 	-webkit-user-select: none;
 }
