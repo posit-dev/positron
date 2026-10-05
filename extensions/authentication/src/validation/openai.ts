@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { KEY_VALIDATION_TIMEOUT_MS, OPENAI_DEFAULT_BASE_URL } from '../constants';
+import { log } from '../log';
+import { getCachedProvider } from '../providerCatalog';
 import { PROVIDER_METADATA } from '../providerSources';
 import { getValidationHeaders } from './validationHeaders';
 
@@ -20,6 +22,10 @@ export async function validateOpenaiApiKey(
 	apiKey: string,
 	config: positron.ai.LanguageModelConfig
 ): Promise<void> {
+	if (getCachedProvider(PROVIDER_METADATA.openai.catalogId!)?.models?.discovery === 'off') {
+		log.info('[OpenAI] Model discovery is off; skipping API key validation.');
+		return;
+	}
 	const baseUrl = (config.baseUrl?.trim() || OPENAI_DEFAULT_BASE_URL)
 		.replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
