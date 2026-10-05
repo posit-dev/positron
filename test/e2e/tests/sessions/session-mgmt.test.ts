@@ -52,9 +52,6 @@ test.describe('Sessions: Management', {
 	test('Validate session, console, variables, and plots persist after reload',
 		{
 			tag: [tags.VARIABLES, tags.PLOTS],
-			annotation: [
-				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6843' } // <-- main issue for the test, session do not consistently restore
-			]
 		}, async function ({ app, sessions, hotKeys }) {
 			const { console, plots, variables } = app.workbench;
 
