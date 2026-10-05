@@ -45,12 +45,11 @@ const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 
 // The cells of every Quarto virtual notebook, for the console client.
 //
-// When Ark does not declare `notebookDocumentSync`, the client syncs these
-// cells as ordinary text documents and the document selector is the only
-// gate. When it does, `notebookCellFilter` gates sync and this selector only
-// routes requests. Matching the notebook's type keeps real notebooks' (.ipynb)
-// cells out, since no other notebook carries this type. A Quarto session names
-// its own document's notebook instead; see `ArkLsp._quartoCellsUri`.
+// Ark declares `notebookDocumentSync`, so `notebookCellFilter` gates sync and
+// this selector only routes requests. Matching the notebook's type keeps real
+// notebooks' (.ipynb) cells out, since no other notebook carries this type. A
+// Quarto session names its own document's notebook instead; see
+// `ArkLsp._quartoCellsUri`.
 const QUARTO_CELL_SELECTOR = {
 	notebook: { notebookType: QUARTO_CELLS_NOTEBOOK_TYPE },
 	language: 'r',
@@ -84,7 +83,7 @@ function isOwnedQuartoCellUri(uri: vscode.Uri): boolean {
 }
 
 /**
- * Selects notebook cells to sync with Ark when it declares `notebookDocumentSync`.
+ * Selects notebook cells to sync with Ark.
  *
  * For a dedicated session client, this filter accepts only its own notebook.
  * For Quarto, that is the hidden notebook representing the document's chunks.
