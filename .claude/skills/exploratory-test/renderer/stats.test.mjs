@@ -132,8 +132,31 @@ test('render.mjs counts the explorer\'s checks, not the harness\'s renders, and 
 			'Could not make value fetches slow: the slow-hash trick only slows profiling',
 			'Desktop build only',
 		]);
-		// The page is written after stats.json, so Run details links it.
-		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /format check 2 times\. The first time, it found .*<div class="format-raw"><a href="stats.json">Raw stats<\/a><\/div>/s);
+		// The checks tune the skill, so they stay in stats.json and off the page.
+		assert.doesNotMatch(readFileSync(join(dir, 'index.html'), 'utf8'), /Format checks|Raw stats/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('render.mjs records an isolation pass in the footer, the Agents table and stats.json', () => {
+	const dir = tempDir();
+	try {
+		cpSync(LOGS_DIR, dir, { recursive: true });
+		const report = join(dir, 'report.md');
+		spawnSync(process.execPath, [RENDER, report, '--model', 'claude-opus-5-5', '--duration-ms', '600000', '--turns', '70',
+			'--verify-model', 'claude-sonnet-5-5', '--verify-duration-ms', '60000', '--verify-turns', '10',
+			'--isolate-model', 'claude-sonnet-5-5', '--isolate-duration-ms', '300000', '--isolate-turns', '30'], { encoding: 'utf8' });
+		const md = readFileSync(report, 'utf8');
+		assert.match(md, /^_isolate: [^\n]*30 turns \| 5m_$/m);
+		assert.match(md, /^_total: 16m_$/m);
+		const stats = JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8'));
+		assert.deepEqual(stats.isolate, { durationMs: 300000, turns: 30 });
+		assert.equal(stats.durationMs, 960000);
+		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /<div class="agents-row"><span>Isolate<\/span>/);
+		// A re-render without the flag drops the line rather than stacking it.
+		spawnSync(process.execPath, [RENDER, report, '--model', 'claude-opus-5-5', '--duration-ms', '600000', '--turns', '70'], { encoding: 'utf8' });
+		assert.doesNotMatch(readFileSync(report, 'utf8'), /_isolate:/);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}

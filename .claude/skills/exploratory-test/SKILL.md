@@ -4,9 +4,10 @@ description: "Explore a running Positron instance as a real user to find genuine
 disable-model-invocation: true
 metadata:
   # Bump when the agent is told something new: this file, explorer.md,
-  # verifier.md, or the prompt CI builds in pr-exploratory-test's run.mjs and
-  # lib.mjs. Feedback is grouped by it, so a renderer change does not count.
-  version: "1.11"
+  # verifier.md, isolator.md, the text renderer/known-issues.mjs prints, or the
+  # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
+  # grouped by it, so a renderer change does not count.
+  version: "1.43"
 ---
 
 # Exploratory testing
@@ -26,17 +27,25 @@ narrow re-test of one known scenario; it is not good enough for discovery.
 The brief is the only context the agent has, so make it self-contained: the
 checkout path, the branch, the base and head SHAs and the `git diff` that shows
 the change between them, what the change is meant to
-do as a user would describe it, and the blast radius you are nervous about.
-State intent and risk; do not state what you expect to work.
+do as a user would describe it, and the blast radius you are nervous about,
+riskiest first. State intent and risk; do not state what you expect to work.
+When the feature has variants a setting chooses, such as the Positron and the
+legacy notebook editor, or the Data Connections and the older Connections pane,
+check which is the default (`git log` on the feature, its configuration file)
+and name in the brief the one to test and the setting that selects it. An agent
+on the other variant reports its gaps as bugs.
+Fit the blast radius to the time: under 20 minutes, name at most three areas,
+since a run reaches about one area every three to five minutes and what it
+does not reach is lost.
 
 Exploring stops after 30 minutes unless the person names another limit
 ("spend an hour on it", "no limit"). When you spawn the agent, tell them the
 limit and that they can change it at any time. Keep it out of the brief: told
 its budget, the agent rushes and wraps up early. Start a timer, `sleep
 <seconds>` as a background command. When it ends, if the agent is still
-exploring, send it a message to stop exploring, list what it did not reach
-under Not run, and write up. If the person changes the limit, stop the timer
-and start one for the time left. This is for local runs; CI sets its own limit
+exploring, send it a message to stop exploring and write up, listing what it
+did not reach under Not run (explorer.md says what stopping involves). If the
+person changes the limit, stop the timer and start one for the time left. This is for local runs; CI sets its own limit
 and does not read this file.
 
 When the change is a PR, fetch the issues linked to it before spawning the
@@ -71,9 +80,11 @@ reply exactly as returned to `<run dir>/verify-reply.md`.
 If the reply's VERDICTS line has an UNRESOLVED finding, isolate it before
 applying anything. Spawn one fresh agent with `subagent_type: "general-purpose"`
 and `model: "sonnet"`, tell it to read `<base>/isolator.md` and do what it says,
-and give it the run directory, the checkout, the base and head SHAs, and the
-UNRESOLVED findings by name ("Finding 3"). If it is still running after 25
-minutes, tell it to write up. When it returns, run `stop-instances.sh` again,
+and give it the run directory, the checkout, the base and head SHAs, the
+UNRESOLVED findings by name ("Finding 3"), and for each the evidence the
+verifier said is missing, quoted from its reply: that is the control to run
+first. Start a timer, `sleep 720`, as a background command; if the isolator is
+still running when it ends, tell it to write up. When it returns, run `stop-instances.sh` again,
 then send the verifier, with SendMessage: "Read `<run dir>/isolation.md`,
 revise those findings' verdicts, and name the Cause and Feature it points to,
 with a FEATURE line when the Feature changes and a TITLE line when the title names the wrong trigger. If a cause is broader than the
@@ -81,12 +92,17 @@ cases in its table, narrow it. Reply again in full, in the same format." Save th
 
 Then run
 `node <base>/renderer/finish.mjs apply <run dir> <run dir>/verify-reply.md`.
+When the VERDICTS line's numbers are not the report's Finding numbers, apply
+writes nothing and says why: send the verifier that message with SendMessage,
+save its reply over `verify-reply.md`, and apply again.
 The verdicts are advisory: do not edit them or drop a finding over them.
 
-Then put both runs on the report's Run tile, as CI does. Each agent's
-completion notice carries `duration_ms` and `tool_uses`; re-render with them,
-leaving out the `--verify-*` flags when there was nothing to verify:
-`node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses> --verify-model <model id> --verify-duration-ms <duration_ms> --verify-turns <tool_uses>`.
+Then put every run on the report's Run tile, as CI does. Each agent's
+completion notice carries `duration_ms` and `tool_uses`; re-render with them.
+Sum the verifier's passes when you sent it back after isolation. Leave out the
+`--verify-*` flags when there was nothing to verify, and the `--isolate-*` flags
+when nothing was isolated:
+`node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses> --verify-model <model id> --verify-duration-ms <duration_ms> --verify-turns <tool_uses> --isolate-model <model id> --isolate-duration-ms <duration_ms> --isolate-turns <tool_uses>`.
 The agents cannot do this themselves, because they do not see their own totals.
 
 ## Present it, then offer to publish

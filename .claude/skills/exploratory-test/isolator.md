@@ -13,8 +13,11 @@ the launch through `tee -a "<run dir>/instances.jsonl"`, and stop it when you
 are done. Write only `isolation.md` and files under `<run dir>/isolation/`.
 
 Take the findings most severe first. For each, reproduce it once from its
-steps and run the baseline. Then run the other controls that apply, changing one
-thing at a time, and stop at the first that points to one cause:
+steps, then run the control your brief says the verifier found missing: it is
+the question the verifier could not answer, so it is usually the one that
+decides. Only when it does not, run the baseline and the other controls that
+apply, changing one thing at a time, and stop at the first that points to one
+cause:
 
 - **Baseline:** the same actions without the changed feature, which rules out
   the automation.
@@ -30,9 +33,10 @@ dialogs from two different features. Otherwise name only the ones you saw.
 
 Record the state the check depends on, not just the outcome:
 `document.activeElement` for a key, the context key for a when-clause
-(Developer: Inspect Context Keys). Run each case three times. You have 20
-minutes for all of them; when they are up, write up what you have and list the
-findings you did not reach.
+(Developer: Inspect Context Keys). Run a case three times only when its result
+can vary from run to run: timing, focus, load or a race. A deterministic case,
+such as what a value or a row shows, needs two runs. When you are told
+to write up, write up what you have and list the findings you did not reach.
 
 Write `<run dir>/isolation.md`: for each finding, `## Finding N`, then a table,
 

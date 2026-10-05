@@ -19,15 +19,23 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { knownFixLines, knownIssueOutcomes, parseLinked } from './known-issues.mjs';
+import { lintActionsLog } from './lint.mjs';
 import { parseLedger } from './report-parse.mjs';
 
 /**
  * The verify pass's prompt: verifier.md with the run's paths and diff range
- * filled in. A placeholder with no value, or a value with no placeholder,
- * throws, so the template and this list cannot drift apart quietly.
+ * filled in, and lint's check of actions.log, read from the run directory
+ * unless `actionsLog` is given. A placeholder with no value, or a value with
+ * no placeholder, throws, so the template and this list cannot drift apart quietly.
  */
-export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha }) {
+export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog }) {
+	const logPath = join(workDir, 'actions.log');
+	const log = actionsLog ?? (existsSync(logPath) ? readFileSync(logPath, 'utf8') : undefined);
+	const logProblems = log === undefined ? [] : lintActionsLog(log);
 	const values = {
+		LOG_CHECK: log === undefined
+			? 'no actions.log in the run directory.'
+			: logProblems.length ? `\n\n${logProblems.map(p => `- ${p}`).join('\n')}\n` : 'clean: every line is stamped as the helpers stamp it, in time order.',
 		REPORT: `${workDir}/report.md`,
 		ACTIONS_LOG: `${workDir}/actions.log`,
 		LEDGER: `${workDir}/ledger.md`,
@@ -191,7 +199,12 @@ export function applyTitles(report, titles) {
  * issue's title. A finding with no Feature line is left for lint to catch.
  */
 export function applyFeatures(report, features) {
-	if (!(features instanceof Map) || !features.size) {
+	return rewriteLabel(report, 'Feature', features);
+}
+
+/** The report with the `**<label>:**` line of each finding in `values` replaced. */
+function rewriteLabel(report, label, values) {
+	if (!(values instanceof Map) || !values.size) {
 		return report;
 	}
 	let n = null;
@@ -201,8 +214,8 @@ export function applyFeatures(report, features) {
 			n = Number(heading[1]);
 		} else if (/^(<details>|## )/.test(line)) {
 			n = null;
-		} else if (n !== null && features.has(n) && /^\*\*Feature:\*\*/.test(line)) {
-			return `**Feature:** ${features.get(n)}`;
+		} else if (n !== null && values.has(n) && line.startsWith(`**${label}:**`)) {
+			return `**${label}:** ${values.get(n)}`;
 		}
 		return line;
 	}).join('\n');
@@ -252,23 +265,42 @@ export function annotateFindingsTable(report, verdicts, known = new Map()) {
  * page of prose auditing claims nobody disputed.
  */
 export function hasFindings(report) {
-	if (typeof report !== 'string') {
-		return false;
-	}
-	const lines = report.split('\n');
+	return findingNumbers(report).length > 0;
+}
+
+/** The Finding numbers in the findings table's # column, in table order. */
+export function findingNumbers(report) {
+	const lines = typeof report === 'string' ? report.split('\n') : [];
 	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
-	if (header === -1) {
-		return false;
-	}
-	for (let i = header + 2; i < lines.length; i++) {
-		if (!lines[i].startsWith('|')) {
-			return false;
-		}
-		if (/^\|\s*\d+\s*\|/.test(lines[i])) {
-			return true;
+	const numbers = [];
+	for (let i = header + 2; header !== -1 && i < lines.length && lines[i].startsWith('|'); i++) {
+		const m = lines[i].match(/^\|\s*(\d+)\s*\|/);
+		if (m) {
+			numbers.push(Number(m[1]));
 		}
 	}
-	return false;
+	return numbers;
+}
+
+/**
+ * Why the reply's VERDICTS line cannot be applied to this report, or '' when
+ * it can: it must give one verdict per Finding number in the table, no more,
+ * no fewer. A verifier that keyed its line by table row instead of by Finding
+ * number (the table is sorted by severity) gives a number the table lacks or
+ * misses one it has whenever the numbers are not exactly 1..n; within 1..n it
+ * cannot be told apart here, which is why the prompt says it plainly.
+ */
+export function verdictMismatch(report, reply) {
+	const want = [...new Set(findingNumbers(report))].sort((a, b) => a - b);
+	const got = [...parseVerdicts(reply).keys()].sort((a, b) => a - b);
+	const missing = want.filter(n => !got.includes(n));
+	const extra = got.filter(n => !want.includes(n));
+	if (!missing.length && !extra.length) {
+		return '';
+	}
+	return `the VERDICTS line gives findings ${got.join(', ') || 'none'}, but the report's findings are ${want.join(', ')}`
+		+ `${missing.length ? `; missing ${missing.join(', ')}` : ''}${extra.length ? `; not in the report: ${extra.join(', ')}` : ''}.`
+		+ ' Key each verdict by the Finding number as written in the table\'s # column, not by row order.';
 }
 
 /**
@@ -375,9 +407,16 @@ function main(argv) {
 			return 1;
 		}
 		const reply = readFileSync(replyFile, 'utf8').trim();
+		const findings = hasFindings(report);
+		// Verdicts keyed to other numbers than the report's would mark the wrong
+		// findings: refuse, writing nothing, so a corrected reply can be applied.
+		const mismatch = findings && parseVerdicts(reply).size ? verdictMismatch(report, reply) : '';
+		if (mismatch) {
+			console.error(`finish: ${mismatch} Send the verifier this message, save its corrected reply and apply again.`);
+			return 1;
+		}
 		// An empty reply, or one with no verdicts, still says so, rather than
 		// leaving the findings looking reviewed.
-		const findings = hasFindings(report);
 		const failed = !reply || (findings && !parseVerdicts(reply).size);
 		const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
 		const verdicts = failed
