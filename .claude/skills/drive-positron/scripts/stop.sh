@@ -11,10 +11,19 @@
 # Usage:
 #   stop.sh --cdp-port <port> [--run-dir <dir>] [--timeout <seconds>]
 #
+# It signals the process that owns the CDP port, waits for the port to stop
+# answering, forces the stop if it does not, then removes --run-dir. Without
+# --run-dir it stops the instance and deletes nothing (reseed.sh relies on
+# that). Pass only the runDir launch.sh printed: a path without a
+# positron-dev-launch component is refused. Each stop adds a line to
+# instances.log. Do not signal the Electron helper processes yourself: the app
+# reads that as a window crash, respawns them, and then ignores the stop.
+#
 # Exits non-zero when the instance is still reachable after the timeout, or when
 # --run-dir does not look like a launch.sh run directory.
 
 set -euo pipefail
+DIR="$(dirname "${BASH_SOURCE[0]}")"
 
 CDP_PORT=""
 RUN_DIR=""
@@ -25,6 +34,7 @@ while [[ $# -gt 0 ]]; do
 		--cdp-port) CDP_PORT="$2"; shift 2 ;;
 		--run-dir) RUN_DIR="$2"; shift 2 ;;
 		--timeout) TIMEOUT="$2"; shift 2 ;;
+		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "Unknown arg: $1" >&2; exit 2 ;;
 	esac
 done

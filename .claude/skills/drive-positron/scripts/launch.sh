@@ -13,19 +13,94 @@
 #   5. Runs on Windows (Git Bash) as well as macOS and Linux: falls back to tar
 #      where rsync is absent, and converts paths for the native Electron binary.
 #
-# Prints connection details as JSON on stdout and diagnostics on stderr.
-#
 # Usage:
 #   launch.sh [--agents] [--source-user-data-dir <path>] [--repo <vscode-repo-root>]
+#             [--reuse-profile <run dir>]
 #             [--clone-extensions] [--full] [--no-default-app-args]
-#             [-- <extra code.sh args>]
+#             [--keep-first-run-prompts] [--no-pyrefly] [-- <extra code.sh args>]
+#   launch.sh -- --folder-uri file:///private/tmp/ws --log debug
+#
+# Everything before the `--` configures the launcher; everything after it goes
+# to the app. A launcher flag after the `--` is not reported: the app ignores
+# it and the launcher keeps its default, so a misplaced --source-user-data-dir
+# copies the real ~/.positron-dev.
+#
+# App arguments worth passing (after the `--`):
+#   --folder-uri file:///private/tmp/ws
+#                       Open a workspace; a bare positional folder may be
+#                       discarded. Use /private/tmp, not /tmp, on macOS. On
+#                       Windows build it with cygpath -m:
+#                       --folder-uri "file:///$(cygpath -m /tmp/ws)"
+#   --log debug         Without it the "[Runtime startup] Phase changed" lines
+#                       are missing, and code.log has no logsPath: line.
+#
+# App arguments the launcher supplies (repeat one after `--` to override it):
+#   --disable-workspace-trust  without it a fresh profile starts in restricted
+#                       mode with extensions off, and an empty interpreter
+#                       picker looks like a product bug
+#   --use-mock-keychain keeps the OS keychain out (a GitHubLoginFailed log line
+#                       is expected)
+#   --skip-welcome      keeps the Welcome editor from taking focus
+#   --disable-backgrounding-occluded-windows, --disable-renderer-backgrounding
+#                       keep a covered window painting; otherwise every click
+#                       and element screenshot times out on Playwright's
+#                       stability check while keys and eval still work
+#   --shared-data-dir, --logsPath (<runDir>/logs), and the CDP and inspect ports
+# --no-default-app-args drops the first five, only for testing what they suppress
+# (the workspace trust prompt, say).
+#
+# It reads the source profile one way (no --delete) and writes only to the
+# copy. In the copy, it also sets files.simpleDialog.enable and
+# window.dialogStyle "custom" (in-app dialogs CDP can see and click, in place of
+# native ones), and, unless --keep-first-run-prompts, turns off the two
+# first-run prompts. It excludes locks, caches, logs and workspace storage, so
+# it can run beside a normal development instance.
+#
+# Stdout: one JSON line: pid, cdpPort, runDir, logFile, userDataDir and the
+# other ports. Diagnostics go to stderr. Each start adds a line to
+# instances.log beside the run directories (/tmp/positron-dev-launch/).
+#
+# Before starting the app it runs build/lib/preLaunch.ts against the checkout
+# (see SKILL.md, "Know what this changes in your checkout"). --help prints this
+# header.
 #
 # Flags:
+#   --agents            Open the Agents window instead of the workbench: the
+#                       app's own --agents, put first among its arguments. The
+#                       JSON line then says "agents": true. Drive its chat
+#                       input with monaco-paste.sh.
+#   --source-user-data-dir <path>
+#                       The profile to copy, such as a minimal seed made with
+#                       mkdir -p /tmp/seed/User and a settings.json, or one
+#                       reseed.sh wrote.
 #   --clone-extensions  Copy the source extensions/ into the new profile (~10s).
 #                       Default: start with an EMPTY extensions/ dir - fastest
 #                       and conflict-free, but no third-party extensions.
 #   --full              Copy the entire profile (incl. extensions). Use if the
 #                       slim copy is missing something you need.
+#   --keep-first-run-prompts
+#                       Show the prompts a fresh profile raises on startup (import
+#                       settings from VS Code; let a coding agent on PATH run code).
+#                       Default: suppress them in the disposable profile, since
+#                       every run would otherwise dismiss them by hand.
+#   --no-pyrefly        Disable the Pyrefly extension (meta.pyrefly), which gives
+#                       Python files hover, completions, outline and diagnostics,
+#                       through the same `extensions.allowed` entry the e2e tests
+#                       use. Default: leave it on, as users have it.
+#   --reuse-profile <run dir>
+#                       Start on a stopped run's own profile, everything it
+#                       wrote kept (workspace storage, extensions installed,
+#                       recent files), copied into this run's directory, for
+#                       a relaunch of the same instance. Stop that run first
+#                       without deleting it: palette-run.sh 'Close Window' (it
+#                       saves the window's state; macOS has no Quit in the
+#                       palette, and Cmd+Q cannot be sent through CDP), then
+#                       stop.sh --cdp-port PORT with no --run-dir. Then
+#                       launch.sh --reuse-profile <its runDir> -- --folder-uri
+#                       ... (the same folder, or a file to open). Refused while
+#                       that run's CDP port (from instances.log) answers.
+#                       reseed.sh is the lighter way: a seed of the global state
+#                       only, for a warm start rather than the same profile.
 #
 # Defaults:
 #   --source-user-data-dir  $POSITRON_DEV_USER_DATA_DIR (else ~/.positron-dev)
@@ -33,6 +108,7 @@
 
 set -euo pipefail
 umask 077
+DIR="$(dirname "${BASH_SOURCE[0]}")"
 
 # Platform and tool detection. Git Bash on Windows (MSYS) ships neither rsync
 # nor pgrep, and Electron there cannot read MSYS-style paths such as /tmp/x.
@@ -104,7 +180,7 @@ copy_tree() {
 		for pattern in "$@"; do
 			excl+=("--exclude=$pattern")
 		done
-		rsync -a "${excl[@]}" "$src/" "$dst/"
+		rsync -a ${excl[@]+"${excl[@]}"} "$src/" "$dst/"
 		return
 	fi
 
@@ -115,7 +191,7 @@ copy_tree() {
 			excl+=("--exclude=$pattern")
 		fi
 	done
-	( cd "$src" && tar -cf - "${excl[@]}" . ) | ( cd "$dst" && tar -xf - )
+	( cd "$src" && tar -cf - ${excl[@]+"${excl[@]}"} . ) | ( cd "$dst" && tar -xf - )
 }
 
 AGENTS=0
@@ -125,6 +201,9 @@ EXTRA_ARGS=()
 CLONE_EXTENSIONS=0
 FULL=0
 DEFAULT_APP_ARGS=1
+FIRST_RUN_PROMPTS=0
+NO_PYREFLY=0
+REUSE=""
 
 # Supplied by the launcher, not the caller: without --disable-workspace-trust a
 # fresh profile starts in restricted mode with extensions disabled, which reads
@@ -142,6 +221,10 @@ while [[ $# -gt 0 ]]; do
 		--clone-extensions|--copy-extensions) CLONE_EXTENSIONS=1; shift ;;
 		--full) FULL=1; shift ;;
 		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
+		--keep-first-run-prompts) FIRST_RUN_PROMPTS=1; shift ;;
+		--no-pyrefly) NO_PYREFLY=1; shift ;;
+		--reuse-profile) REUSE="$2"; shift 2 ;;
+		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; EXTRA_ARGS=("$@"); break ;;
 		*) echo "Unknown arg: $1" >&2; exit 2 ;;
 	esac
@@ -154,6 +237,20 @@ if [[ -z "$REPO" ]]; then
 		echo "Could not find a Positron checkout in $PWD. Pass --repo <path>." >&2
 		exit 2
 	fi
+fi
+
+if [[ -n "$REUSE" ]]; then
+	if [[ ! -d "$REUSE/user-data" ]]; then
+		echo "--reuse-profile: no user-data in $REUSE; pass the runDir launch.sh printed" >&2
+		exit 2
+	fi
+	# A profile the app still has open copies torn: the run must be stopped.
+	OLD_PORT=$(sed -n "s|.* start cdp=\([0-9]*\) pid=[^ ]* ${REUSE%/}\$|\1|p" "$(dirname "$REUSE")/instances.log" 2>/dev/null | tail -1)
+	if [[ -n "$OLD_PORT" ]] && curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:$OLD_PORT/json/version" 2>/dev/null; then
+		echo "--reuse-profile: the run in $REUSE is still running (CDP port $OLD_PORT); close its window and stop it first: stop.sh --cdp-port $OLD_PORT (no --run-dir, which deletes it)" >&2
+		exit 2
+	fi
+	SOURCE_UDD="$REUSE/user-data"
 fi
 
 if [[ ! -d "$SOURCE_UDD" ]]; then
@@ -200,7 +297,12 @@ EXCLUDES=(
 )
 
 COPY_TOOL=$([[ "$HAVE_RSYNC" == "1" ]] && echo rsync || echo tar)
-if [[ "$FULL" == "1" ]]; then
+if [[ -n "$REUSE" ]]; then
+	# Everything the run wrote, extensions and workspace storage too; not its
+	# logs, caches, or the locks and sockets of the stopped app.
+	echo "[launch.sh] reusing the profile of $REUSE ($COPY_TOOL): $SOURCE_UDD -> $DEST_UDD" >&2
+	copy_tree "$SOURCE_UDD" "$DEST_UDD" '/logs' '/Cache' '/Code Cache' '/CachedData' '/GPUCache' '/ShaderCache' '/Dawn*Cache' '/Crashpad' '/Singleton*' '*.lock' '*.sock'
+elif [[ "$FULL" == "1" ]]; then
 	echo "[launch.sh] full copy ($COPY_TOOL): $SOURCE_UDD -> $DEST_UDD" >&2
 	copy_tree "$SOURCE_UDD" "$DEST_UDD"
 else
@@ -223,13 +325,17 @@ SETTINGS_FILE="$DEST_UDD/User/settings.json"
 mkdir -p "$(dirname "$SETTINGS_FILE")"
 # Update the keys without parsing and rewriting the entire JSONC document,
 # preserving comments and strings that contain `//`.
-if ! node - "$SETTINGS_FILE" <<'NODE'
+if ! node - "$SETTINGS_FILE" "$FIRST_RUN_PROMPTS" "$NO_PYREFLY" <<'NODE'
 const fs = require('fs');
 const f = process.argv[2];
 // Keys forced into the disposable profile, with the JSON text of each value.
 const FORCED = [
 	['files.simpleDialog.enable', 'true'],
 	['window.dialogStyle', '"custom"'],
+	// A fresh profile offers to import VS Code settings on startup.
+	...(process.argv[3] === '1' ? [] : [['workbench.settings.importFromVSCode.enabled', 'false']]),
+	// --no-pyrefly: an extension that is not allowed is disabled even when installed.
+	...(process.argv[4] === '1' ? [['extensions.allowed', '{ "meta.pyrefly": false, "*": true }']] : []),
 ];
 
 let text;
@@ -253,6 +359,8 @@ for (const [KEY, VALUE] of FORCED) {
 	const keyValueRe = new RegExp('("' + KEY.replace(/\./g, '\\.') + '"\\s*:\\s*)(true|false|null|"[^"\\n]*"|-?\\d+(?:\\.\\d+)?)', 'g');
 	if (keyValueRe.test(text)) {
 		text = text.replace(keyValueRe, '$1' + VALUE);
+	} else if (text.includes('"' + KEY + '"')) {
+		console.error('[launch.sh] ' + KEY + ' is already set to an object in ' + f + '; left as it is');
 	} else {
 		missing.push([KEY, VALUE]);
 	}
@@ -302,6 +410,34 @@ then
 	exit 1
 fi
 echo "[launch.sh] ensured files.simpleDialog.enable=true and window.dialogStyle=custom in $SETTINGS_FILE" >&2
+[[ "$NO_PYREFLY" == "1" ]] && echo "[launch.sh] disabled Pyrefly (meta.pyrefly) through extensions.allowed" >&2
+
+# positron-supervisor offers, once per profile, to let a coding agent it finds on
+# PATH run code in the window's sessions. There is no setting that only hides it:
+# it records that it asked in its global state, so mark it asked here. The key
+# is positron-supervisor's ENABLE_PROMPT_SHOWN_KEY (McpAgentConfig.ts).
+if [[ "$FIRST_RUN_PROMPTS" == "0" ]]; then
+	STATE_DB="$DEST_UDD/User/globalStorage/state.vscdb"
+	if command -v sqlite3 >/dev/null 2>&1; then
+		mkdir -p "$(dirname "$STATE_DB")"
+		EXT_KEY='positron.positron-supervisor'
+		sqlite3 "$STATE_DB" 'CREATE TABLE IF NOT EXISTS ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB);'
+		CURRENT=$(sqlite3 "$STATE_DB" "SELECT value FROM ItemTable WHERE key = '$EXT_KEY';")
+		MERGED=$(node -e '
+			let state = {};
+			try { state = JSON.parse(process.argv[1] || "{}"); } catch {}
+			state["positron-supervisor.mcp.enablePromptShown"] = true;
+			process.stdout.write(JSON.stringify(state).replace(/\x27/g, "\x27\x27"));
+		' "$CURRENT")
+		if sqlite3 "$STATE_DB" "INSERT INTO ItemTable (key, value) VALUES ('$EXT_KEY', '$MERGED');"; then
+			echo "[launch.sh] suppressed the coding-agent prompt and the VS Code settings import prompt (pass --keep-first-run-prompts to see them)" >&2
+		else
+			echo "[launch.sh] could not mark the coding-agent prompt as shown; it may appear once" >&2
+		fi
+	else
+		echo "[launch.sh] sqlite3 not on PATH; the coding-agent prompt may appear once" >&2
+	fi
+fi
 
 # Integrated terminals may inherit ELECTRON_RUN_AS_NODE, which breaks code.sh.
 unset ELECTRON_RUN_AS_NODE
@@ -337,6 +473,16 @@ if [[ "$DEFAULT_APP_ARGS" == "1" ]]; then
 			ARGS+=("$automation_arg")
 		fi
 	done
+fi
+# Positron keeps logs under ~/.local/state/positron/logs/<launch second>, not
+# in the profile, so two instances started in the same second share one folder
+# and write into the same renderer.log. Give each its own, in its run directory.
+logs_supplied=0
+for extra_arg in ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; do
+	[[ "$extra_arg" == --logsPath || "$extra_arg" == --logsPath=* ]] && logs_supplied=1
+done
+if (( logs_supplied == 0 )); then
+	ARGS+=("--logsPath=$(to_native_path "$RUN_DIR/logs")")
 fi
 if (( ${#EXTRA_ARGS[@]} )); then
 	ARGS+=("${EXTRA_ARGS[@]}")
