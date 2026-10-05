@@ -4,10 +4,12 @@
 # quick pick row, a field, a checkbox. Every action finds exactly one target,
 # acts once, and reports what changed in the view ("diff"), so a click that did
 # nothing says changed: false. A notification toast the action raised comes
-# back as "notification" (its text), apart from "opened" (a dialog, menu or
-# quick pick); toasts close within seconds, so each action watches for one
-# for up to 1.5 s after it. A disabled or read-only target is refused, with
-# nothing done.
+# back as "notification" (its text), apart from "opened", which names the
+# dialog, menu or quick pick that opened and the read command for it ("a
+# dialog: read it with ui.sh read dialog"); toasts close within seconds, so
+# each action watches for one for up to 1.5 s after it. A disabled or
+# read-only target is refused, with nothing done. A click that times out (a
+# popup on top takes it) says so in one sentence, naming what is open on top.
 #
 # "menu" is whatever menu is open: a menu of menu items, Positron's context
 # menu (its items are buttons) or a drop-down list's popup (Save Plot's Format:
@@ -47,10 +49,16 @@
 #                         after, and "renamed" when the click renamed it (a
 #                         breakpoint row gains ", Disabled Breakpoint"): the
 #                         element clicked is followed, not its old name
-#   choose ROLE NAME ITEM click the trigger, then the menu item by name; reports
-#                         "chose", "changed" with the view's "diff", "trigger"
-#                         when the trigger's name changed (Auto -> Square), and
-#                         "notification"; a disabled item is refused
+#   choose ROLE NAME ITEM click the trigger, then the item by name from what
+#                         opened: a menu, a popup, or a list drawn inside the
+#                         dialog the trigger is in (the Data Explorer filter's
+#                         Select Column); a leading icon and a trailing
+#                         shortcut are ignored. Reports "chose", "changed" with
+#                         the view's "diff", "trigger" when the trigger's name
+#                         changed (Auto -> Square), and "notification"; a
+#                         disabled item is refused. When nothing opens, the
+#                         error carries the overlay (or view) as "view"; an
+#                         absent item, the list's "items"
 #   type TEXT --in VIEW   type into the focused field, only if focus is in VIEW
 #                         (after a click that opened an input); --enter to submit,
 #                         refused in a quick pick (Enter runs the highlighted

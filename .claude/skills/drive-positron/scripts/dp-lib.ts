@@ -49,10 +49,11 @@ export function failText(script: string, error: string, code = 1): never {
 let last: { session: string; explained: boolean } | null = null;
 
 /**
- * Runs fn in the session's page and returns what it returned. A failure (ok:
- * false, or an error thrown in the page) goes through lib.explain, which names a
- * modal dialog that is open, since a dialog is the usual reason a helper's keys
- * and clicks went nowhere.
+ * Runs fn in the session's page and returns what it returned. An error thrown
+ * in the page becomes a plain failure (lib.failure: a Playwright timeout as one
+ * sentence, with no ANSI codes or call log). A failure goes through
+ * lib.explain, which names a modal dialog that is open, since a dialog is the
+ * usual reason a helper's keys and clicks went nowhere.
  */
 export function inPage<A>(session: string, fn: PageFn<A>, args: A): Json {
 	const r = runInPage(session, fn, args);
@@ -78,14 +79,14 @@ export function explainFailure(out: Json): Json {
 function runInPage<A>(session: string, fn: PageFn<A>, args: A): Json {
 	const code = `async page => { const lib = ${libSource}; let r;
 		try { r = await (${fn.toString()})(page, ${JSON.stringify(args)}, lib); }
-		catch (e) { r = { ok: false, error: String(e && e.message || e).split('\\n').filter(Boolean).slice(0, 3).join(' | '), cliFailed: true }; }
+		catch (e) { r = await lib.failure(e); }
 		return JSON.stringify(await lib.explain(r)); }`;
 	let raw: string;
 	try {
 		raw = execFileSync(cli, [...(session ? [`-s=${session}`] : []), '--raw', 'run-code', code], { cwd: repo, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 	} catch (e) {
 		const err = e as { stdout?: string; stderr?: string; message: string };
-		const text = `${err.stdout ?? ''}${err.stderr ?? ''}`.replace(/^### Error\s*/m, '').trim() || err.message;
+		const text = `${err.stdout ?? ''}${err.stderr ?? ''}`.replace(/^### Error\s*/m, '').replace(/\u001b\[[0-9;]*m/g, '').trim() || err.message;
 		return { ok: false, error: text.split('\n').filter(Boolean).slice(0, 3).join(' | '), cliFailed: true };
 	}
 	try {

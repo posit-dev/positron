@@ -79,6 +79,7 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	// on its own, by its name ("Info: Plot copied, notification").
 	const overlays = () => page.locator(lib.css.overlay.any).filter({ visible: true }).and(page.locator(lib.css.overlay.notInToasts)).count();
 	const overlaysBefore = await overlays();
+	await lib.markOverlays();
 	const toastsBefore = await lib.toasts();
 	const acted = Date.now();
 	let checked: Record<string, unknown> = {};
@@ -122,13 +123,18 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	const settled = await lib.settle(watched, before, a.wait, async () => await overlays() > overlaysBefore);
 	const opened = await overlays() > overlaysBefore;
 	const closed = settled.closed && !opened;
+	// Which kind opened, and the one command that reads it.
+	const openedText = async () => {
+		const o = await lib.opened(false);
+		return o ? `a ${o.kind === 'quickpick' ? 'quick pick' : o.kind}: read it with ui.sh read ${o.kind}` : 'a dialog, menu or quick pick opened; read it with ui.sh read dialog, read menu or read quickpick';
+	};
 	const diff = closed ? [] : lib.diff(before, settled.tree);
 	// A toast can come a second after the action: wait for one up to 1.5 s after it.
 	const toasts = await lib.newToasts(toastsBefore, acted + 1500);
 	return {
 		ok: true, did: `${a.kind} ${a.role} "${actual}"${a.scope ? ' in ' + a.scope : ''}`, changed: closed || opened || diff.length > 0 || toasts.length > 0, ...checked,
 		...(closed ? { note: `the ${a.watch || a.scope || 'view'} closed` } : {}),
-		...(opened ? { opened: 'a dialog, menu or quick pick opened; read it with read dialog, read menu or read quickpick' } : {}),
+		...(opened ? { opened: await openedText() } : {}),
 		...(toasts.length ? { notification: toasts.join(' | ') } : {}),
 		...(diff.length ? { diff: diff.slice(0, 20), ...(diff.length > 20 ? { more: diff.length - 20 } : {}) } : {}),
 	};
@@ -154,8 +160,9 @@ const readView: PageFn<{ scopes: string[] }> = async (_page, a, lib) => {
 };
 
 /**
- * Opens a menu with its trigger and chooses an item by name (lib.choose), then
- * reports what the choice changed, as a click does: the view's diff, the
+ * Opens a menu with its trigger and chooses an item by name (lib.choose): from
+ * what the click opened (lib.opened), a menu, a popup of its own, or a list
+ * drawn inside the overlay the trigger is in. Then reports what the choice changed, as a click does: the view's diff, the
  * trigger's name after (a menu button is often named after its value: Auto
  * becomes Square), and a toast the choice raised.
  * runs in run-code
@@ -173,16 +180,27 @@ const choose: PageFn<Target & { item: string; wait: number }> = async (page, a, 
 	if (n !== 1 && !a.nth) { return { ok: false, error: n ? `${n} visible ${a.role} "${a.name}"; pass --nth` : `no visible ${a.role} "${a.name}"` }; }
 	const t = trig.nth(Math.max(0, (a.nth || 1) - 1));
 	const handle = await t.elementHandle();
+	if (await t.isDisabled().catch(() => false)) { return { ok: false, error: `${a.role} "${a.name}"${a.scope ? ' in ' + a.scope : ''} is disabled; nothing was done` }; }
 	const triggerBefore = await t.evaluate(e => (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim());
 	const before = await lib.snapshot(sc.loc, 400);
 	const toastsBefore = await lib.toasts();
+	await lib.markOverlays(handle);
 	await t.click({ timeout: 3000 });
 	const end = Date.now() + 3000;
-	while (!await lib.menu()) {
-		if (Date.now() > end) { return { ok: false, error: `no menu or popup opened after clicking ${a.role} "${triggerBefore}"` }; }
+	// A popup can draw its box before its rows: wait for an item too.
+	let list = await lib.opened(true);
+	while (!list?.names.length && Date.now() < end) {
 		await lib.sleep(100);
+		list = await lib.opened(true);
 	}
-	const c = await lib.choose(a.item);
+	if (!list?.names.length) {
+		// Say what is there instead: what opened, else the overlay the trigger is in, else the view.
+		const home = page.locator('[data-dp-home]');
+		const where = list ? list.box : await home.count() ? home : sc.loc;
+		const error = list ? `a ${list.kind} opened after clicking ${a.role} "${triggerBefore}", with nothing in it to choose` : `no menu, popup or list opened after clicking ${a.role} "${triggerBefore}"`;
+		return { ok: false, error, hint: `the ${list ? list.kind : await home.count() ? 'overlay' : 'view'} as it reads now is in "view"`, view: await lib.snapshot(where, 40) };
+	}
+	const c = await lib.choose(a.item, list);
 	if (!c.ok) { return c; }
 	const acted = Date.now();
 	const settled = await lib.settle(sc.loc, before, a.wait);

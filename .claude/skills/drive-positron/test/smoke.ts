@@ -179,7 +179,7 @@ const cases: Case[] = [
 	{ name: 'ui type into Name', run: ['ui.sh', 'type', '_x', '--in', 'dialog'], check: o => includes(o.json!.diff, 'smoke_plot_x') },
 	{ name: 'ui choose Format SVG', run: ['ui.sh', 'choose', 'button', 'Format', 'SVG', '--in', 'dialog'], check: o => (o.json!.chose !== 'SVG' && `chose ${o.json!.chose}`) || (!o.json!.changed && 'changed is not true') || includes(o.json!.trigger, 'PDF -> SVG') },
 	// The Format popup is a dialog of buttons; read menu shows it, and click menuitem reaches its items.
-	{ name: 'ui click Format (popup)', run: ['ui.sh', 'click', 'button', 'Format', '--in', 'dialog'], check: o => includes(o.json!.opened, 'opened') },
+	{ name: 'ui click Format (popup)', run: ['ui.sh', 'click', 'button', 'Format', '--in', 'dialog'], check: o => includes(o.json!.opened, 'a menu: read it with ui.sh read menu') },
 	{ name: 'ui read menu (popup)', run: ['ui.sh', 'read', 'menu'], check: o => includes(o.json!.tree, 'PNG') },
 	{ name: 'ui click menuitem PNG in the popup', run: ['ui.sh', 'click', 'menuitem', 'PNG', '--in', 'menu'], check: o => includes(o.json!.note, 'closed') },
 	{ name: 'ui choose missing item', run: ['ui.sh', 'choose', 'button', 'Format', 'BMP', '--in', 'dialog'], fail: true },
@@ -227,6 +227,14 @@ const cases: Case[] = [
 	{ name: 'open-file cars.csv', quick: true, run: ['open-file.sh', 'cars.csv'] },
 	{ name: 'de-read cars.csv', quick: true, wait: 1000, run: ['de-read.sh', '--title', 'Data: cars.csv', '--rows', '3'], check: o => (JSON.stringify(o.json!.columns) !== '["model","speed","dist"]' && `columns ${JSON.stringify(o.json!.columns)}`) || (o.json!.rows?.[1]?.model !== 'bravo' && `row 2 ${JSON.stringify(o.json!.rows?.[1])}`) || includes(o.json!.status, '5 rows') },
 	{ name: 'de-read wrong title', run: ['de-read.sh', '--title', 'Data: other'], fail: true },
+	// The Data Explorer's filter popup: its column list opens inside it, as a popup of its own.
+	{ name: 'ui click Add Filter (names the dialog)', run: ['ui.sh', 'click', 'button', 'Add Filter', '--in', 'editor'], check: o => includes(o.json!.opened, 'a dialog: read it with ui.sh read dialog') },
+	{ name: 'ui choose a column inside the filter popup', run: ['ui.sh', 'choose', 'button', 'Select Column', 'model', '--in', 'dialog'], check: o => (o.json!.chose !== 'model' && `chose ${o.json!.chose}`) || includes(o.json!.trigger, 'Select Column -> model') },
+	{ name: 'ui read dialog (filter popup)', run: ['ui.sh', 'read', 'dialog'], check: o => includes(o.json!.tree, 'button "Select Condition"') || includes(o.json!.tree, 'model') },
+	{ name: 'ui choose missing column', run: ['ui.sh', 'choose', 'button', 'model', 'No Such Column', '--in', 'dialog'], fail: true, check: o => includes(o.json!.items, 'speed') },
+	{ name: 'ui click blocked by the filter popup', run: ['ui.sh', 'click', 'button', 'Add Filter', '--in', 'editor'], fail: true, check: o => (/\u001b|Call log|locator\(/.test(o.text) && `raw Playwright error: ${o.text.slice(0, 200)}`) || includes(o.json!.error, 'the click on button "Add Filter" in editor did not happen within 3 s: something drawn on top of it took the click; open on top: a dialog') },
+	{ name: 'ui choose condition in the filter popup', run: ['ui.sh', 'choose', 'button', 'Select Condition', 'is not empty', '--in', 'dialog'], check: o => includes(o.json!.trigger, 'Select Condition -> is not empty') },
+	{ name: 'ui click Apply Filter', run: ['ui.sh', 'click', 'button', 'Apply Filter', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
 
 	// ---- Notebook and Quarto
 	{ name: 'open-file notebook.ipynb', quick: true, run: ['open-file.sh', 'notebook.ipynb'] },

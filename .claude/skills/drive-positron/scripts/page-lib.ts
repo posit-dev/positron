@@ -13,8 +13,9 @@
 //   scopes and views  scope, snapshot, byRole, unstack
 //   overlays          quickOpen, closeQuickInput, openQuickInput, rows, pick,
 //                     clickRow
-//   dialogs and menus dialogs, explain, toasts, newToast, menu, closeMenu,
-//                     choose
+//   dialogs and menus dialogs, explain, toasts, newToast, listIn, menu,
+//                     closeMenu, choose
+//   opened, on top    markOverlays, opened, onTop, failure
 //   diff and settling settle, diff
 //   editors           editor, focusEditor
 //   consoles          consoles, activateConsole, namedLike, starting,
@@ -23,10 +24,13 @@
 // A member may call another through lib (lib.snapshot), since they all exist
 // by the time any runs.
 
-import type { Page } from 'playwright';
+import type { ElementHandle, Locator, Page } from 'playwright';
 import type { Css, Names } from './selectors.ts';
 
 export type Lib = ReturnType<typeof makeLib>;
+
+/** A list to choose from (lib.listIn): its items and their names; inline when drawn inside the overlay it was opened from. */
+interface List { box: Locator; items: Locator; names: string[]; off: boolean[]; inline?: boolean }
 
 /**
  * Helpers the page functions share; runs in run-code, so it is self-contained.
@@ -141,11 +145,13 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * name without a trailing keybinding ("Continue (F5)" for Continue), then
 		 * the name before a comma and more (a Breakpoints row "dbg.R 7, Unverified
 		 * Breakpoint" for "dbg.R 7", the label the view shows), then, with
-		 * partial, any name holding it.
+		 * partial, any name holding it. A leading icon glyph is ignored (the Data
+		 * Explorer's column buttons read " team", an icon before the name).
 		 */
 		byRole: async (scope: ReturnType<typeof page.locator>, role: string, name: string, partial: boolean) => {
 			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-			const tries = [new RegExp(`^\\s*${esc}\\s*$`, 'i'), new RegExp(`^\\s*${esc}\\s*\\(.*\\)\\s*$`, 'i'), new RegExp(`^\\s*${esc}\\s*,`, 'i'), ...(partial ? [new RegExp(esc, 'i')] : [])];
+			const lead = '^[\\s\\uE000-\\uF8FF]*';
+			const tries = [new RegExp(`${lead}${esc}\\s*$`, 'i'), new RegExp(`${lead}${esc}\\s*\\(.*\\)\\s*$`, 'i'), new RegExp(`${lead}${esc}\\s*,`, 'i'), ...(partial ? [new RegExp(esc, 'i')] : [])];
 			for (const re of tries) {
 				const all = scope.getByRole(role as Parameters<typeof page.getByRole>[0], { name: re });
 				if (await all.count()) { return all; }
@@ -268,14 +274,12 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			}
 		},
 		/**
-		 * The open menu and its items, by name. A menu is what ui.sh read menu
-		 * reads: a menu of menu items, Positron's context menu (its items are
-		 * buttons) or a drop-down list's popup (a dialog of buttons). Null when
-		 * none is open.
+		 * The items a list offers, by name: its menu items or options, else its
+		 * buttons (Positron's context menu, a drop-down list's popup and the Data
+		 * Explorer's column picker draw buttons). A name is read without an icon
+		 * glyph or the space around it.
 		 */
-		menu: async () => {
-			const box = page.locator(s.overlay.menu).filter({ visible: true }).last();
-			if (!await box.count()) { return null; }
+		listIn: async (box: Locator): Promise<List> => {
 			let items = box.locator(s.menu.items).filter({ visible: true });
 			if (!await items.count()) { items = box.getByRole('button').filter({ visible: true }); }
 			const names = (await items.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim())))
@@ -284,46 +288,151 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return { box, items, names, off };
 		},
 		/**
-		 * Closes the open menu, if any, and says whether none is open after.
-		 * Escape only while focus is in the menu or the overlay under it, which
-		 * take the key: anywhere else, with a .qmd in front and its kernel busy,
-		 * Escape is Quarto: Interrupt Kernel, whatever has focus.
+		 * The open menu and its items, by name. A menu is what ui.sh read menu
+		 * reads: a menu of menu items, Positron's context menu (its items are
+		 * buttons) or a drop-down list's popup (a dialog of buttons). Null when
+		 * none is open.
 		 */
-		closeMenu: async () => {
-			if (!await lib.menu()) { return true; }
-			if (await page.evaluate(sel => !!document.activeElement?.closest(sel), `${s.overlay.menu}, ${s.overlay.modal}`)) { await page.keyboard.press('Escape'); }
-			for (let i = 0; i < 10 && await lib.menu(); i++) { await lib.sleep(100); }
-			return !await lib.menu();
+		menu: async (): Promise<List | null> => {
+			const box = page.locator(s.overlay.menu).filter({ visible: true }).last();
+			return await box.count() ? lib.listIn(box) : null;
 		},
 		/**
-		 * Chooses an item of the open menu by name: the whole name; the name
-		 * without a "(keys)" suffix; or the name with a shortcut run into it (no
-		 * lowercase after it), as Positron's menus draw. Hovers first, since a menu
-		 * ignores a click that arrives before the pointer has rested on the item,
-		 * then checks the item went away (a click while the menu still draws is
-		 * lost, so one retry is safe). closeMenu closes it when nothing was chosen.
+		 * Closes the open menu (or the list given, an overlay of its own), if any,
+		 * and says whether none is open after. Escape only while focus is in the
+		 * menu or the overlay under it, which take the key: anywhere else, with a
+		 * .qmd in front and its kernel busy, Escape is Quarto: Interrupt Kernel,
+		 * whatever has focus.
 		 */
-		choose: async (item: string) => {
-			const m = await lib.menu();
+		closeMenu: async (box?: Locator): Promise<boolean> => {
+			const open = async () => box ? await box.isVisible().catch(() => false) : !!await lib.menu();
+			if (!await open()) { return true; }
+			if (await page.evaluate(sel => !!document.activeElement?.closest(sel), `${s.overlay.menu}, ${s.overlay.modal}`)) { await page.keyboard.press('Escape'); }
+			for (let i = 0; i < 10 && await open(); i++) { await lib.sleep(100); }
+			return !await open();
+		},
+		/**
+		 * Chooses an item of the open menu, or of the list given (lib.opened), by
+		 * name: the whole name; the name without a "(keys)" suffix; or the name
+		 * with a shortcut run into it (no lowercase after it), as Positron's menus
+		 * draw. Hovers first, since a menu ignores a click that arrives before the
+		 * pointer has rested on the item, then checks the click took: the item
+		 * went away, or, in a list drawn inside the overlay it was opened from,
+		 * that list changed (a click while the menu still draws is lost, so one
+		 * retry is safe). Closes a menu or popup when nothing was chosen.
+		 */
+		choose: async (item: string, given?: List) => {
+			const m = given ?? await lib.menu();
 			if (!m) { return { ok: false as const, error: 'no menu is open' }; }
+			const close = () => m.inline ? Promise.resolve(true) : lib.closeMenu(given ? m.box : undefined);
 			const want = item.toLowerCase();
 			const pick = [
 				m.names.findIndex(x => x.toLowerCase() === want),
 				m.names.findIndex(x => x.toLowerCase().replace(/\s*\(.*\)\s*$/, '') === want),
 				m.names.findIndex(x => x.toLowerCase().startsWith(want) && !/[a-z]/.test(x.slice(want.length))),
 			].find(i => i >= 0) ?? -1;
-			if (pick < 0) { await lib.closeMenu(); return { ok: false as const, error: `no menu item "${item}"`, items: m.names }; }
-			if (m.off[pick]) { await lib.closeMenu(); return { ok: false as const, error: `the menu item "${m.names[pick]}" is disabled; nothing was chosen`, items: m.names }; }
+			if (pick < 0) { await close(); return { ok: false as const, error: `no item "${item}" in the ${m.inline ? 'list that opened' : 'menu or popup'}`, items: m.names }; }
+			if (m.off[pick]) { await close(); return { ok: false as const, error: `the item "${m.names[pick]}" is disabled; nothing was chosen`, items: m.names }; }
 			const el = m.items.nth(pick);
 			const handle = await el.elementHandle();
-			const gone = () => page.waitForFunction(e => !e || !e.isConnected || !(e as HTMLElement).offsetParent, handle, { timeout: 1500 }).then(() => true, () => false);
+			const before = m.inline ? await lib.snapshot(m.box, 400) : '';
+			const gone = async () => await page.waitForFunction(e => !e || !e.isConnected || !(e as HTMLElement).offsetParent, handle, { timeout: 1500 }).then(() => true, () => false)
+				|| (m.inline && await lib.snapshot(m.box, 400) !== before);
 			const press = async () => { await el.hover({ timeout: 3000 }); await lib.sleep(100); await el.click({ timeout: 3000 }); };
 			await press();
 			if (!await gone()) {
 				await press().catch(() => { });
-				if (!await gone()) { await lib.closeMenu(); return { ok: false as const, error: `the menu stayed open after clicking "${m.names[pick]}"; nothing was chosen` }; }
+				if (!await gone()) { await close(); return { ok: false as const, error: `the list stayed as it was after clicking "${m.names[pick]}"; nothing was chosen` }; }
 			}
 			return { ok: true as const, chose: m.names[pick] };
+		},
+
+		// ---- What an action opened, and what is open on top
+		/**
+		 * Marks the overlays and lists on screen now, so lib.opened can tell what
+		 * an action opens from what was there; with home, an element the action
+		 * starts from, also marks the overlay it is in.
+		 */
+		markOverlays: (home?: ElementHandle<Element> | null) => page.evaluate(({ sel, dialog, h }) => {
+			for (const a of ['data-dp-seen', 'data-dp-home', 'data-dp-list']) { document.querySelectorAll(`[${a}]`).forEach(e => e.removeAttribute(a)); }
+			document.querySelectorAll(sel).forEach(e => { if (e.getClientRects().length) { e.setAttribute('data-dp-seen', ''); } });
+			h?.closest(dialog)?.setAttribute('data-dp-home', '');
+		}, { sel: `${s.overlay.menu}, ${s.overlay.dialog}, ${s.quickInput.widget}, [role=grid], [role=listbox], [role=tree]`, dialog: s.overlay.dialog, h: home ?? null }),
+		/**
+		 * What opened since lib.markOverlays, innermost first: a menu, then a
+		 * quick pick or a dialog or popup of its own, then (with inline) a grid,
+		 * list box or tree drawn inside the overlay the action started from (the
+		 * Data Explorer's filter popup lists its columns so). It is marked, so
+		 * lib.listIn can read it from page.locator('[data-dp-list]'). Null when
+		 * nothing opened. A notification toast is not counted.
+		 */
+		opened: async (inline: boolean): Promise<(List & { kind: string }) | null> => {
+			const kind = await page.evaluate(({ menu, dialog, quick, toast, inline }) => {
+				document.querySelectorAll('[data-dp-list]').forEach(e => e.removeAttribute('data-dp-list'));
+				const fresh = (sel: string, root: ParentNode = document) => [...root.querySelectorAll(sel)].filter(e => !e.hasAttribute('data-dp-seen') && e.getClientRects().length > 0 && e.matches(toast));
+				const home = document.querySelector('[data-dp-home]');
+				const found: [Element | undefined, string][] = [
+					[fresh(menu).pop(), 'menu'], [fresh(quick).pop(), 'quickpick'], [fresh(dialog).pop(), 'dialog'],
+					[inline && home ? fresh('[role=grid], [role=listbox], [role=tree]', home).pop() : undefined, 'list'],
+				];
+				const [el, k] = found.find(([e]) => e) ?? [];
+				el?.setAttribute('data-dp-list', '');
+				return k ?? null;
+			}, { menu: s.overlay.menu, dialog: s.overlay.dialog, quick: s.quickInput.widget, toast: s.overlay.notInNotifications, inline });
+			return kind ? { kind, ...await lib.listIn(page.locator('[data-dp-list]')), inline: kind === 'list' } : null;
+		},
+		/**
+		 * The overlays open on top that are not modal dialogs (lib.dialogs names
+		 * those): menus, popups and the quick pick, each as its kind (the ui.sh
+		 * scope that reads it) and the names of its first items.
+		 */
+		onTop: async (): Promise<string[]> => {
+			const out: string[] = [];
+			const quick = page.locator(s.quickInput.widget).filter({ visible: true });
+			if (await quick.count()) { out.push('a quickpick'); }
+			const menus = page.locator(s.overlay.menu).filter({ visible: true });
+			const popups = page.locator(s.overlay.dialog).and(page.locator(s.overlay.notInNotifications)).filter({ visible: true, hasNot: page.locator(s.dialog.box) }).and(page.locator(s.dialog.box.split(',').map(x => `:not(${x.trim()} *)`).join('')));
+			for (const [loc, kind] of [[menus, 'menu'], [popups, 'dialog']] as const) {
+				for (let i = 0; i < await loc.count(); i++) {
+					// A drop-down's popup is a dialog around a menu: it is named once, as the menu.
+					if (kind === 'dialog' && await loc.nth(i).locator(s.overlay.menu).filter({ visible: true }).count()) { continue; }
+					const l = await lib.listIn(loc.nth(i));
+					const shown = l.names.filter(Boolean).slice(0, 6).map(n => `"${n}"`).join(', ');
+					out.push(`a ${kind}${shown ? ` (${shown})` : ''}`);
+				}
+			}
+			return out;
+		},
+		/**
+		 * A plain failure from an error thrown in a page function. A Playwright
+		 * timeout becomes one sentence: the action, what it waited for (role and
+		 * name, and the view), why it may not have happened as its call log says,
+		 * and what is open on top that could be covering it. ANSI codes and the
+		 * call log are left out; another error keeps its first line.
+		 */
+		failure: async (e: unknown): Promise<{ ok: false; error: string; cliFailed?: boolean }> => {
+			const msg = String((e as Error)?.message ?? e).replace(/\u001b\[[0-9;]*m/g, '');
+			const first = msg.split('\n')[0].trim();
+			const t = first.match(/^\w+\.(\w+): Timeout (\d+)ms exceeded/);
+			if (!t) { return { ok: false, error: first || 'failed', cliFailed: true }; }
+			const waiting = msg.match(/waiting for (.*)/)?.[1] ?? '';
+			const css = waiting.match(/^locator\('([^']*)'\)/)?.[1] ?? '';
+			const parts: Record<string, string> = { [s.editorGroup.active]: 'editor', [s.part.editor]: 'editor', [s.part.sidebar]: 'sidebar', [s.part.secondary]: 'secondary', [s.part.panel]: 'panel', [s.part.statusbar]: 'statusbar', [s.overlay.dialog]: 'dialog', [s.overlay.menu]: 'menu', [s.quickInput.widget]: 'quickpick' };
+			const role = waiting.match(/getByRole\('(\w+)'(?:, \{ name: \/(.*?)\/i? \})?/);
+			// The name as lib.byRole wrote it: ^[\s\uE000-\uF8FF]*NAME\s*$, with a "(keys)" or "," tail, escaped.
+			const name = (role?.[2] ?? '').split('[\\s\\uE000-\\uF8FF]*').join('').split('\\s*').join('').replace(/^\^|\$$/g, '').replace(/(\\\(\.\*\\\)|,)$/, '').replace(/\\(.)/g, '$1');
+			const target = role ? `${role[1]}${name ? ` "${name}"` : ''}` : 'the element';
+			const where = parts[css] ? ` in ${parts[css]}` : css && !/^(body|html)$/.test(css) ? ` in ${css.length > 60 ? 'its view' : css}` : '';
+			const why = /intercepts pointer events/.test(msg) ? 'something drawn on top of it took the click'
+				: !/locator resolved to/.test(msg) ? 'no such element appeared'
+				: /element is not enabled/.test(msg) ? 'it stayed disabled'
+				: /element is not visible/.test(msg) ? 'it stayed hidden'
+				: /element is not stable/.test(msg) ? 'it kept moving'
+				: 'it did not become ready';
+			const top = await lib.onTop().catch(() => []);
+			const kinds = [...new Set(top.map(x => x.split(/[ (]/)[1]))];
+			const open = top.length ? `; open on top: ${top.join('; ')}. Read the top one with ${kinds.map(k => `ui.sh read ${k}`).join(' or ')} and act in it (--in ${kinds[0]}), or close it first` : '';
+			return { ok: false, error: `the ${t[1]} on ${target}${where} did not happen within ${Number(t[2]) / 1000} s: ${why}${open}` };
 		},
 
 		// ---- Diff and settling: what an action changed
