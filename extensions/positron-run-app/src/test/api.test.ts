@@ -209,6 +209,62 @@ suite('PositronRunApp', () => {
 		);
 	});
 
+	suite('runApplication URL detection', () => {
+		let showWarningMessageStub: sinon.SinonStub;
+
+		setup(() => {
+			showWarningMessageStub = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+		});
+
+		teardown(() => {
+			// The apps in these tests never exit on their own.
+			vscode.window.terminals
+				.filter(t => t.name === runAppOptions.name)
+				.forEach(t => t.dispose());
+		});
+
+		/** Options for a terminal app that runs `script` and never exits. */
+		function getLongRunningAppOptions(script: string): RunAppOptions {
+			return {
+				...runAppOptions,
+				getTerminalOptions() {
+					return { command: 'node', args: ['-e', `${script}; setInterval(() => { }, 1000)`] };
+				},
+				// Short timeout so these tests don't slow the suite down.
+				urlDetectionTimeout: 500,
+			};
+		}
+
+		test('warns and leaves the app running when URL detection times out', async () => {
+			await runAppApi.runApplication(getLongRunningAppOptions(''));
+
+			sinon.assert.notCalled(previewUrlStub);
+
+			// These options set `urlDetectionTimeout`, which overrides
+			// `positron.runApp.urlDetectionTimeout`, so the warning must not offer
+			// to change that setting: changing it would have no effect.
+			sinon.assert.calledOnceWithExactly(
+				showWarningMessageStub,
+				sinon.match(/terminal output/),
+				'Show Terminal',
+				'Show Log',
+			);
+		});
+
+		test('previews the app URL that appears after the detection timeout', async () => {
+			// The run ends at the timeout so that a re-run is never blocked.
+			// The watch for the app's URL outlives it.
+			await runAppApi.runApplication(getLongRunningAppOptions(
+				`setTimeout(() => console.log('Server started: http://localhost:8000'), 1500)`
+			));
+			sinon.assert.notCalled(previewUrlStub);
+
+			// Generous: the terminal can take a few seconds to start the app.
+			await waitFor(() => previewUrlStub.called, 'Timed out waiting for the app to be previewed', 20_000);
+			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+		});
+	});
+
 	suite('runApplicationInConsole', () => {
 		const consoleAppOptions: RunConsoleAppOptions = {
 			name: 'Test Console App',

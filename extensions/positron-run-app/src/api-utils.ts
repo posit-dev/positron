@@ -84,15 +84,17 @@ export async function showShellIntegrationNotSupportedMessage(): Promise<void> {
 }
 
 /**
- * Show a message explaining that the app's URL has not appeared in the console
- * output yet.
+ * Show a message explaining that the app's URL has not appeared in its output
+ * yet.
  *
  * The app itself is left running and we keep watching for its URL, so this is a
  * warning rather than an error: the app may simply be slower to start than the
  * URL detection timeout allows.
  * @param appName The name of the app e.g. `'Shiny'`.
- * @param options.sessionId The console session running the app, if known. Used
+ * @param options.sessionId The console session running the app, if any. Used
  *  to offer to focus the session, which is where the app's own output is.
+ * @param options.terminal The terminal running the app, if any. Used to offer
+ *  to show the terminal, which is where the app's own output is.
  * @param options.timeoutSetting The setting that governed the timeout, if it was
  *  one of ours. Omit when the caller passed an explicit timeout, since we can't
  *  know which of the caller's settings (if any) produced it, and pointing at our
@@ -100,28 +102,36 @@ export async function showShellIntegrationNotSupportedMessage(): Promise<void> {
  */
 export async function showUrlDetectionTimedOutMessage(
 	appName: string,
-	options?: { sessionId?: string; timeoutSetting?: string },
+	options?: { sessionId?: string; terminal?: vscode.Terminal; timeoutSetting?: string },
 ): Promise<void> {
 	const showConsole = vscode.l10n.t('Show Console');
+	const showTerminal = vscode.l10n.t('Show Terminal');
 	const changeTimeout = vscode.l10n.t('Change Timeout');
 	const showLog = vscode.l10n.t('Show Log');
 	const actions = [
 		...(options?.sessionId ? [showConsole] : []),
+		...(options?.terminal ? [showTerminal] : []),
 		...(options?.timeoutSetting ? [changeTimeout] : []),
 		showLog,
 	];
 
-	const selection = await vscode.window.showWarningMessage(
-		vscode.l10n.t(
+	const message = options?.terminal
+		? vscode.l10n.t(
+			'Could not find the {0} app URL in the terminal output yet, so the app has not been previewed. ' +
+			'The app is still running, and Positron will preview it as soon as its URL appears.',
+			appName,
+		)
+		: vscode.l10n.t(
 			'Could not find the {0} app URL in the console output yet, so the app has not been previewed. ' +
 			'The app is still running, and Positron will preview it as soon as its URL appears.',
 			appName,
-		),
-		...actions,
-	);
+		);
+	const selection = await vscode.window.showWarningMessage(message, ...actions);
 
 	if (selection === showConsole && options?.sessionId) {
 		positron.runtime.focusSession(options.sessionId);
+	} else if (selection === showTerminal && options?.terminal) {
+		options.terminal.show();
 	} else if (selection === changeTimeout && options?.timeoutSetting) {
 		await vscode.commands.executeCommand('workbench.action.openSettings', `@id:${options.timeoutSetting}`);
 	} else if (selection === showLog) {

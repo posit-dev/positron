@@ -57,11 +57,10 @@ adding workarounds -- re-run it with the matching command below.
    Detection can also lag or lapse: a slow app can outrun the detection
    timeout the user controls with `positron.runApp.urlDetectionTimeout`, and a
    shell without shell integration disables detection entirely, so a
-   terminal-run app runs with nothing ever previewing. For an app run in the
-   console (Shiny for R), upon timeout  Positron notifies the
-   user and keeps watching, so the app may appear in the Viewer by itself a
-   little later. Re-running would only restart an app that was about to show
-   up.
+   terminal-run app runs with nothing ever previewing. Upon timeout, Positron
+   notifies the user and keeps watching, so the app may appear in the Viewer by
+   itself a little later. Re-running would only restart an app that was about
+   to show up.
 
 The Python commands run whatever file you pass without checking its framework,
 so a wrong URI or a mismatched command surfaces as a startup error in the app's
@@ -119,7 +118,8 @@ user which pane to look at, and after a run the user says they cannot see.
 ### `positron.runApp.urlDetectionTimeout`
 
 How long Positron waits for the app to print its URL. A slow app can outrun
-it: the app still runs, it just never gets previewed.
+it: the app still runs, Positron notifies the user, and the app is previewed
+if its URL appears later.
 
 ### `terminal.integrated.shellIntegration.enabled`
 

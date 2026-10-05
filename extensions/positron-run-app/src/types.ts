@@ -21,7 +21,9 @@ export type PositronProxyInfo = {
 };
 
 export type AppPreviewOptions = {
+	appName: string;
 	preview?: Exclude<PreviewMode, 'none'>;
+	terminal: vscode.Terminal;
 	terminalPid: number | undefined;
 	proxyInfo?: PositronProxyInfo;
 	urlPath?: string;
