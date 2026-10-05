@@ -956,22 +956,29 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		// Example: http://localhost:8080/proxy/5678/url/path or http://localhost:8080/proxy/5678
 		let previewUri = undefined;
-		if (options.proxyInfo) {
-			// On Web (specifically Positron Server Web and not PWB), we need to set up the proxy with
-			// the urlPath appended to avoid issues where the app does not set the base url of the app
-			// or the base url of referenced assets correctly.
-			const applyWebPatch = IS_POSITRON_WEB && !IS_RUNNING_ON_PWB;
-			const targetOrigin = applyWebPatch ? localUri.toString(true) : localBaseUri.toString();
+		try {
+			if (options.proxyInfo) {
+				// On Web (specifically Positron Server Web and not PWB), we need to set up the proxy with
+				// the urlPath appended to avoid issues where the app does not set the base url of the app
+				// or the base url of referenced assets correctly.
+				const applyWebPatch = IS_POSITRON_WEB && !IS_RUNNING_ON_PWB;
+				const targetOrigin = applyWebPatch ? localUri.toString(true) : localBaseUri.toString();
 
-			log.debug(`Finishing proxy setup for app at ${targetOrigin}`);
+				log.debug(`Finishing proxy setup for app at ${targetOrigin}`);
 
-			// Finish the Positron proxy setup so that proxy middleware is hooked up.
-			await options.proxyInfo.finishProxySetup(targetOrigin);
-			previewUri = !applyWebPatch && options.urlPath
-				? vscode.Uri.joinPath(options.proxyInfo.externalUri, options.urlPath)
-				: options.proxyInfo.externalUri;
-		} else {
-			previewUri = await vscode.env.asExternalUri(localUri);
+				// Finish the Positron proxy setup so that proxy middleware is hooked up.
+				await options.proxyInfo.finishProxySetup(targetOrigin);
+				previewUri = !applyWebPatch && options.urlPath
+					? vscode.Uri.joinPath(options.proxyInfo.externalUri, options.urlPath)
+					: options.proxyInfo.externalUri;
+			} else {
+				previewUri = await vscode.env.asExternalUri(localUri);
+			}
+		} catch (error) {
+			// Without a URL to give the user, the app is never going to leave
+			// `starting`, so stop reporting it that way.
+			options.app?.stoppedWatchingForUrl();
+			throw error;
 		}
 
 		log.debug(`Viewing app at local uri: ${localUri.toString(true)} with external uri ${previewUri.toString(true)}`);

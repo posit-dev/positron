@@ -112,7 +112,7 @@ The result says whether it worked:
   `file` against `positronRunApp.listApps`; an app it does not list (see
   above) cannot be stopped this way.
 - `not-running`: the app had already exited.
-- `did-not-stop`: the app was still running after Positron asked it to stop.
+- `did-not-stop`: Positron could not stop the app, and `message` says why.
   This is almost always a console app whose session did not respond to the
   interrupt. Tell the user, who can interrupt or restart that session
   themselves.

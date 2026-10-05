@@ -16,24 +16,31 @@ const shiny: AppInfo = { file: 'file:///proj/app.R', name: 'Shiny', runsIn: 'con
 /**
  * An app whose controller does what a real one would: `interrupt` stops it
  * when `stopsOn` is `'interrupt'`, and `terminate` stops it unless `stopsOn`
- * is `'never'`.
+ * is `'never'`. Each action throws instead when it is listed in `throws`.
  */
 function makeApp(info: AppInfo, options: {
 	status?: Exclude<AppStatus, 'exited'>;
 	stopsOn?: 'interrupt' | 'terminate' | 'never';
 	canTerminate?: boolean;
+	throws?: ReadonlyArray<'interrupt' | 'terminate'>;
 } = {}) {
-	const { status = 'starting', stopsOn = 'interrupt', canTerminate = true } = options;
+	const { status = 'starting', stopsOn = 'interrupt', canTerminate = true, throws = [] } = options;
 	const calls: string[] = [];
 	const controller: AppController = {
 		interrupt: async () => {
 			calls.push('interrupt');
+			if (throws.includes('interrupt')) {
+				throw new Error('Terminal has already been disposed');
+			}
 			if (stopsOn === 'interrupt') {
 				app.exited(130);
 			}
 		},
 		terminate: canTerminate ? async () => {
 			calls.push('terminate');
+			if (throws.includes('terminate')) {
+				throw new Error('Could not close the terminal');
+			}
 			if (stopsOn !== 'never') {
 				app.exited();
 			}
@@ -170,6 +177,25 @@ describe('stopping an app', () => {
 		expect({ method: result.stopped && result.method, calls }).toEqual({ method: 'terminated', calls: ['terminate'] });
 	});
 
+	it('terminates it when the interrupt fails', async () => {
+		// Sending Ctrl+C throws when the terminal has just been disposed.
+		const { app, calls } = makeApp(streamlit, { stopsOn: 'terminate', throws: ['interrupt'] });
+
+		const result = await app.stop(TIMEOUT);
+
+		expect({ method: result.stopped && result.method, calls }).toEqual({ method: 'terminated', calls: ['interrupt', 'terminate'] });
+	});
+
+	it('reports why it could not stop an app, rather than rejecting', async () => {
+		const { app } = makeApp(streamlit, { throws: ['interrupt', 'terminate'] });
+
+		expect(await app.stop(TIMEOUT)).toEqual({
+			stopped: false,
+			reason: 'did-not-stop',
+			message: 'Positron could not stop the Streamlit app: Terminal has already been disposed; Could not close the terminal',
+		});
+	});
+
 	it('reports an app that is still running and leaves its preview open', async () => {
 		// A console app has no forcible way to stop.
 		const { app, calls, preview } = makeApp(shiny, { stopsOn: 'never', canTerminate: false });
@@ -213,14 +239,28 @@ describe('stopping an app', () => {
 
 	it('stops the running app when the same file ran under two names', async () => {
 		const registry = new AppRegistry();
-		const { app: exited } = makeApp(streamlit);
 		const { app: running } = makeApp({ ...streamlit, name: 'Flask' });
-		registry.add(exited);
+		const { app: exited } = makeApp(streamlit);
 		registry.add(running);
+		registry.add(exited);
 		exited.exited(0);
 
 		const result = await registry.stop(streamlit.file, TIMEOUT);
 
 		expect(result.stopped && result.name).toBe('Flask');
+	});
+
+	it('stops the newest run when the same file is running under two names', async () => {
+		// Running the Streamlit app again makes it the newest, even though
+		// Streamlit was the first name used.
+		const registry = new AppRegistry();
+		registry.add(makeApp(streamlit).app);
+		registry.add(makeApp({ ...streamlit, name: 'Flask' }).app);
+		registry.add(makeApp(streamlit).app);
+
+		const result = await registry.stop(streamlit.file, TIMEOUT);
+
+		expect({ stopped: result.stopped && result.name, listed: registry.list().map(app => app.name) })
+			.toEqual({ stopped: 'Streamlit', listed: ['Flask', 'Streamlit'] });
 	});
 });

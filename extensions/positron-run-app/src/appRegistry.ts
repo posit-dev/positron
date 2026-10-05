@@ -131,7 +131,8 @@ export class RunningApp {
 
 	/**
 	 * Stop the app: interrupt it, and if it is still running after `timeout`
-	 * ms, terminate it. Closes its preview once it has stopped.
+	 * ms, or the interrupt failed, terminate it. Closes its preview once it
+	 * has stopped. Never rejects: a failure is reported as `did-not-stop`.
 	 */
 	async stop(timeout: number): Promise<StopAppResult> {
 		const { file, name } = this.info;
@@ -139,28 +140,36 @@ export class RunningApp {
 			return { stopped: false, reason: 'not-running', message: `The ${name} app has already exited.` };
 		}
 
+		const errors: string[] = [];
+		const stopsAfter = async (action: () => Promise<void>): Promise<boolean> => {
+			try {
+				await action();
+			} catch (error) {
+				errors.push(error instanceof Error ? error.message : String(error));
+				return false;
+			}
+			return this._waitForExit(timeout);
+		};
+
 		// With no view of the process, Positron cannot tell whether an interrupt
 		// worked, so go straight to terminating it.
-		if (this._status !== 'unknown') {
-			await this._controller.interrupt();
-			if (await this._waitForExit(timeout)) {
-				this._closePreview();
-				return { stopped: true, file, name, method: 'interrupted' };
-			}
+		if (this._status !== 'unknown' && await stopsAfter(() => this._controller.interrupt())) {
+			this._closePreview();
+			return { stopped: true, file, name, method: 'interrupted' };
 		}
 
-		if (this._controller.terminate) {
-			await this._controller.terminate();
-			if (await this._waitForExit(timeout)) {
-				this._closePreview();
-				return { stopped: true, file, name, method: 'terminated' };
-			}
+		const terminate = this._controller.terminate;
+		if (terminate && await stopsAfter(() => terminate())) {
+			this._closePreview();
+			return { stopped: true, file, name, method: 'terminated' };
 		}
 
 		return {
 			stopped: false,
 			reason: 'did-not-stop',
-			message: `The ${name} app was still running ${timeout / 1000} seconds after it was asked to stop.`,
+			message: errors.length
+				? `Positron could not stop the ${name} app: ${errors.join('; ')}`
+				: `The ${name} app was still running ${timeout / 1000} seconds after it was asked to stop.`,
 		};
 	}
 
@@ -196,16 +205,19 @@ export class AppRegistry {
 	 * name: Positron closes that one before starting a new one.
 	 */
 	add(app: RunningApp): void {
+		// Delete first, so the map stays in the order the apps were run.
+		this._appsByName.delete(app.info.name);
 		this._appsByName.set(app.info.name, app);
 	}
 
+	/** Every app, oldest run first. */
 	list(): AppSummary[] {
 		return [...this._appsByName.values()].map(app => app.toSummary());
 	}
 
-	/** Stop the app run from `file`, preferring one that is still running. */
+	/** Stop the app run from `file`, preferring the newest one still running. */
 	async stop(file: string, timeout: number): Promise<StopAppResult> {
-		const apps = [...this._appsByName.values()].filter(app => app.info.file === file);
+		const apps = [...this._appsByName.values()].filter(app => app.info.file === file).reverse();
 		const app = apps.find(app => app.status !== 'exited') ?? apps[0];
 		if (!app) {
 			return {
