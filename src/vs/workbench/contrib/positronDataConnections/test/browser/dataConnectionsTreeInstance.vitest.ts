@@ -940,6 +940,46 @@ describe('DataConnectionsTreeInstance', () => {
 			expect(tree.getSelectedNode()?.id).toBe(DTO_ID);
 		});
 
+		it('prefers a name in the same case over one that only matches without it', async () => {
+			// Quoted identifiers let a database keep both; the path asked for the lower-case one.
+			const { tree } = createTree(true, [], [
+				{ nodeHandle: 7, name: 'Users', kind: 'table', hasGetChildren: false, hasPreview: true },
+				{ nodeHandle: 8, name: 'users', kind: 'table', hasGetChildren: false, hasPreview: true },
+			]);
+			await tree.refresh();
+
+			await tree.reveal({ profileId: 'conn-1', path: [{ kind: DataConnectionNodeKind.Table, name: 'users' }] });
+
+			expect(tree.getSelectedNode()?.id).toBe('dto:1:8');
+		});
+
+		describe.each([false, true])('through a lone schema with showSingleSchema %s', showSingleSchema => {
+			// Shaped like a DuckDB connection: connection > Schemas > main > Tables > flights. By
+			// default the tree drops the schema row, but a path built from getSchema still names it.
+			it('reveals a table the path reaches through its schema', async () => {
+				const { tree } = createTreeOverNodes(
+					[nodeDto({ nodeHandle: 1, name: 'Schemas', kind: 'group-schemas' })],
+					nodeHandle => nodeHandle === 1
+						? [nodeDto({ nodeHandle: 2, name: 'main', kind: 'schema' })]
+						: nodeHandle === 2
+							? [nodeDto({ nodeHandle: 3, name: 'Tables', kind: 'group-tables' })]
+							: nodeHandle === 3
+								? [nodeDto({ nodeHandle: 4, name: 'flights', kind: 'table', hasGetChildren: false })]
+								: [],
+					[profile],
+					showSingleSchema
+				);
+				await tree.refresh();
+
+				await tree.reveal({
+					profileId: 'conn-1',
+					path: [{ kind: DataConnectionNodeKind.Schema, name: 'main' }, FLIGHTS],
+				});
+
+				expect(tree.getSelectedNode()?.id).toBe('dto:1:4');
+			});
+		});
+
 		it('gives up quietly on a path that no longer resolves', async () => {
 			// The table was dropped or renamed since the path was built. Nothing to select, and
 			// nothing worth interrupting the user over.

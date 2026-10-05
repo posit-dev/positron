@@ -68,6 +68,11 @@ export type DataConnectionNode =
 		// The name of the namespace group this node was breadcrumbed into, set when the node was
 		// that group's only child. Rendered ahead of the node's own name, as "Schemas / public".
 		readonly labelPrefix?: string;
+
+		// The name of the lone schema this node was spliced up out of, set when the tree dropped that
+		// schema's row -- see _elideSingleSchema. A reveal path still names the schema, so this is
+		// what lets the walk recognize the level that stands in for it.
+		readonly elidedSchema?: string;
 	};
 
 /**
@@ -164,10 +169,11 @@ const resolveIndentWidth = (configurationService: IConfigurationService): number
 const wrapDto = (
 	dto: IDataConnectionNodeDTO,
 	handle: IDataConnectionHandle,
-	labelPrefix?: string
+	labelPrefix?: string,
+	elidedSchema?: string
 ): TreeNode<DataConnectionNode> => ({
 	id: dtoNodeId(handle, dto),
-	data: { kind: 'dto', dto, handle, labelPrefix },
+	data: { kind: 'dto', dto, handle, labelPrefix, elidedSchema },
 	hasChildren: dto.hasGetChildren,
 	// A group node names a category rather than a thing it holds, so it keeps its children at its
 	// own indent: "Tables" above a list of tables already says what they are, and spending a level
@@ -623,12 +629,29 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		const named = children.filter(child =>
 			child.data.kind === 'dto' && namesMatch(child.data.dto.name, step.name)
 		);
-		const exact = named.find(child =>
+		// A name in the same case wins over one that only matches without it, so a database that
+		// keeps both `Users` and `users` (quoted identifiers) reveals the one the path asked for.
+		const sameCase = named.filter(child =>
+			child.data.kind === 'dto' && child.data.dto.name === step.name
+		);
+		const candidates = sameCase.length > 0 ? sameCase : named;
+		const exact = candidates.find(child =>
 			child.data.kind === 'dto' && child.data.dto.kind === step.kind
 		);
-		const match = exact ?? named[0];
+		const match = exact ?? candidates[0];
 		if (match !== undefined) {
 			return match.id;
+		}
+
+		// The step names a lone schema the tree dropped (see _elideSingleSchema): its contents stand
+		// at this level, so the walk is already where the step would have taken it.
+		const elided = children.some(child =>
+			child.data.kind === 'dto' &&
+			child.data.elidedSchema !== undefined &&
+			namesMatch(child.data.elidedSchema, step.name)
+		);
+		if (elided) {
+			return parentId;
 		}
 
 		// Not a child directly: descend through the grouping rows the path leaves out.
@@ -990,7 +1013,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			return undefined;
 		}
 
-		return contents.map(dto => wrapDto(dto, handle));
+		return contents.map(dto => wrapDto(dto, handle, undefined, schema.name));
 	}
 
 	/**

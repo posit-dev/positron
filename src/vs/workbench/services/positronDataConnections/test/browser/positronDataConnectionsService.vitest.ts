@@ -247,6 +247,48 @@ describe('PositronDataConnectionsService', () => {
 		});
 	});
 
+	describe('connect', () => {
+		// Registers a driver whose connect() is counted, failing the first `failures` calls.
+		const registerDriver = (failures = 0) => {
+			const driverConnect = vi.fn(async () => {
+				if (driverConnect.mock.calls.length <= failures) {
+					throw new Error('connection refused');
+				}
+				return stubInterface<IDataConnectionHandle>({ handle: 1 });
+			});
+			service.driverManager.registerDriver(stubInterface<IDataConnectionDriver>({
+				id: 'test-driver',
+				metadata: createDriverMetadata(),
+				connect: driverConnect,
+			}));
+			service.addUpdateProfile(createProfile('conn-1'));
+			return driverConnect;
+		};
+
+		it('opens one connection for overlapping connects to the same profile', async () => {
+			// An extension opening the connection while the user expands the same entry: both ask
+			// before either has registered an instance.
+			const driverConnect = registerDriver();
+
+			const [first, second] = await Promise.all([service.connect('conn-1'), service.connect('conn-1')]);
+
+			expect({
+				driverConnects: driverConnect.mock.calls.length,
+				sameInstance: first === second,
+				instances: service.getInstances().length,
+			}).toEqual({ driverConnects: 1, sameInstance: true, instances: 1 });
+		});
+
+		it('tries again after a connect that failed', async () => {
+			const driverConnect = registerDriver(1);
+
+			await expect(service.connect('conn-1')).rejects.toThrow('connection refused');
+			await service.connect('conn-1');
+
+			expect(driverConnect.mock.calls.length).toBe(2);
+		});
+	});
+
 	describe('editing a connected profile', () => {
 		// Saves 'conn-1' with the given parameter values and connects it. `parameters` declares the
 		// mechanism's schema, which is what tells the service which values are secret.

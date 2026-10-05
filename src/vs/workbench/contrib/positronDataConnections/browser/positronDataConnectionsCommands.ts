@@ -12,7 +12,7 @@ import { POSITRON_DATA_CONNECTIONS_ENABLED_KEY } from './positronDataConnections
 import { quoteCompactToken } from '../../../services/positronDataConnections/common/dataConnectionCompactFormat.js';
 import { IDataConnectionInstance } from '../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
 import { IDataConnectionNodeStep, IPositronDataConnectionsService } from '../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, isDataConnectionNodeKind, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { DataConnectionNodeKind, DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionProfile, resolveDataConnectionMechanism } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionSchemaSummary, IDataConnectionSchemaSummaryOptions, summarizeDataConnectionSchema } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 
 /**
@@ -638,11 +638,13 @@ function parseRevealArgs(args: unknown): { profileId: string; path: IDataConnect
 
 	const steps: IDataConnectionNodeStep[] = [];
 	for (const step of path) {
-		if (typeof step?.kind !== 'string' || !isDataConnectionNodeKind(step.kind)
-			|| typeof step?.name !== 'string' || !step.name) {
+		if (typeof step?.kind !== 'string' || !step.kind || typeof step?.name !== 'string' || !step.name) {
 			return undefined;
 		}
-		steps.push({ kind: step.kind, name: step.name });
+		// Any kind is let through, not just the enum's: a path is built from getSchema, which passes
+		// on whatever kind the driver reported, and the walk only prefers a kind rather than requiring
+		// it. Cast at this boundary the same way extHostDataConnections casts a driver's kinds.
+		steps.push({ kind: step.kind as DataConnectionNodeKind, name: step.name });
 	}
 	return { profileId, path: steps };
 }

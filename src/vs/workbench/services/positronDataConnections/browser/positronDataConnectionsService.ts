@@ -84,6 +84,11 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Data connection instances.
 	private readonly _instances: IDataConnectionInstance[] = [];
 
+	// Connects still in flight, keyed by profile id, so that a second connect for the same profile
+	// waits on the first rather than opening a second driver connection. Each entry is removed when
+	// its connect settles, so a failed connect can be tried again.
+	private readonly _pendingConnects = new Map<string, Promise<IDataConnectionInstance>>();
+
 	// Dataset ids that previews opened in the Data Explorer, keyed by the profile whose connection
 	// they were previewed from. Recorded by previewNode and dropped when the profile disconnects.
 	// A recorded id outlives its editor -- the user can close the tab at any time -- so this is a
@@ -673,7 +678,8 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	/**
 	 * Opens a connection for the given profile. Looks up the driver, resolves the profile's
 	 * secret parameter values, calls driver.connect(), and registers the resulting instance.
-	 * If a live instance for this profile already exists, returns it without re-connecting.
+	 * If a live instance for this profile already exists, returns it without re-connecting; if a
+	 * connect for it is still in flight, returns that connect's result rather than starting another.
 	 */
 	async connect(profileId: string): Promise<IDataConnectionInstance> {
 		// If we already have a live instance for this profile, reuse it.
@@ -682,6 +688,27 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			return existing;
 		}
 
+		// Two callers can overlap before the first has registered its instance -- an extension opening
+		// a connection while the user expands the same entry, say. Without this both would open a
+		// driver connection, and the second would never be found again to be released.
+		const pending = this._pendingConnects.get(profileId);
+		if (pending) {
+			return pending;
+		}
+
+		const connecting = this._connect(profileId);
+		this._pendingConnects.set(profileId, connecting);
+		try {
+			return await connecting;
+		} finally {
+			this._pendingConnects.delete(profileId);
+		}
+	}
+
+	/**
+	 * Does the work of connect() for a profile with no live instance and no connect in flight.
+	 */
+	private async _connect(profileId: string): Promise<IDataConnectionInstance> {
 		// Resolve the profile (with secrets pulled from secret storage).
 		const profile = await this.getProfileWithSecrets(profileId);
 		if (!profile) {

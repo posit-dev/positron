@@ -84,16 +84,6 @@ export enum DataConnectionNodeKind {
 	Metric = 'metric',
 }
 
-const DATA_CONNECTION_NODE_KINDS = new Set<string>(Object.values(DataConnectionNodeKind));
-
-/**
- * Whether a string is one of the {@link DataConnectionNodeKind} values.
- * @param value The string to check, typically from untyped input such as command arguments.
- */
-export function isDataConnectionNodeKind(value: string): value is DataConnectionNodeKind {
-	return DATA_CONNECTION_NODE_KINDS.has(value);
-}
-
 /**
  * A data connection profile. A profile has its persistence metadata (id, createdAt, lastUsedAt)
  * once stored; for a draft (not yet saved) those fields are undefined. Distinct from

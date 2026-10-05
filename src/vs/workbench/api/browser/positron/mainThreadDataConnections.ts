@@ -158,7 +158,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * Opens the user's connection for a profile, if it is not already open.
 	 *
 	 * The service's connect is idempotent, so a profile that is already connected costs a lookup
-	 * rather than a reconnect. The instance it returns is deliberately dropped: this exists so an
+	 * rather than a reconnect, and one still connecting is waited on rather than opened twice. The instance it returns is deliberately dropped: this exists so an
 	 * extension can ask for a connection to be opened, not so it can hold one.
 	 */
 	async $openDataConnection(profileId: string): Promise<boolean> {
