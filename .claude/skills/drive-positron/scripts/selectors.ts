@@ -164,6 +164,7 @@ export const css = {
 	// which session an instance belongs to, are not in the tree.
 	console: {
 		instance: '.console-instance',
+		empty: '.empty-console', // the Console view with no session: its message has no role
 		active: '.console-instance[style*="z-index: auto"]',
 		container: '.console-instance-container', // the output, without the input
 		input: '.console-input',

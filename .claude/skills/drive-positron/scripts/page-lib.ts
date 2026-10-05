@@ -411,7 +411,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const status = lines.map(l => l.match(/^(.+) (starting|started|restarting|restarted|reconnecting|reconnected)\.$/)?.[1]).filter(Boolean).pop() ?? '';
 			const picker = (document.querySelector(`[aria-label="${n.selectSession}"]`)?.textContent ?? '').trim();
 			const sessions = tabs.length || !active ? tabs : [{ id: active, name: status || picker }];
-			return { active, tabs, sessions, inPage: !!document.querySelector(c.instance) };
+			// With no session the view shows only its empty message, and no instance.
+			return { active, tabs, sessions, inPage: !!document.querySelector(c.instance) || !!document.querySelector<HTMLElement>(c.empty)?.offsetParent };
 		}, { c: s.console, n: ui.names.console }),
 		/**
 		 * Makes a console the active one by clicking its tab, and waits until it
