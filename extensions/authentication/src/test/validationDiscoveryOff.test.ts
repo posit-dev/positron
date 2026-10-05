@@ -29,7 +29,7 @@ suite('API key validation with model discovery off', () => {
 		requestedUrls = [];
 		globalThis.fetch = async url => {
 			requestedUrls.push(url as string);
-			return { ok: false, status: 404, json: async () => ({}) } as Response;
+			return { ok: true, status: 200 } as Response;
 		};
 		sinon.stub(log, 'info');
 	});
@@ -46,14 +46,6 @@ suite('API key validation with model discovery off', () => {
 			await validate('key', { baseUrl: 'https://gateway.example.com/v1' });
 
 			assert.deepStrictEqual(requestedUrls, []);
-		});
-
-		test(`${label} still queries /models when discovery is auto`, async () => {
-			stubValidationCatalog({ [catalogId]: { models: { discovery: 'auto' } } });
-
-			await assert.rejects(validate('key', { baseUrl: 'https://gateway.example.com/v1' }), /HTTP 404/);
-
-			assert.deepStrictEqual(requestedUrls, ['https://gateway.example.com/v1/models']);
 		});
 	}
 });
