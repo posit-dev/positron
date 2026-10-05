@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { PreviewMode } from './positron-run-app';
+import { RunningApp } from './appRegistry';
 
 export enum Config {
 	ShellIntegrationEnabled = 'terminal.integrated.shellIntegration.enabled',
@@ -28,6 +29,8 @@ export type AppPreviewOptions = {
 	appReadyMessage?: string;
 	appUrlStrings?: string[];
 	urlDetectionTimeout?: number;
+	/** The app being previewed, to record its URLs and preview on. */
+	app?: RunningApp;
 };
 
 export type AppLauncherTerminalLink = vscode.TerminalLink & {

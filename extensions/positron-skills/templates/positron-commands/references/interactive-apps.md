@@ -38,30 +38,50 @@ adding workarounds -- re-run it with the matching command below.
 2. **Run the matching command** from the sections below, passing the app
    file's URI. App startup can take a while, so the command may take a moment
 	 to come back.
-3. **Do not read the result as proof the app is up.** These commands return
-   nothing, and they return nothing whether the app is serving or failed to
-   start. You cannot read the app's terminal or console output either, and
-   Positron may have shown the user an error notification you cannot see.
-   When the app previews in the Viewer (see "Settings"), check for yourself
-   with `positronViewer.read` (see [viewer.md]({{skill_dir}}/references/viewer.md)).
-   Otherwise you have no evidence of your own about the app's state.
-4. **Say what you ran and where the preview should appear.** If the Viewer
-   showed the app, say it is running and what it shows. Otherwise let the user
-   confirm. Every command previews the app once Positron detects its URL --
-   in the Viewer pane by default, but the user's preview mode setting can point
-   it at an editor tab or their own browser instead, so name the Viewer only
-   when you know that is where it went (see "Settings"). Ask the user to paste
-	 the app's terminal (or console) output if nothing shows up. Do not re-run
-	 the command on a hunch: re-running restarts an app that may be perfectly fine.
+3. **Check the app with `positronRunApp.listApps`.** The run commands return
+   nothing, whether the app is serving or failed to start, and you cannot read
+   the app's terminal or console output. `positronRunApp.listApps` is how you
+   find out: it is read-only, so call it after the run command comes back and
+   find the app by its `file`. Its `status` tells you where the app is:
+   - `running` with a `url`: the app is up and serving.
+   - `starting`: Positron is still watching the app's output for its URL.
+     Call `positronRunApp.listApps` again in a little while rather than
+     re-running.
+   - `exited`: the app stopped. Right after a run this almost always means it
+     failed to start, such as on an error in the app's code; a non-zero
+     `exitCode` says the same for a terminal app. Ask the user for the app's
+     terminal (or console) output, fix the problem, and run it again.
+   - `running` with no `url`: the app is up, but Positron did not find its
+     URL. URL detection timed out, or previewing is off (see "Settings").
+   - `unknown`: shell integration is off, so Positron cannot see the app's
+     process. Ask the user what the app's terminal shows.
+
+   When the app previews in the Viewer (see "Settings"), you can also read
+   what it shows with `positronViewer.read` (see
+   [viewer.md]({{skill_dir}}/references/viewer.md)).
+4. **Say what you ran and where the preview should appear.** If the app is
+   up, say so and what it shows. Every command previews the app once Positron
+   detects its URL -- in the Viewer pane by default, but the user's preview
+   mode setting can point it at an editor tab or their own browser instead, so
+   name the Viewer only when you know that is where it went (`preview` in the
+   app's `positronRunApp.listApps` entry). Do not re-run the command on a
+   hunch: re-running restarts an app that may be perfectly fine.
 
    Detection can also lag or lapse: a slow app can outrun the detection
    timeout the user controls with `positron.runApp.urlDetectionTimeout`, and a
    shell without shell integration disables detection entirely, so a
    terminal-run app runs with nothing ever previewing. For an app run in the
-   console (Shiny for R), upon timeout  Positron notifies the
-   user and keeps watching, so the app may appear in the Viewer by itself a
-   little later. Re-running would only restart an app that was about to show
-   up.
+   console (Shiny for R), upon timeout Positron notifies the user and keeps
+   watching, so the app stays `starting` and may appear in the Viewer by
+   itself a little later. Re-running would only restart an app that was about
+   to show up.
+
+`positronRunApp.listApps` covers apps run with the commands below or the
+user's Run App button, including ones the user started. It does not list Shiny
+for Python apps, which the Shiny extension runs itself, apps started under the
+debugger, or apps started before the window last reloaded. For those you are
+back to asking the user. Neither `positronRunApp.listApps` nor
+`positronRunApp.stopApp` has a precondition, so neither comes back `disabled`.
 
 The Python commands run whatever file you pass without checking its framework,
 so a wrong URI or a mismatched command surfaces as a startup error in the app's
@@ -72,28 +92,52 @@ have no precondition, so they never come back `disabled`; a `disabled` result
 from a Shiny command means the active editor's file was not recognized as a
 Shiny app.
 
-Lifecycle: re-running a command restarts the app (Positron closes the app's
-old terminal first). **You cannot stop a running app yourself**: no command
-here stops an app server or kills a terminal (`shiny.stopApp` for Shiny is
-the one exception). When the user wants an app stopped, tell them to press
-the stop button in the Viewer pane when the app was previewed there, or to
-kill the app's terminal -- it is named after the framework.
+Re-running a command restarts the app: Positron closes the app's old terminal
+first, so there is no need to stop an app before running it again.
+
+## Stopping an app
+
+Stop an app with `positronRunApp.stopApp`, passing its `file` as
+`positronRunApp.listApps` reports it. Positron asks the app to stop the way
+Ctrl+C does: in its terminal, or by interrupting its console session. If a
+terminal app is still running 5 seconds later, Positron closes its terminal,
+which ends its process. Once the app has stopped, its preview in the Viewer
+closes too. Stop an app when the user asks, or when you started one only to
+check something and are done with it.
+
+The result says whether it worked:
+- `stopped: true`: the app is stopped. `method` is `interrupted`, or
+  `terminated` when its terminal had to be closed.
+- `not-found`: Positron has no record of an app from that file. Check the
+  `file` against `positronRunApp.listApps`; an app it does not list (see
+  above) cannot be stopped this way.
+- `not-running`: the app had already exited.
+- `did-not-stop`: the app was still running after Positron asked it to stop.
+  This is almost always a console app whose session did not respond to the
+  interrupt. Tell the user, who can interrupt or restart that session
+  themselves.
+
+A Shiny for Python app is the exception: `positronRunApp.listApps` does not
+list it, so stop it with `shiny.stopApp` instead (see "Shiny" below).
+
+{{command:positronRunApp.stopApp}}
 
 ## The app's URL
 
-These commands do not return the app's URL, and you cannot read it out of the
-app's terminal output, so you never have one to hand the user. Point them at
-the surface the app was previewed on instead (see "Settings")
--- that is where they interact with it. Do not tell them to open a URL in order
-to see their app, and never guess at a port.
+The run commands do not return the app's URL, but once Positron finds it,
+`positronRunApp.listApps` reports it twice over:
+- `url` is where the user opens the app. On Posit Workbench this is the
+  proxied address, reachable from their browser.
+- `localUrl` is where the app serves from inside the session. Use it for your
+  own requests, such as `curl` from a terminal.
 
-**Elsewhere than Posit Workbench**, if the user specifically wants an address
-for a full browser tab, the app prints one in its terminal output: ask them to
-read it from there.
+Point the user at the surface the app was previewed on first -- that is where
+they interact with it. If they specifically want an address for a full
+browser tab, give them `url`. Never give them `localUrl` on Posit Workbench,
+where `localhost` is not reachable from their browser. When neither is set,
+Positron has not found the URL: say so, and never guess at a port.
 
-**On Posit Workbench** that printed `localhost` URL is not reachable from the
-user's browser, so it is not the address to give them. Point them at the
-Workbench extension's Proxied Servers view instead.
+{{command:positronRunApp.listApps}}
 
 ## Settings
 
@@ -111,7 +155,8 @@ browser (`external`), or nowhere (`none`). It applies to the Python framework
 commands; Shiny is governed separately by `shiny.previewType`.
 
 `none` is the one that changes how you work: it turns URL detection off
-entirely, so a healthy app produces no preview anywhere and waiting or
+entirely, so a healthy app produces no preview anywhere, and
+`positronRunApp.listApps` reports it `running` with no URL. Waiting or
 re-running will not change that. `external` matters less but still makes
 "check the Viewer" the wrong thing to say. Read the setting before telling the
 user which pane to look at, and after a run the user says they cannot see.
@@ -200,8 +245,8 @@ plain text is a Flask view returning `url_for(...)` where it should return
 ### Working on Posit Workbench
 
 - In-session requests to `localhost` do work: you may smoke-test a running
-  app with `curl http://localhost:<port>/...` from a terminal. Never pass that
-  `localhost` URL on to the user -- point them at the Proxied Servers view.
+  app with `curl` against its `localUrl` from a terminal. Never pass that
+  `localhost` URL on to the user -- give them its `url` instead.
 - If the user insists on running from a terminal anyway, the app needs the
   same proxy-safe code as above, and it is opened from the Workbench
   extension's Proxied Servers view rather than the printed URL. See
@@ -216,8 +261,8 @@ environment requires (a relative path always names the wrong file). The file
 does not have to be open, and Positron leaves the user's editors as they are --
 do not open the file yourself first. All of them come from the Python
 extension, so expect `not-found` if Python support isn't loaded yet. None of
-them return the app's URL -- see steps 3 and 4 of "The flow" above for how to
-tell whether the app actually started.
+them return the app's URL -- see steps 3 and 4 of "Step-by-step" above for how
+to tell whether the app actually started.
 
 ### `python.execDashInTerminal`
 
@@ -274,7 +319,9 @@ whatever editor is focused instead.
 - **`shiny.r.runApp`** -- runs the active editor's file as a Shiny for R app
   in the R Console (R Shiny apps run in the console, not a terminal) and
   previews it.
-- **`shiny.stopApp`** -- stops the running Shiny app.
+- **`shiny.stopApp`** -- stops a running Shiny for Python app. It does not
+  stop a Shiny for R app, which runs in the console: stop that with
+  `positronRunApp.stopApp`.
 
 ## Debugging an app
 
@@ -287,4 +334,6 @@ Python). The Python debug variants take
 the same optional file argument as the run commands. Use one only when the
 user explicitly asks to debug their app -- the user sets breakpoints in the
 editor gutter; you cannot set them. To simply run or restart an app, always
-use the run commands above.
+use the run commands above. `positronRunApp.listApps` does not list an app
+started under the debugger, and `positronRunApp.stopApp` cannot stop one: the
+user stops it from the debug toolbar.

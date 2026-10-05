@@ -6,6 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { PositronRunAppApiImpl } from './api';
+import { registerAgentCommands } from './agentCommands';
 import { registerDebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { PositronRunApp } from './positron-run-app';
 import { AppLauncherTerminalLinkProvider } from './terminalLinkProvider.js';
@@ -19,7 +20,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<Positr
 	const positronRunApp = new PositronRunAppApiImpl(positron.context.ephemeralState, debugSessionTerminalWatcher);
 
 	context.subscriptions.push(
-		vscode.window.registerTerminalLinkProvider(new AppLauncherTerminalLinkProvider(positronRunApp))
+		positronRunApp,
+		vscode.window.registerTerminalLinkProvider(new AppLauncherTerminalLinkProvider(positronRunApp)),
+		registerAgentCommands(positronRunApp),
 	);
 
 	return positronRunApp;

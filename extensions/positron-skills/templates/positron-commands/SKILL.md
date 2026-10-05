@@ -118,8 +118,10 @@ they have none, creating a project environment (venv, Conda, or uv), or finding
 out which interpreter is currently active.
 
 **Interactive web apps** -- [references/interactive-apps.md]({{skill_dir}}/references/interactive-apps.md)
-Read when the user wants a web app running or debugged: "run my app", "start
-the shiny/flask/dash/streamlit/marimo app", "preview my dashboard". Read it
+Read when the user wants a web app running, stopped or debugged, or asks about
+one that is running: "run my app", "start the shiny/flask/dash/streamlit/marimo
+app", "preview my dashboard", "is my app up?", "what's my app's URL?", "stop
+the app". Read it
 **before** starting any app server yourself -- app servers must not be started by
 running code in a session or a raw terminal command for supported app frameworks. The
 commands it documents manage the terminal, detect the app URL, set up any
