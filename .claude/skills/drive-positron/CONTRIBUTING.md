@@ -76,8 +76,9 @@ there. `check.ts` fails on a class or test-id selector written in a helper, and
 on an entry nothing reads. When the product renames something, change the entry
 here; the helpers follow.
 
-`test/drift.ts` checks every entry against `src/` and `extensions/`, so a PR
-that renames a class, test id or label hears about it. If it reports your PR:
+`test/drift.ts` checks every entry against `src/` and `extensions/`, so a
+renamed class, test id or label is caught (nightly in CI, or run it on your
+branch). If it reports an entry:
 
 1. Find what the product calls the thing now, and change the entry it names
    in `selectors.ts` (the output lists the helper lines that read it).
@@ -139,9 +140,10 @@ node .claude/skills/drive-positron/test/smoke.ts   # every helper on one instanc
 node .claude/skills/drive-positron/test/smoke.ts --quick   # one happy path per helper, ~2 min
 ```
 
-In CI, `.github/workflows/drive-positron.yml` runs drift.ts on every PR that
-touches UI source (and check.ts when the PR changes this skill), and both
-again nightly on main, with smoke.ts, or on a manual run. Both
+In CI, `.github/workflows/drive-positron.yml` runs drift.ts (and check.ts
+when this skill changed) nightly on main, with smoke.ts, or on a manual run.
+The drift check on PRs that touch UI source is off for now: its
+`pull_request` trigger is commented out. Both
 jobs are warn-only (`continue-on-error: true`); to make one required, remove
 that line and add the job to branch protection.
 

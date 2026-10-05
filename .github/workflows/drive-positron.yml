@@ -6,8 +6,10 @@ name: "drive-positron: UI Drift"
 # one of them which entry broke and which helpers read it, so the author can fix
 # the entry in the same PR.
 #
-#   drift  every PR touching UI source: test/drift.ts, no install, ~1 min. On a
-#          PR that also changes the skill, the full test/check.ts.
+#   drift  test/drift.ts, no install, ~1 min (the full test/check.ts when the
+#          skill changed). Runs nightly and on a manual run; on PRs touching
+#          UI source it is off for now (the pull_request trigger is commented
+#          out below).
 #   smoke  nightly on main (and on a manual run): builds Positron the way
 #          test-e2e-ubuntu.yml does and runs test/smoke.ts. Not per PR, because
 #          no PR job shares its build and a build costs ~20 min.
@@ -18,25 +20,26 @@ name: "drive-positron: UI Drift"
 # Plain `pull_request`: a fork PR gets no secrets and a read-only token.
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      # Positron's own UI, and the extensions whose command titles the helpers run.
-      - "src/vs/workbench/contrib/positron*/**"
-      - "src/vs/workbench/browser/positron*/**"
-      - "src/vs/platform/positron*/**"
-      - "extensions/positron-*/**"
-      # Upstream UI the registry reads: lists, menus, dialogs, quick input,
-      # editor parts, notifications, debug and notebook views, codicons.
-      - "src/vs/base/browser/ui/**"
-      - "src/vs/base/common/codicons*.ts"
-      - "src/vs/platform/quickinput/**"
-      - "src/vs/workbench/browser/parts/**"
-      - "src/vs/workbench/services/views/**"
-      - "src/vs/workbench/contrib/debug/browser/**"
-      - "src/vs/workbench/contrib/notebook/browser/**"
-      - ".claude/skills/drive-positron/**"
-      - ".github/workflows/drive-positron.yml"
+  # Drift on PRs is off for now; uncomment to turn it back on.
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
+  #   paths:
+  #     # Positron's own UI, and the extensions whose command titles the helpers run.
+  #     - "src/vs/workbench/contrib/positron*/**"
+  #     - "src/vs/workbench/browser/positron*/**"
+  #     - "src/vs/platform/positron*/**"
+  #     - "extensions/positron-*/**"
+  #     # Upstream UI the registry reads: lists, menus, dialogs, quick input,
+  #     # editor parts, notifications, debug and notebook views, codicons.
+  #     - "src/vs/base/browser/ui/**"
+  #     - "src/vs/base/common/codicons*.ts"
+  #     - "src/vs/platform/quickinput/**"
+  #     - "src/vs/workbench/browser/parts/**"
+  #     - "src/vs/workbench/services/views/**"
+  #     - "src/vs/workbench/contrib/debug/browser/**"
+  #     - "src/vs/workbench/contrib/notebook/browser/**"
+  #     - ".claude/skills/drive-positron/**"
+  #     - ".github/workflows/drive-positron.yml"
   schedule:
     - cron: "30 3 * * 1-5" # 03:30 UTC, Mon-Fri
   workflow_dispatch:
