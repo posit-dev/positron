@@ -127,7 +127,7 @@ export const ObjectExplorerRow = ({ node, nameWidth, typeWidth, maxDepthReached,
 	};
 
 	return (
-		<div className={`object-explorer-row${expanded ? ' expanded' : ''}`} data-testid='object-explorer-row' role='presentation' style={rowStyle(nameWidth, typeWidth)} onDoubleClick={onDoubleClick}>
+		<div className={`object-explorer-row${expanded ? ' expanded' : ''}${nameMatched || valueMatched ? ' matched' : ''}`} data-testid='object-explorer-row' role='presentation' style={rowStyle(nameWidth, typeWidth)} onDoubleClick={onDoubleClick}>
 			<div
 				className='object-explorer-cell name'
 				data-testid='object-explorer-name'

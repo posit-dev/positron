@@ -24,3 +24,10 @@
 .positron-object-explorer .positron-tree-row:not(.selected):hover {
 	background-color: var(--vscode-list-hoverBackground);
 }
+
+/*
+ * A bar at the left edge of a row that matches the search, set apart from its ancestors.
+ */
+.positron-object-explorer .positron-tree-row:has(.object-explorer-row.matched) {
+	box-shadow: inset 3px 0 0 var(--vscode-list-filterMatchBackground);
+}
