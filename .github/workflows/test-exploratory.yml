@@ -486,6 +486,17 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # The explorer's instructions come from the harness, the helpers from the
+      # branch under test. A branch older than the helper rewrite lacks the
+      # helpers they name, so stop before the build with what to do about it.
+      - name: Check the branch has the current helpers
+        shell: bash
+        run: |
+          if [[ ! -f .claude/skills/drive-positron/scripts/dp.ts ]]; then
+            echo "::error::This branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and run again."
+            exit 1
+          fi
+
       - name: Resolve diff base
         id: base
         shell: bash
