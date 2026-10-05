@@ -78,6 +78,9 @@ interface SettingsMigration {
 	readonly run: () => Promise<void>;
 }
 
+// Drop these, and the deprecated `authentication.aws.credentials` /
+// `authentication.snowflake.credentials` declarations they write, once Posit
+// Workbench drops support for Positron 2026.04
 const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = [
 	{ name: 'AWS', run: migrateAwsSettings },
 	{ name: 'Snowflake', run: migrateSnowflakeSettings },

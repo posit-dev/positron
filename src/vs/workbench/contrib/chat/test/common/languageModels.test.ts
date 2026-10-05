@@ -32,19 +32,16 @@ import { IRequestService } from '../../../../../platform/request/common/request.
 import { ITelemetryService } from '../../../../../platform/telemetry/common/telemetry.js';
 import { NullTelemetryService } from '../../../../../platform/telemetry/common/telemetryUtils.js';
 // --- Start Positron ---
-// LanguageModelsService takes IConfigurationService and IPositronAssistantConfigurationService
-// as the first two constructor args (Positron-added). Tests stub them with no-op mocks.
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+// LanguageModelsService takes IPositronAssistantConfigurationService as the first
+// constructor arg (Positron-added). Tests stub it with a no-op mock.
 import { IPositronAssistantConfigurationService } from '../../../positronAssistant/common/interfaces/positronAssistantService.js';
 
-function positronTestConfigurationServices(): [IConfigurationService, IPositronAssistantConfigurationService] {
-	const configurationService = new TestConfigurationService();
+function positronTestConfigurationServices(): [IPositronAssistantConfigurationService] {
 	const positronAssistantConfigurationService = new class extends mock<IPositronAssistantConfigurationService>() {
 		override readonly onChangeEnabledProviders = Event.None;
 		override isProviderEnabled() { return true; }
 	};
-	return [configurationService, positronAssistantConfigurationService];
+	return [positronAssistantConfigurationService];
 }
 // --- End Positron ---
 
