@@ -203,6 +203,17 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	// be read by the row it was fetched for. See _breadcrumbNamespaceGroups and _takeLookAhead.
 	private readonly _lookAheadChildren = new Map<string, readonly IDataConnectionNodeDTO[]>();
 
+	// Rows whose children a path lookup loaded without the row ever being expanded. Having loaded
+	// children is otherwise what marks a row the user opened and closed, so these are told apart
+	// to keep _expandBreadcrumbed opening them as it would a row seen for the first time. A row
+	// leaves the set when it is expanded or its children are dropped.
+	private readonly _loadedUnopened = new Set<string>();
+
+	// The opens in Data Explorer in flight for each profile, and whether the connection was already
+	// open when the first of them started, so only the last to finish gives up a connection that
+	// was opened for them. See openInDataExplorer.
+	private readonly _opensInFlight = new Map<string, { count: number; wasConnected: boolean }>();
+
 	// Counts details requests, so a preview-mode open whose fetch was overtaken by a later request
 	// can tell and drop its result. See openNodeDetails.
 	private _detailsRequestCount = 0;
@@ -379,7 +390,13 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 * @param name The node's name, for reporting a failure.
 	 */
 	async openInDataExplorer(profileId: string, nodePath: readonly string[], name: string): Promise<void> {
-		const wasConnected = this._service.getInstanceForProfile(profileId) !== undefined;
+		// Another open already in flight on the profile may have connected it, so the first open's
+		// answer is the one that counts; and closing must wait for the last open, since an earlier
+		// one finishing could otherwise close the connection under a later one's preview.
+		const inFlight = this._opensInFlight.get(profileId) ??
+			{ count: 0, wasConnected: this._service.getInstanceForProfile(profileId) !== undefined };
+		inFlight.count++;
+		this._opensInFlight.set(profileId, inFlight);
 		try {
 			const entry = await this._entryNode(profileId);
 			const lookup = entry === undefined ? undefined : await this._lookUpPath(entry, nodePath);
@@ -405,8 +422,11 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				));
 			}
 		} finally {
-			if (!wasConnected && !this.isExpanded(entryNodeId(profileId))) {
-				this._service.disconnectWhenUnused(profileId);
+			if (--inFlight.count === 0) {
+				this._opensInFlight.delete(profileId);
+				if (!inFlight.wasConnected && !this.isExpanded(entryNodeId(profileId))) {
+					this._service.disconnectWhenUnused(profileId);
+				}
 			}
 		}
 	}
@@ -463,6 +483,9 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 		parent: TreeNode<DataConnectionNode>,
 		key: string
 	): Promise<{ path?: TreeNode<DataConnectionNode>[]; error?: unknown; failedId?: string }> {
+		if (!this.isExpanded(parent.id) && !this.hasLoadedChildren(parent.id)) {
+			this._loadedUnopened.add(parent.id);
+		}
 		const children = await this.loadChildren(parent.id);
 		if (children === undefined) {
 			const error = this.getError(parent.id);
@@ -524,6 +547,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			this._service.cancelDisconnectWhenUnused(node.entry.profile.id);
 		}
 		const fetches = !this.isExpanded(id) && !this.hasLoadedChildren(id);
+		this._loadedUnopened.delete(id);
 		await super.expand(id);
 		if (fetches) {
 			this._notifyIfFailed(id);
@@ -848,19 +872,26 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 	 *
 	 * A row the user has closed is left closed, and having loaded children is what tells the two
 	 * apart: a row that has never been opened has none, and one the user opened and then closed
-	 * keeps them (a collapse does not drop them). Deliberately not a set of ids the tree has already
-	 * opened -- the extension host mints a fresh node handle every time it serializes a node, so a
+	 * keeps them (a collapse does not drop them). The exception is a row whose children a path lookup
+	 * loaded without opening it, which _loadedUnopened tracks and which counts as never opened.
+	 * Deliberately not a set of ids the tree has already opened -- the extension host mints a fresh node handle every time it serializes a node, so a
 	 * row's id changes on every fetch and such a set would treat every replacement row as unseen.
 	 * The reload path avoids the question entirely by leaving expansion to the base, which matches
 	 * rows by reload key; see reload.
 	 */
 	private async _expandBreadcrumbed(): Promise<void> {
+		for (const id of this._loadedUnopened) {
+			if (!this.hasLoadedChildren(id)) {
+				this._loadedUnopened.delete(id);
+			}
+		}
+
 		const toExpand = this.visibleNodes
 			.filter(visible =>
 				visible.node.data.kind === 'dto' &&
 				visible.node.data.labelPrefix !== undefined &&
 				!this.isExpanded(visible.node.id) &&
-				!this.hasLoadedChildren(visible.node.id))
+				(!this.hasLoadedChildren(visible.node.id) || this._loadedUnopened.has(visible.node.id)))
 			.map(visible => visible.node.id);
 
 		await Promise.all(toExpand.map(id => this.expand(id)));

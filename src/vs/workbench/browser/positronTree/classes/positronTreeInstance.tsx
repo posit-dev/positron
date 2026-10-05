@@ -513,11 +513,15 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	 * Gets a node's children, loading them first if they aren't loaded, without expanding the node:
 	 * for a consumer that needs to look below a node without changing what the tree shows. A load
 	 * already in flight is shared, as expand shares it, and a load that fails leaves the node in the
-	 * error state, as expand does (see {@link getError}).
+	 * error state, as expand does (see {@link getError}). A reload of the node, or of the whole tree,
+	 * that is in flight is waited for first, so the children returned are the ones it puts in place
+	 * rather than the ones it is about to replace.
 	 * @param id The id of the node.
 	 * @returns The node's children, or undefined when it has none to load or loading them failed.
 	 */
 	async loadChildren(id: string): Promise<readonly TreeNode<T>[] | undefined> {
+		await this._pendingReloadAll;
+		await this._pendingReloads.get(id);
 		const node = this._findNode(id);
 		if (node === undefined || !node.hasChildren) {
 			return undefined;
