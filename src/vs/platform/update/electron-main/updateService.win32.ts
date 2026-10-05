@@ -55,15 +55,6 @@ interface IAvailableUpdate {
 
 const RELAUNCH_ARGUMENTS_FILE_PREFIX = 'relaunch-args-';
 
-let _updateType: UpdateType | undefined = undefined;
-function getUpdateType(): UpdateType {
-	if (typeof _updateType === 'undefined') {
-		_updateType = getWin32UpdateType();
-	}
-
-	return _updateType;
-}
-
 export class Win32UpdateService extends AbstractUpdateService implements IRelaunchHandler {
 
 	private availableUpdate: IAvailableUpdate | undefined;
@@ -361,7 +352,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			})
 			// --- End Positron ---
 			.then(update => {
-				const updateType = getUpdateType();
+				const updateType = this.getUpdateType();
 
 				if (token.isCancellationRequested) {
 					return Promise.resolve(null);
@@ -426,23 +417,9 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					return Promise.resolve(null);
 				}
 
-				// --- Start Positron ---
-				// Positron has not adopted upstream's deferred-*download* machinery
-				// (`deferAutomaticDownload()` / `resumeAutomaticUpdates()`), which parks the
-				// download and resumes it once the connection is no longer metered. Instead we
-				// surface the update and leave the download to an explicit user action. Upstream
-				// also calls `deferAutomaticDownload()` again further down, before writing the
-				// temp file, and guards the resulting `undefined` package path with
-				// `!packagePath`; both are absent below for the same reason.
-				// if (this.deferAutomaticDownload(update, explicit)) {
-				// 	return Promise.resolve(null);
-				// }
-				if (!explicit && this.meteredConnectionService.isConnectionMetered) {
-					this.logService.info('update#doCheckForUpdates - update available but skipping download because connection is metered');
-					this.setState(State.AvailableForDownload(update));
+				if (this.deferAutomaticDownload(update, explicit)) {
 					return Promise.resolve(null);
 				}
-				// --- End Positron ---
 
 				const startTime = Date.now();
 				this.setState(State.Downloading(update, explicit, this._overwrite, 0, undefined, startTime));
@@ -452,6 +429,10 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 						return pfs.Promises.exists(updatePackagePath).then(exists => {
 							if (exists) {
 								return Promise.resolve(updatePackagePath);
+							}
+
+							if (this.deferAutomaticDownload(update, explicit)) {
+								return undefined;
 							}
 
 							const downloadPath = `${updatePackagePath}.tmp`;
@@ -488,7 +469,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 								.then(() => updatePackagePath);
 						});
 					}).then(packagePath => {
-						if (token.isCancellationRequested) {
+						if (!packagePath || token.isCancellationRequested) {
 							return;
 						}
 
@@ -526,7 +507,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 					return this.restorePendingUpdate(this.state.update, this.state.explicit);
 					// --- End Positron ---
 				} else {
-					this.setState(State.Idle(getUpdateType(), message));
+					this.setState(State.Idle(this.getUpdateType(), message));
 					return;
 				}
 			});
@@ -592,13 +573,13 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 			const update = await asJson<IUpdate>(context);
 			if (!update || !update.url || !update.version) {
 				this.logService.warn('update#_stageUpdateFromFeed - the feed does not advertise an update', update);
-				this.setState(State.Idle(getUpdateType()));
+				this.setState(State.Idle(this.getUpdateType()));
 				return;
 			}
 			this.stageUpdate(update);
 		} catch (err) {
 			this.logService.error('update#_stageUpdateFromFeed - failed to fetch the feed', err);
-			this.setState(State.Idle(getUpdateType(), String(err)));
+			this.setState(State.Idle(this.getUpdateType(), String(err)));
 		}
 	}
 
@@ -702,9 +683,14 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		// Advertising no update is better than a `Ready` one that cannot be installed; the next check
 		// downloads it again.
-		this.setState(State.Idle(getUpdateType()));
+		this.setState(State.Idle(this.getUpdateType()));
 	}
 	// --- End Positron ---
+
+	protected override resumeDeferredDownload(): void {
+		this.setState(State.Idle(this.getUpdateType()));
+		void this.checkForUpdates(false);
+	}
 
 	private async getUpdatePackagePath(version: string): Promise<string> {
 		const cachePath = await this.cachePath;
@@ -801,7 +787,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 			child.once('exit', () => {
 				this.availableUpdate = undefined;
-				this.setState(State.Idle(getUpdateType()));
+				this.setState(State.Idle(this.getUpdateType()));
 			});
 		}
 
@@ -825,7 +811,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 				} else if (seenRunning) {
 					if (!this.availableUpdate?.updateProcess) {
 						this.availableUpdate = undefined;
-						this.setState(State.Idle(getUpdateType()));
+						this.setState(State.Idle(this.getUpdateType()));
 					}
 					return;
 				}
@@ -852,7 +838,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 
 		const cancelTimeout = new ProcessTimeRunOnceScheduler(() => {
 			this.logService.warn('update#doApplyUpdate: polling timed out waiting for update to be ready');
-			this.setState(State.Idle(getUpdateType(), 'Update did not complete within expected time'));
+			this.setState(State.Idle(this.getUpdateType(), 'Update did not complete within expected time'));
 		}, 60 * 60 * 1000);
 
 		// Poll for progress and ready mutex for 1 hour.
@@ -1088,7 +1074,7 @@ export class Win32UpdateService extends AbstractUpdateService implements IRelaun
 	}
 
 	protected override getUpdateType(): UpdateType {
-		return getUpdateType();
+		return getWin32UpdateType(this.productService.target);
 	}
 
 	override async _applySpecificUpdate(packagePath: string, commit?: string): Promise<void> {

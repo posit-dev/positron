@@ -10,25 +10,25 @@ import { licenseMarkerScript } from '../../common/positronAcademicLicenseService
 describe('licenseMarkerScript', () => {
 
 	it('emits a script setting the academic global', () => {
-		expect(licenseMarkerScript(true)).toBe('<script>globalThis._POSITRON_IS_ACADEMIC = true;</script>');
+		expect(licenseMarkerScript('n0nce', true)).toBe('<script nonce="n0nce">globalThis._POSITRON_IS_ACADEMIC = true;</script>');
 	});
 
 	it('emits both globals when the session is academic and has a license hash', () => {
-		expect(licenseMarkerScript(true, 'a1b2c3d4e5f60718')).toBe(
-			`<script>globalThis._POSITRON_IS_ACADEMIC = true; globalThis._POSITRON_LICENSE_HASH = 'a1b2c3d4e5f60718';</script>`
+		expect(licenseMarkerScript('n0nce', true, 'a1b2c3d4e5f60718')).toBe(
+			`<script nonce="n0nce">globalThis._POSITRON_IS_ACADEMIC = true; globalThis._POSITRON_LICENSE_HASH = 'a1b2c3d4e5f60718';</script>`
 		);
 	});
 
 	it('emits the hash alone for a licensed session that is not academic', () => {
 		// The shape a future Positron Server Pro would take: a license file to hash, but
 		// its own signal saying the Education License Rider does not apply.
-		expect(licenseMarkerScript(false, 'a1b2c3d4e5f60718')).toBe(
-			`<script>globalThis._POSITRON_LICENSE_HASH = 'a1b2c3d4e5f60718';</script>`
+		expect(licenseMarkerScript('n0nce', false, 'a1b2c3d4e5f60718')).toBe(
+			`<script nonce="n0nce">globalThis._POSITRON_LICENSE_HASH = 'a1b2c3d4e5f60718';</script>`
 		);
 	});
 
 	it('emits nothing when the session is not academic', () => {
-		expect(licenseMarkerScript(false)).toBe('');
+		expect(licenseMarkerScript('n0nce', false)).toBe('');
 	});
 
 	// Nothing should be able to reach the inline script through the hash, so anything that
@@ -38,6 +38,6 @@ describe('licenseMarkerScript', () => {
 	it.each(['', 'a1b2c3d4e5f6071', 'a1b2c3d4e5f607189', 'A1B2C3D4E5F60718', `x';alert(1);//`])(
 		'drops the hash %j and still emits the academic global',
 		notAHash => {
-			expect(licenseMarkerScript(true, notAHash)).toBe('<script>globalThis._POSITRON_IS_ACADEMIC = true;</script>');
+			expect(licenseMarkerScript('n0nce', true, notAHash)).toBe('<script nonce="n0nce">globalThis._POSITRON_IS_ACADEMIC = true;</script>');
 		});
 });

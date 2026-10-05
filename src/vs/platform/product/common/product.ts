@@ -93,7 +93,7 @@ else {
 	// Running out of sources
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
-			version: '1.134.0-dev',
+			version: '1.138.0-dev',
 			// --- Start Positron ---
 			// This only applies to dev builds where it is not possible to read the
 			// product configuration. Release builds replace the product configuration

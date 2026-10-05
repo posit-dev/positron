@@ -65,6 +65,11 @@ export interface IBrowserWorkbenchEnvironmentService extends IWorkbenchEnvironme
 	// --- End Positron ---
 
 	/**
+	 * Title of the agent session that launched this workbench.
+	 */
+	readonly sessionTitle?: string;
+
+	/**
 	 * Gets whether a resolver extension is expected for the environment.
 	 */
 	readonly expectsResolverExtension: boolean;
@@ -367,6 +372,9 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 
 	@memoize
 	get isSessionsWindow(): boolean { return this.payload?.get('isSessionsWindow') === 'true'; }
+
+	@memoize
+	get sessionTitle(): string | undefined { return this.payload?.get('sessionTitle'); }
 
 	@memoize
 	get profile(): string | undefined { return this.payload?.get('profile'); }

@@ -20,6 +20,7 @@ export interface CloneOptions {
 	ref?: string;
 	recursive?: boolean;
 	postCloneAction?: ApiPostCloneAction;
+	returnRepositoryPath?: boolean;
 	// --- Start Positron ---
 	// The folder name to clone into, instead of one derived from the repository URL. Supplied by
 	// Positron's "New Folder from Git" dialog, which collects the name from the user.
@@ -68,7 +69,7 @@ export class CloneManager {
 
 		const cachedRepository = this.repositoryCache.get(url);
 		if (cachedRepository && (cachedRepository.length > 0)) {
-			return this.tryOpenExistingRepository(cachedRepository, url, options.postCloneAction, options.parentPath, options.ref);
+			return this.tryOpenExistingRepository(cachedRepository, url, options.postCloneAction, options.parentPath, options.ref, options.returnRepositoryPath);
 		}
 		return this.cloneRepository(url, options.parentPath, options);
 	}
@@ -234,7 +235,7 @@ export class CloneManager {
 		}
 	}
 
-	private async tryOpenExistingRepository(cachedRepository: RepositoryCacheInfo[], url: string, postCloneAction?: ApiPostCloneAction, parentPath?: string, ref?: string): Promise<string | undefined> {
+	private async tryOpenExistingRepository(cachedRepository: RepositoryCacheInfo[], url: string, postCloneAction?: ApiPostCloneAction, parentPath?: string, ref?: string, returnRepositoryPath?: boolean): Promise<string | undefined> {
 		// Gather existing folders/workspace files (ignore ones that no longer exist)
 		const existingCachedRepositories: RepositoryCacheInfo[] = (await Promise.all<RepositoryCacheInfo | undefined>(cachedRepository.map(async folder => {
 			const stat = await fs.promises.stat(folder.workspacePath).catch(() => undefined);
@@ -256,7 +257,7 @@ export class CloneManager {
 		});
 
 		if (matchingInCurrentWorkspace) {
-			return matchingInCurrentWorkspace.workspacePath;
+			return returnRepositoryPath ? matchingInCurrentWorkspace.repositoryPath : matchingInCurrentWorkspace.workspacePath;
 		}
 
 		let repoForWorkspace: string | undefined = (existingCachedRepositories.length === 1 ? existingCachedRepositories[0].workspacePath : undefined);
@@ -265,7 +266,9 @@ export class CloneManager {
 		}
 		if (repoForWorkspace) {
 			await this.doPostCloneAction(repoForWorkspace, postCloneAction);
-			return repoForWorkspace;
+			return returnRepositoryPath
+				? existingCachedRepositories.find(repository => repository.workspacePath === repoForWorkspace)?.repositoryPath ?? repoForWorkspace
+				: repoForWorkspace;
 		}
 		return;
 	}

@@ -28,6 +28,13 @@ export default defineConfig({
 			tsconfig: './vitest.tsconfig.json',
 		},
 	},
+	// The `electron` package is not installed (its typings are downloaded instead), so give the
+	// bare import something to resolve to. electron-main tests mock it with `vi.mock('electron')`.
+	resolve: {
+		alias: [
+			{ find: /^electron$/, replacement: new URL('./src/vs/test/vitest/electronStub.ts', import.meta.url).pathname },
+		],
+	},
 	// Vitest 4.x uses oxc by default. Explicit config ensures JSX
 	// automatic runtime (no manual React imports needed in .tsx files).
 	oxc: {

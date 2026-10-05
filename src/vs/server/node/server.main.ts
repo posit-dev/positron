@@ -12,7 +12,7 @@ import { createServer as doCreateServer, IServerAPI } from './remoteExtensionHos
 import { parseArgs, ErrorReporter } from '../../platform/environment/node/argv.js';
 import { join, dirname } from '../../base/common/path.js';
 import { performance } from 'perf_hooks';
-import { serverOptions } from './serverEnvironmentService.js';
+import { agentHostBridgeConnectionTokenEnvironmentVariable, serverOptions } from './serverEnvironmentService.js';
 import product from '../../platform/product/common/product.js';
 import * as perf from '../../base/common/performance.js';
 
@@ -38,6 +38,9 @@ const errorReporter: ErrorReporter = {
 		console.warn(`Option '${deprecatedOption}' is deprecated: ${message}`);
 	}
 };
+
+const agentHostBridgeConnectionToken = process.env[agentHostBridgeConnectionTokenEnvironmentVariable];
+delete process.env[agentHostBridgeConnectionTokenEnvironmentVariable];
 
 // --- Start PWB ---
 function parse(): ServerParsedArgs {
@@ -82,6 +85,6 @@ export function spawnCli(args = parse()) {
  */
 // --- Start PWB ---
 export function createServer(address: string | net.AddressInfo | null, args = parse()): Promise<IServerAPI> {
-	return doCreateServer(address, args, createDirs(args));
+	return doCreateServer(address, args, createDirs(args), agentHostBridgeConnectionToken);
 	// --- End PWB ---
 }

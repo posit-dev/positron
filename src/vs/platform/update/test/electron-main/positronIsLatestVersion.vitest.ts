@@ -14,6 +14,7 @@ import { IRequestContext } from '../../../../base/parts/request/common/request.j
 import { IRequestService } from '../../../request/common/request.js';
 import { ITelemetryService } from '../../../telemetry/common/telemetry.js';
 import { IApplicationStorageMainService } from '../../../storage/electron-main/storageMainService.js';
+import { Event } from '../../../../base/common/event.js';
 import { IMeteredConnectionService } from '../../../meteredConnection/common/meteredConnection.js';
 import { IProductService } from '../../../product/common/productService.js';
 import { INativeHostMainService } from '../../../native/electron-main/nativeHostMainService.js';
@@ -103,7 +104,7 @@ describe('AbstractUpdateService isLatestVersion', () => {
 			stubInterface<IApplicationStorageMainService>({}),
 			// `isLatestVersion()` skips the check outright on a metered connection; these tests are
 			// about the comparison, so keep the connection unmetered.
-			stubInterface<IMeteredConnectionService>({ isConnectionMetered: false }),
+			stubInterface<IMeteredConnectionService>({ isConnectionMetered: false, onDidChangeIsConnectionMetered: Event.None }),
 			stubInterface<IProductService>({ positronVersion: '2026.10.0', positronBuildNumber: 53 }),
 			stubInterface<INativeHostMainService>({}),
 			stubInterface<IStateService>({}),

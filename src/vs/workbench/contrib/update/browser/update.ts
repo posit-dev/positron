@@ -42,6 +42,7 @@ import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/co
 import { Event } from '../../../../base/common/event.js';
 import { IDefaultAccountService } from '../../../../platform/defaultAccount/common/defaultAccount.js';
 import { getInternalOrg } from '../../../../platform/assignment/common/assignment.js';
+import { UpdateGlobalActivityBadgeVisibleContext } from '../common/update.js';
 
 // --- Start Positron ---
 // Upstream's IVersion / tryParseVersion are unused — Positron uses calver parsing below.
@@ -291,7 +292,7 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IUpdateService private readonly updateService: IUpdateService,
 		@IActivityService private readonly activityService: IActivityService,
-		@IContextKeyService contextKeyService: IContextKeyService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IProductService private readonly productService: IProductService,
 		// --- Start Positron ---
 		@INotificationService private readonly notificationService: INotificationService,
@@ -304,6 +305,14 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 		this.majorMinorUpdateAvailableContextKey = MAJOR_MINOR_UPDATE_AVAILABLE.bindTo(contextKeyService);
 
 		this._register(updateService.onStateChange(this.onUpdateStateChange, this));
+
+		const updateGlobalActivityBadgeContextKeys = new Set(UpdateGlobalActivityBadgeVisibleContext.keys());
+		this._register(contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(updateGlobalActivityBadgeContextKeys)) {
+				this.updateBadge(this.updateService.state);
+			}
+		}));
+
 		this.onUpdateStateChange(this.updateService.state);
 
 		/*
@@ -406,7 +415,13 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 			}
 		}
 
-		let badge: IBadge | undefined = undefined;
+		this.updateBadge(state);
+
+		this.state = state;
+	}
+
+	private updateBadge(state: UpdateState): void {
+		let badge: IBadge | undefined;
 
 		if (state.type === StateType.AvailableForDownload || state.type === StateType.Downloaded || state.type === StateType.Ready) {
 			badge = new NumberBadge(1, () => nls.localize('updateIsReady', "New {0} update available.", this.productService.nameShort));
@@ -422,11 +437,9 @@ export class UpdateContribution extends Disposable implements IWorkbenchContribu
 
 		this.badgeDisposable.clear();
 
-		if (badge) {
+		if (badge && this.contextKeyService.contextMatchesRules(UpdateGlobalActivityBadgeVisibleContext)) {
 			this.badgeDisposable.value = this.activityService.showGlobalActivity({ badge });
 		}
-
-		this.state = state;
 	}
 
 	// --- Start Positron ---

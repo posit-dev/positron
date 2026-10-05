@@ -62,6 +62,9 @@ const excludeGlobs = [
 	'**/vs/base/parts/storage/test/node/storage.test.js', // same as above, due to direct dependency to sqlite native module
 	'**/vs/workbench/contrib/testing/test/**', // flaky (https://github.com/microsoft/vscode/issues/137853)
 	'**/vs/sessions/test/web.test.js', // web-only E2E test that imports CSS — cannot run in Node
+	// --- Start PWB: Skip agent host tests (unused in PWB) ---
+	'**/vs/platform/agentHost/test/**',
+	// --- End PWB ---
 ];
 
 const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
