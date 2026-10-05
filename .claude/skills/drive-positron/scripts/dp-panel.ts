@@ -82,7 +82,7 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 		case 'sessions': {
 			// The console tabs, or with one session the session the title bar names.
 			const c = await lib.consoles();
-			if (!c.inPage) { return { ok: false, noConsoleView: true }; }
+			if (!c.inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
 			const starting = await lib.starting();
 			// A session that has printed no status line yet has no name to show.
 			const sessions = c.sessions.map(t => ({ name: t.name || (starting.includes(t.id) ? '(starting, not named yet)' : '(no name shown)'), id: t.id, language: t.id.replace(/-[^-]*$/, ''), active: t.id === c.active, ...(starting.includes(t.id) ? { starting: true } : {}) }));
@@ -93,7 +93,7 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 			// name, or its id, as console-run.sh --name matches; never by the tab's
 			// whole label, which counts new executions ("R 4.5.1, 2 new executions").
 			const c = await lib.consoles();
-			if (!c.inPage) { return { ok: false, noConsoleView: true }; }
+			if (!c.inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
 			const lang = a.arg.toLowerCase();
 			const hits = c.sessions.filter(t => ['python', 'r'].includes(lang) ? t.id.startsWith(lang + '-') : lib.namedLike(t, a.arg));
 			const list = c.sessions.map(t => `${t.name} (${t.id})`);
@@ -112,7 +112,7 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 		}
 		case 'delete-session': {
 			const c = lib.css.console;
-			if (!(await lib.consoles()).inPage) { return { ok: false, noConsoleView: true }; }
+			if (!(await lib.consoles()).inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
 			const tabs = page.locator(`[data-testid^="${c.tabTestId}"]`);
 			const names = await tabs.evaluateAll(ts => ts.map(t => t.getAttribute('aria-label') ?? ''));
 			const ids = await tabs.evaluateAll((ts, prefix) => ts.map(t => (t.getAttribute('data-testid') ?? '').slice(prefix.length)), c.tabTestId);

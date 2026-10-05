@@ -22,7 +22,10 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 		while (starting.length && Date.now() < end) { await lib.sleep(500); starting = await lib.starting(); }
 		if (starting.length) { return { ok: false, error: `${starting.join(', ')} was still starting after ${a.timeout} s; a new session waits for it`, dialogs: await lib.dialogs() }; }
 		// The sessions open are read from the Console view, which another panel tab hides.
-		const c = await lib.consoles();
+		// Right after launch a session can be starting before the Console view shows it
+		// or its empty message, so give the view a moment to settle.
+		let c = await lib.consoles();
+		for (let i = 0; !c.inPage && i < 20; i++) { await lib.sleep(500); c = await lib.consoles(); }
 		return c.inPage ? { ok: true, ...c } : { ok: false, noConsoleView: true, error: 'the Console view is not shown, so the open sessions cannot be read' };
 	};
 	const before = withConsoleView(session, idle, { timeout });
@@ -140,7 +143,7 @@ function readConsole(session: string, language: string, name: string, expand = f
 	// runs in run-code
 	const fn: PageFn<{ lang: string; name: string; expand: boolean }> = async (page, a, lib) => {
 		const c = await lib.consoles();
-		if (!c.inPage) { return { ok: false, noConsoleView: true }; }
+		if (!c.inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
 		const tabs = c.sessions.filter(t => (!a.lang || t.id.startsWith(a.lang + '-')) && lib.namedLike(t, a.name));
 		let id = '';
 		if (!a.lang && !a.name) { id = c.active; }
@@ -201,7 +204,7 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 		const count = (hay: string) => probe ? norm(hay).split(probe).length - 1 : 0;
 		const c$ = lib.css.console;
 		const c = await lib.consoles();
-		if (!c.inPage) { return { ok: false, noConsoleView: true }; }
+		if (!c.inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
 		const tabs = c.sessions.filter(t => t.id.startsWith(a.lang + '-') && lib.namedLike(t, a.name));
 		if (tabs.length > 1) { return { ok: false, error: `several ${a.lang} sessions; pass --name with part of one, or its id: ` + tabs.map(t => `${t.name} (${t.id})`).join(', ') }; }
 		if (!tabs.length) { return { ok: false, error: `no ${a.lang} session${a.name ? ` named like "${a.name}"` : ''}; sessions: ${c.sessions.map(t => `${t.name} (${t.id})`).join(', ') || 'none, start one first'}` }; }
