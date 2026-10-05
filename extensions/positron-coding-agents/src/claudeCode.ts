@@ -3,12 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { execFile } from 'node:child_process';
-import * as os from 'node:os';
-import { promisify } from 'node:util';
 import * as vscode from 'vscode';
 import { CodingAgent, formatPromptWithFile } from './codingAgent';
-import { hasForegroundProcess, isClaudeCodeCommand, parseProcessTable, ProcessInfo, PS_ARGS } from './foregroundProcess';
+import { isClaudeCodeCommand } from './foregroundProcess';
 import { ClaudeCodeSurface, getClaudeCodeSurface } from './claudeCodeSurface';
 import { canInlineBody, ErrorPrompt, formatInlinePrompt } from './errorPrompt';
 
@@ -20,7 +17,8 @@ export const claudeCode: CodingAgent = {
 	id: 'claude-code',
 	label: 'Claude Code',
 	isAvailable: () => getSurface() !== undefined,
-	start,
+	isAgentCommand: isClaudeCodeCommand,
+	startNew,
 };
 
 /**
@@ -38,16 +36,8 @@ function getSurface(): ClaudeCodeSurface | undefined {
 	return getClaudeCodeSurface(version, useTerminal);
 }
 
-/**
- * Send the prompt to a Claude Code session already running in a terminal, or
- * open a new one.
- */
-async function start(prompt: ErrorPrompt): Promise<void> {
-	const terminal = await findClaudeCodeTerminal();
-	if (terminal) {
-		return pasteIntoTerminal(terminal, canInlineBody(prompt) ? formatInlinePrompt(prompt) : await formatPromptWithFile(prompt));
-	}
-
+/** Open a new Claude Code session with the prompt. */
+async function startNew(prompt: ErrorPrompt): Promise<void> {
 	// The registration is withdrawn when Claude Code becomes unavailable, but
 	// an action can still race with that.
 	switch (getSurface()) {
@@ -90,47 +80,3 @@ async function openTerminal(prompt: string): Promise<void> {
 	await vscode.commands.executeCommand('claude-vscode.terminal.open', prompt);
 }
 
-/**
- * Find a terminal whose foreground job is Claude Code, preferring the active
- * terminal, then the most recently created.
- * @returns The terminal, or undefined when there is none or the process table
- *   cannot be read (e.g. on Windows, which has no `ps`).
- */
-async function findClaudeCodeTerminal(): Promise<vscode.Terminal | undefined> {
-	if (os.platform() === 'win32' || vscode.window.terminals.length === 0) {
-		return undefined;
-	}
-
-	let processes: ProcessInfo[];
-	try {
-		const { stdout } = await promisify(execFile)('ps', PS_ARGS, { maxBuffer: 16 * 1024 * 1024 });
-		processes = parseProcessTable(stdout);
-	} catch {
-		return undefined;
-	}
-
-	const active = vscode.window.activeTerminal;
-	const candidates = [...vscode.window.terminals].reverse()
-		.sort((a, b) => Number(b === active) - Number(a === active));
-	for (const terminal of candidates) {
-		const pid = await terminal.processId;
-		if (pid !== undefined && hasForegroundProcess(processes, pid, isClaudeCodeCommand)) {
-			return terminal;
-		}
-	}
-	return undefined;
-}
-
-/**
- * Paste the prompt into Claude Code's input and reveal the terminal. Enter is
- * left to the user: the session may be showing a permission prompt, where a
- * keystroke would answer it.
- */
-function pasteIntoTerminal(terminal: vscode.Terminal, prompt: string): void {
-	// Bracketed paste makes the prompt's newlines part of the input rather
-	// than Enter presses. Escape characters are dropped so the prompt cannot
-	// end the paste early.
-	const text = prompt.replace(/\x1b/g, '');
-	terminal.sendText(`\x1b[200~${text}\x1b[201~`, false);
-	terminal.show(false);
-}

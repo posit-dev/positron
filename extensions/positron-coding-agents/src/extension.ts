@@ -6,12 +6,12 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { claudeCode } from './claudeCode';
-import { codex, gemini } from './cliAgents';
-import { CodingAgent } from './codingAgent';
+import { codex } from './codex';
+import { CodingAgent, sendPrompt } from './codingAgent';
 import { ErrorActionKind, getErrorPrompt } from './errorPrompt';
 
 /** The agents Fix and Explain can send errors to, in the order they are offered. */
-const AGENTS: readonly CodingAgent[] = [claudeCode, codex, gemini];
+const AGENTS: readonly CodingAgent[] = [claudeCode, codex];
 
 export function activate(context: vscode.ExtensionContext): void {
 	// Offer each agent only while it is installed and able to take a prompt.
@@ -55,7 +55,7 @@ export function activate(context: vscode.ExtensionContext): void {
 async function startSession(agent: CodingAgent, kind: ErrorActionKind, context: positron.ai.ErrorActionContext): Promise<void> {
 	const getPath = (uri: vscode.Uri) => vscode.workspace.asRelativePath(uri);
 	const prompt = getErrorPrompt(kind, context, getPath, await getMcpServerName(agent));
-	await agent.start(prompt);
+	await sendPrompt(agent, prompt);
 }
 
 /**

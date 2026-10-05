@@ -76,3 +76,12 @@ export function isClaudeCodeCommand(args: string): boolean {
 	const executable = args.split(/\s+/, 1)[0];
 	return /(^|[\\/])claude(\.exe)?$/i.test(executable) || /@anthropic-ai[\\/]claude-code[\\/]cli\.js/.test(args);
 }
+
+/**
+ * Whether a command line runs Codex: the native `codex` executable, or the
+ * npm package's launcher under Node.
+ */
+export function isCodexCommand(args: string): boolean {
+	const executable = args.split(/\s+/, 1)[0];
+	return /(^|[\\/])codex(\.exe)?$/i.test(executable) || /@openai[\\/]codex[\\/]/.test(args);
+}

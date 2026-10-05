@@ -9,45 +9,31 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { CodingAgent, formatPromptWithFile } from './codingAgent';
 import { canInlineBody, ErrorPrompt, formatInlinePrompt } from './errorPrompt';
+import { isCodexCommand } from './foregroundProcess';
 
 /**
  * Codex, through its CLI. Its VS Code extension has no command that takes a
  * prompt; `codex <prompt>` starts an interactive session that sends it.
  */
-export const codex = createCliAgent('codex', 'Codex', 'codex', prompt => [prompt]);
+export const codex: CodingAgent = {
+	id: 'codex',
+	label: 'Codex',
+	isAvailable: () => resolveOnPath('codex') !== undefined,
+	isAgentCommand: isCodexCommand,
+	startNew,
+};
 
-/**
- * Gemini CLI. Its VS Code companion extension only runs `gemini` in a
- * terminal; `-i` sends a prompt and keeps the session interactive.
- */
-export const gemini = createCliAgent('gemini', 'Gemini CLI', 'gemini', prompt => ['-i', prompt]);
-
-/**
- * An agent that runs its CLI in a new terminal with the prompt as an argument.
- * @param getArgs The command-line arguments that start a session with a prompt.
- */
-function createCliAgent(
-	id: string,
-	label: string,
-	executable: string,
-	getArgs: (prompt: string) => string[],
-): CodingAgent {
-	return {
-		id,
-		label,
-		isAvailable: () => resolveOnPath(executable) !== undefined,
-		start: async (prompt: ErrorPrompt) => {
-			const shellPath = resolveOnPath(executable);
-			if (!shellPath) {
-				throw new Error(vscode.l10n.t('{0} is not installed: `{1}` was not found on the PATH.', label, executable));
-			}
-			// Run the CLI as the terminal's process rather than typing a
-			// command into a shell, so the prompt needs no shell quoting.
-			const text = canInlineBody(prompt) ? formatInlinePrompt(prompt) : await formatPromptWithFile(prompt);
-			const terminal = vscode.window.createTerminal({ name: label, shellPath, shellArgs: getArgs(text) });
-			terminal.show();
-		},
-	};
+/** Start `codex` in a new terminal with the prompt. */
+async function startNew(prompt: ErrorPrompt): Promise<void> {
+	const shellPath = resolveOnPath('codex');
+	if (!shellPath) {
+		throw new Error(vscode.l10n.t('Codex is not installed: `codex` was not found on the PATH.'));
+	}
+	// Run Codex as the terminal's process rather than typing a command into a
+	// shell, so the prompt needs no shell quoting.
+	const text = canInlineBody(prompt) ? formatInlinePrompt(prompt) : await formatPromptWithFile(prompt);
+	const terminal = vscode.window.createTerminal({ name: 'Codex', shellPath, shellArgs: [text] });
+	terminal.show();
 }
 
 /**

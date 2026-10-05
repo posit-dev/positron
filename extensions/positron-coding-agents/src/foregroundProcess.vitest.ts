@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { hasForegroundProcess, isClaudeCodeCommand, parseProcessTable } from './foregroundProcess';
+import { hasForegroundProcess, isClaudeCodeCommand, isCodexCommand, parseProcessTable } from './foregroundProcess';
 
 describe('parseProcessTable', () => {
 	it('reads pid, ppid, pgid, tpgid, and the full command line', () => {
@@ -67,5 +67,21 @@ describe('isClaudeCodeCommand', () => {
 	it('does not match other commands that mention claude', () => {
 		expect(isClaudeCodeCommand('vim claude.md')).toBe(false);
 		expect(isClaudeCodeCommand('/bin/zsh -c claude-notes')).toBe(false);
+	});
+});
+
+describe('isCodexCommand', () => {
+	it('matches the native executable however it was invoked', () => {
+		expect(isCodexCommand('codex')).toBe(true);
+		expect(isCodexCommand('/opt/homebrew/bin/codex resume')).toBe(true);
+	});
+
+	it('matches the npm package run under Node', () => {
+		expect(isCodexCommand('node /usr/local/lib/node_modules/@openai/codex/bin/codex.js')).toBe(true);
+	});
+
+	it('does not match other commands that mention codex', () => {
+		expect(isCodexCommand('vim codex.md')).toBe(false);
+		expect(isCodexCommand('claude')).toBe(false);
 	});
 });
