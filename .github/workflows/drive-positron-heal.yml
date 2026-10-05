@@ -266,7 +266,7 @@ jobs:
           echo "git status --porcelain (a non-empty list makes the Fixer exit 2):"
           git status --porcelain --untracked-files=all
 
-      # No `if:` on purpose: the finder may have written findings after "Any findings yet?".
+      # Not gated on "Any findings yet?": the finder may have written findings after it ran.
       - name: Fixer
         if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
@@ -277,6 +277,7 @@ jobs:
         run: |
           set +e -uo pipefail
           if [ -z "$(ls -A "$HEAL_DIR/findings" 2>/dev/null)" ]; then echo "no findings"; exit 0; fi
+          if [ -z "${ANTHROPIC_API_KEY:-}" ]; then echo "findings but no Anthropic key; the key step did not run"; exit 1; fi
           # shellcheck disable=SC2086
           node .claude/skills/drive-positron/heal/fix-loop.ts --dir "$HEAL_DIR" --runner "$RUNNER" --cap 5 -- $APP_ARGS
           code=$?
@@ -290,6 +291,9 @@ jobs:
         shell: bash
         env:
           SMOKE_RED: ${{ steps.smoke.outputs.red }}
+          # report.ts may be fixer-patched by now.
+          GITHUB_TOKEN: ''
+          GH_TOKEN: ''
         run: |
           args=(--dir "$HEAL_DIR" --run-url "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID")
           [ "$SMOKE_RED" = true ] && args+=(--smoke-red)
