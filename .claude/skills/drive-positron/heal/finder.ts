@@ -11,11 +11,11 @@
 // session, keeps the findings that validate, and stops the instance.
 
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { launchFixture, stopFixture } from '../test/fixture-app.ts';
-import { flagValue } from '../test/smoke-lib.ts';
+import { launchFixture, stopFixture, type App } from '../test/fixture-app.ts';
+import { flagValue, unknownArg } from '../test/smoke-lib.ts';
 import { readFindings, validateFinding } from './finding.ts';
 import { isoWeek, pickArea, type Area } from './finder-lib.ts';
 
@@ -30,6 +30,8 @@ function main(): number {
 	const dash = process.argv.indexOf('--');
 	const own = process.argv.slice(2, dash < 0 ? undefined : dash);
 	const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
+	const bad = unknownArg(own, ['--dir', '--runner', '--minutes']);
+	if (bad !== null) { console.log(`finder: unknown argument ${JSON.stringify(bad)}`); return 2; }
 	const flag = (name: string): string | null => {
 		const v = flagValue(own, name);
 		if (v instanceof Error) { console.log(`finder: ${v.message}`); process.exit(2); }
@@ -48,17 +50,24 @@ function main(): number {
 	console.log(`finder: area ${area.name} (${why})`);
 
 	const scratch = join(dir, 'finder-new');
+	rmSync(scratch, { recursive: true, force: true });
 	mkdirSync(scratch, { recursive: true });
 	mkdirSync(join(dir, 'cost'), { recursive: true });
 	let sessionProblem = '';
-	const app = launchFixture({ session: 'heal-find', root: '/tmp/dp-heal-find', appArgs });
+	const stateFile = join(dir, 'finder-app.json');
+	rmSync(stateFile, { force: true });
+	let app: App | null = null;
 	try {
+		const up = launchFixture({ session: 'heal-find', root: '/tmp/dp-heal-find', appArgs, onStarted: a => {
+			app = a;
+			writeFileSync(stateFile, JSON.stringify({ cdpPort: a.cdpPort, runDir: a.runDir }));
+		} });
 		const brief = [
 			`Area: ${area.name}: ${area.focus}.`,
 			`Helpers: ${area.helpers.join(', ')}.`,
 			`Checkout: ${repo}. Run helpers from there.`,
-			`A Positron instance is running on a copy of the smoke fixture and attached as Playwright session \`heal-find\` (CDP port ${app.cdpPort}). Pass \`--session heal-find\` to every helper.`,
-			`To start over on a fresh instance: \`node .claude/skills/drive-positron/test/fixture-app.ts stop --session heal-find --root /tmp/dp-heal-find --cdp-port ${app.cdpPort} --run-dir ${app.runDir}\`, then \`node .claude/skills/drive-positron/test/fixture-app.ts launch --session heal-find --root /tmp/dp-heal-find -- ${appArgs.join(' ')}\`; use the cdpPort it prints.`,
+			`A Positron instance is running on a copy of the smoke fixture and attached as Playwright session \`heal-find\` (CDP port ${up.cdpPort}). Pass \`--session heal-find\` to every helper.`,
+			`To start over on a fresh instance: \`node .claude/skills/drive-positron/test/fixture-app.ts stop --session heal-find --root /tmp/dp-heal-find --state ${stateFile}\`, then \`node .claude/skills/drive-positron/test/fixture-app.ts launch --session heal-find --root /tmp/dp-heal-find --state ${stateFile} -- ${appArgs.join(' ')}\`; the new cdpPort is in ${stateFile} and in the JSON it prints.`,
 			`Write findings to: ${scratch}`,
 		].join('\n\n');
 		writeFileSync(join(dir, 'finder-brief.md'), brief);
@@ -68,7 +77,11 @@ function main(): number {
 		if (r.error) { sessionProblem = `could not run the session: ${r.error.message}`; }
 		else if (r.status !== 0) { sessionProblem = `the session exited ${r.status ?? `on signal ${r.signal}`}`; }
 	} finally {
-		stopFixture(app);
+		const current = existsSync(stateFile) ? JSON.parse(readFileSync(stateFile, 'utf8')) as { cdpPort: number; runDir: string } : null;
+		const first = app as App | null;
+		// The state file names the live instance; it is gone once the agent stopped it without a relaunch.
+		if (current && first && !stopFixture({ ...first, cdpPort: current.cdpPort, runDir: current.runDir })) { sessionProblem ||= 'the instance did not stop'; }
+		if (current && first && first.cdpPort !== current.cdpPort) { stopFixture(first); }
 	}
 
 	const rejected: { file: string; problems: string[] }[] = [];

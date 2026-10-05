@@ -48,6 +48,16 @@ export function flagValue(argv: string[], name: string): string | null | Error {
 	return v === undefined || v.startsWith('--') ? new Error(`${name} needs a value`) : v;
 }
 
+/** The first argument that is not a known flag followed by its value, or null. A leading subcommand is skipped. */
+export function unknownArg(argv: string[], flags: string[], subcommands: string[] = []): string | null {
+	for (let i = 0; i < argv.length; i++) {
+		if (i === 0 && subcommands.includes(argv[i])) { continue; }
+		if (!flags.includes(argv[i])) { return argv[i]; }
+		i++;
+	}
+	return null;
+}
+
 /** The record for a case that threw instead of returning a result. */
 export function threwResult(name: string, args: string[], err: unknown, ms: number): CaseResult {
 	return { name, status: 'FAIL', helper: args[0] ?? '', args: args.slice(1), problem: `threw: ${err instanceof Error ? err.message : String(err)}`, ms };

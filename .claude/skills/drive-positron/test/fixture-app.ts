@@ -6,14 +6,17 @@
 // Launches one Positron on a copy of fixture/ and attaches a Playwright session
 // to it; the smoke test and the heal finder both start their instance here.
 //
-//   node .claude/skills/drive-positron/test/fixture-app.ts launch --session S --root DIR [-- APP ARGS...]
-//   node .claude/skills/drive-positron/test/fixture-app.ts stop --session S --root DIR --cdp-port N --run-dir D
+//   node .claude/skills/drive-positron/test/fixture-app.ts launch --session S --root DIR --state FILE [-- APP ARGS...]
+//   node .claude/skills/drive-positron/test/fixture-app.ts stop --session S --root DIR --state FILE
+//
+// launch writes {"cdpPort","runDir"} to FILE and prints it; stop reads FILE, so
+// a relaunch is always the instance a later stop targets.
 
 import { spawnSync } from 'child_process';
-import { cpSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { flagValue } from './smoke-lib.ts';
+import { flagValue, unknownArg } from './smoke-lib.ts';
 
 const test = dirname(fileURLToPath(import.meta.url));
 const scripts = resolve(test, '../scripts');
@@ -54,12 +57,14 @@ export function launchFixture(opts: { session: string; root: string; appArgs: st
 	throw new Error('the workbench did not answer within 60 s');
 }
 
-export function stopFixture(app: App, opts?: { keep?: boolean }): void {
-	if (opts?.keep) { return; }
+/** True when the instance stopped. */
+export function stopFixture(app: App, opts?: { keep?: boolean }): boolean {
+	if (opts?.keep) { return true; }
 	spawnSync(cli, [`-s=${app.session}`, 'close'], { cwd: repo, stdio: 'ignore' });
 	const s = spawnSync('bash', [join(scripts, 'stop.sh'), '--cdp-port', String(app.cdpPort), '--run-dir', app.runDir], { cwd: repo, encoding: 'utf8' });
 	console.log(s.status === 0 ? 'instance stopped' : `stop.sh failed: ${s.stderr.trim().split('\n').pop()}`);
 	rmSync(app.root, { recursive: true, force: true });
+	return s.status === 0;
 }
 
 function isMain(): boolean {
@@ -70,26 +75,36 @@ function main(): number {
 	const dash = process.argv.indexOf('--');
 	const own = process.argv.slice(2, dash < 0 ? undefined : dash);
 	const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
+	const bad = unknownArg(own, ['--session', '--root', '--state'], ['launch', 'stop']);
+	if (bad !== null) { console.log(`fixture-app: unknown argument ${JSON.stringify(bad)}`); return 2; }
 	const value = (name: string): string | null => {
 		const v = flagValue(own, name);
-		if (v instanceof Error) { console.log(v.message); process.exit(2); }
+		if (v instanceof Error) { console.log(`fixture-app: ${v.message}`); process.exit(2); }
 		return v;
 	};
 	const session = value('--session');
 	const root = value('--root');
-	if (!session || !root || (own[0] !== 'launch' && own[0] !== 'stop')) {
-		console.log('usage: fixture-app.ts launch --session S --root DIR [-- APP ARGS...] | stop --session S --root DIR --cdp-port N --run-dir D');
+	const state = value('--state');
+	if (!session || !root || !state || (own[0] !== 'launch' && own[0] !== 'stop')) {
+		console.log('usage: fixture-app.ts launch --session S --root DIR --state FILE [-- APP ARGS...] | stop --session S --root DIR --state FILE');
 		return 2;
 	}
 	if (own[0] === 'launch') {
-		const app = launchFixture({ session, root, appArgs });
-		console.log(JSON.stringify({ cdpPort: app.cdpPort, runDir: app.runDir }));
-		return 0;
+		let started: App | null = null;
+		try {
+			const app = launchFixture({ session, root, appArgs, onStarted: a => { started = a; } });
+			writeFileSync(state, JSON.stringify({ cdpPort: app.cdpPort, runDir: app.runDir }));
+			console.log(JSON.stringify({ cdpPort: app.cdpPort, runDir: app.runDir }));
+			return 0;
+		} catch (e) {
+			if (started) { stopFixture(started); }
+			throw e;
+		}
 	}
-	const cdp = value('--cdp-port');
-	const runDir = value('--run-dir');
-	if (!cdp || !runDir || !/^\d+$/.test(cdp)) { console.log('stop needs --cdp-port N and --run-dir D'); return 2; }
-	stopFixture({ session, root, cdpPort: Number(cdp), runDir });
+	if (!existsSync(state)) { console.log(`fixture-app: no state file ${state}`); return 1; }
+	const { cdpPort, runDir } = JSON.parse(readFileSync(state, 'utf8')) as { cdpPort: number; runDir: string };
+	if (!stopFixture({ session, root, cdpPort, runDir })) { return 1; }
+	rmSync(state, { force: true });
 	return 0;
 }
 
