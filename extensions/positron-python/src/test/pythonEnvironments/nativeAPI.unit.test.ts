@@ -25,6 +25,9 @@ import * as ws from '../../client/common/vscodeApis/workspaceApis';
 import * as uvApi from '../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as externalDeps from '../../client/pythonEnvironments/common/externalDependencies';
 import * as nativeFinder from '../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
+import { EventEmitter, WorkspaceFolder } from 'vscode';
+import { FileChangeType } from '../../client/common/platform/fileSystemWatcher';
+import { PythonEnvCollectionChangedEvent } from '../../client/pythonEnvironments/base/watcher';
 // --- End Positron ---
 
 suite('Native Python API', () => {
@@ -40,6 +43,7 @@ suite('Native Python API', () => {
     // --- Start Positron ---
     let isUvEnvironmentStub: sinon.SinonStub;
     let isUvManagedBasePythonStub: sinon.SinonStub;
+    let pathExistsStub: sinon.SinonStub;
     // --- End Positron ---
 
     const basicEnv: NativeEnvInfo = {
@@ -154,6 +158,8 @@ suite('Native Python API', () => {
         // --- Start Positron ---
         isUvEnvironmentStub = sinon.stub(uvApi, 'isUvEnvironment');
         isUvManagedBasePythonStub = sinon.stub(uvApi, 'isUvManagedBasePython');
+        // The fixture paths don't exist on this machine.
+        pathExistsStub = sinon.stub(externalDeps, 'pathExists').resolves(true);
         // --- End Positron ---
         getWorkspaceFoldersStub = sinon.stub(ws, 'getWorkspaceFolders');
         getWorkspaceFoldersStub.returns([]);
@@ -1270,6 +1276,67 @@ suite('Native Python API', () => {
 
             await api.resolveEnv(aliasPath);
             assert.equal(resolveCount, 2, 'alias cache entry should be cleared by removeEnv');
+        });
+    });
+
+    suite('workspace path deleted', () => {
+        const venvDir = path.join(path.sep, 'home', 'user', 'project', '.venv');
+        const venvPython = path.join(venvDir, 'bin', 'python');
+        const venvEnv: NativeEnvInfo = {
+            displayName: 'Project venv',
+            name: '.venv',
+            executable: venvPython,
+            kind: NativePythonEnvironmentKind.Venv,
+            version: '3.12.0',
+            prefix: venvDir,
+        };
+        let pathDeleted: EventEmitter<pw.PythonWorkspacePathDeletedEvent>;
+        let changes: PythonEnvCollectionChangedEvent[];
+
+        setup(async () => {
+            sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
+            pathDeleted = new EventEmitter();
+            mockWatcher.setup((w) => w.onDidWorkspacePathDeleted).returns(() => pathDeleted.event);
+            mockFinder.setup((f) => f.resolve(venvPython)).returns(() => Promise.resolve(venvEnv));
+            api = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
+
+            await api.resolveEnv(venvPython);
+            assert.equal(api.getEnvs().length, 1);
+            changes = [];
+            api.onChanged((e) => changes.push(e));
+        });
+
+        teardown(() => {
+            pathDeleted.dispose();
+        });
+
+        test('deleting the folder that holds an env removes the env', () => {
+            pathDeleted.fire({ workspaceFolder: {} as WorkspaceFolder, path: venvDir });
+
+            assert.equal(api.getEnvs().length, 0);
+            assert.deepEqual(
+                changes.map((e) => [e.type, e.old?.executable.filename]),
+                [[FileChangeType.Deleted, venvPython]],
+            );
+        });
+
+        test('a deleted executable is not resolved back into the list', async () => {
+            pathDeleted.fire({ workspaceFolder: {} as WorkspaceFolder, path: venvDir });
+            pathExistsStub.withArgs(venvPython).resolves(false);
+
+            assert.isUndefined(await api.resolveEnv(venvPython));
+            assert.equal(api.getEnvs().length, 0);
+            mockFinder.verify((f) => f.resolve(venvPython), typemoq.Times.once());
+        });
+
+        test('deleting a path outside the env leaves the env', () => {
+            pathDeleted.fire({
+                workspaceFolder: {} as WorkspaceFolder,
+                path: path.join(path.sep, 'home', 'user', 'project', '.venv-data'),
+            });
+
+            assert.equal(api.getEnvs().length, 1);
+            assert.deepEqual(changes, []);
         });
     });
     // --- End Positron ---

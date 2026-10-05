@@ -47,7 +47,7 @@ import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalIn
 // eslint-disable-next-line import/no-duplicates
 import { PythonEnvSource } from './base/info';
 import { getShortestString } from '../common/stringUtils';
-import { arePathsSame, canonicalizePath, isParentPath, normCasePath } from './common/externalDependencies';
+import { arePathsSame, canonicalizePath, isParentPath, normCasePath, pathExists } from './common/externalDependencies';
 import {
     ModuleEnvironmentLocator,
     moduleMetadataMap,
@@ -782,6 +782,11 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     }
 
     private async _doResolveEnv(envPath: string): Promise<PythonEnvInfo | undefined> {
+        // PET can resolve an executable that no longer exists, which would add a
+        // just-deleted env straight back.
+        if (!(await pathExists(envPath))) {
+            return undefined;
+        }
         // --- End Positron ---
         try {
             const native = await this.finder.resolve(envPath);
@@ -818,6 +823,9 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             watcher.onDidWorkspaceEnvChanged(async (e) => {
                 await this.workspaceEventHandler(e);
             }),
+            // --- Start Positron ---
+            watcher.onDidWorkspacePathDeleted((e) => this.removeEnvsInDeletedPath(e.path)),
+            // --- End Positron ---
             onDidChangeWorkspaceFolders((e: WorkspaceFoldersChangeEvent) => {
                 e.removed.forEach((wf) => watcher.unwatchWorkspace(wf));
                 e.added.forEach((wf) => watcher.watchWorkspace(wf));
@@ -866,6 +874,18 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             this.removeEnv(e.executable);
         }
     }
+
+    // --- Start Positron ---
+    /**
+     * Remove the envs whose executable is the deleted path or was inside it,
+     * e.g. every env under a deleted `.venv` folder.
+     */
+    private removeEnvsInDeletedPath(deletedPath: string): void {
+        this._envs
+            .filter((env) => isParentPath(env.executable.filename, deletedPath))
+            .forEach((env) => this.removeEnv(env));
+    }
+    // --- End Positron ---
 }
 
 export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscoveryAPI & Disposable {

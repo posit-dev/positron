@@ -18,10 +18,25 @@ export interface PythonGlobalEnvEvent {
     uri: Uri;
 }
 
+// --- Start Positron ---
+export interface PythonWorkspacePathDeletedEvent {
+    workspaceFolder: WorkspaceFolder;
+    path: string;
+}
+// --- End Positron ---
+
 export interface PythonWatcher extends Disposable {
     watchWorkspace(wf: WorkspaceFolder): void;
     unwatchWorkspace(wf: WorkspaceFolder): void;
     onDidWorkspaceEnvChanged: Event<PythonWorkspaceEnvEvent>;
+    // --- Start Positron ---
+    /**
+     * Fires for any file or folder deleted in a watched workspace. Deleting a
+     * folder is reported as the folder's deletion, not as the deletion of each
+     * file inside it, so `rm -rf .venv` may not fire `onDidWorkspaceEnvChanged`.
+     */
+    onDidWorkspacePathDeleted: Event<PythonWorkspacePathDeletedEvent>;
+    // --- End Positron ---
 
     watchPath(uri: Uri, pattern?: string): void;
     unwatchPath(uri: Uri): void;
@@ -47,15 +62,26 @@ class PythonWatcherImpl implements PythonWatcher {
 
     private readonly _onDidGlobalEnvChanged = new EventEmitter<PythonGlobalEnvEvent>();
 
+    // --- Start Positron ---
+    private readonly _onDidWorkspacePathDeleted = new EventEmitter<PythonWorkspacePathDeletedEvent>();
+    // --- End Positron ---
+
     private readonly _disposeMap: Map<string, Disposable> = new Map<string, Disposable>();
 
     constructor() {
         this.disposables.push(this._onDidWorkspaceEnvChanged, this._onDidGlobalEnvChanged);
+        // --- Start Positron ---
+        this.disposables.push(this._onDidWorkspacePathDeleted);
+        // --- End Positron ---
     }
 
     onDidGlobalEnvChanged: Event<PythonGlobalEnvEvent> = this._onDidGlobalEnvChanged.event;
 
     onDidWorkspaceEnvChanged: Event<PythonWorkspaceEnvEvent> = this._onDidWorkspaceEnvChanged.event;
+
+    // --- Start Positron ---
+    onDidWorkspacePathDeleted: Event<PythonWorkspacePathDeletedEvent> = this._onDidWorkspacePathDeleted.event;
+    // --- End Positron ---
 
     watchWorkspace(wf: WorkspaceFolder): void {
         if (this._disposeMap.has(wf.uri.fsPath)) {
@@ -77,6 +103,20 @@ class PythonWatcherImpl implements PythonWatcher {
                 this.fireWorkspaceEvent(FileChangeType.Deleted, wf, uri);
             }),
         );
+        // --- Start Positron ---
+        // Deletes only. Sends the same watch request as the watcher above, so
+        // it adds no file system watcher.
+        const deleteWatcher = createFileSystemWatcher(new RelativePattern(wf, '**'), true, true, false);
+        disposables.push(
+            deleteWatcher,
+            deleteWatcher.onDidDelete((uri) => {
+                const uriWorkspace = getWorkspaceFolder(uri);
+                if (uriWorkspace && arePathsSame(uriWorkspace.uri.fsPath, wf.uri.fsPath)) {
+                    this._onDidWorkspacePathDeleted.fire({ workspaceFolder: wf, path: uri.fsPath });
+                }
+            }),
+        );
+        // --- End Positron ---
 
         const disposable = {
             dispose: () => {
