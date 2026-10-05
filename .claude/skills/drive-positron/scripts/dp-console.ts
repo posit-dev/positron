@@ -231,8 +231,13 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 		const focused = () => inst.locator(c$.input).evaluate(el => el.contains(document.activeElement)).catch(() => false);
 		await input.focus().catch(() => { });
 		if (!await focused()) { return { ok: false, ...base, error: 'the console input would not take focus (the session may be starting or restarting); no keys were pressed' }; }
-		await page.keyboard.press(a.mod + '+a');
-		await page.keyboard.press('Backspace');
+		// Only clear text that is there: with the input empty, Select All selects the
+		// whole transcript instead, which then shows highlighted in every screenshot.
+		if (norm(await inst.locator(c$.inputLines).innerText().catch(() => ''))) {
+			await page.keyboard.press(a.mod + '+a');
+			await page.keyboard.press('Backspace');
+		}
+		await page.evaluate(() => window.getSelection()?.removeAllRanges());
 		await input.evaluate((el, t) => {
 			const dt = new DataTransfer();
 			dt.setData('text/plain', t);
