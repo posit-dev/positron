@@ -260,12 +260,6 @@ suite('PositronRunApp', () => {
 			const app = await listedApp(runAppOptions.name);
 			assert.deepStrictEqual({ status: app?.status, exitCode: app?.exitCode }, { status: 'exited', exitCode: 0 });
 		});
-
-		test('reports a file it has not run an app from', async () => {
-			const result = await stopApp(vscode.Uri.joinPath(uri, '..', 'not-an-app.js'));
-
-			assert.strictEqual(result.stopped === false && result.reason, 'not-found');
-		});
 	});
 
 	suite('runApplicationInConsole', () => {

@@ -3,9 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// This module must not import `vscode`, directly or through another module, so
-// that it can be unit tested with Vitest. `api.ts` supplies the parts that need
-// the extension API through `AppController` and `Closable`.
+// Keep this module free of `vscode` imports, direct or indirect, so Vitest can
+// load it.
 
 import { raceTimeout } from './utils';
 
@@ -21,7 +20,6 @@ import { raceTimeout } from './utils';
  */
 export type AppStatus = 'starting' | 'running' | 'exited' | 'unknown';
 
-/** Where an app's process runs. */
 export type AppHost = 'terminal' | 'console';
 
 /** Facts about an app that are fixed when it starts. */
@@ -31,9 +29,8 @@ export interface AppInfo {
 	/** The app's framework, such as `Streamlit`. Positron runs one app per name. */
 	readonly name: string;
 	readonly runsIn: AppHost;
-	/** Where the app is previewed once its URL is found. */
 	readonly preview: string;
-	/** The console session the app runs in, for apps that run in a console. */
+	/** Set for apps that run in a console. */
 	readonly sessionId?: string;
 }
 
@@ -98,7 +95,6 @@ export class RunningApp {
 		return this._status;
 	}
 
-	/** Record the app's URLs once Positron has found them. */
 	foundUrl(localUrl: string, url: string): void {
 		this._localUrl = localUrl;
 		this._url = url;
@@ -107,7 +103,6 @@ export class RunningApp {
 		}
 	}
 
-	/** Positron stopped watching for the app's URL without finding it. */
 	stoppedWatchingForUrl(): void {
 		if (this._status === 'starting') {
 			this._status = 'running';
@@ -119,7 +114,6 @@ export class RunningApp {
 		this._preview = preview;
 	}
 
-	/** The app's process ended. */
 	exited(exitCode?: number): void {
 		if (this._status === 'exited') {
 			return;

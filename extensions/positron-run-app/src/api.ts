@@ -74,12 +74,10 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		this._appListeners.forEach(disposable => disposable.dispose());
 	}
 
-	/** The apps run in this window: what they are, where they are, and whether they are still running. */
 	public listApps(): AppSummary[] {
 		return this._apps.list();
 	}
 
-	/** Stop the app run from `file`. */
 	public stopApp(file: vscode.Uri): Promise<StopAppResult> {
 		return this._apps.stop(file.toString(), STOP_APP_TIMEOUT);
 	}
@@ -328,11 +326,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 
 	/**
-	 * Track an app run in a terminal, so an agent can see it and stop it.
-	 *
-	 * @param execution The app's shell execution. Without shell integration
-	 *   there is none, so Positron cannot see the app's process and only learns
-	 *   when its terminal closes.
+	 * @param execution Undefined without shell integration, in which case
+	 *   Positron cannot see the app's process and only learns when its terminal
+	 *   closes.
 	 */
 	private addTerminalApp(
 		document: vscode.TextDocument,
@@ -478,7 +474,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 			const preview = parsePreviewMode(options.preview);
 
-			// Track the app, so an agent can see it and stop it.
 			const appSessionId = sessionId;
 			const app = new RunningApp(
 				{ file: document.uri.toString(), name: options.name, runsIn: 'console', preview, sessionId: appSessionId },
@@ -502,7 +497,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			// Execute the code in the console session. Don't await: the Thenable
 			// resolves only when the app stops. `executionFinished` never
 			// rejects, so an execution error is logged and treated the same as
-			// the app stopping. Either way the app has exited once it resolves.
+			// the app stopping.
 			const executionFinished = Promise.resolve(positron.runtime.executeCode(
 				document.languageId,
 				consoleCode.code,
@@ -521,9 +516,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				case 'external':
 				case 'editor':
 				case 'manual': {
-					// Stop waiting as soon as the app stops: an app that stopped
-					// without printing its URL, such as one that failed to start, is
-					// never going to print one.
+					// An app that stopped without printing its URL never will.
 					const url = await raceTimeout(
 						Promise.race([detector.found, executionFinished.then(() => undefined)]),
 						options.urlDetectionTimeout ?? readUrlDetectionTimeout(),
@@ -855,9 +848,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			}
 		})().catch(error => log.error(`Error reading the app's terminal output: ${error}`));
 
-		// Stop waiting as soon as the process exits: an app that exited without
-		// printing its URL, such as one that failed to start, is never going to
-		// print one.
+		// An app that exited without printing its URL never will.
 		const url = await raceTimeout(
 			Promise.race([detector.found, outputEnded.then(() => undefined)]),
 			options.urlDetectionTimeout ?? readUrlDetectionTimeout(),
@@ -944,7 +935,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		urlPath?: string;
 		terminalPid?: number;
 		previewSource?: positron.PreviewSource;
-		/** The app being previewed, to record its URLs and preview on. */
 		app?: RunningApp;
 	}): Promise<vscode.Uri> {
 		// Example: http://localhost:8500

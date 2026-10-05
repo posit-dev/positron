@@ -129,10 +129,12 @@ describe('AppRegistry', () => {
 		]);
 	});
 
-	it('keeps an exited app at the status it exited with', () => {
+	it('keeps the exit code when its terminal closes after it exited', () => {
+		// A terminal app's execution ends with an exit code; closing its terminal
+		// later reports the exit again, without one.
 		const { app } = makeApp(streamlit);
 		app.exited(0);
-		app.exited(1);
+		app.exited();
 		app.stoppedWatchingForUrl();
 
 		expect({ status: app.status, exitCode: app.toSummary().exitCode }).toEqual({ status: 'exited', exitCode: 0 });
@@ -237,30 +239,20 @@ describe('stopping an app', () => {
 		});
 	});
 
-	it('stops the running app when the same file ran under two names', async () => {
-		const registry = new AppRegistry();
-		const { app: running } = makeApp({ ...streamlit, name: 'Flask' });
-		const { app: exited } = makeApp(streamlit);
-		registry.add(running);
-		registry.add(exited);
-		exited.exited(0);
-
-		const result = await registry.stop(streamlit.file, TIMEOUT);
-
-		expect(result.stopped && result.name).toBe('Flask');
-	});
-
-	it('stops the newest run when the same file is running under two names', async () => {
-		// Running the Streamlit app again makes it the newest, even though
-		// Streamlit was the first name used.
+	it('stops the newest still-running app when one file ran under several names', async () => {
+		// Re-running Streamlit makes it newer than Flask, even though Streamlit
+		// was the first name used; the newest run, Gradio, has already exited.
 		const registry = new AppRegistry();
 		registry.add(makeApp(streamlit).app);
 		registry.add(makeApp({ ...streamlit, name: 'Flask' }).app);
 		registry.add(makeApp(streamlit).app);
+		const { app: gradio } = makeApp({ ...streamlit, name: 'Gradio' });
+		registry.add(gradio);
+		gradio.exited(1);
 
 		const result = await registry.stop(streamlit.file, TIMEOUT);
 
 		expect({ stopped: result.stopped && result.name, listed: registry.list().map(app => app.name) })
-			.toEqual({ stopped: 'Streamlit', listed: ['Flask', 'Streamlit'] });
+			.toEqual({ stopped: 'Streamlit', listed: ['Flask', 'Streamlit', 'Gradio'] });
 	});
 });

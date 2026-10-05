@@ -29,7 +29,6 @@ export type AppPreviewOptions = {
 	appReadyMessage?: string;
 	appUrlStrings?: string[];
 	urlDetectionTimeout?: number;
-	/** The app being previewed, to record its URLs and preview on. */
 	app?: RunningApp;
 };
 
