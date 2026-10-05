@@ -2535,10 +2535,13 @@ declare module 'positron' {
 		// A Unity Catalog volume: a governed location for non-tabular files
 		// (positron-data-driver-databricks).
 		Volume = 'volume',
-		// A directory inside a volume, and a file inside one. Both hold files rather than rows, so they
-		// are browsable but not previewable in the Data Explorer.
+		// A directory inside a volume or stage, and a file inside one. Both hold files rather than rows,
+		// so they are browsable but not previewable in the Data Explorer.
 		Directory = 'directory',
 		File = 'file',
+		// A note in the tree rather than an object, e.g. that a long listing was cut short. Give it no
+		// children, preview, details, or path.
+		Notice = 'notice',
 		// The owner (user) that a group of pins belongs to (positron-data-driver-pins).
 		Owner = 'owner',
 		// A pin on a Posit Connect server (positron-data-driver-pins).
@@ -2594,6 +2597,23 @@ declare module 'positron' {
 		 * Columns under views are not part of a primary key, so this is left unset for them.
 		 */
 		isPrimaryKey?: boolean;
+
+		/**
+		 * The node's full path, in the form the source itself accepts, for copying: e.g. a table's
+		 * quoted three-part name (`"DB"."PUBLIC"."ORDERS"`) or a file's location
+		 * (`@"DB"."PUBLIC"."STAGE"/2024/orders.csv`). Positron offers "Copy Path" for nodes that set
+		 * it. Leave it unset for nodes that have no path of their own, such as groups.
+		 */
+		path?: string;
+
+		/**
+		 * What double-clicking the node opens, for a node that has both a preview and details.
+		 * Defaults to `'preview'`: a table's data is what users reach for. Set `'details'` for a node
+		 * whose details are what it holds, and whose preview opens something else's data -- e.g. a
+		 * semantic view's logical table, which previews its base table. Either way a single click
+		 * shows the details, and the context menu offers both.
+		 */
+		defaultAction?: 'preview' | 'details';
 
 		/**
 		 * Retrieve child nodes (e.g., tables in a schema, fields in a table).
