@@ -1097,6 +1097,53 @@ describe('QuartoExecutionManager', () => {
 			expect(output.items[0].data, 'Should have correct text content').toBe('5');
 		});
 
+		it.each([
+			'application/vnd.positron.dataExplorer+json',
+			'application/vnd.positron.objectExplorer+json',
+		])('keeps %s and its text/plain fallback, dropping other Positron MIME types', async explorerMime => {
+			const documentUri = URI.file('/test.qmd');
+			const cell: QuartoCodeCell = {
+				id: 'test-cell-explorer',
+				index: 0,
+				language: 'r',
+				startLine: 1,
+				endLine: 4,
+				codeStartLine: 2,
+				codeEndLine: 3,
+				label: undefined,
+				options: '',
+				contentHash: 'explorer123',
+			};
+
+			const outputsReceived: ICellOutput[] = [];
+			ctx.disposables.add(executionManager.onDidReceiveOutput((event: ExecutionOutputEvent) => {
+				outputsReceived.push(event.output);
+			}));
+
+			const executionPromise = executionManager.executeCell(documentUri, cell);
+			const executionId = await mockKernelManager.waitForExecution();
+
+			mockSession.receiveResultMessage({
+				parent_id: executionId,
+				kind: RuntimeOutputKind.Text,
+				data: {
+					'text/html': '<p>stub</p>',
+					'text/plain': '$a\n[1] 1',
+					[explorerMime]: { version: 1, comm_id: 'comm-1', title: 'list' },
+					'application/vnd.positron.internal+json': {},
+				},
+			});
+			mockSession.receiveStateMessage({
+				parent_id: executionId,
+				state: RuntimeOnlineState.Idle,
+			});
+			await executionPromise;
+
+			expect(outputsReceived.map(output => output.items.map(item => item.mime))).toEqual([
+				['text/html', 'text/plain', explorerMime],
+			]);
+		});
+
 		it('handles both stream output and execute_result output', async () => {
 			const documentUri = URI.file('/test.qmd');
 			const cell: QuartoCodeCell = {
