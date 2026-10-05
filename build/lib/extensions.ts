@@ -589,6 +589,17 @@ const excludedExtensions = [
 	// DuckDB (and later pins) data driver extensions bundle via esbuild. It is not
 	// an extension and must not be packaged or activated at runtime.
 	'positron-data-explorer-duckdb',
+	// Upstream color theme extensions whose themes Positron hides from the
+	// theme picker (see positronColorThemeFilter.ts). Shipping them would only
+	// list them under @builtin with no way to select their themes (#8162).
+	'theme-abyss',
+	'theme-kimbie-dark',
+	'theme-monokai',
+	'theme-monokai-dimmed',
+	'theme-quietlight',
+	'theme-red',
+	'theme-solarized-dark',
+	'theme-solarized-light',
 	// --- End Positron ---
 ];
 

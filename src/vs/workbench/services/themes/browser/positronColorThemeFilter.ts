@@ -6,6 +6,11 @@
 // Positron ships with a subset of the upstream Visual Studio Code color themes.
 // This filter is applied at picker-display time only; hidden themes remain
 // registered and continue to resolve from settings.json by ID.
+//
+// The theme-defaults IDs below ship in every build. The other single-theme
+// extensions (abyss, monokai, etc.) are excluded from release packaging in
+// build/lib/extensions.ts, but still load when running from sources, so they
+// stay listed here to keep the picker the same in dev and release builds.
 export function isColorThemeVisibleInPicker(themeId: string, currentThemeId: string): boolean {
 	if (themeId === currentThemeId) {
 		return true;
