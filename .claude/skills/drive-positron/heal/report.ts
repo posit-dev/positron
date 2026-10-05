@@ -158,11 +158,13 @@ function isMain(): boolean {
 function main(): number {
 	const all = process.argv.slice(2).filter(a => a !== '--smoke-red');
 	const smokeRed = process.argv.slice(2).includes('--smoke-red');
-	// The verb is either first or last; flags go between.
-	const verb = VERBS.includes(all[0]) ? all[0] : VERBS.includes(all[all.length - 1]) ? all[all.length - 1] : null;
-	if (verb === null) { console.log(`report: name one of ${VERBS.join(', ')}`); return 2; }
-	const own = VERBS.includes(all[0]) ? all.slice(1) : all.slice(0, -1);
-	const bad = unknownArg(own, ['--dir', '--run-url', '--job-failed', '--link-kind', '--link']);
+	// The verb sits among the flags, so find the one that is not a flag's value.
+	const FLAGS = ['--dir', '--run-url', '--job-failed', '--link-kind', '--link'];
+	const at = all.findIndex((a, i) => VERBS.includes(a) && !FLAGS.includes(all[i - 1]));
+	if (at < 0) { console.log(`report: name one of ${VERBS.join(', ')}`); return 2; }
+	const verb = all[at];
+	const own = [...all.slice(0, at), ...all.slice(at + 1)];
+	const bad = unknownArg(own, FLAGS);
 	if (bad !== null) { console.log(`report: unknown argument ${JSON.stringify(bad)}`); return 2; }
 	const flag = (name: string): string | null => {
 		const v = flagValue(own, name);
