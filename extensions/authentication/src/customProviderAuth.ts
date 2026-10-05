@@ -127,7 +127,7 @@ const VALIDATOR_BY_KIND: Partial<Record<SupportedCustomClientKind, ApiKeyValidat
  * An optional key only means the check can't refuse a blank field; it still runs.
  * `openai-compatible` also requires a base URL, and its probe sends no
  * Authorization header when there's no key.
- * A failed probe only warns, since a custom provider can front any gateway.
+ * A failed probe only logs, since a custom provider can front any gateway.
  */
 export function customApiKeyValidator(kind: string): ApiKeyValidator | undefined {
 	const descriptor = customAuthDescriptor(kind);
@@ -153,7 +153,6 @@ export function customApiKeyValidator(kind: string): ApiKeyValidator | undefined
 		} catch (err) {
 			const reason = err instanceof Error ? err.message : String(err);
 			log.warn(`[Custom Provider] Could not verify the ${kind} API key; saving it anyway: ${reason}`);
-			void vscode.window.showWarningMessage(vscode.l10n.t('Saving without verifying the API key: {0}', reason));
 		}
 	};
 }
