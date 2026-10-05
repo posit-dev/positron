@@ -7,28 +7,14 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { PositronAssistantConfigurationService } from '../../browser/positronAssistantService.js';
-import { IPositronLanguageModelSource, PositronLanguageModelType } from '../../common/interfaces/positronAssistantService.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IAiProviderService } from '../../../../services/positronAiProvider/common/aiProviderService.js';
 import { IProviderCatalogChangeData } from '../../../../../platform/positronAiProvider/common/aiProviderCatalog.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 
-function makeSource(id: string, catalogId?: string): IPositronLanguageModelSource {
-	return {
-		type: PositronLanguageModelType.Chat,
-		provider: { id, displayName: `Display ${id}`, catalogId },
-		supportedOptions: [],
-		defaults: {},
-	};
-}
-
 describe('PositronAssistantConfigurationService', () => {
-	const configurationService = new TestConfigurationService();
 	const catalogEnabled = new Map<string, boolean>();
 	const onDidChangeProvidersEmitter = new Emitter<IProviderCatalogChangeData>();
 	const ctx = createTestContainer()
-		.stub(IConfigurationService, configurationService)
 		.stub(IAiProviderService, {
 			// The catalog "knows" exactly the ids in catalogEnabled.
 			getProvider: (id: string) => catalogEnabled.has(id)
@@ -47,51 +33,6 @@ describe('PositronAssistantConfigurationService', () => {
 		service = ctx.disposables.add(ctx.instantiationService.createInstance(PositronAssistantConfigurationService));
 	});
 
-	function registerProvider(id: string, enabled = true, catalogId: string = id) {
-		catalogEnabled.set(catalogId, enabled);
-		service.registerProvider(makeSource(id, catalogId));
-	}
-
-	function registeredSource(id: string): IPositronLanguageModelSource {
-		const source = service.getRegisteredSources().find(s => s.provider.id === id);
-		expect(source).toBeDefined();
-		return source!;
-	}
-
-	describe('updateProvider status state', () => {
-		it('stores an explicit null status', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Authentication expired' });
-			service.updateProvider('prov-a', { status: null });
-
-			expect(registeredSource('prov-a')).toMatchObject({ status: null, statusMessage: undefined });
-		});
-
-		it('clears statusMessage on non-error statuses', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Authentication expired' });
-			service.updateProvider('prov-a', { status: 'ok' });
-
-			expect(registeredSource('prov-a')).toMatchObject({ status: 'ok', statusMessage: undefined });
-		});
-
-		it('resets status to ok on a fresh sign-in', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { signedIn: false, status: 'error', statusMessage: 'Authentication expired' });
-			service.updateProvider('prov-a', { signedIn: true });
-
-			expect(registeredSource('prov-a')).toMatchObject({ signedIn: true, status: 'ok', statusMessage: undefined });
-		});
-
-		it('leaves status untouched when the update omits it', () => {
-			registerProvider('prov-a');
-			service.updateProvider('prov-a', { status: 'error', statusMessage: 'Authentication expired' });
-			service.updateProvider('prov-a', { authMethods: ['oauth'] });
-
-			expect(registeredSource('prov-a')).toMatchObject({ status: 'error', statusMessage: 'Authentication expired' });
-		});
-	});
-
 	describe('catalog-driven enablement', () => {
 		function catalogChangeData(overrides: Partial<IProviderCatalogChangeData> = {}): IProviderCatalogChangeData {
 			return {
@@ -103,66 +44,49 @@ describe('PositronAssistantConfigurationService', () => {
 			};
 		}
 
-		it('getEnabledProviders returns registered ids whose catalog id is enabled', () => {
-			registerProvider('openAI', true, 'openai');
+		it('reports the catalog verdict for a provider the catalog knows', () => {
+			catalogEnabled.set('openai', true);
+			catalogEnabled.set('anthropic', false);
 
-			expect(service.getEnabledProviders()).toEqual(['openAI']);
+			expect([
+				service.isProviderEnabled('openai'),
+				service.isProviderEnabled('anthropic'),
+			]).toEqual([true, false]);
+		});
+
+		it('leaves a provider the catalog has never heard of enabled', () => {
+			// A chat vendor with no providers.json entry must not be silently
+			// filtered out of the model picker.
+			expect(service.isProviderEnabled('some-third-party-vendor')).toBe(true);
+		});
+
+		it('follows a later catalog flip', () => {
+			catalogEnabled.set('openai', true);
+			expect(service.isProviderEnabled('openai')).toBe(true);
 
 			catalogEnabled.set('openai', false);
-
-			expect(service.getEnabledProviders()).toEqual([]);
-		});
-
-		it('isProviderEnabled resolves the registered id and its catalog id to the same source', () => {
-			service.registerProvider(makeSource('openai-api', 'openai'));
-			catalogEnabled.set('openai', true);
-
-			expect(service.isProviderEnabled('openai-api')).toBe(true);
-			expect(service.isProviderEnabled('openai')).toBe(true);
-		});
-
-		it('providers with no catalogId whose id the catalog has never heard of stay enabled', () => {
-			service.registerProvider(makeSource('echo'));
-
-			expect(service.isProviderEnabled('echo')).toBe(true);
-			expect(service.getEnabledProviders()).toEqual(['echo']);
-		});
-
-		it('providers with no catalogId fall back to their registration id for enablement', () => {
-			catalogEnabled.set('ollama', false);
-			service.registerProvider(makeSource('ollama'));
-
-			expect(service.isProviderEnabled('ollama')).toBe(false);
-			expect(service.getEnabledProviders()).toEqual([]);
-		});
-
-		it('a declared catalogId the catalog has never heard of is disabled', () => {
-			service.registerProvider(makeSource('ollama', 'ollama'));
-
-			expect(service.isProviderEnabled('ollama')).toBe(false);
-			expect(service.getEnabledProviders()).toEqual([]);
-		});
-
-		it('unregistered ids are not enabled even when the catalog enables them', () => {
-			catalogEnabled.set('anthropic', true);
-
-			expect(service.isProviderEnabled('anthropic')).toBe(false);
-		});
-
-		it('getProviderRegistrations keeps disabled registrations that getRegisteredSources filters out', () => {
-			registerProvider('openAI', true, 'openai');
-			registerProvider('anthropic-api', false, 'anthropic');
-
-			expect(service.getRegisteredSources().map(s => s.provider.id)).toEqual(['openAI']);
-			expect(service.getProviderRegistrations().map(s => s.provider.id)).toEqual(['openAI', 'anthropic-api']);
+			expect(service.isProviderEnabled('openai')).toBe(false);
 		});
 
 		it('onChangeEnabledProviders fires on a catalog enabledChanged event', () => {
-			const listener = vi.fn();
-			ctx.disposables.add(service.onChangeEnabledProviders(listener));
+			const fired = vi.fn();
+			ctx.disposables.add(service.onChangeEnabledProviders(fired));
 
 			onDidChangeProvidersEmitter.fire(catalogChangeData({ enabledChanged: true }));
-			expect(listener).toHaveBeenCalledTimes(1);
+			onDidChangeProvidersEmitter.fire(catalogChangeData({ connectionChanged: true }));
+
+			expect(fired).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('copilotEnabled', () => {
+		it('fires onChangeCopilotEnabled when set', () => {
+			const fired = vi.fn();
+			ctx.disposables.add(service.onChangeCopilotEnabled(fired));
+
+			service.copilotEnabled = true;
+
+			expect([service.copilotEnabled, fired.mock.calls]).toEqual([true, [[true]]]);
 		});
 	});
 });

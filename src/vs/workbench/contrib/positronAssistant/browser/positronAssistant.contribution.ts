@@ -25,6 +25,7 @@ import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.j
 import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
 import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
 import { AiExtensionActivationContribution } from './aiExtensionActivation.js';
+import { LegacyCredentialCopyContribution } from './legacyCredentialCopyContribution.js';
 import { PositronAssistantToolsContribution } from './tools/positronAssistantTools.js';
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
@@ -39,6 +40,13 @@ import './inlineCompletionsMigration.js';
 
 // Register the agent-compatible `positronAssistant.getProviderStatus` command.
 import './providerStatusCommand.js';
+
+/**
+ * Command (owned by the Posit Assistant extension) that opens provider
+ * configuration. This is the Assistant's canonical entry point: it owns the
+ * routing decision, so callers do not choose a surface.
+ */
+const CONFIGURE_PROVIDERS_COMMAND = 'posit-assistant.configureProviders';
 
 // Register the commit message generation feature.
 registerCommitMessageGeneration();
@@ -74,7 +82,7 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 			}
 
 			override async run(accessor: ServicesAccessor): Promise<void> {
-				return accessor.get(ICommandService).executeCommand('authentication.configureProviders');
+				return accessor.get(ICommandService).executeCommand(CONFIGURE_PROVIDERS_COMMAND);
 			}
 		});
 
@@ -158,6 +166,7 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).regi
 // on. Registered at `Eventually` to preserve the deferred timing those
 // extensions had under `onStartupFinished`.
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(AiExtensionActivationContribution, LifecyclePhase.Eventually);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(LegacyCredentialCopyContribution, LifecyclePhase.Eventually);
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);
 

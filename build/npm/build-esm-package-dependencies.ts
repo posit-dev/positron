@@ -110,6 +110,10 @@ export function buildESMPackageDependencies(outdir: string = 'out/esm-package-de
 			'CONFIG_KEY_OVERRIDES',
 			'shapeCredentials',
 		],
+		'ai-credentials/types': [
+			'POSITRON_LEGACY_AUTH_PROVIDER_IDS',
+			'storageKeyFor',
+		],
 		// Also pure ESM; rebuilds screenshots of the Viewer for agents in web builds.
 		'modern-screenshot': [
 			'createContext',

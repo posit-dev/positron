@@ -43,7 +43,6 @@ export async function fillSecretValue(locator: Locator, value: string): Promise<
 	}, value);
 }
 
-const POSITRON_MODAL_DIALOG = '.positron-modal-dialog-box';
 const POSIT_EMAIL_FIELD = 'input[name="email"]';
 const POSIT_PASSWORD_FIELD = 'input[name="password"]';
 const POSIT_CONTINUE_BUTTON = 'button[type="submit"]:has-text("Continue")';
@@ -53,14 +52,14 @@ const POSIT_LOGIN_BUTTON = 'button[type="submit"]:has-text("Log in")';
  * Supported model providers for authentication.
  */
 export type ModelProvider =
-	| 'anthropic-api'
-	| 'amazon-bedrock'
+	| 'anthropic'
+	| 'bedrock'
 	| 'databricks'
 	| 'echo'
 	| 'error'
 	| 'ms-foundry'
-	| 'openai-api'
-	| 'posit-ai'
+	| 'openai'
+	| 'positai'
 	| 'snowflake-cortex';
 
 /**
@@ -116,14 +115,14 @@ export function getProviderAuthType(provider: ModelProvider): ProviderAuthType {
 		case 'echo':
 		case 'error':
 			return 'none';
-		case 'anthropic-api':
-		case 'openai-api':
+		case 'anthropic':
+		case 'openai':
 		case 'ms-foundry':
 		case 'snowflake-cortex':
 			return 'apiKey';
-		case 'amazon-bedrock':
+		case 'bedrock':
 			return 'aws';
-		case 'posit-ai':
+		case 'positai':
 			return 'oauth';
 		case 'databricks':
 			// Authorization code + PKCE against a loopback server, not a device code
@@ -167,7 +166,7 @@ export function getProviderBaseUrlEnvVarName(provider: ModelProvider): string {
 
 export function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
 	switch (provider.toLowerCase()) {
-		case 'posit-ai':
+		case 'positai':
 			return {
 				provider: 'posit',
 				verificationUrl: '',
@@ -184,9 +183,9 @@ export function getOAuthConfig(provider: ModelProvider): OAuthDeviceCodeConfig {
 
 export function getProviderEnvVarName(provider: ModelProvider): string {
 	switch (provider.toLowerCase()) {
-		case 'anthropic-api':
+		case 'anthropic':
 			return 'ANTHROPIC_KEY';
-		case 'openai-api':
+		case 'openai':
 			return 'OPENAI_KEY';
 		case 'databricks':
 			// Databricks calls its API key a personal access token.
@@ -206,9 +205,9 @@ export function getProviderEnvKey(provider: ModelProvider): string | undefined {
 
 export function getProviderAutoSignInEnvVarName(provider: ModelProvider): string | undefined {
 	switch (provider.toLowerCase()) {
-		case 'anthropic-api':
+		case 'anthropic':
 			return 'ANTHROPIC_API_KEY';
-		case 'openai-api':
+		case 'openai':
 			return 'OPENAI_API_KEY';
 		default:
 			return undefined;
@@ -218,31 +217,6 @@ export function getProviderAutoSignInEnvVarName(provider: ModelProvider): string
 export function isProviderAutoSignedIn(provider: ModelProvider): boolean {
 	const envVarName = getProviderAutoSignInEnvVarName(provider);
 	return envVarName ? !!process.env[envVarName] : false;
-}
-
-export async function extractDeviceCodeFromModal(code: Code, _config: OAuthDeviceCodeConfig): Promise<{ verificationCode: string }> {
-	const deviceCodeModalLocator = code.driver.currentPage.locator(`${POSITRON_MODAL_DIALOG}:has-text("You will need this code to sign in")`);
-	await expect(deviceCodeModalLocator).toBeVisible({ timeout: 30000 });
-
-	const modalHtml = await deviceCodeModalLocator.innerHTML();
-	if (!modalHtml) {
-		throw new Error('Could not read Positron device code modal content');
-	}
-
-	const codeMatch = modalHtml.match(/<code>([A-Z0-9-]+)<\/code>/i);
-	if (!codeMatch) {
-		// Do not embed modalHtml in the error: it contains the device code
-		// and other auth UI content that would otherwise leak into
-		// Playwright traces and CI logs.
-		throw new Error('Could not extract verification code from Positron device code modal (no <code> element found)');
-	}
-
-	const verificationCode = codeMatch[1];
-
-	const okButton = deviceCodeModalLocator.locator('button:has-text("OK"), button:has-text("Ok")');
-	await okButton.click();
-
-	return { verificationCode };
 }
 
 async function completePositLogin(page: Page, config: OAuthDeviceCodeConfig, verificationUrl: string): Promise<void> {
@@ -279,25 +253,21 @@ async function completePositLogin(page: Page, config: OAuthDeviceCodeConfig, ver
 }
 
 /**
- * Completes an OAuth device-code login AFTER the caller has initiated sign-in
- * (clicked the Sign in / Connect button). Extracts the device code from the
- * Positron modal, then drives the external Posit login in a separate browser.
+ * Drives the external Posit login for a device code the caller already has,
+ * e.g. one read from the Posit Assistant provider manager webview.
+ * Pass `verificationUrl` when the auth server supplied one; otherwise it's built from the auth host.
  */
-export async function completeOAuthDeviceCodeLogin(code: Code, config: OAuthDeviceCodeConfig, options: LoginModelProviderOptions = {}): Promise<void> {
-	// The Posit login page does not render in headless Chromium, so the
-	// default is headed. Callers may override per-invocation.
+export async function completeOAuthDeviceCodeLoginWithCode(config: OAuthDeviceCodeConfig, verificationCode: string, options: LoginModelProviderOptions = {}, verificationUrl?: string): Promise<void> {
 	const { headless = false } = options;
 
-	const { verificationCode } = await extractDeviceCodeFromModal(code, config);
-
-	let finalVerificationUrl = config.verificationUrl;
+	let finalVerificationUrl = verificationUrl || config.verificationUrl;
 	if (!finalVerificationUrl && config.authHostEnvVar) {
 		const authHost = process.env[config.authHostEnvVar];
 		if (!authHost) {
 			throw new Error(`OAuth auth host not configured. Please set ${config.authHostEnvVar} environment variable.`);
 		}
 		const redirectPath = encodeURIComponent(`/oauth/device?user_code=${verificationCode}`);
-		finalVerificationUrl = `${authHost}/login?redirect=${redirectPath}`;
+		finalVerificationUrl = `${authHost.replace(/\/+$/, '')}/login?redirect=${redirectPath}`;
 	}
 	if (!finalVerificationUrl) {
 		throw new Error('No verification URL available for OAuth flow');
