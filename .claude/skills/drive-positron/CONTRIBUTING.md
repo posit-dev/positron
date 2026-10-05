@@ -1,5 +1,18 @@
 # Changing drive-positron's helpers
 
+## How it works
+
+`launch.sh` starts Positron with its Chrome DevTools Protocol (CDP) port open,
+and Playwright attaches to the running app. Each helper is one shell command
+that sends one small function into the page and prints one JSON line: what it
+did and what is on screen. Helpers find the UI by accessible role and name, as
+a screen reader would; `scripts/selectors.ts` holds the few CSS selectors for
+what the accessibility tree lacks. Feature helpers (`plots.sh`, `qmd.sh`,
+`debug.sh`, `nb.sh`) cover tricky surfaces; the generic `ui.sh` drives anything
+else by role and name. Helpers fail loud and report what they see; the explorer
+decides what it means. `test/check.ts`, `test/smoke.ts` and the drift check
+keep them working.
+
 ## How a command is built
 
 Most commands are three pieces:
