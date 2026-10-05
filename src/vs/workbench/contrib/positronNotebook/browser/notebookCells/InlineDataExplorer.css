@@ -162,7 +162,45 @@ with the Quarto-style overlay layout. */
 }
 
 /* Ensure the data grid takes full space */
+.inline-data-explorer-grid,
 .inline-data-explorer-content .positron-data-grid {
 	height: 100%;
 	width: 100%;
+}
+
+/*
+ * The header and status areas would otherwise inherit the monospace font
+ * family of the output that contains them. Use the workbench font family,
+ * same as the full Data Explorer, and leave the editor font to the grid.
+ *
+ * Note: the font family CSS variable is only injected into webviews, not
+ * defined in the workbench, so it cannot be used here. Keep these families in
+ * sync with .monaco-workbench.mac/.windows/.linux in
+ * vs/workbench/browser/media/style.css.
+ */
+.monaco-workbench.mac .inline-data-explorer-container :is(
+	.inline-data-explorer-header,
+	.inline-data-explorer-loading,
+	.inline-data-explorer-disconnected,
+	.inline-data-explorer-error
+) {
+	font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.monaco-workbench.windows .inline-data-explorer-container :is(
+	.inline-data-explorer-header,
+	.inline-data-explorer-loading,
+	.inline-data-explorer-disconnected,
+	.inline-data-explorer-error
+) {
+	font-family: "Segoe WPC", "Segoe UI", sans-serif;
+}
+
+.monaco-workbench.linux .inline-data-explorer-container :is(
+	.inline-data-explorer-header,
+	.inline-data-explorer-loading,
+	.inline-data-explorer-disconnected,
+	.inline-data-explorer-error
+) {
+	font-family: system-ui, "Ubuntu", "Droid Sans", sans-serif;
 }
