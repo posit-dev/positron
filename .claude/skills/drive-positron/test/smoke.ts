@@ -23,8 +23,9 @@
 // case's `known`) and exits 1 on any FAIL. The instance is always stopped.
 
 import { spawn, spawnSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { launchFixture, stopFixture, type App } from './fixture-app.ts';
 import { firstRow, nameWords, flagValue, selectCases, threwResult, type SmokeResults } from './smoke-lib.ts';
 
 const test = dirname(new URL(import.meta.url).pathname);
@@ -396,7 +397,7 @@ function judge(c: Case, o: Out): string {
 	try { return c.check?.(o) || ''; } catch (e) { return `check threw ${String(e)}: ${said()}`; }
 }
 
-let instance: { cdpPort: number; runDir: string } | null = null;
+let instance: App | null = null;
 function cleanup(): void {
 	if (!instance) { return; }
 	const i = instance;
@@ -405,32 +406,12 @@ function cleanup(): void {
 		console.log(`kept: ${join(scripts, 'stop.sh')} --cdp-port ${i.cdpPort} --run-dir ${i.runDir}`);
 		return;
 	}
-	spawnSync(join(repo, 'node_modules/.bin/playwright-cli'), [`-s=${SESSION}`, 'close'], { cwd: repo, stdio: 'ignore' });
-	const s = spawnSync('bash', [join(scripts, 'stop.sh'), '--cdp-port', String(i.cdpPort), '--run-dir', i.runDir], { cwd: repo, encoding: 'utf8' });
-	console.log(s.status === 0 ? 'instance stopped' : `stop.sh failed: ${s.stderr.trim().split('\n').pop()}`);
-	rmSync(root, { recursive: true, force: true });
+	stopFixture(i);
 }
 for (const sig of ['SIGINT', 'SIGTERM'] as const) { process.on(sig, () => { cleanup(); process.exit(130); }); }
 
 function launch(): void {
-	rmSync(root, { recursive: true, force: true });
-	mkdirSync(join(root, 'seed/User'), { recursive: true });
-	cpSync(join(test, 'fixture'), ws, { recursive: true });
-	symlinkSync(join(repo, 'extensions/positron-python/.venv'), join(ws, '.venv'));
-	writeFileSync(join(root, 'seed/User/settings.json'), JSON.stringify({ 'quarto.inlineOutput.enabled': true, 'positron.notebook.enabled': true, 'workbench.startupEditor': 'none' }, null, '\t'));
-	const r = sh([join(scripts, 'launch.sh'), '--source-user-data-dir', join(root, 'seed'), '--no-pyrefly', '--', '--folder-uri', `file://${ws}`, ...appArgs], undefined, 600_000);
-	if (!r.json?.cdpPort) { throw new Error(`launch.sh failed: ${r.stderr.trim().split('\n').slice(-5).join(' | ')}`); }
-	instance = { cdpPort: r.json.cdpPort, runDir: r.json.runDir };
-	const cli = join(repo, 'node_modules/.bin/playwright-cli');
-	const a = spawnSync(cli, [`-s=${SESSION}`, 'attach', `--cdp=http://127.0.0.1:${instance.cdpPort}`], { cwd: repo, encoding: 'utf8' });
-	if (a.status !== 0) { throw new Error(`attach failed: ${a.stdout}${a.stderr}`); }
-	spawnSync(cli, [`-s=${SESSION}`, 'resize', '1600', '1000'], { cwd: repo, stdio: 'ignore' });
-	// Ready when the palette answers.
-	for (let i = 0; i < 30; i++) {
-		if (sh([join(scripts, 'palette-run.sh'), '--session', SESSION, '--dry-run', 'View: Show Explorer']).json?.ok) { return; }
-		spawnSync('sleep', ['2']);
-	}
-	throw new Error('the workbench did not answer within 60 s');
+	launchFixture({ session: SESSION, root, appArgs, onStarted: app => { instance = app; } });
 }
 
 /**
