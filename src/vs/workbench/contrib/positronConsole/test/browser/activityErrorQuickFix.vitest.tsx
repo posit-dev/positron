@@ -15,6 +15,9 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { ConsoleQuickFix } from '../../browser/components/activityErrorQuickFix.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ILanguageRuntimeMetadata } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 const line = (id: string, text: string): ANSIOutputLine => ({
 	id,
@@ -26,6 +29,12 @@ const tracebackLines: ANSIOutputLine[] = [line('2', '  File "<stdin>", line 1')]
 
 const expectedAttachmentText =
 	'NameError: name "x" is not defined\n  File "<stdin>", line 1';
+
+const positronConsoleInstance = stubInterface<IPositronConsoleInstance>({
+	sessionId: 'python-1234',
+	sessionName: 'Python 3.12.1',
+	runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
+});
 
 const decodeDataUri = (uri: string): string => {
 	const base64 = uri.slice(uri.indexOf(',') + 1);
@@ -45,7 +54,7 @@ describe('ConsoleQuickFix', () => {
 
 	it('dispatches posit-assistant.newChat with a fix prompt and the error as a data URI attachment when Fix is clicked', async () => {
 		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
 
 		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
@@ -63,7 +72,7 @@ describe('ConsoleQuickFix', () => {
 
 	it('dispatches posit-assistant.newChat with an explain prompt when Explain is clicked', async () => {
 		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Explain'));
 
 		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
@@ -75,7 +84,7 @@ describe('ConsoleQuickFix', () => {
 
 	it('omits the attachment when there is no error output', async () => {
 		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={[]} tracebackLines={[]} />);
+		rtl.render(<ConsoleQuickFix outputLines={[]} positronConsoleInstance={positronConsoleInstance} tracebackLines={[]} />);
 		await user.click(screen.getByText('Fix'));
 
 		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
@@ -87,25 +96,25 @@ describe('ConsoleQuickFix', () => {
 		executeCommand.mockRejectedValueOnce(new Error('command not found'));
 
 		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} tracebackLines={tracebackLines} />);
+		rtl.render(<ConsoleQuickFix outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
 
 		await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
 		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant could not be opened/);
 	});
 
-	it('sends the error to a registered error action handler instead of Posit Assistant', async () => {
+	it('sends the error and the console it came from to a registered error action handler instead of Posit Assistant', async () => {
 		const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 		const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
 
 		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix errorActionHandler={errorActionHandler} outputLines={outputLines} tracebackLines={tracebackLines} />);
+		rtl.render(<ConsoleQuickFix code='print(x)' errorActionHandler={errorActionHandler} outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
 
 		await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
 		expect(run).toHaveBeenCalledWith(errorActionHandler, 'fix', {
-			instruction: 'Fix the following console error:',
 			error: expectedAttachmentText,
+			location: { kind: 'console', sessionId: 'python-1234', sessionName: 'Python 3.12.1', languageId: 'python', code: 'print(x)' },
 		});
 		expect(executeCommand).not.toHaveBeenCalled();
 	});

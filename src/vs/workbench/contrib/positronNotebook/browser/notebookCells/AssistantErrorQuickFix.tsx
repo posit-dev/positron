@@ -16,7 +16,7 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { removeAnsiEscapeCodes } from '../../../../../base/common/strings.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { openPositAssistantChat } from '../../../positronAssistant/browser/positAssistantChat.js';
-import { ErrorActionKind, IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
+import { ErrorActionKind, IErrorActionHandler, IErrorActionsService, IErrorLocation } from '../../../positronAssistant/common/errorActions.js';
 import { SplitButton } from '../utilityComponents/SplitButton.js';
 
 // Appended to every Explain prompt. Without it, an agentic assistant treats
@@ -38,26 +38,8 @@ export interface AssistantErrorPayload {
 	attachmentContent: string;
 	/** The error output alone, sent to an error action handler in place of the attachment. */
 	errorOutput: string;
-	/**
-	 * Where the error came from, e.g. "cell 3 of analysis.ipynb". Named in the
-	 * instruction sent to error action handlers.
-	 */
-	location?: string;
-}
-
-/**
- * Instruction for error action handlers, which receive the error output right
- * after it (e.g. in a code block), so the instruction ends with a colon.
- */
-function getErrorActionInstruction(kind: ErrorActionKind, location: string | undefined): string {
-	if (kind === 'fix') {
-		return location
-			? localize('positronAssistantTargetFixPromptWithLocation', "Fix the following error in {0}:", location)
-			: localize('positronAssistantTargetFixPrompt', "Fix the following error:");
-	}
-	return location
-		? localize('positronAssistantTargetExplainPromptWithLocation', "Explain the following error in {0}, without making changes or editing any files:", location)
-		: localize('positronAssistantTargetExplainPrompt', "Explain the following error, without making changes or editing any files:");
+	/** Where the error came from, sent to error action handlers. */
+	errorLocation?: IErrorLocation;
 }
 
 /**
@@ -106,8 +88,8 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 		// Send to the error action handler when one is selected.
 		if (errorActionHandler) {
 			return services.get(IErrorActionsService).run(errorActionHandler, kind, {
-				instruction: getErrorActionInstruction(kind, payload.location),
 				error: removeAnsiEscapeCodes(payload.errorOutput).trim(),
+				location: payload.errorLocation,
 			});
 		}
 

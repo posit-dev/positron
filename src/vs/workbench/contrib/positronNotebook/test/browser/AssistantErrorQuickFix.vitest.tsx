@@ -18,6 +18,7 @@ import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary
 import { POSIT_NEW_CHAT_COMMAND, NewChatOptions } from '../../../positronAssistant/browser/positAssistantChat.js';
 import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { AssistantErrorQuickFix } from '../../browser/notebookCells/AssistantErrorQuickFix.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 describe('AssistantErrorQuickFix', () => {
 	const ctx = createTestContainer()
@@ -129,15 +130,15 @@ describe('AssistantErrorQuickFix', () => {
 	describe('with a registered error action handler', () => {
 		const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
-		it('sends the instruction and ANSI-free error to the registered error action handler', async () => {
+		it('sends the location and ANSI-free error to the registered error action handler', async () => {
 			const user = userEvent.setup();
 			const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
-			renderQuickFix({ errorActionHandler, getPayload: () => ({ ...defaultPayload, errorOutput: '\u001b[31mboom\u001b[0m', location: 'cell 2 of a.ipynb' }) });
+			renderQuickFix({ errorActionHandler, getPayload: () => ({ ...defaultPayload, errorOutput: '\u001b[31mboom\u001b[0m', errorLocation: { kind: 'notebook', uri: URI.file('/work/a.ipynb'), cellIndex: 1 } }) });
 			await user.click(screen.getByRole('button', { name: 'Ask Test Agent to explain in new chat' }));
 
 			expect(run).toHaveBeenCalledWith(errorActionHandler, 'explain', {
-				instruction: 'Explain the following error in cell 2 of a.ipynb, without making changes or editing any files:',
 				error: 'boom',
+				location: { kind: 'notebook', uri: URI.file('/work/a.ipynb'), cellIndex: 1 },
 			});
 			expect(ctx.get(ICommandService).executeCommand).not.toHaveBeenCalledWith(POSIT_NEW_CHAT_COMMAND, expect.anything());
 		});

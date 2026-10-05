@@ -66,7 +66,13 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 			explainPrompt: localize('positronQuartoAssistantExplainPromptWithContext', "Explain the error from the {0} code chunk at lines {1}-{2} of {3}. The failing code and its error output are attached.", cellContext.language, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.path),
 			attachmentContent: `${header}\n\n${codeHeader}\n${cellContext.code}\n\n${errorHeader}\n${errorContent}`,
 			errorOutput: errorContent,
-			location: localize('positronQuartoErrorLocation', "the {0} code chunk at lines {1}-{2} of {3}", cellContext.language, cellContext.codeStartLine, cellContext.codeEndLine, cellContext.path),
+			errorLocation: {
+				kind: 'quarto',
+				uri: cellContext.uri,
+				languageId: cellContext.language,
+				startLine: cellContext.codeStartLine,
+				endLine: cellContext.codeEndLine,
+			},
 		};
 	}, [cellContext, errorContent]);
 

@@ -20,6 +20,7 @@ import { Event } from '../../../../../base/common/event.js';
 import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { QuartoOutputQuickFix } from '../../browser/QuartoOutputQuickFix.js';
 import { QuartoCellErrorContext } from '../../common/quartoExecutionTypes.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 describe('QuartoOutputQuickFix', () => {
 	const ctx = createTestContainer()
@@ -85,6 +86,7 @@ describe('QuartoOutputQuickFix', () => {
 
 	describe('payload with cell context', () => {
 		const cellContext: QuartoCellErrorContext = {
+			uri: URI.file('/work/report.qmd'),
 			path: 'report.qmd',
 			language: 'python',
 			label: 'setup',
@@ -159,19 +161,19 @@ describe('QuartoOutputQuickFix with a registered error action handler', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('names the failing chunk in the instruction and sends only the error', async () => {
+	it('sends the failing chunk\'s location and only the error', async () => {
 		const user = userEvent.setup();
 		rtl.render(
 			<QuartoOutputQuickFix
-				cellContext={{ path: 'report.qmd', language: 'python', code: 'raise RuntimeError("boom")', codeStartLine: 8, codeEndLine: 9 }}
+				cellContext={{ uri: URI.file('/work/report.qmd'), path: 'report.qmd', language: 'python', code: 'raise RuntimeError("boom")', codeStartLine: 8, codeEndLine: 9 }}
 				errorContent='RuntimeError: boom'
 			/>
 		);
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
 		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
-			instruction: 'Fix the following error in the python code chunk at lines 8-9 of report.qmd:',
 			error: 'RuntimeError: boom',
+			location: { kind: 'quarto', uri: URI.file('/work/report.qmd'), languageId: 'python', startLine: 8, endLine: 9 },
 		}]);
 	});
 });

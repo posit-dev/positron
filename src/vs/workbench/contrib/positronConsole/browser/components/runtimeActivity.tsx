@@ -109,6 +109,8 @@ export const RuntimeActivity = memo((props: RuntimeActivityProps) => {
 						<ActivityErrorMessage
 							key={activityItem.id}
 							activityItemErrorMessage={activityItem}
+							code={getInputCode(props.runtimeItemActivity)}
+							positronConsoleInstance={props.positronConsoleInstance}
 						/>
 					);
 				} else if (activityItem instanceof ActivityItemErrorSuggestion) {
@@ -136,3 +138,13 @@ export const RuntimeActivity = memo((props: RuntimeActivityProps) => {
 	prev.fontInfo === next.fontInfo &&
 	prev.positronConsoleInstance === next.positronConsoleInstance
 );
+
+/**
+ * Get the code an activity ran, for errors sent to an agent.
+ * @returns The code, or undefined when the activity has no input (e.g. a
+ *   silent execution, or one trimmed from the scrollback) or it is blank.
+ */
+function getInputCode(runtimeItemActivity: RuntimeItemActivity): string | undefined {
+	const input = runtimeItemActivity.activityItems.find(activityItem => activityItem instanceof ActivityItemInput);
+	return input?.code.trim() ? input.code : undefined;
+}

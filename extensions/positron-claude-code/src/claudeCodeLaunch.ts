@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
+import type { Uri } from 'vscode';
 
 /**
  * First Claude Code release whose `claude-vscode.terminal.open` command accepts
@@ -20,32 +21,101 @@ const MIN_CHAT_VERSION = '2.0.35';
 /** Where to open the new Claude Code session. */
 export type ClaudeCodeSurface = 'chat' | 'terminal';
 
-/** Build the chat prompt, inlining the error as a fenced block. */
-export function formatPrompt(context: positron.ai.ErrorActionContext): string {
-	if (!context.error) {
-		return context.instruction;
-	}
-	// Use a fence longer than any backtick run in the error so the
-	// block cannot end early.
-	const longestRun = Math.max(0, ...(context.error.match(/`+/g) ?? []).map(run => run.length));
-	const fence = '`'.repeat(Math.max(3, longestRun + 1));
-	return `${context.instruction}\n\n${fence}\n${context.error}\n${fence}`;
+/** An error action the user can take. */
+export type ErrorActionKind = 'fix' | 'explain';
+
+/**
+ * Longest prompt body inlined into the chat input. Longer bodies (e.g. a
+ * pasted script that failed in the console) go in a file the prompt points to.
+ */
+const MAX_INLINE_BODY_LENGTH = 8000;
+
+/** A prompt for an error, split so the body can move to a file. */
+export interface ErrorPrompt {
+	/** A single line saying where the error came from and what to do about it. */
+	readonly lead: string;
+	/** Fenced code and error blocks; empty when there is no error output. */
+	readonly body: string;
 }
 
 /**
- * Build a single-line terminal prompt that @-mentions a file holding the
- * error. The prompt becomes a `claude` command-line argument, and a newline
- * in it would end the command early.
- * @param errorPath File containing `context.error`, or undefined when there
- *   is no error output.
+ * Build the prompt for a Fix or Explain action. Prompts are in English: they
+ * are read by the agent, not the user.
+ * @param getPath Resolves a document URI to the path named in the prompt.
  */
-export function formatTerminalPrompt(context: positron.ai.ErrorActionContext, errorPath: string | undefined): string {
-	const prompt = context.instruction.replace(/\s*\n\s*/g, ' ');
-	if (!errorPath) {
-		return prompt;
+export function getErrorPrompt(
+	kind: ErrorActionKind,
+	context: positron.ai.ErrorActionContext,
+	getPath: (uri: Uri) => string,
+): ErrorPrompt {
+	const location = context.location;
+	const task = kind === 'fix'
+		? 'Fix the error.'
+		: 'Explain what caused the error and how to fix it, without making changes or editing any files.';
+	const blocks: string[] = [];
+	let source: string | undefined;
+	switch (location?.kind) {
+		case 'console':
+			// Without this, Claude has nothing to open and guesses at a file
+			// (e.g. a notebook) the error might have come from.
+			source = `Code run in the Positron console session "${location.sessionName}" raised an error. ` +
+				'The code may not be saved in any file.';
+			if (location.code) {
+				blocks.push(`Code:\n\n${fence(location.code, location.languageId)}`);
+			}
+			break;
+		case 'notebook':
+			source = location.cellIndex === undefined
+				? `A cell in ${getPath(location.uri)} raised an error.`
+				: `Cell ${location.cellIndex + 1} of ${getPath(location.uri)} raised an error.`;
+			break;
+		case 'quarto':
+			source = `The ${location.languageId} code chunk at lines ${location.startLine}-${location.endLine} ` +
+				`of ${getPath(location.uri)} raised an error.`;
+			break;
 	}
-	const mention = /\s/.test(errorPath) ? `@"${errorPath}"` : `@${errorPath}`;
-	return `${prompt} ${mention}`;
+	if (context.error) {
+		blocks.push(`Error:\n\n${fence(context.error)}`);
+	}
+	// The console's code is not in the project, so a fix there usually means
+	// corrected code to run rather than an edit.
+	const scope = kind === 'fix' && location?.kind === 'console'
+		? ' Only edit project files if the cause is in one of them.'
+		: '';
+	const lead = source ? `${source} ${task}${scope}` : task;
+	// Newlines would end a terminal prompt early (e.g. one in a session name).
+	return { lead: lead.replace(/\s*\n\s*/g, ' '), body: blocks.join('\n\n') };
+}
+
+/** Whether a prompt's body is short enough to inline into the chat input. */
+export function canInlineBody(prompt: ErrorPrompt): boolean {
+	return prompt.body.length <= MAX_INLINE_BODY_LENGTH;
+}
+
+/** Format a prompt with its body inline. */
+export function formatInlinePrompt(prompt: ErrorPrompt): string {
+	return prompt.body ? `${prompt.lead}\n\n${prompt.body}` : prompt.lead;
+}
+
+/**
+ * Format a single-line prompt that @-mentions a file holding the body. A
+ * terminal prompt becomes a `claude` command-line argument, and a newline in
+ * it would end the command early.
+ * @param bodyPath File containing `prompt.body`.
+ */
+export function formatFilePrompt(prompt: ErrorPrompt, bodyPath: string): string {
+	const mention = /\s/.test(bodyPath) ? `@"${bodyPath}"` : `@${bodyPath}`;
+	return `${prompt.lead} The details are in ${mention}`;
+}
+
+/**
+ * Fence a block, using a fence longer than any backtick run in the text so
+ * the block cannot end early.
+ */
+function fence(text: string, languageId = ''): string {
+	const longestRun = Math.max(0, ...(text.match(/`+/g) ?? []).map(run => run.length));
+	const marker = '`'.repeat(Math.max(3, longestRun + 1));
+	return `${marker}${languageId}\n${text}\n${marker}`;
 }
 
 /**

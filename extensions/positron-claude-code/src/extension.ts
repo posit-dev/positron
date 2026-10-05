@@ -9,7 +9,7 @@ import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { ClaudeCodeSurface, formatPrompt, formatTerminalPrompt, getClaudeCodeSurface } from './claudeCodeLaunch';
+import { canInlineBody, ClaudeCodeSurface, ErrorActionKind, ErrorPrompt, formatFilePrompt, formatInlinePrompt, getClaudeCodeSurface, getErrorPrompt } from './claudeCodeLaunch';
 
 /** Identifier of Anthropic's Claude Code extension. */
 const CLAUDE_CODE_EXTENSION_ID = 'anthropic.claude-code';
@@ -20,7 +20,7 @@ const CLAUDE_CODE_EXTENSION_ID = 'anthropic.claude-code';
  */
 const ERROR_ACTIONS_ID = 'claude-code';
 
-/** Directory for error files @-mentioned from terminal prompts. */
+/** Directory for error details @-mentioned from prompts. */
 const ERROR_DIR = path.join(os.tmpdir(), 'positron-claude-code');
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -31,8 +31,8 @@ export function activate(context: vscode.ExtensionContext): void {
 		const available = getSurface() !== undefined;
 		if (available && !registration) {
 			registration = positron.ai.registerErrorActionHandler(ERROR_ACTIONS_ID, 'Claude Code', {
-				fix: startSession,
-				explain: startSession,
+				fix: context => startSession('fix', context),
+				explain: context => startSession('explain', context),
 			});
 		} else if (!available && registration) {
 			registration.dispose();
@@ -68,14 +68,16 @@ function getSurface(): ClaudeCodeSurface | undefined {
 }
 
 /** Open a new Claude Code session with the error from a Fix/Explain action. */
-async function startSession(context: positron.ai.ErrorActionContext): Promise<void> {
+async function startSession(kind: ErrorActionKind, context: positron.ai.ErrorActionContext): Promise<void> {
+	const prompt = getErrorPrompt(kind, context, uri => vscode.workspace.asRelativePath(uri));
+
 	// The registration is withdrawn when Claude Code becomes unavailable, but
 	// an action can still race with that.
 	switch (getSurface()) {
 		case 'chat':
-			return openChat(context);
+			return openChat(canInlineBody(prompt) ? formatInlinePrompt(prompt) : await formatPromptWithFile(prompt));
 		case 'terminal':
-			return openTerminal(context);
+			return openTerminal(await formatPromptWithFile(prompt));
 		case undefined:
 			throw new Error(vscode.l10n.t('Claude Code is not installed or is too old to receive errors.'));
 	}
@@ -85,7 +87,7 @@ async function startSession(context: positron.ai.ErrorActionContext): Promise<vo
  * Open the chat with the prompt filled into the input. Claude Code has no way
  * to send a prompt programmatically, so the user sends it.
  */
-async function openChat(context: positron.ai.ErrorActionContext): Promise<void> {
+async function openChat(prompt: string): Promise<void> {
 	// An undefined session ID starts a new conversation. 'honor-preferred-location'
 	// opens the chat where the user keeps it (the sidebar or an editor tab).
 	// Without it, Claude Code always opens a tab and switches the user's
@@ -93,7 +95,7 @@ async function openChat(context: positron.ai.ErrorActionContext): Promise<void> 
 	await vscode.commands.executeCommand(
 		'claude-vscode.editor.open',
 		undefined,
-		formatPrompt(context),
+		prompt,
 		undefined,
 		undefined,
 		undefined,
@@ -105,18 +107,22 @@ async function openChat(context: positron.ai.ErrorActionContext): Promise<void> 
 }
 
 /** Start `claude` in a new terminal, which sends the prompt immediately. */
-async function openTerminal(context: positron.ai.ErrorActionContext): Promise<void> {
-	const errorPath = context.error ? await writeErrorFile(context.error) : undefined;
-	await vscode.commands.executeCommand('claude-vscode.terminal.open', formatTerminalPrompt(context, errorPath));
+async function openTerminal(prompt: string): Promise<void> {
+	await vscode.commands.executeCommand('claude-vscode.terminal.open', prompt);
+}
+
+/** Format a single-line prompt, moving its body (if any) to a file it @-mentions. */
+async function formatPromptWithFile(prompt: ErrorPrompt): Promise<string> {
+	return prompt.body ? formatFilePrompt(prompt, await writeBodyFile(prompt.body)) : prompt.lead;
 }
 
 /**
- * Write an error to a temp file for a terminal prompt to @-mention. Left in
+ * Write a prompt body to a temp file for a prompt to @-mention. Left in
  * place so the session can re-read it; the OS clears the temp directory.
  */
-async function writeErrorFile(error: string): Promise<string> {
+async function writeBodyFile(body: string): Promise<string> {
 	await fs.mkdir(ERROR_DIR, { recursive: true });
-	const errorPath = path.join(ERROR_DIR, `error-${randomUUID()}.txt`);
-	await fs.writeFile(errorPath, error, 'utf8');
-	return errorPath;
+	const bodyPath = path.join(ERROR_DIR, `error-${randomUUID()}.md`);
+	await fs.writeFile(bodyPath, body, 'utf8');
+	return bodyPath;
 }

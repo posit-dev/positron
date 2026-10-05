@@ -21,7 +21,8 @@ import { IPositronChatProvider } from '../../../contrib/chat/common/languageMode
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { ErrorActionKind, IErrorActionContext } from '../../../contrib/positronAssistant/common/errorActions.js';
+import { ErrorActionKind, IErrorActionContext, IErrorLocation } from '../../../contrib/positronAssistant/common/errorActions.js';
+import { URI } from '../../../../base/common/uri.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
@@ -106,7 +107,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		if (!handler) {
 			throw new Error(`No error action handler registered with handle ${handle}`);
 		}
-		return kind === 'fix' ? handler.fix(context, token) : handler.explain(context, token);
+		const errorContext: positron.ai.ErrorActionContext = { error: context.error, location: context.location && reviveErrorLocation(context.location) };
+		return kind === 'fix' ? handler.fix(errorContext, token) : handler.explain(errorContext, token);
 	}
 
 	updateProvider(id: string, update: Partial<IPositronLanguageModelSource>): void {
@@ -270,4 +272,15 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$validateAndExecuteCommand(commandId, args);
 	}
 
+}
+
+/** Convert an error location from the main thread, reviving its URI. */
+function reviveErrorLocation(location: IErrorLocation): positron.ai.ErrorLocation {
+	switch (location.kind) {
+		case 'console':
+			return location;
+		case 'notebook':
+		case 'quarto':
+			return { ...location, uri: URI.revive(location.uri) };
+	}
 }

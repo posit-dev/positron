@@ -15,7 +15,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { ERROR_ACTIONS_TARGET_KEY, IErrorActionContext, IErrorActionHandler } from '../../common/errorActions.js';
 import { ErrorActionsService } from '../../browser/errorActionsService.js';
 
-const context: IErrorActionContext = { instruction: 'Fix it.', error: 'boom' };
+const context: IErrorActionContext = { error: 'boom' };
 
 describe('ErrorActionsService', () => {
 	const notifyError = vi.fn();

@@ -50,8 +50,29 @@ describe('NotebookCellQuickFix', () => {
 		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
 
 		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
-			instruction: 'Fix the following error in cell 3 of analysis.ipynb:',
 			error: 'NameError: x',
+			location: { kind: 'notebook', uri: instance.uri, cellIndex: 2 },
+		}]);
+	});
+
+	it('omits the cell index once the cell is removed from the notebook', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY, true);
+		const instance = stubInterface<IPositronNotebookInstance>({ uri: URI.file('/work/analysis.ipynb') });
+		const cell = stubInterface<IPositronNotebookCell>({ index: -1, getContent: () => 'x + 1' });
+
+		const user = userEvent.setup();
+		rtl.render(
+			<NotebookInstanceProvider instance={instance}>
+				<CellProvider cell={cell}>
+					<NotebookCellQuickFix errorContent={'NameError: x'} />
+				</CellProvider>
+			</NotebookInstanceProvider>
+		);
+		await user.click(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' }));
+
+		expect(run.mock.calls.at(-1)?.slice(1)).toEqual(['fix', {
+			error: 'NameError: x',
+			location: { kind: 'notebook', uri: instance.uri },
 		}]);
 	});
 });

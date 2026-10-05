@@ -170,7 +170,7 @@ describe('MainThreadAiFeatures', () => {
 
 	it('forwards error action handlers registered in the extension host', async () => {
 		const mainThread = await createMainThread([]);
-		const context = { instruction: 'Fix it.', error: 'boom' };
+		const context = { error: 'boom' };
 
 		mainThread.$registerErrorActionHandler(7, 'test-agent', 'Test Agent');
 		const [errorActionHandler] = registeredHandlers;

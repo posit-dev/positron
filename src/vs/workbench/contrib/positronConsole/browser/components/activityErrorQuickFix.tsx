@@ -18,14 +18,10 @@ import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { encodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { NewChatFile, NewChatOptions, openPositAssistantChat } from '../../../positronAssistant/browser/positAssistantChat.js';
 import { ErrorActionKind, IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 const fixPrompt = localize('positronConsoleAssistantFixPrompt', "Fix this console error.");
 const explainPrompt = localize('positronConsoleAssistantExplainPrompt', "Explain this console error.");
-
-// Instructions for error action handlers, which receive the
-// error right after the instruction.
-const errorActionFixInstruction = localize('positronConsoleErrorActionFixInstruction', "Fix the following console error:");
-const errorActionExplainInstruction = localize('positronConsoleErrorActionExplainInstruction', "Explain the following console error, without making changes or editing any files:");
 
 const ATTACHMENT_NAME = localize('positronConsoleAssistantErrorAttachmentName', "Console Error");
 
@@ -34,6 +30,10 @@ interface ConsoleQuickFixProps {
 	tracebackLines: ANSIOutputLine[];
 	/** Error action handler to send the error to; Posit Assistant when undefined. */
 	errorActionHandler?: IErrorActionHandler;
+	/** Code whose execution raised the error, when known. */
+	code?: string;
+	/** Console the error was raised in. */
+	positronConsoleInstance: IPositronConsoleInstance;
 }
 
 const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputLine[]) => {
@@ -69,9 +69,16 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const runNewChat = (kind: ErrorActionKind, prompt: string) => {
 		// Send to the error action handler when one is selected.
 		if (props.errorActionHandler) {
+			const { positronConsoleInstance } = props;
 			return services.get(IErrorActionsService).run(props.errorActionHandler, kind, {
-				instruction: kind === 'fix' ? errorActionFixInstruction : errorActionExplainInstruction,
 				error: errorText,
+				location: {
+					kind: 'console',
+					sessionId: positronConsoleInstance.sessionId,
+					sessionName: positronConsoleInstance.sessionName,
+					languageId: positronConsoleInstance.runtimeMetadata.languageId,
+					code: props.code,
+				},
 			});
 		}
 

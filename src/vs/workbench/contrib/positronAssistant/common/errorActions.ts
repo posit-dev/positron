@@ -6,6 +6,7 @@
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { UriComponents } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** Setting that picks which implementation of the error Fix/Explain actions to use. */
@@ -20,15 +21,51 @@ export const POSIT_ASSISTANT_ERROR_ACTIONS_ID = 'posit-assistant';
 /** An error action the user can take. */
 export type ErrorActionKind = 'fix' | 'explain';
 
+/** An error raised by code run in a console session. Mirrors `positron.ai.ConsoleErrorLocation`. */
+export interface IConsoleErrorLocation {
+	readonly kind: 'console';
+	/** Runtime session ID. */
+	readonly sessionId: string;
+	/** Session name shown in the console, e.g. "Python 3.12.1 (Venv: .venv)". */
+	readonly sessionName: string;
+	/** Language ID, e.g. "python". */
+	readonly languageId: string;
+	/** Code whose execution raised the error; undefined when it is not known. */
+	readonly code?: string;
+}
+
+/** An error raised by a notebook cell. Mirrors `positron.ai.NotebookErrorLocation`. */
+export interface INotebookErrorLocation {
+	readonly kind: 'notebook';
+	readonly uri: UriComponents;
+	/** 0-based index of the cell; undefined when the cell no longer exists. */
+	readonly cellIndex?: number;
+}
+
+/** An error raised by a Quarto code chunk. Mirrors `positron.ai.QuartoErrorLocation`. */
+export interface IQuartoErrorLocation {
+	readonly kind: 'quarto';
+	readonly uri: UriComponents;
+	/** Language ID of the chunk, e.g. "python". */
+	readonly languageId: string;
+	/** 1-based first line of the chunk's code. */
+	readonly startLine: number;
+	/** 1-based last line of the chunk's code, inclusive. */
+	readonly endLine: number;
+}
+
+/** Where an error was raised. Mirrors `positron.ai.ErrorLocation`. */
+export type IErrorLocation = IConsoleErrorLocation | INotebookErrorLocation | IQuartoErrorLocation;
+
 /**
  * The error passed to the registered error action handler when the user presses Fix or
  * Explain. Mirrors `positron.ai.ErrorActionContext`.
  */
 export interface IErrorActionContext {
-	/** Instruction for the agent, e.g. "Fix the following console error:". */
-	readonly instruction: string;
 	/** Plain-text error output, ANSI-free. */
 	readonly error: string;
+	/** Where the error was raised. Undefined when it is not known. */
+	readonly location?: IErrorLocation;
 }
 
 /** Fix and Explain implemented by an extension, e.g. one that sends errors to a coding agent. */

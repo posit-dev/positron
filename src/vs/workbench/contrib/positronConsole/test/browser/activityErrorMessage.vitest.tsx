@@ -20,6 +20,9 @@ import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platf
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { ActivityErrorMessage } from '../../browser/components/activityErrorMessage.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+
+const positronConsoleInstance = {} as IPositronConsoleInstance;
 
 const positAssistant = { identifier: new ExtensionIdentifier('posit.assistant') } as IExtensionDescription;
 
@@ -43,26 +46,26 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 
 	it('shows Fix and Explain when enabled, installed, and a model is available', () => {
 		setup({ aiEnabled: true, actionsEnabled: true, hasChatModels: true });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.getByText('Fix')).toBeInTheDocument();
 		expect(screen.getByText('Explain')).toBeInTheDocument();
 	});
 
 	it('hides the actions when the AI main switch is off', () => {
 		setup({ aiEnabled: false, actionsEnabled: true, hasChatModels: true });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});
 
 	it('hides the actions when no model is available', () => {
 		setup({ actionsEnabled: true, hasChatModels: false });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});
 
 	it('hides the actions when the setting is disabled', () => {
 		setup({ actionsEnabled: false, hasChatModels: true });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});
 });
@@ -81,7 +84,7 @@ describe('ActivityErrorMessage assistant actions gate (Posit Assistant not insta
 		configurationService.setUserConfiguration('console.assistantActions.enabled', true);
 		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});
 });
@@ -105,13 +108,13 @@ describe('ActivityErrorMessage assistant actions gate (registered error action h
 
 	it('shows the actions without Posit Assistant or a chat model', () => {
 		setup({ aiEnabled: true });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.getByText('Fix')).toBeInTheDocument();
 	});
 
 	it('still hides the actions when the AI main switch is off', () => {
 		setup({ aiEnabled: false });
-		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} />);
+		rtl.render(<ActivityErrorMessage activityItemErrorMessage={errorMessage} positronConsoleInstance={positronConsoleInstance} />);
 		expect(screen.queryByText('Fix')).not.toBeInTheDocument();
 	});
 });

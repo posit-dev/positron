@@ -18,10 +18,15 @@ import { ConsoleQuickFix } from './activityErrorQuickFix.js';
 import { usePositronConfiguration, useContextKeyFromString, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { useErrorActionHandler } from '../../../positronAssistant/browser/useErrorActionHandler.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
 	activityItemErrorMessage: ActivityItemErrorMessage;
+	/** Code whose execution raised the error, when known. */
+	code?: string;
+	/** Console the error was raised in. */
+	positronConsoleInstance: IPositronConsoleInstance;
 }
 
 /**
@@ -92,7 +97,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 								</Button>
 							}
 							{showAssistantActions &&
-								<ConsoleQuickFix errorActionHandler={errorActionHandler} outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
+								<ConsoleQuickFix code={props.code} errorActionHandler={errorActionHandler} outputLines={props.activityItemErrorMessage.messageOutputLines} positronConsoleInstance={props.positronConsoleInstance} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
 							}
 						</div>
 						{showTraceback &&

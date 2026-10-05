@@ -4943,14 +4943,62 @@ declare module 'positron' {
 		 * Explain on an error.
 		 */
 		export interface ErrorActionContext {
-			/**
-			 * Instruction for the agent, e.g. "Fix the following error in cell 3
-			 * of analysis.ipynb:". The error follows it.
-			 */
-			readonly instruction: string;
-
 			/** Plain-text error output, without ANSI escape codes. */
 			readonly error: string;
+
+			/** Where the error was raised. Undefined when it is not known. */
+			readonly location?: ErrorLocation;
+		}
+
+		/** Where an error passed to an {@link ErrorActionHandler} was raised. */
+		export type ErrorLocation = ConsoleErrorLocation | NotebookErrorLocation | QuartoErrorLocation;
+
+		/** An error raised by code run in a console session. */
+		export interface ConsoleErrorLocation {
+			readonly kind: 'console';
+
+			/** The runtime session's ID. */
+			readonly sessionId: string;
+
+			/** The session's name shown in the console, e.g. "Python 3.12.1 (Venv: .venv)". */
+			readonly sessionName: string;
+
+			/** The session's language ID, e.g. "python". */
+			readonly languageId: string;
+
+			/**
+			 * The code whose execution raised the error. Undefined when it is not
+			 * known, e.g. when it was trimmed from the console's scrollback.
+			 */
+			readonly code?: string;
+		}
+
+		/** An error raised by a notebook cell. */
+		export interface NotebookErrorLocation {
+			readonly kind: 'notebook';
+
+			/** The notebook's URI. */
+			readonly uri: vscode.Uri;
+
+			/** The 0-based index of the cell. Undefined when the cell no longer exists. */
+			readonly cellIndex?: number;
+		}
+
+		/** An error raised by a code chunk in a Quarto document. */
+		export interface QuartoErrorLocation {
+			readonly kind: 'quarto';
+
+			/** The document's URI. */
+			readonly uri: vscode.Uri;
+
+			/** The chunk's language ID, e.g. "python". */
+			readonly languageId: string;
+
+			/** The 1-based first line of the chunk's code. */
+			readonly startLine: number;
+
+			/** The 1-based last line of the chunk's code, inclusive. */
+			readonly endLine: number;
 		}
 
 		/**

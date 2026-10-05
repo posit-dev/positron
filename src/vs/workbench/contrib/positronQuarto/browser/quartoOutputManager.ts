@@ -1099,6 +1099,7 @@ export class QuartoOutputContribution extends Disposable implements IEditorContr
 			return undefined;
 		}
 		return {
+			uri: this._documentUri,
 			code: quartoModel.getCellCode(cell),
 			language: cell.language,
 			label: cell.label,
