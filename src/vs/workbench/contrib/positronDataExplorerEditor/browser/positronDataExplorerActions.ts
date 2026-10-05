@@ -1487,7 +1487,7 @@ class PositronDataExplorerShowCellContextMenuAction extends Action2 {
 }
 
 /**
- * PositronDataExplorerViewDataFrameAtCursorAction opens the Data Explorer
+ * PositronDataExplorerViewDataFrameAtCursorAction opens a viewer
  * for the identifier at the editor cursor, if that identifier names a
  * viewable variable in the console session for the editor's language.
  */
@@ -1496,8 +1496,8 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 		super({
 			id: PositronDataExplorerCommandId.ViewDataFrameAtCursorAction,
 			title: {
-				value: localize('positronDataExplorer.viewDataFrameAtCursor', 'View Data Frame at Cursor'),
-				original: 'View Data Frame at Cursor'
+				value: localize('positronDataExplorer.viewDataFrameAtCursor', 'View Variable at Cursor'),
+				original: 'View Variable at Cursor'
 			},
 			category,
 			f1: true,
@@ -1550,7 +1550,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 		if (!isCodeEditor(control)) {
 			notificationService.info(localize(
 				'positron.viewDataFrameAtCursor.noEditor',
-				"Place the cursor in the editor on the data frame you'd like to view."
+				"Place the cursor in the editor on the variable you'd like to view."
 			));
 			return;
 		}
@@ -1603,7 +1603,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 				} else {
 					notificationService.info(localize(
 						'positron.viewDataFrameAtCursor.notDefined',
-						"'{0}' is not a data frame defined in the active session.",
+						"'{0}' is not a variable defined in the active session.",
 						resolution.symbol,
 					));
 				}
@@ -1611,7 +1611,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 			case 'not-viewable':
 				notificationService.info(localize(
 					'positron.viewDataFrameAtCursor.notViewable',
-					"'{0}' is not viewable in the Data Explorer.",
+					"'{0}' is not viewable.",
 					resolution.symbol,
 				));
 				return;

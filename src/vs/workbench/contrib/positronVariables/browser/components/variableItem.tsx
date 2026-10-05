@@ -17,7 +17,7 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
-import { canViewVariableItem, viewVariableItem } from '../../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
+import { canViewVariableItem, opensInObjectExplorer, viewVariableItem } from '../../../../services/positronDataExplorer/browser/positronDataExplorerViewVariableItem.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { IPositronVariablesInstance, PositronVariablesSorting } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from '../positronVariablesIdentifiers.js';
@@ -82,14 +82,14 @@ const viewQueuedLabel = (variableItem: IVariableItem) => {
 };
 
 const viewLabel = (variableItem: IVariableItem) => {
+	if (opensInObjectExplorer(variableItem)) {
+		return localize('positron.variables.openInObjectExplorer', "Open in Object Explorer");
+	}
 	switch (variableItem.kind) {
 		case 'table':
 			return localize('positron.variables.viewTable', 'View Data Table');
 		case 'connection':
 			return localize('positron.variables.viewConnection', 'View Connection');
-		case 'map':
-		case 'collection':
-			return localize('positron.variables.openInObjectExplorer', "Open in Object Explorer");
 		default:
 			return localize('positron.variables.view', 'View');
 	}
@@ -410,7 +410,7 @@ export const VariableItem = (props: VariableItemProps) => {
 				icon = 'codicon codicon-table';
 			} else if (props.variableItem.kind === 'connection') {
 				icon = 'codicon codicon-database';
-			} else if (props.variableItem.kind === 'map' || props.variableItem.kind === 'collection') {
+			} else if (opensInObjectExplorer(props.variableItem)) {
 				icon = 'codicon codicon-list-tree';
 			}
 			const enablement = isViewLoading ? 'disabled' : 'enabled';

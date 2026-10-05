@@ -123,6 +123,18 @@ describe('PositronDataExplorerCodeActionProvider', () => {
 		]);
 	});
 
+	it('offers "Open in Object Explorer" when the symbol is a list', async () => {
+		variablesInstances = [makeVariablesInstance([makeVariableItem({ displayName: 'lst', kind: 'map' })])];
+		const result = await provide(makeModel({ word: 'lst' }));
+
+		expect(result?.actions).toMatchObject([
+			{
+				title: `Open 'lst' in Object Explorer`,
+				command: { title: 'Open in Object Explorer' },
+			},
+		]);
+	});
+
 	it('offers nothing when the symbol is not a known variable', async () => {
 		const result = await provide(makeModel({ word: 'missing' }));
 

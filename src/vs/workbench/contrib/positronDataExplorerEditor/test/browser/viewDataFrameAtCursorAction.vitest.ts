@@ -257,7 +257,7 @@ describe('PositronDataExplorerViewDataFrameAtCursorAction', () => {
 			await runAction();
 
 			expect(notificationInfo).toHaveBeenCalledTimes(1);
-			expect(notificationInfo.mock.calls[0][0]).toMatch(/'missing' is not a data frame defined/);
+			expect(notificationInfo.mock.calls[0][0]).toMatch(/'missing' is not a variable defined/);
 		});
 
 		it('notifies about a still-loading session when the variables list times out', async () => {

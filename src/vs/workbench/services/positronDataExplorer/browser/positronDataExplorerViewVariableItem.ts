@@ -27,6 +27,15 @@ export function canViewVariableItem(item: IVariableItem, configurationService: I
 }
 
 /**
+ * Whether the given variable item's viewer is the Object Explorer rather than the Data Explorer.
+ *
+ * @param item The variable item to check.
+ */
+export function opensInObjectExplorer(item: IVariableItem): boolean {
+	return item.kind === 'map' || item.kind === 'collection';
+}
+
+/**
  * The registry of open viewers kept by the Data Explorer and Object Explorer services.
  */
 interface IVariableViewerRegistry {

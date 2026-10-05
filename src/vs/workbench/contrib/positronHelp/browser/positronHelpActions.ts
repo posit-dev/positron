@@ -69,7 +69,7 @@ export class ShowHelpAtCursor extends Action2 {
 						),
 					),
 					// Sit just below "Go to References" (order 1.45) and just
-					// above "View Data Frame at Cursor" (order 1.5) in the
+					// above "View Variable at Cursor" (order 1.5) in the
 					// editor context menu's navigation group.
 					group: 'navigation',
 					order: 1.47,
