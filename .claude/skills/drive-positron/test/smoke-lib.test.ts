@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { firstRow, nameWords, selectCases } from './smoke-lib.ts';
+import { firstRow, flagValue, nameWords, selectCases, threwResult } from './smoke-lib.ts';
 
 test('nameWords keeps the version and the env name', () => {
 	assert.equal(nameWords('Python 3.10.12 (uv: ws)'), '3.10.12 ws');
@@ -47,4 +47,16 @@ test('selectCases throws on an --until name no case has', () => {
 
 test('selectCases --until with --quick needs a quick case', () => {
 	assert.throws(() => selectCases(cs, { quick: true, until: 'b' }), /not in the --quick run/);
+});
+
+test('flagValue reads a value, null when absent, an error when missing', () => {
+	assert.equal(flagValue(['--until', 'x'], '--until'), 'x');
+	assert.equal(flagValue(['--quick'], '--until'), null);
+	assert.match(String(flagValue(['--until'], '--until')), /--until needs a value/);
+	assert.match(String(flagValue(['--until', '--keep'], '--until')), /--until needs a value/);
+});
+
+test('threwResult records a failure with the case command', () => {
+	assert.deepEqual(threwResult('c', ['x.sh', '--a'], new Error('boom'), 5), { name: 'c', status: 'FAIL', helper: 'x.sh', args: ['--a'], problem: 'threw: boom', ms: 5 });
+	assert.equal(threwResult('c', [], 'oops', 1).helper, '');
 });

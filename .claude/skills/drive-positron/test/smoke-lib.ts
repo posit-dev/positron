@@ -39,3 +39,16 @@ export function selectCases<T extends { name: string; quick?: boolean }>(cases: 
 export function readResults(file: string): SmokeResults {
 	return JSON.parse(readFileSync(file, 'utf8')) as SmokeResults;
 }
+
+/** The value after a flag: null if the flag is absent, an Error if it has no value. */
+export function flagValue(argv: string[], name: string): string | null | Error {
+	const i = argv.indexOf(name);
+	if (i < 0) { return null; }
+	const v = argv[i + 1];
+	return v === undefined || v.startsWith('--') ? new Error(`${name} needs a value`) : v;
+}
+
+/** The record for a case that threw instead of returning a result. */
+export function threwResult(name: string, args: string[], err: unknown, ms: number): CaseResult {
+	return { name, status: 'FAIL', helper: args[0] ?? '', args: args.slice(1), problem: `threw: ${err instanceof Error ? err.message : String(err)}`, ms };
+}

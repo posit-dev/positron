@@ -25,7 +25,7 @@
 import { spawn, spawnSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { firstRow, nameWords, selectCases, type SmokeResults } from './smoke-lib.ts';
+import { firstRow, nameWords, flagValue, selectCases, threwResult, type SmokeResults } from './smoke-lib.ts';
 
 const test = dirname(new URL(import.meta.url).pathname);
 const scripts = resolve(test, '../scripts');
@@ -38,7 +38,11 @@ const dash = process.argv.indexOf('--');
 const own = process.argv.slice(0, dash < 0 ? undefined : dash);
 const keep = own.includes('--keep');
 const quickOnly = own.includes('--quick');
-const flag = (name: string) => { const i = own.indexOf(name); return i < 0 ? null : own[i + 1] ?? null; };
+const flag = (name: string) => {
+	const v = flagValue(own, name);
+	if (v instanceof Error) { console.log(v.message); process.exit(2); }
+	return v;
+};
 const until = flag('--until');
 const resultsFile = flag('--results');
 const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
@@ -475,6 +479,7 @@ try { run = selectCases(cases, { quick: quickOnly, until }); } catch (e) { conso
 const results: SmokeResults = { startedAt: new Date().toISOString(), until, quick: quickOnly, launch: 'FAIL', launchProblem: '', cases: [] };
 const start = Date.now();
 const tally = { PASS: 0, FAIL: 0, KNOWN: 0 };
+let current: { name: string; args: string[]; t0: number } | null = null;
 try {
 	const t = Date.now();
 	launch();
@@ -484,8 +489,10 @@ try {
 	results.launch = 'PASS';
 	for (const c of run) {
 		if (c.wait) { spawnSync('sleep', [String(c.wait / 1000)]); }
+		current = { name: c.name, args: [], t0: Date.now() };
 		const args = typeof c.run === 'function' ? c.run() : c.run;
-		const t0 = Date.now();
+		current.args = args;
+		const t0 = current.t0;
 		let o = sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], c.stdin);
 		let problem = judge(c, o);
 		let tries = 1;
@@ -497,6 +504,7 @@ try {
 		}
 		const status = !problem ? 'PASS' : c.known ? 'KNOWN' : 'FAIL';
 		tally[status]++;
+		current = null;
 		results.cases.push({ name: c.name, status, helper: args[0], args: args.slice(1), problem: problem || '', ms: Date.now() - t0 });
 		console.log(`${status.padEnd(5)}${String(Date.now() - t0).padStart(6)} ms  ${c.name}${tries > 1 ? ` (${tries} tries)` : ''}${c.known && !problem ? '  (listed as known, passed this time: remove the mark once it passes every run)' : ''}`);
 		if (problem) { console.log(`       ${c.known ? `known: ${c.known}\n       ` : ''}${problem}`); }
@@ -504,6 +512,7 @@ try {
 } catch (e) {
 	tally.FAIL++;
 	if (results.launch === 'FAIL') { results.launchProblem = String(e instanceof Error ? e.message : e); }
+	else if (current) { results.cases.push(threwResult(current.name, current.args, e, Date.now() - current.t0)); }
 	console.log(`FAIL  ${String(e instanceof Error ? e.message : e)}`);
 } finally {
 	cleanup();
