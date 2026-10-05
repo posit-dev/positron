@@ -103,7 +103,7 @@ export class JsonObjectExplorerBackend extends Disposable implements IObjectExpl
 			}
 			visited++;
 
-			const matchKind = searchMatchKind(node, needle);
+			const matchKind = searchMatchKind(value, node, needle);
 			if (matchKind !== undefined) {
 				for (const ancestor of ancestors) {
 					if (!ancestor.emitted) {
@@ -180,12 +180,15 @@ export class JsonObjectExplorerBackend extends Disposable implements IObjectExpl
 /**
  * Gets the match kind of a node for a search, or undefined if it doesn't match. Values match only
  * on nodes without children, whose display value is the value rather than a summary of children.
+ * Strings match on their full text, since their display value may be truncated.
+ * @param value The value.
  * @param node The node.
  * @param needle The lowercase search text.
  */
-function searchMatchKind(node: ObjectNode, needle: string): SearchRowMatchKind | undefined {
+function searchMatchKind(value: JsonValue, node: ObjectNode, needle: string): SearchRowMatchKind | undefined {
 	const nameMatch = node.display_name.toLocaleLowerCase().includes(needle);
-	const valueMatch = !node.has_children && node.display_value.toLocaleLowerCase().includes(needle);
+	const valueText = typeof value === 'string' ? value : node.display_value;
+	const valueMatch = !node.has_children && valueText.toLocaleLowerCase().includes(needle);
 	if (nameMatch && valueMatch) {
 		return SearchRowMatchKind.NameAndValue;
 	} else if (nameMatch) {

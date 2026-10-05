@@ -126,5 +126,11 @@ describe('JsonObjectExplorerBackend', () => {
 
 			expect(summarize(result)).toEqual(['needle:name', 'needles:name_and_value']);
 		});
+
+		it('matches past the truncated display value of a string', async () => {
+			const result = await createBackend({ text: 'x'.repeat(200) + 'needle' }).search('needle', 10, 1000);
+
+			expect(summarize(result)).toEqual(['text:value']);
+		});
 	});
 });

@@ -144,7 +144,7 @@ class ObjectExplorerView:
                 return True
             visited += 1
 
-            match_kind = _match_kind(node, needle)
+            match_kind = _match_kind(value, node, needle)
             if match_kind is not None:
                 for ancestor_path, ancestor_node, emitted in pending:
                     if not emitted[0]:
@@ -272,16 +272,18 @@ class ObjectExplorerView:
         )
 
 
-def _match_kind(node: ObjectNode, needle: str) -> SearchRowMatchKind | None:
+def _match_kind(value: Any, node: ObjectNode, needle: str) -> SearchRowMatchKind | None:
     """
     How a node matches a search, if it does.
 
     Values match only on leaves, whose display value is the value rather than a summary of their
-    children. Cycles are not leaves, though they report no children.
+    children. Cycles are not leaves, though they report no children. Strings match on their full
+    text, since their display value may be truncated.
     """
     name_match = needle in node.display_name.casefold()
     is_leaf = not node.has_children and not node.is_cycle
-    value_match = is_leaf and needle in node.display_value.casefold()
+    value_text = value if isinstance(value, str) else node.display_value
+    value_match = is_leaf and needle in value_text.casefold()
     if name_match and value_match:
         return SearchRowMatchKind.NameAndValue
     if name_match:

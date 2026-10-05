@@ -215,6 +215,12 @@ def test_search_matches_names_and_terminates_on_cycles(oe_service: ObjectExplore
     ]
 
 
+def test_search_matches_past_truncated_string(oe_service: ObjectExplorerService):
+    rows, _ = _search(oe_service, {"text": "x" * 2000 + "needle"}, "needle")
+
+    assert rows == [f"{encode_access_key('text')}:value"]
+
+
 def test_update_and_delete(shell: PositronShell, oe_service: ObjectExplorerService):
     shell.run_cell("x = {'a': {'b': 1}}")
     comm_id = _open(oe_service, shell.user_ns["x"])
