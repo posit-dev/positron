@@ -24,9 +24,11 @@
 # on it gets AirPlay's 403, and a check that the port closed always fails.
 # "port" warns when a Flask app will land there; run it on another port.
 #
-# Stdout: one JSON line, e.g. {"ok":true,"clicked":"Run Shiny App","started":true,"buttons":["Run Shiny App"]}
-# "started" is false, with a "hint", when no toast, terminal, console or busy
-# session followed within 5 s.
+# Stdout: one JSON line, e.g. {"ok":true,"clicked":"Run Shiny App","changes":["a new terminal"],"buttons":["Run Shiny App"],"hint":"..."}
+# "changes" lists what appeared within 5 s of the click (a notification, a new
+# terminal or console, a session going busy), or is empty. It does not say the
+# app runs: a terminal can open with nothing run in it. Read the terminal
+# (terminal-run.sh --read) or the Viewer (viewer.sh wait-content) to know.
 # Exit code: 0 when a button was clicked, 1 when none matched, 2 on a usage error.
 
 # Implemented in dp-run-app.ts.

@@ -19,7 +19,9 @@ interface Args { cmd: string; name: string; text: string; seconds: number; path:
 const viewer: PageFn<Args> = async (page, a, lib) => {
 	const n = lib.names.viewer;
 	// The Viewer by default; another view that shows a web page in a frame (Help) by --view.
-	const sc = await lib.scope(a.view || lib.names.views.viewer);
+	let sc = await lib.scope(a.view || lib.names.views.viewer);
+	// An app that is still starting shows the Viewer only when it serves: wait-content waits for that too.
+	for (const end = Date.now() + a.seconds * 1000; a.cmd === 'wait-content' && !('loc' in sc && sc.loc) && Date.now() < end;) { await lib.sleep(500); sc = await lib.scope(a.view || lib.names.views.viewer); }
 	if (!('loc' in sc) || !sc.loc) { return { ok: false, error: `the ${a.view || 'Viewer'} view is not on screen; run ${a.view || 'Viewer'}: Focus on ${a.view || 'Viewer'} View` }; }
 	const pane = sc.loc;
 	// The page: the innermost frame drawn inside the view.

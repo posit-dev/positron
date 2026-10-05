@@ -203,7 +203,8 @@ const nb: PageFn<Args> = async (page, a, lib) => {
 			}
 		}
 	} catch (e) {
-		return { ok: false, error: String((e as Error).message ?? e).split('\n')[0] };
+		// The shared failure path turns a Playwright timeout into a plain sentence.
+		return await lib.failure(e);
 	}
 	return { ok: false, error: `unknown command ${a.cmd}` };
 };

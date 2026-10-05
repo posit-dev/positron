@@ -10,7 +10,7 @@ import { inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 
 /**
  * The active editor's Run App button ("Run Shiny App", "Run Flask App in
- * Terminal"), by role and name; clicks it and checks something started: a new
+ * Terminal"), by role and name; clicks it and reports what changed: a new
  * toast, terminal or console, or a session going busy.
  * runs in run-code
  */
@@ -33,13 +33,20 @@ const runApp: PageFn<{ label: string; list: boolean }> = async (page, a, lib) =>
 	const before = await state();
 	// A real click: Positron's action bar buttons ignore a click() from the page.
 	await group.getByRole('button', { name: apps[0], exact: true }).filter({ visible: true }).and(group.locator(':not([aria-haspopup])')).first().click({ timeout: 3000 });
-	let started = false;
-	for (let i = 0; i < 10 && !started; i++) {
+	// Report what changed, not whether the app started: a new terminal can open with
+	// nothing run in it. The explorer reads the terminal or the Viewer to know.
+	let changes: string[] = [];
+	for (let i = 0; i < 10 && !changes.length; i++) {
 		await lib.sleep(500);
 		const s = await state();
-		started = s.toasts > before.toasts || s.terminals > before.terminals || s.consoles > before.consoles || (s.busy && !before.busy);
+		changes = [
+			...(s.toasts > before.toasts ? ['a notification'] : []),
+			...(s.terminals > before.terminals ? ['a new terminal'] : []),
+			...(s.consoles > before.consoles ? ['a new console'] : []),
+			...(s.busy && !before.busy ? ['a session went busy'] : []),
+		];
 	}
-	return { ok: true, clicked: apps[0], started, buttons: unique, ...(started ? {} : { hint: 'nothing visibly started within 5 s: check notifications.sh and the App Launcher output' }) };
+	return { ok: true, clicked: apps[0], changes, buttons: unique, hint: changes.length ? 'whether the app runs: terminal-run.sh --read shows the command and its output, viewer.sh wait-content shows its page' : 'nothing changed on screen within 5 s: check notifications.sh and the App Launcher output' };
 };
 
 export const runAppCommands: Record<string, (argv: string[]) => Json | string> = {
