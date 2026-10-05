@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { firstRow, nameWords } from './smoke-lib.ts';
+import { firstRow, nameWords, selectCases } from './smoke-lib.ts';
 
 test('nameWords keeps the version and the env name', () => {
 	assert.equal(nameWords('Python 3.10.12 (uv: ws)'), '3.10.12 ws');
@@ -27,4 +27,24 @@ test('firstRow takes the first item of the language, skipping group headings', (
 	assert.equal(firstRow(rows, 'r'), 'R 4.5.2');
 	assert.equal(firstRow(rows, 'python'), 'Python 3.10.12 (uv: ws)');
 	assert.equal(firstRow([], 'r'), null);
+});
+
+const cs = [{ name: 'a', quick: true }, { name: 'b' }, { name: 'c', quick: true }, { name: 'd' }];
+
+test('selectCases runs every case, or the quick ones', () => {
+	assert.deepEqual(selectCases(cs, { quick: false, until: null }).map(c => c.name), ['a', 'b', 'c', 'd']);
+	assert.deepEqual(selectCases(cs, { quick: true, until: null }).map(c => c.name), ['a', 'c']);
+});
+
+test('selectCases --until stops after the named case, inclusive', () => {
+	assert.deepEqual(selectCases(cs, { quick: false, until: 'b' }).map(c => c.name), ['a', 'b']);
+	assert.deepEqual(selectCases(cs, { quick: false, until: 'd' }).map(c => c.name), ['a', 'b', 'c', 'd']);
+});
+
+test('selectCases throws on an --until name no case has', () => {
+	assert.throws(() => selectCases(cs, { quick: false, until: 'nope' }), /no case named "nope"/);
+});
+
+test('selectCases --until with --quick needs a quick case', () => {
+	assert.throws(() => selectCases(cs, { quick: true, until: 'b' }), /not in the --quick run/);
 });

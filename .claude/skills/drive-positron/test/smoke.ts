@@ -8,11 +8,15 @@
 // JSON. From the repo root (needs a built checkout, R, and the positron-python
 // venv; about 8 minutes, --quick about 2):
 //
-//   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--keep] [-- APP ARGS...]
+//   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME] [--results FILE] [--keep] [-- APP ARGS...]
 //
 // --quick runs only the cases marked quick: one happy path per helper, and
 // the cases they stand on. --keep leaves the instance running at the end and
 // prints how to stop it.
+// --until NAME runs the cases in order and stops after that one: the state a
+// later case needs is built by the ones before it, so a case cannot run alone.
+// --results FILE writes every case's status, command and problem as JSON
+// (SmokeResults in smoke-lib.ts), for heal/.
 // Arguments after `--` go to the app through launch.sh (CI passes
 // --no-sandbox and software-GL flags there).
 // Prints one line per case (PASS, FAIL, or KNOWN for a failure listed in a
@@ -21,7 +25,7 @@
 import { spawn, spawnSync } from 'child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { firstRow, nameWords } from './smoke-lib.ts';
+import { firstRow, nameWords, selectCases, type SmokeResults } from './smoke-lib.ts';
 
 const test = dirname(new URL(import.meta.url).pathname);
 const scripts = resolve(test, '../scripts');
@@ -34,6 +38,9 @@ const dash = process.argv.indexOf('--');
 const own = process.argv.slice(0, dash < 0 ? undefined : dash);
 const keep = own.includes('--keep');
 const quickOnly = own.includes('--quick');
+const flag = (name: string) => { const i = own.indexOf(name); return i < 0 ? null : own[i + 1] ?? null; };
+const until = flag('--until');
+const resultsFile = flag('--results');
 const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
 
 type Json = { ok?: boolean; error?: string; [key: string]: any };
@@ -463,6 +470,9 @@ function pickNames(): void {
 	found.rName = r;
 }
 
+let run: Case[];
+try { run = selectCases(cases, { quick: quickOnly, until }); } catch (e) { console.log(String(e instanceof Error ? e.message : e)); process.exit(2); }
+const results: SmokeResults = { startedAt: new Date().toISOString(), until, quick: quickOnly, launch: 'FAIL', launchProblem: '', cases: [] };
 const start = Date.now();
 const tally = { PASS: 0, FAIL: 0, KNOWN: 0 };
 try {
@@ -471,7 +481,8 @@ try {
 	settle();
 	pickNames();
 	console.log(`PASS ${String(Date.now() - t).padStart(6)} ms  launch, attach, first Python session ready, names: R ${found.rName}, Python ${found.pyName} (cdp ${instance!.cdpPort})`);
-	for (const c of quickOnly ? cases.filter(x => x.quick) : cases) {
+	results.launch = 'PASS';
+	for (const c of run) {
 		if (c.wait) { spawnSync('sleep', [String(c.wait / 1000)]); }
 		const args = typeof c.run === 'function' ? c.run() : c.run;
 		const t0 = Date.now();
@@ -486,14 +497,17 @@ try {
 		}
 		const status = !problem ? 'PASS' : c.known ? 'KNOWN' : 'FAIL';
 		tally[status]++;
+		results.cases.push({ name: c.name, status, helper: args[0], args: args.slice(1), problem: problem || '', ms: Date.now() - t0 });
 		console.log(`${status.padEnd(5)}${String(Date.now() - t0).padStart(6)} ms  ${c.name}${tries > 1 ? ` (${tries} tries)` : ''}${c.known && !problem ? '  (listed as known, passed this time: remove the mark once it passes every run)' : ''}`);
 		if (problem) { console.log(`       ${c.known ? `known: ${c.known}\n       ` : ''}${problem}`); }
 	}
 } catch (e) {
 	tally.FAIL++;
+	if (results.launch === 'FAIL') { results.launchProblem = String(e instanceof Error ? e.message : e); }
 	console.log(`FAIL  ${String(e instanceof Error ? e.message : e)}`);
 } finally {
 	cleanup();
 }
 console.log(`${tally.PASS} passed, ${tally.FAIL} failed, ${tally.KNOWN} known failures in ${Math.round((Date.now() - start) / 1000)} s`);
+if (resultsFile) { writeFileSync(resultsFile, `${JSON.stringify(results, null, '\t')}\n`); }
 process.exitCode = tally.FAIL ? 1 : 0;
