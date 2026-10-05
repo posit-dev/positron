@@ -199,6 +199,10 @@ const cases: Case[] = [
 	{ name: 'view-read Variables', run: ['view-read.sh', '--view', 'Variables'], check: o => includes(o.text, 'smoke_f') },
 	{ name: 'view-read missing view', run: ['view-read.sh', '--view', 'No Such View'], fail: true },
 	{ name: 'view-read the view without --view', run: ['view-read.sh', 'Variables'], fail: true, check: o => includes(o.stderr, 'unexpected argument "Variables"') || logged('view-read.sh -s=net1: FAILED Variables: unexpected argument') },
+	{ name: 'console-run r opens help', run: ['console-run.sh', '--language', 'r', '?mean'] },
+	{ name: 'view-read Help reads the page', wait: 3000, run: ['view-read.sh', '--view', 'Help'], check: o => includes(o.text, 'Arithmetic Mean') },
+	{ name: 'ui read Help notes the page it leaves out', run: ['ui.sh', 'read', 'Help'], check: o => includes(o.json!.note, 'view-read.sh --view Help') },
+	{ name: 'a flag and its value as one argument', run: ['nb.sh', '--notebook notebook.ipynb', 'read'], fail: true, check: o => includes(o.json?.error, 'is one argument') },
 	// A matplotlib plot has a size of its own (after the Variables reads, which want R's session): a size given unticks Use intrinsic size first.
 	{ name: 'console-run python matplotlib plot', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'import matplotlib.pyplot as plt; plt.plot([1, 2, 3], [2, 1, 3]); plt.show()'] },
 	{ name: 'plots save --width (intrinsic size)', wait: 1500, run: ['plots.sh', 'save', '--width', '640'], check: o => includes(o.json!.intrinsicSize, 'unticked') || includes(o.json!.tree, 'spinbutton "Width": "640"') },

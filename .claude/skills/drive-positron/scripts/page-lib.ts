@@ -107,6 +107,27 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return { error: `no view titled "${name}" on screen`, views: [...new Set(views.map(v => v.trim()).filter(Boolean))] };
 		},
 		/** An aria snapshot with icon glyphs and empty text lines taken out, cut at max lines. */
+		/**
+		 * The innermost frame drawn inside loc: a web page (the Viewer, Help) whose
+		 * iframe is laid over the view, often outside the view's own DOM, so found by
+		 * where it is drawn. Null when there is none.
+		 */
+		frameIn: async (loc: ReturnType<typeof page.locator>) => {
+			const box = await loc.boundingBox();
+			if (!box) { return null; }
+			let best: { f: ReturnType<typeof page.mainFrame>; depth: number } | null = null;
+			for (const f of page.frames()) {
+				let depth = 0;
+				let top = f;
+				while (top.parentFrame() && top.parentFrame() !== page.mainFrame()) { top = top.parentFrame()!; depth++; }
+				if (f === page.mainFrame() || /^vscode-webview:/.test(f.url())) { continue; }
+				const el = await top.frameElement().catch(() => null);
+				const b = el ? await el.boundingBox() : null;
+				if (!b || b.x < box.x - 1 || b.y < box.y - 1 || b.x + b.width > box.x + box.width + 1 || b.y + b.height > box.y + box.height + 1) { continue; }
+				if (!best || depth > best.depth) { best = { f, depth }; }
+			}
+			return best?.f ?? null;
+		},
 		snapshot: async (loc: ReturnType<typeof page.locator>, max = 150) => {
 			await lib.unstack();
 			const raw = await loc.ariaSnapshot({ timeout: 5000 }).catch(() => '');

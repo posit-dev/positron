@@ -140,7 +140,9 @@ const readView: PageFn<{ scopes: string[] }> = async (_page, a, lib) => {
 	if (a.scopes.length <= 1) {
 		const sc = await lib.scope(a.scopes[0] ?? '');
 		if (!('loc' in sc) || !sc.loc) { return { ok: false, ...sc }; }
-		return { ok: true, view: sc.name, tree: await lib.snapshot(sc.loc) };
+		// A web page in a frame (Help, the Viewer) is not in this tree: say so rather than return half the view.
+		const framed = !!await lib.frameIn(sc.loc);
+		return { ok: true, view: sc.name, tree: await lib.snapshot(sc.loc), ...(framed ? { note: `this view shows a web page in a frame, which this tree does not include; view-read.sh --view ${sc.name} reads the page` } : {}) };
 	}
 	const trees: Record<string, string> = {};
 	const missing: string[] = [];

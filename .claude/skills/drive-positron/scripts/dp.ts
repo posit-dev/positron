@@ -35,7 +35,7 @@
 // Shared: dp-lib.ts (Node side: run-code, log, parsing, help), page-lib.ts
 // (the `lib` page functions get), selectors.ts (every selector and name).
 
-import { Exit, explainFailure, failureText, logFailure, logLine, parse, usage, type Json } from './dp-lib.ts';
+import { Exit, explainFailure, failureText, logFailure, logLine, usage, type Json } from './dp-lib.ts';
 import { paletteCommands } from './dp-palette.ts';
 import { consoleCommands } from './dp-console.ts';
 import { notificationsCommands } from './dp-notifications.ts';
@@ -94,9 +94,12 @@ function main(): number {
 	if (!command) { process.stdout.write(JSON.stringify({ ok: false, error: `command: ${Object.keys(commands).join(', ')}` }) + '\n'); return 2; }
 	// Every failure leaves a line in the action log, so a negative check has its evidence there.
 	const failed = (error: unknown) => {
-		const p = parse(argv, ['session'], Infinity);
+		// Only the session is needed here; read it directly, since parse refuses the
+		// very arguments a failure may be about.
+		const at = argv.findIndex(a => a === '--session' || a.startsWith('--session='));
+		const session = at < 0 ? String(process.env.PW_SESSION ?? '') : argv[at].includes('=') ? argv[at].slice('--session='.length) : argv[at + 1] ?? '';
 		const args = argv.filter((a, i) => !/^--session(=|$)/.test(a) && argv[i - 1] !== '--session');
-		logFailure(`${name}.sh`, p.session, args, String(error ?? ''));
+		logFailure(`${name}.sh`, session, args, String(error ?? ''));
 	};
 	try {
 		const raw = command(argv);

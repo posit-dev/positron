@@ -13,31 +13,17 @@ import { basename, dirname, join, resolve } from 'path';
 import { Exit, failText, inPage, log, logRead, parse, treeLine, usage, type Json, type PageFn } from './dp-lib.ts';
 import { badShotName } from './dp-shot.ts';
 
-interface Args { cmd: string; name: string; text: string; seconds: number; path: string }
+interface Args { cmd: string; name: string; text: string; seconds: number; path: string; view: string }
 
 // runs in run-code
 const viewer: PageFn<Args> = async (page, a, lib) => {
 	const n = lib.names.viewer;
-	const sc = await lib.scope(lib.names.views.viewer);
-	if (!('loc' in sc) || !sc.loc) { return { ok: false, error: 'the Viewer is not on screen; run Viewer: Focus on Viewer View' }; }
+	// The Viewer by default; another view that shows a web page in a frame (Help) by --view.
+	const sc = await lib.scope(a.view || lib.names.views.viewer);
+	if (!('loc' in sc) || !sc.loc) { return { ok: false, error: `the ${a.view || 'Viewer'} view is not on screen; run ${a.view || 'Viewer'}: Focus on ${a.view || 'Viewer'} View` }; }
 	const pane = sc.loc;
-	// The page: the innermost frame whose outer iframe sits inside the Viewer.
-	const findFrame = async () => {
-		const box = await pane.boundingBox();
-		if (!box) { return null; }
-		let best: { f: ReturnType<typeof page.mainFrame>; depth: number } | null = null;
-		for (const f of page.frames()) {
-			let depth = 0;
-			let top = f;
-			while (top.parentFrame() && top.parentFrame() !== page.mainFrame()) { top = top.parentFrame()!; depth++; }
-			if (f === page.mainFrame() || /^vscode-webview:/.test(f.url())) { continue; }
-			const el = await top.frameElement().catch(() => null);
-			const b = el ? await el.boundingBox() : null;
-			if (!b || b.x < box.x - 1 || b.y < box.y - 1 || b.x + b.width > box.x + box.width + 1 || b.y + b.height > box.y + box.height + 1) { continue; }
-			if (!best || depth > best.depth) { best = { f, depth }; }
-		}
-		return best?.f ?? null;
-	};
+	// The page: the innermost frame drawn inside the view.
+	const findFrame = () => lib.frameIn(pane);
 	const url = async () => pane.getByRole('textbox', { name: n.url }).inputValue({ timeout: 1000 }).catch(() => null);
 	// URL content and HTML content name reload and clear differently: either will do.
 	const toolbar: Record<string, string[]> = { reload: [n.reload, n.reloadContent], back: [n.back], forward: [n.forward], clear: [n.clear, n.clearContent], interrupt: [n.interrupt] };
@@ -115,10 +101,10 @@ const viewer: PageFn<Args> = async (page, a, lib) => {
 
 export const viewerCommands: Record<string, (argv: string[]) => Json | string> = {
 	viewer: argv => {
-		const p = parse(argv, ['session'], { read: 1, buttons: 1, reload: 1, back: 1, forward: 1, clear: 1, interrupt: 1, open: 2, shot: 2, click: 2, fill: 3, 'wait-content': 2 });
+		const p = parse(argv, ['session', 'view'], { read: 1, buttons: 1, reload: 1, back: 1, forward: 1, clear: 1, interrupt: 1, open: 2, shot: 2, click: 2, fill: 3, 'wait-content': 2 });
 		const [cmd, a1, a2] = p.rest;
 		if (p.flags.help || !cmd) { usage('viewer.sh'); }
-		const base: Args = { cmd, name: '', text: '', seconds: 15, path: '' };
+		const base: Args = { cmd, name: '', text: '', seconds: 15, path: '', view: String(p.flags.view ?? '') };
 		switch (cmd) {
 			case 'click': if (!a1) { throw new Exit(2, { ok: false, error: 'give the name to click' }); } base.name = a1; break;
 			case 'fill': if (!a1 || a2 === undefined) { throw new Exit(2, { ok: false, error: 'give the field name and the text' }); } base.name = a1; base.text = a2; break;

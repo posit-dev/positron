@@ -208,6 +208,9 @@ export function parse(argv: string[], withValue: string[], most: number | Record
 		const a = argv[i];
 		if (a === '--') { rest.push(...argv.slice(i + 1)); break; }
 		if (a === '-h') { flags.help = true; continue; }
+		// A shell that does not split a variable (zsh) can pass a flag and its value as one
+		// argument; that is never a command word, so say what happened.
+		if (/^--[\w-]+\s/.test(a)) { throw new Exit(2, { ok: false, error: `${JSON.stringify(a)} is one argument; pass the flag and its value as two (or --flag=value)` }); }
 		const m = a.match(/^--([\w-]+)(?:=(.*))?$/);
 		if (!m) { rest.push(a); continue; }
 		if (m[2] !== undefined) { flags[m[1]] = m[2]; } else if (withValue.includes(m[1])) { flags[m[1]] = argv[++i] ?? ''; } else { flags[m[1]] = true; }
