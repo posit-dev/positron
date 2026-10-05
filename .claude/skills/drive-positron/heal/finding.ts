@@ -63,3 +63,13 @@ export function writeFinding(dir: string, f: Finding): void {
 	mkdirSync(dir, { recursive: true });
 	writeFileSync(join(dir, `${f.id}.json`), `${JSON.stringify(f, null, '\t')}\n`);
 }
+
+export interface State { wholesale?: boolean; scopeViolation?: string; gate?: 'pass' | 'fail' | 'none'; notAttempted?: string[] }
+export function readState(dir: string): State {
+	const file = join(dir, 'state.json');
+	return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) as State : {};
+}
+export function writeState(dir: string, patch: State): void {
+	mkdirSync(dir, { recursive: true });
+	writeFileSync(join(dir, 'state.json'), `${JSON.stringify({ ...readState(dir), ...patch }, null, '\t')}\n`);
+}

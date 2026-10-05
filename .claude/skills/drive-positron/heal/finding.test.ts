@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { addFields, readFindings, slug, validateFinding, writeFinding, type Finding } from './finding.ts';
+import { addFields, readFindings, readState, slug, validateFinding, writeFinding, writeState, type Finding } from './finding.ts';
 
 const base = (): Finding => ({
 	id: 'smoke-start-session-r', source: 'smoke', case: 'start-session r', helper: 'start-session.sh',
@@ -62,4 +62,11 @@ test('write then read round-trips, sorted by id', () => {
 	writeFinding(dir, { ...base(), id: 'smoke-a' });
 	assert.deepEqual(readFindings(dir).map(f => f.id), ['smoke-a', 'smoke-b']);
 	assert.deepEqual(readFindings(join(dir, 'missing')), []);
+});
+
+test('state merges', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'heal-'));
+	writeState(dir, { wholesale: false });
+	writeState(dir, { gate: 'pass' });
+	assert.deepEqual(readState(dir), { wholesale: false, gate: 'pass' });
 });
