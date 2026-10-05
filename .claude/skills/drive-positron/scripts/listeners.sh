@@ -40,11 +40,11 @@ MODE=""
 FILE=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--tree) TREE="$2"; shift 2 ;;
-		--session) SESSION="$2"; shift 2 ;;
+		--tree) TREE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--session=*) SESSION="${1#--session=}"; shift ;;
 		--all) ALL=1; shift ;;
-		--save|--diff) MODE="$1"; FILE="${2:-}"; shift 2 ;;
+		--save|--diff) MODE="$1"; FILE="${2:-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "listeners.sh: unknown arg $1" >&2; exit 2 ;;
 	esac

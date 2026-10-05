@@ -108,11 +108,11 @@ LOGMSG=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="$2"; shift 2 ;;
+		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--session=*) SESSION="${1#--session=}"; shift ;;
-		--condition) COND="$2"; shift 2 ;;
-		--log) LOGMSG="$2"; shift 2 ;;
-		--timeout) TIMEOUT="$2"; shift 2 ;;
+		--condition) COND="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--log) LOGMSG="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--timeout) TIMEOUT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) ARGS+=("$1"); shift ;;
 	esac

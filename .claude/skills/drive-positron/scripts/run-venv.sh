@@ -25,7 +25,7 @@ VENV=""
 FROM="$(cd "$DIR/../../../.." && pwd)/extensions/positron-python/.venv"
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--from) FROM="$2"; shift 2 ;;
+		--from) FROM="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		-*) echo "run-venv.sh: unknown flag $1" >&2; exit 2 ;;
 		*) VENV="$1"; shift ;;

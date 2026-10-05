@@ -98,12 +98,12 @@ FORMAT="" WIDTH="" HEIGHT="" NAME=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="$2"; shift 2 ;;
+		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--session=*) SESSION="${1#--session=}"; shift ;;
-		--format) FORMAT="$2"; shift 2 ;;
-		--width) WIDTH="$2"; shift 2 ;;
-		--height) HEIGHT="$2"; shift 2 ;;
-		--name) NAME="$2"; shift 2 ;;
+		--format) FORMAT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--width) WIDTH="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--height) HEIGHT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--name) NAME="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) ARGS+=("$1"); shift ;;
 	esac

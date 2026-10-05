@@ -58,10 +58,10 @@ JSON=0
 PW_SESSION_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--max) MAX="$2"; shift 2 ;;
+		--max) MAX="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--max=*) MAX="${1#--max=}"; shift ;;
 		--json) JSON=1; shift ;;
-		--session) PW_SESSION_OVERRIDE="$2"; shift 2 ;;
+		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; shift ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "quickpick-enum.sh: unknown arg $1" >&2; exit 2 ;;

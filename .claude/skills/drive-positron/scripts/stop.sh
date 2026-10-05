@@ -31,9 +31,9 @@ TIMEOUT=15
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--cdp-port) CDP_PORT="$2"; shift 2 ;;
-		--run-dir) RUN_DIR="$2"; shift 2 ;;
-		--timeout) TIMEOUT="$2"; shift 2 ;;
+		--cdp-port) CDP_PORT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--run-dir) RUN_DIR="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--timeout) TIMEOUT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "Unknown arg: $1" >&2; exit 2 ;;
 	esac

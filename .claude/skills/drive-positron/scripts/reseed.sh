@@ -51,11 +51,11 @@ EXTRA=()
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--run-dir) RUN_DIR="$2"; shift 2 ;;
-		--seed) SEED="$2"; shift 2 ;;
-		--cdp-port) CDP_PORT="$2"; shift 2 ;;
+		--run-dir) RUN_DIR="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--seed) SEED="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--cdp-port) CDP_PORT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--keep-running) KEEP_RUNNING=1; shift ;;
-		--include) EXTRA+=("$2"); shift 2 ;;
+		--include) EXTRA+=("${2-}"); shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--list-keys) LIST_KEYS=1; shift ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "reseed.sh: unknown arg $1" >&2; exit 2 ;;

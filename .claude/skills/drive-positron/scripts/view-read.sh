@@ -25,9 +25,9 @@ ARGS=()
 BAD=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="$2"; shift 2 ;;
+		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--session=*) SESSION="${1#--session=}"; shift ;;
-		--view) VIEW="$2"; ARGS+=("$1" "$2"); shift 2 ;;
+		--view) VIEW="${2-}"; ARGS+=("$1" "${2-}"); shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) BAD="${BAD:-$1}"; ARGS+=("$1"); shift ;;
 	esac

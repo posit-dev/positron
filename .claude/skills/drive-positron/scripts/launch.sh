@@ -216,14 +216,14 @@ AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--agents) AGENTS=1; shift ;;
-		--source-user-data-dir) SOURCE_UDD="$2"; shift 2 ;;
-		--repo) REPO="$2"; shift 2 ;;
+		--source-user-data-dir) SOURCE_UDD="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--repo) REPO="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--clone-extensions|--copy-extensions) CLONE_EXTENSIONS=1; shift ;;
 		--full) FULL=1; shift ;;
 		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
 		--keep-first-run-prompts) FIRST_RUN_PROMPTS=1; shift ;;
 		--no-pyrefly) NO_PYREFLY=1; shift ;;
-		--reuse-profile) REUSE="$2"; shift 2 ;;
+		--reuse-profile) REUSE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; EXTRA_ARGS=("$@"); break ;;
 		*) echo "Unknown arg: $1" >&2; exit 2 ;;
