@@ -42,11 +42,14 @@ export interface ErrorPrompt {
  * Build the prompt for a Fix or Explain action. Prompts are in English: they
  * are read by the agent, not the user.
  * @param getPath Resolves a document URI to the path named in the prompt.
+ * @param mcpServerName The name Claude Code knows Positron's MCP server by,
+ *   or undefined when it is not configured.
  */
 export function getErrorPrompt(
 	kind: ErrorActionKind,
 	context: positron.ai.ErrorActionContext,
 	getPath: (uri: Uri) => string,
+	mcpServerName?: string,
 ): ErrorPrompt {
 	const location = context.location;
 	const task = kind === 'fix'
@@ -54,12 +57,16 @@ export function getErrorPrompt(
 		: 'Explain what caused the error and how to fix it, without making changes or editing any files.';
 	const blocks: string[] = [];
 	let source: string | undefined;
+	let mcpHint = '';
 	switch (location?.kind) {
 		case 'console':
 			// Without this, Claude has nothing to open and guesses at a file
 			// (e.g. a notebook) the error might have come from.
 			source = `Code run in the Positron console session "${location.sessionName}" raised an error. ` +
 				'The code may not be saved in any file.';
+			if (mcpServerName) {
+				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId);
+			}
 			if (location.code) {
 				blocks.push(`Code:\n\n${fence(location.code, location.languageId)}`);
 			}
@@ -82,9 +89,23 @@ export function getErrorPrompt(
 	const scope = kind === 'fix' && location?.kind === 'console'
 		? ' Only edit project files if the cause is in one of them.'
 		: '';
-	const lead = source ? `${source} ${task}${scope}` : task;
+	const lead = source ? `${source} ${task}${scope}${mcpHint}` : task;
 	// Newlines would end a terminal prompt early (e.g. one in a session name).
 	return { lead: lead.replace(/\s*\n\s*/g, ' '), body: blocks.join('\n\n') };
+}
+
+/**
+ * Point Claude at the MCP server's tools for a session. A new Claude Code
+ * session does not wait for MCP servers before its first request, so the
+ * tools may be missing from the first turn; without this, Claude concludes it
+ * has no access. Tool search waits for servers that are still connecting.
+ */
+function getMcpHint(serverName: string, sessionId: string): string {
+	const prefix = `mcp__${serverName}__`;
+	return `Positron's MCP server (\`${serverName}\`) can inspect this session (session_id: ${sessionId}). ` +
+		`If no \`${prefix}*\` tools are listed yet, the server may still be connecting: ` +
+		`use ToolSearch to find tools whose names start with \`${prefix}\`, which waits for it. ` +
+		`Don't conclude you lack access.`;
 }
 
 /** Whether a prompt's body is short enough to inline into the chat input. */

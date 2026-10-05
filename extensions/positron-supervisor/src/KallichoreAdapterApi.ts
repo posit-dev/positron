@@ -21,7 +21,7 @@ import { KallichoreInstances } from './KallichoreInstances.js';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
-import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
+import { CONFIGURE_AGENT_COMMAND, GET_CONFIGURED_SERVER_NAME_COMMAND, configureAgent, getConfiguredServerName, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
 import { McpLaunch, mcpLaunch } from './McpAgents.js';
 import { mcpConnectionsDirectory } from './mcpConnection.js';
@@ -390,6 +390,10 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._context.subscriptions.push(vscode.commands.registerCommand(CONFIGURE_AGENT_COMMAND, (agentId?: string) => {
 			return configureAgent(this._context, () => this.mcpLaunch(), agentId);
+		}));
+
+		this._context.subscriptions.push(vscode.commands.registerCommand(GET_CONFIGURED_SERVER_NAME_COMMAND, (agentId: string) => {
+			return getConfiguredServerName(this._context, agentId);
 		}));
 
 		// Listen for changes to the idle shutdown hours config setting; if the

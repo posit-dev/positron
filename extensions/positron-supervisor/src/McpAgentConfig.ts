@@ -21,6 +21,7 @@ import {
 	unmergeAgentConfig,
 } from './McpAgents';
 import { AI_ENABLED_KEY, MCP_ENABLED_KEY, mcpFeatureEnabled } from './McpFrontend';
+import { MCP_SERVER_NAME } from './mcpConnection';
 import { summarizeError } from './util';
 
 /** Runs a command without a shell, rejecting on a non-zero exit. */
@@ -31,6 +32,12 @@ const MCP_DOCS_URL = 'https://positron.posit.co/mcp-server';
 
 /** Command that adds the server to a coding agent's configuration. */
 export const CONFIGURE_AGENT_COMMAND = 'positron.mcp.configureAgent';
+
+/**
+ * Command that returns the name a coding agent knows Positron's MCP server by,
+ * for prompts that point the agent at its tools.
+ */
+export const GET_CONFIGURED_SERVER_NAME_COMMAND = 'positron.mcp.getConfiguredServerName';
 
 /** Remembers that the one-time offer to turn the feature on has been made. */
 const ENABLE_PROMPT_SHOWN_KEY = 'positron-supervisor.mcp.enablePromptShown';
@@ -504,6 +511,28 @@ async function pickAgent(): Promise<McpAgent | undefined> {
 		placeHolder: vscode.l10n.t("Select the agent to configure"),
 	});
 	return choice?.agent;
+}
+
+/**
+ * The name a coding agent knows Positron's MCP server by.
+ *
+ * Only Positron's own record is consulted: an entry the user has since removed
+ * from the agent's configuration still counts, since checking would mean
+ * running the agent's CLI.
+ *
+ * @param context The extension context, which remembers what we configure.
+ * @param agentId The harness's {@link McpAgent.id}, e.g. 'claude-code'.
+ * @param enabled Whether the MCP feature is on.
+ * @returns The server name, or undefined when the feature is off or Positron
+ *  has not configured the agent for this workspace.
+ */
+export function getConfiguredServerName(
+	context: vscode.ExtensionContext,
+	agentId: string,
+	enabled: () => boolean = mcpFeatureEnabled,
+): string | undefined {
+	const configured = loadConfiguredAgents(context).some(record => record.id === agentId);
+	return enabled() && configured ? MCP_SERVER_NAME : undefined;
 }
 
 /** The harnesses Positron has written into, in the order they were configured. */

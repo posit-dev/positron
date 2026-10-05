@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { agentCliCommand } from '../McpAgentConfig';
+import * as vscode from 'vscode';
+import { agentCliCommand, getConfiguredServerName } from '../McpAgentConfig';
 import { McpCliInstall, findMcpAgent, mcpLaunch } from '../McpAgents';
 
 /** The command line that starts the bridge. */
@@ -51,5 +52,25 @@ suite('agentCliCommand', () => {
 		assert.deepStrictEqual(
 			{ command, first: args.slice(0, 2) },
 			{ command: 'cmd.exe', first: ['/c', 'C:\\bin\\claude.CMD'] });
+	});
+});
+
+suite('getConfiguredServerName', () => {
+	/** An extension context whose workspace state records the given agents as configured. */
+	function contextWithAgents(...ids: string[]): vscode.ExtensionContext {
+		const workspaceState = { get: () => ids.map(id => ({ id })) };
+		return { workspaceState } as unknown as vscode.ExtensionContext;
+	}
+
+	test('names the server for an agent Positron configured', () => {
+		assert.strictEqual(getConfiguredServerName(contextWithAgents('claude-code'), 'claude-code', () => true), 'positron');
+	});
+
+	test('is undefined for an agent Positron has not configured', () => {
+		assert.strictEqual(getConfiguredServerName(contextWithAgents('codex'), 'claude-code', () => true), undefined);
+	});
+
+	test('is undefined while the feature is off', () => {
+		assert.strictEqual(getConfiguredServerName(contextWithAgents('claude-code'), 'claude-code', () => false), undefined);
 	});
 });

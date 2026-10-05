@@ -69,7 +69,7 @@ function getSurface(): ClaudeCodeSurface | undefined {
 
 /** Open a new Claude Code session with the error from a Fix/Explain action. */
 async function startSession(kind: ErrorActionKind, context: positron.ai.ErrorActionContext): Promise<void> {
-	const prompt = getErrorPrompt(kind, context, uri => vscode.workspace.asRelativePath(uri));
+	const prompt = getErrorPrompt(kind, context, uri => vscode.workspace.asRelativePath(uri), await getMcpServerName());
 
 	// The registration is withdrawn when Claude Code becomes unavailable, but
 	// an action can still race with that.
@@ -80,6 +80,21 @@ async function startSession(kind: ErrorActionKind, context: positron.ai.ErrorAct
 			return openTerminal(await formatPromptWithFile(prompt));
 		case undefined:
 			throw new Error(vscode.l10n.t('Claude Code is not installed or is too old to receive errors.'));
+	}
+}
+
+/**
+ * The name Claude Code knows Positron's MCP server by, from the Kernel
+ * Supervisor that configured it.
+ * @returns The name, or undefined when the server is off, Claude Code is not
+ *   configured to use it, or the supervisor cannot be asked.
+ */
+async function getMcpServerName(): Promise<string | undefined> {
+	try {
+		const name = await vscode.commands.executeCommand<unknown>('positron.mcp.getConfiguredServerName', ERROR_ACTIONS_ID);
+		return typeof name === 'string' ? name : undefined;
+	} catch {
+		return undefined;
 	}
 }
 

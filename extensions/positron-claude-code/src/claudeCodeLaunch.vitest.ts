@@ -51,6 +51,20 @@ describe('getErrorPrompt', () => {
 		);
 	});
 
+	it('points Claude at the MCP server for the session when it is configured', () => {
+		expect(getErrorPrompt('fix', consoleContext, getPath, 'positron').lead).toBe(
+			'Code run in the Positron console session "Python 3.12.1 (Venv: .venv)" raised an error. The code may not be saved in any file. Fix the error. Only edit project files if the cause is in one of them. ' +
+			'Positron\'s MCP server (`positron`) can inspect this session (session_id: python-1234). If no `mcp__positron__*` tools are listed yet, the server may still be connecting: use ToolSearch to find tools whose names start with `mcp__positron__`, which waits for it. Don\'t conclude you lack access.'
+		);
+	});
+
+	it('does not mention the MCP server for a notebook error, which has no session ID', () => {
+		expect(getErrorPrompt('fix', {
+			error: 'boom',
+			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2 },
+		}, getPath, 'positron').lead).toBe('Cell 3 of analysis.ipynb raised an error. Fix the error.');
+	});
+
 	it('omits the code block when the console code is unknown', () => {
 		const location = { ...consoleContext.location as positron.ai.ConsoleErrorLocation, code: undefined };
 		expect(getErrorPrompt('fix', { ...consoleContext, location }, getPath).body).toBe(
