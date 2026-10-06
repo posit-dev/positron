@@ -307,15 +307,25 @@ jobs:
         id: failed
         if: failure()
         shell: bash
+        env:
+          STEPS: ${{ toJSON(steps) }}
         run: |
-          # gh may not be in the image; node is.
+          # gh may not be in the image; node is. The API records a step's failure a few seconds late,
+          # so poll it for the step's name, then fall back to the failed step's id.
           # shellcheck disable=SC2016
           step=$(node -e '
             const url = `${process.env.GITHUB_API_URL}/repos/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT}/jobs`;
-            fetch(url, { headers: { authorization: `Bearer ${process.env.GH_TOKEN}`, accept: "application/vnd.github+json" } })
-              .then(r => r.json())
-              .then(j => console.log(j.jobs?.find(x => x.name === "heal")?.steps?.find(x => x.conclusion === "failure")?.name ?? ""))
-              .catch(() => {});
+            const named = () => fetch(url, { headers: { authorization: `Bearer ${process.env.GH_TOKEN}`, accept: "application/vnd.github+json" } })
+              .then(r => r.json()).then(j => j.jobs?.find(x => x.name === "heal")?.steps?.find(x => x.conclusion === "failure")?.name).catch(() => undefined);
+            (async () => {
+              for (let i = 0; i < 6; i++) {
+                const name = await named();
+                if (name) { return console.log(name); }
+                await new Promise(r => setTimeout(r, 5000));
+              }
+              const id = Object.entries(JSON.parse(process.env.STEPS || "{}")).find(([, s]) => s.outcome === "failure")?.[0];
+              console.log(id ?? "");
+            })();
           ') || true
           echo "step=${step:-unknown}" >> "$GITHUB_OUTPUT"
 
