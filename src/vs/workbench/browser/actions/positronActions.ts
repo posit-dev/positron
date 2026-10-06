@@ -7,7 +7,7 @@ import { localize } from '../../../nls.js';
 import { ITelemetryData } from '../../../base/common/actions.js';
 import { ServicesAccessor } from '../../../editor/browser/editorExtensions.js';
 import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
-import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
 import { CommandsRegistry, ICommandService } from '../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { INotificationService } from '../../../platform/notification/common/notification.js';
@@ -106,6 +106,7 @@ export class PositronNewFolderFromGitAction extends Action2 {
 		const gitAvailable = await checkGitAvailable({
 			extensionService: accessor.get(IExtensionService),
 			commandRegistry: CommandsRegistry,
+			contextKeyService: accessor.get(IContextKeyService),
 			configurationService: accessor.get(IConfigurationService),
 			commandService: accessor.get(ICommandService),
 			notificationService: accessor.get(INotificationService),

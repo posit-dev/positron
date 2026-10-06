@@ -6,6 +6,7 @@
 import { localize } from '../../../nls.js';
 import { ICommandRegistry, ICommandService } from '../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
 import { INotificationService, Severity } from '../../../platform/notification/common/notification.js';
 import { ExtensionIdentifier } from '../../../platform/extensions/common/extensions.js';
 import { IExtensionService } from '../../services/extensions/common/extensions.js';
@@ -16,6 +17,7 @@ import { IExtensionService } from '../../services/extensions/common/extensions.j
 interface IGitAvailabilityServices {
 	readonly extensionService: IExtensionService;
 	readonly commandRegistry: ICommandRegistry;
+	readonly contextKeyService: IContextKeyService;
 	readonly configurationService: IConfigurationService;
 	readonly commandService: ICommandService;
 	readonly notificationService: INotificationService;
@@ -68,6 +70,20 @@ export async function checkGitAvailable(services: IGitAvailabilityServices): Pro
 	// 'git.enabled' is turned on after startup and Git is not found.
 	if (services.commandRegistry.getCommand('git.clone')) {
 		return true;
+	}
+
+	// Without 'git.missing', the Git extension has not reported a missing Git; it is disabled,
+	// failed to activate, or is still starting. Installing Git and reloading would not help.
+	if (services.contextKeyService.getContextKeyValue<boolean>('git.missing') !== true) {
+		services.notificationService.prompt(
+			Severity.Warning,
+			localize(
+				'positron.gitNotReady',
+				"Git is required to create a folder from a Git repository, but the Git extension is not ready. Check that the built-in Git extension is enabled, and try again."
+			),
+			[]
+		);
+		return false;
 	}
 
 	const message = localize(
