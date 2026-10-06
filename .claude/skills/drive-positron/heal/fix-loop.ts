@@ -37,7 +37,8 @@ function git(...a: string[]): string {
 	return r.stdout;
 }
 
-const STATUS = ['status', '--porcelain=v1', '-z', '--untracked-files=all'];
+// Build output inside a submodule (ai-lib, ark) shows as a modified submodule; only a moved commit counts.
+const STATUS = ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=dirty'];
 
 function main(): number {
 	const dash = process.argv.indexOf('--');

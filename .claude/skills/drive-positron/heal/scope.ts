@@ -116,7 +116,7 @@ function main(): number {
 	const repoRoot = repoRootOf(process.cwd());
 	let paths: string[];
 	if (args[0] === '--worktree') {
-		paths = pathsFromStatus(git(['status', '--porcelain=v1', '-z', '--untracked-files=all'], repoRoot));
+		paths = pathsFromStatus(git(['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=dirty'], repoRoot));
 	} else if (args[0] === '--patch' && args.length > 1) {
 		paths = args.slice(1).flatMap(f => pathsFromPatch(f, repoRoot));
 	} else {

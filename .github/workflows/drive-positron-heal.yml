@@ -264,8 +264,8 @@ jobs:
         if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
         run: |
-          echo "git status --porcelain (a non-empty list makes the Fixer exit 2):"
-          git status --porcelain --untracked-files=all
+          echo "git status --porcelain --ignore-submodules=dirty (a non-empty list makes the Fixer exit 2):"
+          git status --porcelain --untracked-files=all --ignore-submodules=dirty
 
       # Not gated on "Any findings yet?": the finder may have written findings after it ran.
       - name: Fixer
