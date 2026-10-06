@@ -65,6 +65,17 @@ const READS_OUTPUT = /\b(?:until|shows?|showing|prints?|printed|reads|displays?|
 const SESSION_ID = /\b(?:python|r)-[0-9a-f]{8}\b/i;
 
 /** The rules every action step follows, in the ledger and on a finding card. */
+// An action verb opening a VERIFY, or a clause of it ("In the panel, type `n`").
+// Lowercase after a comma: a capitalized word there is a menu item or a label.
+const VERIFY_VERBS = 'run|click|press|open|close|save|type|choose|select|pick|tick|untick|reload|restart|drag|scroll|paste|delete|insert|switch|focus|toggle|expand|collapse|resize|rename|hover|enter|wait';
+const VERIFY_ACTION = [new RegExp(`^(${VERIFY_VERBS})\\b`, 'i'), new RegExp(`[,;]\\s*(${VERIFY_VERBS})\\b`)];
+
+function verifyProblems(where, text) {
+	const plain = text.replace(/`[^`]*`/g, 'code').replace(/\s*->.*$/, '').trim();
+	const verb = VERIFY_ACTION.map(re => re.exec(plain)?.[1]).find(Boolean);
+	return verb ? [`${where} VERIFY does something ("${verb}"); make it a step of its own before the check, and keep the VERIFY to what you expect to see`] : [];
+}
+
 function stepProblems(where, text) {
 	const problems = [];
 	const plain = text.replace(/`[^`]*`/g, 'code');
@@ -107,8 +118,9 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		if (result) { current.result = result[1].trim(); }
 		const action = /^\s*(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(line);
 		if (action) { problems.push(...stepProblems(`ledger: ${current.id} step ${action[1]}`, action[2])); }
-		const verify = /^\s*(\d+)\.\s+VERIFY\b/i.exec(line);
+		const verify = /^\s*(\d+)\.\s+VERIFY\b(.*)$/i.exec(line);
 		if (verify) {
+			problems.push(...verifyProblems(`ledger: ${current.id} step ${verify[1]}`, verify[2]));
 			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), finding: Number(/->\s*FAIL\s*-\s*Finding\s+(\d+)/i.exec(line)?.[1]) || null, observed: false, evidence: false, log: false });
 		}
 		const field = /^\s+(Observed|Evidence|Log):(.*)$/i.exec(line);
@@ -567,6 +579,8 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		for (const step of body.filter(l => /^\d+\.\s/.test(l))) {
 			const action = /^(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(step);
 			if (action) { problems.push(...stepProblems(`report: Finding ${b.n} step ${action[1]}`, action[2])); }
+			const verify = /^(\d+)\.\s+VERIFY\b(.*)$/i.exec(step);
+			if (verify) { problems.push(...verifyProblems(`report: Finding ${b.n} step ${verify[1]}`, verify[2])); }
 			const id = /\b[SN]\d{2,}\b/.exec(step.replace(/`[^`]*`/g, ''));
 			if (id) {
 				problems.push(`report: Finding ${b.n} step "${step.slice(0, 50)}" names ${id[0]}; steps are instructions for the reader, so leave run notes out`);
@@ -875,6 +889,7 @@ export function lintShotTiming(ledger, actionsLog) {
 const WARNINGS = [
 	/ repeats an action \(/,
 	/ is two actions \(/,
+	/ VERIFY does something \(/,
 	/ starts "With \.\.\."/,
 	/Result: of a failed scenario is its rate only/,
 	/Result: is \S+ (?:characters|sentences)/,

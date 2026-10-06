@@ -538,6 +538,20 @@ test('a step is one action, with no repeat count, second action, assumed state o
 	assert.deepEqual(lint(REPORT, LEDGER.replace('2. VERIFY it loads -> PASS', '2. VERIFY it loads, then shows twice -> PASS')), []);
 });
 
+test('a VERIFY is only the check, with the actions before it as steps of their own', () => {
+	const check = text => lint(REPORT, LEDGER.replace('2. VERIFY it loads -> PASS', `2. VERIFY ${text} -> PASS`)).filter(p => /S01 step 2/.test(p));
+	const did = verb => [`ledger: S01 step 2 VERIFY does something ("${verb}"); make it a step of its own before the check, and keep the VERIFY to what you expect to see`];
+	assert.deepEqual(check('the `n` profile shows Min 5; Max 1500'), []);
+	assert.deepEqual(check('the menu lists Open, Close and Run'), []);
+	assert.deepEqual(check('the editor tab is open'), []);
+	assert.deepEqual(check('the cell runs `type(x)`, which prints int'), []);
+	assert.deepEqual(check('In the summary panel, type `n` in the column filter and expand the `n` profile; it shows Min 5'), did('type'));
+	assert.deepEqual(check('expand the profile; it shows Min 5'), did('expand'));
+	assert.deepEqual(check('the profile shows Min 5; scroll down and it shows Max 1500'), did('scroll'));
+	assert.deepEqual(lint(REPORT.replace('2. VERIFY the panel loads', '2. VERIFY click Retry and the panel loads')).filter(p => /VERIFY does/.test(p)),
+		['report: Finding 1 step 2 VERIFY does something ("click"); make it a step of its own before the check, and keep the VERIFY to what you expect to see']);
+});
+
 test('a failed scenario\'s Result is its rate only', () => {
 	const result = text => lint(REPORT, LEDGER.replace('Result: Fails 2/2', `Result: ${text}`)).filter(p => /Result:/.test(p));
 	assert.deepEqual(result('Fails 2/2'), []);
@@ -621,6 +635,7 @@ test('each rule is an error or a warning, as the table in lint.mjs says', () => 
 	const warnings = [
 		'ledger: S01 step 2 repeats an action ("twice"); a step is one action, so write each one as its own step',
 		'ledger: S01 step 2 is two actions ("then open"); write each as its own step',
+		'ledger: S01 step 2 VERIFY does something ("type"); make it a step of its own before the check, and keep the VERIFY to what you expect to see',
 		'ledger: S01 step 1 starts "With ..."; make what it assumes a precondition, or do it as a step of its own',
 		'ledger: S02 Result: is 170 characters; keep it to one short sentence, and give anything you did not expect its own VERIFY step',
 		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',

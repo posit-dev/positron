@@ -202,6 +202,8 @@ Lint flags each of these, so get them right the first time:
 - A finding's title, Observed, Expected and Cause name no scenario ID (S05,
   N01); readers never see them, so say it in words.
 - One action per step: "Run `View: Close Editor`." and "Open `x.qmd`." are two.
+  A VERIFY is only the check: "VERIFY In the summary panel, type `n` in the
+  filter and expand its profile; it shows Max 1500" is two actions and a check.
 
 ## Record as you go: the ledger
 
