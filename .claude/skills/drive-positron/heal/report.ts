@@ -18,7 +18,7 @@ import type { Finding, State } from './finding.ts';
 
 export interface Night {
 	findings: Finding[]; flakes: { name: string }[]; unconfirmed: { name: string }[]; state: State; smokeRed: boolean; jobFailed: string | null;
-	costs: { label: string; usd: number | null }[]; smokeDiff: string;
+	costs: { label: string; usd: number | null }[]; checksDiff: string;
 	/** Input files that could not be read; the report says so rather than guessing. */
 	problems?: string[];
 }
@@ -86,6 +86,8 @@ function toDo(n: Night, where: 'summary' | 'pr' | 'slack'): string {
 		// Slack shows the review link and each finding's history on their own lines.
 		if (why !== null) { out.push(`Do not merge the fixes yet: ${why}, so they are unchecked.`); }
 		else if (where !== 'slack') { out.push(where === 'pr' ? 'Review and merge this PR.' : 'Review the fix: the Slack DM links the branch, and the patch is in the run artifacts.'); }
+		// The PR body and summary open with the Checks changed section; Slack has only this line.
+		if (where === 'slack' && fixes.some(f => f.checksChanged)) { out.push('A fix changes test/ or heal/, which judge the fixes; review that diff first.'); }
 		const back = fixes.filter(f => f.fixedBefore?.length);
 		if (back.length && where !== 'slack') { out.push(`${back.map(f => `"${title(f)}"`).join(', ')} came back after being fixed on earlier nights; those fixes were never merged.`); }
 	}
@@ -161,12 +163,12 @@ function fenced(text: string, info: string): string {
 	return `${fence}${info}\n${text}\n${fence}`;
 }
 
-function smokeSection(n: Night): string {
-	const changed = n.findings.filter(f => f.smokeChecksChanged && !f.rejected);
+function checksSection(n: Night): string {
+	const changed = n.findings.filter(f => f.checksChanged && !f.rejected);
 	if (!changed.length) { return ''; }
-	const diff = n.smokeDiff.trim();
+	const diff = n.checksDiff.trim();
 	const body = !diff ? '(diff unavailable)' : fenced(diff.length > MAX_DIFF ? diff.slice(0, MAX_DIFF) : diff, 'diff') + (diff.length > MAX_DIFF ? '\n(truncated, see the run)' : '');
-	return ['### Smoke checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${(f.reason ?? '').slice(0, 300)}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', body, '', ''].join('\n');
+	return ['### Checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${(f.reason ?? '').slice(0, 300)}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', body, '', ''].join('\n');
 }
 
 export function prTitle(n: Night): string {
@@ -178,7 +180,7 @@ export function prTitle(n: Night): string {
 const PR_MAX = 60000;
 
 export function prBody(n: Night, runUrl: string): string {
-	const head = [smokeSection(n) + '### Summary', '', `Nightly self-heal: ${headline(n)}.`, '', toDo(n, 'pr'), '', ...problemLines(n)];
+	const head = [checksSection(n) + '### Summary', '', `Nightly self-heal: ${headline(n)}.`, '', toDo(n, 'pr'), '', ...problemLines(n)];
 	const tail = `Run: ${runUrl}`;
 	return [...head, ...blocks(n, '####', PR_MAX - head.join('\n').length - tail.length), tail].join('\n');
 }
@@ -192,7 +194,7 @@ export function summaryMarkdown(n: Night, runUrl: string): string {
 	const cost = totalCost(n.costs);
 	const unpriced = n.costs.filter(c => c.usd === null).length;
 	return [
-		`## drive-positron nightly: ${headline(n)}`, '', toDo(n, 'summary'), '', ...problemLines(n), smokeSection(n), ...blocks(n, '###', 500000), ...others(n),
+		`## drive-positron nightly: ${headline(n)}`, '', toDo(n, 'summary'), '', ...problemLines(n), checksSection(n), ...blocks(n, '###', 500000), ...others(n),
 		`Cost: $${cost.total.toFixed(2)} (finder $${cost.finder.toFixed(2)}, fixer $${cost.fixer.toFixed(2)})${unpriced ? `; ${s(unpriced, 'session')} had no cost, counted as $0` : ''}. Run: ${runUrl}`,
 	].join('\n');
 }
@@ -263,8 +265,8 @@ export function loadNight(dir: string, smokeRed: boolean, jobFailed: string | nu
 		if (v !== undefined && !isObject(v)) { problems.push(`cost/${f}: not an object`); }
 		costs.push({ label: f.replace(/\.json$/, ''), usd: typeof total === 'number' && Number.isFinite(total) ? total : null });
 	}
-	const diff = join(dir, 'smoke.diff');
-	return { findings, flakes: list('flakes.json'), unconfirmed: list('unconfirmed.json'), state, smokeRed, jobFailed, costs, smokeDiff: existsSync(diff) ? readFileSync(diff, 'utf8') : '', problems };
+	const diff = join(dir, 'checks.diff');
+	return { findings, flakes: list('flakes.json'), unconfirmed: list('unconfirmed.json'), state, smokeRed, jobFailed, costs, checksDiff: existsSync(diff) ? readFileSync(diff, 'utf8') : '', problems };
 }
 
 const VERBS = ['summary', 'title', 'body', 'slack', 'notify?', 'notify'];

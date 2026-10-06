@@ -27,8 +27,9 @@ says how a helper is built and checked.
    cause.
 5. **No sleeps, retries or longer timeouts to get a pass.** Waiting for a named condition the
    helper can observe is fine; waiting longer and hoping is not.
-6. **Never loosen a smoke check.** If you change a check in `test/smoke.ts`, the reason must say
-   which check, what it asserted before, and why the old assertion was wrong.
+6. **Never loosen a check.** `test/` and `heal/` hold the checks your fix is judged by; a change
+   there is flagged at the top of the report. If you change one, the reason must say which check,
+   what it asserted before, and why the old assertion was wrong.
 7. **Check your fix:** run the helper again on the kept instance; helper edits apply without a
    relaunch. Then stop the instance (smoke prints the `stop.sh` line) and run
    `node .claude/skills/drive-positron/test/check.ts`, which must pass. Do not replay smoke again,

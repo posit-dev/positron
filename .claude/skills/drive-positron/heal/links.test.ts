@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { writeFileSync, mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { candidateBranch, cli, compareUrl, smokeChecksChanged, staleBranches } from './links.ts';
+import { candidateBranch, cli, compareUrl, checksChanged, staleBranches } from './links.ts';
 
 test('candidateBranch', () => {
 	assert.equal(candidateBranch(new Date('2026-10-06T03:30:00Z'), '123'), 'automated/drive-positron/2026-10-06-123');
@@ -46,9 +46,11 @@ test('staleBranches: older than 14 days by the date in the name, without an open
 	assert.deepEqual(staleBranches(branches, ['automated/drive-positron/2026-10-02-2'], now), ['automated/drive-positron/2026-10-01-1']);
 });
 
-test('smokeChecksChanged', () => {
-	assert.equal(smokeChecksChanged(['.claude/skills/drive-positron/test/smoke.ts']), true);
-	assert.equal(smokeChecksChanged(['.claude/skills/drive-positron/scripts/dp-ui.ts']), false);
+test('checksChanged', () => {
+	assert.equal(checksChanged(['.claude/skills/drive-positron/test/smoke.ts']), true);
+	assert.equal(checksChanged(['.claude/skills/drive-positron/test/check.ts']), true);
+	assert.equal(checksChanged(['.claude/skills/drive-positron/scripts/dp-ui.ts', '.claude/skills/drive-positron/heal/report.ts']), true);
+	assert.equal(checksChanged(['.claude/skills/drive-positron/scripts/dp-ui.ts', '.claude/skills/drive-positron/testing.md']), false);
 });
 
 test('cli candidate and usage errors', () => {

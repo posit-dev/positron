@@ -15,7 +15,7 @@ export interface Reproduction { at: string; by: 'smoke' | 'rerun' | 'finder' | '
 export interface Finding {
 	id: string; source: 'smoke' | 'finder'; case?: string; helper: string; steps: string[];
 	observed: string; expected: string; reproductions: Reproduction[];
-	outcome?: Outcome; reason?: string; resolvedBy?: string; smokeChecksChanged?: boolean;
+	outcome?: Outcome; reason?: string; resolvedBy?: string; checksChanged?: boolean;
 	commit?: string; rejected?: string; notAttempted?: string;
 	/** The smoke sections the post-fix check reran; absent when it ran the full suite. */
 	smokeSections?: string[];

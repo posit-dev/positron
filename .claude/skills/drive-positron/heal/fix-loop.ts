@@ -22,7 +22,7 @@ import { flagValue, readResults, unknownArg, type SmokeResults } from '../test/s
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
 import { earlierVerdicts, fixedBefore, inSections, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
-import { smokeChecksChanged } from './links.ts';
+import { checksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
 
@@ -150,7 +150,7 @@ function main(): number {
 			continue;
 		}
 
-		const changed = smokeChecksChanged(touched);
+		const changed = checksChanged(touched);
 		git('add', '--', SKILL_PREFIX);
 		// --no-verify: the pre-commit hook needs the full dev setup, and check.ts runs next.
 		git('-c', 'user.name=positron-bot', '-c', 'user.email=positron-bot@posit.co', 'commit', '-q', '--no-verify', '-m', `drive-positron: fix ${f.id}\n\n${o.reason}`);
@@ -183,7 +183,7 @@ function main(): number {
 				: reg.length ? `turned red: ${reg.map(c => `${c.name} (${c.problem.slice(0, 160)})`).join('; ')}`
 					: f.case && !after.cases.some(c => c.name === f.case && c.status === 'PASS') ? `its own case "${f.case}" still fails`
 						: '';
-		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, smokeChecksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}), ...(verdict ? { rejected: verdict } : {}) }));
+		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, checksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}), ...(verdict ? { rejected: verdict } : {}) }));
 		if (verdict) {
 			discard(pre, false);
 			console.log(`fix-loop: ${f.id} fix rejected: ${verdict}`);

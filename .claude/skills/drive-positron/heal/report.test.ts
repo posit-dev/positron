@@ -15,7 +15,7 @@ const f = (id: string, extra: Partial<Finding> = {}): Finding => ({
 	id, source: 'smoke', case: id, helper: 'x.sh', steps: ['s'], observed: `obs ${id}`, expected: 'e',
 	reproductions: [{ at: 't', by: 'smoke', result: 'fail', observed: 'first' }, { at: 't', by: 'rerun', result: 'fail', observed: 'second' }], ...extra,
 });
-const night = (over: Partial<Night> = {}): Night => ({ findings: [], flakes: [], unconfirmed: [], state: {}, smokeRed: false, jobFailed: null, costs: [], smokeDiff: '', ...over });
+const night = (over: Partial<Night> = {}): Night => ({ findings: [], flakes: [], unconfirmed: [], state: {}, smokeRed: false, jobFailed: null, costs: [], checksDiff: '', ...over });
 
 test('a green night with nothing found sends nothing', () => {
 	assert.equal(shouldNotify(night()), false);
@@ -40,12 +40,14 @@ test('cost splits finder and fixer', () => {
 	assert.deepEqual(totalCost([{ label: 'finder-session', usd: 2 }, { label: 'fixer-a', usd: 1.5 }, { label: 'fixer-b', usd: null }]), { finder: 2, fixer: 1.5, total: 3.5 });
 });
 
-test('PR body lists each finding with both runs, and leads with smoke checks changed', () => {
-	const n = night({ findings: [f('a', { outcome: 'fixed', smokeChecksChanged: true, reason: 'why it changed' }), f('d', { outcome: 'product' })], smokeDiff: '-old\n+new' });
+test('PR body lists each finding with both runs, and leads with checks changed', () => {
+	const n = night({ findings: [f('a', { outcome: 'fixed', checksChanged: true, reason: 'why it changed' }), f('d', { outcome: 'product' })], checksDiff: '-old\n+new' });
 	const body = prBody(n, 'https://run');
-	assert.ok(body.startsWith('### Smoke checks changed'));
+	assert.ok(body.startsWith('### Checks changed'));
 	assert.match(body, /why it changed/);
 	assert.match(body, /```diff\n-old\n\+new\n```/);
+	assert.match(slackText(n, 'u', null), /changes test\/ or heal\//);
+	assert.doesNotMatch(slackText(night({ findings: [f('a', { outcome: 'fixed' })] }), 'u', null), /heal\//);
 	assert.match(body, /first.*second/s);
 	assert.match(prTitle(n), /1 helper fix/);
 });
@@ -158,20 +160,20 @@ test('loadNight on an empty dir is a quiet green night', () => {
 });
 
 test('PR body stays under the GitHub limit with a huge diff and many findings', () => {
-	const many = Array.from({ length: 300 }, (_, i) => f(`f${i}`, { outcome: 'fixed', smokeChecksChanged: true, reason: 'r'.repeat(300), observed: 'o'.repeat(500) }));
-	const body = prBody(night({ findings: many, smokeDiff: '+x\n'.repeat(100000) }), 'https://run');
+	const many = Array.from({ length: 300 }, (_, i) => f(`f${i}`, { outcome: 'fixed', checksChanged: true, reason: 'r'.repeat(300), observed: 'o'.repeat(500) }));
+	const body = prBody(night({ findings: many, checksDiff: '+x\n'.repeat(100000) }), 'https://run');
 	assert.ok(body.length < 65536, String(body.length));
 	assert.match(body, /truncated, see the run/);
 	assert.match(body, /And \d+ more, see the run summary/);
 });
 
 test('the diff fence outgrows backticks inside the diff', () => {
-	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', smokeChecksChanged: true })], smokeDiff: '+```js\n+x\n+```' }), 'u');
+	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', checksChanged: true })], checksDiff: '+```js\n+x\n+```' }), 'u');
 	assert.match(body, /````diff\n\+```js/);
 });
 
 test('changed smoke checks with a blank diff say so instead of an empty fence', () => {
-	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', smokeChecksChanged: true })], smokeDiff: '  \n' }), 'u');
+	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', checksChanged: true })], checksDiff: '  \n' }), 'u');
 	assert.match(body, /\(diff unavailable\)/);
 	assert.doesNotMatch(body, /```diff/);
 });

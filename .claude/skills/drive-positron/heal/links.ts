@@ -48,8 +48,9 @@ export function staleBranches(branches: string[], openHeads: string[], now: Date
 	});
 }
 
-export function smokeChecksChanged(paths: string[]): boolean {
-	return paths.includes(`${SKILL_PREFIX}test/smoke.ts`);
+/** A change to test/ or heal/, which the post-fix check itself runs, so a reviewer looks at it first. */
+export function checksChanged(paths: string[]): boolean {
+	return paths.some(p => p.startsWith(`${SKILL_PREFIX}test/`) || p.startsWith(`${SKILL_PREFIX}heal/`));
 }
 
 const VERBS: Record<string, string[]> = {
