@@ -170,11 +170,11 @@ export enum SessionStartReasonId {
 	/** A notebook's kernel was selected before its runtime was registered, and started once it was. */
 	NotebookKernelSelectionDeferred = 'notebookKernelSelectionDeferred',
 
-	/** A notebook was opened in the Positron notebook editor as the active tab, not a preview tab. */
+	/**
+	 * A notebook was opened in the Positron notebook editor. In a preview or
+	 * background tab, its session starts once the tab is active and pinned.
+	 */
 	NotebookEditorOpened = 'notebookEditorOpened',
-
-	/** A notebook's session waited while it was a preview or background tab, and started once it became the active, non-preview tab. */
-	NotebookEditorActivated = 'notebookEditorActivated',
 
 	/** A kernel restart was requested for a notebook with no session. */
 	NotebookKernelRestart = 'notebookKernelRestart',

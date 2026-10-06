@@ -79,7 +79,6 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 	[SessionStartReasonId.NotebookKernelSelected]: args => localize2('positron.sessionStartReason.notebookKernelSelected', "The {0} kernel was selected for {1}", args.runtimeName, args.notebookFileName),
 	[SessionStartReasonId.NotebookKernelSelectionDeferred]: args => localize2('positron.sessionStartReason.notebookKernelSelectionDeferred', "The {0} kernel was selected for {1} and started once Positron found it", args.runtimeName, args.notebookFileName),
 	[SessionStartReasonId.NotebookEditorOpened]: args => localize2('positron.sessionStartReason.notebookEditorOpened', "{0} was opened", args.notebookFileName),
-	[SessionStartReasonId.NotebookEditorActivated]: args => localize2('positron.sessionStartReason.notebookEditorActivated', "You switched to {0} or kept its preview tab open", args.notebookFileName),
 	[SessionStartReasonId.NotebookKernelRestart]: args => localize2('positron.sessionStartReason.notebookKernelRestart', "Restart Kernel was used in {0} with no kernel running", args.notebookFileName),
 	[SessionStartReasonId.ExtensionApiSelect]: args => args.requestingExtensionName ?
 		localize2('positron.sessionStartReason.extensionApiSelectByExtension', "The {0} extension selected this interpreter", args.requestingExtensionName) :

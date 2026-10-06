@@ -67,7 +67,6 @@ describe('getSessionStartReasonLabel', () => {
 			  "newFolderNotebook": "You created a new folder from the Jupyter Notebook template",
 			  "notebookCellsExecuted": "Cells in analysis.ipynb were run with no kernel running",
 			  "notebookCodeFragmentExecuted": "Selected code in analysis.ipynb was run with no kernel running",
-			  "notebookEditorActivated": "You switched to analysis.ipynb or kept its preview tab open",
 			  "notebookEditorOpened": "analysis.ipynb was opened",
 			  "notebookKernelRestart": "Restart Kernel was used in analysis.ipynb with no kernel running",
 			  "notebookKernelSelected": "The R 4.4.1 kernel was selected for analysis.ipynb",

@@ -338,7 +338,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 			expect(session.metadata.startReasonId).toBe(SessionStartReasonId.NotebookKernelSelected);
 		});
 
-		it('starts the deferred session when a preview tab is pinned', async () => {
+		it('starts the deferred session when a preview tab is pinned, keeping the reason it was deferred for', async () => {
 			setActive(positronInput);
 			setPinned(positronInput, false);
 
@@ -353,7 +353,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 
 			const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
 			expect(session.runtimeMetadata).toBe(runtime);
-			expect(session.metadata.startReasonId).toBe(SessionStartReasonId.NotebookEditorActivated);
+			expect(session.metadata.startReasonId).toBe(SessionStartReasonId.NotebookKernelSelected);
 		});
 
 		it('does NOT start a deferred session if the kernel was deselected before the editor became active+pinned', async () => {

@@ -53,9 +53,12 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	/**
 	 * Map of Positron notebook URIs whose selected kernel hasn't been started yet,
 	 * because the editor has not become active+pinned. Stored kernel is started
-	 * when the editor satisfies the gate.
+	 * when the editor satisfies the gate, with the reason it was deferred for.
 	 */
-	private readonly _pendingPositronAutoStarts = new ResourceMap<RuntimeNotebookKernel>();
+	private readonly _pendingPositronAutoStarts = new ResourceMap<{
+		readonly kernel: RuntimeNotebookKernel;
+		readonly startReason: IRuntimeSessionStartReason;
+	}>();
 
 	/** Per-group EDITOR_PIN listener disposables, keyed by group ID. */
 	private readonly _groupListeners = new Map<GroupIdentifier, DisposableStore>();
@@ -101,7 +104,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 					}
 					if (this._isPositronNotebookEditorInput(notebookUri) &&
 						!this._isActiveAndPinnedPositronNotebookEditor(notebookUri)) {
-						this._pendingPositronAutoStarts.set(notebookUri, kernel);
+						this._deferAutoStart(notebookUri, kernel, { id: SessionStartReasonId.NotebookKernelSelectionDeferred });
 						continue;
 					}
 					await kernel.ensureSessionStarted(notebookUri, { id: SessionStartReasonId.NotebookKernelSelectionDeferred });
@@ -174,7 +177,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 					// background tabs the user never focuses.
 					if (this._isPositronNotebookEditorInput(e.notebook) &&
 						!this._isActiveAndPinnedPositronNotebookEditor(e.notebook)) {
-						this._pendingPositronAutoStarts.set(e.notebook, newKernel);
+						this._deferAutoStart(e.notebook, newKernel, { id: SessionStartReasonId.NotebookKernelSelected });
 						return;
 					}
 					await newKernel.ensureSessionStarted(e.notebook, { id: SessionStartReasonId.NotebookKernelSelected });
@@ -515,7 +518,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		// the gate that prevents kernels from being created for preview tabs
 		// and for backgrounded restored tabs the user never focuses.
 		if (!this._isActiveAndPinnedPositronNotebookEditor(instance.uri)) {
-			this._pendingPositronAutoStarts.set(instance.uri, kernel);
+			this._deferAutoStart(instance.uri, kernel, { id: SessionStartReasonId.NotebookEditorOpened });
 			return;
 		}
 
@@ -561,8 +564,28 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			return;
 		}
 		this._pendingPositronAutoStarts.delete(uri);
-		pending.ensureSessionStarted(uri, { id: SessionStartReasonId.NotebookEditorActivated })
+		pending.kernel.ensureSessionStarted(uri, pending.startReason)
 			.catch(err => this._logService.error(`Error starting deferred notebook session: ${err}`));
+	}
+
+	/**
+	 * Defers a kernel's session start until the notebook's editor is
+	 * active+pinned. The session keeps the reason it would have started with
+	 * had the editor been active+pinned; becoming active+pinned only lets it
+	 * start.
+	 *
+	 * @param uri The notebook's URI.
+	 * @param kernel The kernel to start.
+	 * @param startReason Why the kernel would have started.
+	 */
+	private _deferAutoStart(uri: URI, kernel: RuntimeNotebookKernel, startReason: IRuntimeSessionStartReason): void {
+		// Keep the first reason for a kernel. Had the editor been active+pinned,
+		// the first request would have started the session and later ones
+		// would have found it already starting.
+		if (this._pendingPositronAutoStarts.get(uri)?.kernel === kernel) {
+			return;
+		}
+		this._pendingPositronAutoStarts.set(uri, { kernel, startReason });
 	}
 
 	private _isPositronNotebookEditorInput(uri: URI): boolean {
