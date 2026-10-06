@@ -13,6 +13,7 @@ import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { NewFolderFromGitModalDialog } from '../../newFolderFromGitModalDialog.js';
 
@@ -209,6 +210,22 @@ describe('NewFolderFromGitModalDialog', () => {
 		expect(createFolder).not.toHaveBeenCalled();
 		expect(await screen.findByText('A folder name is required.')).toBeInTheDocument();
 		expect(screen.queryByText('A folder named \'positron\' already exists.')).not.toBeInTheDocument();
+	});
+
+	it('reports a failed clone as an error notification once the dialog is gone', async () => {
+		const user = userEvent.setup();
+		const error = vi.fn();
+		ctx.instantiationService.stub(INotificationService, { error });
+		const { createFolder } = renderDialog();
+		createFolder.mockRejectedValue(new Error('command \'git.clone\' not found'));
+
+		// A URL can carry credentials, so the notification must not repeat it.
+		await user.type(repoUrl(), 'https://astrid:secret-token@github.com/posit-dev/positron.git');
+		await user.click(screen.getByRole('button', { name: 'OK' }));
+
+		await vi.waitFor(() => expect(error).toHaveBeenCalledWith(
+			'Could not clone the repository: command \'git.clone\' not found'
+		));
 	});
 
 	it('refuses to create a folder that already exists', async () => {

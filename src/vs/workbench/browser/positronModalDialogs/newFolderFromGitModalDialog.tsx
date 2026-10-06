@@ -12,6 +12,7 @@ import { useCallback, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../nls.js';
 import { URI } from '../../../base/common/uri.js';
+import { toErrorMessage } from '../../../base/common/errorMessage.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
 import { folderNameFromGitRepoUrl } from './newFolderFromGitFolderName.js';
 import { Checkbox } from '../positronComponents/positronModalDialog/components/checkbox.js';
@@ -182,7 +183,18 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 				}
 				// Dispose dialog immediately, then start cloning
 				props.renderer.dispose();
-				await props.createFolder(result);
+				try {
+					await props.createFolder(result);
+				} catch (err) {
+					// The Git extension reports clone failures itself, so this sees only a clone
+					// that never started. The dialog is gone, so notify instead, without the URL,
+					// which can contain credentials.
+					services.notificationService.error(localize(
+						'positron.gitCloneFailed',
+						"Could not clone the repository: {0}",
+						toErrorMessage(err)
+					));
+				}
 			}}
 			onCancel={() => props.renderer.dispose()}
 		>

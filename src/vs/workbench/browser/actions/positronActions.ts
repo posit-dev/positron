@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,9 +8,14 @@ import { ITelemetryData } from '../../../base/common/actions.js';
 import { ServicesAccessor } from '../../../editor/browser/editorExtensions.js';
 import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
 import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
+import { CommandsRegistry, ICommandService } from '../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../platform/notification/common/notification.js';
 import { workspacesCategory } from './workspaceActions.js';
 import { Action2, MenuId, registerAction2 } from '../../../platform/actions/common/actions.js';
 import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
+import { IExtensionService } from '../../services/extensions/common/extensions.js';
+import { checkGitAvailable } from './positronGitAvailability.js';
 import { showNewFolderFromGitModalDialog } from '../positronModalDialogs/newFolderFromGitModalDialog.js';
 import { showNewFolderFlowModalDialog } from '../positronNewFolderFlow/newFolderFlowModalDialog.js';
 
@@ -97,6 +102,18 @@ export class PositronNewFolderFromGitAction extends Action2 {
 	 * @param accessor The services accessor.
 	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
+		// Command links run this action even when its precondition is false.
+		const gitAvailable = await checkGitAvailable({
+			extensionService: accessor.get(IExtensionService),
+			commandRegistry: CommandsRegistry,
+			configurationService: accessor.get(IConfigurationService),
+			commandService: accessor.get(ICommandService),
+			notificationService: accessor.get(INotificationService),
+		});
+		if (!gitAvailable) {
+			return;
+		}
+
 		// Show the new folder from Git modal dialog.
 		await showNewFolderFromGitModalDialog();
 	}
