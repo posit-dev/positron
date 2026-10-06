@@ -114,6 +114,70 @@ describe('Help search lifecycle', () => {
 		expect(await pending).toBe(true);
 	});
 
+	it.each([RuntimeState.Busy, RuntimeState.Interrupting, RuntimeState.Idle])('explicit cancellation while %s prevents dispatch or late navigation', async initialState => {
+		vi.useFakeTimers();
+		state = initialState;
+		const ack = new DeferredPromise<boolean>();
+		search.mockReturnValueOnce(ack.p);
+		const pending = service.searchHelp('old query').catch(error => error);
+		const id = search.mock.calls[0]?.[1];
+		service.cancelSearch();
+		service.cancelSearch();
+		expect(await pending).toBeInstanceOf(CancellationError);
+		state = RuntimeState.Idle;
+		stateEvents.fire(state);
+		await ack.complete(true);
+		if (id) {
+			emitResult(id);
+		}
+		await vi.advanceTimersByTimeAsync(HELP_SEARCH_TIMEOUT_MS);
+		expect(search).toHaveBeenCalledTimes(initialState === RuntimeState.Idle ? 1 : 0);
+		expect(open).not.toHaveBeenCalled();
+	});
+
+	it('only dispatches the replacement after a busy interpreter becomes idle', async () => {
+		state = RuntimeState.Busy;
+		const oldRequest = service.searchHelp('old query').catch(error => error);
+		const newRequest = service.searchHelp('new query');
+		expect(await oldRequest).toBeInstanceOf(CancellationError);
+		state = RuntimeState.Idle;
+		stateEvents.fire(state);
+		state = RuntimeState.Busy;
+		stateEvents.fire(state);
+		state = RuntimeState.Idle;
+		stateEvents.fire(state);
+		expect(search).toHaveBeenCalledExactlyOnceWith('new query', expect.any(String));
+		emitResult(search.mock.calls[0][1]);
+		expect(await newRequest).toBe(true);
+		expect(open).toHaveBeenCalledOnce();
+	});
+
+	it('ignores the replaced search acknowledgement and navigation after the new result', async () => {
+		const oldAck = new DeferredPromise<boolean>();
+		search.mockReturnValueOnce(oldAck.p);
+		const oldRequest = service.searchHelp('old query').catch(error => error);
+		const oldId = search.mock.calls[0][1];
+		const newRequest = service.searchHelp('new query');
+		expect(await oldRequest).toBeInstanceOf(CancellationError);
+		emitResult(search.mock.calls[1][1]);
+		expect(await newRequest).toBe(true);
+		await oldAck.complete(true);
+		emitResult(oldId);
+		expect(open).toHaveBeenCalledOnce();
+	});
+
+	it('rechecks explicit cancellation after asynchronously opening the Help view', async () => {
+		const view = new DeferredPromise<undefined>();
+		openView.mockReturnValueOnce(view.p);
+		const pending = service.searchHelp('old query').catch(error => error);
+		emitResult(search.mock.calls[0][1], 'http://localhost:12345/search');
+		service.cancelSearch();
+		expect(await pending).toBeInstanceOf(CancellationError);
+		await view.complete(undefined);
+		await Promise.resolve();
+		expect(service.helpEntries).toHaveLength(0);
+	});
+
 	it('cancels navigation when the foreground session changes', async () => {
 		const pending = service.searchHelp('linear model').catch(error => error);
 		const id = search.mock.calls[0][1];

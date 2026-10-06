@@ -27,6 +27,7 @@ describe('Help ActionBars', () => {
 	afterAll(() => { runtimeEvents.dispose(); foregroundEvents.dispose(); });
 	const showHelpTopicForForegroundSession = vi.fn<IPositronHelpService['showHelpTopicForForegroundSession']>().mockResolvedValue(HelpTopicResult.Found);
 	const searchHelp = vi.fn<IPositronHelpService['searchHelp']>().mockResolvedValue(true);
+	const cancelSearch = vi.fn<IPositronHelpService['cancelSearch']>();
 	const info = vi.fn<INotificationService['info']>();
 	const warn = vi.fn<INotificationService['warn']>();
 	const getHelpTopics = vi.fn<IPositronHelpService['getHelpTopics']>().mockResolvedValue([
@@ -51,6 +52,7 @@ describe('Help ActionBars', () => {
 		onDidChangeCurrentHelpEntry: Event.None,
 		getHelpTopics,
 		searchHelp,
+		cancelSearch,
 		showHelpTopicForForegroundSession,
 	});
 	const ctx = createTestContainer()
@@ -359,6 +361,158 @@ describe('Help ActionBars', () => {
 			expect(screen.getByRole('option', { name: 'plot.new' })).toBeInTheDocument();
 			expect(screen.queryByRole('option', { name: 'old session' })).not.toBeInTheDocument();
 			expect(input).not.toHaveAttribute('aria-activedescendant');
+		});
+	});
+
+	describe('pending submissions', () => {
+		it.each([RuntimeState.Busy, RuntimeState.Interrupting, RuntimeState.Idle])('keeps the query and Clear editable while %s', async state => {
+			runtimeState = state;
+			const request = new DeferredPromise<boolean>();
+			searchHelp.mockReturnValueOnce(request.p);
+			const user = userEvent.setup();
+			rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+			const input = screen.getByRole('combobox');
+			await user.type(input, 'plot{Enter}');
+			expect(input).toBeEnabled();
+			expect(input).toHaveFocus();
+			expect(screen.getByRole('status')).toHaveTextContent(state === RuntimeState.Idle ? 'Searching...' : 'Waiting for interpreter...');
+			await user.keyboard('.new');
+			expect(input).toHaveValue('plot.new');
+			expect(searchHelp).toHaveBeenCalledExactlyOnceWith('plot');
+			await user.click(screen.getByRole('button', { name: 'Clear help search' }));
+			expect(input).toHaveValue('');
+			expect(cancelSearch).toHaveBeenCalledOnce();
+			expect(screen.queryByRole('status')).not.toBeInTheDocument();
+			await act(async () => { await request.complete(false); });
+			expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({ info: [], warn: [] });
+		});
+
+		it.each(['search', 'topic'])('Escape dismisses a pending %s and ignores its late error', async kind => {
+			const searchRequest = new DeferredPromise<boolean>();
+			const topicRequest = new DeferredPromise<HelpTopicResult>();
+			if (kind === 'topic') {
+				showHelpTopicForForegroundSession.mockReturnValueOnce(topicRequest.p);
+			} else {
+				searchHelp.mockReturnValueOnce(searchRequest.p);
+			}
+			const user = userEvent.setup();
+			rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+			const input = screen.getByRole('combobox');
+			await user.type(input, 'plot');
+			if (kind === 'topic') {
+				await user.click(await screen.findByRole('option', { name: /plot graphics/ }));
+			} else {
+				await user.keyboard('{Enter}');
+			}
+			await user.keyboard('{Escape}{Escape}');
+			expect(cancelSearch).toHaveBeenCalledOnce();
+			expect(input).toHaveFocus();
+			expect(input).toHaveValue('plot');
+			expect(screen.queryByRole('status')).not.toBeInTheDocument();
+			await act(async () => { await (kind === 'topic' ? topicRequest : searchRequest).error(new Error('late failure')); });
+			expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({ info: [], warn: [] });
+		});
+
+		it.each(['old first', 'new first'])('replaces pending searches and ignores obsolete completion: %s', async order => {
+			const oldRequest = new DeferredPromise<boolean>();
+			const newRequest = new DeferredPromise<boolean>();
+			searchHelp.mockReturnValueOnce(oldRequest.p).mockReturnValueOnce(newRequest.p);
+			const user = userEvent.setup();
+			rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+			await user.type(screen.getByRole('combobox'), 'plot{Enter}{Enter}');
+			expect(searchHelp).toHaveBeenCalledOnce();
+			await user.keyboard('.new{Enter}{Enter}');
+			expect(searchHelp.mock.calls).toEqual([['plot'], ['plot.new']]);
+			expect(cancelSearch).toHaveBeenCalledOnce();
+			if (order === 'old first') {
+				await act(async () => { await oldRequest.complete(false); });
+				expect(screen.getByRole('status')).toBeInTheDocument();
+				await act(async () => { await newRequest.complete(false); });
+			} else {
+				await act(async () => { await newRequest.complete(false); });
+				await act(async () => { await oldRequest.error(new Error('obsolete')); });
+			}
+			expect(screen.queryByRole('status')).not.toBeInTheDocument();
+			expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({
+				info: [['Help search is unavailable for the active interpreter.']], warn: [],
+			});
+		});
+
+		it('replaces a full search with a selected topic without duplicate pointer submissions', async () => {
+			const oldRequest = new DeferredPromise<boolean>();
+			const topicRequest = new DeferredPromise<HelpTopicResult>();
+			searchHelp.mockReturnValueOnce(oldRequest.p);
+			showHelpTopicForForegroundSession.mockReturnValueOnce(topicRequest.p);
+			const user = userEvent.setup();
+			rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+			await user.type(screen.getByRole('combobox'), 'plot{Enter}');
+			await user.keyboard('.');
+			await user.dblClick(await screen.findByRole('option', { name: /plot graphics/ }));
+			await user.keyboard('{Enter}{Enter}');
+			expect(searchHelp).toHaveBeenCalledExactlyOnceWith('plot');
+			expect(cancelSearch).toHaveBeenCalledOnce();
+			expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot');
+			await act(async () => { await oldRequest.complete(false); });
+			expect(screen.getByRole('status')).toBeInTheDocument();
+			await act(async () => { await topicRequest.complete(HelpTopicResult.NotFound); });
+			expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({
+				info: [['No help found for \'graphics::plot\'.']], warn: [],
+			});
+		});
+
+		it.each(['switch', 'remove'])('ignores completion in the same batch as session %s', async change => {
+			const request = new DeferredPromise<boolean>();
+			searchHelp.mockReturnValueOnce(request.p);
+			const user = userEvent.setup();
+			rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+			const input = screen.getByRole('combobox');
+			await user.type(input, 'plot{Enter}');
+			await act(async () => {
+				foregroundEvents.fire(change === 'switch' ? stubInterface<ILanguageRuntimeSession>({
+					sessionId: 'new-r-session',
+					getRuntimeState: () => RuntimeState.Idle,
+					onDidChangeRuntimeState: Event.None,
+					runtimeMetadata: session.runtimeMetadata,
+				}) : undefined);
+				await request.complete(false);
+			});
+			expect(screen.queryByRole('status')).not.toBeInTheDocument();
+			expect(input).toHaveValue('plot');
+			expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({ info: [], warn: [] });
+			if (change === 'remove') {
+				expect(input).toBeDisabled();
+			} else {
+				await user.keyboard('{Enter}');
+				expect(searchHelp).toHaveBeenCalledTimes(2);
+			}
+		});
+
+		it('updates busy/idle status without submitting again', async () => {
+			runtimeState = RuntimeState.Busy;
+			const request = new DeferredPromise<boolean>();
+			searchHelp.mockReturnValueOnce(request.p);
+			const user = userEvent.setup();
+			rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+			await user.type(screen.getByRole('combobox'), 'plot{Enter}');
+			for (const state of [RuntimeState.Idle, RuntimeState.Busy, RuntimeState.Idle]) {
+				act(() => { runtimeState = state; runtimeEvents.fire(state); });
+				expect(screen.getByRole('status')).toHaveTextContent(state === RuntimeState.Busy ? 'Waiting for interpreter...' : 'Searching...');
+			}
+			expect(searchHelp).toHaveBeenCalledOnce();
+			await act(async () => { await request.complete(true); });
+			expect(screen.queryByRole('status')).not.toBeInTheDocument();
+		});
+
+		it('cancels a pending search when the component unmounts', async () => {
+			const request = new DeferredPromise<boolean>();
+			searchHelp.mockReturnValueOnce(request.p);
+			const user = userEvent.setup();
+			const view = rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+			await user.type(screen.getByRole('combobox'), 'plot{Enter}');
+			view.unmount();
+			expect(cancelSearch).toHaveBeenCalledOnce();
+			await act(async () => { await request.error(new Error('unmounted')); });
+			expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({ info: [], warn: [] });
 		});
 	});
 

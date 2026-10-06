@@ -120,6 +120,9 @@ export interface IPositronHelpService {
 	/** Search help using the foreground interpreter session. */
 	searchHelp(query: string): Promise<boolean>;
 
+	/** Cancel the pending full search and ignore its subsequent navigation. */
+	cancelSearch(): void;
+
 	/** List autocomplete topics from the foreground interpreter session. */
 	getHelpTopics(query: string, limit: number): Promise<HelpTopicSuggestion[]>;
 
@@ -377,7 +380,7 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		}
 	}
 
-	private cancelSearch(): void {
+	cancelSearch(): void {
 		const request = this._search;
 		this._search = undefined;
 		void request?.completion.error(new CancellationError());
