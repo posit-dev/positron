@@ -116,10 +116,7 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 	closeInstance(identifier: string): void {
 		const instance = this._instances.get(identifier);
 		if (instance && !instance.isInline) {
-			deleteValues(this._varIdToInstanceId, identifier);
-			deleteValues(this._variablePathToInstanceId, identifier);
-			this._instances.delete(identifier);
-			this._instanceStores.deleteAndDispose(identifier);
+			this.removeInstance(identifier);
 		}
 	}
 
@@ -238,15 +235,29 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 		this._instances.set(identifier, instance);
 		this._instanceStores.set(identifier, store);
 
-		// When the object goes away, forget the variable bindings, but keep the instance: an open
-		// editor still shows it, closed, until the user closes the editor.
+		// When the object goes away, forget the variable bindings. Keep an editor's instance: the
+		// editor still shows it, closed, until the user closes it. An inline view shows its own
+		// notice once closed, so remove its instance once the other close listeners have run.
 		store.add(instance.onDidClose(() => {
 			deleteValues(this._varIdToInstanceId, identifier);
 			deleteValues(this._variablePathToInstanceId, identifier);
+			if (inline) {
+				queueMicrotask(() => this.removeInstance(identifier));
+			}
 		}));
 
 		this._onDidRegisterInstanceEmitter.fire(instance);
 		return instance;
+	}
+
+	/**
+	 * Forgets an instance and disposes it.
+	 */
+	private removeInstance(identifier: string): void {
+		deleteValues(this._varIdToInstanceId, identifier);
+		deleteValues(this._variablePathToInstanceId, identifier);
+		this._instances.delete(identifier);
+		this._instanceStores.deleteAndDispose(identifier);
 	}
 
 	/**

@@ -76,6 +76,19 @@ describe('PositronObjectExplorerService', () => {
 		expect(openEditor).not.toHaveBeenCalled();
 	});
 
+	it('disposes inline object explorers when their comm closes', async () => {
+		const { service, openComm } = await setup();
+		const client = await openComm({ title: 'd', inline_only: true });
+		const closed = vi.fn();
+		ctx.disposables.add(service.getInstance(client.getClientId())!.onDidClose(closed));
+
+		client.setClientState(RuntimeClientState.Closed);
+		await Promise.resolve();
+
+		expect(closed).toHaveBeenCalled();
+		expect(service.getInstance(client.getClientId())).toBeUndefined();
+	});
+
 	it('forgets variable bindings when the comm closes, and disposes the instance when its editor closes', async () => {
 		const { service, openComm } = await setup();
 		const client = await openComm({ title: 'd' });

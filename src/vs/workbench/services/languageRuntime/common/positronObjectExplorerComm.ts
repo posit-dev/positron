@@ -66,7 +66,7 @@ export interface SearchResult {
 	total_matches: number;
 
 	/**
-	 * True if the search stopped early because max_results or the node
+	 * True if the search stopped early because max_results or the internal
 	 * budget was reached
 	 */
 	truncated: boolean;
@@ -349,9 +349,9 @@ export class PositronObjectExplorerComm extends PositronBaseComm {
 	 *
 	 * Depth-first, case-insensitive substring search over node display
 	 * names, and over the display values of leaves (nodes that are neither
-	 * containers nor cycles), bounded by max_depth and an internal node
-	 * budget. Returns matches and every ancestor of a match, in pre-order,
-	 * so the frontend can render the results as a tree.
+	 * containers nor cycles), bounded by max_depth and an internal time or
+	 * size budget. Returns matches and every ancestor of a match, in
+	 * pre-order, so the frontend can render the results as a tree.
 	 *
 	 * @param query The text to search for
 	 * @param maxDepth Maximum depth below the root to descend (root children

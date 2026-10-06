@@ -179,7 +179,8 @@ class CopyAccessorAction extends Action2 {
 			f1: true,
 			precondition: OBJECT_EXPLORER_FOCUSED,
 			keybinding: {
-				weight: KeybindingWeight.EditorContrib,
+				// Above the external terminal's binding of the same chord.
+				weight: KeybindingWeight.WorkbenchContrib + 1,
 				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyC,
 				when: OBJECT_EXPLORER_FOCUSED
 			}
@@ -310,7 +311,7 @@ class FocusSearchAction extends Action2 {
 			keybinding: {
 				weight: KeybindingWeight.EditorContrib,
 				primary: KeyMod.CtrlCmd | KeyCode.KeyF,
-				when: POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR
+				when: OBJECT_EXPLORER_FOCUSED
 			}
 		});
 	}
