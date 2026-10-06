@@ -50,6 +50,15 @@ export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
 export const POSITRON_HELP_SERVICE_ID = 'positronHelpService';
 
 /**
+ * The outcome of showing a topic with the foreground interpreter's help client.
+ */
+export enum HelpTopicResult {
+	Found = 'found',
+	NotFound = 'notFound',
+	Unavailable = 'unavailable',
+}
+
+/**
  * IPositronHelpService interface.
  */
 export interface IPositronHelpService {
@@ -114,8 +123,8 @@ export interface IPositronHelpService {
 	/** List autocomplete topics from the foreground interpreter session. */
 	getHelpTopics(query: string, limit: number): Promise<HelpTopicSuggestion[]>;
 
-	/** Show an exact topic using the foreground interpreter session. */
-	showHelpTopicForForegroundSession(topic: string): Promise<boolean>;
+	/** Show an exact topic, distinguishing missing help from an unavailable interpreter. */
+	showHelpTopicForForegroundSession(topic: string): Promise<HelpTopicResult>;
 
 	/**
 	 * Navigates the help service.
@@ -382,8 +391,12 @@ export class PositronHelpService extends Disposable implements IPositronHelpServ
 		return this.foregroundHelpClient()?.getHelpTopics(query, limit) ?? Promise.resolve([]);
 	}
 
-	showHelpTopicForForegroundSession(topic: string): Promise<boolean> {
-		return this.foregroundHelpClient()?.showHelpTopic(topic) ?? Promise.resolve(false);
+	async showHelpTopicForForegroundSession(topic: string): Promise<HelpTopicResult> {
+		const client = this.foregroundHelpClient();
+		if (!client) {
+			return HelpTopicResult.Unavailable;
+		}
+		return await client.showHelpTopic(topic) ? HelpTopicResult.Found : HelpTopicResult.NotFound;
 	}
 
 	private foregroundHelpClient(): HelpClientInstance | undefined {

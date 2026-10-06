@@ -26,6 +26,7 @@ import { ActionBarSeparator } from '../../../../../platform/positronActionBar/br
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { HelpTopicSuggestion } from '../../../../services/languageRuntime/common/positronHelpComm.js';
+import { HelpTopicResult } from '../positronHelpService.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -138,11 +139,15 @@ const HelpSearch = () => {
 		setActiveIndex(-1);
 		setFocused(false);
 		try {
-			const shown = topic
+			const result = topic
 				? await services.positronHelpService.showHelpTopicForForegroundSession(topic.topic)
 				: await services.positronHelpService.searchHelp(value);
-			if (!shown && submission.current === currentSubmission) {
-				services.notificationService.info(localize('positronHelpSearch.unavailable', "Help search is unavailable for the active interpreter."));
+			if (submission.current === currentSubmission) {
+				if (topic && result === HelpTopicResult.NotFound) {
+					services.notificationService.info(localize('positronHelpSearch.notFound', "No help found for '{0}'.", topic.topic));
+				} else if (result === HelpTopicResult.Unavailable || result === false) {
+					services.notificationService.info(localize('positronHelpSearch.unavailable', "Help search is unavailable for the active interpreter."));
+				}
 			}
 		} catch (error) {
 			if (isCancellationError(error) || submission.current !== currentSubmission) {
