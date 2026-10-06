@@ -69,14 +69,78 @@ export function bindConnectionToFreeVariable(
 		candidate = `${variableName}_${suffix}`;
 	}
 
-	// Every occurrence, not just the assignment: a driver is free to refer back to the connection
-	// it made -- to set an option on it, say -- and renaming only the binding would break that.
-	// Bounded by word edges so a name that is a prefix of another identifier is left alone.
-	const renamed = code.replace(
-		new RegExp(`\\b${escapeRegExp(variableName)}\\b`, 'g'),
-		candidate,
-	);
-	return { code: renamed, variableName: candidate };
+	return { code: renameIdentifier(code, variableName, candidate), variableName: candidate };
+}
+
+/**
+ * Renames every mention of an identifier in R or Python code, outside string literals and
+ * comments.
+ *
+ * Every mention, not just the assignment: a driver is free to refer back to the connection it made
+ * -- to set an option on it, say -- and renaming only the binding would break that. Bounded by word
+ * edges so a name that is a prefix of another identifier is left alone.
+ *
+ * Never inside a string, because the strings in a connection snippet are paths, hosts and
+ * database names, and the variable's name turns up in them as an ordinary word: renaming `con` in
+ * `"/ws/con.sqlite"` points the connection at a file that does not exist, and SQLite will quietly
+ * create it.
+ */
+function renameIdentifier(code: string, from: string, to: string): string {
+	const pattern = new RegExp(`\\b${escapeRegExp(from)}\\b`, 'g');
+	let renamed = '';
+	let codeStart = 0;
+	let index = 0;
+	while (index < code.length) {
+		const end = literalEnd(code, index);
+		if (end === undefined) {
+			index += 1;
+			continue;
+		}
+		renamed += code.slice(codeStart, index).replace(pattern, to) + code.slice(index, end);
+		codeStart = index = end;
+	}
+	return renamed + code.slice(codeStart).replace(pattern, to);
+}
+
+/**
+ * Where the string literal or comment starting at `start` ends, or undefined if none starts there.
+ *
+ * Covers what R and Python share -- single, double and backtick quotes with backslash escapes, and
+ * `#` comments -- plus Python's triple-quoted strings and R's raw strings (`r"(...)"`), whose
+ * contents would otherwise read as code. An unterminated literal runs to the end of the code.
+ */
+function literalEnd(code: string, start: number): number | undefined {
+	const char = code[start];
+	if (char === '#') {
+		const newline = code.indexOf('\n', start);
+		return newline === -1 ? code.length : newline;
+	}
+
+	// An R raw string: r"(...)", R'[...]', r"---{...}---" and so on. The `r` must begin a token, so
+	// that an identifier ending in r followed by a string is not mistaken for one.
+	const rawStart = /[rR](?<quote>["'])(?<dashes>-*)(?<open>[([{])/y;
+	rawStart.lastIndex = start;
+	const raw = rawStart.exec(code);
+	if (raw?.groups && (start === 0 || !/\w/.test(code[start - 1]))) {
+		const close = { '(': ')', '[': ']', '{': '}' }[raw.groups.open];
+		const terminator = `${close}${raw.groups.dashes}${raw.groups.quote}`;
+		const end = code.indexOf(terminator, start + raw[0].length);
+		return end === -1 ? code.length : end + terminator.length;
+	}
+
+	if (char !== '"' && char !== '\'' && char !== '`') {
+		return undefined;
+	}
+	const triple = char.repeat(3);
+	const quote = char !== '`' && code.startsWith(triple, start) ? triple : char;
+	for (let index = start + quote.length; index < code.length; index += 1) {
+		if (code[index] === '\\') {
+			index += 1;
+		} else if (code.startsWith(quote, index)) {
+			return index + quote.length;
+		}
+	}
+	return code.length;
 }
 
 function escapeRegExp(value: string): string {

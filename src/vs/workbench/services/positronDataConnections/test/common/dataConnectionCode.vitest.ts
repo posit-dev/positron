@@ -68,6 +68,32 @@ describe('bindConnectionToFreeVariable', () => {
 			.toBe('conn_2 = connect(connection_string)\n');
 	});
 
+	it('leaves the name alone inside a path', () => {
+		// Renaming it there points the connection at a file that does not exist, which SQLite then
+		// quietly creates, empty.
+		expect(bindConnectionToFreeVariable('con <- dbConnect(duckdb::duckdb(), \'/ws/con/people.duckdb\')\n', ['con']).code)
+			.toBe('con_2 <- dbConnect(duckdb::duckdb(), \'/ws/con/people.duckdb\')\n');
+		expect(bindConnectionToFreeVariable('con <- dbConnect(RSQLite::SQLite(), "/ws/con.sqlite")\ndbExecute(con, `SET con`)\n', ['con']).code)
+			.toBe('con_2 <- dbConnect(RSQLite::SQLite(), "/ws/con.sqlite")\ndbExecute(con_2, `SET con`)\n');
+	});
+
+	it('finds the end of a string past escaped quotes', () => {
+		expect(bindConnectionToFreeVariable('conn = connect("say \\"conn\\" con\\\\", conn, \'it\\\'s conn\')\n', ['conn']).code)
+			.toBe('conn_2 = connect("say \\"conn\\" con\\\\", conn_2, \'it\\\'s conn\')\n');
+	});
+
+	it('leaves the name alone in raw strings, triple-quoted strings and comments', () => {
+		expect(bindConnectionToFreeVariable('con <- dbConnect(x, r"(C:\\con\\db)", r"-[con"]-", con) # con\n', ['con']).code)
+			.toBe('con_2 <- dbConnect(x, r"(C:\\con\\db)", r"-[con"]-", con_2) # con\n');
+		expect(bindConnectionToFreeVariable('conn = connect("""\nconn\n""", conn)  # conn\n', ['conn']).code)
+			.toMatchInlineSnapshot(`
+				"conn_2 = connect("""
+				conn
+				""", conn_2)  # conn
+				"
+			`);
+	});
+
 	it('changes nothing when there is no assignment to rename', () => {
 		expect(bindConnectionToFreeVariable('DBI::dbConnect(x)\n', ['con']))
 			.toEqual({ code: 'DBI::dbConnect(x)\n', variableName: undefined });
