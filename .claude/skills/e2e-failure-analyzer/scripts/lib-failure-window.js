@@ -11,10 +11,9 @@
 // them exactly.
 //
 // Imported by e2e-parse-trace.js, e2e-process-project.js and e2e-process-s3.js
-// so the windowing and screencast-frame logic has a single home. NOTE: the older analysis helpers
-// (collectFailingSelectors / selectorTokens / cleanConsole / buildConsoleDigest /
-// parseTrace) predate this module and are still copy-pasted into all three of
-// those files; new shared logic belongs here instead.
+// so the windowing, DOM-presence, console-digest and screencast-frame logic has
+// a single home. NOTE: parseTrace predates this module and is still copied into
+// e2e-process-project.js and e2e-process-s3.js; new shared logic belongs here.
 //
 // Unit tests: node --test ".claude/skills/e2e-failure-analyzer/scripts/test/*.test.js"
 
@@ -57,9 +56,9 @@ const FAILURE_SHOT_MAX_GAP_MS = 2000;
  * `deadlineT` is teardown or post-failure noise, not a cause.
  *
  * Positron's reporting fixture screenshots the page the instant the test
- * function throws, before afterEach hooks run: a `page.screenshot()` with no
- * `path` (a test's own `takeScreenshot` always passes one). When the trace has
- * it, it marks the failure, and the failing action is what ended right before:
+ * function throws, before afterEach hooks run (see findFailureShot). When the
+ * trace has it, it marks the failure, and the failing action is what ended
+ * right before:
  *  - an errored call. Not simply the FIRST errored call: a retry loop (toPass,
  *    a page object's own retry) logs every attempt it catches as an errored
  *    call too, often a minute or more before the one that escaped.
@@ -74,7 +73,11 @@ const FAILURE_SHOT_MAX_GAP_MS = 2000;
  * this falls back to the first errored call, and to null when none errored: a
  * retry loop alone could be teardown polling for something, and a wrong window
  * is worse than none.
- * @returns {{actionStartT: number|null, deadlineT: number|null, method: string|null, inferredFrom?: string} | null}
+ *
+ * `selectors` are what the failing action was waiting for -- its own selector,
+ * plus any `locator('...')` in its error -- for the DOM-presence check. Only
+ * that action's: the selectors of retries the test caught were not what failed.
+ * @returns {{actionStartT: number|null, deadlineT: number|null, method: string|null, selectors: string[], inferredFrom?: string} | null}
  */
 export function findFailureWindow(events) {
 	// Pair each `after` with its own `before` by callId. The nearest preceding
@@ -91,20 +94,37 @@ export function findFailureWindow(events) {
 		}
 		const deadlineT = e.endTime ?? e.startTime ?? null;
 		if (deadlineT == null) { continue; }
+		const selectors = new Set(before?.params?.selector ? [before.params.selector] : []);
+		for (const m of String(e.error.message || '').matchAll(/locator\(['"`](?<selector>[^'"`]+)['"`]\)/g)) {
+			selectors.add(m.groups.selector);
+		}
 		errored.push({
 			actionStartT: before?.startTime ?? null,
 			deadlineT,
 			method: before ? `${before.class || '?'}.${before.method || '?'}` : null,
+			selectors: [...selectors],
 		});
 	}
 
-	const shot = events.findLast(e => e.type === 'before' && e.method === 'screenshot' && !e.params?.path && e.startTime != null);
+	const shot = findFailureShot(events);
 	if (!shot) { return errored[0] ?? null; }
 	const failT = shot.startTime;
 	const escaped = errored.filter(w => w.deadlineT <= failT && failT - w.deadlineT <= FAILURE_SHOT_MAX_GAP_MS);
 	if (escaped.length) { return escaped[escaped.length - 1]; }
 	return findRetryLoopBefore(events, failT)
-		?? { actionStartT: null, deadlineT: failT, method: null, inferredFrom: 'failure screenshot' };
+		?? { actionStartT: null, deadlineT: failT, method: null, selectors: [], inferredFrom: 'failure screenshot' };
+}
+
+/**
+ * The screenshot Positron's reporting fixture takes the instant the test
+ * function throws (reporting.fixtures.ts): `page.screenshot()` with no `path`.
+ * Matched on the Page class because tests take pathless LOCATOR screenshots as
+ * buffers to compare (plots, notebook outputs), and a test's own
+ * `takeScreenshot` always passes a path. Null on a passing attempt, where the
+ * fixture takes none.
+ */
+function findFailureShot(events) {
+	return events.findLast(e => e.type === 'before' && e.class === 'Page' && e.method === 'screenshot' && !e.params?.path && e.startTime != null) ?? null;
 }
 
 // Playwright calls that drive input rather than read state. A run of these is
@@ -132,6 +152,7 @@ function findRetryLoopBefore(events, failT) {
 		actionStartT: befores[first].startTime,
 		deadlineT: loopEndT,
 		method: `${last.class || '?'}.${last.method || '?'}`,
+		selectors: last.params?.selector ? [last.params.selector] : [],
 		inferredFrom: `retry loop (${calls} identical calls${last.params?.selector ? ` on ${last.params.selector}` : ''})`,
 	};
 }
@@ -150,12 +171,18 @@ export function describeWindowSource(win) {
  * bucket is the one that matters most: an event there CANNOT have caused the
  * failure, and is very often the test's own `finally`/teardown (a sign-out, a
  * settings reset) whose side effects look like a root cause if read naively.
- * @returns {'before action' | 'during wait' | 'after deadline' | null}
+ *
+ * When the window has no known start (inferred from the failure screenshot
+ * alone), anything up to the deadline is `before deadline`: calling it `during
+ * wait` would claim it happened while the failing action waited, which nothing
+ * established.
+ * @returns {'before action' | 'during wait' | 'before deadline' | 'after deadline' | null}
  */
 export function phaseLabel(t, window) {
 	if (t == null || !window?.deadlineT) { return null; }
 	if (t > window.deadlineT) { return 'after deadline'; }
-	if (window.actionStartT != null && t < window.actionStartT) { return 'before action'; }
+	if (window.actionStartT == null) { return 'before deadline'; }
+	if (t < window.actionStartT) { return 'before action'; }
 	return 'during wait';
 }
 
@@ -166,8 +193,8 @@ export function phaseLabel(t, window) {
 export function traceEpochOrigin(evts) {
 	for (const e of evts) {
 		if (e.type !== 'screencast-frame' || e.timestamp == null) { continue; }
-		const m = /-(\d{13})\.jpe?g$/.exec(String(e.file || e.sha1 || ''));
-		if (m) { return Number(m[1]) - e.timestamp; }
+		const m = /-(?<epochMs>\d{13})\.jpe?g$/.exec(String(e.file || e.sha1 || ''));
+		if (m) { return Number(m.groups.epochMs) - e.timestamp; }
 	}
 	return null;
 }
@@ -190,18 +217,22 @@ export function screencastFrameEntry(frame) {
 }
 
 /**
- * The last `n` screencast frames at or before the failure, oldest first, so the
- * final one shows the page when the test failed. Taking the trace's last frames
- * instead shows whatever afterEach hooks and fixture teardown did to the page
- * afterwards (a layout reset, a closed session), which reads as the failure
- * state but is not. Falls back to the trace's last frames when no failure
- * window is known or no frame precedes it.
+ * The last `n` screencast frames at or before the failure screenshot, oldest
+ * first, so the final one shows the page when the test threw. Taking the
+ * trace's last frames instead shows whatever afterEach hooks and fixture
+ * teardown did to the page afterwards (a layout reset, a closed session), which
+ * reads as the failure state but is not.
+ *
+ * Cut only at the failure screenshot, never at an errored call: without the
+ * screenshot the first errored call is often a retry the test caught, long
+ * before it failed or finished. In that case (and when no frame precedes the
+ * screenshot) this keeps the trace's last frames.
  */
 export function pickFailureFrames(events, n) {
 	if (n === 0) { return []; }
 	const frames = events.filter(e => e.type === 'screencast-frame');
-	const deadlineT = findFailureWindow(events)?.deadlineT;
-	const upToFailure = deadlineT == null ? [] : frames.filter(f => f.timestamp != null && f.timestamp <= deadlineT);
+	const failT = findFailureShot(events)?.startTime;
+	const upToFailure = failT == null ? [] : frames.filter(f => f.timestamp != null && f.timestamp <= failT);
 	return (upToFailure.length ? upToFailure : frames).slice(-n);
 }
 
@@ -231,15 +262,16 @@ export function snapshotAttrTokens(json) {
  *
  * The wait start comes from findFailureWindow, so this anchors on the same
  * action the timeline's `phaseLabel` buckets do -- the two disagreeing would
- * put "during wait" in one section and "before action" in the other.
+ * put "during wait" in one section and "before action" in the other. Callers
+ * that already hold the window pass it in rather than recomputing it.
  */
-export function buildDomPresence(evts, tokens) {
+export function buildDomPresence(evts, tokens, win = findFailureWindow(evts)) {
 	if (!tokens.length) { return null; }
 	const snaps = evts
 		.filter(e => e.type === 'frame-snapshot' && e.snapshot?.timestamp != null)
 		.map(s => ({ ts: s.snapshot.timestamp, attrs: snapshotAttrTokens(JSON.stringify(s)) }));
 	if (!snaps.length) { return null; }
-	const waitStart = findFailureWindow(evts)?.actionStartT ?? null;
+	const waitStart = win?.actionStartT ?? null;
 	const span = `t=${Math.round(snaps[0].ts)}..${Math.round(snaps[snaps.length - 1].ts)}`;
 	const out = [`\n=== DOM presence across ${snaps.length} frame snapshots (${span}) ===`];
 	out.push("Whether each failing-selector token appeared in a snapshot's class/id ATTRIBUTES (stylesheet and script text are excluded, so a token cannot match its own CSS rule). When a wait window is known, that window is the decisive one: the snapshot span starts at app launch and covers fixture setup, so a token seen only in earlier snapshots was NOT on screen when the failing action ran. 'NEVER present at all' stays AMBIGUOUS on its own -- it fits both a never-rendered element (product open-path bug, strongest when the console digest shows its command fired) and locator drift (rendered under different markup). Disambiguate with the error-context snapshot's stable text/label, not this line alone.");
@@ -258,6 +290,103 @@ export function buildDomPresence(evts, tokens) {
 		out.push(during.length
 			? `- '${tok}': present in ${hits.length}/${snaps.length} snapshots (${range}), ${during.length} of them during the wait (from t=${Math.round(waitStart)}) => it WAS in the DOM while the action waited; a visibility/timeout error is then a timing or dismiss race`
 			: `- '${tok}': present in ${hits.length}/${snaps.length} snapshots (${range}) but NEVER during the wait (from t=${Math.round(waitStart)}) => it was gone, or had not yet rendered, when the action ran -- treat this as absent, not as "rendered then vanished mid-wait"`);
+	}
+	return out.join('\n');
+}
+
+/** Pull stable class/id tokens out of selector strings (the parts that identify
+ *  an element in the serialized DOM, unlike text/regex matchers). */
+export function selectorTokens(selectors) {
+	const tokens = new Set();
+	for (const sel of selectors) {
+		for (const m of String(sel).matchAll(/\.(?<token>[A-Za-z_][\w-]{2,})/g)) { tokens.add(m.groups.token); }
+		for (const m of String(sel).matchAll(/\[id=["'](?<token>[^"']+)["']\]/g)) { tokens.add(m.groups.token); }
+	}
+	return [...tokens];
+}
+
+// ---------------------------------------------------------------------------
+// Console digest
+// ---------------------------------------------------------------------------
+
+/** Strip the `%c`/`color:#...` console-formatting noise VS Code prepends. */
+function cleanConsole(text) {
+	return String(text)
+		.replace(/%c/g, '')
+		.replace(/(?:background|color):\s*#?[0-9a-fA-F]{3,6}/g, '')
+		.replace(/\s;\s/g, ' ')
+		.replace(/\s{2,}/g, ' ')
+		.replace(/^[\s;:-]+/, '')
+		.trim();
+}
+
+// Console lines that match the allowlist / error levels but carry no diagnostic
+// value: internal context-key churn, the dev-only disposable-leak tracker, and
+// benign environment probes on CI runners.
+const CONSOLE_NOISE_RE = /(_setContext|LEAKED DISPOSABLE|No pandoc executable|MetadataLookupWarning|received unexpected error = network timeout)/i;
+
+/**
+ * Digest of high-signal renderer-console lines around the failure window:
+ * command executions (proves a click's command actually fired), runtime-startup
+ * phase transitions (timing races), and errors/warnings. Distinguishes "click
+ * was swallowed" from "command ran but nothing rendered." Consecutive
+ * duplicates (a retried command logs the same line N times) are collapsed with
+ * an (xN) count. Callers that already hold the window pass it in.
+ */
+export function buildConsoleDigest(evts, win = findFailureWindow(evts)) {
+	const ALLOW = /(CommandService#executeCommand|Runtime startup][^\n]*Phase changed|Discovery completed|Uncaught|Unhandled)/i;
+	const MAX_LINES = 28;
+	// Look back far enough to catch a command that fired and then left the test
+	// waiting on UI that never came: the classic "click did nothing" timeout has
+	// the triggering command ~15-30s before the failing assertion, so a tight
+	// window would drop the very command-fired signal this digest exists to
+	// surface. 30s covers Playwright's max default timeout; the tight allowlist,
+	// dedup, and priority cap below keep the wider window from getting noisy.
+	const LOOKBACK_MS = 30000;
+	const consoles = evts.filter(e => e.type === 'console' && typeof e.text === 'string');
+	if (!consoles.length) { return null; }
+	// Focus on the failing wait and the LOOKBACK_MS before it began, so a long
+	// wait (a 60s expect) still shows the command that started it. Spanning every
+	// errored call instead reaches back to retries a toPass caught long before the
+	// failure, and focusing on nothing (no window) lets the cap keep the earliest
+	// lines -- app startup.
+	const focusStart = win?.deadlineT != null ? (win.actionStartT ?? win.deadlineT) - LOOKBACK_MS : -Infinity;
+	// Trail the deadline by 2s so the test's own teardown stays visible. It is
+	// routinely misread as a cause, so showing it LABELLED beats hiding it.
+	const focusEnd = win?.deadlineT != null ? win.deadlineT + 2000 : Infinity;
+	const picked = consoles.filter(e =>
+		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
+		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
+		!CONSOLE_NOISE_RE.test(e.text));
+	if (!picked.length) { return null; }
+
+	const entries = [];
+	for (const e of picked) {
+		const text = cleanConsole(e.text).slice(0, 200);
+		const last = entries[entries.length - 1];
+		if (last && last.text === text) { last.count++; continue; }
+		// Command/phase/error lines are the load-bearing signal; warnings are
+		// context. Track priority so the cap can never drop a command-fired or
+		// phase line in favor of a warning.
+		const high = ALLOW.test(e.text) || e.messageType === 'error';
+		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high, phase: phaseLabel(e.time, win) });
+	}
+
+	// Rank before capping so a post-deadline teardown line can never displace a
+	// line from inside the wait: only the wait can contain a cause.
+	const rank = e => (e.phase === 'after deadline' ? 0 : 2) + (e.high ? 1 : 0);
+	const shown = entries.length <= MAX_LINES
+		? entries
+		: [...entries].sort((a, b) => rank(b) - rank(a)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
+	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
+	if (win?.deadlineT != null) {
+		out.push(`Failing action: ${win.method || 'unknown'}; waited t=${win.actionStartT != null ? Math.round(win.actionStartT) : '?'}..${Math.round(win.deadlineT)}.`);
+		const windowSource = describeWindowSource(win);
+		if (windowSource) { out.push(windowSource); }
+		out.push("Lines are tagged by position relative to that wait. [after deadline] means the line was emitted AFTER the assertion had already failed, so it CANNOT be the cause -- these are usually the test's own finally/teardown (a sign-out, a settings reset), whose side effects are routinely misread as root causes. [before deadline] means when the wait began is unknown, so the line may predate the failing action.");
+	}
+	for (const e of shown) {
+		out.push(`t=${Math.round(e.time ?? 0)}${e.phase ? ` [${e.phase}]` : ''} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
 	}
 	return out.join('\n');
 }
@@ -378,12 +507,26 @@ const KERNEL_SEND_RE = /\s(?<session>\S+) >>> SEND (?<type>\w+) \[(?<channel>\w+
 const KERNEL_STATE_RE = /\s(?<session>\S+) State: (?<from>\w+) => (?<to>\w+)(?: \((?<reason>[^)]*)\))?/;
 const KERNEL_DIGEST_MAX_LINES = 40;
 
-/** Read a string field out of a JSON payload that may have been cut short. */
+/**
+ * Read a string field out of a SEND payload. When the payload parsed, only the
+ * exact path counts: a regex over the whole payload would pick up a nested field
+ * of the same name (`params.method` for a message with no top-level `method`).
+ * The regex is for a payload the log cut short, and takes the first occurrence,
+ * which in the supervisor's field order is the outer one.
+ */
 function payloadField(payload, parsed, path, name) {
-	const value = path.reduce((o, k) => o?.[k], parsed);
-	if (typeof value === 'string') { return value; }
-	const m = new RegExp(`"${name}":"((?:[^"\\\\]|\\\\.)*)`).exec(payload);
-	return m ? m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : null;
+	if (parsed) {
+		const value = path.reduce((o, k) => o?.[k], parsed);
+		return typeof value === 'string' ? value : null;
+	}
+	const m = new RegExp(`"${name}":"(?<raw>(?:[^"\\\\]|\\\\.)*)`).exec(payload);
+	if (!m) { return null; }
+	// Decode JSON escapes (\\, \t, \uXXXX, ...). A value cut mid-escape will not
+	// decode; drop the dangling escape and retry rather than lose the value.
+	for (const raw of [m.groups.raw, m.groups.raw.replace(/\\(?:u[0-9a-fA-F]{0,3})?$/, '')]) {
+		try { return JSON.parse(`"${raw}"`); } catch { /* try the trimmed form */ }
+	}
+	return m.groups.raw;
 }
 
 /**
@@ -478,28 +621,31 @@ function nearDuplicateKey(line) {
  * decides whether B queued behind A.
  *
  * Over budget, it drops post-deadline lines first, then the earliest lines
- * before the action, so the wait and the lead-up to it survive.
+ * before the action, so the wait and the lead-up to it survive. When the wait's
+ * start is unknown nothing is "before action", so it keeps the latest lines,
+ * nearest the failure, rather than the earliest.
  * @param {{at: number, session: string, text: string}[]} events
  * @returns {string|null}
  */
 export function renderKernelDigest(events, actionStartMs, deadlineMs) {
 	if (!events.length) { return null; }
-	const phase = (at) => {
-		if (deadlineMs != null && at > deadlineMs) { return 'after deadline'; }
-		if (actionStartMs != null && at < actionStartMs) { return 'before action'; }
-		return 'during wait';
-	};
+	const win = { actionStartT: actionStartMs, deadlineT: deadlineMs };
 	const entries = [];
 	for (const e of [...events].sort((a, b) => a.at - b.at)) {
 		const prev = entries[entries.length - 1];
-		if (prev && prev.session === e.session && prev.text === e.text) { prev.count++; continue; }
-		entries.push({ ...e, count: 1, phase: phase(e.at) });
+		const phase = phaseLabel(e.at, win);
+		if (prev && prev.session === e.session && prev.text === e.text && prev.phase === phase) { prev.count++; continue; }
+		entries.push({ ...e, count: 1, phase });
 	}
 	let head = 0;
 	let tail = entries.length;
 	while (tail - head > KERNEL_DIGEST_MAX_LINES && entries[tail - 1].phase === 'after deadline') { tail--; }
 	while (tail - head > KERNEL_DIGEST_MAX_LINES && entries[head].phase === 'before action') { head++; }
-	tail = Math.min(tail, head + KERNEL_DIGEST_MAX_LINES);
+	if (actionStartMs == null) {
+		head = Math.max(head, tail - KERNEL_DIGEST_MAX_LINES);
+	} else {
+		tail = Math.min(tail, head + KERNEL_DIGEST_MAX_LINES);
+	}
 
 	const out = [
 		'Kernel messages inside the window (from the "<Language> Supervisor" logs: every request the frontend SENT to a kernel, in send order, plus its execute busy/idle and lifecycle state changes). A kernel\'s shell channel serves requests in the order they ARRIVE, so this -- not the order of the test\'s steps -- settles whether one request reached the kernel before another:',

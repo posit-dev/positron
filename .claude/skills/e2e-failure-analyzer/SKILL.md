@@ -58,7 +58,7 @@ Output JSON contains:
 - `nonE2eJobLogs` - map of job ID to failure log excerpts (for non-e2e jobs)
 - `artifacts` - sorted list of blob report artifact names
 - `projects` - unique project names extracted from artifacts (e.g., `e2e-chromium`, `e2e-windows`)
-- `commit` - `{message, author, files, submodules}` for the head commit. `submodules` expands each submodule bump in it (positron-builds' head commit is usually a bot bump whose only changed file is the `positron` gitlink) into `{path, repo, from, to, status, totalCommits, commits, files}` -- the commits and files that bump pulled in. `commits: null` means the range could not be fetched: treat what it changed as unknown rather than guessing.
+- `commit` - `{message, author, files, submodules}` for the head commit. `submodules` expands each submodule bump in it (positron-builds' head commit is usually a bot bump whose only changed file is the `positron` gitlink) into `{path, repo, from, to, status, aheadBy, behindBy, totalCommits, commits, files, removed}` -- the commits and files that bump pulled in, and in `removed` (`{totalCommits, commits, files}`) the ones it took out when it moved the pointer back (`behindBy > 0`: a downgrade or diverged move). `commits: null`, or `removed: null` with `behindBy > 0`, means that range could not be fetched: treat what it changed as unknown rather than guessing.
 
 **Read `failedJobs[].steps` before you touch any test evidence.** A job keeps running past a failed step whenever the later steps carry their own `if:` conditions, so a job can fail to install R and still run the whole R suite against a half-provisioned runner -- and the Playwright report shows only that the tests failed. Each job's `steps` gives:
 

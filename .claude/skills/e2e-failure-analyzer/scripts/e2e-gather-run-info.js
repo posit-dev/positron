@@ -315,15 +315,40 @@ function readSubmoduleRepos(ref) {
 }
 
 /**
+ * The commits in `head` that are not in `base`, and the files they changed,
+ * from the compare API. Null when the range could not be fetched.
+ */
+function compareRange(subRepo, base, head) {
+	const raw = gh('api', `repos/${subRepo}/compare/${base}...${head}`,
+		'--jq', '{status: .status, aheadBy: .ahead_by, behindBy: .behind_by, totalCommits: .total_commits, commits: [.commits[] | {sha: .sha[0:10], title: (.commit.message | split("\\n")[0])}], files: [.files[]?.filename]}');
+	try {
+		const compared = JSON.parse(raw);
+		return {
+			...compared,
+			// The compare API lists commits oldest first; keep the newest.
+			commits: compared.commits.slice(-SUBMODULE_MAX_COMMITS),
+			files: compared.files.slice(0, SUBMODULE_MAX_FILES),
+		};
+	} catch {
+		return null;
+	}
+}
+
+/**
  * Expand each submodule bump in the head commit into the commits and files it
- * pulled in.
+ * pulled in -- and, when the bump moved the pointer back, the ones it took out.
  *
  * positron-builds tests positron as a submodule, so its head commit is usually
  * a bot bump whose only changed "file" is the gitlink `positron`. Without this
  * the analyzer sees one opaque path, cannot tell whether the bump touched the
- * failing feature, and fills the gap with a guess. An entry whose range could
- * not be fetched keeps `commits: null` so the analyzer can say the range is
- * unknown instead.
+ * failing feature, and fills the gap with a guess.
+ *
+ * The compare API lists only the commits AHEAD of the base, so a downgrade
+ * (status "behind") or a diverged move would read as an empty change set. The
+ * reverse range lists what was removed; removed code is as much a change under
+ * test as added code. An entry whose range could not be fetched keeps
+ * `commits: null` (or `removed: null` with `behindBy > 0`) so the analyzer can
+ * say what is unknown instead.
  */
 function expandSubmoduleBumps(fileEntries, ref) {
 	const bumps = fileEntries
@@ -333,19 +358,16 @@ function expandSubmoduleBumps(fileEntries, ref) {
 	const repos = readSubmoduleRepos(ref);
 	return bumps.map(({ path, match }) => {
 		const { from, to } = match.groups;
-		const entry = { path, repo: repos.get(path) || null, from, to, status: null, totalCommits: null, commits: null, files: null };
+		const entry = { path, repo: repos.get(path) || null, from, to, status: null, aheadBy: null, behindBy: null, totalCommits: null, commits: null, files: null, removed: null };
 		if (!entry.repo) { return entry; }
 		process.stderr.write(`Expanding submodule ${path} bump ${from.slice(0, 10)}..${to.slice(0, 10)}...\n`);
-		const raw = gh('api', `repos/${entry.repo}/compare/${from}...${to}`,
-			'--jq', '{status: .status, totalCommits: .total_commits, commits: [.commits[] | {sha: .sha[0:10], title: (.commit.message | split("\\n")[0])}], files: [.files[]?.filename]}');
-		try {
-			const compared = JSON.parse(raw);
-			entry.status = compared.status;
-			entry.totalCommits = compared.totalCommits;
-			// The compare API lists commits oldest first; keep the newest.
-			entry.commits = compared.commits.slice(-SUBMODULE_MAX_COMMITS);
-			entry.files = compared.files.slice(0, SUBMODULE_MAX_FILES);
-		} catch { /* leave the range unexpanded */ }
+		const added = compareRange(entry.repo, from, to);
+		if (!added) { return entry; }
+		Object.assign(entry, added);
+		if (added.behindBy > 0) {
+			const removed = compareRange(entry.repo, to, from);
+			entry.removed = removed && { totalCommits: removed.totalCommits, commits: removed.commits, files: removed.files };
+		}
 		return entry;
 	});
 }

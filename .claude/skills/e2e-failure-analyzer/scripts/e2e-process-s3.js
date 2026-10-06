@@ -33,15 +33,15 @@ import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import {
+	buildConsoleDigest,
 	buildDomPresence,
-	describeWindowSource,
 	extractTraceClock,
 	findFailureWindow,
 	mineLogs,
-	phaseLabel,
 	pickFailureFrames,
 	relevanceHintsForSpec,
 	screencastFrameEntry,
+	selectorTokens,
 	traceEpochOrigin,
 } from './lib-failure-window.js';
 
@@ -163,119 +163,6 @@ function unzipAll(zipPath, destDir) {
 }
 
 /**
- * Collect the selectors involved in FAILED actions/assertions: the selector on
- * the nearest preceding `before`, plus any `locator('...')` mined from the error
- * message.
- */
-function collectFailingSelectors(evts) {
-	const selectors = new Set();
-	for (let i = 0; i < evts.length; i++) {
-		const e = evts[i];
-		if (e.type !== 'after' || !e.error) { continue; }
-		for (let j = i - 1; j >= 0; j--) {
-			if (evts[j].type === 'before') {
-				if (evts[j].params?.selector) { selectors.add(evts[j].params.selector); }
-				break;
-			}
-		}
-		for (const m of String(e.error.message || '').matchAll(/locator\(['"`]([^'"`]+)['"`]\)/g)) {
-			selectors.add(m[1]);
-		}
-	}
-	return [...selectors];
-}
-
-/** Pull stable class/id tokens out of selector strings. */
-function selectorTokens(selectors) {
-	const tokens = new Set();
-	for (const sel of selectors) {
-		for (const m of String(sel).matchAll(/\.([A-Za-z_][\w-]{2,})/g)) { tokens.add(m[1]); }
-		for (const m of String(sel).matchAll(/\[id=["']([^"']+)["']\]/g)) { tokens.add(m[1]); }
-	}
-	return [...tokens];
-}
-
-/** Strip the `%c`/`color:#…` console-formatting noise VS Code prepends. */
-function cleanConsole(text) {
-	return String(text)
-		.replace(/%c/g, '')
-		.replace(/(?:background|color):\s*#?[0-9a-fA-F]{3,6}/g, '')
-		.replace(/\s;\s/g, ' ')
-		.replace(/\s{2,}/g, ' ')
-		.replace(/^[\s;:-]+/, '')
-		.trim();
-}
-
-// Console lines that match the allowlist / error levels but carry no diagnostic
-// value: internal context-key churn, the dev-only disposable-leak tracker, and
-// benign environment probes on CI runners.
-const CONSOLE_NOISE_RE = /(_setContext|LEAKED DISPOSABLE|No pandoc executable|MetadataLookupWarning|received unexpected error = network timeout)/i;
-
-/**
- * Digest of high-signal renderer-console lines around the failure window:
- * command executions, runtime-startup phase transitions, and errors/warnings.
- * Distinguishes "click was swallowed" from "command ran but nothing rendered."
- */
-function buildConsoleDigest(evts) {
-	const ALLOW = /(CommandService#executeCommand|Runtime startup][^\n]*Phase changed|Discovery completed|Uncaught|Unhandled)/i;
-	const MAX_LINES = 28;
-	// Look back far enough to catch a command that fired and then left the test
-	// waiting on UI that never came: the classic "click did nothing" timeout has
-	// the triggering command ~15-30s before the failing assertion, so a tight
-	// window would drop the very command-fired signal this digest exists to
-	// surface. 30s covers Playwright's max default timeout; the tight allowlist,
-	// dedup, and priority cap below keep the wider window from getting noisy.
-	const LOOKBACK_MS = 30000;
-	const consoles = evts.filter(e => e.type === 'console' && typeof e.text === 'string');
-	if (!consoles.length) { return null; }
-	const win = findFailureWindow(evts);
-	// Focus on the failing wait and the LOOKBACK_MS before it began, so a long
-	// wait (a 60s expect) still shows the command that started it. Spanning every
-	// errored call instead reaches back to retries a toPass caught long before the
-	// failure, and focusing on nothing (no window) lets the cap keep the earliest
-	// lines -- app startup.
-	const focusStart = win?.deadlineT != null ? (win.actionStartT ?? win.deadlineT) - LOOKBACK_MS : -Infinity;
-	// Trail the deadline by 2s so the test's own teardown stays visible. It is
-	// routinely misread as a cause, so showing it LABELLED beats hiding it.
-	const focusEnd = win?.deadlineT != null ? win.deadlineT + 2000 : Infinity;
-	const picked = consoles.filter(e =>
-		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
-		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
-		!CONSOLE_NOISE_RE.test(e.text));
-	if (!picked.length) { return null; }
-
-	const entries = [];
-	for (const e of picked) {
-		const text = cleanConsole(e.text).slice(0, 200);
-		const last = entries[entries.length - 1];
-		if (last && last.text === text) { last.count++; continue; }
-		// Command/phase/error lines are the load-bearing signal; warnings are
-		// context. Track priority so the cap can never drop a command-fired or
-		// phase line in favor of a warning.
-		const high = ALLOW.test(e.text) || e.messageType === 'error';
-		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high, phase: phaseLabel(e.time, win) });
-	}
-
-	// Rank before capping so a post-deadline teardown line can never displace a
-	// line from inside the wait: only the wait can contain a cause.
-	const rank = (e) => (e.phase === 'after deadline' ? 0 : 2) + (e.high ? 1 : 0);
-	const shown = entries.length <= MAX_LINES
-		? entries
-		: [...entries].sort((a, b) => rank(b) - rank(a)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
-	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
-	if (win?.deadlineT != null) {
-		out.push(`Failing action: ${win.method || 'unknown'}; waited t=${win.actionStartT != null ? Math.round(win.actionStartT) : '?'}..${Math.round(win.deadlineT)}.`);
-		const windowSource = describeWindowSource(win);
-		if (windowSource) { out.push(windowSource); }
-		out.push("Lines are tagged by position relative to that wait. [after deadline] means the line was emitted AFTER the assertion had already failed, so it CANNOT be the cause -- these are usually the test's own finally/teardown (a sign-out, a settings reset), whose side effects are routinely misread as root causes.");
-	}
-	for (const e of shown) {
-		out.push(`t=${Math.round(e.time ?? 0)}${e.phase ? ` [${e.phase}]` : ''} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
-	}
-	return out.join('\n');
-}
-
-/**
  * Parse a Playwright trace.trace file into a timeline plus the screencast
  * frames leading up to the failure. Identical to the parser in e2e-process-project.js; kept
  * inline here to avoid cross-script imports.
@@ -318,6 +205,9 @@ function parseTrace(tracePath) {
 		}
 	}
 
+	// Computed once: the DOM-presence check, console digest and log miner all
+	// anchor on it.
+	const failureWindow = findFailureWindow(events);
 	const screenshots = events.filter(e => e.type === 'screencast-frame');
 	const failureFrames = pickFailureFrames(events, screenshotsN);
 	const lastScreenshot = failureFrames.length > 0 ? failureFrames[failureFrames.length - 1] : null;
@@ -345,9 +235,9 @@ function parseTrace(tracePath) {
 	// DOM-presence of the failing selector(s) + a console digest near the
 	// failure -- separates "the control never rendered" / "the command fired but
 	// nothing happened" from a pure environment flake.
-	const domPresence = buildDomPresence(events, selectorTokens(collectFailingSelectors(events)));
+	const domPresence = buildDomPresence(events, selectorTokens(failureWindow?.selectors ?? []), failureWindow);
 	if (domPresence) { timelineLines.push(domPresence); }
-	const consoleDigest = buildConsoleDigest(events);
+	const consoleDigest = buildConsoleDigest(events, failureWindow);
 	if (consoleDigest) { timelineLines.push(consoleDigest); }
 
 	return {
@@ -359,7 +249,7 @@ function parseTrace(tracePath) {
 		// the timeline; the log miner needs them to relate the trace's monotonic
 		// `t=` to the wall-clock timestamps in the attached *.log files.
 		clock: extractTraceClock(events),
-		failureWindow: findFailureWindow(events),
+		failureWindow,
 	};
 }
 
