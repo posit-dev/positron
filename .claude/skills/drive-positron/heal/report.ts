@@ -125,7 +125,8 @@ function checked(f: Finding, n: Night): string {
 	const why = unverified(n);
 	if (why !== null) { return `${tries} before the fix; not verified: ${why}`; }
 	const ss = f.smokeSections;
-	return `${tries} before the fix; check.ts and ${ss ? `the smoke ${ss.join(', ')} ${ss.length === 1 ? 'section' : 'sections'}` : 'all of smoke'} pass with it${ss ? ' (the next nightly runs all of smoke)' : ''}`;
+	const red = n.state.checksRedOnMain?.length ? ` (apart from ${n.state.checksRedOnMain.join(', ')}, already failing on main)` : '';
+	return `${tries} before the fix; check.ts${red} and ${ss ? `the smoke ${ss.join(', ')} ${ss.length === 1 ? 'section' : 'sections'}` : 'all of smoke'} pass with it${ss ? ' (the next nightly runs all of smoke)' : ''}`;
 }
 
 /** A finding as a heading, the plain account, and the evidence folded away. */

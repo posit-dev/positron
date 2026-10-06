@@ -191,6 +191,8 @@ test('the To do line says when check.ts was red before the fixes and when the fi
 	assert.match(prBody(n, 'u'), /check\.ts was already failing on main: drift\./);
 	assert.match(summaryMarkdown(n, 'u'), /fixer time ran out; 2 findings were left for the next night/);
 	assert.match(slackText(n, 'u', null), /already failing on main: drift/);
+	const fixed = night({ findings: [f('a', { outcome: 'fixed', commit: 'c' })], state: { gate: 'pass', checksRedOnMain: ['drift'] } });
+	assert.match(prBody(fixed, 'u'), /check\.ts \(apart from drift, already failing on main\) and all of smoke pass/);
 });
 
 test('inert wraps mentions and issue references in code spans, outside existing ones', () => {

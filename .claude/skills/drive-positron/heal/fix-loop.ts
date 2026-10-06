@@ -12,7 +12,8 @@
 //   node .claude/skills/drive-positron/heal/fix-loop.ts --dir /tmp/heal --runner PATH/session-cli.mjs [--cap 5] [--budget-minutes N] [-- APP ARGS...]
 //
 // Refuses a dirty tree: the loop runs reset --hard and clean. Exit 1 when a
-// session failed, the fixer edited outside the skill or committed, or git failed.
+// session failed, the fixer edited outside the skill or committed, git failed,
+// or check.ts printed no results before the loop.
 
 import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
