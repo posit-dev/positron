@@ -212,6 +212,9 @@ test('the To do line says when check.ts was red before the fixes and when the fi
 	assert.match(prBody(n, 'u'), /check\.ts was already failing on main: drift\./);
 	assert.match(summaryMarkdown(n, 'u'), /fixer time ran out; 2 findings were left for the next night/);
 	assert.match(slackText(n, 'u', null), /already failing on main: drift/);
+});
+
+test('a fix\'s Checked line names the checks already red on main', () => {
 	const fixed = night({ findings: [f('a', { outcome: 'fixed', commit: 'c' })], state: { gate: 'pass', checksRedOnMain: ['drift'] } });
 	assert.match(prBody(fixed, 'u'), /check\.ts \(apart from drift, already failing on main\) and all of smoke pass/);
 });
@@ -220,6 +223,8 @@ test('inert wraps mentions and issue references in code spans, outside existing 
 	assert.equal(inert('ask @someone about #123 and posit-dev/positron#9, GH-4'), 'ask `@someone` about `#123` and `posit-dev/positron#9`, `GH-4`');
 	assert.equal(inert('`panel.sh @x #1` stays; mail bot@posit.co, C# and a#1 too'), '`panel.sh @x #1` stays; mail bot@posit.co, C# and a#1 too');
 	assert.equal(inert('see `cmd and @alice'), "see 'cmd and `@alice`");
+	assert.equal(inert('`@skip` and bad` @bob'), "`@skip` and bad' `@bob`");
 	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', broke: 'pinged @org/team', cause: 'see #42', change: 'c', reason: 'r @me' })] }), 'u');
 	assert.doesNotMatch(body, /[^`]@org\/team|[^`]#42|[^`]@me/);
+	for (const wrapped of ['`@org/team`', '`#42`', '`@me`']) { assert.ok(body.includes(wrapped), wrapped); }
 });

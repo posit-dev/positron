@@ -117,8 +117,8 @@ const cut = (t: unknown, max: number) => { const x = String(t ?? ''); return x.l
 
 /** Model text with each @mention and issue reference in a code span, so the PR body pings and links nothing. Existing code spans are left alone. */
 export function inert(t: string): string {
-	// An unbalanced backtick (a stray one, or a span cut short) would shift every span after it.
-	if ((t.match(/`/g)?.length ?? 0) % 2) { t = t.replace(/`/g, "'"); }
+	// Backticks pair left to right, so an odd one out is the last; left in, it would shift every span after it.
+	if ((t.match(/`/g)?.length ?? 0) % 2) { t = t.replace(/`([^`]*)$/, "'$1"); }
 	return t.split(/(`[^`]*`)/).map((part, i) => i % 2 ? part : part.replace(/(?<![\w`])(@[A-Za-z0-9][\w-]*(?:\/[\w.-]+)?|(?:[\w.-]+\/[\w.-]+)?#\d+|GH-\d+)/g, '`$1`')).join('');
 }
 

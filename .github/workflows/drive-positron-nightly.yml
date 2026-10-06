@@ -321,7 +321,7 @@ jobs:
               for (let i = 0; i < 6; i++) {
                 const name = await named();
                 if (name) { return console.log(name); }
-                await new Promise(r => setTimeout(r, 5000));
+                if (i < 5) { await new Promise(r => setTimeout(r, 5000)); }
               }
               const id = Object.entries(JSON.parse(process.env.STEPS || "{}")).find(([, s]) => s.outcome === "failure")?.[0];
               console.log(id ?? "");
