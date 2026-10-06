@@ -55,14 +55,16 @@ test('summary names a wholesale break and a scope violation', () => {
 	assert.match(summaryMarkdown(night({ state: { scopeViolation: 'smoke-a: src/x.ts' } }), 'u'), /outside .*src\/x\.ts/);
 });
 
-test('slack text has counts, cost, run link and the link', () => {
-	const t = slackText(night({ findings: [f('a', { outcome: 'fixed' })], costs: [{ label: 'fixer-a', usd: 1.25 }], state: { gate: 'pass' } }), 'https://run', { kind: 'compare', url: 'https://cmp' });
-	assert.match(t, /1 helper fixed/);
-	assert.match(t, /Review the fix \(linked below\)/);
-	assert.doesNotMatch(t, /Slack DM/);
-	assert.match(t, /\$1\.25/);
-	assert.match(t, /<https:\/\/run\|run>/);
-	assert.match(t, /<https:\/\/cmp\|open the PR>/);
+test('slack text has the header, a block per finding and the link', () => {
+	const fix = f('a', { outcome: 'fixed', broke: 'B', change: 'C', fixedBefore: ['1', '2'] });
+	const t = slackText(night({ findings: [fix, f('p', { outcome: 'product' })], state: { gate: 'pass' } }), 'https://run', { kind: 'pr', url: 'https://gh/pull/12' });
+	assert.match(t, /^\*\/drive-positron locator repairs \u00b7 1 fix, 1 product bug\*/);
+	assert.match(t, /`a`\n\*Broke\* \u00b7 B\n\*Fix\* \u00b7 C\n_Fixed on 2 earlier nightlies too/);
+	assert.match(t, /`p`\n\*Broke\* \u00b7 obs p\n\*Status\* \u00b7 product bug/);
+	assert.match(t, /\*To do\* \u00b7 Look at the 1 product bug/);
+	assert.doesNotMatch(t, /Review|\$/);
+	assert.match(t, /\u2192 <https:\/\/gh\/pull\/12\|review PR #12>$/);
+	assert.match(slackText(night({ findings: [fix], state: { gate: 'pass' } }), 'u', { kind: 'compare', url: 'https://cmp' }), /<https:\/\/cmp\|open the PR>$/);
 });
 
 test('a missing gate never reads as verified', () => {
@@ -179,5 +181,5 @@ test('slack text escapes mrkdwn and drops empty links', () => {
 	assert.match(t, /A &lt;b&gt; &amp; C/);
 	assert.doesNotMatch(t, /<\|/);
 	assert.doesNotMatch(t, /<b>/);
-	assert.match(slackText(night(), 'https://run', { kind: 'pr', url: '' }), /<https:\/\/run\|run>$/);
+	assert.match(slackText(night(), 'https://run', { kind: 'pr', url: '' }), /<https:\/\/run\|see the run>$/);
 });

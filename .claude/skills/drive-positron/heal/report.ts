@@ -61,15 +61,15 @@ const kept = (f: Finding) => f.outcome === 'fixed' && !f.rejected;
 const title = (f: Finding) => f.case ?? f.id;
 
 /** One line on the night: what it found and whether anything is ready. */
-function headline(n: Night): string {
+function headline(n: Night, short = false): string {
 	const c = counts(n);
 	const found = [
-		c.fixed ? `${s(c.fixed, 'helper')} fixed` : '', c.product ? s(c.product, 'product bug') : '',
+		c.fixed ? (short ? s(c.fixed, 'fix', 'fixes') : `${s(c.fixed, 'helper')} fixed`) : '', c.product ? s(c.product, 'product bug') : '',
 		c.rejected ? s(c.rejected, 'fix rejected', 'fixes rejected') : '', c.notAttempted ? `${c.notAttempted} not attempted` : '',
 		c.resolved ? `${c.resolved} fixed by another fix` : '', c.flake ? s(c.flake, 'flake') : '',
 	].filter(Boolean);
 	const status = n.jobFailed ? 'the job broke' : n.state.wholesale ? 'smoke broke wholesale'
-		: !c.fixed ? '' : unverified(n) === null ? 'ready to review' : 'not verified';
+		: !c.fixed ? '' : unverified(n) === null ? (short ? '' : 'ready to review') : 'not verified';
 	return [...found, status].filter(Boolean).join(', ') || 'all green';
 }
 
@@ -83,17 +83,16 @@ function toDo(n: Night, where: 'summary' | 'pr' | 'slack'): string {
 	const fixes = n.findings.filter(kept);
 	if (fixes.length) {
 		const why = unverified(n);
-		out.push(why !== null ? `Do not merge the fixes yet: ${why}, so they are unchecked.`
-			: where === 'pr' ? 'Review and merge this PR.'
-				: where === 'slack' ? 'Review the fix (linked below).'
-					: 'Review the fix: the Slack DM links the branch, and the patch is in the run artifacts.');
+		// Slack shows the review link and each finding's history on their own lines.
+		if (why !== null) { out.push(`Do not merge the fixes yet: ${why}, so they are unchecked.`); }
+		else if (where !== 'slack') { out.push(where === 'pr' ? 'Review and merge this PR.' : 'Review the fix: the Slack DM links the branch, and the patch is in the run artifacts.'); }
 		const back = fixes.filter(f => f.fixedBefore?.length);
-		if (back.length) { out.push(`${back.map(f => `"${title(f)}"`).join(', ')} came back after being fixed on earlier nights; those fixes were never merged.`); }
+		if (back.length && where !== 'slack') { out.push(`${back.map(f => `"${title(f)}"`).join(', ')} came back after being fixed on earlier nights; those fixes were never merged.`); }
 	}
 	const product = n.findings.filter(f => f.outcome === 'product').length;
 	if (product) { out.push(`Look at the ${s(product, 'product bug')} below and file an issue if there is none.`); }
 	if (n.smokeRed && !n.findings.length && n.unconfirmed.length) { out.push('Smoke failed, but the rerun never reached those cases; see Unconfirmed.'); }
-	return `**To do:** ${out.join(' ') || 'nothing.'}`;
+	return where === 'slack' ? out.join(' ') : `**To do:** ${out.join(' ') || 'nothing.'}`;
 }
 
 function status(f: Finding): string {
@@ -201,16 +200,27 @@ export function summaryMarkdown(n: Night, runUrl: string): string {
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const MAX_SLACK_FINDINGS = 5;
 
+const DOT = ' \u00b7 ';
+
 export function slackText(n: Night, runUrl: string, link: { kind: 'compare' | 'pr' | 'patch'; url: string } | null): string {
-	const links = [runUrl ? `<${runUrl}|run>` : '', link?.url ? `<${link.url}|${link.kind === 'compare' ? 'open the PR' : link.kind === 'pr' ? 'the PR' : 'the patch'}>` : ''].filter(Boolean).join(' | ');
+	const pr = link?.url.match(/\/pull\/(\d+)/)?.[1];
+	const go = link?.url ? `<${link.url}|${link.kind === 'pr' ? `review PR${pr ? ` #${pr}` : ''}` : link.kind === 'compare' ? 'open the PR' : 'get the patch'}>`
+		: runUrl ? `<${runUrl}|see the run>` : '';
+	const todo = toDo(n, 'slack');
 	const fs = n.findings;
+	const block = (f: Finding) => [
+		`\`${esc(title(f))}\``,
+		`*Broke*${DOT}${esc(f.broke ?? seen(f))}`,
+		kept(f) && f.change ? `*Fix*${DOT}${esc(f.change)}` : kept(f) ? '' : `*Status*${DOT}${esc(status(f))}`,
+		kept(f) && f.fixedBefore?.length ? `_Fixed on ${s(f.fixedBefore.length, 'earlier nightly', 'earlier nightlies')} too, but those fixes never merged._` : '',
+	].filter(Boolean).join('\n');
 	return [
-		`*drive-positron nightly: ${esc(headline(n))}*`,
-		esc(toDo(n, 'slack').replace(/\*\*/g, '*')),
-		...fs.slice(0, MAX_SLACK_FINDINGS).map(f => `- ${esc(title(f))} (${esc(status(f))}): ${esc(f.broke ?? seen(f))}`),
-		...(fs.length > MAX_SLACK_FINDINGS ? [`and ${fs.length - MAX_SLACK_FINDINGS} more`] : []),
-		`Cost $${totalCost(n.costs).total.toFixed(2)}.${links ? ` ${links}` : ''}`,
-	].join('\n');
+		`*/drive-positron locator repairs${DOT}${esc(headline(n, true))}*`,
+		...(todo ? [`*To do*${DOT}${esc(todo)}`] : []),
+		...fs.slice(0, MAX_SLACK_FINDINGS).map(block),
+		...(fs.length > MAX_SLACK_FINDINGS ? [`And ${fs.length - MAX_SLACK_FINDINGS} more.`] : []),
+		...(go ? [`\u2192 ${go}`] : []),
+	].join('\n\n');
 }
 
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
