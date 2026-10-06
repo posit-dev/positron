@@ -221,7 +221,7 @@ describe('ObjectExplorerTreeInstance', () => {
 		expect(tree.visibleNodes[1].expandState).toBe('leaf');
 	});
 
-	it('opens a table in a Data Explorer once, then focuses it', async () => {
+	it('opens a table in a Data Explorer once, then focuses it until the object changes', async () => {
 		const { tree, backend, dataExplorerService } = await createTree({ t: {} });
 		const page = await backend.getChildren([], 0, 10);
 		vi.spyOn(backend, 'getChildren').mockResolvedValue({
@@ -241,6 +241,10 @@ describe('ObjectExplorerTreeInstance', () => {
 		screen.getByTestId('object-explorer-view-table').click();
 		await waitFor(() => expect(requestFocus).toHaveBeenCalled());
 		expect(viewTable).toHaveBeenCalledTimes(1);
+
+		backend.setRoot({ t: {} });
+		screen.getByTestId('object-explorer-view-table').click();
+		await waitFor(() => expect(viewTable).toHaveBeenCalledTimes(2));
 	});
 
 	it('offers copy, send, and expand actions in the context menu', async () => {

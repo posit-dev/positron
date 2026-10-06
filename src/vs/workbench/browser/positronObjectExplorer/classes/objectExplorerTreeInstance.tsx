@@ -194,6 +194,9 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 
 		this._register(this._columnWidths.onDidChange(() => this.fireOnDidUpdateEvent()));
 
+		// A table viewer may not follow changes to the object, so open a new one after it changes.
+		this._register(this._client.onDidUpdate(() => this._tableViewers.clear()));
+
 		// Collapse the expanded row once it is no longer the selected cursor row, and fetch the
 		// value of a newly selected leaf when it could differ from its display value: a truncated
 		// value, or a string, which expands unescaped. A reload replaces the node, so its value is

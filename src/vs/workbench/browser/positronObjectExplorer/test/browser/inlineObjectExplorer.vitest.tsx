@@ -44,7 +44,7 @@ describe('InlineObjectExplorer', () => {
 	it('shows the object and opens it in a full object explorer', async () => {
 		const { backend } = createInstance();
 		const openObjectExplorer = vi.fn(async () => 'new-comm');
-		backend.openObjectExplorer = openObjectExplorer;
+		Object.assign(backend, { openObjectExplorer });
 		const user = userEvent.setup();
 
 		rtl.render(<InlineObjectExplorer commId='json:test' title='config' />);

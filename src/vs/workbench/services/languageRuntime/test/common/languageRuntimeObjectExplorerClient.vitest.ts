@@ -43,14 +43,16 @@ describe('ObjectExplorerClientInstance', () => {
 	});
 
 	it('stays disconnected when the backend closes during a request, and rejects later requests', async () => {
-		const { backend, client } = createClient();
+		const runtimeClient = new TestRuntimeClientInstance('comm-id', RuntimeClientType.ObjectExplorer);
+		const backend = new ObjectExplorerCommBackend(runtimeClient);
+		const client = disposables.add(new ObjectExplorerClientInstance(backend));
 		const pending = new DeferredPromise<ObjectNode>();
 		vi.spyOn(backend, 'getRoot').mockReturnValue(pending.p);
 		const onDidClose = vi.fn();
 		disposables.add(client.onDidClose(onDidClose));
 
 		const request = client.getRoot();
-		backend.close();
+		runtimeClient.setClientState(RuntimeClientState.Closed);
 		pending.error(new Error('closed'));
 		await expect(request).rejects.toThrow('closed');
 
