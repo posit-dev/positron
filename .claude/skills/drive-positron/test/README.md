@@ -90,8 +90,8 @@ builds what its cases need from earlier sections (an R session, a defined
 function, an open file). `--until NAME` runs NAME's group: its setup (printed
 as `setup: ...`), then its cases through NAME, about 2.5 minutes at most.
 `--from-start` with it replays every case through NAME instead, for a failure
-that needs an earlier section's state. `--group ID` runs one group alone. The
-full run goes through the groups in order and skips the setups.
+that needs an earlier section's state. The full run goes through the groups in
+order and skips the setups.
 
 ```
 PASS   1830 ms  start-session r
@@ -156,7 +156,7 @@ passes every run (some known failures are timing races that pass now and then).
    point is that it fails loudly, not how long it waits. Mark the helper's
    happy path `quick: true`, and any case it stands on. A case that needs
    state from an earlier section needs it in its group's setup too: check
-   with `smoke.ts --group ID`.
+   with `smoke.ts --until "<the section's last case>"`.
 3. If the command needs content, add it to `fixture/` (an R and a Python file,
    a `.qmd`, an `.ipynb`, a CSV) and assert on a value only that content has.
 

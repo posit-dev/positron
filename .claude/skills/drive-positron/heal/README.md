@@ -4,7 +4,9 @@
 
 1. `test/smoke.ts --results` (the full suite)
 2. `rerun.ts`: reruns smoke once per group with a failure, `--until` its last failed case; a case
-   that failed both times becomes a finding in `findings/`, one that passed is a flake
+   that failed both times becomes a finding in `findings/`. One that passed is replayed once more
+   with `--from-start`: failing there makes it a finding that needs earlier sections' state,
+   passing makes it a flake
 3. `recent.ts`: fetches the past week's findings into `recent/<run id>/`, for the finder's area pick
    and the earlier verdicts in each fixer brief
 4. `finder.ts` on explore nights: one agent session explores one area (`areas.json`) and writes findings

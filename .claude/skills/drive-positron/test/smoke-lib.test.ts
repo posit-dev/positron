@@ -71,13 +71,6 @@ test('selectCases --from-start replays every case through the name', () => {
 	assert.throws(() => selectCases(cs, { quick: false, until: null, fromStart: true }, gs), /--from-start needs --until/);
 });
 
-test('selectCases --group runs one group alone', () => {
-	assert.deepEqual(selectCases(cs, { quick: false, until: null, group: 'two' }, gs).map(c => c.name), ['setup: x', 'c', 'd']);
-	assert.deepEqual(selectCases(cs, { quick: true, until: null, group: 'one' }, gs).map(c => c.name), ['a']);
-	assert.throws(() => selectCases(cs, { quick: false, until: null, group: 'nope' }, gs), /no group "nope"; groups: one, two/);
-	assert.throws(() => selectCases(cs, { quick: false, until: 'a', group: 'one' }, gs), /do not go together/);
-});
-
 test('flagValue reads a value, null when absent, an error when missing', () => {
 	assert.equal(flagValue(['--until', 'x'], '--until'), 'x');
 	assert.equal(flagValue(['--quick'], '--until'), null);

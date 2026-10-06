@@ -37,10 +37,25 @@ export function classify(first: SmokeResults, second: SmokeResults): Classified 
 	return out;
 }
 
-export function smokeFinding(first: CaseResult, second: CaseResult, at: { first: string; second: string }): Finding {
+/**
+ * Splits the section rerun's flakes by a --from-start replay: one that fails
+ * there again needs an earlier section's state, and is persistent after all.
+ */
+export function crossSection(flakes: Classified['flakes'], full: SmokeResults): Pick<Classified, 'persistent' | 'flakes'> {
+	const again = new Map(full.cases.map(c => [c.name, c]));
+	const out: Pick<Classified, 'persistent' | 'flakes'> = { persistent: [], flakes: [] };
+	for (const f of flakes) {
+		const s = again.get(f.name);
+		if (s?.status === 'FAIL') { out.persistent.push({ first: f.first, second: s }); } else { out.flakes.push(f); }
+	}
+	return out;
+}
+
+/** With `fromStart`, the steps replay every case before, since the case fails only after earlier sections. */
+export function smokeFinding(first: CaseResult, second: CaseResult, at: { first: string; second: string }, fromStart = false): Finding {
 	return {
 		id: `smoke-${slug(first.name)}`, source: 'smoke', case: first.name, helper: first.helper,
-		steps: [`node .claude/skills/drive-positron/test/smoke.ts --until "${first.name}"`, [first.helper, ...first.args].join(' ')],
+		steps: [`node .claude/skills/drive-positron/test/smoke.ts --until "${first.name}"${fromStart ? ' --from-start' : ''}`, [first.helper, ...first.args].join(' ')],
 		observed: first.problem, expected: `smoke case "${first.name}" passes`,
 		reproductions: [
 			{ at: at.first, by: 'smoke', result: 'fail', observed: first.problem },

@@ -8,7 +8,7 @@
 // JSON. From the repo root (needs a built checkout, R, and the positron-python
 // venv; about 8 minutes, --quick about 2):
 //
-//   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME [--from-start] | --group ID] [--results FILE] [--keep] [-- APP ARGS...]
+//   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME [--from-start]] [--results FILE] [--keep] [-- APP ARGS...]
 //
 // --quick runs only the cases marked quick: one happy path per helper, and
 // the cases they stand on. --keep leaves the instance running at the end and
@@ -17,7 +17,7 @@
 // state the earlier sections built, so a group run starts with a short setup
 // that builds it. --until NAME runs NAME's group: the setup, then the group's
 // cases through NAME. --from-start runs every case through NAME instead, for a
-// failure that needs an earlier section's state. --group ID runs one group.
+// failure that needs an earlier section's state.
 // The full run skips the setups.
 // --results FILE writes every case's status, command and problem as JSON
 // (SmokeResults in smoke-lib.ts), for heal/.
@@ -49,7 +49,6 @@ const flag = (name: string) => {
 	return v;
 };
 const until = flag('--until');
-const group = flag('--group');
 const fromStart = own.includes('--from-start');
 const resultsFile = flag('--results');
 const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
@@ -484,7 +483,7 @@ const groupOf = new Map<Case, string>();
 try {
 	groupIds(cases, groups).forEach((id, i) => groupOf.set(cases[i], id));
 	for (const g of groups) { for (const c of g.setup) { groupOf.set(c, g.id); } }
-	run = selectCases(cases, { quick: quickOnly, until, group, fromStart }, groups);
+	run = selectCases(cases, { quick: quickOnly, until, fromStart }, groups);
 } catch (e) { console.log(String(e instanceof Error ? e.message : e)); process.exit(2); }
 const results: SmokeResults = { startedAt: new Date().toISOString(), until, quick: quickOnly, launch: 'FAIL', launchProblem: '', cases: [] };
 const start = Date.now();

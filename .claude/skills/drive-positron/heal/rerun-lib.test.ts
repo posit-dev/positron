@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
-import { cascade, classify, lastFailedPerGroup, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
+import { cascade, classify, crossSection, lastFailedPerGroup, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
 
 const c = (name: string, status: CaseResult['status'], problem = '', group?: string): CaseResult => ({ name, status, helper: 'x.sh', args: ['--a', 'b'], problem, ms: 1, ...(group ? { group } : {}) });
 const r = (cases: CaseResult[], launch: 'PASS' | 'FAIL' = 'PASS'): SmokeResults => ({ startedAt: '2026-10-06T03:40:00Z', until: null, quick: false, launch, launchProblem: '', cases });
@@ -42,6 +42,18 @@ test('smokeFinding records both runs and how to reach the case', () => {
 	assert.equal(f.case, 'start-session r');
 	assert.deepEqual(f.steps, ['node .claude/skills/drive-positron/test/smoke.ts --until "start-session r"', 'x.sh --a b']);
 	assert.deepEqual(f.reproductions.map(x => [x.by, x.result, x.observed]), [['smoke', 'fail', 'p1'], ['rerun', 'fail', 'p2']]);
+});
+
+test('crossSection: a flake that fails again from the start is persistent', () => {
+	const flakes = [{ name: 'a', first: c('a', 'FAIL', 'p1'), second: c('a', 'PASS') }, { name: 'b', first: c('b', 'FAIL'), second: c('b', 'PASS') }];
+	const got = crossSection(flakes, r([c('a', 'FAIL', 'p3'), c('b', 'PASS')]));
+	assert.deepEqual(got.persistent.map(p => [p.first.problem, p.second.problem]), [['p1', 'p3']]);
+	assert.deepEqual(got.flakes.map(f => f.name), ['b']);
+	assert.deepEqual(crossSection(flakes, r([], 'FAIL')).flakes.map(f => f.name), ['a', 'b']);
+});
+
+test('smokeFinding with fromStart says to replay from the start', () => {
+	assert.equal(smokeFinding(c('a', 'FAIL'), c('a', 'FAIL'), { first: 't', second: 't' }, true).steps[0], 'node .claude/skills/drive-positron/test/smoke.ts --until "a" --from-start');
 });
 
 test('wholesale is more than a quarter of the cases', () => {

@@ -29,7 +29,7 @@ export interface SmokeResults { startedAt: string; until: string | null; quick: 
 /** A section of smoke.ts: its cases start at `first`, and `setup` builds what they need from earlier sections. */
 export interface Group<T> { id: string; first: string; setup: T[] }
 
-export interface Selection { quick: boolean; until: string | null; group?: string | null; fromStart?: boolean }
+export interface Selection { quick: boolean; until: string | null; fromStart?: boolean }
 
 /** Each case's group id, by index: the last group whose first case is at or before it. */
 export function groupIds<T extends { name: string }>(cases: T[], groups: Group<T>[]): string[] {
@@ -45,19 +45,12 @@ export function groupIds<T extends { name: string }>(cases: T[], groups: Group<T
  * The cases a run goes through, in order. The full run is every case (or the
  * quick ones) with no setups. --until NAME is NAME's group: its setup, then
  * its cases through NAME; with --from-start, every case through NAME.
- * --group ID is that group's setup and all its cases.
  */
 export function selectCases<T extends { name: string; quick?: boolean }>(cases: T[], opts: Selection, groups: Group<T>[] = []): T[] {
 	const ids = groupIds(cases, groups);
 	const keep = (c: T) => !opts.quick || c.quick;
-	const { until, group = null, fromStart = false } = opts;
-	if (group !== null && until !== null) { throw new Error('--group and --until do not go together'); }
+	const { until, fromStart = false } = opts;
 	if (fromStart && until === null) { throw new Error('--from-start needs --until'); }
-	if (group !== null) {
-		const g = groups.find(x => x.id === group);
-		if (!g) { throw new Error(`no group "${group}"; groups: ${groups.map(x => x.id).join(', ')}`); }
-		return [...g.setup, ...cases.filter((c, i) => ids[i] === group && keep(c))];
-	}
 	if (until === null) { return cases.filter(keep); }
 	const at = cases.findIndex(c => c.name === until);
 	if (at < 0) { throw new Error(`no case named "${until}"`); }

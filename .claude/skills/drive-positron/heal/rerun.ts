@@ -5,7 +5,9 @@
 
 // Reruns smoke once per group with a failure (--until its last failure, which
 // is the group's setup and its cases through there), and writes a finding for
-// each case that failed both times. From the repo root:
+// each case that failed both times. A case that passed there is replayed once
+// more from the start: if it fails again, it needs an earlier section's state,
+// and is a finding too. From the repo root:
 //
 //   node .claude/skills/drive-positron/heal/rerun.ts --dir /tmp/heal [-- APP ARGS...]
 //
@@ -17,7 +19,7 @@ import { existsSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { flagValue, readResults } from '../test/smoke-lib.ts';
 import { writeFinding, writeState as saveState, type State } from './finding.ts';
-import { classify, lastFailedPerGroup, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
+import { classify, crossSection, lastFailedPerGroup, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
 
 const here = dirname(new URL(import.meta.url).pathname);
 const dash = process.argv.indexOf('--');
@@ -34,20 +36,29 @@ const lasts = lastFailedPerGroup(first);
 if (!lasts.length) { console.log('rerun: smoke had no failures'); writeState({ wholesale: false }); process.exit(0); }
 
 const smoke = resolve(here, '../test/smoke.ts');
-const runs = lasts.map((last, i) => {
-	const out = join(dir, `smoke-rerun-${i + 1}.json`);
+const replay = (file: string, args: string[]) => {
+	const out = join(dir, file);
 	rmSync(out, { force: true });
-	const ran = spawnSync(process.execPath, [smoke, '--until', last, '--results', out, '--', ...appArgs], { stdio: 'inherit' });
-	if (ran.status === 2) { console.log(`rerun: smoke rejected its arguments (--until "${last}")`); process.exit(1); }
-	if (!existsSync(out)) { console.log(`rerun: smoke --until "${last}" wrote no results`); process.exit(1); }
+	const ran = spawnSync(process.execPath, [smoke, ...args, '--results', out, '--', ...appArgs], { stdio: 'inherit' });
+	if (ran.status === 2) { console.log(`rerun: smoke rejected its arguments (${args.join(' ')})`); process.exit(1); }
+	if (!existsSync(out)) { console.log(`rerun: smoke ${args.join(' ')} wrote no results`); process.exit(1); }
 	return readResults(out);
-});
+};
+const runs = lasts.map((last, i) => replay(`smoke-rerun-${i + 1}.json`, ['--until', last]));
 const second = mergeResults(runs);
 writeFileSync(join(dir, 'smoke-rerun.json'), `${JSON.stringify(second, null, '\t')}\n`);
 if (second.launch === 'FAIL') { console.log(`rerun: a rerun did not launch: ${second.launchProblem}`); process.exit(1); }
 
 const got = classify(first, second);
 for (const p of got.persistent) { writeFinding(join(dir, 'findings'), smokeFinding(p.first, p.second, { first: first.startedAt, second: second.startedAt })); }
+if (got.flakes.length) {
+	const full = replay('smoke-rerun-full.json', ['--until', got.flakes.at(-1)!.name, '--from-start']);
+	if (full.launch === 'FAIL') { console.log(`rerun: the replay from the start did not launch (${full.launchProblem}); its cases stay flakes`); }
+	const split = crossSection(got.flakes, full);
+	for (const p of split.persistent) { writeFinding(join(dir, 'findings'), smokeFinding(p.first, p.second, { first: first.startedAt, second: full.startedAt }, true)); }
+	got.persistent.push(...split.persistent);
+	got.flakes = split.flakes;
+}
 writeFileSync(join(dir, 'flakes.json'), `${JSON.stringify(got.flakes, null, '\t')}\n`);
 writeFileSync(join(dir, 'unconfirmed.json'), `${JSON.stringify(got.unconfirmed, null, '\t')}\n`);
 const broke = wholesale(got.persistent.length, first.cases.length);

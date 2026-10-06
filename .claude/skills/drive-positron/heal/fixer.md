@@ -8,12 +8,10 @@ says how a helper is built and checked.
 
 1. **Edit only under `.claude/skills/drive-positron/`.** Any other path fails the run and throws
    your work away.
-2. **Reproduce before editing.** Follow the finding's steps. For a smoke finding, run
-   `smoke.ts --until "<the case before it>" --keep`, which runs that case's section with a setup
-   for what earlier sections built, then run the failing helper by hand on the kept instance
-   (session `net1`). Run that replay once. If it does not fail the way the finding says, run it
-   once with `--from-start`, which replays every case before; a failure only that shows is
-   cross-section state, and your reason must say so. Record what you saw. If the brief lists earlier
+2. **Reproduce before editing.** Follow the finding's steps. For a smoke finding, run its
+   `smoke.ts` step once with the case before it and `--keep`, then run the failing helper by hand
+   on the kept instance (session `net1`). If the step has `--from-start`, the case fails only
+   after earlier sections ran, and your reason must name the state it needs. Record what you saw. If the brief lists earlier
    verdicts on this finding, start from the newest: a different outcome needs evidence it missed,
    and your reason must name that evidence.
 3. **Prove the cause.** Name the line that is wrong and why. If you cannot make it fail, the outcome
