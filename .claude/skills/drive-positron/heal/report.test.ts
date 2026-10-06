@@ -36,6 +36,26 @@ test('notAttempted comes from the findings, not state.notAttempted', () => {
 	assert.match(summaryMarkdown(n, 'u'), /not attempted: cap/);
 });
 
+test('a capped finding that a fix resolved counts as resolved, not also as not attempted', () => {
+	const n = night({ findings: [f('a', { outcome: 'fixed' }), f('c', { outcome: 'resolved', resolvedBy: 'a', notAttempted: 'cap' })], state: { gate: 'pass' } });
+	assert.equal(counts(n).notAttempted, 0);
+	assert.doesNotMatch(summaryMarkdown(n, 'u'), /not attempted/);
+	assert.match(summaryMarkdown(n, 'u'), /c: fixed by a/);
+});
+
+test('the fixes lead and what they resolved comes last', () => {
+	const n = night({ findings: [f('a', { outcome: 'resolved', resolvedBy: 'z' }), f('b', { outcome: 'product' }), f('z', { outcome: 'fixed' })], state: { gate: 'pass' } });
+	const body = prBody(n, 'u');
+	assert.ok(body.indexOf('#### z') < body.indexOf('#### b') && body.indexOf('#### b') < body.indexOf('#### a'));
+});
+
+test('slack folds the findings a fix resolved into its block', () => {
+	const rs = ['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7'].map(id => f(id, { outcome: 'resolved', resolvedBy: 'z' }));
+	const t = slackText(night({ findings: [...rs, f('z', { outcome: 'fixed', change: 'C' })], state: { gate: 'pass' } }), 'u', null);
+	assert.match(t, /^`z`\n\*Broke\* \u00b7 obs z\n\*Fix\* \u00b7 C\n_It also fixes 7 more: r1, r2, r3, r4, r5 and 2 others\._$/m);
+	assert.doesNotMatch(t, /`r1`|And \d+ more/);
+});
+
 test('cost splits finder and fixer', () => {
 	assert.deepEqual(totalCost([{ label: 'finder-session', usd: 2 }, { label: 'fixer-a', usd: 1.5 }, { label: 'fixer-b', usd: null }]), { finder: 2, fixer: 1.5, total: 3.5 });
 });

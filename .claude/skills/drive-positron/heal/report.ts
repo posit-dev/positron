@@ -31,7 +31,7 @@ export function counts(n: Night) {
 		flake: n.flakes.length + fs.filter(f => f.outcome === 'flake').length,
 		resolved: fs.filter(f => f.outcome === 'resolved').length,
 		rejected: fs.filter(f => f.rejected).length,
-		notAttempted: fs.filter(f => f.notAttempted).length,
+		notAttempted: fs.filter(waiting).length,
 	};
 }
 
@@ -59,6 +59,11 @@ function unverified(n: Night): string | null {
 const s = (k: number, one: string, many = `${one}s`) => `${k} ${k === 1 ? one : many}`;
 const kept = (f: Finding) => f.outcome === 'fixed' && !f.rejected;
 const title = (f: Finding) => f.case ?? f.id;
+// A capped finding that another fix then resolved is resolved, not waiting.
+const waiting = (f: Finding) => Boolean(f.notAttempted) && f.outcome !== 'resolved';
+const RANK = (f: Finding) => kept(f) ? 0 : f.rejected ? 1 : f.outcome === 'product' ? 2 : waiting(f) ? 3 : f.outcome === 'resolved' ? 5 : 4;
+/** The fixes first, what they resolved last. */
+const ordered = (fs: Finding[]) => [...fs].sort((a, b) => RANK(a) - RANK(b));
 
 /** One line on the night: what it found and whether anything is ready. */
 function headline(n: Night, short = false): string {
@@ -101,7 +106,7 @@ function toDo(n: Night, where: 'summary' | 'pr' | 'slack'): string {
 
 function status(f: Finding): string {
 	if (f.rejected) { return 'fix rejected'; }
-	if (f.notAttempted) { return 'not attempted'; }
+	if (waiting(f)) { return 'not attempted'; }
 	if (f.outcome === 'resolved') { return `fixed by ${f.resolvedBy}`; }
 	return f.outcome === 'product' ? 'product bug' : f.outcome ?? 'no outcome';
 }
@@ -121,7 +126,7 @@ function checked(f: Finding, n: Night): string {
 	const fails = f.reproductions.filter(r => r.result === 'fail').length;
 	const tries = `failed ${fails} of ${s(f.reproductions.length, 'try', 'tries')}`;
 	if (f.rejected) { return `${tries}; the fix was rejected: ${cut(f.rejected, 300)}`; }
-	if (f.notAttempted) { return `${tries}; not attempted: ${f.notAttempted}`; }
+	if (waiting(f)) { return `${tries}; not attempted: ${f.notAttempted}`; }
 	if (f.outcome === 'resolved') { return `${tries}; passes after the ${f.resolvedBy} fix`; }
 	if (!kept(f)) { return tries; }
 	const why = unverified(n);
@@ -154,7 +159,7 @@ function block(f: Finding, n: Night, h: string): string {
 function blocks(n: Night, h: string, budget: number): string[] {
 	const out: string[] = [];
 	let used = 0;
-	for (const [i, f] of n.findings.entries()) {
+	for (const [i, f] of ordered(n.findings).entries()) {
 		const b = block(f, n, h);
 		if (used + b.length > budget) { out.push(`And ${n.findings.length - i} more, see the run summary.`, ''); break; }
 		out.push(b);
@@ -219,12 +224,16 @@ export function slackText(n: Night, runUrl: string, link: { kind: 'compare' | 'p
 	const go = link?.url ? `<${link.url}|${link.kind === 'pr' ? `review PR${pr ? ` #${pr}` : ''}` : link.kind === 'compare' ? 'open the PR' : 'get the patch'}>`
 		: runUrl ? `<${runUrl}|see the run>` : '';
 	const todo = toDo(n, 'slack');
-	const fs = n.findings;
+	// A fix's block names what it resolved, so those findings get no block of their own.
+	const fs = ordered(n.findings.filter(f => f.outcome !== 'resolved'));
+	const resolved = (f: Finding) => n.findings.filter(r => r.outcome === 'resolved' && r.resolvedBy === f.id).map(title);
+	const also = (rs: string[]) => `_It also fixes ${rs.length} more: ${rs.length > 6 ? `${rs.slice(0, 5).join(', ')} and ${rs.length - 5} others` : rs.length > 1 ? `${rs.slice(0, -1).join(', ')} and ${rs.at(-1)}` : rs[0]}._`;
 	const block = (f: Finding) => [
 		`\`${esc(title(f))}\``,
 		`*Broke*${DOT}${esc(f.broke ?? seen(f))}`,
 		kept(f) && f.change ? `*Fix*${DOT}${esc(f.change)}` : kept(f) ? '' : `*Status*${DOT}${esc(status(f))}`,
 		!kept(f) && f.cause ? `*Why*${DOT}${esc(f.cause)}` : '',
+		kept(f) && resolved(f).length ? esc(also(resolved(f))) : '',
 		kept(f) && f.fixedBefore?.length ? `_Fixed on ${s(f.fixedBefore.length, 'earlier nightly', 'earlier nightlies')} too, but those fixes never merged._` : '',
 	].filter(Boolean).join('\n');
 	return [
