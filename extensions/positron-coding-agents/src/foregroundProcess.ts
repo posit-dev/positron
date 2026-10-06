@@ -74,7 +74,7 @@ export function hasForegroundProcess(
  */
 export function isClaudeCodeCommand(args: string): boolean {
 	const executable = args.split(/\s+/, 1)[0];
-	return /(^|[\\/])claude(\.exe)?$/i.test(executable) || /@anthropic-ai[\\/]claude-code[\\/]cli\.js/.test(args);
+	return /(^|[\\/])claude(\.exe)?$/i.test(executable) || isNodeScriptCommand(args, /@anthropic-ai[\\/]claude-code[\\/]cli\.js$/);
 }
 
 /**
@@ -83,5 +83,15 @@ export function isClaudeCodeCommand(args: string): boolean {
  */
 export function isCodexCommand(args: string): boolean {
 	const executable = args.split(/\s+/, 1)[0];
-	return /(^|[\\/])codex(\.exe)?$/i.test(executable) || /@openai[\\/]codex[\\/]/.test(args);
+	return /(^|[\\/])codex(\.exe)?$/i.test(executable) || isNodeScriptCommand(args, /@openai[\\/]codex[\\/]bin[\\/]codex\.js$/);
+}
+
+/**
+ * Whether a command line runs a script under Node: the executable is `node`
+ * and its first argument is the script, so that other programs merely
+ * opening the script (e.g. an editor) don't match.
+ */
+function isNodeScriptCommand(args: string, script: RegExp): boolean {
+	const [executable, first] = args.split(/\s+/, 2);
+	return /(^|[\\/])node(\.exe)?$/i.test(executable) && first !== undefined && script.test(first);
 }

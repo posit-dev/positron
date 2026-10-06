@@ -67,6 +67,7 @@ describe('isClaudeCodeCommand', () => {
 	it('does not match other commands that mention claude', () => {
 		expect(isClaudeCodeCommand('vim claude.md')).toBe(false);
 		expect(isClaudeCodeCommand('/bin/zsh -c claude-notes')).toBe(false);
+		expect(isClaudeCodeCommand('vim /usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js')).toBe(false);
 	});
 });
 
@@ -83,5 +84,7 @@ describe('isCodexCommand', () => {
 	it('does not match other commands that mention codex', () => {
 		expect(isCodexCommand('vim codex.md')).toBe(false);
 		expect(isCodexCommand('claude')).toBe(false);
+		expect(isCodexCommand('vim /usr/local/lib/node_modules/@openai/codex/README.md')).toBe(false);
+		expect(isCodexCommand('vim /usr/local/lib/node_modules/@openai/codex/bin/codex.js')).toBe(false);
 	});
 });
