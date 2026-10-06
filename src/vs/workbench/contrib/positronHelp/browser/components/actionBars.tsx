@@ -53,6 +53,7 @@ const HelpSearch = () => {
 	const [activeIndex, setActiveIndex] = useState(-1);
 	const [submitting, setSubmitting] = useState(false);
 	const submission = useRef(0);
+	const suggestionsRef = useRef<HTMLDivElement>(null);
 	const [runtimeState, setRuntimeState] = useState(foregroundSession?.getRuntimeState());
 
 	useEffect(() => {
@@ -128,6 +129,13 @@ const HelpSearch = () => {
 	}, [focused, foregroundSession, query, services.positronHelpService]);
 
 	const suggestions = topics;
+	const suggestionsVisible = focused && suggestions.length > 0;
+
+	useEffect(() => {
+		if (suggestionsVisible && activeIndex >= 0) {
+			suggestionsRef.current?.children[activeIndex]?.scrollIntoView({ block: 'nearest' });
+		}
+	}, [activeIndex, suggestionsVisible]);
 
 	const runSearch = async (topic?: HelpTopicSuggestion) => {
 		const value = query.trim();
@@ -189,18 +197,18 @@ const HelpSearch = () => {
 		<form className='help-search' onSubmit={onSubmit}>
 			<span className={ThemeIcon.asClassName(ThemeIcon.fromId('search'))} />
 			<input
-				aria-activedescendant={activeIndex >= 0 ? `${listId}-${activeIndex}` : undefined}
+				aria-activedescendant={suggestionsVisible && activeIndex >= 0 && activeIndex < suggestions.length ? `${listId}-${activeIndex}` : undefined}
 				aria-autocomplete='list'
-				aria-controls={listId}
-				aria-expanded={focused && suggestions.length > 0}
+				aria-controls={suggestionsVisible ? listId : undefined}
+				aria-expanded={suggestionsVisible}
 				aria-label={placeholder}
 				autoComplete='off'
 				disabled={!foregroundSession || submitting}
 				placeholder={placeholder}
 				role='combobox'
 				value={query}
-				onBlur={() => window.setTimeout(() => setFocused(false), 100)}
-				onChange={event => { setQuery(event.target.value); setActiveIndex(-1); }}
+				onBlur={() => { setFocused(false); setActiveIndex(-1); }}
+				onChange={event => { setQuery(event.target.value); setActiveIndex(-1); setFocused(true); }}
 				onFocus={() => setFocused(true)}
 				onKeyDown={onKeyDown}
 			/>
@@ -212,13 +220,14 @@ const HelpSearch = () => {
 			{query && <button aria-label={clearHelpSearch} disabled={submitting} type='button' onClick={() => setQuery('')}>
 				<span className={ThemeIcon.asClassName(ThemeIcon.fromId('close'))} />
 			</button>}
-			{focused && suggestions.length > 0 && <div className='help-search-suggestions' id={listId} role='listbox'>
+			{suggestionsVisible && <div ref={suggestionsRef} aria-label={placeholder} className='help-search-suggestions' id={listId} role='listbox'>
 				{suggestions.map((suggestion, index) => <button
 					key={suggestion.topic}
 					aria-selected={index === activeIndex}
 					className={index === activeIndex ? 'active' : undefined}
 					id={`${listId}-${index}`}
 					role='option'
+					tabIndex={-1}
 					type='button'
 					onClick={() => void runSearch(suggestion)}
 					onMouseDown={event => event.preventDefault()}

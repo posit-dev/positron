@@ -86,7 +86,7 @@ describe('Help ActionBars', () => {
 		const option = await screen.findByRole('option', { name: /plot graphics/ });
 		await user.click(option);
 
-		expect(showHelpTopicForForegroundSession).toHaveBeenCalledWith('graphics::plot');
+		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot');
 		expect(searchHelp).not.toHaveBeenCalled();
 		expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 		expect({ info: info.mock.calls, warn: warn.mock.calls }).toEqual({ info: [], warn: [] });
@@ -169,6 +169,120 @@ describe('Help ActionBars', () => {
 		expect(await screen.findByRole('option', { name: /plot graphics/ })).toBeInTheDocument();
 		await new Promise(done => setTimeout(done, 250));
 		expect(getHelpTopics).toHaveBeenCalledOnce();
+	});
+
+	it('reopens suggestions when typing after Escape without refocusing the input', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+		const input = screen.getByRole('combobox');
+		await user.type(input, 'plot');
+		expect(await screen.findByRole('listbox')).toBeInTheDocument();
+		await user.keyboard('{ArrowDown}{Escape}');
+
+		expect(input).toHaveFocus();
+		expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+		expect(input).not.toHaveAttribute('aria-controls');
+		expect(input).not.toHaveAttribute('aria-activedescendant');
+		await user.keyboard('.');
+		expect(await screen.findByRole('listbox')).toBeInTheDocument();
+		expect(getHelpTopics).toHaveBeenLastCalledWith('plot.', 50);
+		expect(input).toHaveFocus();
+	});
+
+	it('scrolls the active option into view when navigating down and up through 50 suggestions', async () => {
+		getHelpTopics.mockResolvedValueOnce(Array.from({ length: 50 }, (_, index) => ({
+			label: `topic ${index}`, topic: `package::topic${index}`,
+		})));
+		const user = userEvent.setup();
+		rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+		const input = screen.getByRole('combobox');
+		await user.type(input, 'topic');
+		expect(await screen.findByRole('listbox')).toBeInTheDocument();
+		const options = screen.getAllByRole('option');
+		const scrolledOptions: Element[] = [];
+		options.forEach(option => vi.spyOn(option, 'scrollIntoView').mockImplementation(() => {
+			scrolledOptions.push(option);
+		}));
+
+		await user.keyboard('{ArrowDown>50/}');
+		expect(scrolledOptions).toEqual(options);
+		expect(options[49].scrollIntoView).toHaveBeenLastCalledWith({ block: 'nearest' });
+		expect(input).toHaveAttribute('aria-activedescendant', options[49].id);
+		expect(options[49]).toHaveAttribute('aria-selected', 'true');
+		await user.keyboard('{ArrowUp}');
+		expect(scrolledOptions.at(-1)).toBe(options[48]);
+		expect(input).toHaveFocus();
+		await user.keyboard('{Enter}');
+		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('package::topic48');
+	});
+
+	it('keeps options out of the tab order and closes immediately on blur', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+		const input = screen.getByRole('combobox');
+		await user.type(input, 'plot');
+		expect(await screen.findByRole('listbox')).toBeInTheDocument();
+		expect(screen.getAllByRole('option').map(option => option.tabIndex)).toEqual([-1, -1]);
+		await user.keyboard('{ArrowDown}');
+		await user.tab();
+
+		expect(screen.getByRole('button', { name: 'Clear help search' })).toHaveFocus();
+		expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+		expect(input).toHaveAttribute('aria-expanded', 'false');
+		expect(input).not.toHaveAttribute('aria-controls');
+		expect(input).not.toHaveAttribute('aria-activedescendant');
+		await user.tab({ shift: true });
+		expect(await screen.findByRole('listbox')).toBeInTheDocument();
+		expect(input).toHaveFocus();
+		expect(input).not.toHaveAttribute('aria-activedescendant');
+	});
+
+	it('does not close newly focused suggestions because of an earlier blur', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+		const input = screen.getByRole('combobox');
+		await user.type(input, 'plot');
+		expect(await screen.findByRole('listbox')).toBeInTheDocument();
+		await user.tab();
+		await user.tab({ shift: true });
+		expect(await screen.findByRole('listbox')).toBeInTheDocument();
+		expect(input).toHaveFocus();
+	});
+
+	it('keeps input focus during suggestion pointer selection', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+		const input = screen.getByRole('combobox');
+		await user.type(input, 'plot');
+		const option = await screen.findByRole('option', { name: /plot graphics/ });
+		await user.pointer({ target: option, keys: '[MouseLeft>]' });
+		expect(input).toHaveFocus();
+		expect(option).toBeInTheDocument();
+		await user.pointer({ keys: '[/MouseLeft]' });
+		expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot');
+		expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+	});
+
+	it('exposes ARIA references only for mounted suggestions and the active option', async () => {
+		const user = userEvent.setup();
+		rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+		const input = screen.getByRole('combobox');
+		expect(input).toHaveAttribute('aria-expanded', 'false');
+		expect(input).not.toHaveAttribute('aria-controls');
+		await user.type(input, 'plot');
+		const listbox = await screen.findByRole('listbox', { name: 'Search R Help' });
+		expect(input).toHaveAttribute('aria-expanded', 'true');
+		expect(input).toHaveAttribute('aria-controls', listbox.id);
+		expect(input).not.toHaveAttribute('aria-activedescendant');
+		await user.keyboard('{ArrowDown}');
+		const option = screen.getAllByRole('option')[0];
+		expect(input).toHaveAttribute('aria-activedescendant', option.id);
+		await user.keyboard('{ArrowUp}');
+		expect(input).not.toHaveAttribute('aria-activedescendant');
+		await user.clear(input);
+		expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+		expect(input).not.toHaveAttribute('aria-controls');
+		expect(input).not.toHaveAttribute('aria-activedescendant');
 	});
 
 });
