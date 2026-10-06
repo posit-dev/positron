@@ -15,7 +15,9 @@ says how a helper is built and checked.
    is `flake` and you change nothing.
 4. **Product bugs are not yours.** If the helper reports Positron's behavior faithfully and Positron
    is wrong, the outcome is `product` and you change nothing. Never change a helper so a product
-   bug stops showing.
+   bug stops showing. Calling it a regression needs evidence that the case once passed on this
+   platform (`git log` on the helper and its case); a helper that never worked here is the
+   helper's bug.
 5. **No sleeps, retries or longer timeouts to get a pass.** Waiting for a named condition the
    helper can observe is fine; waiting longer and hoping is not.
 6. **Never loosen a smoke check.** If you change a check in `test/smoke.ts`, the reason must say
