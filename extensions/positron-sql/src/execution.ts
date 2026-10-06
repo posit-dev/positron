@@ -535,13 +535,11 @@ export class StatementRunner {
 		try {
 			await this._api.executeCode(languageId, query, sessionId, document.uri);
 		} catch (error) {
-			// Submitting resolves once the console has taken the code, so a rejection means it
-			// never got there -- the session closed between the keypress and here, most likely.
-			// Left as a warning rather than thrown: this is a keypress, and an exception out of
-			// one is reported as a failed command with a stack trace in it.
-			this._log.warn(`The ${languageId} session ${sessionId} did not take the statement`
-				+ ` from ${document.uri.toString(true)}: ${error}`);
-			return { kind: 'not-run', languageId };
+			// The statement ran and failed, as on the ordinary route: executing resolves once the
+			// code has finished and rejects with the runtime's error, which the console already
+			// shows. Saying it was not run would contradict the error sitting in the console.
+			this._log.warn(`The statement from ${document.uri.toString(true)} failed in ${languageId}`
+				+ ` session ${sessionId}: ${errorMessage(error)}`);
 		}
 		return { kind: 'executed', languageId, code: query };
 	}

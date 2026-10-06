@@ -524,18 +524,21 @@ suite('StatementRunner', () => {
 		}]);
 	});
 
-	test('a SQL console that will not take the statement is reported, not run around', async () => {
-		// Closed between the key press and the statement reaching it. Falling back to the ordinary
-		// route would connect this database into an R session instead, which is not what working in
-		// a SQL console asked for; an exception would be reported as a failed keypress.
-		const { runner } = harness({
+	test('a statement that fails in a SQL console is not reported as not run', async () => {
+		// Executing rejects with the console's error once the statement has run, and the console
+		// already shows that error. Saying "not run" beside it would be false.
+		const { runner, calls, messages } = harness({
 			...inGgsqlConsole(),
-			executeCode: () => Promise.reject(new Error('no console instance for that session')),
+			executeCode: () => Promise.reject({ message: 'Catalog Error: Table with name nope does not exist!' }),
 		});
 
 		const outcome = await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
 
-		assert.deepStrictEqual(outcome, { kind: 'not-run', languageId: 'ggsql' });
+		assert.deepStrictEqual(outcome, { kind: 'executed', languageId: 'ggsql', code: 'SELECT 1' });
+		assert.ok(messages.some(message => message.includes('Catalog Error')));
+		// Nor is it run around: falling back to the ordinary route would connect this database
+		// into an R session instead, which is not what working in a SQL console asked for.
+		assert.deepStrictEqual(calls.connectedWith, []);
 	});
 
 	/** The fixture with a ggsql console open and in front of the user, beside the R session. */
