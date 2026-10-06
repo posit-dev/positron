@@ -278,7 +278,7 @@ configurationRegistry.registerConfiguration({
 					"An interpreter will start when needed, or if it was previously used in the workspace."),
 				nls.localize(
 					'positron.runtime.startupBehavior.recommended',
-					"An interpreter will start when needed, or when the extension providing the interpreter recommends it."),
+					"An interpreter may start, if the language extension providing the interpreter recommends it."),
 				nls.localize(
 					'positron.runtime.startupBehavior.manual',
 					"Interpreters will only start when manually selected."),
