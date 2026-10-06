@@ -17,7 +17,7 @@
 // Options:
 //   --output-dir <dir>   Where to save screenshots and error-context (default: /tmp/e2e-analysis-<random>)
 //   --last <N>           Number of trace actions to show (default: 500)
-//   --screenshots <N>    Number of trailing screencast frames to extract per attempt (default: 3)
+//   --screenshots <N>    Number of screencast frames leading up to the failure to extract per attempt (default: 3)
 //   --cleanup            Remove blob-reports, blob-merged, and report JSON after processing
 //
 // Output: JSON to stdout with failures, test details, trace timelines, and paths
@@ -30,11 +30,14 @@ import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import {
 	buildDomPresence,
+	describeWindowSource,
 	extractTraceClock,
 	findFailureWindow,
 	mineLogs,
 	phaseLabel,
+	pickFailureFrames,
 	relevanceHintsForSpec,
+	screencastFrameEntry,
 	traceEpochOrigin,
 } from './lib-failure-window.js';
 
@@ -449,12 +452,16 @@ function buildConsoleDigest(evts) {
 	const LOOKBACK_MS = 30000;
 	const consoles = evts.filter(e => e.type === 'console' && typeof e.text === 'string');
 	if (!consoles.length) { return null; }
-	const errTimes = evts.filter(e => e.type === 'after' && e.error).map(e => e.endTime ?? e.startTime).filter(t => t != null);
-	const focusStart = errTimes.length ? Math.min(...errTimes) - LOOKBACK_MS : -Infinity;
-	// Trail the last error by 2s so the test's own teardown stays visible. It is
-	// routinely misread as a cause, so showing it LABELLED beats hiding it.
-	const focusEnd = errTimes.length ? Math.max(...errTimes) + 2000 : Infinity;
 	const win = findFailureWindow(evts);
+	// Focus on the failing wait and the LOOKBACK_MS before it began, so a long
+	// wait (a 60s expect) still shows the command that started it. Spanning every
+	// errored call instead reaches back to retries a toPass caught long before the
+	// failure, and focusing on nothing (no window) lets the cap keep the earliest
+	// lines -- app startup.
+	const focusStart = win?.deadlineT != null ? (win.actionStartT ?? win.deadlineT) - LOOKBACK_MS : -Infinity;
+	// Trail the deadline by 2s so the test's own teardown stays visible. It is
+	// routinely misread as a cause, so showing it LABELLED beats hiding it.
+	const focusEnd = win?.deadlineT != null ? win.deadlineT + 2000 : Infinity;
 	const picked = consoles.filter(e =>
 		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
 		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
@@ -482,6 +489,8 @@ function buildConsoleDigest(evts) {
 	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
 	if (win?.deadlineT != null) {
 		out.push(`Failing action: ${win.method || 'unknown'}; waited t=${win.actionStartT != null ? Math.round(win.actionStartT) : '?'}..${Math.round(win.deadlineT)}.`);
+		const windowSource = describeWindowSource(win);
+		if (windowSource) { out.push(windowSource); }
 		out.push("Lines are tagged by position relative to that wait. [after deadline] means the line was emitted AFTER the assertion had already failed, so it CANNOT be the cause -- these are usually the test's own finally/teardown (a sign-out, a settings reset), whose side effects are routinely misread as root causes.");
 	}
 	for (const e of shown) {
@@ -530,17 +539,16 @@ function parseTrace(tracePath) {
 	}
 
 	const screenshots = events.filter(e => e.type === 'screencast-frame');
-	// `slice(-0)` returns the whole array, so handle 0 explicitly.
-	const trailingScreenshots = screenshotsN === 0 ? [] : screenshots.slice(-screenshotsN);
-	const lastScreenshot = trailingScreenshots.length > 0 ? trailingScreenshots[trailingScreenshots.length - 1] : null;
+	const failureFrames = pickFailureFrames(events, screenshotsN);
+	const lastScreenshot = failureFrames.length > 0 ? failureFrames[failureFrames.length - 1] : null;
 
-	if (trailingScreenshots.length > 0) {
+	if (failureFrames.length > 0) {
 		timelineLines.push(`\n=== Screenshots ===`);
 		timelineLines.push(`Total screencast frames: ${screenshots.length}`);
-		timelineLines.push(`Extracting last ${trailingScreenshots.length} frame(s):`);
-		for (let i = 0; i < trailingScreenshots.length; i++) {
-			const s = trailingScreenshots[i];
-			timelineLines.push(`  [${i}] sha1=${s.sha1} timestamp=${s.timestamp}`);
+		timelineLines.push(`Extracting the last ${failureFrames.length} frame(s) at or before the failure:`);
+		for (let i = 0; i < failureFrames.length; i++) {
+			const s = failureFrames[i];
+			timelineLines.push(`  [${i}] ${screencastFrameEntry(s)} timestamp=${s.timestamp}`);
 		}
 	}
 
@@ -566,10 +574,11 @@ function parseTrace(tracePath) {
 	return {
 		timeline: timelineLines.join('\n'),
 		errors,
-		// Last N screencast frames in chronological order; final entry is the failure-state screenshot.
-		screenshotShas: trailingScreenshots.map(s => ({ sha1: s.sha1, timestamp: s.timestamp })),
-		// Kept for backward compat with callers that read just the final frame.
-		lastScreenshotSha1: lastScreenshot?.sha1 || null,
+		// Last N screencast frames at or before the failure, in chronological order;
+		// `entry` is the frame's path inside the trace zip.
+		screenshotFrames: failureFrames.map(s => ({ entry: screencastFrameEntry(s), timestamp: s.timestamp })),
+		// Kept for callers that read just the final frame.
+		lastScreenshotEntry: screencastFrameEntry(lastScreenshot),
 		// Dual-clock anchor + the failing action's wait interval. Not rendered into
 		// the timeline; the log miner needs them to relate the trace's monotonic
 		// `t=` to the wall-clock timestamps in the attached *.log files.
@@ -601,7 +610,7 @@ function unzipFile(zipPath, entryPath, destDir) {
  * lib-failure-window.js, which time-slices the logs against the failing
  * action's wait -- keeping ALL severities inside it, plus a derived "went quiet
  * before the deadline" report -- and falls back to the old error-line grep when
- * the trace carries no wall-clock anchor.
+ * no failure window can be anchored in the trace.
  *
  * The previous implementation here was an error-keyword grep, which structurally
  * could not surface either of the two things that most often settle a diagnosis:
@@ -686,17 +695,15 @@ for (const testId of failedTestIds) {
 				if (tracePath) {
 					traceData = parseTrace(tracePath);
 
-					// Step 3: extract trailing N screencast frames in chronological order.
+					// Step 3: extract the screencast frames leading up to the failure.
 					// File naming: <shortId>-attempt<i>-frame<j>.jpeg where j=0 is the
 					// earliest of the N extracted, last index is the failure-state frame.
-					// The sha1 field is the full filename incl. extension (page@<hash>-<ts>.jpeg).
-					const frames = traceData.screenshotShas || [];
+					const frames = traceData.screenshotFrames || [];
 					for (let j = 0; j < frames.length; j++) {
-						const sha = frames[j].sha1;
-						if (!sha) { continue; }
+						const ssEntry = frames[j].entry;
+						if (!ssEntry) { continue; }
 						const ssFileName = `${shortId}-attempt${i}-frame${j}.jpeg`;
 						const ssDestPath = join(resolvedOutputDir, 'screenshots', ssFileName);
-						const ssEntry = `resources/${sha}`;
 						const ssTempDir = join(tmpWorkDir, `ss-${shortId}-${i}-${j}`);
 						const ssExtracted = unzipFile(resourceZipPath, ssEntry, ssTempDir);
 

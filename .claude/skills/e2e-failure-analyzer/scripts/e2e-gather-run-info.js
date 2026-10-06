@@ -6,7 +6,8 @@
 //
 // Output: JSON with:
 //   repo, runId, run (metadata), failedJobs (each with a `steps` summary),
-//   nonE2eJobLogs, artifacts, projects, commit
+//   nonE2eJobLogs, artifacts, projects, commit (with any submodule bump in it
+//   expanded into the commits and files it pulled in)
 //
 // Each failed job's `steps` summary separates the test-execution step from the
 // setup steps that ran before it. A setup step that failed while the job kept
@@ -292,14 +293,81 @@ const projects = [...new Set(
 	}).filter(Boolean)
 )];
 
+// The patch GitHub reports for a gitlink: "-Subproject commit <old>\n+Subproject commit <new>".
+const SUBPROJECT_RE = /^-Subproject commit (?<from>[0-9a-f]{7,40})\s*\n\+Subproject commit (?<to>[0-9a-f]{7,40})/m;
+const SUBMODULE_MAX_COMMITS = 50;
+const SUBMODULE_MAX_FILES = 300;
+
+/** Map each submodule path to its GitHub `owner/repo`, from .gitmodules at `ref`. */
+function readSubmoduleRepos(ref) {
+	const encoded = gh('api', `repos/${repo}/contents/.gitmodules?ref=${ref}`, '--jq', '.content');
+	if (!encoded) { return new Map(); }
+	const repos = new Map();
+	let path = null;
+	for (const line of Buffer.from(encoded, 'base64').toString('utf8').split('\n')) {
+		if (/^\s*\[submodule /.test(line)) { path = null; continue; }
+		const pathMatch = /^\s*path\s*=\s*(?<value>\S+)/.exec(line);
+		if (pathMatch) { path = pathMatch.groups.value; continue; }
+		const urlMatch = /^\s*url\s*=\s*\S*github\.com[:/](?<slug>[^/\s]+\/[^/\s]+?)(?:\.git)?\s*$/.exec(line);
+		if (urlMatch && path) { repos.set(path, urlMatch.groups.slug); }
+	}
+	return repos;
+}
+
+/**
+ * Expand each submodule bump in the head commit into the commits and files it
+ * pulled in.
+ *
+ * positron-builds tests positron as a submodule, so its head commit is usually
+ * a bot bump whose only changed "file" is the gitlink `positron`. Without this
+ * the analyzer sees one opaque path, cannot tell whether the bump touched the
+ * failing feature, and fills the gap with a guess. An entry whose range could
+ * not be fetched keeps `commits: null` so the analyzer can say the range is
+ * unknown instead.
+ */
+function expandSubmoduleBumps(fileEntries, ref) {
+	const bumps = fileEntries
+		.map(f => ({ path: f.filename, match: SUBPROJECT_RE.exec(f.patch || '') }))
+		.filter(b => b.match);
+	if (bumps.length === 0) { return []; }
+	const repos = readSubmoduleRepos(ref);
+	return bumps.map(({ path, match }) => {
+		const { from, to } = match.groups;
+		const entry = { path, repo: repos.get(path) || null, from, to, status: null, totalCommits: null, commits: null, files: null };
+		if (!entry.repo) { return entry; }
+		process.stderr.write(`Expanding submodule ${path} bump ${from.slice(0, 10)}..${to.slice(0, 10)}...\n`);
+		const raw = gh('api', `repos/${entry.repo}/compare/${from}...${to}`,
+			'--jq', '{status: .status, totalCommits: .total_commits, commits: [.commits[] | {sha: .sha[0:10], title: (.commit.message | split("\\n")[0])}], files: [.files[]?.filename]}');
+		try {
+			const compared = JSON.parse(raw);
+			entry.status = compared.status;
+			entry.totalCommits = compared.totalCommits;
+			// The compare API lists commits oldest first; keep the newest.
+			entry.commits = compared.commits.slice(-SUBMODULE_MAX_COMMITS);
+			entry.files = compared.files.slice(0, SUBMODULE_MAX_FILES);
+		} catch { /* leave the range unexpanded */ }
+		return entry;
+	});
+}
+
 // 5. Get commit info
 let commit = {};
 if (runMeta.head_sha) {
 	process.stderr.write('Fetching commit info...\n');
 	const commitRaw = gh('api', `repos/${repo}/commits/${runMeta.head_sha}`,
-		'--jq', '{message: .commit.message, author: .commit.author.name, files: [.files[].filename]}');
+		// Keep a file's patch only when it is a gitlink bump; the rest can be huge.
+		'--jq', '{message: .commit.message, author: .commit.author.name, files: [.files[]? | {filename, patch: (if ((.patch // "") | contains("Subproject commit")) then .patch else null end)}]}');
 	if (commitRaw) {
-		try { commit = JSON.parse(commitRaw); } catch { /* ignore */ }
+		try {
+			const parsed = JSON.parse(commitRaw);
+			const files = parsed.files || [];
+			commit = {
+				message: parsed.message,
+				author: parsed.author,
+				files: files.map(f => f.filename),
+				submodules: expandSubmoduleBumps(files, runMeta.head_sha),
+			};
+		} catch { /* ignore */ }
 	}
 }
 

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Parses a Playwright trace.trace file and outputs an action timeline.
 // Usage: node e2e-parse-trace.js <trace.trace> [--last N]
-// Output: Human-readable action timeline, last screenshot hash, and any errors
+// Output: Human-readable action timeline, the last screenshot before the failure, and any errors
 
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
-import { buildDomPresence, findFailureWindow, phaseLabel, traceEpochOrigin } from './lib-failure-window.js';
+import { buildDomPresence, describeWindowSource, findFailureWindow, phaseLabel, pickFailureFrames, screencastFrameEntry, traceEpochOrigin } from './lib-failure-window.js';
 
 const args = process.argv.slice(2);
 let tracePath = null;
@@ -116,12 +116,16 @@ function buildConsoleDigest(evts) {
 	const LOOKBACK_MS = 30000;
 	const consoles = evts.filter(e => e.type === 'console' && typeof e.text === 'string');
 	if (!consoles.length) { return null; }
-	const errTimes = evts.filter(e => e.type === 'after' && e.error).map(e => e.endTime ?? e.startTime).filter(t => t != null);
-	const focusStart = errTimes.length ? Math.min(...errTimes) - LOOKBACK_MS : -Infinity;
-	// Trail the last error by 2s so the test's own teardown stays visible. It is
-	// routinely misread as a cause, so showing it LABELLED beats hiding it.
-	const focusEnd = errTimes.length ? Math.max(...errTimes) + 2000 : Infinity;
 	const win = findFailureWindow(evts);
+	// Focus on the failing wait and the LOOKBACK_MS before it began, so a long
+	// wait (a 60s expect) still shows the command that started it. Spanning every
+	// errored call instead reaches back to retries a toPass caught long before the
+	// failure, and focusing on nothing (no window) lets the cap keep the earliest
+	// lines -- app startup.
+	const focusStart = win?.deadlineT != null ? (win.actionStartT ?? win.deadlineT) - LOOKBACK_MS : -Infinity;
+	// Trail the deadline by 2s so the test's own teardown stays visible. It is
+	// routinely misread as a cause, so showing it LABELLED beats hiding it.
+	const focusEnd = win?.deadlineT != null ? win.deadlineT + 2000 : Infinity;
 	const picked = consoles.filter(e =>
 		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
 		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
@@ -150,6 +154,8 @@ function buildConsoleDigest(evts) {
 	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
 	if (win?.deadlineT != null) {
 		out.push(`Failing action: ${win.method || 'unknown'}; waited t=${win.actionStartT != null ? Math.round(win.actionStartT) : '?'}..${Math.round(win.deadlineT)}.`);
+		const windowSource = describeWindowSource(win);
+		if (windowSource) { out.push(windowSource); }
 		out.push("Lines are tagged by position relative to that wait. [after deadline] means the line was emitted AFTER the assertion had already failed, so it CANNOT be the cause -- these are usually the test's own finally/teardown (a sign-out, a settings reset), whose side effects are routinely misread as root causes.");
 	}
 	for (const e of shown) {
@@ -191,10 +197,10 @@ for (const a of recent) {
 // Find screenshots
 const screenshots = events.filter(e => e.type === 'screencast-frame');
 if (screenshots.length > 0) {
-	const last = screenshots[screenshots.length - 1];
+	const [last] = pickFailureFrames(events, 1);
 	console.log(`\n=== Screenshots ===`);
 	console.log(`Total screencast frames: ${screenshots.length}`);
-	console.log(`Last screenshot sha1: ${last.sha1}`);
+	console.log(`Last screenshot at or before the failure: ${screencastFrameEntry(last)} (path inside the trace zip)`);
 	console.log(`Last screenshot timestamp: ${last.timestamp}`);
 } else {
 	console.log('\nNo screencast frames found in trace.');

@@ -11,7 +11,7 @@
 // them exactly.
 //
 // Imported by e2e-parse-trace.js, e2e-process-project.js and e2e-process-s3.js
-// so the windowing logic has a single home. NOTE: the older analysis helpers
+// so the windowing and screencast-frame logic has a single home. NOTE: the older analysis helpers
 // (collectFailingSelectors / selectorTokens / cleanConsole / buildConsoleDigest /
 // parseTrace) predate this module and are still copy-pasted into all three of
 // those files; new shared logic belongs here instead.
@@ -45,31 +45,104 @@ export function traceTimeToWallMs(t, clock) {
 	return clock.wallTime + (t - clock.monotonicTime);
 }
 
+// The failing call ends, and the test function throws, a few ms before the
+// failure screenshot (8-30ms observed). A call or retry loop that ended longer
+// ago than this before it is not what failed the test.
+const FAILURE_SHOT_MAX_GAP_MS = 2000;
+
 /**
- * Locate the failing action: the first errored `after` event and the `before`
- * that opened it. `actionStartT` is when the test STARTED waiting and
- * `deadlineT` is when it gave up -- the interval between them is the only
- * period in which a cause can live. Anything after `deadlineT` is teardown or
- * post-failure noise, not a cause.
- * @returns {{actionStartT: number|null, deadlineT: number|null, method: string|null} | null}
+ * Locate the failing action and the wait it ran. `actionStartT` is when the
+ * test STARTED waiting and `deadlineT` is when it gave up -- the interval
+ * between them is the only period in which a cause can live. Anything after
+ * `deadlineT` is teardown or post-failure noise, not a cause.
+ *
+ * Positron's reporting fixture screenshots the page the instant the test
+ * function throws, before afterEach hooks run: a `page.screenshot()` with no
+ * `path` (a test's own `takeScreenshot` always passes one). When the trace has
+ * it, it marks the failure, and the failing action is what ended right before:
+ *  - an errored call. Not simply the FIRST errored call: a retry loop (toPass,
+ *    a page object's own retry) logs every attempt it catches as an errored
+ *    call too, often a minute or more before the one that escaped.
+ *  - else a retry loop of identical read calls. The test's own assertion threw
+ *    -- `expect(async () => { expect(await x.isVisible()).toBe(true) })
+ *    .toPass()`, `expect.poll` -- so every call inside returned ok.
+ *  - else the screenshot alone, as the deadline with no known start (a plain
+ *    `expect(value)` on something the test computed).
+ * The last two carry an `inferredFrom` label saying how the window was found.
+ *
+ * Without the screenshot (a passing attempt, or a fixture that never took one)
+ * this falls back to the first errored call, and to null when none errored: a
+ * retry loop alone could be teardown polling for something, and a wrong window
+ * is worse than none.
+ * @returns {{actionStartT: number|null, deadlineT: number|null, method: string|null, inferredFrom?: string} | null}
  */
 export function findFailureWindow(events) {
+	// Pair each `after` with its own `before` by callId. The nearest preceding
+	// `before` is only a fallback: calls overlap (an expect polling while a
+	// waitForSelector runs), so it can belong to a different call.
+	const beforesById = new Map(events.filter(e => e.type === 'before' && e.callId != null).map(e => [e.callId, e]));
+	const errored = [];
 	for (let i = 0; i < events.length; i++) {
 		const e = events[i];
 		if (e.type !== 'after' || !e.error) { continue; }
-		let before = null;
-		for (let j = i - 1; j >= 0; j--) {
-			if (events[j].type === 'before') { before = events[j]; break; }
+		let before = beforesById.get(e.callId) ?? null;
+		for (let j = i - 1; j >= 0 && !before; j--) {
+			if (events[j].type === 'before') { before = events[j]; }
 		}
 		const deadlineT = e.endTime ?? e.startTime ?? null;
 		if (deadlineT == null) { continue; }
-		return {
+		errored.push({
 			actionStartT: before?.startTime ?? null,
 			deadlineT,
 			method: before ? `${before.class || '?'}.${before.method || '?'}` : null,
-		};
+		});
 	}
-	return null;
+
+	const shot = events.findLast(e => e.type === 'before' && e.method === 'screenshot' && !e.params?.path && e.startTime != null);
+	if (!shot) { return errored[0] ?? null; }
+	const failT = shot.startTime;
+	const escaped = errored.filter(w => w.deadlineT <= failT && failT - w.deadlineT <= FAILURE_SHOT_MAX_GAP_MS);
+	if (escaped.length) { return escaped[escaped.length - 1]; }
+	return findRetryLoopBefore(events, failT)
+		?? { actionStartT: null, deadlineT: failT, method: null, inferredFrom: 'failure screenshot' };
+}
+
+// Playwright calls that drive input rather than read state. A run of these is
+// the test pressing a key several times, not a retry loop polling a condition.
+const INPUT_METHOD_RE = /^(keyboard|mouse|click|dblclick|tap|fill|type|press|check|uncheck|selectOption|setInputFiles|hover|dragAndDrop|dispatchEvent|focus|blur|screenshot)/i;
+const RETRY_LOOP_MIN_CALLS = 3;
+
+/**
+ * The retry loop that ended right before `failT`: the same read call on the
+ * same selector, at least three times in a row, its last call ending within
+ * FAILURE_SHOT_MAX_GAP_MS of `failT`. Its first call is when the wait began.
+ */
+function findRetryLoopBefore(events, failT) {
+	const befores = events.filter(e => e.type === 'before' && e.startTime != null && e.startTime < failT);
+	const last = befores[befores.length - 1];
+	if (!last || INPUT_METHOD_RE.test(last.method || '')) { return null; }
+	const key = e => `${e.class}.${e.method}|${e.params?.selector ?? ''}`;
+	let first = befores.length - 1;
+	while (first > 0 && key(befores[first - 1]) === key(last)) { first--; }
+	const calls = befores.length - first;
+	const lastAfter = events.find(e => e.type === 'after' && e.callId != null && e.callId === last.callId);
+	const loopEndT = lastAfter?.endTime ?? last.startTime;
+	if (calls < RETRY_LOOP_MIN_CALLS || failT - loopEndT > FAILURE_SHOT_MAX_GAP_MS) { return null; }
+	return {
+		actionStartT: befores[first].startTime,
+		deadlineT: loopEndT,
+		method: `${last.class || '?'}.${last.method || '?'}`,
+		inferredFrom: `retry loop (${calls} identical calls${last.params?.selector ? ` on ${last.params.selector}` : ''})`,
+	};
+}
+
+/**
+ * One line describing where a failure window came from, for the evidence
+ * sections that print it. Empty for an errored call, which needs no caveat.
+ */
+export function describeWindowSource(win) {
+	if (!win?.inferredFrom) { return ''; }
+	return `The test failed on its own assertion (toPass / expect.poll / a plain expect), not on a Playwright call, so this window is INFERRED from the ${win.inferredFrom}. Any earlier errored calls were retries the test caught.`;
 }
 
 /**
@@ -87,16 +160,49 @@ export function phaseLabel(t, window) {
 }
 
 /** Wall-clock epoch (ms) of trace t=0. A screencast frame carries both its
- *  epoch ms (trailing the sha1 filename) and its trace offset, so the two give
+ *  epoch ms (trailing its file name) and its trace offset, so the two give
  *  the origin directly. Without this, t= values can only be back-derived from
  *  the mined failure window's deadline, which is a heuristic and not a clock. */
 export function traceEpochOrigin(evts) {
 	for (const e of evts) {
 		if (e.type !== 'screencast-frame' || e.timestamp == null) { continue; }
-		const m = /-(\d{13})\.jpe?g$/.exec(String(e.sha1 || ''));
+		const m = /-(\d{13})\.jpe?g$/.exec(String(e.file || e.sha1 || ''));
 		if (m) { return Number(m[1]) - e.timestamp; }
 	}
 	return null;
+}
+
+// ---------------------------------------------------------------------------
+// Screencast frames
+// ---------------------------------------------------------------------------
+
+/**
+ * Path of a screencast frame's image inside the trace zip. Trace format v9
+ * (Playwright 1.63) names it in `file` ("screencast/page@<id>-<epoch>.jpeg");
+ * older traces put a bare `sha1` file name under `resources/`. Reading only
+ * `sha1` on a v9 trace yields undefined for every frame, which silently
+ * extracts no screenshots at all.
+ */
+export function screencastFrameEntry(frame) {
+	if (frame?.file) { return frame.file; }
+	if (frame?.sha1) { return `resources/${frame.sha1}`; }
+	return null;
+}
+
+/**
+ * The last `n` screencast frames at or before the failure, oldest first, so the
+ * final one shows the page when the test failed. Taking the trace's last frames
+ * instead shows whatever afterEach hooks and fixture teardown did to the page
+ * afterwards (a layout reset, a closed session), which reads as the failure
+ * state but is not. Falls back to the trace's last frames when no failure
+ * window is known or no frame precedes it.
+ */
+export function pickFailureFrames(events, n) {
+	if (n === 0) { return []; }
+	const frames = events.filter(e => e.type === 'screencast-frame');
+	const deadlineT = findFailureWindow(events)?.deadlineT;
+	const upToFailure = deadlineT == null ? [] : frames.filter(f => f.timestamp != null && f.timestamp <= deadlineT);
+	return (upToFailure.length ? upToFailure : frames).slice(-n);
 }
 
 // ---------------------------------------------------------------------------
@@ -237,8 +343,9 @@ export function isRelevantLog(relPath, hints) {
 // Log mining
 // ---------------------------------------------------------------------------
 
-// Kept for the fallback path (no trace clock, or logs with no parseable
-// timestamps): the original severity grep, so we never end up with nothing.
+// Kept for the fallback path (no usable failure window, or logs with no
+// parseable timestamps): the original severity grep, so we never end up with
+// nothing.
 const LOG_ERROR_RE = /(no such file|file not found|cannot find|traceback|ioerror|[a-z]+error:|exception:|fatal|panic|unhandled|connection refused|permission denied|access denied|expired|failed to \w+)/i;
 const LOG_NOISE_RE = /(ignoring a path for watching|\.vscode[/\\](settings|mcp|tasks|launch)\.json|[/\\](policy|mcp)\.json)/i;
 
@@ -261,6 +368,68 @@ const ALWAYS_NOISE_RE = /(Accessing a resource scoped configuration|\[File Watch
 // `window.on('console')`. Those are duplicates of renderer.log by construction,
 // so drop the echoes (the runner's own lines still come through).
 const RUNNER_ECHO_RE = /(Playwright \([^)]*\): window\.on\('console'\)|\[electron\] std(out|err): \[main )/;
+
+// The per-language "<Language> Supervisor" channel (R Supervisor.log, Python
+// Supervisor.log) logs every message the frontend sends to a kernel and every
+// runtime state change, each prefixed with the session id:
+//   2026-09-23 15:19:53.003 [debug] r-fa94cab0 >>> SEND comm_msg [shell]: {"comm_id":...}
+//   2026-09-23 15:19:53.077 [debug] r-fa94cab0 State: idle => busy (execute_request)
+const KERNEL_SEND_RE = /\s(?<session>\S+) >>> SEND (?<type>\w+) \[(?<channel>\w+)\]: (?<payload>.*)$/;
+const KERNEL_STATE_RE = /\s(?<session>\S+) State: (?<from>\w+) => (?<to>\w+)(?: \((?<reason>[^)]*)\))?/;
+const KERNEL_DIGEST_MAX_LINES = 40;
+
+/** Read a string field out of a JSON payload that may have been cut short. */
+function payloadField(payload, parsed, path, name) {
+	const value = path.reduce((o, k) => o?.[k], parsed);
+	if (typeof value === 'string') { return value; }
+	const m = new RegExp(`"${name}":"((?:[^"\\\\]|\\\\.)*)`).exec(payload);
+	return m ? m[1].replace(/\\n/g, '\n').replace(/\\"/g, '"') : null;
+}
+
+/**
+ * Summarize one supervisor-log line as a kernel event, or null when the line is
+ * not a SEND or a state change worth showing. Keeps what tells requests apart --
+ * the code an execute_request runs, the comm and RPC method a comm_msg calls --
+ * and drops the rest of the payload.
+ *
+ * Two kinds of line are dropped as noise: the idle/busy flip that brackets
+ * every comm and info request (the SEND line already says the request
+ * happened), and `comm_info_request`, which the frontend sends repeatedly to
+ * list comms. A busy/idle flip for an execute_request, and any transition
+ * outside idle/busy (starting, ready, exited, ...), are kept.
+ * @returns {{session: string, text: string} | null}
+ */
+export function summarizeKernelLine(line) {
+	const state = KERNEL_STATE_RE.exec(line);
+	if (state) {
+		const { session, from, to, reason } = state.groups;
+		const idleBusyFlip = [from, to].every(s => s === 'idle' || s === 'busy');
+		if (idleBusyFlip && reason !== 'execute_request') { return null; }
+		return { session, text: `State ${from} => ${to}${reason ? ` (${reason})` : ''}` };
+	}
+	const send = KERNEL_SEND_RE.exec(line);
+	if (!send) { return null; }
+	const { session, type, payload } = send.groups;
+	if (type === 'comm_info_request') { return null; }
+	let parsed = null;
+	try { parsed = JSON.parse(payload); } catch { /* cut short in the log; fall back to regex */ }
+	let detail = '';
+	if (type === 'execute_request') {
+		const code = payloadField(payload, parsed, ['code'], 'code') ?? '';
+		const oneLine = code.replace(/\s*\n\s*/g, '; ');
+		detail = ` code=${JSON.stringify(oneLine.length > 80 ? `${oneLine.slice(0, 77)}...` : oneLine)}`;
+	} else if (type === 'comm_msg') {
+		const commId = payloadField(payload, parsed, ['comm_id'], 'comm_id');
+		const method = payloadField(payload, parsed, ['data', 'method'], 'method');
+		// UI-comm RPCs wrap the real method: {"method":"call_method","params":{"method":"setConsoleWidth"}}
+		const inner = method === 'call_method' ? parsed?.data?.params?.method : null;
+		detail = `${commId ? ` ${commId}` : ''}${method ? ` method=${method}${typeof inner === 'string' ? `(${inner})` : ''}` : ''}`;
+	} else if (type === 'comm_open') {
+		const target = payloadField(payload, parsed, ['target_name'], 'target_name');
+		detail = target ? ` target=${target}` : '';
+	}
+	return { session, text: `SEND ${type}${detail}` };
+}
 
 function stripAnsi(s) {
 	// eslint-disable-next-line no-control-regex -- stripping terminal color codes
@@ -295,6 +464,52 @@ const ISO = (ms) => new Date(ms).toISOString().replace('T', ' ').replace('Z', ''
 function nearDuplicateKey(line) {
 	const body = line.replace(LOG_TS_RE, '').replace(/^[[\]\s\d:.TZ-]+/, '');
 	return body.replace(/\s+\S+$/, '').slice(0, 160);
+}
+
+/**
+ * Render the kernel events inside the failure window, in time order, each
+ * tagged against the wait the same way the console digest is.
+ *
+ * This is the evidence for the question a test step cannot answer: did request
+ * A reach the kernel before request B? A test that presses Enter on some code
+ * and then clicks a button has only dispatched both; the execute_request and the
+ * button's comm RPC travel separately and can arrive in either order. The shell
+ * channel serves requests in ARRIVAL order, so the send order here is what
+ * decides whether B queued behind A.
+ *
+ * Over budget, it drops post-deadline lines first, then the earliest lines
+ * before the action, so the wait and the lead-up to it survive.
+ * @param {{at: number, session: string, text: string}[]} events
+ * @returns {string|null}
+ */
+export function renderKernelDigest(events, actionStartMs, deadlineMs) {
+	if (!events.length) { return null; }
+	const phase = (at) => {
+		if (deadlineMs != null && at > deadlineMs) { return 'after deadline'; }
+		if (actionStartMs != null && at < actionStartMs) { return 'before action'; }
+		return 'during wait';
+	};
+	const entries = [];
+	for (const e of [...events].sort((a, b) => a.at - b.at)) {
+		const prev = entries[entries.length - 1];
+		if (prev && prev.session === e.session && prev.text === e.text) { prev.count++; continue; }
+		entries.push({ ...e, count: 1, phase: phase(e.at) });
+	}
+	let head = 0;
+	let tail = entries.length;
+	while (tail - head > KERNEL_DIGEST_MAX_LINES && entries[tail - 1].phase === 'after deadline') { tail--; }
+	while (tail - head > KERNEL_DIGEST_MAX_LINES && entries[head].phase === 'before action') { head++; }
+	tail = Math.min(tail, head + KERNEL_DIGEST_MAX_LINES);
+
+	const out = [
+		'Kernel messages inside the window (from the "<Language> Supervisor" logs: every request the frontend SENT to a kernel, in send order, plus its execute busy/idle and lifecycle state changes). A kernel\'s shell channel serves requests in the order they ARRIVE, so this -- not the order of the test\'s steps -- settles whether one request reached the kernel before another:',
+	];
+	if (head > 0) { out.push(`... (${head} earlier kernel events omitted)`); }
+	for (const e of entries.slice(head, tail)) {
+		out.push(`${ISO(e.at).slice(11)} [${e.phase}] ${e.session} ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
+	}
+	if (tail < entries.length) { out.push(`... (${entries.length - tail} later kernel events omitted)`); }
+	return out.join('\n');
 }
 
 /**
@@ -340,7 +555,7 @@ export function mineLogs(logsZipPath, opts = {}) {
 
 	// No usable window => legacy severity grep.
 	if (windowStart == null || windowEnd == null) {
-		return legacyGrep(logFiles, dir);
+		return legacyGrep(logFiles, dir, clock ? 'no failing action could be located in the trace' : 'no trace clock available');
 	}
 
 	const MAX_LINES = 80;
@@ -354,6 +569,7 @@ export function mineLogs(logsZipPath, opts = {}) {
 
 	const perFile = [];   // { rel, relevant, lines[] } -- merged round-robin below
 	const silence = [];
+	const kernelEvents = [];   // { at, session, text } from the supervisor logs
 	let sawAnyTimestamp = false;
 	// The runner log's own "Test start" marker. It is the only wall-clock anchor
 	// for where the test itself begins: the trace's t= origin sits earlier (app
@@ -369,6 +585,7 @@ export function mineLogs(logsZipPath, opts = {}) {
 		const relevant = rank > 0;
 		const perFileCap = relevant ? PER_FILE_RELEVANT : PER_FILE_OTHER;
 		const isRunnerLog = rel.endsWith('e2e-test-runner.log');
+		const isSupervisorLog = / Supervisor\.log$/.test(rel);
 
 		// Track the last entry AT OR BEFORE the deadline, not the last entry
 		// overall: a log whose only late activity is the test's post-deadline
@@ -390,6 +607,12 @@ export function mineLogs(logsZipPath, opts = {}) {
 			}
 			const at = ts ?? carried;
 			if (at == null || at < windowStart || at > windowEnd) { continue; }
+			// Kernel events have their own section and budget, ahead of the
+			// per-file cap: a busy kernel fills that cap within a second.
+			if (isSupervisorLog && ts != null) {
+				const ev = summarizeKernelLine(line);
+				if (ev) { kernelEvents.push({ at, ...ev }); }
+			}
 			if (lines.length >= perFileCap) { continue; }
 			if (ALWAYS_NOISE_RE.test(line)) { continue; }
 			// Keep verbose channels only when they carry a warning/error.
@@ -428,7 +651,7 @@ export function mineLogs(logsZipPath, opts = {}) {
 		}
 	}
 
-	if (!sawAnyTimestamp) { return legacyGrep(logFiles, dir); }
+	if (!sawAnyTimestamp) { return legacyGrep(logFiles, dir, 'no parseable timestamps in the logs'); }
 
 	// Merge round-robin within each tier so a single high-volume log cannot
 	// consume the budget, and give the feature-relevant tier a reserved share so
@@ -465,6 +688,8 @@ export function mineLogs(logsZipPath, opts = {}) {
 
 	const out = [];
 	out.push(`Failure window: ${ISO(windowStart)} .. ${ISO(windowEnd)} (deadline ${deadlineMs != null ? ISO(deadlineMs) : 'unknown'})`);
+	const windowSource = describeWindowSource(win);
+	if (windowSource) { out.push(windowSource); }
 	if (testStartMs != null) {
 		out.push(`Test start: ${ISO(testStartMs)} (from e2e-test-runner.log) -- anchor trace t= values on this and the timeline's "Trace t=0" line, never on the deadline above, which is a mined heuristic rather than a clock.`);
 	}
@@ -474,6 +699,12 @@ export function mineLogs(logsZipPath, opts = {}) {
 		out.push('');
 		out.push('Went quiet before the deadline (a log that stops exactly when the UI should have appeared is positive evidence, not missing data):');
 		for (const s of silence.slice(0, 8)) { out.push(s.text); }
+	}
+
+	const kernelDigest = renderKernelDigest(kernelEvents, actionStartMs, deadlineMs);
+	if (kernelDigest) {
+		out.push('');
+		out.push(kernelDigest);
 	}
 
 	if (capped.length) {
@@ -494,8 +725,12 @@ export function mineLogs(logsZipPath, opts = {}) {
 	return out.join('\n');
 }
 
-/** Original behaviour: first N error-matching lines per file, unordered. */
-function legacyGrep(logFiles, dir) {
+/**
+ * Original behaviour: first N error-matching lines per file, unordered.
+ * `reason` names why no window was usable, so the excerpt does not blame a
+ * missing trace clock when the clock was fine and the failing action was not.
+ */
+function legacyGrep(logFiles, dir, reason) {
 	const PER_FILE = 20;
 	const MAX_LINES = 60;
 	const MAX_CHARS = 5000;
@@ -521,5 +756,5 @@ function legacyGrep(logFiles, dir) {
 	if (!collected.length) { return null; }
 	let text = collected.join('\n');
 	if (text.length > MAX_CHARS) { text = `${text.slice(0, MAX_CHARS)}\n... (truncated)`; }
-	return `(no trace clock available -- falling back to an error-line grep, which cannot show info-level evidence or silence)\n${text}`;
+	return `(${reason} -- falling back to an error-line grep, which cannot show info-level evidence, sequence, or silence)\n${text}`;
 }

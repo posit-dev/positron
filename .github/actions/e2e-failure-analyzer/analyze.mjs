@@ -130,7 +130,27 @@ function renderRunHeader(runInfo) {
 		`Commit: ${(r.head_sha || '').slice(0, 12)} -- ${(c.message || '').split('\n')[0]}`,
 		`Author: ${c.author || '?'}`,
 		`Files changed (${(c.files || []).length}): ${(c.files || []).slice(0, 30).join(', ')}${(c.files || []).length > 30 ? ', ...' : ''}`,
+		...(c.submodules || []).map(renderSubmoduleBump),
 	].join('\n');
+}
+
+/**
+ * Render a submodule bump in the head commit as the commits and files it pulled
+ * in. When the range could not be fetched, say so outright: an unexpanded bump
+ * is one opaque path, and the model otherwise guesses at what it touched.
+ */
+function renderSubmoduleBump(s) {
+	const range = `${(s.from || '').slice(0, 10)}..${(s.to || '').slice(0, 10)}`;
+	const head = `Submodule bump: ${s.path}${s.repo ? ` (${s.repo})` : ''} ${range}`;
+	if (!Array.isArray(s.commits)) {
+		return `${head} -- the range could not be expanded, so what it changed is UNKNOWN. Do not guess whether it touched the failing feature; say it is unknown.`;
+	}
+	const lines = [`${head} -- ${s.totalCommits ?? s.commits.length} commit(s)${s.status && s.status !== 'ahead' ? `, compare status "${s.status}"` : ''}. These, not the head commit's gitlink, are the code changes under test:`];
+	if ((s.totalCommits ?? 0) > s.commits.length) { lines.push(`  (oldest ${s.totalCommits - s.commits.length} not listed)`); }
+	for (const cm of s.commits) { lines.push(`  - ${cm.sha} ${cm.title}`); }
+	const files = s.files || [];
+	lines.push(`  Files changed in the bump (${files.length}${files.length >= 300 ? '+' : ''}): ${files.slice(0, 80).join(', ')}${files.length > 80 ? ', ...' : ''}`);
+	return lines.join('\n');
 }
 
 function renderNonE2eFailures(runInfo) {
