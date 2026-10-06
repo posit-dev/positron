@@ -60,6 +60,7 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 	[SessionStartReasonId.LanguageFileOpenedAtRegistration]: languageFileOpenedLabel,
 	[SessionStartReasonId.LanguageFileOpened]: languageFileOpenedLabel,
 	[SessionStartReasonId.UserSelectedRuntime]: () => localize2('positron.sessionStartReason.userSelectedRuntime', "You selected this interpreter"),
+	[SessionStartReasonId.UserStartedAgentSession]: () => localize2('positron.sessionStartReason.userStartedAgentSession', "You started an agent console session for this interpreter"),
 	[SessionStartReasonId.NewConsoleCommand]: () => localize2('positron.sessionStartReason.newConsoleCommand', "A command requested a new console for this interpreter"),
 	[SessionStartReasonId.DuplicatedConsoleSession]: () => localize2('positron.sessionStartReason.duplicatedConsoleSession', "You duplicated a console"),
 	[SessionStartReasonId.DuplicatedNotebookSession]: () => localize2('positron.sessionStartReason.duplicatedNotebookSession', "You started a new console with a notebook's interpreter"),

@@ -1116,7 +1116,7 @@ export function startNewAgentSession(
 		runtime.runtimeName,
 		LanguageRuntimeSessionMode.Console,
 		undefined,
-		{ id: SessionStartReasonId.UserSelectedRuntime },
+		{ id: SessionStartReasonId.UserStartedAgentSession },
 		RuntimeStartMode.Starting,
 		true,
 		{ userSelected: true, owner: 'agent' }

@@ -77,6 +77,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "startupBehaviorAlwaysAllLanguages": "Startup Behavior is set to "Always"",
 			  "userRanCodeWithoutSession": "You ran code with no R console open",
 			  "userSelectedRuntime": "You selected this interpreter",
+			  "userStartedAgentSession": "You started an agent console session for this interpreter",
 			}
 		`);
 	});

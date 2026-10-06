@@ -1193,6 +1193,7 @@ describe('startNewAgentSession', () => {
 				sessionName: session.dynState.sessionName,
 				sessionMode: session.metadata.sessionMode,
 				owner: session.metadata.owner,
+				startReasonId: session.metadata.startReasonId,
 				foregroundSessionId: runtimeSessionService.foregroundSession?.sessionId,
 			},
 		};
@@ -1206,6 +1207,7 @@ describe('startNewAgentSession', () => {
 			sessionName: runtime.runtimeName,
 			sessionMode: LanguageRuntimeSessionMode.Console,
 			owner: 'agent',
+			startReasonId: SessionStartReasonId.UserStartedAgentSession,
 			foregroundSessionId: sessionId,
 		});
 	});
