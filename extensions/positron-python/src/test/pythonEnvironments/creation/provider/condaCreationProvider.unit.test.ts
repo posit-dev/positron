@@ -23,6 +23,9 @@ import {
     CreateEnvironmentProvider,
     CreateEnvironmentResult,
 } from '../../../../client/pythonEnvironments/creation/proposed.createEnvApis';
+// --- Start Positron ---
+import { reusedEnvironmentResult } from '../../../../client/pythonEnvironments/creation/reusedEnvironment';
+// --- End Positron ---
 
 chaiUse(chaiAsPromised.default);
 
@@ -276,7 +279,10 @@ suite('Conda Creation provider tests', () => {
         assert.isTrue(execObservableStub.notCalled);
         assert.isTrue(withProgressStub.notCalled);
 
-        assert.deepStrictEqual(result, { path: 'existing_environment', workspaceFolder: workspace1 });
+        // --- Start Positron ---
+        // assert.deepStrictEqual(result, { path: 'existing_environment', workspaceFolder: workspace1 });
+        assert.deepStrictEqual(result, reusedEnvironmentResult('existing_environment', workspace1));
+        // --- End Positron ---
     });
 
     // --- Start Positron ---

@@ -62,6 +62,7 @@ import {
 import { traceError, traceLog } from '../../logging';
 import { getConfiguration, getWorkspaceFolders } from '../../common/vscodeApis/workspaceApis';
 import { InterpreterQuickPickList } from '../../common/utils/localize';
+import { isNewEnvironment } from './reusedEnvironment';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -331,7 +332,9 @@ export async function registerCreateEnvironmentFeatures(
                     // register new path
                     const env = await handleCreateEnvironmentCommand(providers, options);
                     if (env?.path) {
-                        await pythonRuntimeManager.selectLanguageRuntimeFromPath(env.path, true);
+                        // Recreate the runtime, which shuts down its sessions, only when the flow
+                        // built the environment; "Use Existing" leaves it and its sessions as they are.
+                        await pythonRuntimeManager.selectLanguageRuntimeFromPath(env.path, isNewEnvironment(env));
                     }
                     return env;
                     // --- End Positron ---

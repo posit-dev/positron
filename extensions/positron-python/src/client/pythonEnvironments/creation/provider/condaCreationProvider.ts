@@ -37,6 +37,9 @@ import {
 } from '../proposed.createEnvApis';
 import { shouldDisplayEnvCreationProgress } from './hideEnvCreation';
 import { noop } from '../../../common/utils/misc';
+// --- Start Positron ---
+import { reusedEnvironmentResult } from '../reusedEnvironment';
+// --- End Positron ---
 
 function generateCommandArgs(
     version?: string,
@@ -281,7 +284,11 @@ async function createEnvironment(
             sendTelemetryEvent(EventName.ENVIRONMENT_REUSE, undefined, {
                 environmentType: 'conda',
             });
-            return { path: getPrefixCondaEnvPath(workspace), workspaceFolder: workspace };
+            // --- Start Positron ---
+            // Mark the result as reused so its sessions aren't shut down as if it were recreated.
+            // return { path: getPrefixCondaEnvPath(workspace), workspaceFolder: workspace };
+            return reusedEnvironmentResult(getPrefixCondaEnvPath(workspace), workspace);
+            // --- End Positron ---
         }
     }
 
