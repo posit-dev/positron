@@ -2062,7 +2062,9 @@ export class MainThreadLanguageRuntime
 			sessionName,
 			sessionMode,
 			uri,
-			createSessionStartReason(SessionStartReasonId.ExtensionApiStart, { requestingExtension: requestingExtensionId }),
+			createSessionStartReason(
+				options?.owner === 'agent' ? SessionStartReasonId.ExtensionStartedAgentSession : SessionStartReasonId.ExtensionApiStart,
+				{ requestingExtension: requestingExtensionId }),
 			RuntimeStartMode.Starting,
 			options?.activate ?? true,
 			{ owner: options?.owner ?? 'user' });

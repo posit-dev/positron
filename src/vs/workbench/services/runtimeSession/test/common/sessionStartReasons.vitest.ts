@@ -52,6 +52,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "extensionRecommendedRuntime": "The Positron R extension recommended starting R 4.4.1 for this workspace",
 			  "extensionRequestedImmediateStart": "The Positron R extension recommended R 4.4.1 for this workspace when interpreter discovery finished",
 			  "extensionRequestedStartAtRegistration": "A new interpreter was found after startup, and the Positron R extension recommended R 4.4.1 for this workspace",
+			  "extensionStartedAgentSession": "An extension started an agent session for this interpreter",
 			  "languageFileOpened": "This interpreter was started after a file written in R was opened",
 			  "languageFileOpenedAtRegistration": "This interpreter was started after a file written in R was opened",
 			  "newConsoleCommand": "A command requested a new console for this interpreter",

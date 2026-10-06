@@ -63,6 +63,7 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 	[SessionStartReasonId.NotebookKernelRestart]: args => localize2('positron.sessionStartReason.notebookKernelRestart', "Restart Kernel was used in {0} with no kernel running", args.notebookFileName),
 	[SessionStartReasonId.ExtensionApiSelect]: () => localize2('positron.sessionStartReason.extensionApiSelect', "You started this interpreter"),
 	[SessionStartReasonId.ExtensionApiStart]: () => localize2('positron.sessionStartReason.extensionApiStart', "An extension asked for this session through the Positron API"),
+	[SessionStartReasonId.ExtensionStartedAgentSession]: () => localize2('positron.sessionStartReason.extensionStartedAgentSession', "An extension started an agent session for this interpreter"),
 };
 
 /**
