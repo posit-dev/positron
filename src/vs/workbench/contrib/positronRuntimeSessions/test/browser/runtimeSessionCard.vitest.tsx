@@ -27,6 +27,7 @@ describe('RuntimeSessionCard', () => {
 				startReason: detail,
 				startReasonId: id,
 				requestingExtensionId,
+				owner: 'user',
 			},
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({
 				runtimeName: 'Python 3.12',

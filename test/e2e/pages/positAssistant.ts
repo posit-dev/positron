@@ -348,7 +348,17 @@ export class PositAssistant {
 		}
 		await this.enterMessage(message);
 		await this.clickSend();
+		await this.waitForResponseCompleteAllowingTools(timeout);
+	}
 
+	/**
+	 * Waits for an already-submitted response to complete, clicking "Allow for
+	 * this session" whenever a tool confirmation dialog appears. Use this when
+	 * something other than the chat input sent the message (e.g. a notebook's
+	 * Fix button) and the model may call tools before it is done.
+	 * @param timeout Maximum time to wait in milliseconds (default: 90000)
+	 */
+	async waitForResponseCompleteAllowingTools(timeout: number = 90000): Promise<void> {
 		const stopButton = this.frame.locator(STOP_BUTTON);
 		const trigger = this.frame.locator(TOOL_ALLOW_DROPDOWN_TRIGGER);
 		const deadline = Date.now() + timeout;
@@ -644,6 +654,14 @@ export class PositAssistant {
 	 */
 	async expectUserMessageVisible(): Promise<void> {
 		await expect(this.frame.locator(CHAT_MESSAGE_USER)).toBeVisible();
+	}
+
+	/**
+	 * Verifies the most recent user message contains the given text, including
+	 * the name of any attachment it carries.
+	 */
+	async expectUserMessageToContainText(text: string): Promise<void> {
+		await expect(this.frame.locator(CHAT_MESSAGE_USER).last()).toContainText(text);
 	}
 
 	// --- Inline plots ---

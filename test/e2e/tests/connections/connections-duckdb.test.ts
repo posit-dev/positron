@@ -43,13 +43,8 @@ test.describe('DuckDB Connection', {
 	test('Python - Can establish a DuckDB connection', async function ({ python, app }) {
 
 		await app.workbench.console.pasteCodeToConsole(connectionCode, true);
+		await app.workbench.console.waitForExecutionComplete();
 
-		// Deterministically reveal the Connections pane instead of relying on the
-		// kernel's best-effort Focus comm event. viewConnection() then opens the
-		// connection from the list, or no-ops when the pane already landed in the
-		// connection's detail view -- so the test doesn't depend on the connect
-		// icon being present in a specific render state (flaky 30s timeout seen on
-		// macOS CI, where the comm-driven reveal raced and lost).
 		await app.workbench.connections.openConnectionPane();
 		await app.workbench.connections.viewConnection('DuckDB');
 

@@ -62,6 +62,7 @@ describe('ConsoleInstanceInfoModalPopup', () => {
 				startReason: detail,
 				startReasonId: id,
 				requestingExtensionId,
+				owner: 'user',
 			},
 			runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({
 				runtimeDisplayPath: '/usr/bin/python3',

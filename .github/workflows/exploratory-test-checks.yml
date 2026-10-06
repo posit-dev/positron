@@ -33,6 +33,7 @@ jobs:
           sparse-checkout: |
             .nvmrc
             .claude/skills/exploratory-test
+            .claude/skills/drive-positron/scripts
             .github/actions/pr-exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false

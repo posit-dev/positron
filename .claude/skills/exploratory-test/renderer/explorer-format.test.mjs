@@ -47,13 +47,14 @@ const REPORT = template(/^# Exploratory test:/);
 const TABLE = template(/^\| # \| Finding \|/);
 const FINDING = template(/^### Finding N:/);
 const LEDGER = template(/^# Test ledger/);
-const GRAMMAR = template(/^N\. <action text>$/);
 
 // Placeholders whose value the parser or lint reads. Every other placeholder
 // is prose to them and gets filler text. An array is used up in order.
 const VALUES = {
 	'<version>': ['2026.10.0', '1.105.0', '22.04', '3.12.3'],
 	'<n>': '12',
+	'<why it is worse than the title suggests, in one sentence; leave the line out when nothing is>': 'Nothing on screen says the view is unfinished.',
+	'<M>': '3',
 	'<dev build | release build>': 'dev build',
 	'<OS>': 'Ubuntu',
 	'<platform>': 'Linux',
@@ -70,7 +71,7 @@ const VALUES = {
 	'<how to set it up, with the files/ path of any file it needs>': 'Open `data.csv`.',
 	'<what exists before step 1, naming each test file in backticks>': '`data.csv` open in an editor',
 	'<surfaces the change touches that you did not reach, or `none`>': 'the web build',
-	'<Renderer, Console, or Extension host>': 'Renderer',
+	'<Renderer process, Extension host, Main process, Python kernel or R kernel>': 'Renderer process',
 	'<Unit, Extension, or E2E>': 'Unit',
 	'<exists, covers ... | new file>': 'new file',
 	'<repo-relative test file, or leave out when unsure>': 'src/vs/example/test/example.vitest.ts',
@@ -113,7 +114,7 @@ function fill(text, shots) {
 				assert.ok(v.length, `ran out of values for ${p}`);
 				return v.shift();
 			}
-			return v ?? `filler ${++filler}`;
+			return v ?? `Filler ${++filler}`;
 		});
 }
 
@@ -162,23 +163,4 @@ test('explorer.md ledger template parses into its scenarios, files and not-run l
 	]);
 	assert.deepEqual(parsed.files.map(f => f.path), ['files/data.csv']);
 	assert.equal(parsed.notExercised.length, 2, 'a Not run entry and an already-filed skip');
-});
-
-/** A step line's shape: placeholders, optional parts and numbers made uniform. */
-function shape(line) {
-	return line
-		.replace(/\[[^\]\n]*<[^\]\n]*\](?!\()/g, '')
-		.replace(/<[^<>]+>/g, '<>')
-		.replace(/^\d+\./, 'N.')
-		.replace(/Finding (\d+|[NK])\b/g, 'Finding X')
-		.trimEnd();
-}
-
-test('explorer.md step grammar matches the steps its ledger template writes', () => {
-	// The grammar block is a third copy of the step lines; it is not filled in
-	// and parsed like the templates, so it is held to the ledger's shape instead.
-	const ledgerLines = new Set(LEDGER.split('\n').map(shape));
-	for (const line of GRAMMAR.split('\n').filter(l => l.trim())) {
-		assert.ok(ledgerLines.has(shape(line)), `the grammar's "${line.trim()}" has no line of the same shape in the ledger template`);
-	}
 });

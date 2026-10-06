@@ -23,12 +23,12 @@ import {
 } from './constants';
 import { AuthProvider } from './authProvider';
 import { registerAuthProvider, providerAction, updateProviderFromSessions, authProviders } from './configDialog';
+import { customApiKeyValidator } from './customProviderAuth';
 import { CustomProviderRegistry, isAddCustomProviderRequest, isRemoveCustomProviderRequest } from './customProviderRegistry';
 import { getRegistrableProviderSources, getUserAwsSettings, PROVIDER_METADATA } from './providerSources';
 import {
 	normalizeToV1Url,
 	validateAnthropicApiKey,
-	validateCustomProviderApiKey,
 	validateDatabricksApiKey,
 	validateDeepSeekApiKey,
 	validateFoundryApiKey,
@@ -78,6 +78,9 @@ interface SettingsMigration {
 	readonly run: () => Promise<void>;
 }
 
+// Drop these, and the deprecated `authentication.aws.credentials` /
+// `authentication.snowflake.credentials` declarations they write, once Posit
+// Workbench drops support for Positron 2026.07
 const SETTINGS_MIGRATIONS: readonly SettingsMigration[] = [
 	{ name: 'AWS', run: migrateAwsSettings },
 	{ name: 'Snowflake', run: migrateSnowflakeSettings },
@@ -850,7 +853,7 @@ function registerCustomProvider(
 		provider
 	);
 	registerAuthProvider(CUSTOM_PROVIDER_AUTH_PROVIDER_ID, provider, {
-		validateApiKey: validateCustomProviderApiKey,
+		validateApiKey: customApiKeyValidator('openai-compatible'),
 		onSave: async (config) => {
 			const catalogId = PROVIDER_METADATA.customProvider.catalogId!;
 			if (config.baseUrl) {

@@ -11,6 +11,8 @@ import { QuickAccess } from './quickaccess.js';
 
 const DEBUG_TOOLBAR = '.debug-toolbar';
 const GLYPH_AREA = '.margin-view-overlays>:nth-child';
+// Monaco appends newly rendered margin rows after existing ones, so nth-child isn't the line number once the editor scrolls
+const glyphAreaForLine = (lineNumber: number) => `.monaco-editor .margin-view-overlays > div:has(.line-numbers:text-is("${lineNumber}"))`;
 const BREAKPOINT_GLYPH = '.monaco-editor .codicon-debug-breakpoint';
 const BREAKPOINT_GLYPH_UNVERIFIED = '.monaco-editor .codicon-debug-breakpoint-unverified';
 const STOP = `.debug-toolbar .action-label[aria-label*="Stop"]`;
@@ -63,8 +65,14 @@ export class Debug {
 	 */
 	async setUnverifiedBreakpointOnLine(lineNumber: number, index = 0): Promise<void> {
 		await test.step(`Debug: Set unverified breakpoint on line ${lineNumber}`, async () => {
-			await expect(this.code.driver.currentPage.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
-			await this.code.driver.currentPage.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 }, force: true });
+			// The editor may reopen at a remembered scroll position, leaving the line unrendered
+			await this.quickaccess.runCommand('workbench.action.gotoLine', { keepOpen: true });
+			await this.code.driver.currentPage.keyboard.type(String(lineNumber));
+			await this.code.driver.currentPage.keyboard.press('Enter');
+
+			const glyphArea = this.code.driver.currentPage.locator(glyphAreaForLine(lineNumber));
+			await expect(glyphArea).toBeVisible();
+			await glyphArea.click({ position: { x: 5, y: 5 }, force: true });
 			// For R breakpoints, initially expect the breakpoint to be unverified (gray)
 			await expect(
 				this.code.driver.currentPage.locator(BREAKPOINT_GLYPH_UNVERIFIED).nth(index)

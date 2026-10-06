@@ -180,6 +180,7 @@ function makeManager(opts: IManagerOptions): IRuntimeManager {
 		recommendWorkspaceRuntimes: async () => [],
 		managesRuntime: async (metadata) => ownsByPath.has(metadata.runtimePath),
 		validateMetadata: opts.validate ?? (async (m) => m),
+		registerRuntimeFromPath: async () => undefined,
 		getDiscoveryRootSignature: async (extensionId: string, languageId: string) => {
 			if (opts.rootSignatureBehavior === 'throws') {
 				throw new Error('boom');
@@ -927,6 +928,45 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			expect(cache.getEntries('ms.python', 'python').map(e => e.metadata)).toEqual([registered]);
 		});
 	});
+
+	describe('registerRuntimeFromPath', () => {
+		function registerManager(svc: RuntimeStartupService, register: (md: ILanguageRuntimeMetadata) => void) {
+			const manager = makeManager({ id: 1, owns: [] });
+			const md = metadata();
+			const registerRuntimeFromPath = vi.fn(async () => {
+				register(md);
+				return md;
+			});
+			ctx.disposables.add(svc.registerRuntimeManager({ ...manager, registerRuntimeFromPath }));
+			return { md, registerRuntimeFromPath };
+		}
+
+		it('rejects a disabled language without asking the manager', async () => {
+			await config.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
+			const svc = makeService();
+			const { registerRuntimeFromPath } = registerManager(svc, () => { });
+
+			await expect(svc.registerRuntimeFromPath('python', '/usr/bin/python3')).rejects.toThrow(/disabled/);
+			expect(registerRuntimeFromPath).not.toHaveBeenCalled();
+		});
+
+		it('rejects a runtime the manager returned but that never registered', async () => {
+			const svc = makeService();
+			registerManager(svc, () => { });
+
+			await expect(svc.registerRuntimeFromPath('python', '/usr/bin/python3')).rejects.toThrow(/could not be registered/);
+		});
+
+		it('returns the registered entry', async () => {
+			const svc = makeService();
+			const languageRuntimeService = ctx.get(ILanguageRuntimeService);
+			const { md } = registerManager(svc, m => ctx.disposables.add(languageRuntimeService.registerRuntime(m)));
+
+			const result = await svc.registerRuntimeFromPath('python', '/usr/bin/python3');
+
+			expect(result).toBe(languageRuntimeService.getRegisteredRuntime(md.runtimeId));
+		});
+	});
 });
 
 describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
@@ -1123,6 +1163,72 @@ describe('RuntimeStartupService - affiliation healing', () => {
 
 		// getAffiliatedRuntimes() returns the live registered metadata (absolute path).
 		expect(svc.getAffiliatedRuntimes()[0].runtimePath).toBe(freshRuntimePath);
+	});
+});
+
+describe('RuntimeStartupService - restored sessions', () => {
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
+			onWillShutdown: new Emitter<WillShutdownEvent>().event,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	/** A session as persisted to workspace storage, optionally with an owner. */
+	function storedSession(sessionId: string, lastUsed: number, owner?: string) {
+		return {
+			sessionName: sessionId,
+			metadata: {
+				sessionId,
+				sessionMode: 'console',
+				createdTimestamp: 0,
+				startReason: 'test',
+				...(owner ? { owner } : {}),
+			},
+			sessionState: 'idle',
+			lastUsed,
+			runtimeMetadata: metadata(),
+			workingDirectory: '/',
+			hasConsole: true,
+			localWindowId: 'window-1',
+		};
+	}
+
+	it('treats sessions stored before owners existed as the user\'s', async () => {
+		// The persistent workspace session list, as an older build wrote it:
+		// no owner on the first session.
+		ctx.get(IStorageService).store(
+			'positron.workspaceSessionList.v3',
+			JSON.stringify([
+				storedSession('pre-owner-session', 2),
+				storedSession('agent-session', 1, 'agent'),
+			]),
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE,
+		);
+
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const sessions = await svc.getRestoredSessions();
+
+		expect(sessions.map(session => [session.metadata.sessionId, session.metadata.owner])).toEqual([
+			['pre-owner-session', 'user'],
+			['agent-session', 'agent'],
+		]);
 	});
 });
 

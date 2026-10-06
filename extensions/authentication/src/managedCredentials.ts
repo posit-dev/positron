@@ -103,8 +103,9 @@ export function hasManagedCredentials(
 
 	switch (credentialConfig.kind) {
 		case 'auth-token': {
-			const ext = vscode.extensions.getExtension('rstudio.rstudio-workbench');
-			if (!ext?.isActive) {
+			// Presence, not activation: the token is read through getSession, which
+			// waits for the Workbench provider to register.
+			if (!vscode.extensions.getExtension('rstudio.rstudio-workbench')) {
 				return undefined;
 			}
 			return credentialConfig.validator() ? credentialConfig : undefined;
