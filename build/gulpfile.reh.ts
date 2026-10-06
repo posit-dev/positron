@@ -476,6 +476,15 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			'vscode-test-resolver',
 			'positron-zed',
 			'positron-javascript',
+			// Hidden upstream color themes; keep in sync with build/lib/extensions.ts (#8162)
+			'theme-abyss',
+			'theme-kimbie-dark',
+			'theme-monokai',
+			'theme-monokai-dimmed',
+			'theme-quietlight',
+			'theme-red',
+			'theme-solarized-dark',
+			'theme-solarized-light',
 		];
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
