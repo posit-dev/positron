@@ -113,7 +113,7 @@ class SearchResult(BaseModel):
     )
 
     truncated: StrictBool = Field(
-        description="True if the search stopped early because max_results or the node budget was reached",
+        description="True if the search stopped early because max_results or the internal budget was reached",
     )
 
 
@@ -298,9 +298,9 @@ class SearchParams(BaseModel):
     """
     Depth-first, case-insensitive substring search over node display
     names, and over the display values of leaves (nodes that are neither
-    containers nor cycles), bounded by max_depth and an internal node
-    budget. Returns matches and every ancestor of a match, in pre-order,
-    so the frontend can render the results as a tree.
+    containers nor cycles), bounded by max_depth and an internal time or
+    size budget. Returns matches and every ancestor of a match, in
+    pre-order, so the frontend can render the results as a tree.
     """
 
     query: StrictStr = Field(
@@ -320,9 +320,9 @@ class SearchRequest(BaseModel):
     """
     Depth-first, case-insensitive substring search over node display
     names, and over the display values of leaves (nodes that are neither
-    containers nor cycles), bounded by max_depth and an internal node
-    budget. Returns matches and every ancestor of a match, in pre-order,
-    so the frontend can render the results as a tree.
+    containers nor cycles), bounded by max_depth and an internal time or
+    size budget. Returns matches and every ancestor of a match, in
+    pre-order, so the frontend can render the results as a tree.
     """
 
     params: SearchParams = Field(

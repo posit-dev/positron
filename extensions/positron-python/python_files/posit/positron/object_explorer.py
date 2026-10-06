@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import itertools
 import logging
+import time
 import types
 import uuid
 from typing import TYPE_CHECKING, Any
@@ -59,8 +60,9 @@ EXPLORABLE_KINDS = {
     VariableKind.Class.value,
 }
 
-# The most nodes a search visits before it stops early.
-SEARCH_NODE_BUDGET = 200_000
+# The longest a search runs, in seconds, before it stops early. It runs on the shell thread, so
+# it delays any code the user executes.
+SEARCH_TIME_BUDGET = 5.0
 
 
 def is_explorable(value: Any) -> bool:
@@ -140,7 +142,7 @@ class ObjectExplorerView:
         return ObjectExplorerState(title=self.title, connected=True)
 
     def get_root(self, _params: None) -> ObjectNode:
-        node = self._node("", self.root, self.title, self.root_accessor, set())
+        node = self._node("", self.root, self.title, self.root_accessor, {})
         node.access_key = ""
         return node
 
@@ -159,16 +161,15 @@ class ObjectExplorerView:
         # The ancestors of the node being visited, below the root, and whether each was emitted.
         pending: list[tuple[list[str], ObjectNode, list[bool]]] = []
         matches = 0
-        visited = 0
+        deadline = time.monotonic() + SEARCH_TIME_BUDGET
         truncated = False
 
-        def visit(value: Any, path: list[str], node: ObjectNode, ancestors: set[int]) -> bool:
+        def visit(value: Any, path: list[str], node: ObjectNode, ancestors: dict[int, Any]) -> bool:
             """Visit a node and its descendants; returns True when the search must stop."""
-            nonlocal matches, visited, truncated
-            if visited >= SEARCH_NODE_BUDGET or matches >= params.max_results:
+            nonlocal matches, truncated
+            if matches >= params.max_results or time.monotonic() > deadline:
                 truncated = True
                 return True
-            visited += 1
 
             match_kind = _match_kind(value, node, needle)
             if match_kind is not None:
@@ -190,7 +191,9 @@ class ObjectExplorerView:
 
             pending.append((path, node, [match_kind is not None]))
             try:
-                child_ancestors = {*ancestors, id(value)} if _is_container(value) else ancestors
+                child_ancestors = (
+                    {**ancestors, id(value): value} if _is_container(value) else ancestors
+                )
                 for child, child_node in self._children(value, node.accessor, child_ancestors):
                     if visit(child, [*path, child_node.access_key], child_node, child_ancestors):
                         return True
@@ -198,7 +201,7 @@ class ObjectExplorerView:
             finally:
                 pending.pop()
 
-        root_ancestors = {id(self.root)} if _is_container(self.root) else set()
+        root_ancestors = {id(self.root): self.root} if _is_container(self.root) else {}
         for child, child_node in self._children(self.root, self.root_accessor, root_ancestors):
             if visit(child, [child_node.access_key], child_node, root_ancestors):
                 break
@@ -217,15 +220,16 @@ class ObjectExplorerView:
             return FormattedValue(content=content[:max_length], is_truncated=True)
         return FormattedValue(content=content, is_truncated=False)
 
-    def resolve(self, path: list[str]) -> tuple[Any, str | None, set[int]]:
+    def resolve(self, path: list[str]) -> tuple[Any, str | None, dict[int, Any]]:
         """
         Resolve the value at an access key path.
 
-        Returns the value, its accessor, and the identities of the containers from the root to it.
+        Returns the value, its accessor, and the containers from the root to it, keyed by identity.
+        The containers are held so that their identities can't be reused by new child objects.
         """
         value = self.root
         accessor = self.root_accessor
-        ancestors = {id(value)} if _is_container(value) else set()
+        ancestors = {id(value): value} if _is_container(value) else {}
         for access_key in path:
             inspector = get_inspector(value)
             key = decode_access_key(access_key)
@@ -237,11 +241,11 @@ class ObjectExplorerView:
             )
             value = _get_child(inspector, key)
             if _is_container(value):
-                ancestors.add(id(value))
+                ancestors[id(value)] = value
         return value, accessor, ancestors
 
     def _children(
-        self, parent: Any, accessor: str | None, ancestors: set[int]
+        self, parent: Any, accessor: str | None, ancestors: dict[int, Any]
     ) -> Iterator[tuple[Any, ObjectNode]]:
         """Iterate over every child of a value as (value, node)."""
         inspector = get_inspector(parent)
@@ -251,7 +255,11 @@ class ObjectExplorerView:
             yield self._child(inspector, key, accessor, ancestors)
 
     def _child(
-        self, inspector: PositronInspector, key: Any, accessor: str | None, ancestors: set[int]
+        self,
+        inspector: PositronInspector,
+        key: Any,
+        accessor: str | None,
+        ancestors: dict[int, Any],
     ) -> tuple[Any, ObjectNode]:
         """Get a child of the inspector's value, and its node."""
         value = _get_child(inspector, key)
@@ -263,7 +271,12 @@ class ObjectExplorerView:
         return value, node
 
     def _node(
-        self, key: Any, value: Any, display_name: str, accessor: str | None, ancestors: set[int]
+        self,
+        key: Any,
+        value: Any,
+        display_name: str,
+        accessor: str | None,
+        ancestors: dict[int, Any],
     ) -> ObjectNode:
         is_cycle = _is_container(value) and id(value) in ancestors
         unavailable = value is _UNAVAILABLE
@@ -397,7 +410,9 @@ class ObjectExplorerService:
         elif request.method == ObjectExplorerBackendRequest.ViewTable:
             result = self._view_table(comm_id, request.params.path, request.params.title)
         else:
-            result = getattr(view, request.method.value)(getattr(request, "params", None)).dict()
+            result = getattr(view, request.method.value)(getattr(request, "params", None)).dict(
+                exclude_none=True
+            )
         self.comms[comm_id].send_result(result)
 
     def _view_table(self, comm_id: str, path: list[str], title: str) -> str:

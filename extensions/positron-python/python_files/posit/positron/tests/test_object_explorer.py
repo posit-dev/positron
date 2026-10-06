@@ -7,6 +7,7 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -112,6 +113,15 @@ def test_cycle(oe_service: ObjectExplorerService):
     ]
 
     assert (child["is_cycle"], child["has_children"]) == (True, False)
+
+
+def test_new_children_are_not_cycles(oe_service: ObjectExplorerService):
+    # Indexing an array returns a new view each time, which could reuse a freed ancestor's id.
+    comm_id = _open(oe_service, {"a": np.zeros((3, 3, 3, 3))})
+
+    children = _children(oe_service, comm_id, "a", 0, 0)["children"]
+
+    assert [c["is_cycle"] for c in children] == [False, False, False]
 
 
 def test_accessors(oe_service: ObjectExplorerService):
