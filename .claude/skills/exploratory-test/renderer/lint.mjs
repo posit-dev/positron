@@ -65,10 +65,16 @@ const READS_OUTPUT = /\b(?:until|shows?|showing|prints?|printed|reads|displays?|
 const SESSION_ID = /\b(?:python|r)-[0-9a-f]{8}\b/i;
 
 /** The rules every action step follows, in the ledger and on a finding card. */
-// An action verb opening a VERIFY, or a clause of it ("In the panel, type `n`").
-// Lowercase after a comma: a capitalized word there is a menu item or a label.
-const VERIFY_VERBS = 'run|click|press|open|close|save|type|choose|select|pick|tick|untick|reload|restart|drag|scroll|paste|delete|insert|switch|focus|toggle|expand|collapse|resize|rename|hover|enter|wait';
-const VERIFY_ACTION = [new RegExp(`^(${VERIFY_VERBS})\\b`, 'i'), new RegExp(`[,;]\\s*(${VERIFY_VERBS})\\b`)];
+// An action inside a VERIFY, as most past runs wrote it: "typing `n` shows ...",
+// "after running `x`, ...", or a command after a comma ("In the panel, type ...").
+// Measured on 3,199 VERIFY lines from 98 runs: 25 hits, none of them a real check.
+const VERIFY_ING = 'typing|clicking|double-clicking|right-clicking|pressing|running|executing|opening|closing|expanding|collapsing|scrolling|selecting|hovering|dragging|choosing|entering|saving|switching|toggling|resizing|reloading|restarting';
+const VERIFY_IMP = 'type|click|double-click|right-click|press|run|open|expand|collapse|scroll|select|hover|drag|choose|enter|save|switch|toggle|resize|reload|restart';
+const VERIFY_ACTION = [
+	new RegExp(`(?:^|[,;]\\s*|\\b(?:and|after|before|while|on|when|by|then)\\s+)(${VERIFY_ING})\\s+\\S`, 'i'),
+	// Lowercase, and before an object: "Enter creates" is the key, "type int" a label.
+	new RegExp(`(?:^|[,;]\\s*)(${VERIFY_IMP})\\s+(?:the|a|an|code|it|on|in)\\b`),
+];
 
 function verifyProblems(where, text) {
 	const plain = text.replace(/`[^`]*`/g, 'code').replace(/\s*->.*$/, '').trim();

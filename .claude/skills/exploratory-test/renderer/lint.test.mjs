@@ -541,15 +541,27 @@ test('a step is one action, with no repeat count, second action, assumed state o
 test('a VERIFY is only the check, with the actions before it as steps of their own', () => {
 	const check = text => lint(REPORT, LEDGER.replace('2. VERIFY it loads -> PASS', `2. VERIFY ${text} -> PASS`)).filter(p => /S01 step 2/.test(p));
 	const did = verb => [`ledger: S01 step 2 VERIFY does something ("${verb}"); make it a step of its own before the check, and keep the VERIFY to what you expect to see`];
-	assert.deepEqual(check('the `n` profile shows Min 5; Max 1500'), []);
-	assert.deepEqual(check('the menu lists Open, Close and Run'), []);
-	assert.deepEqual(check('the editor tab is open'), []);
-	assert.deepEqual(check('the cell runs `type(x)`, which prints int'), []);
+	// Real checks from past runs that name an action word without doing it.
+	for (const text of [
+		'the `n` profile shows Min 5; Max 1500',
+		'Enter creates the folder (Create is enabled)',
+		'focus moves to a footer button',
+		'The dialog closes, focus is back in the editor',
+		'the namespace holds only In, Out, exit, help, open and quit',
+		'the plot still shows the status line (check mark, run time) from its last run',
+		'Tables lists blobs, customers, select and wide',
+		'`n` shows `n`, type int, with no chevron',
+		'the console prints `small big`, then `45`, and returns to a `>>>` prompt',
+		'the kernel is running',
+	]) { assert.deepEqual(check(text), [], text); }
 	assert.deepEqual(check('In the summary panel, type `n` in the column filter and expand the `n` profile; it shows Min 5'), did('type'));
-	assert.deepEqual(check('expand the profile; it shows Min 5'), did('expand'));
-	assert.deepEqual(check('the profile shows Min 5; scroll down and it shows Max 1500'), did('scroll'));
-	assert.deepEqual(lint(REPORT.replace('2. VERIFY the panel loads', '2. VERIFY click Retry and the panel loads')).filter(p => /VERIFY does/.test(p)),
-		['report: Finding 1 step 2 VERIFY does something ("click"); make it a step of its own before the check, and keep the VERIFY to what you expect to see']);
+	assert.deepEqual(check('Typing `n` in the summary column filter and expanding `n` shows Min 5'), did('Typing'));
+	assert.deepEqual(check('after running `del df["num"]`, all 10 rows show'), did('running'));
+	assert.deepEqual(check('clicking Console Information shows "Start Reason"'), did('clicking'));
+	assert.deepEqual(check('the console prints `[1] 2`, and hovering the breakpoint shows "Unverified Breakpoint"'), did('hovering'));
+	assert.deepEqual(check('the pane shows a plot after clicking Show Next Plot'), did('clicking'));
+	assert.deepEqual(lint(REPORT.replace('2. VERIFY the panel loads', '2. VERIFY clicking Retry loads the panel')).filter(p => /VERIFY does/.test(p)),
+		['report: Finding 1 step 2 VERIFY does something ("clicking"); make it a step of its own before the check, and keep the VERIFY to what you expect to see']);
 });
 
 test('a failed scenario\'s Result is its rate only', () => {
