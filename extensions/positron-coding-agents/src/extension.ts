@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { claudeCode } from './claudeCode';
 import { codex } from './codex';
 import { CodingAgent, sendPrompt } from './codingAgent';
-import { ErrorActionKind, getErrorPrompt } from './errorPrompt';
+import { ErrorActionKind, getErrorPrompt, UnsavedCode } from './errorPrompt';
 
 /** The agents Fix and Explain can send errors to, in the order they are offered. */
 const AGENTS: readonly CodingAgent[] = [claudeCode, codex];
@@ -54,8 +54,36 @@ export function activate(context: vscode.ExtensionContext): void {
 /** Open a new agent session with the error from a Fix/Explain action. */
 async function startSession(agent: CodingAgent, kind: ErrorActionKind, context: positron.ai.ErrorActionContext): Promise<void> {
 	const getPath = (uri: vscode.Uri) => vscode.workspace.asRelativePath(uri);
-	const prompt = getErrorPrompt(kind, context, getPath, await getMcpServerName(agent));
+	const prompt = getErrorPrompt(kind, context, getPath, await getMcpServerName(agent), getUnsavedCode(context.location));
 	await sendPrompt(agent, prompt);
+}
+
+/**
+ * The failing notebook cell's or Quarto chunk's code, read from the open
+ * document when the agent can't read it from the file.
+ * @returns The code, or undefined when the document is saved, closed, or the
+ *   error has no notebook or Quarto location.
+ */
+function getUnsavedCode(location: positron.ai.ErrorLocation | undefined): UnsavedCode | undefined {
+	if (location?.kind === 'notebook' && location.cellIndex !== undefined) {
+		const uri = location.uri.toString();
+		const notebook = vscode.workspace.notebookDocuments.find(document => document.uri.toString() === uri);
+		if (!notebook || !(notebook.isUntitled || notebook.isDirty) || location.cellIndex >= notebook.cellCount) {
+			return undefined;
+		}
+		const cell = notebook.cellAt(location.cellIndex).document;
+		return { code: cell.getText(), languageId: cell.languageId, isUntitled: notebook.isUntitled };
+	}
+	if (location?.kind === 'quarto') {
+		const uri = location.uri.toString();
+		const document = vscode.workspace.textDocuments.find(document => document.uri.toString() === uri);
+		if (!document || !(document.isUntitled || document.isDirty) || location.endLine > document.lineCount) {
+			return undefined;
+		}
+		const range = new vscode.Range(location.startLine - 1, 0, location.endLine - 1, Number.MAX_SAFE_INTEGER);
+		return { code: document.getText(range), languageId: location.languageId, isUntitled: document.isUntitled };
+	}
+	return undefined;
 }
 
 /**

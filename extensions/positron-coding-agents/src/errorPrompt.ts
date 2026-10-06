@@ -20,23 +20,39 @@ const MAX_DETAILS_LENGTH = 30_000;
 const MIN_CODE_LENGTH = 2_000;
 
 /**
+ * The code of a notebook cell or Quarto chunk whose document differs from
+ * what is on disk, so the agent cannot read the code from the file.
+ */
+export interface UnsavedCode {
+	readonly code: string;
+	readonly languageId: string;
+	/** Whether the document has never been saved to a file. */
+	readonly isUntitled: boolean;
+}
+
+/**
  * Build the prompt for a Fix or Explain action, for any coding agent. Prompts
  * are in English: they are read by the agent, not the user.
  * @param getPath Resolves a document URI to the path named in the prompt.
  * @param mcpServerName The name the agent knows Positron's MCP server by,
  *   or undefined when it is not configured.
+ * @param unsavedCode The failing notebook cell's or Quarto chunk's code,
+ *   when its document is not saved.
  */
 export function getErrorPrompt(
 	kind: ErrorActionKind,
 	context: positron.ai.ErrorActionContext,
 	getPath: (uri: Uri) => string,
 	mcpServerName?: string,
+	unsavedCode?: UnsavedCode,
 ): string {
 	const location = context.location;
-	// The code is cut before the error, since the agent can find the code
-	// elsewhere (e.g. the console's history) but not the error.
-	const code = location?.kind === 'console' && location.code
-		? truncateMiddle(location.code, Math.max(MIN_CODE_LENGTH, MAX_DETAILS_LENGTH - context.error.length))
+	const fullCode = location?.kind === 'console' ? location.code : unsavedCode?.code;
+	const languageId = location?.kind === 'console' ? location.languageId : unsavedCode?.languageId;
+	// The code is cut before the error, since the agent can more likely find
+	// the code elsewhere (e.g. the console's history) than the error.
+	const code = fullCode
+		? truncateMiddle(fullCode, Math.max(MIN_CODE_LENGTH, MAX_DETAILS_LENGTH - context.error.length))
 		: undefined;
 	const error = truncateMiddle(context.error, MAX_DETAILS_LENGTH - (code?.length ?? 0));
 	const task = kind === 'fix'
@@ -54,14 +70,16 @@ export function getErrorPrompt(
 			if (mcpServerName) {
 				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId, 'this session');
 			}
-			if (code) {
-				blocks.push(`Code:\n\n${fence(code, location.languageId)}`);
-			}
 			break;
 		case 'notebook':
 			source = location.cellIndex === undefined
 				? `A cell in ${getPath(location.uri)} raised an error.`
 				: `Cell ${location.cellIndex + 1} of ${getPath(location.uri)} raised an error.`;
+			if (unsavedCode) {
+				source += unsavedCode.isUntitled
+					? ' The notebook is not saved to a file, so the cell\'s code is below.'
+					: ' The notebook has unsaved changes, so the cell\'s code is below.';
+			}
 			if (mcpServerName && location.sessionId) {
 				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId, 'the notebook\'s kernel session') +
 					' ' + INSPECT_ONLY;
@@ -70,11 +88,19 @@ export function getErrorPrompt(
 		case 'quarto':
 			source = `The ${location.languageId} code chunk at lines ${location.startLine}-${location.endLine} ` +
 				`of ${getPath(location.uri)} raised an error.`;
+			if (unsavedCode) {
+				source += unsavedCode.isUntitled
+					? ' The document is not saved to a file, so the chunk\'s code is below.'
+					: ' The document has unsaved changes, so the chunk\'s code is below.';
+			}
 			if (mcpServerName && location.sessionId) {
 				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId, 'the document\'s kernel session') +
 					' ' + INSPECT_ONLY;
 			}
 			break;
+	}
+	if (code) {
+		blocks.push(`Code:\n\n${fence(code, languageId)}`);
 	}
 	if (error) {
 		blocks.push(`Error:\n\n${fence(error)}`);
