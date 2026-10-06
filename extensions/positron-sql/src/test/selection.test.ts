@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import { ConnectionRef } from '../schema';
 import { ConnectionSelection, EffectiveSelection, resolveSelection, SelectionStore } from '../selection';
-import { describeSelection, DialectInUse } from '../statusBar';
+import { describeSelection, DialectInUse, pickConnection } from '../statusBar';
 
 const WAREHOUSE: ConnectionRef = {
 	profileId: 'warehouse',
@@ -232,5 +232,45 @@ suite('describeSelection hover', () => {
 		const shown = hover({ dialect: '', fromSetting: false });
 
 		assert.ok(shown.includes('Generic'), shown);
+	});
+});
+
+/**
+ * The picker, when there is nothing to pick. Running a statement awaits this while it holds a guard
+ * against a second run, so how long it takes to return is how long every later run does nothing.
+ */
+suite('pickConnection', () => {
+
+	const showInformationMessage = vscode.window.showInformationMessage;
+	let shownMessages: string[];
+
+	setup(() => {
+		shownMessages = [];
+		// A notification the user never answers, which is what one that hid itself is: its answer
+		// arrives only if they find it in the notification center.
+		(vscode.window as { showInformationMessage: unknown }).showInformationMessage = (message: string) => {
+			shownMessages.push(message);
+			return new Promise<undefined>(() => { });
+		};
+	});
+
+	teardown(() => {
+		(vscode.window as { showInformationMessage: unknown }).showInformationMessage = showInformationMessage;
+	});
+
+	test('nothing open says so and returns without waiting for an answer', async () => {
+		const timedOut = Symbol('timed out');
+		const result = await Promise.race([
+			pickConnection([], undefined),
+			new Promise<typeof timedOut>(resolve => setTimeout(() => resolve(timedOut), 1000)),
+		]);
+
+		assert.deepStrictEqual(
+			{ result, shownMessages },
+			{
+				result: undefined,
+				shownMessages: ['No data connection is open. Open one in the Connections pane to use it with this file.'],
+			},
+		);
 	});
 });
