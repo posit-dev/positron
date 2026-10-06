@@ -4,17 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { execFile } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
-import * as path from 'node:path';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
-import { canInlineBody, ErrorPrompt, formatFilePrompt, formatInlinePrompt } from './errorPrompt';
+import { AgentLaunch } from './agentLaunch';
 import { hasForegroundProcess, parseProcessTable, ProcessInfo, PS_ARGS } from './foregroundProcess';
-
-/** Directory for error details @-mentioned from prompts. */
-const ERROR_DIR = path.join(os.tmpdir(), 'positron-coding-agents');
 
 /** A coding agent that Fix and Explain can send errors to. */
 export interface CodingAgent {
@@ -35,35 +29,33 @@ export interface CodingAgent {
 	isAgentCommand(args: string): boolean;
 
 	/** Start a new session with the prompt. */
-	startNew(prompt: ErrorPrompt): Promise<void>;
+	startNew(prompt: string): Promise<void>;
 }
 
 /**
  * Send a prompt to the agent's session in a terminal, if one is running in
  * the foreground of one, or start a new session.
  */
-export async function sendPrompt(agent: CodingAgent, prompt: ErrorPrompt): Promise<void> {
+export async function sendPrompt(agent: CodingAgent, prompt: string): Promise<void> {
 	const terminal = await findAgentTerminal(agent);
 	if (terminal) {
-		return pasteIntoTerminal(terminal, canInlineBody(prompt) ? formatInlinePrompt(prompt) : await formatPromptWithFile(prompt));
+		return pasteIntoTerminal(terminal, prompt);
 	}
 	return agent.startNew(prompt);
 }
 
-/** Format a single-line prompt, moving its body (if any) to a file it @-mentions. */
-export async function formatPromptWithFile(prompt: ErrorPrompt): Promise<string> {
-	return prompt.body ? formatFilePrompt(prompt, await writeBodyFile(prompt.body)) : prompt.lead;
-}
-
 /**
- * Write a prompt body to a temp file for a prompt to @-mention. Left in
- * place so the session can re-read it; the OS clears the temp directory.
+ * Start an agent's CLI in a new terminal, with the prompt as its last
+ * argument. The CLI is the terminal's process rather than a command typed
+ * into a shell, so the prompt needs no shell quoting and keeps its newlines.
  */
-async function writeBodyFile(body: string): Promise<string> {
-	await fs.mkdir(ERROR_DIR, { recursive: true });
-	const bodyPath = path.join(ERROR_DIR, `error-${randomUUID()}.md`);
-	await fs.writeFile(bodyPath, body, 'utf8');
-	return bodyPath;
+export function startInTerminal(
+	launch: AgentLaunch,
+	prompt: string,
+	options: Omit<vscode.TerminalOptions, 'shellPath' | 'shellArgs'>,
+): void {
+	const terminal = vscode.window.createTerminal({ ...options, shellPath: launch.command, shellArgs: [...launch.args, prompt] });
+	terminal.show();
 }
 
 /**

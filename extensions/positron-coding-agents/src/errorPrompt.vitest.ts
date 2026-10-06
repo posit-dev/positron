@@ -7,13 +7,19 @@
 
 import type * as positron from 'positron';
 import type { Uri } from 'vscode';
-import { canInlineBody, formatFilePrompt, formatInlinePrompt, getErrorPrompt } from './errorPrompt';
+import { getErrorPrompt } from './errorPrompt';
 
 /** A stand-in URI; prompts only see it through getPath. */
 const notebookUri = { path: '/work/analysis.ipynb' } as Uri;
 
 /** Resolve a URI to its path, standing in for workspace-relative paths. */
 const getPath = (uri: Uri) => uri.path.slice('/work/'.length);
+
+/** The prompt's first paragraph: where the error came from and what to do. */
+const getLead = (prompt: string) => prompt.split('\n\n', 1)[0];
+
+/** The prompt after its first paragraph: the code and error blocks. */
+const getDetails = (prompt: string) => prompt.slice(getLead(prompt).length + 2);
 
 const consoleContext: positron.ai.ErrorActionContext = {
 	error: 'NameError: name \'x\' is not defined',
@@ -28,7 +34,7 @@ const consoleContext: positron.ai.ErrorActionContext = {
 
 describe('getErrorPrompt', () => {
 	it('names the console session and includes the code for a console error', () => {
-		expect(formatInlinePrompt(getErrorPrompt('fix', consoleContext, getPath))).toBe([
+		expect(getErrorPrompt('fix', consoleContext, getPath)).toBe([
 			'Code run in the Positron console session "Python 3.12.1 (Venv: .venv)" raised an error. The code may not be saved in any file. Fix the error. Only edit project files if the cause is in one of them.',
 			'',
 			'Code:',
@@ -46,23 +52,23 @@ describe('getErrorPrompt', () => {
 	});
 
 	it('asks for an explanation without changes for Explain', () => {
-		expect(getErrorPrompt('explain', consoleContext, getPath).lead).toBe(
+		expect(getLead(getErrorPrompt('explain', consoleContext, getPath))).toBe(
 			'Code run in the Positron console session "Python 3.12.1 (Venv: .venv)" raised an error. The code may not be saved in any file. Explain what caused the error and how to fix it, without making changes or editing any files.'
 		);
 	});
 
 	it('points the agent at the MCP server for the session when it is configured', () => {
-		expect(getErrorPrompt('fix', consoleContext, getPath, 'positron').lead).toBe(
+		expect(getLead(getErrorPrompt('fix', consoleContext, getPath, 'positron'))).toBe(
 			'Code run in the Positron console session "Python 3.12.1 (Venv: .venv)" raised an error. The code may not be saved in any file. Fix the error. Only edit project files if the cause is in one of them. ' +
 			'Positron\'s MCP server (`positron`) can inspect this session (session_id: python-1234). Its tools may take a moment to connect; don\'t conclude you lack access.'
 		);
 	});
 
 	it('points the agent at the notebook\'s kernel session for inspection only', () => {
-		expect(getErrorPrompt('fix', {
+		expect(getLead(getErrorPrompt('fix', {
 			error: 'boom',
 			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2, sessionId: 'python-5678' },
-		}, getPath, 'positron').lead).toBe(
+		}, getPath, 'positron'))).toBe(
 			'Cell 3 of analysis.ipynb raised an error. Fix the error. ' +
 			'Positron\'s MCP server (`positron`) can inspect the notebook\'s kernel session (session_id: python-5678). Its tools may take a moment to connect; don\'t conclude you lack access. ' +
 			'Use it to inspect the kernel\'s state, not to run code that changes it.'
@@ -70,22 +76,22 @@ describe('getErrorPrompt', () => {
 	});
 
 	it('points the agent at the Quarto document\'s kernel session', () => {
-		expect(getErrorPrompt('explain', {
+		expect(getLead(getErrorPrompt('explain', {
 			error: 'boom',
 			location: { kind: 'quarto', uri: { path: '/work/report.qmd' } as Uri, languageId: 'r', startLine: 10, endLine: 12, sessionId: 'r-9012' },
-		}, getPath, 'positron').lead).toContain('can inspect the document\'s kernel session (session_id: r-9012).');
+		}, getPath, 'positron'))).toContain('can inspect the document\'s kernel session (session_id: r-9012).');
 	});
 
 	it('does not mention the MCP server for a notebook without a session', () => {
-		expect(getErrorPrompt('fix', {
+		expect(getLead(getErrorPrompt('fix', {
 			error: 'boom',
 			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2 },
-		}, getPath, 'positron').lead).toBe('Cell 3 of analysis.ipynb raised an error. Fix the error.');
+		}, getPath, 'positron'))).toBe('Cell 3 of analysis.ipynb raised an error. Fix the error.');
 	});
 
 	it('omits the code block when the console code is unknown', () => {
 		const location = { ...consoleContext.location as positron.ai.ConsoleErrorLocation, code: undefined };
-		expect(getErrorPrompt('fix', { ...consoleContext, location }, getPath).body).toBe(
+		expect(getDetails(getErrorPrompt('fix', { ...consoleContext, location }, getPath))).toBe(
 			'Error:\n\n```\nNameError: name \'x\' is not defined\n```'
 		);
 	});
@@ -94,63 +100,49 @@ describe('getErrorPrompt', () => {
 		expect(getErrorPrompt('fix', {
 			error: 'boom',
 			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2 },
-		}, getPath)).toEqual({
-			lead: 'Cell 3 of analysis.ipynb raised an error. Fix the error.',
-			body: 'Error:\n\n```\nboom\n```',
-		});
+		}, getPath)).toBe('Cell 3 of analysis.ipynb raised an error. Fix the error.\n\nError:\n\n```\nboom\n```');
 	});
 
 	it('names only the notebook when the cell no longer exists', () => {
-		expect(getErrorPrompt('fix', {
+		expect(getLead(getErrorPrompt('fix', {
 			error: 'boom',
 			location: { kind: 'notebook', uri: notebookUri },
-		}, getPath).lead).toBe('A cell in analysis.ipynb raised an error. Fix the error.');
+		}, getPath))).toBe('A cell in analysis.ipynb raised an error. Fix the error.');
 	});
 
 	it('names the chunk for a Quarto error', () => {
-		expect(getErrorPrompt('explain', {
+		expect(getLead(getErrorPrompt('explain', {
 			error: 'boom',
 			location: { kind: 'quarto', uri: { path: '/work/report.qmd' } as Uri, languageId: 'r', startLine: 10, endLine: 12 },
-		}, getPath).lead).toBe(
+		}, getPath))).toBe(
 			'The r code chunk at lines 10-12 of report.qmd raised an error. Explain what caused the error and how to fix it, without making changes or editing any files.'
 		);
 	});
 
 	it('sends only the task when the error has no location or output', () => {
-		expect(getErrorPrompt('fix', { error: '' }, getPath)).toEqual({ lead: 'Fix the error.', body: '' });
+		expect(getErrorPrompt('fix', { error: '' }, getPath)).toBe('Fix the error.');
 	});
 
 	it('lengthens the fence past any backticks in the code or error', () => {
 		const location = { ...consoleContext.location as positron.ai.ConsoleErrorLocation, code: 'x = "```"' };
-		expect(getErrorPrompt('fix', { error: 'code: ````x````', location }, getPath).body).toBe(
+		expect(getDetails(getErrorPrompt('fix', { error: 'code: ````x````', location }, getPath))).toBe(
 			'Code:\n\n````python\nx = "```"\n````\n\nError:\n\n`````\ncode: ````x````\n`````'
 		);
 	});
 
-	it('keeps the lead on one line', () => {
-		const location = { ...consoleContext.location as positron.ai.ConsoleErrorLocation, sessionName: 'Python\nnext line' };
-		expect(getErrorPrompt('fix', { ...consoleContext, location }, getPath).lead).not.toContain('\n');
+	it('cuts long code before the error, keeping the start and end of each', () => {
+		const code = 'a'.repeat(20_000) + 'b'.repeat(20_000);
+		const error = 'Traceback\n' + 'x'.repeat(40_000) + '\nValueError: boom';
+		const location = { ...consoleContext.location as positron.ai.ConsoleErrorLocation, code };
+		const details = getDetails(getErrorPrompt('fix', { error, location }, getPath));
+		expect(details.length).toBeLessThan(31_000);
+		expect(details).toMatch(/^Code:\n\n```python\na+\n\[\.\.\. 38000 characters omitted \.\.\.\]\nb+\n```/);
+		expect(details).toContain('Error:\n\n```\nTraceback\n');
+		expect(details).toMatch(/ValueError: boom\n```$/);
 	});
-});
 
-describe('canInlineBody', () => {
-	it('moves a very long body to a file', () => {
+	it('keeps code and error that fit as they are', () => {
 		const location = { ...consoleContext.location as positron.ai.ConsoleErrorLocation, code: 'x = 1\n'.repeat(2000) };
-		expect(canInlineBody(getErrorPrompt('fix', consoleContext, getPath))).toBe(true);
-		expect(canInlineBody(getErrorPrompt('fix', { ...consoleContext, location }, getPath))).toBe(false);
-	});
-});
-
-describe('formatFilePrompt', () => {
-	const prompt = { lead: 'Fix the error.', body: 'Error:\n\n```\nboom\n```' };
-
-	it('@-mentions the file holding the body', () => {
-		expect(formatFilePrompt(prompt, '/tmp/positron-claude-code/error-1.md'))
-			.toBe('Fix the error. The details are in @/tmp/positron-claude-code/error-1.md');
-	});
-
-	it('quotes a path that contains spaces', () => {
-		expect(formatFilePrompt(prompt, 'C:\\Users\\Ada Lovelace\\error.md'))
-			.toBe('Fix the error. The details are in @"C:\\Users\\Ada Lovelace\\error.md"');
+		expect(getErrorPrompt('fix', { ...consoleContext, location }, getPath)).not.toContain('omitted');
 	});
 });

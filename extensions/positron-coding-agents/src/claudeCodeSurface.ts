@@ -4,12 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * First Claude Code release whose `claude-vscode.terminal.open` command accepts
- * an initial prompt (2025-10-20).
- */
-const MIN_TERMINAL_VERSION = '2.0.24';
-
-/**
  * First Claude Code release whose `claude-vscode.editor.open` command accepts
  * an initial prompt (2025-11-06).
  */
@@ -20,16 +14,16 @@ export type ClaudeCodeSurface = 'chat' | 'terminal';
 
 /**
  * Pick where to open the new session, honoring `claudeCode.useTerminal`.
+ * The terminal runs the `claude` CLI directly, so any version works there.
  * @param version The installed Claude Code version, e.g. "2.1.282".
  * @returns The surface, or undefined when the installed version is too old
- *   to accept a prompt there.
+ *   to accept a prompt in the chat.
  */
 export function getClaudeCodeSurface(version: string, useTerminal: boolean): ClaudeCodeSurface | undefined {
-	const minimumVersion = useTerminal ? MIN_TERMINAL_VERSION : MIN_CHAT_VERSION;
-	if (!isAtLeast(version, minimumVersion)) {
-		return undefined;
+	if (useTerminal) {
+		return 'terminal';
 	}
-	return useTerminal ? 'terminal' : 'chat';
+	return isAtLeast(version, MIN_CHAT_VERSION) ? 'chat' : undefined;
 }
 
 /** Compare dotted numeric versions, ignoring any prerelease suffix. */

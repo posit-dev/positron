@@ -10,18 +10,14 @@ import type { Uri } from 'vscode';
 export type ErrorActionKind = 'fix' | 'explain';
 
 /**
- * Longest prompt body inlined into a prompt. Longer bodies (e.g. a pasted
- * script that failed in the console) go in a file the prompt points to.
+ * Longest code and error text, together, in a prompt. Prompts are passed on
+ * the command line, which Windows caps at 32,767 characters, so longer text
+ * (e.g. a pasted script that failed in the console) is cut in the middle.
  */
-const MAX_INLINE_BODY_LENGTH = 8000;
+const MAX_DETAILS_LENGTH = 30_000;
 
-/** A prompt for an error, split so the body can move to a file. */
-export interface ErrorPrompt {
-	/** A single line saying where the error came from and what to do about it. */
-	readonly lead: string;
-	/** Fenced code and error blocks; empty when there is no error output. */
-	readonly body: string;
-}
+/** Code kept when an error alone would fill the prompt. */
+const MIN_CODE_LENGTH = 2_000;
 
 /**
  * Build the prompt for a Fix or Explain action, for any coding agent. Prompts
@@ -35,8 +31,14 @@ export function getErrorPrompt(
 	context: positron.ai.ErrorActionContext,
 	getPath: (uri: Uri) => string,
 	mcpServerName?: string,
-): ErrorPrompt {
+): string {
 	const location = context.location;
+	// The code is cut before the error, since the agent can find the code
+	// elsewhere (e.g. the console's history) but not the error.
+	const code = location?.kind === 'console' && location.code
+		? truncateMiddle(location.code, Math.max(MIN_CODE_LENGTH, MAX_DETAILS_LENGTH - context.error.length))
+		: undefined;
+	const error = truncateMiddle(context.error, MAX_DETAILS_LENGTH - (code?.length ?? 0));
 	const task = kind === 'fix'
 		? 'Fix the error.'
 		: 'Explain what caused the error and how to fix it, without making changes or editing any files.';
@@ -52,8 +54,8 @@ export function getErrorPrompt(
 			if (mcpServerName) {
 				mcpHint = ' ' + getMcpHint(mcpServerName, location.sessionId, 'this session');
 			}
-			if (location.code) {
-				blocks.push(`Code:\n\n${fence(location.code, location.languageId)}`);
+			if (code) {
+				blocks.push(`Code:\n\n${fence(code, location.languageId)}`);
 			}
 			break;
 		case 'notebook':
@@ -74,8 +76,8 @@ export function getErrorPrompt(
 			}
 			break;
 	}
-	if (context.error) {
-		blocks.push(`Error:\n\n${fence(context.error)}`);
+	if (error) {
+		blocks.push(`Error:\n\n${fence(error)}`);
 	}
 	// The console's code is not in the project, so a fix there usually means
 	// corrected code to run rather than an edit.
@@ -83,8 +85,7 @@ export function getErrorPrompt(
 		? ' Only edit project files if the cause is in one of them.'
 		: '';
 	const lead = source ? `${source} ${task}${scope}${mcpHint}` : task;
-	// Newlines would end a terminal prompt early (e.g. one in a session name).
-	return { lead: lead.replace(/\s*\n\s*/g, ' '), body: blocks.join('\n\n') };
+	return [lead, ...blocks].join('\n\n');
 }
 
 /**
@@ -103,24 +104,14 @@ function getMcpHint(serverName: string, sessionId: string, sessionDescription: s
 		'Its tools may take a moment to connect; don\'t conclude you lack access.';
 }
 
-/** Whether a prompt's body is short enough to inline. */
-export function canInlineBody(prompt: ErrorPrompt): boolean {
-	return prompt.body.length <= MAX_INLINE_BODY_LENGTH;
-}
-
-/** Format a prompt with its body inline. */
-export function formatInlinePrompt(prompt: ErrorPrompt): string {
-	return prompt.body ? `${prompt.lead}\n\n${prompt.body}` : prompt.lead;
-}
-
-/**
- * Format a single-line prompt that @-mentions a file holding the body, for
- * surfaces that cannot take a multi-line prompt or a long one.
- * @param bodyPath File containing `prompt.body`.
- */
-export function formatFilePrompt(prompt: ErrorPrompt, bodyPath: string): string {
-	const mention = /\s/.test(bodyPath) ? `@"${bodyPath}"` : `@${bodyPath}`;
-	return `${prompt.lead} The details are in ${mention}`;
+/** Cut text longer than `maxLength` in the middle, keeping its start and end. */
+function truncateMiddle(text: string, maxLength: number): string {
+	if (text.length <= maxLength) {
+		return text;
+	}
+	const head = Math.floor(maxLength / 2);
+	const tail = maxLength - head;
+	return `${text.slice(0, head)}\n[... ${text.length - maxLength} characters omitted ...]\n${text.slice(text.length - tail)}`;
 }
 
 /**

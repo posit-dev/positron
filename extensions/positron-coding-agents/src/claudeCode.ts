@@ -4,19 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { CodingAgent, formatPromptWithFile } from './codingAgent';
+import { getAgentLaunch } from './agentLaunch';
+import { CodingAgent, startInTerminal } from './codingAgent';
 import { isClaudeCodeCommand } from './foregroundProcess';
 import { ClaudeCodeSurface, getClaudeCodeSurface } from './claudeCodeSurface';
-import { canInlineBody, ErrorPrompt, formatInlinePrompt } from './errorPrompt';
 
 /** Identifier of Anthropic's Claude Code extension. */
 const CLAUDE_CODE_EXTENSION_ID = 'anthropic.claude-code';
+
+/** Claude Code's script in its npm package. */
+const CLAUDE_CODE_NPM_SCRIPT = '@anthropic-ai/claude-code/cli.js';
 
 /** Claude Code, through its VS Code extension's chat or terminal. */
 export const claudeCode: CodingAgent = {
 	id: 'claude-code',
 	label: 'Claude Code',
-	isAvailable: () => getSurface() !== undefined,
+	isAvailable,
 	isAgentCommand: isClaudeCodeCommand,
 	startNew,
 };
@@ -36,17 +39,27 @@ function getSurface(): ClaudeCodeSurface | undefined {
 	return getClaudeCodeSurface(version, useTerminal);
 }
 
+/** Whether Claude Code can take a prompt on the surface the user prefers. */
+function isAvailable(): boolean {
+	switch (getSurface()) {
+		case 'chat':
+			return true;
+		case 'terminal':
+			return getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT) !== undefined;
+		case undefined:
+			return false;
+	}
+}
+
 /** Open a new Claude Code session with the prompt. */
-async function startNew(prompt: ErrorPrompt): Promise<void> {
+async function startNew(prompt: string): Promise<void> {
 	// The registration is withdrawn when Claude Code becomes unavailable, but
 	// an action can still race with that.
 	switch (getSurface()) {
 		case 'chat':
-			return openChat(canInlineBody(prompt) ? formatInlinePrompt(prompt) : await formatPromptWithFile(prompt));
+			return openChat(prompt);
 		case 'terminal':
-			// Multi-line prompts to terminal.open are cut at the first newline
-			// and the rest leaks into the terminal as keystrokes.
-			return openTerminal(await formatPromptWithFile(prompt));
+			return openTerminal(prompt);
 		case undefined:
 			throw new Error(vscode.l10n.t('Claude Code is not installed or is too old to receive errors.'));
 	}
@@ -75,8 +88,28 @@ async function openChat(prompt: string): Promise<void> {
 	await vscode.commands.executeCommand('claude-vscode.focus').then(undefined, () => { });
 }
 
-/** Start `claude` in a new terminal, which sends the prompt immediately. */
+/**
+ * Start `claude` in a new terminal, which sends the prompt immediately.
+ *
+ * Claude Code's own `claude-vscode.terminal.open` types the command into a
+ * shell, which cuts a multi-line prompt at its first newline and leaks the
+ * rest as keystrokes. Its terminals run the same `claude` from the PATH, and
+ * the extension's connection to the CLI reaches every terminal through its
+ * environment, so a terminal of our own works the same.
+ */
 async function openTerminal(prompt: string): Promise<void> {
-	await vscode.commands.executeCommand('claude-vscode.terminal.open', prompt);
+	const launch = getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT);
+	if (!launch) {
+		throw new Error(vscode.l10n.t('Claude Code is not installed: `claude` was not found on the PATH.'));
+	}
+	// Match the terminals Claude Code opens itself: an editor tab beside the
+	// active editor, with its logo, not restored after a reload.
+	const extension = vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID);
+	startInTerminal(launch, prompt, {
+		name: 'Claude Code',
+		iconPath: extension && vscode.Uri.joinPath(extension.extensionUri, 'resources', 'claude-logo.svg'),
+		location: { viewColumn: vscode.ViewColumn.Beside },
+		isTransient: true,
+	});
 }
 

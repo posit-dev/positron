@@ -16,15 +16,17 @@ describe('getClaudeCodeSurface', () => {
 		expect(getClaudeCodeSurface('2.1.282', true)).toBe('terminal');
 	});
 
-	it('accepts the first versions that take a prompt', () => {
+	it('accepts the first version whose chat takes a prompt', () => {
 		expect(getClaudeCodeSurface('2.0.35', false)).toBe('chat');
-		expect(getClaudeCodeSurface('2.0.24', true)).toBe('terminal');
 	});
 
-	it('rejects versions that ignore the prompt', () => {
+	it('rejects versions whose chat ignores the prompt', () => {
 		expect(getClaudeCodeSurface('2.0.34', false)).toBeUndefined();
-		expect(getClaudeCodeSurface('2.0.23', true)).toBeUndefined();
 		expect(getClaudeCodeSurface('1.0.126', false)).toBeUndefined();
+	});
+
+	it('opens a terminal session on any version, since it runs the CLI directly', () => {
+		expect(getClaudeCodeSurface('1.0.126', true)).toBe('terminal');
 	});
 });
 
