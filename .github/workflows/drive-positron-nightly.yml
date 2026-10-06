@@ -9,6 +9,8 @@ name: "drive-positron: Nightly Self-Heal"
 # Design: .claude/skills/drive-positron/heal/README.md.
 
 on:
+  push: # TEST ONLY
+    branches: ['mi/heal-scn-*']
   schedule:
     - cron: "30 3 * * 1-5" # 03:30 UTC, Mon-Fri
   workflow_dispatch:
@@ -194,7 +196,7 @@ jobs:
         id: explore
         shell: bash
         env:
-          WANT: ${{ inputs.explore || 'auto' }}
+          WANT: ${{ 'off' }} # TEST ONLY
         run: |
           want="$WANT"
           if [ "$want" = auto ]; then
