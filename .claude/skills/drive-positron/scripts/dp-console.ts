@@ -246,11 +246,13 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 			dt.setData('text/plain', t);
 			el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
 		}, a.text);
-		await lib.sleep(50);
-		const shown = norm(await inst.locator(c$.inputLines).innerText().catch(() => ''));
 		// A narrow console wraps a long line across several drawn lines, so compare without spaces and breaks.
+		// A console that just started can take a moment to draw the paste.
 		const flat = (t: string) => t.replace(/\s+/g, '');
-		if (!flat(shown).includes(flat(probe.slice(0, 20)))) { return { ok: false, ...base, error: 'the pasted code is not in the console input' }; }
+		const pasted = async () => flat(norm(await inst.locator(c$.inputLines).innerText().catch(() => ''))).includes(flat(probe.slice(0, 20)));
+		let shown = await pasted();
+		for (const until = Date.now() + 2000; !shown && Date.now() < until;) { await lib.sleep(100); shown = await pasted(); }
+		if (!shown) { return { ok: false, ...base, error: 'the pasted code is not in the console input' }; }
 		if (!await focused()) { return { ok: false, ...base, error: 'focus left the console input before Enter; the code was pasted but not run' }; }
 		await page.keyboard.press('Enter');
 		// The code is echoed above the prompt once the console accepts it; a busy session queues it.

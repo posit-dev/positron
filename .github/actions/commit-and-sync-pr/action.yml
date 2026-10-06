@@ -42,6 +42,10 @@ inputs:
     description: 'When "true", skip commit/push/PR and echo what would happen.'
     required: false
     default: 'false'
+  reviewers:
+    description: 'Comma-separated GitHub logins to request review from when a new PR is opened.'
+    required: false
+    default: ''
   clear-stale-branch-on-empty-reset:
     description: 'When "true", a reset-mode run with nothing staged force-pushes the branch back to main to clear obsolete commits. Requires the caller to have reset HEAD to origin/main after checkout; without that reset HEAD equals the branch tip and the path never fires (pr_action stays "unchanged").'
     required: false
@@ -72,6 +76,7 @@ runs:
         BODY: ${{ inputs.body }}
         DRYRUN: ${{ inputs.dryrun }}
         CLEAR_ON_EMPTY_RESET: ${{ inputs.clear-stale-branch-on-empty-reset }}
+        REVIEWERS: ${{ inputs.reviewers }}
       run: |
         emit() { echo "$1=$2" >> "$GITHUB_OUTPUT"; }
 
@@ -125,14 +130,14 @@ runs:
           BRANCH="${BRANCH_PREFIX}-$(date +%Y%m%d-%H%M%S)"
           git checkout -b "$BRANCH"
           if [ "$DRYRUN" = "true" ]; then
-            echo "[dryrun] Would commit and push new branch $BRANCH, then open a PR against main."
+            echo "[dryrun] Would commit and push new branch $BRANCH, then open a PR against main${REVIEWERS:+ with review requested from $REVIEWERS}."
             git --no-pager diff --staged
             emit pr_action created
             emit pr_url ""
           else
             git commit -m "$COMMIT_MESSAGE"
             git push origin "$BRANCH"
-            NEW_PR_URL=$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$BODY")
+            NEW_PR_URL=$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$BODY" ${REVIEWERS:+--reviewer "$REVIEWERS"})
             echo "Created new PR: $NEW_PR_URL"
             emit pr_action created
             emit pr_url "$NEW_PR_URL"

@@ -77,6 +77,10 @@ jobs:
         working-directory: .claude/skills/exploratory-test/renderer
         run: node --test
 
+      - name: Install the action's dependencies
+        working-directory: .github/actions/pr-exploratory-test
+        run: npm ci --no-audit --no-fund
+
       - name: Test the action
         working-directory: .github/actions/pr-exploratory-test
         run: node --test

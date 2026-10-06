@@ -15,7 +15,8 @@ import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/r
 import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
-import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { runSession } from './session.mjs';
+import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -224,105 +225,27 @@ async function main() {
 	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS} timeLimit=${TIME_LIMIT ? `${TIME_LIMIT}m` : 'none'}`);
 	console.log(`[exploratory] user prompt:\n${userPrompt}`);
 
-	const assistantMessages = [];
-	let cost = buildCostRecord(null);
-	// Counts assistant messages, which is not what maxTurns limits: the SDK's
-	// own num_turns runs about 40% lower (155 messages to 90 turns on one run,
-	// 238 to 142 on another). Labelled "msg" so a live log cannot be read as
-	// approaching the cap.
-	let messageCount = 0;
-
-	// With a time limit: a hook tells the agent when its time is up, and the
-	// query is aborted WRAP_UP_MINUTES later if it is still going.
-	const abortController = new AbortController();
-	let hardStop;
-	let timeLimitOptions = {};
-	if (TIME_LIMIT) {
-		const hook = timeUpHook({
-			deadline: Date.now() + TIME_LIMIT * 60000,
-			minutes: TIME_LIMIT,
-			onTimeUp: () => {
-				timeWasUp = true;
-				console.log(`[exploratory] time limit: ${TIME_LIMIT}m are up; told the agent to wrap up`);
-			},
-		});
-		// Logged on its first call, so a run shows the hook is wired up at all.
-		let hookCalled = false;
-		const logged = async input => {
-			if (!hookCalled) {
-				hookCalled = true;
-				console.log(`[exploratory] time limit: hook active on ${input.hook_event_name}`);
-			}
-			return hook(input);
-		};
-		timeLimitOptions = { hooks: { PostToolUse: [{ hooks: [logged] }], PostToolUseFailure: [{ hooks: [logged] }] } };
-		hardStop = setTimeout(() => {
-			timedOut = true;
-			console.log(`[exploratory] time limit: stopping the agent ${WRAP_UP_MINUTES}m after its time was up`);
-			abortController.abort();
-		}, (TIME_LIMIT + WRAP_UP_MINUTES) * 60000);
-	}
-
-	try {
-		for await (const message of query({
-			prompt: userPrompt,
-			options: {
-				model: MODEL,
-				cwd: REPO_ROOT,
-				systemPrompt,
-				allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
-				// No permissionMode: 'bypassPermissions'. The CLI refuses
-				// --dangerously-skip-permissions under euid 0 and the job container
-				// runs as root, so it exited 1 before doing any work. The
-				// allowedTools list above is what actually grants the tools.
-				// Forward the CLI's stderr: without it the SDK discards it and a
-				// refusal to start is indistinguishable from a crash.
-				stderr: data => process.stderr.write(`[claude-code stderr] ${data}`),
-				maxTurns: MAX_TURNS,
-				// Summarized display returns the notes the model writes between tool
-				// calls, which otherwise arrive as empty thinking blocks.
-				// gate.mjs and the analyzers still disable thinking for claude-code#63192
-				// (a cancelled parallel tool batch wedges the session on a repeating 400).
-				// If a run wedges that way, disable it here too.
-				thinking: { type: 'adaptive', display: 'summarized' },
-				...(EFFORT ? { effort: EFFORT } : {}),
-				...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
-				...timeLimitOptions,
-				abortController,
-			},
-		})) {
-			if (message.type === 'assistant') {
-				messageCount++;
-				const content = message.message?.content || [];
-				const textBlocks = content.filter(b => b.type === 'text').map(b => b.text);
-				const notes = content.filter(b => b.type === 'thinking' && b.thinking).map(b => b.thinking);
-				if (notes.length) {
-					console.log(`[msg ${messageCount}] note: ${notes.join(' ').slice(0, 500)}`);
-				}
-				const toolUses = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, 200)})`);
-				if (textBlocks.length) {
-					const joined = textBlocks.join('\n');
-					assistantMessages.push(joined);
-					console.log(`[msg ${messageCount}] assistant text (${joined.length} chars):\n${joined.slice(0, 1000)}${joined.length > 1000 ? '\n...(truncated)' : ''}`);
-				}
-				if (toolUses.length) {
-					console.log(`[msg ${messageCount}] tool calls: ${toolUses.join(' | ')}`);
-				}
-			} else if (message.type === 'result') {
-				cost = buildCostRecord(message);
-				console.log(`[exploratory] result: ${JSON.stringify(cost)}`);
-			}
-		}
-	} catch (err) {
-		// The hard stop aborts the query; what the agent wrote so far is still
-		// the run's output, so it goes on to the report handling below.
-		if (!timedOut) {
-			throw err;
-		}
-		console.log(`[exploratory] the agent was stopped: ${err?.message ?? err}`);
-	} finally {
-		clearTimeout(hardStop);
-	}
+	const session = await runSession({
+		prompt: userPrompt,
+		systemPrompt,
+		allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
+		model: MODEL,
+		maxTurns: MAX_TURNS,
+		cwd: REPO_ROOT,
+		timeLimit: TIME_LIMIT,
+		effort: EFFORT,
+		// Summarized display returns the notes the model writes between tool
+		// calls, which otherwise arrive as empty thinking blocks. gate.mjs and the
+		// analyzers still disable thinking for claude-code#63192; if a run wedges
+		// that way, disable it here too.
+		thinking: { type: 'adaptive', display: 'summarized' },
+		claudeCodePath: CLAUDE_CODE_PATH,
+		label: 'exploratory',
+	});
+	const assistantMessages = session.texts;
+	const cost = session.cost;
+	timedOut = session.timedOut;
+	timeWasUp = session.timeWasUp;
 
 	writeFileSync(join(WORK_DIR, 'cost.json'), JSON.stringify(cost, null, 2));
 

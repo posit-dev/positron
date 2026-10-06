@@ -1,0 +1,10 @@
+{
+	"areas": [
+		{ "name": "sessions-console", "focus": "starting, restarting and switching sessions; running code and reading the console", "helpers": ["start-session.sh", "console-run.sh", "console-read.sh", "panel.sh", "run-venv.sh", "terminal-run.sh"] },
+		{ "name": "plots-viewer", "focus": "plots, the Viewer, apps, the Data Explorer and screenshots", "helpers": ["plots.sh", "viewer.sh", "run-app.sh", "de-read.sh", "shot.sh"] },
+		{ "name": "notebooks", "focus": "notebooks, Quarto documents, editors and the debugger", "helpers": ["nb.sh", "qmd.sh", "editor.sh", "monaco-paste.sh", "open-file.sh", "debug.sh"] },
+		{ "name": "dialogs-quickpicks", "focus": "the palette, quick picks, dialogs, menus, notifications, settings and the clipboard", "helpers": ["ui.sh", "palette-run.sh", "quickpick-enum.sh", "notifications.sh", "settings.sh", "clipboard.sh"] },
+		{ "name": "window-layout", "focus": "the window, views, the explorer tree, reloads and the instance lifecycle", "helpers": ["window.sh", "tree.sh", "view-read.sh", "listeners.sh", "reseed.sh", "launch.sh", "stop.sh"] },
+		{ "name": "arguments", "focus": "bad arguments to every helper: a missing flag value, a flag glued to its value, an unknown argument, an empty string", "helpers": ["*"] }
+	]
+}

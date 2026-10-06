@@ -8,31 +8,48 @@
 // JSON. From the repo root (needs a built checkout, R, and the positron-python
 // venv; about 8 minutes, --quick about 2):
 //
-//   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--keep] [-- APP ARGS...]
+//   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME [--from-start]] [--results FILE] [--keep] [-- APP ARGS...]
 //
 // --quick runs only the cases marked quick: one happy path per helper, and
 // the cases they stand on. --keep leaves the instance running at the end and
 // prints how to stop it.
+// Each `// ----` section is a group (`groups` below). Its cases lean on the
+// state the earlier sections built, so a group run starts with a short setup
+// that builds it. --until NAME runs NAME's group: the setup, then the group's
+// cases through NAME. --from-start runs every case through NAME instead, for a
+// failure that needs an earlier section's state.
+// The full run skips the setups.
+// --results FILE writes every case's status, command and problem as JSON
+// (SmokeResults in smoke-lib.ts), for heal/.
 // Arguments after `--` go to the app through launch.sh (CI passes
 // --no-sandbox and software-GL flags there).
 // Prints one line per case (PASS, FAIL, or KNOWN for a failure listed in a
 // case's `known`) and exits 1 on any FAIL. The instance is always stopped.
 
 import { spawn, spawnSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
+import { launchFixture, stopFixture, type App } from './fixture-app.ts';
+import { firstRow, groupIds, nameWords, flagValue, selectCases, SMOKE_ROOT, SMOKE_SESSION, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
 
 const test = dirname(new URL(import.meta.url).pathname);
 const scripts = resolve(test, '../scripts');
 const repo = resolve(test, '../../../..');
-// Never positron, replay or fix1: other agents use those sessions.
-const SESSION = 'net1';
-const root = '/private/tmp/dp-smoke-net1';
+const SESSION = SMOKE_SESSION;
+const root = SMOKE_ROOT;
 const ws = join(root, 'ws');
 const dash = process.argv.indexOf('--');
 const own = process.argv.slice(0, dash < 0 ? undefined : dash);
 const keep = own.includes('--keep');
 const quickOnly = own.includes('--quick');
+const flag = (name: string) => {
+	const v = flagValue(own, name);
+	if (v instanceof Error) { console.log(v.message); process.exit(2); }
+	return v;
+};
+const until = flag('--until');
+const fromStart = own.includes('--from-start');
+const resultsFile = flag('--results');
 const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
 
 type Json = { ok?: boolean; error?: string; [key: string]: any };
@@ -73,10 +90,10 @@ const cases: Case[] = [
 	{ name: 'console-read the only session', quick: true, run: ['console-read.sh', '--prompt'], check: o => (!/\(python-[0-9a-f]+\)/.test(o.stderr) && `no python session id in ${o.stderr}`) || void (found.first = o.stderr.match(/\(python-([0-9a-f]+)\)/)![1]) },
 	{ name: 'console-run only session, wrong --name', run: ['console-run.sh', '--language', 'python', '--name', 'no-such-session', 'x'], fail: true },
 	{ name: 'console-run only session, bare id --name', quick: true, run: () => ['console-run.sh', '--language', 'python', '--name', found.first, '--capture', 'print("only", 6 * 7)'], check: o => includes(o.json!.output, 'only 42') },
-	// The workspace's .R files may have started R already: either way one R session, with its id.
-	{ name: 'start-session r', quick: true, run: ['start-session.sh', '--language', 'r'], check: o => keys(o.json, 'started', 'sessionId', 'session') || (!/^r-/.test(o.json!.sessionId) && 'sessionId is not r-*') || void (found.r = o.json!.sessionId) },
-	{ name: 'start-session python, one open already', run: ['start-session.sh', '--language', 'python', '--name', 'positron-python'], check: o => (o.json!.started !== false && 'started another') || (o.json!.sessionId !== `python-${found.first}` && `sessionId ${o.json!.sessionId}`) },
-	{ name: 'start-session python --new', run: ['start-session.sh', '--language', 'python', '--name', 'positron-python', '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (o.json!.started !== true && 'not started') || (!/^python-/.test(o.json!.sessionId) && 'sessionId is not python-*') || (o.json!.sessionId === `python-${found.first}` && 'the old session') || void (found.py = o.json!.sessionId) },
+	// The workspace's .R files may have started R already: either way one R session, with its id. --name is the picker's first R, since an image can have several.
+	{ name: 'start-session r', quick: true, run: () => ['start-session.sh', '--language', 'r', '--name', found.rName], check: o => keys(o.json, 'started', 'sessionId', 'session') || (!/^r-/.test(o.json!.sessionId) && 'sessionId is not r-*') || void (found.r = o.json!.sessionId) },
+	{ name: 'start-session python, one open already', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName], check: o => (o.json!.started !== false && 'started another') || (o.json!.sessionId !== `python-${found.first}` && `sessionId ${o.json!.sessionId}`) },
+	{ name: 'start-session python --new', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName, '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (o.json!.started !== true && 'not started') || (!/^python-/.test(o.json!.sessionId) && 'sessionId is not python-*') || (o.json!.sessionId === `python-${found.first}` && 'the old session') || void (found.py = o.json!.sessionId) },
 	{ name: 'panel sessions', run: ['panel.sh', 'sessions'], check: o => (o.json!.sessions?.filter((x: Json) => x.language === 'python').length !== 2 && `python sessions: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.id === found.r && x.language === 'r') && 'no r session') || (o.json!.sessions?.filter((x: Json) => x.active).length !== 1 && 'not one active') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
 	// Switching the active console without running code: by language, name or id, never two.
@@ -357,6 +374,24 @@ const cases: Case[] = [
 	{ name: 'window open-folder sub', run: ['window.sh', 'open-folder', join(ws, 'sub')], check: o => (o.json!.folder !== join(ws, 'sub') && `folder ${o.json!.folder}`) || (o.json!.was?.folder !== ws && `was ${JSON.stringify(o.json!.was)}`) },
 ];
 
+// What each section needs from the ones before it, built on a fresh launch.
+const startR: Case = { name: 'setup: start-session r', run: () => ['start-session.sh', '--language', 'r', '--name', found.rName], check: o => (!/^r-/.test(o.json?.sessionId ?? '') && 'sessionId is not r-*') || void (found.r = o.json!.sessionId) };
+const newPython: Case = { name: 'setup: start-session python --new', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName, '--new'], check: o => (!/^python-/.test(o.json?.sessionId ?? '') && 'sessionId is not python-*') || void (found.py = o.json!.sessionId) };
+const groups: Group<Case>[] = [
+	{ id: 'sessions', first: 'palette-run dry run', setup: [] },
+	{ id: 'editor', first: 'open-file analysis.R', setup: [startR] },
+	{ id: 'debug', first: 'debug wait running, not debugging', setup: [startR] },
+	{ id: 'plots', first: 'console-run r plot', setup: [startR] },
+	// R last, so Variables shows R's smoke_f.
+	{ id: 'views', first: 'view-read Variables', setup: [newPython, startR, { name: 'setup: console-run r smoke_f', run: ['console-run.sh', '--language', 'r', 'smoke_f <- function(x) { y <- x + 1; y * 2 }'] }] },
+	{ id: 'explorer', first: 'palette-run Show Explorer', setup: [] },
+	{ id: 'notebook', first: 'open-file notebook.ipynb', setup: [] },
+	{ id: 'terminal', first: 'palette-run new terminal', setup: [{ name: 'setup: open-file analysis.R', run: ['open-file.sh', 'analysis.R'] }, newPython] },
+	{ id: 'settings', first: 'settings set workspace', setup: [] },
+	{ id: 'notifications', first: 'notifications list', setup: [] },
+	{ id: 'windows', first: 'shot --list', setup: [] },
+];
+
 /** Starts a helper in the background, for a case that watches what it does. */
 function background(args: string[]): void {
 	spawn('bash', [join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], { cwd: repo, stdio: 'ignore', detached: true, env: { ...process.env, DRIVE_POSITRON_LOG: join(root, 'actions.log') } }).unref();
@@ -384,7 +419,7 @@ function judge(c: Case, o: Out): string {
 	try { return c.check?.(o) || ''; } catch (e) { return `check threw ${String(e)}: ${said()}`; }
 }
 
-let instance: { cdpPort: number; runDir: string } | null = null;
+let instance: App | null = null;
 function cleanup(): void {
 	if (!instance) { return; }
 	const i = instance;
@@ -393,32 +428,12 @@ function cleanup(): void {
 		console.log(`kept: ${join(scripts, 'stop.sh')} --cdp-port ${i.cdpPort} --run-dir ${i.runDir}`);
 		return;
 	}
-	spawnSync(join(repo, 'node_modules/.bin/playwright-cli'), [`-s=${SESSION}`, 'close'], { cwd: repo, stdio: 'ignore' });
-	const s = spawnSync('bash', [join(scripts, 'stop.sh'), '--cdp-port', String(i.cdpPort), '--run-dir', i.runDir], { cwd: repo, encoding: 'utf8' });
-	console.log(s.status === 0 ? 'instance stopped' : `stop.sh failed: ${s.stderr.trim().split('\n').pop()}`);
-	rmSync(root, { recursive: true, force: true });
+	stopFixture(i);
 }
 for (const sig of ['SIGINT', 'SIGTERM'] as const) { process.on(sig, () => { cleanup(); process.exit(130); }); }
 
 function launch(): void {
-	rmSync(root, { recursive: true, force: true });
-	mkdirSync(join(root, 'seed/User'), { recursive: true });
-	cpSync(join(test, 'fixture'), ws, { recursive: true });
-	symlinkSync(join(repo, 'extensions/positron-python/.venv'), join(ws, '.venv'));
-	writeFileSync(join(root, 'seed/User/settings.json'), JSON.stringify({ 'quarto.inlineOutput.enabled': true, 'positron.notebook.enabled': true, 'workbench.startupEditor': 'none' }, null, '\t'));
-	const r = sh([join(scripts, 'launch.sh'), '--source-user-data-dir', join(root, 'seed'), '--no-pyrefly', '--', '--folder-uri', `file://${ws}`, ...appArgs], undefined, 600_000);
-	if (!r.json?.cdpPort) { throw new Error(`launch.sh failed: ${r.stderr.trim().split('\n').slice(-5).join(' | ')}`); }
-	instance = { cdpPort: r.json.cdpPort, runDir: r.json.runDir };
-	const cli = join(repo, 'node_modules/.bin/playwright-cli');
-	const a = spawnSync(cli, [`-s=${SESSION}`, 'attach', `--cdp=http://127.0.0.1:${instance.cdpPort}`], { cwd: repo, encoding: 'utf8' });
-	if (a.status !== 0) { throw new Error(`attach failed: ${a.stdout}${a.stderr}`); }
-	spawnSync(cli, [`-s=${SESSION}`, 'resize', '1600', '1000'], { cwd: repo, stdio: 'ignore' });
-	// Ready when the palette answers.
-	for (let i = 0; i < 30; i++) {
-		if (sh([join(scripts, 'palette-run.sh'), '--session', SESSION, '--dry-run', 'View: Show Explorer']).json?.ok) { return; }
-		spawnSync('sleep', ['2']);
-	}
-	throw new Error('the workbench did not answer within 60 s');
+	launchFixture({ session: SESSION, root, appArgs, onStarted: app => { instance = app; writeFileSync(join(root, 'instance.json'), JSON.stringify({ cdpPort: app.cdpPort, runDir: app.runDir })); } });
 }
 
 /**
@@ -433,17 +448,59 @@ function settle(): void {
 	throw new Error('the Python session the workspace starts was not ready within 90 s');
 }
 
+/**
+ * The names the session cases ask for, read from what this machine has: the
+ * Python session the workspace started, and the first R row of the runtime
+ * picker. A CI image can have two R versions and a venv not named positron-python.
+ */
+function pickNames(): void {
+	const s = sh([join(scripts, 'panel.sh'), '--session', SESSION, 'sessions']);
+	const py = nameWords(s.json?.sessions?.find((x: Json) => x.language === 'python')?.name ?? '');
+	if (!py) { throw new Error(`no Python session name in panel.sh sessions: ${s.text.slice(0, 200)}`); }
+	found.pyName = py;
+	// Discovery lists R after Python: reopen the picker until it shows an R row, as start-session does.
+	let labels: string[] = [];
+	let r: string | null = null;
+	for (let i = 0; i < 15 && !r; i++) {
+		const open = sh([join(scripts, 'palette-run.sh'), '--session', SESSION, 'Interpreter: Start New Console Session']);
+		if (!open.json?.ok) { throw new Error(`could not open the runtime picker: ${open.text.slice(0, 200)}`); }
+		const rows = sh([join(scripts, 'quickpick-enum.sh'), '--session', SESSION, '--json']);
+		spawnSync(join(repo, 'node_modules/.bin/playwright-cli'), [`-s=${SESSION}`, 'press', 'Escape'], { cwd: repo, stdio: 'ignore' });
+		// --json prints the object indented, so sh()'s last-line parse misses it.
+		let picker: Json = {};
+		try { picker = JSON.parse(rows.text); } catch { /* no rows this time */ }
+		labels = (picker.rows ?? []).map((x: Json) => x.label);
+		r = nameWords(firstRow(picker.rows ?? [], 'r') ?? '');
+		if (!r) { spawnSync('sleep', ['2']); }
+	}
+	if (!r) { throw new Error(`no R row in the runtime picker after 30 s, labels: ${JSON.stringify(labels)}`); }
+	found.rName = r;
+}
+
+let run: Case[];
+const groupOf = new Map<Case, string>();
+try {
+	groupIds(cases, groups).forEach((id, i) => groupOf.set(cases[i], id));
+	for (const g of groups) { for (const c of g.setup) { groupOf.set(c, g.id); } }
+	run = selectCases(cases, { quick: quickOnly, until, fromStart }, groups);
+} catch (e) { console.log(String(e instanceof Error ? e.message : e)); process.exit(2); }
+const results: SmokeResults = { startedAt: new Date().toISOString(), until, quick: quickOnly, launch: 'FAIL', launchProblem: '', cases: [] };
 const start = Date.now();
 const tally = { PASS: 0, FAIL: 0, KNOWN: 0 };
+let current: { name: string; args: string[]; t0: number; group?: string } | null = null;
 try {
 	const t = Date.now();
 	launch();
 	settle();
-	console.log(`PASS ${String(Date.now() - t).padStart(6)} ms  launch, attach, first Python session ready (cdp ${instance!.cdpPort})`);
-	for (const c of quickOnly ? cases.filter(x => x.quick) : cases) {
+	pickNames();
+	console.log(`PASS ${String(Date.now() - t).padStart(6)} ms  launch, attach, first Python session ready, names: R ${found.rName}, Python ${found.pyName} (cdp ${instance!.cdpPort})`);
+	results.launch = 'PASS';
+	for (const c of run) {
 		if (c.wait) { spawnSync('sleep', [String(c.wait / 1000)]); }
+		current = { name: c.name, args: [], t0: Date.now(), group: groupOf.get(c) };
 		const args = typeof c.run === 'function' ? c.run() : c.run;
-		const t0 = Date.now();
+		current.args = args;
+		const t0 = current.t0;
 		let o = sh([join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], c.stdin);
 		let problem = judge(c, o);
 		let tries = 1;
@@ -455,14 +512,19 @@ try {
 		}
 		const status = !problem ? 'PASS' : c.known ? 'KNOWN' : 'FAIL';
 		tally[status]++;
+		current = null;
+		results.cases.push({ name: c.name, status, helper: args[0], args: args.slice(1), problem: problem || '', ms: Date.now() - t0, group: groupOf.get(c) });
 		console.log(`${status.padEnd(5)}${String(Date.now() - t0).padStart(6)} ms  ${c.name}${tries > 1 ? ` (${tries} tries)` : ''}${c.known && !problem ? '  (listed as known, passed this time: remove the mark once it passes every run)' : ''}`);
 		if (problem) { console.log(`       ${c.known ? `known: ${c.known}\n       ` : ''}${problem}`); }
 	}
 } catch (e) {
 	tally.FAIL++;
+	if (results.launch === 'FAIL') { results.launchProblem = String(e instanceof Error ? e.message : e); }
+	else if (current) { results.cases.push({ ...threwResult(current.name, current.args, e, Date.now() - current.t0), group: current.group }); }
 	console.log(`FAIL  ${String(e instanceof Error ? e.message : e)}`);
 } finally {
 	cleanup();
 }
 console.log(`${tally.PASS} passed, ${tally.FAIL} failed, ${tally.KNOWN} known failures in ${Math.round((Date.now() - start) / 1000)} s`);
+if (resultsFile) { writeFileSync(resultsFile, `${JSON.stringify(results, null, '\t')}\n`); }
 process.exitCode = tally.FAIL ? 1 : 0;
