@@ -131,6 +131,8 @@ const POSITIONS: &[(&str, &str)] = &[
     ("SELECT * FROM orders WHERE |", "value"),
     ("SELECT * FROM orders WHERE id IN (|", "subquery"),
     ("SELECT * FROM orders WHERE id = 1 |", "expression"),
+    ("SELECT * FROM a JOIN b ON a.id = b.id |", "joinCondition"),
+    ("SELECT * FROM a JOIN b USING (id) |", "joinCondition"),
     ("SELECT * FROM orders ORDER BY id |", "orderItem"),
     ("SELECT row_number() OVER (|", "windowSpec"),
     ("CREATE TABLE orders (id |", "columnDefinition"),
@@ -174,6 +176,42 @@ fn a_ddl_modifier_only_counts_inside_a_ddl_statement() {
             ("SELECT * FROM orders WHERE unique |", "expression".to_string()),
         ]
     );
+}
+
+#[test]
+fn a_finished_join_condition_offers_the_next_join_and_the_where() {
+    // An expression in a `WHERE` is followed by neither, so the two are told apart by the clause:
+    // after `ON` the FROM list is still being written.
+    expect(
+        "SELECT * FROM a JOIN b ON a.id = b.id |",
+        &["WHERE", "JOIN", "LEFT JOIN", "INNER JOIN", "ORDER BY", "AND"],
+        &[],
+    );
+    expect("SELECT * FROM a WHERE a.id = 1 |", &["AND", "ORDER BY"], &["WHERE", "JOIN"]);
+}
+
+#[test]
+fn a_window_frame_offers_the_words_of_its_bounds() {
+    expect("SELECT sum(x) OVER (ORDER BY y ROWS |", &["BETWEEN", "UNBOUNDED PRECEDING"], &[]);
+    expect("SELECT sum(x) OVER (ORDER BY y ROWS BETWEEN UNBOUNDED PRECEDING |", &["AND"], &[]);
+    // The second bound, not a value: `AND` here is not the connective it is in a `WHERE`.
+    expect(
+        "SELECT sum(x) OVER (ORDER BY y ROWS BETWEEN 1 PRECEDING AND |",
+        &["CURRENT ROW", "UNBOUNDED FOLLOWING"],
+        &["CASE", "EXISTS"],
+    );
+}
+
+#[test]
+fn an_on_that_is_not_a_join_s_is_not_a_join_condition() {
+    assert_ne!(position("CREATE INDEX idx ON orders (id) |"), "joinCondition");
+}
+
+#[test]
+fn a_join_to_a_subquery_still_takes_its_on() {
+    // The subquery has clauses of its own; once it closes, the join it is the table of resumes.
+    expect("SELECT * FROM a JOIN (SELECT id FROM c) d |", &["ON", "USING"], &[]);
+    expect("SELECT * FROM a JOIN b ON a.id IN (SELECT id FROM c) |", &["WHERE", "JOIN"], &[]);
 }
 
 #[test]
