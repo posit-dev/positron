@@ -24,6 +24,7 @@ import { ILifecycleService } from '../../../lifecycle/common/lifecycle.js';
 import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
 import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
+import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY } from '../../../../contrib/positronAssistant/common/positronAIConfigurationKeys.js';
 
 type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
@@ -211,6 +212,7 @@ describe('Positron - RuntimeSessionService', () => {
 			notebookUri: undefined,
 			startReason,
 			startReasonId: startSource.id,
+			owner: 'user',
 		};
 		return restoreSession(sessionMetadata, runtime);
 	}
@@ -223,6 +225,7 @@ describe('Positron - RuntimeSessionService', () => {
 			notebookUri,
 			startReason,
 			startReasonId: startSource.id,
+			owner: 'user',
 		};
 		return restoreSession(sessionMetadata, runtime);
 	}
@@ -1803,6 +1806,7 @@ describe('Positron - RuntimeSessionService', () => {
 				notebookUri: undefined,
 				startReason,
 				userSelected: true,
+				owner: 'user',
 			};
 			const session = await restoreSession(sessionMetadata, runtime);
 
@@ -1820,7 +1824,7 @@ describe('Positron - RuntimeSessionService', () => {
 				sessionName,
 				LanguageRuntimeSessionMode.Notebook,
 				quartoSourceUri,
-				startReason,
+				startSource,
 				RuntimeStartMode.Starting,
 				false,
 				{ quartoNotebookUri: quartoCellsUri },
@@ -1846,7 +1850,7 @@ describe('Positron - RuntimeSessionService', () => {
 			const savedCellsUri = URI.from({ scheme: 'quarto-cells', path: '/path/to/saved.qmd.ipynb' });
 			const sessionId = await runtimeSessionService.startNewRuntimeSession(
 				runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Notebook, untitledUri,
-				startReason, RuntimeStartMode.Starting, false,
+				startSource, RuntimeStartMode.Starting, false,
 				{ quartoNotebookUri: URI.from({ scheme: 'quarto-cells', path: 'Untitled-1.qmd.ipynb' }) },
 			);
 			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;
@@ -1876,6 +1880,47 @@ describe('Positron - RuntimeSessionService', () => {
 				isNewSession: restarted !== uninitialized,
 				quartoNotebookUri: restarted.metadata.quartoNotebookUri?.toString(),
 			}).toEqual({ isNewSession: true, quartoNotebookUri: quartoCellsUri.toString() });
+		});
+	});
+
+	describe('agent owner', () => {
+		async function startConsoleOwnedByAgent() {
+			const userSession = await startConsole(runtime);
+			await waitForRuntimeState(userSession, RuntimeState.Ready);
+
+			// Start the way the Positron API does: in the background, with an owner.
+			const sessionId = await runtimeSessionService.startNewRuntimeSession(
+				anotherRuntime.runtimeId,
+				anotherRuntime.runtimeName,
+				LanguageRuntimeSessionMode.Console,
+				undefined,
+				startSource,
+				RuntimeStartMode.Starting,
+				false,
+				{ owner: 'agent' },
+			);
+			const session = runtimeSessionService.getSession(sessionId) as TestLanguageRuntimeSession;
+			ctx.disposables.add(session);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			return {
+				owner: session.metadata.owner,
+				foregroundSessionId: runtimeSessionService.foregroundSession?.sessionId,
+				userSessionId: userSession.sessionId,
+				sessionId,
+			};
+		}
+
+		// The owner is recorded whatever the settings say; only how sessions
+		// are presented is gated on them.
+		it('is kept without taking the foreground while the ai.agentSessions.enabled setting is off', async () => {
+			configService.setUserConfiguration(AI_ENABLED_KEY, true);
+			configService.setUserConfiguration(AGENT_SESSIONS_ENABLED_KEY, false);
+
+			const result = await startConsoleOwnedByAgent();
+
+			expect({ owner: result.owner, foregroundSessionId: result.foregroundSessionId })
+				.toEqual({ owner: 'agent', foregroundSessionId: result.userSessionId });
 		});
 	});
 

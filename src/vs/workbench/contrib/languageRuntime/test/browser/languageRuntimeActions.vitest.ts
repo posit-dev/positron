@@ -12,7 +12,7 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { TestQuickPick } from '../../../../../test/vitest/testQuickPick.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
+import { DuplicateActiveConsoleSessionAction, EvaluateCodeAction, SelectSessionAction, StartNewConsoleSessionAction, selectLanguageRuntimeSession, selectNewLanguageRuntime, startNewAgentSession, summarizeActiveSession, summarizeRegisteredRuntime } from '../../browser/languageRuntimeActions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -26,6 +26,11 @@ import { EvalResult } from '../../../../services/languageRuntime/common/positron
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../../positronNotebook/common/positronNotebookCommon.js';
+import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { AGENT_SESSIONS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfigurationKeys.js';
 
 function makeRuntime(overrides: Partial<ILanguageRuntimeMetadata> = {}): ILanguageRuntimeMetadata {
 	const languageId = overrides.languageId ?? 'python';
@@ -55,7 +60,7 @@ describe('summarizeRegisteredRuntime', () => {
 			runtimeDisplayPath: '~/venvs/proj/bin/python',
 			base64EncodedIconSvg: 'PHN2Zz4uLi48L3N2Zz4=',
 			extraRuntimeData: { pythonPath: '/secret' },
-		}));
+		}), true);
 
 		expect(summary).toEqual({
 			runtimeId: 'python-abc',
@@ -69,11 +74,12 @@ describe('summarizeRegisteredRuntime', () => {
 			runtimePath: '~/venvs/proj/bin/python',
 			startupBehavior: 'implicit',
 			extensionId: 'test-extension',
+			affiliated: true,
 		});
 	});
 
 	test('falls back to the raw path when there is no display path', () => {
-		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }));
+		const summary = summarizeRegisteredRuntime(makeRuntime({ runtimePath: '/usr/bin/python3' }), false);
 		expect(summary.runtimePath).toBe('/usr/bin/python3');
 	});
 });
@@ -90,6 +96,7 @@ describe('summarizeActiveSession', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 			getRuntimeState: () => RuntimeState.Idle,
 		});
@@ -760,6 +767,50 @@ describe('selectNewLanguageRuntime', () => {
 	});
 });
 
+describe('selectLanguageRuntimeSession - agent session icon', () => {
+	let pickItems: QuickPickItem[] = [];
+	const pickFn = vi.fn(async (items: QuickPickItem[]): Promise<QuickPickItem | undefined> => {
+		pickItems = items;
+		return undefined;
+	});
+
+	const agentSession = stubInterface<ILanguageRuntimeSession>({
+		sessionId: 'agent-session-1',
+		metadata: {
+			sessionId: 'agent-session-1',
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			notebookUri: undefined,
+			createdTimestamp: 0,
+			startReason: 'test',
+			owner: 'agent',
+		},
+		runtimeMetadata: makeRuntime(),
+		dynState: stubInterface<ILanguageRuntimeSession['dynState']>({ sessionName: 'Python (Agent)' }),
+		getRuntimeState: () => RuntimeState.Idle,
+	});
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IRuntimeSessionService, stubInterface<IRuntimeSessionService>({
+			foregroundSession: undefined,
+			activeSessions: [agentSession],
+		}))
+		.stub(IModelService, { getModel: () => null })
+		.stub(IQuickInputService, stubInterface<IQuickInputService>({
+			pick: pickFn as IQuickInputService['pick'],
+		}))
+		.build();
+
+	// The setting gates starting agent sessions, not how existing ones look.
+	it('marks an agent session even while the ai.agentSessions.enabled setting is off', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(AGENT_SESSIONS_ENABLED_KEY, false);
+		await ctx.instantiationService.invokeFunction(accessor => selectLanguageRuntimeSession(accessor));
+		const item = pickItems.find((item): item is IQuickPickItem =>
+			item.type !== 'separator' && item.id === agentSession.sessionId);
+		expect(item?.iconClasses).toContain('agent-session-icon');
+	});
+});
+
 describe('selectLanguageRuntimeSession - change notebook session', () => {
 	const changeNotebookSessionLabel = 'Change Notebook Session...';
 
@@ -804,6 +855,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 				notebookUri: uri,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -817,6 +869,7 @@ describe('selectLanguageRuntimeSession - change notebook session', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -934,6 +987,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 				notebookUri: undefined,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -951,6 +1005,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 				notebookUri: URI.file('/path/to/notebook.ipynb'),
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 		});
 	}
@@ -1114,6 +1169,48 @@ describe('StartNewConsoleSessionAction', () => {
 	});
 });
 
+describe('startNewAgentSession', () => {
+	const ctx = createTestContainer().withRuntimeServices().build();
+
+	async function startAgentSessionBesideUserSession() {
+		const runtimeSessionService = ctx.get(IRuntimeSessionService);
+		const userSession = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
+		await waitForRuntimeState(userSession, RuntimeState.Ready);
+		expect(runtimeSessionService.foregroundSession).toBe(userSession);
+
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables);
+		const sessionId = await startNewAgentSession(runtimeSessionService, runtime);
+		const session = runtimeSessionService.getSession(sessionId)!;
+		ctx.disposables.add(session);
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		return {
+			runtime,
+			userSessionId: userSession.sessionId,
+			sessionId,
+			summary: {
+				runtimeId: session.runtimeMetadata.runtimeId,
+				sessionName: session.dynState.sessionName,
+				sessionMode: session.metadata.sessionMode,
+				owner: session.metadata.owner,
+				foregroundSessionId: runtimeSessionService.foregroundSession?.sessionId,
+			},
+		};
+	}
+
+	it('starts the runtime as an agent-owned console session that takes the foreground', async () => {
+		const { runtime, sessionId, summary } = await startAgentSessionBesideUserSession();
+
+		expect(summary).toEqual({
+			runtimeId: runtime.runtimeId,
+			sessionName: runtime.runtimeName,
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			owner: 'agent',
+			foregroundSessionId: sessionId,
+		});
+	});
+});
+
 describe('SelectSessionAction', () => {
 	const executeCommand = vi.fn(async () => undefined);
 	const openEditor = vi.fn(async () => undefined);
@@ -1166,6 +1263,7 @@ describe('SelectSessionAction', () => {
 				notebookUri,
 				createdTimestamp: 0,
 				startReason: 'test',
+				owner: 'user',
 			},
 			runtimeMetadata: makeRuntime(),
 			dynState: {

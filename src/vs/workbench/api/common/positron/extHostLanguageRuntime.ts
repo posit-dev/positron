@@ -1220,6 +1220,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return m.manager.getDiscoveryRootSignature();
 	}
 
+	public async $registerLanguageRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		const m = this._runtimeManagers.find(m =>
+			m.languageId === languageId && m.manager.registerRuntimeFromPath);
+		if (!m) {
+			return undefined;
+		}
+		const runtime = await m.manager.registerRuntimeFromPath!(path);
+		this.registerLanguageRuntime(m.extension, m.manager, runtime);
+		return { extensionId: m.extension.identifier, ...runtime };
+	}
+
 	public async $recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]> {
 		// Get the recommended runtimes from each provider
 		const metadata = await Promise.all(
@@ -1864,11 +1875,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
-		requestingExtensionId: string): Promise<positron.LanguageRuntimeSession> {
+		requestingExtensionId: string,
+		options?: positron.RuntimeSessionStartOptions): Promise<positron.LanguageRuntimeSession> {
 
 		// Start the runtime and get the session ID
 		const sessionId =
-			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, requestingExtensionId);
+			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, requestingExtensionId, options);
 
 		// The process of starting a session in Positron should have caused the
 		// runtime to be registered with the extension host, so we should be able

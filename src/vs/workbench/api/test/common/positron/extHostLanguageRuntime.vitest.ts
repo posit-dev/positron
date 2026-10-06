@@ -296,6 +296,7 @@ const sessionMetadata: IRuntimeSessionMetadata = {
 	notebookUri: undefined,
 	createdTimestamp: 0,
 	startReason: 'test',
+	owner: 'user',
 };
 const extension = stubInterface<IExtensionDescription>({
 	id: extensionId,

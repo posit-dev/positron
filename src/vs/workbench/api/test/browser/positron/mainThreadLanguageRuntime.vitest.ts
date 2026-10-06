@@ -275,7 +275,7 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 		}));
 
 		await mainThread.$selectLanguageRuntime('r-1', 'positron.positron-r');
-		await mainThread.$startLanguageRuntime('python-1', 'Python 3.12', LanguageRuntimeSessionMode.Console, undefined, 'positron.positron-python');
+		await mainThread.$startLanguageRuntime('python-1', 'Python 3.12', LanguageRuntimeSessionMode.Console, undefined, 'positron.positron-python', undefined);
 
 		expect([selectRuntime.mock.calls[0][1], startNewRuntimeSession.mock.calls[0][4]]).toEqual([
 			{ id: SessionStartReasonId.ExtensionApiSelect, detail: 'You started this interpreter (requestingExtension: positron.positron-r)' },

@@ -3,6 +3,11 @@
 # @playwright/cli CDP session. It dispatches a ClipboardEvent with a DataTransfer
 # payload, avoiding the system clipboard and supporting parallel instances.
 #
+# It replaces the editor's whole text unless --append is passed: right for a
+# chat input, but in a file editor (a .qmd, an .R script) it wipes the file.
+# To edit a file, use editor.sh (type, insert, delete), which pastes at the
+# cursor and checks the line.
+#
 # Monaco's native-edit-context does not respond reliably to Playwright's fill or
 # type operations. Using pbcopy would work for one instance but introduces a
 # process-wide clipboard race.
@@ -14,11 +19,12 @@
 #   scripts/monaco-paste.sh --no-verify "..."            # skip read-back check
 #   scripts/monaco-paste.sh --session NAME "..."         # use a named @playwright/cli session
 #                                                        # (also honored via $PW_SESSION env var;
-#                                                        #  required for parallel multi-instance runs
-#                                                        #  — see SKILL.md "Typing into Monaco")
+#                                                        #  required for parallel multi-instance runs)
+#
+# The check: the pasted text's last non-empty line is now in the editor.
 #
 # Stdout: a single JSON line, e.g.
-#   {"ok":true,"actualLength":47,"expectedLength":47,"viewLineCount":1,"firstViewLine":"..."}
+#   {"ok":true,"lastLine":"...","viewLineCount":1,"firstViewLine":"..."}
 # Stderr: diagnostic noise from @playwright/cli (suppressed unless caller wants it).
 # Exit code:
 #   0  success
@@ -31,15 +37,15 @@
 #   - You have already run `npx @playwright/cli [-s=NAME] attach --cdp=http://127.0.0.1:$CDP`
 #     in the same session this script reads (--session arg, $PW_SESSION env, or "default").
 #   - The Agents window is open and a new-chat / chat view with a Monaco
-#     editor is on screen. The script auto-focuses the first
-#     `.new-chat-input-area .native-edit-context`, falling back to any
-#     `.native-edit-context`.
+#     editor is on screen. The script focuses the chat input (selectors.ts,
+#     css.chat), falling back to any Monaco edit context on the page.
 
 set -u
+DIR="$(dirname "${BASH_SOURCE[0]}")"
 
 # Call the repo's playwright-cli directly: npx resolves the same package but
 # costs about a second per invocation. Located from this script, not from $PWD.
-PW_CLI=("$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)/node_modules/.bin/playwright-cli")
+PW_CLI=("$(cd "$DIR/../../../.." && pwd)/node_modules/.bin/playwright-cli")
 if [[ ! -x "${PW_CLI[0]}" ]]; then
 	PW_CLI=(npx @playwright/cli)
 fi
@@ -53,11 +59,9 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--append) APPEND=1; shift ;;
 		--no-verify) VERIFY=0; shift ;;
-		--session) PW_SESSION_OVERRIDE="$2"; shift 2 ;;
+		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; shift ;;
-		-h|--help)
-			sed -n '2,40p' "$0" | sed 's/^# \{0,1\}//'
-			exit 0 ;;
+		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; TEXT_ARG="${*-}"; break ;;
 		-*) echo "monaco-paste.sh: unknown flag $1" >&2; exit 2 ;;
 		*) TEXT_ARG="$1"; shift ;;
@@ -74,7 +78,9 @@ PW_ARGS=()
 if [[ -n "${TEXT_ARG:-}" ]]; then
 	TEXT="$TEXT_ARG"
 else
-	TEXT=$(cat)
+	# $(cat) drops trailing newlines; the x keeps them.
+	TEXT=$(cat; printf x)
+	TEXT="${TEXT%x}"
 fi
 
 if [[ -z "$TEXT" ]]; then
@@ -108,38 +114,41 @@ fi
 JS=$(node -e '
 	const text = process.argv[1];
 	const verify = process.argv[2] === "1";
+	const S = process.argv[3];
 	console.log(`(async () => {
-		const root = document.querySelector(".new-chat-input-area .native-edit-context")
-				  || document.querySelector(".sessions-chat-editor .native-edit-context")
-				  || document.querySelector(".native-edit-context");
+		const S = ${S};
+		const root = document.querySelector(S.chat.input)
+				  || document.querySelector(S.chat.sessionsInput)
+				  || document.querySelector(S.monaco.editContext);
 		if (!root) return JSON.stringify({ ok: false, error: "no native-edit-context found on page" });
 		root.focus();
 		const dt = new DataTransfer();
 		dt.setData("text/plain", ${JSON.stringify(text)});
 		root.dispatchEvent(new ClipboardEvent("paste", { clipboardData: dt, bubbles: true, cancelable: true }));
-		await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-		const editor = root.closest(".monaco-editor");
-		const viewLines = Array.from(editor.querySelectorAll(".view-line")).map(l => l.textContent);
-		// Monaco renders ASCII spaces as non-breaking spaces, and joining rendered lines
-		// removes logical newlines. Normalize both representations before comparing.
-		// The escapes are doubled because this code is embedded in a template literal.
-		const norm = s => s.replace(/\\u00A0/g, " ").replace(/\\r?\\n/g, "");
-		const joined = norm(viewLines.join(""));
-		const actualLength = joined.length;
-		const expectedFull = norm(${JSON.stringify(text)});
-		const expectedPrefix = expectedFull.slice(0, Math.min(40, expectedFull.length));
-		const prefixMatched = joined.startsWith(expectedPrefix) || joined.includes(expectedPrefix.slice(0, 20));
+		const editor = root.closest(S.monaco.editor);
+		// Monaco renders ASCII spaces as non-breaking spaces. The escapes are
+		// doubled because this code is embedded in a template literal.
+		const norm = s => s.replace(/\\u00A0/g, " ");
+		const lastLine = norm(${JSON.stringify(text)}).split(/\\r?\\n/).map(l => l.trim()).filter(Boolean).pop() || "";
+		// Monaco draws the new lines a few frames later: look for up to a second.
+		let viewLines = [];
+		let found = false;
+		for (let i = 0; i < 20 && !found; i++) {
+			await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+			viewLines = Array.from(editor.querySelectorAll(S.monaco.viewLine)).map(l => l.textContent);
+			found = viewLines.some(l => norm(l).includes(lastLine));
+			if (!found) { await new Promise(r => setTimeout(r, 50)); }
+		}
 		const verifyEnabled = ${verify ? "true" : "false"};
 		return JSON.stringify({
-			ok: !verifyEnabled || prefixMatched,
-			actualLength,
-			expectedLength: ${JSON.stringify(text)}.length,
+			ok: !verifyEnabled || found,
+			lastLine,
 			viewLineCount: viewLines.length,
 			firstViewLine: (viewLines[0] || "").slice(0, 80),
-			error: (!verifyEnabled || prefixMatched) ? undefined : "paste read-back did not match expected prefix"
+			error: (!verifyEnabled || found) ? undefined : "the last line pasted is not in the editor"
 		});
 	})()`);
-' "$TEXT" "$VERIFY")
+' "$TEXT" "$VERIFY" "$(node "$DIR/selectors.ts" css chat monaco)")
 
 # Extract the JSON-encoded result from the CLI's diagnostic output.
 RAW=$("${PW_CLI[@]}" ${PW_ARGS[@]+"${PW_ARGS[@]}"} eval "$JS" 2>&1) || {

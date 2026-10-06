@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import type { SupportedCustomClientKind } from 'ai-config';
 import type { ApiKeyValidator } from './configDialog';
+import { log } from './log';
 import {
 	validateAnthropicApiKey,
 	validateCustomProviderApiKey,
@@ -124,8 +125,9 @@ const VALIDATOR_BY_KIND: Partial<Record<SupportedCustomClientKind, ApiKeyValidat
  * so a kind that requires a key says so at save time.
  *
  * An optional key only means the check can't refuse a blank field; it still runs.
- * `openai-compatible`'s is also what requires a base URL and probes it, and it
- * sends no Authorization header when there's no key.
+ * `openai-compatible` also requires a base URL, and its probe sends no
+ * Authorization header when there's no key.
+ * A failed probe only logs, since a custom provider can front any gateway.
  */
 export function customApiKeyValidator(kind: string): ApiKeyValidator | undefined {
 	const descriptor = customAuthDescriptor(kind);
@@ -143,6 +145,14 @@ export function customApiKeyValidator(kind: string): ApiKeyValidator | undefined
 		if (!apiKey && keyRequired) {
 			throw new Error(vscode.l10n.t('An API key is required for a {0} provider', kind));
 		}
-		await validate?.(apiKey, config);
+		if (kind === 'openai-compatible' && !config.baseUrl?.trim()) {
+			throw new Error(vscode.l10n.t('Base URL is required'));
+		}
+		try {
+			await validate?.(apiKey, config);
+		} catch (err) {
+			const reason = err instanceof Error ? err.message : String(err);
+			log.warn(`[Custom Provider] Could not verify the ${kind} API key; saving it anyway: ${reason}`);
+		}
 	};
 }

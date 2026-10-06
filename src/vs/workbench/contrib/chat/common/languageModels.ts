@@ -44,7 +44,6 @@ import { ILanguageModelsProviderGroup, ILanguageModelsConfigurationService } fro
 
 // --- Start Positron ---
 import { IPositronAssistantConfigurationService } from '../../positronAssistant/common/interfaces/positronAssistantService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 // --- End Positron ---
 
 /**
@@ -1055,7 +1054,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	constructor(
 		// --- Start Positron ---
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IPositronAssistantConfigurationService private readonly _positronAssistantConfigurationService: IPositronAssistantConfigurationService,
 		// --- End Positron ---
 		@IExtensionService private readonly _extensionService: IExtensionService,
@@ -1211,15 +1209,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 		// hasn't been opened yet (which is where provider-model sync normally happens).
 		this._pendingModelSync = this._storageService.get('chat.currentLanguageModel.panel', StorageScope.APPLICATION);
 
-		// Listen for changes to model configuration. The initial filtering and configuration
-		// is done in the Positron Assistant extension when models are resolved.
-		this._store.add(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('positron.assistant.models.overrides')) {
-				this._logService.trace('[LM] Model overrides configuration changed, re-resolving language models');
-				this._reResolveLanguageModels();
-			}
-		}));
-
 		// Listen for changes to enabled providers and update model cache/current provider accordingly
 		this._store.add(this._positronAssistantConfigurationService.onChangeEnabledProviders(() => {
 			this._logService.trace('[LM] Enabled providers changed, updating model cache and current provider');
@@ -1334,31 +1323,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 
 	// --- Start Positron ---
-	private _reResolveLanguageModels(): void {
-		// Re-resolve all registered providers to apply new configuration
-		const allVendors = Array.from(this._vendors.keys());
-		if (allVendors.length === 0) {
-			return;
-		}
-		const vendorPromises = allVendors.map(
-			vendor => this._resolveAllLanguageModels(vendor, true));
-
-		// After all are resolved, check if the current provider is still valid
-		Promise.all(vendorPromises).then(() => {
-			// if the current provider is no longer available, switch to another available provider
-			const currentProvider = this._currentProvider;
-			const availableProviders = this.getLanguageModelProviders();
-			if (currentProvider && !availableProviders.some(p => p.id === currentProvider.id)) {
-				this._logService.trace('[LM] Current provider is no longer available, switching to next available', currentProvider.id);
-				if (availableProviders.length > 0) {
-					this.currentProvider = availableProviders[0];
-				} else {
-					this.currentProvider = undefined;
-				}
-			}
-		});
-	}
-
 	private getSelectedProviderStorageKey(): string {
 		return `chat.currentLanguageProvider`;
 	}
@@ -1649,8 +1613,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 				this._onLanguageModelChange.fire(vendorId);
 				// --- Start Positron ---
 				// Keep currentProvider in sync after model changes from sign-in
-				// or sign-out. This mirrors the logic in _reResolveLanguageModels
-				// but runs on individual provider onDidChange events too.
+				// or sign-out.
 				const availableProviders = this.getLanguageModelProviders();
 				if (!this._currentProvider) {
 					// Auto-set current provider when models become available

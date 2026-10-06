@@ -17,10 +17,9 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
-import { CHECKS_FILE, summarizeChecks } from './stats.mjs';
+import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
-import { knownIssueOutcomes, openedLabel } from './known-issues.mjs';
+import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
 import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
 import { readKnownIssues } from './finish.mjs';
@@ -33,7 +32,6 @@ const ICON = {
 	// currentColor, which is the body-coloured word beside it.
 	statusCheck: '<svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"></path></svg>',
 	x: '<span class="ki-x"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"></path></svg></span>',
-	info: '<span class="ki-i"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 7.2v3.6"></path><circle cx="8" cy="5" r=".7" fill="currentColor" stroke="none"></circle></svg></span>',
 	copy: '<svg class="cp-ico" aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.6"></rect><path d="M3 10.5V4.1c0-.6.5-1.1 1.1-1.1h6.4"></path></svg>',
 	// The simplified bug: four legs, no centre line, drawn level with Copy's top edge.
 	bug: '<svg aria-hidden="true" width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
@@ -211,24 +209,26 @@ function renderAgents(report) {
 }
 
 /**
- * A GitHub issue number as a link. An issue on the run's list carries what the
+ * A GitHub issue or PR number as a link. One the run fetched carries what the
  * preview card shows; the text is from GitHub, so every attribute is escaped.
  */
-function kiNum(n, ki) {
-	return `<a class="ki-num" href="${REPO_URL}/issues/${Number(n)}" target="_blank" rel="noopener"${kiData(ki?.byNumber.get(n), ki)}>#${Number(n)}</a>`;
+function kiNum(n, refs) {
+	const issue = refs?.byNumber.get(n);
+	return `<a class="ki-num" href="${REPO_URL}/${issue?.kind === 'pr' ? 'pull' : 'issues'}/${Number(n)}" target="_blank" rel="noopener"${kiData(issue, refs)}>#${Number(n)}</a>`;
 }
 
-/** What the preview card shows, as escaped data attributes; empty for an issue not on the list. */
-function kiData(issue, ki) {
+/** What the preview card shows, as escaped data attributes; empty for a number the run did not fetch. */
+function kiData(issue, refs) {
+	const state = issue?.state === 'merged' || issue?.state === 'closed' ? issue.state : 'open';
 	return issue
-		? ` data-state="${issue.state === 'closed' ? 'closed' : 'open'}" data-opened="${escapeHtml(openedLabel(issue.createdAt, ki.now))}"`
+		? ` data-state="${state}"${issue.kind === 'pr' ? ' data-kind="pr"' : ''} data-opened="${escapeHtml(openedLabel(issue.createdAt, refs.now))}"`
 		+ ` data-title="${escapeHtml(issue.title)}" data-summary="${escapeHtml(issue.summary ?? '')}"`
 		: '';
 }
 
-/** Links the listed issue numbers in rendered text, leaving tags and existing links alone. */
-function linkIssues(html, ki) {
-	if (!ki?.byNumber.size) {
+/** Links the fetched issue and PR numbers in rendered text, leaving tags and existing links alone. */
+function linkIssues(html, refs) {
+	if (!refs?.byNumber.size) {
 		return html;
 	}
 	let inLink = 0;
@@ -237,7 +237,7 @@ function linkIssues(html, ki) {
 			inLink += /^<a\b/i.test(part) ? 1 : /^<\/a>/i.test(part) ? -1 : 0;
 			return part;
 		}
-		return inLink ? part : part.replace(/(?<![\w&#/])#(\d+)\b/g, (whole, n) => ki.byNumber.has(Number(n)) ? kiNum(Number(n), ki) : whole);
+		return inLink ? part : part.replace(/(?<![\w&#/])#(\d+)\b/g, (whole, n) => refs.byNumber.has(Number(n)) ? kiNum(Number(n), refs) : whole);
 	}).join('');
 }
 
@@ -297,21 +297,19 @@ function renderFindingsList(report, ki = null) {
 		const top = label && (!word || word === 'confirmed') ? `<span class="ki-reg">${ICON.x}${label}</span>` : verdict;
 		// One issue per cell: the finding's own wins over a match.
 		const first = list => `${nums(list.slice(0, 1))}${list.length > 1 ? ` +${list.length - 1}` : ''}`;
-		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : similar ? `Similar to ${first(similar)}` : '';
+		const issueLine = failed ? `Fixes ${first(failed)}` : back ? `Closed &middot; ${first(back)}` : similar ? `Dupe? ${first(similar)}` : '';
 		const below = issueLine ? [`<span class="ki-state">${issueLine}</span>`] : [];
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span>`
-			+ (f.impact ? `<span class="impact">${f.impact}</span>` : '')
-			+ '</span>'
+			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span></span>`
 			+ `<span class="rate">${escapeHtml(f.reproduced)}</span>`
 			+ status
 			+ '</a>';
 	});
 
 	const head = rows.length
-		? '<div class="row row-head findings-grid"><span>Severity</span><span>Finding and impact</span><span class="right">Reproduced</span><span class="right">Status</span></div>\n'
+		? '<div class="row row-head findings-grid"><span>Severity</span><span>Finding</span><span class="right">Reproduced</span><span class="right">Status</span></div>\n'
 		: '';
 
 	return `<section id="findings" class="section">
@@ -410,63 +408,42 @@ function renderStep(step, { id = '', observed = false, tail = '', ev = '' } = {}
 	return `<li${attr}><span class="st-v">${step.html}</span>${result}${ev}${obs}${tail}${withCodeCopy(step.blockHtml)}</li>`;
 }
 
-/** A finding's screenshots, the ones the gallery shows. */
+/** A finding's screenshots, in step order. */
 function findingShots(f) {
 	return f.evidence.filter(item => item.kind === 'shot');
 }
 
-function renderEvidence(f) {
-	// Screenshots only: a log line is not evidence a reader can see, and the one
-	// worth reading is under Error output. Logs stay in the agent prompt.
-	const shots = findingShots(f);
-	if (!shots.length) {
-		return '';
-	}
-	const n = f.n;
-	// One tile per step label, where its first shot was. The rest of a stack are
-	// hidden links, so the lightbox and the step icons still reach them by id.
-	const groups = [];
-	const byLabel = new Map();
-	shots.forEach((item, i) => {
-		const label = item.step?.label;
-		const group = label && byLabel.get(label);
-		if (group) {
-			group.push({ item, i });
-		} else {
-			groups.push([{ item, i }]);
-			if (label) { byLabel.set(label, groups.at(-1)); }
-		}
-	});
-	const tiles = groups.map((group, g) => group.map(({ item, i }, k) => {
-		// A real link to the raw image, so the thumbnail still works without
-		// JavaScript; the script intercepts the click and opens the lightbox.
-		// The full-size view links the step back, when there is one to land on.
-		const step = item.step;
-		const stepHref = step && Number.isInteger(step.order) && step.order <= f.steps.length ? `#f${n}-s${step.order}` : '';
-		const attrs = `id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
-			+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
-			+ (step ? ` data-step="${escapeHtml(step.label)}"` : '')
-			+ (stepHref ? ` data-step-href="${stepHref}"` : '');
-		if (k > 0) {
-			return `<a class="shot" ${attrs} hidden></a>`;
-		}
-		const stack = group.length > 1;
-		const label = stack
-			? `${step.label}: ${group.length} screenshots, view full size`
-			: `${step ? `${step.label} screenshot, view` : 'View'} full size: ${item.caption}`;
-		return `<a class="shot${stack ? ' stk' : ''}" ${attrs} aria-label="${escapeHtml(label)}">`
-			+ `<img src="${escapeHtml(item.src)}" alt="${escapeHtml(item.caption)}" loading="lazy">`
-			+ (step ? `<span class="shot-step" aria-hidden="true">${escapeHtml(step.label)}${stack ? `<span class="shot-n">${group.length}</span>` : ''}</span>` : '')
-			+ '</a>';
-	}).join('')).map(t => `<figure>${t}</figure>`).join('');
-
-	return `<div class="evidence" id="f${n}-evidence"><div class="sub">Evidence</div>`
-		+ `<div class="shots">${tiles}</div></div>`;
+/** Whether a screenshot opens from one of the card's steps. */
+function onStep(f, item) {
+	const order = item.step?.order;
+	return Number.isInteger(order) && order >= 1 && order <= f.steps.length;
 }
 
 /**
- * A finding step's screenshot icon: opens the first of that step's shots in
- * the gallery, with a count when there is more than one.
+ * The lightbox's links to a finding's screenshots, one group per step, as
+ * hidden links: the step's icon opens them, so the card shows each once. A
+ * shot that names no step on the card has nowhere to open from, so lint
+ * requires one; it stays in the agent prompt's Evidence.
+ */
+function renderShotLinks(f) {
+	const n = f.n;
+	const groups = new Map();
+	findingShots(f).forEach((item, i) => {
+		if (onStep(f, item)) {
+			groups.set(item.step.order, [...(groups.get(item.step.order) ?? []), { item, i }]);
+		}
+	});
+	// A real link to the raw image, so it still works without JavaScript; the
+	// script intercepts the click and opens the lightbox, which links the step back.
+	const links = [...groups.values()].map((group, g) => group.map(({ item, i }) => `<a class="shot" id="shot-f${n}-${i + 1}" href="${escapeHtml(item.src)}" data-lb="f${n}-g${g + 1}" data-i="${i}"`
+		+ ` data-caption="${escapeHtml(item.caption)}" data-file="${escapeHtml(item.file)}"`
+		+ ` data-step="${escapeHtml(item.step.label)}" data-step-href="#f${n}-s${item.step.order}" hidden></a>`).join('')).join('');
+	return links ? `<div class="shot-links" hidden>${links}</div>` : '';
+}
+
+/**
+ * A finding step's screenshot icon: previews the first of that step's shots
+ * and opens it full size, with a count when there is more than one.
  */
 function stepShotIcon(f, k) {
 	const shots = findingShots(f);
@@ -476,8 +453,13 @@ function stepShotIcon(f, k) {
 	}
 	const count = mine.length;
 	const label = count > 1 ? `${count} screenshots for this step` : 'Screenshot for this step';
+	// A preview on hover or focus keeps the screenshot a glance away without
+	// putting it in the reading flow. Lazy, so it loads only once it shows.
+	const pop = '<span class="ev-pop" aria-hidden="true">'
+		+ `<img src="${escapeHtml(mine[0].item.src)}" alt="" loading="lazy">`
+		+ `<span class="ev-cap">${count > 1 ? `1 of ${count} &middot; click to enlarge` : 'Click to enlarge'}</span></span>`;
 	return ` <span class="st-sep" aria-hidden="true">&middot;</span> <a class="st-ev" href="#shot-f${f.n}-${mine[0].i + 1}" data-open="shot-f${f.n}-${mine[0].i + 1}"`
-		+ ` aria-label="${label}">${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
+		+ ` aria-label="${label}">${pop}${ICON.photo}${count > 1 ? `<span class="st-n">${count}</span>` : ''}</a>`;
 }
 
 /** `/a/b`, `~/x` and URLs stand as written; anything else is relative to `base`. */
@@ -511,9 +493,9 @@ export function linkedLogs(report) {
 	return [...new Set(paths)];
 }
 
-/** `Logged 2\u00d7 (after each Retry)` -> `2\u00d7 after each Retry`. */
+/** `Logged 2x (after each Retry)` -> `2x after each Retry`. */
 function countText(meta) {
-	return String(meta ?? '').replace(/^logged\s+/i, '').replace(/\(([^)]*)\)/g, '$1').replace(/(\d)\s*x\b/g, '$1\u00d7').trim();
+	return String(meta ?? '').replace(/^logged\s+/i, '').replace(/\(([^)]*)\)/g, '$1').replace(/(\d)\s*(?:x\b|\u00d7)/g, '$1x').trim();
 }
 
 /**
@@ -522,7 +504,8 @@ function countText(meta) {
  */
 function sourceHref(path, sha, line) {
 	const p = String(path ?? '').replace(/^\.\//, '');
-	if (!p || !/^[0-9a-f]{7,40}$/i.test(sha ?? '') || /^([a-z][a-z0-9+.-]*:|\/|~|\.\.)/i.test(p)) {
+	// An installed package, such as a Python traceback's frame in a venv, is not in the repo.
+	if (!p || !/^[0-9a-f]{7,40}$/i.test(sha ?? '') || /^([a-z][a-z0-9+.-]*:|\/|~|\.\.)/i.test(p) || /(^|\/)(site-packages|node_modules)\//.test(p)) {
 		return null;
 	}
 	return `${REPO_URL}/blob/${sha}/${p.split('/').map(encodeURIComponent).join('/')}${line ? `#L${line}` : ''}`;
@@ -556,9 +539,10 @@ function evidenceItems(f, where, shot) {
 		if (e.kind === 'shot') {
 			return `- ${shot(e)} \u2014 ${e.step ? `${e.step.label}: ` : ''}${e.caption}`;
 		}
-		if (e.kind === 'log') {
-			const quote = /["\u201c\u201d]/.test(e.quote) ? e.quote : `\u201c${e.quote}\u201d`;
-			return `- ${where(e.path)} \u2014 ${quote}${e.note ? ` (${capitalize(e.note)})` : ''}`;
+		if (e.kind === 'log' || e.kind === 'missing') {
+			const text = e.quote.replace(/==([^=\n]+)==/g, '$1');
+			const quote = /["\u201c\u201d]/.test(text) ? text : `\u201c${text}\u201d`;
+			return `- ${e.kind === 'missing' ? `Not logged in ${where(e.path)}${e.window ? ` (${e.window})` : ''}` : where(e.path)} \u2014 ${quote}${e.note ? ` (${capitalize(e.note)})` : ''}`;
 		}
 		return `- ${e.text}`;
 	}).concat(f.errors.map(e => {
@@ -586,7 +570,7 @@ function errorOutput(f, where, clip = text => text) {
 	}).join('\n\n');
 }
 
-/** The suggested regression cases as `{ heading, body }`, or null when there are none to suggest. */
+/** The test gap's suggested cases as `{ heading, body }`, or null when there are none to suggest. */
 function regressionTest(f) {
 	const { cases, related } = f.tests;
 	if (!cases.length || f.verified === 'disputed') {
@@ -595,7 +579,7 @@ function regressionTest(f) {
 	const named = new Set(cases.map(c => c.path));
 	const others = related.filter(r => !named.has(r.path));
 	return {
-		heading: f.verified === 'unresolved' ? 'Regression test (suggestion; the verifier left this finding unresolved)' : 'Regression test (suggestion)',
+		heading: f.verified === 'unresolved' ? 'Test gap (suggestion; the verifier left this finding unresolved)' : 'Test gap (suggestion)',
 		body: [
 			...cases.map(c => `- ${c.text}${c.path ? ` \u2192 add to ${c.path}${c.level ? ` (${c.level})` : ''}` : c.level ? ` \u2192 ${c.level} test; place it per the repo's test guidance` : ''}`),
 			others.length && `Other tests that touch this code: ${others.map(r => `${r.path}${r.level ? ` (${r.level})` : ''}`).join(', ')}`,
@@ -624,9 +608,8 @@ function buildAgentPrompt(f, report, options = {}) {
 			out.push(`### ${heading}`, safeLinks(body), '');
 		}
 	};
-	section('Impact', t.impact);
 	// So the agent checks these before fixing or filing it again.
-	section('Possibly known issues', possiblyKnown(f, options.ki).map(n => {
+	section('Possible duplicates', possiblyKnown(f, options.ki).map(n => {
 		const issue = options.ki?.byNumber.get(n);
 		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
 	}).join('\n'));
@@ -861,7 +844,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	};
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
 
-	section('Describe the issue', capitalize([t.impact, t.prose].filter(Boolean).join('\n\n') || t.summary));
+	section('Describe the issue', capitalize(t.prose || t.summary));
 
 	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
@@ -882,8 +865,8 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 		preconditions.map(p => `- ${p.replace(/\n/g, '\n  ')}`).join('\n'),
 		f.steps.map((st, i) => `${i + 1}. ${issueStep(st, observed).replace(/\n/g, '\n   ')}`).join('\n'),
 	].filter(Boolean).join('\n\n'));
+	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
-	section('Actual', capitalize(t.observed));
 
 	const clip = raw => {
 		const lines = raw.split('\n');
@@ -981,35 +964,106 @@ function logLink(path, text, exists, cls = 'log-link') {
 		: `<span class="${cls}">${escapeHtml(text)}</span>`;
 }
 
-function renderErrorOutput(f, sha, exists) {
+// Where an error was logged, named so a developer knows where to look.
+const PROCESSES = [
+	[/^renderer( process)?$/i, 'Renderer process', 'Logged by Positron’s renderer process (the UI), not the extension host or a language runtime'],
+	[/^extension host$/i, 'Extension host', 'Logged by the extension host, the process extensions run in'],
+	[/^main( process)?$/i, 'Main process', 'Logged by Positron’s main process, which runs the app and its windows'],
+	[/^(python|r) (kernel|console)$/i, null, 'Logged by the language runtime'],
+];
+
+/** The process field of an error's meta, with a tooltip saying what it means. */
+function processHtml(text, html) {
+	const known = PROCESSES.find(([re]) => re.test(text.trim()));
+	return known
+		? `<span title="${escapeHtml(known[2])}">${known[1] ? escapeHtml(known[1]) : html}</span>`
+		: `<span>${html}</span>`;
+}
+
+// The process a collected log comes from, by the name collect-logs.sh gives it.
+const LOG_PROCESS = [
+	[/-(python|r)(?:-[\w-]+)?-console\.log$/i, m => `${m[1].length === 1 ? 'R' : 'Python'} console`],
+	[/^\d+-console\.log$|-renderer\.log$/i, () => 'Renderer process'],
+	[/-exthost\.log$/i, () => 'Extension host'],
+	[/-code\.log$/i, () => 'Main process'],
+];
+
+/** The process a log line was logged by: the bullet's own, else its file's. */
+function logProcess(e) {
+	if (e.process) {
+		return e.process;
+	}
+	const name = basename(logFile(e.path)?.path ?? e.path);
+	for (const [re, label] of LOG_PROCESS) {
+		const m = re.exec(name);
+		if (m) {
+			return label(m);
+		}
+	}
+	return '';
+}
+
+/** Verbatim log text, with `==value==` as a highlight. */
+function logTextHtml(text) {
+	return escapeHtml(text).replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
+}
+
+/** One piece of evidence: a muted header line over the text as logged. */
+function evidenceSnippet(cls, head, code) {
+	return `<div class="ev-snip${cls}"><div class="ev-snip-h">${head.filter(Boolean).join('')}</div>`
+		+ `<div class="ev-snip-b">${code}</div></div>`;
+}
+
+/**
+ * Proof that is not tied to a step, as logs only: logged errors, log lines and
+ * lines that should have been logged and were not. Every screenshot is on the
+ * step it proves, and interpretation belongs in Observed or Likely cause, so a
+ * card with neither has no Evidence row.
+ */
+function renderEvidenceRow(f, sha, exists) {
 	// A message with no stack and no file:line is not something a reader can act
 	// on here; it stays in the agent prompt.
 	const errors = f.errors.filter(e => e.frames.length || /[\w.-]+\.\w+:\d+/.test(e.message));
-	if (!errors.length) {
+	const logs = f.evidence.filter(e => e.kind === 'log' && e.quote && isPositronLog(e.path));
+	const missing = f.evidence.filter(e => e.kind === 'missing' && e.quote);
+	if (!errors.length && !logs.length && !missing.length) {
 		return '';
 	}
-	const body = errors.map(e => {
-		const meta = [
-			e.source && (logFile(e.source)
-				// The line is in the text, not the href: a static file cannot jump to it.
-				? logLink(logFile(e.source).path, e.source, exists, 'log-link err-src')
-				: `<span class="err-src">${escapeHtml(e.source)}</span>`),
-			...e.metaHtml.map(m => `<span>${m}</span>`),
-		].filter(Boolean).join('');
+	// The line is in the text, not the href: a static file cannot jump to it.
+	const link = path => (logFile(path) ? logLink(logFile(path).path, path, exists) : `<span class="log-link">${escapeHtml(path)}</span>`);
+	const errorHtml = errors.map(e => {
 		const frames = e.frames.map(fr => {
 			const loc = fileLink(fr.path, sourceHref(fr.path, sha, fr.line), 'err-loc', `:${fr.line}`);
-			return `<div class="err-frame">at ${fr.fn ? `${escapeHtml(fr.fn)} (${loc})` : loc}</div>`;
+			return `\n  at ${fr.fn ? `${escapeHtml(fr.fn)} (${loc})` : loc}`;
 		}).join('');
-		return '<div class="err">'
-			+ (meta ? `<div class="err-meta">${meta}</div>` : '')
-			+ `<div class="err-code">${e.message ? `<div class="err-msg">${escapeHtml(e.message)}</div>` : ''}${frames}</div>`
-			+ '</div>';
+		return evidenceSnippet('', [
+			e.source && link(e.source),
+			...e.metaHtml.map((m, k) => (k === 0 ? processHtml(e.meta[0], m) : `<span>${m}</span>`)),
+		], `${e.message ? `<span class="ev-err">${escapeHtml(e.message)}</span>` : ''}${frames}`);
 	}).join('');
-	const count = errors[0].count;
-	const tail = errors.length === 1
-		? `1 error${count > 1 ? `, ${count}\u00d7` : ''}`
-		: `${errors.length} errors`;
-	return collapsedRow('', 'Error output', tail, body);
+	const logHtml = logs.map(e => {
+		const process = logProcess(e);
+		const when = e.when || /\b\d{2}:\d{2}:\d{2}\b/.exec(e.quote)?.[0];
+		return evidenceSnippet('', [
+			link(e.path),
+			process && processHtml(process, escapeHtml(process)),
+			when && `<span>${escapeHtml(when)}</span>`,
+		], logTextHtml(e.quote));
+	}).join('');
+	const missingHtml = missing.map(e => evidenceSnippet(' ev-miss', [
+		'<span class="ev-miss-k">Not logged</span>',
+		link(e.path),
+		e.window && `<span>${escapeHtml(e.window)}</span>`,
+	], logTextHtml(e.quote))).join('');
+	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+	const count = errors[0]?.count ?? 1;
+	const lines = logs.reduce((n, e) => n + e.quote.split('\n').length, 0);
+	const tail = [
+		errors.length === 1 ? `1 error${count > 1 ? `, <span class="n-x">${count}x</span>` : ''}` : errors.length ? plural(errors.length, 'error') : '',
+		lines ? plural(lines, 'log line') : '',
+		missing.length ? `${missing.length} missing` : '',
+	].filter(Boolean).join(', ');
+	return collapsedRow(' ev', 'Evidence', tail, errorHtml + logHtml + missingHtml);
 }
 
 function renderRegressionTest(f, sha) {
@@ -1040,17 +1094,17 @@ function renderRegressionTest(f, sha) {
 			+ '</ul></div>'
 		: '';
 	const tail = `${cases.length} missing case${plural ? 's' : ''}${f.verified === 'unresolved' ? ' \u00b7 finding unresolved' : ''}`;
-	return collapsedRow(' regtest', 'Regression test', tail,
+	return collapsedRow(' regtest', 'Test gap', tail,
 		`<div class="rt-group"><div class="rt-label">Suggested case${plural ? 's' : ''}</div>`
 		+ `<ol class="rt-cases">${cases.map(c => `<li>${c.textHtml}${where(c)}</li>`).join('')}</ol></div>`
 		+ othersHtml);
 }
 
-/** Fact, then hypothesis, then suggestion; each only when it has something to say. */
+/** Proof, then hypothesis, then the missing test; each only when it has something to say. */
 function renderCardDetails(f, report, options = {}) {
 	const sha = report.chips[1];
 	const rows = [
-		renderErrorOutput(f, sha, options.fileExists),
+		renderEvidenceRow(f, sha, options.fileExists),
 		f.causeHtml ? collapsedRow(' hyp', 'Likely cause', 'Hypothesis', `<p>${f.causeHtml}</p>`) : '',
 		renderRegressionTest(f, sha),
 	].filter(Boolean);
@@ -1062,13 +1116,27 @@ function possiblyKnown(f, ki) {
 	return ki ? ki.known.get(f.n) ?? [] : f.known ?? [];
 }
 
-/** The card's "Possibly known" line. */
-function renderPossiblyKnown(f, ki) {
-	const known = possiblyKnown(f, ki);
-	if (!known.length) {
-		return '';
+/**
+ * The card's linked-issue status, as items for the end of its meta line: a fix
+ * that did not hold or an issue that came back, then any likely duplicates.
+ * When verify rejected the finding, its issue line stands in without the claim.
+ */
+function cardIssueItems(f, word, ki, refs) {
+	const rejected = word && word !== 'confirmed';
+	const failed = ki?.fixFailed.get(f.n) ?? [];
+	const back = ki?.cameBack.get(f.n) ?? [];
+	const item = (label, numbers) => `<span class="f-ki">${label} ${numbers.map(n => kiNum(n, refs)).join(' ')}</span>`;
+	const items = [];
+	if (failed.length) {
+		items.push(item(rejected ? 'Fixes' : 'Fix didn&rsquo;t hold', failed.map(i => i.number)));
+	} else if (back.length) {
+		items.push(item(rejected ? 'Closed &middot;' : 'Regressed', back.map(i => i.number)));
 	}
-	return `<p class="ki-known">${ICON.info}<span>Possibly known: ${known.map(n => kiNum(n, ki)).join(', ')}</span></p>`;
+	const known = possiblyKnown(f, ki);
+	if (known.length) {
+		items.push(item('Dupe?', known));
+	}
+	return items;
 }
 
 function renderFindingCard(f, report, options) {
@@ -1084,6 +1152,8 @@ function renderFindingCard(f, report, options) {
 	if (f.reproduced) {
 		context.push(`<span class="reproduced">Reproduced ${escapeHtml(f.reproduced)}</span>`);
 	}
+	// Linked issues describe the finding as these do, so they close the meta line.
+	context.push(...cardIssueItems(f, word, options.ki, options.refs));
 	const contextHtml = context.join('<span class="sep" aria-hidden="true">&middot;</span>');
 
 	const meta = '<div class="meta">'
@@ -1097,7 +1167,6 @@ function renderFindingCard(f, report, options) {
 
 	const head = `<header>${meta}`
 		+ `<h2 class="card-title">${escapeHtml(f.title)}</h2>`
-		+ renderPossiblyKnown(f, options.ki)
 		+ '</header>';
 
 	const promptBlock = (prompts ? renderPromptBlock(f, report, options) : '') + renderIssueBlock(f, issue);
@@ -1107,44 +1176,46 @@ function renderFindingCard(f, report, options) {
 	const files = options.files ?? [];
 
 	if (f.proseHtml) {
-		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files)}${feedback}${promptBlock}</article>`;
+		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkIssues(linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files), options.refs)}${feedback}${promptBlock}</article>`;
 	}
 
-	const observedExpected = (f.observedHtml || f.expectedHtml)
-		? '<div class="two">'
-		+ (f.observedHtml ? `<div class="oe observed"><div class="oe-label">Observed</div><p>${f.observedHtml}</p></div>` : '')
-		+ (f.expectedHtml ? `<div class="oe expected"><div class="oe-label">Expected</div><p>${f.expectedHtml}</p></div>` : '')
-		+ '</div>'
+	// The claim's facts before the procedure, as one comparison: what the run
+	// saw, marked by severity, beside what should have happened.
+	const half = (cls, label, html) => (html ? `<div class="${cls}"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
+	const comparison = f.observedHtml || f.expectedHtml
+		? `<div class="f-cmp ${f.severity}">${half('f-cmp-o', 'Observed', f.observedHtml)}${half('f-cmp-e', 'Expected', f.expectedHtml)}</div>`
 		: '';
 
-	// Text only: every screenshot sits under Evidence.
-	// Setup first, then actions, each under its own label: a reader can see what
-	// they need before they start without reading to find where it stops.
+	// Text only: each step's screenshots open from its icon.
+	// Setup is a list, one line per precondition, each with its own P over the
+	// step numbers. The line is the full item, with its versions, file and
+	// command in view; Coverage keeps the short names.
 	const preconditions = f.preconditions.length
-		? '<div class="repro-group"><div class="repro-label">Preconditions</div>'
-		+ `<ul class="preconditions">${f.preconditions.map(p => `<li>${withCodeCopy(p)}</li>`).join('')}</ul></div>`
+		? '<ul class="f-pl" aria-label="Preconditions">'
+		+ f.preconditions.map((p, k) => `<li><span class="f-pl-p" aria-hidden="true">P</span>${withCodeCopy(p || f.preconditionNames?.[k] || '')}</li>`).join('')
+		+ '</ul>'
 		: '';
 	// The card's Observed says what went wrong, so a step repeats it only when
 	// two failed checks saw different things.
 	const failed = f.steps.filter(st => st.result === 'fail');
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
 	const steps = f.steps.length
-		? '<div class="repro-group steps"><div class="repro-label">Steps</div>'
+		? '<div class="repro-group steps">'
 		+ `<ol class="repro-steps steps">${f.steps.map((st, k) => renderStep(st, { id: `f${f.n}-s${k + 1}`, observed, ev: st.kind === 'verify' ? stepShotIcon(f, k + 1) : '' })).join('\n')}</ol></div>`
 		: '';
 	// Linked first: a bare code span naming a saved file becomes its chip, not a copy target.
 	const repro = (preconditions || steps)
-		? copyableCode(linkFiles(`<div class="repro"><div class="sub">Reproduce</div>${preconditions}${steps}</div>`, files))
+		? copyableCode(linkFiles(`<div class="f-sec repro"><div class="f-lab">Reproduce</div>${preconditions}${steps}</div>`, files))
 		: '';
 
 	const details = renderCardDetails(f, report, options);
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
-${linkFiles(`${head}
-${observedExpected}
+${linkIssues(linkFiles(`${head}
+${comparison}
 ${repro}
-${renderEvidence(f)}
-${details}`, files)}
+${details}`, files), options.refs)}
+${renderShotLinks(f)}
 ${feedback}
 ${promptBlock}
 </article>`;
@@ -1180,7 +1251,7 @@ function renderCoverage(report, options = {}) {
 		}
 		return [...groups].map(([label, nums]) => `${label} ${nums.join(', ')}`);
 	};
-	const result = (row, lead = []) => [...lead, ...kiTags(row), row.resultHtml && linkIssues(row.resultHtml, ki)].filter(Boolean).join(' &middot; ');
+	const result = (row, lead = []) => [...lead, ...kiTags(row), row.resultHtml && linkIssues(row.resultHtml, options.refs)].filter(Boolean).join(' &middot; ');
 	const byLedgerId = new Map(exercised.filter(r => r.id).map(r => [r.id, r]));
 
 	// A passing row's screenshot hangs off the verify step it proves rather than
@@ -1218,14 +1289,16 @@ function renderCoverage(report, options = {}) {
 	};
 
 	// The finding link leads: it is where a reader goes next. A finding row does
-	// not expand: its steps are on the card it links to.
+	// not expand: its steps are on the card it links to. It only maps the
+	// scenario to its findings; the card has the bug and its rate.
 	const issueRows = issues.map(row => {
 		// Every finding the row hit, not just its first: a step can fail on another.
-		const ns = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(Boolean))];
+		const ns = [...new Set([row.finding, ...(row.findings ?? []), ...(row.steps ?? []).map(st => st.finding)].filter(Boolean).map(Number))].sort((a, b) => a - b);
 		const links = ns.map(n => `<a href="#f${n}" class="cv-f">Finding ${n}</a>`);
+		const html = ns.length ? [...links, ...kiTags(row)].join(' &middot; ') : result(row);
 		return `<div class="row coverage-grid cf-r cf-i" id="${rowId.get(row)}">`
 			+ scenario(row, 'issue')
-			+ `<span class="cov-result">${result(row, links)}</span>`
+			+ `<span class="cov-result">${html}</span>`
 			+ '<span></span></div>';
 	});
 
@@ -1250,7 +1323,7 @@ function renderCoverage(report, options = {}) {
 	// Result and chevron columns.
 	const notRows = notExercised.map(row => `<div class="row coverage-grid cf-r cf-n" id="${rowId.get(row)}">`
 		+ scenario(row, 'none')
-		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span>${row.reasonHtml ? ` &middot; ${linkIssues(row.reasonHtml, ki)}` : ''}</span>`
+		+ `<span class="cov-notrun"><span class="cov-nr">Not run</span>${row.reasonHtml ? ` &middot; ${linkIssues(row.reasonHtml, options.refs)}` : ''}</span>`
 		+ '</div>');
 
 	// Visually hidden radios ahead of the tabs and card, so CSS can filter the
@@ -1303,7 +1376,7 @@ function runFiles(report, options) {
 			+ [l.sourceHtml, l.noteHtml].filter(Boolean).map(t => `${sep}<span class="log-note">${t}</span>`).join('')
 			+ '</li>');
 		parts.push({ title: 'Logs', html: '<p>Everything captured during the run, saved next to this report. '
-			+ 'Error lines are also in each finding\u2019s Error output and agent prompt.</p>'
+			+ 'Error lines are also in each finding\u2019s Evidence and agent prompt.</p>'
 			+ `<ul class="log-list">${rows.join('')}</ul>` });
 	}
 	const files = renderTestFilesPart(options.files ?? []);
@@ -1313,49 +1386,6 @@ function runFiles(report, options) {
 	return parts;
 }
 
-/**
- * How much format fixing the explorer did before its report linted clean, from
- * the checks it recorded: rounds, and the rules its first check found broken.
- * The rules say what the skill's prose did not get across.
- */
-function renderFormatChecks(options) {
-	const text = options.readFile?.(CHECKS_FILE);
-	const checks = summarizeChecks(text ? String(text) : '');
-	if (!checks) {
-		return '';
-	}
-	const times = checks.rounds === 1 ? 'once' : `${checks.rounds} times`;
-	const found = checks.first.problems;
-	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-	const sentence = found === 0
-		? `The explorer ran the report's format check ${times}. The first time, it found no problems.`
-		: `The explorer ran the report's format check ${times}. The first time, it found ${plural(found, 'problem')}:`;
-	const raw = options.fileExists?.('stats.json') ? '<div class="format-raw"><a href="stats.json">Raw stats</a></div>' : '';
-	// Compared rule by rule with the last check: fixed, not fixed, or both with
-	// counts when only some were. A rule that broke after the first check is
-	// listed too. The ones not fixed lead, so they stand out.
-	const first = checks.first.rules;
-	const last = checks.lastRules ?? {};
-	const rows = [...new Set([...Object.keys(first), ...Object.keys(last)])].map(rule => {
-		const before = first[rule] ?? 0;
-		const after = last[rule] ?? 0;
-		const shown = before || after;
-		const fixed = before - Math.min(before, after);
-		const tags = after === 0
-			? ['<span class="fixed">fixed</span>']
-			: [...(fixed ? [`<span class="fixed">${fixed} fixed</span>`] : []), `<span class="not-fixed">${fixed ? `${after} not fixed` : 'not fixed'}</span>`];
-		return { rule, shown, after, tags: tags.join(' ') };
-	}).sort((a, b) => (b.after > 0) - (a.after > 0) || b.shown - a.shown);
-	const list = rows.length
-		? `<ul class="format-rules">${rows.map(r => `<li><span class="num">${r.shown}&times;</span> ${escapeHtml(r.rule)} ${r.tags}</li>`).join('')}</ul>`
-		: '';
-	return '<div class="fold-part"><div class="fold-label">Format checks</div>'
-		+ `<div class="format-checks">${escapeHtml(sentence)}</div>`
-		+ list
-		+ raw
-		+ '</div>';
-}
-
 function renderFolds(report, options = {}) {
 	const folds = [];
 	// Files sit after what the run did and before how the build was proved.
@@ -1363,11 +1393,10 @@ function renderFolds(report, options = {}) {
 	const at = written.findIndex(s => /^branch verification$/i.test(s.title));
 	const files = runFiles(report, options);
 	const details = at === -1 ? [...written, ...files] : [...written.slice(0, at), ...files, ...written.slice(at)];
-	const formatChecks = renderFormatChecks(options);
-	if (details.length || hasCost(report) || formatChecks) {
-		const titles = [...(hasCost(report) ? ['Agents'] : []), ...(formatChecks ? ['Format checks'] : []), ...details.map(s => s.title)];
+	if (details.length || hasCost(report)) {
+		const titles = [...(hasCost(report) ? ['Agents'] : []), ...details.map(s => s.title)];
 		const hint = titles.map((t, i) => (i === 0 ? t : t.toLowerCase())).join(', ');
-		const body = renderAgents(report) + formatChecks + details
+		const body = renderAgents(report) + details
 			.map(s => `<div class="fold-part"><div class="fold-label">${escapeHtml(s.title)}</div>${s.html}</div>`)
 			.join('');
 		folds.push(`<details id="run-details">
@@ -1465,6 +1494,11 @@ function openRun(){var d=document.getElementById('run-details');if(d){d.open=tru
 document.querySelectorAll('a[href="#run-details"]').forEach(function(a){a.addEventListener('click',openRun);});
 window.addEventListener('hashchange',function(){if(location.hash==='#run-details'){openRun();}});
 if(location.hash==='#run-details'){openRun();}
+// A step's screenshot preview opens above its icon, or below when that would
+// run off the top of the window.
+document.querySelectorAll('a.st-ev .ev-pop').forEach(function(p){var a=p.parentNode;
+function place(){a.classList.toggle('ev-below',a.getBoundingClientRect().top<p.offsetHeight+16);}
+a.addEventListener('mouseenter',place);a.addEventListener('focus',place);});
 // Lightbox. The thumbnails are links to the raw image, so everything here is an
 // enhancement: without it, or before it runs, clicking one still shows the
 // full-size screenshot.
@@ -1677,13 +1711,13 @@ var card=document.createElement('div');card.className='ki-card';card.id='ki-card
 var cur=null,tapped=null,pointer='mouse',SEL='a.ki-num[data-title],.ki-num-t[data-title]';
 function el(tag,cls,text){var e=document.createElement(tag);if(cls){e.className=cls;}if(text!=null){e.textContent=text;}return e;}
 function find(t){return t&&t.closest?t.closest(SEL):null;}
-function build(a){var d=a.dataset,closed=d.state==='closed';card.textContent='';
-var top=el('div','ki-card-top'),s=el('span','ki-s '+(closed?'is-closed':'is-open'));
-s.innerHTML=ICON[closed?'closed':'open'];s.appendChild(document.createTextNode(' '+(closed?'Closed':'Open')));
+function build(a){var d=a.dataset,st=d.state==='merged'?'merged':d.state==='closed'?'closed':'open',pr=d.kind==='pr';card.textContent='';
+var top=el('div','ki-card-top'),s=el('span','ki-s is-'+st);
+s.innerHTML=ICON[st==='open'?'open':'closed'];s.appendChild(document.createTextNode(' '+{open:'Open',closed:'Closed',merged:'Merged'}[st]+(pr?' PR':'')));
 top.appendChild(s);top.appendChild(el('span','ki-n',a.textContent));if(d.opened){top.appendChild(el('span','ki-d',d.opened));}
 card.appendChild(top);card.appendChild(el('div','ki-card-t',d.title||''));
 if(d.summary){card.appendChild(el('div','ki-card-x',d.summary));}
-card.appendChild(el('div','ki-card-f','From the issue\\u2019s description'+(a.tagName!=='A'?'':' \\u00b7 '+(pointer==='touch'?'tap again':'click')+' to open on GitHub')));}
+card.appendChild(el('div','ki-card-f','From the '+(pr?'PR':'issue')+'\\u2019s description'+(a.tagName!=='A'?'':' \\u00b7 '+(pointer==='touch'?'tap again':'click')+' to open on GitHub')));}
 function place(a){var r=a.getBoundingClientRect(),w=card.offsetWidth,h=card.offsetHeight,m=12;
 var left=Math.min(Math.max(m,r.left+r.width/2-w/2),window.innerWidth-w-m);
 var top=r.top-h-8;if(top<m){top=r.bottom+8;}card.style.left=left+'px';card.style.top=top+'px';}
@@ -1719,6 +1753,11 @@ export function renderReportHtml(markdown, options = {}) {
 		? { ...knownIssueOutcomes(options.knownIssues, report.coverage, report.verification?.linked, new Map(report.findings.map(f => [f.n, f.known ?? []]))), now: options.startedAt ?? new Date() }
 		: null;
 	options.ki = ki;
+	// Every issue or PR the report names, for its preview card: the PR's list, then the rest it mentions.
+	options.refs = {
+		byNumber: new Map([...(options.issueRefs ?? []).map(i => [i.number, i]), ...(ki?.byNumber ?? [])]),
+		now: options.startedAt ?? new Date(),
+	};
 	// A fix the ledger says nothing about is still listed: an untested fix is never invisible.
 	for (const issue of ki?.unaccounted ?? []) {
 		report.coverage.notExercised.push({
@@ -1775,7 +1814,7 @@ ${previewText ? `<meta name="description" content="${previewText}">\n` : ''}<met
 <header class="head">
 <div class="eyebrow"><span class="kicker">Exploratory test</span>${chips ? '<span class="bullet"></span>' : ''}${chips}${HEADER_ACTIONS}</div>
 <h1 class="title">${escapeHtml(report.title)}</h1>
-${report.leadHtml ? `<p class="lead">${report.leadHtml}</p>` : ''}
+${report.leadHtml ? `<p class="lead">${linkIssues(report.leadHtml, options.refs)}</p>` : ''}
 </header>
 
 ${renderTiles(report)}
@@ -1786,7 +1825,7 @@ ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
 ${linkFiles(renderCoverage(report, options), options.files)}
 
-${renderFolds(report, options)}
+${linkIssues(renderFolds(report, options), options.refs)}
 
 ${renderSignature(options.startedAt, options.skillVersion)}
 
@@ -1832,7 +1871,9 @@ export function readRunDir(dir) {
 	const fileExists = path => existsSync(join(dir, path));
 	return {
 		ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
+		actionsLog: existsSync(join(dir, 'actions.log')) ? readFileSync(join(dir, 'actions.log'), 'utf8') : undefined,
 		knownIssues: readKnownIssues(dir) ?? undefined,
+		issueRefs: readIssueRefs(dir),
 		fileExists,
 		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
 	};

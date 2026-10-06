@@ -5,7 +5,7 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo } from './runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionDisplayInfo, RuntimeSessionOwner } from './runtimeSessionService.js';
 
 /**
  * A lightweight object containing display-relevant properties from a session.
@@ -18,6 +18,7 @@ export class RuntimeSessionDisplayInfo implements IRuntimeSessionDisplayInfo {
 	public readonly sessionState: RuntimeState;
 	public readonly sessionMode: LanguageRuntimeSessionMode;
 	public readonly notebookUri: URI | undefined;
+	public readonly owner: RuntimeSessionOwner;
 	public readonly runtimeId: string;
 	public readonly runtimeName: string;
 	public readonly languageName: string;
@@ -29,6 +30,7 @@ export class RuntimeSessionDisplayInfo implements IRuntimeSessionDisplayInfo {
 		this.sessionState = sessionState;
 		this.sessionMode = session.metadata.sessionMode;
 		this.notebookUri = session.metadata.notebookUri;
+		this.owner = session.metadata.owner;
 		this.runtimeId = session.runtimeMetadata.runtimeId;
 		this.runtimeName = session.runtimeMetadata.runtimeName;
 		this.languageName = session.runtimeMetadata.languageName;

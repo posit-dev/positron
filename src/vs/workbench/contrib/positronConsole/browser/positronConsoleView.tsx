@@ -32,8 +32,9 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { IActionViewItem } from '../../../../base/browser/ui/actionbar/actionbar.js';
 import { IDropdownMenuActionViewItemOptions } from '../../../../base/browser/ui/dropdown/dropdownActionViewItem.js';
-import { Action, IAction } from '../../../../base/common/actions.js';
-import { LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { Action, IAction, Separator } from '../../../../base/common/actions.js';
+import { LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/browser/dropdownWithPrimaryActionViewItem.js';
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
@@ -236,6 +237,14 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._register(this.runtimeSessionService.onDidChangeForegroundSession(() => this.updateActions()));
 		this._register(this.runtimeSessionService.onDidDeleteRuntimeSession(() => this.updateActions()));
 
+		// Rebuild the session dropdown so "Start Agent Console Session..." follows
+		// ai.enabled and ai.agentSessions.enabled.
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(AI_ENABLED_KEY) || e.affectsConfiguration(AGENT_SESSIONS_ENABLED_KEY)) {
+				this.updateActions();
+			}
+		}));
+
 		// Update the context key used to manage the session dropdown when the console instances change.
 		this._register(this.positronConsoleService.onDidStartPositronConsoleInstance(() => {
 			this.updateConsoleInstancesExistContext();
@@ -347,7 +356,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		const currentRuntime = this.runtimeSessionService.foregroundSession?.runtimeMetadata;
 		const activeRuntimes = buildRuntimesDropdown(currentRuntime, this.runtimeSessionService.activeSessions);
 
-		const dropdownMenuActions = activeRuntimes.map(runtime => new Action(
+		const dropdownMenuActions: IAction[] = activeRuntimes.map(runtime => new Action(
 			`console.startSession.${runtime.runtimeId}`,
 			runtime.runtimeName,
 			undefined,
@@ -387,7 +396,27 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			})
 		);
 
-		dropdownMenuActions.forEach(action => this._register(action));
+		if (this.configurationService.getValue<boolean>(AI_ENABLED_KEY) === true &&
+			this.configurationService.getValue<boolean>(AGENT_SESSIONS_ENABLED_KEY) === true) {
+			// Set apart from the user's own sessions: this starts one for an agent.
+			dropdownMenuActions.push(new Separator());
+			dropdownMenuActions.push(new Action(
+				'console.startSession.agent',
+				localize('console.startSession.agent', 'Start Agent Console Session...'),
+				undefined,
+				true,
+				() => {
+					this.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID);
+				})
+			);
+		}
+
+		// Separators are plain IActions with nothing to dispose.
+		dropdownMenuActions.forEach(action => {
+			if (action instanceof Action) {
+				this._register(action);
+			}
+		});
 
 		this._sessionDropdown.value?.update(dropdownAction, dropdownMenuActions, 'codicon-chevron-down');
 	}

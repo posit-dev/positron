@@ -1720,7 +1720,7 @@
                 "command": "python.execInConsole",
                 "key": "ctrl+shift+enter",
                 "mac": "cmd+shift+enter",
-                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused && !pythonAppFramework && !positronNotebookCellEditorFocused"
+                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused && resource not in pythonAppResources && !positronNotebookCellEditorFocused"
             },
             {
                 "command": "python.execSelectionInConsole",
@@ -1814,73 +1814,73 @@
                     "category": "Python",
                     "command": "python.execDashInTerminal",
                     "title": "%python.command.python.execDashInTerminal.title%",
-                    "when": "pythonAppFramework == dash"
+                    "when": "resource in pythonAppResources.dash"
                 },
                 {
                     "category": "Python",
                     "command": "python.debugDashInTerminal",
                     "title": "%python.command.python.debugDashInTerminal.title%",
-                    "when": "pythonAppFramework == dash"
+                    "when": "resource in pythonAppResources.dash"
                 },
                 {
                     "category": "Python",
                     "command": "python.execFastAPIInTerminal",
                     "title": "%python.command.python.execFastAPIInTerminal.title%",
-                    "when": "pythonAppFramework == fastapi"
+                    "when": "resource in pythonAppResources.fastapi"
                 },
                 {
                     "category": "Python",
                     "command": "python.debugFastAPIInTerminal",
                     "title": "%python.command.python.debugFastAPIInTerminal.title%",
-                    "when": "pythonAppFramework == fastapi"
+                    "when": "resource in pythonAppResources.fastapi"
                 },
                 {
                     "category": "Python",
                     "command": "python.execFlaskInTerminal",
                     "title": "%python.command.python.execFlaskInTerminal.title%",
-                    "when": "pythonAppFramework == flask"
+                    "when": "resource in pythonAppResources.flask"
                 },
                 {
                     "category": "Python",
                     "command": "python.debugFlaskInTerminal",
                     "title": "%python.command.python.debugFlaskInTerminal.title%",
-                    "when": "pythonAppFramework == flask"
+                    "when": "resource in pythonAppResources.flask"
                 },
                 {
                     "category": "Python",
                     "command": "python.execGradioInTerminal",
                     "title": "%python.command.python.execGradioInTerminal.title%",
-                    "when": "pythonAppFramework == gradio"
+                    "when": "resource in pythonAppResources.gradio"
                 },
                 {
                     "category": "Python",
                     "command": "python.debugGradioInTerminal",
                     "title": "%python.command.python.debugGradioInTerminal.title%",
-                    "when": "pythonAppFramework == gradio"
+                    "when": "resource in pythonAppResources.gradio"
                 },
                 {
                     "category": "Python",
                     "command": "python.execMarimoInTerminal",
                     "title": "%python.command.python.execMarimoInTerminal.title%",
-                    "when": "pythonAppFramework == marimo"
+                    "when": "resource in pythonAppResources.marimo"
                 },
                 {
                     "category": "Python",
                     "command": "python.debugMarimoInTerminal",
                     "title": "%python.command.python.debugMarimoInTerminal.title%",
-                    "when": "pythonAppFramework == marimo"
+                    "when": "resource in pythonAppResources.marimo"
                 },
                 {
                     "category": "Python",
                     "command": "python.execStreamlitInTerminal",
                     "title": "%python.command.python.execStreamlitInTerminal.title%",
-                    "when": "pythonAppFramework == streamlit"
+                    "when": "resource in pythonAppResources.streamlit"
                 },
                 {
                     "category": "Python",
                     "command": "python.debugStreamlitInTerminal",
                     "title": "%python.command.python.debugStreamlitInTerminal.title%",
-                    "when": "pythonAppFramework == streamlit"
+                    "when": "resource in pythonAppResources.streamlit"
                 },
                 {
                     "category": "Python",
@@ -1959,7 +1959,7 @@
                     "category": "Python",
                     "command": "python.execInConsole",
                     "title": "%python.command.python.execInConsole.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python && !pythonAppFramework"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python && resource not in pythonAppResources"
                 },
                 {
                     "category": "Python",
@@ -2095,37 +2095,37 @@
                 {
                     "command": "python.execInConsole",
                     "group": "Python",
-                    "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported && !pythonAppFramework"
+                    "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported && resource not in pythonAppResources"
                 },
                 {
                     "command": "python.execDashInTerminal",
                     "group": "Python",
-                    "when": "pythonAppFramework == dash"
+                    "when": "resource in pythonAppResources.dash"
                 },
                 {
                     "command": "python.execGradioInTerminal",
                     "group": "Python",
-                    "when": "pythonAppFramework == gradio"
+                    "when": "resource in pythonAppResources.gradio"
                 },
                 {
                     "command": "python.execFastAPIInTerminal",
                     "group": "Python",
-                    "when": "pythonAppFramework == fastapi"
+                    "when": "resource in pythonAppResources.fastapi"
                 },
                 {
                     "command": "python.execFlaskInTerminal",
                     "group": "Python",
-                    "when": "pythonAppFramework == flask"
+                    "when": "resource in pythonAppResources.flask"
                 },
                 {
                     "command": "python.execMarimoInTerminal",
                     "group": "Python",
-                    "when": "pythonAppFramework == marimo"
+                    "when": "resource in pythonAppResources.marimo"
                 },
                 {
                     "command": "python.execStreamlitInTerminal",
                     "group": "Python",
-                    "when": "pythonAppFramework == streamlit"
+                    "when": "resource in pythonAppResources.streamlit"
                 },
                 {
                     "command": "python.execInTerminal",
@@ -2153,43 +2153,43 @@
                     "command": "python.execInConsole",
                     "group": "navigation@0",
                     "title": "%python.command.python.execInConsole.title%",
-                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported && !pythonAppFramework"
+                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported && resource not in pythonAppResources"
                 },
                 {
                     "command": "python.execDashInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execDashInTerminal.title%",
-                    "when": "pythonAppFramework == dash"
+                    "when": "resource in pythonAppResources.dash"
                 },
                 {
                     "command": "python.execGradioInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execGradioInTerminal.title%",
-                    "when": "pythonAppFramework == gradio"
+                    "when": "resource in pythonAppResources.gradio"
                 },
                 {
                     "command": "python.execFastAPIInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execFastAPIInTerminal.title%",
-                    "when": "pythonAppFramework == fastapi"
+                    "when": "resource in pythonAppResources.fastapi"
                 },
                 {
                     "command": "python.execFlaskInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execFlaskInTerminal.title%",
-                    "when": "pythonAppFramework == flask"
+                    "when": "resource in pythonAppResources.flask"
                 },
                 {
                     "command": "python.execMarimoInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execMarimoInTerminal.title%",
-                    "when": "pythonAppFramework == marimo"
+                    "when": "resource in pythonAppResources.marimo"
                 },
                 {
                     "command": "python.execStreamlitInTerminal",
                     "group": "navigation@0",
                     "title": "%python.command.python.execStreamlitInTerminal.title%",
-                    "when": "pythonAppFramework == streamlit"
+                    "when": "resource in pythonAppResources.streamlit"
                 },
                 {
                     "command": "python.execInTerminal-icon",
@@ -2207,37 +2207,37 @@
                     "command": "python.debugDashInTerminal",
                     "group": "navigation@3",
                     "title": "%python.command.python.debugDashInTerminal.title%",
-                    "when": "pythonAppFramework == dash"
+                    "when": "resource in pythonAppResources.dash"
                 },
                 {
                     "command": "python.debugGradioInTerminal",
                     "group": "navigation@3",
                     "title": "%python.command.python.debugGradioInTerminal.title%",
-                    "when": "pythonAppFramework == gradio"
+                    "when": "resource in pythonAppResources.gradio"
                 },
                 {
                     "command": "python.debugFastAPIInTerminal",
                     "group": "navigation@3",
                     "title": "%python.command.python.debugFastAPIInTerminal.title%",
-                    "when": "pythonAppFramework == fastapi"
+                    "when": "resource in pythonAppResources.fastapi"
                 },
                 {
                     "command": "python.debugFlaskInTerminal",
                     "group": "navigation@3",
                     "title": "%python.command.python.debugFlaskInTerminal.title%",
-                    "when": "pythonAppFramework == flask"
+                    "when": "resource in pythonAppResources.flask"
                 },
                 {
                     "command": "python.debugMarimoInTerminal",
                     "group": "navigation@3",
                     "title": "%python.command.python.debugMarimoInTerminal.title%",
-                    "when": "pythonAppFramework == marimo"
+                    "when": "resource in pythonAppResources.marimo"
                 },
                 {
                     "command": "python.debugStreamlitInTerminal",
                     "group": "navigation@3",
                     "title": "%python.command.python.debugStreamlitInTerminal.title%",
-                    "when": "pythonAppFramework == streamlit"
+                    "when": "resource in pythonAppResources.streamlit"
                 },
                 {
                     "command": "python.debugInTerminal",

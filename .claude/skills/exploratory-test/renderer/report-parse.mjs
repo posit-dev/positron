@@ -110,9 +110,16 @@ function block(text) {
  * column where they read as statements. Skipped when the cell opens with code,
  * a link or a quote, where a forced capital would corrupt an identifier.
  */
+/** Package and tool names written in lowercase by convention; a sentence may start with one. */
+export const LOWERCASE_NAMES = new Set(['pandas', 'polars', 'numpy', 'dplyr', 'ggplot2', 'tibble', 'data.table', 'pip', 'uv', 'pak', 'renv', 'reticulate', 'ipykernel', 'matplotlib', 'plotly', 'shiny', 'knitr', 'rmarkdown', 'rlang', 'tidyr', 'readr', 'purrr', 'scikit-learn', 'scipy', 'pyarrow', 'duckdb']);
+
 function sentenceCase(text) {
 	const s = String(text ?? '');
 	if (!/^[a-z]/.test(s)) {
+		return s;
+	}
+	// A package name keeps its real case: dplyr, not Dplyr.
+	if (LOWERCASE_NAMES.has(/^[a-z][\w.-]*/.exec(s)[0])) {
 		return s;
 	}
 	// A bare identifier keeps its case: `polars frame` is prose, `df.copy()` is not.
@@ -380,17 +387,25 @@ function parseStatusStrip(line) {
 
 /**
  * Splits `Step 3: <caption>` or `Variant: <caption>` into the step and the rest.
+ * A range or a qualifier names the first step: `Steps 4-5:`, `Step 4, another
+ * trigger: ...` and `Step 4 (cold replay): ...` all open from step 4.
  * The order sorts the gallery: steps by number, then variants, then untagged.
+ * A caption may also name the ledger scenario that took the shot, another
+ * run of the same bug: `S06: ...`, `Another run (S06): ...` or `... (S06)`.
+ * The text keeps that name, so the caption still says which run it was.
  */
 function splitStepTag(text) {
-	const m = /^\s*(?:step\s*(\d+)|(variant))\s*[:.\u2014-]+\s*/i.exec(String(text ?? ''));
+	const source = String(text ?? '');
+	const scenario = /^\s*(?:another run\s*)?\(?(S\d{2,})\)?\s*[:.\u2014-]/i.exec(source)?.[1]
+		?? /\((S\d{2,})\)/.exec(source)?.[1] ?? null;
+	const m = /^\s*(?:steps?\s*(\d+)(?:\s*(?:-|\u2013|to|and|&)\s*\d+)?|(variant))(?:\s*[:.\u2014-]+\s*|,\s*(?=\S)|\s+(?=\())/i.exec(source);
 	if (!m) {
-		return { step: null, text: String(text ?? '').trim() };
+		return { step: null, scenario: scenario?.toUpperCase() ?? null, text: source.trim() };
 	}
 	const step = m[1]
 		? { label: `Step ${Number(m[1])}`, order: Number(m[1]) }
 		: { label: 'Variant', order: Number.MAX_SAFE_INTEGER - 1 };
-	return { step, text: text.slice(m[0].length).trim() };
+	return { step, scenario: scenario?.toUpperCase() ?? null, text: source.slice(m[0].length).trim() };
 }
 
 // `Verify <assertion> -> PASS` or `-> FAIL (finding K)`; the ledger's
@@ -503,35 +518,55 @@ function parseEvidenceBullet(text) {
 				src,
 				file: basename(src),
 				step: tagged.step,
+				...(tagged.scenario ? { scenario: tagged.scenario } : {}),
 				caption: tagged.text || basename(src),
 			};
 		}
 	}
-	const log = /^`([^`]+)`\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
+	// `**Not logged** -- `<path>` | <window> -- "<expected line>"`: a line the run
+	// looked for and did not find.
+	const missing = /^\*\*Not logged\*\*\s*(?:--|\u2014|-)?\s*([\s\S]*)$/i.exec(text);
+	const body = missing ? missing[1].trim() : text;
+	const log = /^`([^`]+)`\s*((?:\|[^|]*?)*?)\s*(?:--|\u2014|-)?\s*((?:[`"\u201c][\s\S]*)?)$/.exec(body)
+		?? /^`([^`]+)`()\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(body);
 	if (log) {
-		// The bullet usually reads `<path> -- "<quoted line>", <note>`. Keeping the
-		// quote and the note apart lets the tile show the line that proves the
-		// behaviour without the surrounding sentence competing with it.
+		// The bullet reads `<path> | <process> | <when> -- "<quoted line>"`; older
+		// reports add `, <note>` after the quote, kept apart so the row can drop it.
 		//
 		// The closing delimiter has to be the one that opened the span: a log line
 		// quoted in backticks routinely contains double quotes of its own, and
 		// closing on the first of those cut the message in half.
-		const rest = log[2].trim();
+		const meta = log[2].split('|').map(p => p.trim()).filter(Boolean);
+		const rest = log[3].trim();
 		const quoted = /^([`"\u201c])([\s\S]*?)(?:\1|\u201d)\s*[,;]?\s*([\s\S]*)$/.exec(rest);
-		return {
-			kind: 'log',
-			path: log[1],
-			quote: quoted ? quoted[2].trim() : rest,
-			note: quoted ? quoted[3].trim() : '',
-		};
+		const quote = quoted ? quoted[2].trim() : rest;
+		const note = quoted ? quoted[3].trim() : '';
+		// A time or a count has a digit; a process name has none.
+		const when = meta.find(m => /\d/.test(m)) ?? '';
+		return missing
+			? { kind: 'missing', path: log[1], window: when, quote, note }
+			: { kind: 'log', path: log[1], process: meta.find(m => !/\d/.test(m)) ?? '', when, quote, note };
 	}
 	return { kind: 'note', text };
 }
 
+/** False for a file the agent wrote (actions.log, saved notes): it says what the run did, not what Positron did. */
+export function isPositronLog(path) {
+	const file = String(path ?? '').replace(/:\d+$/, '');
+	return /\.log$/i.test(file) && basename(file) !== 'actions.log';
+}
+
 const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
 
-/** `at Fn (path/file.ts:212:7)` or `at path/file.ts:212` -> its parts, or null. */
+/**
+ * `at Fn (path/file.ts:212:7)`, `at path/file.ts:212`, or a Python traceback's
+ * `File "path/file.py", line 212, in fn` -> its parts, or null.
+ */
 function parseFrame(line) {
+	const py = /^File "([^"]+)", line (\d+)(?:, in (\S+))?\s*$/.exec(line.trim());
+	if (py) {
+		return { fn: py[3] ?? '', path: py[1], line: Number(py[2]) };
+	}
 	const m = /^at\s+(?:(.*?)\s+\(([^()]+?):(\d+)(?::\d+)?\)|([^\s()]+?):(\d+)(?::\d+)?)\s*$/.exec(line.trim());
 	if (!m) {
 		return null;
@@ -611,7 +646,8 @@ function errorFrom(source, meta, body) {
 		const text = raw.trim();
 		if (!text) { continue; }
 		const frame = parseFrame(text);
-		if (frame) { frames.push(frame); } else if (!frames.length) { message.push(text); }
+		// A Python traceback's header says nothing its frames do not.
+		if (frame) { frames.push(frame); } else if (!frames.length && !/^Traceback \(most recent call last\):$/.test(text)) { message.push(text); }
 	}
 	const count = meta.map(m => /(\d+)\s*(?:\u00d7|x\b)/i.exec(m)).find(Boolean);
 	return {
@@ -727,8 +763,24 @@ function parseFindingBody(lines) {
 			for (let j = i + 1; j < lines.length; j++) {
 				const bullet = lines[j].trim();
 				if (!bullet) { continue; }
+				// Reports written before Evidence lost its gallery embed one shot
+				// above the bullets; the bullets after it are still Evidence.
+				const image = /^!\[([^\]]*)\]\(([^)]+)\)\s*$/.exec(bullet);
+				if (image) {
+					const src = safeUrl(image[2]);
+					if (src) { out.hero = { src, alt: image[1], file: basename(src) }; }
+					i = j;
+					continue;
+				}
 				if (!/^[-*]\s/.test(bullet)) { i = j - 1; break; }
-				out.evidence.push(parseEvidenceBullet(bullet.replace(/^[-*]\s+/, '')));
+				const item = parseEvidenceBullet(bullet.replace(/^[-*]\s+/, ''));
+				// Several log lines go in a code block under the bullet, as logged.
+				const block = (item.kind === 'log' || item.kind === 'missing') && !item.quote ? readSourceBlock(lines, j + 1) : null;
+				if (block) {
+					item.quote = block.text.split('\n').slice(1, -1).join('\n');
+					j = block.end - 1;
+				}
+				out.evidence.push(item);
 				i = j;
 			}
 			continue;
@@ -821,6 +873,11 @@ function parseFindingBody(lines) {
 			out.matched++;
 			continue;
 		}
+		// Fields a finding no longer has; an older report's lines are read and dropped.
+		if (label === 'impact' || label === 'affects' || label === 'workaround') {
+			out.matched++;
+			continue;
+		}
 		if (label === 'feature') {
 			out.feature = trimmed.replace(/^\*\*[^*]+:\*\*\s*/, '');
 			out.matched++;
@@ -833,7 +890,8 @@ function parseFindingBody(lines) {
 			i = end - 1;
 			continue;
 		}
-		if (label === 'regression test' || label === 'regression tests') {
+		// `Regression test` is what this was called before.
+		if (label === 'test gap' || label === 'regression test' || label === 'regression tests') {
 			const { items, end } = readBullets(lines, i);
 			out.tests.cases.push(...items.map(parseTestCase));
 			out.matched++;
@@ -1020,19 +1078,22 @@ function notRunIssue(reason) {
  * Parses the run's `ledger.md` into Coverage rows, or null when it holds no
  * scenarios. Scenarios are `## S01 · <name>` blocks with `Status:`, `Result:`,
  * optional `Preconditions:` bullets (`- <name> | <creating ID> | <how>`) and
- * numbered typed `Steps:`; `## Not run` lists `- N01 · <name> · <reason>`;
+ * numbered typed `Steps:`; `## Noticed` holds notes on what the run saw and did not
+ * check, which stay in the ledger and are not rendered; `## Not run` lists `- N01 · <name> · <reason>`;
  * `## Files` lists `- files/<path> | <what it is> | <scenarios and findings>`.
  */
 export function parseLedger(markdown) {
 	const lines = String(markdown ?? '').split('\n');
 	const exercised = [];
 	const notExercised = [];
+	const noticed = [];
 	const logs = [];
 	const files = [];
 	const environment = [];
 	let cur = null;
 	let section = '';
 	let inNotRun = false;
+	let inNoticed = false;
 	let inLogs = false;
 	let inFiles = false;
 	let inEnvironment = false;
@@ -1043,6 +1104,7 @@ export function parseLedger(markdown) {
 			cur = null;
 			section = '';
 			inNotRun = /^not run$/i.test(head[1].trim());
+			inNoticed = /^noticed$/i.test(head[1].trim());
 			inLogs = /^logs$/i.test(head[1].trim());
 			inFiles = /^files$/i.test(head[1].trim());
 			inEnvironment = /^environment$/i.test(head[1].trim());
@@ -1074,6 +1136,14 @@ export function parseLedger(markdown) {
 				const [path, desc = '', ...uses] = m[1].split(/\s*\|\s*/);
 				const entry = { path: path.trim().replace(/^`|`$/g, '').replace(/^\.\//, ''), desc: desc.trim(), uses: uses.join(' | ').trim() };
 				files.push({ ...entry, descHtml: inline(entry.desc), usesHtml: inline(entry.uses) });
+			}
+			continue;
+		}
+		if (inNoticed) {
+			const m = /^[-*]\s+(?:(O\d+)\s*(?:·|-|\||:)\s*)?(.+)$/.exec(t);
+			if (m) {
+				const sep = LEDGER_SEP.exec(m[2]);
+				noticed.push({ id: m[1] ?? '', name: (sep ? m[2].slice(0, sep.index) : m[2]).trim() });
 			}
 			continue;
 		}
@@ -1161,7 +1231,9 @@ export function parseLedger(markdown) {
 }
 
 function withMetaHtml(e) {
-	return { ...e, metaHtml: e.meta.map(m => inline(m.replace(/(\d)\s*x\b/g, '$1\u00d7'))) };
+	// A letter x sits on the baseline where a multiplication sign floats; the
+	// span keeps it lowercase inside an uppercase label.
+	return { ...e, metaHtml: e.meta.map(m => inline(m).replace(/(\d+)\s*(?:x\b|\u00d7)/g, '<span class="n-x">$1x</span>')) };
 }
 
 /** Scenario tallies for the tile, from Coverage rows. */
@@ -1293,6 +1365,7 @@ export function parseReport(markdown, { ledger } = {}) {
 					match.caption = embedded.text;
 				}
 				match.step = match.step ?? embedded.step;
+				if (!match.scenario && embedded.scenario) { match.scenario = embedded.scenario; }
 				match.featured = true;
 			} else {
 				// Embedded but never cited. It is the shot chosen to show the failure
@@ -1302,6 +1375,7 @@ export function parseReport(markdown, { ledger } = {}) {
 					src: parsed.hero.src,
 					file: parsed.hero.file,
 					step: embedded.step,
+					...(embedded.scenario ? { scenario: embedded.scenario } : {}),
 					caption: embedded.text || parsed.hero.file,
 					featured: true,
 				});
@@ -1309,16 +1383,31 @@ export function parseReport(markdown, { ledger } = {}) {
 		}
 		// The starting state and the configuration line are both answers to
 		// "what has to be true before step 1", so they render as one list.
-		const preconditions = [parsed.reproStart, ...parsed.preconditions]
+		// `<short name> | <full text>`, as the ledger writes them; older reports have no name.
+		const named = [parsed.reproStart, ...parsed.preconditions]
 			.map(t => String(t ?? '').trim())
 			.filter(t => t && !isDefaultsOnly(t))
-			.map(sentenceCase);
+			.map(t => {
+				const m = /^([^|\n]+?)\s+\|\s+(\S[\s\S]*)$/.exec(t);
+				return m && m[1].split(/\s+/).length <= 6 ? { name: m[1], text: sentenceCase(m[2]) } : { name: '', text: sentenceCase(t) };
+			});
+		const preconditions = named.map(p => p.text);
 
 		const steps = parsed.steps.map(typedStep);
 		const stepOf = new Map();
 		steps.forEach((step, k) => step.evidence.forEach(e => {
 			if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
 		}));
+		// Another scenario's shot of the bug, captioned with that scenario and no
+		// step on this card, shows the failure again: it opens from the step that fails.
+		const failing = steps.findIndex(st => st.result === 'fail' && st.finding === start.n);
+		const failAt = failing !== -1 ? failing : steps.findIndex(st => st.result === 'fail');
+		for (const e of parsed.evidence.filter(e => e.kind === 'shot' && e.scenario && !stepOf.has(e.file))) {
+			const order = e.step?.order;
+			if (failAt !== -1 && !(Number.isInteger(order) && order >= 1 && order <= steps.length)) {
+				e.step = { label: `Step ${failAt + 1}`, order: failAt + 1 };
+			}
+		}
 		// A shot a step cites is evidence whether or not a bullet repeats it, so
 		// every check's picture reaches the gallery.
 		const cited = new Set(parsed.evidence.filter(e => e.kind === 'shot').map(e => e.file));
@@ -1328,10 +1417,16 @@ export function parseReport(markdown, { ledger } = {}) {
 				parsed.evidence.push({ kind: 'shot', src: e.href, file: e.file, caption: plainText(step.md) });
 			}
 		}
-		// Screenshots in step order, so the gallery reads like the repro; logs and
-		// notes keep their order after them. Sort is stable.
+		// Screenshots in step order, so they read like the repro. Within a step,
+		// the shots its own Evidence: line cites come first, in that order: the
+		// step's icon opens on the one that shows its check, and any extra follows.
+		// Logs and notes keep their order after them. Sort is stable.
 		const order = e => (stepOf.get(e.file) ?? e.step)?.order ?? Number.MAX_SAFE_INTEGER;
-		const shots = parsed.evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b));
+		const citedAt = e => {
+			const k = steps[order(e) - 1]?.evidence.findIndex(x => x.file === e.file) ?? -1;
+			return k === -1 ? Number.MAX_SAFE_INTEGER : k;
+		};
+		const shots = parsed.evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b) || citedAt(a) - citedAt(b));
 		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
 
 		return {
@@ -1341,7 +1436,6 @@ export function parseReport(markdown, { ledger } = {}) {
 			// The table's claim is written to be scanned in a row; the heading's is
 			// written to open a card. Both are in the markdown, so both get used.
 			rowTitle: row['finding'] ? inline(row['finding']) : inline(start.claim),
-			impact: row['impact'] ? inline(sentenceCase(row['impact'])) : '',
 			severity: parseSeverity(row['severity']),
 			reproduced,
 			// Unproven is 0/M by definition, so the rate settles it when no strip was written.
@@ -1354,13 +1448,12 @@ export function parseReport(markdown, { ledger } = {}) {
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
 			// A starting state with a pasted file is the one multi-line item.
 			preconditions: preconditions.map(t => (t.includes('\n') ? block(t) : inline(t))),
+			preconditionNames: named.map(p => (p.name ? inline(p.name) : '')),
 			steps,
 			// A shot a step names is that step's, whatever its caption says.
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
 				? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
-				: e.kind === 'log'
-					? { ...e, quoteHtml: inline(e.quote), noteHtml: e.note ? inline(sentenceCase(e.note)) : '' }
-					: { ...e, textHtml: inline(sentenceCase(e.text)) })),
+				: e)),
 			causeHtml: parsed.cause ? inline(parsed.cause) : '',
 			errors: parsed.errors.map(withMetaHtml),
 			tests: {
@@ -1371,7 +1464,6 @@ export function parseReport(markdown, { ledger } = {}) {
 			// The same fields as plain markdown, for the copyable agent prompt: built
 			// from this parse rather than the rendered card, so the two cannot disagree.
 			text: {
-				impact: row['impact'] ? sentenceCase(row['impact']) : '',
 				observed: parsed.observed ?? '',
 				expected: parsed.expected ?? '',
 				preconditions,

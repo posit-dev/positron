@@ -8,13 +8,18 @@
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { MenuId, MenuRegistry } from '../../../../../platform/actions/common/actions.js';
-import { ContextKeyExpr, IContextKeyService, ContextKeyExpression } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService, ContextKeyExpression, ContextKeyValue } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyService } from '../../../../../platform/contextkey/browser/contextKeyService.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { ensureNoLeakedDisposables } from '../../../../../test/vitest/vitestUtils.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { AgentAllowedCommandsService, IGetAgentAllowedCommandsOptions } from '../../common/agentAllowedCommandsService.js';
 import { IProductService } from '../../../../../platform/product/common/productService.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { IEditorGroup, IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
+import { IVisibleEditorPane } from '../../../../common/editor.js';
 
 describe('AgentAllowedCommandsService', () => {
 	const disposables = ensureNoLeakedDisposables();
@@ -28,14 +33,14 @@ describe('AgentAllowedCommandsService', () => {
 	function makeService(overrides: {
 		executeCommand?: ICommandService['executeCommand'];
 		contextMatchesRules?: IContextKeyService['contextMatchesRules'];
+		/** The active editor group's context. Takes precedence over `contextMatchesRules`. */
+		groupContext?: IContextKeyService;
+		activeEditorPane?: IVisibleEditorPane;
 		trustedPublishers?: string[];
 		extensions?: IExtensionService['extensions'];
 	} = {}) {
 		const commandService = stubInterface<ICommandService>({
 			executeCommand: overrides.executeCommand ?? vi.fn(async () => undefined),
-		});
-		const contextKeyService = stubInterface<IContextKeyService>({
-			contextMatchesRules: overrides.contextMatchesRules ?? (() => true),
 		});
 		const productService = stubInterface<IProductService>({
 			trustedExtensionPublishers: overrides.trustedPublishers ?? [],
@@ -43,8 +48,41 @@ describe('AgentAllowedCommandsService', () => {
 		const extensionService = stubInterface<IExtensionService>({
 			extensions: overrides.extensions ?? [],
 		});
-		return new AgentAllowedCommandsService(commandService, contextKeyService, new NullLogService(), productService, extensionService);
+		const editorService = stubInterface<IEditorService>({
+			activeEditorPane: overrides.activeEditorPane,
+		});
+		const editorGroupsService = stubInterface<IEditorGroupsService>({
+			activeGroup: stubInterface<IEditorGroup>({
+				scopedContextKeyService: overrides.groupContext ?? stubInterface<IContextKeyService>({
+					contextMatchesRules: overrides.contextMatchesRules ?? (() => true),
+				}),
+			}),
+		});
+		return new AgentAllowedCommandsService(commandService, new NullLogService(), productService, extensionService, editorService, editorGroupsService);
 	}
+
+	/** Real window, editor group and editor contexts, nested as in the workbench. */
+	function makeContexts(keys: {
+		window?: Record<string, ContextKeyValue>;
+		group?: Record<string, ContextKeyValue>;
+		editor?: Record<string, ContextKeyValue>;
+	}) {
+		const setKeys = (context: IContextKeyService, contextKeys: Record<string, ContextKeyValue> = {}) => {
+			for (const [key, value] of Object.entries(contextKeys)) {
+				context.createKey(key, value);
+			}
+		};
+		const windowContext = store.add(new ContextKeyService(new TestConfigurationService()));
+		const groupContext = store.add(windowContext.createScoped(document.createElement('div')));
+		const editorContext = store.add(groupContext.createScoped(document.createElement('div')));
+		setKeys(windowContext, keys.window);
+		setKeys(groupContext, keys.group);
+		setKeys(editorContext, keys.editor);
+		return { groupContext, editorContext };
+	}
+
+	/** Shiny's `shiny.r.runApp` enablement, which gates on the editor's language. */
+	const runRAppPrecondition = ContextKeyExpr.deserialize('editorLangId == r && shellExecutionSupported')!;
 
 	/** Register a command and add it to the command palette (mirrors `registerAction2` with `f1: true`). */
 	function registerPaletteCommand(id: string, options: {
@@ -309,6 +347,19 @@ describe('AgentAllowedCommandsService', () => {
 			});
 		});
 
+		it('reports a command enabled when its precondition holds in the active editor', () => {
+			registerPaletteCommand('test.agent.editorGated', { agentCompatible: true, precondition: runRAppPrecondition });
+			const { groupContext, editorContext } = makeContexts({ window: { shellExecutionSupported: true }, editor: { editorLangId: 'r' } });
+
+			const enabled = (activeEditorPane: IVisibleEditorPane | undefined) => makeService({ groupContext, activeEditorPane })
+				.getAllAgentCompatibleCommands().find(c => c.id === 'test.agent.editorGated')?.enabled;
+
+			expect({
+				withREditor: enabled(stubInterface<IVisibleEditorPane>({ scopedContextKeyService: editorContext })),
+				withNoEditor: enabled(undefined),
+			}).toEqual({ withREditor: true, withNoEditor: false });
+		});
+
 		it('excludes a command from an untrusted non-builtin extension', () => {
 			store.add(MenuRegistry.addCommand({
 				id: 'untrusted.agentCmd',
@@ -365,6 +416,40 @@ describe('AgentAllowedCommandsService', () => {
 				precondition: precondition.serialize(),
 			});
 			expect(executeCommand).not.toHaveBeenCalled();
+		});
+
+		it.each([
+			{ editorLangId: 'r', ok: true },
+			{ editorLangId: 'python', ok: false },
+		])('checks the precondition in the active editor\'s context ($editorLangId editor -> ok: $ok)', async ({ editorLangId, ok }) => {
+			store.add(CommandsRegistry.registerCommand('test.agent.runRApp', () => { }));
+			store.add(MenuRegistry.addCommand({ id: 'test.agent.runRApp', title: 'Run R App', precondition: runRAppPrecondition }));
+			const { groupContext, editorContext } = makeContexts({ window: { shellExecutionSupported: true }, editor: { editorLangId } });
+			const executeCommand = vi.fn(async () => undefined);
+			const service = makeService({
+				executeCommand,
+				groupContext,
+				activeEditorPane: stubInterface<IVisibleEditorPane>({ scopedContextKeyService: editorContext }),
+			});
+
+			const result = await service.validateAndExecute('test.agent.runRApp');
+
+			expect({ ok: result.ok, executions: executeCommand.mock.calls.length }).toEqual({ ok, executions: ok ? 1 : 0 });
+		});
+
+		it('uses the active editor\'s context, or the active group\'s when the editor has none', async () => {
+			const precondition = ContextKeyExpr.equals('scope', 'group')!;
+			store.add(CommandsRegistry.registerCommand('test.agent.scoped', () => { }));
+			store.add(MenuRegistry.addCommand({ id: 'test.agent.scoped', title: 'Scoped', precondition }));
+			const { groupContext, editorContext } = makeContexts({ group: { scope: 'group' }, editor: { scope: 'editor' } });
+			const ok = async (activeEditorPane: IVisibleEditorPane | undefined) =>
+				(await makeService({ groupContext, activeEditorPane }).validateAndExecute('test.agent.scoped')).ok;
+
+			expect({
+				editorWithContext: await ok(stubInterface<IVisibleEditorPane>({ scopedContextKeyService: editorContext })),
+				editorWithoutContext: await ok(stubInterface<IVisibleEditorPane>({ scopedContextKeyService: undefined })),
+				noEditor: await ok(undefined),
+			}).toEqual({ editorWithContext: false, editorWithoutContext: true, noEditor: true });
 		});
 
 		it('returns { ok: false, reason: "error", message } when the handler throws', async () => {

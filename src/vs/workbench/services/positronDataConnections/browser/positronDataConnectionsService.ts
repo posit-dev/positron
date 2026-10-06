@@ -5,8 +5,9 @@
 
 import { equals } from '../../../../base/common/objects.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
+import { raceTimeout } from '../../../../base/common/async.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { ISecretStorageService } from '../../../../platform/secrets/common/secrets.js';
 import { DataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
@@ -15,7 +16,8 @@ import { IEditorService } from '../../editor/common/editorService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IDataConnectionInstance } from '../common/interfaces/dataConnectionInstance.js';
 import { PositronDataExplorerUri } from '../../positronDataExplorer/common/positronDataExplorerUri.js';
-import { IDataConnectionRevealOptions, IDataConnectionRevealRequest, IPositronDataConnectionsService } from '../common/interfaces/positronDataConnectionsService.js';
+import { IViewsService } from '../../views/common/viewsService.js';
+import { IDataConnectionNodeOpener, IDataConnectionRevealOptions, IDataConnectionNodeRevealRequest, IDataConnectionRevealRequest, IPositronDataConnectionsService, POSITRON_DATA_CONNECTIONS_VIEW_ID } from '../common/interfaces/positronDataConnectionsService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { DataConnectionParameterValues, IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile, isSecretParameter, resolveDataConnectionMechanism } from '../common/interfaces/dataConnectionDriver.js';
@@ -42,6 +44,11 @@ const DUCKDB_READ_ONLY_MIGRATION_KEY = 'positron.dataConnections.duckdbReadOnlyM
 // Nothing else in this service is driver-specific; keep it that way.
 const DUCKDB_DRIVER_ID = 'positron-data-driver-duckdb';
 const READ_ONLY_PARAMETER_ID = 'readOnly';
+
+// How long openNodeInDataExplorer waits for the pane's tree when there is none yet. A pane opened
+// just now builds its tree as it renders, which takes a moment; one that doesn't render in this time
+// isn't going to, and the request isn't left behind for whenever it might.
+const NODE_OPENER_WAIT_MS = 5_000;
 
 // Persisted form of a data connection profile, with secrets split out to secret storage and the
 // list of secret parameter ids for lookup and cleanup purposes. This is the shape stored in
@@ -77,6 +84,11 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Data connection instances.
 	private readonly _instances: IDataConnectionInstance[] = [];
 
+	// Connects still in flight, keyed by profile id, so that a second connect for the same profile
+	// waits on the first rather than opening a second driver connection. Each entry is removed when
+	// its connect settles, so a failed connect can be tried again.
+	private readonly _pendingConnects = new Map<string, Promise<IDataConnectionInstance>>();
+
 	// Dataset ids that previews opened in the Data Explorer, keyed by the profile whose connection
 	// they were previewed from. Recorded by previewNode and dropped when the profile disconnects.
 	// A recorded id outlives its editor -- the user can close the tab at any time -- so this is a
@@ -103,6 +115,12 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// tree to hear it; the tree takes this when it is built. Cleared by takePendingRevealConnection.
 	private _pendingRevealConnection?: IDataConnectionRevealRequest;
 
+	// The pane's tree, while there is one, which opens nodes in the Data Explorer by their path.
+	private _nodeOpener?: IDataConnectionNodeOpener;
+
+	// Fires when a tree registers as the node opener.
+	private readonly _onDidRegisterNodeOpenerEmitter = this._register(new Emitter<void>());
+
 	// Ephemeral profiles for the connections drivers report as already configured on this machine.
 	// Rebuilt whenever the registered drivers change and never persisted; see
 	// _refreshDiscoveredProfiles.
@@ -123,6 +141,14 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Fires when the discovered data connections change.
 	private readonly _onDidChangeDiscoveredProfilesEmitter = this._register(new Emitter<IDataConnectionProfile[]>());
 
+	// Fires when something has asked for a row of a connection's tree to be revealed.
+	private readonly _onDidRequestRevealEmitter = this._register(new Emitter<IDataConnectionNodeRevealRequest>());
+
+	// The reveal request the pane has not picked up yet. A reveal that had to open the view fires
+	// before the pane is rendered and so before anything is subscribed, so the request waits here
+	// for the pane to claim on mount. See takePendingReveal.
+	private _pendingReveal: IDataConnectionNodeRevealRequest | undefined;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -134,6 +160,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	 * @param _logService The log service.
 	 * @param _secretStorageService The secret storage service (secret parameter values).
 	 * @param _storageService The storage service (profile metadata).
+	 * @param _viewsService The views service (used to open the pane when revealing a row).
 	 */
 	constructor(
 		@IExtensionService extensionService: IExtensionService,
@@ -141,6 +168,7 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		@ILogService private readonly _logService: ILogService,
 		@ISecretStorageService private readonly _secretStorageService: ISecretStorageService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IViewsService private readonly _viewsService: IViewsService,
 	) {
 		// Call the base class constructor.
 		super();
@@ -182,6 +210,41 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	// Fires when the discovered data connections change.
 	readonly onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]> = this._onDidChangeDiscoveredProfilesEmitter.event;
 
+	// Fires when something has asked for a row of a connection's tree to be revealed.
+	readonly onDidRequestReveal: Event<IDataConnectionNodeRevealRequest> = this._onDidRequestRevealEmitter.event;
+
+	/**
+	 * Asks the pane to reveal a row of a connection's tree, opening the view first.
+	 *
+	 * Refuses a profile with no live connection: walking to a row fetches each level from the
+	 * driver, so revealing into a closed connection would open it, and a caller reaching in from
+	 * outside the pane should not open a database as a side effect of a click.
+	 * @param request The row to reveal.
+	 */
+	async revealNode(request: IDataConnectionNodeRevealRequest): Promise<void> {
+		if (this.getInstanceForProfile(request.profileId) === undefined) {
+			this._logService.warn(
+				`[DataConnections] revealNode: profile ${request.profileId} has no live connection.`
+			);
+			return;
+		}
+
+		// Recorded before the view is opened, so a pane rendered by this very call finds the
+		// request waiting rather than missing the event that fires after it.
+		this._pendingReveal = request;
+		await this._viewsService.openView(POSITRON_DATA_CONNECTIONS_VIEW_ID, false);
+		this._onDidRequestRevealEmitter.fire(request);
+	}
+
+	/**
+	 * Takes the reveal request the pane has not handled yet, if any, clearing it.
+	 */
+	takePendingReveal(): IDataConnectionNodeRevealRequest | undefined {
+		const pending = this._pendingReveal;
+		this._pendingReveal = undefined;
+		return pending;
+	}
+
 	// Fires when a connection should be shown in the Data Connections pane.
 	readonly onDidRequestRevealConnection: Event<void> = this._onDidRequestRevealConnectionEmitter.event;
 
@@ -209,6 +272,51 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 		const request = this._pendingRevealConnection;
 		this._pendingRevealConnection = undefined;
 		return request;
+	}
+
+	/**
+	 * Registers the pane's tree as the opener of nodes by their path. See
+	 * {@link IPositronDataConnectionsService.registerNodeOpener}.
+	 * @param opener The opener.
+	 * @returns A disposable that unregisters the opener.
+	 */
+	registerNodeOpener(opener: IDataConnectionNodeOpener): IDisposable {
+		this._nodeOpener = opener;
+		this._onDidRegisterNodeOpenerEmitter.fire();
+		return toDisposable(() => {
+			if (this._nodeOpener === opener) {
+				this._nodeOpener = undefined;
+			}
+		});
+	}
+
+	/**
+	 * Whether the pane's tree is there to open nodes by their path. See
+	 * {@link IPositronDataConnectionsService.hasNodeOpener}.
+	 */
+	hasNodeOpener(): boolean {
+		return this._nodeOpener !== undefined;
+	}
+
+	/**
+	 * Opens the node at a path below a connection in the Data Explorer, through the pane's tree. See
+	 * {@link IPositronDataConnectionsService.openNodeInDataExplorer}.
+	 * @param profileId The id of the connection's profile.
+	 * @param nodePath The reload key of each row on the way down from the connection to the node.
+	 * @param name The node's name, for reporting a failure.
+	 * @returns Whether a tree was there to open the node.
+	 */
+	async openNodeInDataExplorer(profileId: string, nodePath: readonly string[], name: string): Promise<boolean> {
+		if (this._nodeOpener === undefined) {
+			const registered = Event.toPromise(this._onDidRegisterNodeOpenerEmitter.event);
+			await raceTimeout(registered, NODE_OPENER_WAIT_MS, () => registered.cancel());
+		}
+		const opener = this._nodeOpener;
+		if (opener === undefined) {
+			return false;
+		}
+		await opener.openInDataExplorer(profileId, nodePath, name);
+		return true;
 	}
 
 	/**
@@ -570,7 +678,8 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	/**
 	 * Opens a connection for the given profile. Looks up the driver, resolves the profile's
 	 * secret parameter values, calls driver.connect(), and registers the resulting instance.
-	 * If a live instance for this profile already exists, returns it without re-connecting.
+	 * If a live instance for this profile already exists, returns it without re-connecting; if a
+	 * connect for it is still in flight, returns that connect's result rather than starting another.
 	 */
 	async connect(profileId: string): Promise<IDataConnectionInstance> {
 		// If we already have a live instance for this profile, reuse it.
@@ -579,6 +688,27 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 			return existing;
 		}
 
+		// Two callers can overlap before the first has registered its instance -- an extension opening
+		// a connection while the user expands the same entry, say. Without this both would open a
+		// driver connection, and the second would never be found again to be released.
+		const pending = this._pendingConnects.get(profileId);
+		if (pending) {
+			return pending;
+		}
+
+		const connecting = this._connect(profileId);
+		this._pendingConnects.set(profileId, connecting);
+		try {
+			return await connecting;
+		} finally {
+			this._pendingConnects.delete(profileId);
+		}
+	}
+
+	/**
+	 * Does the work of connect() for a profile with no live instance and no connect in flight.
+	 */
+	private async _connect(profileId: string): Promise<IDataConnectionInstance> {
 		// Resolve the profile (with secrets pulled from secret storage).
 		const profile = await this.getProfileWithSecrets(profileId);
 		if (!profile) {
