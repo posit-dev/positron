@@ -12,7 +12,7 @@
 
 mod support;
 
-use serde_json::Value;
+use serde_json::{json, Value};
 use support::{analyze, slice};
 
 /// The real tables a document reads, as `(qualified name, alias)`.
@@ -173,7 +173,7 @@ fn a_name_the_select_list_made_up_is_not_a_column_of_anything() {
     let response = analyze("SELECT total AS t FROM orders ORDER BY t");
     let scope = &response["scopes"][response["columns"][1]["scope"].as_u64().unwrap() as usize];
     assert_eq!(response["columns"][1]["name"], "t");
-    assert_eq!(scope["locals"].as_array().unwrap(), &[Value::from("t")]);
+    assert_eq!(scope["locals"], json!([{ "name": "t", "kind": "output" }]));
 }
 
 #[test]
@@ -190,6 +190,18 @@ fn a_subquery_does_not_hand_its_tables_to_the_query_around_it() {
 fn star_is_not_a_column() {
     assert!(columns("SELECT * FROM orders").is_empty());
     assert!(columns("SELECT o.* FROM orders o").is_empty());
+}
+
+#[test]
+fn a_name_the_select_list_made_up_does_not_hide_a_table_of_the_same_name() {
+    // The first select's result names are lifted into the query the UNION belongs to, which the
+    // second select hangs from. Only a CTE can be read by a FROM clause, so `orders` here is the
+    // real table and its columns are judged like any other.
+    assert_eq!(
+        tables("SELECT 1 AS orders UNION SELECT nope FROM orders"),
+        [("orders".to_string(), None)]
+    );
+    assert_eq!(visible("SELECT 1 AS orders UNION SELECT nope FROM orders", "nope"), ["orders"]);
 }
 
 #[test]

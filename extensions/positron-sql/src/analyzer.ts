@@ -55,8 +55,8 @@ export interface TableRef {
 	readonly scope: number;
 
 	/**
-	 * Whether the name is one the statement defines for itself -- a CTE or a derived table --
-	 * rather than a table in the database. Referring to one is correct SQL.
+	 * Whether the name reads a CTE the statement declares rather than a table in the database.
+	 * Referring to one is correct SQL.
 	 */
 	readonly local: boolean;
 
@@ -93,11 +93,26 @@ export interface Scope {
 	readonly opaque: boolean;
 
 	/**
-	 * The names the statement defines at this level: CTEs, derived table aliases, and the names
-	 * those are read under. A column qualified by one of these no more names a table in the
-	 * database than the qualifier itself does.
+	 * The names the statement defines at this level. A name qualified by one of these no more
+	 * refers to the database than the local itself does.
 	 */
-	readonly locals: readonly string[];
+	readonly locals: readonly Local[];
+}
+
+/**
+ * What a {@link Local} names, which decides where it can be written:
+ *
+ * - `cte`: a name a WITH clause declares, which a FROM clause can read as a table.
+ * - `relation`: the name a relation whose columns cannot be seen is read under -- a derived table,
+ *   a table function, a CTE once it is read -- which a column can be qualified by.
+ * - `output`: the name a select list gives one of its results, `t` in `SELECT total AS t`.
+ */
+export type LocalKind = 'cte' | 'relation' | 'output';
+
+/** A name the statement defines for itself. */
+export interface Local {
+	readonly name: string;
+	readonly kind: LocalKind;
 }
 
 /** Everything parsing a document turned up. */
@@ -129,11 +144,10 @@ export interface Sources {
 	readonly sources: readonly SourceRef[];
 
 	/**
-	 * The names the statement defines for itself that the cursor can refer to: CTEs, derived table
-	 * aliases, and the names those are read under. Always empty when {@link origin} is `tokens`,
-	 * which cannot tell one from a real table.
+	 * The names the statement defines for itself that the cursor can refer to, nearest first.
+	 * Always empty when {@link origin} is `tokens`, which cannot tell one from a real table.
 	 */
-	readonly locals: readonly string[];
+	readonly locals: readonly Local[];
 
 	/**
 	 * Whether the cursor can see something whose columns cannot be known -- a CTE, a derived table,
