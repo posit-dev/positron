@@ -3,7 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'node:os';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { isPastClaudeCodeTrustPrompt, readConfig } from './agentTrust';
 import { getAgentLaunch } from './agentLaunch';
 import { CodingAgent, startInTerminal } from './codingAgent';
 import { isClaudeCodeCommand } from './foregroundProcess';
@@ -21,6 +24,7 @@ export const claudeCode: CodingAgent = {
 	label: 'Claude Code',
 	isAvailable,
 	isAgentCommand: isClaudeCodeCommand,
+	isPastTrustPrompt,
 	startNew,
 };
 
@@ -113,3 +117,10 @@ async function openTerminal(prompt: string): Promise<void> {
 	});
 }
 
+/** Whether Claude Code is past its folder-trust prompt in a directory. */
+function isPastTrustPrompt(directory: string): boolean {
+	// Claude Code keeps its state in `.claude.json`, beside its config
+	// directory unless CLAUDE_CONFIG_DIR moves it.
+	const configDirectory = process.env.CLAUDE_CONFIG_DIR ?? os.homedir();
+	return readConfig(path.join(configDirectory, '.claude.json'), config => isPastClaudeCodeTrustPrompt(config, directory));
+}

@@ -3,7 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as os from 'node:os';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
+import { isPastCodexTrustPrompt, readConfig } from './agentTrust';
 import { getAgentLaunch } from './agentLaunch';
 import { CodingAgent, startInTerminal } from './codingAgent';
 import { isCodexCommand } from './foregroundProcess';
@@ -20,6 +23,7 @@ export const codex: CodingAgent = {
 	label: 'Codex',
 	isAvailable: () => getAgentLaunch('codex', CODEX_NPM_SCRIPT) !== undefined,
 	isAgentCommand: isCodexCommand,
+	isPastTrustPrompt,
 	startNew,
 };
 
@@ -30,4 +34,10 @@ async function startNew(prompt: string): Promise<void> {
 		throw new Error(vscode.l10n.t('Codex is not installed: `codex` was not found on the PATH.'));
 	}
 	startInTerminal(launch, prompt, { name: 'Codex' });
+}
+
+/** Whether Codex is past its folder-trust prompt in a directory. */
+function isPastTrustPrompt(directory: string): boolean {
+	const codexHome = process.env.CODEX_HOME ?? path.join(os.homedir(), '.codex');
+	return readConfig(path.join(codexHome, 'config.toml'), config => isPastCodexTrustPrompt(config, directory));
 }

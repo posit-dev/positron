@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { hasForegroundProcess, isClaudeCodeCommand, isCodexCommand, parseProcessTable } from './foregroundProcess';
+import { findForegroundProcess, isClaudeCodeCommand, isCodexCommand, parseProcessTable } from './foregroundProcess';
 
 describe('parseProcessTable', () => {
 	it('reads pid, ppid, pgid, tpgid, and the full command line', () => {
@@ -20,14 +20,14 @@ describe('parseProcessTable', () => {
 	});
 });
 
-describe('hasForegroundProcess', () => {
+describe('findForegroundProcess', () => {
 	it('finds claude running in the foreground of the terminal\'s shell', () => {
 		const processes = parseProcessTable([
 			'101 1 101 205 /bin/zsh -il',
 			'205 101 205 205 claude',
 			'206 205 205 205 /opt/positron/kcserver mcp-stdio',
 		].join('\n'));
-		expect(hasForegroundProcess(processes, 101, isClaudeCodeCommand)).toBe(true);
+		expect(findForegroundProcess(processes, 101, isClaudeCodeCommand)?.pid).toBe(205);
 	});
 
 	it('ignores claude when it is suspended or backgrounded', () => {
@@ -36,7 +36,7 @@ describe('hasForegroundProcess', () => {
 			'101 1 101 101 /bin/zsh -il',
 			'205 101 205 101 claude',
 		].join('\n'));
-		expect(hasForegroundProcess(processes, 101, isClaudeCodeCommand)).toBe(false);
+		expect(findForegroundProcess(processes, 101, isClaudeCodeCommand)).toBeUndefined();
 	});
 
 	it('ignores claude running under a different terminal', () => {
@@ -45,12 +45,12 @@ describe('hasForegroundProcess', () => {
 			'301 1 301 305 /bin/zsh -il',
 			'305 301 305 305 claude',
 		].join('\n'));
-		expect(hasForegroundProcess(processes, 101, isClaudeCodeCommand)).toBe(false);
+		expect(findForegroundProcess(processes, 101, isClaudeCodeCommand)).toBeUndefined();
 	});
 
 	it('finds claude when it is the terminal\'s own process', () => {
 		const processes = parseProcessTable('205 1 205 205 /Users/ada/.local/bin/claude hello');
-		expect(hasForegroundProcess(processes, 205, isClaudeCodeCommand)).toBe(true);
+		expect(findForegroundProcess(processes, 205, isClaudeCodeCommand)?.pid).toBe(205);
 	});
 });
 

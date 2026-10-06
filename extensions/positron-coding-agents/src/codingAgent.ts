@@ -4,11 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { execFile } from 'node:child_process';
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { promisify } from 'node:util';
 import * as vscode from 'vscode';
 import { AgentLaunch } from './agentLaunch';
-import { hasForegroundProcess, parseProcessTable, ProcessInfo, PS_ARGS } from './foregroundProcess';
+import { findForegroundProcess, parseProcessTable, ProcessInfo, PS_ARGS } from './foregroundProcess';
 
 /** A coding agent that Fix and Explain can send errors to. */
 export interface CodingAgent {
@@ -27,6 +28,12 @@ export interface CodingAgent {
 
 	/** Whether a process's command line runs the agent's terminal UI. */
 	isAgentCommand(args: string): boolean;
+
+	/**
+	 * Whether a session started in a directory is past the agent's
+	 * folder-trust prompt, which would discard a pasted prompt.
+	 */
+	isPastTrustPrompt(directory: string): boolean;
 
 	/** Start a new session with the prompt. */
 	startNew(prompt: string): Promise<void>;
@@ -59,8 +66,8 @@ export function startInTerminal(
 }
 
 /**
- * Find a terminal whose foreground job is the agent, preferring the active
- * terminal, then the most recently created.
+ * Find a terminal whose foreground job is the agent, ready for a prompt,
+ * preferring the active terminal, then the most recently created.
  * @returns The terminal, or undefined when there is none or the process table
  *   cannot be read (e.g. on Windows, which has no `ps`).
  */
@@ -82,11 +89,38 @@ async function findAgentTerminal(agent: CodingAgent): Promise<vscode.Terminal | 
 		.sort((a, b) => Number(b === active) - Number(a === active));
 	for (const terminal of candidates) {
 		const pid = await terminal.processId;
-		if (pid !== undefined && hasForegroundProcess(processes, pid, args => agent.isAgentCommand(args))) {
+		const agentProcess = pid === undefined
+			? undefined
+			: findForegroundProcess(processes, pid, args => agent.isAgentCommand(args));
+		if (!agentProcess) {
+			continue;
+		}
+		// Skip a session that may still be asking whether to trust its
+		// directory. A directory that can't be found is given the benefit of
+		// the doubt.
+		const directory = await getWorkingDirectory(agentProcess.pid);
+		if (directory === undefined || agent.isPastTrustPrompt(directory)) {
 			return terminal;
 		}
 	}
 	return undefined;
+}
+
+/**
+ * Find a process's working directory.
+ * @returns The directory, or undefined when it can't be read.
+ */
+async function getWorkingDirectory(pid: number): Promise<string | undefined> {
+	try {
+		if (os.platform() === 'linux') {
+			return await fs.promises.readlink(`/proc/${pid}/cwd`);
+		}
+		// `-Fn` prints fields one per line: `p<pid>`, `fcwd`, `n<path>`.
+		const { stdout } = await promisify(execFile)('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn']);
+		return stdout.split('\n').find(line => line.startsWith('n'))?.slice(1);
+	} catch {
+		return undefined;
+	}
 }
 
 /**

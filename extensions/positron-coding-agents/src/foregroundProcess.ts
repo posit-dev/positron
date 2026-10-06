@@ -37,17 +37,18 @@ export function parseProcessTable(output: string): ProcessInfo[] {
 }
 
 /**
- * Whether the foreground job of the terminal whose process is `rootPid` is a
- * matching command. Only the process tree under `rootPid` is searched, and a
+ * Find a matching command in the foreground job of the terminal whose process
+ * is `rootPid`. Only the process tree under `rootPid` is searched, and a
  * process counts only while its group is the terminal's foreground group, so
  * a suspended or backgrounded job does not.
  * @param rootPid The terminal's process, usually its shell.
+ * @returns The matching process, or undefined when there is none.
  */
-export function hasForegroundProcess(
+export function findForegroundProcess(
 	processes: readonly ProcessInfo[],
 	rootPid: number,
 	matches: (args: string) => boolean,
-): boolean {
+): ProcessInfo | undefined {
 	const childrenByPid = new Map<number, ProcessInfo[]>();
 	for (const process of processes) {
 		const children = childrenByPid.get(process.ppid) ?? [];
@@ -61,11 +62,11 @@ export function hasForegroundProcess(
 	while (pending.length > 0) {
 		const process = pending.pop()!;
 		if (process.tpgid > 0 && process.pgid === process.tpgid && matches(process.args)) {
-			return true;
+			return process;
 		}
 		pending.push(...(childrenByPid.get(process.pid) ?? []));
 	}
-	return false;
+	return undefined;
 }
 
 /**
