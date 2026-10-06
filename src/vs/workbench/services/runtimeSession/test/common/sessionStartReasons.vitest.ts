@@ -68,6 +68,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "startupBehaviorAlways": "Startup Behavior is set to "Always" for R",
 			  "startupBehaviorAlwaysAllLanguages": "Startup Behavior is set to "Always"",
 			  "userSelectedRuntime": "You selected this interpreter",
+			  "userStartedAgentSession": "You started an agent console session for this interpreter",
 			}
 		`);
 	});

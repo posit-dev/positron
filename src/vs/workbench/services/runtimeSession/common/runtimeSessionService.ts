@@ -117,6 +117,9 @@ export enum SessionStartReasonId {
 	/** The user picked the runtime to start a console. */
 	UserSelectedRuntime = 'userSelectedRuntime',
 
+	/** The user ran Start Agent Console Session and picked the runtime, starting a console session owned by an AI agent. */
+	UserStartedAgentSession = 'userStartedAgentSession',
+
 	/** The start new console session command was run with a runtime ID. */
 	NewConsoleCommand = 'newConsoleCommand',
 
