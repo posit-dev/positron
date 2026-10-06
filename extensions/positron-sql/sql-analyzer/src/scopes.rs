@@ -39,9 +39,8 @@ pub struct TableRef {
     pub end: u32,
     /// The scope this reference was found in.
     pub scope: u32,
-    /// Whether the name is one the statement defines for itself -- a CTE or a derived table --
-    /// rather than a table in the database. Referring to one is correct SQL and must never be
-    /// reported as unknown.
+    /// Whether the name reads a CTE the statement declares rather than a table in the database.
+    /// Referring to one is correct SQL and must never be reported as unknown.
     pub local: bool,
     /// Whether this is the object a `CREATE` statement is defining, which by definition does not
     /// exist in the schema yet and must not be reported as missing.
@@ -68,8 +67,37 @@ pub struct Scope {
     /// VALUES list, an UNNEST, a table function. A column in such a scope may belong to the part
     /// that cannot be seen, so the caller must not judge it.
     pub opaque: bool,
-    /// Names the statement defines at this level: CTEs and derived table aliases.
-    pub locals: Vec<String>,
+    /// Names the statement defines at this level.
+    pub locals: Vec<Local>,
+}
+
+/// A name the statement defines for itself.
+#[derive(Clone)]
+pub struct Local {
+    pub name: String,
+    pub kind: LocalKind,
+}
+
+/// What a [`Local`] names, which decides where it can be written.
+///
+/// The kinds are kept apart because they do not stand in for one another: `FROM t` after
+/// `SELECT total AS t` reads a table called `t`, not the result, and completing a column offers
+/// `t` while completing a table must not.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LocalKind {
+    /// A name a WITH clause declares, which a FROM clause can read as a table.
+    Cte,
+    /// The name a relation whose columns cannot be seen is read under, which a column can be
+    /// qualified by: a derived table, a table function, a CTE once it is read.
+    Relation,
+    /// The name a select list gives one of its results: `t` in `SELECT total AS t`.
+    Output,
+}
+
+impl Local {
+    fn new(name: String, kind: LocalKind) -> Self {
+        Self { name, kind }
+    }
 }
 
 #[derive(Default)]
@@ -130,7 +158,7 @@ impl<'a> Collector<'a> {
         self.stack.last().copied().unwrap_or(0)
     }
 
-    fn push(&mut self, parent: Option<u32>, locals: Vec<String>) -> u32 {
+    fn push(&mut self, parent: Option<u32>, locals: Vec<Local>) -> u32 {
         let id = self.analysis.scopes.len() as u32;
         self.analysis.scopes.push(Scope { parent, tables: Vec::new(), opaque: false, locals });
         self.stack.push(id);
@@ -141,13 +169,19 @@ impl<'a> Collector<'a> {
         self.stack.pop();
     }
 
-    /// Whether a name is one the statement defines for itself, anywhere up the scope chain.
-    fn is_local(&self, name: &str) -> bool {
+    /// Whether a table name reads a CTE declared anywhere up the scope chain.
+    ///
+    /// Only a CTE: the other locals are not tables a FROM clause can name, and counting them would
+    /// hide a real table that happens to share a name with one -- `orders` in
+    /// `SELECT 1 AS orders UNION SELECT * FROM orders`.
+    fn is_cte(&self, name: &str) -> bool {
         let folded = fold(name);
         let mut scope = Some(self.current());
         while let Some(id) = scope {
             let entry = &self.analysis.scopes[id as usize];
-            if entry.locals.iter().any(|local| fold(local) == folded) {
+            let found =
+                entry.locals.iter().any(|local| local.kind == LocalKind::Cte && fold(&local.name) == folded);
+            if found {
                 return true;
             }
             scope = entry.parent;
@@ -176,7 +210,7 @@ impl<'a> Collector<'a> {
             start,
             end,
             scope: self.current(),
-            local: parts.len() == 1 && self.is_local(&last.value),
+            local: parts.len() == 1 && self.is_cte(&last.value),
             definition: self.definitions.contains(&(start, end)),
         };
         let index = self.analysis.tables.len() as u32;
@@ -210,7 +244,7 @@ impl<'a> Collector<'a> {
                 if let Some(index) = self.record_table(name, alias) {
                     let scope = self.current();
                     if self.analysis.tables[index as usize].local {
-                        // A CTE or derived table read by name: its columns are whatever its own
+                        // A CTE read by name: its columns are whatever its own
                         // select list produced, which this cannot see. The name it is read under
                         // is recorded so a column qualified by it is left alone too.
                         self.analysis.scopes[scope as usize].opaque = true;
@@ -218,7 +252,9 @@ impl<'a> Collector<'a> {
                             .alias
                             .clone()
                             .unwrap_or_else(|| self.analysis.tables[index as usize].name.clone());
-                        self.analysis.scopes[scope as usize].locals.push(local);
+                        self.analysis.scopes[scope as usize]
+                            .locals
+                            .push(Local::new(local, LocalKind::Relation));
                     } else {
                         self.analysis.scopes[scope as usize].tables.push(index);
                     }
@@ -227,7 +263,7 @@ impl<'a> Collector<'a> {
             // A nested join is still this scope's sources, one bracket deeper.
             TableFactor::NestedJoin { table_with_joins, alias } => {
                 if let Some(alias) = alias {
-                    self.add_local(alias.name.value.clone());
+                    self.add_local(Local::new(alias.name.value.clone(), LocalKind::Relation));
                 }
                 self.scan_from(std::slice::from_ref(table_with_joins));
             }
@@ -265,7 +301,7 @@ impl<'a> Collector<'a> {
         let scope = self.current();
         self.analysis.scopes[scope as usize].opaque = true;
         if let Some(alias) = alias {
-            self.analysis.scopes[scope as usize].locals.push(alias);
+            self.analysis.scopes[scope as usize].locals.push(Local::new(alias, LocalKind::Relation));
         }
     }
 
@@ -283,9 +319,9 @@ impl<'a> Collector<'a> {
         });
     }
 
-    fn add_local(&mut self, name: String) {
+    fn add_local(&mut self, local: Local) {
         let scope = self.current();
-        self.analysis.scopes[scope as usize].locals.push(name);
+        self.analysis.scopes[scope as usize].locals.push(local);
     }
 
     /// Hands a scope's sources up to its parent as the scope closes.
@@ -300,7 +336,7 @@ impl<'a> Collector<'a> {
     /// rather than as tables, because `ORDER BY t` after `SELECT total AS t` names neither a
     /// column of a table nor a mistake: it names something the statement made up, and a caller
     /// looking it up in the schema would find nothing and be wrong to say so.
-    fn lift(&mut self, from: u32, produced: Vec<String>) {
+    fn lift(&mut self, from: u32, produced: Vec<Local>) {
         let Some(parent) = self.analysis.scopes[from as usize].parent else { return };
         let tables = self.analysis.scopes[from as usize].tables.clone();
         let locals = self.analysis.scopes[from as usize].locals.clone();
@@ -317,12 +353,14 @@ impl<'a> Collector<'a> {
 ///
 /// Only the ones it made up. An item written without an alias is named after the column it reads,
 /// which resolves against a table like any other name and needs no help.
-fn produced(select: &Select) -> Vec<String> {
+fn produced(select: &Select) -> Vec<Local> {
     select
         .projection
         .iter()
         .filter_map(|item| match item {
-            SelectItem::ExprWithAlias { alias, .. } => Some(alias.value.clone()),
+            SelectItem::ExprWithAlias { alias, .. } => {
+                Some(Local::new(alias.value.clone(), LocalKind::Output))
+            }
             _ => None,
         })
         .collect()
@@ -429,7 +467,10 @@ impl Visitor for Collector<'_> {
         // scope of its own, which the CTE bodies hang from. The query's scope sits below it,
         // because the select's tables are lifted into that one (see `lift`) and a CTE body
         // cannot see the tables of the select that reads from it.
-        let locals = ctes.iter().map(|cte| cte.alias.name.value.clone()).collect();
+        let locals = ctes
+            .iter()
+            .map(|cte| Local::new(cte.alias.name.value.clone(), LocalKind::Cte))
+            .collect();
         let with = self.push(parent, locals);
         for cte in &ctes {
             self.parents.insert(&*cte.query as *const Query, Some(with));

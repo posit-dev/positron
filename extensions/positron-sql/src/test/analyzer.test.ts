@@ -64,7 +64,12 @@ suite('SqlAnalyzer', () => {
 		// table inside the CTE is not one of its columns' to be completed from.
 		assert.deepStrictEqual(
 			testAnalyzer().sources('WITH recent AS (SELECT id FROM orders) SELECT  FROM recent', '', 46),
-			{ sources: [], locals: ['recent'], opaque: true, origin: 'parsed' },
+			{
+				sources: [],
+				locals: [{ name: 'recent', kind: 'relation' }, { name: 'recent', kind: 'cte' }],
+				opaque: true,
+				origin: 'parsed',
+			},
 		);
 	});
 

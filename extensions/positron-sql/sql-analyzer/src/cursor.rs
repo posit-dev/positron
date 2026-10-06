@@ -36,7 +36,7 @@ use sqlparser::parser::Parser;
 use sqlparser::tokenizer::{Span, Token, TokenWithSpan, Word};
 
 use crate::diagnostics::RECURSION_LIMIT;
-use crate::scopes::{self, Analysis};
+use crate::scopes::{self, Analysis, Local, LocalKind};
 use crate::sources::SourceRef;
 use crate::statements::Statement;
 use crate::text::TextIndex;
@@ -54,9 +54,8 @@ pub struct AtCursor {
     /// The real tables in scope, nearest first. A table of an enclosing query is included: a
     /// correlated subquery may refer to one, so its columns belong in the list.
     pub sources: Vec<SourceRef>,
-    /// The names the statement defines for itself and the cursor can refer to: CTEs, derived table
-    /// aliases, and the names those are read under.
-    pub locals: Vec<String>,
+    /// The names the statement defines for itself and the cursor can refer to, nearest first.
+    pub locals: Vec<Local>,
     /// Whether the cursor can see something whose columns cannot be known -- a CTE, a derived
     /// table, a table function. A column completed here may be one of those, so a caller that
     /// judges names must not judge them here.
@@ -163,7 +162,7 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
     // A select hands its tables up to the query around it, so walking out from a select reaches
     // the same reference twice; see `lift` in [`crate::scopes`].
     let mut seen: HashSet<u32> = HashSet::new();
-    let mut named: HashSet<String> = HashSet::new();
+    let mut named: HashSet<(String, LocalKind)> = HashSet::new();
     let mut at = Some(scope);
 
     // Scopes are numbered as they are opened, so a parent is always a lower number than its child
@@ -174,8 +173,10 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
         let Some(entry) = analysis.scopes.get(id as usize) else { break };
 
         found.opaque |= entry.opaque;
+        // Deduplicated per kind rather than by name alone: a CTE read by its own name is both a
+        // CTE the FROM clause can name again and a relation a column can be qualified by.
         for local in &entry.locals {
-            if local != MARKER && named.insert(local.to_lowercase()) {
+            if local.name != MARKER && named.insert((local.name.to_lowercase(), local.kind)) {
                 found.locals.push(local.clone());
             }
         }

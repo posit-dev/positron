@@ -63,8 +63,7 @@ pub struct TableRef {
     pub start: u32,
     pub end: u32,
     pub scope: u32,
-    /// A name the statement defines for itself -- a CTE or a derived table -- rather than a table
-    /// in the database.
+    /// A name that reads a CTE the statement declares rather than a table in the database.
     pub local: bool,
     /// The object a `CREATE` is defining, which does not exist in the schema yet by construction.
     pub definition: bool,
@@ -91,10 +90,29 @@ pub struct Scope {
     /// Whether the scope reads from something whose columns cannot be known. A column here must
     /// not be judged: it may belong to the part that cannot be seen.
     pub opaque: bool,
-    /// The names the statement defines at this level -- CTEs, derived table aliases, and the
-    /// names those are read under. A column qualified by one of these names no more refers to a
-    /// table in the database than the name itself does.
-    pub locals: Vec<String>,
+    /// The names the statement defines at this level. A name qualified by one of these no more
+    /// refers to the database than the local itself does.
+    pub locals: Vec<Local>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Local {
+    pub name: String,
+    pub kind: LocalKind,
+}
+
+/// What a local names; see [`scopes::LocalKind`].
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LocalKind {
+    /// A name a WITH clause declares, which a FROM clause can read as a table.
+    Cte,
+    /// The name a relation whose columns cannot be seen is read under, which a column can be
+    /// qualified by: a derived table, a table function, a CTE once it is read.
+    Relation,
+    /// The name a select list gives one of its results: `t` in `SELECT total AS t`.
+    Output,
 }
 
 #[derive(Serialize)]
@@ -128,10 +146,9 @@ pub enum Response {
     },
     Sources {
         sources: Vec<SourceRef>,
-        /// The names the statement defines for itself that the cursor can refer to: CTEs, derived
-        /// table aliases, and the names those are read under. Always empty when `origin` is
-        /// `tokens`, which cannot tell one from a real table.
-        locals: Vec<String>,
+        /// The names the statement defines for itself that the cursor can refer to, nearest
+        /// first. Always empty when `origin` is `tokens`, which cannot tell one from a real table.
+        locals: Vec<Local>,
         /// Whether the cursor can see something whose columns cannot be known. A column completed
         /// here may belong to the part that cannot be seen, so the caller must not judge it.
         opaque: bool,
@@ -218,7 +235,7 @@ pub fn handle(request: &str) -> Response {
                         parent: scope.parent,
                         tables: scope.tables,
                         opaque: scope.opaque,
-                        locals: scope.locals,
+                        locals: scope.locals.into_iter().map(to_local).collect(),
                     })
                     .collect(),
                 tables: parsed.analysis.tables.into_iter().map(to_table).collect(),
@@ -273,11 +290,22 @@ pub fn handle(request: &str) -> Response {
                         alias: source.alias,
                     })
                     .collect(),
-                locals: found.locals,
+                locals: found.locals.into_iter().map(to_local).collect(),
                 opaque: found.opaque,
                 origin: origin.to_string(),
             }
         }
+    }
+}
+
+fn to_local(local: scopes::Local) -> Local {
+    Local {
+        name: local.name,
+        kind: match local.kind {
+            scopes::LocalKind::Cte => LocalKind::Cte,
+            scopes::LocalKind::Relation => LocalKind::Relation,
+            scopes::LocalKind::Output => LocalKind::Output,
+        },
     }
 }
 

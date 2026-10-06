@@ -49,8 +49,8 @@ fn at_cursor(marked: &str) -> Vec<String> {
     sources(&text, offset as usize)
 }
 
-/// The whole answer at a cursor: its tables, the names the statement defines, whether the scope
-/// can be judged, and which of the two ways of answering produced it.
+/// The whole answer at a cursor: its tables, the names the statement defines as `kind name`,
+/// whether the scope can be judged, and which of the two ways of answering produced it.
 fn all_at_cursor(marked: &str) -> (Vec<String>, Vec<String>, bool, String) {
     let (text, offset) = cursor(marked);
     let response = ask(&text, offset as usize);
@@ -60,7 +60,7 @@ fn all_at_cursor(marked: &str) -> (Vec<String>, Vec<String>, bool, String) {
             .as_array()
             .unwrap()
             .iter()
-            .map(|local| local.as_str().unwrap().to_string())
+            .map(|local| format!("{} {}", local["kind"].as_str().unwrap(), local["name"].as_str().unwrap()))
             .collect(),
         response["opaque"].as_bool().unwrap(),
         response["origin"].as_str().unwrap().to_string(),
@@ -217,7 +217,9 @@ fn a_cte_offers_its_own_name_rather_than_the_tables_inside_it() {
     let (sources, locals, opaque, origin) =
         all_at_cursor("WITH recent AS (SELECT id FROM orders) SELECT | FROM recent");
     assert!(sources.is_empty(), "got {sources:?}");
-    assert_eq!(locals, ["recent"]);
+    // Twice, as two different things: a CTE the FROM clause could name again, and the relation
+    // a column here can be qualified by.
+    assert_eq!(locals, ["relation recent", "cte recent"]);
     assert!(opaque, "a column here may be one of the CTE's, which cannot be known");
     assert_eq!(origin, "parsed");
 }
@@ -245,7 +247,20 @@ fn a_cte_still_sees_the_other_ctes_beside_it() {
     let (sources, locals, _, _) =
         all_at_cursor("WITH a AS (SELECT id FROM orders), b AS (SELECT | FROM a) SELECT * FROM b");
     assert!(sources.is_empty(), "got {sources:?}");
-    assert_eq!(locals, ["a", "b"]);
+    assert_eq!(locals, ["relation a", "cte a", "cte b"]);
+}
+
+#[test]
+fn a_name_the_select_list_made_up_is_offered_as_a_result_rather_than_a_relation() {
+    // Something a column can be completed as, not something a table or a qualifier can be.
+    let (sources, locals, opaque, _) =
+        all_at_cursor("SELECT total AS t FROM orders o ORDER BY |");
+    assert_eq!(sources, ["orders AS o"]);
+    assert_eq!(locals, ["output t"]);
+    assert!(!opaque, "a result's name says nothing about the columns of orders");
+
+    let (_, locals, _, _) = all_at_cursor("SELECT * FROM (SELECT total AS t FROM orders) d WHERE |");
+    assert_eq!(locals, ["relation d"], "the subquery's result names are not visible out here");
 }
 
 #[test]
