@@ -29,7 +29,8 @@ describe('ConnectDataConnectionWith', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	const renderer = stubInterface<PositronModalReactRenderer>({ onKeyDown: Event.None, onResize: Event.None });
+	// The dialog disposes its renderer when it closes, as it does once its connection code has run.
+	const renderer = stubInterface<PositronModalReactRenderer>({ onKeyDown: Event.None, onResize: Event.None, dispose: () => { } });
 
 	const driver = stubInterface<IDataConnectionDriver>({
 		id: 'test-driver',
