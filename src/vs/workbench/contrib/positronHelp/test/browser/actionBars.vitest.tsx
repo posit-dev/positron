@@ -5,9 +5,10 @@
 
 /// <reference types="vitest/globals" />
 
-import { act, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { act, configure, getConfig, screen, waitFor } from '@testing-library/react';
+import { userEvent } from '@testing-library/user-event';
 import { Emitter, Event } from '../../../../../base/common/event.js';
+import { DeferredPromise } from '../../../../../base/common/async.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
@@ -22,7 +23,8 @@ import { ActionBars } from '../../browser/components/actionBars.js';
 describe('Help ActionBars', () => {
 	let runtimeState = RuntimeState.Idle;
 	const runtimeEvents = new Emitter<RuntimeState>();
-	afterAll(() => runtimeEvents.dispose());
+	const foregroundEvents = new Emitter<ILanguageRuntimeSession | undefined>();
+	afterAll(() => { runtimeEvents.dispose(); foregroundEvents.dispose(); });
 	const showHelpTopicForForegroundSession = vi.fn<IPositronHelpService['showHelpTopicForForegroundSession']>().mockResolvedValue(HelpTopicResult.Found);
 	const searchHelp = vi.fn<IPositronHelpService['searchHelp']>().mockResolvedValue(true);
 	const info = vi.fn<INotificationService['info']>();
@@ -39,7 +41,7 @@ describe('Help ActionBars', () => {
 	});
 	const runtimeSessionService = stubInterface<IRuntimeSessionService>({
 		foregroundSession: session,
-		onDidChangeForegroundSession: Event.None,
+		onDidChangeForegroundSession: foregroundEvents.event,
 	});
 	const helpService = stubInterface<IPositronHelpService>({
 		canNavigateBackward: false,
@@ -169,6 +171,195 @@ describe('Help ActionBars', () => {
 		expect(await screen.findByRole('option', { name: /plot graphics/ })).toBeInTheDocument();
 		await new Promise(done => setTimeout(done, 250));
 		expect(getHelpTopics).toHaveBeenCalledOnce();
+	});
+
+	describe('pending suggestions', () => {
+		type Topics = Awaited<ReturnType<IPositronHelpService['getHelpTopics']>>;
+		const latestTopics: Topics = [{ label: 'plot.new', topic: 'graphics::plot.new' }];
+
+		const asyncWrapper = getConfig().asyncWrapper;
+		beforeEach(() => {
+			vi.useFakeTimers();
+			// RTL's default microtask drain advances Jest timers only. Use Vitest's
+			// clock here so user-event can finish without real debounce delays.
+			configure({
+				asyncWrapper: async callback => {
+					const result = await callback();
+					await vi.advanceTimersByTimeAsync(0);
+					return result;
+				}
+			});
+		});
+		afterEach(() => {
+			configure({ asyncWrapper });
+			vi.useRealTimers();
+		});
+
+		const advanceDebounce = async () => {
+			await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+		};
+		const settle = async (request: DeferredPromise<Topics>, topics: Topics) => {
+			await act(async () => { await request.complete(topics); });
+		};
+		const renderSuggestions = async () => {
+			const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+			rtl.render(<ActionBars reactComponentContainer={componentContainer} onHome={() => { }} />);
+			const input = screen.getByRole('combobox');
+			await user.type(input, 'plot');
+			await advanceDebounce();
+			expect(screen.getAllByRole('option')).toHaveLength(2);
+			return { user, input };
+		};
+
+		it('retains the list through debounce and RPC, then resets selection for a shorter list', async () => {
+			const { user, input } = await renderSuggestions();
+			const listbox = screen.getByRole('listbox');
+			const options = screen.getAllByRole('option');
+			const request = new DeferredPromise<Topics>();
+			getHelpTopics.mockReturnValueOnce(request.p);
+			await user.keyboard('.');
+
+			expect(screen.getByRole('listbox')).toBe(listbox);
+			expect(screen.getAllByRole('option')).toEqual(options);
+			expect(getHelpTopics).toHaveBeenCalledOnce();
+			await advanceDebounce();
+			expect(getHelpTopics).toHaveBeenLastCalledWith('plot.', 50);
+			expect(screen.getAllByRole('option')).toEqual(options);
+			await user.keyboard('{ArrowDown>2/}');
+			expect(input).toHaveAttribute('aria-activedescendant', options[1].id);
+			await settle(request, latestTopics);
+
+			expect(screen.getAllByRole('option')).toHaveLength(1);
+			expect(screen.getByRole('option', { name: 'plot.new' })).toHaveAttribute('aria-selected', 'false');
+			expect(input).not.toHaveAttribute('aria-activedescendant');
+			expect(input).toHaveAttribute('aria-controls', screen.getByRole('listbox').id);
+			await user.keyboard('{ArrowDown}{Enter}');
+			expect(showHelpTopicForForegroundSession).toHaveBeenCalledExactlyOnceWith('graphics::plot.new');
+		});
+
+		it('skips intermediate queries and ignores an old response while the latest query waits', async () => {
+			const { user } = await renderSuggestions();
+			const oldRequest = new DeferredPromise<Topics>();
+			const latestRequest = new DeferredPromise<Topics>();
+			getHelpTopics.mockReturnValueOnce(oldRequest.p).mockReturnValueOnce(latestRequest.p);
+			await user.keyboard('.');
+			await advanceDebounce();
+			await user.keyboard('n');
+			await advanceDebounce();
+			await user.keyboard('ew');
+			await advanceDebounce();
+			await settle(oldRequest, [{ label: 'stale', topic: 'stale' }]);
+
+			expect(getHelpTopics.mock.calls.map(([query]) => query)).toEqual(['plot', 'plot.', 'plot.new']);
+			expect(screen.queryByRole('option', { name: 'stale' })).not.toBeInTheDocument();
+			expect(screen.getByRole('option', { name: /plot graphics/ })).toBeInTheDocument();
+			await settle(latestRequest, latestTopics);
+			expect(screen.getByRole('option', { name: 'plot.new' })).toBeInTheDocument();
+			expect(screen.queryByRole('option', { name: /plot graphics/ })).not.toBeInTheDocument();
+		});
+
+		it.each(['clear', 'Escape', 'blur'])('clears the retained list on %s and ignores a late response', async dismissal => {
+			const { user, input } = await renderSuggestions();
+			const request = new DeferredPromise<Topics>();
+			getHelpTopics.mockReturnValueOnce(request.p);
+			await user.keyboard('.');
+			await advanceDebounce();
+			await user.keyboard('{ArrowDown}');
+			if (dismissal === 'clear') {
+				await user.clear(input);
+			} else if (dismissal === 'Escape') {
+				await user.keyboard('{Escape}');
+			} else {
+				await user.tab();
+			}
+			await settle(request, latestTopics);
+
+			expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+			expect(input).toHaveAttribute('aria-expanded', 'false');
+			expect(input).not.toHaveAttribute('aria-controls');
+			expect(input).not.toHaveAttribute('aria-activedescendant');
+			if (dismissal !== 'clear') {
+				await user.type(input, 'n');
+				expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+				await advanceDebounce();
+				expect(screen.getByRole('option', { name: /plot graphics/ })).toBeInTheDocument();
+			}
+		});
+
+		it('removes the list and ARIA references when the latest response is empty', async () => {
+			const { user, input } = await renderSuggestions();
+			const request = new DeferredPromise<Topics>();
+			getHelpTopics.mockReturnValueOnce(request.p);
+			await user.keyboard('.');
+			await advanceDebounce();
+			await user.keyboard('{ArrowDown}');
+			await settle(request, []);
+
+			expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+			expect(input).not.toHaveAttribute('aria-controls');
+			expect(input).not.toHaveAttribute('aria-activedescendant');
+			await user.keyboard('{Enter}');
+			expect(searchHelp).toHaveBeenCalledExactlyOnceWith('plot.');
+			expect(showHelpTopicForForegroundSession).not.toHaveBeenCalled();
+		});
+
+		it.each(['switch', 'remove'])('ignores a response resolved in the same batch as a foreground session %s', async change => {
+			const { user, input } = await renderSuggestions();
+			const oldRequest = new DeferredPromise<Topics>();
+			getHelpTopics.mockReturnValueOnce(oldRequest.p);
+			await user.keyboard('.');
+			await advanceDebounce();
+			await user.keyboard('{ArrowDown}');
+			const newSession = change === 'switch' ? stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'new-r-session',
+				getRuntimeState: () => RuntimeState.Idle,
+				onDidChangeRuntimeState: Event.None,
+				runtimeMetadata: session.runtimeMetadata,
+			}) : undefined;
+			await act(async () => {
+				foregroundEvents.fire(newSession);
+				await oldRequest.complete([{ label: 'old session', topic: 'old' }]);
+			});
+
+			expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+			expect(input).not.toHaveAttribute('aria-controls');
+			expect(input).not.toHaveAttribute('aria-activedescendant');
+			await advanceDebounce();
+			if (change === 'switch') {
+				expect(screen.getByRole('option', { name: /plot graphics/ })).toBeInTheDocument();
+				expect(screen.queryByRole('option', { name: 'old session' })).not.toBeInTheDocument();
+			} else {
+				expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+				expect(input).toBeDisabled();
+			}
+		});
+
+		it('ignores an old session response arriving after the new session results', async () => {
+			const { user, input } = await renderSuggestions();
+			const oldRequest = new DeferredPromise<Topics>();
+			const newRequest = new DeferredPromise<Topics>();
+			getHelpTopics.mockReturnValueOnce(oldRequest.p).mockReturnValueOnce(newRequest.p);
+			await user.keyboard('.');
+			await advanceDebounce();
+			await user.keyboard('{ArrowDown}');
+			const newSession = stubInterface<ILanguageRuntimeSession>({
+				sessionId: 'new-r-session',
+				getRuntimeState: () => RuntimeState.Idle,
+				onDidChangeRuntimeState: Event.None,
+				runtimeMetadata: session.runtimeMetadata,
+			});
+			act(() => foregroundEvents.fire(newSession));
+			expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+			expect(input).not.toHaveAttribute('aria-controls');
+			expect(input).not.toHaveAttribute('aria-activedescendant');
+			await advanceDebounce();
+			await settle(newRequest, latestTopics);
+			await settle(oldRequest, [{ label: 'old session', topic: 'old' }]);
+
+			expect(screen.getByRole('option', { name: 'plot.new' })).toBeInTheDocument();
+			expect(screen.queryByRole('option', { name: 'old session' })).not.toBeInTheDocument();
+			expect(input).not.toHaveAttribute('aria-activedescendant');
+		});
 	});
 
 	it('reopens suggestions when typing after Escape without refocusing the input', async () => {

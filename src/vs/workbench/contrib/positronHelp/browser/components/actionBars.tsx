@@ -53,11 +53,14 @@ const HelpSearch = () => {
 	const [activeIndex, setActiveIndex] = useState(-1);
 	const [submitting, setSubmitting] = useState(false);
 	const submission = useRef(0);
+	const suggestionSessionVersion = useRef(0);
 	const suggestionsRef = useRef<HTMLDivElement>(null);
 	const [runtimeState, setRuntimeState] = useState(foregroundSession?.getRuntimeState());
 
 	useEffect(() => {
 		const disposable = services.runtimeSessionService.onDidChangeForegroundSession(session => {
+			// Invalidate responses synchronously, before React runs effect cleanup.
+			suggestionSessionVersion.current++;
 			setForegroundSession(session);
 			setRuntimeState(session?.getRuntimeState());
 			submission.current++;
@@ -75,23 +78,27 @@ const HelpSearch = () => {
 	}, [foregroundSession]);
 
 	useEffect(() => {
-		setTopics([]);
-		setActiveIndex(-1);
 		if (!focused || !foregroundSession || !query.trim()) {
+			setTopics([]);
+			setActiveIndex(-1);
 			return;
 		}
+		// Keep the current list during the debounce and request. Cleanup prevents
+		// a response for an earlier query or session from replacing it.
 		let cancelled = false;
+		const sessionVersion = suggestionSessionVersion.current;
+		const isCurrent = () => !cancelled && sessionVersion === suggestionSessionVersion.current;
 		let dispatched = false;
 		let timer: number | undefined;
 		const ready = () => [RuntimeState.Idle, RuntimeState.Ready].includes(foregroundSession.getRuntimeState());
 		const requestSuggestions = async () => {
-			if (cancelled || dispatched || !ready()) {
+			if (!isCurrent() || dispatched || !ready()) {
 				return;
 			}
 			if (inFlight.current?.sessionId === foregroundSession.sessionId) {
 				await inFlight.current.promise.catch(() => []);
 			}
-			if (cancelled || dispatched || !ready()) {
+			if (!isCurrent() || dispatched || !ready()) {
 				return;
 			}
 			dispatched = true;
@@ -100,8 +107,9 @@ const HelpSearch = () => {
 			inFlight.current = request;
 			try {
 				const result = await promise;
-				if (!cancelled) {
+				if (isCurrent()) {
 					setTopics(result);
+					setActiveIndex(-1);
 				}
 			} catch {
 				// Full search remains available when suggestions fail.
