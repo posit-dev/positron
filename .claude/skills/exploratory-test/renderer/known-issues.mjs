@@ -19,8 +19,8 @@
 //     failed search exits 1, so it cannot pass for no matches.
 
 import { execFileSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -29,6 +29,9 @@ const DEFAULT_REPO = 'posit-dev/positron';
 const MAX_MENTIONS = 20;
 const MAX_REFS = 10;
 const SUMMARY_MAX = 240;
+// Past this many a report is quoting a list, not naming what it relied on.
+const MAX_MENTIONED = 30;
+const REFS_FILE = 'issue-refs.json';
 
 const SEVERITY_RANK = { major: 0, moderate: 1, minor: 2 };
 
@@ -400,6 +403,52 @@ export async function fetchKnownIssues(pr, repo = DEFAULT_REPO, { auth = token()
 		.map(raw => toIssue(raw, fixes.has(raw.number) ? 'fixes' : 'linked'))
 		.sort((a, b) => (a.relation === b.relation ? a.number - b.number : a.relation === 'fixes' ? -1 : 1));
 	return { repo, pr, fetchedAt: new Date().toISOString(), issues };
+}
+
+/** The `#N` numbers in report text, in order, once each; a `#` after a word, `&` or `/` is not one. */
+export function mentionedNumbers(text) {
+	return [...new Set([...(text ?? '').matchAll(/(?<![\w&#/])#(\d+)\b/g)].map(m => Number(m[1])))];
+}
+
+/** Each number's title, state and summary, as an issue or a PR; a number that fails is left out. */
+export async function fetchRefs(numbers, repo = DEFAULT_REPO, { auth = token() } = {}) {
+	const refs = [];
+	for (const n of numbers) {
+		try {
+			const raw = await github(`/repos/${repo}/issues/${n}`, auth);
+			const issue = { ...toIssue(raw, 'mentioned'), kind: raw.pull_request ? 'pr' : 'issue' };
+			refs.push(raw.pull_request?.merged_at ? { ...issue, state: 'merged' } : issue);
+		} catch (err) {
+			console.warn(`known-issues: no preview for #${n}: ${err.message}`);
+		}
+	}
+	return refs;
+}
+
+/** A run directory's fetched issue and PR previews, or none. */
+export function readIssueRefs(dir) {
+	try {
+		return JSON.parse(readFileSync(join(dir, REFS_FILE), 'utf8')).refs ?? [];
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * The previews for every number the report names, fetching only the ones not
+ * saved beside it or on the PR's list, so a publish renders offline from the
+ * same file. Best effort: a failed fetch leaves that number a plain link.
+ */
+export async function loadIssueRefs(dir, markdown, knownIssues, { fetch = fetchRefs, offline = false } = {}) {
+	const saved = readIssueRefs(dir);
+	const have = new Set([...saved, ...(knownIssues?.issues ?? [])].map(i => i.number));
+	const missing = mentionedNumbers(markdown).filter(n => !have.has(n)).slice(0, MAX_MENTIONED);
+	if (offline || !missing.length) {
+		return saved;
+	}
+	const refs = [...saved, ...await fetch(missing, knownIssues?.repo ?? DEFAULT_REPO)];
+	writeFileSync(join(dir, REFS_FILE), `${JSON.stringify({ refs }, null, '\t')}\n`);
+	return refs;
 }
 
 /** Open and closed issues matching `terms`. Throws on a failed request, a rate limit included. */

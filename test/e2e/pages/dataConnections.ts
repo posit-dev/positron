@@ -64,6 +64,7 @@ const DETAILS_PAGE = '.data-connection-node-details-page';
 const DETAILS_NAME = '.data-connection-node-details-name';
 const DETAILS_DESCRIPTION = '.data-connection-node-details-description';
 const DETAILS_CODE = '.data-connection-node-details-code';
+const DETAILS_OPEN = '.data-connection-node-details-open';
 
 /**
  * Reusable Positron Data Connections panel functionality for tests to leverage.
@@ -363,6 +364,43 @@ export class DataConnections {
 			await expect(row).toBeVisible({ timeout: this.actionTimeout });
 			await row.locator('.data-connection-node-row').dispatchEvent('click', { detail: 1 });
 		});
+	}
+
+	/**
+	 * Right-clicks a node and selects an item from its context menu, e.g. 'Copy Path'. Both events are
+	 * dispatched like {@link doubleClickNode}: a row past the grid's clip edge anchors the menu
+	 * outside the viewport, where a coordinate-based click cannot reach it.
+	 * @param label The node label.
+	 * @param kind Optional node kind to disambiguate rows that share a label (see {@link treeRow}).
+	 * @param menuItem The menu item's title.
+	 */
+	async selectNodeMenuItem(label: string, kind: DataConnectionNodeKind | undefined, menuItem: string): Promise<void> {
+		await test.step(`Select ${menuItem} on node: ${label}`, async () => {
+			const page = this.code.driver.currentPage;
+			const row = this.treeRow(label, kind);
+			await this.revealNode(row);
+			await expect(row).toBeVisible({ timeout: this.actionTimeout });
+			const node = row.locator('.data-connection-node-row');
+			const box = await node.boundingBox();
+			await node.dispatchEvent('contextmenu', {
+				clientX: box ? box.x + box.width / 2 : 0,
+				clientY: box ? box.y + box.height / 2 : 0,
+			});
+
+			const menu = page.locator(CUSTOM_CONTEXT_MENU_ITEMS);
+			await expect(menu).toBeVisible();
+			await menu.locator('.custom-context-menu-item', {
+				has: page.locator('.title', { hasText: new RegExp(`^${menuItem}$`) })
+			}).dispatchEvent('click');
+			await expect(menu).toBeHidden();
+		});
+	}
+
+	/**
+	 * Presses Open in Data Explorer in the open details editor.
+	 */
+	async clickDetailsOpenInDataExplorer(): Promise<void> {
+		await this.code.driver.currentPage.locator(DETAILS_PAGE).locator(DETAILS_OPEN).click();
 	}
 
 	/**

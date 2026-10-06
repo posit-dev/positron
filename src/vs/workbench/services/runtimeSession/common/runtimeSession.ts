@@ -2029,6 +2029,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startReason: source,
 			userSelected: options?.userSelected,
 			quartoNotebookUri: options?.quartoNotebookUri,
+			owner: options?.owner ?? 'user',
 		};
 
 		// Provision the new session.

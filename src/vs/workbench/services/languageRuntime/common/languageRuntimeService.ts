@@ -1156,6 +1156,13 @@ export interface IRuntimeManager {
 	getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 
 	/**
+	 * Register the interpreter at a path with this extension host's manager
+	 * for the language. Returns `undefined` when no manager here can do so;
+	 * throws when the manager rejects the interpreter.
+	 */
+	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined>;
+
+	/**
 	 * Return one entry per `LanguageRuntimeManager` registered in this
 	 * extension host, with the `alwaysRediscover` flag the manager declared.
 	 * The discovery-cache layer uses this to make per-`(extensionId,

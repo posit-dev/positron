@@ -363,8 +363,9 @@ export function turnCapWarning({ numTurns, maxTurns }) {
  * and the SHA is how a reader tells. `focus` tells apart runs on the same head.
  *
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
- * `reason` says why), `cancelled`, or empty when the agent never ran (the
- * build failed first).
+ * `reason` says why), `outdated` (the branch predates the tooling the run
+ * needs, and `reason` says what to do), `cancelled`, or empty when the agent
+ * never ran (the build failed first).
  */
 export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason, focus }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
@@ -376,6 +377,9 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 	}
 	if (state === 'declined') {
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
+	}
+	if (state === 'outdated') {
+		return comment([`Not run: ${reason || 'this branch is older than the tooling exploratory runs need. Rebase it onto main and comment /explore again.'}`, run]);
 	}
 	if (state === 'cancelled') {
 		return comment(['Cancelled before the agent produced a report.', run]);

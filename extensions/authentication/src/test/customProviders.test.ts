@@ -459,6 +459,22 @@ suite('custom providers', () => {
 			);
 		});
 
+		test('a key check that fails logs a warning and lets the save go ahead', async () => {
+			const originalFetch = globalThis.fetch;
+			globalThis.fetch = async () => ({ ok: false, status: 500, text: async () => '' }) as Response;
+			const logWarn = sinon.stub(log, 'warn');
+			try {
+				await customApiKeyValidator('openai-compatible')!('sk-test', { baseUrl: 'https://gateway.example.com/v1' });
+			} finally {
+				globalThis.fetch = originalFetch;
+				sinon.restore();
+			}
+
+			assert.deepStrictEqual(logWarn.args, [
+				['[Custom Provider] Could not verify the openai-compatible API key; saving it anyway: Unable to validate credentials (HTTP 500)'],
+			]);
+		});
+
 		test('only the offered kinds are registrable', async () => {
 			writeConfig(configPath, {
 				custom: {

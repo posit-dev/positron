@@ -5,13 +5,15 @@
 
 import { CommandsRegistry, ICommandMetadata, ICommandService } from '../../../../platform/commands/common/commands.js';
 import { isIMenuItem, MenuId, MenuRegistry } from '../../../../platform/actions/common/actions.js';
-import { ContextKeyExpression, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IJSONSchema } from '../../../../base/common/jsonSchema.js';
 import { ICommandActionSource, ILocalizedString } from '../../../../platform/action/common/action.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 
 export const IAgentAllowedCommandsService = createDecorator<IAgentAllowedCommandsService>('agentAllowedCommandsService');
 
@@ -68,7 +70,10 @@ export interface IAgentCommandImage {
  * by the developer action; not exposed to extensions.
  */
 export interface IAgentCommandDebugDescriptor extends IAgentCommandDescriptor {
-	/** Whether the command's precondition currently evaluates to true. `true` when there is no precondition. */
+	/**
+	 * Whether the command's precondition currently evaluates to true in the
+	 * active editor's context. `true` when there is no precondition.
+	 */
 	readonly enabled: boolean;
 	/** Serialized precondition expression, if any. */
 	readonly precondition?: string;
@@ -139,11 +144,26 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IProductService private readonly _productService: IProductService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
 	) { }
+
+	/**
+	 * Checks the precondition where the Command Palette does: in the active
+	 * editor's context, which has editor-only keys such as `editorLangId` that
+	 * the window's context lacks (posit-dev/positron#16375).
+	 */
+	private _preconditionHolds(precondition: ContextKeyExpression | undefined): boolean {
+		if (!precondition) {
+			return true;
+		}
+		const contextKeyService = this._editorService.activeEditorPane?.scopedContextKeyService
+			?? this._editorGroupsService.activeGroup.scopedContextKeyService;
+		return contextKeyService.contextMatchesRules(precondition);
+	}
 
 	private _isTrustedCommandSource(source: ICommandActionSource | undefined): boolean {
 		if (!source) {
@@ -186,7 +206,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 			source: source
 				? { type: 'extension', id: source.id, displayName: source.title }
 				: { type: 'builtin' },
-			enabled: !precondition || this._contextKeyService.contextMatchesRules(precondition),
+			enabled: this._preconditionHolds(precondition),
 			precondition: precondition?.serialize(),
 			inPalette: paletteIds.has(id),
 		};
@@ -271,7 +291,7 @@ export class AgentAllowedCommandsService implements IAgentAllowedCommandsService
 		// (populated by registerAction2 when f1: true). Non-Action2 commands have no
 		// recorded precondition and are treated as always enabled.
 		const precondition = MenuRegistry.getCommand(commandId)?.precondition;
-		if (precondition && !this._contextKeyService.contextMatchesRules(precondition)) {
+		if (precondition && !this._preconditionHolds(precondition)) {
 			return {
 				ok: false,
 				reason: 'disabled',

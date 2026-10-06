@@ -16,7 +16,8 @@ import {
 	IDatabricksSession,
 } from '../databricksClient.js';
 import { DBSQLClient } from '@databricks/sql';
-import { createCatalogNode, createSchemaNode, formatFileSize } from '../databricksNodes.js';
+import { createCatalogNode, createSchemaNode } from '../databricksNodes.js';
+import { formatFileSize } from '../fileSize.js';
 import { databricksDisplayType, parseDescribeRows } from '../databricksSql.js';
 import { generateConnectionCode, parseDatabricksHost, parseDatabricksHttpPath, validateRequired } from '../databricksDriver.js';
 

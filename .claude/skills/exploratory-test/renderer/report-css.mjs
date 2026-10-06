@@ -22,10 +22,6 @@ const PROFESSIONAL = `
 	--secondary: #4F535A;
 	--dot-neutral: #CFCAC0;
 	--sep: #B8B4AA;
-	--shot-step-bg: rgba(255,255,255,.86);
-	--shot-step-text: #3D4148;
-	--shot-step-border: rgba(28,31,35,.12);
-	--shot-step-shadow: 0 1px 2px rgba(28,31,35,.10);
 	--divider: #CFCAC0;
 	--legend-sep: #CFCAC0;
 	--hover-border: #CFCAC0;
@@ -51,12 +47,14 @@ const PROFESSIONAL = `
 	--stage-1: #5E646C;
 	--stage-2: #CFCAC0;
 
-	--observed-bg: #FBF5F3;
-	--observed-rule: #D8654F;
-	--observed-label: #A12C1F;
-	--expected-bg: #F7F6F2;
-	--expected-rule: #A7ACB2;
-	--expected-label: #3D4148;
+	--cmp-major: #D8654F;
+	--cmp-moderate: #D9953A;
+	--cmp-minor: #8E98A8;
+	--cmp-minor-t: #46505F;
+	--cmp-tint: 5%;
+	--cmp-minor-tint: 9%;
+	--cmp-exp-rule: #E3E6EB;
+	--cmp-exp-bg: #FAFBFC;
 
 	--thumb-border: #EFEDE7;
 	--thumb-a: #F9F8F5;
@@ -111,9 +109,6 @@ const PROFESSIONAL = `
 	--sig-ok: #2F7A4F;
 	--sig-ok-glow: none;
 	--sig-legal: #A8A49A;
-	--shot-n-bg: rgba(239,237,231,.92);
-	--shot-n-text: #6A6F76;
-	--shot-n-border: rgba(28,31,35,.12);
 	--lb-nav-bg: #FFFFFF;
 	--lb-nav-border: #E7E4DC;
 	--lb-nav-text: #3D4148;
@@ -131,6 +126,8 @@ const PROFESSIONAL = `
 	--code-blk-border: transparent;
 	--code-cp-hover-bg: rgba(28,31,35,.06);
 	--code-chip-hover-bg: #E5E2DA;
+	--ev-underline: #A8A49A;
+	--ev-mark: #FCEFC7;
 	--cp-rest: #C4C0B6;
 	--cp-hover-bg: #F6F5F1;
 	--toast-bg: #1C1F23;
@@ -167,10 +164,6 @@ const PARTY = `
 	--secondary: #B8B0DE;
 	--dot-neutral: #4E4580;
 	--sep: #5B4F92;
-	--shot-step-bg: rgba(30,24,56,.84);
-	--shot-step-text: #CFC8EA;
-	--shot-step-border: rgba(157,149,198,.28);
-	--shot-step-shadow: 0 1px 2px rgba(0,0,0,.25);
 	--divider: #4A3F7A;
 	--legend-sep: #5B4F92;
 	--hover-border: #5B4F92;
@@ -196,12 +189,14 @@ const PARTY = `
 	--stage-1: #5CE1E6;
 	--stage-2: #6E64A8;
 
-	--observed-bg: #2A1733;
-	--observed-rule: #FF4F81;
-	--observed-label: #FF8FA8;
-	--expected-bg: #221C40;
-	--expected-rule: #6A61A0;
-	--expected-label: #CFC8EA;
+	--cmp-major: #FF6B8B;
+	--cmp-moderate: #FFB547;
+	--cmp-minor: #8E86C4;
+	--cmp-minor-t: #C9C2EE;
+	--cmp-tint: 9%;
+	--cmp-minor-tint: 12%;
+	--cmp-exp-rule: rgba(142,134,196,.30);
+	--cmp-exp-bg: rgba(142,134,196,.05);
 
 	--thumb-border: #2A2250;
 	--thumb-a: #1C1636;
@@ -256,9 +251,6 @@ const PARTY = `
 	--sig-ok: #5CE1E6;
 	--sig-ok-glow: drop-shadow(0 0 4px rgba(92,225,230,.75));
 	--sig-legal: #6E66A0;
-	--shot-n-bg: rgba(42,34,80,.92);
-	--shot-n-text: #9D95C6;
-	--shot-n-border: rgba(157,149,198,.28);
 	--lb-nav-bg: #241D42;
 	--lb-nav-border: #5B4F92;
 	--lb-nav-text: #F5F1FF;
@@ -276,6 +268,8 @@ const PARTY = `
 	--code-blk-border: #2A2250;
 	--code-cp-hover-bg: rgba(245,241,255,.08);
 	--code-chip-hover-bg: #3A3070;
+	--ev-underline: #8A82B8;
+	--ev-mark: #4A3A12;
 	--cp-rest: #4E4580;
 	--cp-hover-bg: #2A2250;
 	--toast-bg: #241D42;
@@ -448,14 +442,13 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell{display:flex;flex-direction:column;gap:4px}
 .finding-cell .claim{font-size:15px;font-weight:500;color:var(--ink);line-height:1.4}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
-.finding-cell .impact{font-size:13px;color:var(--muted)}
 .rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
 .status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
 .status-check{stroke:var(--pass-fill)}
 .status.muted{color:var(--muted)}
 
 /* Known issues: the Findings table's Status labels and closed "Linked issues"
-   row, the card's Possibly known line, GitHub issue links, and their preview card */
+   row, the card's linked issues, GitHub issue links, and their preview card */
 .ki-title{font-size:15px;font-weight:500;color:var(--body);line-height:1.4}
 .ki-sub{font-size:13px;color:var(--muted)}
 .ki-st{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;font-size:13px;color:var(--body)}
@@ -487,8 +480,6 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 a.ki-lc-n{font-family:var(--mono);font-size:12px;color:var(--link);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--link) 50%,transparent);text-underline-offset:3px}
 a.ki-lc-n:hover,a.ki-lc-n:focus-visible{text-decoration:underline dotted;text-decoration-color:currentColor}
 @media (prefers-reduced-motion:reduce){.ki-chev{transition:none}}
-.ki-known{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
-.ki-known .ki-i{display:inline-flex;color:var(--faint)}
 /* The summary and the line draw their own top border. */
 .row:has(+ .ki-grp){border-bottom:0}
 /* A dotted text underline, never a border: the global a:hover underline would draw a second line. */
@@ -509,6 +500,7 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .ki-card-top .ki-s{font-weight:500}
 .ki-card-top .ki-s.is-open{color:var(--pass-fill)}
 .ki-card-top .ki-s.is-closed{color:var(--ki-closed)}
+.ki-card-top .ki-s.is-merged{color:var(--ki-closed)}
 .ki-card-top .ki-n{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
 .ki-card-top .ki-d{margin-left:auto;color:var(--faint)}
 .ki-card-t{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.35}
@@ -537,6 +529,8 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .meta .confirmed{display:inline-flex;align-items:baseline;gap:4px;color:var(--muted);font-weight:400}
 .meta .confirmed svg{align-self:center;color:var(--pass-text)}
 .meta .reproduced{color:var(--faint-rate)}
+/* A finding's linked issues end the meta line; a label never wraps away from its number. */
+.meta .f-ki{color:var(--faint-rate);white-space:nowrap}
 .cp-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:-6px -6px -6px auto;align-self:center;position:relative;border:0;padding:0;border-radius:7px;background:transparent;color:var(--cp-rest);cursor:pointer;transition:color .15s ease,background-color .15s ease}
 .card .cp-btn:hover{color:var(--ink);background:var(--cp-hover-bg)}
 .card .cp-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
@@ -575,8 +569,9 @@ article.card:target{animation:ln-ring 2.4s ease-out 1}
 /* Code block in a step: its copy button shows on hover or focus, so at rest
    it doesn't compete with the agent button. */
 .code-blk{position:relative;margin:8px 0 6px}
-.code-blk pre{margin:0;padding:12px 44px 12px 14px;background:var(--code-blk-bg);border:1px solid var(--code-blk-border);border-radius:8px;overflow-x:auto;white-space:pre}
-.code-blk pre code{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text)}
+.code-blk pre{margin:0;padding:12px 44px 12px 14px;background:var(--code-blk-bg);border:1px solid var(--code-blk-border);border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+/* A step's code wraps rather than scrolls: a scrollbar the OS hides reads as text cut off at the card's edge. Copy keeps the lines as written. */
+.code-blk pre code{font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text);white-space:inherit;overflow-wrap:inherit}
 .code-cp{position:absolute;top:7px;right:7px;width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;border:0;padding:0;border-radius:6px;background:transparent;color:var(--faint);cursor:pointer;opacity:0;transition:opacity .15s ease,color .15s ease,background-color .15s ease}
 .code-blk:hover .code-cp,.code-blk:focus-within .code-cp,.code-cp.is-copied{opacity:1}
 .code-cp:hover{color:var(--ink);background:var(--code-cp-hover-bg)}
@@ -599,60 +594,35 @@ code.cc.is-copied::after{color:var(--pass-fill)}
 h2.card-title{margin:0;font-family:var(--display);font-size:24px;font-weight:600;line-height:1.3;color:var(--ink)}
 .card-summary{font-size:15px;line-height:1.65;color:var(--body);max-width:var(--measure)}
 
-/* Observed | Expected: the strongest sub-section in the card. */
-.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-.oe{border-radius:0 8px 8px 0;padding:14px 18px 16px;display:flex;flex-direction:column;gap:6px}
-.oe .oe-label{font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase}
-.oe p{font-size:15px;line-height:1.6;color:var(--ink)}
-.oe.observed{background:var(--observed-bg);border-left:3px solid var(--observed-rule)}
-.oe.observed .oe-label{color:var(--observed-label)}
-.oe.expected{background:var(--expected-bg);border-left:3px solid var(--expected-rule)}
-.oe.expected .oe-label{color:var(--expected-label)}
+/* Below the title, one 720px reading column of plain sections; the card's gap spaces them. */
+.f-sec{display:flex;flex-direction:column;gap:10px;max-width:720px}
+.f-lab{font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body)}
+.f-txt{margin:0;font-size:15px;line-height:1.6;color:var(--body)}
+article.card .card-details{max-width:720px}
+/* Observed and Expected read as one comparison. Severity colour marks Observed
+   as the problem; Expected is quieter by its rule, fill and label only, so its
+   text never looks disabled. Expected is a cool grey, so on a Minor card the two
+   are darker and lighter steps of one grey rather than two temperatures. */
+.f-cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;--sev:var(--cmp-minor);--sev-t:var(--cmp-minor-t);--tint:var(--cmp-minor-tint)}
+.f-cmp.major{--sev:var(--cmp-major);--sev-t:var(--major-text);--tint:var(--cmp-tint)}
+.f-cmp.moderate{--sev:var(--cmp-moderate);--sev-t:var(--moderate-text);--tint:var(--cmp-tint)}
+.f-cmp>div{display:flex;flex-direction:column;gap:8px;padding:14px 18px;border-left:3px solid;border-radius:0 8px 8px 0}
+.f-cmp>.f-cmp-o{border-left-color:var(--sev);background:color-mix(in srgb,var(--sev) var(--tint),transparent)}
+.f-cmp-o .f-lab{color:var(--sev-t)}
+.f-cmp>.f-cmp-e{border-left-color:var(--cmp-exp-rule);background:var(--cmp-exp-bg)}
+.f-cmp-e .f-lab{color:var(--muted)}
+@media (max-width:640px){.f-cmp{grid-template-columns:1fr}}
 
-/* One style for every secondary heading: darker than supporting text, but with
-   no panel or rule, so Observed and Expected stay dominant. */
-.sub{font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body)}
 
 /* Reproduce answers "how do I make this happen?", so it is text only and one
    column. Screenshots all live under Evidence, which answers "show me that it
    happened"; a featured shot here meant the same image appeared twice. */
-.repro{display:flex;flex-direction:column;gap:10px;max-width:var(--measure);margin-top:8px}
-/* What must be true first, then what to do: two labelled groups so a reader can
-   tell setup from actions at a glance instead of reading a paragraph to find
-   where one ends. */
+/* What must be true first, then what to do. Setup is Coverage's P row, so
+   neither part needs a label. */
 .repro-group{display:flex;flex-direction:column;gap:4px}
 .repro-group.steps{margin-top:4px}
-.repro-label{font-size:12px;font-weight:600;color:var(--body)}
-/* Set exactly as the steps are -- 14px, the same indent, the same spacing --
-   because they are read the same way. Only the marker and the slightly lighter
-   tone separate them, so the two groups read as one list of instructions in two
-   parts rather than a caption above a list. */
-.preconditions{margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:var(--secondary)}
-.preconditions li{margin:0 0 8px;padding-left:4px}
-.preconditions li:last-child{margin-bottom:0}
-.preconditions li>p{margin:0 0 8px}
 .repro-steps{font-size:14px;line-height:1.6;color:var(--body)}
 
-figure{margin:0;display:flex;flex-direction:column;gap:8px}
-figure img{display:block;width:100%;height:auto;border:1px solid var(--thumb-border);border-radius:8px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 10px,var(--thumb-b) 10px 20px)}
-
-.evidence{display:flex;flex-direction:column;gap:10px}
-/* Six across whatever the count, so thumbnails are one size report-wide. */
-.shots{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
-.shots img{aspect-ratio:16/10;object-fit:cover;object-position:top center;border-radius:6px}
-a.shot{display:block;position:relative;border-radius:6px;cursor:zoom-in;text-decoration:none}
-/* Quiet metadata: the screenshot draws the eye, and a step number is not a result. */
-.shot-step{position:absolute;left:8px;bottom:8px;font-size:10.5px;font-weight:500;line-height:1;padding:3px 5px;border-radius:4px;background:var(--shot-step-bg);color:var(--shot-step-text);border:1px solid var(--shot-step-border);box-shadow:var(--shot-step-shadow);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);letter-spacing:.01em;pointer-events:none}
-a.shot img{transition:border-color .15s ease}
-a.shot:hover img{border-color:var(--hover-border)}
-a.shot:hover{text-decoration:none}
-a.shot:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-a.shot[hidden]{display:none}
-/* A step's several shots share one tile: one sheet peeks out behind it, into
-   the grid gap, and the tag carries the count. */
-.shot.stk>img{position:relative;z-index:2}.shot.stk .shot-step{z-index:3}
-/* The negative margins cancel the tag's padding, so the count runs flush to its edge. */
-.shot-n{display:inline-block;margin:-3px -5px -3px 5px;padding:3px 5px;border-left:1px solid var(--shot-n-border);background:var(--shot-n-bg);color:var(--shot-n-text);border-radius:0 3px 3px 0}
 /* The end of a card: closed rows, fact then hypothesis then suggestion. Solid
    for what the run saw or found, dashed for the guess. */
 .card-details{display:flex;flex-direction:column;gap:8px}
@@ -661,18 +631,29 @@ a.shot[hidden]{display:none}
 .lc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:14px 0;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--body);transition:color .15s ease}
 .lc>summary::-webkit-details-marker{display:none}
 .lc>summary:hover{color:var(--ink)}
-.lc>summary:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+/* The ring follows the row's own rounded border, open or closed, rather than circling the summary line inside it. */
+.lc>summary:focus-visible{outline:none}
+.lc:has(>summary:focus-visible){outline:2px solid var(--focus);outline-offset:-1px}
 .lc-tail{font-weight:500;color:var(--faint)}
+/* A count reads "2x" with a letter on the baseline, kept lowercase in an uppercase label. */
+.n-x{text-transform:none;letter-spacing:.02em}
 .lc .lc-chev{flex:none;transition:transform .15s ease}
 .lc[open] .lc-chev{transform:rotate(90deg)}
-.lc-body{padding:0 0 16px 20px;display:flex;flex-direction:column;gap:14px}
+.lc-body{padding:0 0 16px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .lc-body p{font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
-.err{display:flex;flex-direction:column;gap:8px;min-width:0}
-.err-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
-.err-src{font-family:var(--mono)}
-.err-code{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--body);background:var(--thead);border:1px solid var(--hairline);border-radius:6px;padding:10px 14px;overflow-x:auto}
-.err-msg{color:var(--major-text);white-space:pre-wrap}
-.err-frame{padding-left:16px;white-space:nowrap}
+/* Evidence: a muted header over the text as logged, mono for the log and sans
+   for everything about it. The row is the only box; red marks only the error. */
+.lc.ev .lc-body{gap:16px}
+.ev-snip{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ev-snip-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;font-size:12px;color:var(--muted)}
+.ev-snip-h .log-link{font-weight:500}
+.ev-snip-b{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--body);background:var(--thead);border-radius:6px;padding:10px 14px;white-space:pre;overflow-x:auto}
+.ev-snip a{color:var(--body);text-decoration:underline dotted var(--ev-underline);text-underline-offset:3px}
+.ev-snip a:hover{color:var(--link);text-decoration-color:var(--link)}
+.ev-snip mark{background:var(--ev-mark);color:inherit;border-radius:2px;padding:0 1px}
+.ev-err{color:var(--major-text)}
+.ev-miss-k{font-weight:600;color:var(--body)}
+.ev-miss .ev-snip-b{background:none;border:1px dashed var(--hairline);color:var(--muted)}
 /* Regression test: one label style, one meta style; sizes fixed so the block never inherits the page's. */
 .rt-group{display:flex;flex-direction:column;gap:6px}
 .rt-group+.rt-group{gap:4px}
@@ -748,6 +729,8 @@ span.rt-file{color:var(--body)}
 .cv>summary::-webkit-details-marker{display:none}
 .cv>summary:hover{background:var(--thead)}
 .cv>summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
+/* The open row's divider would cut through the ring's bottom edge. */
+.cv[open]>summary:focus-visible::after{display:none}
 .cv[open]>summary{background:var(--cv-open);position:relative}
 .cv[open]>summary:hover{background:var(--cv-open-hover)}
 .cv[open]>summary::after{content:"";position:absolute;left:41px;right:20px;bottom:0;height:1px;background:var(--border)}
@@ -782,6 +765,10 @@ span.rt-file{color:var(--body)}
 .pre-pop .pre-i+.pre-i{margin-top:8px;padding-top:8px;border-top:1px solid var(--pop-sep)}
 .pre-pop b{display:block;font-weight:600;color:var(--ink);font-size:12.5px;margin-bottom:2px}
 @media (prefers-reduced-motion:reduce){.cv-pre .pre-mark,.pre-pop,.cv-pre:hover .pre-pop{transition:none}}
+/* On a finding card the row sits over the steps: its text on the step text, its P over the digits. */
+.f-pl{list-style:none;margin:0 0 10px 20px;padding:0;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.6;color:var(--body)}
+.f-pl li{position:relative}
+.f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint)}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
 .cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
 /* The screenshot icon supports the check: faint at rest, ink on hover or focus */
@@ -800,6 +787,15 @@ span.rt-file{color:var(--body)}
 /* The tag already separates the icon from the text */
 .st-rs+.st-sep{display:none}
 .st-ev .st-n{font-size:.86em;margin-left:2px}
+/* A finding step's screenshot, previewed above its icon on hover or focus;
+   below it when there is no room above. Clicking still opens the lightbox. */
+a.st-ev{position:relative}
+.ev-pop{position:absolute;bottom:calc(100% + 8px);left:-12px;z-index:6;width:260px;box-sizing:border-box;padding:8px;border-radius:10px;background:var(--card);border:1px solid var(--pop-border);box-shadow:var(--pop-shadow);display:flex;flex-direction:column;gap:6px;white-space:normal;cursor:zoom-in;visibility:hidden;opacity:0;pointer-events:none;transition:opacity .12s ease,visibility 0s linear .12s}
+.ev-pop img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;object-position:top center;border:1px solid var(--thumb-border);border-radius:6px;background:repeating-linear-gradient(135deg,var(--thumb-a) 0 8px,var(--thumb-b) 8px 16px)}
+.ev-cap{font-family:var(--sans);font-size:11.5px;font-weight:400;line-height:1.3;letter-spacing:0;color:var(--muted)}
+a.st-ev:hover .ev-pop,a.st-ev:focus-visible .ev-pop{visibility:visible;opacity:1;transition:opacity .12s ease .12s,visibility 0s linear .12s}
+a.st-ev.ev-below .ev-pop{bottom:auto;top:calc(100% + 8px)}
+@media (prefers-reduced-motion:reduce){.ev-pop{transition:none}}
 .st-obs{display:block;font-size:13px;line-height:1.5;color:var(--muted);margin-top:2px}
 .steps li{scroll-margin-top:24px;border-radius:4px;transition:background-color .6s ease}
 .steps li:target{background:var(--st-target)}
@@ -825,13 +821,6 @@ span.rt-file{color:var(--body)}
 .log-sep{color:var(--sep)}
 .log-note{color:var(--muted)}
 .agents-table{display:flex;flex-direction:column;max-width:480px}
-.format-checks{font-size:14px;line-height:1.5;color:var(--body)}
-.format-rules{margin:2px 0 0;padding-left:18px;font-size:13px;line-height:1.5;color:var(--muted)}
-.format-rules .num{color:var(--body)}
-.format-rules .fixed,.format-rules .not-fixed{display:inline-block;margin-left:4px;padding:0 6px;border-radius:4px;font-size:11px;font-weight:600;line-height:18px}
-.format-rules .fixed{background:var(--pass-bg);color:var(--pass-text)}
-.format-raw{font-size:13px}
-.format-rules .not-fixed{background:var(--major-bg);color:var(--major-text)}
 .agents-row{display:grid;grid-template-columns:90px 110px 70px 1fr;gap:12px;padding:6px 0;border-bottom:1px solid var(--hairline);font-size:14px;line-height:1.5;color:var(--body)}
 .agents-row.agents-head{padding:0 0 4px;font-size:12px;color:var(--muted)}
 .agents-row.agents-total{border-bottom:0;color:var(--ink);font-weight:500}
@@ -950,12 +939,10 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 	:root{--gutter:16px}
 	.tiles{grid-template-columns:minmax(0,1fr)}
 	.agents-row{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) auto auto;gap:10px}
-	.two{grid-template-columns:minmax(0,1fr);gap:16px}
 	.row{grid-template-columns:minmax(0,1fr) !important;gap:8px}
 	.row-head{display:none}
 	.cov-notrun{grid-column:auto}
 	.cv-chev-cell{justify-content:flex-start}
-	.shots{grid-template-columns:repeat(2,minmax(0,1fr))}
 	.lb{padding:12px}
 	.fv-m{display:none}
 	.fv-b{padding:0 7px}

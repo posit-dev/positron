@@ -330,6 +330,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		throw new Error('Method not implemented.');
 	}
 
+	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
+		throw new Error('Method not implemented.');
+	}
+
 	hasLanguageRuntimeProvider(languageId: string): boolean {
 		throw new Error('Method not implemented.');
 	}
@@ -421,7 +425,8 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 		createdTimestamp: 0,
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
-		startReason: 'Unit Test'
+		startReason: 'Unit Test',
+		owner: 'user',
 	};
 }
 

@@ -14,7 +14,7 @@ import { IDataConnectionInstance } from '../../../../services/positronDataConnec
 import { IDataConnectionDriver, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionsDriverManager.js';
 import { IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { IDataConnectionCodeCommandArgs, IDataConnectionSchemaCommandArgs, getDataConnectionCode, getDataConnectionSchema, getDataConnections } from '../../browser/positronDataConnectionsCommands.js';
+import { IDataConnectionCodeCommandArgs, IDataConnectionSchemaCommandArgs, getDataConnectionCode, getDataConnectionSchema, getDataConnections, revealDataConnectionNode } from '../../browser/positronDataConnectionsCommands.js';
 
 function createProfile(overrides: Partial<IDataConnectionProfile> = {}): IDataConnectionProfile {
 	return {
@@ -762,3 +762,32 @@ describe('getDataConnectionSchema', () => {
 	});
 });
 
+
+describe('revealDataConnectionNode', () => {
+	const ctx = createTestContainer().build();
+
+	function run(args: unknown) {
+		const revealNode = vi.fn(async () => { });
+		ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({
+			'dataConnections.enabled': true,
+		}));
+		ctx.instantiationService.stub(ILogService, new NullLogService());
+		ctx.instantiationService.stub(IPositronDataConnectionsService, stubInterface<IPositronDataConnectionsService>({ revealNode }));
+		return { revealNode, done: ctx.instantiationService.invokeFunction(accessor => revealDataConnectionNode(accessor, args)) };
+	}
+
+	it('passes on a kind the enum does not know, since a path carries whatever kind the driver reported', async () => {
+		const path = [{ kind: 'hypertable', name: 'metrics' }];
+		const { revealNode, done } = run({ profileId: 'conn-1', path });
+		await done;
+
+		expect(revealNode).toHaveBeenCalledWith({ profileId: 'conn-1', path });
+	});
+
+	it('rejects a step with an empty kind', async () => {
+		const { revealNode, done } = run({ profileId: 'conn-1', path: [{ kind: '', name: 'metrics' }] });
+		await done;
+
+		expect(revealNode).not.toHaveBeenCalled();
+	});
+});

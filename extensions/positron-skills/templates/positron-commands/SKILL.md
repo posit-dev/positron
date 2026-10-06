@@ -3,18 +3,17 @@ name: positron-commands
 description: >
   Running Positron IDE commands: changing the window layout, focusing panes,
   clearing the console, opening a file or data file in the right editor,
-  showing or reading an HTML file, URL or app in the Viewer,
-  discovering interpreters,
-  listing, switching, starting, restarting or interrupting sessions, setting
-  up Python, reading, installing or updating a session's packages, running or
-  debugging a web app (Shiny, Flask, Dash, Streamlit, FastAPI, Gradio,
-  marimo), reading the Data Connections pane, including a live connection's
-  tables and columns, and creating, editing, or running Jupyter notebook
-  cells. Use when the user wants Positron itself to act, or to know what is
-  installed, rather than to run R or Python code. Triggers: "show the
-  variables pane", "open data.csv", "show this HTML in the Viewer", "switch
-  to my R session", "my session is stuck", "is pandas installed?", "set up a
-  Python environment", "run my shiny app", "what tables are in my
+  showing or reading an HTML file, URL or app in the Viewer, finding or adding
+  interpreters, listing, switching, starting, restarting or interrupting
+  sessions, setting up Python, reading, installing or updating a session's
+  packages, running or debugging a web app (Shiny, Flask, Dash, Streamlit,
+  FastAPI, Gradio, marimo), reading the Data Connections pane, including a
+  connection's tables and columns, and creating, editing or running
+  Jupyter notebook cells. Use when the user wants Positron itself to act, or
+  to know what is installed, rather than to run R or Python code. Triggers:
+  "show the variables pane", "open data.csv", "show this HTML in the Viewer",
+  "switch to my R session", "my session is stuck", "is pandas installed?",
+  "set up a Python environment", "run my shiny app", "what tables are in my
   warehouse", "add a cell to this notebook".
 ---
 
@@ -90,10 +89,10 @@ HTML or can't see the Viewer: it documents the commands that show a file or URL
 in the Viewer pane, and those that read and use the page there.
 
 **Registered interpreters** -- [references/interpreters.md]({{skill_dir}}/references/interpreters.md)
-Read when the user asks what interpreters are available, wants the registered
-interpreters listed (Python, R, or another language), or needs Positron to
-rescan for newly installed environments. Also the place to find a base
-interpreter before creating an environment.
+Read when the user asks what interpreters are available or which one the
+project uses, wants to install one, says an installed interpreter isn't showing
+up, or wants a specific interpreter made available. Also the place to find a
+base interpreter before creating an environment.
 
 **Sessions** -- [references/sessions.md]({{skill_dir}}/references/sessions.md)
 Read when the user asks about: which sessions are running, switching to a
