@@ -16,7 +16,7 @@
 //! that is ordinary SQL: in `WITH recent AS (SELECT id FROM orders) SELECT x FROM recent`, a flat
 //! sweep would judge `x` against `orders`, which the outer select cannot see at all.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ops::ControlFlow;
 
 use sqlparser::ast::{
@@ -101,6 +101,12 @@ struct Collector<'a> {
     seen: HashSet<(u32, u32)>,
     /// Spans of the objects a CREATE statement defines.
     definitions: HashSet<(u32, u32)>,
+    /// Queries whose parent scope is decided by where they sit rather than by the traversal: a
+    /// CTE body, and a derived table. Keyed by address, since the traversal reaches each one by
+    /// reference into the same tree, and claimed when it does.
+    parents: HashMap<*const Query, Option<u32>>,
+    /// How many scopes each open query pushed, so that closing it pops them all.
+    pushed: Vec<usize>,
 }
 
 impl<'a> Collector<'a> {
@@ -111,6 +117,8 @@ impl<'a> Collector<'a> {
             stack: Vec::new(),
             seen: HashSet::new(),
             definitions: HashSet::new(),
+            parents: HashMap::new(),
+            pushed: Vec::new(),
         }
     }
 
@@ -224,6 +232,15 @@ impl<'a> Collector<'a> {
                 self.scan_from(std::slice::from_ref(table_with_joins));
             }
             other => {
+                if let TableFactor::Derived { lateral: false, subquery, .. } = other {
+                    // A derived table cannot see the other tables of the select it sits in --
+                    // that is what LATERAL is for -- so it hangs from the scope around that
+                    // select's query, past the tables the select will lift into it. What it can
+                    // still see is the CTEs, and the queries further out it may be correlated to.
+                    let query = self.analysis.scopes[self.current() as usize].parent;
+                    let outside = query.and_then(|query| self.analysis.scopes[query as usize].parent);
+                    self.parents.insert(&**subquery as *const Query, outside);
+                }
                 if let Some(name) = function_name(other) {
                     self.mark_seen(name);
                 }
@@ -396,20 +413,36 @@ impl Visitor for Collector<'_> {
     }
 
     fn pre_visit_query(&mut self, query: &Query) -> ControlFlow<()> {
-        // A CTE's name is visible to the query that declares it, and to the later CTEs beside it,
-        // so every name in the WITH clause is collected before any of them is visited.
-        let locals = query
-            .with
-            .iter()
-            .flat_map(|with| with.cte_tables.iter())
-            .map(|cte| cte.alias.name.value.clone())
-            .collect();
-        self.push(self.stack.last().copied(), locals);
+        let parent = self
+            .parents
+            .remove(&(query as *const Query))
+            .unwrap_or_else(|| self.stack.last().copied());
+        let ctes: Vec<_> = query.with.iter().flat_map(|with| with.cte_tables.iter()).collect();
+        if ctes.is_empty() {
+            self.push(parent, Vec::new());
+            self.pushed.push(1);
+            return ControlFlow::Continue(());
+        }
+
+        // A CTE's name is visible to the query that declares it, and to the other CTEs beside it,
+        // so every name in the WITH clause is collected before any of them is visited -- into a
+        // scope of its own, which the CTE bodies hang from. The query's scope sits below it,
+        // because the select's tables are lifted into that one (see `lift`) and a CTE body
+        // cannot see the tables of the select that reads from it.
+        let locals = ctes.iter().map(|cte| cte.alias.name.value.clone()).collect();
+        let with = self.push(parent, locals);
+        for cte in &ctes {
+            self.parents.insert(&*cte.query as *const Query, Some(with));
+        }
+        self.push(Some(with), Vec::new());
+        self.pushed.push(2);
         ControlFlow::Continue(())
     }
 
     fn post_visit_query(&mut self, _query: &Query) -> ControlFlow<()> {
-        self.pop();
+        for _ in 0..self.pushed.pop().unwrap_or(1) {
+            self.pop();
+        }
         ControlFlow::Continue(())
     }
 

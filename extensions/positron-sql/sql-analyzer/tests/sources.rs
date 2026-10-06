@@ -231,6 +231,46 @@ fn a_cursor_inside_a_cte_sees_the_tables_the_cte_reads() {
 }
 
 #[test]
+fn a_cursor_inside_a_cte_does_not_see_the_select_that_reads_it() {
+    // The select's tables are lifted into its query so that its ORDER BY can see them, and the
+    // CTE is declared on that same query -- but it cannot see them, and must not be offered them.
+    let (sources, _, opaque, _) =
+        all_at_cursor("WITH recent AS (SELECT | FROM orders) SELECT * FROM customers JOIN recent ON true");
+    assert_eq!(sources, ["orders"]);
+    assert!(!opaque, "the CTE body reads only orders, whose columns are known");
+}
+
+#[test]
+fn a_cte_still_sees_the_other_ctes_beside_it() {
+    let (sources, locals, _, _) =
+        all_at_cursor("WITH a AS (SELECT id FROM orders), b AS (SELECT | FROM a) SELECT * FROM b");
+    assert!(sources.is_empty(), "got {sources:?}");
+    assert_eq!(locals, ["a", "b"]);
+}
+
+#[test]
+fn a_derived_table_does_not_see_the_tables_beside_it() {
+    // Only LATERAL lets a derived table refer to the other tables of its FROM.
+    assert_eq!(
+        at_cursor("SELECT * FROM customers c JOIN (SELECT | FROM orders) o ON o.id = c.id"),
+        ["orders"]
+    );
+    assert_eq!(
+        at_cursor("SELECT * FROM customers c, LATERAL (SELECT | FROM orders) o"),
+        ["orders", "customers AS c"]
+    );
+}
+
+#[test]
+fn a_derived_table_in_a_subquery_still_sees_the_query_around_it() {
+    // Correlation reaches out past the select a derived table sits in, to the queries enclosing it.
+    assert_eq!(
+        at_cursor("SELECT * FROM regions r WHERE id IN (SELECT x FROM line_items l, (SELECT | FROM orders) d)"),
+        ["orders", "regions AS r"]
+    );
+}
+
+#[test]
 fn a_cursor_inside_an_unclosed_subquery_still_reads_it() {
     // The bracket the author has not reached yet is supplied, so a subquery being typed is a
     // subquery rather than a statement that cannot be parsed at all.
