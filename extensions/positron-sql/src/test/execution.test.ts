@@ -438,6 +438,19 @@ suite('StatementRunner', () => {
 		assert.deepStrictEqual(calls.executed, []);
 	});
 
+	test('a query that fails in the session is left to the console to report', async () => {
+		// Executing rejects with the runtime's error once the code has run. The console already shows
+		// it, formatted; thrown from here it would come back as a notification of raw escape codes.
+		const { runner, messages } = harness({
+			executeCode: () => Promise.reject({ message: '\u001b[33mError\u001b[39m: no such table: people' }),
+		});
+
+		const outcome = await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
+
+		assert.strictEqual(outcome.kind, 'executed');
+		assert.ok(messages.some(message => message.includes('no such table: people')));
+	});
+
 	test('the user is asked which language only when nothing open says', async () => {
 		const { runner, calls } = harness({ foreground: undefined, sessions: [] });
 
@@ -640,7 +653,8 @@ suite('StatementRunner', () => {
 			},
 		};
 
-		return { runner: new StatementRunner(api, testLog().log), calls };
+		const { log, messages } = testLog();
+		return { runner: new StatementRunner(api, log), calls, messages };
 	}
 });
 

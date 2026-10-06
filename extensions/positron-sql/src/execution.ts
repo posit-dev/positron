@@ -145,6 +145,10 @@ export function positronExecutionApi(): ExecutionApi {
  */
 export type ExecutionOutcome =
 	| {
+		/**
+		 * Ran, whether or not it succeeded. A statement that fails has its error shown in the
+		 * console it ran in, like any other code run there, so it needs nothing said here.
+		 */
 		readonly kind: 'executed';
 		/** The language it ran in, which is what the file then remembers. */
 		readonly languageId: string;
@@ -489,7 +493,16 @@ export class StatementRunner {
 
 		this._log.info(`Running a statement from ${document.uri.toString(true)} against`
 			+ ` ${summary.name} as '${binding.variableName}' in session ${binding.sessionId}.`);
-		await this._api.executeCode(languageId, code, binding.sessionId, document.uri);
+		try {
+			await this._api.executeCode(languageId, code, binding.sessionId, document.uri);
+		} catch (error) {
+			// The query ran and failed: executing resolves once the code has finished, and rejects
+			// with the runtime's error when it raised one. The console already shows that error,
+			// formatted, and thrown from here it would be shown again as a notification of raw
+			// terminal escapes.
+			this._log.warn(`The statement from ${document.uri.toString(true)} failed in session`
+				+ ` ${binding.sessionId}: ${errorMessage(error)}`);
+		}
 		return { kind: 'executed', languageId, binding, code };
 	}
 
@@ -715,6 +728,19 @@ export class StatementRunner {
 			return undefined;
 		}
 	}
+}
+
+/**
+ * What a rejection says, for the log.
+ *
+ * A runtime error arrives as a plain object with a message rather than as an Error, and would
+ * otherwise be logged as `[object Object]`.
+ */
+function errorMessage(error: unknown): string {
+	if (typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string') {
+		return error.message;
+	}
+	return String(error);
 }
 
 /** What {@link StatementRunner._bind} settled on, or why it did not. */
