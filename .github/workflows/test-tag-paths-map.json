@@ -189,5 +189,5 @@
   "src/vs/workbench/services/log/": [],
   "src/vs/workbench/services/notification/": [],
   "src/vs/workbench/services/themes/": [],
-  "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": []
+  "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": ["@:themes"]
 }
