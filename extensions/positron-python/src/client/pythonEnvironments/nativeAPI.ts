@@ -922,16 +922,17 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             }
             checking = true;
             try {
-                // The executable can lag its folder by a moment while the venv is written.
+                // The executable can lag its folder by a moment while the venv is written,
+                // and PET can fail on a half-written venv. Keep the watchers until the env is
+                // added, so a later folder creation tries again.
                 for (let attempt = 0; attempt < 10; attempt += 1) {
                     if (await pathExists(executable)) {
-                        stop();
-                        traceVerbose(`[watchForRecreatedEnv] ${executable} was recreated`);
-                        const native = await this.finder.resolve(executable);
-                        if (native) {
-                            await this.addEnv(native, workspaceFolder.uri);
+                        const native = await this.finder.resolve(executable).catch(() => undefined);
+                        if (native && (await this.addEnv(native, workspaceFolder.uri))) {
+                            stop();
+                            traceVerbose(`[watchForRecreatedEnv] ${executable} was recreated`);
+                            return;
                         }
-                        return;
                     }
                     await sleep(200);
                 }

@@ -1293,6 +1293,8 @@ suite('Native Python API', () => {
         };
         let workspaceEnvChanged: EventEmitter<pw.PythonWorkspaceEnvEvent>;
         let changes: PythonEnvCollectionChangedEvent[];
+        // What PET returns for the venv executable. A test can swap it out.
+        let resolveVenv: () => Promise<NativeEnvInfo>;
         // Watchers the API opens for the folders of a removed env.
         let folderWatchers: { folder: string; created: EventEmitter<Uri>; disposed: boolean }[];
 
@@ -1324,7 +1326,8 @@ suite('Native Python API', () => {
                 } as unknown as FileSystemWatcher;
             });
             sinon.stub(asyncUtils, 'sleep').resolves(0);
-            mockFinder.setup((f) => f.resolve(venvPython)).returns(() => Promise.resolve(venvEnv));
+            resolveVenv = () => Promise.resolve(venvEnv);
+            mockFinder.setup((f) => f.resolve(venvPython)).returns(() => resolveVenv());
             api = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
 
             await api.resolveEnv(venvPython);
@@ -1396,6 +1399,28 @@ suite('Native Python API', () => {
             assert.deepStrictEqual(
                 api.getEnvs().map((env) => env.executable.filename),
                 [venvPython],
+            );
+        });
+
+        test('a recreated env that PET cannot resolve yet is tried again', async () => {
+            fireDeleted(venvDir);
+            let resolveCalls = 0;
+            resolveVenv = () => {
+                resolveCalls += 1;
+                return resolveCalls === 1
+                    ? Promise.reject(new Error('the venv is still being written'))
+                    : Promise.resolve(venvEnv);
+            };
+            folderWatchers.find((w) => w.folder === venvDir)?.created.fire(Uri.file(venvDir));
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            assert.deepStrictEqual(
+                {
+                    resolveCalls,
+                    envs: api.getEnvs().map((env) => env.executable.filename),
+                    watchersDisposed: folderWatchers.map((w) => w.disposed),
+                },
+                { resolveCalls: 2, envs: [venvPython], watchersDisposed: [true, true] },
             );
         });
 
