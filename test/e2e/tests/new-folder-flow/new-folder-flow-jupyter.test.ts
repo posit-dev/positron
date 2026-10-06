@@ -5,7 +5,7 @@
 
 import { Application } from '../../infra/index.js';
 import { FolderTemplate } from '../../pages/newFolderFlow.js';
-import { test, tags } from '../_test.setup';
+import { expect, test, tags } from '../_test.setup';
 import { addRandomNumSuffix, verifyConsoleReady, verifyFolderCreation, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({
@@ -45,6 +45,15 @@ test.describe('New Folder Flow: Jupyter Project', {
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyNotebookEditorVisible(app);
+
+		// The New Folder Flow binds the notebook to the folder runtime after the console
+		// starts, and a kernel pick while that session is still starting fails (#16454).
+		// Wait for the binding to land, or for the flow to report that it skipped the
+		// notebook, before applying the workaround below.
+		await expect(
+			notebooksPositron.kernel.statusBadge.filter({ hasNotText: 'No Kernel Selected' })
+				.or(app.workbench.toasts.toastNotification.filter({ hasText: 'No notebook editor is open' }))
+		).toBeVisible({ timeout: 30000 });
 
 		// Workaround for https://github.com/posit-dev/positron/issues/14163
 		// Shouldn't have to re-select the kernel. Remove lines 40-45 when fixed.
