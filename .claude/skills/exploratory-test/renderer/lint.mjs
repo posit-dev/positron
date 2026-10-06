@@ -15,7 +15,7 @@
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { basename, isDefaultsOnly, isNewTestFile, LOWERCASE_NAMES, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, isPositronLog, LOWERCASE_NAMES, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -671,6 +671,18 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 				problems.push(`report: Finding ${f.n} step ${i + 1}'s second screenshot ${shots[1].file} repeats the first one's caption; caption it under Evidence with what it shows that the first does not`);
 			}
 		});
+	}
+	// Evidence shows what Positron logged and nothing else; reasons go in Observed or Cause.
+	for (const f of parseReport(text).findings) {
+		for (const e of f.evidence) {
+			if (e.kind === 'note') {
+				problems.push(`report: Finding ${f.n} Evidence has a note ("${e.text.slice(0, 50)}"); Evidence is log lines only, so state it in Observed or Cause`);
+			} else if (e.kind === 'log' && !isPositronLog(e.path)) {
+				problems.push(`report: Finding ${f.n} Evidence cites ${e.path}, which the run wrote, not Positron; cite the Positron log line, or state what happened in Observed`);
+			} else if ((e.kind === 'log' || e.kind === 'missing') && e.note) {
+				problems.push(`report: Finding ${f.n} Evidence follows ${e.path}'s line with "${e.note.slice(0, 50)}"; quote the line alone, and put what it means in Observed or Cause`);
+			}
+		}
 	}
 	if (repoFileExists) {
 		for (const f of parseReport(text).findings) {

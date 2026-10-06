@@ -17,7 +17,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile } from './report-parse.mjs';
+import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
@@ -539,9 +539,10 @@ function evidenceItems(f, where, shot) {
 		if (e.kind === 'shot') {
 			return `- ${shot(e)} \u2014 ${e.step ? `${e.step.label}: ` : ''}${e.caption}`;
 		}
-		if (e.kind === 'log') {
-			const quote = /["\u201c\u201d]/.test(e.quote) ? e.quote : `\u201c${e.quote}\u201d`;
-			return `- ${where(e.path)} \u2014 ${quote}${e.note ? ` (${capitalize(e.note)})` : ''}`;
+		if (e.kind === 'log' || e.kind === 'missing') {
+			const text = e.quote.replace(/==([^=\n]+)==/g, '$1');
+			const quote = /["\u201c\u201d]/.test(text) ? text : `\u201c${text}\u201d`;
+			return `- ${e.kind === 'missing' ? `Not logged in ${where(e.path)}${e.window ? ` (${e.window})` : ''}` : where(e.path)} \u2014 ${quote}${e.note ? ` (${capitalize(e.note)})` : ''}`;
 		}
 		return `- ${e.text}`;
 	}).concat(f.errors.map(e => {
@@ -979,51 +980,90 @@ function processHtml(text, html) {
 		: `<span>${html}</span>`;
 }
 
+// The process a collected log comes from, by the name collect-logs.sh gives it.
+const LOG_PROCESS = [
+	[/-(python|r)(?:-[\w-]+)?-console\.log$/i, m => `${m[1].length === 1 ? 'R' : 'Python'} console`],
+	[/^\d+-console\.log$|-renderer\.log$/i, () => 'Renderer process'],
+	[/-exthost\.log$/i, () => 'Extension host'],
+	[/-code\.log$/i, () => 'Main process'],
+];
+
+/** The process a log line was logged by: the bullet's own, else its file's. */
+function logProcess(e) {
+	if (e.process) {
+		return e.process;
+	}
+	const name = basename(logFile(e.path)?.path ?? e.path);
+	for (const [re, label] of LOG_PROCESS) {
+		const m = re.exec(name);
+		if (m) {
+			return label(m);
+		}
+	}
+	return '';
+}
+
+/** Verbatim log text, with `==value==` as a highlight. */
+function logTextHtml(text) {
+	return escapeHtml(text).replace(/==([^=\n]+)==/g, '<mark>$1</mark>');
+}
+
+/** One piece of evidence: a muted header line over the text as logged. */
+function evidenceSnippet(cls, head, code) {
+	return `<div class="ev-snip${cls}"><div class="ev-snip-h">${head.filter(Boolean).join('')}</div>`
+		+ `<div class="ev-snip-b">${code}</div></div>`;
+}
+
 /**
- * Proof that is not tied to a step, as text only: logged errors, log lines and
- * notes. Every screenshot is on the step it proves, so a card with nothing
- * else has no Evidence row.
+ * Proof that is not tied to a step, as logs only: logged errors, log lines and
+ * lines that should have been logged and were not. Every screenshot is on the
+ * step it proves, and interpretation belongs in Observed or Likely cause, so a
+ * card with neither has no Evidence row.
  */
 function renderEvidenceRow(f, sha, exists) {
 	// A message with no stack and no file:line is not something a reader can act
 	// on here; it stays in the agent prompt.
 	const errors = f.errors.filter(e => e.frames.length || /[\w.-]+\.\w+:\d+/.test(e.message));
-	const logs = f.evidence.filter(e => e.kind === 'log');
-	const notes = f.evidence.filter(e => e.kind === 'note');
-	if (!errors.length && !logs.length && !notes.length) {
+	const logs = f.evidence.filter(e => e.kind === 'log' && e.quote && isPositronLog(e.path));
+	const missing = f.evidence.filter(e => e.kind === 'missing' && e.quote);
+	if (!errors.length && !logs.length && !missing.length) {
 		return '';
 	}
+	// The line is in the text, not the href: a static file cannot jump to it.
+	const link = path => (logFile(path) ? logLink(logFile(path).path, path, exists) : `<span class="log-link">${escapeHtml(path)}</span>`);
 	const errorHtml = errors.map(e => {
-		const meta = [
-			e.source && (logFile(e.source)
-				// The line is in the text, not the href: a static file cannot jump to it.
-				? logLink(logFile(e.source).path, e.source, exists, 'log-link err-src')
-				: `<span class="err-src">${escapeHtml(e.source)}</span>`),
-			...e.metaHtml.map((m, k) => (k === 0 ? processHtml(e.meta[0], m) : `<span>${m}</span>`)),
-		].filter(Boolean).join('');
 		const frames = e.frames.map(fr => {
 			const loc = fileLink(fr.path, sourceHref(fr.path, sha, fr.line), 'err-loc', `:${fr.line}`);
-			return `<div class="err-frame">at ${fr.fn ? `${escapeHtml(fr.fn)} (${loc})` : loc}</div>`;
+			return `\n  at ${fr.fn ? `${escapeHtml(fr.fn)} (${loc})` : loc}`;
 		}).join('');
-		return '<div class="err">'
-			+ (meta ? `<div class="err-meta">${meta}</div>` : '')
-			+ `<div class="err-code">${e.message ? `<div class="err-msg">${escapeHtml(e.message)}</div>` : ''}${frames}</div>`
-			+ '</div>';
+		return evidenceSnippet('', [
+			e.source && link(e.source),
+			...e.metaHtml.map((m, k) => (k === 0 ? processHtml(e.meta[0], m) : `<span>${m}</span>`)),
+		], `${e.message ? `<span class="ev-err">${escapeHtml(e.message)}</span>` : ''}${frames}`);
 	}).join('');
-	const logHtml = logs.map(e => '<div class="ev-log">'
-		+ logLink(logFile(e.path)?.path ?? e.path, e.path, exists, 'log-link err-src')
-		+ ` <span class="ev-sep" aria-hidden="true">&middot;</span> <span class="ev-quote">${e.quoteHtml}</span>`
-		+ (e.noteHtml ? ` <span class="ev-note">(${e.noteHtml})</span>` : '')
-		+ '</div>').join('');
-	const noteHtml = notes.map(e => `<p>${e.textHtml}</p>`).join('');
+	const logHtml = logs.map(e => {
+		const process = logProcess(e);
+		const when = e.when || /\b\d{2}:\d{2}:\d{2}\b/.exec(e.quote)?.[0];
+		return evidenceSnippet('', [
+			link(e.path),
+			process && processHtml(process, escapeHtml(process)),
+			when && `<span>${escapeHtml(when)}</span>`,
+		], logTextHtml(e.quote));
+	}).join('');
+	const missingHtml = missing.map(e => evidenceSnippet(' ev-miss', [
+		'<span class="ev-miss-k">Not logged</span>',
+		link(e.path),
+		e.window && `<span>${escapeHtml(e.window)}</span>`,
+	], logTextHtml(e.quote))).join('');
 	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 	const count = errors[0]?.count ?? 1;
+	const lines = logs.reduce((n, e) => n + e.quote.split('\n').length, 0);
 	const tail = [
 		errors.length === 1 ? `1 error${count > 1 ? `, <span class="n-x">${count}x</span>` : ''}` : errors.length ? plural(errors.length, 'error') : '',
-		logs.length ? plural(logs.length, 'log line') : '',
-		!errors.length && !logs.length && notes.length ? plural(notes.length, 'note') : '',
+		lines ? plural(lines, 'log line') : '',
+		missing.length ? `${missing.length} missing` : '',
 	].filter(Boolean).join(', ');
-	return collapsedRow(' ev', 'Evidence', tail, errorHtml + logHtml + noteHtml);
+	return collapsedRow(' ev', 'Evidence', tail, errorHtml + logHtml + missingHtml);
 }
 
 function renderRegressionTest(f, sha) {

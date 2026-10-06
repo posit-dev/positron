@@ -523,25 +523,37 @@ function parseEvidenceBullet(text) {
 			};
 		}
 	}
-	const log = /^`([^`]+)`\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
+	// `**Not logged** -- `<path>` | <window> -- "<expected line>"`: a line the run
+	// looked for and did not find.
+	const missing = /^\*\*Not logged\*\*\s*(?:--|\u2014|-)?\s*([\s\S]*)$/i.exec(text);
+	const body = missing ? missing[1].trim() : text;
+	const log = /^`([^`]+)`\s*((?:\|[^|]*?)*?)\s*(?:--|\u2014|-)?\s*((?:[`"\u201c][\s\S]*)?)$/.exec(body)
+		?? /^`([^`]+)`()\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(body);
 	if (log) {
-		// The bullet usually reads `<path> -- "<quoted line>", <note>`. Keeping the
-		// quote and the note apart lets the tile show the line that proves the
-		// behaviour without the surrounding sentence competing with it.
+		// The bullet reads `<path> | <process> | <when> -- "<quoted line>"`; older
+		// reports add `, <note>` after the quote, kept apart so the row can drop it.
 		//
 		// The closing delimiter has to be the one that opened the span: a log line
 		// quoted in backticks routinely contains double quotes of its own, and
 		// closing on the first of those cut the message in half.
-		const rest = log[2].trim();
+		const meta = log[2].split('|').map(p => p.trim()).filter(Boolean);
+		const rest = log[3].trim();
 		const quoted = /^([`"\u201c])([\s\S]*?)(?:\1|\u201d)\s*[,;]?\s*([\s\S]*)$/.exec(rest);
-		return {
-			kind: 'log',
-			path: log[1],
-			quote: quoted ? quoted[2].trim() : rest,
-			note: quoted ? quoted[3].trim() : '',
-		};
+		const quote = quoted ? quoted[2].trim() : rest;
+		const note = quoted ? quoted[3].trim() : '';
+		// A time or a count has a digit; a process name has none.
+		const when = meta.find(m => /\d/.test(m)) ?? '';
+		return missing
+			? { kind: 'missing', path: log[1], window: when, quote, note }
+			: { kind: 'log', path: log[1], process: meta.find(m => !/\d/.test(m)) ?? '', when, quote, note };
 	}
 	return { kind: 'note', text };
+}
+
+/** False for a file the agent wrote (actions.log, saved notes): it says what the run did, not what Positron did. */
+export function isPositronLog(path) {
+	const file = String(path ?? '').replace(/:\d+$/, '');
+	return /\.log$/i.test(file) && basename(file) !== 'actions.log';
 }
 
 const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
@@ -761,7 +773,14 @@ function parseFindingBody(lines) {
 					continue;
 				}
 				if (!/^[-*]\s/.test(bullet)) { i = j - 1; break; }
-				out.evidence.push(parseEvidenceBullet(bullet.replace(/^[-*]\s+/, '')));
+				const item = parseEvidenceBullet(bullet.replace(/^[-*]\s+/, ''));
+				// Several log lines go in a code block under the bullet, as logged.
+				const block = (item.kind === 'log' || item.kind === 'missing') && !item.quote ? readSourceBlock(lines, j + 1) : null;
+				if (block) {
+					item.quote = block.text.split('\n').slice(1, -1).join('\n');
+					j = block.end - 1;
+				}
+				out.evidence.push(item);
 				i = j;
 			}
 			continue;
@@ -1434,9 +1453,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			// A shot a step names is that step's, whatever its caption says.
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
 				? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
-				: e.kind === 'log'
-					? { ...e, quoteHtml: inline(e.quote), noteHtml: e.note ? inline(sentenceCase(e.note)) : '' }
-					: { ...e, textHtml: inline(sentenceCase(e.text)) })),
+				: e)),
 			causeHtml: parsed.cause ? inline(parsed.cause) : '',
 			errors: parsed.errors.map(withMetaHtml),
 			tests: {
