@@ -711,7 +711,7 @@ export class CreateAIDiagnosticReportAction extends Action2 {
  * admin enforced. An enforced setting arrives as `policyValue`, so the two come
  * from one walk over the AI keys.
  */
-function collectAISettings(configurationService: IConfigurationService): {
+export function collectAISettings(configurationService: IConfigurationService): {
 	settings: IAIDiagnosticsSetting[];
 	enforced: IAIDiagnosticsEnforcedSetting[];
 } {
