@@ -266,7 +266,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		await act(async () => {
 			zone.addOutput(errorOutput('err-1'));
 		});
-		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 5);
 
 		// Re-run: the same error is produced. A ResizeObserver would see no net
 		// change and stay silent, so the zone's own re-measure is what keeps the
@@ -275,8 +275,30 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		await act(async () => {
 			zone.addOutput(errorOutput('err-2'));
 		});
-		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 5);
 
 		zone.dispose();
+	});
+
+	it('includes the styled container vertical margins in the zone height, rounded up', async () => {
+		const zone = createViewZone();
+		// Computed styles are empty for detached elements.
+		document.body.appendChild(zone.domNode);
+		// jsdom loads no stylesheets, so set the (normally em-based) margins
+		// inline to stand in for their computed values.
+		// eslint-disable-next-line no-restricted-syntax -- reach the styled container to simulate its stylesheet margins
+		const styled = zone.domNode.querySelector<HTMLElement>('.quarto-inline-output')!;
+		// Fractional, as calc(4em / 14) is at a 13px font.
+		styled.style.marginTop = '3.714px';
+		styled.style.marginBottom = '3.714px';
+
+		await act(async () => {
+			zone.addOutput({ outputId: 'out-1', items: [{ mime: 'text/plain', data: 'hello' }] });
+		});
+		// Rounded up to a whole pixel: 40 + 7.428 + 5 = 52.428.
+		expect(zone.heightInPx).toBe(53);
+
+		zone.dispose();
+		zone.domNode.remove();
 	});
 });
