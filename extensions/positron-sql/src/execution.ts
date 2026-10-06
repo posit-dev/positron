@@ -386,18 +386,32 @@ const CONNECTION_CHECKS = 3;
  * connecting by hand in the console is an ordinary thing to do, and a connection made that way is
  * just as usable as one Positron made.
  *
+ * A variable Positron connected to a different database is left out. Positron knows it reaches
+ * somewhere else, and offered under this database's name it is easily taken for this one: picking
+ * it runs the statement against the wrong database, and the file remembers the choice.
+ *
  * Pure, so what gets offered can be pinned down without a session behind it.
  *
  * @param variables The session's root variables.
  * @param recorded The bindings Positron has for this session, across every connection.
+ * @param profileId The connection the statement is to run against.
  */
 export function connectionCandidates(
 	variables: readonly (readonly positron.RuntimeVariable[])[],
 	recorded: readonly positron.DataConnectionBinding[],
+	profileId: string,
 ): ConnectionCandidate[] {
-	const byName = new Map(recorded.map(binding => [binding.variableName, binding]));
+	const byName = new Map(recorded
+		.filter(binding => binding.profileId === profileId)
+		.map(binding => [binding.variableName, binding]));
+	const elsewhere = new Set(recorded
+		.filter(binding => binding.profileId !== profileId && !byName.has(binding.variableName))
+		.map(binding => binding.variableName));
 	const candidates: ConnectionCandidate[] = [];
 	for (const variable of rootVariables(variables)) {
+		if (elsewhere.has(variable.display_name)) {
+			continue;
+		}
 		const binding = byName.get(variable.display_name);
 		// A recorded binding is reason enough on its own. Its variable's type is whatever the
 		// driver's library called it, and requiring that to also look like a connection would drop
@@ -604,7 +618,7 @@ export class StatementRunner {
 				return { kind: 'bound', binding: remembered };
 			}
 
-			const candidates = connectionCandidates(session.variables, session.bindings);
+			const candidates = connectionCandidates(session.variables, session.bindings, summary.profileId);
 			if (candidates.length > 0) {
 				const choice = await this._api.pickConnection(candidates, summary.name);
 				if (!choice) {

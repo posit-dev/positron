@@ -200,7 +200,7 @@ suite('connectionCandidates', () => {
 
 	test('a variable Positron connected is offered, with what it knows about it', () => {
 		assert.deepStrictEqual(
-			connectionCandidates([[typed('sales', 'PqConnection')]], [RECORDED]),
+			connectionCandidates([[typed('sales', 'PqConnection')]], [RECORDED], 'other'),
 			[{ variableName: 'sales', displayType: 'PqConnection', binding: RECORDED }],
 		);
 	});
@@ -209,27 +209,40 @@ suite('connectionCandidates', () => {
 		// Connecting in the console is an ordinary thing to do, and a connection made that way is
 		// as usable as one Positron made.
 		assert.deepStrictEqual(
-			connectionCandidates([[typed('con', 'duckdb_connection')]], []),
+			connectionCandidates([[typed('con', 'duckdb_connection')]], [], 'other'),
 			[{ variableName: 'con', displayType: 'duckdb_connection', binding: undefined }],
 		);
 	});
 
 	test('a SQLAlchemy engine counts, its type saying engine rather than connection', () => {
 		assert.deepStrictEqual(
-			connectionCandidates([[typed('engine', 'Engine')]], []).map(each => each.variableName),
+			connectionCandidates([[typed('engine', 'Engine')]], [], 'other').map(each => each.variableName),
 			['engine'],
 		);
 	});
 
 	test('an ordinary variable is not offered', () => {
-		assert.deepStrictEqual(connectionCandidates([[typed('orders', 'data.frame')]], []), []);
+		assert.deepStrictEqual(connectionCandidates([[typed('orders', 'data.frame')]], [], 'other'), []);
+	});
+
+	test('a variable Positron connected to another database is left out', () => {
+		// Offered under this database's name it is easily taken for this one, and picking it would
+		// run the statement against the wrong database. A variable made by hand is still offered.
+		assert.deepStrictEqual(
+			connectionCandidates(
+				[[typed('sales', 'PqConnection'), typed('con', 'duckdb_connection')]],
+				[RECORDED],
+				TEST_PROFILE,
+			).map(each => each.variableName),
+			['con'],
+		);
 	});
 
 	test('a recorded variable is offered whatever its type says', () => {
 		// Positron made it, which settles the question; requiring the type to also look like a
 		// connection would drop connections Positron itself opened.
 		assert.deepStrictEqual(
-			connectionCandidates([[typed('sales', 'S4')]], [RECORDED]).map(each => each.variableName),
+			connectionCandidates([[typed('sales', 'S4')]], [RECORDED], 'other').map(each => each.variableName),
 			['sales'],
 		);
 	});
@@ -283,6 +296,23 @@ suite('StatementRunner', () => {
 			displayType: 'PqConnection',
 			binding: undefined,
 		}]]);
+	});
+
+	test('a connection Positron made for another database is not offered', async () => {
+		const { runner, calls } = harness({
+			bindings: [{
+				profileId: 'other',
+				sessionId: 'r-session',
+				languageId: 'r',
+				variantId: 'dbi',
+				variableName: 'mycon',
+			}],
+			variables: [[typed('mycon', 'SQLiteConnection'), typed('warehouse', 'PqConnection')]],
+		});
+
+		await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
+
+		assert.deepStrictEqual(calls.picked.map(each => each.map(candidate => candidate.variableName)), [['warehouse']]);
 	});
 
 	test('picking an existing connection remembers it, so the next statement does not ask', async () => {
