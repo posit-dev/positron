@@ -8,7 +8,8 @@
    with `--from-start`: failing there makes it a finding that needs earlier sections' state,
    passing makes it a flake
 3. `recent.ts`: fetches the past week's findings into `recent/<run id>/`, for the finder's area pick
-   and the earlier verdicts in each fixer brief
+   and the earlier verdicts in each fixer brief (and the earlier nights that fixed a finding that
+   came back, `fixedBefore`)
 4. `finder.ts` on explore nights: one agent session explores one area (`areas.json`) and writes findings
 5. `fix-loop.ts`: one fixer session per finding (at most 5); each fix is committed, then `check.ts`
    and smoke decide whether it stays: only the sections whose cases run a helper the change can
@@ -16,7 +17,9 @@
    (`dp-lib.ts`, `selectors.ts`, `test/`, ...) or the sections would take as long. A fix also
    resolves the findings it cascades to. A regression in a section the check skipped shows up in
    the next night's full run
-6. `report.ts`: the step summary, the PR body and the Slack message
+6. `report.ts`: the step summary, the PR body and the Slack message. Each leads with a headline and
+   a "To do" line, then one block per finding: the fixer's plain `broke`, `cause` and `change`
+   (falling back to the helper's error), what was checked, and the evidence folded away
 
 The workflow's `publish` job pushes a candidate branch (burn-in) or updates the rolling PR (live);
 nothing is ever merged. `vars.DRIVE_POSITRON_HEAL_PHASE` picks the phase.

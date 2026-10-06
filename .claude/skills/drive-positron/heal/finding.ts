@@ -19,6 +19,10 @@ export interface Finding {
 	commit?: string; rejected?: string; notAttempted?: string;
 	/** The smoke sections the post-fix check reran; absent when it ran the full suite. */
 	smokeSections?: string[];
+	/** The fixer's plain-language account, one sentence each: what broke, why, and what the fix changes. */
+	broke?: string; cause?: string; change?: string;
+	/** Earlier runs that fixed this finding too; it came back, so those fixes never landed. */
+	fixedBefore?: string[];
 }
 
 const OUTCOMES = ['fixed', 'product', 'flake', 'resolved'];

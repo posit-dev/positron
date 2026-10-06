@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { earlierVerdicts, queue, readOutcome, regressions } from './fix-lib.ts';
+import { earlierVerdicts, fixedBefore, queue, readOutcome, regressions } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -32,6 +32,19 @@ test('regressions: passed before, failed after; missing after counts too', () =>
 test('readOutcome accepts the three outcomes with a reason and a reproduction', () => {
 	const ok = readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'selector renamed', reproduction: { at: 't', by: 'fixer', result: 'fail', observed: 'o' } }));
 	assert.equal(typeof ok === 'object' && ok.outcome, 'fixed');
+	assert.deepEqual(typeof ok === 'object' && ok.plain, {});
+});
+
+test('readOutcome keeps the plain fields that are non-empty strings', () => {
+	const ok = readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'r', reproduction: { at: 't', by: 'fixer', result: 'fail', observed: 'o' }, broke: ' it broke ', cause: '', change: 3 }));
+	assert.deepEqual(typeof ok === 'object' && ok.plain, { broke: 'it broke' });
+});
+
+test('fixedBefore names the earlier runs that kept a fix, newest first', () => {
+	const f = (id: string, extra: Partial<Finding>): Finding => ({ id, source: 'smoke', case: id, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', reproductions: [], ...extra });
+	const runs = new Map([['9', [f('a', { outcome: 'fixed', commit: 'c' })]], ['12', [f('a', { outcome: 'fixed', commit: 'c' })]], ['10', [f('a', { outcome: 'fixed', commit: 'c', rejected: 'r' })]], ['11', [f('a', { outcome: 'flake' }), f('b', { outcome: 'fixed', commit: 'c' })]]]);
+	assert.deepEqual(fixedBefore(runs, 'a'), ['12', '9']);
+	assert.deepEqual(fixedBefore(runs, 'z'), []);
 });
 
 test('readOutcome explains what is unusable', () => {

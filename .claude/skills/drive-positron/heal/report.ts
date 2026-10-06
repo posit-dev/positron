@@ -45,28 +45,110 @@ export function shouldNotify(n: Night): boolean {
 	return n.smokeRed || n.jobFailed !== null || n.findings.length > 0 || Boolean(n.state.scopeViolation) || Boolean(n.problems?.length);
 }
 
-/** What the gate (check.ts plus a smoke run over each fix) told us; only 'passed' may be reported as safe. */
-function gateText(n: Night): string | null {
-	if (n.jobFailed) { return `did not finish (the job broke at "${n.jobFailed}"); the fixes are unchecked`; }
-	if (n.state.wholesale) { return null; }
+/** Why the fixes are not verified, or null when they are: check.ts and a smoke run passed over each kept fix. */
+function unverified(n: Night): string | null {
+	if (n.jobFailed) { return `the job broke at "${n.jobFailed}" before the checks finished`; }
 	switch (n.state.gate) {
-		case 'pass': {
-			const some = n.findings.filter(f => f.commit && !f.rejected && f.smokeSections);
-			return some.length ? `passed (smoke reran only the sections ${some.map(f => f.id).join(', ')} can reach; the next nightly runs them all)` : 'passed';
-		}
-		case 'fail': return 'failed; do not merge';
-		case 'none': return 'not run (no fix was accepted)';
-		default: return n.findings.length ? 'unknown (the fix loop did not finish); the fixes are unchecked' : null;
+		case 'pass': return null;
+		case 'fail': return 'a fix failed its checks';
+		case 'none': return 'no fix was accepted';
+		default: return 'the fix loop did not finish';
 	}
 }
-const gateLine = (n: Night) => { const g = gateText(n); return g === null ? '' : `Gate: ${g}.`; };
 
-const countLine = (n: Night) => {
+const s = (k: number, one: string, many = `${one}s`) => `${k} ${k === 1 ? one : many}`;
+const kept = (f: Finding) => f.outcome === 'fixed' && !f.rejected;
+const title = (f: Finding) => f.case ?? f.id;
+
+/** One line on the night: what it found and whether anything is ready. */
+function headline(n: Night): string {
 	const c = counts(n);
-	return [`${c.fixed} helper fix${c.fixed === 1 ? '' : 'es'}`, `${c.product} product`, `${c.flake} flake${c.flake === 1 ? '' : 's'}`, `${c.resolved} resolved by another fix`, `${c.rejected} fix${c.rejected === 1 ? '' : 'es'} rejected`, `${c.notAttempted} not attempted`].join(', ');
-};
-const label = (f: Finding) => f.rejected ? `fix rejected: ${f.rejected}` : f.notAttempted ? `not attempted: ${f.notAttempted}` : f.outcome === 'resolved' ? `resolved by ${f.resolvedBy}` : f.outcome ?? 'no outcome';
-const line = (f: Finding) => `- **${f.id}** (${f.helper}, ${label(f)}): ${String(f.observed).slice(0, 200)}. Runs: ${f.reproductions.map(r => `${r.by} ${r.result}: ${String(r.observed).slice(0, 120)}`).join(' / ')}${f.reason ? `. Reason: ${f.reason.slice(0, 300)}` : ''}`;
+	const found = [
+		c.fixed ? `${s(c.fixed, 'helper')} fixed` : '', c.product ? s(c.product, 'product bug') : '',
+		c.rejected ? s(c.rejected, 'fix rejected', 'fixes rejected') : '', c.notAttempted ? `${c.notAttempted} not attempted` : '',
+		c.resolved ? `${c.resolved} fixed by another fix` : '', c.flake ? s(c.flake, 'flake') : '',
+	].filter(Boolean);
+	const status = n.jobFailed ? 'the job broke' : n.state.wholesale ? 'smoke broke wholesale'
+		: !c.fixed ? '' : unverified(n) === null ? 'ready to review' : 'not verified';
+	return [...found, status].filter(Boolean).join(', ') || 'all green';
+}
+
+/** What the reader is asked to do, most urgent first. */
+function toDo(n: Night, where: 'summary' | 'pr'): string {
+	const out: string[] = [];
+	if (n.jobFailed) { out.push(`Find out why the job broke at "${n.jobFailed}"; nothing below is checked.`); }
+	if (n.state.wholesale) { out.push('Check the app and the runner: more than a quarter of the smoke cases failed twice, which is the environment, not the helpers. No fixer ran.'); }
+	if (n.state.scopeViolation) { out.push(`A fixer edited outside .claude/skills/drive-positron/ (${n.state.scopeViolation}); its change was thrown away and fixing stopped.`); }
+	if (n.problems?.length) { out.push('Some report inputs could not be read; see Report problems.'); }
+	const fixes = n.findings.filter(kept);
+	if (fixes.length) {
+		const why = unverified(n);
+		out.push(why !== null ? `Do not merge the fixes yet: ${why}, so they are unchecked.`
+			: where === 'pr' ? 'Review and merge this PR.' : 'Review the fix: the Slack DM links the branch, and the patch is in the run artifacts.');
+		const back = fixes.filter(f => f.fixedBefore?.length);
+		if (back.length) { out.push(`${back.map(f => `"${title(f)}"`).join(', ')} came back after being fixed on earlier nights; those fixes were never merged.`); }
+	}
+	const product = n.findings.filter(f => f.outcome === 'product').length;
+	if (product) { out.push(`Look at the ${s(product, 'product bug')} below and file an issue if there is none.`); }
+	if (n.smokeRed && !n.findings.length && n.unconfirmed.length) { out.push('Smoke failed, but the rerun never reached those cases; see Unconfirmed.'); }
+	return `**To do:** ${out.join(' ') || 'nothing.'}`;
+}
+
+function status(f: Finding): string {
+	if (f.rejected) { return 'fix rejected'; }
+	if (f.notAttempted) { return 'not attempted'; }
+	if (f.outcome === 'resolved') { return `fixed by ${f.resolvedBy}`; }
+	return f.outcome === 'product' ? 'product bug' : f.outcome ?? 'no outcome';
+}
+
+/** What was seen, with a helper's JSON reply cut down to its error. */
+const seen = (f: Finding) => { const m = String(f.observed).match(/"error":"((?:[^"\\]|\\.)*)"/); return m ? m[1].replace(/\\"/g, '"') : cut(f.observed, 200); };
+const cut = (t: unknown, max: number) => { const x = String(t ?? ''); return x.length > max ? `${x.slice(0, max)}...` : x; };
+
+function checked(f: Finding, n: Night): string {
+	const fails = f.reproductions.filter(r => r.result === 'fail').length;
+	const tries = `failed ${fails} of ${s(f.reproductions.length, 'try', 'tries')}`;
+	if (f.rejected) { return `${tries}; the fix was rejected: ${cut(f.rejected, 300)}`; }
+	if (f.notAttempted) { return `${tries}; not attempted: ${f.notAttempted}`; }
+	if (f.outcome === 'resolved') { return `${tries}; passes after the ${f.resolvedBy} fix`; }
+	if (!kept(f)) { return tries; }
+	const why = unverified(n);
+	if (why !== null) { return `${tries} before the fix; not verified: ${why}`; }
+	const ss = f.smokeSections;
+	return `${tries} before the fix; check.ts and ${ss ? `the smoke ${ss.join(', ')} ${ss.length === 1 ? 'section' : 'sections'}` : 'all of smoke'} pass with it${ss ? ' (the next nightly runs all of smoke)' : ''}`;
+}
+
+/** A finding as a heading, the plain account, and the evidence folded away. */
+function block(f: Finding, n: Night, h: string): string {
+	const runs = f.fixedBefore ?? [];
+	return [
+		`${h} ${title(f)}: ${status(f)}`, '',
+		`- **What broke:** ${f.broke ?? `${f.helper}: ${seen(f)}`}`,
+		...(f.cause ? [`- **Why:** ${f.cause}`] : []),
+		...(f.change && f.outcome === 'fixed' ? [`- **Fix:** ${f.change}`] : []),
+		`- **Checked:** ${checked(f, n)}.`,
+		...(runs.length ? [`- **Seen before:** fixed on ${s(runs.length, 'earlier night')} too (${runs.map(r => `run ${r}`).join(', ')}) and came back, so those fixes never landed.`] : []),
+		'', '<details><summary>Evidence</summary>', '',
+		...(f.reason ? [`**Reason:** ${cut(f.reason, 1500)}`, ''] : []),
+		'**Tries:**', ...f.reproductions.map(r => `- ${r.by}, ${r.result}: ${cut(r.observed, 300).replace(/\s+/g, ' ')}`), '',
+		'**To reproduce:**', '', fenced(cut(f.steps.join('\n'), 500), 'sh'), '',
+		...(f.commit ? [`**Commit:** ${f.commit}`, ''] : []),
+		'</details>', '',
+	].join('\n');
+}
+
+/** The findings' blocks, as many as fit in `budget` characters. */
+function blocks(n: Night, h: string, budget: number): string[] {
+	const out: string[] = [];
+	let used = 0;
+	for (const [i, f] of n.findings.entries()) {
+		const b = block(f, n, h);
+		if (used + b.length > budget) { out.push(`And ${n.findings.length - i} more, see the run summary.`, ''); break; }
+		out.push(b);
+		used += b.length;
+	}
+	return out;
+}
 const problemLines = (n: Night) => n.problems?.length ? ['**Report problems** (these inputs were skipped):', ...n.problems.map(p => `- ${p}`), ''] : [];
 
 const MAX_DIFF = 20000;
@@ -91,33 +173,42 @@ export function prTitle(n: Night): string {
 	return `drive-positron: ${c.fixed} helper fix${c.fixed === 1 ? '' : 'es'} from the nightly run`;
 }
 
+/** GitHub caps a PR body at 65536 characters; the findings get what the rest leaves, with room to spare. */
+const PR_MAX = 60000;
+
 export function prBody(n: Night, runUrl: string): string {
-	return [smokeSection(n) + '### Summary', '', `Nightly self-heal: ${countLine(n)}. ${gateLine(n)}`.trim(), '', ...problemLines(n), ...n.findings.slice(0, MAX_LISTED).map(line), ...(n.findings.length > MAX_LISTED ? [`- and ${n.findings.length - MAX_LISTED} more, see the run summary`] : []), '', `Run: ${runUrl}`].join('\n');
+	const head = [smokeSection(n) + '### Summary', '', `Nightly self-heal: ${headline(n)}.`, '', toDo(n, 'pr'), '', ...problemLines(n)];
+	const tail = `Run: ${runUrl}`;
+	return [...head, ...blocks(n, '####', PR_MAX - head.join('\n').length - tail.length), tail].join('\n');
 }
 
+const others = (n: Night) => [
+	...(n.flakes.length ? [`Flakes (failed, then passed on the rerun): ${n.flakes.map(f => f.name).join(', ')}`, ''] : []),
+	...(n.unconfirmed.length ? [`Unconfirmed (the rerun never reached them): ${n.unconfirmed.map(f => f.name).join(', ')}`, ''] : []),
+];
+
 export function summaryMarkdown(n: Night, runUrl: string): string {
-	const out = ['## drive-positron: nightly self-heal', ''];
-	if (n.jobFailed) { out.push(`**The job broke at "${n.jobFailed}".** The findings below may be incomplete and no fix is verified.`, ''); }
-	if (n.state.wholesale) { out.push('**Smoke broke wholesale** (more than a quarter of the cases failed twice): the environment, not the helpers. No fixer ran.', ''); }
-	if (n.state.scopeViolation) { out.push(`**A fixer edited outside .claude/skills/drive-positron/** (${n.state.scopeViolation}); its changes were discarded and fixing stopped.`, ''); }
-	out.push(...problemLines(n));
-	out.push(smokeSection(n) + countLine(n), '', ...[gateLine(n)].filter(Boolean), ...n.findings.map(line));
-	if (n.flakes.length) { out.push('', `Flakes (failed, then passed on the rerun): ${n.flakes.map(f => f.name).join(', ')}`); }
-	if (n.unconfirmed.length) { out.push('', `Unconfirmed (the rerun never reached them): ${n.unconfirmed.map(f => f.name).join(', ')}`); }
 	const cost = totalCost(n.costs);
 	const unpriced = n.costs.filter(c => c.usd === null).length;
-	out.push('', `Cost: $${cost.total.toFixed(2)} (finder $${cost.finder.toFixed(2)}, fixer $${cost.fixer.toFixed(2)})${unpriced ? `; ${unpriced} session${unpriced === 1 ? '' : 's'} had no cost, counted as $0` : ''}. Run: ${runUrl}`);
-	return out.join('\n');
+	return [
+		`## drive-positron nightly: ${headline(n)}`, '', toDo(n, 'summary'), '', ...problemLines(n), smokeSection(n), ...blocks(n, '###', 500000), ...others(n),
+		`Cost: $${cost.total.toFixed(2)} (finder $${cost.finder.toFixed(2)}, fixer $${cost.fixer.toFixed(2)})${unpriced ? `; ${s(unpriced, 'session')} had no cost, counted as $0` : ''}. Run: ${runUrl}`,
+	].join('\n');
 }
 
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const MAX_SLACK_FINDINGS = 5;
 
 export function slackText(n: Night, runUrl: string, link: { kind: 'compare' | 'pr' | 'patch'; url: string } | null): string {
-	const head = n.jobFailed ? `drive-positron nightly broke at "${esc(n.jobFailed)}"` : n.state.wholesale ? 'drive-positron smoke broke wholesale' : 'drive-positron nightly';
 	const links = [runUrl ? `<${runUrl}|run>` : '', link?.url ? `<${link.url}|${link.kind === 'compare' ? 'open the PR' : link.kind === 'pr' ? 'the PR' : 'the patch'}>` : ''].filter(Boolean).join(' | ');
-	const gate = esc(gateLine(n));
-	const bad = n.problems?.length ? ` ${n.problems.length} report input${n.problems.length === 1 ? '' : 's'} unreadable.` : '';
-	return `*${head}*: ${countLine(n)}.${gate ? ` ${gate}` : ''}${bad} Cost $${totalCost(n.costs).total.toFixed(2)}.${links ? ` ${links}` : ''}`;
+	const fs = n.findings;
+	return [
+		`*drive-positron nightly: ${esc(headline(n))}*`,
+		esc(toDo(n, 'summary').replace(/\*\*/g, '*')),
+		...fs.slice(0, MAX_SLACK_FINDINGS).map(f => `- ${esc(title(f))} (${esc(status(f))}): ${esc(f.broke ?? seen(f))}`),
+		...(fs.length > MAX_SLACK_FINDINGS ? [`and ${fs.length - MAX_SLACK_FINDINGS} more`] : []),
+		`Cost $${totalCost(n.costs).total.toFixed(2)}.${links ? ` ${links}` : ''}`,
+	].join('\n');
 }
 
 const isObject = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);

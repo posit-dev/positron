@@ -6,7 +6,10 @@
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding, Reproduction } from './finding.ts';
 
-export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction };
+/** The report's plain-language account, one sentence each; a session may leave any of them out. */
+export type Plain = { broke?: string; cause?: string; change?: string };
+/** `plain` holds only the fields the session wrote; the outcome file has them at the top level. */
+export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction; plain: Plain };
 
 export function queue(findings: Finding[], smokeOrder: string[], cap = 5): { attempt: Finding[]; notAttempted: Finding[] } {
 	const at = (f: Finding) => f.source === 'smoke' ? smokeOrder.indexOf(f.case ?? '') : smokeOrder.length;
@@ -37,14 +40,19 @@ export function replaceCases(baseline: SmokeResults, after: SmokeResults): Smoke
 
 export function readOutcome(text: string | null): FixerOutcome | string {
 	if (text === null) { return 'the fixer wrote no outcome file'; }
-	let o: Partial<FixerOutcome> | null;
+	let o: (Partial<Omit<FixerOutcome, 'plain'>> & Partial<Record<keyof Plain, unknown>>) | null;
 	try { o = JSON.parse(text); } catch { return `the outcome file is not JSON: ${text.slice(0, 120)}`; }
 	if (!o || typeof o !== 'object') { return `the outcome file is not a JSON object: ${text.slice(0, 120)}`; }
 	if (!['fixed', 'product', 'flake'].includes(o.outcome as string)) { return `outcome "${o.outcome}" is not fixed, product or flake`; }
 	if (typeof o.reason !== 'string' || !o.reason.trim()) { return 'the outcome has no reason'; }
 	const r = o.reproduction;
 	if (!r || typeof r.observed !== 'string' || (r.result !== 'fail' && r.result !== 'pass')) { return 'the outcome has no reproduction'; }
-	return { outcome: o.outcome as FixerOutcome['outcome'], reason: o.reason, reproduction: { ...r, by: 'fixer' } as Reproduction };
+	const plain: Plain = {};
+	for (const k of ['broke', 'cause', 'change'] as const) {
+		const v = o[k];
+		if (typeof v === 'string' && v.trim()) { plain[k] = v.trim(); }
+	}
+	return { outcome: o.outcome as FixerOutcome['outcome'], reason: o.reason, reproduction: { ...r, by: 'fixer' } as Reproduction, plain };
 }
 
 /** The latest verdicts on finding `id` from earlier nights, newest first; `runs` maps run id to that night's findings. */
@@ -52,4 +60,10 @@ export function earlierVerdicts(runs: Map<string, Finding[]>, id: string, max = 
 	return [...runs].sort(([a], [b]) => Number(b) - Number(a))
 		.flatMap(([run, fs]) => fs.filter(f => f.id === id && f.outcome && f.outcome !== 'resolved').map(f => `run ${run}: ${f.outcome}${f.rejected ? ` (rejected: ${f.rejected})` : ''}: ${f.reason ?? ''}`))
 		.slice(0, max);
+}
+
+/** The earlier runs, newest first, that fixed finding `id` and kept the fix. */
+export function fixedBefore(runs: Map<string, Finding[]>, id: string): string[] {
+	return [...runs].filter(([, fs]) => fs.some(f => f.id === id && f.outcome === 'fixed' && f.commit && !f.rejected))
+		.map(([run]) => run).sort((a, b) => Number(b) - Number(a));
 }

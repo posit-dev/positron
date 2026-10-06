@@ -21,7 +21,7 @@ import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
 import { affectedHelpers, postSections, readGraph } from './affected.ts';
-import { earlierVerdicts, inSections, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
+import { earlierVerdicts, fixedBefore, inSections, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
 import { smokeChecksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
@@ -74,6 +74,10 @@ function main(): number {
 	const recent = new Map(existsSync(recentDir) ? readdirSync(recentDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => [d.name, readFindings(join(recentDir, d.name))]) : []);
 	const { attempt, notAttempted } = queue(findings, order, cap);
 	const save = (f: Finding) => { writeFinding(fdir, f); findings = findings.map(x => x.id === f.id ? f : x); };
+	for (const f of findings.filter(x => x.outcome === undefined)) {
+		const runs = fixedBefore(recent, f.id);
+		if (runs.length) { save(addFields(f, { fixedBefore: runs })); }
+	}
 	for (const f of notAttempted) { save(addFields(f, { notAttempted: `over the ${cap}-session cap; comes back next night` })); }
 	mkdirSync(join(dir, 'cost'), { recursive: true });
 	mkdirSync(join(dir, 'checks'), { recursive: true });
@@ -142,7 +146,7 @@ function main(): number {
 		}
 		if (o.outcome !== 'fixed' || !touched.length) {
 			discard(pre, false);
-			save(addFields(f, { outcome: o.outcome, reason: o.reason, reproductions: [o.reproduction], ...(o.outcome === 'fixed' ? { rejected: 'outcome fixed with no change' } : {}) }));
+			save(addFields(f, { outcome: o.outcome, reason: o.reason, reproductions: [o.reproduction], ...o.plain, ...(o.outcome === 'fixed' ? { rejected: 'outcome fixed with no change' } : {}) }));
 			continue;
 		}
 
@@ -176,7 +180,7 @@ function main(): number {
 			: reg.length ? `turned red: ${reg.map(c => `${c.name} (${c.problem.slice(0, 160)})`).join('; ')}`
 			: f.case && !after.cases.some(c => c.name === f.case && c.status === 'PASS') ? `its own case "${f.case}" still fails`
 			: '';
-		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], smokeChecksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}), ...(verdict ? { rejected: verdict } : {}) }));
+		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, smokeChecksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}), ...(verdict ? { rejected: verdict } : {}) }));
 		if (verdict) {
 			discard(pre, false);
 			console.log(`fix-loop: ${f.id} fix rejected: ${verdict}`);

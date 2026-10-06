@@ -52,5 +52,15 @@ Write exactly one JSON file to the outcome path in the brief, then end with a on
     {
       "outcome": "fixed | product | flake",
       "reason": "the cause, the line, and why the change is right (or why there is no change)",
-      "reproduction": { "at": "<ISO time>", "by": "fixer", "result": "fail | pass", "observed": "what you saw" }
+      "reproduction": { "at": "<ISO time>", "by": "fixer", "result": "fail | pass", "observed": "what you saw" },
+      "broke": "what stopped working, as the person using the helper sees it",
+      "cause": "why, in one sentence",
+      "change": "what the fix does differently (fixed only)"
     }
+
+`reason` is for the next fixer and the reviewer. `broke`, `cause` and `change` lead the nightly
+report, for a reader who has not seen the code: one plain sentence each, under about 25 words, no
+JSON, file paths or line numbers. Name the helper and the user-visible effect, not the mechanism.
+For example: "broke": "`terminal-run.sh --read` cannot read a terminal's text; the Accessible View
+never opens.", "cause": "It pressed Alt+F2, which on Linux goes to the shell instead of Positron.",
+"change": "It opens the Accessible View from the Command Palette instead."

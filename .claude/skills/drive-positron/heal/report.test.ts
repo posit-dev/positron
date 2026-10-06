@@ -57,35 +57,68 @@ test('summary names a wholesale break and a scope violation', () => {
 
 test('slack text has counts, cost, run link and the link', () => {
 	const t = slackText(night({ findings: [f('a', { outcome: 'fixed' })], costs: [{ label: 'fixer-a', usd: 1.25 }] }), 'https://run', { kind: 'compare', url: 'https://cmp' });
-	assert.match(t, /1 helper fix/);
+	assert.match(t, /1 helper fixed/);
 	assert.match(t, /\$1\.25/);
 	assert.match(t, /<https:\/\/run\|run>/);
 	assert.match(t, /<https:\/\/cmp\|open the PR>/);
 });
 
-test('a missing gate is unknown, never a pass', () => {
-	const fixed = [f('a', { outcome: 'fixed' })];
+test('a missing gate never reads as verified', () => {
+	const fixed = [f('a', { outcome: 'fixed', commit: 'abc' })];
 	for (const n of [night({ findings: fixed }), night({ findings: fixed, state: { scopeViolation: 'x' } })]) {
 		for (const text of [prBody(n, 'u'), summaryMarkdown(n, 'u'), slackText(n, 'u', null)]) {
-			assert.match(text, /Gate: unknown/);
-			assert.doesNotMatch(text, /Gate: passed/);
+			assert.match(text, /not verified/);
+			assert.doesNotMatch(text, /ready to review|pass with it|merge this PR/);
 		}
+		assert.match(prBody(n, 'u'), /Do not merge the fixes yet: the fix loop did not finish/);
 	}
-	assert.match(prBody(night({ findings: fixed, state: { gate: 'pass' } }), 'u'), /Gate: passed/);
-	assert.match(prBody(night({ findings: fixed, state: { gate: 'fail' } }), 'u'), /Gate: failed/);
+	const pass = prBody(night({ findings: fixed, state: { gate: 'pass' } }), 'u');
+	assert.match(pass, /1 helper fixed, ready to review/);
+	assert.match(pass, /\*\*To do:\*\* Review and merge this PR\./);
+	assert.match(pass, /check\.ts and all of smoke pass with it/);
 });
 
-test('a gate over some sections says so', () => {
-	const fixes = [f('a', { outcome: 'fixed', commit: 'abc', smokeSections: ['terminal'] }), f('b', { outcome: 'fixed', commit: 'def' })];
+test('a fix checked over some sections says which', () => {
+	const fixes = [f('a', { outcome: 'fixed', commit: 'abc', smokeSections: ['terminal'] }), f('b', { outcome: 'fixed', commit: 'def', smokeSections: ['editor', 'debug'] })];
 	const text = prBody(night({ findings: fixes, state: { gate: 'pass' } }), 'u');
-	assert.match(text, /Gate: passed \(smoke reran only the sections a can reach; the next nightly runs them all\)/);
+	assert.match(text, /the smoke terminal section pass with it \(the next nightly runs all of smoke\)/);
+	assert.match(text, /the smoke editor, debug sections pass/);
 });
 
-test('a failed job never reports the gate as passed', () => {
-	const n = night({ findings: [f('a', { outcome: 'fixed' })], state: { gate: 'pass' }, jobFailed: 'Fix' });
+test('a finding leads with the fixer\'s plain account and folds the evidence away', () => {
+	const a = f('smoke-terminal-run-read', { case: 'terminal-run --read', outcome: 'fixed', commit: 'abc', reason: 'the long reason', broke: 'It cannot read.', cause: 'Alt+F2 goes to the shell.', change: 'It uses the palette.' });
+	const text = summaryMarkdown(night({ findings: [a], state: { gate: 'pass' } }), 'u');
+	assert.match(text, /^## drive-positron nightly: 1 helper fixed, ready to review/);
+	assert.match(text, /### terminal-run --read: fixed\n\n- \*\*What broke:\*\* It cannot read\.\n- \*\*Why:\*\* Alt\+F2 goes to the shell\.\n- \*\*Fix:\*\* It uses the palette\.\n- \*\*Checked:\*\* failed 2 of 2 tries before the fix/);
+	assert.ok(text.indexOf('<details>') < text.indexOf('the long reason'));
+	assert.match(text, /- smoke, fail: first\n- rerun, fail: second/);
+});
+
+test('without the plain account, what broke falls back to the helper and what was seen', () => {
+	assert.match(summaryMarkdown(night({ findings: [f('a', { outcome: 'product' })] }), 'u'), /### a: product bug\n\n- \*\*What broke:\*\* x\.sh: obs a\n- \*\*Checked:\*\* failed 2 of 2 tries\./);
+});
+
+test('the fallback cuts a helper\'s JSON reply down to its error', () => {
+	const a = f('a', { outcome: 'product', observed: 'exit 1: {"ok":false,"error":"the \\"view\\" did not open"}' });
+	assert.match(summaryMarkdown(night({ findings: [a] }), 'u'), /What broke:\*\* x\.sh: the "view" did not open\n/);
+});
+
+test('a fix that came back says the earlier fixes never landed', () => {
+	const text = summaryMarkdown(night({ findings: [f('a', { outcome: 'fixed', commit: 'c', fixedBefore: ['12', '9'] })], state: { gate: 'pass' } }), 'u');
+	assert.match(text, /"a" came back after being fixed on earlier nights; those fixes were never merged/);
+	assert.match(text, /\*\*Seen before:\*\* fixed on 2 earlier nights too \(run 12, run 9\)/);
+});
+
+test('to do names product bugs, and is nothing on a quiet night', () => {
+	assert.match(summaryMarkdown(night({ findings: [f('d', { outcome: 'product' })] }), 'u'), /\*\*To do:\*\* Look at the 1 product bug below/);
+	assert.match(summaryMarkdown(night(), 'u'), /^## drive-positron nightly: all green\n\n\*\*To do:\*\* nothing\./);
+});
+
+test('a failed job never reports the fixes as verified', () => {
+	const n = night({ findings: [f('a', { outcome: 'fixed', commit: 'abc' })], state: { gate: 'pass' }, jobFailed: 'Fix' });
 	for (const text of [prBody(n, 'u'), summaryMarkdown(n, 'u'), slackText(n, 'u', null)]) {
-		assert.match(text, /Gate: did not finish/);
-		assert.doesNotMatch(text, /Gate: passed/);
+		assert.match(text, /the job broke/);
+		assert.doesNotMatch(text, /ready to review|pass with it/);
 	}
 });
 
@@ -111,7 +144,7 @@ test('loadNight skips corrupt inputs, names them, and counts a null cost as $0',
 	const text = summaryMarkdown(n, 'u');
 	assert.match(text, /Report problems/);
 	assert.match(text, /state\.json/);
-	assert.match(text, /Gate: unknown/);
+	assert.match(text, /not verified/);
 	assert.match(text, /had no cost, counted as \$0/);
 });
 
@@ -125,7 +158,7 @@ test('PR body stays under the GitHub limit with a huge diff and many findings', 
 	const body = prBody(night({ findings: many, smokeDiff: '+x\n'.repeat(100000) }), 'https://run');
 	assert.ok(body.length < 65536, String(body.length));
 	assert.match(body, /truncated, see the run/);
-	assert.match(body, /and 260 more, see the run summary/);
+	assert.match(body, /And \d+ more, see the run summary/);
 });
 
 test('the diff fence outgrows backticks inside the diff', () => {
