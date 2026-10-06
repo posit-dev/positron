@@ -285,6 +285,114 @@ suite('Python runtime manager', () => {
         verify(mockedPositronNamespaces.runtime!.selectLanguageRuntime(runtimeMetadata.object.runtimeId)).once();
     });
 
+    /** A console session for `runtimeId` in the given state. */
+    function fakeConsoleSession(runtimeId: string, state: positron.RuntimeState): sessionModule.PythonRuntimeSession {
+        return Object.assign(Object.create(sessionModule.PythonRuntimeSession.prototype), {
+            runtimeMetadata: { runtimeId, extraRuntimeData: { pythonPath } },
+            metadata: { sessionId: `${runtimeId}-session`, sessionMode: positron.LanguageRuntimeSessionMode.Console },
+            getRuntimeState: () => state,
+            shutdown: sinon.stub().resolves(),
+            onDidEndSession: new vscode.EventEmitter<positron.LanguageRuntimeExit>().event,
+        });
+    }
+
+    test('selectLanguageRuntimeFromPath: recreating a runtime whose console exited starts a new session', async () => {
+        // A venv recreated with the same Python keeps its runtime ID, and selecting
+        // that runtime would bring the exited console back instead of starting one.
+        const recreated = {
+            runtimeId: 'recreated-runtime',
+            runtimeName: 'Python 3.12 (venv)',
+            extraRuntimeData: { pythonPath },
+        } as positron.LanguageRuntimeMetadata;
+        sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(recreated);
+        pythonRuntimeManager.registeredPythonRuntimes.set(pythonPath, recreated);
+        sinon
+            .stub(sessionModule, 'getActivePythonSessions')
+            .resolves([fakeConsoleSession('recreated-runtime', positron.RuntimeState.Exited)]);
+
+        await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath, true);
+
+        verify(
+            mockedPositronNamespaces.runtime!.startLanguageRuntime('recreated-runtime', 'Python 3.12 (venv)'),
+        ).once();
+        verify(mockedPositronNamespaces.runtime!.selectLanguageRuntime('recreated-runtime')).never();
+    });
+
+    test('selectLanguageRuntimeFromPath: recreating starts a new session while the old console is still shutting down', async () => {
+        // The recreate step shuts the old console down, and its state stays Idle until
+        // the kernel exits, so it must not count as running.
+        const recreated = {
+            runtimeId: 'shutting-down-runtime',
+            runtimeName: 'Python 3.12 (venv)',
+            extraRuntimeData: { pythonPath },
+        } as positron.LanguageRuntimeMetadata;
+        sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(recreated);
+        pythonRuntimeManager.registeredPythonRuntimes.set(pythonPath, recreated);
+        const oldConsole = fakeConsoleSession('shutting-down-runtime', positron.RuntimeState.Idle);
+        sinon.stub(sessionModule, 'getActivePythonSessions').resolves([oldConsole]);
+
+        await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath, true);
+
+        sinon.assert.calledOnce(oldConsole.shutdown as sinon.SinonStub);
+        verify(
+            mockedPositronNamespaces.runtime!.startLanguageRuntime('shutting-down-runtime', 'Python 3.12 (venv)'),
+        ).once();
+        verify(mockedPositronNamespaces.runtime!.selectLanguageRuntime('shutting-down-runtime')).never();
+    });
+
+    test('selectLanguageRuntimeFromPath: recreating a runtime whose console is still running selects it', async () => {
+        // Nothing is registered for the path, as when the session's runtime came
+        // from the workspace recommendation, so its session is not shut down.
+        const live = {
+            runtimeId: 'live-runtime',
+            runtimeName: 'Python 3.12 (venv)',
+            extraRuntimeData: { pythonPath },
+        } as positron.LanguageRuntimeMetadata;
+        sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(live);
+        sinon
+            .stub(sessionModule, 'getActivePythonSessions')
+            .resolves([fakeConsoleSession('live-runtime', positron.RuntimeState.Idle)]);
+
+        await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath, true);
+
+        verify(mockedPositronNamespaces.runtime!.selectLanguageRuntime('live-runtime')).once();
+        verify(mockedPositronNamespaces.runtime!.startLanguageRuntime('live-runtime', 'Python 3.12 (venv)')).never();
+    });
+
+    test('selectLanguageRuntimeFromPath: creating an environment with no sessions starts one session', async () => {
+        // A first-time create (the uv.lock and pixi.lock prompts, the global environment)
+        // has no console for the runtime yet.
+        const created = {
+            runtimeId: 'created-runtime',
+            runtimeName: 'Python 3.12 (venv)',
+            extraRuntimeData: { pythonPath },
+        } as positron.LanguageRuntimeMetadata;
+        sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(created);
+        sinon.stub(sessionModule, 'getActivePythonSessions').resolves([]);
+
+        await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath, true);
+
+        verify(mockedPositronNamespaces.runtime!.startLanguageRuntime('created-runtime', 'Python 3.12 (venv)')).once();
+        verify(mockedPositronNamespaces.runtime!.selectLanguageRuntime('created-runtime')).never();
+    });
+
+    test('selectLanguageRuntimeFromPath: a console on another interpreter does not count as running', async () => {
+        // e.g. a global Python console is open when the uv.lock prompt creates `.venv`.
+        const created = {
+            runtimeId: 'venv-runtime',
+            runtimeName: 'Python 3.12 (venv)',
+            extraRuntimeData: { pythonPath },
+        } as positron.LanguageRuntimeMetadata;
+        sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(created);
+        sinon
+            .stub(sessionModule, 'getActivePythonSessions')
+            .resolves([fakeConsoleSession('global-runtime', positron.RuntimeState.Idle)]);
+
+        await pythonRuntimeManager.selectLanguageRuntimeFromPath(pythonPath, true);
+
+        verify(mockedPositronNamespaces.runtime!.startLanguageRuntime('venv-runtime', 'Python 3.12 (venv)')).once();
+    });
+
     test('resolveRuntimeMetadataFromPath refreshes once before retrying', async () => {
         sinon.stub(runtime, 'createPythonRuntimeMetadata').resolves(runtimeMetadata.object);
 

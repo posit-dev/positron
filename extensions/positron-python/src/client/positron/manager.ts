@@ -866,7 +866,28 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     }
 
     /**
+     * Whether a console session for the runtime is running, rather than exited, not yet
+     * started, or shutting down. A session this manager asked to shut down keeps its state
+     * until its kernel exits, so it counts as shutting down while that request is pending.
+     */
+    private async hasLiveConsoleSession(runtimeId: string): Promise<boolean> {
+        const sessions = await getActivePythonSessions();
+        return sessions.some((session) => {
+            const state = session.getRuntimeState();
+            return (
+                session.runtimeMetadata.runtimeId === runtimeId &&
+                session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console &&
+                state !== positron.RuntimeState.Uninitialized &&
+                state !== positron.RuntimeState.Exited &&
+                !this._pendingShutdowns.has(session.metadata.sessionId)
+            );
+        });
+    }
+
+    /**
      * Select a Python language runtime in the console by its interpreter path.
+     * When recreating the runtime, starts a new console session unless one is
+     * already running for it.
      *
      * @param pythonPath The path to the Python interpreter.
      * @returns Promise that resolves when the runtime is selected.
@@ -874,7 +895,15 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     async selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<string | undefined> {
         const metadata = await this.resolveRuntimeMetadataFromPath(pythonPath, recreateRuntime);
         if (metadata) {
-            await positron.runtime.selectLanguageRuntime(metadata.runtimeId);
+            if (recreateRuntime && !(await this.hasLiveConsoleSession(metadata.runtimeId))) {
+                // The sessions for this path were just shut down (e.g. Create Environment >
+                // Delete and Recreate). Selecting the runtime would bring its exited console
+                // back to the front instead of starting one, since a venv recreated with the
+                // same Python keeps the same runtime ID.
+                await positron.runtime.startLanguageRuntime(metadata.runtimeId, metadata.runtimeName);
+            } else {
+                await positron.runtime.selectLanguageRuntime(metadata.runtimeId);
+            }
             return metadata.runtimeId;
         } else {
             traceError(`Tried to switch to a language runtime that has not been registered: ${pythonPath}`);
