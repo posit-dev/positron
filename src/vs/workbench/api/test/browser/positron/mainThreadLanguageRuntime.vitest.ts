@@ -338,4 +338,18 @@ describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
 
 		expect(executeCode.mock.calls[0][3]).toEqual({ source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny' } });
 	});
+
+	it('records an agent session started by an extension', async () => {
+		const startNewRuntimeSession = vi.fn<IRuntimeSessionService['startNewRuntimeSession']>(async () => 'session-1');
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+			startNewRuntimeSession,
+		}));
+
+		await mainThread.$startLanguageRuntime('python-1', 'Python 3.12', LanguageRuntimeSessionMode.Console, undefined, 'posit.assistant', { owner: 'agent', activate: false });
+
+		expect(startNewRuntimeSession.mock.calls[0][4]).toEqual(
+			{ id: SessionStartReasonId.ExtensionStartedAgentSession, requestingExtensionId: 'posit.assistant' },
+		);
+	});
 });

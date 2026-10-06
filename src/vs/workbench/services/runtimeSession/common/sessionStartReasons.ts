@@ -87,6 +87,9 @@ const sessionStartReasonLabels: Record<SessionStartReasonId, (args: ISessionStar
 	[SessionStartReasonId.ExtensionApiStart]: args => args.requestingExtensionName ?
 		localize2('positron.sessionStartReason.extensionApiStartByExtension', "The {0} extension started this interpreter", args.requestingExtensionName) :
 		localize2('positron.sessionStartReason.extensionApiStart', "An extension started this interpreter"),
+	[SessionStartReasonId.ExtensionStartedAgentSession]: args => args.requestingExtensionName ?
+		localize2('positron.sessionStartReason.extensionStartedAgentSessionByExtension', "The {0} extension started an agent session for this interpreter", args.requestingExtensionName) :
+		localize2('positron.sessionStartReason.extensionStartedAgentSession', "An extension started an agent session for this interpreter"),
 };
 
 /**

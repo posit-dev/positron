@@ -60,6 +60,7 @@ describe('getSessionStartReasonLabel', () => {
 			  "extensionRecommendedRuntime": "The Positron R extension recommended this interpreter for this workspace",
 			  "extensionRequestedImmediateStart": "The Positron R extension recommended this interpreter for this workspace",
 			  "extensionRequestedStartAtRegistration": "The Positron R extension found this interpreter and recommended it for this workspace",
+			  "extensionStartedAgentSession": "An extension started an agent session for this interpreter",
 			  "languageFileOpened": "A file written in R was opened",
 			  "languageFileOpenedAtRegistration": "A file written in R was opened",
 			  "newConsoleCommand": "A command requested a new console for this interpreter",
@@ -90,6 +91,7 @@ describe('getSessionStartReasonLabel', () => {
 	it('names the extension that asked for the session', () => {
 		const labels = [
 			SessionStartReasonId.ExtensionApiStart,
+			SessionStartReasonId.ExtensionStartedAgentSession,
 			SessionStartReasonId.CodeExecutedWithoutSession,
 			SessionStartReasonId.ExtensionApiSelect,
 			SessionStartReasonId.RestartUninitializedSession,
@@ -97,6 +99,7 @@ describe('getSessionStartReasonLabel', () => {
 
 		expect(labels).toEqual([
 			'The Shiny extension started this interpreter',
+			'The Shiny extension started an agent session for this interpreter',
 			'The Shiny extension ran code with no R console open',
 			'The Shiny extension selected this interpreter',
 			'The Shiny extension requested a restart before this interpreter had started',
