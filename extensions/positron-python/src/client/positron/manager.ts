@@ -124,6 +124,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      */
     private _interpreterChangeQueue: Promise<void> = Promise.resolve();
 
+    /** Shutdowns this manager has requested for sessions that haven't ended, keyed by session ID. */
+    private readonly _pendingShutdowns = new Map<string, Promise<void>>();
+
     constructor(
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
@@ -262,18 +265,49 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             // Only Python sessions; other languages' sessions may not even have
             // extraRuntimeData (e.g. restored from a serialized state).
             const sessions = await getActivePythonSessions();
+            // Skip sessions that have exited. Two paths can shut down the same session (e.g.
+            // the watcher seeing `.venv` deleted, then Create Environment recreating its
+            // runtime), and sending a shutdown to a kernel that has exited fails. A session
+            // still exiting keeps its state until it exits; shutdownSessionOnce covers that.
             const toShutdown = sessions.filter(
                 (s) =>
                     (s.runtimeMetadata.extraRuntimeData as PythonRuntimeExtraData).pythonPath === pythonPath &&
-                    (keepRuntimeId === undefined || s.runtimeMetadata.runtimeId !== keepRuntimeId),
+                    (keepRuntimeId === undefined || s.runtimeMetadata.runtimeId !== keepRuntimeId) &&
+                    s.getRuntimeState() !== positron.RuntimeState.Exited,
             );
             if (toShutdown.length > 0) {
                 traceInfo(`Shutting down ${toShutdown.length} session(s) for ${reason} ${pythonPath}`);
-                await Promise.all(toShutdown.map((s) => s.shutdown(positron.RuntimeExitReason.Shutdown)));
+                await Promise.all(toShutdown.map((s) => this.shutdownSessionOnce(s)));
             }
         } catch (error) {
             traceError(`Failed to clean up sessions for ${reason} ${pythonPath}: ${error}`);
         }
+    }
+
+    /**
+     * Shut down a session, unless this manager already asked it to shut down and it
+     * hasn't ended yet. The shutdown request can return before the kernel exits, and
+     * the session's state doesn't change until then, so a second request in that gap
+     * would be sent to a kernel on its way out.
+     */
+    private shutdownSessionOnce(session: PythonRuntimeSession): Promise<void> {
+        const { sessionId } = session.metadata;
+        const pending = this._pendingShutdowns.get(sessionId);
+        if (pending) {
+            return pending;
+        }
+        let ended: Disposable | undefined;
+        const forget = () => {
+            ended?.dispose();
+            this._pendingShutdowns.delete(sessionId);
+        };
+        ended = session.onDidEndSession(forget);
+        const request = session.shutdown(positron.RuntimeExitReason.Shutdown).catch((error) => {
+            forget();
+            throw error;
+        });
+        this._pendingShutdowns.set(sessionId, request);
+        return request;
     }
 
     /**

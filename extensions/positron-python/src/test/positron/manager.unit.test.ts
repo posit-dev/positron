@@ -30,7 +30,7 @@ import { IServiceContainer } from '../../client/ioc/types';
 import { PythonRuntimeManager } from '../../client/positron/manager';
 import * as createVirtualEnvironmentPrompt from '../../client/positron/createVirtualEnvironmentPrompt';
 import { CreateVirtualEnvironmentPromptOutcome } from '../../client/positron/createVirtualEnvironmentPrompt';
-import { PythonRuntimeSession } from '../../client/positron/session';
+import * as sessionModule from '../../client/positron/session';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { mockedPositronNamespaces } from '../vscode-mock';
@@ -836,15 +836,23 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         sinon.assert.calledOnceWithExactly(selectSpy, '/path/to/python');
     });
 
+    let fakeSessionCount = 0;
+
     /** Build a fake that passes the `instanceof PythonRuntimeSession` filter without invoking the constructor. */
     function createFakePythonSession(
         extraRuntimeData: unknown,
         shutdown: sinon.SinonStub,
         runtimeId?: string,
-    ): PythonRuntimeSession {
-        return Object.assign(Object.create(PythonRuntimeSession.prototype), {
+        state: positron.RuntimeState = positron.RuntimeState.Idle,
+        ended = new vscode.EventEmitter<positron.LanguageRuntimeExit>(),
+    ): sessionModule.PythonRuntimeSession {
+        fakeSessionCount += 1;
+        return Object.assign(Object.create(sessionModule.PythonRuntimeSession.prototype), {
             runtimeMetadata: { runtimeId, extraRuntimeData },
+            metadata: { sessionId: `session-${fakeSessionCount}` },
             shutdown,
+            getRuntimeState: () => state,
+            onDidEndSession: ended.event,
         });
     }
 
@@ -882,6 +890,52 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         sinon.assert.notCalled(otherShutdown);
         sinon.assert.notCalled(nonPythonShutdown);
         sinon.assert.notCalled(selectSpy);
+    });
+
+    test('interpreter deletion: a session asked to shut down is not asked again until it ends', async () => {
+        // The shutdown request returns before the kernel exits, and the session's
+        // state stays the same until then.
+        const deletedPath = '/path/to/deleted/python';
+        const shutdown = sinon.stub().resolves();
+        const ended = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+        const session = createFakePythonSession(
+            { pythonPath: deletedPath },
+            shutdown,
+            'r',
+            positron.RuntimeState.Idle,
+            ended,
+        );
+        getActiveSessionsImpl = async () => [session];
+        const deleted = () =>
+            onDidChangeInterpretersEmitter.fire({ old: { path: deletedPath } as any, new: undefined });
+
+        deleted();
+        deleted();
+        await new Promise((r) => setTimeout(r, 0));
+        const callsBeforeEnd = shutdown.callCount;
+        ended.fire({} as positron.LanguageRuntimeExit);
+        deleted();
+        await new Promise((r) => setTimeout(r, 0));
+
+        assert.deepStrictEqual(
+            { callsBeforeEnd, callsAfterEnd: shutdown.callCount },
+            { callsBeforeEnd: 1, callsAfterEnd: 2 },
+        );
+    });
+
+    test('interpreter deletion: skips sessions that have exited', async () => {
+        // Create Environment > Delete and Recreate can shut down a session the
+        // watcher already shut down; a shutdown sent to an exited kernel fails.
+        const deletedPath = '/path/to/deleted/python';
+        const exitedShutdown = sinon.stub().rejects(new Error('the kernel has exited'));
+        getActiveSessionsImpl = async () => [
+            createFakePythonSession({ pythonPath: deletedPath }, exitedShutdown, 'r', positron.RuntimeState.Exited),
+        ];
+
+        onDidChangeInterpretersEmitter.fire({ old: { path: deletedPath } as any, new: undefined });
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.notCalled(exitedShutdown);
     });
 
     test('interpreter replacement: retracts old alias and re-registers survivor with forceRefresh', async () => {
