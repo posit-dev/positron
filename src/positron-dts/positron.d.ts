@@ -4913,10 +4913,7 @@ declare module 'positron' {
 		export function setCurrentProvider(id: string): Thenable<ChatProvider | undefined>;
 
 		/**
-		 * Gets the list of enabled provider IDs from user configuration.
-		 *
-		 * Reads from individual provider enable settings ('positron.assistant.provider.<name>.enable')
-		 * and the deprecated 'positron.assistant.enabledProviders' array setting for backward compatibility.
+		 * Gets the list of enabled provider IDs from the AI provider catalog (providers.json).
 		 *
 		 * @returns A Thenable that resolves to an array of enabled provider IDs
 		 */

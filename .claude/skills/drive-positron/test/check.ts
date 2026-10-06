@@ -8,9 +8,10 @@
 //   node .claude/skills/drive-positron/test/check.ts
 //
 // types   tsc over scripts/*.ts and test/*.ts with ../tsconfig.json
+// unit    node --test over test/*.test.ts and heal/*.test.ts
 // pagefn  page functions and browser functions are self-contained (page-fns.ts),
 //         and the check still catches a planted violation
-// lint    the repo's eslint, errors only; and ASCII only in scripts/, test/ and
+// lint    the repo's eslint, errors only; and ASCII only in scripts/, test/, heal/ and
 //         the docs (write a product's non-ASCII label as an escape, \u00B7)
 // help    every .sh parses (bash -n), has a Usage header, and prints exactly that
 //         header for --help and -h through usage() in dp-lib.ts; every dp.ts
@@ -34,9 +35,11 @@ import { pageFnProblems } from './page-fns.ts';
 const test = dirname(new URL(import.meta.url).pathname);
 const skill = resolve(test, '..');
 const scripts = join(skill, 'scripts');
+const heal = join(skill, 'heal');
 const repo = resolve(skill, '../../..');
 const bin = (name: string) => join(repo, 'node_modules/.bin', name);
 const ts = (dir: string) => readdirSync(dir).filter(f => f.endsWith('.ts')).map(f => join(dir, f));
+const tsIn = (dir: string) => existsSync(dir) ? ts(dir) : [];
 const sh = readdirSync(scripts).filter(f => f.endsWith('.sh')).sort();
 
 /** Runs a tool and returns its output lines when it fails, nothing when it passes. */
@@ -48,6 +51,11 @@ function run(cmd: string, args: string[]): string[] {
 
 const checks: Record<string, () => string[] | Promise<string[]>> = {
 	types: () => run(bin('tsc'), ['-p', join(skill, 'tsconfig.json')]),
+
+	unit: () => {
+		const files = [...tsIn(test), ...tsIn(heal)].filter(f => f.endsWith('.test.ts'));
+		return files.length ? run(process.execPath, ['--test', ...files]) : ['no *.test.ts files found'];
+	},
 
 	pagefn: () => {
 		const files = ts(scripts);
@@ -70,9 +78,9 @@ const checks: Record<string, () => string[] | Promise<string[]>> = {
 	},
 
 	lint: () => {
-		const files = [...readdirSync(scripts).map(f => join(scripts, f)), ...ts(test), ...['SKILL.md', 'CONTRIBUTING.md', 'test/README.md'].map(f => join(skill, f))];
+		const files = [...readdirSync(scripts).map(f => join(scripts, f)), ...ts(test), ...(existsSync(heal) ? readdirSync(heal).map(f => join(heal, f)) : []), ...['SKILL.md', 'CONTRIBUTING.md', 'test/README.md'].map(f => join(skill, f))];
 		const ascii = files.flatMap(f => readFileSync(f, 'utf8').split('\n').flatMap((l, i) => /[^\x00-\x7F]/.test(l) ? [`${f.slice(skill.length + 1)}:${i + 1}: not ASCII: ${l.trim().slice(0, 80)}`] : []));
-		return [...ascii, ...run(bin('eslint'), ['--quiet', ...ts(scripts), ...ts(test)])];
+		return [...ascii, ...run(bin('eslint'), ['--quiet', ...ts(scripts), ...ts(test), ...tsIn(heal)])];
 	},
 
 	help: async () => {

@@ -538,6 +538,32 @@ test('a step is one action, with no repeat count, second action, assumed state o
 	assert.deepEqual(lint(REPORT, LEDGER.replace('2. VERIFY it loads -> PASS', '2. VERIFY it loads, then shows twice -> PASS')), []);
 });
 
+test('a VERIFY is only the check, with the actions before it as steps of their own', () => {
+	const check = text => lint(REPORT, LEDGER.replace('2. VERIFY it loads -> PASS', `2. VERIFY ${text} -> PASS`)).filter(p => /S01 step 2/.test(p));
+	const did = verb => [`ledger: S01 step 2 VERIFY does something ("${verb}"); make it a step of its own before the check, and keep the VERIFY to what you expect to see`];
+	// Real checks from past runs that name an action word without doing it.
+	for (const text of [
+		'the `n` profile shows Min 5; Max 1500',
+		'Enter creates the folder (Create is enabled)',
+		'focus moves to a footer button',
+		'The dialog closes, focus is back in the editor',
+		'the namespace holds only In, Out, exit, help, open and quit',
+		'the plot still shows the status line (check mark, run time) from its last run',
+		'Tables lists blobs, customers, select and wide',
+		'`n` shows `n`, type int, with no chevron',
+		'the console prints `small big`, then `45`, and returns to a `>>>` prompt',
+		'the kernel is running',
+	]) { assert.deepEqual(check(text), [], text); }
+	assert.deepEqual(check('In the summary panel, type `n` in the column filter and expand the `n` profile; it shows Min 5'), did('type'));
+	assert.deepEqual(check('Typing `n` in the summary column filter and expanding `n` shows Min 5'), did('Typing'));
+	assert.deepEqual(check('after running `del df["num"]`, all 10 rows show'), did('running'));
+	assert.deepEqual(check('clicking Console Information shows "Start Reason"'), did('clicking'));
+	assert.deepEqual(check('the console prints `[1] 2`, and hovering the breakpoint shows "Unverified Breakpoint"'), did('hovering'));
+	assert.deepEqual(check('the pane shows a plot after clicking Show Next Plot'), did('clicking'));
+	assert.deepEqual(lint(REPORT.replace('2. VERIFY the panel loads', '2. VERIFY clicking Retry loads the panel')).filter(p => /VERIFY does/.test(p)),
+		['report: Finding 1 step 2 VERIFY does something ("clicking"); make it a step of its own before the check, and keep the VERIFY to what you expect to see']);
+});
+
 test('a failed scenario\'s Result is its rate only', () => {
 	const result = text => lint(REPORT, LEDGER.replace('Result: Fails 2/2', `Result: ${text}`)).filter(p => /Result:/.test(p));
 	assert.deepEqual(result('Fails 2/2'), []);
@@ -621,6 +647,7 @@ test('each rule is an error or a warning, as the table in lint.mjs says', () => 
 	const warnings = [
 		'ledger: S01 step 2 repeats an action ("twice"); a step is one action, so write each one as its own step',
 		'ledger: S01 step 2 is two actions ("then open"); write each as its own step',
+		'ledger: S01 step 2 VERIFY does something ("type"); make it a step of its own before the check, and keep the VERIFY to what you expect to see',
 		'ledger: S01 step 1 starts "With ..."; make what it assumes a precondition, or do it as a step of its own',
 		'ledger: S02 Result: is 170 characters; keep it to one short sentence, and give anything you did not expect its own VERIFY step',
 		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
