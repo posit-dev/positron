@@ -792,8 +792,9 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
 
     private async _doResolveEnv(envPath: string): Promise<PythonEnvInfo | undefined> {
         // PET can resolve an executable that no longer exists, which would add a
-        // just-deleted env straight back.
-        if (!(await pathExists(envPath))) {
+        // just-deleted env straight back. A bare command name like `python` is
+        // looked up on PATH by PET, so only check absolute paths.
+        if (path.isAbsolute(envPath) && !(await pathExists(envPath))) {
             return undefined;
         }
         // --- End Positron ---

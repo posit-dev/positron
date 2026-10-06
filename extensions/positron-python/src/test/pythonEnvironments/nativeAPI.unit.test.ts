@@ -1356,6 +1356,14 @@ suite('Native Python API', () => {
             mockFinder.verify((f) => f.resolve(venvPython), typemoq.Times.once());
         });
 
+        test('a bare command name is still passed to PET', async () => {
+            // PET looks a command name up on PATH; there is no file named `python` to check.
+            pathExistsStub.withArgs('python').resolves(false);
+            mockFinder.setup((f) => f.resolve('python')).returns(() => Promise.resolve(venvEnv));
+
+            assert.equal((await api.resolveEnv('python'))?.executable.filename, venvPython);
+        });
+
         test('recreating the deleted folder brings the env back', async () => {
             fireDeleted(venvDir);
             // On Linux only the new folder is reported, not the executable inside it.
