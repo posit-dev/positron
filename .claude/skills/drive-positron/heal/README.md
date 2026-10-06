@@ -17,7 +17,10 @@
    (`dp-lib.ts`, `selectors.ts`, `test/`, ...; a `selectors.ts` change that only adds entries
    reaches the scripts that use them) or the sections would take as long. A fix also
    resolves the findings it cascades to. A regression in a section the check skipped shows up in
-   the next night's full run
+   the next night's full run. `check.ts` runs once before the first session, and a fix is
+   rejected only for a check that passed then. No session starts once `--budget-minutes` (what
+   the job timeout leaves) are spent. A fix that changes `test/` or `heal/` leads the report
+   under "Checks changed"
 6. `report.ts`: the step summary, the PR body and the Slack message. Each leads with a headline and
    a "To do" line, then one block per finding: the fixer's plain `broke`, `cause` and `change`
    (falling back to the helper's error), what was checked, and the evidence folded away

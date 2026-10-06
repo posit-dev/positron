@@ -32,7 +32,8 @@ says how a helper is built and checked.
    what it asserted before, and why the old assertion was wrong.
 7. **Check your fix:** run the helper again on the kept instance; helper edits apply without a
    relaunch. Then stop the instance (smoke prints the `stop.sh` line) and run
-   `node .claude/skills/drive-positron/test/check.ts`, which must pass. Do not replay smoke again,
+   `node .claude/skills/drive-positron/test/check.ts`, which must pass (apart from checks the brief
+   says already fail without your fix). Do not replay smoke again,
    and do not commit: the workflow commits and reruns smoke.
 
 ## Driving the app

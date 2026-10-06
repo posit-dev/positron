@@ -185,3 +185,10 @@ test('slack text escapes mrkdwn and drops empty links', () => {
 	assert.doesNotMatch(t, /<b>/);
 	assert.match(slackText(night(), 'https://run', { kind: 'pr', url: '' }), /<https:\/\/run\|see the run>$/);
 });
+
+test('the To do line says when check.ts was red before the fixes and when the fixer time ran out', () => {
+	const n = night({ state: { gate: 'none', checksRedOnMain: ['drift'], outOfTime: 2 } });
+	assert.match(prBody(n, 'u'), /check\.ts was already failing on main: drift\./);
+	assert.match(summaryMarkdown(n, 'u'), /fixer time ran out; 2 findings were left for the next night/);
+	assert.match(slackText(n, 'u', null), /already failing on main: drift/);
+});

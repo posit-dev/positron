@@ -30,14 +30,13 @@ import { spawn, spawnSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { launchFixture, stopFixture, type App } from './fixture-app.ts';
-import { firstRow, groupIds, nameWords, flagValue, selectCases, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
+import { firstRow, groupIds, nameWords, flagValue, selectCases, SMOKE_ROOT, SMOKE_SESSION, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
 
 const test = dirname(new URL(import.meta.url).pathname);
 const scripts = resolve(test, '../scripts');
 const repo = resolve(test, '../../../..');
-// Never positron, replay or fix1: other agents use those sessions.
-const SESSION = 'net1';
-const root = '/private/tmp/dp-smoke-net1';
+const SESSION = SMOKE_SESSION;
+const root = SMOKE_ROOT;
 const ws = join(root, 'ws');
 const dash = process.argv.indexOf('--');
 const own = process.argv.slice(0, dash < 0 ? undefined : dash);
@@ -434,7 +433,7 @@ function cleanup(): void {
 for (const sig of ['SIGINT', 'SIGTERM'] as const) { process.on(sig, () => { cleanup(); process.exit(130); }); }
 
 function launch(): void {
-	launchFixture({ session: SESSION, root, appArgs, onStarted: app => { instance = app; } });
+	launchFixture({ session: SESSION, root, appArgs, onStarted: app => { instance = app; writeFileSync(join(root, 'instance.json'), JSON.stringify({ cdpPort: app.cdpPort, runDir: app.runDir })); } });
 }
 
 /**

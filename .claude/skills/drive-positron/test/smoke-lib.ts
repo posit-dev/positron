@@ -24,6 +24,11 @@ export function firstRow(rows: { kind: string; label: string }[], language: 'r' 
 export type Status = 'PASS' | 'FAIL' | 'KNOWN';
 /** `group` is the smoke.ts section the case is in; a setup step's is its group's too. */
 export interface CaseResult { name: string; status: Status; helper: string; args: string[]; problem: string; ms: number; group?: string }
+// Never positron, replay or fix1: other agents use those sessions.
+export const SMOKE_SESSION = 'net1';
+/** smoke.ts writes instance.json here at launch; a --keep run leaves it for heal/fix-loop.ts to stop. */
+export const SMOKE_ROOT = '/private/tmp/dp-smoke-net1';
+
 export interface SmokeResults { startedAt: string; until: string | null; quick: boolean; launch: 'PASS' | 'FAIL'; launchProblem: string; cases: CaseResult[] }
 
 /** A section of smoke.ts: its cases start at `first`, and `setup` builds what they need from earlier sections. */

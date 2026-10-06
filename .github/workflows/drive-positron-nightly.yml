@@ -65,6 +65,10 @@ jobs:
       RETICULATE_PYTHON: /root/.venv/bin/python
       APP_ARGS: --no-sandbox --disable-dev-shm-usage --use-gl=swiftshader --enable-unsafe-swiftshader --disable-gpu-compositing --password-store=basic
     steps:
+      # For the Fixer's time budget.
+      - name: Note the start time
+        run: echo "HEAL_STARTED=$(date +%s)" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
         id: build-checkout
         with:
@@ -270,8 +274,15 @@ jobs:
           set +e -uo pipefail
           if [ -z "$(ls -A "$HEAL_DIR/findings" 2>/dev/null)" ]; then echo "no findings"; exit 0; fi
           if [ -z "${ANTHROPIC_API_KEY:-}" ]; then echo "findings but no Anthropic key; the key step did not run"; exit 1; fi
+          # The finder may not edit. A commit would move the patches' base, so fail closed;
+          # fix-loop refuses a dirty tree itself.
+          if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then echo "::error::HEAD moved from $GITHUB_SHA to $(git rev-parse HEAD) before the fixer ran"; exit 1; fi
+          # No session starts past this: the 330-minute timeout, less 30 for the steps after
+          # this one and 40 for the last session (25) and its checks.
+          budget=$(( 330 - 30 - 40 - ($(date +%s) - HEAL_STARTED) / 60 ))
+          [ "$budget" -lt 0 ] && budget=0
           # shellcheck disable=SC2086
-          node .claude/skills/drive-positron/heal/fix-loop.ts --dir "$HEAL_DIR" --runner "$RUNNER" --cap 5 -- $APP_ARGS
+          node .claude/skills/drive-positron/heal/fix-loop.ts --dir "$HEAL_DIR" --runner "$RUNNER" --cap 5 --budget-minutes "$budget" -- $APP_ARGS
           code=$?
           if [ -d "$HEAL_DIR/patches" ]; then
             # The paths links.ts checksChanged flags: what the post-fix check itself runs.

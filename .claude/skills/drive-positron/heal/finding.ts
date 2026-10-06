@@ -70,7 +70,13 @@ export function writeFinding(dir: string, f: Finding): void {
 	writeFileSync(join(dir, `${f.id}.json`), `${JSON.stringify(f, null, '\t')}\n`);
 }
 
-export interface State { wholesale?: boolean; scopeViolation?: string; gate?: 'pass' | 'fail' | 'none'; notAttempted?: string[] }
+export interface State {
+	wholesale?: boolean; scopeViolation?: string; gate?: 'pass' | 'fail' | 'none'; notAttempted?: string[];
+	/** The check.ts checks that failed before any fix; a fix is judged on the others. */
+	checksRedOnMain?: string[];
+	/** Findings left without a session because the night's fixer budget ran out. */
+	outOfTime?: number;
+}
 export function readState(dir: string): State {
 	const file = join(dir, 'state.json');
 	return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) as State : {};

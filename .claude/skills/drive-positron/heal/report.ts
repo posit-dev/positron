@@ -80,6 +80,8 @@ function toDo(n: Night, where: 'summary' | 'pr' | 'slack'): string {
 	if (n.state.wholesale) { out.push('Check the app and the runner: more than a quarter of the smoke cases failed twice, which is the environment, not the helpers. No fixer ran.'); }
 	if (n.state.scopeViolation) { out.push(`A fixer edited outside .claude/skills/drive-positron/ (${n.state.scopeViolation}); its change was thrown away and fixing stopped.`); }
 	if (n.problems?.length) { out.push('Some report inputs could not be read; see Report problems.'); }
+	if (n.state.checksRedOnMain?.length) { out.push(`check.ts was already failing on main: ${n.state.checksRedOnMain.join(', ')}.`); }
+	if (n.state.outOfTime) { out.push(`The night's fixer time ran out; ${s(n.state.outOfTime, 'finding was', 'findings were')} left for the next night.`); }
 	const fixes = n.findings.filter(kept);
 	if (fixes.length) {
 		const why = unverified(n);

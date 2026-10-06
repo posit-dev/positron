@@ -67,3 +67,15 @@ export function fixedBefore(runs: Map<string, Finding[]>, id: string): string[] 
 	return [...runs].filter(([, fs]) => fs.some(f => f.id === id && f.outcome === 'fixed' && f.commit && !f.rejected))
 		.map(([run]) => run).sort((a, b) => Number(b) - Number(a));
 }
+
+/** check.ts's verdict per check, from the `PASS|FAIL <name>` line it prints for each. */
+export function parseChecks(out: string): Map<string, 'PASS' | 'FAIL'> {
+	return new Map([...out.matchAll(/^(PASS|FAIL) (\S+)/gm)].map(m => [m[2], m[1] as 'PASS' | 'FAIL']));
+}
+
+/** The checks a fix turned red: failing now but not before, or passing before and gone now. */
+export function newCheckFailures(before: Map<string, 'PASS' | 'FAIL'>, after: Map<string, 'PASS' | 'FAIL'>): string[] {
+	const failing = [...after].filter(([name, v]) => v === 'FAIL' && before.get(name) !== 'FAIL').map(([name]) => name);
+	const gone = [...before].filter(([name, v]) => v === 'PASS' && !after.has(name)).map(([name]) => name);
+	return [...failing, ...gone];
+}

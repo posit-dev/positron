@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { earlierVerdicts, fixedBefore, queue, readOutcome, regressions } from './fix-lib.ts';
+import { earlierVerdicts, fixedBefore, newCheckFailures, parseChecks, queue, readOutcome, regressions } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -66,4 +66,18 @@ test('earlierVerdicts: newest run first, only this id, resolved and open skipped
 	assert.deepEqual(earlierVerdicts(runs, 'smoke-a'), ['run 10: fixed: helper', 'run 9: product: upstream', 'run 6: fixed (rejected: check.ts failed): old']);
 	assert.deepEqual(earlierVerdicts(runs, 'smoke-a', 1), ['run 10: fixed: helper']);
 	assert.deepEqual(earlierVerdicts(runs, 'smoke-z'), []);
+});
+
+const CHECK_OUT = 'PASS lint        12 ms\nFAIL drift      40 ms  1 problem(s)\n     FAIL inside a problem line\nPASS unit      900 ms\n1 check(s) failed\n';
+
+test('parseChecks reads the PASS|FAIL line of each check, not the indented problems', () => {
+	assert.deepEqual([...parseChecks(CHECK_OUT)], [['lint', 'PASS'], ['drift', 'FAIL'], ['unit', 'PASS']]);
+	assert.equal(parseChecks('node: crashed').size, 0);
+});
+
+test('newCheckFailures ignores what was red before, and counts a check that vanished', () => {
+	const before = parseChecks(CHECK_OUT);
+	assert.deepEqual(newCheckFailures(before, before), []);
+	assert.deepEqual(newCheckFailures(before, parseChecks('PASS lint 1 ms\nFAIL drift 1 ms\nFAIL unit 1 ms\nFAIL extra 1 ms\n')), ['unit', 'extra']);
+	assert.deepEqual(newCheckFailures(before, parseChecks('FAIL drift 1 ms\n')), ['lint', 'unit']);
 });
