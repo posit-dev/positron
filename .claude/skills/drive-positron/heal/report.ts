@@ -110,6 +110,11 @@ function status(f: Finding): string {
 const seen = (f: Finding) => { const m = String(f.observed).match(/"error":"((?:[^"\\]|\\.)*)"/); return m ? m[1].replace(/\\"/g, '"') : cut(f.observed, 200); };
 const cut = (t: unknown, max: number) => { const x = String(t ?? ''); return x.length > max ? `${x.slice(0, max)}...` : x; };
 
+/** Model text with each @mention and issue reference in a code span, so the PR body pings and links nothing. Existing code spans are left alone. */
+export function inert(t: string): string {
+	return t.split(/(`[^`]*`)/).map((part, i) => i % 2 ? part : part.replace(/(?<![\w`])(@[A-Za-z0-9][\w-]*(?:\/[\w.-]+)?|(?:[\w.-]+\/[\w.-]+)?#\d+|GH-\d+)/g, '`$1`')).join('');
+}
+
 function checked(f: Finding, n: Night): string {
 	const fails = f.reproductions.filter(r => r.result === 'fail').length;
 	const tries = `failed ${fails} of ${s(f.reproductions.length, 'try', 'tries')}`;
@@ -128,14 +133,14 @@ function block(f: Finding, n: Night, h: string): string {
 	const runs = f.fixedBefore ?? [];
 	return [
 		`${h} ${title(f)}: ${status(f)}`, '',
-		`- **What broke:** ${f.broke ?? `${f.helper}: ${seen(f)}`}`,
-		...(f.cause ? [`- **Why:** ${f.cause}`] : []),
-		...(f.change && f.outcome === 'fixed' ? [`- **Fix:** ${f.change}`] : []),
-		`- **Checked:** ${checked(f, n)}.`,
+		`- **What broke:** ${inert(f.broke ?? `${f.helper}: ${seen(f)}`)}`,
+		...(f.cause ? [`- **Why:** ${inert(f.cause)}`] : []),
+		...(f.change && f.outcome === 'fixed' ? [`- **Fix:** ${inert(f.change)}`] : []),
+		`- **Checked:** ${inert(checked(f, n))}.`,
 		...(runs.length ? [`- **Seen before:** fixed on ${s(runs.length, 'earlier night')} too (${runs.map(r => `run ${r}`).join(', ')}) and came back, so those fixes never landed.`] : []),
 		'', '<details><summary>Evidence</summary>', '',
-		...(f.reason ? [`**Reason:** ${cut(f.reason, 1500)}`, ''] : []),
-		'**Tries:**', ...f.reproductions.map(r => `- ${r.by}, ${r.result}: ${cut(r.observed, 300).replace(/\s+/g, ' ')}`), '',
+		...(f.reason ? [`**Reason:** ${inert(cut(f.reason, 1500))}`, ''] : []),
+		'**Tries:**', ...f.reproductions.map(r => `- ${r.by}, ${r.result}: ${inert(cut(r.observed, 300).replace(/\s+/g, ' '))}`), '',
 		'**To reproduce:**', '', fenced(cut(f.steps.join('\n'), 500), 'sh'), '',
 		...(f.commit ? [`**Commit:** ${f.commit}`, ''] : []),
 		'</details>', '',
@@ -170,7 +175,7 @@ function checksSection(n: Night): string {
 	if (!changed.length) { return ''; }
 	const diff = n.checksDiff.trim();
 	const body = !diff ? '(diff unavailable)' : fenced(diff.length > MAX_DIFF ? diff.slice(0, MAX_DIFF) : diff, 'diff') + (diff.length > MAX_DIFF ? '\n(truncated, see the run)' : '');
-	return ['### Checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${(f.reason ?? '').slice(0, 300)}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', body, '', ''].join('\n');
+	return ['### Checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${inert((f.reason ?? '').slice(0, 300))}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', body, '', ''].join('\n');
 }
 
 export function prTitle(n: Night): string {

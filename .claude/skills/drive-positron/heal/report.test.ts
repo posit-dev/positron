@@ -9,7 +9,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { Finding } from './finding.ts';
-import { counts, loadNight, prBody, prTitle, shouldNotify, slackText, summaryMarkdown, totalCost, type Night } from './report.ts';
+import { counts, inert, loadNight, prBody, prTitle, shouldNotify, slackText, summaryMarkdown, totalCost, type Night } from './report.ts';
 
 const f = (id: string, extra: Partial<Finding> = {}): Finding => ({
 	id, source: 'smoke', case: id, helper: 'x.sh', steps: ['s'], observed: `obs ${id}`, expected: 'e',
@@ -191,4 +191,11 @@ test('the To do line says when check.ts was red before the fixes and when the fi
 	assert.match(prBody(n, 'u'), /check\.ts was already failing on main: drift\./);
 	assert.match(summaryMarkdown(n, 'u'), /fixer time ran out; 2 findings were left for the next night/);
 	assert.match(slackText(n, 'u', null), /already failing on main: drift/);
+});
+
+test('inert wraps mentions and issue references in code spans, outside existing ones', () => {
+	assert.equal(inert('ask @someone about #123 and posit-dev/positron#9, GH-4'), 'ask `@someone` about `#123` and `posit-dev/positron#9`, `GH-4`');
+	assert.equal(inert('`panel.sh @x #1` stays; mail bot@posit.co, C# and a#1 too'), '`panel.sh @x #1` stays; mail bot@posit.co, C# and a#1 too');
+	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', broke: 'pinged @org/team', cause: 'see #42', change: 'c', reason: 'r @me' })] }), 'u');
+	assert.doesNotMatch(body, /[^`]@org\/team|[^`]#42|[^`]@me/);
 });
