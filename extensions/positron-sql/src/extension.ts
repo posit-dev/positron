@@ -10,7 +10,7 @@ import { Analysis, EMPTY_ANALYSIS, SqlAnalyzer, StatementSpan } from './analyzer
 import { SqlCompletionItemProvider } from './completion';
 import { collectDiagnostics } from './diagnostics';
 import { dialectOfDriver } from './dialects';
-import { positronExecutionApi, StatementRunner } from './execution';
+import { languageName, positronExecutionApi, StatementRunner } from './execution';
 import { hoverFor } from './hover';
 import { collectLinks } from './links';
 import { SqlLog } from './log';
@@ -422,12 +422,13 @@ class SqlSession implements vscode.Disposable {
 				break;
 
 			case 'not-run':
-				// The SQL console the statement was headed for did not take it -- closed between
-				// the key press and the statement reaching it, most likely. Nothing ran, and
-				// nothing was quietly run somewhere else instead, which is the part worth saying.
+				// The session the statement was headed for is not there to take it -- it exited,
+				// most likely, and an exited console accepts code without running it or saying so.
+				// Nothing ran, and nothing was quietly run somewhere else instead, which is the
+				// part worth saying.
 				void vscode.window.showWarningMessage(vscode.l10n.t(
-					"The {0} console did not take the statement, so it was not run.",
-					outcome.languageId,
+					"The {0} session is not available, so the statement was not run.",
+					languageName(outcome.languageId),
 				));
 				break;
 

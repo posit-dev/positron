@@ -161,6 +161,7 @@ export type ExecutionOutcome =
 	/** Positron would not list the connections at all, e.g. because Data Connections is off. */
 	| { readonly kind: 'unavailable'; readonly reason: string }
 	| { readonly kind: 'no-language' }
+	/** No session for the language was there to take it: none running, or one that has exited. */
 	| { readonly kind: 'not-run'; readonly languageId: string }
 	| { readonly kind: 'connect-failed'; readonly binding: positron.DataConnectionBinding }
 	| { readonly kind: 'no-query-code'; readonly binding: positron.DataConnectionBinding };
@@ -689,12 +690,12 @@ export class StatementRunner {
 				+ ` session ${binding.sessionId}, so the query was not run.`);
 			return { kind: 'connect-failed', binding };
 		} catch (error) {
-			// A session that cannot be asked -- one whose runtime does not support evaluation, or
-			// which has gone away -- is one this cannot vouch for either way. Running the query is
-			// the better of the two guesses: the connection may well have worked, and if it did
-			// not, the console already says why.
-			this._log.warn(`Could not confirm the connection in session ${binding.sessionId}: ${error}`);
-			return { kind: 'bound', binding };
+			// A session that cannot be asked has most likely exited, and one that has exited takes
+			// the query without running it or saying anything. So the query is not sent, and the
+			// user is told the session is not there rather than left waiting for a result.
+			this._log.warn(`Could not confirm the connection in session ${binding.sessionId}, so the`
+				+ ` query was not run: ${errorMessage(error)}`);
+			return { kind: 'not-run', languageId: binding.languageId };
 		}
 	}
 
@@ -745,6 +746,7 @@ function errorMessage(error: unknown): string {
 type BindOutcome =
 	| { readonly kind: 'bound'; readonly binding: positron.DataConnectionBinding }
 	| { readonly kind: 'cancelled' }
+	| { readonly kind: 'not-run'; readonly languageId: string }
 	| { readonly kind: 'connect-failed'; readonly binding: positron.DataConnectionBinding };
 
 /** The sessions a run reasons about: the one in front of the user, and all of them. */
@@ -834,7 +836,7 @@ export async function pickLanguage(
  * are the languages Positron runs, and an id that is not one of them is better shown as itself
  * than as nothing.
  */
-function languageName(languageId: string): string {
+export function languageName(languageId: string): string {
 	switch (languageId) {
 		case 'python':
 			return 'Python';
