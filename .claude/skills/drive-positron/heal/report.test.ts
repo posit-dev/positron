@@ -58,11 +58,12 @@ test('summary names a wholesale break and a scope violation', () => {
 });
 
 test('slack text has the header, a block per finding and the link', () => {
-	const fix = f('a', { outcome: 'fixed', broke: 'B', change: 'C', fixedBefore: ['1', '2'] });
-	const t = slackText(night({ findings: [fix, f('p', { outcome: 'product' })], state: { gate: 'pass' } }), 'https://run', { kind: 'pr', url: 'https://gh/pull/12' });
+	const fix = f('a', { outcome: 'fixed', broke: 'B', cause: 'W', change: 'C', fixedBefore: ['1', '2'] });
+	const t = slackText(night({ findings: [fix, f('p', { outcome: 'product', cause: 'It hides 42.' })], state: { gate: 'pass' } }), 'https://run', { kind: 'pr', url: 'https://gh/pull/12' });
 	assert.match(t, /^\*\/drive-positron locator repairs \u00b7 1 fix, 1 product bug\*/);
 	assert.match(t, /`a`\n\*Broke\* \u00b7 B\n\*Fix\* \u00b7 C\n_Fixed on 2 earlier nightlies too/);
-	assert.match(t, /`p`\n\*Broke\* \u00b7 obs p\n\*Status\* \u00b7 product bug/);
+	assert.match(t, /`p`\n\*Broke\* \u00b7 obs p\n\*Status\* \u00b7 product bug\n\*Why\* \u00b7 It hides 42\./);
+	assert.doesNotMatch(t, /\*Why\* \u00b7 W/);
 	assert.match(t, /\*To do\* \u00b7 Look at the 1 product bug/);
 	assert.doesNotMatch(t, /Review|\$/);
 	assert.match(t, /\u2192 <https:\/\/gh\/pull\/12\|review PR #12>$/);

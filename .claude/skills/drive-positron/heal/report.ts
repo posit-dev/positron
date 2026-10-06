@@ -224,6 +224,7 @@ export function slackText(n: Night, runUrl: string, link: { kind: 'compare' | 'p
 		`\`${esc(title(f))}\``,
 		`*Broke*${DOT}${esc(f.broke ?? seen(f))}`,
 		kept(f) && f.change ? `*Fix*${DOT}${esc(f.change)}` : kept(f) ? '' : `*Status*${DOT}${esc(status(f))}`,
+		!kept(f) && f.cause ? `*Why*${DOT}${esc(f.cause)}` : '',
 		kept(f) && f.fixedBefore?.length ? `_Fixed on ${s(f.fixedBefore.length, 'earlier nightly', 'earlier nightlies')} too, but those fixes never merged._` : '',
 	].filter(Boolean).join('\n');
 	return [
