@@ -2,8 +2,8 @@ name: "drive-positron: Nightly Self-Heal"
 
 # Keeps drive-positron's helpers working. Runs smoke, reruns the failures once
 # to keep only the ones that hold up, explores one area on explore nights, and
-# has an agent fix helper bugs one at a time, each checked by check.ts and a
-# full smoke run. Burn-in: a passing fix is pushed to a candidate branch and
+# has an agent fix helper bugs one at a time, each checked by check.ts and
+# smoke over the sections it can reach. Burn-in: a passing fix is pushed to a candidate branch and
 # linked in a Slack DM. Live: it goes to one rolling PR. Never merges.
 # Design: .claude/skills/drive-positron/heal/README.md.
 

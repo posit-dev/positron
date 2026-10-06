@@ -45,12 +45,15 @@ export function shouldNotify(n: Night): boolean {
 	return n.smokeRed || n.jobFailed !== null || n.findings.length > 0 || Boolean(n.state.scopeViolation) || Boolean(n.problems?.length);
 }
 
-/** What the gate (check.ts plus a full smoke run over the fixes) told us; only 'passed' may be reported as safe. */
+/** What the gate (check.ts plus a smoke run over each fix) told us; only 'passed' may be reported as safe. */
 function gateText(n: Night): string | null {
 	if (n.jobFailed) { return `did not finish (the job broke at "${n.jobFailed}"); the fixes are unchecked`; }
 	if (n.state.wholesale) { return null; }
 	switch (n.state.gate) {
-		case 'pass': return 'passed';
+		case 'pass': {
+			const some = n.findings.filter(f => f.commit && !f.rejected && f.smokeSections);
+			return some.length ? `passed (smoke reran only the sections ${some.map(f => f.id).join(', ')} can reach; the next nightly runs them all)` : 'passed';
+		}
 		case 'fail': return 'failed; do not merge';
 		case 'none': return 'not run (no fix was accepted)';
 		default: return n.findings.length ? 'unknown (the fix loop did not finish); the fixes are unchecked' : null;

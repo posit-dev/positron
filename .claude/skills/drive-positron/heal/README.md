@@ -11,7 +11,11 @@
    and the earlier verdicts in each fixer brief
 4. `finder.ts` on explore nights: one agent session explores one area (`areas.json`) and writes findings
 5. `fix-loop.ts`: one fixer session per finding (at most 5); each fix is committed, then `check.ts`
-   and a full smoke run decide whether it stays; a fix also resolves the findings it cascades to
+   and smoke decide whether it stays: only the sections whose cases run a helper the change can
+   reach (`affected.ts`), each on its own launch, or the full suite when the change is shared
+   (`dp-lib.ts`, `selectors.ts`, `test/`, ...) or the sections would take as long. A fix also
+   resolves the findings it cascades to. A regression in a section the check skipped shows up in
+   the next night's full run
 6. `report.ts`: the step summary, the PR body and the Slack message
 
 The workflow's `publish` job pushes a candidate branch (burn-in) or updates the rolling PR (live);

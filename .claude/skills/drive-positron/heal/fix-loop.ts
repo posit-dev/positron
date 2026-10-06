@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 // One fixer session per open finding, at most --cap a night. Each "fixed"
-// becomes a commit, then check.ts and a full smoke run decide whether it stays.
+// becomes a commit, then check.ts and a smoke run decide whether it stays: the
+// sections the change can reach (affected.ts), or the full suite when it is
+// shared.
 //
 //   node .claude/skills/drive-positron/heal/fix-loop.ts --dir /tmp/heal --runner PATH/session-cli.mjs [--cap 5] [-- APP ARGS...]
 //
@@ -18,9 +20,10 @@ import { fileURLToPath } from 'url';
 import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
-import { earlierVerdicts, queue, readOutcome, regressions } from './fix-lib.ts';
+import { affectedHelpers, postSections, readGraph } from './affected.ts';
+import { earlierVerdicts, inSections, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
 import { smokeChecksChanged } from './links.ts';
-import { cascade } from './rerun-lib.ts';
+import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -149,30 +152,38 @@ function main(): number {
 		git('-c', 'user.name=positron-bot', '-c', 'user.email=positron-bot@posit.co', 'commit', '-q', '--no-verify', '-m', `drive-positron: fix ${f.id}\n\n${o.reason}`);
 		const sha = git('rev-parse', 'HEAD').trim();
 
-		// The post-fix check: check.ts, then the full suite, which is also the cascade re-check.
+		// The post-fix check: check.ts, then smoke over the sections the change can reach, one
+		// launch each (--until a section's last case runs its setup and all its cases), or the
+		// full suite. It is also the cascade re-check.
 		const check = spawnSync(process.execPath, [join(here, '../test/check.ts')], { cwd: repo, encoding: 'utf8' });
-		const postFile = join(dir, `post-${n}.json`);
-		rmSync(postFile, { force: true });
-		const smoke = check.status === 0
-			? spawnSync(process.execPath, [join(here, '../test/smoke.ts'), '--results', postFile, '--', ...appArgs], { cwd: repo, encoding: 'utf8' })
-			: null;
-		writeFileSync(join(dir, 'checks', `post-${n}.txt`), `${check.stdout ?? ''}${check.stderr ?? ''}\n${smoke ? `${smoke.stdout ?? ''}${smoke.stderr ?? ''}` : '(smoke not run: check.ts failed)'}`);
-		let after: SmokeResults | null = null;
-		try { after = smoke && existsSync(postFile) ? readResults(postFile) : null; } catch { /* reported as "smoke did not run" */ }
-		const reg = after ? regressions(baseline, after) : [];
+		const sections = postSections(baseline, affectedHelpers(touched, readGraph(join(here, '../scripts'))), f);
+		const runs = (sections ?? [null]).map((s, i) => ({ until: s?.last, file: join(dir, sections ? `post-${n}-${i + 1}.json` : `post-${n}.json`) }));
+		const outputs: string[] = [];
+		const results: SmokeResults[] = [];
+		let ran = check.status === 0;
+		for (const run of check.status === 0 ? runs : []) {
+			rmSync(run.file, { force: true });
+			const smoke = spawnSync(process.execPath, [join(here, '../test/smoke.ts'), ...(run.until ? ['--until', run.until] : []), '--results', run.file, '--', ...appArgs], { cwd: repo, encoding: 'utf8' });
+			outputs.push(`${smoke.stdout ?? ''}${smoke.stderr ?? ''}`);
+			try { results.push(readResults(run.file)); } catch { ran = false; break; }
+			if (results.at(-1)!.launch === 'FAIL') { break; }
+		}
+		writeFileSync(join(dir, 'checks', `post-${n}.txt`), `${check.stdout ?? ''}${check.stderr ?? ''}\n${check.status === 0 ? outputs.join('\n') : '(smoke not run: check.ts failed)'}`);
+		const after = ran ? mergeResults(results) : null;
+		const reg = after ? regressions(sections ? inSections(baseline, sections.map(s => s.id)) : baseline, after) : [];
 		const verdict = check.status !== 0 ? 'check.ts failed'
 			: !after || after.launch === 'FAIL' ? 'smoke did not run'
 			: reg.length ? `turned red: ${reg.map(c => `${c.name} (${c.problem.slice(0, 160)})`).join('; ')}`
 			: f.case && !after.cases.some(c => c.name === f.case && c.status === 'PASS') ? `its own case "${f.case}" still fails`
 			: '';
-		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], smokeChecksChanged: changed, commit: sha, ...(verdict ? { rejected: verdict } : {}) }));
+		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], smokeChecksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}), ...(verdict ? { rejected: verdict } : {}) }));
 		if (verdict) {
 			discard(pre, false);
 			console.log(`fix-loop: ${f.id} fix rejected: ${verdict}`);
 			continue;
 		}
 		accepted++;
-		baseline = after!;
+		baseline = sections ? replaceCases(baseline, after!) : after!;
 		findings = cascade(findings, after!, f.id, after!.startedAt);
 		for (const x of findings) { writeFinding(fdir, x); }
 		console.log(`fix-loop: ${f.id} fixed in ${sha.slice(0, 8)}`);

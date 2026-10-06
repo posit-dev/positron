@@ -24,6 +24,17 @@ export function regressions(before: SmokeResults, after: SmokeResults): CaseResu
 	});
 }
 
+/** Only the cases in these sections; a post-fix run of some sections is compared on those alone. */
+export function inSections(r: SmokeResults, ids: string[]): SmokeResults {
+	return { ...r, cases: r.cases.filter(c => c.group !== undefined && ids.includes(c.group)) };
+}
+
+/** The baseline with `after`'s results in place of its own, for a run that covered only some sections. */
+export function replaceCases(baseline: SmokeResults, after: SmokeResults): SmokeResults {
+	const now = new Map(after.cases.map(c => [c.name, c]));
+	return { ...baseline, cases: baseline.cases.map(c => now.get(c.name) ?? c) };
+}
+
 export function readOutcome(text: string | null): FixerOutcome | string {
 	if (text === null) { return 'the fixer wrote no outcome file'; }
 	let o: Partial<FixerOutcome> | null;

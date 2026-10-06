@@ -75,6 +75,12 @@ test('a missing gate is unknown, never a pass', () => {
 	assert.match(prBody(night({ findings: fixed, state: { gate: 'fail' } }), 'u'), /Gate: failed/);
 });
 
+test('a gate over some sections says so', () => {
+	const fixes = [f('a', { outcome: 'fixed', commit: 'abc', smokeSections: ['terminal'] }), f('b', { outcome: 'fixed', commit: 'def' })];
+	const text = prBody(night({ findings: fixes, state: { gate: 'pass' } }), 'u');
+	assert.match(text, /Gate: passed \(smoke reran only the sections a can reach; the next nightly runs them all\)/);
+});
+
 test('a failed job never reports the gate as passed', () => {
 	const n = night({ findings: [f('a', { outcome: 'fixed' })], state: { gate: 'pass' }, jobFailed: 'Fix' });
 	for (const text of [prBody(n, 'u'), summaryMarkdown(n, 'u'), slackText(n, 'u', null)]) {

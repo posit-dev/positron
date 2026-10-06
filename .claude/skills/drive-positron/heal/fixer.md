@@ -32,7 +32,7 @@ says how a helper is built and checked.
 7. **Check your fix:** run the helper again on the kept instance; helper edits apply without a
    relaunch. Then stop the instance (smoke prints the `stop.sh` line) and run
    `node .claude/skills/drive-positron/test/check.ts`, which must pass. Do not replay smoke again,
-   and do not commit: the workflow commits and runs the full suite.
+   and do not commit: the workflow commits and reruns smoke.
 
 ## Driving the app
 

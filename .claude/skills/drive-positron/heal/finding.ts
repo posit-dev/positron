@@ -17,6 +17,8 @@ export interface Finding {
 	observed: string; expected: string; reproductions: Reproduction[];
 	outcome?: Outcome; reason?: string; resolvedBy?: string; smokeChecksChanged?: boolean;
 	commit?: string; rejected?: string; notAttempted?: string;
+	/** The smoke sections the post-fix check reran; absent when it ran the full suite. */
+	smokeSections?: string[];
 }
 
 const OUTCOMES = ['fixed', 'product', 'flake', 'resolved'];
