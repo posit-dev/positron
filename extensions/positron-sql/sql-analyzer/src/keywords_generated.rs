@@ -84,6 +84,16 @@ pub const BASE: &[&[&str]] = &[
         "NOT BETWEEN", "NOT ILIKE", "NOT IN", "NOT LIKE", "OFFSET", "OR", "ORDER BY", "OVERLAPS",
         "QUALIFY", "RLIKE", "SIMILAR TO", "UNION", "UNION ALL", "WINDOW",
     ],
+    // joinCondition
+    &[
+        "AND", "AT TIME ZONE", "BETWEEN", "COLLATE", "CROSS JOIN", "EXCEPT", "FETCH", "FULL JOIN",
+        "FULL OUTER JOIN", "GROUP BY", "HAVING", "ILIKE", "IN", "INNER JOIN", "INTERSECT", "IS",
+        "IS DISTINCT FROM", "IS FALSE", "IS NOT DISTINCT FROM", "IS NOT NULL", "IS NULL",
+        "IS TRUE", "JOIN", "LEFT JOIN", "LEFT OUTER JOIN", "LIKE", "LIMIT", "MINUS",
+        "NATURAL JOIN", "NOT BETWEEN", "NOT ILIKE", "NOT IN", "NOT LIKE", "OFFSET", "OR",
+        "ORDER BY", "OVERLAPS", "QUALIFY", "RIGHT JOIN", "RIGHT OUTER JOIN", "RLIKE", "SIMILAR TO",
+        "UNION", "UNION ALL", "WHERE", "WINDOW",
+    ],
     // orderItem
     &[
         "AND", "ASC", "AT TIME ZONE", "BETWEEN", "COLLATE", "DESC", "FETCH", "FOR UPDATE", "ILIKE",
@@ -93,8 +103,8 @@ pub const BASE: &[&[&str]] = &[
     ],
     // windowSpec
     &[
-        "CURRENT ROW", "FOLLOWING", "GROUPS", "ORDER BY", "PARTITION BY", "PRECEDING", "RANGE",
-        "ROWS", "UNBOUNDED FOLLOWING", "UNBOUNDED PRECEDING",
+        "AND", "BETWEEN", "CURRENT ROW", "FOLLOWING", "GROUPS", "ORDER BY", "PARTITION BY",
+        "PRECEDING", "RANGE", "ROW", "ROWS", "UNBOUNDED FOLLOWING", "UNBOUNDED PRECEDING",
     ],
     // columnDefinition
     &[

@@ -80,6 +80,10 @@ pub enum Position {
     Subquery,
     /// After a complete expression in a clause that takes one.
     Expression,
+    /// After a complete join condition, its `ON` expression or its `USING` list, where the query
+    /// may go on to another join or to its `WHERE` -- neither of which may follow the expression
+    /// of a `WHERE` itself.
+    JoinCondition,
     /// After an `ORDER BY` item.
     OrderItem,
     /// Directly after `OVER (`.
@@ -116,6 +120,7 @@ pub const POSITIONS: &[Position] = &[
     Position::Value,
     Position::Subquery,
     Position::Expression,
+    Position::JoinCondition,
     Position::OrderItem,
     Position::WindowSpec,
     Position::ColumnDefinition,
@@ -141,6 +146,7 @@ impl Position {
             Position::Value => "value",
             Position::Subquery => "subquery",
             Position::Expression => "expression",
+            Position::JoinCondition => "joinCondition",
             Position::OrderItem => "orderItem",
             Position::WindowSpec => "windowSpec",
             Position::ColumnDefinition => "columnDefinition",
@@ -177,11 +183,20 @@ impl Position {
             Position::Value => &["SELECT * FROM orders WHERE "],
             Position::Subquery => &["SELECT * FROM orders WHERE id IN ("],
             Position::Expression => &["SELECT * FROM orders WHERE id = 1 "],
+            Position::JoinCondition => &[
+                "SELECT * FROM a JOIN b ON a.id = b.id ",
+                "SELECT * FROM a JOIN b USING (id) ",
+            ],
             Position::OrderItem => &["SELECT * FROM orders ORDER BY id "],
             Position::WindowSpec => &[
                 "SELECT row_number() OVER (",
                 "SELECT row_number() OVER (ROWS ",
                 "SELECT row_number() OVER (ORDER BY a ROWS UNBOUNDED PRECEDING ",
+                "SELECT row_number() OVER (ORDER BY a ROWS BETWEEN UNBOUNDED PRECEDING ",
+                "SELECT row_number() OVER (ORDER BY a ROWS BETWEEN UNBOUNDED PRECEDING AND ",
+                // Where `ROW` alone belongs: typed out by hand, `CURRENT R` must not be answered
+                // only with `RANGE` and `ROWS`.
+                "SELECT row_number() OVER (ORDER BY a ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ",
             ],
             Position::ColumnDefinition => &["CREATE TABLE orders (id "],
             Position::ExpectingBy => &["SELECT * FROM orders GROUP "],
@@ -239,6 +254,9 @@ impl Position {
             .concat(),
             Position::Expression => {
                 [OPERATORS, PREDICATE_TAIL_CLAUSES, SET_OPERATORS].concat()
+            }
+            Position::JoinCondition => {
+                [OPERATORS, TABLE_TAIL_CLAUSES, JOINS, SET_OPERATORS].concat()
             }
             Position::OrderItem => [
                 OPERATORS,
@@ -318,8 +336,8 @@ const GROUPING_MODIFIERS: &[&str] = &["CUBE", "GROUPING SETS", "ROLLUP"];
 
 /// What a window specification is built from.
 const WINDOW_SPEC: &[&str] = &[
-    "CURRENT ROW", "FOLLOWING", "GROUPS", "ORDER BY", "PARTITION BY", "PRECEDING", "RANGE", "ROWS",
-    "UNBOUNDED FOLLOWING", "UNBOUNDED PRECEDING",
+    "AND", "BETWEEN", "CURRENT ROW", "FOLLOWING", "GROUPS", "ORDER BY", "PARTITION BY", "PRECEDING",
+    "RANGE", "ROW", "ROWS", "UNBOUNDED FOLLOWING", "UNBOUNDED PRECEDING",
 ];
 
 /// The verbs a statement may begin with.
@@ -459,9 +477,14 @@ fn place(tokens: &[TokenWithSpan]) -> Position {
     let mut group_start = 0usize;
     let mut group_starts: Vec<usize> = Vec::new();
     let mut clause: Option<Keyword> = None;
-    let mut clauses: Vec<Option<Keyword>> = Vec::new();
+    // What the clause state was outside each open parenthesis, restored as it closes: a subquery
+    // has clauses of its own, and `JOIN (SELECT ... FROM x) d` is still a join once it is over.
+    let mut clauses: Vec<(Option<Keyword>, bool, bool)> = Vec::new();
     // Whether the table reference being read followed a JOIN, which is what makes `ON` legal.
     let mut joined = false;
+    // Whether the clause is the `ON` or `USING` of a join, as opposed to the `ON` of, say, a
+    // `CREATE INDEX`.
+    let mut join_condition = false;
     // Whether the token before this one introduced a name, which makes this one a name however it
     // is spelled. sqlparser's keyword table is global, so `order`, `value` and `year` are all in
     // it and all perfectly ordinary table names.
@@ -482,7 +505,7 @@ fn place(tokens: &[TokenWithSpan]) -> Position {
                 };
                 stack.push(group);
                 group_starts.push(group_start);
-                clauses.push(clause);
+                clauses.push((clause, joined, join_condition));
                 group = opened;
                 group_start = at + 1;
                 clause = None;
@@ -490,13 +513,15 @@ fn place(tokens: &[TokenWithSpan]) -> Position {
             Token::RParen => {
                 group = stack.pop().unwrap_or(Group::None);
                 group_start = group_starts.pop().unwrap_or(0);
-                clause = clauses.pop().unwrap_or(None);
+                (clause, joined, join_condition) = clauses.pop().unwrap_or((None, false, false));
             }
             Token::Word(word) if word.quote_style.is_none() && !naming => {
                 if is_join_word(word.keyword) {
                     joined = true;
+                    join_condition = false;
                     clause = Some(Keyword::JOIN);
                 } else if let Some(keyword) = clause_keyword(word.keyword) {
+                    join_condition = joined && matches!(keyword, Keyword::ON | Keyword::USING);
                     if keyword != Keyword::JOIN {
                         joined = false;
                     }
@@ -511,7 +536,7 @@ fn place(tokens: &[TokenWithSpan]) -> Position {
     }
 
     let local = &tokens[group_start.min(tokens.len())..];
-    decide(local, verb, group, clause, joined)
+    decide(local, verb, group, clause, joined, join_condition)
 }
 
 /// The keywords that introduce a clause, and so say what the words after them mean.
@@ -623,6 +648,7 @@ fn decide(
     group: Group,
     clause: Option<Keyword>,
     joined: bool,
+    join_condition: bool,
 ) -> Position {
     let Some(previous) = local.last() else {
         // Nothing typed inside the group yet.
@@ -677,6 +703,10 @@ fn decide(
             {
                 return Position::Ddl;
             }
+            // The `AND` of a frame's `BETWEEN` is followed by its second bound, not by a value.
+            if group == Group::Window && previous_word.keyword == Keyword::AND {
+                return Position::WindowSpec;
+            }
             if starts_value(previous_word.keyword) {
                 return Position::Value;
             }
@@ -727,6 +757,7 @@ fn decide(
         }
         Some(Keyword::UPDATE) => Position::UpdateItem,
         Some(Keyword::SELECT) => Position::SelectItem,
+        Some(Keyword::ON | Keyword::USING) if join_condition => Position::JoinCondition,
         Some(
             Keyword::WHERE
             | Keyword::HAVING
