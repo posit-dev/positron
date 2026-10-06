@@ -198,11 +198,15 @@ export function createDuckDBDriver(
 							id: 'duckdb',
 							label: 'duckdb',
 							code: `import duckdb\n\nconn = ${duckdbConnect}\n`,
+							// What the Variables pane calls each object, so a connection the
+							// user made by hand is queried the way its library expects.
+							objectTypes: ['DuckDBPyConnection'],
 						},
 						{
 							id: 'sqlalchemy',
 							label: 'SQLAlchemy',
 							code: `import sqlalchemy as sa\n\nengine = ${sqlalchemyEngine}\n`,
+							objectTypes: ['Engine'],
 						},
 					];
 				}

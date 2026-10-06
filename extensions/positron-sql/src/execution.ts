@@ -651,8 +651,11 @@ export class StatementRunner {
 	 * it without asking.
 	 *
 	 * A candidate Positron made keeps its variant -- it knows which library made it. One the user
-	 * made by hand carries none, and code generated against it assumes the driver's preferred
-	 * library, which is what the Connect With dialog would have suggested to them.
+	 * made by hand carries none, but it carries the type the session reported for it, and the
+	 * driver can say which of its variants makes an object of that type: a SQLAlchemy `Engine` is
+	 * queried differently from a DuckDB connection to the same file. Only when the type says
+	 * nothing does code generated against it assume the driver's preferred library, which is what
+	 * the Connect With dialog would have suggested to them.
 	 */
 	private async _adopt(
 		summary: positron.DataConnectionSummary,
@@ -666,6 +669,7 @@ export class StatementRunner {
 			languageId,
 			variantId: candidate.binding?.variantId,
 			variableName: candidate.variableName,
+			variableType: candidate.displayType,
 		};
 		await this._api.registerSessionBinding(binding);
 		this._log.info(`${summary.name} will be queried through '${candidate.variableName}'`

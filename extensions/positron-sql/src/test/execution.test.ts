@@ -331,7 +331,24 @@ suite('StatementRunner', () => {
 			// None: Positron did not make this one and cannot know which library did.
 			variantId: undefined,
 			variableName: 'warehouse',
+			variableType: 'PqConnection',
 		}]);
+	});
+
+	test('a connection made by hand is queried with its type, so the driver can tell its library', async () => {
+		// A SQLAlchemy engine and a DuckDB connection to the same file are queried differently,
+		// and with no variant recorded the type is all that tells them apart.
+		const { runner, calls } = harness({
+			bindings: [],
+			variables: [[typed('engine', 'Engine')]],
+		});
+
+		await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
+
+		assert.deepStrictEqual(
+			calls.generated.map(({ variantId, variableName, variableType }) => ({ variantId, variableName, variableType })),
+			[{ variantId: undefined, variableName: 'engine', variableType: 'Engine' }],
+		);
 	});
 
 	test('dismissing the pick runs nothing', async () => {
@@ -628,6 +645,7 @@ suite('StatementRunner', () => {
 			settled: [] as { languageId: string; sessionId: string }[],
 			asked: [] as (readonly string[])[],
 			picked: [] as (readonly ConnectionCandidate[])[],
+			generated: [] as positron.DataConnectionBinding[],
 		};
 
 		// Distinguishes "the option was not given" from "the option was given as undefined": every
@@ -663,9 +681,12 @@ suite('StatementRunner', () => {
 					? options.connected
 					: { ...held, languageId, sessionId: `${languageId}-session` };
 			},
-			generateQueryCode: async (binding, query) => given('queryCode')
-				? options.queryCode
-				: `DBI::dbGetQuery(${binding.variableName}, "${query}")`,
+			generateQueryCode: async (binding, query) => {
+				calls.generated.push(binding);
+				return given('queryCode')
+					? options.queryCode
+					: `DBI::dbGetQuery(${binding.variableName}, "${query}")`;
+			},
 			getForegroundSession: async () =>
 				given('foreground') ? options.foreground : session('r-session', 'r'),
 			getActiveSessions: async () => options.sessions ?? [session('r-session', 'r')],

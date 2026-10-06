@@ -433,23 +433,41 @@ describe('MainThreadDataConnections', () => {
 			await expect(mainThread.$getDataConnectionSessionBindings('session-1')).rejects.toThrow('"dataConnections.enabled" setting is disabled');
 		});
 
-		it('assumes the driver\'s preferred variant for a connection Positron did not make', async () => {
-			// The user connected by hand and then pointed at the variable, so there is no variant
-			// recorded. The dialog's own suggestion is the best guess at what they ran.
-			profiles = [profile('p1', 'Sales')];
-			registeredDrivers.push(stubInterface<IDataConnectionDriver>({
-				id: 'duckdb',
-				generateConnectionCode: async () => [
-					{ id: 'dbi', label: 'DBI', code: 'con <- x' },
-					{ id: 'dplyr', label: 'dplyr', code: 'con <- y' },
-				],
-				generateQueryCode: async request => `${request.variantId}(${request.connectionVariable})`,
-			}));
+		describe('for a connection Positron did not make', () => {
 
+			// The user connected by hand and then pointed at the variable, so there is no variant
+			// recorded -- only the type the session reported for it, if any.
 			const { variantId, ...withoutVariant } = binding;
 
-			await expect(mainThread.$generateDataConnectionQueryCode(withoutVariant, 'SELECT 1'))
-				.resolves.toBe('dbi(con)');
+			beforeEach(() => {
+				profiles = [profile('p1', 'Sales')];
+				registeredDrivers.push(stubInterface<IDataConnectionDriver>({
+					id: 'duckdb',
+					generateConnectionCode: async () => [
+						{ id: 'duckdb', label: 'duckdb', code: 'conn = x', objectTypes: ['DuckDBPyConnection'] },
+						{ id: 'sqlalchemy', label: 'SQLAlchemy', code: 'engine = y', objectTypes: ['Engine'] },
+					],
+					generateQueryCode: async request => `${request.variantId}(${request.connectionVariable})`,
+				}));
+			});
+
+			it('assumes the variant whose object the variable is', async () => {
+				// An engine queried as a DuckDB connection fails, and the choice is remembered, so
+				// every later run would fail the same way.
+				await expect(mainThread.$generateDataConnectionQueryCode({ ...withoutVariant, variableType: 'Engine' }, 'SELECT 1'))
+					.resolves.toBe('sqlalchemy(con)');
+			});
+
+			it('assumes the driver\'s preferred variant when the type is unknown', async () => {
+				// The dialog's own suggestion is the best guess at what they ran.
+				await expect(mainThread.$generateDataConnectionQueryCode(withoutVariant, 'SELECT 1'))
+					.resolves.toBe('duckdb(con)');
+			});
+
+			it('assumes the driver\'s preferred variant when no variant makes that type', async () => {
+				await expect(mainThread.$generateDataConnectionQueryCode({ ...withoutVariant, variableType: 'list' }, 'SELECT 1'))
+					.resolves.toBe('duckdb(con)');
+			});
 		});
 
 		it('asks the profile\'s driver for the query code, naming the variable and the variant', async () => {

@@ -267,6 +267,9 @@ function renderPsycopg2Code(fields: PostgresConnectionFields): positron.Connecti
 		id: 'psycopg2',
 		label: 'psycopg2',
 		code: `import psycopg2\n\nconn = psycopg2.connect(\n${args.map(arg => `\t${arg},`).join('\n')}\n)\n`,
+		// What the Variables pane calls the object, so a connection the user made by hand is
+		// queried the way its library expects. psycopg2's class name is lowercase.
+		objectTypes: ['connection'],
 	};
 }
 
@@ -294,6 +297,7 @@ function renderSqlAlchemyCode(fields: PostgresConnectionFields): positron.Connec
 		id: 'sqlalchemy',
 		label: 'SQLAlchemy',
 		code: `import sqlalchemy as sa\n\nengine = sa.create_engine(sa.URL.create(\n${args.map(arg => `\t${arg},`).join('\n')}\n))\n`,
+		objectTypes: ['Engine'],
 	};
 }
 

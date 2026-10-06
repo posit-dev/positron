@@ -107,9 +107,13 @@ export interface IDataConnectionSessionBinding {
 	// The connection code variant it was made with, e.g. 'sqlalchemy'. Needed to write further
 	// code against the connection: the same driver's variants produce differently-shaped objects.
 	// Absent when Positron did not make the connection and so cannot know -- a variable the user
-	// connected by hand and then pointed at -- in which case the driver's preferred variant for the
-	// language is assumed.
+	// connected by hand and then pointed at -- in which case the variant whose object types include
+	// `variableType` is assumed, or failing that the driver's preferred variant for the language.
 	readonly variantId?: string;
+
+	// The type the session reports for the variable, e.g. 'Engine'. Only consulted when there is
+	// no variantId.
+	readonly variableType?: string;
 
 	// The name of the variable the connection is bound to, e.g. 'con'. Parsed from the code that
 	// ran rather than assumed, because the user can edit that code before running it.

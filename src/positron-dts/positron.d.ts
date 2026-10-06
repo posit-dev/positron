@@ -2394,6 +2394,18 @@ declare module 'positron' {
 		 * The generated connection code for this variant.
 		 */
 		code: string;
+
+		/**
+		 * The type names a session reports for the object this variant's code creates, e.g.
+		 * `Engine` for SQLAlchemy or `DuckDBPyConnection` for duckdb, as shown in the Variables
+		 * pane.
+		 *
+		 * Optional. It is how Positron tells which variant made a connection the user created by
+		 * hand, so a query is written for the object they actually have; it matters only where a
+		 * language has several variants that are queried differently. Without it, such a
+		 * connection is assumed to be the preferred variant.
+		 */
+		objectTypes?: readonly string[];
 	}
 
 	/**
@@ -4239,10 +4251,19 @@ declare module 'positron' {
 		 * Absent when Positron did not make the connection and so cannot know -- a variable the
 		 * user connected by hand and then pointed at, registered through
 		 * {@link registerSessionBinding}. Code generated against a binding with no variant assumes
-		 * the driver's preferred one for the language, which is what the user was shown if they
-		 * connected from the Connect With dialog's suggestion.
+		 * the one whose {@link ConnectionCodeVariant.objectTypes} include {@link variableType},
+		 * and failing that the driver's preferred one for the language, which is what the user
+		 * was shown if they connected from the Connect With dialog's suggestion.
 		 */
 		readonly variantId?: string;
+
+		/**
+		 * The type the session reports for the variable, e.g. `Engine`.
+		 *
+		 * Only consulted when there is no {@link variantId}: it is what identifies the variant of
+		 * a connection the user made by hand.
+		 */
+		readonly variableType?: string;
 
 		/**
 		 * The name of the variable the connection is bound to, e.g. `con`.

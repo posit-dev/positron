@@ -367,7 +367,7 @@ export class ExtHostDataConnections implements extHostProtocol.ExtHostDataConnec
 		}
 
 		const variants = await driver.generateConnectionCode(mechanismId, languageId, params);
-		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
+		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code, objectTypes: variant.objectTypes }));
 	}
 
 	/**
