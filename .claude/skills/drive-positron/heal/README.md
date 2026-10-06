@@ -22,8 +22,10 @@
    a "To do" line, then one block per finding: the fixer's plain `broke`, `cause` and `change`
    (falling back to the helper's error), what was checked, and the evidence folded away
 
-The workflow's `publish` job pushes a candidate branch (burn-in) or updates the rolling PR (live);
-nothing is ever merged. `vars.DRIVE_POSITRON_HEAL_PHASE` picks the phase.
+The workflow's `publish` job updates one rolling PR and requests review from `REVIEWERS` when it
+opens it (live, the default), or pushes a candidate branch per night (burn-in); nothing is ever
+merged. `vars.DRIVE_POSITRON_HEAL_PHASE` overrides the phase. The Slack DM goes to
+`vars.DRIVE_POSITRON_SLACK_CHANNEL` either way.
 
 Each stage reads and writes JSON in one directory (`--dir`, `/tmp/heal` by default), so any stage can
 be run alone from the repo root against a copy of a night's artifact. The agent stages need

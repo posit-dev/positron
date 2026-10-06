@@ -3,8 +3,9 @@ name: "drive-positron: Nightly Self-Heal"
 # Keeps drive-positron's helpers working. Runs smoke, reruns the failures once
 # to keep only the ones that hold up, explores one area on explore nights, and
 # has an agent fix helper bugs one at a time, each checked by check.ts and
-# smoke over the sections it can reach. Burn-in: a passing fix is pushed to a candidate branch and
-# linked in a Slack DM. Live: it goes to one rolling PR. Never merges.
+# smoke over the sections it can reach. Live (the default): passing fixes go to one rolling PR,
+# with review requested from REVIEWERS. Burn-in: each night's go to a candidate branch, linked in
+# the Slack DM. Never merges.
 # Design: .claude/skills/drive-positron/heal/README.md.
 
 on:
@@ -31,7 +32,8 @@ concurrency:
 
 env:
   HEAL_DIR: /tmp/heal
-  PHASE: ${{ vars.DRIVE_POSITRON_HEAL_PHASE || 'burn-in' }}
+  PHASE: ${{ vars.DRIVE_POSITRON_HEAL_PHASE || 'live' }}
+  REVIEWERS: midleman
 
 jobs:
   heal:
@@ -431,6 +433,7 @@ jobs:
           body: ${{ steps.live.outputs.body }}
           dryrun: ${{ inputs.dryrun || false }}
           clear-stale-branch-on-empty-reset: "false"
+          reviewers: ${{ env.REVIEWERS }}
 
       - name: Clean up old candidate branches
         if: always()
