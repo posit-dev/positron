@@ -235,6 +235,7 @@ export const names = {
 		startConsole: 'Interpreter: Start New Console Session',
 		focusConsole: 'Console: Focus on Console View',
 		focusTerminal: 'Terminal: Focus on Terminal View', // with no terminal, showing the view makes one
+		openAccessibleView: 'Open Accessible View', // its key goes to the shell in a terminal
 		positronChangeKernel: 'Positron Notebook: Change Kernel...',
 		changeKernel: 'Notebook: Change Kernel...',
 		selectKernel: 'Notebook: Select Notebook Kernel',

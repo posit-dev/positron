@@ -7,7 +7,7 @@
 // terminal-run.sh wraps it.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, mod, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -16,11 +16,11 @@ import { names } from './selectors.ts';
  * after, or reads its text. Terminals in the panel and in the editor area are
  * xterm elements; only visible ones count, numbered left to right, then top to
  * bottom, without the sticky-scroll overlay (an xterm of its own). The text is
- * drawn on a canvas, so it is read through the Accessible View (Option+F2 on a
- * focused terminal), the same text a screen reader gets.
+ * drawn on a canvas, so it is read through the Accessible View (opened from the
+ * Command Palette on a focused terminal), the same text a screen reader gets.
  * runs in run-code
  */
-const terminal: PageFn<{ index: number; text: string; key: string; read: boolean; tail: number; wait: number }> = async (page, a, lib) => {
+const terminal: PageFn<{ index: number; text: string; key: string; read: boolean; tail: number; wait: number; mod: string }> = async (page, a, lib) => {
 	const all = page.locator(lib.css.terminal.visible).filter({ visible: true });
 	// Just brought forward, the terminal is drawn a moment later.
 	for (let i = 0; i < a.wait * 5 && !await all.count(); i++) { await lib.sleep(200); }
@@ -51,7 +51,14 @@ const terminal: PageFn<{ index: number; text: string; key: string; read: boolean
 		};
 		const read = async () => {
 			await input.focus().catch(() => { });
-			await page.keyboard.press('Alt+F2');
+			// From the Command Palette, which returns focus to the terminal before
+			// running it. Not by its key (Alt+F2, Shift+Alt+F2 on Linux): the
+			// command is not in the terminal's commandsToSkipShell, so xterm sends
+			// the key to the shell (a stray "Q" at the prompt) and nothing opens.
+			if (!await lib.openQuickInput(a.mod + '+Shift+p', '>' + lib.names.palette.openAccessibleView)) { return null; }
+			const p = await lib.pick({ exact: lib.names.palette.openAccessibleView });
+			if (!p.ok) { await lib.closeQuickInput(); return null; }
+			await lib.clickRow(p.row);
 			const view = page.locator(lib.css.terminal.accessibleView).filter({ visible: true }).first();
 			try { await view.waitFor({ timeout: 3000 }); } catch { return null; }
 			const text = (await view.innerText()).replace(/^Accessible View\n?/, '').replace(/\u00A0/g, ' ');
@@ -106,7 +113,7 @@ export const terminalCommands: Record<string, (argv: string[]) => Json | string>
 		if (p.flags.tail !== undefined && !read) { throw new Exit(2, { ok: false, error: '--tail goes with --read' }); }
 		const text = read || key ? '' : (p.rest.length ? p.rest.join(' ') : readFileSync(0, 'utf8').replace(/\n$/, ''));
 		if (!read && !key && !text) { throw new Exit(2, { ok: false, error: 'empty input' }); }
-		const args = { index: Number(p.flags.index ?? 0), text, key, read, tail: Number(p.flags.tail ?? 0), wait: 0 };
+		const args = { index: Number(p.flags.index ?? 0), text, key, read, tail: Number(p.flags.tail ?? 0), wait: 0, mod };
 		let r = inPage(p.session, terminal, args);
 		// Another panel tab (the Console, after a console run) hides the terminals:
 		// bring the Terminal view forward, as console-run does the Console.
