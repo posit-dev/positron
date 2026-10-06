@@ -11,6 +11,11 @@ export type { ChildrenResult, FormattedValue, ObjectExplorerState, ObjectNode, S
 export { ObjectNodeKind, SearchRowMatchKind } from '../../languageRuntime/common/positronObjectExplorerComm.js';
 
 /**
+ * MIME type of the output a runtime displays to show a value in an inline object explorer.
+ */
+export const OBJECT_EXPLORER_MIME_TYPE = 'application/vnd.positron.objectExplorer+json';
+
+/**
  * A source of object explorer data: a runtime comm, or an in-process file backend.
  */
 export interface IObjectExplorerBackend extends IDisposable {

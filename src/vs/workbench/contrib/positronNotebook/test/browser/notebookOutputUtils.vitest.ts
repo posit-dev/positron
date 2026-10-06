@@ -7,7 +7,8 @@
 
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { DATA_EXPLORER_MIME_TYPE, OBJECT_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
+import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
+import { OBJECT_EXPLORER_MIME_TYPE } from '../../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { HtmlRenderMode, htmlRenderMode, pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { parseVariablePath } from '../../../../services/positronDataExplorer/common/utils.js';

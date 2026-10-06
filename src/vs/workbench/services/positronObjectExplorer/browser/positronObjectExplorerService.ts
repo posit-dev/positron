@@ -7,7 +7,7 @@ import { localize } from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
 import { raceTimeout, RunOnceScheduler } from '../../../../base/common/async.js';
 import { basename } from '../../../../base/common/resources.js';
-import { FileChangeType, IFileService } from '../../../../platform/files/common/files.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable, DisposableMap, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -124,13 +124,10 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 	}
 
 	async openWithJsonFile(uri: URI): Promise<void> {
-		const identifier = await this.loadJsonFile(uri);
-		if (identifier) {
-			await this.openEditor(identifier);
-		}
+		await this.openEditor(await this.loadJsonFile(uri));
 	}
 
-	async loadJsonFile(uri: URI): Promise<string | undefined> {
+	async loadJsonFile(uri: URI): Promise<string> {
 		const identifier = JSON_IDENTIFIER_PREFIX + uri.toString();
 		if (this._instances.has(identifier)) {
 			return identifier;
@@ -140,13 +137,12 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 		try {
 			value = await this.readJsonFile(uri);
 		} catch (err) {
-			this._notificationService.error(localize(
+			throw new Error(localize(
 				'positron.objectExplorer.jsonParseError',
 				"Could not parse {0} as JSON: {1}",
 				basename(uri),
 				err instanceof Error ? err.message : String(err)
 			));
-			return undefined;
 		}
 
 		// Another caller may have loaded the file while this one was reading it.
@@ -196,9 +192,11 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 		} catch (err) {
 			this._logService.error('Error listing Object Explorer clients:', err);
 		}
+		// The comm's open data isn't available here, so register it as inline: it may back a notebook
+		// output, and opening an editor for it would close the comm when that editor closes.
 		for (const client of clients) {
 			if (!this._instances.has(client.getClientId())) {
-				this.registerClient(session, client, false, undefined);
+				this.registerClient(session, client, true, undefined);
 			}
 		}
 	}
@@ -260,13 +258,13 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 	}
 
 	/**
-	 * Reloads a JSON file's backend when the file changes, and closes it when the file is deleted.
-	 * While the file can't be parsed, the previous value stays and the client reports the error.
+	 * Reloads a JSON file's backend when the file changes. While the file can't be read or parsed
+	 * (including while it is deleted), the previous value stays and the client reports the error.
 	 */
 	private watchJsonFile(uri: URI, backend: JsonObjectExplorerBackend, client: ObjectExplorerClientInstance): IDisposable {
 		const store = new DisposableStore();
 
-		// Editors save in bursts, so wait for the file to settle.
+		// Editors save in bursts, some by deleting and recreating the file, so wait for it to settle.
 		const reload = store.add(new RunOnceScheduler(async () => {
 			try {
 				const value = await this.readJsonFile(uri);
@@ -284,9 +282,7 @@ export class PositronObjectExplorerService extends Disposable implements IPositr
 
 		const watcher = store.add(this._fileService.createWatcher(uri, { recursive: false, excludes: [] }));
 		store.add(watcher.onDidChange(e => {
-			if (e.contains(uri, FileChangeType.DELETED)) {
-				backend.close();
-			} else if (e.contains(uri, FileChangeType.UPDATED, FileChangeType.ADDED)) {
+			if (e.contains(uri)) {
 				reload.schedule();
 			}
 		}));

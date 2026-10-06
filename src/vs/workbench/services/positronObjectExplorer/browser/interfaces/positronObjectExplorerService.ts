@@ -72,7 +72,8 @@ export interface IPositronObjectExplorerService {
 	 * Reads a JSON file into an instance, unless one already shows it. The instance reloads when the
 	 * file changes.
 	 * @param uri The file.
-	 * @returns The identifier of the instance, or undefined if the file couldn't be read.
+	 * @returns The identifier of the instance.
+	 * @throws If the file can't be read or parsed.
 	 */
-	loadJsonFile(uri: URI): Promise<string | undefined>;
+	loadJsonFile(uri: URI): Promise<string>;
 }

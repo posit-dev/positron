@@ -15,6 +15,7 @@ import { PositronObjectExplorerEditor } from './positronObjectExplorerEditor.js'
 import { POSITRON_OBJECT_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_OBJECT_EXPLORER_IS_FILE_BACKED, POSITRON_OBJECT_EXPLORER_IS_FOCUSED, POSITRON_OBJECT_EXPLORER_SELECTED_KIND } from './positronObjectExplorerContextKeys.js';
 import { URI } from '../../../../base/common/uri.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { extname } from '../../../../base/common/resources.js';
 import { EditorResourceAccessor } from '../../../common/editor.js';
 import { ActiveEditorContext, ResourceContextKey } from '../../../common/contextkeys.js';
 import { ExplorerFolderContext, TEXT_FILE_EDITOR_ID } from '../../files/common/files.js';
@@ -413,13 +414,13 @@ class OpenJsonFileAction extends Action2 {
 	async run(accessor: ServicesAccessor, resource?: unknown): Promise<void> {
 		const objectExplorerService = accessor.get(IPositronObjectExplorerService);
 		const pathService = accessor.get(IPathService);
-		let fileUri = URI.isUri(resource) ? resource : activeFile(accessor);
-		if (typeof resource === 'string') {
-			fileUri = /^[a-z][a-z0-9+.-]+:\/\//i.test(resource) ? URI.parse(resource) : await pathService.fileURI(resource);
+		const fileUri = URI.isUri(resource) ? resource
+			: typeof resource === 'string' ? await toFileUri(pathService, resource)
+				: activeJsonFile(accessor);
+		if (!fileUri) {
+			throw new Error('No path was given and the active editor is not a JSON file.');
 		}
-		if (fileUri) {
-			await objectExplorerService.openWithJsonFile(fileUri);
-		}
+		await objectExplorerService.openWithJsonFile(fileUri);
 	}
 }
 
@@ -463,6 +464,23 @@ class ImportDataFromJsonFileAction extends Action2 {
  */
 function activeFile(accessor: ServicesAccessor): URI | undefined {
 	return EditorResourceAccessor.getOriginalUri(accessor.get(IEditorService).activeEditor);
+}
+
+/**
+ * Gets the file shown by the active editor, if it is a JSON file.
+ */
+function activeJsonFile(accessor: ServicesAccessor): URI | undefined {
+	const uri = activeFile(accessor);
+	return uri && extname(uri).toLowerCase() === '.json' ? uri : undefined;
+}
+
+/**
+ * Converts a path or URI string to a URI. Paths and file URIs resolve against the window's file
+ * system, which is remote in a remote window.
+ */
+async function toFileUri(pathService: IPathService, value: string): Promise<URI> {
+	const uri = /^[a-z][a-z0-9+.-]+:/i.test(value) ? URI.parse(value) : undefined;
+	return uri && uri.scheme !== Schemas.file ? uri : pathService.fileURI(uri ? uri.path : value);
 }
 
 /**

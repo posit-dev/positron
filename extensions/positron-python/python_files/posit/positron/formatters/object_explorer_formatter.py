@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import itertools
 import logging
 from collections.abc import Mapping
 from functools import partial
@@ -20,6 +21,9 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+# The most items of a sequence checked for nesting, so that displaying a long flat list stays fast.
+NESTED_CHECK_LIMIT = 100
 
 
 def create_object_explorer_formatter(
@@ -42,12 +46,13 @@ def _is_nested(obj: Any) -> bool:
     """
     Whether a value is nested data worth exploring inline.
 
-    A non-empty mapping is; so is a non-empty list or tuple holding a mapping, list, or tuple.
-    Flat sequences like `[1, 2, 3]` keep their plain text output.
+    A non-empty mapping is; so is a list or tuple holding a mapping, list, or tuple among its first
+    items. Flat sequences like `[1, 2, 3]` keep their plain text output.
     """
     if isinstance(obj, Mapping):
         return len(obj) > 0
-    return any(isinstance(item, (Mapping, list, tuple)) for item in obj)
+    items = itertools.islice(obj, NESTED_CHECK_LIMIT)
+    return any(isinstance(item, (Mapping, list, tuple)) for item in items)
 
 
 def _display_object_explorer(obj: Any, kernel: PositronIPyKernel) -> dict[str, Any] | None:

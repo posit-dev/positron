@@ -271,3 +271,38 @@ def test_view_magic_rejects_unexplorable(shell: PositronShell, capsys):
     shell.run_cell("x = object()\n%view x")
 
     assert capsys.readouterr().err == "UsageError: cannot view object of type 'object'\n"
+
+
+class BrokenProperty:
+    @property
+    def bad(self):
+        raise ValueError("boom")
+
+
+class BrokenDict(dict):
+    def __getitem__(self, key):
+        raise ValueError("boom")
+
+
+def test_children_that_raise(oe_service: ObjectExplorerService):
+    value = {"o": BrokenProperty(), "d": BrokenDict(bad=1)}
+    comm_id = _open(oe_service, value)
+
+    (bad,) = _children(oe_service, comm_id, "d")["children"]
+    copied = [
+        _request(
+            oe_service,
+            comm_id,
+            "format_value",
+            path=[encode_access_key(k), encode_access_key("bad")],
+        )["content"]
+        for k in ("o", "d")
+    ]
+    rows, _ = _search(oe_service, value, "cannot")
+
+    assert (bad["display_value"], bad["kind"], copied[1], rows) == (
+        "Cannot get value.",
+        "other",
+        "Cannot get value.",
+        [],
+    )

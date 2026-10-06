@@ -18,7 +18,7 @@ export function generateJsonImportCode(pathLiteral: string, variableName: string
         'import json',
         '',
         `# Load ${variableName} data`,
-        `with open(${pathLiteral}) as f:`,
+        `with open(${pathLiteral}, encoding='utf-8') as f:`,
         `    ${variableName} = json.load(f)`,
         '',
     ].join('\n');

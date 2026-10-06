@@ -13,6 +13,7 @@ import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommo
 import { ParsedDataExplorerOutput, ParsedObjectExplorerOutput, ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
+import { OBJECT_EXPLORER_MIME_TYPE } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 
 /**
  * MIME type for Positron inline data explorer
@@ -28,11 +29,6 @@ export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+js
 export function isDataExplorerMimeType(mime: string): boolean {
 	return mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase();
 }
-
-/**
- * MIME type for Positron inline object explorer
- */
-export const OBJECT_EXPLORER_MIME_TYPE = 'application/vnd.positron.objectExplorer+json';
 
 /**
  * Case-insensitive check for the object explorer MIME type, for the same reason as

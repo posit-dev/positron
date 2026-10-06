@@ -430,37 +430,40 @@ export class ObjectExplorerTreeInstance extends PositronTreeInstance<ObjectNodeD
 
 		const id = visible.node.id;
 		const node = visible.node.data.node;
+		// Rows can move while the menu is open (a reload, a page loading above), so find the node's
+		// row again when an item is chosen.
+		const row = () => this.visibleNodes.findIndex(v => v.node.id === id);
 		const entries: CustomContextMenuEntry[] = [
 			new CustomContextMenuItem({
 				icon: 'copy',
 				label: localize('positron.objectExplorer.copyValue', "Copy Value"),
-				onSelected: () => this.copyValue(rowIndex)
+				onSelected: () => this.copyValue(row())
 			}),
 			new CustomContextMenuItem({
 				label: localize('positron.objectExplorer.copyAccessor', "Copy Accessor"),
 				disabled: node.accessor === undefined,
-				onSelected: () => this.copyAccessor(rowIndex)
+				onSelected: () => this.copyAccessor(row())
 			}),
 			new CustomContextMenuSeparator(),
 			new CustomContextMenuItem({
 				icon: 'insert',
 				label: localize('positron.objectExplorer.sendAccessorToConsole', "Send Accessor to Console"),
 				disabled: !this._sendToConsole || node.accessor === undefined,
-				onSelected: () => this.sendAccessorToConsole(rowIndex)
+				onSelected: () => this.sendAccessorToConsole(row())
 			}),
 		];
 		if (node.kind === ObjectNodeKind.String) {
 			entries.push(new CustomContextMenuItem({
 				icon: 'file-text',
 				label: localize('positron.objectExplorer.openTextInEditor', "Open Text in Editor"),
-				onSelected: () => this.openValue(rowIndex)
+				onSelected: () => this.openValue(row())
 			}));
 		}
 		if (this._canViewTable(node)) {
 			entries.push(new CustomContextMenuItem({
 				icon: 'table',
 				label: localize('positron.objectExplorer.openInDataExplorer', "Open in Data Explorer"),
-				onSelected: () => this.viewTable(rowIndex)
+				onSelected: () => this.viewTable(row())
 			}));
 		}
 		entries.push(

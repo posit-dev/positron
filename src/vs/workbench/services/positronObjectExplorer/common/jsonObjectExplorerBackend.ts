@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from '../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ChildrenResult, FormattedValue, IObjectExplorerBackend, ObjectExplorerState, ObjectNode, ObjectNodeKind, SearchResult, SearchRow, SearchRowMatchKind } from './objectExplorerBackend.js';
 
@@ -32,10 +32,10 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
  */
 export class JsonObjectExplorerBackend extends Disposable implements IObjectExplorerBackend {
 	private readonly _onDidUpdateEmitter = this._register(new Emitter<void>());
-	private readonly _onDidCloseEmitter = this._register(new Emitter<void>());
 
 	readonly onDidUpdate = this._onDidUpdateEmitter.event;
-	readonly onDidClose = this._onDidCloseEmitter.event;
+	// A file's value stays open; a deleted file is reported as an error until it comes back.
+	readonly onDidClose = Event.None;
 
 	/**
 	 * Constructor.
@@ -58,13 +58,6 @@ export class JsonObjectExplorerBackend extends Disposable implements IObjectExpl
 	setRoot(root: unknown): void {
 		this._root = root;
 		this._onDidUpdateEmitter.fire();
-	}
-
-	/**
-	 * Notifies listeners that the value is gone.
-	 */
-	close(): void {
-		this._onDidCloseEmitter.fire();
 	}
 
 	async getState(): Promise<ObjectExplorerState> {

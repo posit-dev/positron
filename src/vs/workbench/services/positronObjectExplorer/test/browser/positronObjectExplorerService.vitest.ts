@@ -107,11 +107,10 @@ describe('PositronObjectExplorerService JSON files', () => {
 	let contents = '';
 	const readFile = vi.fn(async () => stubInterface<IFileContent>({ value: VSBuffer.fromString(contents) }));
 	const onDidChange = new Emitter<FileChangesEvent>();
-	const notifyError = vi.fn();
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
 		.stub(IEditorService, { openEditor: vi.fn(async () => ({})) })
-		.stub(INotificationService, { error: notifyError })
+		.stub(INotificationService, { error: vi.fn() })
 		.stub(IFileService, {
 			readFile,
 			createWatcher: () => stubInterface<IFileSystemWatcher>({ onDidChange: onDidChange.event, dispose: () => { } }),
@@ -146,14 +145,14 @@ describe('PositronObjectExplorerService JSON files', () => {
 		const again = await service.loadJsonFile(fileUri);
 
 		expect([identifier, again, readFile.mock.calls.length]).toEqual([`json:${fileUri.toString()}`, identifier, 1]);
-		expect(service.getInstance(identifier!)?.fileUri?.toString()).toBe(fileUri.toString());
-		expect(await childNames(service, identifier!)).toEqual(['a']);
+		expect(service.getInstance(identifier)?.fileUri?.toString()).toBe(fileUri.toString());
+		expect(await childNames(service, identifier)).toEqual(['a']);
 	});
 
 	it('reloads when the file changes, keeping the last good value while it does not parse', async () => {
 		contents = '{"a": 1}';
 		const service = createService();
-		const identifier = (await service.loadJsonFile(fileUri))!;
+		const identifier = await service.loadJsonFile(fileUri);
 		const client = service.getInstance(identifier)!.client;
 
 		contents = '{"b": 2}';
@@ -168,21 +167,28 @@ describe('PositronObjectExplorerService JSON files', () => {
 		expect([afterUpdate, await childNames(service, identifier), client.status]).toEqual([['b'], ['b'], 'error']);
 	});
 
-	it('closes the instance when the file is deleted', async () => {
+	it('reports a deleted file as an error and recovers when it comes back', async () => {
 		contents = '{"a": 1}';
 		const service = createService();
-		const identifier = (await service.loadJsonFile(fileUri))!;
+		const identifier = await service.loadJsonFile(fileUri);
+		const client = service.getInstance(identifier)!.client;
 
+		readFile.mockRejectedValueOnce(new Error('not found'));
 		fileChanged(FileChangeType.DELETED);
+		await vi.advanceTimersByTimeAsync(250);
+		const afterDelete = client.status;
 
-		expect(service.getInstance(identifier)?.client.status).toBe('disconnected');
+		contents = '{"b": 2}';
+		fileChanged(FileChangeType.ADDED);
+		await vi.advanceTimersByTimeAsync(250);
+
+		expect([afterDelete, client.status, await childNames(service, identifier)]).toEqual(['error', 'idle', ['b']]);
 	});
 
 	it('reports a file that does not parse', async () => {
 		contents = 'not json';
 		const service = createService();
 
-		expect(await service.loadJsonFile(fileUri)).toBeUndefined();
-		expect(notifyError).toHaveBeenCalledTimes(1);
+		await expect(service.loadJsonFile(fileUri)).rejects.toThrow('Could not parse');
 	});
 });

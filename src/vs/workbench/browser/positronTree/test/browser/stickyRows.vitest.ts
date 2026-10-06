@@ -5,7 +5,7 @@
 
 /// <reference types="vitest/globals" />
 
-import { computeStickyRows } from '../../classes/stickyRows.js';
+import { computeRowStructure, computeStickyRows } from '../../classes/stickyRows.js';
 
 const H = 10;
 
@@ -23,7 +23,8 @@ function rows(...depths: number[]) {
  * Summarizes the band as rowIndex@top pairs.
  */
 function band(depths: number[], scrollTop: number, maxRows = 5, rowTop = (i: number) => i * H) {
-	return computeStickyRows(rows(...depths), rowTop, scrollTop, H, maxRows).map(row => `${row.rowIndex}@${row.top}`);
+	const visible = rows(...depths);
+	return computeStickyRows(visible, computeRowStructure(visible), rowTop, scrollTop, H, maxRows).map(row => `${row.rowIndex}@${row.top}`);
 }
 
 describe('computeStickyRows', () => {

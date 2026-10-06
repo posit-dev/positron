@@ -21,8 +21,9 @@ rather than from this file.
 `vscode.open` opens any file, and
 `workbench.action.positronObjectExplorer.openJsonFile` opens a JSON file in the
 Object Explorer; these are the only file-opening commands this skill documents.
-If the user has not given you a path and you cannot work one out from the workspace,
-ask them which file they mean rather than opening a picker so they can browse.
+If the user has not given you a path and you cannot work one out from the
+workspace, ask them which file they mean rather than opening a picker so they
+can browse.
 
 ## `vscode.open`
 
@@ -84,15 +85,15 @@ Opens a JSON file in the Object Explorer, which shows its nested structure as a
 collapsible, searchable tree. Use it when the user wants to explore or navigate
 a JSON file rather than edit its text: "open config.json in the Object
 Explorer", "let me browse this JSON", "show me the structure of response.json".
-For editing the text, use `vscode.open`. No precondition -- always enabled.
+For editing the text, use `vscode.open`.
 
 {{command:workbench.action.positronObjectExplorer.openJsonFile}}
 
 Pass an absolute path or `file://` URI, built the same way as for `vscode.open`.
-Without a path it opens the file in the active editor, so only omit it when the
-user is looking at the JSON file they mean. If the file is already open in the
-Object Explorer, its editor is brought to the front instead.
+Without a path it opens the `.json` file in the active editor, and fails if the
+active editor isn't one, so only omit it when the user is looking at the JSON
+file they mean. If the file is already open in the Object Explorer, its editor
+is brought to the front instead.
 
-A file that is missing or isn't valid JSON shows the user an error notification,
-and the command still reports success, so check that the file exists before
-calling it. The tree reloads by itself when the file changes on disk.
+The command fails with an error if the file is missing or isn't valid JSON. The
+tree reloads by itself when the file changes on disk.

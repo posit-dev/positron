@@ -42,7 +42,7 @@ suite('jsonImporter Tests', () => {
                 'import json',
                 '',
                 '# Load config data',
-                'with open("/data/config.json") as f:',
+                `with open("/data/config.json", encoding='utf-8') as f:`,
                 '    config = json.load(f)',
                 '',
             ].join('\n'),

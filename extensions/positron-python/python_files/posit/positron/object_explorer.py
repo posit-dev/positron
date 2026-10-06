@@ -76,6 +76,32 @@ def _is_container(value: Any) -> bool:
     return get_inspector(value).get_kind() in EXPLORABLE_KINDS
 
 
+class _Unavailable:
+    """Stands in for a child whose value raised when it was read."""
+
+    def __repr__(self) -> str:
+        return "Cannot get value."
+
+
+_UNAVAILABLE = _Unavailable()
+
+
+def _get_child(inspector: PositronInspector, key: Any) -> Any:
+    """Get a child of the inspector's value, or the unavailable placeholder if reading it raises."""
+    try:
+        return inspector.get_child(key)
+    except Exception:
+        return _UNAVAILABLE
+
+
+def _has_child(inspector: PositronInspector, key: Any) -> bool:
+    """Whether the inspector's value has a child. A child whose lookup raises still exists."""
+    try:
+        return inspector.has_child(key)
+    except Exception:
+        return True
+
+
 def child_accessor(inspector: PositronInspector, key: Any) -> str | None:
     """Python code selecting the child `key` of the inspector's value, or None if there is none."""
     if isinstance(inspector, MapInspector):
@@ -98,7 +124,7 @@ def path_accessor(root_name: str, root: Any, path: list[str]) -> str | None:
         if selector is None:
             return None
         accessor += selector
-        value = inspector.get_child(key)
+        value = _get_child(inspector, key)
     return accessor
 
 
@@ -203,13 +229,13 @@ class ObjectExplorerView:
         for access_key in path:
             inspector = get_inspector(value)
             key = decode_access_key(access_key)
-            if not inspector.has_child(key):
+            if not _has_child(inspector, key):
                 raise KeyError(f"No child {access_key} in {self.title}")
             selector = child_accessor(inspector, key)
             accessor = (
                 accessor + selector if accessor is not None and selector is not None else None
             )
-            value = inspector.get_child(key)
+            value = _get_child(inspector, key)
             if _is_container(value):
                 ancestors.add(id(value))
         return value, accessor, ancestors
@@ -228,10 +254,7 @@ class ObjectExplorerView:
         self, inspector: PositronInspector, key: Any, accessor: str | None, ancestors: set[int]
     ) -> tuple[Any, ObjectNode]:
         """Get a child of the inspector's value, and its node."""
-        try:
-            value = inspector.get_child(key)
-        except Exception:
-            value = "Cannot get value."
+        value = _get_child(inspector, key)
         selector = child_accessor(inspector, key)
         node_accessor = (
             accessor + selector if accessor is not None and selector is not None else None
@@ -243,14 +266,15 @@ class ObjectExplorerView:
         self, key: Any, value: Any, display_name: str, accessor: str | None, ancestors: set[int]
     ) -> ObjectNode:
         is_cycle = _is_container(value) and id(value) in ancestors
-        summary = _summarize_variable(key, value, display_name)
+        unavailable = value is _UNAVAILABLE
+        summary = None if unavailable else _summarize_variable(key, value, display_name)
         if summary is None:
             # Modules are hidden from the Variables pane, but are shown here as plain values.
             return ObjectNode(
                 access_key=encode_access_key(key),
                 display_name=display_name,
-                display_type=type(value).__name__,
-                display_value=get_qualname(value),
+                display_type="" if unavailable else type(value).__name__,
+                display_value=repr(value) if unavailable else get_qualname(value),
                 kind=ObjectNodeKind.Other,
                 length=0,
                 has_children=False,
@@ -283,7 +307,7 @@ def _match_kind(value: Any, node: ObjectNode, needle: str) -> SearchRowMatchKind
     name_match = needle in node.display_name.casefold()
     is_leaf = not node.has_children and not node.is_cycle
     value_text = value if isinstance(value, str) else node.display_value
-    value_match = is_leaf and needle in value_text.casefold()
+    value_match = is_leaf and value is not _UNAVAILABLE and needle in value_text.casefold()
     if name_match and value_match:
         return SearchRowMatchKind.NameAndValue
     if name_match:
@@ -394,10 +418,10 @@ class ObjectExplorerService:
             for access_key in path[1:]:
                 inspector = get_inspector(new_root)
                 key = decode_access_key(access_key)
-                if not inspector.has_child(key):
+                if not _has_child(inspector, key):
                     new_root = None
                     break
-                new_root = inspector.get_child(key)
+                new_root = _get_child(inspector, key)
             if new_root is None or not is_explorable(new_root):
                 self._close_explorer(comm_id)
             else:

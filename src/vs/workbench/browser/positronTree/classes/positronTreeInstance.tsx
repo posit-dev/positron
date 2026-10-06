@@ -15,7 +15,7 @@ import { disposableTimeout, Limiter } from '../../../../base/common/async.js';
 import { IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { DataGridInstance, MouseSelectionType, RowDescriptor, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
-import { computeStickyRows } from './stickyRows.js';
+import { computeRowStructure, computeStickyRows, RowStructure } from './stickyRows.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from './treeNode.js';
 import { buildVisibleNodes, findParentIndex } from './treeProjection.js';
 
@@ -201,6 +201,9 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 
 	// The current flat projection. Rebuilt whenever structural state changes.
 	private _visibleNodes: readonly VisibleNode<T>[] = [];
+
+	// The structure of the visible nodes, computed when the sticky rows first need it.
+	private _rowStructure: RowStructure | undefined;
 
 	// Whether the initial roots load has completed at least once. Lets consumers distinguish
 	// "loading initial data" from "no roots."
@@ -939,6 +942,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 			recentlyRefreshed: this._recentlyRefreshed,
 		});
 
+		this._rowStructure = undefined;
 		this._rowLayoutManager.setEntries(this._visibleNodes.length);
 		this._applyNodeHeights();
 
@@ -981,9 +985,11 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	}
 
 	override stickyRows(): readonly RowDescriptor[] {
-		return this._stickyScroll ?
-			computeStickyRows(this._visibleNodes, index => this.rowTop(index), this.verticalScrollOffset, this.defaultRowHeight, MAX_STICKY_ROWS) :
-			[];
+		if (!this._stickyScroll) {
+			return [];
+		}
+		this._rowStructure ??= computeRowStructure(this._visibleNodes);
+		return computeStickyRows(this._visibleNodes, this._rowStructure, index => this.rowTop(index), this.verticalScrollOffset, this.defaultRowHeight, MAX_STICKY_ROWS);
 	}
 
 	/**

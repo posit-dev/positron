@@ -7,6 +7,35 @@ import { VisibleNode } from './treeNode.js';
 import { RowDescriptor } from '../../positronDataGrid/classes/dataGridInstance.js';
 
 /**
+ * The parent and subtree extent of each visible row, so that ancestors and subtrees are found
+ * without scanning the rows.
+ */
+export interface RowStructure {
+	/** The index of each row's parent, or -1 for a root. */
+	readonly parents: Int32Array;
+	/** The index just past each row's last descendant. */
+	readonly ends: Int32Array;
+}
+
+/**
+ * Computes the structure of a tree's visible rows.
+ * @param rows The visible rows, in order.
+ */
+export function computeRowStructure(rows: readonly Pick<VisibleNode<unknown>, 'depth'>[]): RowStructure {
+	const parents = new Int32Array(rows.length);
+	const ends = new Int32Array(rows.length).fill(rows.length);
+	const open: number[] = [];
+	for (let i = 0; i < rows.length; i++) {
+		while (open.length > 0 && rows[open[open.length - 1]].depth >= rows[i].depth) {
+			ends[open.pop()!] = i;
+		}
+		parents[i] = open.length > 0 ? open[open.length - 1] : -1;
+		open.push(i);
+	}
+	return { parents, ends };
+}
+
+/**
  * Computes the sticky rows of a tree: the expanded ancestors of the rows at the top of the
  * viewport, stacked by depth in a band at the top, like the editor's sticky scroll.
  *
@@ -16,6 +45,7 @@ import { RowDescriptor } from '../../positronDataGrid/classes/dataGridInstance.j
  * slides out of the band as its last descendant scrolls away.
  *
  * @param rows The visible rows, in order.
+ * @param structure The structure of the rows.
  * @param rowTop Gets the top of the row at an index; at rows.length, the bottom of the last row.
  * @param scrollTop The vertical scroll offset.
  * @param rowHeight The height of a row in the band.
@@ -24,6 +54,7 @@ import { RowDescriptor } from '../../positronDataGrid/classes/dataGridInstance.j
  */
 export function computeStickyRows(
 	rows: readonly Pick<VisibleNode<unknown>, 'depth' | 'expandState'>[],
+	structure: RowStructure,
 	rowTop: (index: number) => number,
 	scrollTop: number,
 	rowHeight: number,
@@ -39,13 +70,13 @@ export function computeStickyRows(
 			break;
 		}
 
-		const ancestorIndex = ancestorAtDepth(rows, probeIndex, slot);
+		const ancestorIndex = ancestorAtDepth(rows, structure, probeIndex, slot);
 		if (ancestorIndex === undefined || rows[ancestorIndex].expandState !== 'expanded') {
 			break;
 		}
 
 		const ancestorTop = rowTop(ancestorIndex) - scrollTop;
-		const bottom = rowTop(subtreeEnd(rows, ancestorIndex)) - scrollTop;
+		const bottom = rowTop(structure.ends[ancestorIndex]) - scrollTop;
 		if (ancestorTop >= slotTop || bottom <= slotTop) {
 			break;
 		}
@@ -83,27 +114,10 @@ function rowAt(count: number, rowTop: (index: number) => number, offset: number)
 /**
  * Finds the row at a depth that is the row at an index or one of its ancestors.
  */
-function ancestorAtDepth(rows: readonly Pick<VisibleNode<unknown>, 'depth'>[], index: number, depth: number): number | undefined {
-	for (let i = index; i >= 0; i--) {
-		if (rows[i].depth === depth) {
-			return i;
-		}
-		if (rows[i].depth < depth) {
-			return undefined;
-		}
+function ancestorAtDepth(rows: readonly Pick<VisibleNode<unknown>, 'depth'>[], structure: RowStructure, index: number, depth: number): number | undefined {
+	let i = index;
+	while (i >= 0 && rows[i].depth > depth) {
+		i = structure.parents[i];
 	}
-	return undefined;
-}
-
-/**
- * Finds the index just past the last descendant of the row at an index.
- */
-function subtreeEnd(rows: readonly Pick<VisibleNode<unknown>, 'depth'>[], index: number): number {
-	const depth = rows[index].depth;
-	for (let i = index + 1; i < rows.length; i++) {
-		if (rows[i].depth <= depth) {
-			return i;
-		}
-	}
-	return rows.length;
+	return i >= 0 && rows[i].depth === depth ? i : undefined;
 }

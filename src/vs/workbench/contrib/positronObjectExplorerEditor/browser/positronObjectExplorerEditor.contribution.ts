@@ -13,6 +13,7 @@ import { EditorExtensions } from '../../../common/editor.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
@@ -37,6 +38,7 @@ class PositronObjectExplorerContribution extends Disposable {
 	constructor(
 		@IEditorResolverService editorResolverService: IEditorResolverService,
 		@IInstantiationService instantiationService: IInstantiationService,
+		@INotificationService notificationService: INotificationService,
 		@IPositronObjectExplorerService objectExplorerService: IPositronObjectExplorerService,
 	) {
 		super();
@@ -57,7 +59,7 @@ class PositronObjectExplorerContribution extends Disposable {
 					// An editor for a JSON file can be opened before the file has been read.
 					const fileUri = PositronObjectExplorerUri.backingUri(resource);
 					if (fileUri) {
-						await objectExplorerService.loadJsonFile(fileUri);
+						await objectExplorerService.loadJsonFile(fileUri).catch(err => notificationService.error(err));
 					}
 					return {
 						editor: instantiationService.createInstance(PositronObjectExplorerEditorInput, resource),
