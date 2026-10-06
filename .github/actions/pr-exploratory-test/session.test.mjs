@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { runSession } from './session.mjs';
+import { runSession, writeGuard } from './session.mjs';
 
 const assistant = text => ({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
 const result = { type: 'result', total_cost_usd: 1.5, num_turns: 3, duration_ms: 10, usage: {}, modelUsage: { 'claude-opus-5-5': { costUSD: 1.5 } } };
@@ -24,6 +24,7 @@ test('collects text and the cost record, and passes the options through', async 
 	assert.equal(seen.options.maxTurns, 9);
 	assert.equal(seen.options.systemPrompt, 's');
 	assert.equal(seen.options.hooks, undefined);
+	assert.equal(seen.options.canUseTool, undefined);
 });
 
 test('a time limit installs the hook and aborts after the wrap-up', async () => {
@@ -42,4 +43,21 @@ test('a time limit installs the hook and aborts after the wrap-up', async () => 
 test('an error that is not the time limit is thrown', async () => {
 	const query = async function* () { yield assistant('x'); throw new Error('boom'); };
 	await assert.rejects(runSession({ prompt: 'p', allowedTools: [], model: 'opus', maxTurns: 9, cwd: '/r', query, log: quiet }), /boom/);
+});
+
+test('writeGuard allows file edits inside the root and denies every other ask', async () => {
+	const guard = writeGuard('/r/.claude/skills/dp');
+	assert.equal((await guard('Edit', { file_path: '/r/.claude/skills/dp/a.ts' })).behavior, 'allow');
+	assert.equal((await guard('Write', { file_path: '/r/.claude/skills/dp/sub/b.ts' })).behavior, 'allow');
+	assert.equal((await guard('Edit', { file_path: '/r/.claude/skills/dp/../other/a.ts' })).behavior, 'deny');
+	assert.equal((await guard('Edit', { file_path: '/r/.claude/skills/dp-other/a.ts' })).behavior, 'deny');
+	assert.equal((await guard('Edit', { file_path: '/r/.claude/settings.json' })).behavior, 'deny');
+	assert.equal((await guard('Bash', { command: 'rm -rf /r/.claude/skills/dp' })).behavior, 'deny');
+});
+
+test('a write root installs the guard', async () => {
+	let seen;
+	const query = async function* ({ options }) { seen = options; yield result; };
+	await runSession({ prompt: 'p', allowedTools: ['Edit'], model: 'opus', maxTurns: 9, cwd: '/r', writeRoot: '/r/x', query, log: quiet });
+	assert.equal(typeof seen.canUseTool, 'function');
 });

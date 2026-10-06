@@ -6,10 +6,25 @@
 // One agent session through the Claude Agent SDK: the query loop, the time-up
 // hook, the hard stop and the cost record. What a session is for stays with its caller.
 
+import { resolve, sep } from 'node:path';
 import { query as sdkQuery } from '@anthropic-ai/claude-agent-sdk';
 import { buildCostRecord, timeUpHook, WRAP_UP_MINUTES } from './lib.mjs';
 
-export async function runSession({ prompt, systemPrompt, allowedTools, model, maxTurns, cwd, timeLimit = null, effort = '', thinking, claudeCodePath, label = 'session', query = sdkQuery, minuteMs = 60000, log = console.log }) {
+const FILE_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
+
+// Claude Code asks before editing under .claude/ even when allowedTools grants
+// Edit, and a headless session denies every ask. This allows file edits inside
+// root and denies every other ask, as before.
+export function writeGuard(root) {
+	const base = resolve(root);
+	return async (toolName, input) => {
+		const p = typeof input.file_path === 'string' ? resolve(input.file_path) : typeof input.notebook_path === 'string' ? resolve(input.notebook_path) : '';
+		if (FILE_TOOLS.has(toolName) && p.startsWith(base + sep)) { return { behavior: 'allow', updatedInput: input }; }
+		return { behavior: 'deny', message: `${toolName} needs permission this session cannot grant${p ? ` (${p})` : ''}` };
+	};
+}
+
+export async function runSession({ prompt, systemPrompt, allowedTools, model, maxTurns, cwd, writeRoot, timeLimit = null, effort = '', thinking, claudeCodePath, label = 'session', query = sdkQuery, minuteMs = 60000, log = console.log }) {
 	const texts = [];
 	let cost = buildCostRecord(null);
 	let timedOut = false;
@@ -55,6 +70,7 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 				...(effort ? { effort } : {}),
 				...(claudeCodePath ? { pathToClaudeCodeExecutable: claudeCodePath } : {}),
 				...(hooks ? { hooks } : {}),
+				...(writeRoot ? { canUseTool: writeGuard(writeRoot) } : {}),
 			},
 		})) {
 			if (message.type === 'assistant') {

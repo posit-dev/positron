@@ -95,7 +95,7 @@ function main(): number {
 		const pre = git('rev-parse', 'HEAD').trim();
 		const session = spawnSync(process.execPath, [runner, '--prompt-file', join(dir, 'fixer-brief.md'), '--system-file', join(here, 'fixer.md'),
 			'--tools', 'Bash,Read,Edit,Write,Glob,Grep', '--model', 'opus', '--max-turns', '150', '--time-limit', '25',
-			'--cwd', repo, '--label', `fixer ${f.id}`, '--out', join(dir, 'cost', `fixer-${f.id}.json`)], { stdio: 'inherit' });
+			'--cwd', repo, '--write-root', join(repo, SKILL_PREFIX), '--label', `fixer ${f.id}`, '--out', join(dir, 'cost', `fixer-${f.id}.json`)], { stdio: 'inherit' });
 
 		// Stop the fixer's instance before any git or check step; smoke launches its own.
 		const app = readFixtureState(stateFile);

@@ -6,7 +6,7 @@
 // runSession from the command line, for callers outside this action (drive-positron's heal/):
 //
 //   node session-cli.mjs --prompt-file F --system-file F --tools Bash,Read --model opus \
-//     --max-turns 120 [--time-limit 45] [--effort high] --cwd DIR --label finder --out FILE
+//     --max-turns 120 [--time-limit 45] [--effort high] [--write-root DIR] --cwd DIR --label finder --out FILE
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
@@ -18,7 +18,7 @@ const { values: a } = parseArgs({
 		'prompt-file': { type: 'string' }, 'system-file': { type: 'string' }, tools: { type: 'string' },
 		model: { type: 'string', default: 'opus' }, 'max-turns': { type: 'string', default: '120' },
 		'time-limit': { type: 'string', default: '' }, effort: { type: 'string', default: '' },
-		cwd: { type: 'string' }, label: { type: 'string', default: 'session' }, out: { type: 'string' },
+		cwd: { type: 'string' }, 'write-root': { type: 'string' }, label: { type: 'string', default: 'session' }, out: { type: 'string' },
 	},
 });
 for (const k of ['prompt-file', 'tools', 'cwd', 'out']) {
@@ -36,6 +36,7 @@ try {
 		timeLimit: parseTimeLimit(a['time-limit']),
 		effort: a.effort,
 		cwd: a.cwd,
+		writeRoot: a['write-root'],
 		claudeCodePath: process.env.CLAUDE_CODE_PATH || undefined,
 		label: a.label,
 	});
