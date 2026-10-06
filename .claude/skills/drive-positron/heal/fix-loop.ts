@@ -32,7 +32,7 @@ function isMain(): boolean {
 
 /** Runs git in the checkout; throws when it fails, so the loop never goes on from a wrong HEAD. */
 function git(...a: string[]): string {
-	const r = spawnSync('git', a, { cwd: repo, encoding: 'utf8' });
+	const r = spawnSync('git', a, { cwd: repo, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
 	if (r.error || r.status !== 0) { throw new Error(`git ${a.slice(0, 2).join(' ')} failed: ${r.error?.message ?? (r.stderr || '').trim().split('\n').pop()}`); }
 	return r.stdout;
 }

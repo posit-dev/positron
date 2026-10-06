@@ -248,6 +248,7 @@ jobs:
           git config --global user.email positron-bot@posit.co
 
       # What the build steps leave behind that .gitignore does not cover.
+      # NPM_CONFIG_CACHE is relative, so every npm install dir grows its own .npm-cache.
       - name: Exclude build residue from git status
         if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
@@ -255,7 +256,7 @@ jobs:
           {
             echo '/extensions/positron-python/.venv'
             echo '/.node-gyp-cache/'
-            echo '/.npm-cache/'
+            echo '.npm-cache/'
             echo '/.playwright-browsers/'
           } >> "$(git rev-parse --git-path info/exclude)"
 
@@ -304,11 +305,15 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          step=
-          if command -v gh > /dev/null; then
-            step=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" \
-              --jq '.jobs[] | select(.name == "heal") | .steps[] | select(.conclusion == "failure") | .name' | head -n 1) || true
-          fi
+          # gh may not be in the image; node is.
+          # shellcheck disable=SC2016
+          step=$(node -e '
+            const url = `${process.env.GITHUB_API_URL}/repos/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}/attempts/${process.env.GITHUB_RUN_ATTEMPT}/jobs`;
+            fetch(url, { headers: { authorization: `Bearer ${process.env.GH_TOKEN}`, accept: "application/vnd.github+json" } })
+              .then(r => r.json())
+              .then(j => console.log(j.jobs?.find(x => x.name === "heal")?.steps?.find(x => x.conclusion === "failure")?.name ?? ""))
+              .catch(() => {});
+          ') || true
           echo "step=${step:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Upload the night
