@@ -41,6 +41,12 @@ import {
 import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 
 // --- Start Positron ---
+// eslint-disable-next-line import/no-duplicates
+import { RelativePattern, WorkspaceFolder } from 'vscode';
+// eslint-disable-next-line import/no-duplicates
+import { sleep } from '../common/utils/async';
+// eslint-disable-next-line import/no-duplicates
+import { createFileSystemWatcher } from '../common/vscodeApis/workspaceApis';
 import { getUvDirs, isUvEnvironment, isUvManagedBasePython } from './common/environmentManagers/uv';
 import { isCustomEnvironment, isPythonStartupDisabled } from '../positron/interpreterSettings';
 import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
@@ -663,6 +669,9 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                         return existingEnv;
                     case ExistingEnvAction.AddNewEnv:
                         // Proceed to add the 'info' env because we truly do not have an 'old' env.
+                        // Another addEnv for the same path can finish while we await
+                        // checkForExistingEnv; update its entry rather than adding a duplicate.
+                        old = this._envs.find((item) => item.executable.filename === info.executable.filename);
                         break;
                     case ExistingEnvAction.ReplaceExistingEnv:
                         // 'info' is the shorter path env; set the 'old' env to the equivalent one we found
@@ -877,10 +886,75 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             this.evictResolvedEnv(e.executable);
             this._envs
                 .filter((env) => isParentPath(env.executable.filename, e.executable))
-                .forEach((env) => this.removeEnv(env));
+                .forEach((env) => {
+                    this.removeEnv(env);
+                    this.watchForRecreatedEnv(env.executable.filename, e.workspaceFolder);
+                });
             // --- End Positron ---
         }
     }
+
+    // --- Start Positron ---
+    private readonly _recreatedEnvWatchers = new Map<string, Disposable>();
+
+    /**
+     * Watch for a removed workspace env to come back, e.g. `.venv` deleted and
+     * recreated. On Linux the file watcher only reports the new `.venv` folder,
+     * not the files created inside it, so the workspace executable watcher never
+     * sees the new executable. Watch each folder between the workspace and the
+     * executable, and look the executable up once one of them is created.
+     */
+    private watchForRecreatedEnv(executable: string, workspaceFolder: WorkspaceFolder): void {
+        if (this._recreatedEnvWatchers.has(executable)) {
+            return;
+        }
+
+        const watchers: Disposable[] = [];
+        const stop = () => {
+            watchers.forEach((d) => d.dispose());
+            this._recreatedEnvWatchers.delete(executable);
+        };
+        let checking = false;
+        const onFolderCreated = async () => {
+            if (checking) {
+                return;
+            }
+            checking = true;
+            try {
+                // The executable can lag its folder by a moment while the venv is written.
+                for (let attempt = 0; attempt < 10; attempt += 1) {
+                    if (await pathExists(executable)) {
+                        stop();
+                        traceVerbose(`[watchForRecreatedEnv] ${executable} was recreated`);
+                        const native = await this.finder.resolve(executable);
+                        if (native) {
+                            await this.addEnv(native, workspaceFolder.uri);
+                        }
+                        return;
+                    }
+                    await sleep(200);
+                }
+            } finally {
+                checking = false;
+            }
+        };
+
+        const root = workspaceFolder.uri.fsPath;
+        let dir = path.dirname(executable);
+        while (isParentPath(dir, root) && !arePathsSame(dir, root)) {
+            const watcher = createFileSystemWatcher(
+                new RelativePattern(path.dirname(dir), path.basename(dir)),
+                false,
+                true,
+                true,
+            );
+            watchers.push(watcher, watcher.onDidCreate(onFolderCreated));
+            dir = path.dirname(dir);
+        }
+        this._recreatedEnvWatchers.set(executable, { dispose: stop });
+        this._disposables.push({ dispose: stop });
+    }
+    // --- End Positron ---
 }
 
 export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscoveryAPI & Disposable {

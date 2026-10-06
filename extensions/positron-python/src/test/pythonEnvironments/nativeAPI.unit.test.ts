@@ -25,7 +25,8 @@ import * as ws from '../../client/common/vscodeApis/workspaceApis';
 import * as uvApi from '../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as externalDeps from '../../client/pythonEnvironments/common/externalDependencies';
 import * as nativeFinder from '../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
-import { EventEmitter, WorkspaceFolder } from 'vscode';
+import { EventEmitter, FileSystemWatcher, RelativePattern, Uri } from 'vscode';
+import * as asyncUtils from '../../client/common/utils/async';
 import { FileChangeType } from '../../client/common/platform/fileSystemWatcher';
 import { PythonEnvCollectionChangedEvent } from '../../client/pythonEnvironments/base/watcher';
 // --- End Positron ---
@@ -1292,20 +1293,37 @@ suite('Native Python API', () => {
         };
         let workspaceEnvChanged: EventEmitter<pw.PythonWorkspaceEnvEvent>;
         let changes: PythonEnvCollectionChangedEvent[];
+        // Watchers the API opens for the folders of a removed env.
+        let folderWatchers: { folder: string; created: EventEmitter<Uri>; disposed: boolean }[];
+
+        const workspaceFolder = {
+            uri: Uri.file(path.join(path.sep, 'home', 'user', 'project')),
+            name: 'project',
+            index: 0,
+        };
 
         // The watcher reports a deleted folder as one delete for the folder.
         function fireDeleted(deletedPath: string): void {
-            workspaceEnvChanged.fire({
-                type: FileChangeType.Deleted,
-                workspaceFolder: {} as WorkspaceFolder,
-                executable: deletedPath,
-            });
+            workspaceEnvChanged.fire({ type: FileChangeType.Deleted, workspaceFolder, executable: deletedPath });
         }
 
         setup(async () => {
             sinon.stub(nativeFinder, 'getAdditionalEnvDirs').resolves([]);
             workspaceEnvChanged = new EventEmitter();
             mockWatcher.setup((w) => w.onDidWorkspaceEnvChanged).returns(() => workspaceEnvChanged.event);
+            folderWatchers = [];
+            sinon.stub(ws, 'createFileSystemWatcher').callsFake((globPattern) => {
+                const { base, pattern } = globPattern as RelativePattern;
+                const watcher = { folder: path.join(base, pattern), created: new EventEmitter<Uri>(), disposed: false };
+                folderWatchers.push(watcher);
+                return {
+                    onDidCreate: watcher.created.event,
+                    dispose: () => {
+                        watcher.disposed = true;
+                    },
+                } as unknown as FileSystemWatcher;
+            });
+            sinon.stub(asyncUtils, 'sleep').resolves(0);
             mockFinder.setup((f) => f.resolve(venvPython)).returns(() => Promise.resolve(venvEnv));
             api = nativeAPI.createNativeEnvironmentsApi(mockFinder.object);
 
@@ -1336,6 +1354,54 @@ suite('Native Python API', () => {
             assert.isUndefined(await api.resolveEnv(venvPython));
             assert.equal(api.getEnvs().length, 0);
             mockFinder.verify((f) => f.resolve(venvPython), typemoq.Times.once());
+        });
+
+        test('recreating the deleted folder brings the env back', async () => {
+            fireDeleted(venvDir);
+            // On Linux only the new folder is reported, not the executable inside it.
+            folderWatchers.find((w) => w.folder === venvDir)?.created.fire(Uri.file(venvDir));
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            assert.deepStrictEqual(
+                {
+                    watched: folderWatchers.map((w) => [w.folder, w.disposed]),
+                    envs: api.getEnvs().map((env) => env.executable.filename),
+                    changes: changes.map((e) => e.type),
+                },
+                {
+                    watched: [
+                        [path.join(venvDir, 'bin'), true],
+                        [venvDir, true],
+                    ],
+                    envs: [venvPython],
+                    changes: [FileChangeType.Deleted, FileChangeType.Created],
+                },
+            );
+        });
+
+        test('a recreated folder waits for the executable to appear', async () => {
+            fireDeleted(venvDir);
+            pathExistsStub.withArgs(venvPython).onFirstCall().resolves(false).onSecondCall().resolves(true);
+            folderWatchers.find((w) => w.folder === venvDir)?.created.fire(Uri.file(venvDir));
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            assert.deepStrictEqual(
+                api.getEnvs().map((env) => env.executable.filename),
+                [venvPython],
+            );
+        });
+
+        test('a recreate reported for both the folder and the executable adds the env once', async () => {
+            fireDeleted(venvDir);
+            // macOS and Windows report the new executable as well as the new folder.
+            workspaceEnvChanged.fire({ type: FileChangeType.Created, workspaceFolder, executable: venvPython });
+            folderWatchers.find((w) => w.folder === venvDir)?.created.fire(Uri.file(venvDir));
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
+            assert.deepStrictEqual(
+                api.getEnvs().map((env) => env.executable.filename),
+                [venvPython],
+            );
         });
 
         test('deleting a path outside the env leaves the env', () => {
