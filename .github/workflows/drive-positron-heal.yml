@@ -18,7 +18,7 @@ on:
         type: boolean
         default: false
       explore:
-        description: "Run the finder: auto (nightly in burn-in, Mondays when live), on, or off"
+        description: "Run the finder: auto (per EXPLORE_ON), on, or off"
         type: choice
         options: [auto, "on", "off"]
         default: auto
@@ -34,6 +34,8 @@ env:
   HEAL_DIR: /tmp/heal
   PHASE: ${{ vars.DRIVE_POSITRON_HEAL_PHASE || 'live' }}
   REVIEWERS: midleman
+  # When the finder runs on its own: nightly, or mondays once the nightly finds settle.
+  EXPLORE_ON: nightly
 
 jobs:
   heal:
@@ -192,7 +194,7 @@ jobs:
         run: |
           want="$WANT"
           if [ "$want" = auto ]; then
-            if [ "$PHASE" = burn-in ] || [ "$(date -u +%u)" = 1 ]; then want=on; else want=off; fi
+            if [ "$EXPLORE_ON" = nightly ] || [ "$(date -u +%u)" = 1 ]; then want=on; else want=off; fi
           fi
           echo "run=$([ "$want" = on ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 

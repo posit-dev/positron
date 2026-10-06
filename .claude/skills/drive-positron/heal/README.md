@@ -10,7 +10,7 @@
 3. `recent.ts`: fetches the past week's findings into `recent/<run id>/`, for the finder's area pick
    and the earlier verdicts in each fixer brief (and the earlier nights that fixed a finding that
    came back, `fixedBefore`)
-4. `finder.ts` on explore nights: one agent session explores one area (`areas.json`) and writes findings
+4. `finder.ts` on explore nights (`EXPLORE_ON` in the workflow: nightly, or Mondays): one agent session explores one area (`areas.json`) and writes findings
 5. `fix-loop.ts`: one fixer session per finding (at most 5); each fix is committed, then `check.ts`
    and smoke decide whether it stays: only the sections whose cases run a helper the change can
    reach (`affected.ts`), each on its own launch, or the full suite when the change is shared
