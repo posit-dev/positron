@@ -91,7 +91,7 @@ inputs:
     required: false
     default: ""
   decline-reason:
-    description: "Comment mode: the gate's reason, when outcome is 'declined'"
+    description: "Comment mode: why the run did not happen, when outcome is 'declined' or 'outdated'"
     required: false
     default: ""
   pr-number:

@@ -306,7 +306,7 @@ const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'cancelled']) {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled']) {
 		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
@@ -326,6 +326,13 @@ test('renderPrComment running state names the head and links the run', () => {
 test('renderPrComment on a cancelled run says it was cancelled', () => {
 	const body = renderPrComment({ state: 'cancelled', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled before the agent produced a report.\n[View run \u2192](${RUN_URL})\n`);
+});
+
+test('renderPrComment on an outdated branch says why and what to do', () => {
+	const reason = 'this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again.';
+	const body = renderPrComment({ state: 'outdated', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason });
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nNot run: ${reason}\n[View run \u2192](${RUN_URL})\n`);
+	assert.match(renderPrComment({ state: 'outdated', runUrl: RUN_URL, headSha: SHA }), /^Not run: .*Rebase it onto main/m);
 });
 
 test('renderPrComment names the focus, so two runs on one head can be told apart', () => {

@@ -562,7 +562,8 @@ order.
 
 - [shots/<file>](shots/<file>) -- Step <N>: <what another scenario's run of this step shows>
 - [shots/<file>](shots/<file>) -- S<NN>: <what that scenario's run of the bug shows>
-- `<log path>` -- <quoted line with its timestamp>
+- `<log path>:<line>` | <Renderer process, Extension host, Main process, Python kernel or R kernel> | <time, or Logged <N>x> -- "<the line exactly as logged, with ==the value that matters== marked>"
+- **Not logged** -- `<log path>` | <time window searched> -- "<the exact line you expected>"
 
 **Error output** -- `<log path>` | <Renderer process, Extension host, Main process, Python kernel or R kernel> | Logged <N>x (<when>)
 
@@ -638,9 +639,19 @@ Every screenshot opens from the step it proves, so list one under Evidence only
 to give it a better caption or to add another run's shot of a step. A control
 that proves Expected, such as pandas showing the right values, is not proof of
 the failing step: make it a PASS step of its own, or leave it out when Observed
-already states it. Otherwise Evidence is text only: an error, a stack, a log
-line. A helper call that failed is evidence too: cite its line,
-`` `actions.log:<line>` -- "<the line>" ``. A path to suspect code goes in Cause.
+already states it. Otherwise Evidence is what Positron logged, and nothing
+else: an error, a stack, a log line. Quote each line exactly as logged, with no
+note after it; what it means goes in Observed (as a fact) or Cause (as a
+reason). Mark the one value that matters, such as a path or an ID, as
+`==value==`. For several lines, leave the quote off the bullet and put them in
+a code block indented under it. Never cite `actions.log` or a file you saved:
+they record what you did, not what Positron did. A path to suspect code goes
+in Cause.
+
+When a line that should have followed never did, add a `**Not logged**` bullet
+after the line that was logged, with the window you searched. Only name a line
+you can quote exactly, from the code or from a passing run; otherwise leave it
+out.
 
 Cause blames the defective line, not the line that made it reachable. R's
 kernel, Ark, is in this checkout under `extensions/positron-r/ark/` (Rust, in

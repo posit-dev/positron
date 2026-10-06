@@ -7,11 +7,40 @@ import { Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IDataConnectionInstance } from './dataConnectionInstance.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { DataConnectionParameterValues, IDataConnectionHandle, IDataConnectionProfile } from './dataConnectionDriver.js';
+import { DataConnectionNodeKind, DataConnectionParameterValues, IDataConnectionHandle, IDataConnectionProfile } from './dataConnectionDriver.js';
 import { IDataConnectionsDriverManager } from './dataConnectionsDriverManager.js';
 
 // DI token used to inject IPositronDataConnectionsService throughout the workbench.
 export const IPositronDataConnectionsService = createDecorator<IPositronDataConnectionsService>('positronDataConnectionsService');
+
+// Id of the Data Connections view. Lives here rather than with the view registration so the
+// service can open its own view, matching POSITRON_CONNECTIONS_VIEW_ID in the older service.
+export const POSITRON_DATA_CONNECTIONS_VIEW_ID = 'workbench.panel.positronDataConnections';
+
+/**
+ * One level of a reveal path: what the pane calls the row, and which kind of row it is.
+ *
+ * A path is named rather than addressed by node id because a node's id embeds the handle it was
+ * fetched under, and a fresh fetch mints new handles. Kind and name are what survive.
+ */
+export interface IDataConnectionNodeStep {
+	readonly kind: DataConnectionNodeKind;
+
+	readonly name: string;
+}
+
+/**
+ * A request to reveal one row of a connection's tree: expand down to it, select it, scroll it
+ * into view. Raised by {@link IPositronDataConnectionsService.revealNode}.
+ */
+export interface IDataConnectionNodeRevealRequest {
+	// The profile whose tree holds the row.
+	readonly profileId: string;
+
+	// The row's path from the connection down. Display-only grouping rows ("Tables", "Columns")
+	// are left out; the walk descends through them on its own.
+	readonly path: readonly IDataConnectionNodeStep[];
+}
 
 /**
  * Where in a connection a reveal should go (see IPositronDataConnectionsService.revealConnection).
@@ -38,6 +67,24 @@ export interface IDataConnectionRevealRequest extends IDataConnectionRevealOptio
 }
 
 /**
+ * Opens a node in the Data Explorer given only its path below its connection, for a caller that
+ * holds the path rather than the node's live handle, as a details editor does. Implemented by the
+ * Data Connections pane's tree, which holds the connections' live nodes, and registered with the
+ * service for as long as the tree exists (see IPositronDataConnectionsService.registerNodeOpener).
+ */
+export interface IDataConnectionNodeOpener {
+	/**
+	 * Opens the node at a path below a connection in the Data Explorer, connecting if need be, and
+	 * reports any failure itself: that the node is no longer there, or that it couldn't be opened.
+	 * @param profileId The id of the connection's profile.
+	 * @param nodePath The reload key (see nodeReloadKey) of each row on the way down from the
+	 * connection to the node, group rows included.
+	 * @param name The node's name, for reporting a failure.
+	 */
+	openInDataExplorer(profileId: string, nodePath: readonly string[], name: string): Promise<void>;
+}
+
+/**
  * Service that manages data connection drivers and active data connection instances. Drivers are
  * registered by extensions via the ext host RPC pipeline; the UI consumes this service to list
  * drivers, connect, browse schema trees, and so on.
@@ -57,6 +104,9 @@ export interface IPositronDataConnectionsService extends IDisposable {
 
 	// Fires when the discovered data connections change.
 	onDidChangeDiscoveredProfiles: Event<IDataConnectionProfile[]>;
+
+	// Fires when something has asked for a row of a connection's tree to be revealed.
+	onDidRequestReveal: Event<IDataConnectionNodeRevealRequest>;
 
 	// Fires when a connection should be shown in the Data Connections pane. A nudge, not the
 	// request itself: the profile to show comes from takePendingRevealConnection, so the tree
@@ -91,6 +141,34 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @returns The request, or undefined if no request is outstanding.
 	 */
 	takePendingRevealConnection(): IDataConnectionRevealRequest | undefined;
+
+	/**
+	 * Registers the Data Connections pane's tree as the opener of nodes by their path, for as long as
+	 * the tree exists. A later registration replaces an earlier one.
+	 * @param opener The opener.
+	 * @returns A disposable that unregisters the opener.
+	 */
+	registerNodeOpener(opener: IDataConnectionNodeOpener): IDisposable;
+
+	/**
+	 * Whether the pane's tree is there to open nodes by their path. The tree lives as long as its
+	 * pane does, whether or not the pane is showing, so there is none only when the pane hasn't been
+	 * opened in this window or was closed since. A caller opens it (IViewsService.openView) before
+	 * calling {@link openNodeInDataExplorer} in that case.
+	 */
+	hasNodeOpener(): boolean;
+
+	/**
+	 * Opens the node at a path below a connection in the Data Explorer, through the pane's tree
+	 * (see {@link IDataConnectionNodeOpener.openInDataExplorer}), which reports any failure itself.
+	 * When there is no tree yet -- a pane opened just now builds its tree as it renders -- waits a
+	 * moment for one, rather than leaving the request behind for whenever one arrives.
+	 * @param profileId The id of the connection's profile.
+	 * @param nodePath The reload key of each row on the way down from the connection to the node.
+	 * @param name The node's name, for reporting a failure.
+	 * @returns Whether a tree was there to open the node; false when none arrived in time.
+	 */
+	openNodeInDataExplorer(profileId: string, nodePath: readonly string[], name: string): Promise<boolean>;
 
 	/**
 	 * Gets the connections drivers report as already configured on this machine (e.g. ODBC data
@@ -289,6 +367,28 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	 * @param profileId The data connection profile id.
 	 */
 	cancelDisconnectWhenUnused(profileId: string): void;
+
+	/**
+	 * Asks the pane to reveal a row of a connection's tree, opening the view first.
+	 *
+	 * Only meaningful for a profile with a live connection: walking to a row fetches each level
+	 * from the driver, and a caller reaching in from outside the pane -- a link in a SQL editor,
+	 * say -- should not be able to open a database connection as a side effect of a click.
+	 *
+	 * The request is held until the pane picks it up, since the view may not have been rendered
+	 * yet when this is called; see {@link takePendingReveal}.
+	 * @param request The row to reveal.
+	 */
+	revealNode(request: IDataConnectionNodeRevealRequest): Promise<void>;
+
+	/**
+	 * Takes the reveal request the pane has not handled yet, if any, clearing it.
+	 *
+	 * For the pane to call on mount: a reveal that opened the view arrives before anything is
+	 * listening, so the request waits here rather than being lost. Returns undefined once
+	 * consumed, so one request is never acted on twice.
+	 */
+	takePendingReveal(): IDataConnectionNodeRevealRequest | undefined;
 
 	/**
 	 * Gets all data connection instances.
