@@ -170,6 +170,25 @@ test('a reading in actions.log sits beside a check\'s screenshot, never in place
 	assert.deepEqual(lintLedgerOnly(ledger, { fileExists: () => true }).filter(p => /S01 step/.test(p)), ['ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it', 'ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it']);
 });
 
+test('Evidence holds Positron log lines only: no notes, no agent files, nothing after the quote', () => {
+	const evidence = lines => REPORT.replace('<details>', ['**Evidence**', '', ...lines, '', '<details>'].join('\n'));
+	assert.deepEqual(lint(evidence([
+		'- `logs/1-exthost.log:5` | Extension host | 00:18:39 -- "env change ==/x== remove"',
+		'- **Not logged** -- `logs/1-exthost.log` | 00:18:39-00:19:24 -- "env change /x add"',
+	])), []);
+	assert.deepEqual(lint(evidence([
+		'- so nothing resolved the new path',
+		'- `actions.log:12` -- "click failed"',
+		'- `logs/S03-later.txt` -- "saved"',
+		'- `logs/1-exthost.log:5` -- "env change /x remove", with no add after it',
+	])).map(p => p.replace(/;.*/, '')), [
+		'report: Finding 1 Evidence has a note ("so nothing resolved the new path")',
+		'report: Finding 1 Evidence cites actions.log:12, which the run wrote, not Positron',
+		'report: Finding 1 Evidence cites logs/S03-later.txt, which the run wrote, not Positron',
+		'report: Finding 1 Evidence follows logs/1-exthost.log:5\'s line with "with no add after it"',
+	]);
+});
+
 test('a finding\'s prose names no scenario ID, but an Evidence caption may', () => {
 	const pair = (observed, expected) => lint(REPORT.replace('**Feature:** console\n', `**Feature:** console\n\n**Observed:** ${observed}\n\n**Expected:** ${expected}\n`));
 	assert.deepEqual(pair('The panel stays empty.', 'The panel loads, as it did after Restart Kernel (S05, S06).'),
