@@ -392,6 +392,17 @@ suite('StatementRunner', () => {
 		assert.strictEqual(calls.settled.length, 2);
 	});
 
+	test('a session that cannot be asked whether it connected is not run in', async () => {
+		// Most likely it has exited, and an exited console takes the query without running it or
+		// saying anything. The user is told instead of left waiting for a result.
+		const { runner, calls } = harness({ bindings: [], variables: [[]], settle: () => Promise.reject(new Error('The session has exited')) });
+
+		const outcome = await runner.run(await document(), CONNECTION, 'SELECT 1', undefined);
+
+		assert.deepStrictEqual(outcome, { kind: 'not-run', languageId: 'r' });
+		assert.deepStrictEqual(calls.executed, []);
+	});
+
 	test('dismissing the dialog runs nothing and says nothing', async () => {
 		const { runner, calls } = harness({ bindings: [], variables: [[]], connected: undefined });
 
@@ -568,7 +579,9 @@ suite('StatementRunner', () => {
 		queryCode?: string;
 		foreground?: positron.BaseLanguageRuntimeSession;
 		sessions?: positron.BaseLanguageRuntimeSession[];
-		/** What submitting the code does, for the case where the console does not take it. */
+		/** What waiting on the session does, for the case where it cannot be asked. */
+		settle?: () => Thenable<unknown>;
+		/** What submitting the code does, for the case where the statement fails. */
 		executeCode?: () => Thenable<unknown>;
 	} = {}) {
 		const held: positron.DataConnectionBinding = {
@@ -636,7 +649,10 @@ suite('StatementRunner', () => {
 					? options.variables()
 					: options.variables ?? [[variable('con')]];
 			},
-			settle: async (languageId, sessionId) => { calls.settled.push({ languageId, sessionId }); },
+			settle: async (languageId, sessionId) => {
+				calls.settled.push({ languageId, sessionId });
+				return options.settle?.();
+			},
 			executeCode: async (languageId, code, sessionId) => {
 				if (options.executeCode) {
 					return options.executeCode();
