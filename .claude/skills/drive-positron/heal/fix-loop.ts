@@ -12,13 +12,13 @@
 // session failed, the fixer edited outside the skill or committed, or git failed.
 
 import { spawnSync } from 'child_process';
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
-import { queue, readOutcome, regressions } from './fix-lib.ts';
+import { earlierVerdicts, queue, readOutcome, regressions } from './fix-lib.ts';
 import { smokeChecksChanged } from './links.ts';
 import { cascade } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
@@ -66,6 +66,9 @@ function main(): number {
 	let baseline: SmokeResults = readResults(join(dir, 'smoke-1.json'));
 	const order = baseline.cases.map(c => c.name);
 	let findings = readFindings(fdir);
+	// recent/<run id>/ holds earlier nights' findings, fetched by the workflow.
+	const recentDir = join(dir, 'recent');
+	const recent = new Map(existsSync(recentDir) ? readdirSync(recentDir, { withFileTypes: true }).filter(d => d.isDirectory()).map(d => [d.name, readFindings(join(recentDir, d.name))]) : []);
 	const { attempt, notAttempted } = queue(findings, order, cap);
 	const save = (f: Finding) => { writeFinding(fdir, f); findings = findings.map(x => x.id === f.id ? f : x); };
 	for (const f of notAttempted) { save(addFields(f, { notAttempted: `over the ${cap}-session cap; comes back next night` })); }
@@ -87,14 +90,16 @@ function main(): number {
 		const outFile = join(dir, `outcome-${f.id}.json`);
 		rmSync(outFile, { force: true });
 		rmSync(stateFile, { force: true });
+		const earlier = earlierVerdicts(recent, f.id);
 		writeFileSync(join(dir, 'fixer-brief.md'), [
 			'# Finding', '', '```json', JSON.stringify(f, null, 2), '```', '',
+			...(earlier.length ? ['# Earlier verdicts', '', ...earlier.map(v => `- ${v}`), ''] : []),
 			`Checkout: ${repo}`, `App args for fixture-app.ts launch: ${appArgs.join(' ') || '(none)'}`,
 			`State file for fixture-app.ts --state: ${stateFile}`, `Outcome path: ${outFile}`,
 		].join('\n'));
 		const pre = git('rev-parse', 'HEAD').trim();
 		const session = spawnSync(process.execPath, [runner, '--prompt-file', join(dir, 'fixer-brief.md'), '--system-file', join(here, 'fixer.md'),
-			'--tools', 'Bash,Read,Edit,Write,Glob,Grep', '--model', 'opus', '--max-turns', '150', '--time-limit', '25',
+			'--tools', 'Bash,Read,Edit,Write,Glob,Grep', '--model', 'opus', '--effort', 'high', '--max-turns', '150', '--time-limit', '25',
 			'--cwd', repo, '--write-root', join(repo, SKILL_PREFIX), '--label', `fixer ${f.id}`, '--out', join(dir, 'cost', `fixer-${f.id}.json`)], { stdio: 'inherit' });
 
 		// Stop the fixer's instance before any git or check step; smoke launches its own.

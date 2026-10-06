@@ -35,3 +35,10 @@ export function readOutcome(text: string | null): FixerOutcome | string {
 	if (!r || typeof r.observed !== 'string' || (r.result !== 'fail' && r.result !== 'pass')) { return 'the outcome has no reproduction'; }
 	return { outcome: o.outcome as FixerOutcome['outcome'], reason: o.reason, reproduction: { ...r, by: 'fixer' } as Reproduction };
 }
+
+/** The latest verdicts on finding `id` from earlier nights, newest first; `runs` maps run id to that night's findings. */
+export function earlierVerdicts(runs: Map<string, Finding[]>, id: string, max = 3): string[] {
+	return [...runs].sort(([a], [b]) => Number(b) - Number(a))
+		.flatMap(([run, fs]) => fs.filter(f => f.id === id && f.outcome && f.outcome !== 'resolved').map(f => `run ${run}: ${f.outcome}${f.rejected ? ` (rejected: ${f.rejected})` : ''}: ${f.reason ?? ''}`))
+		.slice(0, max);
+}

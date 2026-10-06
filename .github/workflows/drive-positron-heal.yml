@@ -194,23 +194,10 @@ jobs:
           fi
           echo "run=$([ "$want" = on ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
-      # The artifact's root depends on what was uploaded, so the findings dir is found, not assumed.
+      # The finder picks its area from these, and the fixer's brief lists earlier verdicts.
       - name: Fetch the past week's findings
-        if: steps.explore.outputs.run == 'true'
         shell: bash
-        run: |
-          set +e -uo pipefail
-          mkdir -p "$HEAL_DIR/recent"
-          if ! command -v gh > /dev/null; then echo "::warning::gh is not in the image; the finder runs without the past week's findings"; exit 0; fi
-          since=$(date -u -d '7 days ago' +%Y-%m-%d)
-          gh run list --repo "$GITHUB_REPOSITORY" --workflow drive-positron-heal.yml --status completed --created ">=$since" --json databaseId --jq '.[].databaseId' |
-            while read -r id; do
-              tmp="$HEAL_DIR/recent/.dl-$id"
-              gh run download "$id" --repo "$GITHUB_REPOSITORY" --name drive-positron-heal --dir "$tmp" 2> /dev/null || { rm -rf "$tmp"; continue; }
-              f=$(find "$tmp" -type d -name findings | head -n 1)
-              if [ -n "$f" ]; then mkdir -p "$HEAL_DIR/recent/$id" && mv "$f"/* "$HEAL_DIR/recent/$id/" 2> /dev/null || true; fi
-              rm -rf "$tmp"
-            done
+        run: node .claude/skills/drive-positron/heal/recent.ts --dir "$HEAL_DIR"
 
       - name: Any findings yet?
         id: any

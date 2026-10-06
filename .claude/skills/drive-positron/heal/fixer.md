@@ -10,7 +10,9 @@ says how a helper is built and checked.
    your work away.
 2. **Reproduce before editing.** Follow the finding's steps. For a smoke finding the first step is
    `smoke.ts --until "<case>"`, because a smoke case depends on the state the cases before it
-   built; that run may be the only faithful repro. Record what you saw.
+   built; that run may be the only faithful repro. Record what you saw. If the brief lists earlier
+   verdicts on this finding, start from the newest: a different outcome needs evidence it missed,
+   and your reason must name that evidence.
 3. **Prove the cause.** Name the line that is wrong and why. If you cannot make it fail, the outcome
    is `flake` and you change nothing.
 4. **Product bugs are not yours.** If the helper reports Positron's behavior faithfully and Positron
@@ -18,6 +20,10 @@ says how a helper is built and checked.
    bug stops showing. Calling it a regression needs evidence that the case once passed on this
    platform (`git log` on the helper and its case); a helper that never worked here is the
    helper's bug.
+   **`product` means Positron-owned behavior.** When the cause is in upstream VS Code code that
+   Positron has not changed (`scripts/file-origin.sh <file>`, and no `// --- Start Positron ---`
+   block around it), the helper adapts: the outcome is `fixed`, and the reason names the upstream
+   cause.
 5. **No sleeps, retries or longer timeouts to get a pass.** Waiting for a named condition the
    helper can observe is fine; waiting longer and hoping is not.
 6. **Never loosen a smoke check.** If you change a check in `test/smoke.ts`, the reason must say

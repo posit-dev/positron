@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { queue, readOutcome, regressions } from './fix-lib.ts';
+import { earlierVerdicts, queue, readOutcome, regressions } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -39,4 +39,18 @@ test('readOutcome explains what is unusable', () => {
 	assert.match(readOutcome('not json') as string, /not JSON/);
 	assert.match(readOutcome(JSON.stringify({ outcome: 'resolved', reason: 'r', reproduction: {} })) as string, /outcome/);
 	assert.match(readOutcome(JSON.stringify({ outcome: 'flake', reason: '', reproduction: { at: 't', by: 'fixer', result: 'pass', observed: 'o' } })) as string, /reason/);
+});
+
+test('earlierVerdicts: newest run first, only this id, resolved and open skipped, capped', () => {
+	const v = (outcome?: Finding['outcome'], reason = '') => ({ ...f('smoke-a', 'smoke', 'a', outcome), reason });
+	const runs = new Map([
+		['9', [v('product', 'upstream')]],
+		['10', [v('fixed', 'helper'), f('smoke-b', 'smoke', 'b', 'flake')]],
+		['8', [v('resolved')]],
+		['7', [v()]],
+		['6', [{ ...v('fixed', 'old'), rejected: 'check.ts failed' }]],
+	]);
+	assert.deepEqual(earlierVerdicts(runs, 'smoke-a'), ['run 10: fixed: helper', 'run 9: product: upstream', 'run 6: fixed (rejected: check.ts failed): old']);
+	assert.deepEqual(earlierVerdicts(runs, 'smoke-a', 1), ['run 10: fixed: helper']);
+	assert.deepEqual(earlierVerdicts(runs, 'smoke-z'), []);
 });
