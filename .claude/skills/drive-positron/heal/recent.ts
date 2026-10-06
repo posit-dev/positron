@@ -19,7 +19,7 @@ import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
 
-const WORKFLOW = 'drive-positron-heal.yml';
+const WORKFLOW = 'drive-positron-nightly.yml';
 const ARTIFACT = 'drive-positron-heal';
 
 function isMain(): boolean {

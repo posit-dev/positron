@@ -162,13 +162,8 @@ passes every run (some known failures are timing races that pass now and then).
 
 ## In CI
 
-`.github/workflows/drive-positron.yml`, both jobs warn-only:
-
-- **drift**: on a PR that touches UI source (Positron's `src/` areas,
-  `extensions/positron-*`, the upstream UI the registry reads) or this skill.
-  Runs drift.ts with no install, lists MISSING entries in the job summary and
-  as warnings on `selectors.ts`; when the PR changes this skill it also
-  installs the root dependencies and runs check.ts.
-- **smoke**: nightly on main (03:30 UTC, Mon-Fri), or a manual run. Builds
-  Positron as `test-e2e-ubuntu.yml` does, in the same image, adds Quarto, and
-  runs smoke.ts.
+`.github/workflows/drive-positron-nightly.yml` builds Positron as
+`test-e2e-ubuntu.yml` does, in the same image, adds Quarto, and runs smoke.ts
+every weekday night (03:30 UTC) or on a manual run, then fixes the helper bugs
+it finds (see [../heal/README.md](../heal/README.md)). Drift is not checked on
+PRs; run drift.ts locally after renaming UI that the registry reads.

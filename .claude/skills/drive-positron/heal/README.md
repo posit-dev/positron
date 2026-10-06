@@ -1,6 +1,6 @@
 # heal/: the nightly self-heal
 
-`.github/workflows/drive-positron-heal.yml` runs these, in order, sharing one build:
+`.github/workflows/drive-positron-nightly.yml` runs these, in order, sharing one build:
 
 1. `test/smoke.ts --results` (the full suite)
 2. `rerun.ts`: reruns smoke once per group with a failure, `--until` its last failed case; a case
