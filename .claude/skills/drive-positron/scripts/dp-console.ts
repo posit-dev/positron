@@ -12,7 +12,7 @@ import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
 function startSession(session: string, language: 'python' | 'r', name: string, timeout: number, answer = '', fresh = false): Json {
-	const word = language === 'r' ? 'Rlang' : 'Python'; // TEST ONLY: planted helper bug, start-session r finds no row
+	const word = language === 'r' ? 'R' : 'Python';
 	// A session started while another is still starting waits behind it, so
 	// wait for those first (bounded by --timeout), and say so if they never finish.
 	// runs in run-code
