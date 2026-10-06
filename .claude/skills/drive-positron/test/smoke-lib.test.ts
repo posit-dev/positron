@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { firstRow, flagValue, nameWords, selectCases, threwResult, unknownArg } from './smoke-lib.ts';
+import { firstRow, flagValue, groupIds, nameWords, selectCases, threwResult, unknownArg } from './smoke-lib.ts';
 
 test('nameWords keeps the version and the env name', () => {
 	assert.equal(nameWords('Python 3.10.12 (uv: ws)'), '3.10.12 ws');
@@ -47,6 +47,35 @@ test('selectCases throws on an --until name no case has', () => {
 
 test('selectCases --until with --quick needs a quick case', () => {
 	assert.throws(() => selectCases(cs, { quick: true, until: 'b' }), /not in the --quick run/);
+});
+
+const gs = [{ id: 'one', first: 'a', setup: [] }, { id: 'two', first: 'c', setup: [{ name: 'setup: x' }] }];
+
+test('groupIds gives each case the group it falls in', () => {
+	assert.deepEqual(groupIds(cs, gs), ['one', 'one', 'two', 'two']);
+	assert.throws(() => groupIds(cs, [{ id: 'z', first: 'nope', setup: [] }]), /group "z" starts at "nope"/);
+});
+
+test('selectCases: the full run skips setups', () => {
+	assert.deepEqual(selectCases(cs, { quick: false, until: null }, gs).map(c => c.name), ['a', 'b', 'c', 'd']);
+});
+
+test('selectCases --until runs the group setup, then its cases through the name', () => {
+	assert.deepEqual(selectCases(cs, { quick: false, until: 'd' }, gs).map(c => c.name), ['setup: x', 'c', 'd']);
+	assert.deepEqual(selectCases(cs, { quick: false, until: 'b' }, gs).map(c => c.name), ['a', 'b']);
+	assert.deepEqual(selectCases(cs, { quick: true, until: 'c' }, gs).map(c => c.name), ['setup: x', 'c']);
+});
+
+test('selectCases --from-start replays every case through the name', () => {
+	assert.deepEqual(selectCases(cs, { quick: false, until: 'd', fromStart: true }, gs).map(c => c.name), ['a', 'b', 'c', 'd']);
+	assert.throws(() => selectCases(cs, { quick: false, until: null, fromStart: true }, gs), /--from-start needs --until/);
+});
+
+test('selectCases --group runs one group alone', () => {
+	assert.deepEqual(selectCases(cs, { quick: false, until: null, group: 'two' }, gs).map(c => c.name), ['setup: x', 'c', 'd']);
+	assert.deepEqual(selectCases(cs, { quick: true, until: null, group: 'one' }, gs).map(c => c.name), ['a']);
+	assert.throws(() => selectCases(cs, { quick: false, until: null, group: 'nope' }, gs), /no group "nope"; groups: one, two/);
+	assert.throws(() => selectCases(cs, { quick: false, until: 'a', group: 'one' }, gs), /do not go together/);
 });
 
 test('flagValue reads a value, null when absent, an error when missing', () => {

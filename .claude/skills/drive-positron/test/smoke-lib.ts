@@ -22,18 +22,49 @@ export function firstRow(rows: { kind: string; label: string }[], language: 'r' 
 }
 
 export type Status = 'PASS' | 'FAIL' | 'KNOWN';
-export interface CaseResult { name: string; status: Status; helper: string; args: string[]; problem: string; ms: number }
+/** `group` is the smoke.ts section the case is in; a setup step's is its group's too. */
+export interface CaseResult { name: string; status: Status; helper: string; args: string[]; problem: string; ms: number; group?: string }
 export interface SmokeResults { startedAt: string; until: string | null; quick: boolean; launch: 'PASS' | 'FAIL'; launchProblem: string; cases: CaseResult[] }
 
-/** The cases a run goes through, in order: all, or the quick ones, up to and including --until. */
-export function selectCases<T extends { name: string; quick?: boolean }>(cases: T[], opts: { quick: boolean; until: string | null }): T[] {
-	const pool = opts.quick ? cases.filter(c => c.quick) : cases;
-	if (opts.until === null) { return pool; }
-	const at = pool.findIndex(c => c.name === opts.until);
-	if (at < 0) {
-		throw new Error(cases.some(c => c.name === opts.until) ? `"${opts.until}" is not in the --quick run` : `no case named "${opts.until}"`);
+/** A section of smoke.ts: its cases start at `first`, and `setup` builds what they need from earlier sections. */
+export interface Group<T> { id: string; first: string; setup: T[] }
+
+export interface Selection { quick: boolean; until: string | null; group?: string | null; fromStart?: boolean }
+
+/** Each case's group id, by index: the last group whose first case is at or before it. */
+export function groupIds<T extends { name: string }>(cases: T[], groups: Group<T>[]): string[] {
+	const starts = groups.map(g => {
+		const at = cases.findIndex(c => c.name === g.first);
+		if (at < 0) { throw new Error(`group "${g.id}" starts at "${g.first}", which no case is named`); }
+		return { id: g.id, at };
+	});
+	return cases.map((_, i) => starts.filter(s => s.at <= i).at(-1)?.id ?? '');
+}
+
+/**
+ * The cases a run goes through, in order. The full run is every case (or the
+ * quick ones) with no setups. --until NAME is NAME's group: its setup, then
+ * its cases through NAME; with --from-start, every case through NAME.
+ * --group ID is that group's setup and all its cases.
+ */
+export function selectCases<T extends { name: string; quick?: boolean }>(cases: T[], opts: Selection, groups: Group<T>[] = []): T[] {
+	const ids = groupIds(cases, groups);
+	const keep = (c: T) => !opts.quick || c.quick;
+	const { until, group = null, fromStart = false } = opts;
+	if (group !== null && until !== null) { throw new Error('--group and --until do not go together'); }
+	if (fromStart && until === null) { throw new Error('--from-start needs --until'); }
+	if (group !== null) {
+		const g = groups.find(x => x.id === group);
+		if (!g) { throw new Error(`no group "${group}"; groups: ${groups.map(x => x.id).join(', ')}`); }
+		return [...g.setup, ...cases.filter((c, i) => ids[i] === group && keep(c))];
 	}
-	return pool.slice(0, at + 1);
+	if (until === null) { return cases.filter(keep); }
+	const at = cases.findIndex(c => c.name === until);
+	if (at < 0) { throw new Error(`no case named "${until}"`); }
+	if (!keep(cases[at])) { throw new Error(`"${until}" is not in the --quick run`); }
+	if (fromStart || !groups.length) { return cases.slice(0, at + 1).filter(keep); }
+	const g = groups.find(x => x.id === ids[at])!;
+	return [...g.setup, ...cases.slice(0, at + 1).filter((c, i) => ids[i] === g.id && keep(c))];
 }
 
 export function readResults(file: string): SmokeResults {

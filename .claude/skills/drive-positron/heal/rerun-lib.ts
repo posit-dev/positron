@@ -12,8 +12,17 @@ export interface Classified {
 	unconfirmed: { name: string; first: CaseResult }[];
 }
 
-export function lastFailed(r: SmokeResults): string | null {
-	return r.cases.filter(c => c.status === 'FAIL').at(-1)?.name ?? null;
+/** The last FAIL in each group, in run order; results without groups count as one group. */
+export function lastFailedPerGroup(r: SmokeResults): string[] {
+	const last = new Map<string, string>();
+	for (const c of r.cases.filter(x => x.status === 'FAIL')) { last.delete(c.group ?? ''); last.set(c.group ?? '', c.name); }
+	return [...last.values()];
+}
+
+/** Several runs' results as one: every case, launched only if every run launched. */
+export function mergeResults(runs: SmokeResults[]): SmokeResults {
+	const failed = runs.find(r => r.launch === 'FAIL');
+	return { ...runs[0], launch: failed ? 'FAIL' : 'PASS', launchProblem: failed?.launchProblem ?? '', cases: runs.flatMap(r => r.cases) };
 }
 
 export function classify(first: SmokeResults, second: SmokeResults): Classified {

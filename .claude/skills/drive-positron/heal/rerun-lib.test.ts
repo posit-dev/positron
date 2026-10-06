@@ -6,14 +6,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
-import { cascade, classify, lastFailed, smokeFinding, wholesale } from './rerun-lib.ts';
+import { cascade, classify, lastFailedPerGroup, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
 
-const c = (name: string, status: CaseResult['status'], problem = ''): CaseResult => ({ name, status, helper: 'x.sh', args: ['--a', 'b'], problem, ms: 1 });
+const c = (name: string, status: CaseResult['status'], problem = '', group?: string): CaseResult => ({ name, status, helper: 'x.sh', args: ['--a', 'b'], problem, ms: 1, ...(group ? { group } : {}) });
 const r = (cases: CaseResult[], launch: 'PASS' | 'FAIL' = 'PASS'): SmokeResults => ({ startedAt: '2026-10-06T03:40:00Z', until: null, quick: false, launch, launchProblem: '', cases });
 
-test('lastFailed is the last FAIL; KNOWN does not count', () => {
-	assert.equal(lastFailed(r([c('a', 'FAIL'), c('b', 'PASS'), c('c', 'FAIL'), c('d', 'KNOWN')])), 'c');
-	assert.equal(lastFailed(r([c('a', 'PASS'), c('b', 'KNOWN')])), null);
+test('lastFailedPerGroup is the last FAIL of each group; KNOWN does not count', () => {
+	assert.deepEqual(lastFailedPerGroup(r([c('a', 'FAIL'), c('b', 'PASS'), c('c', 'FAIL'), c('d', 'KNOWN')])), ['c']);
+	assert.deepEqual(lastFailedPerGroup(r([c('a', 'PASS'), c('b', 'KNOWN')])), []);
+	assert.deepEqual(lastFailedPerGroup(r([c('a', 'FAIL', '', 'one'), c('b', 'FAIL', '', 'one'), c('c', 'PASS', '', 'two'), c('d', 'FAIL', '', 'three')])), ['b', 'd']);
+});
+
+test('mergeResults keeps every case, and a launch failure from any run', () => {
+	const m = mergeResults([r([c('a', 'FAIL')]), { ...r([], 'FAIL'), launchProblem: 'no app' }]);
+	assert.deepEqual([m.launch, m.launchProblem, m.cases.map(x => x.name)], ['FAIL', 'no app', ['a']]);
+	assert.equal(mergeResults([r([c('a', 'PASS')]), r([c('b', 'PASS')])]).launch, 'PASS');
 });
 
 test('classify: fail twice is persistent, pass on the rerun is a flake', () => {

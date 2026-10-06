@@ -8,13 +8,17 @@
 // JSON. From the repo root (needs a built checkout, R, and the positron-python
 // venv; about 8 minutes, --quick about 2):
 //
-//   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME] [--results FILE] [--keep] [-- APP ARGS...]
+//   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME [--from-start] | --group ID] [--results FILE] [--keep] [-- APP ARGS...]
 //
 // --quick runs only the cases marked quick: one happy path per helper, and
 // the cases they stand on. --keep leaves the instance running at the end and
 // prints how to stop it.
-// --until NAME runs the cases in order and stops after that one: the state a
-// later case needs is built by the ones before it, so a case cannot run alone.
+// Each `// ----` section is a group (`groups` below). Its cases lean on the
+// state the earlier sections built, so a group run starts with a short setup
+// that builds it. --until NAME runs NAME's group: the setup, then the group's
+// cases through NAME. --from-start runs every case through NAME instead, for a
+// failure that needs an earlier section's state. --group ID runs one group.
+// The full run skips the setups.
 // --results FILE writes every case's status, command and problem as JSON
 // (SmokeResults in smoke-lib.ts), for heal/.
 // Arguments after `--` go to the app through launch.sh (CI passes
@@ -26,7 +30,7 @@ import { spawn, spawnSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { launchFixture, stopFixture, type App } from './fixture-app.ts';
-import { firstRow, nameWords, flagValue, selectCases, threwResult, type SmokeResults } from './smoke-lib.ts';
+import { firstRow, groupIds, nameWords, flagValue, selectCases, threwResult, type Group, type SmokeResults } from './smoke-lib.ts';
 
 const test = dirname(new URL(import.meta.url).pathname);
 const scripts = resolve(test, '../scripts');
@@ -45,6 +49,8 @@ const flag = (name: string) => {
 	return v;
 };
 const until = flag('--until');
+const group = flag('--group');
+const fromStart = own.includes('--from-start');
 const resultsFile = flag('--results');
 const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
 
@@ -370,6 +376,24 @@ const cases: Case[] = [
 	{ name: 'window open-folder sub', run: ['window.sh', 'open-folder', join(ws, 'sub')], check: o => (o.json!.folder !== join(ws, 'sub') && `folder ${o.json!.folder}`) || (o.json!.was?.folder !== ws && `was ${JSON.stringify(o.json!.was)}`) },
 ];
 
+// What each section needs from the ones before it, built on a fresh launch.
+const startR: Case = { name: 'setup: start-session r', run: () => ['start-session.sh', '--language', 'r', '--name', found.rName], check: o => (!/^r-/.test(o.json?.sessionId ?? '') && 'sessionId is not r-*') || void (found.r = o.json!.sessionId) };
+const newPython: Case = { name: 'setup: start-session python --new', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName, '--new'], check: o => (!/^python-/.test(o.json?.sessionId ?? '') && 'sessionId is not python-*') || void (found.py = o.json!.sessionId) };
+const groups: Group<Case>[] = [
+	{ id: 'sessions', first: 'palette-run dry run', setup: [] },
+	{ id: 'editor', first: 'open-file analysis.R', setup: [startR] },
+	{ id: 'debug', first: 'debug wait running, not debugging', setup: [startR] },
+	{ id: 'plots', first: 'console-run r plot', setup: [startR] },
+	// R last, so Variables shows R's smoke_f.
+	{ id: 'views', first: 'view-read Variables', setup: [newPython, startR, { name: 'setup: console-run r smoke_f', run: ['console-run.sh', '--language', 'r', 'smoke_f <- function(x) { y <- x + 1; y * 2 }'] }] },
+	{ id: 'explorer', first: 'palette-run Show Explorer', setup: [] },
+	{ id: 'notebook', first: 'open-file notebook.ipynb', setup: [] },
+	{ id: 'terminal', first: 'palette-run new terminal', setup: [{ name: 'setup: open-file analysis.R', run: ['open-file.sh', 'analysis.R'] }, newPython] },
+	{ id: 'settings', first: 'settings set workspace', setup: [] },
+	{ id: 'notifications', first: 'notifications list', setup: [] },
+	{ id: 'windows', first: 'shot --list', setup: [] },
+];
+
 /** Starts a helper in the background, for a case that watches what it does. */
 function background(args: string[]): void {
 	spawn('bash', [join(scripts, args[0]), '--session', SESSION, ...args.slice(1)], { cwd: repo, stdio: 'ignore', detached: true, env: { ...process.env, DRIVE_POSITRON_LOG: join(root, 'actions.log') } }).unref();
@@ -456,11 +480,16 @@ function pickNames(): void {
 }
 
 let run: Case[];
-try { run = selectCases(cases, { quick: quickOnly, until }); } catch (e) { console.log(String(e instanceof Error ? e.message : e)); process.exit(2); }
+const groupOf = new Map<Case, string>();
+try {
+	groupIds(cases, groups).forEach((id, i) => groupOf.set(cases[i], id));
+	for (const g of groups) { for (const c of g.setup) { groupOf.set(c, g.id); } }
+	run = selectCases(cases, { quick: quickOnly, until, group, fromStart }, groups);
+} catch (e) { console.log(String(e instanceof Error ? e.message : e)); process.exit(2); }
 const results: SmokeResults = { startedAt: new Date().toISOString(), until, quick: quickOnly, launch: 'FAIL', launchProblem: '', cases: [] };
 const start = Date.now();
 const tally = { PASS: 0, FAIL: 0, KNOWN: 0 };
-let current: { name: string; args: string[]; t0: number } | null = null;
+let current: { name: string; args: string[]; t0: number; group?: string } | null = null;
 try {
 	const t = Date.now();
 	launch();
@@ -470,7 +499,7 @@ try {
 	results.launch = 'PASS';
 	for (const c of run) {
 		if (c.wait) { spawnSync('sleep', [String(c.wait / 1000)]); }
-		current = { name: c.name, args: [], t0: Date.now() };
+		current = { name: c.name, args: [], t0: Date.now(), group: groupOf.get(c) };
 		const args = typeof c.run === 'function' ? c.run() : c.run;
 		current.args = args;
 		const t0 = current.t0;
@@ -486,14 +515,14 @@ try {
 		const status = !problem ? 'PASS' : c.known ? 'KNOWN' : 'FAIL';
 		tally[status]++;
 		current = null;
-		results.cases.push({ name: c.name, status, helper: args[0], args: args.slice(1), problem: problem || '', ms: Date.now() - t0 });
+		results.cases.push({ name: c.name, status, helper: args[0], args: args.slice(1), problem: problem || '', ms: Date.now() - t0, group: groupOf.get(c) });
 		console.log(`${status.padEnd(5)}${String(Date.now() - t0).padStart(6)} ms  ${c.name}${tries > 1 ? ` (${tries} tries)` : ''}${c.known && !problem ? '  (listed as known, passed this time: remove the mark once it passes every run)' : ''}`);
 		if (problem) { console.log(`       ${c.known ? `known: ${c.known}\n       ` : ''}${problem}`); }
 	}
 } catch (e) {
 	tally.FAIL++;
 	if (results.launch === 'FAIL') { results.launchProblem = String(e instanceof Error ? e.message : e); }
-	else if (current) { results.cases.push(threwResult(current.name, current.args, e, Date.now() - current.t0)); }
+	else if (current) { results.cases.push({ ...threwResult(current.name, current.args, e, Date.now() - current.t0), group: current.group }); }
 	console.log(`FAIL  ${String(e instanceof Error ? e.message : e)}`);
 } finally {
 	cleanup();

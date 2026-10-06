@@ -3,8 +3,8 @@
 `.github/workflows/drive-positron-heal.yml` runs these, in order, sharing one build:
 
 1. `test/smoke.ts --results` (the full suite)
-2. `rerun.ts`: reruns smoke once up to the last failed case; a case that failed both times becomes
-   a finding in `findings/`, one that passed is a flake
+2. `rerun.ts`: reruns smoke once per group with a failure, `--until` its last failed case; a case
+   that failed both times becomes a finding in `findings/`, one that passed is a flake
 3. `recent.ts`: fetches the past week's findings into `recent/<run id>/`, for the finder's area pick
    and the earlier verdicts in each fixer brief
 4. `finder.ts` on explore nights: one agent session explores one area (`areas.json`) and writes findings
