@@ -192,6 +192,12 @@ export class ConnectionStatusBar implements vscode.Disposable {
  * connection has nothing to offer until it is opened, and the Connections pane is where that is
  * done.
  *
+ * When nothing is open it says so in a notification and returns undefined straight away, without
+ * waiting for the user to answer it. A notification's answer only arrives when the user clicks it
+ * or clears it from the notification center -- not when the toast hides itself -- and a caller may
+ * be holding a guard while it awaits this, as running a statement does. Waiting would leave every
+ * later run doing nothing until the user went looking for a notification they had stopped seeing.
+ *
  * @param open The connections the schema was last read from.
  * @param current What the file is scoped to now, shown as picked.
  * @returns The connection chosen, or undefined if the user dismissed the picker or there was
@@ -203,15 +209,20 @@ export async function pickConnection(
 ): Promise<ConnectionRef | undefined> {
 	if (open.length === 0) {
 		// Nothing to choose between. Offering an empty list would leave the user to work out that
-		// the answer is somewhere else entirely.
+		// the answer is somewhere else entirely. Worded for both callers: this is reached when
+		// scoping a file's completions and when running one of its statements.
 		const connect = vscode.l10n.t("Open the Connections Pane");
-		const answer = await vscode.window.showInformationMessage(
-			vscode.l10n.t("No data connection is open, so there is nothing for this file to complete against."),
+		void Promise.resolve(vscode.window.showInformationMessage(
+			vscode.l10n.t("No data connection is open. Open one in the Connections pane to use it with this file."),
 			connect,
-		);
-		if (answer === connect) {
-			await vscode.commands.executeCommand('workbench.panel.positronDataConnections.focus');
-		}
+		)).then(async answer => {
+			if (answer === connect) {
+				await vscode.commands.executeCommand('workbench.panel.positronDataConnections.focus');
+			}
+		}).catch(() => {
+			// The notification is a hint, not the result: there is nothing to do if it, or the
+			// pane it opens, fails.
+		});
 		return undefined;
 	}
 
