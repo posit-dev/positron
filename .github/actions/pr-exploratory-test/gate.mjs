@@ -10,12 +10,11 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, readFileSync } from 'node:fs';
-import { buildCostRecord, ENVIRONMENT, isProductPath, parsePosIntEnv, parseGate, renderPrBody } from './lib.mjs';
+import { buildCostRecord, describeChange, ENVIRONMENT, isProductPath, parsePosIntEnv, parseGate, renderPrBody } from './lib.mjs';
 
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
-const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const GATE_MODEL = process.env.GATE_MODEL || 'sonnet';
 const GATE_MAX_TURNS = parsePosIntEnv('GATE_MAX_TURNS', 30, process.env.GATE_MAX_TURNS);
 const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
@@ -53,10 +52,17 @@ function emit(testable, reason) {
 async function main() {
 	// Free, and not up to the model: a diff with no product file in it has
 	// nothing to explore.
-	const files = execFileSync('git', ['-C', REPO_ROOT, 'diff', '--name-only', `${BASE_SHA}...${HEAD_SHA}`], { encoding: 'utf8' })
-		.split('\n').filter(Boolean);
+	const git = args => execFileSync('git', ['-C', REPO_ROOT, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+	const { entries, stat, upstream } = describeChange({ git, base: BASE_SHA, head: HEAD_SHA });
+	const files = entries.map(e => e.path);
 	if (files.length && !files.some(isProductPath)) {
 		emit('false', `Only tests, docs or CI files changed (${files.length} files); nothing a user can see.`);
+		return;
+	}
+	// Always worth a run, and none of the blockers below can apply to one.
+	if (upstream) {
+		console.log(`[gate] upstream merge ${upstream.from} -> ${upstream.to}: ${upstream.seam} of ${upstream.files} files meet Positron`);
+		emit('true', '');
 		return;
 	}
 
@@ -74,7 +80,7 @@ async function main() {
 		'These are the files the change touches:',
 		'',
 		'```',
-		DIFF_STAT,
+		stat,
 		'```',
 		'',
 		`Read any of them with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA} -- <path>\`, and the commit messages with \`git -C ${REPO_ROOT} log ${BASE_SHA}..${HEAD_SHA}\`. Do not rule on the change without reading the parts of it you are ruling on.`,
