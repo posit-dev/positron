@@ -8,9 +8,10 @@ says how a helper is built and checked.
 
 1. **Edit only under `.claude/skills/drive-positron/`.** Any other path fails the run and throws
    your work away.
-2. **Reproduce before editing.** Follow the finding's steps. For a smoke finding the first step is
-   `smoke.ts --until "<case>"`, because a smoke case depends on the state the cases before it
-   built; that run may be the only faithful repro. Record what you saw. If the brief lists earlier
+2. **Reproduce before editing.** Follow the finding's steps. For a smoke finding, run
+   `smoke.ts --until "<the case before it>" --keep`, because a smoke case depends on the state the
+   cases before it built, then run the failing helper by hand on the kept instance (session
+   `net1`). That replay takes minutes, so run it once. Record what you saw. If the brief lists earlier
    verdicts on this finding, start from the newest: a different outcome needs evidence it missed,
    and your reason must name that evidence.
 3. **Prove the cause.** Name the line that is wrong and why. If you cannot make it fail, the outcome
@@ -28,8 +29,10 @@ says how a helper is built and checked.
    helper can observe is fine; waiting longer and hoping is not.
 6. **Never loosen a smoke check.** If you change a check in `test/smoke.ts`, the reason must say
    which check, what it asserted before, and why the old assertion was wrong.
-7. **Check your fix:** `node .claude/skills/drive-positron/test/check.ts` must pass, and the
-   reproduction must now pass. Do not commit; the workflow commits and runs the full suite.
+7. **Check your fix:** run the helper again on the kept instance; helper edits apply without a
+   relaunch. Then stop the instance (smoke prints the `stop.sh` line) and run
+   `node .claude/skills/drive-positron/test/check.ts`, which must pass. Do not replay smoke again,
+   and do not commit: the workflow commits and runs the full suite.
 
 ## Driving the app
 
