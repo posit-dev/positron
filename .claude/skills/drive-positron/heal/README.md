@@ -14,7 +14,8 @@
 5. `fix-loop.ts`: one fixer session per finding (at most 5); each fix is committed, then `check.ts`
    and smoke decide whether it stays: only the sections whose cases run a helper the change can
    reach (`affected.ts`), each on its own launch, or the full suite when the change is shared
-   (`dp-lib.ts`, `selectors.ts`, `test/`, ...) or the sections would take as long. A fix also
+   (`dp-lib.ts`, `selectors.ts`, `test/`, ...; a `selectors.ts` change that only adds entries
+   reaches the scripts that use them) or the sections would take as long. A fix also
    resolves the findings it cascades to. A regression in a section the check skipped shows up in
    the next night's full run
 6. `report.ts`: the step summary, the PR body and the Slack message. Each leads with a headline and

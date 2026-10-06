@@ -6,7 +6,9 @@
 // Which smoke sections a fix can change, so the post-fix check reruns only
 // those. A changed .sh or dp-<area>.ts reaches the helpers that run it,
 // through the modules that import it and the scripts that call it. Anything
-// shared (dp.ts, dp-lib.ts, page-lib.ts, selectors.ts, test/) means all.
+// shared (dp.ts, dp-lib.ts, page-lib.ts, selectors.ts, test/) means all,
+// except a selectors.ts change that only adds entries: that reaches the
+// scripts that use the new names.
 
 import { readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
@@ -38,6 +40,36 @@ export function readGraph(scripts: string): ScriptGraph {
 		}
 	}
 	return g;
+}
+
+/** The keys a selectors.ts diff adds, or null when it changes or removes anything else. */
+export function addedKeys(diff: string): string[] | null {
+	const keys: string[] = [];
+	for (const l of diff.split('\n')) {
+		if (/^(diff |index |--- |\+\+\+ |@@|\\| )/.test(l) || l === '' || l === '+' || /^\+\s+$/.test(l)) { continue; }
+		const k = l.match(/^\+\t+'?([A-Za-z_$][\w$-]*)'?: .*,(\s*\/\/.*)?$/)?.[1];
+		if (!k) { return null; }
+		keys.push(k);
+	}
+	return keys;
+}
+
+/**
+ * The scripts (repo-relative) that use any of these selector keys, as
+ * `.key` in TS, a word in a `css GROUP KEY` call, or `$group_key` in bash;
+ * null when a shared file uses one, or keys is null.
+ */
+export function selectorUsers(keys: string[] | null, scripts: string): string[] | null {
+	if (!keys) { return null; }
+	const users: string[] = [];
+	for (const f of readdirSync(scripts)) {
+		if (f === 'selectors.ts' || !/\.(ts|sh)$/.test(f)) { continue; }
+		const text = readFileSync(join(scripts, f), 'utf8');
+		if (!keys.some(k => new RegExp(`(\\b|_)${k.replace(/\$/g, '\\$')}\\b`).test(text))) { continue; }
+		if (['dp.ts', 'dp-lib.ts', 'page-lib.ts'].includes(f)) { return null; }
+		users.push(`${SKILL_PREFIX}scripts/${f}`);
+	}
+	return users;
 }
 
 /** The helpers (X.sh) a change to these repo-relative paths can reach, or 'all'. */

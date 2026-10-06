@@ -20,7 +20,7 @@ import { fileURLToPath } from 'url';
 import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
-import { affectedHelpers, postSections, readGraph } from './affected.ts';
+import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
 import { earlierVerdicts, fixedBefore, inSections, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
 import { smokeChecksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
@@ -160,7 +160,10 @@ function main(): number {
 		// launch each (--until a section's last case runs its setup and all its cases), or the
 		// full suite. It is also the cascade re-check.
 		const check = spawnSync(process.execPath, [join(here, '../test/check.ts')], { cwd: repo, encoding: 'utf8' });
-		const sections = postSections(baseline, affectedHelpers(touched, readGraph(join(here, '../scripts'))), f);
+		// A selectors.ts change that only adds entries reaches just the scripts using them.
+		const scripts = join(here, '../scripts');
+		const reach = touched.flatMap(p => p === `${SKILL_PREFIX}scripts/selectors.ts` ? selectorUsers(addedKeys(git('diff', '-U0', '--no-color', pre, sha, '--', p)), scripts) ?? [p] : [p]);
+		const sections = postSections(baseline, affectedHelpers(reach, readGraph(scripts)), f);
 		const runs = (sections ?? [null]).map((s, i) => ({ until: s?.last, file: join(dir, sections ? `post-${n}-${i + 1}.json` : `post-${n}.json`) }));
 		const outputs: string[] = [];
 		const results: SmokeResults[] = [];
@@ -177,9 +180,9 @@ function main(): number {
 		const reg = after ? regressions(sections ? inSections(baseline, sections.map(s => s.id)) : baseline, after) : [];
 		const verdict = check.status !== 0 ? 'check.ts failed'
 			: !after || after.launch === 'FAIL' ? 'smoke did not run'
-			: reg.length ? `turned red: ${reg.map(c => `${c.name} (${c.problem.slice(0, 160)})`).join('; ')}`
-			: f.case && !after.cases.some(c => c.name === f.case && c.status === 'PASS') ? `its own case "${f.case}" still fails`
-			: '';
+				: reg.length ? `turned red: ${reg.map(c => `${c.name} (${c.problem.slice(0, 160)})`).join('; ')}`
+					: f.case && !after.cases.some(c => c.name === f.case && c.status === 'PASS') ? `its own case "${f.case}" still fails`
+						: '';
 		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, smokeChecksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}), ...(verdict ? { rejected: verdict } : {}) }));
 		if (verdict) {
 			discard(pre, false);

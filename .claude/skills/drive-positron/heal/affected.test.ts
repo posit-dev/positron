@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
-import { affectedHelpers, postSections, readGraph } from './affected.ts';
+import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
 
 const scripts = join(dirname(new URL(import.meta.url).pathname), '../scripts');
 const g = readGraph(scripts);
@@ -63,4 +63,24 @@ test('postSections is a full run for a shared change, no sections, or when the l
 	const three = new Set(['ui.sh', 'editor.sh']);
 	assert.equal(postSections(base, three, { helper: 'ui.sh' }, 5)?.length, 3); // 50 + 15 < 70 + 5
 	assert.equal(postSections(base, three, { helper: 'ui.sh' }, 10), null); // 50 + 30 >= 70 + 10
+});
+
+const diff = (...lines: string[]) => ['diff --git a/x b/x', 'index 1..2 100644', '--- a/x', '+++ b/x', '@@ -258,0 +259 @@ export const names = {', ...lines].join('\n');
+
+test('addedKeys: added entries only, else null', () => {
+	assert.deepEqual(addedKeys(diff("+\t\topenAccessibleView: 'Open Accessible View',", '+', "+\t\t'x-y': '.x', // why")), ['openAccessibleView', 'x-y']);
+	assert.deepEqual(addedKeys(diff("+\t\tsimilarCommands: '.a',")), ['similarCommands']);
+	assert.equal(addedKeys(diff("-\t\told: 'a',", "+\t\told: 'b',")), null);
+	assert.equal(addedKeys(diff('+\t\tgroup: {')), null);
+	assert.equal(addedKeys(diff("+\t\tlong: 'a' +")), null);
+	assert.deepEqual(addedKeys(''), []);
+});
+
+test('selectorUsers: the scripts that use a key, null when a shared file does', () => {
+	assert.deepEqual(selectorUsers(['accessibleView'], scripts), [P + 'scripts/dp-terminal.ts']);
+	assert.deepEqual(selectorUsers(['cursorStatusPattern'], scripts), null);
+	assert.deepEqual(selectorUsers(['notUsedAnywhere'], scripts), []);
+	assert.equal(selectorUsers(null, scripts), null);
+	const prev = selectorUsers(['previous'], scripts) ?? [];
+	assert.ok(prev.includes(P + 'scripts/plots.sh'), 'bash $plots_previous');
 });
