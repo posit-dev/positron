@@ -426,17 +426,25 @@ jobs:
           set -euo pipefail
           # Reset mode (no human touched the PR) rebuilds it from main; additive keeps its commits.
           if [ "$EXISTS" = true ] && [ "$MODE" = reset ]; then git fetch -q origin main; git reset -q --hard origin/main; fi
+          left=()
           for p in "$DIR"/patches/*.patch; do
             # A fix the open PR already has (the same bug found again, still unmerged) is skipped.
             if [ "$EXISTS" = true ] && git apply --reverse --check "$p" 2>/dev/null; then echo "already in the PR: $(basename "$p")"; continue; fi
-            git apply --index "$p"
+            # One that conflicts (a different fix for that bug, say) is left out; git apply is all or nothing.
+            if ! git apply --index "$p"; then
+              echo "::warning::$(basename "$p") does not apply on top of the open PR; left out"
+              left+=("$(basename "$p")")
+            fi
           done
+          # Nothing staged is fine: commit-and-sync-pr then leaves the PR as it is.
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           R="$RUNNER_TEMP/dp/heal/report.ts"
           d="HEAL_EOF_$(openssl rand -hex 8)"
           {
             echo "title<<$d"; node "$R" --dir "$DIR" --run-url "$run_url" title; echo "$d"
-            echo "body<<$d"; node "$R" --dir "$DIR" --run-url "$run_url" body; echo "$d"
+            echo "body<<$d"; node "$R" --dir "$DIR" --run-url "$run_url" body
+            if [ ${#left[@]} -gt 0 ]; then echo; echo "Left out of this PR, since they conflict with what it already has (the patches are in the run): ${left[*]}"; fi
+            echo "$d"
           } >> "$GITHUB_OUTPUT"
 
       - name: Commit and sync the PR (live)
