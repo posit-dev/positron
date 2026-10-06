@@ -198,6 +198,7 @@ test('the To do line says when check.ts was red before the fixes and when the fi
 test('inert wraps mentions and issue references in code spans, outside existing ones', () => {
 	assert.equal(inert('ask @someone about #123 and posit-dev/positron#9, GH-4'), 'ask `@someone` about `#123` and `posit-dev/positron#9`, `GH-4`');
 	assert.equal(inert('`panel.sh @x #1` stays; mail bot@posit.co, C# and a#1 too'), '`panel.sh @x #1` stays; mail bot@posit.co, C# and a#1 too');
+	assert.equal(inert('see `cmd and @alice'), "see 'cmd and `@alice`");
 	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', broke: 'pinged @org/team', cause: 'see #42', change: 'c', reason: 'r @me' })] }), 'u');
 	assert.doesNotMatch(body, /[^`]@org\/team|[^`]#42|[^`]@me/);
 });
