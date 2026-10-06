@@ -54,7 +54,7 @@ describe('PositronConsoleService', () => {
 		{ name: 'code a kernel sent through an extension', attribution: { source: CodeAttributionSource.Extension, metadata: { extensionId: 'positron.positron-supervisor', callerSessionId: 'r-notebook-1' } }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: undefined } },
 		{ name: 'code the user ran from an editor', attribution: { source: CodeAttributionSource.Script }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
 		{ name: 'code the user ran from the History pane', attribution: { source: CodeAttributionSource.Interactive }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
-		{ name: 'code an AI assistant ran', attribution: { source: CodeAttributionSource.Assistant }, expected: { id: SessionStartReasonId.AssistantRanCodeWithoutSession, requestingExtensionId: undefined } },
+		{ name: 'code from AI chat', attribution: { source: CodeAttributionSource.Assistant }, expected: { id: SessionStartReasonId.AiChatCodeExecutedWithoutSession, requestingExtensionId: undefined } },
 		{ name: 'chat code the user ran with Run in Console', attribution: { source: CodeAttributionSource.Assistant, metadata: { [USER_INITIATED_METADATA_KEY]: true } }, expected: { id: SessionStartReasonId.UserRanCodeWithoutSession, requestingExtensionId: undefined } },
 		{ name: 'code from an unknown caller', attribution: { source: CodeAttributionSource.Extension }, expected: { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: undefined } },
 	])('records why it started a console for $name', async ({ attribution, expected }) => {

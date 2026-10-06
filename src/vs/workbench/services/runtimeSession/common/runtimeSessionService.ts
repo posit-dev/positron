@@ -144,10 +144,10 @@ export enum SessionStartReasonId {
 	UserRanCodeWithoutSession = 'userRanCodeWithoutSession',
 
 	/**
-	 * An AI assistant ran code through a chat tool and no session for its
-	 * language was running.
+	 * Code from AI chat was run with the Execute Code tool and no session for
+	 * its language was running.
 	 */
-	AssistantRanCodeWithoutSession = 'assistantRanCodeWithoutSession',
+	AiChatCodeExecutedWithoutSession = 'aiChatCodeExecutedWithoutSession',
 
 	/** A restart was requested for a session that had never started. */
 	RestartUninitializedSession = 'restartUninitializedSession',
