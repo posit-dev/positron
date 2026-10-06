@@ -355,21 +355,6 @@ const AI_SETTING_PREFIXES = [
 /** AI-related settings that don't share one of the AI prefixes. */
 const AI_SETTING_EXACT_KEYS: string[] = [ChatConfiguration.AIDisabled];
 
-/** Removed provider settings that an admin may still enforce for Positron 2026.07 clients. */
-const LEGACY_AI_SETTING_KEYS = [
-	'authentication.anthropic.baseUrl',
-	'authentication.anthropic.customHeaders',
-	'authentication.foundry.baseUrl',
-	'authentication.foundry.customHeaders',
-	'authentication.google.baseUrl',
-	'authentication.google.customHeaders',
-	'authentication.googleVertex.baseUrl',
-	'authentication.googleVertex.credentials',
-	'authentication.googleVertex.customHeaders',
-	'authentication.aws.inferenceProfileRegion',
-	'authentication.snowflake.customHeaders',
-];
-
 export { hasExplicitValue, REDACTED_VALUE };
 
 /**
@@ -731,9 +716,10 @@ function collectAISettings(configurationService: IConfigurationService): {
 	enforced: IAIDiagnosticsEnforcedSetting[];
 } {
 	const properties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
-	const declaredKeys = Object.keys(properties)
-		.filter(key => AI_SETTING_EXACT_KEYS.includes(key) || AI_SETTING_PREFIXES.some(prefix => key.startsWith(prefix)));
-	const keys = [...new Set([...declaredKeys, ...LEGACY_AI_SETTING_KEYS])].sort();
+	// Enforced keys may no longer be declared but still affect providers
+	const keys = [...new Set([...Object.keys(properties), ...configurationService.keys().policy])]
+		.filter(key => AI_SETTING_EXACT_KEYS.includes(key) || AI_SETTING_PREFIXES.some(prefix => key.startsWith(prefix)))
+		.sort();
 
 	const settings: IAIDiagnosticsSetting[] = [];
 	const enforced: IAIDiagnosticsEnforcedSetting[] = [];
