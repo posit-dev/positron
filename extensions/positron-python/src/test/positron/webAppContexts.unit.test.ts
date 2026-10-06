@@ -26,12 +26,13 @@ suite('Discover Web app frameworks', () => {
         return document;
     }
 
-    /** The value most recently set for a context key. */
-    function getContext(key: string): unknown {
+    /** The URIs most recently set for a context key, as strings. */
+    function getContext(key: string): string[] | undefined {
         const calls = executeCommandStub
             .getCalls()
             .filter((call) => call.args[0] === 'setContext' && call.args[1] === key);
-        return calls[calls.length - 1]?.args[2];
+        const uris: vscode.Uri[] | undefined = calls[calls.length - 1]?.args[2];
+        return uris?.map((uri) => uri.toString());
     }
 
     setup(() => {

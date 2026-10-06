@@ -1,0 +1,84 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
+import { cascade, classify, crossSection, lastFailedPerGroup, launchedRuns, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
+
+const c = (name: string, status: CaseResult['status'], problem = '', group?: string): CaseResult => ({ name, status, helper: 'x.sh', args: ['--a', 'b'], problem, ms: 1, ...(group ? { group } : {}) });
+const r = (cases: CaseResult[], launch: 'PASS' | 'FAIL' = 'PASS'): SmokeResults => ({ startedAt: '2026-10-06T03:40:00Z', until: null, quick: false, launch, launchProblem: '', cases });
+
+test('lastFailedPerGroup is the last FAIL of each group; KNOWN does not count', () => {
+	assert.deepEqual(lastFailedPerGroup(r([c('a', 'FAIL'), c('b', 'PASS'), c('c', 'FAIL'), c('d', 'KNOWN')])), ['c']);
+	assert.deepEqual(lastFailedPerGroup(r([c('a', 'PASS'), c('b', 'KNOWN')])), []);
+	assert.deepEqual(lastFailedPerGroup(r([c('a', 'FAIL', '', 'one'), c('b', 'FAIL', '', 'one'), c('c', 'PASS', '', 'two'), c('d', 'FAIL', '', 'three')])), ['b', 'd']);
+});
+
+test('mergeResults keeps every case, and a launch failure from any run', () => {
+	const m = mergeResults([r([c('a', 'FAIL')]), { ...r([], 'FAIL'), launchProblem: 'no app' }]);
+	assert.deepEqual([m.launch, m.launchProblem, m.cases.map(x => x.name)], ['FAIL', 'no app', ['a']]);
+	assert.equal(mergeResults([r([c('a', 'PASS')]), r([c('b', 'PASS')])]).launch, 'PASS');
+});
+
+test('launchedRuns merges only the reruns that launched, and names the others', () => {
+	const crashed = { ...r([], 'FAIL'), launchProblem: 'segfault' };
+	const got = launchedRuns([r([c('a', 'FAIL')]), crashed], ['one', 'two']);
+	assert.deepEqual([got.merged?.launch, got.merged?.cases.map(x => x.name), got.problems], ['PASS', ['a'], ['two: segfault']]);
+	// The crashed group's case is unconfirmed, while the other's still counts.
+	const cls = classify(r([c('a', 'FAIL'), c('z', 'FAIL')]), got.merged!);
+	assert.deepEqual([cls.persistent.map(p => p.first.name), cls.unconfirmed.map(u => u.name)], [['a'], ['z']]);
+	assert.equal(launchedRuns([crashed], ['two']).merged, null);
+});
+
+test('classify: fail twice is persistent, pass on the rerun is a flake', () => {
+	const got = classify(r([c('a', 'FAIL', 'p1'), c('b', 'FAIL'), c('c', 'PASS')]), r([c('a', 'FAIL', 'p2'), c('b', 'PASS')]));
+	assert.deepEqual(got.persistent.map(p => p.first.name), ['a']);
+	assert.deepEqual(got.flakes.map(f => f.name), ['b']);
+	assert.deepEqual(got.unconfirmed, []);
+});
+
+test('classify: a case the rerun never reached is unconfirmed, not a flake', () => {
+	const got = classify(r([c('a', 'FAIL'), c('z', 'FAIL')]), r([c('a', 'FAIL')]));
+	assert.deepEqual(got.unconfirmed.map(u => u.name), ['z']);
+	assert.deepEqual(got.flakes, []);
+});
+
+test('smokeFinding records both runs and how to reach the case', () => {
+	const f = smokeFinding(c('start-session r', 'FAIL', 'p1'), c('start-session r', 'FAIL', 'p2'), { first: 't1', second: 't2' });
+	assert.equal(f.id, 'smoke-start-session-r');
+	assert.equal(f.case, 'start-session r');
+	assert.deepEqual(f.steps, ['node .claude/skills/drive-positron/test/smoke.ts --until "start-session r"', 'x.sh --a b']);
+	assert.deepEqual(f.reproductions.map(x => [x.by, x.result, x.observed]), [['smoke', 'fail', 'p1'], ['rerun', 'fail', 'p2']]);
+});
+
+test('crossSection: a flake that fails again from the start is persistent', () => {
+	const flakes = [{ name: 'a', first: c('a', 'FAIL', 'p1'), second: c('a', 'PASS') }, { name: 'b', first: c('b', 'FAIL'), second: c('b', 'PASS') }];
+	const got = crossSection(flakes, r([c('a', 'FAIL', 'p3'), c('b', 'PASS')]));
+	assert.deepEqual(got.persistent.map(p => [p.first.problem, p.second.problem]), [['p1', 'p3']]);
+	assert.deepEqual(got.flakes.map(f => f.name), ['b']);
+	assert.deepEqual(crossSection(flakes, r([], 'FAIL')).flakes.map(f => f.name), ['a', 'b']);
+});
+
+test('smokeFinding with fromStart says to replay from the start', () => {
+	assert.equal(smokeFinding(c('a', 'FAIL'), c('a', 'FAIL'), { first: 't', second: 't' }, true).steps[0], 'node .claude/skills/drive-positron/test/smoke.ts --until "a" --from-start');
+});
+
+test('wholesale is more than a quarter of the cases', () => {
+	assert.equal(wholesale(56, 224), false);
+	assert.equal(wholesale(57, 224), true);
+	assert.equal(wholesale(0, 0), false);
+});
+
+test('cascade resolves open smoke findings whose case now passes', () => {
+	const a = smokeFinding(c('a', 'FAIL'), c('a', 'FAIL'), { first: 't', second: 't' });
+	const b = smokeFinding(c('b', 'FAIL'), c('b', 'FAIL'), { first: 't', second: 't' });
+	const d = { ...smokeFinding(c('d', 'FAIL'), c('d', 'FAIL'), { first: 't', second: 't' }), outcome: 'product' as const };
+	const out = cascade([a, b, d], r([c('a', 'PASS'), c('b', 'FAIL'), c('d', 'PASS')]), 'smoke-x', 't3');
+	assert.equal(out.find(f => f.id === 'smoke-a')!.outcome, 'resolved');
+	assert.equal(out.find(f => f.id === 'smoke-a')!.resolvedBy, 'smoke-x');
+	assert.equal(out.find(f => f.id === 'smoke-b')!.outcome, undefined);
+	assert.equal(out.find(f => f.id === 'smoke-d')!.outcome, 'product');
+});

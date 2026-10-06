@@ -22,8 +22,8 @@ function getSupportedLibraries(): string[] {
  */
 const APP_RESOURCES_CONTEXT_KEY = 'pythonAppResources';
 
-/** Detected web app framework by document URI, for open documents that are web apps. */
-const frameworkByUri = new Map<string, string>();
+/** Detected web app framework by document URI string, for open documents that are web apps. */
+const appByUri = new Map<string, { uri: vscode.Uri; framework: string }>();
 
 /** Detect whether a document is a web app, and update the app resource context keys. */
 export function detectWebApp(document: vscode.TextDocument): void {
@@ -33,30 +33,36 @@ export function detectWebApp(document: vscode.TextDocument): void {
             ? getFramework(document.getText())
             : undefined;
 
-    if (framework === frameworkByUri.get(uri)) {
+    if (framework === appByUri.get(uri)?.framework) {
         return;
     }
     if (framework) {
-        frameworkByUri.set(uri, framework);
+        appByUri.set(uri, { uri: document.uri, framework });
     } else {
-        frameworkByUri.delete(uri);
+        appByUri.delete(uri);
     }
     updateAppResourceContexts();
 }
 
 /** Stop tracking a closed document, and update the app resource context keys. */
 export function forgetWebApp(document: vscode.TextDocument): void {
-    if (frameworkByUri.delete(document.uri.toString())) {
+    if (appByUri.delete(document.uri.toString())) {
         updateAppResourceContexts();
     }
 }
 
 function updateAppResourceContexts(): void {
-    executeCommand('setContext', APP_RESOURCES_CONTEXT_KEY, Array.from(frameworkByUri.keys()));
+    // Pass Uri objects, not strings: on web and remote hosts the extension host sees
+    // file: URIs while the editor's `resource` key is vscode-remote:, and only Uri
+    // objects are transformed to match before the workbench stringifies them.
+    const apps = Array.from(appByUri.values());
+    executeCommand(
+        'setContext',
+        APP_RESOURCES_CONTEXT_KEY,
+        apps.map((app) => app.uri),
+    );
     for (const library of getSupportedLibraries()) {
-        const uris = Array.from(frameworkByUri)
-            .filter(([, framework]) => framework === library)
-            .map(([uri]) => uri);
+        const uris = apps.filter((app) => app.framework === library).map((app) => app.uri);
         executeCommand('setContext', `${APP_RESOURCES_CONTEXT_KEY}.${library}`, uris);
     }
 }

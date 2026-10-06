@@ -18,7 +18,7 @@
 //   --report-url <url>   CloudFront base URL of the Playwright HTML report (required)
 //   --output-dir <dir>   Where to save screenshots and error-context (required)
 //   --last <N>           Number of trace actions to show (default: 500)
-//   --screenshots <N>    Number of trailing screencast frames to extract per attempt (default: 3)
+//   --screenshots <N>    Number of screencast frames leading up to the failure to extract per attempt (default: 3)
 //   --cleanup            Remove the intermediate tmp dir after processing (default: keep)
 //   --title <string>     Only process the failed test with this exact title -- skips
 //                         downloading/parsing traces and logs for every other failed test
@@ -33,12 +33,15 @@ import { execFileSync } from 'child_process';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
 import {
+	buildConsoleDigest,
 	buildDomPresence,
 	extractTraceClock,
 	findFailureWindow,
 	mineLogs,
-	phaseLabel,
+	pickFailureFrames,
 	relevanceHintsForSpec,
+	screencastFrameEntry,
+	selectorTokens,
 	traceEpochOrigin,
 } from './lib-failure-window.js';
 
@@ -160,115 +163,8 @@ function unzipAll(zipPath, destDir) {
 }
 
 /**
- * Collect the selectors involved in FAILED actions/assertions: the selector on
- * the nearest preceding `before`, plus any `locator('...')` mined from the error
- * message.
- */
-function collectFailingSelectors(evts) {
-	const selectors = new Set();
-	for (let i = 0; i < evts.length; i++) {
-		const e = evts[i];
-		if (e.type !== 'after' || !e.error) { continue; }
-		for (let j = i - 1; j >= 0; j--) {
-			if (evts[j].type === 'before') {
-				if (evts[j].params?.selector) { selectors.add(evts[j].params.selector); }
-				break;
-			}
-		}
-		for (const m of String(e.error.message || '').matchAll(/locator\(['"`]([^'"`]+)['"`]\)/g)) {
-			selectors.add(m[1]);
-		}
-	}
-	return [...selectors];
-}
-
-/** Pull stable class/id tokens out of selector strings. */
-function selectorTokens(selectors) {
-	const tokens = new Set();
-	for (const sel of selectors) {
-		for (const m of String(sel).matchAll(/\.([A-Za-z_][\w-]{2,})/g)) { tokens.add(m[1]); }
-		for (const m of String(sel).matchAll(/\[id=["']([^"']+)["']\]/g)) { tokens.add(m[1]); }
-	}
-	return [...tokens];
-}
-
-/** Strip the `%c`/`color:#…` console-formatting noise VS Code prepends. */
-function cleanConsole(text) {
-	return String(text)
-		.replace(/%c/g, '')
-		.replace(/(?:background|color):\s*#?[0-9a-fA-F]{3,6}/g, '')
-		.replace(/\s;\s/g, ' ')
-		.replace(/\s{2,}/g, ' ')
-		.replace(/^[\s;:-]+/, '')
-		.trim();
-}
-
-// Console lines that match the allowlist / error levels but carry no diagnostic
-// value: internal context-key churn, the dev-only disposable-leak tracker, and
-// benign environment probes on CI runners.
-const CONSOLE_NOISE_RE = /(_setContext|LEAKED DISPOSABLE|No pandoc executable|MetadataLookupWarning|received unexpected error = network timeout)/i;
-
-/**
- * Digest of high-signal renderer-console lines around the failure window:
- * command executions, runtime-startup phase transitions, and errors/warnings.
- * Distinguishes "click was swallowed" from "command ran but nothing rendered."
- */
-function buildConsoleDigest(evts) {
-	const ALLOW = /(CommandService#executeCommand|Runtime startup][^\n]*Phase changed|Discovery completed|Uncaught|Unhandled)/i;
-	const MAX_LINES = 28;
-	// Look back far enough to catch a command that fired and then left the test
-	// waiting on UI that never came: the classic "click did nothing" timeout has
-	// the triggering command ~15-30s before the failing assertion, so a tight
-	// window would drop the very command-fired signal this digest exists to
-	// surface. 30s covers Playwright's max default timeout; the tight allowlist,
-	// dedup, and priority cap below keep the wider window from getting noisy.
-	const LOOKBACK_MS = 30000;
-	const consoles = evts.filter(e => e.type === 'console' && typeof e.text === 'string');
-	if (!consoles.length) { return null; }
-	const errTimes = evts.filter(e => e.type === 'after' && e.error).map(e => e.endTime ?? e.startTime).filter(t => t != null);
-	const focusStart = errTimes.length ? Math.min(...errTimes) - LOOKBACK_MS : -Infinity;
-	// Trail the last error by 2s so the test's own teardown stays visible. It is
-	// routinely misread as a cause, so showing it LABELLED beats hiding it.
-	const focusEnd = errTimes.length ? Math.max(...errTimes) + 2000 : Infinity;
-	const win = findFailureWindow(evts);
-	const picked = consoles.filter(e =>
-		(e.time == null || (e.time >= focusStart && e.time <= focusEnd)) &&
-		(e.messageType === 'error' || e.messageType === 'warning' || ALLOW.test(e.text)) &&
-		!CONSOLE_NOISE_RE.test(e.text));
-	if (!picked.length) { return null; }
-
-	const entries = [];
-	for (const e of picked) {
-		const text = cleanConsole(e.text).slice(0, 200);
-		const last = entries[entries.length - 1];
-		if (last && last.text === text) { last.count++; continue; }
-		// Command/phase/error lines are the load-bearing signal; warnings are
-		// context. Track priority so the cap can never drop a command-fired or
-		// phase line in favor of a warning.
-		const high = ALLOW.test(e.text) || e.messageType === 'error';
-		entries.push({ time: e.time, level: e.messageType || 'log', text, count: 1, high, phase: phaseLabel(e.time, win) });
-	}
-
-	// Rank before capping so a post-deadline teardown line can never displace a
-	// line from inside the wait: only the wait can contain a cause.
-	const rank = (e) => (e.phase === 'after deadline' ? 0 : 2) + (e.high ? 1 : 0);
-	const shown = entries.length <= MAX_LINES
-		? entries
-		: [...entries].sort((a, b) => rank(b) - rank(a)).slice(0, MAX_LINES).sort((a, b) => (a.time ?? 0) - (b.time ?? 0));
-	const out = [`\n=== Console digest near failure (${shown.length}${entries.length > shown.length ? ` of ${entries.length}` : ''} high-signal lines) ===`];
-	if (win?.deadlineT != null) {
-		out.push(`Failing action: ${win.method || 'unknown'}; waited t=${win.actionStartT != null ? Math.round(win.actionStartT) : '?'}..${Math.round(win.deadlineT)}.`);
-		out.push("Lines are tagged by position relative to that wait. [after deadline] means the line was emitted AFTER the assertion had already failed, so it CANNOT be the cause -- these are usually the test's own finally/teardown (a sign-out, a settings reset), whose side effects are routinely misread as root causes.");
-	}
-	for (const e of shown) {
-		out.push(`t=${Math.round(e.time ?? 0)}${e.phase ? ` [${e.phase}]` : ''} [${e.level}] ${e.text}${e.count > 1 ? ` (x${e.count})` : ''}`);
-	}
-	return out.join('\n');
-}
-
-/**
- * Parse a Playwright trace.trace file into a timeline plus the trailing
- * screencast frames. Identical to the parser in e2e-process-project.js; kept
+ * Parse a Playwright trace.trace file into a timeline plus the screencast
+ * frames leading up to the failure. Identical to the parser in e2e-process-project.js; kept
  * inline here to avoid cross-script imports.
  */
 function parseTrace(tracePath) {
@@ -309,17 +205,20 @@ function parseTrace(tracePath) {
 		}
 	}
 
+	// Computed once: the DOM-presence check, console digest and log miner all
+	// anchor on it.
+	const failureWindow = findFailureWindow(events);
 	const screenshots = events.filter(e => e.type === 'screencast-frame');
-	const trailingScreenshots = screenshotsN === 0 ? [] : screenshots.slice(-screenshotsN);
-	const lastScreenshot = trailingScreenshots.length > 0 ? trailingScreenshots[trailingScreenshots.length - 1] : null;
+	const failureFrames = pickFailureFrames(events, screenshotsN);
+	const lastScreenshot = failureFrames.length > 0 ? failureFrames[failureFrames.length - 1] : null;
 
-	if (trailingScreenshots.length > 0) {
+	if (failureFrames.length > 0) {
 		timelineLines.push(`\n=== Screenshots ===`);
 		timelineLines.push(`Total screencast frames: ${screenshots.length}`);
-		timelineLines.push(`Extracting last ${trailingScreenshots.length} frame(s):`);
-		for (let i = 0; i < trailingScreenshots.length; i++) {
-			const s = trailingScreenshots[i];
-			timelineLines.push(`  [${i}] sha1=${s.sha1} timestamp=${s.timestamp}`);
+		timelineLines.push(`Extracting the last ${failureFrames.length} frame(s) at or before the failure:`);
+		for (let i = 0; i < failureFrames.length; i++) {
+			const s = failureFrames[i];
+			timelineLines.push(`  [${i}] ${screencastFrameEntry(s)} timestamp=${s.timestamp}`);
 		}
 	}
 
@@ -336,21 +235,21 @@ function parseTrace(tracePath) {
 	// DOM-presence of the failing selector(s) + a console digest near the
 	// failure -- separates "the control never rendered" / "the command fired but
 	// nothing happened" from a pure environment flake.
-	const domPresence = buildDomPresence(events, selectorTokens(collectFailingSelectors(events)));
+	const domPresence = buildDomPresence(events, selectorTokens(failureWindow?.selectors ?? []), failureWindow);
 	if (domPresence) { timelineLines.push(domPresence); }
-	const consoleDigest = buildConsoleDigest(events);
+	const consoleDigest = buildConsoleDigest(events, failureWindow);
 	if (consoleDigest) { timelineLines.push(consoleDigest); }
 
 	return {
 		timeline: timelineLines.join('\n'),
 		errors,
-		screenshotShas: trailingScreenshots.map(s => ({ sha1: s.sha1, timestamp: s.timestamp })),
-		lastScreenshotSha1: lastScreenshot?.sha1 || null,
+		screenshotFrames: failureFrames.map(s => ({ entry: screencastFrameEntry(s), timestamp: s.timestamp })),
+		lastScreenshotEntry: screencastFrameEntry(lastScreenshot),
 		// Dual-clock anchor + the failing action's wait interval. Not rendered into
 		// the timeline; the log miner needs them to relate the trace's monotonic
 		// `t=` to the wall-clock timestamps in the attached *.log files.
 		clock: extractTraceClock(events),
-		failureWindow: findFailureWindow(events),
+		failureWindow,
 	};
 }
 
@@ -381,8 +280,8 @@ function hashFromPath(p) {
 /**
  * Mine the downloaded log bundle for the failure window: all severities inside
  * the failing action's wait, plus a derived "went quiet before the deadline"
- * report. Falls back to the old error-line grep when the trace carries no
- * wall-clock anchor.
+ * report. Falls back to the old error-line grep when no failure window can be
+ * anchored in the trace.
  *
  * The previous implementation was an error-keyword grep, which structurally
  * could not surface either of the two things that most often settle a diagnosis:
@@ -529,14 +428,14 @@ for (const { test, detail, failedResults } of testDetailsList) {
 				if (tracePath) {
 					traceData = parseTrace(tracePath);
 
-					// Extract trailing N screencast frames in chronological order.
-					const frames = traceData.screenshotShas || [];
+					// Extract the screencast frames leading up to the failure, in
+					// chronological order.
+					const frames = traceData.screenshotFrames || [];
 					for (let j = 0; j < frames.length; j++) {
-						const sha = frames[j].sha1;
-						if (!sha) { continue; }
+						const ssEntry = frames[j].entry;
+						if (!ssEntry) { continue; }
 						const ssFileName = `${shortId}-attempt${i}-frame${j}.jpeg`;
 						const ssDestPath = join(resolvedOutputDir, 'screenshots', ssFileName);
-						const ssEntry = `resources/${sha}`;
 						const ssTempDir = join(tmpWorkDir, `ss-${shortId}-${i}-${j}`);
 						const ssExtracted = unzipFile(localTraceZip, ssEntry, ssTempDir);
 

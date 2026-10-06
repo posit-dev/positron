@@ -6,7 +6,8 @@
 //
 // Output: JSON with:
 //   repo, runId, run (metadata), failedJobs (each with a `steps` summary),
-//   nonE2eJobLogs, artifacts, projects, commit
+//   nonE2eJobLogs, artifacts, projects, commit (with any submodule bump in it
+//   expanded into the commits and files it pulled in)
 //
 // Each failed job's `steps` summary separates the test-execution step from the
 // setup steps that ran before it. A setup step that failed while the job kept
@@ -292,14 +293,103 @@ const projects = [...new Set(
 	}).filter(Boolean)
 )];
 
+// The patch GitHub reports for a gitlink: "-Subproject commit <old>\n+Subproject commit <new>".
+const SUBPROJECT_RE = /^-Subproject commit (?<from>[0-9a-f]{7,40})\s*\n\+Subproject commit (?<to>[0-9a-f]{7,40})/m;
+const SUBMODULE_MAX_COMMITS = 50;
+const SUBMODULE_MAX_FILES = 300;
+
+/** Map each submodule path to its GitHub `owner/repo`, from .gitmodules at `ref`. */
+function readSubmoduleRepos(ref) {
+	const encoded = gh('api', `repos/${repo}/contents/.gitmodules?ref=${ref}`, '--jq', '.content');
+	if (!encoded) { return new Map(); }
+	const repos = new Map();
+	let path = null;
+	for (const line of Buffer.from(encoded, 'base64').toString('utf8').split('\n')) {
+		if (/^\s*\[submodule /.test(line)) { path = null; continue; }
+		const pathMatch = /^\s*path\s*=\s*(?<value>\S+)/.exec(line);
+		if (pathMatch) { path = pathMatch.groups.value; continue; }
+		const urlMatch = /^\s*url\s*=\s*\S*github\.com[:/](?<slug>[^/\s]+\/[^/\s]+?)(?:\.git)?\s*$/.exec(line);
+		if (urlMatch && path) { repos.set(path, urlMatch.groups.slug); }
+	}
+	return repos;
+}
+
+/**
+ * The commits in `head` that are not in `base`, and the files they changed,
+ * from the compare API. Null when the range could not be fetched.
+ */
+function compareRange(subRepo, base, head) {
+	const raw = gh('api', `repos/${subRepo}/compare/${base}...${head}`,
+		'--jq', '{status: .status, aheadBy: .ahead_by, behindBy: .behind_by, totalCommits: .total_commits, commits: [.commits[] | {sha: .sha[0:10], title: (.commit.message | split("\\n")[0])}], files: [.files[]?.filename]}');
+	try {
+		const compared = JSON.parse(raw);
+		return {
+			...compared,
+			// The compare API lists commits oldest first; keep the newest.
+			commits: compared.commits.slice(-SUBMODULE_MAX_COMMITS),
+			files: compared.files.slice(0, SUBMODULE_MAX_FILES),
+		};
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Expand each submodule bump in the head commit into the commits and files it
+ * pulled in -- and, when the bump moved the pointer back, the ones it took out.
+ *
+ * positron-builds tests positron as a submodule, so its head commit is usually
+ * a bot bump whose only changed "file" is the gitlink `positron`. Without this
+ * the analyzer sees one opaque path, cannot tell whether the bump touched the
+ * failing feature, and fills the gap with a guess.
+ *
+ * The compare API lists only the commits AHEAD of the base, so a downgrade
+ * (status "behind") or a diverged move would read as an empty change set. The
+ * reverse range lists what was removed; removed code is as much a change under
+ * test as added code. An entry whose range could not be fetched keeps
+ * `commits: null` (or `removed: null` with `behindBy > 0`) so the analyzer can
+ * say what is unknown instead.
+ */
+function expandSubmoduleBumps(fileEntries, ref) {
+	const bumps = fileEntries
+		.map(f => ({ path: f.filename, match: SUBPROJECT_RE.exec(f.patch || '') }))
+		.filter(b => b.match);
+	if (bumps.length === 0) { return []; }
+	const repos = readSubmoduleRepos(ref);
+	return bumps.map(({ path, match }) => {
+		const { from, to } = match.groups;
+		const entry = { path, repo: repos.get(path) || null, from, to, status: null, aheadBy: null, behindBy: null, totalCommits: null, commits: null, files: null, removed: null };
+		if (!entry.repo) { return entry; }
+		process.stderr.write(`Expanding submodule ${path} bump ${from.slice(0, 10)}..${to.slice(0, 10)}...\n`);
+		const added = compareRange(entry.repo, from, to);
+		if (!added) { return entry; }
+		Object.assign(entry, added);
+		if (added.behindBy > 0) {
+			const removed = compareRange(entry.repo, to, from);
+			entry.removed = removed && { totalCommits: removed.totalCommits, commits: removed.commits, files: removed.files };
+		}
+		return entry;
+	});
+}
+
 // 5. Get commit info
 let commit = {};
 if (runMeta.head_sha) {
 	process.stderr.write('Fetching commit info...\n');
 	const commitRaw = gh('api', `repos/${repo}/commits/${runMeta.head_sha}`,
-		'--jq', '{message: .commit.message, author: .commit.author.name, files: [.files[].filename]}');
+		// Keep a file's patch only when it is a gitlink bump; the rest can be huge.
+		'--jq', '{message: .commit.message, author: .commit.author.name, files: [.files[]? | {filename, patch: (if ((.patch // "") | contains("Subproject commit")) then .patch else null end)}]}');
 	if (commitRaw) {
-		try { commit = JSON.parse(commitRaw); } catch { /* ignore */ }
+		try {
+			const parsed = JSON.parse(commitRaw);
+			const files = parsed.files || [];
+			commit = {
+				message: parsed.message,
+				author: parsed.author,
+				files: files.map(f => f.filename),
+				submodules: expandSubmoduleBumps(files, runMeta.head_sha),
+			};
+		} catch { /* ignore */ }
 	}
 }
 

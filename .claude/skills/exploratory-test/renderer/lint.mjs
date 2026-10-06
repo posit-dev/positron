@@ -65,6 +65,23 @@ const READS_OUTPUT = /\b(?:until|shows?|showing|prints?|printed|reads|displays?|
 const SESSION_ID = /\b(?:python|r)-[0-9a-f]{8}\b/i;
 
 /** The rules every action step follows, in the ledger and on a finding card. */
+// An action inside a VERIFY, as most past runs wrote it: "typing `n` shows ...",
+// "after running `x`, ...", or a command after a comma ("In the panel, type ...").
+// Measured on 3,199 VERIFY lines from 98 runs: 25 hits, none of them a real check.
+const VERIFY_ING = 'typing|clicking|double-clicking|right-clicking|pressing|running|executing|opening|closing|expanding|collapsing|scrolling|selecting|hovering|dragging|choosing|entering|saving|switching|toggling|resizing|reloading|restarting';
+const VERIFY_IMP = 'type|click|double-click|right-click|press|run|open|expand|collapse|scroll|select|hover|drag|choose|enter|save|switch|toggle|resize|reload|restart';
+const VERIFY_ACTION = [
+	new RegExp(`(?:^|[,;]\\s*|\\b(?:and|after|before|while|on|when|by|then)\\s+)(${VERIFY_ING})\\s+\\S`, 'i'),
+	// Lowercase, and before an object: "Enter creates" is the key, "type int" a label.
+	new RegExp(`(?:^|[,;]\\s*)(${VERIFY_IMP})\\s+(?:the|a|an|code|it|on|in)\\b`),
+];
+
+function verifyProblems(where, text) {
+	const plain = text.replace(/`[^`]*`/g, 'code').replace(/\s*->.*$/, '').trim();
+	const verb = VERIFY_ACTION.map(re => re.exec(plain)?.[1]).find(Boolean);
+	return verb ? [`${where} VERIFY does something ("${verb}"); make it a step of its own before the check, and keep the VERIFY to what you expect to see`] : [];
+}
+
 function stepProblems(where, text) {
 	const problems = [];
 	const plain = text.replace(/`[^`]*`/g, 'code');
@@ -107,8 +124,9 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		if (result) { current.result = result[1].trim(); }
 		const action = /^\s*(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(line);
 		if (action) { problems.push(...stepProblems(`ledger: ${current.id} step ${action[1]}`, action[2])); }
-		const verify = /^\s*(\d+)\.\s+VERIFY\b/i.exec(line);
+		const verify = /^\s*(\d+)\.\s+VERIFY\b(.*)$/i.exec(line);
 		if (verify) {
+			problems.push(...verifyProblems(`ledger: ${current.id} step ${verify[1]}`, verify[2]));
 			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), finding: Number(/->\s*FAIL\s*-\s*Finding\s+(\d+)/i.exec(line)?.[1]) || null, observed: false, evidence: false, log: false });
 		}
 		const field = /^\s+(Observed|Evidence|Log):(.*)$/i.exec(line);
@@ -567,6 +585,8 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		for (const step of body.filter(l => /^\d+\.\s/.test(l))) {
 			const action = /^(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(step);
 			if (action) { problems.push(...stepProblems(`report: Finding ${b.n} step ${action[1]}`, action[2])); }
+			const verify = /^(\d+)\.\s+VERIFY\b(.*)$/i.exec(step);
+			if (verify) { problems.push(...verifyProblems(`report: Finding ${b.n} step ${verify[1]}`, verify[2])); }
 			const id = /\b[SN]\d{2,}\b/.exec(step.replace(/`[^`]*`/g, ''));
 			if (id) {
 				problems.push(`report: Finding ${b.n} step "${step.slice(0, 50)}" names ${id[0]}; steps are instructions for the reader, so leave run notes out`);
@@ -875,6 +895,7 @@ export function lintShotTiming(ledger, actionsLog) {
 const WARNINGS = [
 	/ repeats an action \(/,
 	/ is two actions \(/,
+	/ VERIFY does something \(/,
 	/ starts "With \.\.\."/,
 	/Result: of a failed scenario is its rate only/,
 	/Result: is \S+ (?:characters|sentences)/,
