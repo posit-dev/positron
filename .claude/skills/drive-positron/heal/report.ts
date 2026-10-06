@@ -74,7 +74,7 @@ function headline(n: Night): string {
 }
 
 /** What the reader is asked to do, most urgent first. */
-function toDo(n: Night, where: 'summary' | 'pr'): string {
+function toDo(n: Night, where: 'summary' | 'pr' | 'slack'): string {
 	const out: string[] = [];
 	if (n.jobFailed) { out.push(`Find out why the job broke at "${n.jobFailed}"; nothing below is checked.`); }
 	if (n.state.wholesale) { out.push('Check the app and the runner: more than a quarter of the smoke cases failed twice, which is the environment, not the helpers. No fixer ran.'); }
@@ -84,7 +84,9 @@ function toDo(n: Night, where: 'summary' | 'pr'): string {
 	if (fixes.length) {
 		const why = unverified(n);
 		out.push(why !== null ? `Do not merge the fixes yet: ${why}, so they are unchecked.`
-			: where === 'pr' ? 'Review and merge this PR.' : 'Review the fix: the Slack DM links the branch, and the patch is in the run artifacts.');
+			: where === 'pr' ? 'Review and merge this PR.'
+				: where === 'slack' ? 'Review the fix (linked below).'
+					: 'Review the fix: the Slack DM links the branch, and the patch is in the run artifacts.');
 		const back = fixes.filter(f => f.fixedBefore?.length);
 		if (back.length) { out.push(`${back.map(f => `"${title(f)}"`).join(', ')} came back after being fixed on earlier nights; those fixes were never merged.`); }
 	}
@@ -204,7 +206,7 @@ export function slackText(n: Night, runUrl: string, link: { kind: 'compare' | 'p
 	const fs = n.findings;
 	return [
 		`*drive-positron nightly: ${esc(headline(n))}*`,
-		esc(toDo(n, 'summary').replace(/\*\*/g, '*')),
+		esc(toDo(n, 'slack').replace(/\*\*/g, '*')),
 		...fs.slice(0, MAX_SLACK_FINDINGS).map(f => `- ${esc(title(f))} (${esc(status(f))}): ${esc(f.broke ?? seen(f))}`),
 		...(fs.length > MAX_SLACK_FINDINGS ? [`and ${fs.length - MAX_SLACK_FINDINGS} more`] : []),
 		`Cost $${totalCost(n.costs).total.toFixed(2)}.${links ? ` ${links}` : ''}`,

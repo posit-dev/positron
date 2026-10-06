@@ -56,8 +56,10 @@ test('summary names a wholesale break and a scope violation', () => {
 });
 
 test('slack text has counts, cost, run link and the link', () => {
-	const t = slackText(night({ findings: [f('a', { outcome: 'fixed' })], costs: [{ label: 'fixer-a', usd: 1.25 }] }), 'https://run', { kind: 'compare', url: 'https://cmp' });
+	const t = slackText(night({ findings: [f('a', { outcome: 'fixed' })], costs: [{ label: 'fixer-a', usd: 1.25 }], state: { gate: 'pass' } }), 'https://run', { kind: 'compare', url: 'https://cmp' });
 	assert.match(t, /1 helper fixed/);
+	assert.match(t, /Review the fix \(linked below\)/);
+	assert.doesNotMatch(t, /Slack DM/);
 	assert.match(t, /\$1\.25/);
 	assert.match(t, /<https:\/\/run\|run>/);
 	assert.match(t, /<https:\/\/cmp\|open the PR>/);
