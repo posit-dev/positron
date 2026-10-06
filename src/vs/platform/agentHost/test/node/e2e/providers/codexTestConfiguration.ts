@@ -13,7 +13,14 @@ function resolveCodexSdkRoot(): string | undefined {
 	return existsSync(sdkPackageDir) ? process.cwd() : undefined;
 }
 
-export const CODEX_SDK_ROOT = resolveCodexSdkRoot();
+// --- Start Positron ---
+// Positron does not ship the agent host, so tests that drive the real Codex
+// runtime are disabled. Codex sandboxes non-full-access sessions with bwrap,
+// which needs unprivileged user namespaces that Positron's CI container lacks.
+// export const CODEX_SDK_ROOT = resolveCodexSdkRoot();
+export const CODEX_SDK_ROOT: string | undefined = undefined;
+void resolveCodexSdkRoot;
+// --- End Positron ---
 
 export const CODEX_CONFIG: IAgentHostE2EProviderConfig = {
 	suiteTitle: 'Agent Host E2E — Codex',

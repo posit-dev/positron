@@ -297,10 +297,29 @@ edits. Watch for all of them, not just the first:
 #### Extension host tests
 
 The `test / ext-host` CI job runs three driver scripts in sequence, matching
-`.github/workflows/test-ext-host.yml`: `scripts/test-integration-pr.sh` (Positron
-extensions, Electron), `scripts/test-remote-integration.sh` (upstream API/language
-suites, Remote), and `scripts/test-web-integration.sh` (Chromium). A red job can
-come from any of the three, not just the first.
+`.github/workflows/test-ext-host.yml`: an Electron driver, then
+`scripts/test-remote-integration.sh` (upstream API/language suites, Remote), then
+`scripts/test-web-integration.sh` (Chromium). A red job can come from any of the
+three, not just the first.
+
+The Electron driver depends on how the workflow was triggered. PR runs use
+`scripts/test-integration-pr.sh` (Positron extensions only). Merge-to-branch and
+Full Suite runs, which is what a merge branch gets, use `scripts/test-integration.sh`.
+That script also runs the Agent Host E2E suites (`scripts/test-agent-host-e2e.ts`)
+and the node `*.integrationTest.ts` files, and `set -e` stops it at the first
+failing suite. Run `scripts/test-integration.sh`, not the PR driver.
+
+Passing locally or in the CI lab doesn't prove these pass in CI. The ext-host job
+runs in an **unprivileged** container (`--user 0:0`, no `--privileged`), so user
+namespaces are blocked there. The CI lab container is `privileged: true`, and macOS
+uses a different sandbox, so anything that sandboxes with `bwrap` (e.g. the Codex
+agent host) passes in both and fails only in CI. Run the drivers in an
+unprivileged container from the CI image that reuses the lab's checkout and
+volumes (same options and env as the workflow's `container:` block, plus
+`GITHUB_ACTIONS=true`; start Xvfb on `:10`). The Remote driver also needs the
+license issuer at `../positron-license/pdol/target/debug/` next to the checkout
+(link `/positron-license` from the image and put the lab's `license.txt` there as
+`pdol_rsa`). Check `unshare -U true` fails there before trusting the result.
 
 Read this job's failure carefully: it has a signature that looks green. Every
 suite can report `N passing` and `Extension host test runner exit code: 0` while

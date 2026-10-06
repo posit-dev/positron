@@ -134,6 +134,13 @@ suite('Agent Host Provider Integration — Codex Customizations', function () {
 	suiteTeardown(async function () {
 		this.timeout(60_000);
 		await stopServer(server);
+		// --- Start Positron ---
+		// suiteSetup skips before creating the home dir when Codex is unavailable
+		// (always, in Positron; see CODEX_SDK_ROOT).
+		if (!userHomeDir) {
+			return;
+		}
+		// --- End Positron ---
 		await rm(userHomeDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
 	});
 
