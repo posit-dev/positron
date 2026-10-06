@@ -392,15 +392,33 @@ jobs:
           if [ "$DRYRUN" = true ]; then echo "[dryrun] would push $branch"; else git push origin "HEAD:refs/heads/$branch"; fi
           echo "link=$link" >> "$GITHUB_OUTPUT"
 
+      # Detect first: its own checkout resets the work tree, so the patches go on after it.
+      - name: Detect the managed PR (live)
+        id: detect
+        if: steps.has.outputs.yes == 'true' && env.PHASE == 'live'
+        uses: ./.github/actions/detect-managed-pr
+        with:
+          branch-prefix: automated/drive-positron-heal
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+
       - name: Prepare the rolling PR (live)
         id: live
-        if: steps.has.outputs.yes == 'true' && env.PHASE == 'live'
+        if: steps.detect.outcome == 'success'
         shell: bash
         env:
           DIR: ${{ steps.has.outputs.dir }}
+          EXISTS: ${{ steps.detect.outputs.exists }}
+          MODE: ${{ steps.detect.outputs.mode }}
         run: |
           set -euo pipefail
-          git apply --index "$DIR"/patches/*.patch
+          # Reset mode (no human touched the PR) rebuilds it from main; additive keeps its commits.
+          if [ "$EXISTS" = true ] && [ "$MODE" = reset ]; then git fetch -q origin main; git reset -q --hard origin/main; fi
+          for p in "$DIR"/patches/*.patch; do
+            # A fix the open PR already has (the same bug found again, still unmerged) is skipped.
+            if [ "$EXISTS" = true ] && git apply --reverse --check "$p" 2>/dev/null; then echo "already in the PR: $(basename "$p")"; continue; fi
+            git apply --index "$p"
+          done
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
           R="$RUNNER_TEMP/dp/heal/report.ts"
           d="HEAL_EOF_$(openssl rand -hex 8)"
@@ -408,15 +426,6 @@ jobs:
             echo "title<<$d"; node "$R" --dir "$DIR" --run-url "$run_url" title; echo "$d"
             echo "body<<$d"; node "$R" --dir "$DIR" --run-url "$run_url" body; echo "$d"
           } >> "$GITHUB_OUTPUT"
-
-      - name: Detect the managed PR (live)
-        id: detect
-        if: steps.live.outcome == 'success'
-        uses: ./.github/actions/detect-managed-pr
-        with:
-          branch-prefix: automated/drive-positron-heal
-          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
 
       - name: Commit and sync the PR (live)
         id: sync
