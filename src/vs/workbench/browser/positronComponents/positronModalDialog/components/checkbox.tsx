@@ -24,7 +24,7 @@ interface CheckboxProps {
 // Toggle component.
 export const Checkbox = ({ label, initialChecked, onChanged }: CheckboxProps) => {
 	// Hooks.
-	const [id] = useState(generateUuid());
+	const [id] = useState(() => generateUuid());
 	const [checked, setChecked] = useState(initialChecked ?? false);
 
 	// Click handler.
