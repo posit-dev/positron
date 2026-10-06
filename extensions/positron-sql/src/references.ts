@@ -68,8 +68,8 @@ export function resolveReferences(analysis: Analysis, schema: SchemaIndex): Refe
 	const scopes = analysis.scopes.map((_, index) => resolveScope(index, analysis, schema));
 
 	for (const table of analysis.tables) {
-		// A CTE, a derived table, or the object a CREATE is defining. All three are correct SQL
-		// that names nothing in the database, so none of them is a name to check.
+		// A CTE, or the object a CREATE is defining. Both are correct SQL that names nothing in
+		// the database, so neither is a name to check.
 		if (table.local || table.definition) {
 			continue;
 		}
@@ -150,7 +150,7 @@ function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex): R
 			break;
 		}
 		for (const local of enclosing.locals) {
-			resolved.unresolvable.add(fold(local));
+			resolved.unresolvable.add(fold(local.name));
 		}
 		at = enclosing.parent;
 	}
