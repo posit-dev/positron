@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
-import { cascade, classify, crossSection, lastFailedPerGroup, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
+import { cascade, classify, crossSection, lastFailedPerGroup, launchedRuns, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
 
 const c = (name: string, status: CaseResult['status'], problem = '', group?: string): CaseResult => ({ name, status, helper: 'x.sh', args: ['--a', 'b'], problem, ms: 1, ...(group ? { group } : {}) });
 const r = (cases: CaseResult[], launch: 'PASS' | 'FAIL' = 'PASS'): SmokeResults => ({ startedAt: '2026-10-06T03:40:00Z', until: null, quick: false, launch, launchProblem: '', cases });
@@ -21,6 +21,16 @@ test('mergeResults keeps every case, and a launch failure from any run', () => {
 	const m = mergeResults([r([c('a', 'FAIL')]), { ...r([], 'FAIL'), launchProblem: 'no app' }]);
 	assert.deepEqual([m.launch, m.launchProblem, m.cases.map(x => x.name)], ['FAIL', 'no app', ['a']]);
 	assert.equal(mergeResults([r([c('a', 'PASS')]), r([c('b', 'PASS')])]).launch, 'PASS');
+});
+
+test('launchedRuns merges only the reruns that launched, and names the others', () => {
+	const crashed = { ...r([], 'FAIL'), launchProblem: 'segfault' };
+	const got = launchedRuns([r([c('a', 'FAIL')]), crashed], ['one', 'two']);
+	assert.deepEqual([got.merged?.launch, got.merged?.cases.map(x => x.name), got.problems], ['PASS', ['a'], ['two: segfault']]);
+	// The crashed group's case is unconfirmed, while the other's still counts.
+	const cls = classify(r([c('a', 'FAIL'), c('z', 'FAIL')]), got.merged!);
+	assert.deepEqual([cls.persistent.map(p => p.first.name), cls.unconfirmed.map(u => u.name)], [['a'], ['z']]);
+	assert.equal(launchedRuns([crashed], ['two']).merged, null);
 });
 
 test('classify: fail twice is persistent, pass on the rerun is a flake', () => {

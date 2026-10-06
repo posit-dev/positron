@@ -25,6 +25,13 @@ export function mergeResults(runs: SmokeResults[]): SmokeResults {
 	return { ...runs[0], launch: failed ? 'FAIL' : 'PASS', launchProblem: failed?.launchProblem ?? '', cases: runs.flatMap(r => r.cases) };
 }
 
+/** The reruns that launched, merged; null when none did. A group whose rerun did not launch leaves its cases unconfirmed. */
+export function launchedRuns(runs: SmokeResults[], labels: string[]): { merged: SmokeResults | null; problems: string[] } {
+	const problems = runs.flatMap((r, i) => r.launch === 'FAIL' ? [`${labels[i]}: ${r.launchProblem || 'no reason given'}`] : []);
+	const ok = runs.filter(r => r.launch !== 'FAIL');
+	return { merged: ok.length ? mergeResults(ok) : null, problems };
+}
+
 export function classify(first: SmokeResults, second: SmokeResults): Classified {
 	const out: Classified = { persistent: [], flakes: [], unconfirmed: [] };
 	const again = new Map(second.cases.map(c => [c.name, c]));

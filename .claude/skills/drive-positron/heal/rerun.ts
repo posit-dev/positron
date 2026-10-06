@@ -12,14 +12,15 @@
 //   node .claude/skills/drive-positron/heal/rerun.ts --dir /tmp/heal [-- APP ARGS...]
 //
 // Reads DIR/smoke-1.json; writes findings/, flakes.json, unconfirmed.json and
-// state.json (wholesale). Exits 1 when either run could not launch the app.
+// state.json (wholesale). A group whose rerun did not launch leaves its cases
+// unconfirmed. Exits 1 when the nightly run or every rerun could not launch the app.
 
 import { spawnSync } from 'child_process';
 import { existsSync, rmSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { flagValue, readResults } from '../test/smoke-lib.ts';
 import { writeFinding, writeState as saveState, type State } from './finding.ts';
-import { classify, crossSection, lastFailedPerGroup, mergeResults, smokeFinding, wholesale } from './rerun-lib.ts';
+import { classify, crossSection, lastFailedPerGroup, launchedRuns, smokeFinding, wholesale } from './rerun-lib.ts';
 
 const here = dirname(new URL(import.meta.url).pathname);
 const dash = process.argv.indexOf('--');
@@ -45,9 +46,10 @@ const replay = (file: string, args: string[]) => {
 	return readResults(out);
 };
 const runs = lasts.map((last, i) => replay(`smoke-rerun-${i + 1}.json`, ['--until', last]));
-const second = mergeResults(runs);
+const { merged: second, problems } = launchedRuns(runs, lasts.map(l => `the rerun --until "${l}"`));
+for (const p of problems) { console.log(`rerun: ${p} (did not launch; its cases stay unconfirmed)`); }
+if (!second) { console.log('rerun: no rerun launched'); process.exit(1); }
 writeFileSync(join(dir, 'smoke-rerun.json'), `${JSON.stringify(second, null, '\t')}\n`);
-if (second.launch === 'FAIL') { console.log(`rerun: a rerun did not launch: ${second.launchProblem}`); process.exit(1); }
 
 const got = classify(first, second);
 for (const p of got.persistent) { writeFinding(join(dir, 'findings'), smokeFinding(p.first, p.second, { first: first.startedAt, second: second.startedAt })); }
