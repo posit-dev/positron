@@ -80,6 +80,7 @@ import { getWorkbenchMenuMotionContextMenuOptions } from '../../../browser/actio
 import { getLatestPositronCompatibleVersion } from './positronCompatibleVersion.js';
 // eslint-disable-next-line no-duplicate-imports
 import { InstallExtensionOptions } from '../common/extensions.js';
+import { isColorThemeVisibleInPicker } from '../../../services/themes/browser/positronColorThemeFilter.js';
 // --- End Positron ---
 
 export class PromptExtensionInstallFailureAction extends Action {
@@ -1445,7 +1446,12 @@ async function getContextMenuActionsGroups(extension: IExtension | undefined | n
 			cksOverlay.push(['extensionIsPrivate', extension.gallery?.private]);
 
 			const [colorThemes, fileIconThemes, productIconThemes, extensionUsesAuth] = await Promise.all([workbenchThemeService.getColorThemes(), workbenchThemeService.getFileIconThemes(), workbenchThemeService.getProductIconThemes(), authenticationUsageService.extensionUsesAuth(extension.identifier.id.toLowerCase())]);
-			cksOverlay.push(['extensionHasColorThemes', colorThemes.some(theme => isThemeFromExtension(theme, extension))]);
+			// --- Start Positron ---
+			// Match SetColorThemeAction, which only offers picker-visible themes.
+			// cksOverlay.push(['extensionHasColorThemes', colorThemes.some(theme => isThemeFromExtension(theme, extension))]);
+			const currentColorThemeId = workbenchThemeService.getColorTheme().id;
+			cksOverlay.push(['extensionHasColorThemes', colorThemes.some(theme => isThemeFromExtension(theme, extension) && isColorThemeVisibleInPicker(theme.id, currentColorThemeId))]);
+			// --- End Positron ---
 			cksOverlay.push(['extensionHasFileIconThemes', fileIconThemes.some(theme => isThemeFromExtension(theme, extension))]);
 			cksOverlay.push(['extensionHasProductIconThemes', productIconThemes.some(theme => isThemeFromExtension(theme, extension))]);
 			cksOverlay.push(['extensionHasAccountPreferences', extensionUsesAuth]);
@@ -2278,7 +2284,10 @@ export class SetColorThemeAction extends ExtensionAction {
 	}
 
 	update(): void {
-		this.workbenchThemeService.getColorThemes().then(colorThemes => {
+		// --- Start Positron ---
+		// this.workbenchThemeService.getColorThemes().then(colorThemes => {
+		this.getPickableColorThemes().then(colorThemes => {
+		// --- End Positron ---
 			this.enabled = this.computeEnablement(colorThemes);
 			this.class = this.enabled ? SetColorThemeAction.EnabledClass : SetColorThemeAction.DisabledClass;
 		});
@@ -2288,8 +2297,18 @@ export class SetColorThemeAction extends ExtensionAction {
 		return !!this.extension && this.extension.state === ExtensionState.Installed && this.extensionEnablementService.isEnabledEnablementState(this.extension.enablementState) && colorThemes.some(th => isThemeFromExtension(th, this.extension));
 	}
 
+	// --- Start Positron ---
+	private async getPickableColorThemes(): Promise<IWorkbenchColorTheme[]> {
+		const currentThemeId = this.workbenchThemeService.getColorTheme().id;
+		return (await this.workbenchThemeService.getColorThemes()).filter(t => isColorThemeVisibleInPicker(t.id, currentThemeId));
+	}
+	// --- End Positron ---
+
 	override async run({ showCurrentTheme, ignoreFocusLost }: { showCurrentTheme: boolean; ignoreFocusLost: boolean } = { showCurrentTheme: false, ignoreFocusLost: false }): Promise<any> {
-		const colorThemes = await this.workbenchThemeService.getColorThemes();
+		// --- Start Positron ---
+		// const colorThemes = await this.workbenchThemeService.getColorThemes();
+		const colorThemes = await this.getPickableColorThemes();
+		// --- End Positron ---
 
 		if (!this.computeEnablement(colorThemes)) {
 			return;
