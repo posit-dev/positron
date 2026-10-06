@@ -173,6 +173,9 @@ export function createSQLiteDriver(
 							id: 'sqlite3',
 							label: 'sqlite3',
 							code: `import sqlite3\n\nconn = ${sqlite3Connect}\n`,
+							// What the Variables pane calls each object, so a connection the
+							// user made by hand is queried the way its library expects.
+							objectTypes: ['Connection'],
 						},
 						{
 							id: 'sqlalchemy',
@@ -180,6 +183,7 @@ export function createSQLiteDriver(
 							code: readOnly
 								? `import sqlalchemy as sa\n\nengine = sa.create_engine("sqlite:///file:${escapedPath}?mode=ro&uri=true")\n`
 								: `import sqlalchemy as sa\n\nengine = sa.create_engine("sqlite:///${escapedPath}")\n`,
+							objectTypes: ['Engine'],
 						},
 					];
 				}

@@ -225,6 +225,10 @@ export interface IDataConnectionCodeVariant {
 
 	// The generated connection code for this variant.
 	code: string;
+
+	// The type names a session reports for the object this variant's code creates, e.g. `Engine`.
+	// Optional; identifies the variant of a connection the user made by hand.
+	objectTypes?: readonly string[];
 }
 
 /**

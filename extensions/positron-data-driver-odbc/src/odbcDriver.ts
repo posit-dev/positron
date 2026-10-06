@@ -245,6 +245,9 @@ function renderPythonCode(connectionString: string): positron.ConnectionCodeVari
 			id: 'pyodbc',
 			label: 'pyodbc',
 			code: `import pyodbc\n\nconn = pyodbc.connect("${escaped}")\n`,
+			// What the Variables pane calls each object, so a connection the user made by hand
+			// is queried the way its library expects.
+			objectTypes: ['Connection'],
 		},
 		{
 			id: 'sqlalchemy',
@@ -252,6 +255,7 @@ function renderPythonCode(connectionString: string): positron.ConnectionCodeVari
 			// SQLAlchemy takes the ODBC string as a single percent-encoded query parameter, which
 			// avoids having to re-express the connection in SQLAlchemy's own URL grammar.
 			code: `import sqlalchemy as sa\nfrom urllib.parse import quote_plus\n\nengine = sa.create_engine(\n\t"mssql+pyodbc:///?odbc_connect=" + quote_plus("${escaped}")\n)\n`,
+			objectTypes: ['Engine'],
 		},
 	];
 }

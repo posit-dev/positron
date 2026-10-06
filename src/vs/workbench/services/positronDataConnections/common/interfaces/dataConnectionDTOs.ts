@@ -132,6 +132,10 @@ export interface IDataConnectionCodeVariantDTO {
 
 	// The generated connection code for this variant.
 	code: string;
+
+	// The type names a session reports for the object this variant's code creates, e.g. `Engine`.
+	// Optional; identifies the variant of a connection the user made by hand.
+	objectTypes?: readonly string[];
 }
 
 /**
@@ -239,9 +243,16 @@ export interface IDataConnectionSessionBindingDTO {
 	/**
 	 * The connection code variant it was made with, e.g. `sqlalchemy`. Absent when Positron did
 	 * not make the connection and so cannot know; code generated against such a binding assumes
-	 * the driver's preferred variant for the language.
+	 * the variant whose object types include `variableType`, or else the driver's preferred
+	 * variant for the language.
 	 */
 	readonly variantId?: string;
+
+	/**
+	 * The type the session reports for the variable, e.g. `Engine`. Only consulted when there is
+	 * no `variantId`.
+	 */
+	readonly variableType?: string;
 
 	/**
 	 * The name of the variable the connection is bound to. Parsed from the code that ran rather

@@ -217,7 +217,7 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 			return undefined;
 		}
 
-		const variantId = binding.variantId ?? await this._preferredVariantId(profile, driver, binding.languageId);
+		const variantId = binding.variantId ?? await this._assumedVariantId(profile, driver, binding);
 		if (!variantId) {
 			this._logService.warn(`[DataConnections] generateQueryCode: ${profile.driverMetadata.name}`
 				+ ` generates no ${binding.languageId} connection code, so there is no variant to assume.`);
@@ -236,24 +236,36 @@ export class MainThreadDataConnections implements MainThreadDataConnectionsShape
 	 * The variant to assume for a binding that does not name one -- a connection the user made by
 	 * hand and then pointed at, so Positron never saw which library made it.
 	 *
-	 * The profile's remembered preference, or the driver's default, which between them are what the
-	 * Connect With dialog would have offered. A user who connected by hand almost certainly used
-	 * the snippet that dialog suggests, and if they did not, the generated query will say so
-	 * plainly by failing against the wrong kind of object rather than quietly doing the wrong
-	 * thing.
+	 * The variant whose object the variable is, when the session reported its type and the driver
+	 * says which variant makes an object of that type: a SQLAlchemy engine and a DuckDB connection
+	 * made for the same database are queried differently, and the type is what tells them apart.
+	 * The driver is the authority on that, since it wrote the code that makes each one.
+	 *
+	 * Failing that, the profile's remembered preference, or the driver's default, which between
+	 * them are what the Connect With dialog would have offered. A user who connected by hand
+	 * almost certainly used the snippet that dialog suggests, and if they did not, the generated
+	 * query will say so plainly by failing against the wrong kind of object rather than quietly
+	 * doing the wrong thing.
 	 */
-	private async _preferredVariantId(
+	private async _assumedVariantId(
 		profile: IDataConnectionProfile,
 		driver: IDataConnectionDriver,
-		languageId: string,
+		binding: IDataConnectionSessionBindingDTO,
 	): Promise<string | undefined> {
-		const remembered = profile.preferredCodeVariants?.[languageId];
+		const remembered = profile.preferredCodeVariants?.[binding.languageId];
 		let variants: IDataConnectionCodeVariant[];
 		try {
-			variants = await driver.generateConnectionCode(profile.mechanismId, languageId, profile.parameterValues);
+			variants = await driver.generateConnectionCode(profile.mechanismId, binding.languageId, profile.parameterValues);
 		} catch (err) {
 			this._logService.error(`[DataConnections] generateQueryCode: could not read ${profile.id}'s variants: ${err}`);
 			return remembered;
+		}
+		const { variableType } = binding;
+		const matching = variableType
+			? variants.find(variant => variant.objectTypes?.includes(variableType))
+			: undefined;
+		if (matching) {
+			return matching.id;
 		}
 		return variants.some(variant => variant.id === remembered)
 			? remembered
@@ -485,7 +497,7 @@ class MainThreadDataConnectionDriverAdapter implements IDataConnectionDriver {
 	 */
 	async generateConnectionCode(mechanismId: string, languageId: string, params: DataConnectionParameterValues): Promise<IDataConnectionCodeVariant[]> {
 		const variants = await this._proxy.$generateConnectionCode(this.id, mechanismId, languageId, params);
-		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code }));
+		return variants.map(variant => ({ id: variant.id, label: variant.label, code: variant.code, objectTypes: variant.objectTypes }));
 	}
 
 	/**
