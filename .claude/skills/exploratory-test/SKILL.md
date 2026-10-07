@@ -7,7 +7,7 @@ metadata:
   # verifier.md, isolator.md, editor.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.49"
+  version: "1.50"
 ---
 
 # Exploratory testing
@@ -97,13 +97,15 @@ writes nothing and says why: send the verifier that message with SendMessage,
 save its reply over `verify-reply.md`, and apply again.
 The verdicts are advisory: do not edit them or drop a finding over them.
 
-Then have a fresh agent rewrite the Result and findings in plain words, as CI
-does. Run `node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
+Then have a fresh agent write each finding's opening in plain words (what a
+person reads first in the filed issue: a summary, the steps to do by hand, and
+where it happens) with a title cut from it, and rewrite the Result, as CI does. Run `node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
 `nothing to edit`, it prints the path of a prompt file. Spawn a fresh agent with
 `subagent_type: "general-purpose"` and `model: "sonnet"`, tell it to read that
 file and reply as it says, and save its reply to `<run dir>/edit-reply.md`.
 Then run `node <base>/renderer/edit.mjs apply <run dir> <run dir>/edit-reply.md`.
-It keeps the original of any field whose rewrite drops a fact, and says which.
+It keeps the original of anything the rewrite gets wrong (a fact the run did
+not record, code the reader must run left out), and says which.
 If it also prints `retry prompt at <path>`, give that file to a fresh agent the
 same way, save its reply to `<run dir>/edit-retry-reply.md`, and run
 `node <base>/renderer/edit.mjs apply <run dir> <run dir>/edit-retry-reply.md --last`.

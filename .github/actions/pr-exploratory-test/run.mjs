@@ -214,10 +214,11 @@ async function askEditor(prompt) {
 }
 
 /**
- * Rewrites the Result and each finding's title, Observed and Expected in plain
- * words, with a fresh agent that sees only those, never a Cause. Any rewrite
- * that drops a fact gets one more try with the reason, then is skipped, so the
- * worst case is the report as the explorer wrote it.
+ * Writes each finding's opening (summary, hand steps, where) and a title cut
+ * from it, and rewrites the Result, with a fresh agent that sees each card only
+ * through Expected, never a Cause. Anything the guard rejects gets one more try
+ * with the reason, then is skipped, so the worst case is the report as the
+ * explorer wrote it.
  */
 async function editReport(report) {
 	const template = readFileSync(EDITOR_PATH, 'utf8');

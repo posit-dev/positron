@@ -15,7 +15,7 @@
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { basename, isDefaultsOnly, isNewTestFile, isPositronLog, LOWERCASE_NAMES, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, isPositronLog, LOWERCASE_NAMES, openingRange, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -576,7 +576,10 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		// the verifier's reply can say "same as Finding 1" about the report.
 		const next = lines.findIndex(({ line }, k) => k > b.k && /^(<details>|## )/.test(line));
 		const end = blocks[j + 1]?.k ?? (next === -1 ? lines.length : next);
-		const body = lines.slice(b.k + 1, end).map(l => l.line);
+		const card = lines.slice(b.k + 1, end).map(l => l.line);
+		// The edit pass writes the opening after the explorer's checks; its steps are not the run's.
+		const opening = openingRange(card);
+		const body = opening ? [...card.slice(0, opening.start), ...card.slice(opening.end)] : card;
 		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
 			needs.push([`Finding ${b.n}`, l]);
 		}
@@ -597,8 +600,11 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 			problems.push(`report: Finding ${b.n} Preconditions: says only "defaults"; leave the line out`);
 		}
 		// The filed issue's title is `<Feature>: <claim>`.
-		if (!body.some(l => /^\*\*Feature:\*\*\s*\S/.test(l))) {
+		const feature = body.find(l => /^\*\*Feature:\*\*\s*\S/.test(l))?.replace(/^\*\*Feature:\*\*\s*/, '').trim();
+		if (!feature) {
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
+		} else if ((CODE_NAME.test(feature) && !PRODUCT_NAMES.has(CODE_NAME.exec(feature)[0])) || /`|\w\.[a-z]{1,4}\b/.test(feature)) {
+			problems.push(`report: Finding ${b.n} Feature "${feature}" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"`);
 		}
 		if (body.some(l => /^\*\*Impact:\*\*/.test(l))) {
 			problems.push(`report: Finding ${b.n} has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed`);

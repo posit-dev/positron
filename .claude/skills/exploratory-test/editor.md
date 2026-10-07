@@ -1,57 +1,64 @@
-You are editing an exploratory-test report so a reader understands it on first read. Below are its Result line, which sits above the findings, and its findings: each one's title, Feature, Preconditions, Repro steps, Observed and Expected. Edit only the Result and each title, Observed and Expected. The rest is there for context.
+An automated test run found the bugs below and wrote each up as a record of the run: harness steps, PASS checks, waits, scenario IDs, and reasoning about what it saw. A developer triaging the filed issue has to translate that back into a bug before they can act on it.
 
-The reader knows Positron but has not seen the PR, the code or the run. Many read only the Result and the titles.
+For each finding, write the part a person reads first, and its title. The run's record stays below it, folded, so leave out anything that is only there as evidence. Each finding is filed as its own issue, so each must stand alone. Then rewrite the report's Result line.
 
-## Rules
+The reader knows Positron but has not seen the PR, the code or the run.
 
-- **The facts are frozen.** Keep every number, quoted UI string, backticked span, file name and value exactly as written. Add no fact, and drop none from Observed or Expected. A clause that only restates the title can go.
-- **Keep what is wrong.** A title says what is broken and how. Reword that, never remove it: "both get the same port" cannot become "a port error".
-- **Keep the words that narrow it.** "hidden", "renamed", "the first": drop one and the bug sounds wider or vaguer than the run showed.
-- Use the words on screen: the button's label, the pane's name, the message's text. Name nothing the reader cannot see (class names, process names, scenario IDs such as S10).
-- Name a thing by where the reader sees it, not where it lives. The kernel, the language server, the backend and the extension host are where things live. If the card shows the same thing on screen (a pane, a list, a hover), use that.
-- Title: what the user sees go wrong, then when. Lead with the visible problem, not the component or the command. One clause, under about 90 characters, no colon, semicolon, parentheses or `|`.
-- One idea per sentence. Subject, verb, object, in the active voice.
-- No possessive chains ("the document's kernel's variables") and no noun stacks ("Shiny console session start").
-- Don't use one pronoun for two things ("never previews it when it starts").
-- Plain words: "shows", "use", "before". No hedging ("seems", "appears to").
-- Observed: what happened, in 1-2 sentences, plus at most one for a fact that makes it worse or gets past it. Expected: 1-2 sentences.
-- If a field already follows the rules, leave it as it is. Don't rewrite to be different.
+## Each finding
+
+**Summary**: one or two sentences, said the way you would tell a colleague at their desk: "When you do X, Y happens instead of Z." Add the one consequence a user hits next only if it is worse than the bug itself. Leave out side observations, comparisons and counts; they stay in the record. Don't start with the feature's name ("In the Data Explorer, ..."); the title carries it. Plain words; no reasoning about why.
+
+**Steps**: the fewest steps a person would do by hand to see it, 3 to 5. Each is an action. Mark the step where it goes wrong with what they see, e.g. "Nothing opens." Copy anything the user types or runs (code, names, commands) word for word from the record, in the same backticks or code block; do not describe it. Leave out:
+- steps that only confirm something worked
+- waits, sampling, timings that were only how the harness watched
+- scenario and step IDs (S05, S12-08)
+- setup the harness needed that a person does not (proxies, settings it sets in every profile), unless the bug needs it; then say it plainly ("with PyPI unreachable").
+
+**Where**: one line, only if it changes who hits it: the platform, build or setting it needs, and what was not checked. If it needs the web build, say "web (and so Workbench)". Leave out the OS and build when nothing suggests the bug depends on them. Otherwise leave it empty.
+
+**Title**: written last, from your summary. The filed issue is titled `<feature>: <your title>`, with the finding's **Feature:** line as the feature, so don't repeat the feature. The title is the summary's first sentence cut to its core: 12 words or fewer, no code or file names, no colon, semicolon or `|`. Keep what makes it a bug: a condition that narrows it ("of 1,000 or more", "until you Tab") or that it persists ("stays that way after reconnecting"). Start it with a capital unless its first word is a name written in lowercase, such as polars.
+
+Keep every fact you use true to the record; do not add one it does not have, and keep numbers, quoted UI text and code exactly as the record writes them. Do not use a name a user would not see on screen: no component, class, function or file names, and no "kernel", "language server", "extension host" or "backend" unless the user would see that word. Name a thing by where the reader sees it: the button's label, the pane's name, the message's text.
+
+## Before -> after
+
+Summary, from a record whose opening said only "Duplicated control in the notebook toolbar":
+"When you open a Python notebook, its toolbar shows the "2 missing packages" badge twice, one on each side of the restart button, instead of once."
+
+Summary, from "Click appears dead; a follow-up Escape cancels the whole flow":
+"The first click on Browse... on the "Folder Name and Location" step does nothing: no folder picker appears. If you press Escape after that dead click, the whole flow is cancelled."
+
+Titles:
+- "first `Browse...` click in the flow shows no folder picker" -> "First Browse... click opens no folder picker"
+- "An offline check says all packages are installed, and it sticks after reconnecting" -> "Offline check says all installed, and stays that way after reconnecting"
+- "Enter does nothing until you Tab to a button" -> "Enter does nothing on New Folder Created dialog until you Tab"
 
 ## The Result
+
+Rewrite the Result line too.
 
 - It says what the change does for a user, then, in bold, what is broken. At most two sentences and about 50 words.
 - Say what works in a phrase ("stats are right for most R and polars column types"). Don't list everything tested; the Tested line below it does that.
 - The bold sentence uses the same words as your titles, so the Result and the findings agree. Keep every number, name and value in it, and keep the `**` around it.
-
-## Before -> after
-
-- "Paused columns' tooltip says missing values could not be calculated"
-  -> "Tooltip says missing values \"could not be calculated\" while summaries are paused"
-- "A column over 10 s to summarize never loads, and Retry cannot help"
-  -> "Columns that take over 10 s to summarize never load, even after Retry"
-- "Expanded column shows endless loading dots after summaries stop"
-  -> "Expanded column keeps loading forever after summaries pause"
-- "Deleting a renamed untitled file leaves its editor tab open under the old name"
-  -> "Editor tab stays open under the old name after a renamed untitled file is deleted", not "...after a file is deleted"
-- "Outline omits functions the language server reports"
-  -> "Outline omits functions that Go to Symbol lists"
-- Observed: "Of the visible s62 to s79, only s62 has a sparkline. Scrolling up shows s49 to s61 got sparklines: those were off-screen when Continue was pressed."
-  -> "Of the visible columns s62 to s79, only s62 has a sparkline. Columns s49 to s61, which were off-screen when Continue was pressed, got sparklines instead."
-
-When a reviewer flags a hard-to-read finding, replace the weakest example here with it. Keep at most six.
+- If it already follows these rules, leave it out of your reply.
 
 ## Reply
 
-One line per field you changed, and nothing else. Leave out a field you did not change:
+Reply with only this. The RESULT line first, if you changed it, then a block for every finding, in order:
 
 ```
 RESULT: <new Result, without the **Result:** label>
-TITLE: <N>=<new title>
-OBSERVED: <N>=<new Observed>
-EXPECTED: <N>=<new Expected>
+
+=== Finding <N>
+TITLE: <title>
+SUMMARY: <summary>
+STEPS:
+1. <step>
+2. <step>
+WHERE: <where line, or nothing>
 ```
 
-`<N>` is the number in the finding's `### Finding N:` heading. If you changed nothing, reply `EDITS: none`.
+`<N>` is the number in the finding's `### Finding N:` heading. A code block under a step is indented three spaces.
 
 ## Result
 

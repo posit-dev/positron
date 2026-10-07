@@ -84,6 +84,19 @@ test('flags a finding with no Feature line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 });
 
+test('flags a Feature named in code rather than as a user sees the area', () => {
+	const problem = feature => `report: Finding 1 Feature "${feature}" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"`;
+	for (const feature of ['PositronDynamicModalDialog', 'columnProfileInteger.tsx', '`dataExplorer`']) {
+		assert.deepEqual(lint(REPORT.replace('**Feature:** console', `**Feature:** ${feature}`)), [problem(feature)]);
+	}
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:** new folder flow')), []);
+});
+
+test('skips the opening the edit pass writes, steps and all', () => {
+	const opening = '**Summary:** When you click Retry, nothing happens.\n\n**Hand steps:**\n\n1. Wait 10 s, then click Retry in S05.\n\n**Where:** Web only.\n\n';
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console', `${opening}**Feature:** console`)), []);
+});
+
 test('flags a finding that still has an Impact line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console\n', '**Feature:** console\n\n**Impact:** The panel stays empty with no error shown.\n')),
 		['report: Finding 1 has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed']);

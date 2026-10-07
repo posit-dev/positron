@@ -316,6 +316,70 @@ function labelOf(line) {
 	return m ? m[1].replace(/[:\s]+$/, '').toLowerCase() : null;
 }
 
+// The opening the edit pass writes at the top of a card, in a person's words:
+// what they read first, above the run's own record.
+const OPENING_LABELS = new Set(['summary', 'hand steps', 'where']);
+
+/** Where a card's opening sits in its body lines, as `{ start, end }`, or null. */
+export function openingRange(lines) {
+	const start = lines.findIndex(l => labelOf(l) === 'summary');
+	if (start === -1) {
+		return null;
+	}
+	let end = start + 1;
+	let fenced = false;
+	for (; end < lines.length; end++) {
+		const text = lines[end].trim();
+		if (/^(?:```|~~~)/.test(text)) {
+			fenced = !fenced;
+		}
+		const label = fenced ? null : labelOf(lines[end]);
+		if (!fenced && ((label && !OPENING_LABELS.has(label)) || /^(?:#{2,3}\s|<details>)/.test(text))) {
+			break;
+		}
+	}
+	while (end > start + 1 && !lines[end - 1].trim()) {
+		end--;
+	}
+	return { start, end };
+}
+
+/** A card's opening as `{ summary, steps, where }`, each step its markdown; null when it has none. */
+export function parseOpening(lines) {
+	const range = openingRange(lines);
+	if (!range) {
+		return null;
+	}
+	const block = lines.slice(range.start, range.end);
+	const out = { summary: '', steps: [], where: '' };
+	for (let i = 0; i < block.length; i++) {
+		const label = labelOf(block[i]);
+		if (label === 'summary' || label === 'where') {
+			const { text, end } = readLabelled(block, i);
+			out[label] = text;
+			i = end - 1;
+		} else if (label === 'hand steps') {
+			let fenced = false;
+			let j = i + 1;
+			for (; j < block.length && (fenced || !labelOf(block[j])); j++) {
+				const raw = block[j];
+				if (/^(?:```|~~~)/.test(raw.trim())) {
+					fenced = !fenced;
+				}
+				const numbered = !fenced && /^\d+\.\s+(.*)$/.exec(raw);
+				if (numbered) {
+					out.steps.push(numbered[1]);
+				} else if (out.steps.length) {
+					out.steps[out.steps.length - 1] += `\n${dedent(raw)}`;
+				}
+			}
+			out.steps = out.steps.map(s => s.trimEnd());
+			i = j - 1;
+		}
+	}
+	return out;
+}
+
 const IMAGE_EXT = /\.(?:png|jpe?g|gif|webp|avif)$/i;
 
 /** The filename at the end of a URL or path, for matching a hero to its caption. */
@@ -736,9 +800,18 @@ function parseFindingBody(lines) {
 		errors: [],
 		tests: { cases: [], related: [] },
 		hero: null,
+		opening: parseOpening(lines),
 		matched: 0,
 	};
+	const opening = openingRange(lines);
+	if (opening) {
+		out.matched++;
+	}
 	for (let i = 0; i < lines.length; i++) {
+		if (opening && i >= opening.start && i < opening.end) {
+			i = opening.end - 1;
+			continue;
+		}
 		const line = lines[i];
 		const trimmed = line.trim();
 		if (!trimmed) { continue; }
@@ -1444,6 +1517,8 @@ export function parseReport(markdown, { ledger } = {}) {
 			// Issues the verifier says may already describe this finding. Advisory.
 			known: [...new Set([...(row['known'] ?? '').matchAll(/#(\d+)/g)].map(m => Number(m[1])))],
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
+			// The edit pass's opening: the card leads with its summary, and the issue with all of it.
+			openingHtml: parsed.opening ? { summary: inline(parsed.opening.summary), where: parsed.opening.where ? inline(parsed.opening.where) : '' } : null,
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
 			// A starting state with a pasted file is the one multi-line item.
@@ -1470,6 +1545,7 @@ export function parseReport(markdown, { ledger } = {}) {
 				steps: steps.map(stepText),
 				cause: parsed.cause ?? '',
 				summary: parsed.summary.join(' '),
+				opening: parsed.opening,
 				prose: parsed.matched === 0 ? bodyLines.join('\n').trim() : '',
 			},
 			// Nothing recognisable in the body: render it as prose rather than

@@ -2224,6 +2224,34 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
 });
+test('issue: an opening leads the body and the card, and the run\'s record folds below', () => {
+	const opening = [
+		'**Summary:** When you open a slow column, its summary never loads.',
+		'',
+		'**Hand steps:**',
+		'',
+		'1. Run the slow script.',
+		'2. Open its data frame in the Data Explorer. The summary never loads.',
+		'',
+		'**Where:** polars only; R was not checked.',
+	].join('\n');
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n${opening}`);
+	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const body = issueCopied(html, 1);
+	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]), ['Describe the issue', 'Steps to reproduce', 'System details', 'Error messages', 'Evidence']);
+	assert.ok(body.includes([
+		'## Describe the issue', 'When you open a slow column, its summary never loads.', '',
+		'## Steps to reproduce', '1. Run the slow script.', '2. Open its data frame in the Data Explorer. The summary never loads.', '',
+		'polars only; R was not checked.',
+	].join('\n')));
+	const record = /<details><summary>What the run did<\/summary>\n\n([\s\S]*?)\n\n<\/details>/.exec(body)[1];
+	assert.match(record, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
+	assert.match(record, /\*\*Observed:\*\* /);
+	assert.match(card(html, 1), /<\/h2><\/header>\s*<div class="f-lead"><p>When you open a slow column, its summary never loads\.<\/p><p class="f-where">polars only; R was not checked\.<\/p><\/div>\s*<div class="f-cmp /);
+	assert.doesNotMatch(card(html, 1), /Hand steps|\*\*Summary/);
+	// A finding without an opening keeps the template.
+	assert.match(issueCopied(html, 2), /## Observed\n/);
+});
 test('an older report\'s Impact line and column show nowhere: not on the card, the issue or the prompt', () => {
 	const impact = 'The only way to get the summaries back is to reopen the Data Explorer.';
 	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n**Impact:** ${impact}`);

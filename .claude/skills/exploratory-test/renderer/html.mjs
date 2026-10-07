@@ -17,7 +17,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog } from './report-parse.mjs';
+import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog, LOWERCASE_NAMES } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
@@ -173,7 +173,8 @@ function severityWords(sev) {
 }
 
 function capitalize(text) {
-	return text ? text[0].toUpperCase() + text.slice(1) : text;
+	// A name written in lowercase (polars, pandas) keeps its case.
+	return text && !LOWERCASE_NAMES.has(/^[\w.-]+/.exec(text)?.[0]) ? text[0].toUpperCase() + text.slice(1) : text;
 }
 
 /** A finding's status, lowercase: the verifier's verdict over the run's own. */
@@ -824,7 +825,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const by = url ? `[exploratory test](${url}#f${f.n})` : 'exploratory test';
 	const at = [branch && `\`${branch}\``, sha && `\`${sha}\``].filter(Boolean).join(' @ ');
 	const of = report.pr ? `#${report.pr.number}${at ? ` (${at})` : ''}` : at;
-	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', systemDetails(report), ''];
+	const opening = t.opening;
+	// With an opening, the reader's version leads and the system details follow it.
+	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', ...(opening ? [] : [systemDetails(report), ''])];
 	// Linked both ways, so GitHub cross-references the fix and its PR.
 	const failedFixes = options.ki?.fixFailed.get(f.n);
 	const back = options.ki?.cameBack.get(f.n);
@@ -844,9 +847,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	};
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
 
-	section('Describe the issue', capitalize(t.prose || t.summary));
+	section('Describe the issue', capitalize(opening?.summary || t.prose || t.summary));
 
-	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
+	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps, ...(opening?.steps ?? [])].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
 	const preconditions = t.preconditions.map(p => files.reduce((text, file) => {
 		if (marked.has(file.path)) {
@@ -861,12 +864,21 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	// The card's rule: a step repeats what it observed only when two failed checks saw different things.
 	const failed = f.steps.filter(st => st.result === 'fail');
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
-	section('Steps to reproduce', [
+	const recorded = [
 		preconditions.map(p => `- ${p.replace(/\n/g, '\n  ')}`).join('\n'),
 		f.steps.map((st, i) => `${i + 1}. ${issueStep(st, observed).replace(/\n/g, '\n   ')}`).join('\n'),
-	].filter(Boolean).join('\n\n'));
-	section('Observed', capitalize(t.observed));
-	section('Expected', capitalize(t.expected));
+	].filter(Boolean).join('\n\n');
+	if (opening) {
+		section('Steps to reproduce', [
+			opening.steps.map((st, i) => `${i + 1}. ${st.replace(/\n/g, '\n   ')}`).join('\n'),
+			capitalize(opening.where),
+		].filter(Boolean).join('\n\n'));
+		out.push(systemDetails(report), '');
+	} else {
+		section('Steps to reproduce', recorded);
+		section('Observed', capitalize(t.observed));
+		section('Expected', capitalize(t.expected));
+	}
 
 	const clip = raw => {
 		const lines = raw.split('\n');
@@ -876,6 +888,14 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	section('Error messages', !errors ? 'None recorded by the run.' : drop.has('errors') ? `In the ${by} report for this run.` : errors);
 	section('Evidence', evidenceItems(f, p => p, e => e.file) && `Screenshots and logs are in the ${by} report for this run.`);
 
+	// The run's record, for whoever wants to check how the run got there.
+	if (opening && !drop.has('record')) {
+		fold('What the run did', [
+			recorded,
+			t.observed && `**Observed:** ${capitalize(t.observed)}`,
+			t.expected && `**Expected:** ${capitalize(t.expected)}`,
+		].filter(Boolean).join('\n\n'));
+	}
 	if (t.cause && !drop.has('cause')) {
 		fold('Likely cause (hypothesis, not verified)', capitalize(t.cause));
 	}
@@ -917,7 +937,7 @@ function issueHref(title, body) {
 
 // What a body too long for the link gives up, in order: each is on the report,
 // and what is left is the repro an engineer files from.
-const ISSUE_TRIMS = ['fileText', 'regression', 'cause', 'errors'];
+const ISSUE_TRIMS = ['fileText', 'regression', 'record', 'cause', 'errors'];
 
 /**
  * The new-issue link for a finding, as `{ href, text, copy }`. The body goes in
@@ -1179,6 +1199,11 @@ function renderFindingCard(f, report, options) {
 		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkIssues(linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files), options.refs)}${feedback}${promptBlock}</article>`;
 	}
 
+	// The edit pass's summary, in a person's words, says what the bug is before the run's own record.
+	const lead = f.openingHtml
+		? `<div class="f-lead"><p>${f.openingHtml.summary}</p>${f.openingHtml.where ? `<p class="f-where">${f.openingHtml.where}</p>` : ''}</div>`
+		: '';
+
 	// The claim's facts before the procedure, as one comparison: what the run
 	// saw, marked by severity, beside what should have happened.
 	const half = (cls, label, html) => (html ? `<div class="${cls}"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
@@ -1212,6 +1237,7 @@ function renderFindingCard(f, report, options) {
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
 ${linkIssues(linkFiles(`${head}
+${lead}
 ${comparison}
 ${repro}
 ${details}`, files), options.refs)}
