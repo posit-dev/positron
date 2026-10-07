@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { hoverFor } from '../hover';
+import { describe as describeReference, hoverFor } from '../hover';
+import { resolveReferences } from '../references';
 import { SchemaIndex } from '../schemaIndex';
 import { partialPayloadOf, schemaOf, sqlDocument, testAnalyzer } from './support';
 
@@ -72,6 +73,28 @@ suite('hoverFor', () => {
 		const shown = await hover('SELECT name FROM orders, customers', 'name');
 
 		assert.ok(shown?.includes('Column of `customers`'), shown);
+	});
+
+	test('a select alias hovers as the column it renames, and says so', () => {
+		// Read through `describe` rather than `hover`, which positions on the first occurrence of a
+		// word -- for an alias, always its definition, which is not a reference.
+		const text = 'SELECT total AS t FROM orders ORDER BY t';
+		const alias = resolveReferences(testAnalyzer().analyze(text, ''), SCHEMA)
+			.find(reference => reference.aliasOf !== undefined);
+		assert.ok(alias?.table, 'the alias did not resolve');
+
+		assert.strictEqual(
+			describeReference(alias, alias.table, true)?.value,
+			[
+				'```sql',
+				'total numeric',
+				'```',
+				'',
+				'`t` is an alias of this column.',
+				'',
+				'Column of `sales.orders` in Test Connection',
+			].join('\n'),
+		);
 	});
 
 	test('a column is shown as the database spells it, not as it was typed', async () => {

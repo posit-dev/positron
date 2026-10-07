@@ -91,9 +91,37 @@ suite('resolveReferences', () => {
 
 	test('an ORDER BY referring back to a select alias is not an unknown column', () => {
 		// `t` is a name the statement made up, not a column of orders. Ordinary SQL, and the case
-		// that judging `ORDER BY` at all would otherwise have started flagging.
+		// that judging `ORDER BY` at all would otherwise have started flagging. It renames `total`,
+		// so it resolves as that column.
 		assert.deepStrictEqual(
 			judge('SELECT total AS t FROM orders ORDER BY t', SCHEMA),
+			['column total: resolved', 'table orders: resolved', 'column t: resolved'],
+		);
+	});
+
+	test('a select alias that renames a column resolves as that column', () => {
+		// `WHERE uis = 10` is valid in SQLite, DuckDB and others; `uis` is `UnitsInStock`.
+		const schema = schemaOf('products: ProductName, UnitsInStock');
+		const references = resolveReferences(
+			testAnalyzer().analyze('SELECT UnitsInStock AS uis FROM products p WHERE uis = 10', ''),
+			schema,
+		);
+		const uis = references.filter(reference => reference.name === 'uis');
+
+		assert.deepStrictEqual(
+			uis.map(reference => [reference.aliasOf, reference.table?.name, reference.status]),
+			[['UnitsInStock', 'products', 'resolved']],
+		);
+		assert.deepStrictEqual(
+			judge('SELECT p.UnitsInStock AS uis FROM products p ORDER BY uis', schema),
+			['column UnitsInStock: resolved', 'table products: resolved', 'column uis: resolved'],
+		);
+	});
+
+	test('a select alias of anything but a column is left alone', () => {
+		// There is no column behind `doubled` to resolve to, and it is not a mistake either.
+		assert.deepStrictEqual(
+			judge('SELECT total * 2 AS doubled FROM orders ORDER BY doubled', SCHEMA),
 			['column total: resolved', 'table orders: resolved'],
 		);
 	});

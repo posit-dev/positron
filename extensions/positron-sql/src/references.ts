@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Analysis, Scope } from './analyzer';
+import { Analysis, Renamed, Scope } from './analyzer';
 import { SqlTable } from './schema';
 import { qualifiedName, SchemaIndex } from './schemaIndex';
 
@@ -37,6 +37,12 @@ export interface Reference {
 	readonly table?: SqlTable;
 
 	/**
+	 * For a column written as the alias a select item gave it, the column the alias renames: the
+	 * name to find in {@link table}, where {@link name} is what the document says.
+	 */
+	readonly aliasOf?: string;
+
+	/**
 	 * For an unknown column, the qualified names of the tables it was looked for in, so a
 	 * diagnostic can say where it was not found rather than only that it was not.
 	 */
@@ -60,6 +66,9 @@ interface ResolvedScope {
 
 	/** The names that resolve to nothing lookupable, so a column qualified by one is left alone. */
 	readonly unresolvable: Set<string>;
+
+	/** The select-list aliases in scope that rename a column, and the column each renames. */
+	readonly aliases: Map<string, Renamed>;
 }
 
 /** Finds every table and column name in a parsed document and resolves it against the schema. */
@@ -104,6 +113,15 @@ export function resolveReferences(analysis: Analysis, schema: SchemaIndex): Refe
 				continue;
 			}
 			candidates = [table];
+		} else if (scope.aliases.has(fold(column.name))) {
+			// `uis` in `WHERE uis = 10` after `SELECT UnitsInStock AS uis`: the column it renames,
+			// found where that column would be. Only ever resolved, never flagged -- the alias is
+			// correct SQL whether or not the column behind it can be found.
+			const reference = resolveAlias(column, scope);
+			if (reference) {
+				references.push(reference);
+			}
+			continue;
 		} else if (scope.unresolvable.has(fold(column.name))) {
 			// A name the statement made up rather than read from a table: the alias of a select
 			// item that an `ORDER BY` refers back to, or a CTE. Looking one up in the schema finds
@@ -140,6 +158,7 @@ function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex): R
 		tables: [],
 		opaque: scope.opaque,
 		unresolvable: new Set(),
+		aliases: new Map(),
 	};
 
 	// Names the statement defines for itself, at this level and every level enclosing it. A CTE
@@ -151,6 +170,10 @@ function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex): R
 		}
 		for (const local of enclosing.locals) {
 			resolved.unresolvable.add(fold(local.name));
+			// Nearest first, so an inner select's alias is not shadowed by an outer one's.
+			if (local.kind === 'output' && local.column && !resolved.aliases.has(fold(local.name))) {
+				resolved.aliases.set(fold(local.name), local.column);
+			}
 		}
 		at = enclosing.parent;
 	}
@@ -175,6 +198,37 @@ function resolveScope(index: number, analysis: Analysis, schema: SchemaIndex): R
 	}
 
 	return resolved;
+}
+
+/** Resolves a column written as an alias to the column the alias renames, if it can be found. */
+function resolveAlias(
+	column: { readonly name: string; readonly start: number; readonly end: number },
+	scope: ResolvedScope,
+): Reference | undefined {
+	const renamed = scope.aliases.get(fold(column.name));
+	if (!renamed) {
+		return undefined;
+	}
+	let candidates = scope.tables;
+	if (renamed.qualifier !== undefined) {
+		const table = scope.byName.get(fold(renamed.qualifier));
+		candidates = table ? [table] : [];
+	}
+	const owner = candidates.find(table =>
+		table.columns.some(item => fold(item.name) === fold(renamed.name)));
+	if (!owner) {
+		return undefined;
+	}
+	return {
+		kind: 'column',
+		name: column.name,
+		start: column.start,
+		end: column.end,
+		status: 'resolved',
+		table: owner,
+		aliasOf: renamed.name,
+		searched: [],
+	};
 }
 
 function fold(name: string): string {
