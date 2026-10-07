@@ -288,6 +288,13 @@ export const tocData: ITOCEntry<string> = {
 			id: 'features',
 			label: localize('features', "Features"),
 			children: [
+				// --- Start Positron ---
+				{
+					id: 'features/ai',
+					label: localize('positron.ai', "AI"),
+					settings: ['ai.*', 'assistant.newProviderModal', 'git.suggestions.*']
+				},
+				// --- End Positron ---
 				{
 					id: 'features/accessibilitySignals',
 					label: localize('accessibility.signals', 'Accessibility Signals'),
