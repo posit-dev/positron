@@ -21,6 +21,7 @@ import { createDeferred } from '../../../../client/common/utils/async';
 import * as commonUtils from '../../../../client/pythonEnvironments/creation/common/commonUtils';
 import { Common, CreateEnv } from '../../../../client/common/utils/localize';
 import * as uv from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
+import * as uvPythonInstaller from '../../../../client/pythonEnvironments/common/environmentManagers/uvPythonInstaller';
 import * as venvUtils from '../../../../client/pythonEnvironments/creation/provider/venvUtils';
 import {
     CreateEnvironmentProvider,
@@ -32,7 +33,7 @@ chaiUse(chaiAsPromised.default);
 suite('uv Creation provider tests', () => {
     let uvProvider: CreateEnvironmentProvider;
     let progressMock: typemoq.IMock<CreateEnvironmentProgress>;
-    let isUvInstalledStub: sinon.SinonStub;
+    let ensureUvInstalledStub: sinon.SinonStub;
     let execObservableLocatedUvStub: sinon.SinonStub;
     let getUvPythonVersionInfoStub: sinon.SinonStub;
     let pickPythonVersionStub: sinon.SinonStub;
@@ -45,8 +46,7 @@ suite('uv Creation provider tests', () => {
 
     setup(() => {
         pickWorkspaceFolderStub = sinon.stub(wsSelect, 'pickWorkspaceFolder');
-        isUvInstalledStub = sinon.stub(uv, 'isUvInstalled');
-        isUvInstalledStub.resolves(true);
+        ensureUvInstalledStub = sinon.stub(uvPythonInstaller, 'ensureUvInstalledWithProgress').resolves({ ok: true });
         // Return a stable (non-prerelease) version to avoid triggering the prerelease warning flow
         getUvPythonVersionInfoStub = sinon.stub(uv, 'getUvPythonVersionInfo');
         getUvPythonVersionInfoStub.resolves({ version: '3.12.5', isPrerelease: false, path: undefined });
@@ -74,10 +74,19 @@ suite('uv Creation provider tests', () => {
         sinon.restore();
     });
 
-    test('No uv installed', async () => {
-        isUvInstalledStub.resolves(false);
+    test('uv install declined or failed: stops before asking for a workspace', async () => {
+        ensureUvInstalledStub.resolves({ ok: false });
 
         assert.isUndefined(await uvProvider.createEnvironment());
+        sinon.assert.notCalled(pickWorkspaceFolderStub);
+        sinon.assert.notCalled(showErrorMessageWithLogsStub);
+    });
+
+    test('uv installed (or just installed): goes on to ask for a workspace', async () => {
+        pickWorkspaceFolderStub.resolves(undefined);
+
+        await assert.isRejected(uvProvider.createEnvironment());
+        sinon.assert.callOrder(ensureUvInstalledStub, pickWorkspaceFolderStub);
     });
 
     test('No workspace selected', async () => {
