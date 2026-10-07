@@ -40,6 +40,11 @@ function findingsDir(root: string): string | null {
 	return null;
 }
 
+/** The nightly's completed runs since `since`; only main's, so a branch test run never becomes a later night's history. */
+export function runsUrl(api: string, repo: string, workflow: string, since: string): string {
+	return `${api}/repos/${repo}/actions/workflows/${workflow}/runs?branch=main&status=completed&created=%3E%3D${since}&per_page=50`;
+}
+
 async function main(): Promise<number> {
 	const own = process.argv.slice(2);
 	const bad = unknownArg(own, ['--dir', '--days']);
@@ -62,7 +67,7 @@ async function main(): Promise<number> {
 	const since = new Date(Date.now() - Number(days ?? '7') * 86400000).toISOString().slice(0, 10);
 	let runs: { id: number }[];
 	try {
-		runs = (await (await get(`${api}/repos/${repo}/actions/workflows/${WORKFLOW}/runs?status=completed&created=%3E%3D${since}&per_page=50`)).json()).workflow_runs ?? [];
+		runs = (await (await get(runsUrl(api, repo, WORKFLOW, since))).json()).workflow_runs ?? [];
 	} catch (e) {
 		console.log(`recent: listing runs failed (${e instanceof Error ? e.message : e}); no earlier findings`);
 		return 0;

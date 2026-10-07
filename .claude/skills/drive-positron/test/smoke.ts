@@ -9,6 +9,7 @@
 // venv; about 8 minutes, --quick about 2):
 //
 //   node .claude/skills/drive-positron/test/smoke.ts [--quick] [--until NAME [--from-start]] [--results FILE] [--keep] [-- APP ARGS...]
+//   node .claude/skills/drive-positron/test/smoke.ts --list
 //
 // --quick runs only the cases marked quick: one happy path per helper, and
 // the cases they stand on. --keep leaves the instance running at the end and
@@ -19,6 +20,7 @@
 // cases through NAME. --from-start runs every case through NAME instead, for a
 // failure that needs an earlier section's state.
 // The full run skips the setups.
+// --list prints every case's name and group as JSON, and launches nothing.
 // --results FILE writes every case's status, command and problem as JSON
 // (SmokeResults in smoke-lib.ts), for heal/.
 // Arguments after `--` go to the app through launch.sh (CI passes
@@ -489,6 +491,7 @@ const groupOf = new Map<Case, string>();
 try {
 	groupIds(cases, groups).forEach((id, i) => groupOf.set(cases[i], id));
 	for (const g of groups) { for (const c of g.setup) { groupOf.set(c, g.id); } }
+	if (own.includes('--list')) { console.log(JSON.stringify(cases.map(c => ({ name: c.name, group: groupOf.get(c) })))); process.exit(0); }
 	run = selectCases(cases, { quick: quickOnly, until, fromStart }, groups);
 } catch (e) { console.log(String(e instanceof Error ? e.message : e)); process.exit(2); }
 const results: SmokeResults = { startedAt: new Date().toISOString(), until, quick: quickOnly, launch: 'FAIL', launchProblem: '', cases: [] };

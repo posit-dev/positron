@@ -32,7 +32,8 @@ concurrency:
 
 env:
   HEAL_DIR: /tmp/heal
-  PHASE: ${{ vars.DRIVE_POSITRON_HEAL_PHASE || 'live' }}
+  # A run from any other branch is a test of that branch: it never touches the live PR.
+  PHASE: ${{ github.ref != 'refs/heads/main' && 'burn-in' || vars.DRIVE_POSITRON_HEAL_PHASE || 'live' }}
   REVIEWERS: midleman
   # When the finder runs on its own: nightly, or mondays once the nightly finds settle.
   EXPLORE_ON: nightly
@@ -279,15 +280,18 @@ jobs:
           # fix-loop refuses a dirty tree itself.
           if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then echo "::error::HEAD moved from $GITHUB_SHA to $(git rev-parse HEAD) before the fixer ran"; exit 1; fi
           # No session starts past this: the 330-minute timeout, less 30 for the steps after
-          # this one and 40 for the last session (25) and its checks.
-          budget=$(( 330 - 30 - 40 - ($(date +%s) - HEAL_STARTED) / 60 ))
+          # this one and 50 for the last session (25), its review (8) and its checks.
+          budget=$(( 330 - 30 - 50 - ($(date +%s) - HEAL_STARTED) / 60 ))
           [ "$budget" -lt 0 ] && budget=0
           # shellcheck disable=SC2086
           node .claude/skills/drive-positron/heal/fix-loop.ts --dir "$HEAL_DIR" --runner "$RUNNER" --cap 5 --budget-minutes "$budget" -- $APP_ARGS
           code=$?
           if [ -d "$HEAL_DIR/patches" ]; then
             # The paths links.ts checksChanged flags: what the post-fix check itself runs.
-            git diff --no-color "$GITHUB_SHA..HEAD" -- .claude/skills/drive-positron/test .claude/skills/drive-positron/heal > "$HEAL_DIR/checks.diff"
+            # smoke.ts only when a fix changed or removed a line; added cases are each fix's own, listed per fix.
+            git diff --no-color "$GITHUB_SHA..HEAD" -- .claude/skills/drive-positron/test .claude/skills/drive-positron/heal ':!.claude/skills/drive-positron/test/smoke.ts' > "$HEAL_DIR/checks.diff"
+            smoke=$(git diff --no-color "$GITHUB_SHA..HEAD" -- .claude/skills/drive-positron/test/smoke.ts)
+            if grep -v '^---' <<< "$smoke" | grep -q '^-'; then echo "$smoke" >> "$HEAL_DIR/checks.diff"; fi
           fi
           exit "$code"
 
