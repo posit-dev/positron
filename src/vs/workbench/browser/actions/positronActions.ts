@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,6 @@ import { localize } from '../../../nls.js';
 import { ITelemetryData } from '../../../base/common/actions.js';
 import { ServicesAccessor } from '../../../editor/browser/editorExtensions.js';
 import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
-import { ContextKeyExpr } from '../../../platform/contextkey/common/contextkey.js';
 import { workspacesCategory } from './workspaceActions.js';
 import { Action2, MenuId, registerAction2 } from '../../../platform/actions/common/actions.js';
 import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
@@ -80,10 +79,9 @@ export class PositronNewFolderFromGitAction extends Action2 {
 			},
 			category: workspacesCategory,
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				EnterMultiRootWorkspaceSupportContext,
-				ContextKeyExpr.deserialize('config.git.enabled && !git.missing')
-			),
+			// No Git precondition: the dialog explains when Git is disabled or not found, which a
+			// disabled menu item cannot.
+			precondition: EnterMultiRootWorkspaceSupportContext,
 			menu: {
 				id: MenuId.MenubarFileMenu,
 				group: '1_newfolder',

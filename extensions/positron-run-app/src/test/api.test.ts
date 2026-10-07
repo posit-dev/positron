@@ -210,6 +210,32 @@ suite('PositronRunApp', () => {
 		);
 	});
 
+	test('appLauncher: reports an app that exits before printing its URL', async () => {
+		// An app that fails to start, e.g. due to an import error, should be
+		// reported as soon as it exits rather than after the URL detection timeout.
+		const showErrorMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+		const showWarningMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+		const didRun = runAppApi.runApplication({
+			...runAppOptions,
+			getTerminalOptions() {
+				return { command: 'node', args: ['-e', 'process.exit(1)'] };
+			},
+			// Longer than the test timeout, so the test fails if the run waits it out.
+			urlDetectionTimeout: 120_000,
+		}).then(() => true);
+		assert.ok(await raceTimeout(didRun, 30_000), 'The run should end when the app exits');
+
+		sinon.assert.notCalled(previewUrlStub);
+		sinon.assert.notCalled(showWarningMessageStub);
+		sinon.assert.calledOnceWithExactly(
+			showErrorMessageStub,
+			sinon.match(/failed to start.*terminal output/),
+			'Show Terminal',
+			'Show Log',
+		);
+	});
+
 	/** The listed app named `name`, as an agent sees it through the command. */
 	async function listedApp(name: string): Promise<AppSummary | undefined> {
 		const apps = await vscode.commands.executeCommand<AppSummary[]>('positronRunApp.listApps');
@@ -386,6 +412,32 @@ suite('PositronRunApp', () => {
 			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
 		});
 
+		test('reports an app that stops before printing its URL', async () => {
+			// An app that fails to start, e.g. due to an error in the app's code,
+			// should be reported as soon as its execution ends rather than after
+			// the URL detection timeout.
+			const showErrorMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				// Longer than the test timeout, so the test fails if the run waits it out.
+				urlDetectionTimeout: 120_000,
+			});
+
+			await waitFor(() => finishExecution !== undefined, 'Timed out waiting for code execution');
+			finishExecution!();
+			await runPromise;
+
+			sinon.assert.notCalled(previewUrlStub);
+			sinon.assert.notCalled(showWarningMessageStub);
+			sinon.assert.calledOnceWithExactly(
+				showErrorMessageStub,
+				sinon.match(/failed to start.*console output/),
+				'Show Console',
+				'Show Log',
+			);
+		});
+
 		test('stops watching when the console execution finishes without a URL', async () => {
 			// An app that stopped without ever printing a URL is never going to
 			// print one, so the watch must end with the execution rather than
@@ -427,28 +479,6 @@ suite('PositronRunApp', () => {
 			}, {
 				result: { stopped: true, file: uri.toString(), name: consoleAppOptions.name, method: 'interrupted' },
 				interrupted: true,
-				status: 'exited',
-			});
-		});
-
-		test('stops waiting for the URL as soon as the app stops', async () => {
-			// Regression test for posit-dev/shiny-vscode#123: an app that failed
-			// to start used to hold the run open, progress notification and all,
-			// until URL detection timed out.
-			const runPromise = runAppApi.runApplicationInConsole(consoleAppOptions);
-			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
-
-			finishExecution!();
-			const finished = await raceTimeout(runPromise.then(() => true), 5_000);
-
-			assert.deepStrictEqual({
-				finished,
-				warned: showWarningMessageStub.called,
-				status: (await listedApp(consoleAppOptions.name))?.status,
-			}, {
-				// `consoleAppOptions` waits 30 seconds for the URL.
-				finished: true,
-				warned: false,
 				status: 'exited',
 			});
 		});

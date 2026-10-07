@@ -179,6 +179,7 @@ export const css = {
 		busy: '.codicon-positron-interrupt-runtime', // a session is running code: the interrupt icon shows
 		instanceTestId: 'console-', // + session id (python-1a2b3c4d)
 		tabTestId: 'console-tab-', // + session id
+		unread: '.unread-executions', // a tab's new-execution dot: no role, and its count is only appended to the tab's aria-label
 		pane: '.console-pane', // a console's toolbar and its instances; the toolbar has no name to find it by
 	},
 	terminal: {
