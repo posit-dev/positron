@@ -292,9 +292,10 @@ describe('PythonEnvironmentStep uv install', () => {
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('python.allowUvPythonInstall', false);
 		renderUvStep({ ok: true });
 
-		expect(await screen.findByText('Installing uv is turned off by the python.allowUvPythonInstall setting.')).toBeInTheDocument();
+		expect(await screen.findByText('python.allowUvPythonInstall', { selector: 'code' })).toBeInTheDocument();
 		expect(screen.getByText('uv is not installed')).toBeInTheDocument();
 		expect(screen.queryByRole('button', { name: 'Install uv' })).not.toBeInTheDocument();
+		expect(screen.getByText('uv is required to select a Python version')).toBeInTheDocument();
 	});
 });
 

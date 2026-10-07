@@ -42,6 +42,18 @@ const CONDA_INSTALL_DOCS_URL = 'https://www.anaconda.com/docs/getting-started/in
 // changes. See src/vs/workbench/browser/positronNewFolderFlow/components/steps/rConfigurationStep.tsx
 
 /**
+ * Says that installing uv is turned off, with the setting name in code font. A link to the setting
+ * would open the Settings editor behind this modal flow.
+ */
+const UvInstallDisabledMessage = () => {
+	const [before, after] = localize(
+		'pythonEnvironmentSubStep.uvCallout.installDisabled',
+		"Installing uv is turned off by the {0} setting."
+	).split('{0}');
+	return <>{before}<code>python.allowUvPythonInstall</code>{after}</>;
+};
+
+/**
  * The PythonEnvironmentStep component is specific to Python projects in the New Folder Flow.
  * @param props The NewFolderFlowStepProps
  * @returns The rendered component
@@ -355,10 +367,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 										'pythonEnvironmentSubStep.uvCallout.body',
 										"Install downloads and runs the official installer script from astral.sh."
 									) :
-									localize(
-										'pythonEnvironmentSubStep.uvCallout.installDisabled',
-										"Installing uv is turned off by the python.allowUvPythonInstall setting."
-									)
+									<UvInstallDisabledMessage />
 							}
 						</div>
 					</div>
@@ -514,10 +523,15 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		// empty search.
 		if (!interpretersAvailable()) {
 			if (context.usesUvEnv && isUvInstalled === false) {
-				return localize(
-					'pythonInterpreterSubStep.dropDown.title.uvNotInstalled',
-					"Install uv to select a Python version"
-				);
+				return allowUvInstall ?
+					localize(
+						'pythonInterpreterSubStep.dropDown.title.uvNotInstalled',
+						"Install uv to select a Python version"
+					) :
+					localize(
+						'pythonInterpreterSubStep.dropDown.title.uvRequired',
+						"uv is required to select a Python version"
+					);
 			}
 
 			if (context.usesCondaEnv && isCondaInstalled === false) {
