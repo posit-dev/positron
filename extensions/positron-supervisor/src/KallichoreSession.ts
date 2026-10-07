@@ -43,6 +43,7 @@ import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { isAxiosError } from 'axios';
 import { KallichoreTransport } from './KallichoreApiInstance.js';
+import { getTerminalMutation } from './interpreterDefinition';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
 import { CommBackendRequest, CommRpcMessage, CommImpl } from './Comm';
 import { channel, Sender } from './Channel';
@@ -403,12 +404,30 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Last, the interpreter definition's variables, which take precedence
 		// over the kernel spec's. Resolved fresh each time so a restart picks
-		// up edits to the definition.
+		// up edits to the definition. The script starts from the kernel spec's
+		// variables only: a restored session's `initial_env` already holds
+		// what the script set last time, so starting from it would drop
+		// unchanged variables and add to PATH twice.
+		const definitionBaseEnv = { ...process.env, ...this._kernelSpec?.env };
 		if (this.definitionEnvResolver) {
-			this._definitionEnv = await this.definitionEnvResolver(specEnv);
+			this._definitionEnv = await this.definitionEnvResolver(this._kernelSpec?.env);
 		}
 		for (const [name, value] of Object.entries(this._definitionEnv)) {
-			varActions.push({ action: VarActionType.Replace, name, value });
+			// Add only what the script added to the start or end of a
+			// variable (as with PATH), so other extensions' changes are kept.
+			const mutation = getTerminalMutation(value, definitionBaseEnv[name]);
+			// A restored session's `initial_env` already has the addition.
+			const current = specEnv?.[name];
+			if ((mutation.type === 'prepend' && current?.startsWith(mutation.value)) ||
+				(mutation.type === 'append' && current?.endsWith(mutation.value))) {
+				continue;
+			}
+			const action = {
+				replace: VarActionType.Replace,
+				prepend: VarActionType.Prepend,
+				append: VarActionType.Append,
+			}[mutation.type];
+			varActions.push({ action, name, value: mutation.value });
 		}
 
 		return varActions;

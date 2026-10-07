@@ -380,7 +380,7 @@ configurationRegistry.registerConfiguration({
 			default: [],
 			markdownDescription: nls.localize(
 				'positron.runtime.definitions',
-				"Additional interpreters, each with its own environment variables and startup script. If Positron also finds the interpreter at `path` on its own, that interpreter stays available too; otherwise only the defined interpreter is shown. Variables the startup script sets are also applied to terminals while the interpreter is active. `path` must be the absolute runtime path; do not use shortened display paths such as `~`. Can only be set in user or remote settings."),
+				"Additional interpreters, each with its own environment variables and startup script. R and Python are fully supported; other languages work to the extent their extension supports definitions. If Positron also finds the interpreter at `path` on its own, that interpreter stays available too; otherwise only the defined interpreter is shown, and a new one appears after Positron restarts. Variables the startup script sets are also applied to terminals while the interpreter is active. `path` must be the absolute runtime path; do not use shortened display paths such as `~`. Can only be set in user or remote settings."),
 			items: {
 				type: 'object',
 				required: ['language', 'path', 'label'],
@@ -388,8 +388,8 @@ configurationRegistry.registerConfiguration({
 				properties: {
 					language: {
 						type: 'string',
-						enum: ['r', 'python'],
-						description: nls.localize('positron.runtime.definitions.language', "The language of the interpreter.")
+						examples: ['r', 'python'],
+						description: nls.localize('positron.runtime.definitions.language', "The language ID of the interpreter, such as r or python.")
 					},
 					path: {
 						type: 'string',
@@ -423,7 +423,7 @@ configurationRegistry.registerConfiguration({
 					"Positron finds interpreters installed on this system, and also shows the ones in `#interpreters.definitions#`."),
 				nls.localize(
 					'positron.runtime.discovery.definitionsOnly',
-					"Positron does not look for interpreters. Only the ones in `#interpreters.definitions#` are available, and other interpreter discovery settings are ignored."),
+					"Positron does not look for interpreters. Only the ones in `#interpreters.definitions#` are available, and other interpreter discovery settings are ignored. To limit this to one language, set it for that language only, for example in `\"[python]\"`."),
 			],
 			markdownDescription: nls.localize(
 				'positron.runtime.discovery',
