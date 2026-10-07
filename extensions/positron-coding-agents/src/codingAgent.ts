@@ -24,7 +24,7 @@ export interface CodingAgent {
 	readonly label: string;
 
 	/** Whether the agent is installed and can take a prompt. */
-	isAvailable(): boolean;
+	isAvailable(): Promise<boolean>;
 
 	/** Whether a process's command line runs the agent's terminal UI. */
 	isAgentCommand(args: string): boolean;

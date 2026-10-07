@@ -13,22 +13,47 @@ import { ErrorActionKind, getErrorPrompt, UnsavedCode } from './errorPrompt';
 /** The agents Fix and Explain can send errors to, in the order they are offered. */
 const AGENTS: readonly CodingAgent[] = [claudeCode, codex];
 
+/** Minimum time between availability checks triggered by the window regaining focus. */
+const FOCUS_CHECK_INTERVAL = 30_000;
+
 export function activate(context: vscode.ExtensionContext): void {
 	// Offer each agent only while it is installed and able to take a prompt.
+	// Checks run one at a time, so registrations always follow the latest
+	// result; a check requested during another runs once that one finishes.
 	const registrationsById = new Map<string, vscode.Disposable>();
-	const updateRegistrations = () => {
-		for (const agent of AGENTS) {
-			const registration = registrationsById.get(agent.id);
-			const available = agent.isAvailable();
-			if (available && !registration) {
-				registrationsById.set(agent.id, positron.ai.registerErrorActionHandler(agent.id, agent.label, {
-					fix: errorContext => startSession(agent, 'fix', errorContext),
-					explain: errorContext => startSession(agent, 'explain', errorContext),
-				}));
-			} else if (!available && registration) {
-				registration.dispose();
-				registrationsById.delete(agent.id);
-			}
+	let isChecking = false;
+	let isCheckRequested = false;
+	let isDisposed = false;
+	let lastCheckTime = 0;
+	const updateRegistrations = async () => {
+		if (isChecking) {
+			isCheckRequested = true;
+			return;
+		}
+		isChecking = true;
+		try {
+			do {
+				isCheckRequested = false;
+				lastCheckTime = Date.now();
+				const availabilities = await Promise.all(AGENTS.map(agent => agent.isAvailable()));
+				if (isDisposed) {
+					return;
+				}
+				AGENTS.forEach((agent, i) => {
+					const registration = registrationsById.get(agent.id);
+					if (availabilities[i] && !registration) {
+						registrationsById.set(agent.id, positron.ai.registerErrorActionHandler(agent.id, agent.label, {
+							fix: errorContext => startSession(agent, 'fix', errorContext),
+							explain: errorContext => startSession(agent, 'explain', errorContext),
+						}));
+					} else if (!availabilities[i] && registration) {
+						registration.dispose();
+						registrationsById.delete(agent.id);
+					}
+				});
+			} while (isCheckRequested);
+		} finally {
+			isChecking = false;
 		}
 	};
 
@@ -41,13 +66,19 @@ export function activate(context: vscode.ExtensionContext): void {
 			}
 		}),
 		// Nothing announces a CLI being installed or removed, so look again
-		// whenever the user comes back to the window.
+		// when the user comes back to the window. Each check searches the
+		// PATH, so skip it if one ran recently.
 		vscode.window.onDidChangeWindowState(state => {
-			if (state.focused) {
+			if (state.focused && Date.now() - lastCheckTime >= FOCUS_CHECK_INTERVAL) {
 				updateRegistrations();
 			}
 		}),
-		{ dispose: () => registrationsById.forEach(registration => registration.dispose()) }
+		{
+			dispose: () => {
+				isDisposed = true;
+				registrationsById.forEach(registration => registration.dispose());
+			}
+		}
 	);
 }
 

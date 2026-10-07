@@ -21,7 +21,7 @@ const CODEX_NPM_SCRIPT = '@openai/codex/bin/codex.js';
 export const codex: CodingAgent = {
 	id: 'codex',
 	label: 'Codex',
-	isAvailable: () => getAgentLaunch('codex', CODEX_NPM_SCRIPT) !== undefined,
+	isAvailable: async () => await getAgentLaunch('codex', CODEX_NPM_SCRIPT) !== undefined,
 	isAgentCommand: isCodexCommand,
 	isPastTrustPrompt,
 	startNew,
@@ -29,7 +29,7 @@ export const codex: CodingAgent = {
 
 /** Start `codex` in a new terminal with the prompt. */
 async function startNew(prompt: string): Promise<void> {
-	const launch = getAgentLaunch('codex', CODEX_NPM_SCRIPT);
+	const launch = await getAgentLaunch('codex', CODEX_NPM_SCRIPT);
 	if (!launch) {
 		throw new Error(vscode.l10n.t('Codex is not installed: `codex` was not found on the PATH.'));
 	}

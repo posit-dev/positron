@@ -27,8 +27,8 @@ export interface AgentLaunch {
  * @returns The launch, or undefined when the CLI is not on the PATH or is
  *   behind a batch launcher that is not npm's.
  */
-export function getAgentLaunch(executable: string, npmScript: string): AgentLaunch | undefined {
-	const executablePath = resolveOnPath(executable);
+export async function getAgentLaunch(executable: string, npmScript: string): Promise<AgentLaunch | undefined> {
+	const executablePath = await resolveOnPath(executable);
 	if (!executablePath) {
 		return undefined;
 	}
@@ -41,8 +41,8 @@ export function getAgentLaunch(executable: string, npmScript: string): AgentLaun
 	const directory = path.dirname(executablePath);
 	const script = path.join(directory, 'node_modules', ...npmScript.split('/'));
 	const localNode = path.join(directory, 'node.exe');
-	const node = fs.existsSync(localNode) ? localNode : resolveOnPath('node');
-	if (!node || !fs.existsSync(script)) {
+	const node = await exists(localNode) ? localNode : await resolveOnPath('node');
+	if (!node || !await exists(script)) {
 		return undefined;
 	}
 	return { command: node, args: [script] };
@@ -53,7 +53,7 @@ export function getAgentLaunch(executable: string, npmScript: string): AgentLaun
  * `codex.cmd`. Mirrors positron-supervisor's lookup for its MCP agents.
  * @returns The executable's path, or undefined when it is not on the PATH.
  */
-function resolveOnPath(executable: string): string | undefined {
+async function resolveOnPath(executable: string): Promise<string | undefined> {
 	const directories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
 	const names = os.platform() === 'win32'
 		? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT').split(';').map(ext => executable + ext)
@@ -61,10 +61,23 @@ function resolveOnPath(executable: string): string | undefined {
 	for (const directory of directories) {
 		for (const name of names) {
 			const candidate = path.join(directory, name);
-			if (fs.existsSync(candidate)) {
+			if (await exists(candidate)) {
 				return candidate;
 			}
 		}
 	}
 	return undefined;
+}
+
+/**
+ * Whether a file exists. Asynchronous so that a slow or hung network mount on
+ * the PATH can't block the extension host.
+ */
+async function exists(file: string): Promise<boolean> {
+	try {
+		await fs.promises.access(file);
+		return true;
+	} catch {
+		return false;
+	}
 }

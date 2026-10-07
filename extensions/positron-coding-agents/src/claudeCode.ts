@@ -47,12 +47,12 @@ function getSurface(): ClaudeCodeSurface | undefined {
 }
 
 /** Whether Claude Code can take a prompt on the surface the user prefers. */
-function isAvailable(): boolean {
+async function isAvailable(): Promise<boolean> {
 	switch (getSurface()) {
 		case 'chat':
 			return true;
 		case 'terminal':
-			return getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT) !== undefined;
+			return await getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT) !== undefined;
 		case undefined:
 			return false;
 	}
@@ -105,7 +105,7 @@ async function openChat(prompt: string): Promise<void> {
  * environment, so a terminal of our own works the same.
  */
 async function openTerminal(prompt: string): Promise<void> {
-	const launch = getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT);
+	const launch = await getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT);
 	if (!launch) {
 		throw new Error(vscode.l10n.t('Claude Code is not installed: `claude` was not found on the PATH.'));
 	}

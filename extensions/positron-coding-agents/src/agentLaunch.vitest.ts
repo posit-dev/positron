@@ -38,27 +38,27 @@ describe('getAgentLaunch', () => {
 		return file;
 	}
 
-	it('runs a native executable directly', () => {
+	it('runs a native executable directly', async () => {
 		const codex = touch('codex');
-		expect(getAgentLaunch('codex', '@openai/codex/bin/codex.js')).toEqual({ command: codex, args: [] });
+		expect(await getAgentLaunch('codex', '@openai/codex/bin/codex.js')).toEqual({ command: codex, args: [] });
 	});
 
-	it('is undefined when the executable is not on the PATH', () => {
-		expect(getAgentLaunch('codex', '@openai/codex/bin/codex.js')).toBeUndefined();
+	it('is undefined when the executable is not on the PATH', async () => {
+		expect(await getAgentLaunch('codex', '@openai/codex/bin/codex.js')).toBeUndefined();
 	});
 
-	it('runs the script behind npm\'s Windows launcher under the Node beside it', () => {
+	it('runs the script behind npm\'s Windows launcher under the Node beside it', async () => {
 		vi.mocked(os.platform).mockReturnValue('win32');
 		touch('codex.cmd');
 		const node = touch('node.exe');
 		const script = touch('node_modules', '@openai', 'codex', 'bin', 'codex.js');
-		expect(getAgentLaunch('codex', '@openai/codex/bin/codex.js')).toEqual({ command: node, args: [script] });
+		expect(await getAgentLaunch('codex', '@openai/codex/bin/codex.js')).toEqual({ command: node, args: [script] });
 	});
 
-	it('is undefined for a Windows launcher whose script is not where npm puts it', () => {
+	it('is undefined for a Windows launcher whose script is not where npm puts it', async () => {
 		vi.mocked(os.platform).mockReturnValue('win32');
 		touch('codex.cmd');
 		touch('node.exe');
-		expect(getAgentLaunch('codex', '@openai/codex/bin/codex.js')).toBeUndefined();
+		expect(await getAgentLaunch('codex', '@openai/codex/bin/codex.js')).toBeUndefined();
 	});
 });
