@@ -191,5 +191,5 @@
   "src/vs/workbench/services/preferences/": [],
   "src/vs/workbench/services/preferences/common/positronSettingsUtils.ts": ["@:console"],
   "src/vs/workbench/services/themes/": [],
-  "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": []
+  "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": ["@:themes"]
 }
