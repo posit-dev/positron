@@ -603,9 +603,6 @@ article.card .card-details{max-width:720px}
    as the problem; Expected is quieter by its rule, fill and label only, so its
    text never looks disabled. Expected is a cool grey, so on a Minor card the two
    are darker and lighter steps of one grey rather than two temperatures. */
-.f-lead{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
-.f-lead p{margin:0;font-size:15px;line-height:1.55}
-.f-lead .f-where{font-size:13px;color:var(--muted)}
 .f-cmp{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;--sev:var(--cmp-minor);--sev-t:var(--cmp-minor-t);--tint:var(--cmp-minor-tint)}
 .f-cmp.major{--sev:var(--cmp-major);--sev-t:var(--major-text);--tint:var(--cmp-tint)}
 .f-cmp.moderate{--sev:var(--cmp-moderate);--sev-t:var(--moderate-text);--tint:var(--cmp-tint)}

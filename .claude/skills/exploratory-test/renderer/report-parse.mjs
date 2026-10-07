@@ -1497,7 +1497,6 @@ export function parseReport(markdown, { ledger } = {}) {
 			known: [...new Set([...(row['known'] ?? '').matchAll(/#(\d+)/g)].map(m => Number(m[1])))],
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			// The edit pass's opening: the card leads with its summary, and the issue with all of it.
-			openingHtml: parsed.opening ? { summary: inline(parsed.opening.summary), where: parsed.opening.where ? inline(parsed.opening.where) : '' } : null,
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
 			// A starting state with a pasted file is the one multi-line item.

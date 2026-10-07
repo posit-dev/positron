@@ -1181,11 +1181,6 @@ function renderFindingCard(f, report, options) {
 		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkIssues(linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files), options.refs)}${feedback}${promptBlock}</article>`;
 	}
 
-	// The edit pass's summary, in a person's words, says what the bug is before the run's own record.
-	const lead = f.openingHtml
-		? `<div class="f-lead"><p>${f.openingHtml.summary}</p>${f.openingHtml.where ? `<p class="f-where">${f.openingHtml.where}</p>` : ''}</div>`
-		: '';
-
 	// The claim's facts before the procedure, as one comparison: what the run
 	// saw, marked by severity, beside what should have happened.
 	const half = (cls, label, html) => (html ? `<div class="${cls}"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
@@ -1219,7 +1214,6 @@ function renderFindingCard(f, report, options) {
 
 	return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">
 ${linkIssues(linkFiles(`${head}
-${lead}
 ${comparison}
 ${repro}
 ${details}`, files), options.refs)}

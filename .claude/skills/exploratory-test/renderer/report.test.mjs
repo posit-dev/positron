@@ -2224,7 +2224,7 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
 });
-test('issue: an opening describes the issue and leads the card, and the run\'s own steps reproduce it', () => {
+test('issue: an opening describes the issue but stays off the card, and the run\'s own steps reproduce it', () => {
 	const opening = [
 		'**Summary:** When you open a slow column, its summary never loads.',
 		'',
@@ -2237,8 +2237,8 @@ test('issue: an opening describes the issue and leads the card, and the run\'s o
 	assert.ok(body.includes(['## Describe the issue', 'When you open a slow column, its summary never loads.', '', 'polars only; R was not checked.', '', '## Steps to reproduce'].join('\n')));
 	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
 	assert.doesNotMatch(body, /What the run did/);
-	assert.match(card(html, 1), /<\/h2><\/header>\s*<div class="f-lead"><p>When you open a slow column, its summary never loads\.<\/p><p class="f-where">polars only; R was not checked\.<\/p><\/div>\s*<div class="f-cmp /);
-	assert.doesNotMatch(card(html, 1), /Hand steps|\*\*Summary/);
+	assert.match(card(html, 1), /<\/h2><\/header>\s*<div class="f-cmp /);
+	assert.doesNotMatch(card(html, 1).split('</header>')[1], /open a slow column|R was not checked|\*\*Summary/);
 	// A finding without an opening keeps the template.
 	assert.match(issueCopied(html, 2), /## Observed\n/);
 });
