@@ -253,6 +253,11 @@ function extractTextContent(result: vscode.LanguageModelToolResult): string {
 
 		test('no-output command reports empty output, not prompt echo (issue #303531)', async function () {
 			this.timeout(60000);
+			// --- Start Positron ---
+			// Flaky in the Remote ext-host step: the start marker is sometimes disposed
+			// mid-command (wrapped CI prompt), so the tool misreports scrollback loss.
+			this.retries(3);
+			// --- End Positron ---
 
 			// `true` on Unix exits 0 with no output; `cmd /c rem` on Windows is a no-op
 			const command = isWindows ? 'cmd /c rem' : 'true';

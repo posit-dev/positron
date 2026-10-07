@@ -387,6 +387,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			// single plot renders at full height, matching the image-comparison baselines. Uses
 			// the action-bar button because the Cmd+L C keybinding does not clear headlessly.
 			await app.workbench.plots.clearAllPlots();
+			// Save Plot defaults to the last active file's folder, not the workspace root.
+			await app.workbench.quickaccess.runCommand('workbench.action.clearEditorHistory');
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
@@ -449,12 +451,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Save plot as PNG', async () => {
 				await app.workbench.plots.savePlotFromPlotsPane({ name: 'plot', format: 'PNG' });
-				await app.workbench.explorer.verifyExplorerFilesExist(['plot.png']);
+				await app.workbench.explorer.verifyExplorerFilesExist(['plot.png'], { collapseFirst: true });
 			});
 
 			await test.step('Save plot as SVG', async () => {
 				await app.workbench.plots.savePlotFromPlotsPane({ name: 'R-cars', format: 'SVG' });
-				await app.workbench.explorer.verifyExplorerFilesExist(['R-cars.svg']);
+				await app.workbench.explorer.verifyExplorerFilesExist(['R-cars.svg'], { collapseFirst: true });
 			});
 
 			await test.step('Open plot in editor', async () => {
@@ -464,7 +466,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Save plot from editor as JPEG', async () => {
 				await app.workbench.plots.savePlotFromEditor({ name: 'R-cars', format: 'JPEG' });
-				await app.workbench.explorer.verifyExplorerFilesExist(['R-cars.jpeg']);
+				await app.workbench.explorer.verifyExplorerFilesExist(['R-cars.jpeg'], { collapseFirst: true });
 			});
 		});
 
