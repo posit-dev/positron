@@ -7,6 +7,7 @@ import { Emitter, Event } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -111,6 +112,15 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	/** Languages whose check must run again once the one in flight ends. */
 	private readonly _queuedReruns = new Set<EnvironmentHealthLanguage>();
 	/**
+	 * Languages whose extension was just added and has not activated yet.
+	 *
+	 * The extension service announces an added extension before the extension
+	 * host has loaded it, so its health check command is not registered yet and
+	 * calling it fails with "command not found". The rerun waits for the
+	 * extension to activate instead.
+	 */
+	private readonly _awaitingActivation = new Set<EnvironmentHealthLanguage>();
+	/**
 	 * The welcome page the checks last ran for.
 	 *
 	 * Splitting the editor builds a second pane for the same page, and a new pane
@@ -144,6 +154,37 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(WELCOME_PAGE_ENVIRONMENT_CHECKS_KEY)) {
 				this._applyEnabledLanguagesSetting();
+			}
+		}));
+
+		// Trusting a workspace turns on extensions that do not run in an untrusted
+		// one, Python among them, without a reload. Enabling, disabling, and
+		// installing an extension land here too. Each makes the last answer for
+		// that language stale. A removed extension is rechecked at once; an added
+		// one only once it activates (see _awaitingActivation).
+		this._register(this._extensionService.onDidChangeExtensions(({ added, removed }) => {
+			if (!this._started) {
+				return;
+			}
+			for (const source of this._languageExtensionSources) {
+				if (removed.some(extension => ExtensionIdentifier.equals(extension.identifier, source.extensionId))) {
+					this._logService.trace(`${LOG} ${source.language}: extension removed, rerunning`);
+					this._awaitingActivation.delete(source.language);
+					// Queued rather than dropped when a check is out: that check may
+					// have looked for the extension before this change.
+					this._requestLanguageHealthCheck(source.language, true);
+				} else if (added.some(extension => ExtensionIdentifier.equals(extension.identifier, source.extensionId))) {
+					this._logService.trace(`${LOG} ${source.language}: extension added, rerunning once it activates`);
+					this._awaitingActivation.add(source.language);
+				}
+			}
+		}));
+		this._register(this._extensionService.onDidChangeExtensionsStatus(extensionIds => {
+			for (const source of this._languageExtensionSources) {
+				if (this._awaitingActivation.has(source.language) && extensionIds.some(id => ExtensionIdentifier.equals(id, source.extensionId))) {
+					this._awaitingActivation.delete(source.language);
+					this._requestLanguageHealthCheck(source.language, true);
+				}
 			}
 		}));
 
@@ -202,8 +243,8 @@ export class EnvironmentHealthService extends Disposable implements IEnvironment
 	 * @param queueIfBusy What to do when a check for this language is already
 	 * running. `false` drops the request: pressing the rerun control twice should
 	 * run one check, not two. `true` runs another check as soon as the current one
-	 * ends, which is what a fix needs -- a check that started before the fix ran
-	 * cannot show what the fix changed.
+	 * ends, which is what a fix or an extension change needs -- a check that
+	 * started before either cannot show what it changed.
 	 */
 	private _requestLanguageHealthCheck(language: EnvironmentHealthLanguage, queueIfBusy: boolean): void {
 		if (this._disposed) {
