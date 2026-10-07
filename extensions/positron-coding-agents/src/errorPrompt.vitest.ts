@@ -21,7 +21,7 @@ const getLead = (prompt: string) => prompt.split('\n\n', 1)[0];
 /** The prompt after its first paragraph: the code and error blocks. */
 const getDetails = (prompt: string) => prompt.slice(getLead(prompt).length + 2);
 
-const consoleContext: positron.ai.ErrorActionContext = {
+const consoleContext: Omit<positron.ai.ErrorActionContext, 'chat'> = {
 	error: 'NameError: name \'x\' is not defined',
 	location: {
 		kind: 'console',

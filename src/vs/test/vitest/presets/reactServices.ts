@@ -22,7 +22,7 @@ import { IErrorActionsService } from '../../../workbench/contrib/positronAssista
  */
 export function stubReactServices(svc: TestInstantiationService): void {
 	// Read by useErrorActionHandler, which the console, notebook, and Quarto error
-	// quick fixes call. No registered error action handlers: errors go to Posit Assistant.
+	// quick fixes call. No registered error action handlers: the quick fixes hide.
 	svc.stub(IErrorActionsService, {
 		onDidChange: Event.None,
 		register: () => Disposable.None,

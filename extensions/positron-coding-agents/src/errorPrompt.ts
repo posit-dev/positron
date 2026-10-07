@@ -38,7 +38,7 @@ export type UnsavedState = 'untitled' | 'dirty';
  */
 export function getErrorPrompt(
 	kind: ErrorActionKind,
-	context: positron.ai.ErrorActionContext,
+	context: Omit<positron.ai.ErrorActionContext, 'chat'>,
 	getPath: (uri: Uri) => string,
 	mcpServerName?: string,
 	unsavedState?: UnsavedState,

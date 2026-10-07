@@ -15,7 +15,7 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { ERROR_ACTIONS_TARGET_KEY, IErrorActionContext, IErrorActionHandler } from '../../common/errorActions.js';
 import { ErrorActionsService } from '../../browser/errorActionsService.js';
 
-const context: IErrorActionContext = { error: 'boom' };
+const context: IErrorActionContext = { error: 'boom', chat: 'new' };
 
 describe('ErrorActionsService', () => {
 	const notifyError = vi.fn();
@@ -31,8 +31,8 @@ describe('ErrorActionsService', () => {
 		return service;
 	}
 
-	function createErrorActionHandler(id = 'test-agent'): IErrorActionHandler {
-		return { id, label: 'Test Agent', run: vi.fn().mockResolvedValue(undefined) };
+	function createErrorActionHandler(id = 'test-agent', label = 'Test Agent'): IErrorActionHandler {
+		return { id, label, canContinueChat: true, run: vi.fn().mockResolvedValue(undefined) };
 	}
 
 	function getSettingOptions() {
@@ -56,28 +56,38 @@ describe('ErrorActionsService', () => {
 		expect(service.getConfigured()).toBeUndefined();
 	});
 
-	it('falls back to Posit Assistant when it is selected', () => {
+	it('uses Posit Assistant when it is selected', () => {
 		const service = createService();
+		const positAssistant = createErrorActionHandler('posit-assistant', 'Posit Assistant');
 		ctx.disposables.add(service.register(createErrorActionHandler()));
+		ctx.disposables.add(service.register(positAssistant));
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_TARGET_KEY, 'posit-assistant');
 
-		expect(service.getConfigured()).toBeUndefined();
+		expect(service.getConfigured()).toBe(positAssistant);
 	});
 
-	it('lists registered error action handlers in the setting options', () => {
+	it('falls back to Posit Assistant while the selected handler is not registered', () => {
+		const service = createService();
+		const positAssistant = createErrorActionHandler('posit-assistant', 'Posit Assistant');
+		ctx.disposables.add(service.register(positAssistant));
+
+		expect(service.getConfigured()).toBe(positAssistant);
+	});
+
+	it('lists registered error action handlers in the setting options, after Posit Assistant', () => {
 		const service = createService();
 		const registration = service.register(createErrorActionHandler());
+		ctx.disposables.add(service.register(createErrorActionHandler('posit-assistant', 'Posit Assistant')));
 		expect(getSettingOptions()).toEqual(['posit-assistant', 'test-agent']);
 
 		registration.dispose();
 		expect(getSettingOptions()).toEqual(['posit-assistant']);
 	});
 
-	it('ignores the reserved posit-assistant id and duplicate ids', () => {
+	it('ignores duplicate ids', () => {
 		const service = createService();
 		const first = createErrorActionHandler();
 		ctx.disposables.add(service.register(first));
-		ctx.disposables.add(service.register(createErrorActionHandler('posit-assistant')));
 		ctx.disposables.add(service.register(createErrorActionHandler()));
 
 		expect(getSettingOptions()).toEqual(['posit-assistant', 'test-agent']);

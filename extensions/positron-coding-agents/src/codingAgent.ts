@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { promisify } from 'node:util';
+import type * as positron from 'positron';
 import * as vscode from 'vscode';
 import { AgentLaunch } from './agentLaunch';
 import { findForegroundProcess, parseProcessTable, ProcessInfo, PS_ARGS } from './foregroundProcess';
@@ -40,11 +41,12 @@ export interface CodingAgent {
 }
 
 /**
- * Send a prompt to the agent's session in a terminal, if one is running in
- * the foreground of one, or start a new session.
+ * Send a prompt to the agent. To continue the current chat, paste it into
+ * the agent's session in a terminal, if one is running in the foreground of
+ * one; otherwise start a new session.
  */
-export async function sendPrompt(agent: CodingAgent, prompt: string): Promise<void> {
-	const terminal = await findAgentTerminal(agent);
+export async function sendPrompt(agent: CodingAgent, prompt: string, chat: positron.ai.ErrorActionChat): Promise<void> {
+	const terminal = chat === 'current' ? await findAgentTerminal(agent) : undefined;
 	if (terminal) {
 		return pasteIntoTerminal(terminal, prompt);
 	}

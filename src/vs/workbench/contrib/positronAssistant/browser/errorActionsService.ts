@@ -16,12 +16,17 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { ERROR_ACTIONS_TARGET_KEY, ErrorActionKind, IErrorActionContext, IErrorActionHandler, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
 
+/** Name of Posit Assistant's implementation, the setting's default. */
+export const POSIT_ASSISTANT_ERROR_ACTIONS_LABEL = localize('positron.errorActions.target.positAssistant', "Posit Assistant");
+
 /**
  * Build the ai.errorActions.target setting with one option per registered
- * implementation. Re-registered whenever registrations change so the Settings
- * editor dropdown stays current.
+ * implementation, always starting with Posit Assistant, the default.
+ * Re-registered whenever registrations change so the Settings editor dropdown
+ * stays current.
  */
 function getConfigurationNode(registered: readonly IErrorActionHandler[]): IConfigurationNode {
+	const others = registered.filter(handler => handler.id !== POSIT_ASSISTANT_ERROR_ACTIONS_ID);
 	return {
 		id: 'ai',
 		order: 5,
@@ -31,8 +36,8 @@ function getConfigurationNode(registered: readonly IErrorActionHandler[]): IConf
 			[ERROR_ACTIONS_TARGET_KEY]: {
 				type: 'string',
 				default: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
-				enum: [POSIT_ASSISTANT_ERROR_ACTIONS_ID, ...registered.map(handler => handler.id)],
-				enumItemLabels: [localize('positron.errorActions.target.positAssistant', "Posit Assistant"), ...registered.map(handler => handler.label)],
+				enum: [POSIT_ASSISTANT_ERROR_ACTIONS_ID, ...others.map(handler => handler.id)],
+				enumItemLabels: [POSIT_ASSISTANT_ERROR_ACTIONS_LABEL, ...others.map(handler => handler.label)],
 				description: localize(
 					'positron.errorActions.target',
 					"The assistant to use when you select Fix or Explain on an error in the Console, a notebook, or a Quarto document."
@@ -74,10 +79,6 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 	}
 
 	register(handler: IErrorActionHandler): IDisposable {
-		if (handler.id === POSIT_ASSISTANT_ERROR_ACTIONS_ID) {
-			this._logService.error(`Cannot register an error action handler with the reserved id '${handler.id}'`);
-			return Disposable.None;
-		}
 		if (this._registered.some(registered => registered.id === handler.id)) {
 			this._logService.error(`An error action handler with the id '${handler.id}' is already registered`);
 			return Disposable.None;
@@ -96,7 +97,8 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 
 	getConfigured(): IErrorActionHandler | undefined {
 		const id = this._configurationService.getValue<string>(ERROR_ACTIONS_TARGET_KEY);
-		return this._registered.find(handler => handler.id === id);
+		return this._registered.find(handler => handler.id === id)
+			?? this._registered.find(handler => handler.id === POSIT_ASSISTANT_ERROR_ACTIONS_ID);
 	}
 
 	async run(handler: IErrorActionHandler, kind: ErrorActionKind, context: IErrorActionContext): Promise<void> {

@@ -5,12 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
-import { decodeBase64, VSBuffer } from '../../../../../base/common/buffer.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
@@ -27,95 +24,41 @@ const line = (id: string, text: string): ANSIOutputLine => ({
 const outputLines: ANSIOutputLine[] = [line('1', 'NameError: name "x" is not defined')];
 const tracebackLines: ANSIOutputLine[] = [line('2', '  File "<stdin>", line 1')];
 
-const expectedAttachmentText =
-	'NameError: name "x" is not defined\n  File "<stdin>", line 1';
-
 const positronConsoleInstance = stubInterface<IPositronConsoleInstance>({
 	sessionId: 'python-1234',
 	sessionName: 'Python 3.12.1',
 	runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
 });
 
-const decodeDataUri = (uri: string): string => {
-	const base64 = uri.slice(uri.indexOf(',') + 1);
-	return VSBuffer.wrap(decodeBase64(base64).buffer).toString();
-};
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
 
 describe('ConsoleQuickFix', () => {
-	const executeCommand = vi.fn().mockResolvedValue(undefined);
-	const notifyError = vi.fn();
-
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(ICommandService, { executeCommand })
-		.stub(INotificationService, { error: notifyError })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('dispatches posit-assistant.newChat with a fix prompt and the error as a data URI attachment when Fix is clicked', async () => {
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Fix'));
-
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		const [cmd, payload] = executeCommand.mock.calls[0];
-		expect(cmd).toBe('posit-assistant.newChat');
-		expect(payload.prompt).toMatch(/fix/i);
-		expect(payload.prompt).not.toContain('/fix');
-		expect(payload.target).toBe('auto');
-		expect(payload.behavior).toBe('submit');
-		expect(payload.files).toHaveLength(1);
-		expect(payload.files[0].name).toBe('Console Error');
-		expect(payload.files[0].uri).toMatch(/^data:text\/plain;base64,/);
-		expect(decodeDataUri(payload.files[0].uri)).toBe(expectedAttachmentText);
-	});
-
-	it('dispatches posit-assistant.newChat with an explain prompt when Explain is clicked', async () => {
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Explain'));
-
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		const [, payload] = executeCommand.mock.calls[0];
-		expect(payload.prompt).toMatch(/explain/i);
-		expect(payload.prompt).not.toContain('/explain');
-		expect(payload.target).toBe('auto');
-	});
-
-	it('omits the attachment when there is no error output', async () => {
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={[]} positronConsoleInstance={positronConsoleInstance} tracebackLines={[]} />);
-		await user.click(screen.getByText('Fix'));
-
-		await waitFor(() => expect(executeCommand).toHaveBeenCalledTimes(1));
-		const [, payload] = executeCommand.mock.calls[0];
-		expect(payload.files).toBeUndefined();
-	});
-
-	it('surfaces a notification when the command throws (extension missing)', async () => {
-		executeCommand.mockRejectedValueOnce(new Error('command not found'));
-
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Fix'));
-
-		await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
-		expect(notifyError.mock.calls[0][0]).toMatch(/Posit Assistant could not be opened/);
-	});
-
-	it('sends the error and the console it came from to a registered error action handler instead of Posit Assistant', async () => {
-		const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
+	it('sends the error and the console it came from to the current chat', async () => {
 		const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
 
 		const user = userEvent.setup();
 		rtl.render(<ConsoleQuickFix code='print(x)' errorActionHandler={errorActionHandler} outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Explain'));
+
+		expect(run).toHaveBeenCalledWith(errorActionHandler, 'explain', {
+			error: 'NameError: name "x" is not defined\n  File "<stdin>", line 1',
+			location: { kind: 'console', sessionId: 'python-1234', sessionName: 'Python 3.12.1', languageId: 'python', code: 'print(x)' },
+			chat: 'current',
+		});
+	});
+
+	it('starts a new chat when the handler cannot continue one', async () => {
+		const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
+
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix errorActionHandler={{ ...errorActionHandler, canContinueChat: false }} outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Fix'));
 
-		await waitFor(() => expect(run).toHaveBeenCalledTimes(1));
-		expect(run).toHaveBeenCalledWith(errorActionHandler, 'fix', {
-			error: expectedAttachmentText,
-			location: { kind: 'console', sessionId: 'python-1234', sessionName: 'Python 3.12.1', languageId: 'python', code: 'print(x)' },
-		});
-		expect(executeCommand).not.toHaveBeenCalled();
+		expect(run.mock.calls[0][2].chat).toBe('new');
 	});
 });

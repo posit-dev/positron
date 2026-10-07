@@ -13,7 +13,6 @@ import { constObservable } from '../../../../../../base/common/observable.js';
 import { ILanguageRuntimeSession } from '../../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { ILabelService } from '../../../../../../platform/label/common/label.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
 import { stubInterface } from '../../../../../../test/vitest/stubInterface.js';
@@ -28,14 +27,13 @@ import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCel
 /** The notebook's kernel session. */
 const runtimeSession = constObservable(stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-5678' }));
 
-const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
 
 describe('NotebookCellQuickFix', () => {
 	const run = vi.fn().mockResolvedValue(undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
 		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, run })
-		.stub(ILabelService, { getUriLabel: () => 'analysis.ipynb' })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -57,6 +55,7 @@ describe('NotebookCellQuickFix', () => {
 		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
 			error: 'NameError: x',
 			location: { kind: 'notebook', uri: instance.uri, cellIndex: 2, code: 'x + 1', languageId: 'python', sessionId: 'python-5678' },
+			chat: 'new',
 		}]);
 	});
 
@@ -78,6 +77,7 @@ describe('NotebookCellQuickFix', () => {
 		expect(run.mock.calls.at(-1)?.slice(1)).toEqual(['fix', {
 			error: 'NameError: x',
 			location: { kind: 'notebook', uri: instance.uri, sessionId: 'python-5678' },
+			chat: 'new',
 		}]);
 	});
 });

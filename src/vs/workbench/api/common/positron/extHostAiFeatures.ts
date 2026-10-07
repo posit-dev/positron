@@ -21,7 +21,7 @@ import { IPositronChatProvider } from '../../../contrib/chat/common/languageMode
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import { getEnabledTools as filterEnabledTools } from './positronToolFilter.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { ErrorActionKind, IErrorActionContext, IErrorLocation } from '../../../contrib/positronAssistant/common/errorActions.js';
+import { ErrorActionKind, IErrorActionContext, IErrorLocation, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../../../contrib/positronAssistant/common/errorActions.js';
 import { URI } from '../../../../base/common/uri.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
@@ -92,9 +92,13 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	}
 
 	registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler): Disposable {
+		// Positron registers Posit Assistant's implementation itself.
+		if (id === POSIT_ASSISTANT_ERROR_ACTIONS_ID) {
+			throw new Error(`The error action handler id '${id}' is reserved`);
+		}
 		const handle = this._nextErrorActionHandle++;
 		this._errorActionHandlersByHandle.set(handle, handler);
-		this._proxy.$registerErrorActionHandler(handle, id, label);
+		this._proxy.$registerErrorActionHandler(handle, id, label, handler.canContinueChat === true);
 
 		return new Disposable(() => {
 			this._errorActionHandlersByHandle.delete(handle);
@@ -107,7 +111,11 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		if (!handler) {
 			throw new Error(`No error action handler registered with handle ${handle}`);
 		}
-		const errorContext: positron.ai.ErrorActionContext = { error: context.error, location: context.location && reviveErrorLocation(context.location) };
+		const errorContext: positron.ai.ErrorActionContext = {
+			error: context.error,
+			location: context.location && reviveErrorLocation(context.location),
+			chat: context.chat,
+		};
 		return kind === 'fix' ? handler.fix(errorContext, token) : handler.explain(errorContext, token);
 	}
 

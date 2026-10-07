@@ -8,8 +8,9 @@
 /* eslint-disable local/code-no-dangerous-type-assertions */
 
 import { act, screen } from '@testing-library/react';
-import { Emitter } from '../../../../../../base/common/event.js';
+import { Emitter, Event } from '../../../../../../base/common/event.js';
 import { setupRTLRenderer } from '../../../../../../test/vitest/reactTestingLibrary.js';
+import { IErrorActionHandler, IErrorActionsService } from '../../../../positronAssistant/common/errorActions.js';
 import { createTestContainer } from '../../../../../../test/vitest/positronTestContainer.js';
 import { IContextKeyService } from '../../../../../../platform/contextkey/common/contextkey.js';
 import { IConfigurationService } from '../../../../../../platform/configuration/common/configuration.js';
@@ -28,9 +29,13 @@ function makeLines(n: number): string {
 	return Array.from({ length: n }, (_, i) => `line ${i + 1}`).join('\n');
 }
 
+/** Where the quick fix sends errors, so its buttons render. */
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
+
 describe('CellTextOutput', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
+		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, run: async () => { } })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
@@ -93,7 +98,6 @@ describe('CellTextOutput', () => {
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
-		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
@@ -117,7 +121,6 @@ describe('CellTextOutput', () => {
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
-		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 

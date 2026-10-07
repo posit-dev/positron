@@ -170,11 +170,12 @@ describe('MainThreadAiFeatures', () => {
 
 	it('forwards error action handlers registered in the extension host', async () => {
 		const mainThread = await createMainThread([]);
-		const context = { error: 'boom' };
+		const context = { error: 'boom', chat: 'current' as const };
 
-		mainThread.$registerErrorActionHandler(7, 'test-agent', 'Test Agent');
+		mainThread.$registerErrorActionHandler(7, 'test-agent', 'Test Agent', true);
 		const [errorActionHandler] = registeredHandlers;
-		expect({ id: errorActionHandler.id, label: errorActionHandler.label }).toEqual({ id: 'test-agent', label: 'Test Agent' });
+		expect({ id: errorActionHandler.id, label: errorActionHandler.label, canContinueChat: errorActionHandler.canContinueChat })
+			.toEqual({ id: 'test-agent', label: 'Test Agent', canContinueChat: true });
 
 		await errorActionHandler.run('fix', context, CancellationToken.None);
 		expect(runErrorAction).toHaveBeenCalledWith(7, 'fix', context, CancellationToken.None);

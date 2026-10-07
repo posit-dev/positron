@@ -4948,7 +4948,22 @@ declare module 'positron' {
 
 			/** Where the error was raised. Undefined when it is not known. */
 			readonly location?: ErrorLocation;
+
+			/**
+			 * Whether to start a new chat or continue the current one. Always
+			 * 'new' unless the handler sets {@link ErrorActionHandler.canContinueChat}.
+			 */
+			readonly chat: ErrorActionChat;
 		}
+
+		/**
+		 * Whether to send an error to a new chat or the current one.
+		 *
+		 * - 'new': Start a new chat or session.
+		 * - 'current': Continue the chat or session the user is working in, or
+		 *   start a new one when there is none.
+		 */
+		export type ErrorActionChat = 'new' | 'current';
 
 		/** Where an error passed to an {@link ErrorActionHandler} was raised. */
 		export type ErrorLocation = ConsoleErrorLocation | NotebookErrorLocation | QuartoErrorLocation;
@@ -5015,6 +5030,9 @@ declare module 'positron' {
 			/** The chunk's code, which may have unsaved changes. */
 			readonly code: string;
 
+			/** The chunk's label, e.g. from `#| label: fig-plot`. Undefined when it has none. */
+			readonly label?: string;
+
 			/** The ID of the document's runtime session. Undefined when it has none. */
 			readonly sessionId?: string;
 		}
@@ -5026,6 +5044,13 @@ declare module 'positron' {
 		 * Positron UI.
 		 */
 		export interface ErrorActionHandler {
+			/**
+			 * Whether the handler can continue the current chat. When true, the
+			 * user is offered actions that pass `chat: 'current'`. Read once, at
+			 * registration.
+			 */
+			readonly canContinueChat?: boolean;
+
 			/** Fix the error. */
 			fix(context: ErrorActionContext, token: vscode.CancellationToken): Thenable<void>;
 
@@ -5040,7 +5065,8 @@ declare module 'positron' {
 		 * it sends errors to is installed) and dispose the registration when
 		 * it is not.
 		 *
-		 * @param id The unique identifier of the implementation.
+		 * @param id The unique identifier of the implementation. 'posit-assistant'
+		 *   is reserved for Posit Assistant's, which Positron registers.
 		 * @param label The human-readable name of the implementation, shown in the UI.
 		 * @returns A Disposable that unregisters the implementation.
 		 */

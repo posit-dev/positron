@@ -13,13 +13,16 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 export const ERROR_ACTIONS_TARGET_KEY = 'ai.errorActions.target';
 
 /**
- * Built-in implementation: Posit Assistant, via its posit-assistant.newChat
- * command. Reserved; extensions cannot register it.
+ * Posit Assistant's implementation, registered by Positron and the setting's
+ * default. Reserved; extensions cannot register it.
  */
 export const POSIT_ASSISTANT_ERROR_ACTIONS_ID = 'posit-assistant';
 
 /** An error action the user can take. */
 export type ErrorActionKind = 'fix' | 'explain';
+
+/** Whether to start a new chat or continue the current one. Mirrors `positron.ai.ErrorActionChat`. */
+export type ErrorActionChat = 'new' | 'current';
 
 /** An error raised by code run in a console session. Mirrors `positron.ai.ConsoleErrorLocation`. */
 export interface IConsoleErrorLocation {
@@ -60,6 +63,8 @@ export interface IQuartoErrorLocation {
 	readonly endLine: number;
 	/** The chunk's code, which may have unsaved changes. */
 	readonly code: string;
+	/** The chunk's label, e.g. from `#| label: fig-plot`; undefined when it has none. */
+	readonly label?: string;
 	/** ID of the document's runtime session; undefined when it has none. */
 	readonly sessionId?: string;
 }
@@ -76,14 +81,18 @@ export interface IErrorActionContext {
 	readonly error: string;
 	/** Where the error was raised. Undefined when it is not known. */
 	readonly location?: IErrorLocation;
+	/** Whether to start a new chat or continue the current one. */
+	readonly chat: ErrorActionChat;
 }
 
-/** Fix and Explain implemented by an extension, e.g. one that sends errors to a coding agent. */
+/** An implementation of Fix and Explain, e.g. Posit Assistant or one that sends errors to a coding agent. */
 export interface IErrorActionHandler {
 	/** Value of the implementation in the ai.errorActions.target setting. */
 	readonly id: string;
-	/** Name shown in the setting's dropdown. */
+	/** Name shown in the setting's dropdown and the actions' tooltips. */
 	readonly label: string;
+	/** Whether it can continue the current chat, which offers actions that do. */
+	readonly canContinueChat: boolean;
 	/** Run the given action on the error. */
 	run(kind: ErrorActionKind, context: IErrorActionContext, token: CancellationToken): Promise<void>;
 }
@@ -99,14 +108,15 @@ export interface IErrorActionsService {
 
 	/**
 	 * Register an implementation. Logs and ignores a registration whose id is
-	 * reserved or already registered.
+	 * already registered.
 	 */
 	register(handler: IErrorActionHandler): IDisposable;
 
 	/**
-	 * The implementation selected in the ai.errorActions.target setting.
-	 * Undefined when Posit Assistant is selected, or when the selected
-	 * implementation is not registered (so callers fall back to Posit Assistant).
+	 * The implementation selected in the ai.errorActions.target setting, or
+	 * Posit Assistant's when the selected one is not registered.
+	 * @returns The implementation, or undefined when neither is registered, in
+	 *   which case there is nowhere to send errors.
 	 */
 	getConfigured(): IErrorActionHandler | undefined;
 

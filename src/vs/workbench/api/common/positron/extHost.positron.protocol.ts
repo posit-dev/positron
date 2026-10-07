@@ -465,7 +465,7 @@ export interface MainThreadAiFeaturesShape {
 		commandId: string,
 		args: unknown[] | undefined,
 	): Promise<ISerializedValidateAndExecuteCommandResult>;
-	$registerErrorActionHandler(handle: number, id: string, label: string): void;
+	$registerErrorActionHandler(handle: number, id: string, label: string, canContinueChat: boolean): void;
 	$unregisterErrorActionHandler(handle: number): void;
 }
 

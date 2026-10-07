@@ -43,6 +43,7 @@ export function activate(context: vscode.ExtensionContext): void {
 					const registration = registrationsById.get(agent.id);
 					if (availabilities[i] && !registration) {
 						registrationsById.set(agent.id, positron.ai.registerErrorActionHandler(agent.id, agent.label, {
+							canContinueChat: true,
 							fix: errorContext => startSession(agent, 'fix', errorContext),
 							explain: errorContext => startSession(agent, 'explain', errorContext),
 						}));
@@ -86,7 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
 async function startSession(agent: CodingAgent, kind: ErrorActionKind, context: positron.ai.ErrorActionContext): Promise<void> {
 	const getPath = (uri: vscode.Uri) => vscode.workspace.asRelativePath(uri);
 	const prompt = getErrorPrompt(kind, context, getPath, await getMcpServerName(agent), getUnsavedState(context.location));
-	await sendPrompt(agent, prompt);
+	await sendPrompt(agent, prompt, context.chat);
 }
 
 /**

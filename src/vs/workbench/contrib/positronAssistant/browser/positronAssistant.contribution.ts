@@ -26,6 +26,7 @@ import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBa
 import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
 import { AiExtensionActivationContribution } from './aiExtensionActivation.js';
 import { PositronAssistantToolsContribution } from './tools/positronAssistantTools.js';
+import { PositAssistantErrorActionsContribution } from './positAssistantErrorActions.js';
 import { IAiProviderService } from '../../../services/positronAiProvider/common/aiProviderService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
@@ -163,4 +164,5 @@ Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).regi
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(AiExtensionActivationContribution, LifecyclePhase.Eventually);
 
 Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositronAssistantToolsContribution, LifecyclePhase.Restored);
+Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).registerWorkbenchContribution(PositAssistantErrorActionsContribution, LifecyclePhase.Restored);
 

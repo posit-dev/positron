@@ -15,7 +15,7 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 import { ConsoleQuickFix } from './activityErrorQuickFix.js';
-import { usePositronConfiguration, useContextKeyFromString, usePositronExtensionInstalled } from '../../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { AI_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { useErrorActionHandler } from '../../../positronAssistant/browser/useErrorActionHandler.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -45,17 +45,10 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	// Main switch for Positron's AI features.
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
 	const enableAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
-	const positAssistantInstalled = usePositronExtensionInstalled('posit.assistant');
-	// Set by the Posit Assistant extension when it has at least one usable model
-	// (a configured cloud provider, a local provider, or a vscode.lm model such
-	// as Copilot). This is the authoritative, assistant-agnostic signal. The key
-	// string is mirrored in the Posit Assistant extension (the two repositories
-	// cannot share a module).
-	const hasChatModels = useContextKeyFromString<boolean>('posit-assistant.hasChatModels');
-	// A registered error action handler replaces the Posit Assistant checks.
+	// Undefined when there is nowhere to send the error, e.g. Posit Assistant
+	// has no usable chat model and no other handler is registered.
 	const errorActionHandler = useErrorActionHandler();
-	const errorActionsAvailable = errorActionHandler !== undefined || (positAssistantInstalled && !!hasChatModels);
-	const showAssistantActions = aiEnabled && enableAssistantActions && errorActionsAvailable;
+	const showAssistantActions = aiEnabled && enableAssistantActions;
 
 	// Traceback useEffect.
 	useEffect(() => {
@@ -96,7 +89,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 									}
 								</Button>
 							}
-							{showAssistantActions &&
+							{showAssistantActions && errorActionHandler &&
 								<ConsoleQuickFix code={props.code} errorActionHandler={errorActionHandler} outputLines={props.activityItemErrorMessage.messageOutputLines} positronConsoleInstance={props.positronConsoleInstance} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
 							}
 						</div>

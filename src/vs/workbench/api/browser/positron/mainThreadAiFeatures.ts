@@ -100,10 +100,11 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	/**
 	 * Register an error action handler implemented in the extension host.
 	 */
-	$registerErrorActionHandler(handle: number, id: string, label: string): void {
+	$registerErrorActionHandler(handle: number, id: string, label: string, canContinueChat: boolean): void {
 		this._errorActionHandlerRegistrations.set(handle, this._errorActionsService.register({
 			id,
 			label,
+			canContinueChat,
 			run: (kind, context, token) => this._proxy.$runErrorAction(handle, kind, context, token),
 		}));
 	}
