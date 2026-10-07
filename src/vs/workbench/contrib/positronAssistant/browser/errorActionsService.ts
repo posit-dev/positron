@@ -45,7 +45,7 @@ function getConfigurationNode(options: readonly IAgentOption[], selectedId: stri
 	const allOptions = [positAssistant, ...options.filter(option => option !== positAssistant)];
 	const description = localize(
 		'positron.errorActions.agent',
-		"The agent that Fix and Explain send errors to, in the Console, notebooks, and Quarto documents."
+		"The agent that fixes and explains errors in the Console, notebooks, and Quarto documents."
 	);
 	const note = getSelectionNote(allOptions, selectedId);
 	return {
@@ -83,7 +83,7 @@ function getSelectionNote(options: readonly IAgentOption[], selectedId: string |
 	const positAssistant = options[0];
 	const fallback = selected !== positAssistant && positAssistant.isAvailable
 		? localize('positron.errorActions.agent.fallbackNote', "The default, Posit Assistant, is used instead.")
-		: localize('positron.errorActions.agent.hiddenNote', "Fix and Explain are hidden until an agent is available.");
+		: localize('positron.errorActions.agent.hiddenNote', "The Fix and Explain buttons are hidden until an agent is available.");
 	if (!selected) {
 		return localize('positron.errorActions.agent.notInstalledNote', "**The selected agent, `{0}`, isn't installed.** {1}", selectedId, fallback);
 	}
