@@ -76,6 +76,18 @@ pub struct Scope {
 pub struct Local {
     pub name: String,
     pub kind: LocalKind,
+    /// For an [`LocalKind::Output`], the column it renames when the select item is nothing but a
+    /// column: `UnitsInStock` in `SELECT UnitsInStock AS uis`. A name read through the alias is
+    /// then that column, and can be resolved like one.
+    pub column: Option<Renamed>,
+}
+
+/// The column a select item renames, as it was written.
+#[derive(Clone)]
+pub struct Renamed {
+    pub name: String,
+    /// The table or alias the column was qualified with, if any.
+    pub qualifier: Option<String>,
 }
 
 /// What a [`Local`] names, which decides where it can be written.
@@ -96,7 +108,7 @@ pub enum LocalKind {
 
 impl Local {
     fn new(name: String, kind: LocalKind) -> Self {
-        Self { name, kind }
+        Self { name, kind, column: None }
     }
 }
 
@@ -358,12 +370,29 @@ fn produced(select: &Select) -> Vec<Local> {
         .projection
         .iter()
         .filter_map(|item| match item {
-            SelectItem::ExprWithAlias { alias, .. } => {
-                Some(Local::new(alias.value.clone(), LocalKind::Output))
-            }
+            SelectItem::ExprWithAlias { expr, alias } => Some(Local {
+                column: renamed(expr),
+                ..Local::new(alias.value.clone(), LocalKind::Output)
+            }),
             _ => None,
         })
         .collect()
+}
+
+/// The column an expression is, if it is nothing but one.
+fn renamed(expr: &Expr) -> Option<Renamed> {
+    match expr {
+        Expr::Identifier(ident) => Some(Renamed { name: ident.value.clone(), qualifier: None }),
+        Expr::CompoundIdentifier(parts) => match parts.as_slice() {
+            [.., qualifier, ident] => Some(Renamed {
+                name: ident.value.clone(),
+                qualifier: Some(qualifier.value.clone()),
+            }),
+            _ => None,
+        },
+        Expr::Nested(inner) => renamed(inner),
+        _ => None,
+    }
 }
 
 /// The alias a table factor was given, for the forms that only ever produce local names.

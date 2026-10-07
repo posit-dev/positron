@@ -113,6 +113,20 @@ export type LocalKind = 'cte' | 'relation' | 'output';
 export interface Local {
 	readonly name: string;
 	readonly kind: LocalKind;
+
+	/**
+	 * For an `output`, the column it renames when the select item is nothing but a column:
+	 * `UnitsInStock` in `SELECT UnitsInStock AS uis`. A name read through the alias is that column.
+	 */
+	readonly column?: Renamed;
+}
+
+/** The column a select item renames, as it was written. */
+export interface Renamed {
+	readonly name: string;
+
+	/** The table or alias the column was qualified with, if any. */
+	readonly qualifier?: string;
 }
 
 /** Everything parsing a document turned up. */

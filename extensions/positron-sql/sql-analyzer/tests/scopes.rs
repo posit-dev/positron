@@ -173,7 +173,33 @@ fn a_name_the_select_list_made_up_is_not_a_column_of_anything() {
     let response = analyze("SELECT total AS t FROM orders ORDER BY t");
     let scope = &response["scopes"][response["columns"][1]["scope"].as_u64().unwrap() as usize];
     assert_eq!(response["columns"][1]["name"], "t");
-    assert_eq!(scope["locals"], json!([{ "name": "t", "kind": "output" }]));
+    assert_eq!(scope["locals"], json!([{ "name": "t", "kind": "output", "column": { "name": "total" } }]));
+}
+
+/// The output locals of the statement's outermost query.
+fn outputs(text: &str) -> Value {
+    let response = analyze(text);
+    let locals: Vec<Value> = response["scopes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|scope| scope["locals"].as_array().unwrap().clone())
+        .filter(|local| local["kind"] == "output")
+        .collect();
+    Value::from(locals)
+}
+
+#[test]
+fn a_select_item_that_only_renames_a_column_says_which() {
+    // So that `uis` in `WHERE uis = 10` can be resolved as the column it stands for.
+    assert_eq!(
+        outputs("SELECT p.UnitsInStock AS uis, (price) AS p2, price * 2 AS doubled FROM products p"),
+        json!([
+            { "name": "uis", "kind": "output", "column": { "name": "UnitsInStock", "qualifier": "p" } },
+            { "name": "p2", "kind": "output", "column": { "name": "price" } },
+            { "name": "doubled", "kind": "output" },
+        ])
+    );
 }
 
 #[test]
