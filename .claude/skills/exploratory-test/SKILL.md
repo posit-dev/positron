@@ -97,9 +97,9 @@ writes nothing and says why: send the verifier that message with SendMessage,
 save its reply over `verify-reply.md`, and apply again.
 The verdicts are advisory: do not edit them or drop a finding over them.
 
-Then have a fresh agent rewrite the findings in plain words, as CI does. Run
-`node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
-`no findings`, it prints the path of a prompt file. Spawn a fresh agent with
+Then have a fresh agent rewrite the Result and findings in plain words, as CI
+does. Run `node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
+`nothing to edit`, it prints the path of a prompt file. Spawn a fresh agent with
 `subagent_type: "general-purpose"` and `model: "sonnet"`, tell it to read that
 file and reply as it says, and save its reply to `<run dir>/edit-reply.md`.
 Then run `node <base>/renderer/edit.mjs apply <run dir> <run dir>/edit-reply.md`.

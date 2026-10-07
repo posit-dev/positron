@@ -6,13 +6,14 @@
 // The plain-language pass after verification, shared by CI (run.mjs) and a
 // local run. The explorer writes its findings after hours in the code, and its
 // titles pick up internal names and knotted sentences. A fresh agent that sees
-// only what a reader sees rewrites the title, Observed and Expected, and this
-// file keeps any rewrite that drops a fact out of the report.
+// only what a reader sees rewrites the Result line and each title, Observed
+// and Expected, and this file keeps any rewrite that drops a fact out of the
+// report.
 //
 // Local usage, around an editor subagent:
 //   node edit.mjs prompt <run dir>
-//     writes <run dir>/edit-prompt.md and prints its path, or says there are
-//     no findings to edit
+//     writes <run dir>/edit-prompt.md and prints its path, or says there is
+//     nothing to edit
 //   node edit.mjs apply <run dir> <reply file>
 //     applies the reply's edits to report.md, skipping any the guard rejects
 
@@ -22,6 +23,14 @@ import { fileURLToPath } from 'node:url';
 import { applyTitles, rewriteLabel } from './finish.mjs';
 
 const FIELDS = { TITLE: 'title', OBSERVED: 'observed', EXPECTED: 'expected' };
+// The Result line is keyed 0, beside the findings' own numbers.
+const SUMMARY = 0;
+
+/** The `**Result:**` line above the first section, or undefined. */
+function resultOf(report) {
+	const top = String(report ?? '').split(/^## /m)[0];
+	return /^\*\*Result:\*\*\s*(.*)$/m.exec(top)?.[1].trim();
+}
 
 /**
  * Each finding card from its heading through Expected: what a reader sees
@@ -48,21 +57,33 @@ export function editorFindings(report) {
 	return out.join('\n').trim();
 }
 
-/** editor.md with the findings filled in, or null when there are none. */
+/** editor.md with the Result and findings filled in, or null when there is neither. */
 export function buildEditPrompt(template, report) {
-	if (!String(template).includes('{{FINDINGS}}')) {
-		throw new Error('editor.md has no {{FINDINGS}} placeholder');
+	for (const placeholder of ['{{RESULT}}', '{{FINDINGS}}']) {
+		if (!String(template).includes(placeholder)) {
+			throw new Error(`editor.md has no ${placeholder} placeholder`);
+		}
 	}
+	const result = resultOf(report);
 	const findings = editorFindings(report);
-	return findings ? String(template).replace('{{FINDINGS}}', findings).trim() : null;
+	if (!result && !findings) {
+		return null;
+	}
+	return String(template)
+		.replace('{{RESULT}}', result ? `**Result:** ${result}` : 'No Result line.')
+		.replace('{{FINDINGS}}', findings || 'No findings.')
+		.trim();
 }
 
-/** `TITLE: 1=...` lines: a Map of finding number to the fields it rewrites. */
+/** `TITLE: 1=...` and `RESULT: ...` lines: a Map of finding number (0 for the Result) to the fields it rewrites. */
 export function parseEdits(text) {
 	const out = new Map();
 	for (const line of String(text ?? '').split('\n')) {
 		const m = /^(TITLE|OBSERVED|EXPECTED):\s*(\d+)\s*=\s*(.+)$/i.exec(line.trim());
-		if (m) {
+		const result = /^RESULT:\s*(.+)$/i.exec(line.trim());
+		if (result) {
+			out.set(SUMMARY, { result: result[1].trim() });
+		} else if (m) {
 			const n = Number(m[2]);
 			out.set(n, { ...out.get(n), [FIELDS[m[1].toUpperCase()]]: m[3].trim() });
 		}
@@ -70,9 +91,13 @@ export function parseEdits(text) {
 	return out;
 }
 
-/** Each finding's title, Observed and Expected as the report has them. */
+/** The Result, and each finding's title, Observed and Expected, as the report has them. */
 export function currentFields(report) {
 	const out = new Map();
+	const result = resultOf(report);
+	if (result !== undefined) {
+		out.set(SUMMARY, { result });
+	}
 	let n = null;
 	for (const line of String(report ?? '').split('\n')) {
 		const heading = /^###\s+Finding\s+(\d+):\s*(.*)$/.exec(line);
@@ -106,6 +131,16 @@ export function factsOf(text, { title = false } = {}) {
 }
 
 /**
+ * What a Result rewrite must keep. The bold sentence is what is broken, so it
+ * keeps its names as a title does; the rest may shrink a list of what worked
+ * to a phrase, as long as its numbers, quotes and code survive.
+ */
+function resultFacts(text) {
+	const bold = [...text.matchAll(/\*\*([^*]+)\*\*/g)].map(m => m[1]);
+	return [...new Set([...bold.flatMap(b => factsOf(b, { title: true })), ...factsOf(text.replace(/\*\*[^*]+\*\*/g, ' '))])];
+}
+
+/**
  * The edits safe to apply, and why each other one is not. A rewrite is
  * rejected when it loses a fact the original had, or when a title would break
  * the findings table or the filed issue's title.
@@ -117,11 +152,13 @@ export function reviewEdits(report, edits) {
 	for (const [n, fields] of edits) {
 		for (const [field, after] of Object.entries(fields)) {
 			const before = current.get(n)?.[field];
-			const lost = before === undefined ? [] : factsOf(before, { title: field === 'title' }).filter(f => !new RegExp(`(?<![\\w])${f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`).test(after));
-			const reason = before === undefined ? `Finding ${n} has no ${field}`
+			const facts = before === undefined ? [] : field === 'result' ? resultFacts(before) : factsOf(before, { title: field === 'title' });
+			const lost = facts.filter(f => !new RegExp(`(?<![\\w])${f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`).test(after));
+			const reason = before === undefined ? (field === 'result' ? 'the report has no Result' : `Finding ${n} has no ${field}`)
 				: lost.length ? `loses ${lost.join(', ')}`
 					: field === 'title' && /[|;]/.test(after) ? 'has a | or ;'
-						: '';
+						: field === 'result' && before.includes('**') && !/\*\*[^*]+\*\*/.test(after) ? 'drops the bold'
+							: '';
 			if (reason) {
 				rejected.push({ n, field, reason });
 			} else if (after !== before) {
@@ -132,10 +169,13 @@ export function reviewEdits(report, edits) {
 	return { kept, rejected };
 }
 
-/** The report with the kept edits applied: titles in heading and table, Observed and Expected in the card. */
+/** The report with the kept edits applied: the Result, titles in heading and table, Observed and Expected in the card. */
 export function applyEdits(report, kept) {
 	const pick = field => new Map([...kept].filter(([, f]) => f[field] !== undefined).map(([n, f]) => [n, f[field]]));
-	return rewriteLabel(rewriteLabel(applyTitles(report, pick('title')), 'Observed', pick('observed')), 'Expected', pick('expected'));
+	const result = kept.get(SUMMARY)?.result;
+	const [top, ...sections] = String(report).split(/^(?=## )/m);
+	const summarized = result === undefined ? report : [top.replace(/^\*\*Result:\*\*.*$/m, () => `**Result:** ${result}`), ...sections].join('');
+	return rewriteLabel(rewriteLabel(applyTitles(summarized, pick('title')), 'Observed', pick('observed')), 'Expected', pick('expected'));
 }
 
 const EDITOR_PATH = fileURLToPath(new URL('../editor.md', import.meta.url));
@@ -151,7 +191,7 @@ function main(argv) {
 	if (command === 'prompt') {
 		const prompt = buildEditPrompt(readFileSync(EDITOR_PATH, 'utf8'), report);
 		if (!prompt) {
-			console.log('no findings: nothing to edit');
+			console.log('nothing to edit: no Result or findings');
 			return 0;
 		}
 		const out = join(dir, 'edit-prompt.md');
@@ -166,7 +206,7 @@ function main(argv) {
 		}
 		const { kept, rejected } = reviewEdits(report, parseEdits(readFileSync(replyFile, 'utf8')));
 		for (const r of rejected) {
-			console.error(`edit: kept Finding ${r.n}'s original ${r.field}: the rewrite ${r.reason}`);
+			console.error(`edit: kept ${r.field === 'result' ? 'the original Result' : `Finding ${r.n}'s original ${r.field}`}: the rewrite ${r.reason}`);
 		}
 		writeFileSync(reportPath, applyEdits(report, kept));
 		console.log(`edit: ${[...kept.values()].reduce((sum, f) => sum + Object.keys(f).length, 0)} field(s) rewritten in ${reportPath}`);

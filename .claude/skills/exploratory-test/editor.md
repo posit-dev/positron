@@ -1,6 +1,6 @@
-You are editing the findings of an exploratory-test report so a reader understands each one on first read. Below are the findings: each one's title, Feature, Preconditions, Repro steps, Observed and Expected. Edit only the title, Observed and Expected. The rest is there for context.
+You are editing an exploratory-test report so a reader understands it on first read. Below are its Result line, which sits above the findings, and its findings: each one's title, Feature, Preconditions, Repro steps, Observed and Expected. Edit only the Result and each title, Observed and Expected. The rest is there for context.
 
-The reader knows Positron but has not seen the PR, the code or the run. Many read only the title.
+The reader knows Positron but has not seen the PR, the code or the run. Many read only the Result and the titles.
 
 ## Rules
 
@@ -14,6 +14,12 @@ The reader knows Positron but has not seen the PR, the code or the run. Many rea
 - Plain words: "shows", "use", "before". No hedging ("seems", "appears to").
 - Observed: what happened, in 1-2 sentences, plus at most one for a fact that makes it worse or gets past it. Expected: 1-2 sentences.
 - If a field already follows the rules, leave it as it is. Don't rewrite to be different.
+
+## The Result
+
+- It says what the change does for a user, then, in bold, what is broken. At most two sentences and about 50 words.
+- Say what works in a phrase ("stats are right for most R and polars column types"). Don't list everything tested; the Tested line below it does that.
+- The bold sentence uses the same words as your titles, so the Result and the findings agree. Keep every number, name and value in it, and keep the `**` around it.
 
 ## Before -> after
 
@@ -33,12 +39,17 @@ When a reviewer flags a hard-to-read finding, replace the weakest example here w
 One line per field you changed, and nothing else. Leave out a field you did not change:
 
 ```
+RESULT: <new Result, without the **Result:** label>
 TITLE: <N>=<new title>
 OBSERVED: <N>=<new Observed>
 EXPECTED: <N>=<new Expected>
 ```
 
 `<N>` is the number in the finding's `### Finding N:` heading. If you changed nothing, reply `EDITS: none`.
+
+## Result
+
+{{RESULT}}
 
 ## Findings
 

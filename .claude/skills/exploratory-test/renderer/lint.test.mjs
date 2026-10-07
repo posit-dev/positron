@@ -735,3 +735,13 @@ test('render.mjs --check fails on errors only, and checks a ledger alone without
 	}
 });
 
+
+test('flags a long Result and a Cause whose first sentence runs on', () => {
+	const words = n => Array.from({ length: n }, () => 'word').join(' ');
+	const long = lint(REPORT.replace('**Result:** The panel loads.', `**Result:** ${words(61)}.`)).filter(p => /Result:\*\* is/.test(p));
+	assert.deepEqual(long, ['report: **Result:** is 61 words; keep it to 60 or fewer: what works in a phrase, then in bold what is broken']);
+	const caused = lead => lint(REPORT.replace('<details>', `**Cause (hypothesis):** ${lead}. Then \`a.ts:1\` has the detail.\n\n<details>`)).filter(p => /Cause opens/.test(p));
+	assert.deepEqual(caused(`The \`Retry\` handler ${words(38)}`), ['report: Finding 1 Cause opens with a 41-word sentence; name the suspect in 40 words or fewer, then give the detail']);
+	assert.deepEqual(caused(`The \`Retry\` handler ${words(37)}`), []);
+	assert.ok(isWarning(long[0]));
+});

@@ -404,6 +404,15 @@ export function untaggedShots(findings) {
 	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !onStep(f, e)).map(e => ({ n: f.n, file: e.file })));
 }
 
+// The Result, and a Cause's lead sentence, are read at a glance.
+const SUMMARY_WORDS = 60;
+const CAUSE_LEAD_WORDS = 40;
+
+/** Words in prose, a code span counting as one. */
+function wordsOf(text) {
+	return text.replace(/`[^`]*`/g, 'code').split(/\s+/).filter(Boolean).length;
+}
+
 /** Sentences in prose, with code spans masked so a `.` inside one cannot end a sentence. */
 function sentencesOf(text) {
 	return text.replace(/`[^`]*`/g, 'code').split(/(?<=[.!?])\s+(?=["A-Z])/).filter(Boolean);
@@ -520,6 +529,11 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	}
 	if (result && /^(yes|no|mostly|partly|partially)\b/i.test(result)) {
 		problems.push('report: **Result:** answers a question; state what the change does instead');
+	}
+	// Most readers stop at the Result, so it fits in a glance; the Tested line lists the rest.
+	const resultWords = result ? wordsOf(result) : 0;
+	if (resultWords > SUMMARY_WORDS) {
+		problems.push(`report: **Result:** is ${resultWords} words; keep it to ${SUMMARY_WORDS} or fewer: what works in a phrase, then in bold what is broken`);
 	}
 
 	// A block with no table row (or no table at all) is flagged below, block by block.
@@ -661,6 +675,13 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 			if (ids.length) {
 				problems.push(`report: Finding ${f.n} ${label} names ${ids.join(', ')}; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs`);
 			}
+		}
+	}
+	// A reader who stops after a Cause's first sentence still learns the suspect.
+	for (const f of parseReport(text).findings) {
+		const lead = f.text.cause && sentencesOf(f.text.cause)[0];
+		if (lead && wordsOf(lead) > CAUSE_LEAD_WORDS) {
+			problems.push(`report: Finding ${f.n} Cause opens with a ${wordsOf(lead)}-word sentence; name the suspect in ${CAUSE_LEAD_WORDS} words or fewer, then give the detail`);
 		}
 	}
 	// A precondition is the state the steps start from, so no step runs it again.
@@ -919,6 +940,8 @@ const WARNINGS = [
 	/Result: of a failed scenario is its rate only/,
 	/Result: is \S+ (?:characters|sentences)/,
 	/\*\*Result:\*\* answers a question/,
+	/\*\*Result:\*\* is \d+ words/,
+	/ Cause opens with a \d+-word sentence/,
 	/drop the Introduced\?\/Origin column/,
 	/drop the Impact column/,
 	/ precondition ".*?" needs "/,
