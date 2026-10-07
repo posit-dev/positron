@@ -10,7 +10,7 @@ import { exec } from '../externalDependencies';
 import { isUvInstalled, getAvailablePythonVersions, resetUvCache, isWindowsArm64, execLocatedUv } from './uv';
 import { Commands } from '../../../common/constants';
 import { Common, InterpreterQuickPickList } from '../../../common/utils/localize';
-import { getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolders } from '../../../common/vscodeApis/workspaceApis';
 import { createUvVenv } from '../../creation/provider/uvCreationProvider';
 import { ExistingVenvAction, deleteEnvironment, pickExistingVenvAction } from '../../creation/provider/venvUtils';
 import { getVenvExecutable, hasVenv } from '../../creation/common/commonUtils';
@@ -132,6 +132,7 @@ export type EnsureUvResult = { ok: true } | { ok: false; error?: string };
 
 /**
  * Makes sure uv is available, prompting for consent and installing it if it is not.
+ * Fails without prompting when python.allowUvPythonInstall is off.
  *
  * @param onInstalling Called only once uv is missing and the user has consented, so
  *   callers can report progress without claiming to install uv that is already there,
@@ -146,6 +147,11 @@ export async function ensureUvInstalled(
 ): Promise<EnsureUvResult> {
     if (await isUvInstalled()) {
         return { ok: true };
+    }
+
+    if (getConfiguration('python').get<boolean>('allowUvPythonInstall') === false) {
+        traceInfo('Not installing uv: python.allowUvPythonInstall is off');
+        return { ok: false, error: InterpreterQuickPickList.UvInstall.uvInstallDisabled };
     }
 
     // Consent comes before the callback: while the prompt is up nothing is installing yet,

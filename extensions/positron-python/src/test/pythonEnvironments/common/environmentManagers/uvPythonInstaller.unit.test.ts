@@ -44,9 +44,12 @@ function getExpectedGlobalEnvPython(): string {
 suite('UV Python Installer Tests', () => {
     let execStub: sinon.SinonStub;
     let traceErrorStub: sinon.SinonStub;
+    let allowUvPythonInstall: boolean | undefined;
 
     setup(() => {
         execStub = sinon.stub(fileUtils, 'exec');
+        allowUvPythonInstall = undefined;
+        sinon.stub(workspaceApis, 'getConfiguration').returns({ get: () => allowUvPythonInstall } as any);
         traceErrorStub = sinon.stub(logging, 'traceError');
         sinon.stub(logging, 'traceVerbose');
     });
@@ -128,6 +131,17 @@ suite('UV Python Installer Tests', () => {
             verify(
                 mockedVSCodeNamespaces.window!.showInformationMessage(anything(), anything(), anything(), anything()),
             ).never();
+        });
+
+        test('Does not install uv when python.allowUvPythonInstall is off, even with consent', async () => {
+            isUvInstalledStub.resolves(false);
+            allowUvPythonInstall = false;
+
+            assert.deepStrictEqual(await ensureUvInstalled(undefined, { consented: true }), {
+                ok: false,
+                error: InterpreterQuickPickList.UvInstall.uvInstallDisabled,
+            });
+            assert.strictEqual(execStub.called, false);
         });
 
         test('Declining the consent prompt exits without an error', async () => {
