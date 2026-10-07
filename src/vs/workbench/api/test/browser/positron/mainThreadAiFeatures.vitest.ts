@@ -47,7 +47,6 @@ describe('MainThreadAiFeatures', () => {
 	let getRegisteredSources: ReturnType<typeof vi.fn<() => IPositronLanguageModelSource[]>>;
 	let runErrorAction: ReturnType<typeof vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>>;
 	let registeredHandlers: IErrorActionHandler[];
-	let unavailableReasons: (string | undefined)[];
 	let canContinueChats: boolean[];
 
 	/**
@@ -63,7 +62,6 @@ describe('MainThreadAiFeatures', () => {
 		getRegisteredSources = vi.fn<() => IPositronLanguageModelSource[]>(() => []);
 		runErrorAction = vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>(async () => { });
 		registeredHandlers = [];
-		unavailableReasons = [];
 		canContinueChats = [];
 
 		const aiProviderService = stubInterface<IAiProviderService>({
@@ -99,7 +97,6 @@ describe('MainThreadAiFeatures', () => {
 				register: handler => {
 					registeredHandlers.push(handler);
 					return {
-						setUnavailableReason: reason => unavailableReasons.push(reason),
 						setCanContinueChat: canContinueChat => canContinueChats.push(canContinueChat),
 						dispose: () => registeredHandlers.splice(registeredHandlers.indexOf(handler), 1),
 					};
@@ -186,9 +183,6 @@ describe('MainThreadAiFeatures', () => {
 
 		await errorActionHandler.run('fix', context, CancellationToken.None);
 		expect(runErrorAction).toHaveBeenCalledWith(7, 'fix', context, CancellationToken.None);
-
-		mainThread.$setErrorActionHandlerUnavailableReason(7, 'Not installed.');
-		expect(unavailableReasons).toEqual(['Not installed.']);
 
 		mainThread.$setErrorActionHandlerCanContinueChat(7, false);
 		expect(canContinueChats).toEqual([false]);

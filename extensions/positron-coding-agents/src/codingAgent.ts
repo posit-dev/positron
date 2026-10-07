@@ -13,13 +13,19 @@ import { AgentLaunch } from './agentLaunch';
 import { findForegroundProcess, parseProcessTable, ProcessInfo, PS_ARGS } from './foregroundProcess';
 
 /**
- * Whether an agent can take a prompt: not installed (so not offered at all),
- * installed but unavailable until something about it changes, or available.
+ * Why an installed agent can't take a prompt, and what the user can do about
+ * it, e.g. change a setting.
  */
-export type AgentStatus =
-	{ kind: 'notInstalled' } |
-	{ kind: 'unavailable'; reason: string } |
-	{ kind: 'available' };
+export interface AgentProblem {
+	readonly message: string;
+	readonly actions: readonly AgentProblemAction[];
+}
+
+/** A button on an {@link AgentProblem}'s notification. */
+export interface AgentProblemAction {
+	readonly title: string;
+	run(): Thenable<unknown>;
+}
 
 /** A coding agent that Fix and Explain can send errors to. */
 export interface CodingAgent {
@@ -33,8 +39,14 @@ export interface CodingAgent {
 	/** Name shown in the UI. */
 	readonly label: string;
 
-	/** Whether the agent is installed and can take a prompt. */
-	getStatus(): Promise<AgentStatus>;
+	/** Whether the agent is installed, which is when Fix and Explain offer it. */
+	isInstalled(): Promise<boolean>;
+
+	/**
+	 * Why the installed agent can't take a prompt.
+	 * @returns The problem, or undefined when it can.
+	 */
+	getProblem(): Promise<AgentProblem | undefined>;
 
 	/**
 	 * Whether the agent can continue the current chat, by pasting into its

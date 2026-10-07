@@ -7,19 +7,22 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { claudeCode } from './claudeCode';
 import { codex } from './codex';
-import { AgentStatus, CodingAgent, sendPrompt } from './codingAgent';
+import { AgentProblem, CodingAgent, sendPrompt } from './codingAgent';
 import { ErrorActionKind, getErrorPrompt, UnsavedState } from './errorPrompt';
 
 /** The agents Fix and Explain can send errors to, in the order they are offered. */
 const AGENTS: readonly CodingAgent[] = [claudeCode, codex];
 
+/** The ai.errorActions.agent setting, within the `ai` section. */
+const AGENT_SETTING = 'errorActions.agent';
+
 /** Minimum time between availability checks triggered by the window regaining focus. */
 const FOCUS_CHECK_INTERVAL = 30_000;
 
 export function activate(context: vscode.ExtensionContext): void {
-	// Offer each agent while it is installed. While it's installed but can't
-	// take a prompt, its availability context key is false, which marks it
-	// unavailable in the setting, with the reason.
+	// Offer each agent while it is installed. An installed agent that can't
+	// take a prompt (e.g. a setting needs changing) stays on offer and explains
+	// the problem when it's used or selected.
 	const registrationsById = new Map<string, positron.ai.ErrorActionHandlerRegistration>();
 	let isDisposed = false;
 	context.subscriptions.push({
@@ -29,36 +32,12 @@ export function activate(context: vscode.ExtensionContext): void {
 		}
 	});
 
-	/** Bring an agent's registration and availability in line with its status. */
-	const updateAgent = async (agent: CodingAgent, status: AgentStatus) => {
-		if (status.kind === 'notInstalled') {
-			registrationsById.get(agent.id)?.dispose();
-			registrationsById.delete(agent.id);
-			return;
-		}
-		await vscode.commands.executeCommand('setContext', getAvailableKey(agent), status.kind === 'available');
-		if (isDisposed) {
-			return;
-		}
-		let registration = registrationsById.get(agent.id);
-		if (!registration) {
-			registration = positron.ai.registerErrorActionHandler(agent.id, agent.label, {
-				when: getAvailableKey(agent),
-				fix: errorContext => startSession(agent, 'fix', errorContext),
-				explain: errorContext => startSession(agent, 'explain', errorContext),
-			});
-			registrationsById.set(agent.id, registration);
-		}
-		registration.unavailableReason = status.kind === 'unavailable' ? status.reason : undefined;
-		registration.canContinueChat = agent.canContinueChat();
-	};
-
 	// Checks run one at a time, so registrations always follow the latest
 	// result; a check requested during another runs once that one finishes.
 	let isChecking = false;
 	let isCheckRequested = false;
 	let lastCheckTime = 0;
-	const updateAvailability = async () => {
+	const updateRegistrations = async () => {
 		if (isChecking) {
 			isCheckRequested = true;
 			return;
@@ -68,23 +47,38 @@ export function activate(context: vscode.ExtensionContext): void {
 			do {
 				isCheckRequested = false;
 				lastCheckTime = Date.now();
-				const statuses = await Promise.all(AGENTS.map(agent => agent.getStatus()));
+				const installed = await Promise.all(AGENTS.map(agent => agent.isInstalled()));
 				if (isDisposed) {
 					return;
 				}
-				await Promise.all(AGENTS.map((agent, i) => updateAgent(agent, statuses[i])));
+				AGENTS.forEach((agent, i) => {
+					let registration = registrationsById.get(agent.id);
+					if (!installed[i]) {
+						registration?.dispose();
+						registrationsById.delete(agent.id);
+						return;
+					}
+					if (!registration) {
+						registration = positron.ai.registerErrorActionHandler(agent.id, agent.label, {
+							fix: errorContext => startSession(agent, 'fix', errorContext),
+							explain: errorContext => startSession(agent, 'explain', errorContext),
+						});
+						registrationsById.set(agent.id, registration);
+					}
+					registration.canContinueChat = agent.canContinueChat();
+				});
 			} while (isCheckRequested);
 		} finally {
 			isChecking = false;
 		}
 	};
 
-	updateAvailability();
+	updateRegistrations();
 	context.subscriptions.push(
-		vscode.extensions.onDidChange(updateAvailability),
+		vscode.extensions.onDidChange(updateRegistrations),
 		vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('claudeCode.useTerminal')) {
-				updateAvailability();
+				updateRegistrations();
 			}
 		}),
 		// Nothing announces a CLI being installed or removed, so look again
@@ -92,19 +86,56 @@ export function activate(context: vscode.ExtensionContext): void {
 		// PATH, so skip it if one ran recently.
 		vscode.window.onDidChangeWindowState(state => {
 			if (state.focused && Date.now() - lastCheckTime >= FOCUS_CHECK_INTERVAL) {
-				updateAvailability();
+				updateRegistrations();
 			}
-		})
+		}),
+		watchAgentSelection(),
 	);
 }
 
-/** Context key that is true while an agent can take errors. */
-function getAvailableKey(agent: CodingAgent): string {
-	return `positronCodingAgents.${agent.id}.available`;
+/**
+ * When the user picks one of these agents for Fix and Explain and it can't
+ * take a prompt, say why and how to fix it rather than waiting for the first
+ * error. Compares each settings scope (User, Workspace, folder) with its last
+ * value, so a pick in one scope is noticed even when another overrides it.
+ */
+function watchAgentSelection(): vscode.Disposable {
+	const getValues = () => {
+		const inspected = vscode.workspace.getConfiguration('ai').inspect<string>(AGENT_SETTING);
+		return [inspected?.globalValue, inspected?.workspaceValue, inspected?.workspaceFolderValue];
+	};
+	let previousValues = getValues();
+	return vscode.workspace.onDidChangeConfiguration(async e => {
+		if (!e.affectsConfiguration(`ai.${AGENT_SETTING}`)) {
+			return;
+		}
+		const values = getValues();
+		const pickedIds = new Set(values.filter((value, i) => value !== previousValues[i]));
+		previousValues = values;
+		for (const agent of AGENTS.filter(agent => pickedIds.has(agent.id))) {
+			const problem = await agent.getProblem();
+			if (problem) {
+				showProblem(problem);
+			}
+		}
+	});
+}
+
+/** Show an agent's problem, with buttons to fix it. */
+async function showProblem(problem: AgentProblem): Promise<void> {
+	const choice = await vscode.window.showWarningMessage(problem.message, ...problem.actions.map(action => action.title));
+	await problem.actions.find(action => action.title === choice)?.run();
 }
 
 /** Open a new agent session with the error from a Fix/Explain action. */
 async function startSession(agent: CodingAgent, kind: ErrorActionKind, context: positron.ai.ErrorActionContext): Promise<void> {
+	// Explain why the agent can't take the error, rather than failing. Don't
+	// wait for the user to answer the notification.
+	const problem = await agent.getProblem();
+	if (problem) {
+		void showProblem(problem);
+		return;
+	}
 	const getPath = (uri: vscode.Uri) => vscode.workspace.asRelativePath(uri);
 	const prompt = getErrorPrompt(kind, context, getPath, await getMcpServerName(agent), getUnsavedState(context.location));
 	await sendPrompt(agent, prompt, context.chat);

@@ -118,13 +118,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Set why an error action handler implemented in the extension host can't take errors.
-	 */
-	$setErrorActionHandlerUnavailableReason(handle: number, reason: string | undefined): void {
-		this._errorActionHandlerRegistrations.get(handle)?.setUnavailableReason(reason);
-	}
-
-	/**
 	 * Set whether an error action handler implemented in the extension host can continue the current chat.
 	 */
 	$setErrorActionHandlerCanContinueChat(handle: number, canContinueChat: boolean): void {

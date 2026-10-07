@@ -8,7 +8,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { isPastClaudeCodeTrustPrompt, readConfig } from './agentTrust';
 import { getAgentLaunch } from './agentLaunch';
-import { AgentStatus, CodingAgent, startInTerminal } from './codingAgent';
+import { AgentProblem, AgentProblemAction, CodingAgent, startInTerminal } from './codingAgent';
 import { isClaudeCodeCommand } from './foregroundProcess';
 import { ClaudeCodeSurface, getClaudeCodeSurface } from './claudeCodeSurface';
 
@@ -25,7 +25,8 @@ const LAUNCHING_NOTIFICATION_DURATION = 2000;
 export const claudeCode: CodingAgent = {
 	id: 'claude-code',
 	label: 'Claude Code',
-	getStatus,
+	isInstalled,
+	getProblem,
 	// Its chat can only start new conversations; its terminal sessions can be pasted into.
 	canContinueChat: () => getSurface() === 'terminal',
 	isAgentCommand: isClaudeCodeCommand,
@@ -48,37 +49,52 @@ function getSurface(): ClaudeCodeSurface | undefined {
 	return getClaudeCodeSurface(version, useTerminal);
 }
 
-/**
- * Whether Claude Code can take a prompt on the surface the user prefers.
- * It counts as installed while its VS Code extension is.
- */
-async function getStatus(): Promise<AgentStatus> {
+/** Claude Code counts as installed while its VS Code extension is. */
+async function isInstalled(): Promise<boolean> {
+	return vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID) !== undefined;
+}
+
+/** Why Claude Code can't take a prompt on the surface the user prefers. */
+async function getProblem(): Promise<AgentProblem | undefined> {
 	const extension = vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID);
 	if (!extension) {
-		return { kind: 'notInstalled' };
+		return undefined;
 	}
+	const openUseTerminalSetting: AgentProblemAction = {
+		title: vscode.l10n.t('Open Settings'),
+		run: () => vscode.commands.executeCommand('workbench.action.openSettings', 'claudeCode.useTerminal'),
+	};
 	switch (getSurface()) {
 		case 'chat':
-			return { kind: 'available' };
+			return undefined;
 		case 'terminal':
-			return await getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT)
-				? { kind: 'available' }
-				: { kind: 'unavailable', reason: vscode.l10n.t('The claude command was not found on the PATH.') };
+			return await getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT) ? undefined : {
+				message: vscode.l10n.t(
+					'Claude Code is set to open in a terminal, but the claude command was not found on the PATH. Install the Claude Code CLI, or turn off Claude Code: Use Terminal to use its chat.'
+				),
+				actions: [openUseTerminalSetting],
+			};
 		case undefined:
 			return {
-				kind: 'unavailable',
-				reason: vscode.l10n.t(
+				message: vscode.l10n.t(
 					'Claude Code {0} is too old to receive errors in its chat. Update it, or turn on Claude Code: Use Terminal.',
 					extension.packageJSON.version
 				),
+				actions: [
+					{
+						title: vscode.l10n.t('Show Extension'),
+						run: () => vscode.commands.executeCommand('extension.open', CLAUDE_CODE_EXTENSION_ID),
+					},
+					openUseTerminalSetting,
+				],
 			};
 	}
 }
 
 /** Open a new Claude Code session with the prompt. */
 async function startNew(prompt: string): Promise<void> {
-	// Fix and Explain stop offering Claude Code when it becomes unavailable, but
-	// an action can still race with that.
+	// Problems are reported before a session starts, but Claude Code can be
+	// uninstalled or its settings changed in between.
 	switch (getSurface()) {
 		case 'chat':
 			return openChat(prompt);

@@ -92,7 +92,7 @@ export interface IErrorActionHandler {
 	readonly id: string;
 	/** Name shown in the setting's dropdown and the actions' tooltips. */
 	readonly label: string;
-	/** When it can take errors; always when undefined. */
+	/** When it is enabled; always when undefined. */
 	readonly when?: ContextKeyExpression;
 	/** Run the given action on the error. */
 	run(kind: ErrorActionKind, context: IErrorActionContext, token: CancellationToken): Promise<void>;
@@ -100,9 +100,6 @@ export interface IErrorActionHandler {
 
 /** A registered {@link IErrorActionHandler}. */
 export interface IErrorActionHandlerRegistration extends IDisposable {
-	/** Set why the handler can't take errors, shown in the setting while its `when` is false. */
-	setUnavailableReason(reason: string | undefined): void;
-
 	/** Set whether the handler can continue the current chat. It can until this is called. */
 	setCanContinueChat(canContinueChat: boolean): void;
 }

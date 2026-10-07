@@ -105,7 +105,7 @@ describe('PositAssistantErrorActionsContribution', () => {
 		.stub(IErrorActionsService, {
 			register: (handler: IErrorActionHandler) => {
 				registeredHandlers.push(handler);
-				return { setUnavailableReason: () => { }, setCanContinueChat: () => { }, dispose: () => registeredHandlers.splice(registeredHandlers.indexOf(handler), 1) };
+				return { setCanContinueChat: () => { }, dispose: () => registeredHandlers.splice(registeredHandlers.indexOf(handler), 1) };
 			},
 		})
 		.stub(ILabelService, { getUriLabel: (uri: URI) => getPath(uri) })

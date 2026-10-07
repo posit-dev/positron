@@ -5046,12 +5046,14 @@ declare module 'positron' {
 		 */
 		export interface ErrorActionHandler {
 			/**
-			 * A context key expression, e.g. `myAgent.isInstalled`, for when the
-			 * handler can take errors. While it is false, the actions go to Posit
-			 * Assistant instead (or are hidden when it can't take them either),
-			 * and the setting marks the handler unavailable, with
-			 * {@link ErrorActionHandlerRegistration.unavailableReason}. Always
-			 * when undefined. Read once, at registration.
+			 * A context key expression, e.g. `myAgent.hasModel`, for when the
+			 * handler is enabled. While it is false, errors go to Posit Assistant
+			 * instead (or the actions are hidden when it is disabled too). Always
+			 * enabled when undefined. Read once, at registration.
+			 *
+			 * Disable a handler only when it can't do anything useful. While it
+			 * is enabled but can't send an error (e.g. a setting needs changing),
+			 * it should tell the user why and how to fix it when they use it.
 			 */
 			readonly when?: string;
 
@@ -5065,10 +5067,9 @@ declare module 'positron' {
 		/**
 		 * Register an implementation of the error Fix and Explain actions.
 		 *
-		 * Use {@link ErrorActionHandler.when} for whether the implementation
-		 * can take errors at the moment (e.g. whether the agent it sends errors
-		 * to is installed), rather than registering and disposing it as that
-		 * changes.
+		 * Register while the implementation is installed, and use
+		 * {@link ErrorActionHandler.when} for whether it is enabled at the
+		 * moment.
 		 *
 		 * @param id The unique identifier of the implementation. 'posit-assistant'
 		 *   is reserved for Posit Assistant's, which Positron registers.
@@ -5079,14 +5080,6 @@ declare module 'positron' {
 
 		/** A registered {@link ErrorActionHandler}. */
 		export interface ErrorActionHandlerRegistration {
-			/**
-			 * Why the handler can't take errors, e.g. "The agent's CLI was not
-			 * found on the PATH.", shown in the setting while its
-			 * {@link ErrorActionHandler.when} is false. Update it when the reason
-			 * changes.
-			 */
-			unavailableReason: string | undefined;
-
 			/**
 			 * Whether the handler can continue the current chat, which offers
 			 * actions that pass `chat: 'current'`. Defaults to true. Update it

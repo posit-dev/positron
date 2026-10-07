@@ -101,18 +101,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		this._proxy.$registerErrorActionHandler(handle, id, label, handler.when);
 
 		const proxy = this._proxy;
-		let unavailableReason: string | undefined;
 		let canContinueChat = true;
 		return {
-			get unavailableReason() {
-				return unavailableReason;
-			},
-			set unavailableReason(reason: string | undefined) {
-				if (reason !== unavailableReason) {
-					unavailableReason = reason;
-					proxy.$setErrorActionHandlerUnavailableReason(handle, reason);
-				}
-			},
 			get canContinueChat() {
 				return canContinueChat;
 			},

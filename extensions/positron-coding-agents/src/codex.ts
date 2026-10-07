@@ -21,10 +21,9 @@ const CODEX_NPM_SCRIPT = '@openai/codex/bin/codex.js';
 export const codex: CodingAgent = {
 	id: 'codex',
 	label: 'Codex',
-	// Codex is installed while its CLI is on the PATH, and then it's available.
-	getStatus: async () => await getAgentLaunch('codex', CODEX_NPM_SCRIPT)
-		? { kind: 'available' }
-		: { kind: 'notInstalled' },
+	// Codex is installed while its CLI is on the PATH, and then it can take a prompt.
+	isInstalled: async () => await getAgentLaunch('codex', CODEX_NPM_SCRIPT) !== undefined,
+	getProblem: async () => undefined,
 	canContinueChat: () => true,
 	isAgentCommand: isCodexCommand,
 	isPastTrustPrompt,
