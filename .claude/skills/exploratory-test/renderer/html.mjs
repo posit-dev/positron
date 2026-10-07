@@ -846,9 +846,9 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	};
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
 
-	section('Describe the issue', capitalize(opening?.summary || t.prose || t.summary));
+	section('Describe the issue', opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.prose || t.summary));
 
-	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps, ...(opening?.steps ?? [])].join('\n')).filter(file => file.kind !== 'missing');
+	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
 	const preconditions = t.preconditions.map(p => files.reduce((text, file) => {
 		if (marked.has(file.path)) {
@@ -863,20 +863,12 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	// The card's rule: a step repeats what it observed only when two failed checks saw different things.
 	const failed = f.steps.filter(st => st.result === 'fail');
 	const observed = failed.length >= 2 && new Set(failed.map(st => st.observed)).size >= 2;
-	const recorded = [
+	section('Steps to reproduce', [
 		preconditions.map(p => `- ${p.replace(/\n/g, '\n  ')}`).join('\n'),
 		f.steps.map((st, i) => `${i + 1}. ${issueStep(st, observed).replace(/\n/g, '\n   ')}`).join('\n'),
-	].filter(Boolean).join('\n\n');
-	if (opening) {
-		section('Steps to reproduce', [
-			opening.steps.map((st, i) => `${i + 1}. ${st.replace(/\n/g, '\n   ')}`).join('\n'),
-			capitalize(opening.where),
-		].filter(Boolean).join('\n\n'));
-	} else {
-		section('Steps to reproduce', recorded);
-		section('Observed', capitalize(t.observed));
-		section('Expected', capitalize(t.expected));
-	}
+	].filter(Boolean).join('\n\n'));
+	section('Observed', capitalize(t.observed));
+	section('Expected', capitalize(t.expected));
 
 	const clip = raw => {
 		const lines = raw.split('\n');
@@ -886,14 +878,6 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	section('Error messages', !errors ? 'None recorded by the run.' : drop.has('errors') ? `In the ${by} report for this run.` : errors);
 	section('Evidence', evidenceItems(f, p => p, e => e.file) && `Screenshots and logs are in the ${by} report for this run.`);
 
-	// The run's record, for whoever wants to check how the run got there.
-	if (opening && !drop.has('record')) {
-		fold('What the run did', [
-			recorded,
-			t.observed && `**Observed:** ${capitalize(t.observed)}`,
-			t.expected && `**Expected:** ${capitalize(t.expected)}`,
-		].filter(Boolean).join('\n\n'));
-	}
 	if (t.cause && !drop.has('cause')) {
 		fold('Likely cause (hypothesis, not verified)', capitalize(t.cause));
 	}
@@ -935,7 +919,7 @@ function issueHref(title, body) {
 
 // What a body too long for the link gives up, in order: each is on the report,
 // and what is left is the repro an engineer files from.
-const ISSUE_TRIMS = ['fileText', 'regression', 'record', 'cause', 'errors'];
+const ISSUE_TRIMS = ['fileText', 'regression', 'cause', 'errors'];
 
 /**
  * The new-issue link for a finding, as `{ href, text, copy }`. The body goes in

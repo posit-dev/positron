@@ -56,11 +56,10 @@ const reply = (fields = {}) => {
 	const f = {
 		title: 'Run Shiny App on an R app leaves the Viewer empty',
 		summary: 'When you run an R Shiny app, the Viewer stays empty, though a toast says "will preview it".',
-		steps: ['1. Create `app.R`:', '   ```r', '   shinyApp(ui, server)', '   ```', '2. Click Run Shiny App. The Viewer stays empty.'],
 		where: 'Python apps preview as expected.',
 		...fields,
 	};
-	return ['RESULT: Python apps work. **Run Shiny App on an R app never previews it after 30 s.**', '', '=== Finding 1', `TITLE: ${f.title}`, `SUMMARY: ${f.summary}`, 'STEPS:', ...f.steps, `WHERE: ${f.where}`].join('\n');
+	return ['RESULT: Python apps work. **Run Shiny App on an R app never previews it after 30 s.**', '', '=== Finding 1', `TITLE: ${f.title}`, `SUMMARY: ${f.summary}`, `WHERE: ${f.where}`].join('\n');
 };
 
 test('editorFindings keeps each card through Expected, without Cause or an opening written before', () => {
@@ -86,14 +85,13 @@ test('editor.md has the placeholders buildEditPrompt fills', () => {
 	assert.ok(buildEditPrompt(template, REPORT).includes('### Finding 1:'));
 });
 
-test('parseEdits reads the Result and each finding block, with a step\'s code block', () => {
+test('parseEdits reads the Result and each finding block', () => {
 	assert.deepEqual([...parseEdits(reply())], [
 		[0, { result: 'Python apps work. **Run Shiny App on an R app never previews it after 30 s.**' }],
 		[1, {
 			title: 'Run Shiny App on an R app leaves the Viewer empty',
 			opening: {
 				summary: 'When you run an R Shiny app, the Viewer stays empty, though a toast says "will preview it".',
-				steps: ['Create `app.R`:\n```r\nshinyApp(ui, server)\n```', 'Click Run Shiny App. The Viewer stays empty.'],
 				where: 'Python apps preview as expected.',
 			},
 		}],
@@ -109,22 +107,17 @@ test('reviewEdits keeps a title and opening that cite only what the record has',
 	const { kept, rejected } = reviewEdits(REPORT, parseEdits(reply({ title: 'Viewer: Run Shiny App on an R app leaves the Viewer empty' })));
 	assert.deepEqual(rejected, []);
 	assert.equal(kept.get(1).title, 'Run Shiny App on an R app leaves the Viewer empty');
-	assert.equal(kept.get(1).opening.steps.length, 2);
+	assert.deepEqual(kept.get(1).opening, { summary: 'When you run an R Shiny app, the Viewer stays empty, though a toast says "will preview it".', where: 'Python apps preview as expected.' });
 });
 
-test('a step\'s ```` block holding a ```{r} cell is code, not prose, and survives the round trip', () => {
-	const cell = ['   ````', '   ```{r}', '   cat("inserted cell\\n")', '   ```', '   ````'];
-	const report = REPORT.replace(['   ```r', '   shinyApp(ui, server)', '   ```'].join('\n'), cell.join('\n'));
-	const edits = parseEdits(reply({ steps: ['1. Create `app.R`:', ...cell, '2. Click Run Shiny App. The Viewer stays empty.'] }));
-	const { kept, rejected } = reviewEdits(report, edits);
-	assert.deepEqual(reasons(rejected), []);
-	assert.deepEqual(parseReport(applyEdits(report, kept)).findings[0].text.opening.steps, edits.get(1).opening.steps);
+test('parseEdits drops steps a writer adds anyway, so they never reach the summary or the card', () => {
+	const edits = parseEdits(['=== Finding 1', 'TITLE: Viewer stays empty', 'SUMMARY: The Viewer stays empty.', 'STEPS:', '1. Click Run Shiny App.', 'WHERE: Web only.'].join('\n'));
+	assert.deepEqual(edits.get(1).opening, { summary: 'The Viewer stays empty.', where: 'Web only.' });
 });
 
-test('reviewEdits rejects an opening or title that invents a fact, drops the code, or reads like the run', () => {
+test('reviewEdits rejects an opening or title that invents a fact or reads like the run', () => {
 	const review = fields => reasons(reviewEdits(REPORT, parseEdits(reply(fields))).rejected.filter(r => r.n === 1));
 	assert.deepEqual(review({ summary: 'The Viewer stays empty for 45 s.' }), [{ n: 1, field: 'opening', reason: 'cites 45, which the record does not have' }]);
-	assert.deepEqual(review({ steps: ['1. Create an R Shiny app.', '2. Click Run Shiny App.'] }), [{ n: 1, field: 'opening', reason: 'leaves out the code the record has the reader run: "shinyApp(ui, server)"' }]);
 	assert.deepEqual(review({ where: 'Seen in S10.' }), [{ n: 1, field: 'opening', reason: 'names the scenario ID S10' }]);
 	assert.deepEqual(review({ title: 'Run Shiny App on an R app never shows the running app in the Viewer pane at all' }), [{ n: 1, field: 'title', reason: 'is 18 words, over 15; cut filler, never a word that narrows the bug' }]);
 	assert.deepEqual(review({ title: 'Run Shiny App on an R app leaves the Viewer empty after the app starts' }), []);
@@ -150,14 +143,6 @@ test('applyEdits writes the title in heading and table and the opening atop the 
 		'',
 		'**Summary:** When you run an R Shiny app, the Viewer stays empty, though a toast says "will preview it".',
 		'',
-		'**Hand steps:**',
-		'',
-		'1. Create `app.R`:',
-		'   ```r',
-		'   shinyApp(ui, server)',
-		'   ```',
-		'2. Click Run Shiny App. The Viewer stays empty.',
-		'',
 		'**Where:** Python apps preview as expected.',
 		'',
 		'**Feature:** Viewer',
@@ -165,7 +150,7 @@ test('applyEdits writes the title in heading and table and the opening atop the 
 	// The rest of the card parses as it did before.
 	const [f] = parseReport(after).findings;
 	const [before] = parseReport(REPORT).findings;
-	assert.deepEqual([f.text.opening.steps.length, f.text.summary, f.text.observed, f.feature], [2, before.text.summary, before.text.observed, 'Viewer']);
+	assert.deepEqual([f.text.opening.where, f.text.summary, f.text.steps, f.text.observed, f.feature], ['Python apps preview as expected.', before.text.summary, before.text.steps, before.text.observed, 'Viewer']);
 	// Applied again, it replaces the opening rather than stacking a second.
 	const again = applyEdits(after, reviewEdits(after, parseEdits(reply({ where: 'Only R.' }))).kept);
 	assert.deepEqual([again.match(/\*\*Summary:\*\*/g).length, again.includes('**Where:** Only R.')], [1, true]);

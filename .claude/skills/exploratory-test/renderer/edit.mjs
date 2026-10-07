@@ -7,10 +7,10 @@
 // local run. The explorer writes each finding as a record of the run: harness
 // steps, PASS checks, scenario IDs and reasoning. A fresh agent that sees only
 // what a reader sees writes, for each finding, the opening a person reads
-// first (a summary, the steps to do by hand, and where it happens) and a title
-// cut from that summary, and rewrites the Result line. This file stores the
-// opening at the top of the card and keeps the original of anything that
-// cites a fact the run did not record.
+// first (a summary and where it happens) and a title cut from that summary,
+// and rewrites the Result line. The explorer's repro steps are never
+// rewritten. This file stores the opening at the top of the card and keeps the
+// original of anything that cites a fact the run did not record.
 //
 // Local usage, around an editor subagent:
 //   node edit.mjs prompt <run dir>
@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyTitles } from './finish.mjs';
 import { SUMMARY_WORDS, wordsOf } from './lint.mjs';
-import { nextFence, openingRange, parseOpening } from './report-parse.mjs';
+import { openingRange, parseOpening } from './report-parse.mjs';
 
 // The Result line is keyed 0, beside the findings' own numbers.
 const SUMMARY = 0;
@@ -34,7 +34,6 @@ const SUMMARY = 0;
 // aims for 12; the guard rejects only a run-on, so a retry never trades a true title for a short one.
 const TITLE_WORDS = 15;
 const OPENING_WORDS = 60;
-const MAX_STEPS = 6;
 const SCENARIO_ID = /\b[SR]\d{2}(?:-\d{2})?\b/;
 
 /** The `**Result:**` line above the first section, or undefined. */
@@ -113,7 +112,7 @@ export function buildEditPrompt(template, report) {
 
 /**
  * The reply as a Map of finding number (0 for the Result) to what it writes:
- * `{ result }`, or `{ title, opening: { summary, steps, where } }`.
+ * `{ result }`, or `{ title, opening: { summary, where } }`.
  */
 export function parseEdits(text) {
 	const out = new Map();
@@ -125,20 +124,21 @@ export function parseEdits(text) {
 	for (const block of blocks) {
 		const [first, ...lines] = block.split('\n');
 		const n = Number(/^\d+/.exec(first)[0]);
-		const fields = { summary: [], steps: [], where: [] };
+		const fields = { summary: [], where: [] };
 		let title;
 		let key = null;
-		let fence = null;
 		for (const line of lines) {
-			const label = fence ? null : /^(TITLE|SUMMARY|STEPS|WHERE):\s*(.*)$/i.exec(line.trim());
-			if (label && label[1].toUpperCase() === 'TITLE') {
+			// Any other label (STEPS) ends the field before it and is dropped: the writer never rewrites the steps.
+			const label = /^([A-Z]+):\s*(.*)$/.exec(line.trim());
+			if (label?.[1] === 'TITLE') {
 				title = label[2].trim();
 				key = null;
 			} else if (label) {
-				key = label[1].toLowerCase();
-				fields[key].push(label[2]);
+				key = Object.hasOwn(fields, label[1].toLowerCase()) ? label[1].toLowerCase() : null;
+				if (key) {
+					fields[key].push(label[2]);
+				}
 			} else if (key) {
-				fence = nextFence(fence, line);
 				fields[key].push(line);
 			}
 		}
@@ -147,31 +147,14 @@ export function parseEdits(text) {
 			edit.title = title;
 		}
 		const summary = fields.summary.join(' ').replace(/\s+/g, ' ').trim();
-		const steps = stepsOf(fields.steps);
-		if (summary || steps.length) {
-			edit.opening = { summary, steps, where: fields.where.join(' ').replace(/\s+/g, ' ').trim() };
+		if (summary) {
+			edit.opening = { summary, where: fields.where.join(' ').replace(/\s+/g, ' ').trim() };
 		}
 		if (Object.keys(edit).length) {
 			out.set(n, edit);
 		}
 	}
 	return out;
-}
-
-/** Numbered lines as steps, each with the lines under it, dedented. */
-function stepsOf(lines) {
-	const steps = [];
-	let fence = null;
-	for (const line of lines) {
-		const numbered = !fence && /^\s*\d+\.\s+(.*)$/.exec(line);
-		fence = nextFence(fence, line);
-		if (numbered) {
-			steps.push(numbered[1]);
-		} else if (steps.length) {
-			steps[steps.length - 1] += `\n${line.replace(/^\s{1,4}/, '')}`;
-		}
-	}
-	return steps.map(s => s.trimEnd());
 }
 
 /** The Result, and each finding's title, Feature, record and opening, as the report has them. */
@@ -259,18 +242,14 @@ function titleProblem(title, record) {
 }
 
 function openingProblem(opening, record) {
-	const text = [opening.summary, ...opening.steps, opening.where].join('\n');
+	const text = [opening.summary, opening.where].join('\n');
 	const words = wordsOf(opening.summary);
-	const lost = [...record.matchAll(FENCE)].map(m => codeOf(m[2])).filter(code => ![...text.matchAll(FENCE)].some(m => codeOf(m[2]).includes(code)));
 	const invented = unsupported(text, record);
 	return !opening.summary ? 'has no summary'
-		: !opening.steps.length ? 'has no steps'
-			: opening.steps.length > MAX_STEPS ? `has ${opening.steps.length} steps, over ${MAX_STEPS}`
-				: words > OPENING_WORDS ? `has a ${words}-word summary, over ${OPENING_WORDS}`
-					: SCENARIO_ID.test(text) ? `names the scenario ID ${SCENARIO_ID.exec(text)[0]}`
-						: lost.length ? `leaves out the code the record has the reader run: ${lost.map(c => `"${c.split('\n')[0]}"`).join(', ')}`
-							: invented.length ? `cites ${invented.join(', ')}, which the record does not have`
-								: '';
+		: words > OPENING_WORDS ? `has a ${words}-word summary, over ${OPENING_WORDS}`
+			: SCENARIO_ID.test(text) ? `names the scenario ID ${SCENARIO_ID.exec(text)[0]}`
+				: invented.length ? `cites ${invented.join(', ')}, which the record does not have`
+					: '';
 }
 
 function resultProblem(before, after) {
@@ -326,21 +305,14 @@ export function buildRetryPrompt(template, report, rejected) {
 	return [
 		prompt,
 		'## Rewrites to redo',
-		'These were rejected, so the report keeps what the run wrote. Write each one again, fixing what its reason names, and follow every rule above. Reply in the same format with only these: the RESULT line, or a finding\'s block with only its TITLE line, or only its SUMMARY, STEPS and WHERE.',
+		'These were rejected, so the report keeps what the run wrote. Write each one again, fixing what its reason names, and follow every rule above. Reply in the same format with only these: the RESULT line, or a finding\'s block with only its TITLE line, or only its SUMMARY and WHERE.',
 		lines.join('\n'),
 	].join('\n\n');
 }
 
 /** The opening as the card stores it, at the top of the card. */
-function openingLines({ summary, steps, where }) {
-	return [
-		`**Summary:** ${summary}`,
-		'',
-		'**Hand steps:**',
-		'',
-		...steps.map((step, i) => step.split('\n').map((line, k) => (k === 0 ? `${i + 1}. ${line}` : line && `   ${line}`)).join('\n')),
-		...(where ? ['', `**Where:** ${where}`] : []),
-	];
+function openingLines({ summary, where }) {
+	return [`**Summary:** ${summary}`, ...(where ? ['', `**Where:** ${where}`] : [])];
 }
 
 /** The report with the kept edits applied: the Result, titles in heading and table, and each opening. */

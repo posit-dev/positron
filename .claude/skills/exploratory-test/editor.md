@@ -1,18 +1,12 @@
 An automated test run found the bugs below and wrote each up as a record of the run: harness steps, PASS checks, waits, scenario IDs, and reasoning about what it saw. A developer triaging the filed issue has to translate that back into a bug before they can act on it.
 
-For each finding, write the part a person reads first, and its title. The run's record stays below it, folded, so leave out anything that is only there as evidence. Each finding is filed as its own issue, so each must stand alone. Then rewrite the report's Result line.
+For each finding, write the part a person reads first, and its title. The run's own steps to reproduce stay below it unchanged; they were written on purpose, so do not rewrite them. Leave out anything that is only there as evidence. Each finding is filed as its own issue, so each must stand alone. Then rewrite the report's Result line.
 
 The reader knows Positron but has not seen the PR, the code or the run.
 
 ## Each finding
 
 **Summary**: one or two sentences, said the way you would tell a colleague at their desk: "When you do X, Y happens instead of Z." Add the one consequence a user hits next only if it is worse than the bug itself. Leave out side observations, comparisons and counts; they stay in the record. Don't start with the feature's name ("In the Data Explorer, ..."); the title carries it. Plain words; no reasoning about why.
-
-**Steps**: the fewest steps a person would do by hand to see it, 3 to 5. Each is an action. Mark the step where it goes wrong with what they see, e.g. "Nothing opens." Copy anything the user types or runs (code, names, commands) word for word from the record, in the same backticks or code block; do not describe it. Leave out:
-- steps that only confirm something worked
-- waits, sampling, timings that were only how the harness watched
-- scenario and step IDs (S05, S12-08)
-- setup the harness needed that a person does not (proxies, settings it sets in every profile), unless the bug needs it; then say it plainly ("with PyPI unreachable").
 
 **Where**: one line, only if it changes who hits it: the platform, build or setting it needs, and what was not checked. If it needs the web build, say "web (and so Workbench)". Leave out the OS and build when nothing suggests the bug depends on them. Otherwise leave it empty.
 
@@ -52,13 +46,10 @@ RESULT: <new Result, without the **Result:** label>
 === Finding <N>
 TITLE: <title>
 SUMMARY: <summary>
-STEPS:
-1. <step>
-2. <step>
 WHERE: <where line, or nothing>
 ```
 
-`<N>` is the number in the finding's `### Finding N:` heading. A code block under a step is indented three spaces.
+`<N>` is the number in the finding's `### Finding N:` heading.
 
 ## Result
 

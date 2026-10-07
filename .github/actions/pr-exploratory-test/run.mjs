@@ -214,7 +214,7 @@ async function askEditor(prompt) {
 }
 
 /**
- * Writes each finding's opening (summary, hand steps, where) and a title cut
+ * Writes each finding's opening (summary, where) and a title cut
  * from it, and rewrites the Result, with a fresh agent that sees each card only
  * through Expected, never a Cause. Anything the guard rejects gets one more try
  * with the reason, then is skipped, so the worst case is the report as the

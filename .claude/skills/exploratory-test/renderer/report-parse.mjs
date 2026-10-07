@@ -316,25 +316,9 @@ function labelOf(line) {
 	return m ? m[1].replace(/[:\s]+$/, '').toLowerCase() : null;
 }
 
-/**
- * The fence still open after `line`: its marker inside a fenced block, else
- * null. As in CommonMark, only a bare fence of the same character, at least as
- * long, closes it, so a ```` block can hold a ```{r} cell.
- */
-export function nextFence(fence, line) {
-	const m = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
-	if (!m) {
-		return fence;
-	}
-	if (!fence) {
-		return m[1];
-	}
-	return m[1][0] === fence[0] && m[1].length >= fence.length && !m[2].trim() ? null : fence;
-}
-
 // The opening the edit pass writes at the top of a card, in a person's words:
 // what they read first, above the run's own record.
-const OPENING_LABELS = new Set(['summary', 'hand steps', 'where']);
+const OPENING_LABELS = new Set(['summary', 'where']);
 
 /** Where a card's opening sits in its body lines, as `{ start, end }`, or null. */
 export function openingRange(lines) {
@@ -343,13 +327,10 @@ export function openingRange(lines) {
 		return null;
 	}
 	let end = start + 1;
-	let fence = null;
 	for (; end < lines.length; end++) {
 		const text = lines[end].trim();
-		fence = nextFence(fence, text);
-		const fenced = fence !== null;
-		const label = fenced ? null : labelOf(lines[end]);
-		if (!fenced && ((label && !OPENING_LABELS.has(label)) || /^(?:#{2,3}\s|<details>)/.test(text))) {
+		const label = labelOf(lines[end]);
+		if (((label && !OPENING_LABELS.has(label)) || /^(?:#{2,3}\s|<details>)/.test(text))) {
 			break;
 		}
 	}
@@ -359,35 +340,20 @@ export function openingRange(lines) {
 	return { start, end };
 }
 
-/** A card's opening as `{ summary, steps, where }`, each step its markdown; null when it has none. */
+/** A card's opening as `{ summary, where }`; null when it has none. */
 export function parseOpening(lines) {
 	const range = openingRange(lines);
 	if (!range) {
 		return null;
 	}
 	const block = lines.slice(range.start, range.end);
-	const out = { summary: '', steps: [], where: '' };
+	const out = { summary: '', where: '' };
 	for (let i = 0; i < block.length; i++) {
 		const label = labelOf(block[i]);
 		if (label === 'summary' || label === 'where') {
 			const { text, end } = readLabelled(block, i);
 			out[label] = text;
 			i = end - 1;
-		} else if (label === 'hand steps') {
-			let fence = null;
-			let j = i + 1;
-			for (; j < block.length && (fence || !labelOf(block[j])); j++) {
-				const raw = block[j];
-				fence = nextFence(fence, raw);
-				const numbered = !fence && /^\d+\.\s+(.*)$/.exec(raw);
-				if (numbered) {
-					out.steps.push(numbered[1]);
-				} else if (out.steps.length) {
-					out.steps[out.steps.length - 1] += `\n${dedent(raw)}`;
-				}
-			}
-			out.steps = out.steps.map(s => s.trimEnd());
-			i = j - 1;
 		}
 	}
 	return out;

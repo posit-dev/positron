@@ -7,7 +7,7 @@ metadata:
   # verifier.md, isolator.md, editor.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.51"
+  version: "1.52"
 ---
 
 # Exploratory testing
@@ -98,8 +98,8 @@ save its reply over `verify-reply.md`, and apply again.
 The verdicts are advisory: do not edit them or drop a finding over them.
 
 Then have a fresh agent write each finding's opening in plain words (what a
-person reads first in the filed issue: a summary, the steps to do by hand, and
-where it happens) with a title cut from it, and rewrite the Result, as CI does. Run `node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
+person reads first in the filed issue: a summary and where it happens; the
+explorer's steps stay as written) with a title cut from it, and rewrite the Result, as CI does. Run `node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
 `nothing to edit`, it prints the path of a prompt file. Spawn a fresh agent with
 `subagent_type: "general-purpose"` and `model: "sonnet"`, tell it to read that
 file and reply as it says, and save its reply to `<run dir>/edit-reply.md`.

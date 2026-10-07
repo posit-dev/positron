@@ -92,8 +92,8 @@ test('flags a Feature named in code rather than as a user sees the area', () => 
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:** new folder flow')), []);
 });
 
-test('skips the opening the edit pass writes, steps and all', () => {
-	const opening = '**Summary:** When you click Retry, nothing happens.\n\n**Hand steps:**\n\n1. Wait 10 s, then click Retry in S05.\n\n**Where:** Web only.\n\n';
+test('skips the opening the edit pass writes', () => {
+	const opening = '**Summary:** When you click Retry, nothing happens.\n\n**Where:** Web only, as in S05.\n\n';
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', `${opening}**Feature:** console`)), []);
 });
 
