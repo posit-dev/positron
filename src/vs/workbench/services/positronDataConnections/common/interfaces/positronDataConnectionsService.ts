@@ -352,6 +352,13 @@ export interface IPositronDataConnectionsService extends IDisposable {
 	countOpenDataExplorers(profileId: string): number;
 
 	/**
+	 * Gets the profile of the connection a dataset was previewed from.
+	 * @param datasetId The dataset id the preview was opened under.
+	 * @returns The profile, or undefined if the dataset wasn't previewed from a live connection.
+	 */
+	getProfileForDataset(datasetId: string): IDataConnectionProfile | undefined;
+
+	/**
 	 * Closes the profile's connection as soon as nothing is using it: right away when it has no open
 	 * Data Explorers, otherwise once the last one is closed. Lets a caller give up its own use of a
 	 * connection without cutting off the Data Explorers still reading from it. No-op if the profile

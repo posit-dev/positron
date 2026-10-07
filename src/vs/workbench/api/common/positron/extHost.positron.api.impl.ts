@@ -423,6 +423,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			registerDataImporter(importer: positron.DataImporter): vscode.Disposable {
 				return extHostDataExplorer.registerDataImporter(importer);
 			},
+
+			getContext(): Thenable<positron.dataExplorer.DataExplorerContext | undefined> {
+				return extHostDataExplorer.getContext();
+			},
 		};
 
 		const environment: typeof positron.environment = {

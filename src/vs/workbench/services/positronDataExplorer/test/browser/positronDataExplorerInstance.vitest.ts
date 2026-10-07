@@ -13,7 +13,7 @@ import { PositronDataExplorerDuckDBBackend } from '../../common/positronDataExpl
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-import { BackendState, ColumnDisplayType, DatasetImportOptions, RowFilterCondition, RowFilterType, SchemaUpdateEvent, SetDatasetImportOptionsResult, SupportedFeatures, SupportStatus } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, DatasetImportOptions, ExportFormat, RowFilterCondition, RowFilterType, SchemaUpdateEvent, SetDatasetImportOptionsResult, SupportedFeatures, SupportStatus } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 
@@ -180,6 +180,36 @@ describe('PositronDataExplorerInstance file options', () => {
 		});
 		// True is what makes it wait for a filter/sort task that is still in flight.
 		expect(mockClient.getBackendState).toHaveBeenCalledWith(true);
+	});
+
+	it('getViewContext describes the cursor and a small row selection with its values', async () => {
+		mockClient.exportDataSelection = vi.fn().mockResolvedValue({ data: 'a\tb', format: ExportFormat.Tsv });
+		instance.tableDataDataGridInstance.setCursorPosition(1, 0);
+		instance.tableDataDataGridInstance.selectRow(1);
+
+		const context = await instance.getViewContext();
+
+		// Column names and row labels fall back to indexes when they aren't cached.
+		expect(context).toEqual({
+			displayName: 'book.xlsx',
+			shape: { rows: 2, columns: 2 },
+			unfilteredShape: { rows: 2, columns: 2 },
+			rowFilters: [],
+			sortKeys: [],
+			cursor: { column: '1', row: '0' },
+			selection: { kind: 'rows', columnCount: 2, rowCount: 1, columns: ['0', '1'], rows: ['1'], values: 'a\tb' },
+		});
+	});
+
+	it('getViewContext omits the values and rows of a large column selection', async () => {
+		backendState.table_shape = { num_rows: 1000, num_columns: 2 };
+		mockClient.exportDataSelection = vi.fn();
+		instance.tableDataDataGridInstance.selectColumn(0);
+
+		const context = await instance.getViewContext();
+
+		expect(context.selection).toEqual({ kind: 'columns', columnCount: 1, rowCount: 1000, columns: ['0'], rows: undefined, values: undefined });
+		expect(mockClient.exportDataSelection).not.toHaveBeenCalled();
 	});
 
 	it('isFileBacked is true for a duckdb-backed instance', () => {
