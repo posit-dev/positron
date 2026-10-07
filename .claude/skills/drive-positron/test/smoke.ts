@@ -107,6 +107,8 @@ const cases: Case[] = [
 	{ name: 'console-run r a longer command', run: ['console-run.sh', '--language', 'r', '--capture', 'cat("smoke", 6 * 7, "\\n"); cat("later\\n")'], check: o => includes(o.json!.output, 'later') },
 	{ name: 'console-read r --after the echo', run: ['console-read.sh', '--language', 'r', '--after', 'cat("smoke", 6 * 7, "\\n")', '--tail', '0'], check: o => includes(o.stderr, 'exactly the text') || includes(o.text.split('\n')[0], 'smoke 42') },
 	{ name: 'console-read r --after no match', run: ['console-read.sh', '--language', 'r', '--after', 'smoke-no-such-text'], fail: true },
+	// An empty value is a usage error, not the flag left out (which reads the active console).
+	{ name: 'console-read empty --after', run: ['console-read.sh', '--after', ''], fail: true, check: o => includes(o.json!.error, '--after needs a value') },
 	// A Python error's traceback is collapsed: console-read says so, and --expand shows its frames.
 	{ name: 'console-run python error', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'def smoke_boom():\n    raise ValueError("smoke-boom")\n\nsmoke_boom()'], check: o => includes(o.json!.output, 'smoke-boom') },
 	{ name: 'console-read traceback collapsed', run: () => ['console-read.sh', '--name', found.py, '--tail', '3'], check: o => includes(o.stderr, '1 traceback is collapsed') },

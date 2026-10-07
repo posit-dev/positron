@@ -256,6 +256,18 @@ export function seconds(p: Parsed, flag: string, fallback: number): number {
 	return n;
 }
 
+/**
+ * A text flag's value, or '' when it is absent. Given with no value (last on
+ * the line, or --flag=) or an empty one is a usage error (exit 2): '' would
+ * read as the flag left out, and the command would act on whatever is active.
+ */
+export function textFlag(p: Parsed, flag: string): string {
+	const v = p.flags[flag];
+	if (v === undefined) { return ''; }
+	if (v === true || v === '') { throw new Exit(2, { ok: false, error: `--${flag} needs a value; leave the flag out for none` }); }
+	return v;
+}
+
 export function language(p: Parsed): 'python' | 'r' {
 	const l = String(p.flags.language ?? '').toLowerCase();
 	if (l !== 'python' && l !== 'r') { throw new Exit(2, { ok: false, error: '--language must be python or r' }); }

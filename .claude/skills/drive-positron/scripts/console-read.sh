@@ -30,7 +30,12 @@
 #                    error's traceback frames are in the text
 #   --prompt         print only the prompt the console's input shows now:
 #                    R's ">" or "Browse[1]>" while paused in the debugger, "+"
-#                    mid-expression; Python's ">>>"
+#                    mid-expression; Python's ">>>". While an input() or
+#                    readline() waits for an answer, the console hides its
+#                    input and asks in the output: then it prints that
+#                    question ("name?"), trimmed, and stderr says an input
+#                    request waits. When neither shows (the console draws no
+#                    prompt while code runs), it fails with exit 1
 #
 # With no --language or --name, it reads the active console. The text is the
 # console's rows as drawn, blank rows included, one per line.
@@ -41,8 +46,11 @@
 # 4 f()") prints what follows that line, which can be just "Show Traceback".
 #
 # Stdout: the console text, then nothing else. Stderr: which console it read,
-# its prompt, the tracebacks collapsed or expanded, and the --after match.
-# Exit code: 0 when it read a console, 1 when none matched, 2 on a usage error.
+# its prompt ("no prompt" when none shows, with the question of an input
+# request that waits), the tracebacks collapsed or expanded, and the --after match.
+# Exit code: 0 when it read a console, 1 when none matched or --prompt found
+# no prompt, 2 on a usage error
+# (a --language, --name or --after given with no value or an empty one is one).
 #
 # Required tools on PATH: jq.
 
