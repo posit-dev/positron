@@ -81,8 +81,13 @@ test('reviewEdits keeps a rewrite that holds every fact and rejects one that dro
 	]);
 });
 
+test('reviewEdits rejects a title that drops a name the finding needs', () => {
+	const { kept, rejected } = reviewEdits(REPORT, parseEdits('TITLE: 1=Viewer stays empty after Run Shiny App starts'));
+	assert.deepEqual([kept.size, rejected], [0, [{ n: 1, field: 'title', reason: 'loses R' }]]);
+});
+
 test('reviewEdits rejects a title that would break the table', () => {
-	const { rejected } = reviewEdits(REPORT, parseEdits('TITLE: 1=Viewer | empty'));
+	const { rejected } = reviewEdits(REPORT, parseEdits('TITLE: 1=Run Shiny App on an R app | never previews it'));
 	assert.equal(rejected[0].reason, 'has a | or ;');
 });
 

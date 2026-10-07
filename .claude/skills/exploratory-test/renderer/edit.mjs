@@ -91,13 +91,18 @@ export function currentFields(report) {
 	return out;
 }
 
-/** What a rewrite must keep word for word: code spans, quoted strings and numbers. */
-export function factsOf(text) {
+/**
+ * What a rewrite must keep word for word: code spans, quoted strings and
+ * numbers, and in a title every capitalized word after the first, since those
+ * name the language, command or setting the bug needs.
+ */
+export function factsOf(text, { title = false } = {}) {
 	const spans = [...text.matchAll(/`[^`]+`/g)].map(m => m[0]);
 	const prose = text.replace(/`[^`]+`/g, ' ');
 	const quotes = [...prose.matchAll(/"[^"]+"/g)].map(m => m[0]);
 	const numbers = [...prose.replace(/"[^"]+"/g, ' ').matchAll(/(?<![\w.])\d+(?:[.,]\d+)*(?![\w])/g)].map(m => m[0]);
-	return [...new Set([...spans, ...quotes, ...numbers])];
+	const names = title ? [...prose.replace(/"[^"]+"/g, ' ').matchAll(/(?<=\s)[A-Z][\w.]*/g)].map(m => m[0].replace(/\.$/, '')) : [];
+	return [...new Set([...spans, ...quotes, ...numbers, ...names])];
 }
 
 /**
@@ -112,7 +117,7 @@ export function reviewEdits(report, edits) {
 	for (const [n, fields] of edits) {
 		for (const [field, after] of Object.entries(fields)) {
 			const before = current.get(n)?.[field];
-			const lost = before === undefined ? [] : factsOf(before).filter(f => !after.includes(f));
+			const lost = before === undefined ? [] : factsOf(before, { title: field === 'title' }).filter(f => !new RegExp(`(?<![\\w])${f.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`).test(after));
 			const reason = before === undefined ? `Finding ${n} has no ${field}`
 				: lost.length ? `loses ${lost.join(', ')}`
 					: field === 'title' && /[|;]/.test(after) ? 'has a | or ;'
