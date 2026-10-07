@@ -343,7 +343,8 @@
 		"https://support.posit.co",
 		"https://*.cloud.databricks.com",
 		"https://*.azuredatabricks.net",
-		"https://*.gcp.databricks.com"
+		"https://*.gcp.databricks.com",
+		"https://oidc.*.amazonaws.com"
 	],
 	"defaultChatAgent": {
 		"extensionId": "GitHub.copilot-chat",
