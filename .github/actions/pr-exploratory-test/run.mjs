@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { missingFiles, readRunDir, skillVersion, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { applyEdits, buildEditPrompt, buildRetryPrompt, parseEdits, reviewEdits } from '../../../.claude/skills/exploratory-test/renderer/edit.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
@@ -27,6 +28,7 @@ const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
 // Beside explorer.md, so both prompts come from the harness checkout rather
 // than the branch under test, which may not have this file yet.
 const VERIFIER_PATH = join(dirname(EXPLORER_PATH), 'verifier.md');
+const EDITOR_PATH = join(dirname(EXPLORER_PATH), 'editor.md');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
@@ -53,6 +55,7 @@ const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
 // The verification bills separately from the explore pass, so its cost record
 // outlives the function that produces it.
 let verifyCost = buildCostRecord(null);
+let editCost = buildCostRecord(null);
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -184,6 +187,61 @@ async function verifyReport() {
 	return chunks.length ? fromVerdictLine(chunks[chunks.length - 1]) : null;
 }
 
+/** One editor call: its reply, with its cost added to the edit pass's. */
+async function askEditor(prompt) {
+	const chunks = [];
+	for await (const message of query({
+		prompt,
+		options: {
+			model: VERIFY_MODEL,
+			cwd: WORK_DIR,
+			allowedTools: [],
+			maxTurns: 2,
+			stderr: data => process.stderr.write(`[edit stderr] ${data}`),
+			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
+		},
+	})) {
+		if (message.type === 'assistant') {
+			chunks.push(...(message.message?.content || []).filter(b => b.type === 'text').map(b => b.text));
+		} else if (message.type === 'result') {
+			const record = buildCostRecord(message);
+			console.log(`[edit] result: ${JSON.stringify(record)}`);
+			const add = key => (editCost[key] ?? 0) + (record[key] ?? 0) || null;
+			editCost = { ...record, total_cost_usd: add('total_cost_usd'), num_turns: add('num_turns'), duration_ms: add('duration_ms') };
+		}
+	}
+	return chunks.join('\n');
+}
+
+/**
+ * Writes each finding's opening (summary, where) and a title cut
+ * from it, and rewrites the Result, with a fresh agent that sees each card only
+ * through Expected, never a Cause. Anything the guard rejects gets one more try
+ * with the reason, then is skipped, so the worst case is the report as the
+ * explorer wrote it.
+ */
+async function editReport(report) {
+	const template = readFileSync(EDITOR_PATH, 'utf8');
+	const prompt = buildEditPrompt(template, report);
+	if (!prompt) {
+		return report;
+	}
+	let edited = report;
+	let retry = prompt;
+	for (const last of [false, true]) {
+		const { kept, rejected } = reviewEdits(edited, parseEdits(await askEditor(retry)));
+		for (const r of rejected) {
+			console.log(`[edit] ${last ? 'kept' : 'retrying'} ${r.field === 'result' ? 'the Result' : `Finding ${r.n}'s ${r.field}`}: the rewrite ${r.reason}`);
+		}
+		edited = applyEdits(edited, kept);
+		retry = last ? null : buildRetryPrompt(template, edited, rejected);
+		if (!retry) {
+			break;
+		}
+	}
+	return edited;
+}
+
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
 	// Fetched by the workflow while the build ran; the verifier and renderer read it from the run directory.
@@ -269,6 +327,7 @@ async function main() {
 	const footer = () => renderCostFooter([
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
+		{ label: 'edit', cost: editCost },
 	], MAX_TURNS);
 	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
 	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
@@ -296,8 +355,8 @@ async function main() {
 			model: cost.model,
 			turns: cost.num_turns,
 			maxTurns: MAX_TURNS,
-			costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) || null,
-			durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) || null,
+			costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) + (editCost.total_cost_usd ?? 0) || null,
+			durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) + (editCost.duration_ms ?? 0) || null,
 			parsed: markdown ? parseReport(markdown) : null,
 			checks: readChecks(WORK_DIR),
 			timeLimit: TIME_LIMIT ? { minutes: TIME_LIMIT, reached: timeWasUp, stopped: timedOut } : null,
@@ -348,7 +407,14 @@ async function main() {
 		// Annotation is best effort and never removes a row, because a wrong
 		// FALSE POSITIVE that deleted a real finding would be invisible to
 		// everyone. Shared with local runs through finish.mjs.
-		const reviewed = verdicts ? applyVerification(report, verdicts, { failed: verifyFailed }) : report;
+		const verified = verdicts ? applyVerification(report, verdicts, { failed: verifyFailed }) : report;
+		let reviewed = verified;
+		try {
+			reviewed = await editReport(verified);
+		} catch (err) {
+			// The explorer's wording is still a complete report.
+			console.error(`[edit] failed, findings keep their original wording: ${err}`);
+		}
 		reportMarkdown = `${reviewed}\n\n${footer()}\n`;
 		// Written with the footer: report.md is published to the CDN on its own,
 		// where the step summary's copy of the cost is not reachable.

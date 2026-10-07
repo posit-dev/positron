@@ -300,7 +300,8 @@ Steps:
 - State the run set up outside the product is a precondition that says the run
   made it: "`shiny` 1.9.1 installed into the run's venv". Install packages only
   into the run's own venv or a temporary R library (`run-venv.sh`), never into
-  one other runs share.
+  one other runs share. A finding's reader has no run, so its precondition
+  names only the interpreter and package: "Python 3.12 with shiny 1.9.1".
 - Each run stands alone: never read another run's output or cite it as
   coverage. Everything this run tried is in its ledger; a check made in
   passing becomes a scenario if you can name what you saw, or a Noticed line.
@@ -482,7 +483,11 @@ finishes, and Interrupt cannot stop it"). State it as a fact in under about 90
 characters, and leave the cause to its own part. Don't write "any", "every" or
 "all" unless the run covered that range: the title is often the only place
 scope is stated. When behavior that used to work is now broken, say so ("X no
-longer Y"), since that decides whether a reader reverts or fixes forward.
+longer Y"), since that decides whether a reader reverts or fixes forward. Name
+a thing by where the reader sees it, not where it lives: "functions that Go to
+Symbol lists", not "functions the language server reports". The kernel, the
+language server and the extension host are where things live; say the pane,
+list or hover that shows them, here and in Observed and Expected.
 
 `Feature` is the area of Positron the finding is in, in lowercase except for
 proper names: "data explorer", "console", "R console", "Positron Assistant".
@@ -523,16 +528,21 @@ A precondition that only existed in your head is how a finding stops
 reproducing. So is state you did not create. Before writing a finding, compare
 the screen at its first step with what its steps and preconditions produce: a
 console the app started on launch, a setting the launcher or seeded profile
-applied, an editor restored from last time. Write each in, as a step for what
-the app did ("Wait for the Python console to start.") or a precondition for a
-setting. Launch flags belong in the ledger's Environment, and scratch paths in
-Run details.
+applied, an editor restored from last time. Write each in as a precondition,
+the state before step 1, saying when the app did it on its own ("A Python
+console, which Positron starts on launch"); a step is only what the reader
+does. Launch flags belong in the ledger's Environment, and scratch paths in
+Run details: name a workspace by what it holds ("A workspace with
+`shiny_app.R`"), not its path.
 
 Repeat each finding's preconditions in full, one state per line ("pandas 3.0.3
-in `.venv`", "R 4.5.1 with dplyr", the file in backticks and the exact command
-that loads it), never a catch-all such as "Data scripts". Package names keep
-their real case (dplyr, not Dplyr). When another finding has the same setup,
-point to it: "Any table with summaries paused (Finding 2, steps 1-2)".
+in `.venv`", "R 4.5.1 with dplyr", the file in backticks), never a catch-all
+such as "Data scripts". Loading the file is a step, with the exact command
+("Run `%run -i slow.py` in the Python console."). The workspace's files
+share one line ("A workspace with `app.R` and `app.py`"). Package names keep
+their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
+showing it, is never a precondition, even when another finding starts it the
+same way: its steps start it, with a check that it runs.
 
 `N` is the finding's number, given in the order you found them and never
 changed. The table lists findings worst first, so its numbers need not run in
@@ -546,7 +556,7 @@ order.
 **Repro**
 
 **Preconditions:**
-- <short name, 2 to 4 words, for Coverage, e.g. `slow.py` loaded> | <the full line the finding card shows, e.g. `slow.py` loaded with `%run -i slow.py`, which builds tables that are slow to summarize. Leave the list out when nothing is needed.>
+- <short name, 2 to 4 words, for Coverage, e.g. `slow.py`> | <the full line the finding card shows, e.g. `slow.py`, which builds tables that are slow to summarize; the step that runs it comes first. Leave the list out when nothing is needed.>
 
 1. <one action>
 2. VERIFY <expectation> -> PASS
