@@ -36,7 +36,11 @@
 #                        each with "kind" (console, notebook, quarto), "name"
 #                        (the interpreter), "document" (the file), the
 #                        interpreter's path, and "foreground" for the one in
-#                        front. A console session keeps its id
+#                        front. A console session keeps its tab's id and
+#                        active flag; two of one name pair by order (both
+#                        lists run oldest first). When a name's rows and tabs
+#                        do not line up (the picker leaves out an exited
+#                        session), those rows get no id, and "note" says so
 #   console WHICH        make a console the active one, without running code:
 #                        WHICH is a language (python, r), part of a session's
 #                        name, or its id (python-1a2b3c4d or the bare 1a2b3c4d),
@@ -71,7 +75,8 @@
 #                        below it, the part closes ("now": "hidden", and a note)
 #
 # Stdout: one JSON line. Exit code: 0 on success, 1 when the tab, terminal or
-# session is not there, 2 on a usage error.
+# session is not there, 2 on a usage error (an unknown flag, or --all on a
+# command other than sessions).
 
 # Implemented in dp-panel.ts.
 exec node "$(dirname "${BASH_SOURCE[0]}")/dp.ts" panel "$@"

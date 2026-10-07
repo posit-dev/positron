@@ -229,7 +229,11 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 		const session = (await lib.consoles()).sessions.find(t => t.id === target)?.name ?? null;
 		const busy = await page.locator(c$.busy).count() > 0;
 		const base = { sessionId: target, switched, session, busy };
-		const before = count(await inst.innerText());
+		// Count the code in the transcript only: the input holds the pasted code
+		// itself, and holds it again when an incomplete statement is put back
+		// (consoleText also leaves out the code drawn in the output while it is checked).
+		const transcript = async () => count((await lib.consoleText(target))?.text ?? '');
+		const before = await transcript();
 		// Clear anything half-typed, through Monaco's own keys, then paste as a person would.
 		// Keys go wherever focus is, so press none unless it is in this console's
 		// input: during a restart the input can refuse focus, and Select All then
@@ -266,17 +270,27 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 		for (const until = Date.now() + 2000; !shown && Date.now() < until;) { await lib.sleep(100); shown = await pasted(); }
 		if (!shown) { return { ok: false, ...base, error: 'the pasted code is not in the console input' }; }
 		if (!await focused()) { return { ok: false, ...base, error: 'focus left the console input before Enter; the code was pasted but not run' }; }
+		// The input's rows (one prompt each) before Enter: Enter clears the input
+		// while the code is checked, and code found incomplete comes back with a
+		// continuation row added below it.
+		const rows = () => inst.locator(c$.anyPrompt).count();
+		const typed = await rows();
 		await page.keyboard.press('Enter');
 		// The code is echoed above the prompt once the console accepts it; a busy session queues it.
 		const end = Date.now() + a.timeout * 1000;
 		let echoed = false;
 		while (Date.now() < end) {
 			if ((await lib.consoles()).active !== target) { return { ok: false, ...base, echoed: false, error: 'another console became active before the code ran' }; }
-			if (count(await inst.innerText()) > before) { echoed = true; break; }
+			if (await transcript() > before) { echoed = true; break; }
+			if (await rows() > typed && await pasted()) {
+				const held = await lib.consoleText(target);
+				const at = typeof held?.prompt === 'string' ? `prompt ${held.prompt}` : 'no prompt shown';
+				return { ok: false, ...base, echoed: false, prompt: held?.prompt ?? null, error: `the console is waiting for more input (${at}): the code is incomplete, was not echoed and did not run; it is back in the input with a new line. End a Python block with a blank line, or close the open bracket; press Escape in the console to clear it` };
+			}
 			await lib.sleep(150);
 		}
 		if (!echoed) { return { ok: false, ...base, echoed: false, error: `the code was not echoed in this console within ${a.timeout} s; it may be queued behind running code` }; }
-		// An incomplete block leaves the console at its continuation prompt, waiting, with nothing run.
+		// Something was echoed, but the console can still be left at its continuation prompt, waiting.
 		await lib.sleep(300);
 		const now = await lib.consoleText(target);
 		if (now?.prompt === '...' || now?.prompt === '+') {
