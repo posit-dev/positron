@@ -300,7 +300,8 @@ Steps:
 - State the run set up outside the product is a precondition that says the run
   made it: "`shiny` 1.9.1 installed into the run's venv". Install packages only
   into the run's own venv or a temporary R library (`run-venv.sh`), never into
-  one other runs share.
+  one other runs share. A finding's reader has no run, so its precondition
+  names only the interpreter and package: "Python 3.12 with shiny 1.9.1".
 - Each run stands alone: never read another run's output or cite it as
   coverage. Everything this run tried is in its ledger; a check made in
   passing becomes a scenario if you can name what you saw, or a Noticed line.
@@ -536,9 +537,11 @@ Run details: name a workspace by what it holds ("A workspace with
 
 Repeat each finding's preconditions in full, one state per line ("pandas 3.0.3
 in `.venv`", "R 4.5.1 with dplyr", the file in backticks and the exact command
-that loads it), never a catch-all such as "Data scripts". Package names keep
-their real case (dplyr, not Dplyr). When another finding has the same setup,
-point to it: "Any table with summaries paused (Finding 2, steps 1-2)".
+that loads it), never a catch-all such as "Data scripts". The workspace's files
+share one line ("A workspace with `app.R` and `app.py`"). Package names keep
+their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
+showing it, is never a precondition, even when another finding starts it the
+same way: its steps start it, with a check that it runs.
 
 `N` is the finding's number, given in the order you found them and never
 changed. The table lists findings worst first, so its numbers need not run in

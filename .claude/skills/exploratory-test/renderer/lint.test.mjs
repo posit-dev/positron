@@ -173,6 +173,14 @@ test('flags a precondition that names a scratch path, and a step that only waits
 	assert.deepEqual(step('Run `x` and wait for the plot to appear.'), []);
 });
 
+test('flags a precondition that is a running app, or says "the run\'s"', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- App | ${p}\n\n1. Click Retry.`)).filter(x => /running app|the run's/.test(x));
+	assert.deepEqual(pre('the app from `shiny_app.R` serving on port 56934 in an R Shiny console'), ['report: Finding 1 precondition "App" is a running app ("serving"); start it in the steps, with a check that it runs']);
+	assert.deepEqual(pre('Python 3.12.11 in the run\'s venv with shiny 1.8.0 installed'), ['report: Finding 1 precondition "App" says "the run\'s", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")']);
+	assert.deepEqual(pre('Python 3.12 with shiny 1.8.0'), []);
+	assert.deepEqual(pre('`app.py` that calls `app.run(port=5057)`'), []);
+});
+
 test('flags a step that runs a precondition\'s command again', () => {
 	const repro = (pre, step) => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${pre}\n\n1. ${step}`)).filter(p => /precondition already/.test(p));
 	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Run `%run -i slow.py` in the Python console.'), ['report: Finding 1 step 1 runs `%run -i slow.py`, which a precondition already sets up; start the steps after it']);

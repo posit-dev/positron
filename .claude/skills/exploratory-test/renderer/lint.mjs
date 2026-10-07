@@ -61,6 +61,8 @@ const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|te
 // A precondition saying how it was done in the app ("started with Run App", "then opened"): that is a step.
 // A scratch path the reader does not have; a workspace is named by what it holds.
 const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
+// An app already serving is what the steps start, so the reader sees it start.
+const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+/i;
 const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected)\s+(?:with|from|via|by|using)|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran))\b/i;
 const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
 // Where an action stops running code and starts quoting what it waits for.
@@ -332,7 +334,7 @@ const HELPERS = (() => {
 	}
 })();
 
-/** Preconditions that are something done in the app, which the rules make steps, or that name a scratch path. */
+/** Preconditions that are something done in the app, which the rules make steps, or that name a scratch path or the run. */
 function lintPreconditionActions(preconditions) {
 	const problems = [];
 	for (const [where, line] of preconditions) {
@@ -340,6 +342,13 @@ function lintPreconditionActions(preconditions) {
 		const done = /^\*\*/.test(text) ? null : DONE_IN_APP.exec(text.replace(/`[^`]*`/g, 'code'));
 		if (done) {
 			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`);
+		}
+		const running = RUNNING_APP.exec(text.replace(/`[^`]*`/g, 'code'));
+		if (running) {
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is a running app ("${running[0]}"); start it in the steps, with a check that it runs`);
+		}
+		if (where.startsWith('Finding') && /\bthe run's\b/i.test(text)) {
+			problems.push(`report: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" says "the run's", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")`);
 		}
 		const path = SCRATCH_PATH.exec(text);
 		if (path) {
