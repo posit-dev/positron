@@ -35,6 +35,7 @@ import watcher from './watch/index.ts';
 import os from 'os';
 import { getBootstrapExtensionStream } from './bootstrapExtensions.ts';
 import { isPrunedExtensionDependencyFile, isUnusedCopilotOpenTelemetryPackage } from './positron-path-budget.ts';
+import { DUCKDB_EXTENSIONS, DUCKDB_RUNTIME_PACKAGES, DUCKDB_SOURCE_EXTENSION, assertDuckdbVersionsMatch, isDuckdbRuntimeFile } from './positron-duckdb-runtime.ts';
 // --- End Positron ---
 
 import { createRequire } from 'module';
@@ -91,60 +92,15 @@ const positronWebpackExtensions = new Set([
 	'positron-python',
 ]);
 
-// Extensions that load DuckDB (`@duckdb/node-api`) from a forked worker. Each
-// one installs its own copy, so that a dev build and the per-folder `--cpu`
-// rule in build/npm/postinstall.ts keep working. Each copy carries a ~110MB
-// native library, so the packaged build ships one shared copy instead: it
-// leaves the per-extension copies out, and stages the copy of
-// `duckdbSourceExtension` in the shared `extensions/node_modules`, where Node
-// resolution from each `dist/duckdbWorker.js` finds it. See
-// posit-dev/positron#14265.
-const duckdbExtensions = new Set([
-	'positron-duckdb',
-	'positron-data-driver-duckdb',
-	'positron-data-driver-pins',
-]);
-const duckdbSourceExtension = 'positron-duckdb';
-
-// The packages that make up the DuckDB runtime. `detect-libc` is a runtime
-// dependency of `@duckdb/node-bindings` only.
-const duckdbRuntimePackages = ['@duckdb', 'detect-libc'];
-
-function isDuckdbRuntimeFile(relativePath: string): boolean {
-	const normalizedPath = relativePath.split(/[\\/]/).join('/');
-	return duckdbRuntimePackages.some(pkg => normalizedPath.startsWith(`node_modules/${pkg}/`));
-}
-
-/**
- * Fails the build unless every extension in `duckdbExtensions` has installed the
- * same DuckDB versions, because one shared copy serves all of them at runtime.
- */
-function assertDuckdbVersionsMatch(): void {
-	const readVersion = (extensionName: string, pkg: string): string => {
-		const manifestPath = path.join(root, 'extensions', extensionName, 'node_modules', pkg, 'package.json');
-		if (!fs.existsSync(manifestPath)) {
-			return 'not installed';
-		}
-		return JSON.parse(fs.readFileSync(manifestPath, 'utf8')).version;
-	};
-
-	for (const pkg of ['@duckdb/node-api', '@duckdb/node-bindings']) {
-		const versions = [...duckdbExtensions].map(extensionName => ({ extensionName, version: readVersion(extensionName, pkg) }));
-		if (new Set(versions.map(v => v.version)).size !== 1 || versions[0].version === 'not installed') {
-			const details = versions.map(v => `${v.extensionName}: ${v.version}`).join(', ');
-			throw new Error(`The extensions that share DuckDB must install the same version of ${pkg} (${details}). Pin the same exact version in each package.json and run npm install.`);
-		}
-	}
-}
-
 /**
  * Stages one copy of the DuckDB runtime in `extensions/node_modules`. Applies the
- * same `.moduleignore` filters as the shared production dependencies.
+ * same `.moduleignore` filters as the shared production dependencies. See
+ * positron-duckdb-runtime.ts.
  */
 function sharedDuckdbRuntimeStream(): Stream {
-	assertDuckdbVersionsMatch();
-	const sourceRoot = path.join('extensions', duckdbSourceExtension);
-	const src = duckdbRuntimePackages.map(pkg => `${sourceRoot}/node_modules/${pkg}/**`);
+	assertDuckdbVersionsMatch(path.join(root, 'extensions'));
+	const sourceRoot = path.join('extensions', DUCKDB_SOURCE_EXTENSION);
+	const src = DUCKDB_RUNTIME_PACKAGES.map(pkg => `${sourceRoot}/node_modules/${pkg}/**`);
 	return gulp.src(src, { base: sourceRoot, dot: true })
 		.pipe(rename(p => p.dirname = `extensions/${p.dirname}`))
 		.pipe(util2.cleanNodeModules(path.join(root, 'build', '.moduleignore')))
@@ -424,8 +380,8 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 			fileNames = prunedFileNames;
 		}
 
-		// DuckDB ships once in the shared node_modules. See duckdbExtensions.
-		if (duckdbExtensions.has(extensionName)) {
+		// DuckDB ships once in the shared node_modules. See positron-duckdb-runtime.ts.
+		if (DUCKDB_EXTENSIONS.has(extensionName)) {
 			fileNames = fileNames.filter(fileName => !isDuckdbRuntimeFile(fileName));
 		}
 

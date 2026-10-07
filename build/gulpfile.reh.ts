@@ -825,11 +825,12 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
  * Fails the build when an extension ships more files than its budget. Posit
  * Workbench runs the server build on network filesystems, where file count
  * matters most. See posit-dev/positron#16025. The Windows MAX_PATH budget
- * models the desktop install directory, so this task does not check it.
+ * models the desktop install directory, so this task does not check it. The
+ * task also checks the shared DuckDB runtime for the target.
  */
-function checkPackagedTreeTaskREH(destinationFolderName: string) {
+function checkPackagedTreeTaskREH(platform: string, arch: string, destinationFolderName: string) {
 	return async () => {
-		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false });
+		checkPackagedTree(path.join(BUILD_ROOT, destinationFolderName), 'extensions', { pathLengths: false, duckdbTarget: { platform, arch } });
 	};
 }
 // --- End Positron ---
@@ -902,7 +903,7 @@ function tweakProductForServerWeb(product: typeof import('../product.json')) {
 				// --- Start Positron ---
 				// prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName)
 				prepareCopilotRipgrepShimTaskREH(platform, arch, destinationFolderName),
-				checkPackagedTreeTaskREH(destinationFolderName)
+				checkPackagedTreeTaskREH(platform, arch, destinationFolderName)
 				// --- End Positron ---
 			];
 

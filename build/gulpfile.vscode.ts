@@ -814,15 +814,15 @@ function patchWin32DependenciesTask(destinationFolderName: string) {
 // --- Start Positron ---
 /**
  * Fails the build when the packaged tree holds a path that is too long for a
- * Windows per-user install or auto-update, or when an extension ships more files
- * than its budget.
+ * Windows per-user install or auto-update, when an extension ships more files
+ * than its budget, or when the shared DuckDB runtime is incomplete for the target.
  *
  * This task runs for every platform, because the extension dependency trees that
  * own the longest paths and the most files are the same everywhere. The first
  * build of any platform therefore finds a regression, and not the next Windows
  * release. See posit-dev/positron#14702 and posit-dev/positron#16025.
  */
-function checkPackagedTreeTask(platform: string, destinationFolderName: string) {
+function checkPackagedTreeTask(platform: string, arch: string, destinationFolderName: string) {
 	const outputDir = path.join(path.dirname(root), destinationFolderName);
 
 	return async () => {
@@ -833,7 +833,7 @@ function checkPackagedTreeTask(platform: string, destinationFolderName: string) 
 			: path.join(outputDir, util.getVersionedResourcesFolder(platform, commit!));
 		const extensionsDir = platform === 'darwin' ? 'Resources/app/extensions' : 'resources/app/extensions';
 
-		checkPackagedTree(appRoot, extensionsDir, { pathLengths: true });
+		checkPackagedTree(appRoot, extensionsDir, { pathLengths: true, duckdbTarget: { platform, arch } });
 	};
 }
 // --- End Positron ---
@@ -889,7 +889,7 @@ BUILD_TARGETS.forEach(buildTarget => {
 			// --- Start Positron ---
 			// prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName)
 			prepareCopilotRipgrepShimTask(platform, arch, destinationFolderName),
-			checkPackagedTreeTask(platform, destinationFolderName)
+			checkPackagedTreeTask(platform, arch, destinationFolderName)
 			// --- End Positron ---
 		];
 
