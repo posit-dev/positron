@@ -31,7 +31,9 @@
 //   dp-window.ts window: reload, open a folder, a new window, which one is driven
 // and `help X.sh`, which prints a bash script's header for its --help,
 // `log X.sh SESSION TEXT`, a bash recipe's line in the action log, and
-// `fail X.sh SESSION OUTPUT ARGS...`, its failure's line.
+// `fail X.sh SESSION OUTPUT ARGS...`, its failure's line, and
+// `usage X.sh ERROR`, a bash helper's usage error: {"ok":false,"error"} on
+// stdout (the answer every JSON helper gives), "X.sh: ERROR" on stderr, exit 2.
 // Shared: dp-lib.ts (Node side: run-code, log, parsing, help), page-lib.ts
 // (the `lib` page functions get), selectors.ts (every selector and name).
 
@@ -90,6 +92,15 @@ function errorOf(out: string): string {
 
 function main(): number {
 	const [name, ...argv] = process.argv.slice(2);
+	// `dp.ts usage X.sh ERROR`: a bash helper whose stdout is JSON refuses its
+	// arguments the way the TypeScript helpers do, so a caller reading stdout
+	// gets the error; stderr keeps the text for a person at a terminal.
+	if (name === 'usage') {
+		const error = argv.slice(1).join(' ');
+		process.stderr.write(`${(argv[0] ?? '').split('/').pop()}: ${error}\n`);
+		process.stdout.write(JSON.stringify({ ok: false, error }) + '\n');
+		return 2;
+	}
 	const command = commands[name];
 	if (!command) { process.stdout.write(JSON.stringify({ ok: false, error: `command: ${Object.keys(commands).join(', ')}` }) + '\n'); return 2; }
 	// Every failure leaves a line in the action log, so a negative check has its evidence there.

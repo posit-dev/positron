@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
 			fi
 			FROM="$2"; shift 2 ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
-		-*) echo "run-venv.sh: unknown flag $1" >&2; exit 2 ;;
+		-*) exec node "$DIR/dp.ts" usage "$0" "unknown flag $1" ;;
 		*)
 			if [[ -n "$VENV" ]]; then
 				jq -nc --arg a "$1" --arg d "$VENV" '{ok: false, error: ("unexpected argument \"" + $a + "\" after \"" + $d + "\"; give one <dir>, see --help")}'

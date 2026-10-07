@@ -108,11 +108,11 @@ LOGMSG=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; }; [[ -n "$SESSION" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; } ;;
-		--session=*) SESSION="${1#--session=}"; [[ -n "$SESSION" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; }; shift ;;
-		--condition) COND="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--log) LOGMSG="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--timeout) TIMEOUT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--session) SESSION="${2-}"; shift 2 || { exec node "$DIR/dp.ts" usage "$0" "$1 needs a value"; }; [[ -n "$SESSION" ]] || { exec node "$DIR/dp.ts" usage "$0" "--session needs the session name"; } ;;
+		--session=*) SESSION="${1#--session=}"; [[ -n "$SESSION" ]] || { exec node "$DIR/dp.ts" usage "$0" "--session needs the session name"; }; shift ;;
+		--condition) COND="${2-}"; shift 2 || { exec node "$DIR/dp.ts" usage "$0" "$1 needs a value"; } ;;
+		--log) LOGMSG="${2-}"; shift 2 || { exec node "$DIR/dp.ts" usage "$0" "$1 needs a value"; } ;;
+		--timeout) TIMEOUT="${2-}"; shift 2 || { exec node "$DIR/dp.ts" usage "$0" "$1 needs a value"; } ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) ARGS+=("$1"); shift ;;
 	esac

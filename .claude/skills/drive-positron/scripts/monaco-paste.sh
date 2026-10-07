@@ -25,7 +25,8 @@
 #
 # Stdout: a single JSON line, e.g.
 #   {"ok":true,"lastLine":"...","viewLineCount":1,"firstViewLine":"..."}
-# Stderr: diagnostic noise from @playwright/cli (suppressed unless caller wants it).
+# Stderr: diagnostic noise from @playwright/cli (suppressed unless caller wants it),
+# and a usage error's text (its {"ok":false,"error":...} is on stdout).
 # Exit code:
 #   0  success
 #   1  paste verify failed, eval failed, or the page had no native-edit-context
@@ -59,11 +60,11 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--append) APPEND=1; shift ;;
 		--no-verify) VERIFY=0; shift ;;
-		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; }; [[ -n "$PW_SESSION_OVERRIDE" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; } ;;
-		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; [[ -n "$PW_SESSION_OVERRIDE" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; }; shift ;;
+		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { exec node "$DIR/dp.ts" usage "$0" "$1 needs a value"; }; [[ -n "$PW_SESSION_OVERRIDE" ]] || { exec node "$DIR/dp.ts" usage "$0" "--session needs the session name"; } ;;
+		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; [[ -n "$PW_SESSION_OVERRIDE" ]] || { exec node "$DIR/dp.ts" usage "$0" "--session needs the session name"; }; shift ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; TEXT_ARG="${*-}"; break ;;
-		-*) echo "monaco-paste.sh: unknown flag $1" >&2; exit 2 ;;
+		-*) exec node "$DIR/dp.ts" usage "$0" "unknown flag $1" ;;
 		*) TEXT_ARG="$1"; shift ;;
 	esac
 done
@@ -84,8 +85,7 @@ else
 fi
 
 if [[ -z "$TEXT" ]]; then
-	echo '{"ok":false,"error":"empty input"}' >&2
-	exit 2
+	exec node "$DIR/dp.ts" usage "$0" "empty input"
 fi
 
 # Sanity: required tools on PATH.

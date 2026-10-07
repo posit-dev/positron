@@ -179,6 +179,7 @@ const cases: Case[] = [
 	{ name: 'debug step over', run: ['debug.sh', 'step', 'over'], check: o => includes(o.json!.before, 'smoke_f') || (o.json!.before === o.json!.after && 'the Call Stack read the same after') },
 	{ name: 'debug step continue', run: ['debug.sh', 'step', 'continue'], check: o => includes(o.json!.before, 'smoke_f') || logged('step continue -> Call Stack before: row "Stack Frame smoke_f') },
 	{ name: 'debug wait paused, not debugging', run: ['debug.sh', 'wait', 'paused', '--timeout', '1'], fail: true, check: o => includes(o.json!.error, 'not paused after 1 s') || logged('debug.sh -s=net1: FAILED wait paused: not paused after 1 s') },
+	{ name: 'debug --timeout with no value answers JSON on stdout', run: ['debug.sh', 'wait', 'paused', '--timeout'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--timeout needs a value') },
 	// Continue from one pause to the next: step reports the view, and claims nothing about it.
 	{ name: 'console-run r two browser() pauses', run: ['console-run.sh', '--language', 'r', 'smoke_g <- function(x) { browser(); y <- x + 1; browser(); y * 2 }; smoke_g(20)'] },
 	{ name: 'debug wait paused (first browser())', run: ['debug.sh', 'wait', 'paused', '--timeout', '20'], check: o => includes(o.json!.frame, 'smoke_g') },
@@ -216,6 +217,7 @@ const cases: Case[] = [
 	{ name: 'console-run r plot 2', run: ['console-run.sh', '--language', 'r', '--capture', 'plot(1:5, col = "blue", pch = 19)'] },
 	{ name: 'plots prev', wait: 1000, run: ['plots.sh', 'prev'], check: o => (o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}`) || logged('plots.sh -s=net1: click Show Previous Plot -> Plots: "plot') },
 	{ name: 'plots read empty --session', run: ['plots.sh', 'read', '--session', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, '--session needs the session name') },
+	{ name: 'plots save --width with no value answers JSON on stdout', run: ['plots.sh', 'save', '--width'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--width needs a value') },
 	{ name: 'plots prev at the first plot', run: ['plots.sh', 'prev'], fail: true, check: () => logged('plots.sh -s=net1: FAILED prev: ') },
 	{ name: 'plots next', run: ['plots.sh', 'next'], check: o => o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}` },
 	{ name: 'plots open editor', run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "plot') },
@@ -232,6 +234,8 @@ const cases: Case[] = [
 	{ name: 'ui read Help notes the page it leaves out', run: ['ui.sh', 'read', 'Help'], check: o => includes(o.json!.note, 'view-read.sh --view Help') },
 	{ name: 'a flag and its value as one argument', run: ['nb.sh', '--notebook notebook.ipynb', 'read'], fail: true, check: o => includes(o.json?.error, 'is one argument') },
 	{ name: 'a bash helper given a flag with no value', run: ['listeners.sh', '--save'], fail: true, check: o => includes(o.stderr, '--save needs a value') },
+	{ name: 'monaco-paste an unknown flag answers JSON on stdout', run: ['monaco-paste.sh', '--bogus', 'x'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, 'unknown flag --bogus') || includes(o.stderr, 'monaco-paste.sh: unknown flag --bogus') },
+	{ name: 'monaco-paste empty input answers JSON on stdout', run: ['monaco-paste.sh', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, 'empty input') || includes(o.stderr, 'monaco-paste.sh: empty input') },
 	{ name: 'listeners --diff with a saved list that does not exist', run: ['listeners.sh', '--all', '--diff', '/nonexistent-dp-smoke/listeners-before.txt'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'cannot read the saved list') },
 	{ name: 'listeners --diff with an empty file name', run: ['listeners.sh', '--all', '--diff', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, '--diff needs the saved list\'s file name') },
 	{ name: 'listeners --save taking the next flag as its file', run: ['listeners.sh', '--save', '--all'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'not "--all"') },
@@ -245,6 +249,7 @@ const cases: Case[] = [
 	{ name: 'viewer buttons', run: ['viewer.sh', 'buttons'], check: o => includes(o.json!.buttons, 'Clear the content') },
 	{ name: 'viewer click', run: ['viewer.sh', 'click', 'smoke-viewer-button'], check: o => keys(o.json, 'did', 'changed') },
 	{ name: 'viewer click missing', run: ['viewer.sh', 'click', 'No Such Thing'], fail: true },
+	{ name: 'viewer empty --session answers JSON on stdout', run: ['viewer.sh', 'read', '--session='], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--session needs the session name') || includes(o.stderr, 'viewer.sh: --session needs the session name') },
 	// HTML content's toolbar says "the content" where a URL's says "the current URL".
 	{ name: 'viewer reload HTML content', run: ['viewer.sh', 'reload'], check: o => o.json!.clicked !== 'Reload the content' && `clicked ${o.json!.clicked}` },
 	{ name: 'viewer clear HTML content', run: ['viewer.sh', 'clear'], check: o => o.json!.clicked !== 'Clear the content' && `clicked ${o.json!.clicked}` },
