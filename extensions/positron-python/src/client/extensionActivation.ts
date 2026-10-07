@@ -223,6 +223,7 @@ async function activateLegacy(ext: ExtensionState, startupStopWatch: StopWatch):
             registerCreateEnvironmentTriggers(
                 disposables,
                 serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager),
+                interpreterManager,
             );
             initializePersistentStateForTriggers(ext.context);
         }

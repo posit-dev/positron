@@ -13,6 +13,9 @@ import { CreateEnvironmentResult } from './proposed.createEnvApis';
 import { onDidStartTerminalShellExecution, showWarningMessage } from '../../common/vscodeApis/windowApis';
 import { sendTelemetryEvent } from '../../telemetry';
 import { EventName } from '../../telemetry/constants';
+// --- Start Positron ---
+import { IInterpreterService } from '../../interpreter/contracts';
+// --- End Positron ---
 
 function checkCommand(command: string): boolean {
     const lower = command.toLowerCase();
@@ -24,7 +27,13 @@ function checkCommand(command: string): boolean {
     );
 }
 
-export function registerTriggerForPipInTerminal(disposables: Disposable[]): void {
+// --- Start Positron ---
+// export function registerTriggerForPipInTerminal(disposables: Disposable[]): void {
+export function registerTriggerForPipInTerminal(
+    disposables: Disposable[],
+    interpreterService: IInterpreterService,
+): void {
+    // --- End Positron ---
     if (!shouldPromptToCreateEnv()) {
         return;
     }
@@ -45,7 +54,10 @@ export function registerTriggerForPipInTerminal(disposables: Disposable[]): void
             if (
                 workspaceFolder &&
                 !createEnvironmentTriggered.get(workspaceFolder.uri.fsPath) &&
-                (await isGlobalPythonSelected(workspaceFolder))
+                // --- Start Positron ---
+                // (await isGlobalPythonSelected(workspaceFolder))
+                (await isGlobalPythonSelected(workspaceFolder, interpreterService))
+                // --- End Positron ---
             ) {
                 if (e.execution.commandLine.isTrusted && checkCommand(e.execution.commandLine.value)) {
                     createEnvironmentTriggered.set(workspaceFolder.uri.fsPath, true);

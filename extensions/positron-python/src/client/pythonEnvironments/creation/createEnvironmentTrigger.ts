@@ -42,6 +42,7 @@ import {
 } from './provider/autoCreateVenv';
 import { autoSyncUvEnv, autoInstallPixiEnv, showPixiNotInstalledWarning } from './provider/autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../positron/manager';
+import { IInterpreterService } from '../../interpreter/contracts';
 import { getPixi } from '../common/environmentManagers/pixi';
 import * as path from 'path';
 import * as fsapi from '../../common/platform/fs-paths';
@@ -65,8 +66,9 @@ export interface CreateEnvironmentTriggerOptions {
 
 // --- Start Positron ---
 // Set once in registerCreateEnvironmentTriggers, which runs during activation before any
-// check. The manager is a singleton, so every later check (including reruns) reads the same one.
+// check. Both are singletons, so every later check (including reruns) reads the same ones.
 let pythonRuntimeManager: IPythonRuntimeManager;
+let interpreterService: IInterpreterService;
 
 /**
  * Shows the auto-create notification and dispatches on the user's response. Shared by the
@@ -135,7 +137,7 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
         hasRequirementFiles(workspace),
         hasPyprojectToml(workspace),
         hasKnownFiles(workspace),
-        isGlobalPythonSelected(workspace).then((isGlobal) => !isGlobal),
+        isGlobalPythonSelected(workspace, interpreterService).then((isGlobal) => !isGlobal),
         fsapi.pathExists(path.join(workspace.uri.fsPath, 'uv.lock')),
         fsapi.pathExists(path.join(workspace.uri.fsPath, 'pixi.lock')),
         hasPixiEnv(workspace),
@@ -267,10 +269,12 @@ export function registerCreateEnvironmentTriggers(
     disposables: Disposable[],
     // --- Start Positron ---
     runtimeManager: IPythonRuntimeManager,
+    interpreters: IInterpreterService,
     // --- End Positron ---
 ): void {
     // --- Start Positron ---
     pythonRuntimeManager = runtimeManager;
+    interpreterService = interpreters;
     // --- End Positron ---
     disposables.push(
         registerCommand(Commands.Create_Environment_Check, (file: Resource) => {
