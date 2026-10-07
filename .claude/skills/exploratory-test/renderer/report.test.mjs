@@ -2167,10 +2167,8 @@ test('issue: the body follows the template and leaves out what triage sets', () 
 		'**Positron and OS:**  ',
 		'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)  ',
 		'Ubuntu 22.04, Linux x64',
-		'',
-		'**Session:**  ',
-		'Python 3.10.12 with pandas, polars, duckdb and pyarrow',
 	].join('\n')));
+	assert.doesNotMatch(body, /\*\*Session:/);
 	assert.doesNotMatch(body, /Code - OSS|Please investigate|### Context|!\[|Severity|Status:|Reproduced|Major|Coverage/i);
 	assert.match(body, /^- `slow\.py` \(below\) loaded/m);
 	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
