@@ -172,6 +172,10 @@ export const css = {
 		inputLines: '.console-input .view-lines',
 		prompt: '.console-input .line-numbers.active-line-number', // the prompt is drawn as Monaco's line number
 		anyPrompt: '.console-input .line-numbers',
+		// Code submitted from the input is drawn in the output while it is checked for
+		// completeness, then removed: echoed when it runs, put back in the input when
+		// incomplete. Not an echo; nothing in the tree marks it.
+		submitting: '.pending-input.submitting',
 		// input() or readline() waiting: the console input is hidden and the question is drawn
 		// in the output with its own field; an answered one keeps only the text, so the field marks it.
 		waitingPrompt: '.activity-prompt .prompt-line:has(.editor-input-container, .input-field)',
