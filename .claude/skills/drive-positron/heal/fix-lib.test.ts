@@ -105,6 +105,7 @@ test('addedCases: a removed or changed line, or a non-case line, gives null', ()
 
 test('addedCases: an escaped quote in the name is kept', () => {
 	assert.deepEqual(addedCases("@@ -1,0 +1 @@\n+\t{ name: 'ui.sh can\\'t find it', run: ['ui.sh', 'x'], fail: true },"), [{ name: "ui.sh can't find it", helper: 'ui.sh' }]);
+	assert.deepEqual(addedCases("@@ -1,0 +1 @@\n+\t{ name: 'ui.sh a\\\\b', run: ['ui.sh', 'x'] },"), [{ name: 'ui.sh a\\b', helper: 'ui.sh' }]);
 });
 
 const P = '.claude/skills/drive-positron/';
@@ -191,6 +192,10 @@ test('readReview: no JSON, bad JSON, or an unknown verdict is a problem string, 
 	assert.match(readReview('looks fine to me') as string, /no JSON/);
 	assert.match(readReview('{"verdict":"maybe","notes":[]}') as string, /verdict "maybe"/);
 	assert.match(readReview('{"verdict":"revise"') as string, /no JSON/);
+});
+
+test('readReview: braces in the notes or in prose after the JSON', () => {
+	assert.deepEqual(readReview('{"verdict":"revise","notes":["use {} here"]}\nSee `{ x }` above.'), { verdict: 'revise', notes: ['use {} here'] });
 });
 
 test('readReview: notes that are not strings are dropped; revise with no notes is approve', () => {

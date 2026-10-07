@@ -118,7 +118,7 @@ export function addedCases(diff: string): AddedCase[] | null {
 		if (/^(diff |index |--- |\+\+\+ |@@|\\| )/.test(l) || l === '' || /^\+\s*$/.test(l)) { continue; }
 		const m = l.match(/^\+\t+\{ name: '((?:[^'\\]|\\.)+)',.*\brun: (?:\(\) => )?\['([a-z-]+\.sh)'/);
 		if (!m) { return null; }
-		out.push({ name: m[1].replace(/\\'/g, '\''), helper: m[2] });
+		out.push({ name: m[1].replace(/\\(.)/g, '$1'), helper: m[2] });
 	}
 	return out;
 }
@@ -143,10 +143,13 @@ export type Review = { verdict: 'approve' | 'revise'; notes: string[] };
 export function readReview(text: string | null): Review | string {
 	if (text === null) { return 'the reviewer wrote no final text'; }
 	const at = [...text.matchAll(/\{\s*"verdict"/g)].at(-1)?.index ?? -1;
-	const end = text.lastIndexOf('}');
-	if (at < 0 || end < at) { return `the review has no JSON: ${text.slice(0, 120)}`; }
-	let o: { verdict?: unknown; notes?: unknown };
-	try { o = JSON.parse(text.slice(at, end + 1)); } catch { return `the review has no JSON: ${text.slice(at, at + 120)}`; }
+	if (at < 0) { return `the review has no JSON: ${text.slice(0, 120)}`; }
+	// The object ends at the first '}' that closes valid JSON; notes and prose may hold braces.
+	let o: { verdict?: unknown; notes?: unknown } | undefined;
+	for (let end = text.indexOf('}', at); end >= 0 && !o; end = text.indexOf('}', end + 1)) {
+		try { o = JSON.parse(text.slice(at, end + 1)); } catch { /* not the end yet */ }
+	}
+	if (!o) { return `the review has no JSON: ${text.slice(at, at + 120)}`; }
 	if (o.verdict !== 'approve' && o.verdict !== 'revise') { return `review verdict "${String(o.verdict)}" is not approve or revise`; }
 	const notes = Array.isArray(o.notes) ? o.notes.filter((n): n is string => typeof n === 'string' && n.trim() !== '') : [];
 	return { verdict: o.verdict === 'revise' && notes.length ? 'revise' : 'approve', notes };

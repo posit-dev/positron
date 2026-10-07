@@ -190,7 +190,7 @@ function checksSection(n: Night): string {
 
 export function prTitle(n: Night): string {
 	const helpers = [...new Set(n.findings.filter(kept).map(f => f.helper))];
-	const named = helpers.length > 3 ? `${helpers.slice(0, 3).join(', ')} and ${helpers.length - 3} more helpers` : helpers.join(', ');
+	const named = helpers.length > 3 ? `${helpers.slice(0, 3).join(', ')} and ${s(helpers.length - 3, 'more helper')}` : helpers.join(', ');
 	return named ? `drive-positron: fix ${named} from the nightly run` : 'drive-positron: helper fixes from the nightly run';
 }
 

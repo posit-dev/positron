@@ -233,6 +233,7 @@ test('the title names the fixed helpers, at most three', () => {
 	const fixed = (id: string, helper: string) => f(id, { helper, outcome: 'fixed' });
 	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh'), fixed('b', 'b.sh'), fixed('c', 'a.sh')] })), 'drive-positron: fix a.sh, b.sh from the nightly run');
 	assert.equal(prTitle(night({ findings: ['a', 'b', 'c', 'd', 'e'].map(h => fixed(h, `${h}.sh`)) })), 'drive-positron: fix a.sh, b.sh, c.sh and 2 more helpers from the nightly run');
+	assert.equal(prTitle(night({ findings: ['a', 'b', 'c', 'd'].map(h => fixed(h, `${h}.sh`)) })), 'drive-positron: fix a.sh, b.sh, c.sh and 1 more helper from the nightly run');
 	assert.equal(prTitle(night({ findings: [f('a', { outcome: 'fixed', rejected: 'r' })] })), 'drive-positron: helper fixes from the nightly run');
 });
 

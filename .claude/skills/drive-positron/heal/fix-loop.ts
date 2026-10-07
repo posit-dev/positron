@@ -176,10 +176,11 @@ function main(): number {
 		n++;
 		const outFile = join(dir, `outcome-${f.id}.json`);
 		const earlier = earlierVerdicts(recent, f);
+		const others = otherOpen(findings, f.id);
 		writeFileSync(join(dir, 'fixer-brief.md'), [
 			'# Finding', '', '```json', JSON.stringify(f, null, 2), '```', '',
 			...(earlier.length ? ['# Earlier verdicts', '', ...earlier.map(v => `- ${v}`), ''] : []),
-			...(otherOpen(findings, f.id).length ? ['# Other open findings tonight', '', ...otherOpen(findings, f.id), ''] : []),
+			...(others.length ? ['# Other open findings tonight', '', ...others, ''] : []),
 			`Checkout: ${repo}`, `App args for fixture-app.ts launch: ${appArgs.join(' ') || '(none)'}`,
 			`State file for fixture-app.ts --state: ${stateFile}`, `Outcome path: ${outFile}`,
 			...(redOnMain.length ? [`check.ts already fails without your fix: ${redOnMain.join(', ')}. Those checks are not yours to fix.`] : []),
