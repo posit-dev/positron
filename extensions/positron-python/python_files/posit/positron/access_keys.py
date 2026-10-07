@@ -37,6 +37,8 @@ _ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY: Dict[str, str] = {
     "bool": "boolean",
     "str": "string",
     "range": "collection",
+    "tuple": "collection",
+    "NoneType": "empty",
     "type": "class",
 }
 
@@ -66,6 +68,10 @@ def decode_access_key(access_key: str) -> Any:
         # See https://github.com/posit-dev/positron/issues/8052.
         return access_key
 
+    return access_key_from_json(cast("Dict[str, JsonData]", json_data))
+
+
+def access_key_from_json(json_data: "Dict[str, JsonData]") -> Any:
     # Get the inspector for this type.
     # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
     type_name = cast("str", json_data["type"])

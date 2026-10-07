@@ -261,6 +261,13 @@ class NoneInspector(PositronInspector[type(None)]):
     def is_mutable(self) -> bool:
         return False
 
+    def value_to_json(self) -> JsonData:
+        return None
+
+    @classmethod
+    def value_from_json(cls, type_name: str, data: JsonData) -> None:  # noqa: ARG003
+        return None
+
 
 class BooleanInspector(PositronInspector[bool]):
     def is_mutable(self) -> bool:
@@ -625,6 +632,9 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
                 "step": self.value.step,
             }
 
+        if isinstance(self.value, tuple):
+            return [get_inspector(item).to_json() for item in self.value]
+
         return super().value_to_json()
 
     @classmethod
@@ -648,6 +658,14 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
                 cast("int", data["stop"]),
                 cast("int", data["step"]),
             )
+
+        if type_name == "tuple":
+            from .access_keys import access_key_from_json
+
+            if not isinstance(data, list):
+                raise ValueError(f"Expected data to be list, got {data}")
+
+            return cast("CollectionT", tuple(access_key_from_json(item) for item in data))  # type: ignore
 
         return super().value_from_json(type_name, data)
 
