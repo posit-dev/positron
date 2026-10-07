@@ -243,6 +243,31 @@ export function pause(seconds: number): void {
 	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, seconds * 1000);
 }
 
+/**
+ * A flag's value in seconds, or the default when it is absent. Anything but a
+ * positive number is a usage error (exit 2): Number() reads "abc" as NaN and ""
+ * as 0, and a wait bounded by either ends before it starts.
+ */
+export function seconds(p: Parsed, flag: string, fallback: number): number {
+	const v = p.flags[flag];
+	if (v === undefined) { return fallback; }
+	const n = typeof v === 'string' && /^\s*\d*\.?\d+\s*$/.test(v) ? Number(v) : NaN;
+	if (!(n > 0)) { throw new Exit(2, { ok: false, error: `--${flag} must be a positive number of seconds, not ${JSON.stringify(v === true ? '' : v)}` }); }
+	return n;
+}
+
+/**
+ * A text flag's value, or '' when it is absent. Given with no value (last on
+ * the line, or --flag=) or an empty one is a usage error (exit 2): '' would
+ * read as the flag left out, and the command would act on whatever is active.
+ */
+export function textFlag(p: Parsed, flag: string): string {
+	const v = p.flags[flag];
+	if (v === undefined) { return ''; }
+	if (v === true || v === '') { throw new Exit(2, { ok: false, error: `--${flag} needs a value; leave the flag out for none` }); }
+	return v;
+}
+
 export function language(p: Parsed): 'python' | 'r' {
 	const l = String(p.flags.language ?? '').toLowerCase();
 	if (l !== 'python' && l !== 'r') { throw new Exit(2, { ok: false, error: '--language must be python or r' }); }

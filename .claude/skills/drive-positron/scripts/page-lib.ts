@@ -577,8 +577,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return last(/ (starting|restarting|reconnecting)\.$/) > last(/ (started|restarted|reconnected)\.$/);
 		}).map(inst => (inst.getAttribute('data-testid') ?? '').slice(c.instanceTestId.length)), s.console),
 		/**
-		 * A console's output text (without what is typed in its input), its prompt
-		 * and its tab name. The text is its rows as drawn: a line is a block with
+		 * A console's output text (without what is typed in its input), its prompt,
+		 * the question of an input() waiting for an answer, and its tab name. The text is its rows as drawn: a line is a block with
 		 * no block inside it, and a <br> between lines is a blank row. innerText
 		 * adds a line break at every block's edge, so its blank rows are wrong
 		 * both ways.
@@ -607,9 +607,13 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			};
 			const text = rows(box, []).join('\n');
 			// The prompt the input shows now: R's is Browse[1]> while debugging, + mid-expression.
+			// null when none is drawn: the input is hidden, or has no prompt while code runs.
 			const prompt = (inst.querySelector(c.prompt) ?? inst.querySelector(c.anyPrompt))?.textContent?.trim() || null;
+			// The question of an input() or readline() waiting for an answer, without the field's text; null when none waits.
+			const line = [...inst.querySelectorAll<HTMLElement>(c.waitingPrompt)].filter(e => e.getClientRects().length).pop();
+			const waiting = line ? [...line.childNodes].filter(n => !(n instanceof Element && n.matches(c.waitingField))).map(n => n.textContent ?? '').join('').replace(/\u00A0/g, ' ').trim() : null;
 			const tab = document.querySelector(`[data-testid="${c.tabTestId}${i}"]`);
-			return { session: tab?.getAttribute('aria-label') ?? i, prompt, text: text.replace(/\u00A0/g, ' ') };
+			return { session: tab?.getAttribute('aria-label') ?? i, prompt, waiting, text: text.replace(/\u00A0/g, ' ') };
 		}, { i: id, c: s.console }),
 	};
 	return lib;

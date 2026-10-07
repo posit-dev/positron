@@ -172,9 +172,14 @@ export const css = {
 		inputLines: '.console-input .view-lines',
 		prompt: '.console-input .line-numbers.active-line-number', // the prompt is drawn as Monaco's line number
 		anyPrompt: '.console-input .line-numbers',
+		// input() or readline() waiting: the console input is hidden and the question is drawn
+		// in the output with its own field; an answered one keeps only the text, so the field marks it.
+		waitingPrompt: '.activity-prompt .prompt-line:has(.editor-input-container, .input-field)',
+		waitingField: '.editor-input-container, .input-field',
 		busy: '.codicon-positron-interrupt-runtime', // a session is running code: the interrupt icon shows
 		instanceTestId: 'console-', // + session id (python-1a2b3c4d)
 		tabTestId: 'console-tab-', // + session id
+		pane: '.console-pane', // a console's toolbar and its instances; the toolbar has no name to find it by
 	},
 	terminal: {
 		xterm: '.xterm', // drawn on a canvas; its text is read through the Accessible View
@@ -317,6 +322,7 @@ export const names = {
 	},
 	panel: {
 		deleteSession: 'Delete', // a console tab's context menu
+		deleteSessionButton: 'Delete Session', // the console toolbar's button, shown when there is one session and so no tabs
 	},
 	window: {
 		ok: 'OK', // the simple file dialog's accept button (a quick input)
