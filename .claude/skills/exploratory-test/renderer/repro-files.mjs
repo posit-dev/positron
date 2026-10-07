@@ -193,7 +193,9 @@ export function resolveFiles(entries, readFile) {
 export function findFile(files, ref) {
 	const r = String(ref ?? '').trim().replace(/^\.\//, '');
 	const bare = r.replace(/^files\//, '');
-	const byName = files.filter(f => f.name === basename(bare));
+	// A ledger entry has a path and no name, so take the name from the path:
+	// a file saved under a mirrored folder is still found by its file name.
+	const byName = files.filter(f => (f.name ?? basename(f.path)) === basename(bare));
 	return files.find(f => f.path === r || f.path === `files/${bare}`)
 		?? (byName.length === 1 ? byName[0] : null);
 }
@@ -202,7 +204,7 @@ export function findFile(files, ref) {
 export function filesNamedIn(files, markdown) {
 	const text = String(markdown ?? '');
 	const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	return files.filter(f => [f.path, f.name].some(n => new RegExp(`(?<![\\w/.-])${esc(n)}(?!\\w|\\.\\w)`).test(text)));
+	return files.filter(f => [f.path, f.name ?? basename(f.path)].some(n => new RegExp(`(?<![\\w/.-])${esc(n)}(?!\\w|\\.\\w)`).test(text)));
 }
 
 function metaText(f) {

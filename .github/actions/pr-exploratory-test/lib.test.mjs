@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath, renderPrBody, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -306,7 +306,7 @@ const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'cancelled']) {
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled']) {
 		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
@@ -326,6 +326,13 @@ test('renderPrComment running state names the head and links the run', () => {
 test('renderPrComment on a cancelled run says it was cancelled', () => {
 	const body = renderPrComment({ state: 'cancelled', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled before the agent produced a report.\n[View run \u2192](${RUN_URL})\n`);
+});
+
+test('renderPrComment on an outdated branch says why and what to do', () => {
+	const reason = 'this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again.';
+	const body = renderPrComment({ state: 'outdated', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason });
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nNot run: ${reason}\n[View run \u2192](${RUN_URL})\n`);
+	assert.match(renderPrComment({ state: 'outdated', runUrl: RUN_URL, headSha: SHA }), /^Not run: .*Rebase it onto main/m);
 });
 
 test('renderPrComment names the focus, so two runs on one head can be told apart', () => {
@@ -535,4 +542,69 @@ test('renderPrBody is empty for no description, or one that is only template com
 test('ENVIRONMENT lists GitHub and Copilot sign-in as unavailable', () => {
 	const unavailable = ENVIRONMENT.split('Not available')[1];
 	assert.match(unavailable, /GitHub sign-in, and so GitHub Copilot/);
+});
+
+test('parseNumstat reads counts and paths, and counts a binary file as 0/0', () => {
+	assert.deepEqual(parseNumstat('3\t1\tsrc/a.ts\n-\t-\timg.png\n'), [
+		{ path: 'src/a.ts', added: 3, deleted: 1 },
+		{ path: 'img.png', added: 0, deleted: 0 },
+	]);
+});
+
+test('formatDiffStat caps the list but totals every file', () => {
+	const entries = [1, 2, 3].map(n => ({ path: `f${n}`, added: n, deleted: 1 }));
+	assert.equal(formatDiffStat(entries, { max: 2 }), 'f1 | +1 -1\nf2 | +2 -1\n... and 1 more\n3 files changed, 6 insertions(+), 3 deletions(-)');
+	assert.equal(formatDiffStat([]), '(no files changed)');
+});
+
+test('formatDiffStat keeps an upstream-merge-sized diff short', () => {
+	const entries = Array.from({ length: 4500 }, (_, i) => ({ path: `src/vs/${'x'.repeat(200)}/${i}.ts`, added: 1, deleted: 1 }));
+	assert.ok(formatDiffStat(entries).length < 128 * 1024);
+});
+
+function fakeGit({ numstat, log, grep = '', trees = {} }) {
+	return args => {
+		switch (args[0]) {
+			case 'diff': return numstat;
+			case 'log': return log;
+			case 'grep': if (!grep) { throw Object.assign(new Error('exit 1'), { status: 1 }); } return grep;
+			case 'diff-tree': return trees[args.at(-1)] ?? '';
+			default: throw new Error(`unexpected git ${args.join(' ')}`);
+		}
+	};
+}
+
+test('describeChange lists the whole diff when it is not an upstream merge', () => {
+	const git = fakeGit({ numstat: '1\t0\tsrc/a.ts\n', log: 'abc\tFix the thing\n' });
+	const { upstream, stat } = describeChange({ git, base: 'b', head: 'h' });
+	assert.equal(upstream, null);
+	assert.match(stat, /^src\/a\.ts \| \+1 -0$/m);
+});
+
+test('describeChange narrows an upstream merge to where Positron meets it', () => {
+	const git = fakeGit({
+		numstat: [
+			'5\t1\tsrc/vs/editor/plain.ts',
+			'2\t2\tsrc/vs/workbench/marked.ts',
+			'1\t1\tsrc/vs/workbench/contrib/positronConsole/a.ts',
+			'3\t0\tbuild/gulpfile.ts',
+			'4\t0\tsrc/vs/workbench/test/marked.test.ts',
+		].join('\n'),
+		log: 'fix1\tgive gulp more headroom\nmerge1\tUpstream Code OSS changes from 1.134.0 to 1.138.0\n',
+		grep: 'h:src/vs/workbench/marked.ts\nh:src/vs/workbench/test/marked.test.ts\nh:src/vs/untouched.ts\n',
+		trees: { fix1: 'build/gulpfile.ts\n' },
+	});
+	const { upstream, stat } = describeChange({ git, base: 'b', head: 'h' });
+	assert.deepEqual(upstream, { from: '1.134.0', to: '1.138.0', files: 5, seam: 3 });
+	assert.match(stat, /marked\.ts/);
+	assert.match(stat, /positronConsole/);
+	assert.match(stat, /gulpfile/);
+	assert.doesNotMatch(stat, /plain\.ts|marked\.test/);
+	assert.match(stat, /5 files changed, 15 insertions/);
+});
+
+test('buildTaskLine targets Positron on top of an upstream merge, unless a focus is given', () => {
+	const upstream = { from: '1.134.0', to: '1.138.0' };
+	assert.match(buildTaskLine('', upstream), /merges upstream Code OSS 1\.134\.0 to 1\.138\.0/);
+	assert.match(buildTaskLine('the console', upstream), /asked you to test this/);
 });

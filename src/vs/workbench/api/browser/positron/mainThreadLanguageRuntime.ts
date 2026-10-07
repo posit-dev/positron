@@ -1864,6 +1864,13 @@ export class MainThreadLanguageRuntime
 	}
 
 	/**
+	 * (part of implementation of IRuntimeManager)
+	 */
+	async registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined> {
+		return this._proxy.$registerLanguageRuntimeFromPath(languageId, path);
+	}
+
+	/**
 	 * Per-contribution view of the language-runtime managers registered in
 	 * this extension host (one entry per `LanguageRuntimeManager`), including
 	 * the `alwaysRediscover` flag the extension declared. Used by the

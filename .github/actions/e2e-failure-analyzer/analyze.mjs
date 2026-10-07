@@ -130,7 +130,41 @@ function renderRunHeader(runInfo) {
 		`Commit: ${(r.head_sha || '').slice(0, 12)} -- ${(c.message || '').split('\n')[0]}`,
 		`Author: ${c.author || '?'}`,
 		`Files changed (${(c.files || []).length}): ${(c.files || []).slice(0, 30).join(', ')}${(c.files || []).length > 30 ? ', ...' : ''}`,
+		...(c.submodules || []).map(renderSubmoduleBump),
 	].join('\n');
+}
+
+/**
+ * Render a submodule bump in the head commit as the commits and files it pulled
+ * in, and those it took out when it moved the pointer back. When a range could
+ * not be fetched, say so outright: an unexpanded bump is one opaque path, and
+ * the model otherwise guesses at what it touched.
+ */
+function renderSubmoduleBump(s) {
+	const range = `${(s.from || '').slice(0, 10)}..${(s.to || '').slice(0, 10)}`;
+	const head = `Submodule bump: ${s.path}${s.repo ? ` (${s.repo})` : ''} ${range}`;
+	if (!Array.isArray(s.commits)) {
+		return `${head} -- the range could not be expanded, so what it changed is UNKNOWN. Do not guess whether it touched the failing feature; say it is unknown.`;
+	}
+	const lines = [`${head}${s.status && s.status !== 'ahead' ? ` -- compare status "${s.status}"` : ''}. These commits, not the head commit's gitlink, are the code changes under test:`];
+	lines.push(...renderCommitSet('ADDED', s.totalCommits ?? s.commits.length, s.commits, s.files));
+	if (s.behindBy > 0) {
+		lines.push(s.removed
+			? renderCommitSet('REMOVED (the bump moved the pointer back past them; removed code is as much a change under test as added code)', s.removed.totalCommits ?? s.removed.commits.length, s.removed.commits, s.removed.files).join('\n')
+			: `  ${s.behindBy} commit(s) REMOVED (the bump moved the pointer back), but they could not be listed, so what they changed is UNKNOWN.`);
+	}
+	return lines.join('\n');
+}
+
+/** One side of a submodule bump: a commit list and the files it changed. */
+function renderCommitSet(label, total, commits, files) {
+	if (total === 0) { return [`  0 commits ${label.split(' ')[0]}.`]; }
+	const lines = [`  ${total} commit(s) ${label}:`];
+	if (total > commits.length) { lines.push(`    (oldest ${total - commits.length} not listed)`); }
+	for (const cm of commits) { lines.push(`    - ${cm.sha} ${cm.title}`); }
+	const changed = files || [];
+	lines.push(`    Files (${changed.length}${changed.length >= 300 ? '+' : ''}): ${changed.slice(0, 80).join(', ')}${changed.length > 80 ? ', ...' : ''}`);
+	return lines;
 }
 
 function renderNonE2eFailures(runInfo) {

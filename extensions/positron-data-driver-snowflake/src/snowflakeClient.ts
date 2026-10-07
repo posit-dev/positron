@@ -68,13 +68,31 @@ export interface SnowflakeConnectionOptions {
 interface SnowflakeError {
 	code?: string | number;
 	message?: string;
+	// The SQL state Snowflake reported for a statement that failed on the server.
+	sqlState?: string;
+}
+
+/**
+ * The slice of a snowflake-sdk Statement this client uses to read a streamed result: its row count,
+ * and a stream of a range of its rows.
+ */
+interface ISdkStatement {
+	getNumRows(): number;
+	streamRows(options: { start: number; end: number }): {
+		on(event: 'data', listener: (row: Record<string, unknown>) => void): unknown;
+		on(event: 'end', listener: () => void): unknown;
+		on(event: 'error', listener: (err: SnowflakeError) => void): unknown;
+	};
 }
 
 /** The options passed to snowflake-sdk's Connection.execute. */
 interface SdkExecuteOptions {
 	sqlText: string;
 	binds?: unknown[];
-	complete: (err: SnowflakeError | undefined, stmt: unknown, rows: Array<Record<string, unknown>> | undefined) => void;
+	// When set, `complete` gets no rows; they are read from the statement with streamRows instead,
+	// so a large result need not be fetched whole.
+	streamResult?: boolean;
+	complete: (err: SnowflakeError | undefined, stmt: ISdkStatement, rows: Array<Record<string, unknown>> | undefined) => void;
 }
 
 /**
@@ -101,6 +119,11 @@ export interface ISnowflakeSdkConnection {
 /** The shape a query resolves to: rows as plain objects keyed by (case-preserved) column name. */
 export interface SnowflakeQueryResult {
 	rows: Array<Record<string, unknown>>;
+}
+
+/** The shape a capped query resolves to: its first rows, and how many rows the result had in all. */
+export interface SnowflakeCappedQueryResult extends SnowflakeQueryResult {
+	total: number;
 }
 
 /**
@@ -206,6 +229,21 @@ export function isFatalConnectionError(err: unknown): boolean {
 }
 
 /**
+ * Whether an error is Snowflake's verdict on the statement itself -- insufficient privileges, an
+ * object that doesn't exist, a stage whose credentials fail -- rather than a problem with the
+ * connection it ran on (a dead or closed session, a network failure, an expired login). Snowflake
+ * reports a statement's failure with a SQL state; a connection problem comes with none, or with a
+ * class 08 (connection exception) state.
+ */
+export function isStatementError(err: unknown): boolean {
+	if (!err || typeof err !== 'object' || isFatalConnectionError(err)) {
+		return false;
+	}
+	const { sqlState } = err as SnowflakeError;
+	return typeof sqlState === 'string' && sqlState.length > 0 && !sqlState.startsWith('08');
+}
+
+/**
  * A snowflake-sdk connection that survives an idle session dropping out from under it. Presents the
  * small promisified surface the rest of the driver uses -- connect(), query(), end() -- and swaps the
  * underlying connection transparently when a query hits a dead session. Callers hold a stable
@@ -299,6 +337,24 @@ export class SnowflakeClient {
 	 * parameters.
 	 */
 	async query(sqlText: string, binds?: unknown[]): Promise<SnowflakeQueryResult> {
+		return this._withReconnect(() => this._queryOnce(sqlText, binds));
+	}
+
+	/**
+	 * Runs a query whose result may be too large to fetch whole (LIST on a stage of millions of
+	 * files), reading only its first `limit` rows and reporting how many it had in all. The rows are
+	 * streamed from the result rather than fetched and then cut, so the cap bounds the work as well
+	 * as what is shown. Reconnects and retries like query().
+	 */
+	async queryCapped(sqlText: string, limit: number): Promise<SnowflakeCappedQueryResult> {
+		return this._withReconnect(() => this._queryCappedOnce(sqlText, limit));
+	}
+
+	/**
+	 * Runs one attempt of a query, reconnecting once and retrying if the session was found dead. A
+	 * non-connection error (bad SQL, missing object) is thrown without a retry.
+	 */
+	private async _withReconnect<T>(attempt: () => Promise<T>): Promise<T> {
 		// A reconnect nulls `_conn` while it rebuilds the session; wait for any in-flight reconnect
 		// rather than mistaking that transient gap for a closed client.
 		const inflight = this._reconnecting;
@@ -309,14 +365,53 @@ export class SnowflakeClient {
 			throw new Error('Snowflake client is closed');
 		}
 		try {
-			return await this._queryOnce(sqlText, binds);
+			return await attempt();
 		} catch (err) {
 			if (!isFatalConnectionError(err)) {
 				throw err;
 			}
 			await this._reconnect();
-			return await this._queryOnce(sqlText, binds);
+			return await attempt();
 		}
+	}
+
+	/** Issues a single statement with a streamed result, reading at most `limit` of its rows. */
+	private _queryCappedOnce(sqlText: string, limit: number): Promise<SnowflakeCappedQueryResult> {
+		const conn = this._conn;
+		if (!conn) {
+			return Promise.reject(new Error('Snowflake client is closed'));
+		}
+		return new Promise<SnowflakeCappedQueryResult>((resolve, reject) => {
+			conn.execute({
+				sqlText,
+				streamResult: true,
+				complete: (err, stmt) => {
+					if (err) {
+						reject(err);
+						return;
+					}
+					// The SDK calls this outside the promise's executor, so anything reading the
+					// result throws is caught here; uncaught, it would escape to the extension host
+					// and leave the promise unsettled.
+					try {
+						const total = stmt.getNumRows();
+						const count = Math.min(total, limit);
+						if (count <= 0) {
+							resolve({ rows: [], total });
+							return;
+						}
+						const rows: Array<Record<string, unknown>> = [];
+						// The range is inclusive at both ends.
+						const stream = stmt.streamRows({ start: 0, end: count - 1 });
+						stream.on('data', row => rows.push(row));
+						stream.on('error', reject);
+						stream.on('end', () => resolve({ rows, total }));
+					} catch (error) {
+						reject(error);
+					}
+				},
+			});
+		});
 	}
 
 	/** Issues a single statement against the current connection, promisifying execute(). */

@@ -136,8 +136,10 @@ It is still a bounded sample, and these remain reasons to go to the raw logs
   under a line/char budget, so per-file coverage is partial. A multi-step sequence
   (activate, create, cancel, reconnect) is easiest to read end-to-end in the file
   itself.
-- **The trace had no wall-clock anchor.** Without one, the excerpt falls back to
-  the old error-line grep and says so on its first line -- in that case
+- **The excerpt could not be windowed.** Without a wall-clock anchor in the
+  trace, or without a failing action to anchor on (the test's own assertion
+  threw and no failure screenshot marks the instant), the excerpt falls back to
+  the old error-line grep and says why on its first line -- in that case
   `[info]`-level lines and silence really are invisible, and the caveats that
   used to apply always now apply to that run.
 

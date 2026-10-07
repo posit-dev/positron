@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { isBuiltinProviderId, mintCustomProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type Protocol, type ProviderConfigSource, type ProviderConfigSourceKind, type ProvidersConfig, type ResolvedConnection, type ResolvedProvider, type SupportedCustomClientKind } from 'ai-config';
+import { isBuiltinProviderId, mintCustomProviderId, type BuiltinProviderBlock, type ClientKind, type CustomProviderEntry, type LegacySettingsReader, type ModelsBlock, type Protocol, type ProviderConfigSource, type ProviderConfigSourceKind, type ProvidersConfig, type ResolvedConnection, type ResolvedProvider, type SupportedCustomClientKind } from 'ai-config';
 import type { ProviderCatalogChange } from 'ai-config/node';
 import { ANTHROPIC_DEFAULT_BASE_URL, GEMINI_DEFAULT_BASE_URL, OPENAI_DEFAULT_BASE_URL } from './constants';
 import { log } from './log';
@@ -23,6 +23,7 @@ export interface ResolvedProviderLike {
 	readonly clientKind: ClientKind;
 	readonly enabled: boolean;
 	readonly connection: ResolvedConnection;
+	readonly models: ModelsBlock | undefined;
 }
 
 /**
@@ -78,6 +79,7 @@ function toMap(catalog: readonly ResolvedProvider[]): Map<string, ResolvedProvid
 			clientKind: provider.clientKind,
 			enabled: provider.enabled,
 			connection: provider.connection,
+			models: provider.models,
 		});
 	}
 	return map;

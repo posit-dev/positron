@@ -178,6 +178,70 @@ export function isProductPath(path) {
 }
 
 /**
+ * Files listed in a prompt before the rest are only counted. The stat used to
+ * travel as an env var, and an upstream merge's (~4,500 files, 1.2 MB) was
+ * past Linux's 128 KB per-variable limit, so the step never started.
+ */
+export const DIFF_STAT_MAX_FILES = 300;
+
+/** `git diff --numstat --no-renames` as `{ path, added, deleted }`; a binary file counts 0/0. */
+export function parseNumstat(text) {
+	return String(text ?? '').split('\n').filter(Boolean).map(line => {
+		const [added, deleted, ...rest] = line.split('\t');
+		return { path: rest.join('\t'), added: Number(added) || 0, deleted: Number(deleted) || 0 };
+	});
+}
+
+/** One line per file, capped, then the totals for all of them. */
+export function formatDiffStat(entries, { max = DIFF_STAT_MAX_FILES, total = entries } = {}) {
+	if (!total.length) {
+		return '(no files changed)';
+	}
+	const lines = entries.slice(0, max).map(e => `${e.path} | +${e.added} -${e.deleted}`);
+	if (entries.length > max) {
+		lines.push(`... and ${entries.length - max} more`);
+	}
+	const sum = key => total.reduce((n, e) => n + e[key], 0);
+	lines.push(`${total.length} files changed, ${sum('added')} insertions(+), ${sum('deleted')} deletions(-)`);
+	return lines.join('\n');
+}
+
+/** The squashed commit merge-upstream-vscode lands an upstream release as. */
+const UPSTREAM_MERGE_SUBJECT = /^Upstream Code OSS changes from (\S+) to (\S+)/;
+
+/**
+ * What a run is shown of the change between `base` and `head`. `git` takes an
+ * argument list and returns stdout.
+ *
+ * An upstream merge is narrowed to where Positron meets it: Positron's own
+ * files, upstream files carrying a Positron block, and files changed after the
+ * merge commit (the hand fixes). The rest is VS Code's change, tested there;
+ * listing all of it buries the few hundred files a Positron regression lives in.
+ */
+export function describeChange({ git, base, head }) {
+	const entries = parseNumstat(git(['diff', '--numstat', '--no-renames', `${base}...${head}`]));
+	const commits = git(['log', '--format=%H%x09%s', `${base}..${head}`]).split('\n').filter(Boolean).map(l => l.split('\t'));
+	const merge = commits.find(([, subject]) => UPSTREAM_MERGE_SUBJECT.test(subject));
+	if (!merge) {
+		return { entries, stat: formatDiffStat(entries), upstream: null };
+	}
+	const [mergeSha, subject] = merge;
+	const [, from, to] = subject.match(UPSTREAM_MERGE_SUBJECT);
+	let marked = '';
+	try {
+		marked = git(['grep', '-l', '-e', '--- Start Positron ---', head]);
+	} catch {
+		// git grep exits 1 on no match; either way there are no marked files.
+	}
+	const positronMarked = new Set(marked.split('\n').filter(Boolean).map(l => l.slice(head.length + 1)));
+	const handEdited = new Set(commits.filter(([sha]) => sha !== mergeSha).flatMap(([sha]) =>
+		git(['diff-tree', '--no-commit-id', '--name-only', '-r', sha]).split('\n').filter(Boolean)));
+	const seam = entries.filter(e => isProductPath(e.path) &&
+		(/positron/i.test(e.path) || positronMarked.has(e.path) || handEdited.has(e.path)));
+	return { entries, stat: formatDiffStat(seam, { total: entries }), upstream: { from, to, files: entries.length, seam: seam.length } };
+}
+
+/**
  * What the explore job provides, shown to both the gate and the explorer. The
  * e2e lanes reach far more (service containers, Tailscale, Docker hosts,
  * licenses, provider keys); without this list the gate waves through changes
@@ -363,8 +427,9 @@ export function turnCapWarning({ numTurns, maxTurns }) {
  * and the SHA is how a reader tells. `focus` tells apart runs on the same head.
  *
  * `state` is a runOutcome value, `running`, `declined` (the gate said no, and
- * `reason` says why), `cancelled`, or empty when the agent never ran (the
- * build failed first).
+ * `reason` says why), `outdated` (the branch predates the tooling the run
+ * needs, and `reason` says what to do), `cancelled`, or empty when the agent
+ * never ran (the build failed first).
  */
 export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason, focus }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
@@ -376,6 +441,9 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 	}
 	if (state === 'declined') {
 		return comment([`Not run: the pre-flight check declined this change: ${reason || 'no reason recorded.'}`, run]);
+	}
+	if (state === 'outdated') {
+		return comment([`Not run: ${reason || 'this branch is older than the tooling exploratory runs need. Rebase it onto main and comment /explore again.'}`, run]);
 	}
 	if (state === 'cancelled') {
 		return comment(['Cancelled before the agent produced a report.', run]);
@@ -419,8 +487,11 @@ export function withPrLine(markdown, repo, number) {
  * focus is what the person asked to test, so it replaces the diff as the
  * target and the diff stays in the brief as context.
  */
-export function buildTaskLine(focus) {
+export function buildTaskLine(focus, upstream = null) {
 	const asked = String(focus ?? '').trim();
+	if (!asked && upstream) {
+		return `This branch merges upstream Code OSS ${upstream.from} to ${upstream.to}. Upstream's own changes were tested upstream; your target is Positron on top of them. Read the Positron blocks and Positron files listed above to see what Positron builds on the changed code, then explore those Positron features (and Positron UI built on upstream parts the merge rewrote) as a user, and report genuine problems. Upstream behavior Positron does not alter is out of scope.`;
+	}
 	if (!asked) {
 		return 'Read the diff to work out what the change is meant to do as a user would describe it, and what its blast radius is. Then explore that, as a user, and report genuine problems.';
 	}

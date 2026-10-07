@@ -272,13 +272,6 @@ jobs:
           BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          {
-            echo "diff_stat<<DIFFEOF"
-            # Full paths: the default width elides the src/ or test/ prefix
-            # the gate most needs to see.
-            git --no-pager diff "$BASE"...HEAD --stat=1000
-            echo "DIFFEOF"
-          } >> "$GITHUB_OUTPUT"
 
       # A blocker such as an unmerged companion PR is often named only in the
       # description. Best effort: no PR, or a failed lookup, writes no file and
@@ -316,7 +309,6 @@ jobs:
         with:
           mode: gate
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          diff-stat: ${{ steps.base.outputs.diff_stat }}
           pr-body-file: ${{ steps.pr-body.outputs.file }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -413,6 +405,7 @@ jobs:
       packages: read
     outputs:
       outcome: ${{ steps.explore.outputs.outcome }}
+      outdated: ${{ steps.helpers.outputs.reason }}
     strategy:
       # One model failing should not cancel the other; a partial comparison is
       # still worth reading.
@@ -486,6 +479,21 @@ jobs:
           sparse-checkout-cone-mode: false
           persist-credentials: false
 
+      # The explorer's instructions come from the harness, the helpers from the
+      # branch under test. A branch older than the helper rewrite lacks the
+      # helpers they name, so stop before the build with what to do about it.
+      - name: Check the branch has the current helpers
+        id: helpers
+        shell: bash
+        run: |
+          if [[ ! -f .claude/skills/drive-positron/scripts/dp.ts ]]; then
+            # The result comment shows this reason, so the author need not open the run.
+            REASON="this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again."
+            echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+            echo "::error::${REASON^}"
+            exit 1
+          fi
+
       - name: Resolve diff base
         id: base
         shell: bash
@@ -504,11 +512,6 @@ jobs:
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Diff base: $BASE (origin/$BASE_REF)"
-          {
-            echo "diff_stat<<DIFFEOF"
-            git --no-pager diff "$BASE"...HEAD --stat=1000
-            echo "DIFFEOF"
-          } >> "$GITHUB_OUTPUT"
 
       # A dispatched run has no PR in its event. Find the ref's open PR so the
       # summary and report can link it; none found just means no link.
@@ -757,7 +760,6 @@ jobs:
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
-          diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
@@ -967,9 +969,10 @@ jobs:
           focus: ${{ needs.membership.outputs.focus }}
           # Empty when ack could not post; comment mode then posts a new one.
           comment-id: ${{ needs.ack.outputs.comment_id }}
-          # A declined run never reaches explore; say so rather than "failed".
-          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outcome }}
-          decline-reason: ${{ needs.worthiness.outputs.reason }}
+          # A declined run never reaches explore, and an outdated branch stops
+          # before the build; say which rather than "failed".
+          outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
+          decline-reason: ${{ needs.worthiness.outputs.reason || needs.explore.outputs.outdated }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.publish.outputs.report_base_url }}
           pr-number: ${{ github.event.issue.number }}
@@ -984,7 +987,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           COMMENT_ID: ${{ github.event.comment.id }}
           REACTION_ID: ${{ needs.ack.outputs.reaction_id }}
-          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outcome }}
+          OUTCOME: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
         run: |
           gh api --method DELETE \
             "repos/${GITHUB_REPOSITORY}/issues/comments/${COMMENT_ID}/reactions/${REACTION_ID}" \

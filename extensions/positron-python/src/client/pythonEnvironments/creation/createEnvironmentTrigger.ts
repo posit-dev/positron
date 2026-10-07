@@ -21,7 +21,7 @@ import {
 // --- Start Positron ---
 import { getConfiguration, getWorkspaceFolder } from '../../common/vscodeApis/workspaceApis';
 // --- End Positron ---
-import { traceError, traceInfo, traceVerbose } from '../../logging';
+import { traceError, traceInfo } from '../../logging';
 import { hasPrefixCondaEnv, hasPixiEnv, hasVenv } from './common/commonUtils';
 import { showInformationMessage } from '../../common/vscodeApis/windowApis';
 import { Common, CreateEnv } from '../../common/utils/localize';
@@ -80,6 +80,7 @@ async function showAutoCreatePrompt(message: string, onYes: () => Promise<void>)
         return;
     }
 
+    traceInfo('CreateEnv Trigger - Prompting to create an environment');
     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'criteria-met' });
     const selection = await showInformationMessage(
         message,
@@ -110,6 +111,7 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
         traceInfo(`CreateEnv Trigger - Workspace not found for ${uri.fsPath}`);
         return;
     }
+    traceInfo(`CreateEnv Trigger - Checking ${workspace.uri.fsPath}`);
 
     // --- Start Positron ---
     // Skip showing the Create Environment prompt if one of the following is True:
@@ -138,6 +140,11 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
         fsapi.pathExists(path.join(workspace.uri.fsPath, 'pixi.lock')),
         hasPixiEnv(workspace),
     ]);
+    traceInfo(
+        `CreateEnv Trigger - Gate for ${workspace.uri.fsPath}: venv=${venvExists} conda=${condaExists} reqs=${hasReqs} ` +
+            `pyproject=${hasPyproject} knownFiles=${knownFiles} nonGlobalPython=${nonGlobalPython} ` +
+            `uvLock=${uvLockExists} pixiLock=${pixiLockExists} pixiEnv=${pixiEnvExists}`,
+    );
 
     // uv.lock and pixi.lock name an authoritative tool for recreating the exact locked
     // environment, so ask about that tool specifically instead of falling through to the
@@ -199,7 +206,7 @@ function runOnceWorkspaceCheck(uri: Uri, options: CreateEnvironmentTriggerOption
         return createEnvironmentCheckForWorkspace(uri);
     }
     sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'already-ran' });
-    traceVerbose('CreateEnv Trigger - skipping this because it was already run');
+    traceInfo('CreateEnv Trigger - skipping this because it was already run');
     return Promise.resolve();
 }
 
@@ -224,7 +231,7 @@ export async function triggerCreateEnvironmentCheck(
 ): Promise<void> {
     if (!uri) {
         sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'no-uri' });
-        traceVerbose('CreateEnv Trigger - Skipping No URI provided');
+        traceInfo('CreateEnv Trigger - Skipping No URI provided');
         return;
     }
 
@@ -236,7 +243,7 @@ export async function triggerCreateEnvironmentCheck(
         }
     } else {
         sendTelemetryEvent(EventName.ENVIRONMENT_CHECK_RESULT, undefined, { result: 'turned-off' });
-        traceVerbose('CreateEnv Trigger - turned off in settings');
+        traceInfo('CreateEnv Trigger - turned off in settings');
     }
 }
 
@@ -247,7 +254,13 @@ export function triggerCreateEnvironmentCheckNonBlocking(
 ): void {
     // The Event loop for Node.js runs functions with setTimeout() with lower priority than setImmediate.
     // This is done to intentionally avoid blocking anything that the user wants to do.
-    setTimeout(() => triggerCreateEnvironmentCheck(kind, uri, options).ignoreErrors(), 0);
+    setTimeout(
+        () =>
+            triggerCreateEnvironmentCheck(kind, uri, options).catch((err) =>
+                traceError('CreateEnv Trigger - Check failed: ', err),
+            ),
+        0,
+    );
 }
 
 export function registerCreateEnvironmentTriggers(

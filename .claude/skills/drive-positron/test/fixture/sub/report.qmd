@@ -1,0 +1,13 @@
+---
+title: "Smoke report, in a folder"
+---
+
+A second report.qmd, for open-file.sh by folder, and a cell that prints nothing.
+
+```{python}
+smoke_assigned = 6 * 7
+```
+
+```{python}
+print("sub-answer", smoke_assigned)
+```

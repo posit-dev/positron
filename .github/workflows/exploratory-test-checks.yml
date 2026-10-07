@@ -33,6 +33,7 @@ jobs:
           sparse-checkout: |
             .nvmrc
             .claude/skills/exploratory-test
+            .claude/skills/drive-positron/scripts
             .github/actions/pr-exploratory-test
           sparse-checkout-cone-mode: false
           persist-credentials: false
@@ -75,6 +76,10 @@ jobs:
       - name: Test the renderer
         working-directory: .claude/skills/exploratory-test/renderer
         run: node --test
+
+      - name: Install the action's dependencies
+        working-directory: .github/actions/pr-exploratory-test
+        run: npm ci --no-audit --no-fund
 
       - name: Test the action
         working-directory: .github/actions/pr-exploratory-test

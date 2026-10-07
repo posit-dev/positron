@@ -31,10 +31,6 @@ inputs:
     description: "Explore and gate modes: branch under test"
     required: false
     default: ""
-  diff-stat:
-    description: "Output of git diff --stat between base and head"
-    required: false
-    default: ""
   pr-body-file:
     description: "Gate mode: file holding the PR description; empty when there is no PR"
     required: false
@@ -91,7 +87,7 @@ inputs:
     required: false
     default: ""
   decline-reason:
-    description: "Comment mode: the gate's reason, when outcome is 'declined'"
+    description: "Comment mode: why the run did not happen, when outcome is 'declined' or 'outdated'"
     required: false
     default: ""
   pr-number:
@@ -173,7 +169,6 @@ runs:
         EXPLORER_PATH: ${{ inputs.explorer-path || format('{0}/.claude/skills/exploratory-test/explorer.md', inputs.repo-root || github.workspace) }}
         CDP_PORT: ${{ inputs.cdp-port }}
         BRANCH: ${{ inputs.branch }}
-        DIFF_STAT: ${{ inputs.diff-stat }}
         PR_BODY_FILE: ${{ inputs.pr-body-file }}
         BASE_SHA: ${{ inputs.base-sha }}
         HEAD_SHA: ${{ inputs.head-sha }}

@@ -14,6 +14,7 @@ import { LOGGER, supervisorApi } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
 import { getEnvironmentModulesApi } from './provider-module.js';
+import { packagerMetadataForPath } from './packager-detection.js';
 import { setupArkJupyterKernel } from './kernel';
 import { getRTerminalEnvironmentMutations, isROnPath } from './r-process-environment';
 import { RSessionManager } from './session-manager';
@@ -382,6 +383,28 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 		// Looks like a valid R installation.
 		return Promise.resolve(makeMetadata(inst, positron.LanguageRuntimeStartupBehavior.Immediate));
+	}
+
+	/**
+	 * Registers the R installation at a path and adds it to
+	 * `positron.r.customBinaries` so future discovery finds it.
+	 *
+	 * @param binpath The path to the R binary.
+	 * @returns The runtime metadata for the installation.
+	 */
+	async registerRuntimeFromPath(binpath: string): Promise<positron.LanguageRuntimeMetadata> {
+		const curBin = await currentRBinary();
+		const inst = new RInstallation(binpath, curBin?.path === binpath, [ReasonDiscovered.userSetting],
+			packagerMetadataForPath(binpath));
+		if (!inst.usable) {
+			throw new Error(`R installation at ${binpath} is not usable. Reason: ${friendlyReason(inst.reasonRejected)}`);
+		}
+		const config = vscode.workspace.getConfiguration('positron.r');
+		const binaries = config.inspect<string[]>('customBinaries')?.globalValue ?? [];
+		if (!binaries.includes(inst.binpath)) {
+			await config.update('customBinaries', [...binaries, inst.binpath], vscode.ConfigurationTarget.Global);
+		}
+		return makeMetadata(inst);
 	}
 
 	/**

@@ -6,6 +6,8 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { ANTHROPIC_API_VERSION, ANTHROPIC_DEFAULT_BASE_URL, KEY_VALIDATION_TIMEOUT_MS } from '../constants';
+import { log } from '../log';
+import { getCachedProvider } from '../providerCatalog';
 import { PROVIDER_METADATA } from '../providerSources';
 import { getValidationHeaders } from './validationHeaders';
 
@@ -26,6 +28,10 @@ async function getAnthropicErrorMessage(response: Response): Promise<string | un
 }
 
 export async function validateAnthropicApiKey(apiKey: string, config: positron.ai.LanguageModelConfig): Promise<void> {
+	if (getCachedProvider(PROVIDER_METADATA.anthropic.catalogId!)?.models?.discovery === 'off') {
+		log.info('[Anthropic] Model discovery is off; skipping API key validation.');
+		return;
+	}
 	const baseUrl = (config.baseUrl?.trim() || ANTHROPIC_DEFAULT_BASE_URL).replace(/\/+$/, '');
 	const modelsEndpoint = `${baseUrl}/models`;
 	const headers = getValidationHeaders(

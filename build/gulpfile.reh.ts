@@ -48,6 +48,7 @@ import { checkPackagedTree } from './lib/positron-check-path-lengths.ts';
 import { compileBuildWithoutManglingTask } from './gulpfile.compile.ts';
 import through2 from 'through2';
 import { gzip } from 'zlib';
+import { createBrowserFetchableTest } from './lib/pwbGzip.ts';
 // --- End PWB ---
 
 const rcedit = promisify(rceditCallback);
@@ -398,12 +399,14 @@ const MIN_SIZE_BYTES = 1024;
 function addCompressedSiblings(): NodeJS.ReadWriteStream {
 	let compressed = 0;
 	let skipped = 0;
+	const webDependencies = Object.keys(JSON.parse(fs.readFileSync(path.join(REMOTE_FOLDER, 'web', 'package.json'), 'utf8')).dependencies ?? {});
+	const isBrowserFetchable = createBrowserFetchableTest(webDependencies);
 
 	return through2.obj(
 		async function (file: File, _enc: BufferEncoding, cb: (err?: Error | null) => void) {
 			this.push(file);
 
-			if (!file.isBuffer() || !COMPRESSIBLE.test(file.path)) { return cb(); }
+			if (!file.isBuffer() || !COMPRESSIBLE.test(file.path) || !isBrowserFetchable(file.relative)) { return cb(); }
 			if ((file.contents as Buffer).length < MIN_SIZE_BYTES) { return cb(); }
 
 			try {
@@ -476,6 +479,15 @@ function packageTask(type: string, platform: string, arch: string, sourceFolderN
 			'vscode-test-resolver',
 			'positron-zed',
 			'positron-javascript',
+			// Hidden upstream color themes; keep in sync with build/lib/extensions.ts (#8162)
+			'theme-abyss',
+			'theme-kimbie-dark',
+			'theme-monokai',
+			'theme-monokai-dimmed',
+			'theme-quietlight',
+			'theme-red',
+			'theme-solarized-dark',
+			'theme-solarized-light',
 		];
 		// --- End Positron ---
 		const localWorkspaceExtensions = glob.sync('extensions/*/package.json')
