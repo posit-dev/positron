@@ -657,6 +657,16 @@ class ModifyEditorSelectionsParams(BaseModel):
     )
 
 
+class LastActiveEditorContextParams(BaseModel):
+    """
+    Context metadata for the last editor
+    """
+
+    allow_console: Optional[StrictBool] = Field(
+        description="Whether the calling session's console input may be returned when it was the last editor focused. Set to false to return only editors in the editor area. If omitted, defaults to true.",
+    )
+
+
 class ShowUrlParams(BaseModel):
     """
     Show a URL in Positron's Viewer pane
@@ -766,6 +776,8 @@ OpenWorkspaceParams.update_forward_refs()
 SetEditorSelectionsParams.update_forward_refs()
 
 ModifyEditorSelectionsParams.update_forward_refs()
+
+LastActiveEditorContextParams.update_forward_refs()
 
 ShowUrlParams.update_forward_refs()
 

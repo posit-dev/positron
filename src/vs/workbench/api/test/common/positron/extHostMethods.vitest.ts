@@ -20,6 +20,7 @@ import { ExtHostContextKeyService } from '../../../common/positron/extHostContex
 import { ExtHostLanguageRuntime } from '../../../common/positron/extHostLanguageRuntime.js';
 import { ExtHostMethods } from '../../../common/positron/extHostMethods.js';
 import { ExtHostModalDialogs } from '../../../common/positron/extHostModalDialogs.js';
+import { UiFrontendRequest } from '../../../../services/languageRuntime/common/positronUiComm.js';
 
 /** A minimal fake `vscode.TextEditor` over a single-line document, with edits recorded. */
 function createFakeEditor(fileName: string, text = 'hello'): vscode.TextEditor & { readonly editedRanges: unknown[] } {
@@ -170,6 +171,44 @@ describe('ExtHostMethods', function () {
 
 			expect(context?.document.path).toBe('/path/to/file.R');
 			expect(context?.id).toBeUndefined();
+		});
+	});
+
+	describe('call: last_active_editor_context', function () {
+
+		function createMethodsWithConsoleFocusedLast() {
+			return createMethods({
+				paneEditor: createFakeEditor('/path/to/file.R'),
+				consoleEditors: { 'session-r': createFakeEditor('inmemory://repl-r') },
+				consoleInputFocusedLastSessionId: 'session-r',
+			});
+		}
+
+		it('returns the editor pane when allow_console is false, even if the console was focused last', async function () {
+			// Regression test for https://github.com/posit-dev/positron/issues/16405.
+			// `rstudioapi::getSourceEditorContext()` must never report the console.
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { allow_console: false }, 'session-r');
+
+			expect(response).toMatchObject({ result: { id: undefined, document: { path: '/path/to/file.R' } } });
+		});
+
+		it('returns the console when allow_console is null', async function () {
+			// Ark serializes an omitted optional param as `null`
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { allow_console: null }, 'session-r');
+
+			expect(response).toMatchObject({ result: { id: '#console', document: { path: '' } } });
+		});
+
+		it('rejects unknown params', async function () {
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { foo: true }, 'session-r');
+
+			expect(response).toHaveProperty('error');
 		});
 	});
 

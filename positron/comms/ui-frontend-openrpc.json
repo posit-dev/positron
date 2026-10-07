@@ -440,7 +440,16 @@
 			"name": "last_active_editor_context",
 			"summary": "Context metadata for the last editor",
 			"description": "Returns metadata such as file path for the last editor selected by the user. The result may be undefined if there are no active editors.",
-			"params": [],
+			"params": [
+				{
+					"name": "allow_console",
+					"description": "Whether the calling session's console input may be returned when it was the last editor focused. Set to false to return only editors in the editor area. If omitted, defaults to true.",
+					"required": false,
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			],
 			"result": {
 				"required": false,
 				"schema": {
