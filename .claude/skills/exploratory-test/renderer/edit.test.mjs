@@ -117,7 +117,8 @@ test('reviewEdits rejects an opening or title that invents a fact, drops the cod
 	assert.deepEqual(review({ summary: 'The Viewer stays empty for 45 s.' }), [{ n: 1, field: 'opening', reason: 'cites 45, which the record does not have' }]);
 	assert.deepEqual(review({ steps: ['1. Create an R Shiny app.', '2. Click Run Shiny App.'] }), [{ n: 1, field: 'opening', reason: 'leaves out the code the record has the reader run: "shinyApp(ui, server)"' }]);
 	assert.deepEqual(review({ where: 'Seen in S10.' }), [{ n: 1, field: 'opening', reason: 'names the scenario ID S10' }]);
-	assert.deepEqual(review({ title: 'Run Shiny App on an R app never shows the running app in the Viewer pane at all' }), [{ n: 1, field: 'title', reason: 'is 18 words, over 12' }]);
+	assert.deepEqual(review({ title: 'Run Shiny App on an R app never shows the running app in the Viewer pane at all' }), [{ n: 1, field: 'title', reason: 'is 18 words, over 15; cut filler, never a word that narrows the bug' }]);
+	assert.deepEqual(review({ title: 'Run Shiny App on an R app leaves the Viewer empty after the app starts' }), []);
 	assert.deepEqual(review({ title: 'Viewer | empty' }), [{ n: 1, field: 'title', reason: 'has a |, ; or code' }]);
 	assert.deepEqual(reasons(reviewEdits(REPORT, parseEdits('=== Finding 2\nTITLE: No such finding')).rejected), [{ n: 2, field: 'title', reason: 'Finding 2 is not in the report' }]);
 });

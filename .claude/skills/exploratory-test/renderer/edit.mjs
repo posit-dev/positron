@@ -30,8 +30,9 @@ import { openingRange, parseOpening } from './report-parse.mjs';
 
 // The Result line is keyed 0, beside the findings' own numbers.
 const SUMMARY = 0;
-// A title's description after `<feature>: `, as the filed issue has it.
-const TITLE_WORDS = 12;
+// A title's description after `<feature>: `, as the filed issue has it. The prompt
+// aims for 12; the guard rejects only a run-on, so a retry never trades a true title for a short one.
+const TITLE_WORDS = 15;
 const OPENING_WORDS = 60;
 const MAX_STEPS = 6;
 const SCENARIO_ID = /\b[SR]\d{2}(?:-\d{2})?\b/;
@@ -255,7 +256,7 @@ function titleProblem(title, record) {
 	const words = wordsOf(title);
 	const invented = unsupported(title, record);
 	return /[|;`]/.test(title) ? 'has a |, ; or code'
-		: words > TITLE_WORDS ? `is ${words} words, over ${TITLE_WORDS}`
+		: words > TITLE_WORDS ? `is ${words} words, over ${TITLE_WORDS}; cut filler, never a word that narrows the bug`
 			: SCENARIO_ID.test(title) ? `names the scenario ID ${SCENARIO_ID.exec(title)[0]}`
 				: invented.length ? `cites ${invented.join(', ')}, which the record does not have`
 					: '';
