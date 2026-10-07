@@ -232,6 +232,9 @@ const cases: Case[] = [
 	{ name: 'ui read Help notes the page it leaves out', run: ['ui.sh', 'read', 'Help'], check: o => includes(o.json!.note, 'view-read.sh --view Help') },
 	{ name: 'a flag and its value as one argument', run: ['nb.sh', '--notebook notebook.ipynb', 'read'], fail: true, check: o => includes(o.json?.error, 'is one argument') },
 	{ name: 'a bash helper given a flag with no value', run: ['listeners.sh', '--save'], fail: true, check: o => includes(o.stderr, '--save needs a value') },
+	{ name: 'listeners --diff with a saved list that does not exist', run: ['listeners.sh', '--all', '--diff', '/nonexistent-dp-smoke/listeners-before.txt'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'cannot read the saved list') },
+	{ name: 'listeners --diff with an empty file name', run: ['listeners.sh', '--all', '--diff', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, '--diff needs the saved list\'s file name') },
+	{ name: 'listeners --save taking the next flag as its file', run: ['listeners.sh', '--save', '--all'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'not "--all"') },
 	// A matplotlib plot has a size of its own (after the Variables reads, which want R's session): a size given unticks Use intrinsic size first.
 	{ name: 'console-run python matplotlib plot', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'import matplotlib.pyplot as plt; plt.plot([1, 2, 3], [2, 1, 3]); plt.show()'] },
 	{ name: 'plots save --width (intrinsic size)', wait: 1500, run: ['plots.sh', 'save', '--width', '640'], check: o => includes(o.json!.intrinsicSize, 'unticked') || includes(o.json!.tree, 'spinbutton "Width": "640"') },

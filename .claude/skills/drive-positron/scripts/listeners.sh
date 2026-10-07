@@ -27,7 +27,9 @@
 #   With a tree, also "(<command> <pid> < ... < instance <pid>)".
 #   With --diff, only the listeners not in the saved list.
 # Exit code: 0, or 1 with --diff when there is a new listener, 2 when the
-# instance is not running or not given.
+# instance is not running or not given, on a usage error (an empty or missing
+# file name, --tree without a PID), when --diff cannot read its saved list, or
+# when --save cannot write it.
 #
 # Required tools on PATH: lsof.
 
@@ -40,15 +42,25 @@ MODE=""
 FILE=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--tree) TREE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--tree) TREE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; }; [[ "$TREE" =~ ^[0-9]+$ ]] || { echo "${0##*/}: --tree needs the instance's PID (a number), not \"$TREE\"" >&2; exit 2; } ;;
 		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; }; [[ -n "$SESSION" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; } ;;
 		--session=*) SESSION="${1#--session=}"; [[ -n "$SESSION" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; }; shift ;;
 		--all) ALL=1; shift ;;
-		--save|--diff) MODE="$1"; FILE="${2:-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--save|--diff)
+			[[ -z "$MODE" || "$MODE" == "$1" ]] || { echo "${0##*/}: pass one of --save and --diff" >&2; exit 2; }
+			MODE="$1"; FILE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; }
+			# An empty name, or the next flag taken as the file (--save --all), is a mistake: say so.
+			[[ -n "$FILE" && "$FILE" != -* ]] || { echo "${0##*/}: $MODE needs the saved list's file name, not \"$FILE\" (a name starting with - goes as ./NAME)" >&2; exit 2; }
+			;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "listeners.sh: unknown arg $1" >&2; exit 2 ;;
 	esac
 done
+# A saved list that cannot be read would compare against nothing and report no new listener.
+if [[ "$MODE" == --diff && ( -d "$FILE" || ! -r "$FILE" ) ]]; then
+	echo "listeners.sh: cannot read the saved list $FILE; save one first with --save $FILE" >&2
+	exit 2
+fi
 # --diff looks at your instance only: the one the session drives, unless --tree or --all.
 if [[ "$MODE" == --diff && -z "$TREE" && "$ALL" == 0 ]]; then
 	[[ -n "$SESSION" ]] || { echo "listeners.sh: --diff looks only at your instance: pass --session NAME or --tree PID, or --all for every listener on the machine" >&2; exit 2; }
@@ -93,10 +105,13 @@ list() {
 	fi
 }
 case "$MODE" in
-	--save) list > "$FILE"; wc -l < "$FILE" | tr -d ' ' | sed 's/$/ listeners saved/' >&2 ;;
+	--save)
+		list > "$FILE" || { echo "listeners.sh: cannot write the list to $FILE" >&2; exit 2; }
+		wc -l < "$FILE" | tr -d ' ' | sed 's/$/ listeners saved/' >&2 ;;
 	--diff)
 		# By port, PID and command: a line from a tree also carries its chain.
-		NEW=$(list | awk 'NR == FNR { seen[$1 " " $2 " " $3] = 1; next } !seen[$1 " " $2 " " $3]' "$FILE" -)
+		# NR == FNR only while awk reads the file, so an empty saved list (no listeners then) still compares.
+		NEW=$(list | awk 'FILENAME != "-" { seen[$1 " " $2 " " $3] = 1; next } !seen[$1 " " $2 " " $3]' "$FILE" -) || { echo "listeners.sh: cannot compare with the saved list $FILE" >&2; exit 2; }
 		if [[ -n "$NEW" ]]; then
 			printf '%s\n' "$NEW" | sort -n
 			exit 1
