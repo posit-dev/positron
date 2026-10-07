@@ -50,7 +50,8 @@
 # request that waits), the tracebacks collapsed or expanded, and the --after match.
 # Exit code: 0 when it read a console, 1 when none matched or --prompt found
 # no prompt, 2 on a usage error
-# (a --language, --name or --after given with no value or an empty one is one).
+# (a --language, --name or --after given with no value or an empty one is one,
+# and so is a flag it does not take, such as a misspelled --langauge).
 #
 # Required tools on PATH: jq.
 

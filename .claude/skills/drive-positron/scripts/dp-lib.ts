@@ -200,9 +200,11 @@ export interface Parsed { session: string; flags: Record<string, string | true>;
  * listed. Positional arguments beyond `most` are a usage error (exit 2), so a
  * stray word is refused rather than typed or run; `most` is a count, or a count
  * per command word (the first positional, counted too). A command word not
- * listed is left to the command.
+ * listed is left to the command. Given `switches` (the flags that take no
+ * value), any other flag is a usage error too, so a misspelled flag
+ * (--langauge) is refused rather than ignored.
  */
-export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0): Parsed {
+export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches?: string[]): Parsed {
 	const flags: Record<string, string | true> = {};
 	const rest: string[] = [];
 	for (let i = 0; i < argv.length; i++) {
@@ -215,6 +217,10 @@ export function parse(argv: string[], withValue: string[], most: number | Record
 		const m = a.match(/^--([\w-]+)(?:=(.*))?$/);
 		if (!m) { rest.push(a); continue; }
 		if (m[2] !== undefined) { flags[m[1]] = m[2]; } else if (withValue.includes(m[1])) { flags[m[1]] = argv[++i] ?? ''; } else { flags[m[1]] = true; }
+	}
+	if (switches && !flags.help) {
+		const unknown = Object.keys(flags).find(f => !withValue.includes(f) && !switches.includes(f));
+		if (unknown) { throw new Exit(2, { ok: false, error: `unknown flag --${unknown}; it takes ${[...withValue, ...switches].map(f => `--${f}`).join(', ')} (see --help)` }); }
 	}
 	const max = typeof most === 'number' ? most : most[rest[0]] ?? Infinity;
 	if (!flags.help && rest.length > max) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(rest[max])}${max ? ` after ${JSON.stringify(rest.slice(0, max).join(' '))}` : ''}; see --help for the arguments and flags it takes` }); }
