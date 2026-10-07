@@ -43,12 +43,22 @@ import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { isAxiosError } from 'axios';
 import { KallichoreTransport } from './KallichoreApiInstance.js';
+import { getTerminalMutation } from './interpreterDefinition';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
 import { CommBackendRequest, CommRpcMessage, CommImpl } from './Comm';
 import { channel, Sender } from './Channel';
 import { DapComm } from './DapComm';
 import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus.js';
 import { OutputChannelFormatted, LogOutputChannelFormatted } from './OutputChannelFormatted';
+
+/** A change an interpreter definition makes to an environment variable. */
+type TerminalMutation = ReturnType<typeof getTerminalMutation>;
+
+/**
+ * The kernel environment variable that records the changes the interpreter
+ * definition made to the kernel's environment, as JSON.
+ */
+const DEFINITION_ENV_RECORD_VAR = 'POSITRON_INTERPRETER_DEFINITION_ENV';
 
 /**
  * The reason for a disconnection event.
@@ -163,6 +173,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** The original kernelspec */
 	private _kernelSpec: JupyterKernelSpec | undefined;
+
+	/**
+	 * Resolves the environment variables of the interpreter definition this
+	 * session's runtime is a variant of, given the kernel spec's variables.
+	 * Called on start and on every restart, so edits to the definition apply.
+	 */
+	definitionEnvResolver: ((kernelEnv: NodeJS.ProcessEnv | undefined) => Promise<Record<string, string>>) | undefined;
+
+	/** The variables the interpreter definition set at the last start or restart */
+	private _definitionEnv: Record<string, string> = {};
 
 	/**
 	 * The channel to which output for this specific kernel is logged, if any
@@ -378,17 +398,69 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// PYTHONPATH, and the restarted kernel fails to import its dependencies
 		// (e.g. `ModuleNotFoundError: No module named 'psutil'`).
 		const specEnv = this._kernelSpec?.env ?? this._activeSession?.initial_env;
+
+		// A restored session's `initial_env` also holds what the interpreter
+		// definition set at its last launch, which may no longer apply (e.g.
+		// the startup script has since been edited). Read the record of those
+		// changes so they can be undone before applying the current ones.
+		let previousDefinitionEnv: Record<string, TerminalMutation> = {};
+		if (!this._kernelSpec && specEnv?.[DEFINITION_ENV_RECORD_VAR]) {
+			try {
+				previousDefinitionEnv = JSON.parse(specEnv[DEFINITION_ENV_RECORD_VAR]) ?? {};
+			} catch (err) {
+				this.log(`Ignoring malformed ${DEFINITION_ENV_RECORD_VAR}: ${summarizeError(err)}`, vscode.LogLevel.Warning);
+			}
+		}
+
 		if (specEnv) {
 			for (const [key, value] of Object.entries(specEnv)) {
-				if (typeof value === 'string') {
-					const action: VarAction = {
-						action: VarActionType.Replace,
-						name: key,
-						value
-					};
-					varActions.push(action);
+				if (typeof value !== 'string' || key === DEFINITION_ENV_RECORD_VAR) {
+					continue;
+				}
+				// Undo what the definition set at the last launch: drop a
+				// replaced variable, and strip a prepended or appended part.
+				const previous = previousDefinitionEnv[key];
+				let restored: string | undefined = value;
+				if (previous?.type === 'replace') {
+					restored = undefined;
+				} else if (previous?.type === 'prepend' && value.startsWith(previous.value)) {
+					restored = value.slice(previous.value.length);
+				} else if (previous?.type === 'append' && value.endsWith(previous.value)) {
+					restored = value.slice(0, value.length - previous.value.length);
+				}
+				if (restored !== undefined) {
+					varActions.push({ action: VarActionType.Replace, name: key, value: restored });
 				}
 			}
+		}
+
+		// Last, the interpreter definition's variables, which take precedence
+		// over the kernel spec's. Resolved fresh each time so a restart picks
+		// up edits to the definition. The script starts from the kernel spec's
+		// variables only: a restored session's `initial_env` already holds
+		// what the script set last time, so starting from it would drop
+		// unchanged variables and add to PATH twice.
+		const definitionBaseEnv = { ...process.env, ...this._kernelSpec?.env };
+		if (this.definitionEnvResolver) {
+			this._definitionEnv = await this.definitionEnvResolver(this._kernelSpec?.env);
+		}
+		const definitionEnvRecord: Record<string, TerminalMutation> = {};
+		for (const [name, value] of Object.entries(this._definitionEnv)) {
+			// Add only what the script added to the start or end of a
+			// variable (as with PATH), so other extensions' changes are kept.
+			const mutation = getTerminalMutation(value, definitionBaseEnv[name]);
+			const action = {
+				replace: VarActionType.Replace,
+				prepend: VarActionType.Prepend,
+				append: VarActionType.Append,
+			}[mutation.type];
+			varActions.push({ action, name, value: mutation.value });
+			definitionEnvRecord[name] = mutation;
+		}
+		// Record the changes in the kernel's environment, so a restart after
+		// the session is restored can undo them.
+		if (Object.keys(definitionEnvRecord).length > 0) {
+			varActions.push({ action: VarActionType.Replace, name: DEFINITION_ENV_RECORD_VAR, value: JSON.stringify(definitionEnvRecord) });
 		}
 
 		return varActions;
@@ -2151,7 +2223,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 			return {
 				argv: this._kernelSpec.argv,
-				env,
+				env: { ...env, ...this._definitionEnv },
 				startupCommand: this._kernelSpec.startup_command,
 				interruptMode: this._kernelSpec.interrupt_mode,
 				protocolVersion: this._kernelSpec.kernel_protocol_version,

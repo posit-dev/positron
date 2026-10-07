@@ -46,9 +46,6 @@ import { generateColorThemeCSS } from './colorThemeCss.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IHostService } from '../../host/browser/host.js';
 import { toAction } from '../../../../base/common/actions.js';
-// --- Start Positron ---
-import { isColorThemeVisibleInPicker } from './positronColorThemeFilter.js';
-// --- End Positron ---
 
 // implementation
 
@@ -467,13 +464,7 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 	}
 
 	public async getColorThemes(): Promise<IWorkbenchColorTheme[]> {
-		// --- Start Positron ---
-		// Positron ships with a subset of the themes that are available by default;
-		// see positronColorThemeFilter.ts for the filter and bypass rules.
-		const themes = this.colorThemeRegistry.getThemes();
-		const currentThemeId = this.getColorTheme().id;
-		return themes.filter(theme => isColorThemeVisibleInPicker(theme.id, currentThemeId));
-		// --- End Positron ---
+		return this.colorThemeRegistry.getThemes();
 	}
 
 	public getPreferredColorScheme(): ColorScheme | undefined {

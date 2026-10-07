@@ -894,6 +894,7 @@ namespace schema {
 				schema?: object;
 			}>;
 			returns?: string;
+			readOnly?: boolean;
 		};
 		// --- End Positron ---
 	}
@@ -1139,6 +1140,10 @@ namespace schema {
 						description: localize('positron.vscode.extension.contributes.commandType.agent.returns', 'What the command returns.'),
 						type: 'string',
 					},
+					readOnly: {
+						description: localize('positron.vscode.extension.contributes.commandType.agent.readOnly', 'Whether the command leaves the user\'s work and data as they were, so an agent may run it without asking first.'),
+						type: 'boolean',
+					},
 				},
 			}
 			// --- End Positron ---
@@ -1179,6 +1184,7 @@ export function toAgentMetadata(agent: schema.IUserFriendlyCommand['agent']): IC
 			schema: a.schema as IJSONSchema | undefined,
 		})),
 		returns: agent.returns,
+		readOnly: agent.readOnly,
 	};
 }
 // --- End Positron ---

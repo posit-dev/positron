@@ -15,7 +15,8 @@
 # n. Code the console takes as unfinished (a Python block with no blank line
 # after it, an open bracket) leaves it at its continuation prompt ("..." or R's
 # "+") with nothing run, and the script fails and says so: end a Python block
-# with an empty line. While an input() or readline() waits for an answer the
+# with an empty line. The code is then back in the input with a new line under
+# it, not echoed: "echoed" is false, and "prompt" is the prompt the input shows. While an input() or readline() waits for an answer the
 # console's input is hidden: the script presses no key and fails, with the
 # question it asks in "waiting". Each call waits for its echo, so calls arrive seconds
 # apart; to test changes in quick succession, send them in one call.

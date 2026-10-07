@@ -581,7 +581,8 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return last(/ (starting|restarting|reconnecting)\.$/) > last(/ (started|restarted|reconnected)\.$/);
 		}).map(inst => (inst.getAttribute('data-testid') ?? '').slice(c.instanceTestId.length)), s.console),
 		/**
-		 * A console's output text (without what is typed in its input), its prompt,
+		 * A console's output text (without what is typed in its input, nor code
+		 * submitted from it and still being checked for completeness), its prompt,
 		 * the question of an input() waiting for an answer, and its tab name. The text is its rows as drawn: a line is a block with
 		 * no block inside it, and a <br> between lines is a blank row. innerText
 		 * adds a line break at every block's edge, so its blank rows are wrong
@@ -599,7 +600,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 					if (n.nodeType !== Node.ELEMENT_NODE) { continue; }
 					const e = n as HTMLElement;
 					if (e.tagName === 'BR') { out.push(inline); inline = ''; continue; }
-					if (e.matches(c.input) || !e.getClientRects().length) { continue; }
+					if (e.matches(c.input) || e.matches(c.submitting) || !e.getClientRects().length) { continue; }
 					if (!block.test(e.tagName)) { inline += e.innerText; continue; }
 					if (inline) { out.push(inline); inline = ''; }
 					if ([...e.children].some(x => x.tagName === 'BR' || block.test(x.tagName))) { rows(e, out); continue; }

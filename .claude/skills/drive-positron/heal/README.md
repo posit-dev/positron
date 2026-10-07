@@ -11,7 +11,9 @@
    and the earlier verdicts in each fixer brief (and the earlier nights that fixed a finding that
    came back, `fixedBefore`)
 4. `finder.ts` on explore nights (`EXPLORE_ON` in the workflow: nightly, or Mondays): one agent session explores one area (`areas.json`) and writes findings
-5. `fix-loop.ts`: one fixer session per finding (at most 5); each fix is committed, then `check.ts`
+5. `fix-loop.ts`: one fixer session per finding (at most 5). A fix that changes a helper must add a
+   smoke case; a read-only reviewer (`reviewer.md`, Sonnet) checks the diff and may send it back
+   to the fixer once. Each fix is then committed, then `check.ts`
    and smoke decide whether it stays: only the sections whose cases run a helper the change can
    reach (`affected.ts`), each on its own launch, or the full suite when the change is shared
    (`dp-lib.ts`, `selectors.ts`, `test/`, ...; a `selectors.ts` change that only adds entries
