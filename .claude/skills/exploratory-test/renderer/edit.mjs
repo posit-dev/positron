@@ -26,7 +26,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyTitles } from './finish.mjs';
 import { SUMMARY_WORDS, wordsOf } from './lint.mjs';
-import { openingRange, parseOpening } from './report-parse.mjs';
+import { nextFence, openingRange, parseOpening } from './report-parse.mjs';
 
 // The Result line is keyed 0, beside the findings' own numbers.
 const SUMMARY = 0;
@@ -128,9 +128,9 @@ export function parseEdits(text) {
 		const fields = { summary: [], steps: [], where: [] };
 		let title;
 		let key = null;
-		let fenced = false;
+		let fence = null;
 		for (const line of lines) {
-			const label = fenced ? null : /^(TITLE|SUMMARY|STEPS|WHERE):\s*(.*)$/i.exec(line.trim());
+			const label = fence ? null : /^(TITLE|SUMMARY|STEPS|WHERE):\s*(.*)$/i.exec(line.trim());
 			if (label && label[1].toUpperCase() === 'TITLE') {
 				title = label[2].trim();
 				key = null;
@@ -138,9 +138,7 @@ export function parseEdits(text) {
 				key = label[1].toLowerCase();
 				fields[key].push(label[2]);
 			} else if (key) {
-				if (/^\s*(?:```|~~~)/.test(line)) {
-					fenced = !fenced;
-				}
+				fence = nextFence(fence, line);
 				fields[key].push(line);
 			}
 		}
@@ -163,12 +161,10 @@ export function parseEdits(text) {
 /** Numbered lines as steps, each with the lines under it, dedented. */
 function stepsOf(lines) {
 	const steps = [];
-	let fenced = false;
+	let fence = null;
 	for (const line of lines) {
-		const numbered = !fenced && /^\s*\d+\.\s+(.*)$/.exec(line);
-		if (/^\s*(?:```|~~~)/.test(line)) {
-			fenced = !fenced;
-		}
+		const numbered = !fence && /^\s*\d+\.\s+(.*)$/.exec(line);
+		fence = nextFence(fence, line);
 		if (numbered) {
 			steps.push(numbered[1]);
 		} else if (steps.length) {
@@ -216,7 +212,7 @@ function resultFacts(text) {
 	return [...new Set([...bold.flatMap(b => factsOf(b, { title: true })), ...factsOf(text.replace(/\*\*[^*]+\*\*/g, ' '))])];
 }
 
-const FENCE = /^[ \t]*(```|~~~)[^\n]*\n([\s\S]*?)^[ \t]*\1[ \t]*$/gm;
+const FENCE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n([\s\S]*?)^[ \t]*\1[ \t]*$/gm;
 const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // 1,500 and 1500 are the same number.
 const bareNumber = text => text.replace(/(?<=\d),(?=\d{3})/g, '');

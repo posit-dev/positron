@@ -112,6 +112,15 @@ test('reviewEdits keeps a title and opening that cite only what the record has',
 	assert.equal(kept.get(1).opening.steps.length, 2);
 });
 
+test('a step\'s ```` block holding a ```{r} cell is code, not prose, and survives the round trip', () => {
+	const cell = ['   ````', '   ```{r}', '   cat("inserted cell\\n")', '   ```', '   ````'];
+	const report = REPORT.replace(['   ```r', '   shinyApp(ui, server)', '   ```'].join('\n'), cell.join('\n'));
+	const edits = parseEdits(reply({ steps: ['1. Create `app.R`:', ...cell, '2. Click Run Shiny App. The Viewer stays empty.'] }));
+	const { kept, rejected } = reviewEdits(report, edits);
+	assert.deepEqual(reasons(rejected), []);
+	assert.deepEqual(parseReport(applyEdits(report, kept)).findings[0].text.opening.steps, edits.get(1).opening.steps);
+});
+
 test('reviewEdits rejects an opening or title that invents a fact, drops the code, or reads like the run', () => {
 	const review = fields => reasons(reviewEdits(REPORT, parseEdits(reply(fields))).rejected.filter(r => r.n === 1));
 	assert.deepEqual(review({ summary: 'The Viewer stays empty for 45 s.' }), [{ n: 1, field: 'opening', reason: 'cites 45, which the record does not have' }]);

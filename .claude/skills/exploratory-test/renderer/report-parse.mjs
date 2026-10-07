@@ -316,6 +316,22 @@ function labelOf(line) {
 	return m ? m[1].replace(/[:\s]+$/, '').toLowerCase() : null;
 }
 
+/**
+ * The fence still open after `line`: its marker inside a fenced block, else
+ * null. As in CommonMark, only a bare fence of the same character, at least as
+ * long, closes it, so a ```` block can hold a ```{r} cell.
+ */
+export function nextFence(fence, line) {
+	const m = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+	if (!m) {
+		return fence;
+	}
+	if (!fence) {
+		return m[1];
+	}
+	return m[1][0] === fence[0] && m[1].length >= fence.length && !m[2].trim() ? null : fence;
+}
+
 // The opening the edit pass writes at the top of a card, in a person's words:
 // what they read first, above the run's own record.
 const OPENING_LABELS = new Set(['summary', 'hand steps', 'where']);
@@ -327,12 +343,11 @@ export function openingRange(lines) {
 		return null;
 	}
 	let end = start + 1;
-	let fenced = false;
+	let fence = null;
 	for (; end < lines.length; end++) {
 		const text = lines[end].trim();
-		if (/^(?:```|~~~)/.test(text)) {
-			fenced = !fenced;
-		}
+		fence = nextFence(fence, text);
+		const fenced = fence !== null;
 		const label = fenced ? null : labelOf(lines[end]);
 		if (!fenced && ((label && !OPENING_LABELS.has(label)) || /^(?:#{2,3}\s|<details>)/.test(text))) {
 			break;
@@ -359,14 +374,12 @@ export function parseOpening(lines) {
 			out[label] = text;
 			i = end - 1;
 		} else if (label === 'hand steps') {
-			let fenced = false;
+			let fence = null;
 			let j = i + 1;
-			for (; j < block.length && (fenced || !labelOf(block[j])); j++) {
+			for (; j < block.length && (fence || !labelOf(block[j])); j++) {
 				const raw = block[j];
-				if (/^(?:```|~~~)/.test(raw.trim())) {
-					fenced = !fenced;
-				}
-				const numbered = !fenced && /^\d+\.\s+(.*)$/.exec(raw);
+				fence = nextFence(fence, raw);
+				const numbered = !fence && /^\d+\.\s+(.*)$/.exec(raw);
 				if (numbered) {
 					out.steps.push(numbered[1]);
 				} else if (out.steps.length) {
