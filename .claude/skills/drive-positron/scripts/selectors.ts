@@ -172,6 +172,10 @@ export const css = {
 		inputLines: '.console-input .view-lines',
 		prompt: '.console-input .line-numbers.active-line-number', // the prompt is drawn as Monaco's line number
 		anyPrompt: '.console-input .line-numbers',
+		// input() or readline() waiting: the console input is hidden and the question is drawn
+		// in the output with its own field; an answered one keeps only the text, so the field marks it.
+		waitingPrompt: '.activity-prompt .prompt-line:has(.editor-input-container, .input-field)',
+		waitingField: '.editor-input-container, .input-field',
 		busy: '.codicon-positron-interrupt-runtime', // a session is running code: the interrupt icon shows
 		instanceTestId: 'console-', // + session id (python-1a2b3c4d)
 		tabTestId: 'console-tab-', // + session id
