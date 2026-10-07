@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -15,7 +15,11 @@
 	color: var(--vscode-positronContextMenu-foreground);
 }
 
-.custom-folder-menu-item:hover {
+.custom-folder-menu-item.disabled {
+	cursor: default;
+}
+
+.custom-folder-menu-item:not(.disabled):hover {
 	border-radius: 5px;
 	color: var(--vscode-positronContextMenu-hoverForeground);
 	background: var(--vscode-positronContextMenu-hoverBackground);
@@ -34,4 +38,8 @@
 .custom-folder-menu-item .title {
 	margin: 10px;
 	display: flex;
+}
+
+.custom-folder-menu-item.disabled .title {
+	opacity: 50%;
 }
