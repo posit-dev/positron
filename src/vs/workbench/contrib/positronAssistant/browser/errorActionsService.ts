@@ -73,7 +73,7 @@ function getOptionDescription(option: IAgentOption): string {
 	if (option.id === POSIT_ASSISTANT_ERROR_ACTIONS_ID) {
 		return reason;
 	}
-	return localize('positron.errorActions.agent.unavailableFallback', "{0} Until it's available, Fix and Explain use Posit Assistant.", reason);
+	return localize('positron.errorActions.agent.unavailableFallback', "{0} The default, Posit Assistant, is used instead.", reason);
 }
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);

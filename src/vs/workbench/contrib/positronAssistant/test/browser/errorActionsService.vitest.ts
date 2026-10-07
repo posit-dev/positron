@@ -133,7 +133,7 @@ describe('ErrorActionsService', () => {
 		registration.setUnavailableReason('The test-agent command was not found on the PATH.');
 		expect(getSettingOptionLabels()).toEqual([
 			{ label: 'Posit Assistant', description: '' },
-			{ label: 'Test Agent (unavailable)', description: 'The test-agent command was not found on the PATH. Until it\'s available, Fix and Explain use Posit Assistant.' },
+			{ label: 'Test Agent (unavailable)', description: 'The test-agent command was not found on the PATH. The default, Posit Assistant, is used instead.' },
 		]);
 
 		setContextKey('testAgent.isInstalled', true);
