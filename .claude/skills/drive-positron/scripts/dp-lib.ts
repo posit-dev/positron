@@ -203,7 +203,8 @@ export interface Parsed { session: string; flags: Record<string, string | true>;
  * listed is left to the command. Given `switches` (the flags that take no
  * value), any other flag is a usage error too, so a misspelled flag
  * (--langauge) is refused rather than ignored. An empty --session is a usage
- * error too, since it would drive the CLI's "default" session.
+ * error too, since it would drive the CLI's "default" session, and so is any
+ * other flag in `withValue` given no value or '', which would read as left out.
  */
 export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches?: string[]): Parsed {
 	const flags: Record<string, string | true> = {};
@@ -228,6 +229,11 @@ export function parse(argv: string[], withValue: string[], most: number | Record
 	// An empty --session (last on the line, --session=, --session '') would read as none,
 	// and the CLI would drive its "default" session instead of the caller's instance.
 	if (!flags.help && (flags.session === true || flags.session === '')) { throw new Exit(2, { ok: false, error: '--session needs the session name; leave the flag out to use $PW_SESSION' }); }
+	// Any other flag that takes a value, given none (last on the line, --flag=, --flag ''),
+	// would read as the flag left out too: notifications.sh --click would list instead of
+	// clicking, ui.sh --in would search the whole page. No helper gives '' a meaning.
+	const empty = !flags.help && withValue.find(f => flags[f] === '' || flags[f] === true);
+	if (empty) { throw new Exit(2, { ok: false, error: `--${empty} needs a value; leave the flag out for none` }); }
 	const session = String(flags.session ?? process.env.PW_SESSION ?? '');
 	return { session, flags, rest };
 }

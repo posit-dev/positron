@@ -126,6 +126,7 @@ const cases: Case[] = [
 	{ name: 'ui watch --for too long', run: ['ui.sh', 'watch', 'Console', '--for', '999'], fail: true },
 	{ name: 'ui watch --for not a number', run: ['ui.sh', 'watch', 'Console', '--for', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--for must be a positive number of seconds') },
 	{ name: 'ui click --wait negative', run: ['ui.sh', 'click', 'tab', 'Console', '--wait=-5'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--wait must be a number of seconds, 0 or more') },
+	{ name: 'ui click --in= with no value', run: ['ui.sh', 'click', 'tab', 'Console', '--in='], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--in needs a value') },
 	// A restart of a busy session asks first, in a toast: palette-run reports it.
 	{ name: 'console-run python sleeps (busy)', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, 'import time; time.sleep(6)'] },
 	{ name: 'palette-run restart while busy (toast)', run: ['palette-run.sh', 'Interpreter: Restart Active Interpreter Session'], check: o => includes(o.json!.notification, 'The runtime is busy') || logged('-> toast Warning: The runtime is busy') },
@@ -295,6 +296,7 @@ const cases: Case[] = [
 	{ name: 'qmd wait 1', run: ['qmd.sh', '--file', 'report.qmd', 'wait', '1', '30'], check: o => includes(o.json!.output?.text, 'qmd-answer 42') || includes(o.json!.toolbar?.buttons, 'Run this cell') || logged('qmd.sh -s=net1: read report.qmd cell 1 after wait: completed') },
 	{ name: 'qmd read', run: ['qmd.sh', '--file', 'report.qmd', 'read'], check: o => includes(o.json!.outputs, 'qmd-answer 42') },
 	{ name: 'qmd stop a finished cell', run: ['qmd.sh', '--file', 'report.qmd', 'stop', '1'], fail: true, check: o => includes(o.json!.error, 'the toolbar shows Run this cell') },
+	{ name: 'qmd --file with no value', run: ['qmd.sh', 'cells', '--file'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--file needs a value') },
 	// The last run's output stays under the cell until the new run prints: run reports only this run's.
 	{ name: 'qmd run 1 again', run: ['qmd.sh', '--file', 'report.qmd', 'run', '1'], check: o => o.json!.toolbar?.executionId === o.json!.before?.toolbar?.executionId && 'the execution id did not change' },
 	// More cell actions: a menu opening is a change; menu lists and closes it, or chooses.
@@ -376,6 +378,8 @@ const cases: Case[] = [
 	{ name: 'notifications list', quick: true, run: ['notifications.sh'], check: o => !Array.isArray(o.json!.notifications) && 'no notifications array' },
 	{ name: 'notifications click missing', run: ['notifications.sh', '--click', 'No Such Button'], fail: true },
 	{ name: 'notifications clear', run: ['notifications.sh', '--clear'], check: o => keys(o.json, 'remaining') },
+	{ name: 'notifications --click with no value', run: ['notifications.sh', '--click'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--click needs a value') },
+	{ name: 'notifications --match without --click', run: ['notifications.sh', '--match', 'runtime is busy'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--match goes with --click') },
 	{ name: 'shot window', quick: true, run: ['shot.sh', 'smoke-window.png'], check: o => !existsSync(o.text.trim()) && `no file ${o.text.trim()}` },
 	{ name: 'shot one element', run: ['shot.sh', 'smoke-statusbar.png', '.part.statusbar'], check: o => !existsSync(o.text.trim()) && `no file ${o.text.trim()}` },
 	{ name: 'shot missing element', run: ['shot.sh', 'smoke-none.png', '.no-such-element'], fail: true },

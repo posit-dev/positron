@@ -26,7 +26,9 @@
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"notifications":[{"severity":"info","message":"...","source":"...","buttons":["Yes","No"]}]}
-# Exit code: 0 on success, 1 when --click found no such button, 2 on a usage error.
+# Exit code: 0 on success, 1 when --click found no such button, 2 on a usage error
+# (an unknown flag, --click or --match with no value, --match without --click,
+# --click with --clear).
 #
 # Required tools on PATH: jq.
 

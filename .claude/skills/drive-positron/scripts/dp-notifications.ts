@@ -6,7 +6,7 @@
 // notifications: the toasts and modal dialogs on screen, and their buttons.
 // notifications.sh wraps it.
 
-import { inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 
 export function notifications(session: string, o: { click: string; match: string; clear: boolean }): Json {
 	// runs in run-code
@@ -74,8 +74,11 @@ export function notifications(session: string, o: { click: string; match: string
 
 export const notificationsCommands: Record<string, (argv: string[]) => Json | string> = {
 	'notifications': argv => {
-		const p = parse(argv, ['session', 'click', 'match']);
+		const p = parse(argv, ['session', 'click', 'match'], 0, ['clear', 'help']);
 		if (p.flags.help) { usage('notifications.sh'); }
+		// --match narrows a --click; alone it would be dropped and the list read as an answer.
+		if (p.flags.match !== undefined && p.flags.click === undefined) { throw new Exit(2, { ok: false, error: '--match goes with --click BUTTON; it picks which notification to click' }); }
+		if (p.flags.click !== undefined && p.flags.clear) { throw new Exit(2, { ok: false, error: '--click or --clear, not both' }); }
 		return notifications(p.session, { click: String(p.flags.click ?? ''), match: String(p.flags.match ?? ''), clear: !!p.flags.clear });
 	},
 };
