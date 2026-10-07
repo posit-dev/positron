@@ -47,6 +47,11 @@ says how a helper is built and checked.
 9. **Valid input keeps working.** A command that worked before with valid input must behave the
    same after your fix. If it cannot (a flag that was silently ignored now errors), the reason says
    which helpers and inputs change, in one line.
+10. **Add a smoke case for every fix.** In `test/smoke.ts`, add a case in the helper's section that
+    fails without your fix: a failure case (`fail: true`, with a `check` on the error text) for
+    bad input, a normal case for broken behavior. Add cases; do not edit existing ones. A fix that
+    changes `scripts/` and adds no case is rejected. If no smoke case can show the bug (it only
+    happens on another platform, or needs state smoke cannot build), set `untestable` to why.
 
 ## Driving the app
 
@@ -69,7 +74,8 @@ Write exactly one JSON file to the outcome path in the brief, then end with a on
       "reproduction": { "at": "<ISO time>", "by": "fixer", "result": "fail | pass", "observed": "what you saw" },
       "broke": "what stopped working, as the person using the helper sees it",
       "cause": "why, in one sentence",
-      "change": "what the fix does differently (fixed only)"
+      "change": "what the fix does differently (fixed only)",
+      "untestable": "why no smoke case can show this bug (only when you add none)"
     }
 
 `reason` is for the next fixer and the reviewer. `broke`, `cause` and `change` lead the nightly

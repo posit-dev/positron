@@ -23,7 +23,7 @@ import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, SMOKE_ROOT, SMOKE_SESSION, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
-import { earlierVerdicts, fixedBefore, inSections, newCheckFailures, parseChecks, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
+import { addedCases, caseGate, earlierVerdicts, fixedBefore, inSections, newCaseProblems, newCheckFailures, parseChecks, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
 import { checksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
@@ -44,6 +44,7 @@ function git(...a: string[]): string {
 
 // Build output inside a submodule (ai-lib, ark) shows as a modified submodule; only a moved commit counts.
 const STATUS = ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=dirty'];
+const SMOKE = `${SKILL_PREFIX}test/smoke.ts`;
 
 function main(): number {
 	const dash = process.argv.indexOf('--');
@@ -176,8 +177,17 @@ function main(): number {
 			continue;
 		}
 
-		const changed = checksChanged(touched);
 		git('add', '--', SKILL_PREFIX);
+		const added = touched.includes(SMOKE) ? addedCases(git('diff', '--cached', '-U0', '--no-color', pre, '--', SMOKE)) : [];
+		const gate = caseGate(touched, added, o.untestable);
+		if (gate) {
+			discard(pre, false);
+			save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, rejected: gate }));
+			console.log(`fix-loop: ${f.id} fix rejected: ${gate}`);
+			continue;
+		}
+		// Added cases are not a change to what judges the fix.
+		const changed = checksChanged(added?.length ? touched.filter(p => p !== SMOKE) : touched);
 		// --no-verify: the pre-commit hook needs the full dev setup, and check.ts runs next.
 		git('-c', 'user.name=positron-bot', '-c', 'user.email=positron-bot@posit.co', 'commit', '-q', '--no-verify', '-m', `drive-positron: fix ${f.id}\n\n${o.reason}`);
 		const sha = git('rev-parse', 'HEAD').trim();
@@ -191,7 +201,8 @@ function main(): number {
 		const checkOk = check.status === 0 || (checksAfter.size > 0 && !turnedRed.length);
 		// A selectors.ts change that only adds entries reaches just the scripts using them.
 		const scripts = join(here, '../scripts');
-		const reach = touched.flatMap(p => p === `${SKILL_PREFIX}scripts/selectors.ts` ? selectorUsers(addedKeys(git('diff', '-U0', '--no-color', pre, sha, '--', p)), scripts) ?? [p] : [p]);
+		const reach = touched.flatMap(p => p === SMOKE && added?.length ? added.map(a => `${SKILL_PREFIX}scripts/${a.helper}`)
+			: p === `${SKILL_PREFIX}scripts/selectors.ts` ? selectorUsers(addedKeys(git('diff', '-U0', '--no-color', pre, sha, '--', p)), scripts) ?? [p] : [p]);
 		const sections = postSections(baseline, affectedHelpers(reach, readGraph(scripts)), f);
 		const runs = (sections ?? [null]).map((s, i) => ({ until: s?.last, file: join(dir, sections ? `post-${n}-${i + 1}.json` : `post-${n}.json`) }));
 		const outputs: string[] = [];
@@ -211,8 +222,9 @@ function main(): number {
 			: !after || after.launch === 'FAIL' ? 'smoke did not run'
 				: reg.length ? `turned red: ${reg.map(c => `${c.name} (${c.problem.slice(0, 160)})`).join('; ')}`
 					: f.case && !after.cases.some(c => c.name === f.case && c.status === 'PASS') ? `its own case "${f.case}" still fails`
-						: '';
-		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, checksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}), ...(verdict ? { rejected: verdict } : {}) }));
+						: after && added?.length ? newCaseProblems(added, after).join('; ') : '';
+		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, checksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}),
+			...(added?.length ? { newCases: added.map(a => a.name) } : {}), ...(o.untestable ? { untestable: o.untestable } : {}), ...(verdict ? { rejected: verdict } : {}) }));
 		if (verdict) {
 			discard(pre, false);
 			console.log(`fix-loop: ${f.id} fix rejected: ${verdict}`);

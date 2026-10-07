@@ -23,6 +23,10 @@ export interface Finding {
 	broke?: string; cause?: string; change?: string;
 	/** Earlier runs that fixed this finding too; it came back, so those fixes never landed. */
 	fixedBefore?: string[];
+	/** The smoke cases a kept fix added. */
+	newCases?: string[];
+	/** Why a fix that changes a helper has no smoke case, in the fixer's words. */
+	untestable?: string;
 }
 
 const OUTCOMES = ['fixed', 'product', 'flake', 'resolved'];

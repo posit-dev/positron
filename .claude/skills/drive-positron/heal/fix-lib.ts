@@ -5,11 +5,12 @@
 
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding, Reproduction } from './finding.ts';
+import { SKILL_PREFIX } from './scope.ts';
 
 /** The report's plain-language account, one sentence each; a session may leave any of them out. */
 export type Plain = { broke?: string; cause?: string; change?: string };
 /** `plain` holds only the fields the session wrote; the outcome file has them at the top level. */
-export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction; plain: Plain };
+export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction; plain: Plain; untestable?: string };
 
 export function queue(findings: Finding[], smokeOrder: string[], cap = 5): { attempt: Finding[]; notAttempted: Finding[] } {
 	const at = (f: Finding) => f.source === 'smoke' ? smokeOrder.indexOf(f.case ?? '') : smokeOrder.length;
@@ -40,7 +41,7 @@ export function replaceCases(baseline: SmokeResults, after: SmokeResults): Smoke
 
 export function readOutcome(text: string | null): FixerOutcome | string {
 	if (text === null) { return 'the fixer wrote no outcome file'; }
-	let o: (Partial<Omit<FixerOutcome, 'plain'>> & Partial<Record<keyof Plain, unknown>>) | null;
+	let o: (Partial<Omit<FixerOutcome, 'plain' | 'untestable'>> & Partial<Record<keyof Plain | 'untestable', unknown>>) | null;
 	try { o = JSON.parse(text); } catch { return `the outcome file is not JSON: ${text.slice(0, 120)}`; }
 	if (!o || typeof o !== 'object') { return `the outcome file is not a JSON object: ${text.slice(0, 120)}`; }
 	if (!['fixed', 'product', 'flake'].includes(o.outcome as string)) { return `outcome "${o.outcome}" is not fixed, product or flake`; }
@@ -52,7 +53,8 @@ export function readOutcome(text: string | null): FixerOutcome | string {
 		const v = o[k];
 		if (typeof v === 'string' && v.trim()) { plain[k] = v.trim(); }
 	}
-	return { outcome: o.outcome as FixerOutcome['outcome'], reason: o.reason, reproduction: { ...r, by: 'fixer' } as Reproduction, plain };
+	const untestable = typeof o.untestable === 'string' && o.untestable.trim() ? o.untestable.trim() : undefined;
+	return { outcome: o.outcome as FixerOutcome['outcome'], reason: o.reason, reproduction: { ...r, by: 'fixer' } as Reproduction, plain, ...(untestable ? { untestable } : {}) };
 }
 
 /** The latest verdicts on finding `id` from earlier nights, newest first; `runs` maps run id to that night's findings. */
@@ -78,4 +80,32 @@ export function newCheckFailures(before: Map<string, 'PASS' | 'FAIL'>, after: Ma
 	const failing = [...after].filter(([name, v]) => v === 'FAIL' && before.get(name) !== 'FAIL').map(([name]) => name);
 	const gone = [...before].filter(([name, v]) => v === 'PASS' && !after.has(name)).map(([name]) => name);
 	return [...failing, ...gone];
+}
+
+export type AddedCase = { name: string; helper: string };
+
+/** The cases a `-U0` smoke.ts diff adds and the helper each runs; null when the diff does anything else. */
+export function addedCases(diff: string): AddedCase[] | null {
+	const out: AddedCase[] = [];
+	for (const l of diff.split('\n')) {
+		if (/^(diff |index |--- |\+\+\+ |@@|\\| )/.test(l) || l === '' || /^\+\s*$/.test(l)) { continue; }
+		const m = l.match(/^\+\t+\{ name: '((?:[^'\\]|\\.)+)',.*\brun: (?:\(\) => )?\['([a-z-]+\.sh)'/);
+		if (!m) { return null; }
+		out.push({ name: m[1].replace(/\\'/g, '\''), helper: m[2] });
+	}
+	return out;
+}
+
+/** Why a fix cannot be kept for want of a smoke case, or '' when it can. */
+export function caseGate(touched: string[], added: AddedCase[] | null, untestable: string | undefined): string {
+	const helperChanged = touched.some(p => p.startsWith(`${SKILL_PREFIX}scripts/`));
+	return helperChanged && added !== null && !added.length && !untestable ? 'it changes a helper but adds no smoke case' : '';
+}
+
+/** The added cases that did not run, or ran and did not pass, after the fix. */
+export function newCaseProblems(added: AddedCase[], after: SmokeResults): string[] {
+	return added.flatMap(a => {
+		const c = after.cases.find(x => x.name === a.name);
+		return !c ? [`its new case "${a.name}" did not run`] : c.status !== 'PASS' ? [`its new case "${a.name}" fails: ${c.problem.slice(0, 160)}`] : [];
+	});
 }

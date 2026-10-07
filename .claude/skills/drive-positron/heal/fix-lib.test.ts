@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { earlierVerdicts, fixedBefore, newCheckFailures, parseChecks, queue, readOutcome, regressions } from './fix-lib.ts';
+import { addedCases, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, parseChecks, queue, readOutcome, regressions } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -80,4 +80,55 @@ test('newCheckFailures ignores what was red before, and counts a check that vani
 	assert.deepEqual(newCheckFailures(before, before), []);
 	assert.deepEqual(newCheckFailures(before, parseChecks('PASS lint 1 ms\nFAIL drift 1 ms\nFAIL unit 1 ms\nFAIL extra 1 ms\n')), ['unit', 'extra']);
 	assert.deepEqual(newCheckFailures(before, parseChecks('FAIL drift 1 ms\n')), ['lint', 'unit']);
+});
+
+const SMOKE_DIFF_ADD = [
+	'diff --git a/.claude/skills/drive-positron/test/smoke.ts b/.claude/skills/drive-positron/test/smoke.ts',
+	'--- a/.claude/skills/drive-positron/test/smoke.ts',
+	'+++ b/.claude/skills/drive-positron/test/smoke.ts',
+	'@@ -310,0 +311,2 @@',
+	"+\t{ name: 'terminal-run unknown flag', run: ['terminal-run.sh', '--keys', 'x'], fail: true },",
+	"+\t{ name: 'terminal-run bad --index', run: () => ['terminal-run.sh', '--index', 'abc', 'ls'], fail: true, check: o => includes(o.json!.error, '--index') },",
+].join('\n');
+
+test('addedCases: an additions-only smoke.ts diff gives each case and its helper', () => {
+	assert.deepEqual(addedCases(SMOKE_DIFF_ADD), [
+		{ name: 'terminal-run unknown flag', helper: 'terminal-run.sh' },
+		{ name: 'terminal-run bad --index', helper: 'terminal-run.sh' },
+	]);
+});
+
+test('addedCases: a removed or changed line, or a non-case line, gives null', () => {
+	assert.equal(addedCases(`${SMOKE_DIFF_ADD}\n-\t{ name: 'old', run: ['x.sh'] },`), null);
+	assert.equal(addedCases('@@ -1,0 +1 @@\n+const found = {};'), null);
+});
+
+test('addedCases: an escaped quote in the name is kept', () => {
+	assert.deepEqual(addedCases("@@ -1,0 +1 @@\n+\t{ name: 'ui.sh can\\'t find it', run: ['ui.sh', 'x'], fail: true },"), [{ name: "ui.sh can't find it", helper: 'ui.sh' }]);
+});
+
+const P = '.claude/skills/drive-positron/';
+test('caseGate: a helper change needs an added case or an untestable reason', () => {
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [], undefined), 'it changes a helper but adds no smoke case');
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [{ name: 'a', helper: 'x.sh' }], undefined), '');
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`], [], 'Linux-only keystroke; smoke runs on macOS too'), '');
+	assert.equal(caseGate([`${P}SKILL.md`], [], undefined), '');
+});
+
+test('caseGate: a smoke.ts edit that is not additions-only passes the gate (it is flagged as a check change instead)', () => {
+	assert.equal(caseGate([`${P}scripts/dp-lib.ts`, `${P}test/smoke.ts`], null, undefined), '');
+});
+
+test('newCaseProblems: each added case must have run and passed', () => {
+	const after = r([c('a', 'PASS'), c('b', 'FAIL', 'exit 0, expected a failure')]);
+	assert.deepEqual(newCaseProblems([{ name: 'a', helper: 'x.sh' }, { name: 'b', helper: 'x.sh' }, { name: 'z', helper: 'x.sh' }], after), [
+		'its new case "b" fails: exit 0, expected a failure',
+		'its new case "z" did not run',
+	]);
+});
+
+test('readOutcome: keeps an untestable reason', () => {
+	const o = readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'r', reproduction: { result: 'fail', observed: 'o' }, untestable: 'only on Linux' }));
+	assert.ok(typeof o !== 'string');
+	assert.equal(o.untestable, 'only on Linux');
 });
