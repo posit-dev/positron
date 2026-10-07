@@ -29,7 +29,8 @@
 #                    when it leaves no match the unfiltered rows on screen
 #                    are tried
 #   --timeout SECS   how long to wait for the console to be ready (default 60),
-#                    and, first, for a session that is still starting
+#                    and, first, for a session that is still starting; a
+#                    value that is not a positive number is a usage error
 #   --new            start a session even when one of the language (and
 #                    --name) is open already
 #   --answer BUTTON  answer a dialog that holds start-up with this button, such
