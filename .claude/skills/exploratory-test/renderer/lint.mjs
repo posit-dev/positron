@@ -435,6 +435,11 @@ const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\
  *   two numbers.
  */
 
+// camelCase, or PascalCase of three or more words: a class or function name.
+const CODE_NAME = /\b(?:[a-z]+(?:[A-Z][a-z0-9]*)+|[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+){2,})\b/;
+// Product names CODE_NAME would mistake for code.
+const PRODUCT_NAMES = new Set(['macOS', 'iPython', 'JavaScript', 'TypeScript', 'PowerShell', 'JupyterLab']);
+
 function clarityProblems(n, title, observed, expected) {
 	const problems = [];
 	// A title says what a user sees, so it reads as a sentence, not as code.
@@ -450,6 +455,20 @@ function clarityProblems(n, title, observed, expected) {
 	const hedge = /\b(may|might|seems?|appears? to)\b/i.exec(prose(title));
 	if (hedge) {
 		problems.push(`report: Finding ${n} title hedges with "${hedge[1]}"; state what the run saw as a fact`);
+	}
+	const plain = text => prose(text).replace(/"[^"]*"/g, '');
+	const possessive = /\b\w+s'(?=\s)/.exec(plain(title));
+	if (possessive) {
+		problems.push(`report: Finding ${n} title uses the possessive "${possessive[0]}"; say "the <thing> of <owner>" or name the thing on screen`);
+	}
+	if (plain(title).includes('(')) {
+		problems.push(`report: Finding ${n} title has a parenthetical; fold it into the sentence or move it to Observed`);
+	}
+	for (const [label, text] of [['title', title], ['Observed', observed], ['Expected', expected]]) {
+		const code = text && CODE_NAME.exec(plain(text));
+		if (code && !PRODUCT_NAMES.has(code[0])) {
+			problems.push(`report: Finding ${n} ${label} names ${code[0]}, a code name a user never sees; say what is on screen, and leave code to Cause`);
+		}
 	}
 	for (const [label, text] of [['Observed', observed], ['Expected', expected]]) {
 		if (text && prose(text).includes(';')) {
@@ -910,6 +929,9 @@ const WARNINGS = [
 	/ title starts with a lowercase letter/,
 	/ title names code/,
 	/ title hedges with /,
+	/ title uses the possessive /,
+	/ title has a parenthetical/,
+	/ names \S+, a code name a user never sees/,
 	/ joins notes with a semicolon/,
 	/ (?:Observed|Expected): says "/,
 	/ Observed: names .*, which the title does not/,

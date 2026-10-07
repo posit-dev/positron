@@ -579,6 +579,15 @@ test('flags a hedged title and an editorial Observed', () => {
 	assert.deepEqual(observed, ['report: Finding 1 Observed: says "incorrectly"; say what happened in plain words and let the difference speak']);
 });
 
+test('flags a possessive, a parenthetical and a code name in a title', () => {
+	const titled = t => lint(REPORT.replace(/^### Finding 1: .*$/m, `### Finding 1: ${t}`)).filter(p => /possessive|parenthetical|code name/.test(p));
+	assert.deepEqual(titled('Paused columns\' tooltip is wrong'), ['report: Finding 1 title uses the possessive "columns\'"; say "the <thing> of <owner>" or name the thing on screen']);
+	assert.deepEqual(titled('Retry does nothing (after a reload)'), ['report: Finding 1 title has a parenthetical; fold it into the sentence or move it to Observed']);
+	assert.deepEqual(titled('TableSummaryCache never clears'), ['report: Finding 1 title names TableSummaryCache, a code name a user never sees; say what is on screen, and leave code to Cause']);
+	assert.deepEqual(titled('The quartoNotebookUri is lost on reload'), ['report: Finding 1 title names quartoNotebookUri, a code name a user never sees; say what is on screen, and leave code to Cause']);
+	assert.deepEqual(titled('Plots on macOS lose `TableSummaryCache` on GitHub "Users\' (1)" reload'), []);
+});
+
 test('a cited shot is the one taken at its check: taken once, and in step order', () => {
 	const ledger = ['## S01 - x', 'Status: pass', '', 'Steps:',
 		'1. VERIFY a -> PASS', '   Evidence: S01-01.png',

@@ -1,0 +1,176 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// The plain-language pass after verification, shared by CI (run.mjs) and a
+// local run. The explorer writes its findings after hours in the code, and its
+// titles pick up internal names and knotted sentences. A fresh agent that sees
+// only what a reader sees rewrites the title, Observed and Expected, and this
+// file keeps any rewrite that drops a fact out of the report.
+//
+// Local usage, around an editor subagent:
+//   node edit.mjs prompt <run dir>
+//     writes <run dir>/edit-prompt.md and prints its path, or says there are
+//     no findings to edit
+//   node edit.mjs apply <run dir> <reply file>
+//     applies the reply's edits to report.md, skipping any the guard rejects
+
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { applyTitles, rewriteLabel } from './finish.mjs';
+
+const FIELDS = { TITLE: 'title', OBSERVED: 'observed', EXPECTED: 'expected' };
+
+/**
+ * Each finding card from its heading through Expected: what a reader sees
+ * before the investigation parts. Cause and Evidence are left out so the
+ * editor cannot pick up the internal names the rewrite is meant to remove.
+ */
+export function editorFindings(report) {
+	const out = [];
+	let keep = false;
+	for (const line of String(report ?? '').split('\n')) {
+		if (/^###\s+Finding\s+\d+:/.test(line)) {
+			keep = true;
+			out.push(...(out.length ? [''] : []));
+		} else if (/^(##\s|###\s|<details>)/.test(line) || /^\*\*(Evidence|Error output|Cause|Test gap)/.test(line)) {
+			keep = false;
+		}
+		if (keep) {
+			out.push(line);
+			if (line.startsWith('**Expected:**')) {
+				keep = false;
+			}
+		}
+	}
+	return out.join('\n').trim();
+}
+
+/** editor.md with the findings filled in, or null when there are none. */
+export function buildEditPrompt(template, report) {
+	if (!String(template).includes('{{FINDINGS}}')) {
+		throw new Error('editor.md has no {{FINDINGS}} placeholder');
+	}
+	const findings = editorFindings(report);
+	return findings ? String(template).replace('{{FINDINGS}}', findings).trim() : null;
+}
+
+/** `TITLE: 1=...` lines: a Map of finding number to the fields it rewrites. */
+export function parseEdits(text) {
+	const out = new Map();
+	for (const line of String(text ?? '').split('\n')) {
+		const m = /^(TITLE|OBSERVED|EXPECTED):\s*(\d+)\s*=\s*(.+)$/i.exec(line.trim());
+		if (m) {
+			const n = Number(m[2]);
+			out.set(n, { ...out.get(n), [FIELDS[m[1].toUpperCase()]]: m[3].trim() });
+		}
+	}
+	return out;
+}
+
+/** Each finding's title, Observed and Expected as the report has them. */
+export function currentFields(report) {
+	const out = new Map();
+	let n = null;
+	for (const line of String(report ?? '').split('\n')) {
+		const heading = /^###\s+Finding\s+(\d+):\s*(.*)$/.exec(line);
+		if (heading) {
+			n = Number(heading[1]);
+			out.set(n, { title: heading[2].trim() });
+		} else if (/^(<details>|## )/.test(line)) {
+			n = null;
+		} else if (n !== null) {
+			const field = /^\*\*(Observed|Expected):\*\*\s*(.*)$/.exec(line);
+			if (field) {
+				out.get(n)[field[1].toLowerCase()] = field[2].trim();
+			}
+		}
+	}
+	return out;
+}
+
+/** What a rewrite must keep word for word: code spans, quoted strings and numbers. */
+export function factsOf(text) {
+	const spans = [...text.matchAll(/`[^`]+`/g)].map(m => m[0]);
+	const prose = text.replace(/`[^`]+`/g, ' ');
+	const quotes = [...prose.matchAll(/"[^"]+"/g)].map(m => m[0]);
+	const numbers = [...prose.replace(/"[^"]+"/g, ' ').matchAll(/(?<![\w.])\d+(?:[.,]\d+)*(?![\w])/g)].map(m => m[0]);
+	return [...new Set([...spans, ...quotes, ...numbers])];
+}
+
+/**
+ * The edits safe to apply, and why each other one is not. A rewrite is
+ * rejected when it loses a fact the original had, or when a title would break
+ * the findings table or the filed issue's title.
+ */
+export function reviewEdits(report, edits) {
+	const current = currentFields(report);
+	const kept = new Map();
+	const rejected = [];
+	for (const [n, fields] of edits) {
+		for (const [field, after] of Object.entries(fields)) {
+			const before = current.get(n)?.[field];
+			const lost = before === undefined ? [] : factsOf(before).filter(f => !after.includes(f));
+			const reason = before === undefined ? `Finding ${n} has no ${field}`
+				: lost.length ? `loses ${lost.join(', ')}`
+					: field === 'title' && /[|;]/.test(after) ? 'has a | or ;'
+						: '';
+			if (reason) {
+				rejected.push({ n, field, reason });
+			} else if (after !== before) {
+				kept.set(n, { ...kept.get(n), [field]: after });
+			}
+		}
+	}
+	return { kept, rejected };
+}
+
+/** The report with the kept edits applied: titles in heading and table, Observed and Expected in the card. */
+export function applyEdits(report, kept) {
+	const pick = field => new Map([...kept].filter(([, f]) => f[field] !== undefined).map(([n, f]) => [n, f[field]]));
+	return rewriteLabel(rewriteLabel(applyTitles(report, pick('title')), 'Observed', pick('observed')), 'Expected', pick('expected'));
+}
+
+const EDITOR_PATH = fileURLToPath(new URL('../editor.md', import.meta.url));
+
+function main(argv) {
+	const [command, dir, replyFile] = argv;
+	const reportPath = dir && join(dir, 'report.md');
+	if (!reportPath || !existsSync(reportPath)) {
+		console.error('usage: node edit.mjs prompt <run dir>\n       node edit.mjs apply <run dir> <reply file>');
+		return 2;
+	}
+	const report = readFileSync(reportPath, 'utf8');
+	if (command === 'prompt') {
+		const prompt = buildEditPrompt(readFileSync(EDITOR_PATH, 'utf8'), report);
+		if (!prompt) {
+			console.log('no findings: nothing to edit');
+			return 0;
+		}
+		const out = join(dir, 'edit-prompt.md');
+		writeFileSync(out, prompt);
+		console.log(out);
+		return 0;
+	}
+	if (command === 'apply') {
+		if (!replyFile || !existsSync(replyFile)) {
+			console.error(`edit: reply file not found: ${replyFile ?? '(none given)'}`);
+			return 2;
+		}
+		const { kept, rejected } = reviewEdits(report, parseEdits(readFileSync(replyFile, 'utf8')));
+		for (const r of rejected) {
+			console.error(`edit: kept Finding ${r.n}'s original ${r.field}: the rewrite ${r.reason}`);
+		}
+		writeFileSync(reportPath, applyEdits(report, kept));
+		console.log(`edit: ${[...kept.values()].reduce((sum, f) => sum + Object.keys(f).length, 0)} field(s) rewritten in ${reportPath}`);
+		return 0;
+	}
+	console.error(`edit: unknown command ${command ?? ''}`);
+	return 2;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+	process.exitCode = main(process.argv.slice(2));
+}

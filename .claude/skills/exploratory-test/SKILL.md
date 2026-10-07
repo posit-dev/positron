@@ -4,10 +4,10 @@ description: "Explore a running Positron instance as a real user to find genuine
 disable-model-invocation: true
 metadata:
   # Bump when the agent is told something new: this file, explorer.md,
-  # verifier.md, isolator.md, the text renderer/known-issues.mjs prints, or the
+  # verifier.md, isolator.md, editor.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.48"
+  version: "1.49"
 ---
 
 # Exploratory testing
@@ -96,6 +96,14 @@ When the VERDICTS line's numbers are not the report's Finding numbers, apply
 writes nothing and says why: send the verifier that message with SendMessage,
 save its reply over `verify-reply.md`, and apply again.
 The verdicts are advisory: do not edit them or drop a finding over them.
+
+Then have a fresh agent rewrite the findings in plain words, as CI does. Run
+`node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
+`no findings`, it prints the path of a prompt file. Spawn a fresh agent with
+`subagent_type: "general-purpose"` and `model: "sonnet"`, tell it to read that
+file and reply as it says, and save its reply to `<run dir>/edit-reply.md`.
+Then run `node <base>/renderer/edit.mjs apply <run dir> <run dir>/edit-reply.md`.
+It keeps the original of any field whose rewrite drops a fact, and says which.
 
 Then put every run on the report's Run tile, as CI does. Each agent's
 completion notice carries `duration_ms` and `tool_uses`; re-render with them.
