@@ -74,16 +74,26 @@ export function applyCovers(findings: Finding[], fixedId: string, covers: string
 		: x);
 }
 
-/** The latest verdicts on finding `id` from earlier nights, newest first; `runs` maps run id to that night's findings. */
-export function earlierVerdicts(runs: Map<string, Finding[]>, id: string, max = 3): string[] {
-	return [...runs].sort(([a], [b]) => Number(b) - Number(a))
-		.flatMap(([run, fs]) => fs.filter(f => f.id === id && f.outcome && f.outcome !== 'resolved').map(f => `run ${run}: ${f.outcome}${f.rejected ? ` (rejected: ${f.rejected})` : ''}: ${f.reason ?? ''}`))
-		.slice(0, max);
+/** The same finding on another night: the same id, or the same smoke case under a new id. */
+export function sameFinding(a: Finding, b: Finding): boolean {
+	return a.id === b.id || (a.source === 'smoke' && b.source === 'smoke' && a.case !== undefined && a.case === b.case);
 }
 
-/** The earlier runs, newest first, that fixed finding `id` and kept the fix. */
-export function fixedBefore(runs: Map<string, Finding[]>, id: string): string[] {
-	return [...runs].filter(([, fs]) => fs.some(f => f.id === id && f.outcome === 'fixed' && f.commit && !f.rejected))
+const verdict = (run: string, x: Finding, label = '') => `run ${run}${label}: ${x.outcome}${x.rejected ? ` (rejected: ${x.rejected})` : ''}: ${x.reason ?? ''}`;
+
+/** The latest verdicts on finding `f` from earlier nights, newest first; a finder finding's ids drift, so same-helper ones follow, labeled. */
+export function earlierVerdicts(runs: Map<string, Finding[]>, f: Finding, max = 3): string[] {
+	const newest = [...runs].sort(([a], [b]) => Number(b) - Number(a));
+	const decided = (x: Finding) => x.outcome !== undefined && x.outcome !== 'resolved';
+	const exact = newest.flatMap(([run, fs]) => fs.filter(x => decided(x) && sameFinding(x, f)).map(x => verdict(run, x)));
+	const related = f.source !== 'finder' ? [] : newest.flatMap(([run, fs]) => fs.filter(x => decided(x) && x.source === 'finder' && x.helper === f.helper && !sameFinding(x, f))
+		.map(x => verdict(run, x, ` (related, same helper ${f.helper})`)));
+	return [...exact, ...related].slice(0, max);
+}
+
+/** The earlier runs, newest first, that fixed finding `f` and kept the fix. */
+export function fixedBefore(runs: Map<string, Finding[]>, f: Finding): string[] {
+	return [...runs].filter(([, fs]) => fs.some(x => sameFinding(x, f) && x.outcome === 'fixed' && x.commit && !x.rejected))
 		.map(([run]) => run).sort((a, b) => Number(b) - Number(a));
 }
 

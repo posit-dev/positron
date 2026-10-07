@@ -82,7 +82,7 @@ function main(): number {
 	const { attempt, notAttempted } = queue(findings, order, cap);
 	const save = (f: Finding) => { writeFinding(fdir, f); findings = findings.map(x => x.id === f.id ? f : x); };
 	for (const f of findings.filter(x => x.outcome === undefined)) {
-		const runs = fixedBefore(recent, f.id);
+		const runs = fixedBefore(recent, f);
 		if (runs.length) { save(addFields(f, { fixedBefore: runs })); }
 	}
 	for (const f of notAttempted) { save(addFields(f, { notAttempted: `over the ${cap}-session cap; comes back next night` })); }
@@ -119,7 +119,7 @@ function main(): number {
 		const outFile = join(dir, `outcome-${f.id}.json`);
 		rmSync(outFile, { force: true });
 		rmSync(stateFile, { force: true });
-		const earlier = earlierVerdicts(recent, f.id);
+		const earlier = earlierVerdicts(recent, f);
 		writeFileSync(join(dir, 'fixer-brief.md'), [
 			'# Finding', '', '```json', JSON.stringify(f, null, 2), '```', '',
 			...(earlier.length ? ['# Earlier verdicts', '', ...earlier.map(v => `- ${v}`), ''] : []),

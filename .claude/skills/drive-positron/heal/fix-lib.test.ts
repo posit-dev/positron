@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, otherOpen, parseChecks, queue, readOutcome, regressions } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, otherOpen, parseChecks, queue, readOutcome, regressions, sameFinding } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -43,8 +43,8 @@ test('readOutcome keeps the plain fields that are non-empty strings', () => {
 test('fixedBefore names the earlier runs that kept a fix, newest first', () => {
 	const f = (id: string, extra: Partial<Finding>): Finding => ({ id, source: 'smoke', case: id, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', reproductions: [], ...extra });
 	const runs = new Map([['9', [f('a', { outcome: 'fixed', commit: 'c' })]], ['12', [f('a', { outcome: 'fixed', commit: 'c' })]], ['10', [f('a', { outcome: 'fixed', commit: 'c', rejected: 'r' })]], ['11', [f('a', { outcome: 'flake' }), f('b', { outcome: 'fixed', commit: 'c' })]]]);
-	assert.deepEqual(fixedBefore(runs, 'a'), ['12', '9']);
-	assert.deepEqual(fixedBefore(runs, 'z'), []);
+	assert.deepEqual(fixedBefore(runs, f('a', {})), ['12', '9']);
+	assert.deepEqual(fixedBefore(runs, f('z', {})), []);
 });
 
 test('readOutcome explains what is unusable', () => {
@@ -63,9 +63,9 @@ test('earlierVerdicts: newest run first, only this id, resolved and open skipped
 		['7', [v()]],
 		['6', [{ ...v('fixed', 'old'), rejected: 'check.ts failed' }]],
 	]);
-	assert.deepEqual(earlierVerdicts(runs, 'smoke-a'), ['run 10: fixed: helper', 'run 9: product: upstream', 'run 6: fixed (rejected: check.ts failed): old']);
-	assert.deepEqual(earlierVerdicts(runs, 'smoke-a', 1), ['run 10: fixed: helper']);
-	assert.deepEqual(earlierVerdicts(runs, 'smoke-z'), []);
+	assert.deepEqual(earlierVerdicts(runs, f('smoke-a', 'smoke', 'a')), ['run 10: fixed: helper', 'run 9: product: upstream', 'run 6: fixed (rejected: check.ts failed): old']);
+	assert.deepEqual(earlierVerdicts(runs, f('smoke-a', 'smoke', 'a'), 1), ['run 10: fixed: helper']);
+	assert.deepEqual(earlierVerdicts(runs, f('smoke-z', 'smoke', 'z')), []);
 });
 
 const CHECK_OUT = 'PASS lint        12 ms\nFAIL drift      40 ms  1 problem(s)\n     FAIL inside a problem line\nPASS unit      900 ms\n1 check(s) failed\n';
@@ -152,4 +152,27 @@ test('readOutcome: keeps covers as a list of strings and drops anything else', (
 	const o = readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'r', reproduction: { result: 'fail', observed: 'o' }, covers: ['finder-b', 3, ''] }));
 	assert.ok(typeof o !== 'string');
 	assert.deepEqual(o.covers, ['finder-b']);
+});
+
+test('sameFinding: same id, or the same smoke case under another id', () => {
+	assert.equal(sameFinding(f('smoke-a', 'smoke', 'a'), f('smoke-a', 'smoke', 'a')), true);
+	assert.equal(sameFinding(f('smoke-a', 'smoke', 'a'), f('smoke-a2', 'smoke', 'a')), true);
+	assert.equal(sameFinding(f('finder-x', 'finder'), f('finder-y', 'finder')), false);
+});
+
+test('earlierVerdicts: a finder finding gets same-helper verdicts, labeled, after exact ones', () => {
+	const runs = new Map([
+		['10', [{ ...f('finder-old-slug', 'finder', undefined, 'fixed'), reason: 'unknown flag accepted' }]],
+		['11', [{ ...f('finder-now', 'finder', undefined, 'flake'), reason: 'could not repro' }]],
+	]);
+	const got = earlierVerdicts(runs, f('finder-now', 'finder'));
+	assert.deepEqual(got, ['run 11: flake: could not repro', 'run 10 (related, same helper x.sh): fixed: unknown flag accepted']);
+});
+
+test('fixedBefore: matches a smoke finding by case, not a finder finding by helper', () => {
+	const runs = new Map([
+		['10', [{ ...f('smoke-a-old', 'smoke', 'a', 'fixed'), commit: 'c' }, { ...f('finder-z', 'finder', undefined, 'fixed'), commit: 'c' }]],
+	]);
+	assert.deepEqual(fixedBefore(runs, f('smoke-a', 'smoke', 'a')), ['10']);
+	assert.deepEqual(fixedBefore(runs, f('finder-q', 'finder')), []);
 });
