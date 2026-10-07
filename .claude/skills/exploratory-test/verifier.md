@@ -106,7 +106,10 @@ FEATURE: 3=new folder flow
 Leave it out when every Feature holds.
 
 If you narrow a Cause so that the finding's title names a trigger the evidence
-does not need, add a line with a title that names the one it does. It replaces
+does not need, or a case the run tried contradicts the title's trigger (one
+with the trigger passed, or one without it failed), add a line with a title
+that names the trigger the evidence does show, or none when it shows none a
+user can see. Do not keep a title because it fits the cases that failed. It replaces
 the title in the table, the report and the filed issue. Write it as the report
 writes titles: what a user sees and what triggers it, starting with a capital,
 with no function, file or type names, which belong in Cause. Use no `;` or `|`:

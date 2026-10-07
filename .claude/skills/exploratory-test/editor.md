@@ -12,6 +12,8 @@ The reader knows Positron but has not seen the PR, the code or the run.
 
 **Title**: written last, from your summary. The filed issue is titled `<feature>: <your title>`, with the finding's **Feature:** line as the feature, so don't repeat the feature. The title is the summary's first sentence cut to its core: aim for 12 words or fewer, no code or file names, no colon, semicolon or `|`. Keep what makes it a bug: a condition that narrows it ("of 1,000 or more", "until you Tab") or that it persists ("stays that way after reconnecting"). If those take more than 12 words, keep them; a longer true title beats a short one that says less. Start it with a capital unless its first word is a name written in lowercase, such as polars.
 
+The trigger is the one in the finding's heading, which a reviewer has checked: keep it, and do not add one it does not name, in the title or the summary. A comparison in Expected ("as it does when clicked again") is not a trigger.
+
 Keep every fact you use true to the record; do not add one it does not have, and keep numbers, quoted UI text and code exactly as the record writes them. Do not use a name a user would not see on screen: no component, class, function or file names, and no "kernel", "language server", "extension host" or "backend" unless the user would see that word. Name a thing by where the reader sees it: the button's label, the pane's name, the message's text.
 
 ## Before -> after
