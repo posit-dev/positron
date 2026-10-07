@@ -329,10 +329,14 @@ export class PythonLsp implements vscode.Disposable {
         // Also set the priorities for completion items and hovers based on Positron LSP server extensions.
         this._clientOptions.middleware = {
             handleDiagnostics(uri, diagnostics, next) {
-                // Only check file URIs because vdocs are files on disk
+                // Only check file URIs because vdocs are files on disk.
+                // Publish an empty set rather than dropping the publish:
+                // the Quarto extension waits for a diagnostics change on
+                // the vdoc and logs a timeout warning if none arrives.
                 if (uri.scheme === 'file') {
                     const baseName = path.basename(uri.fsPath);
                     if (VDOC_PATTERN.test(baseName)) {
+                        next(uri, []);
                         return;
                     }
                 }
