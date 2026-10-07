@@ -30,6 +30,12 @@ export interface CodingAgent {
 	 */
 	getUnavailableReason(): Promise<string | undefined>;
 
+	/**
+	 * Whether the agent can continue the current chat, by pasting into its
+	 * session in a terminal.
+	 */
+	canContinueChat(): boolean;
+
 	/** Whether a process's command line runs the agent's terminal UI. */
 	isAgentCommand(args: string): boolean;
 

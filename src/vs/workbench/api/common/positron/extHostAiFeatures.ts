@@ -102,6 +102,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 		const proxy = this._proxy;
 		let unavailableReason: string | undefined;
+		let canContinueChat = true;
 		return {
 			get unavailableReason() {
 				return unavailableReason;
@@ -110,6 +111,15 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 				if (reason !== unavailableReason) {
 					unavailableReason = reason;
 					proxy.$setErrorActionHandlerUnavailableReason(handle, reason);
+				}
+			},
+			get canContinueChat() {
+				return canContinueChat;
+			},
+			set canContinueChat(value: boolean) {
+				if (value !== canContinueChat) {
+					canContinueChat = value;
+					proxy.$setErrorActionHandlerCanContinueChat(handle, value);
 				}
 			},
 			dispose: () => {

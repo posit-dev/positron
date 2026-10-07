@@ -47,7 +47,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 	const enableAssistantActions = usePositronConfiguration<boolean>('console.assistantActions.enabled');
 	// Undefined when there is nowhere to send the error, e.g. Posit Assistant
 	// has no usable chat model and no other handler is registered.
-	const errorActionHandler = useErrorActionHandler();
+	const configuredHandler = useErrorActionHandler();
 	const showAssistantActions = aiEnabled && enableAssistantActions;
 
 	// Traceback useEffect.
@@ -89,8 +89,8 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 									}
 								</Button>
 							}
-							{showAssistantActions && errorActionHandler &&
-								<ConsoleQuickFix code={props.code} errorActionHandler={errorActionHandler} outputLines={props.activityItemErrorMessage.messageOutputLines} positronConsoleInstance={props.positronConsoleInstance} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
+							{showAssistantActions && configuredHandler &&
+								<ConsoleQuickFix canContinueChat={configuredHandler.canContinueChat} code={props.code} errorActionHandler={configuredHandler.handler} outputLines={props.activityItemErrorMessage.messageOutputLines} positronConsoleInstance={props.positronConsoleInstance} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
 							}
 						</div>
 						{showTraceback &&

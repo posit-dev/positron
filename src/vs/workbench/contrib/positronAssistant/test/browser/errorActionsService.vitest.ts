@@ -143,6 +143,20 @@ describe('ErrorActionsService', () => {
 		]);
 	});
 
+	it('tracks whether a handler can continue the current chat', () => {
+		const service = createService();
+		const errorActionHandler = createErrorActionHandler();
+		const registration = service.register(errorActionHandler);
+		ctx.disposables.add(registration);
+		const onDidChange = vi.fn();
+		ctx.disposables.add(service.onDidChange(onDidChange));
+		expect(service.canContinueChat(errorActionHandler)).toBe(true);
+
+		registration.setCanContinueChat(false);
+		expect(service.canContinueChat(errorActionHandler)).toBe(false);
+		expect(onDidChange).toHaveBeenCalledTimes(1);
+	});
+
 	it('ignores duplicate ids', () => {
 		const service = createService();
 		const first = createErrorActionHandler();

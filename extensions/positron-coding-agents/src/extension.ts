@@ -44,6 +44,7 @@ export function activate(context: vscode.ExtensionContext): void {
 				const reasons = await Promise.all(AGENTS.map(agent => agent.getUnavailableReason()));
 				await Promise.all(AGENTS.map((agent, i) => {
 					registrations[i].unavailableReason = reasons[i];
+					registrations[i].canContinueChat = agent.canContinueChat();
 					return vscode.commands.executeCommand('setContext', getAvailableKey(agent), reasons[i] === undefined);
 				}));
 			} while (isCheckRequested);

@@ -48,6 +48,7 @@ describe('MainThreadAiFeatures', () => {
 	let runErrorAction: ReturnType<typeof vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>>;
 	let registeredHandlers: IErrorActionHandler[];
 	let unavailableReasons: (string | undefined)[];
+	let canContinueChats: boolean[];
 
 	/**
 	 * Constructs a MainThreadAiFeatures with the given initial catalog and returns it. The
@@ -63,6 +64,7 @@ describe('MainThreadAiFeatures', () => {
 		runErrorAction = vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>(async () => { });
 		registeredHandlers = [];
 		unavailableReasons = [];
+		canContinueChats = [];
 
 		const aiProviderService = stubInterface<IAiProviderService>({
 			whenInitialized,
@@ -98,6 +100,7 @@ describe('MainThreadAiFeatures', () => {
 					registeredHandlers.push(handler);
 					return {
 						setUnavailableReason: reason => unavailableReasons.push(reason),
+						setCanContinueChat: canContinueChat => canContinueChats.push(canContinueChat),
 						dispose: () => registeredHandlers.splice(registeredHandlers.indexOf(handler), 1),
 					};
 				},
@@ -186,6 +189,9 @@ describe('MainThreadAiFeatures', () => {
 
 		mainThread.$setErrorActionHandlerUnavailableReason(7, 'Not installed.');
 		expect(unavailableReasons).toEqual(['Not installed.']);
+
+		mainThread.$setErrorActionHandlerCanContinueChat(7, false);
+		expect(canContinueChats).toEqual([false]);
 
 		mainThread.$unregisterErrorActionHandler(7);
 		expect(registeredHandlers).toEqual([]);

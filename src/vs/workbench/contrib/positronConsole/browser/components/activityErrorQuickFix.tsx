@@ -23,6 +23,8 @@ interface ConsoleQuickFixProps {
 	tracebackLines: ANSIOutputLine[];
 	/** Error action handler to send the error to. */
 	errorActionHandler: IErrorActionHandler;
+	/** Whether the handler can continue the current chat. */
+	canContinueChat: boolean;
 	/** Code whose execution raised the error, when known. */
 	code?: string;
 	/** Console the error was raised in. */
@@ -51,7 +53,7 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	);
 
 	// The console's errors usually follow on from the conversation the user is
-	// having, so they continue the current chat.
+	// having, so they continue the current chat when the handler can.
 	const runAction = (kind: ErrorActionKind) => {
 		const { errorActionHandler, positronConsoleInstance } = props;
 		return services.get(IErrorActionsService).run(errorActionHandler, kind, {
@@ -63,7 +65,7 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 				languageId: positronConsoleInstance.runtimeMetadata.languageId,
 				code: props.code,
 			},
-			chat: 'current',
+			chat: props.canContinueChat ? 'current' : 'new',
 		});
 	};
 

@@ -102,6 +102,9 @@ export interface IErrorActionHandler {
 export interface IErrorActionHandlerRegistration extends IDisposable {
 	/** Set why the handler can't take errors, shown in the setting while its `when` is false. */
 	setUnavailableReason(reason: string | undefined): void;
+
+	/** Set whether the handler can continue the current chat. It can until this is called. */
+	setCanContinueChat(canContinueChat: boolean): void;
 }
 
 export const IErrorActionsService = createDecorator<IErrorActionsService>('errorActionsService');
@@ -112,7 +115,7 @@ export interface IErrorActionsService {
 
 	/**
 	 * Fires when the registered implementations, the configured one, or
-	 * whether a registered one can take errors change.
+	 * whether a registered one can take errors or continue a chat change.
 	 */
 	readonly onDidChange: Event<void>;
 
@@ -130,6 +133,9 @@ export interface IErrorActionsService {
 	 *   in which case there is nowhere to send them.
 	 */
 	getConfigured(): IErrorActionHandler | undefined;
+
+	/** Whether a registered implementation can continue the current chat, which offers actions that do. */
+	canContinueChat(handler: IErrorActionHandler): boolean;
 
 	/**
 	 * Run an action with a registered implementation. Failures are logged and

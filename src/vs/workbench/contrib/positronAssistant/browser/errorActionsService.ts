@@ -82,10 +82,11 @@ const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationE
 let configurationNode = getConfigurationNode([]);
 configurationRegistry.registerConfiguration(configurationNode);
 
-/** A registered implementation, with why it can't take errors. */
+/** A registered implementation, with why it can't take errors and whether it can continue a chat. */
 interface IRegisteredHandler {
 	readonly handler: IErrorActionHandler;
 	unavailableReason?: string;
+	canContinueChat: boolean;
 }
 
 export class ErrorActionsService extends Disposable implements IErrorActionsService {
@@ -93,7 +94,7 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 
 	/**
 	 * Fires when the registered implementations, the configured one, or
-	 * whether a registered one can take errors change.
+	 * whether a registered one can take errors or continue a chat change.
 	 */
 	private readonly _onDidChange = this._register(new Emitter<void>());
 	readonly onDidChange = this._onDidChange.event;
@@ -134,16 +135,22 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 	register(handler: IErrorActionHandler): IErrorActionHandlerRegistration {
 		if (this._registered.some(registered => registered.handler.id === handler.id)) {
 			this._logService.error(`An error action handler with the id '${handler.id}' is already registered`);
-			return { setUnavailableReason: () => { }, dispose: () => { } };
+			return { setUnavailableReason: () => { }, setCanContinueChat: () => { }, dispose: () => { } };
 		}
 
-		const registered: IRegisteredHandler = { handler };
+		const registered: IRegisteredHandler = { handler, canContinueChat: true };
 		this._registered.push(registered);
 		this._update();
 		return {
 			setUnavailableReason: reason => {
 				registered.unavailableReason = reason;
 				this._updateOptions();
+			},
+			setCanContinueChat: canContinueChat => {
+				if (canContinueChat !== registered.canContinueChat) {
+					registered.canContinueChat = canContinueChat;
+					this._onDidChange.fire();
+				}
 			},
 			dispose: () => {
 				const index = this._registered.indexOf(registered);
@@ -160,6 +167,10 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 		const available = this._registered.map(registered => registered.handler).filter(handler => this._isAvailable(handler));
 		return available.find(handler => handler.id === id)
 			?? available.find(handler => handler.id === POSIT_ASSISTANT_ERROR_ACTIONS_ID);
+	}
+
+	canContinueChat(handler: IErrorActionHandler): boolean {
+		return this._registered.find(registered => registered.handler === handler)?.canContinueChat ?? true;
 	}
 
 	async run(handler: IErrorActionHandler, kind: ErrorActionKind, context: IErrorActionContext): Promise<void> {

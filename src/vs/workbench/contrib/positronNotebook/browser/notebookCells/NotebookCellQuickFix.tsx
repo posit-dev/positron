@@ -40,7 +40,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// settings' default of true.
 	const notebookAiEnabled = useContextKey<boolean>(NotebookContextKeys.aiEnabled);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
-	const errorActionHandler = useErrorActionHandler();
+	const configuredHandler = useErrorActionHandler();
 
 	const instance = useNotebookInstance();
 	const cell = useOptionalCell();
@@ -61,13 +61,14 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 
 	// Only show buttons if notebook AI is enabled, notebook mode is enabled, and
 	// there is somewhere to send the error
-	if (notebookAiEnabled === false || !enableNotebookMode || !errorActionHandler) {
+	if (notebookAiEnabled === false || !enableNotebookMode || !configuredHandler) {
 		return null;
 	}
 
 	return (
 		<AssistantErrorQuickFix
-			errorActionHandler={errorActionHandler}
+			canContinueChat={configuredHandler.canContinueChat}
+			errorActionHandler={configuredHandler.handler}
 			errorOutput={errorContent}
 			getLocation={getLocation}
 			groupAriaLabel={localize('positron.notebook.quickFixGroup', "Cell output quick fix actions")}

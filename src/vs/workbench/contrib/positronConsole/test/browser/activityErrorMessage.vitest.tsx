@@ -30,7 +30,7 @@ describe('ActivityErrorMessage assistant actions gate', () => {
 	let configuredHandler: IErrorActionHandler | undefined;
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => configuredHandler })
+		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => configuredHandler, canContinueChat: () => true })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

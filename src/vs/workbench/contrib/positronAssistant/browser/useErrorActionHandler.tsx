@@ -10,21 +10,33 @@ import { useEffect, useMemo, useState } from 'react';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { IErrorActionHandler, IErrorActionsService } from '../common/errorActions.js';
 
+/** The error action handler errors go to, and whether it can continue the current chat. */
+export interface IConfiguredErrorActionHandler {
+	readonly handler: IErrorActionHandler;
+	readonly canContinueChat: boolean;
+}
+
 /**
- * The error action handler selected in the ai.errorActions.agent setting, kept
- * current as the setting and registrations change.
- * @returns The selected implementation, or undefined when errors should go to
- *   Posit Assistant.
+ * The error action handler errors go to (the one selected in the
+ * ai.errorActions.agent setting, or Posit Assistant), kept current as the
+ * setting, registrations, and handlers' availability change.
+ * @returns The handler, or undefined when there is nowhere to send errors.
  */
-export function useErrorActionHandler(): IErrorActionHandler | undefined {
+export function useErrorActionHandler(): IConfiguredErrorActionHandler | undefined {
 	const services = usePositronReactServicesContext();
 	const errorActionsService = useMemo(() => services.get(IErrorActionsService), [services]);
-	const [errorActionHandler, setErrorActionHandler] = useState(() => errorActionsService.getConfigured());
+	const [configured, setConfigured] = useState(() => getConfigured(errorActionsService));
 
 	useEffect(() => {
-		const disposable = errorActionsService.onDidChange(() => setErrorActionHandler(errorActionsService.getConfigured()));
+		const disposable = errorActionsService.onDidChange(() => setConfigured(getConfigured(errorActionsService)));
 		return () => disposable.dispose();
 	}, [errorActionsService]);
 
-	return errorActionHandler;
+	return configured;
+}
+
+/** Snapshot the configured handler, so a change to either field re-renders. */
+function getConfigured(errorActionsService: IErrorActionsService): IConfiguredErrorActionHandler | undefined {
+	const handler = errorActionsService.getConfigured();
+	return handler && { handler, canContinueChat: errorActionsService.canContinueChat(handler) };
 }

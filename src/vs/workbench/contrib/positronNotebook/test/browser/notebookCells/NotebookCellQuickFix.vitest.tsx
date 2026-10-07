@@ -33,7 +33,7 @@ describe('NotebookCellQuickFix', () => {
 	const run = vi.fn().mockResolvedValue(undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, run })
+		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, canContinueChat: () => true, run })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

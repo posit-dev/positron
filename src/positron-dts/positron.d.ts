@@ -4949,7 +4949,11 @@ declare module 'positron' {
 			/** Where the error was raised. Undefined when it is not known. */
 			readonly location?: ErrorLocation;
 
-			/** Whether to start a new chat or continue the current one. */
+			/**
+			 * Whether to start a new chat or continue the current one. Only
+			 * 'current' while {@link ErrorActionHandlerRegistration.canContinueChat}
+			 * is true.
+			 */
 			readonly chat: ErrorActionChat;
 		}
 
@@ -5082,6 +5086,13 @@ declare module 'positron' {
 			 * changes.
 			 */
 			unavailableReason: string | undefined;
+
+			/**
+			 * Whether the handler can continue the current chat, which offers
+			 * actions that pass `chat: 'current'`. Defaults to true. Update it
+			 * when that changes, e.g. with the agent's settings.
+			 */
+			canContinueChat: boolean;
 
 			/** Unregister the handler. */
 			dispose(): void;

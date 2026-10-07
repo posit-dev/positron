@@ -24,6 +24,7 @@ export const codex: CodingAgent = {
 	getUnavailableReason: async () => await getAgentLaunch('codex', CODEX_NPM_SCRIPT)
 		? undefined
 		: vscode.l10n.t('The codex command was not found on the PATH.'),
+	canContinueChat: () => true,
 	isAgentCommand: isCodexCommand,
 	isPastTrustPrompt,
 	startNew,

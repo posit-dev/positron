@@ -32,7 +32,7 @@ describe('QuartoOutputQuickFix', () => {
 	const run = vi.fn().mockResolvedValue(undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => configuredHandler, run })
+		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => configuredHandler, canContinueChat: () => true, run })
 		.stub(IQuartoKernelManager, quartoKernelManager)
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);

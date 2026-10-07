@@ -37,7 +37,7 @@ interface QuartoOutputQuickFixProps {
  */
 export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 	const aiEnabled = usePositronConfiguration<boolean>(AI_ENABLED_KEY);
-	const errorActionHandler = useErrorActionHandler();
+	const configuredHandler = useErrorActionHandler();
 
 	const { errorContent, cellContext, onLayout } = props;
 	const quartoKernelManager = usePositronReactServicesContext().get(IQuartoKernelManager);
@@ -65,13 +65,14 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 		};
 	}, [cellContext, quartoKernelManager]);
 
-	if (aiEnabled === false || !errorActionHandler) {
+	if (aiEnabled === false || !configuredHandler) {
 		return null;
 	}
 
 	return (
 		<AssistantErrorQuickFix
-			errorActionHandler={errorActionHandler}
+			canContinueChat={configuredHandler.canContinueChat}
+			errorActionHandler={configuredHandler.handler}
 			errorOutput={errorContent}
 			getLocation={getLocation}
 			groupAriaLabel={localize('positron.quarto.quickFixGroup', "Output quick fix actions")}

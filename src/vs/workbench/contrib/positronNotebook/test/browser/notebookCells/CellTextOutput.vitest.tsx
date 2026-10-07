@@ -35,7 +35,7 @@ const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test
 describe('CellTextOutput', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, run: async () => { } })
+		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, canContinueChat: () => true, run: async () => { } })
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 

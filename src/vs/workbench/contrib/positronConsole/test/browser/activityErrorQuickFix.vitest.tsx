@@ -42,7 +42,7 @@ describe('ConsoleQuickFix', () => {
 		const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
 
 		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix code='print(x)' errorActionHandler={errorActionHandler} outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
+		rtl.render(<ConsoleQuickFix canContinueChat={true} code='print(x)' errorActionHandler={errorActionHandler} outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
 		await user.click(screen.getByText('Explain'));
 
 		expect(run).toHaveBeenCalledWith(errorActionHandler, 'explain', {
@@ -50,5 +50,15 @@ describe('ConsoleQuickFix', () => {
 			location: { kind: 'console', sessionId: 'python-1234', sessionName: 'Python 3.12.1', languageId: 'python', code: 'print(x)' },
 			chat: 'current',
 		});
+	});
+
+	it('starts a new chat when the handler cannot continue one', async () => {
+		const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
+
+		const user = userEvent.setup();
+		rtl.render(<ConsoleQuickFix canContinueChat={false} errorActionHandler={errorActionHandler} outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
+		await user.click(screen.getByText('Fix'));
+
+		expect(run.mock.calls[0][2].chat).toBe('new');
 	});
 });

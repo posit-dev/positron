@@ -197,7 +197,7 @@ describe('QuartoOutputViewZone collapse across a re-execution', () => {
 describe('QuartoOutputViewZone error quick-fix height', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
-		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, run: async () => { } })
+		.stub(IErrorActionsService, { onDidChange: Event.None, getConfigured: () => errorActionHandler, canContinueChat: () => true, run: async () => { } })
 		.stub(ICommandService, { executeCommand: vi.fn().mockResolvedValue(undefined) })
 		.build();
 

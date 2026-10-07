@@ -26,6 +26,8 @@ export const claudeCode: CodingAgent = {
 	id: 'claude-code',
 	label: 'Claude Code',
 	getUnavailableReason,
+	// Its chat can only start new conversations; its terminal sessions can be pasted into.
+	canContinueChat: () => getSurface() === 'terminal',
 	isAgentCommand: isClaudeCodeCommand,
 	isPastTrustPrompt,
 	startNew,
