@@ -82,7 +82,6 @@ describe('Positron - console restart ordering', () => {
 			{
 				runtime,
 				sessionName: runtime.runtimeName,
-				startReason: 'Test requested a console session',
 				sessionMode: LanguageRuntimeSessionMode.Console,
 			});
 		// Let the initial start complete, as it has by the time a user can ask

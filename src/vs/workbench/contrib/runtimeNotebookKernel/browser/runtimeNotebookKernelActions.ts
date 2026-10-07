@@ -5,7 +5,6 @@
 
 import { Codicon } from '../../../../base/common/codicons.js';
 import { KeyChord, KeyCode } from '../../../../base/common/keyCodes.js';
-import { basename } from '../../../../base/common/resources.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize, localize2 } from '../../../../nls.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
@@ -18,7 +17,6 @@ import { IProgressService, ProgressLocation } from '../../../../platform/progres
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { RuntimeExitReason } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { INotebookLanguageRuntimeSession, IRuntimeSessionService, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { IActiveNotebookEditor } from '../../notebook/browser/notebookBrowser.js';
 import { NOTEBOOK_KERNEL } from '../../notebook/common/notebookContextKeys.js';
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
@@ -187,7 +185,7 @@ export class RuntimeNotebookKernelRestartAction extends BaseRuntimeNotebookKerne
 
 			// If trying to restart with no active session, start a new session
 			const runtimeNotebookKernelService = accessor.get(IRuntimeNotebookKernelService);
-			await runtimeNotebookKernelService.ensureSessionStarted(notebookUri, createSessionStartReason(SessionStartReasonId.NotebookKernelRestart, { notebook: basename(notebookUri), restartSource: context.source.debugMessage }));
+			await runtimeNotebookKernelService.ensureSessionStarted(notebookUri, { id: SessionStartReasonId.NotebookKernelRestart });
 			return;
 		}
 

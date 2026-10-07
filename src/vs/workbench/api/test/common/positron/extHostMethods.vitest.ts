@@ -20,6 +20,7 @@ import { ExtHostContextKeyService } from '../../../common/positron/extHostContex
 import { ExtHostLanguageRuntime } from '../../../common/positron/extHostLanguageRuntime.js';
 import { ExtHostMethods } from '../../../common/positron/extHostMethods.js';
 import { ExtHostModalDialogs } from '../../../common/positron/extHostModalDialogs.js';
+import { UiFrontendRequest } from '../../../../services/languageRuntime/common/positronUiComm.js';
 
 /** A minimal fake `vscode.TextEditor` over a single-line document, with edits recorded. */
 function createFakeEditor(fileName: string, text = 'hello'): vscode.TextEditor & { readonly editedRanges: unknown[] } {
@@ -55,6 +56,7 @@ function createMethods(options: {
 	consoleEditors?: Record<string, vscode.TextEditor>;
 	/** The session whose console input was the most recently focused text editor, if any. */
 	consoleInputFocusedLastSessionId?: string;
+	runtime?: ExtHostLanguageRuntime;
 }) {
 	const editors = new class extends mock<ExtHostEditors>() {
 		override getActiveTextEditor(): vscode.TextEditor | undefined {
@@ -75,7 +77,7 @@ function createMethods(options: {
 		editors,
 		new (mock<ExtHostDocuments>())(),
 		new (mock<ExtHostModalDialogs>())(),
-		new (mock<ExtHostLanguageRuntime>())(),
+		options.runtime ?? new (mock<ExtHostLanguageRuntime>())(),
 		new (mock<ExtHostWorkspace>())(),
 		new (mock<ExtHostQuickOpen>())(),
 		new (mock<ExtHostCommands>())(),
@@ -218,6 +220,20 @@ describe('ExtHostMethods', function () {
 
 			expect(paneEditor.editedRanges).toHaveLength(1);
 			expect(consoleEditor.editedRanges).toHaveLength(0);
+		});
+	});
+
+	describe('executeCode', function () {
+		it('sends the session of the kernel that sent the code along with it', async function () {
+			// A kernel's `execute_code` request reaches Positron through the Kernel
+			// Supervisor; the session ID keeps the supervisor from being credited.
+			const queueCode = vi.fn<ExtHostLanguageRuntime['queueCode']>(async () => { });
+			const methods = createMethods({ runtime: stubInterface<ExtHostLanguageRuntime>({ queueCode }) });
+
+			await methods.call('positron.positron-supervisor', UiFrontendRequest.ExecuteCode,
+				{ language_id: 'r', code: '1 + 1', focus: false, allow_incomplete: false }, 'r-notebook-1');
+
+			expect(queueCode.mock.calls).toEqual([['r', '1 + 1', 'positron.positron-supervisor', false, false, 'r-notebook-1']]);
 		});
 	});
 });

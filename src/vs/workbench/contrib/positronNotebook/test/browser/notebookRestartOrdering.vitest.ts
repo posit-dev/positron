@@ -75,7 +75,6 @@ describe('Positron - notebook restart ordering', () => {
 				notebookUri: notebook.uri,
 				sessionName: runtime.runtimeName,
 				sessionMode: LanguageRuntimeSessionMode.Notebook,
-				startReason: 'Test requested a notebook session',
 			});
 		session.setRuntimeState(RuntimeState.Ready);
 		expect(notebook.runtimeSession.get()).toBe(session);

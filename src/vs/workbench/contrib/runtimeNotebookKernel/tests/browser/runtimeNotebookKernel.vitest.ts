@@ -105,7 +105,6 @@ describe('Positron - RuntimeNotebookKernel', () => {
 			notebookUri: notebookDocument.uri,
 			sessionName: 'test',
 			sessionMode: LanguageRuntimeSessionMode.Notebook,
-			startReason: '',
 		});
 		await waitForRuntimeState(session, RuntimeState.Ready);
 		return session;
@@ -589,7 +588,6 @@ describe('Positron - RuntimeNotebookKernel - executeCodeInCell', () => {
 			notebookUri: notebookDocument.uri,
 			sessionName: 'test',
 			sessionMode: LanguageRuntimeSessionMode.Notebook,
-			startReason: '',
 		});
 		await waitForRuntimeState(session, RuntimeState.Ready);
 		return session;

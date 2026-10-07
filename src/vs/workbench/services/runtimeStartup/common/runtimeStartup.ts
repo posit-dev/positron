@@ -17,7 +17,6 @@ import { IHostedLanguageContribution, ILanguageRuntimeExit, ILanguageRuntimeMeta
 import { IRuntimeAutoStartEvent, IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from './runtimeStartupService.js';
 import { IRuntimeDiscoveryCache, IRuntimeFingerprint, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_DEFAULT, RUNTIME_DISCOVERY_CACHE_REFRESH_INTERVAL_DAYS_SETTING } from './runtimeDiscoveryCacheService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, reviveRuntimeSessionMetadata, RuntimeStartMode, IRuntimeSessionStartReason, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasons.js';
 import { ExtensionsRegistry } from '../../extensions/common/extensionsRegistry.js';
 import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
 import { ILifecycleService, ShutdownReason } from '../../lifecycle/common/lifecycle.js';
@@ -346,8 +345,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 					// Start the first runtime that has Immediate startup behavior
 					if (languageRuntimes.length) {
-						const extension = languageRuntimes[0].extensionId;
-						this.autoStartRuntime(languageRuntimes[0], createSessionStartReason(SessionStartReasonId.ExtensionRequestedImmediateStart, { extension: extension.value, interpreter: languageRuntimes[0].runtimeName }), true);
+						this.autoStartRuntime(languageRuntimes[0], { id: SessionStartReasonId.ExtensionRequestedImmediateStart }, true);
 						return;
 					}
 
@@ -382,9 +380,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 						const languageSpecific = this._configurationService.inspect(
 							'interpreters.startupBehavior', { overrideIdentifier: languageId })
 							.overrideIdentifiers?.includes(languageId);
-						this.autoStartRuntime(alwaysStarted[0], createSessionStartReason(languageSpecific ?
-							SessionStartReasonId.StartupBehaviorAlways :
-							SessionStartReasonId.StartupBehaviorAlwaysAllLanguages, { language: languageId }), true);
+						this.autoStartRuntime(alwaysStarted[0], {
+							id: languageSpecific ?
+								SessionStartReasonId.StartupBehaviorAlways :
+								SessionStartReasonId.StartupBehaviorAlwaysAllLanguages
+						}, true);
 					}
 				}
 			}
@@ -407,7 +407,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				this._startupPhase === RuntimeStartupPhase.Complete &&
 				!this._runtimeSessionService.hasStartingOrRunningConsole()) {
 
-				this.autoStartRuntime(runtime, createSessionStartReason(SessionStartReasonId.ExtensionRequestedStartAtRegistration, { extension: runtime.extensionId.value, interpreter: runtime.runtimeName }), true);
+				this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRequestedStartAtRegistration }, true);
 			}
 
 			// Automatically start the language runtime under the following conditions:
@@ -426,7 +426,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				!this.getAffiliatedRuntimeMetadata(runtime.languageId) &&
 				!this._runtimeSessionService.implicitStartupSuppressed) {
 
-				this.autoStartRuntime(runtime, createSessionStartReason(SessionStartReasonId.LanguageFileOpenedAtRegistration, { language: runtime.languageId }), true);
+				this.autoStartRuntime(runtime, { id: SessionStartReasonId.LanguageFileOpenedAtRegistration }, true);
 			}
 		}));
 
@@ -1640,7 +1640,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					metadata.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // Console session
-					createSessionStartReason(SessionStartReasonId.AffiliatedRuntimeAtRegistration, { language: metadata.languageId }),
+					{ id: SessionStartReasonId.AffiliatedRuntimeAtRegistration },
 					RuntimeStartMode.Starting,
 					true);
 			} catch (e) {
@@ -1818,7 +1818,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				// Start the runtime immediately if it has Immediate startup
 				// behavior.
-				await this.autoStartRuntime(runtime, createSessionStartReason(SessionStartReasonId.ExtensionRecommendedRuntime, { extension: runtime.extensionId.value, interpreter: runtime.runtimeName }), idx === 0);
+				await this.autoStartRuntime(runtime, { id: SessionStartReasonId.ExtensionRecommendedRuntime }, idx === 0);
 			} else {
 				// For other startup behaviors, we just save the runtime as the
 				// default (unless the workspace already has an affiliated
@@ -2043,7 +2043,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		affiliatedRuntime.lastStarted = Date.now();
 		this.saveAffiliatedRuntime(affiliatedRuntime);
 
-		await this.autoStartRuntime(affiliatedRuntimeMetadata, createSessionStartReason(SessionStartReasonId.AffiliatedRuntime, { language: affiliatedRuntimeMetadata.languageId }), activate);
+		await this.autoStartRuntime(affiliatedRuntimeMetadata, { id: SessionStartReasonId.AffiliatedRuntime }, activate);
 	}
 
 	/**

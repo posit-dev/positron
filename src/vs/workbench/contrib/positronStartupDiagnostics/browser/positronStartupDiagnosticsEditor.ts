@@ -415,10 +415,19 @@ class PositronStartupDiagnosticsContentProvider implements ITextModelContentProv
 
 			md.heading(3, session.dynState.sessionName || session.runtimeMetadata.runtimeName);
 			md.li(`**Runtime**: ${session.runtimeMetadata.runtimeName}`);
+			md.li(`**Runtime ID**: ${session.runtimeMetadata.runtimeId}`);
+			md.li(`**Language**: ${session.runtimeMetadata.languageId}`);
+			md.li(`**Extension**: ${session.runtimeMetadata.extensionId.value}`);
+			if (session.metadata.notebookUri) {
+				md.li(`**Notebook**: ${session.metadata.notebookUri.toString()}`);
+			}
 			md.li(`**Mode**: ${session.metadata.sessionMode}`);
 			md.li(`**State**: ${session.getRuntimeState().toString()}`);
 			md.li(`**Start Reason**: ${session.metadata.startReason || '-'}`);
 			md.li(`**Start Reason ID**: ${session.metadata.startReasonId ?? '-'}`);
+			if (session.metadata.requestingExtensionId) {
+				md.li(`**Requesting Extension**: ${session.metadata.requestingExtensionId}`);
+			}
 			md.li(`**Created**: ${created ? new Date(created).toLocaleTimeString() : '-'}`);
 			md.li(`**Uptime**: ${created ? getDurationString(Date.now() - created, true) : '-'}`);
 

@@ -47,15 +47,14 @@ import { ActivityItemInput, ActivityItemInputState } from './classes/activityIte
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { CodeSubmissionResult, DidNavigateInputHistoryUpEventArgs, FocusInputOptions, IConsoleFindWidget, IConsoleFindWidgetFactory, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, RUNTIME_CODE_INCOMPLETE_ERROR, RUNTIME_EXECUTION_CANCELLED_ERROR, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
-import { createSessionStartReason } from '../../runtimeSession/common/sessionStartReasons.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionStartReason, RuntimeStartMode, SessionStartReasonId } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Extensions as ConfigurationMigrationExtensions, IConfigurationMigrationRegistry } from '../../../common/configuration.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified } from '../common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, isCompletenessVerified, isUserInitiated } from '../common/positronConsoleCodeExecution.js';
 import { fragmentCodeLocation, ICodeLocation } from '../common/codeLocation.js';
 import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/fontInfo.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -108,6 +107,37 @@ const describeExecutionAttribution = (
 		return agentName;
 	}
 	return localize('positron.console.externalAgent', "External agent");
+};
+
+/**
+ * Gets why a console is being started to run code when no console for the
+ * code's language is running.
+ *
+ * @param attribution Where the code came from.
+ * @returns The start reason.
+ */
+const getCodeStartReason = (attribution: IConsoleCodeAttribution): IRuntimeSessionStartReason => {
+	// Code from an extension carries the extension's ID. Code a kernel sent
+	// through an extension also carries the kernel's session ID, and the
+	// extension only relayed it.
+	const extensionId = attribution.metadata?.callerSessionId === undefined ?
+		attribution.metadata?.extensionId : undefined;
+	if (typeof extensionId === 'string') {
+		return { id: SessionStartReasonId.CodeExecutedWithoutSession, requestingExtensionId: extensionId };
+	}
+	switch (attribution.source) {
+		case CodeAttributionSource.Interactive:
+		case CodeAttributionSource.Script:
+			return { id: SessionStartReasonId.UserRanCodeWithoutSession };
+		case CodeAttributionSource.Assistant:
+			// Chat code the user chose to run, such as with a code block's Run in
+			// Console button, was run by the user, not by AI chat.
+			return isUserInitiated(attribution) ?
+				{ id: SessionStartReasonId.UserRanCodeWithoutSession } :
+				{ id: SessionStartReasonId.AiChatCodeExecutedWithoutSession };
+		default:
+			return { id: SessionStartReasonId.CodeExecutedWithoutSession };
+	}
 };
 
 /**
@@ -856,7 +886,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // No notebook URI (console sesion)
-					createSessionStartReason(SessionStartReasonId.CodeExecutedWithoutSession, { language: languageId, codeSource: attribution.source }),
+					getCodeStartReason(attribution),
 					RuntimeStartMode.Starting,
 					true
 				);
