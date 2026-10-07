@@ -23,8 +23,8 @@
 	display: flex;
 	align-items: center;
 	gap: 2px;
-	/* Override the parent's monospace font and Button's unset !important. */
-	font-family: system-ui, sans-serif !important;
+	/* Override the parent's monospace font. */
+	font-family: system-ui, sans-serif;
 	font-size: 11px;
 	line-height: 11px;
 	color: var(--vscode-editorCodeLens-foreground);
