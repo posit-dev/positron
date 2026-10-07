@@ -55,6 +55,9 @@ says how a helper is built and checked.
 11. **Close what your fix covers.** The brief lists tonight's other open findings. When your fix
     also fixes one of them, run that finding's steps again after your fix and, if it now passes,
     put its id in `covers`. List only ids you re-ran.
+12. **A review may send your change back once.** The brief then ends with the reviewer's notes and
+    your change is still in the tree. Act on the notes that are right, keep the rest of the rules,
+    and write the outcome file again; your `reason` names any note you did not act on and why.
 
 ## Driving the app
 

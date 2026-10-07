@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, otherOpen, parseChecks, queue, readOutcome, regressions, sameFinding } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, otherOpen, parseChecks, queue, readOutcome, readReview, regressions, sameFinding } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -175,4 +175,25 @@ test('fixedBefore: matches a smoke finding by case, not a finder finding by help
 	]);
 	assert.deepEqual(fixedBefore(runs, f('smoke-a', 'smoke', 'a')), ['10']);
 	assert.deepEqual(fixedBefore(runs, f('finder-q', 'finder')), []);
+});
+
+test('readReview: the last JSON object in the final text', () => {
+	const text = 'Looked at dp-lib.ts.\n\n```json\n{"verdict":"revise","notes":["dp-terminal.ts:127 still calls parse() without switches"]}\n```';
+	assert.deepEqual(readReview(text), { verdict: 'revise', notes: ['dp-terminal.ts:127 still calls parse() without switches'] });
+});
+
+test('readReview: approve with no notes', () => {
+	assert.deepEqual(readReview('{"verdict":"approve","notes":[]}'), { verdict: 'approve', notes: [] });
+});
+
+test('readReview: no JSON, bad JSON, or an unknown verdict is a problem string, not a throw', () => {
+	assert.equal(readReview(null), 'the reviewer wrote no final text');
+	assert.match(readReview('looks fine to me') as string, /no JSON/);
+	assert.match(readReview('{"verdict":"maybe","notes":[]}') as string, /verdict "maybe"/);
+	assert.match(readReview('{"verdict":"revise"') as string, /no JSON/);
+});
+
+test('readReview: notes that are not strings are dropped; revise with no notes is approve', () => {
+	assert.deepEqual(readReview('{"verdict":"revise","notes":[1,"","real"]}'), { verdict: 'revise', notes: ['real'] });
+	assert.deepEqual(readReview('{"verdict":"revise","notes":[]}'), { verdict: 'approve', notes: [] });
 });

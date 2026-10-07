@@ -136,3 +136,18 @@ export function newCaseProblems(added: AddedCase[], after: SmokeResults): string
 		return !c ? [`its new case "${a.name}" did not run`] : c.status !== 'PASS' ? [`its new case "${a.name}" fails: ${c.problem.slice(0, 160)}`] : [];
 	});
 }
+
+export type Review = { verdict: 'approve' | 'revise'; notes: string[] };
+
+/** The reviewer's verdict from its final message: the last `{"verdict"...}` in it. A revise with no notes has nothing to act on, so it approves. */
+export function readReview(text: string | null): Review | string {
+	if (text === null) { return 'the reviewer wrote no final text'; }
+	const at = [...text.matchAll(/\{\s*"verdict"/g)].at(-1)?.index ?? -1;
+	const end = text.lastIndexOf('}');
+	if (at < 0 || end < at) { return `the review has no JSON: ${text.slice(0, 120)}`; }
+	let o: { verdict?: unknown; notes?: unknown };
+	try { o = JSON.parse(text.slice(at, end + 1)); } catch { return `the review has no JSON: ${text.slice(at, at + 120)}`; }
+	if (o.verdict !== 'approve' && o.verdict !== 'revise') { return `review verdict "${String(o.verdict)}" is not approve or revise`; }
+	const notes = Array.isArray(o.notes) ? o.notes.filter((n): n is string => typeof n === 'string' && n.trim() !== '') : [];
+	return { verdict: o.verdict === 'revise' && notes.length ? 'revise' : 'approve', notes };
+}
