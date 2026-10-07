@@ -157,9 +157,9 @@ test('flags a precondition that is something done in the app, in the report and 
 	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- app running | ${p}\n\n1. Click Retry.`)).filter(x => /done in the app/.test(x));
 	assert.deepEqual(pre('`app.R` started with its Run Shiny App button'), ['report: Finding 1 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
 	assert.deepEqual(pre('`flask_app.py` running, then opened in an editor tab'), ['report: Finding 1 precondition "app running" is done in the app ("then opened"); do it as a step, and keep the precondition to the state before step 1']);
-	// State, and the command that loads a file, stay preconditions.
-	assert.deepEqual(pre('`slow.py` loaded with `%run -i slow.py`'), []);
+	// State stays a precondition; the command that loads a file is a step.
 	assert.deepEqual(pre('a Python with polars is selected'), []);
+	assert.deepEqual(pre('`slow.py` loaded'), []);
 	const ledger = LEDGER.replace('Status: fail - Finding 1\n', 'Status: fail - Finding 1\n\nPreconditions:\n- app running | `app.R` started with Run Shiny App\n');
 	assert.deepEqual(lintLedgerOnly(ledger).filter(x => /done in the app/.test(x)), ['ledger: S02 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
 });
@@ -181,15 +181,14 @@ test('flags a precondition that is a running app, or says "the run\'s"', () => {
 	assert.deepEqual(pre('`app.py` that calls `app.run(port=5057)`'), []);
 });
 
-test('flags a step that runs a precondition\'s command again', () => {
-	const repro = (pre, step) => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${pre}\n\n1. ${step}`)).filter(p => /precondition already/.test(p));
-	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Run `%run -i slow.py` in the Python console.'), ['report: Finding 1 step 1 runs `%run -i slow.py`, which a precondition already sets up; start the steps after it']);
-	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Click Retry.'), []);
-	assert.deepEqual(repro('`debug_demo.R` defines `outer_fn()`', 'Run `outer_fn()` in the R console.'), []);
-	// A check, or an action waiting on output, quotes the code's output or the code itself; it runs nothing.
-	assert.deepEqual(repro('`py.qmd` whose cell prints `tick 0` to `tick 4`', 'VERIFY the console shows `tick 0` to `tick 2` -> PASS'), []);
-	assert.deepEqual(repro('`r.qmd` with an R cell `print(paste("r says", z))`', 'VERIFY cell 2 (`print(paste("r says", z))`) shows its output -> FAIL - Finding 1'), []);
-	assert.deepEqual(repro('`py.qmd` whose cell prints `tick 0` to `tick 4`', 'Click Run this cell and wait until the output shows `tick 0`.'), []);
+test('flags a precondition that runs a command, which is a step', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${p}\n\n1. Click Retry.`)).filter(x => /precondition "/.test(x));
+	assert.deepEqual(pre('`slow.py` loaded with `%run -i slow.py`'), ['report: Finding 1 precondition "`slow.py` loaded" runs `%run -i slow.py`; run it as a step, and keep the precondition to the file or package']);
+	assert.deepEqual(pre('`debug.R` sourced with `source("debug.R")`'), ['report: Finding 1 precondition "`slow.py` loaded" runs `source("debug.R")`; run it as a step, and keep the precondition to the file or package']);
+	// What a file holds is described, not run.
+	assert.deepEqual(pre('`debug_demo.R`, which defines `outer_fn()`'), []);
+	assert.deepEqual(pre('`py.qmd` whose cell prints `tick 0` to `tick 4`'), []);
+	assert.deepEqual(pre('`app.py` that calls `app.run(port=5057)`'), []);
 });
 
 test('a saved output under logs/ or files/ sits beside a check\'s screenshot, never in place of it', () => {
@@ -704,7 +703,6 @@ test('each rule is an error or a warning, as the table in lint.mjs says', () => 
 		'report: Finding 1 Expected: says "incorrectly"; say what happened in plain words and let the difference speak',
 		'report: Finding 1 Observed: names R, which the title does not; the reference that shows the right answer goes in Expected ("as R shows for the same data")',
 		'report: Finding 1 step 2 has 3 screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out',
-		'report: Finding 1 step 2 runs `library(x)`, which a precondition already sets up; start the steps after it',
 		'report: cite shots as [shots/<file>](shots/<file>), not in backticks: "x"',
 		'report: finding 1 is moderate and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
 	];

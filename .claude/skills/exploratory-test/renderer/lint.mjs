@@ -63,10 +63,10 @@ const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|te
 const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
 // An app already serving is what the steps start, so the reader sees it start.
 const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+/i;
-const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected)\s+(?:with|from|via|by|using)|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran))\b/i;
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran))\b/i;
+// Code a precondition runs rather than describes: loading it is step 1.
+const RUN_COMMAND = /^(?:%run\b|%load\b|!|source\(|library\(|require\(|exec\(|import\s|from\s+\S+\s+import\s|install\.packages\(|pip\s)/;
 const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
-// Where an action stops running code and starts quoting what it waits for.
-const READS_OUTPUT = /\b(?:until|shows?|showing|prints?|printed|reads|displays?|output)\b/i;
 // A session ID changes every launch, so a step that names one cannot be replayed.
 const SESSION_ID = /\b(?:python|r)-[0-9a-f]{8}\b/i;
 
@@ -339,7 +339,11 @@ function lintPreconditionActions(preconditions) {
 	const problems = [];
 	for (const [where, line] of preconditions) {
 		const text = line.replace(/^[-*]\s+/, '');
-		const done = /^\*\*/.test(text) ? null : DONE_IN_APP.exec(text.replace(/`[^`]*`/g, 'code'));
+		const command = /^\*\*/.test(text) ? null : [...text.matchAll(/`([^`]+)`/g)].map(m => m[1].trim()).find(c => RUN_COMMAND.test(c));
+		if (command) {
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" runs \`${command}\`; run it as a step, and keep the precondition to the file or package`);
+		}
+		const done = /^\*\*/.test(text) || command ? null : DONE_IN_APP.exec(text.replace(/`[^`]*`/g, 'code'));
 		if (done) {
 			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`);
 		}
@@ -723,23 +727,6 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 			problems.push(`report: Finding ${f.n} Cause opens with a ${wordsOf(lead)}-word sentence; name the suspect in ${CAUSE_LEAD_WORDS} words or fewer, then give the detail`);
 		}
 	}
-	// A precondition is the state the steps start from, so no step runs it again.
-	for (const f of parseReport(text).findings) {
-		const commands = f.preconditions
-			.flatMap(p => [...p.matchAll(/<code[^>]*>([^<]+)<\/code>/g)].map(m => m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim()))
-			// A bare name() names a function the file defines, not a command run.
-			.filter(c => /[\s(]|^[%!]/.test(c) && !/^[\w.$]+\(\)$/.test(c));
-		f.steps.forEach((st, k) => {
-			// A check quotes what it reads, and an action that waits on output
-			// ("until the console shows `tick 0`") runs only what comes before it.
-			if (st.kind === 'verify') { return; }
-			const runs = (st.md ?? '').split(READS_OUTPUT)[0];
-			const again = commands.find(c => runs.includes('`' + c + '`'));
-			if (again) {
-				problems.push(`report: Finding ${f.n} step ${k + 1} runs \`${again}\`, which a precondition already sets up; start the steps after it`);
-			}
-		});
-	}
 	for (const { n, file } of untaggedShots(parseReport(text).findings)) {
 		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step`);
 	}
@@ -1003,7 +990,6 @@ const WARNINGS = [
 	/steps are instructions for the reader, so leave run notes out/,
 	/cite shots as \[shots\//,
 	/map compiled frames to source paths/,
-	/, which a precondition already sets up/,
 	/ has \S+ screenshots; keep the one/,
 	/ repeats the first one's caption/,
 	/ twice, bare and as /,

@@ -536,8 +536,9 @@ Run details: name a workspace by what it holds ("A workspace with
 `shiny_app.R`"), not its path.
 
 Repeat each finding's preconditions in full, one state per line ("pandas 3.0.3
-in `.venv`", "R 4.5.1 with dplyr", the file in backticks and the exact command
-that loads it), never a catch-all such as "Data scripts". The workspace's files
+in `.venv`", "R 4.5.1 with dplyr", the file in backticks), never a catch-all
+such as "Data scripts". Loading the file is a step, with the exact command
+("Run `%run -i slow.py` in the Python console."). The workspace's files
 share one line ("A workspace with `app.R` and `app.py`"). Package names keep
 their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
 showing it, is never a precondition, even when another finding starts it the
@@ -555,7 +556,7 @@ order.
 **Repro**
 
 **Preconditions:**
-- <short name, 2 to 4 words, for Coverage, e.g. `slow.py` loaded> | <the full line the finding card shows, e.g. `slow.py` loaded with `%run -i slow.py`, which builds tables that are slow to summarize. Leave the list out when nothing is needed.>
+- <short name, 2 to 4 words, for Coverage, e.g. `slow.py`> | <the full line the finding card shows, e.g. `slow.py`, which builds tables that are slow to summarize; the step that runs it comes first. Leave the list out when nothing is needed.>
 
 1. <one action>
 2. VERIFY <expectation> -> PASS
