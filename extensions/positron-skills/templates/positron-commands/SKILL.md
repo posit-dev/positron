@@ -13,7 +13,7 @@ description: >
   know what is installed, not to run R or Python code. Triggers: "show the
   variables pane", "open data.csv", "show this HTML in the Viewer", "switch to
   my R session", "my session is stuck", "is pandas installed?", "set up a
-  Python environment", "run (or stop) my shiny app", "what tables are in my
+  Python environment", "run or stop my shiny app", "what tables are in my
   warehouse", "add a cell to this notebook".
 ---
 
