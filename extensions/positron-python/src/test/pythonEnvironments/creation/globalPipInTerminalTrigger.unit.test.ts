@@ -20,8 +20,10 @@ import * as commandApis from '../../../client/common/vscodeApis/commandApis';
 import { registerTriggerForPipInTerminal } from '../../../client/pythonEnvironments/creation/globalPipInTerminalTrigger';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../constants';
 import { Common, CreateEnv } from '../../../client/common/utils/localize';
+import { IInterpreterService } from '../../../client/interpreter/contracts';
 
 suite('Global Pip in Terminal Trigger', () => {
+    const interpreterService = {} as IInterpreterService;
     let shouldPromptToCreateEnvStub: sinon.SinonStub;
     let getWorkspaceFoldersStub: sinon.SinonStub;
     let getWorkspaceFolderStub: sinon.SinonStub;
@@ -87,7 +89,7 @@ suite('Global Pip in Terminal Trigger', () => {
         shouldPromptToCreateEnvStub.returns(false);
 
         const disposables: Disposable[] = [];
-        registerTriggerForPipInTerminal(disposables);
+        registerTriggerForPipInTerminal(disposables, interpreterService);
 
         assert.strictEqual(disposables.length, 0);
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
@@ -98,7 +100,7 @@ suite('Global Pip in Terminal Trigger', () => {
         getWorkspaceFoldersStub.returns([]);
 
         const disposables: Disposable[] = [];
-        registerTriggerForPipInTerminal(disposables);
+        registerTriggerForPipInTerminal(disposables, interpreterService);
 
         assert.strictEqual(disposables.length, 0);
         sinon.assert.calledOnce(shouldPromptToCreateEnvStub);
@@ -110,7 +112,7 @@ suite('Global Pip in Terminal Trigger', () => {
         getWorkspaceFolderStub.returns(undefined);
 
         const disposables: Disposable[] = [];
-        registerTriggerForPipInTerminal(disposables);
+        registerTriggerForPipInTerminal(disposables, interpreterService);
 
         shellIntegration.setup((s) => s.cwd).returns(() => outsideWorkspace);
         await handler?.({ shellIntegration: shellIntegration.object } as unknown as TerminalShellExecutionStartEvent);
@@ -127,7 +129,7 @@ suite('Global Pip in Terminal Trigger', () => {
         isGlobalPythonSelectedStub.returns(false);
 
         const disposables: Disposable[] = [];
-        registerTriggerForPipInTerminal(disposables);
+        registerTriggerForPipInTerminal(disposables, interpreterService);
 
         await handler?.({ shellIntegration: shellIntegration.object } as unknown as TerminalShellExecutionStartEvent);
 
@@ -144,7 +146,7 @@ suite('Global Pip in Terminal Trigger', () => {
         isGlobalPythonSelectedStub.returns(true);
 
         const disposables: Disposable[] = [];
-        registerTriggerForPipInTerminal(disposables);
+        registerTriggerForPipInTerminal(disposables, interpreterService);
 
         await handler?.({
             terminal: {} as unknown as Terminal,
@@ -176,7 +178,7 @@ suite('Global Pip in Terminal Trigger', () => {
         isGlobalPythonSelectedStub.returns(true);
 
         const disposables: Disposable[] = [];
-        registerTriggerForPipInTerminal(disposables);
+        registerTriggerForPipInTerminal(disposables, interpreterService);
 
         await handler?.({
             terminal: {} as unknown as Terminal,
@@ -210,7 +212,7 @@ suite('Global Pip in Terminal Trigger', () => {
             showWarningMessageStub.resolves(CreateEnv.Trigger.createEnvironment);
 
             const disposables: Disposable[] = [];
-            registerTriggerForPipInTerminal(disposables);
+            registerTriggerForPipInTerminal(disposables, interpreterService);
 
             await handler?.({
                 terminal: {} as unknown as Terminal,
@@ -248,7 +250,7 @@ suite('Global Pip in Terminal Trigger', () => {
         showWarningMessageStub.resolves(Common.doNotShowAgain);
 
         const disposables: Disposable[] = [];
-        registerTriggerForPipInTerminal(disposables);
+        registerTriggerForPipInTerminal(disposables, interpreterService);
 
         await handler?.({
             terminal: {} as unknown as Terminal,

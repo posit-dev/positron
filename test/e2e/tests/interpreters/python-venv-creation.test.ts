@@ -46,29 +46,28 @@ test.describe('Python Venv Auto-Creation', {
 
 	test('Clicking Yes creates venv', async function ({ app, openFolder }) {
 		const tempWorkspace = path.join(os.tmpdir(), 'vscsmoke', 'test-files', 'venv-creation-test');
+		// Cleaned up here rather than after the test: the new venv's session is still
+		// starting when the test ends, and removing the folder then fails the kernel launch.
+		await fs.rm(tempWorkspace, { recursive: true, force: true });
 		await fs.mkdir(tempWorkspace, { recursive: true });
 		await fs.writeFile(path.join(tempWorkspace, 'requirements.txt'), 'requests\n');
 
-		try {
-			await openFolder('test-files/venv-creation-test');
-			await app.workbench.sessions.expectNoStartUpMessaging();
+		await openFolder('test-files/venv-creation-test');
+		await app.workbench.sessions.expectNoStartUpMessaging();
 
-			// The prompt is gated on resolving the active interpreter, which waits on
-			// full discovery -- `expectNoStartUpMessaging` returns well before that.
-			await app.workbench.quickaccess.runCommand('python.setInterpreter', { keepOpen: true });
-			await app.workbench.quickInput.waitForInterpreterDiscoveryToComplete({ timeout: 120000 });
-			await app.workbench.quickInput.closeQuickInput();
+		// The prompt is gated on resolving the active interpreter, which waits on
+		// full discovery -- `expectNoStartUpMessaging` returns well before that.
+		await app.workbench.quickaccess.runCommand('python.setInterpreter', { keepOpen: true });
+		await app.workbench.quickInput.waitForInterpreterDiscoveryToComplete({ timeout: 120000 });
+		await app.workbench.quickInput.closeQuickInput();
 
-			const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
-			await expect(toast).toBeVisible({ timeout: 60000 });
-			await app.workbench.toasts.clickButton('Yes', { notificationFilter: /requirements\.txt/ });
+		const toast = app.workbench.toasts.toastNotification.filter({ hasText: /requirements\.txt/ });
+		await expect(toast).toBeVisible({ timeout: 60000 });
+		await app.workbench.toasts.clickButton('Yes', { notificationFilter: /requirements\.txt/ });
 
-			const venvPath = path.join(tempWorkspace, '.venv');
-			await expect(async () => {
-				await fs.access(venvPath);
-			}).toPass({ timeout: 60000 });
-		} finally {
-			await fs.rm(tempWorkspace, { recursive: true, force: true }).catch(() => { });
-		}
+		const venvPath = path.join(tempWorkspace, '.venv');
+		await expect(async () => {
+			await fs.access(venvPath);
+		}).toPass({ timeout: 60000 });
 	});
 });
