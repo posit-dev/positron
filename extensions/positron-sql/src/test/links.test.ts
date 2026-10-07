@@ -47,6 +47,17 @@ suite('collectLinks', () => {
 		);
 	});
 
+	test('a select alias links to the field it renames', async () => {
+		assert.deepStrictEqual(
+			await links('SELECT total AS t FROM orders WHERE t > 1'),
+			[
+				'total -> test-profile: schema:sales/table:orders/field:total',
+				'orders -> test-profile: schema:sales/table:orders',
+				't -> test-profile: schema:sales/table:orders/field:total',
+			],
+		);
+	});
+
 	test('a path omits the namespace levels the connection did not report', async () => {
 		assert.deepStrictEqual(
 			await links('SELECT * FROM customers'),

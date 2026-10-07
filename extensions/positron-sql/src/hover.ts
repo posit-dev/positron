@@ -83,11 +83,12 @@ export function describe(
 ): vscode.MarkdownString | undefined {
 	return reference.kind === 'table'
 		? describeTable(table, complete)
-		: describeColumn(reference.name, table);
+		: describeColumn(reference, table);
 }
 
 /** What a column is: its type, whether it is a key, and which table it came from. */
-function describeColumn(name: string, table: SqlTable): vscode.MarkdownString | undefined {
+function describeColumn(reference: Reference, table: SqlTable): vscode.MarkdownString | undefined {
+	const name = reference.aliasOf ?? reference.name;
 	const column = table.columns.find(candidate => fold(candidate.name) === fold(name));
 	if (!column) {
 		// The reference resolved against this table, so its column is there. Guarded anyway
@@ -104,6 +105,10 @@ function describeColumn(name: string, table: SqlTable): vscode.MarkdownString | 
 	];
 	if (column.isPrimaryKey) {
 		parts.splice(1, 0, vscode.l10n.t("Primary key."));
+	}
+	if (reference.aliasOf !== undefined) {
+		// Said first, since the name under the pointer is not the one in the code block.
+		parts.splice(1, 0, vscode.l10n.t("`{0}` is an alias of this column.", reference.name));
 	}
 	return markdown(parts);
 }
