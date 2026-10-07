@@ -20,9 +20,6 @@
     "watch": "tsc -w -p tsconfig.json",
     "prepare": "npm run compile"
   },
-  "dependencies": {
-    "@duckdb/node-api": "^1.5.5-r.3"
-  },
   "devDependencies": {
     "@types/node": "14.x",
     "positron-data-explorer-formatting": "file:../positron-data-explorer-formatting",

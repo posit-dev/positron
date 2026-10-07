@@ -17,9 +17,6 @@
     "pretest": "npm run compile"
   },
   "contributes": {},
-  "dependencies": {
-    "@duckdb/node-api": "^1.5.5-r.3"
-  },
   "devDependencies": {
     "@types/mocha": "^9.1.0",
     "positron-data-explorer-duckdb": "file:../positron-data-explorer-duckdb",

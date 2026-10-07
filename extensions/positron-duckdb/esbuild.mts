@@ -19,6 +19,8 @@ run({
 	srcDir,
 	outdir: outDir,
 	additionalOptions: {
+		// Loaded at runtime from the single copy shared by all DuckDB extensions in
+		// extensions/node_modules (declared in extensions/package.json).
 		external: ['vscode', 'positron', '@duckdb/node-api', '@duckdb/node-bindings'],
 	},
 }, process.argv);

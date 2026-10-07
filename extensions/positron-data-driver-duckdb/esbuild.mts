@@ -22,9 +22,9 @@ run({
 	outdir: outDir,
 	additionalOptions: {
 		// @duckdb/node-api loads a native N-API addon (@duckdb/node-bindings) plus a
-		// prebuilt libduckdb; externalize so it's loaded from node_modules at runtime
-		// (positron-data-driver-duckdb is registered in extensionsWithNpmDeps so its
-		// dependencies are packaged). Unlike better-sqlite3, the N-API binding is
+		// prebuilt libduckdb; externalize so it's loaded at runtime from the single copy
+		// shared by all DuckDB extensions in extensions/node_modules (declared in
+		// extensions/package.json). Unlike better-sqlite3, the N-API binding is
 		// ABI-stable across Node and Electron, so no electron-rebuild is required and
 		// this extension does not need an .npmrc to inherit the root electron build config.
 		// Only duckdbWorker.ts imports these; the extension host bundle never loads

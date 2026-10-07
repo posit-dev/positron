@@ -82,10 +82,10 @@ export function describeBudget(): string {
  * The budgets do not count gzip copies or source maps, which only some builds
  * ship. See `isUnbudgeted` in positron-check-path-lengths.ts.
  *
- * The expected count is about 15,900; the budget leaves about 10% headroom
+ * The expected count is about 15,500; the budget leaves about 10% headroom
  * above it.
  */
-export const EXTENSIONS_FILE_COUNT_BUDGET = 17_500;
+export const EXTENSIONS_FILE_COUNT_BUDGET = 17_100;
 
 /**
  * File-count budget for an extension that `EXTENSION_FILE_COUNT_BUDGETS` does not
@@ -108,11 +108,8 @@ export const EXTENSION_FILE_COUNT_BUDGETS: ReadonlyMap<string, number> = new Map
 	['copilot', 8_500], // 7,728
 	['positron-python', 5_950], // about 5,020; about 5,400 on win32-x64
 	['positron-pdf-server', 450], // 407
-	['positron-data-driver-pins', 260], // 233
-	['positron-duckdb', 230], // 206
-	['positron-data-driver-duckdb', 215], // 192
+	['node_modules', 345], // about 312: 129 plus the shared DuckDB packages (#14265)
 	['markdown-language-features', 190], // 167
-	['node_modules', 150], // 129
 	['theme-modern-icons', 140], // 121
 ]);
 
