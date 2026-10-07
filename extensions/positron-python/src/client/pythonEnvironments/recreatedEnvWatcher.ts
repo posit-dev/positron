@@ -18,7 +18,7 @@ import { arePathsSame, isParentPath, pathExists } from './common/externalDepende
  * looks the executable up once one of them is created.
  */
 export class RecreatedEnvWatcher implements Disposable {
-    private readonly _watchers = new Map<string, Disposable>();
+    private readonly _watchers = new Map<string, { workspaceFolder: WorkspaceFolder; stop: () => void }>();
 
     /**
      * @param addRecreatedEnv Looks the executable up and adds its env. Resolves true once
@@ -42,22 +42,36 @@ export class RecreatedEnvWatcher implements Disposable {
             this._watchers.delete(executable);
         };
         let checking = false;
-        const onFolderCreated = async () => {
+        let queuedAttempts = 0;
+        // Looks the executable up, up to `attempts` times 200ms apart. The executable can lag
+        // its folder by a moment while the venv is written, and PET can fail on a half-written
+        // venv, so the watchers stay until the env is added and a later folder creation tries
+        // again. A folder created while a check is running queues one more check rather than
+        // being dropped.
+        const check = async (attempts: number): Promise<void> => {
             if (checking) {
+                queuedAttempts = Math.max(queuedAttempts, attempts);
                 return;
             }
             checking = true;
             try {
-                // The executable can lag its folder by a moment while the venv is written,
-                // and PET can fail on a half-written venv. Keep the watchers until the env is
-                // added, so a later folder creation tries again.
-                for (let attempt = 0; attempt < 10; attempt += 1) {
-                    if ((await pathExists(executable)) && (await this.addRecreatedEnv(executable, workspaceFolder))) {
-                        stop();
-                        traceVerbose(`[RecreatedEnvWatcher] ${executable} was recreated`);
-                        return;
+                let remaining = attempts;
+                while (remaining > 0) {
+                    for (let attempt = 0; attempt < remaining; attempt += 1) {
+                        if (attempt > 0) {
+                            await sleep(200);
+                        }
+                        if (
+                            (await pathExists(executable)) &&
+                            (await this.addRecreatedEnv(executable, workspaceFolder))
+                        ) {
+                            stop();
+                            traceVerbose(`[RecreatedEnvWatcher] ${executable} was recreated`);
+                            return;
+                        }
                     }
-                    await sleep(200);
+                    remaining = queuedAttempts;
+                    queuedAttempts = 0;
                 }
             } finally {
                 checking = false;
@@ -73,13 +87,29 @@ export class RecreatedEnvWatcher implements Disposable {
                 true,
                 true,
             );
-            watchers.push(watcher, watcher.onDidCreate(onFolderCreated));
+            watchers.push(
+                watcher,
+                watcher.onDidCreate(() => check(10)),
+            );
             dir = path.dirname(dir);
         }
-        this._watchers.set(executable, { dispose: stop });
+        this._watchers.set(executable, { workspaceFolder, stop });
+
+        // The env may already be back: a delete and recreate reported together leave no
+        // folder creation to wait for.
+        check(1).catch(() => undefined);
+    }
+
+    /**
+     * Stop watching for the removed envs of a workspace folder that was removed.
+     */
+    unwatchFolder(workspaceFolder: WorkspaceFolder): void {
+        [...this._watchers.values()]
+            .filter((entry) => arePathsSame(entry.workspaceFolder.uri.fsPath, workspaceFolder.uri.fsPath))
+            .forEach((entry) => entry.stop());
     }
 
     dispose(): void {
-        [...this._watchers.values()].forEach((d) => d.dispose());
+        [...this._watchers.values()].forEach((entry) => entry.stop());
     }
 }

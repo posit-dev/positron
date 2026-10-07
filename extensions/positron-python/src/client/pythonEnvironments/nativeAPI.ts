@@ -830,6 +830,9 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             }),
             onDidChangeWorkspaceFolders((e: WorkspaceFoldersChangeEvent) => {
                 e.removed.forEach((wf) => watcher.unwatchWorkspace(wf));
+                // --- Start Positron ---
+                e.removed.forEach((wf) => this._recreatedEnvWatcher.unwatchFolder(wf));
+                // --- End Positron ---
                 e.added.forEach((wf) => watcher.watchWorkspace(wf));
             }),
             watcher,
