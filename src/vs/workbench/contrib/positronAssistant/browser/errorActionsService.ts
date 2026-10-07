@@ -7,6 +7,7 @@ import { localize } from '../../../../nls.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { equals } from '../../../../base/common/arrays.js';
+import { escapeMarkdownSyntaxTokens } from '../../../../base/common/htmlContent.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -32,14 +33,21 @@ interface IAgentOption {
 /**
  * Build the ai.errorActions.agent setting with one option per registered
  * implementation, always starting with Posit Assistant, the default. Options
- * that can't take errors at the moment are marked unavailable, with the reason.
- * Re-registered whenever the options change so the Settings editor dropdown
- * stays current.
+ * that can't take errors at the moment are marked unavailable, with the reason,
+ * and when the selected one is, a note under the setting says what happens
+ * instead. Re-registered whenever these change so the Settings editor stays
+ * current.
+ * @param selectedId The setting's value.
  */
-function getConfigurationNode(options: readonly IAgentOption[]): IConfigurationNode {
+function getConfigurationNode(options: readonly IAgentOption[], selectedId: string | undefined): IConfigurationNode {
 	const positAssistant = options.find(option => option.id === POSIT_ASSISTANT_ERROR_ACTIONS_ID)
 		?? { id: POSIT_ASSISTANT_ERROR_ACTIONS_ID, label: POSIT_ASSISTANT_ERROR_ACTIONS_LABEL, isAvailable: true };
 	const allOptions = [positAssistant, ...options.filter(option => option !== positAssistant)];
+	const description = localize(
+		'positron.errorActions.agent',
+		"The agent that Fix and Explain send errors to, in the Console, notebooks, and Quarto documents."
+	);
+	const note = getSelectionNote(allOptions, selectedId);
 	return {
 		id: 'ai',
 		order: 5,
@@ -54,14 +62,39 @@ function getConfigurationNode(options: readonly IAgentOption[]): IConfigurationN
 					? option.label
 					: localize('positron.errorActions.agent.unavailableLabel', "{0} (unavailable)", option.label)),
 				enumDescriptions: allOptions.map(option => getOptionDescription(option)),
-				description: localize(
-					'positron.errorActions.agent',
-					"The agent that Fix and Explain send errors to, in the Console, notebooks, and Quarto documents."
-				),
+				markdownDescription: note ? `${description}\n\n${note}` : description,
 				scope: ConfigurationScope.WINDOW,
 			},
 		},
 	};
+}
+
+/**
+ * A markdown note for under the setting when the selected agent can't take
+ * errors: why, and what Fix and Explain do instead.
+ * @param options The setting's options, starting with Posit Assistant.
+ * @returns The note, or undefined when the selected agent can take errors.
+ */
+function getSelectionNote(options: readonly IAgentOption[], selectedId: string | undefined): string | undefined {
+	const selected = options.find(option => option.id === selectedId);
+	if (!selectedId || selected?.isAvailable) {
+		return undefined;
+	}
+	const positAssistant = options[0];
+	const fallback = selected !== positAssistant && positAssistant.isAvailable
+		? localize('positron.errorActions.agent.fallbackNote', "The default, Posit Assistant, is used instead.")
+		: localize('positron.errorActions.agent.hiddenNote', "Fix and Explain are hidden until an agent is available.");
+	if (!selected) {
+		return localize('positron.errorActions.agent.notInstalledNote', "**The selected agent, `{0}`, isn't installed.** {1}", selectedId, fallback);
+	}
+	const reason = selected.unavailableReason ?? localize('positron.errorActions.agent.unavailable', "Not available right now.");
+	return localize(
+		'positron.errorActions.agent.unavailableNote',
+		"**{0} is unavailable.** {1} {2}",
+		escapeMarkdownSyntaxTokens(selected.label),
+		escapeMarkdownSyntaxTokens(reason),
+		fallback
+	);
 }
 
 /** Describe an option in the setting's dropdown: why it's unavailable, if it is. */
@@ -79,7 +112,7 @@ function getOptionDescription(option: IAgentOption): string {
 const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 
 /** The currently registered ai.errorActions.agent setting node. */
-let configurationNode = getConfigurationNode([]);
+let configurationNode = getConfigurationNode([], undefined);
 configurationRegistry.registerConfiguration(configurationNode);
 
 /** A registered implementation, with why it can't take errors and whether it can continue a chat. */
@@ -108,6 +141,9 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 	/** The setting's options, as last registered, to skip identical updates. */
 	private _options: readonly IAgentOption[] = [];
 
+	/** The setting's value when it was last registered, to skip identical updates. */
+	private _selectedId: string | undefined;
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
@@ -118,6 +154,7 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(ERROR_ACTIONS_AGENT_KEY)) {
+				this._updateSetting();
 				this._onDidChange.fire();
 			}
 		}));
@@ -126,7 +163,7 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 		// which options are available.
 		this._register(this._contextKeyService.onDidChangeContext(e => {
 			if (this._whenKeys.size > 0 && e.affectsSome(this._whenKeys)) {
-				this._updateOptions();
+				this._updateSetting();
 				this._onDidChange.fire();
 			}
 		}));
@@ -144,7 +181,7 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 		return {
 			setUnavailableReason: reason => {
 				registered.unavailableReason = reason;
-				this._updateOptions();
+				this._updateSetting();
 			},
 			setCanContinueChat: canContinueChat => {
 				if (canContinueChat !== registered.canContinueChat) {
@@ -194,23 +231,25 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 		return !handler.when || this._contextKeyService.contextMatchesRules(handler.when);
 	}
 
-	/** Refresh the watched context keys and the setting's options, and notify listeners. */
+	/** Refresh the watched context keys and the setting, and notify listeners. */
 	private _update(): void {
 		this._whenKeys = new Set(this._registered.flatMap(registered => registered.handler.when?.keys() ?? []));
-		this._updateOptions();
+		this._updateSetting();
 		this._onDidChange.fire();
 	}
 
-	/** Re-register the setting if its options changed. */
-	private _updateOptions(): void {
+	/** Re-register the setting if its options or value changed. */
+	private _updateSetting(): void {
 		const options = this._registered.map(({ handler, unavailableReason }): IAgentOption =>
 			({ id: handler.id, label: handler.label, isAvailable: this._isAvailable(handler), unavailableReason }));
-		if (equals(options, this._options, (a, b) =>
+		const selectedId = this._configurationService.getValue<string>(ERROR_ACTIONS_AGENT_KEY);
+		if (selectedId === this._selectedId && equals(options, this._options, (a, b) =>
 			a.id === b.id && a.label === b.label && a.isAvailable === b.isAvailable && a.unavailableReason === b.unavailableReason)) {
 			return;
 		}
 		this._options = options;
-		const node = getConfigurationNode(options);
+		this._selectedId = selectedId;
+		const node = getConfigurationNode(options, selectedId);
 		configurationRegistry.updateConfigurations({ add: [node], remove: [configurationNode] });
 		configurationNode = node;
 	}

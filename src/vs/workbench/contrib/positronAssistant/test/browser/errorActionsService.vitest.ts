@@ -143,6 +143,22 @@ describe('ErrorActionsService', () => {
 		]);
 	});
 
+	it('notes under the setting when the selected agent is unavailable or not installed', () => {
+		const getNote = () => Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+			.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].markdownDescription?.split('\n\n')[1];
+		const service = createService();
+		ctx.disposables.add(service.register(createErrorActionHandler('posit-assistant', 'Posit Assistant')));
+		expect(getNote()).toBe('**The selected agent, `test-agent`, isn\'t installed.** The default, Posit Assistant, is used instead.');
+
+		const registration = service.register({ ...createErrorActionHandler(), when: ContextKeyExpr.has('testAgent.isInstalled') });
+		ctx.disposables.add(registration);
+		registration.setUnavailableReason('The test-agent command was not found on the PATH.');
+		expect(getNote()).toBe('**Test Agent is unavailable.** The test-agent command was not found on the PATH. The default, Posit Assistant, is used instead.');
+
+		setContextKey('testAgent.isInstalled', true);
+		expect(getNote()).toBeUndefined();
+	});
+
 	it('tracks whether a handler can continue the current chat', () => {
 		const service = createService();
 		const errorActionHandler = createErrorActionHandler();
