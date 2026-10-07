@@ -10,8 +10,8 @@ import { DisposableStore, IDisposable, toDisposable } from '../../../../../base/
 import { ResourceMap } from '../../../../../base/common/map.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { timeout } from '../../../../../base/common/async.js';
-import { ILanguageRuntimeMetadata, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { createTestLanguageRuntimeMetadata } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { PositronTestServiceAccessor } from '../../../../test/browser/positronWorkbenchTestServices.js';
@@ -151,6 +151,24 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 
 		// Check that the session is for the expected runtime.
 		expect(session.runtimeMetadata).toBe(runtime);
+		expect(session.metadata.startReasonId).toBe(SessionStartReasonId.NotebookKernelSelected);
+	});
+
+	it('runtime is started once a kernel selected before its runtime registered becomes available', async () => {
+		// Select a kernel for a runtime that hasn't registered yet.
+		const deferredRuntime = { ...runtime, runtimeId: 'deferred-runtime' };
+		const deferredKernelId = `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${deferredRuntime.runtimeId}`;
+		notebookKernelService.selectKernelForNotebook(stubInterface<INotebookKernel>({ id: deferredKernelId }), notebookDocument);
+		await timeout(50);
+		expect(runtimeSessionService.activeSessions.length).toBe(0);
+
+		// Registering the runtime starts the deferred session.
+		const sessionPromise = Event.toPromise(runtimeSessionService.onWillStartSession);
+		ctx.disposables.add(ctx.instantiationService.get(ILanguageRuntimeService).registerRuntime(deferredRuntime));
+		const { session } = await sessionPromise;
+
+		expect(session.runtimeMetadata.runtimeId).toBe(deferredRuntime.runtimeId);
+		expect(session.metadata.startReasonId).toBe(SessionStartReasonId.NotebookKernelSelectionDeferred);
 	});
 
 	it('runtime is shutdown on kernel deselection', async () => {
@@ -317,9 +335,10 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 
 			const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
 			expect(session.runtimeMetadata).toBe(runtime);
+			expect(session.metadata.startReasonId).toBe(SessionStartReasonId.NotebookKernelSelected);
 		});
 
-		it('starts the deferred session when a preview tab is pinned', async () => {
+		it('starts the deferred session when a preview tab is pinned, keeping the reason it was deferred for', async () => {
 			setActive(positronInput);
 			setPinned(positronInput, false);
 
@@ -334,6 +353,7 @@ describe('Positron - RuntimeNotebookKernelService', () => {
 
 			const { session } = await Event.toPromise(runtimeSessionService.onWillStartSession);
 			expect(session.runtimeMetadata).toBe(runtime);
+			expect(session.metadata.startReasonId).toBe(SessionStartReasonId.NotebookKernelSelected);
 		});
 
 		it('does NOT start a deferred session if the kernel was deselected before the editor became active+pinned', async () => {

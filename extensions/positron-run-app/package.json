@@ -14,6 +14,50 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "positronRunApp.listApps",
+        "title": "%command.listApps.title%",
+        "category": "%command.category%",
+        "agent": {
+          "description": "Lists the apps Positron has run in this window with its run commands or Run App button: Dash, FastAPI, Flask, Gradio, marimo, Streamlit, and Shiny for R. Gives each app's file, status, and URL, including apps that have since exited. Does not include Shiny for Python apps, apps started under the debugger, or apps started before the window last reloaded.",
+          "args": [],
+          "returns": "An array with one object per app: `file` (the app file's URI), `name` (its framework), `status` (`starting`, `running`, `exited`, or `unknown`), `runsIn` (`terminal` or `console`), `preview` (where Positron previews it), and, once known, `url` (the address for the user, proxied on Posit Workbench), `localUrl` (the address for requests from inside the session, such as `curl`), `exitCode` (terminal apps), and `sessionId` (console apps).",
+          "readOnly": true
+        }
+      },
+      {
+        "command": "positronRunApp.stopApp",
+        "title": "%command.stopApp.title%",
+        "category": "%command.category%",
+        "agent": {
+          "description": "Stops an app that Positron is running, one that positronRunApp.listApps reports. Sends Ctrl+C to the app's terminal or interrupts its console session, and closes its terminal if it is still running 5 seconds later. Closes the app's preview in the Viewer once it has stopped.",
+          "args": [
+            {
+              "name": "file",
+              "description": "The app file's URI, as positronRunApp.listApps reports it.",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "returns": "`{ stopped: true, file, name, method }`, where `method` is `interrupted` or `terminated` (its terminal was closed); or `{ stopped: false, reason, message }`, where `reason` is `not-found` (Positron has no record of an app from that file), `not-running` (it has already exited), or `did-not-stop`."
+        }
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "positronRunApp.listApps",
+          "when": "false"
+        },
+        {
+          "command": "positronRunApp.stopApp",
+          "when": "false"
+        }
+      ]
+    },
     "configuration": {
       "title": "App Launcher",
       "properties": {

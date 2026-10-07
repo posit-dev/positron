@@ -20,8 +20,11 @@ export function candidateBranch(date: Date, runId: string): string {
 	return `automated/drive-positron/${date.toISOString().slice(0, 10)}-${runId}`;
 }
 
-/** A compare page with the PR form open and filled in. The body is cut to fit `max` and always ends with the run link. */
-export function compareUrl(branch: string, title: string, body: string, runUrl: string, max = 8000): string {
+/**
+ * A compare page with the PR form open and filled in. The body is cut to fit `max` and always ends with the run link.
+ * 3000 keeps it a link in Slack, which prints a longer one as raw text.
+ */
+export function compareUrl(branch: string, title: string, body: string, runUrl: string, max = 3000): string {
 	const tail = `\n\nFull run: ${runUrl}`;
 	const build = (b: string) => `${REPO}/compare/main...${branch}?expand=1&title=${encodeURIComponent(title)}&body=${encodeURIComponent(b + tail)}`;
 	if (build(body).length <= max) { return build(body); }

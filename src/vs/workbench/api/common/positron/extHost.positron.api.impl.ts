@@ -118,7 +118,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata, attributionMetadata);
 			},
 			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string, whenBusy?: positron.RuntimeBusyBehavior): Thenable<positron.EvalResult> {
-				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId, whenBusy);
+				const extensionId = extension.identifier.value;
+				return extHostLanguageRuntime.evaluateCode(languageId, code, extensionId, cancellationToken, sessionId, whenBusy);
 			},
 			executeInlineCell(documentUri, ranges, executionMetadata?): Thenable<void> {
 				const extensionId = extension.identifier.value;
@@ -148,7 +149,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.getNotebookSession(notebookUri);
 			},
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
-				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId);
+				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId, extension.identifier.value);
 			},
 			startLanguageRuntime(runtimeId: string,
 				sessionName: string,
@@ -165,13 +166,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					sessionName,
 					sessionMode,
 					notebookUri,
+					extension.identifier.value,
 					options);
 			},
 			interruptSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.interruptSession(sessionId);
 			},
 			restartSession(sessionId: string): Thenable<boolean> {
-				return extHostLanguageRuntime.restartSession(sessionId);
+				return extHostLanguageRuntime.restartSession(sessionId, extension.identifier.value);
 			},
 			focusSession(sessionId: string): void {
 				return extHostLanguageRuntime.focusSession(sessionId);

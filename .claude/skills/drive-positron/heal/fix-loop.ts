@@ -23,7 +23,7 @@ import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, SMOKE_ROOT, SMOKE_SESSION, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
-import { earlierVerdicts, fixedBefore, inSections, newCheckFailures, parseChecks, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, inSections, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, regressions, readReview, replaceCases, type FixerOutcome, type Review } from './fix-lib.ts';
 import { checksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
@@ -44,6 +44,7 @@ function git(...a: string[]): string {
 
 // Build output inside a submodule (ai-lib, ark) shows as a modified submodule; only a moved commit counts.
 const STATUS = ['status', '--porcelain=v1', '-z', '--untracked-files=all', '--ignore-submodules=dirty'];
+const SMOKE = `${SKILL_PREFIX}test/smoke.ts`;
 
 function main(): number {
 	const dash = process.argv.indexOf('--');
@@ -81,7 +82,7 @@ function main(): number {
 	const { attempt, notAttempted } = queue(findings, order, cap);
 	const save = (f: Finding) => { writeFinding(fdir, f); findings = findings.map(x => x.id === f.id ? f : x); };
 	for (const f of findings.filter(x => x.outcome === undefined)) {
-		const runs = fixedBefore(recent, f.id);
+		const runs = fixedBefore(recent, f);
 		if (runs.length) { save(addFields(f, { fixedBefore: runs })); }
 	}
 	for (const f of notAttempted) { save(addFields(f, { notAttempted: `over the ${cap}-session cap; comes back next night` })); }
@@ -106,30 +107,14 @@ function main(): number {
 	if (redOnMain.length) { console.log(`fix-loop: check.ts already fails before any fix: ${redOnMain.join(', ')}`); writeState(dir, { checksRedOnMain: redOnMain }); }
 	let outOfTime = 0;
 
-	for (const queued of attempt) {
-		const f = findings.find(x => x.id === queued.id)!;
-		if (f.outcome !== undefined) { continue; } // resolved by an earlier fix's cascade
-		if (Date.now() - started >= budgetMs) {
-			outOfTime++;
-			save(addFields(f, { notAttempted: 'the night\'s fixer time ran out; comes back next night' }));
-			continue;
-		}
-		n++;
-		const outFile = join(dir, `outcome-${f.id}.json`);
+	type Session = { kind: 'stop' } | { kind: 'failed'; why: string } | { kind: 'unusable'; why: string } | { kind: 'outcome'; o: FixerOutcome; touched: string[] };
+	/** One fixer session on the brief already written; leaves the tree as the fixer left it unless it must stop. */
+	const runFixer = (f: Finding, pre: string, outFile: string, label: string, minutes: number): Session => {
 		rmSync(outFile, { force: true });
 		rmSync(stateFile, { force: true });
-		const earlier = earlierVerdicts(recent, f.id);
-		writeFileSync(join(dir, 'fixer-brief.md'), [
-			'# Finding', '', '```json', JSON.stringify(f, null, 2), '```', '',
-			...(earlier.length ? ['# Earlier verdicts', '', ...earlier.map(v => `- ${v}`), ''] : []),
-			`Checkout: ${repo}`, `App args for fixture-app.ts launch: ${appArgs.join(' ') || '(none)'}`,
-			`State file for fixture-app.ts --state: ${stateFile}`, `Outcome path: ${outFile}`,
-			...(redOnMain.length ? [`check.ts already fails without your fix: ${redOnMain.join(', ')}. Those checks are not yours to fix.`] : []),
-		].join('\n'));
-		const pre = git('rev-parse', 'HEAD').trim();
 		const session = spawnSync(process.execPath, [runner, '--prompt-file', join(dir, 'fixer-brief.md'), '--system-file', join(here, 'fixer.md'),
-			'--tools', 'Bash,Read,Edit,Write,Glob,Grep', '--model', 'opus', '--effort', 'high', '--max-turns', '150', '--time-limit', '25',
-			'--cwd', repo, '--write-root', join(repo, SKILL_PREFIX), '--label', `fixer ${f.id}`, '--out', join(dir, 'cost', `fixer-${f.id}.json`)], { stdio: 'inherit' });
+			'--tools', 'Bash,Read,Edit,Write,Glob,Grep', '--model', 'opus', '--effort', 'high', '--max-turns', '150', '--time-limit', String(minutes),
+			'--cwd', repo, '--write-root', join(repo, SKILL_PREFIX), '--label', `fixer ${label}`, '--out', join(dir, 'cost', `fixer-${label}.json`)], { stdio: 'inherit' });
 
 		// Stop the fixer's instance before any git or check step; smoke launches its own.
 		const app = readFixtureState(stateFile);
@@ -145,7 +130,7 @@ function main(): number {
 			scopeViolation = `${f.id}: the fixer committed`;
 			writeState(dir, { scopeViolation });
 			console.log(`fix-loop: ${f.id} committed; discarded, stopping`);
-			break;
+			return { kind: 'stop' };
 		}
 		const touched = pathsFromStatus(git(...STATUS));
 		const bad = outside(touched);
@@ -154,30 +139,116 @@ function main(): number {
 			scopeViolation = `${f.id}: ${bad.join(', ')}`;
 			writeState(dir, { scopeViolation });
 			console.log(`fix-loop: ${f.id} edited outside ${SKILL_PREFIX}: ${bad.join(', ')}; discarded, stopping`);
-			break;
+			return { kind: 'stop' };
 		}
-		if (session.error || session.status !== 0) {
+		if (session.error || session.status !== 0) { return { kind: 'failed', why: session.error ? session.error.message : `exit ${session.status ?? `signal ${session.signal}`}` }; }
+		const o = readOutcome(existsSync(outFile) ? readFileSync(outFile, 'utf8') : null);
+		return typeof o === 'string' ? { kind: 'unusable', why: o } : { kind: 'outcome', o, touched };
+	};
+
+	/** A read-only review of the staged change; its verdict, or null when the review itself failed. */
+	const reviewFix = (f: Finding, o: FixerOutcome, pre: string, round: number): Review | null => {
+		const brief = join(dir, 'review-brief.md');
+		writeFileSync(brief, [
+			'# Finding', '', '```json', JSON.stringify(f, null, 2), '```', '',
+			'# The fixer\'s account', '', o.reason, '', ...(o.plain.change ? [`Change: ${o.plain.change}`, ''] : []),
+			...(o.untestable ? [`No smoke case, because: ${o.untestable}`, ''] : []),
+			'# Staged diff', '', '```diff', git('diff', '--cached', '--no-color', pre), '```',
+		].join('\n'));
+		const out = join(dir, 'cost', `reviewer-${f.id}-${round}.json`);
+		const r = spawnSync(process.execPath, [runner, '--prompt-file', brief, '--system-file', join(here, 'reviewer.md'),
+			'--tools', 'Read,Grep,Glob', '--model', 'sonnet', '--effort', 'medium', '--max-turns', '40', '--time-limit', '8',
+			'--cwd', repo, '--write-root', join(dir, 'review-sandbox'), '--label', `reviewer ${f.id}`, '--out', out], { stdio: 'inherit' });
+		if (r.error || r.status !== 0 || !existsSync(out)) { console.log(`fix-loop: ${f.id} review ${round} did not run`); return null; }
+		const v = readReview((JSON.parse(readFileSync(out, 'utf8')) as { finalText?: string }).finalText ?? null);
+		if (typeof v === 'string') { console.log(`fix-loop: ${f.id} review ${round}: ${v}`); return null; }
+		return v;
+	};
+
+	for (const queued of attempt) {
+		const f = findings.find(x => x.id === queued.id)!;
+		if (f.outcome !== undefined) { continue; } // resolved by an earlier fix's cascade
+		if (Date.now() - started >= budgetMs) {
+			outOfTime++;
+			save(addFields(f, { notAttempted: 'the night\'s fixer time ran out; comes back next night' }));
+			continue;
+		}
+		n++;
+		const outFile = join(dir, `outcome-${f.id}.json`);
+		const earlier = earlierVerdicts(recent, f);
+		const others = otherOpen(findings, f.id);
+		writeFileSync(join(dir, 'fixer-brief.md'), [
+			'# Finding', '', '```json', JSON.stringify(f, null, 2), '```', '',
+			...(earlier.length ? ['# Earlier verdicts', '', ...earlier.map(v => `- ${v}`), ''] : []),
+			...(others.length ? ['# Other open findings tonight', '', ...others, ''] : []),
+			`Checkout: ${repo}`, `App args for fixture-app.ts launch: ${appArgs.join(' ') || '(none)'}`,
+			`State file for fixture-app.ts --state: ${stateFile}`, `Outcome path: ${outFile}`,
+			...(redOnMain.length ? [`check.ts already fails without your fix: ${redOnMain.join(', ')}. Those checks are not yours to fix.`] : []),
+		].join('\n'));
+		const pre = git('rev-parse', 'HEAD').trim();
+		const first = runFixer(f, pre, outFile, f.id, 25);
+		if (first.kind === 'stop') { break; }
+		if (first.kind === 'failed') {
 			discard(pre, false);
 			failed = true;
-			const why = session.error ? session.error.message : `exit ${session.status ?? `signal ${session.signal}`}`;
-			save(addFields(f, { notAttempted: `the fixer session failed (${why})` }));
-			console.log(`fix-loop: ${f.id} session failed (${why})`);
+			save(addFields(f, { notAttempted: `the fixer session failed (${first.why})` }));
+			console.log(`fix-loop: ${f.id} session failed (${first.why})`);
 			continue;
 		}
-		const o = readOutcome(existsSync(outFile) ? readFileSync(outFile, 'utf8') : null);
-		if (typeof o === 'string') {
+		if (first.kind === 'unusable') {
 			discard(pre, false);
-			save(addFields(f, { notAttempted: `the session ended without a usable outcome: ${o}` }));
+			save(addFields(f, { notAttempted: `the session ended without a usable outcome: ${first.why}` }));
 			continue;
 		}
+		let { o, touched } = first;
 		if (o.outcome !== 'fixed' || !touched.length) {
 			discard(pre, false);
 			save(addFields(f, { outcome: o.outcome, reason: o.reason, reproductions: [o.reproduction], ...o.plain, ...(o.outcome === 'fixed' ? { rejected: 'outcome fixed with no change' } : {}) }));
 			continue;
 		}
 
-		const changed = checksChanged(touched);
 		git('add', '--', SKILL_PREFIX);
+		let added = touched.includes(SMOKE) ? addedCases(git('diff', '--cached', '-U0', '--no-color', pre, '--', SMOKE)) : [];
+		const gate = caseGate(touched, added, o.untestable);
+		if (gate) {
+			discard(pre, false);
+			save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, rejected: gate }));
+			console.log(`fix-loop: ${f.id} fix rejected: ${gate}`);
+			continue;
+		}
+		const r1 = reviewFix(f, o, pre, 1);
+		let notes = r1?.notes ?? [];
+		let revised = false;
+		// One send-back, and only while the night has time; the second review is recorded, not obeyed.
+		if (r1?.verdict === 'revise' && Date.now() - started < budgetMs) {
+			writeFileSync(join(dir, 'fixer-brief.md'), [readFileSync(join(dir, 'fixer-brief.md'), 'utf8'), '',
+				'# Review of your change', '', 'Your change is still in the working tree. A reviewer sent it back with these notes. Fix what is right in them, then write the outcome file again; say in `reason` which notes you did not act on and why.', '',
+				...r1.notes.map(n => `- ${n}`)].join('\n'));
+			git('reset', '-q');
+			const second = runFixer(f, pre, outFile, `${f.id}-revise`, 10);
+			if (second.kind === 'stop') { break; }
+			if (second.kind !== 'outcome' || second.o.outcome !== 'fixed' || !second.touched.length) {
+				discard(pre, false);
+				if (second.kind === 'failed') { failed = true; }
+				const why = second.kind === 'outcome' ? `the revision ended as ${second.o.outcome}` : second.why;
+				save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, review: r1.notes, rejected: `review sent it back and ${why}` }));
+				continue;
+			}
+			({ o, touched } = second);
+			revised = true;
+			git('add', '--', SKILL_PREFIX);
+			const added2 = touched.includes(SMOKE) ? addedCases(git('diff', '--cached', '-U0', '--no-color', pre, '--', SMOKE)) : [];
+			const gate2 = caseGate(touched, added2, o.untestable);
+			if (gate2) {
+				discard(pre, false);
+				save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, review: r1.notes, revised, rejected: gate2 }));
+				continue;
+			}
+			added = added2;
+			notes = reviewFix(f, o, pre, 2)?.notes ?? [];
+		}
+		// Added cases are not a change to what judges the fix.
+		const changed = checksChanged(added?.length ? touched.filter(p => p !== SMOKE) : touched);
 		// --no-verify: the pre-commit hook needs the full dev setup, and check.ts runs next.
 		git('-c', 'user.name=positron-bot', '-c', 'user.email=positron-bot@posit.co', 'commit', '-q', '--no-verify', '-m', `drive-positron: fix ${f.id}\n\n${o.reason}`);
 		const sha = git('rev-parse', 'HEAD').trim();
@@ -191,8 +262,15 @@ function main(): number {
 		const checkOk = check.status === 0 || (checksAfter.size > 0 && !turnedRed.length);
 		// A selectors.ts change that only adds entries reaches just the scripts using them.
 		const scripts = join(here, '../scripts');
-		const reach = touched.flatMap(p => p === `${SKILL_PREFIX}scripts/selectors.ts` ? selectorUsers(addedKeys(git('diff', '-U0', '--no-color', pre, sha, '--', p)), scripts) ?? [p] : [p]);
-		const sections = postSections(baseline, affectedHelpers(reach, readGraph(scripts)), f);
+		const reach = touched.flatMap(p => p === SMOKE && added?.length ? added.map(a => `${SKILL_PREFIX}scripts/${a.helper}`)
+			: p === `${SKILL_PREFIX}scripts/selectors.ts` ? selectorUsers(addedKeys(git('diff', '-U0', '--no-color', pre, sha, '--', p)), scripts) ?? [p] : [p]);
+		const scoped = postSections(baseline, affectedHelpers(reach, readGraph(scripts)), f);
+		// Cases the fix added can sit past a section's baseline last case, or in a section the baseline did not pick.
+		let sections = scoped;
+		if (scoped && added?.length) {
+			const listing = spawnSync(process.execPath, [join(here, '../test/smoke.ts'), '--list'], { cwd: repo, encoding: 'utf8' });
+			try { sections = placeSections(scoped, JSON.parse(listing.stdout), added); } catch { sections = null; }
+		}
 		const runs = (sections ?? [null]).map((s, i) => ({ until: s?.last, file: join(dir, sections ? `post-${n}-${i + 1}.json` : `post-${n}.json`) }));
 		const outputs: string[] = [];
 		const results: SmokeResults[] = [];
@@ -211,8 +289,10 @@ function main(): number {
 			: !after || after.launch === 'FAIL' ? 'smoke did not run'
 				: reg.length ? `turned red: ${reg.map(c => `${c.name} (${c.problem.slice(0, 160)})`).join('; ')}`
 					: f.case && !after.cases.some(c => c.name === f.case && c.status === 'PASS') ? `its own case "${f.case}" still fails`
-						: '';
-		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, checksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}), ...(verdict ? { rejected: verdict } : {}) }));
+						: after && added?.length ? newCaseProblems(added, after).join('; ') : '';
+		save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, checksChanged: changed, commit: sha, ...(sections ? { smokeSections: sections.map(s => s.id) } : {}),
+			...(added?.length ? { newCases: added.map(a => a.name) } : {}), ...(o.untestable ? { untestable: o.untestable } : {}),
+			...(notes.length ? { review: notes } : {}), ...(revised ? { revised } : {}), ...(verdict ? { rejected: verdict } : {}) }));
 		if (verdict) {
 			discard(pre, false);
 			console.log(`fix-loop: ${f.id} fix rejected: ${verdict}`);
@@ -221,6 +301,7 @@ function main(): number {
 		accepted++;
 		baseline = sections ? replaceCases(baseline, after!) : after!;
 		findings = cascade(findings, after!, f.id, after!.startedAt);
+		if (o.covers?.length) { findings = applyCovers(findings, f.id, o.covers, after!.startedAt); }
 		for (const x of findings) { writeFinding(fdir, x); }
 		console.log(`fix-loop: ${f.id} fixed in ${sha.slice(0, 8)}`);
 	}

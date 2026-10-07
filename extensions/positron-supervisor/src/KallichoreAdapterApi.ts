@@ -18,13 +18,14 @@ import { isAxiosError } from 'axios';
 import { KallichoreServerState } from './ServerState.js';
 import { KallichoreApiInstance, KallichoreTransport } from './KallichoreApiInstance.js';
 import { KallichoreInstances } from './KallichoreInstances.js';
+import { DefinitionTerminalEnvironment, findInterpreterDefinition, InterpreterDefinition, resolveDefinitionEnv } from './interpreterDefinition';
 import { DapComm } from './DapComm';
 import { HandshakeSocket } from './HandshakeSocket.js';
 import { COPY_MCP_DETAILS_COMMAND, McpChannelTarget, McpFrontend, loadMcpState, mcpFeatureEnabled, saveMcpState } from './McpFrontend.js';
 import { CONFIGURE_AGENT_COMMAND, configureAgent, onMcpRegistered, promptToEnable, removeConfiguredAgents } from './McpAgentConfig.js';
 import { MCP_DEFINITION_PROVIDER_ID, McpServerDefinitions } from './McpServerDefinitions.js';
 import { McpLaunch, mcpLaunch } from './McpAgents.js';
-import { mcpConnectionsDirectory } from './mcpConnection.js';
+import { MCP_TOKEN_ENV_VAR, MCP_URL_ENV_VAR, mcpConnectionsDirectory } from './mcpConnection.js';
 import { McpClientsStatusBar, SHOW_CONNECTED_AGENTS_COMMAND, showConnectedAgents } from './McpClientsStatusBar.js';
 
 /**
@@ -293,6 +294,19 @@ export class KCApi implements PositronSupervisorApi {
 	private _showingDisconnectedWarning = false;
 
 	/**
+	 * The environment variables set by the interpreter definition of each
+	 * session started from one, by session ID. Applied to terminals while that
+	 * session is in the foreground.
+	 */
+	private readonly _definitionEnvBySessionId = new Map<string, Record<string, string>>();
+
+	/**
+	 * The terminal environment variables set from the foreground session's
+	 * interpreter definition.
+	 */
+	private readonly _terminalEnvironment: DefinitionTerminalEnvironment<positron.BaseLanguageRuntimeSession>;
+
+	/**
 	 * Per-workspace ephemeral storage for the server reconnect state. Used
 	 * instead of persistent workspace storage when the server shares the
 	 * application's lifetime, so that a stale reconnect target is never read
@@ -352,6 +366,19 @@ export class KCApi implements PositronSupervisorApi {
 		// console from an agent is never a surprise.
 		this._disposables.push(new McpClientsStatusBar(this._mcp));
 		positron.runtime.emitPerfMark('initializing');
+
+		// Give terminals the environment of the foreground session's interpreter
+		// definition, if it has one. MCP's variables share the collection.
+		this._terminalEnvironment = new DefinitionTerminalEnvironment(
+			_context.environmentVariableCollection,
+			[MCP_URL_ENV_VAR, MCP_TOKEN_ENV_VAR],
+			sessionId => positron.runtime.getSession(sessionId),
+			session => this.getTerminalDefinitionEnv(session));
+		_context.subscriptions.push(positron.runtime.onDidChangeForegroundSession(sessionId => {
+			this._terminalEnvironment.update(sessionId).catch(err => {
+				this.log(`Failed to update terminal environment: ${summarizeError(err)}`);
+			});
+		}));
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
@@ -1412,6 +1439,107 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Get the environment variables an interpreter definition sets, running its
+	 * startup script to capture the variables the script sets.
+	 *
+	 * @param definition The interpreter definition
+	 * @param kernelEnv The environment variables the kernel spec sets, if any
+	 */
+	private async resolveDefinitionEnv(definition: InterpreterDefinition, kernelEnv: NodeJS.ProcessEnv | undefined): Promise<Record<string, string>> {
+		if (definition.startupScript && process.platform === 'win32') {
+			this.log(`Ignoring startupScript for "${definition.label}": startup scripts are not supported on Windows`);
+		}
+		const baseEnv: Record<string, string> = {};
+		for (const [name, value] of Object.entries({ ...process.env, ...kernelEnv })) {
+			if (value !== undefined) {
+				baseEnv[name] = value;
+			}
+		}
+		let env: Record<string, string>;
+		try {
+			env = await resolveDefinitionEnv(definition, baseEnv, process.platform);
+		} catch (err) {
+			throw new Error(vscode.l10n.t(
+				'The startup script for the interpreter "{0}" failed: {1}',
+				definition.label, summarizeError(err)));
+		}
+		this.log(`Applying interpreter definition "${definition.label}" (env: ${Object.keys(env).join(', ') || 'none'})`);
+		return env;
+	}
+
+	/**
+	 * Get a function that resolves the environment variables of the
+	 * interpreter definition a runtime is a variant of. It reads the setting
+	 * each time it is called, so a restart applies edits to the definition, and
+	 * fails if the definition has been removed.
+	 *
+	 * @param runtimeMetadata The metadata of the session's runtime
+	 * @param sessionId The ID of the session
+	 * @returns The resolver, or undefined if the runtime is not a variant
+	 */
+	private definitionEnvResolver(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionId: string):
+		((kernelEnv: NodeJS.ProcessEnv | undefined) => Promise<Record<string, string>>) | undefined {
+		const label = runtimeMetadata.interpreterDefinition;
+		if (!label) {
+			return undefined;
+		}
+		return async kernelEnv => {
+			const definition = findInterpreterDefinition(
+				vscode.workspace.getConfiguration('interpreters').get('definitions'),
+				runtimeMetadata.languageId,
+				label,
+				runtimeMetadata.runtimePath);
+			if (!definition) {
+				throw new Error(vscode.l10n.t(
+					'The interpreter "{0}" is no longer defined in the interpreters.definitions setting.',
+					label));
+			}
+			const env = await this.resolveDefinitionEnv(definition, kernelEnv);
+			this._definitionEnvBySessionId.set(sessionId, env);
+			// Bring terminals up to date if a restart changed the variables.
+			positron.runtime.getForegroundSession().then(async foreground => {
+				if (foreground?.metadata.sessionId === sessionId) {
+					await this._terminalEnvironment.update(sessionId);
+				}
+			}).then(undefined, err => {
+				this.log(`Failed to update terminal environment: ${summarizeError(err)}`);
+			});
+			return env;
+		};
+	}
+
+	/**
+	 * Get the variables a session's interpreter definition sets, for its
+	 * terminals.
+	 *
+	 * @param session The session
+	 * @returns The variables, or none if the session has no definition
+	 */
+	private async getTerminalDefinitionEnv(session: positron.BaseLanguageRuntimeSession): Promise<Record<string, string>> {
+		const label = session.runtimeMetadata.interpreterDefinition;
+		if (!label) {
+			return {};
+		}
+		const sessionId = session.metadata.sessionId;
+		let env = this._definitionEnvBySessionId.get(sessionId);
+		if (!env) {
+			// The session was restored rather than started in this window,
+			// so capture its definition's variables now.
+			const definition = findInterpreterDefinition(
+				vscode.workspace.getConfiguration('interpreters').get('definitions'),
+				session.runtimeMetadata.languageId,
+				label,
+				session.runtimeMetadata.runtimePath);
+			if (!definition) {
+				return {};
+			}
+			env = await this.resolveDefinitionEnv(definition, undefined);
+			this._definitionEnvBySessionId.set(sessionId, env);
+		}
+		return env;
+	}
+
+	/**
 	 * Create a new session for a Jupyter-compatible kernel.
 	 *
 	 * @param runtimeMetadata The metadata for the associated language runtime
@@ -1445,6 +1573,10 @@ export class KCApi implements PositronSupervisorApi {
 			},
 			true,
 			_extra);
+
+		// Apply the interpreters.definitions entry this runtime is a variant
+		// of, read at every start and restart so edits apply without a reload.
+		session.definitionEnvResolver = this.definitionEnvResolver(runtimeMetadata, sessionMetadata.sessionId);
 
 		this.log(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
@@ -1653,6 +1785,7 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Forget the sessions; they will not exist on the new server.
 		this._sessions.length = 0;
+		this._definitionEnvBySessionId.clear();
 
 		// Stop streaming the logs from the old server
 		if (this._logStreamer) {
@@ -1759,6 +1892,7 @@ export class KCApi implements PositronSupervisorApi {
 					continuationPrompt: kcSession.continuation_prompt,
 					inputPrompt: kcSession.input_prompt
 				}, this._api.api, this._api.transport, async () => { await this.testServerExited() }, false);
+				session.definitionEnvResolver = this.definitionEnvResolver(runtimeMetadata, sessionMetadata.sessionId);
 
 				// Restore the session from the server
 				try {
@@ -1975,6 +2109,7 @@ export class KCApi implements PositronSupervisorApi {
 			session.dispose();
 		});
 		this._sessions.length = 0;
+		this._definitionEnvBySessionId.clear();
 
 		// Clear the saved state so we don't try to reconnect to the old server
 		await this.saveServerState(undefined);

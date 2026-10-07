@@ -87,6 +87,7 @@ export enum FeatureTags {
 	SESSIONS = '@:sessions',
 	TASKS = '@:tasks',
 	TEST_EXPLORER = '@:test-explorer',
+	THEMES = '@:themes',
 	TOP_ACTION_BAR = '@:top-action-bar',
 	UPDATE = '@:update',
 	VARIABLES = '@:variables',

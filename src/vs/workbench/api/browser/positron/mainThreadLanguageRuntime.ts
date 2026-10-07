@@ -14,7 +14,7 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -2027,10 +2027,9 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to select a previously registered language runtime
-	$selectLanguageRuntime(runtimeId: string): Promise<void> {
+	$selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void> {
 		return this._runtimeSessionService.selectRuntime(
-			runtimeId,
-			'Extension-requested runtime selection via Positron API');
+			runtimeId, { id: SessionStartReasonId.ExtensionApiSelect, requestingExtensionId });
 	}
 
 	// Called by the extension host to get a list of all registered runtimes
@@ -2050,6 +2049,7 @@ export class MainThreadLanguageRuntime
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
+		requestingExtensionId: string,
 		options: RuntimeSessionStartOptions | undefined): Promise<string> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
@@ -2061,7 +2061,10 @@ export class MainThreadLanguageRuntime
 			sessionName,
 			sessionMode,
 			uri,
-			'Extension-requested runtime selection via Positron API',
+			{
+				id: options?.owner === 'agent' ? SessionStartReasonId.ExtensionStartedAgentSession : SessionStartReasonId.ExtensionApiStart,
+				requestingExtensionId,
+			},
 			RuntimeStartMode.Starting,
 			options?.activate ?? true,
 			{ owner: options?.owner ?? 'user' });
@@ -2070,10 +2073,12 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to restart a running language runtime
-	$restartSession(sessionId: string): Promise<boolean> {
+	$restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean> {
 		return this._runtimeSessionService.restartSession(
 			sessionId,
-			'Extension-requested runtime restart via Positron API');
+			'Extension-requested runtime restart via Positron API',
+			true,
+			requestingExtensionId);
 	}
 
 	// Called by the extension host to interrupt a running session
@@ -2138,7 +2143,8 @@ export class MainThreadLanguageRuntime
 		executionId?: string,
 		documentUri?: URI,
 		executionMetadata?: Record<string, unknown>,
-		attributionMetadata?: Record<string, unknown>): Promise<string> {
+		attributionMetadata?: Record<string, unknown>,
+		callerSessionId?: string): Promise<string> {
 
 		// Revive the URI from the serialized form, if provided.
 		const revivedUri = documentUri ? URI.revive(documentUri) : undefined;
@@ -2148,9 +2154,17 @@ export class MainThreadLanguageRuntime
 		// forwarded to the kernel (e.g. for plot file attribution).
 		//
 		// Any caller-supplied attribution metadata is merged in first, so
-		// Positron's own fields (extensionId, codeLocation) always win and the
-		// caller cannot forge them. Positron retains sole authority over
-		// `source`, which is never caller-supplied.
+		// Positron's own fields (extensionId, callerSessionId, codeLocation)
+		// always win and the caller cannot forge them. Positron retains sole
+		// authority over `source`, which is never caller-supplied.
+		//
+		// `callerSessionId` is set when a kernel sent the code through the
+		// extension, so the extension relayed the code rather than asking for it.
+		// Extensions can pass any session ID to `positron.methods.call`, so it
+		// only counts when it names a real session; otherwise an extension
+		// could hide that it sent the code.
+		const relayedFromSessionId = callerSessionId && this._runtimeSessionService.getSession(callerSessionId) ?
+			callerSessionId : undefined;
 		let attribution: IConsoleCodeAttribution;
 		if (revivedUri) {
 			const codeLocation: ICodeLocation = {
@@ -2165,6 +2179,7 @@ export class MainThreadLanguageRuntime
 				metadata: {
 					...attributionMetadata,
 					extensionId: extensionId,
+					callerSessionId: relayedFromSessionId,
 					codeLocation,
 				}
 			};
@@ -2174,6 +2189,7 @@ export class MainThreadLanguageRuntime
 				metadata: {
 					...attributionMetadata,
 					extensionId: extensionId,
+					callerSessionId: relayedFromSessionId,
 				}
 			};
 		}
@@ -2207,6 +2223,7 @@ export class MainThreadLanguageRuntime
 
 	async $evaluateCode(
 		languageId: string,
+		extensionId: string,
 		sessionId: string | undefined,
 		code: string,
 		evaluationId: string,
@@ -2228,7 +2245,7 @@ export class MainThreadLanguageRuntime
 				languageId,
 				undefined,
 				'', // empty code just to start the session
-				{ source: CodeAttributionSource.Extension, metadata: {} },
+				{ source: CodeAttributionSource.Extension, metadata: { extensionId } },
 				false,
 				true,
 			);
