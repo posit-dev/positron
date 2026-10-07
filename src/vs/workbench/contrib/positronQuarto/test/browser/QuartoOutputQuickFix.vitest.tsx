@@ -171,7 +171,7 @@ describe('QuartoOutputQuickFix with a registered error action handler', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	it('sends the failing chunk\'s location and only the error', async () => {
+	it('sends the failing chunk\'s location, code, and error', async () => {
 		const user = userEvent.setup();
 		rtl.render(
 			<QuartoOutputQuickFix
@@ -183,7 +183,7 @@ describe('QuartoOutputQuickFix with a registered error action handler', () => {
 
 		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
 			error: 'RuntimeError: boom',
-			location: { kind: 'quarto', uri: URI.file('/work/report.qmd'), languageId: 'python', startLine: 8, endLine: 9, sessionId: 'python-5678' },
+			location: { kind: 'quarto', uri: URI.file('/work/report.qmd'), languageId: 'python', startLine: 8, endLine: 9, code: 'raise RuntimeError("boom")', sessionId: 'python-5678' },
 		}]);
 	});
 });

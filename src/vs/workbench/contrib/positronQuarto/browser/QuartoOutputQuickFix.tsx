@@ -75,6 +75,7 @@ export const QuartoOutputQuickFix = (props: QuartoOutputQuickFixProps) => {
 				languageId: cellContext.language,
 				startLine: cellContext.codeStartLine,
 				endLine: cellContext.codeEndLine,
+				code: cellContext.code,
 				sessionId: quartoKernelManager.getSessionForDocument(cellContext.uri)?.sessionId,
 			},
 		};

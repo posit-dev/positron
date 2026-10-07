@@ -20,15 +20,11 @@ const MAX_DETAILS_LENGTH = 30_000;
 const MIN_CODE_LENGTH = 2_000;
 
 /**
- * The code of a notebook cell or Quarto chunk whose document differs from
- * what is on disk, so the agent cannot read the code from the file.
+ * How a notebook's or Quarto document's contents differ from its file, so the
+ * agent cannot read the failing code from it: never saved, or saved with
+ * changes since.
  */
-export interface UnsavedCode {
-	readonly code: string;
-	readonly languageId: string;
-	/** Whether the document has never been saved to a file. */
-	readonly isUntitled: boolean;
-}
+export type UnsavedState = 'untitled' | 'dirty';
 
 /**
  * Build the prompt for a Fix or Explain action, for any coding agent. Prompts
@@ -36,19 +32,19 @@ export interface UnsavedCode {
  * @param getPath Resolves a document URI to the path named in the prompt.
  * @param mcpServerName The name the agent knows Positron's MCP server by,
  *   or undefined when it is not configured.
- * @param unsavedCode The failing notebook cell's or Quarto chunk's code,
- *   when its document is not saved.
+ * @param unsavedState How the failing notebook cell's or Quarto chunk's
+ *   document differs from its file, or undefined when it is saved. Its code
+ *   is included only when it isn't.
  */
 export function getErrorPrompt(
 	kind: ErrorActionKind,
 	context: positron.ai.ErrorActionContext,
 	getPath: (uri: Uri) => string,
 	mcpServerName?: string,
-	unsavedCode?: UnsavedCode,
+	unsavedState?: UnsavedState,
 ): string {
 	const location = context.location;
-	const fullCode = location?.kind === 'console' ? location.code : unsavedCode?.code;
-	const languageId = location?.kind === 'console' ? location.languageId : unsavedCode?.languageId;
+	const fullCode = location?.kind === 'console' || unsavedState ? location?.code : undefined;
 	// The code is cut before the error, since the agent can more likely find
 	// the code elsewhere (e.g. the console's history) than the error.
 	const code = fullCode
@@ -75,8 +71,8 @@ export function getErrorPrompt(
 			source = location.cellIndex === undefined
 				? `A cell in ${getPath(location.uri)} raised an error.`
 				: `Cell ${location.cellIndex + 1} of ${getPath(location.uri)} raised an error.`;
-			if (unsavedCode) {
-				source += unsavedCode.isUntitled
+			if (unsavedState && location.code) {
+				source += unsavedState === 'untitled'
 					? ' The notebook is not saved to a file, so the cell\'s code is below.'
 					: ' The notebook has unsaved changes, so the cell\'s code is below.';
 			}
@@ -88,8 +84,8 @@ export function getErrorPrompt(
 		case 'quarto':
 			source = `The ${location.languageId} code chunk at lines ${location.startLine}-${location.endLine} ` +
 				`of ${getPath(location.uri)} raised an error.`;
-			if (unsavedCode) {
-				source += unsavedCode.isUntitled
+			if (unsavedState) {
+				source += unsavedState === 'untitled'
 					? ' The document is not saved to a file, so the chunk\'s code is below.'
 					: ' The document has unsaved changes, so the chunk\'s code is below.';
 			}
@@ -100,7 +96,7 @@ export function getErrorPrompt(
 			break;
 	}
 	if (code) {
-		blocks.push(`Code:\n\n${fence(code, languageId)}`);
+		blocks.push(`Code:\n\n${fence(code, location?.languageId)}`);
 	}
 	if (error) {
 		blocks.push(`Error:\n\n${fence(error)}`);

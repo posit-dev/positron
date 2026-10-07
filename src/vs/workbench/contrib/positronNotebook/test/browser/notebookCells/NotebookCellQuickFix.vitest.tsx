@@ -42,7 +42,7 @@ describe('NotebookCellQuickFix', () => {
 	it('tells the registered error action handler which cell failed', async () => {
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(POSITRON_NOTEBOOK_ENABLED_KEY, true);
 		const instance = stubInterface<IPositronNotebookInstance>({ uri: URI.file('/work/analysis.ipynb'), runtimeSession });
-		const cell = stubInterface<IPositronNotebookCell>({ index: 2, getContent: () => 'x + 1' });
+		const cell = stubInterface<IPositronNotebookCell>({ index: 2, getContent: () => 'x + 1', model: stubInterface<IPositronNotebookCell['model']>({ language: 'python' }) });
 
 		const user = userEvent.setup();
 		rtl.render(
@@ -56,7 +56,7 @@ describe('NotebookCellQuickFix', () => {
 
 		expect(run.mock.calls[0].slice(1)).toEqual(['fix', {
 			error: 'NameError: x',
-			location: { kind: 'notebook', uri: instance.uri, cellIndex: 2, sessionId: 'python-5678' },
+			location: { kind: 'notebook', uri: instance.uri, cellIndex: 2, code: 'x + 1', languageId: 'python', sessionId: 'python-5678' },
 		}]);
 	});
 

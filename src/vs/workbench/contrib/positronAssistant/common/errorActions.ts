@@ -40,6 +40,10 @@ export interface INotebookErrorLocation {
 	readonly uri: UriComponents;
 	/** 0-based index of the cell; undefined when the cell no longer exists. */
 	readonly cellIndex?: number;
+	/** The cell's code, which may have unsaved changes; undefined when the cell no longer exists. */
+	readonly code?: string;
+	/** Language ID of the cell, e.g. "python"; undefined when the cell no longer exists. */
+	readonly languageId?: string;
 	/** ID of the notebook's runtime session; undefined when it has none. */
 	readonly sessionId?: string;
 }
@@ -54,6 +58,8 @@ export interface IQuartoErrorLocation {
 	readonly startLine: number;
 	/** 1-based last line of the chunk's code, inclusive. */
 	readonly endLine: number;
+	/** The chunk's code, which may have unsaved changes. */
+	readonly code: string;
 	/** ID of the document's runtime session; undefined when it has none. */
 	readonly sessionId?: string;
 }

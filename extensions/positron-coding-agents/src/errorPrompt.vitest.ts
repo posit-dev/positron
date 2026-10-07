@@ -78,7 +78,7 @@ describe('getErrorPrompt', () => {
 	it('points the agent at the Quarto document\'s kernel session', () => {
 		expect(getLead(getErrorPrompt('explain', {
 			error: 'boom',
-			location: { kind: 'quarto', uri: { path: '/work/report.qmd' } as Uri, languageId: 'r', startLine: 10, endLine: 12, sessionId: 'r-9012' },
+			location: { kind: 'quarto', uri: { path: '/work/report.qmd' } as Uri, languageId: 'r', startLine: 10, endLine: 12, code: 'log(-1)', sessionId: 'r-9012' },
 		}, getPath, 'positron'))).toContain('can inspect the document\'s kernel session (session_id: r-9012).');
 	});
 
@@ -96,18 +96,18 @@ describe('getErrorPrompt', () => {
 		);
 	});
 
-	it('names the cell for a notebook error, without its code', () => {
+	it('names the cell for a saved notebook error, without its code', () => {
 		expect(getErrorPrompt('fix', {
 			error: 'boom',
-			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2 },
+			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2, code: 'print(x)', languageId: 'python' },
 		}, getPath)).toBe('Cell 3 of analysis.ipynb raised an error. Fix the error.\n\nError:\n\n```\nboom\n```');
 	});
 
 	it('includes the cell\'s code for a notebook that is not saved to a file', () => {
 		expect(getErrorPrompt('fix', {
 			error: 'boom',
-			location: { kind: 'notebook', uri: { path: '/work/Untitled-1.ipynb' } as Uri, cellIndex: 0 },
-		}, getPath, undefined, { code: 'print(x)', languageId: 'python', isUntitled: true })).toBe([
+			location: { kind: 'notebook', uri: { path: '/work/Untitled-1.ipynb' } as Uri, cellIndex: 0, code: 'print(x)', languageId: 'python' },
+		}, getPath, undefined, 'untitled')).toBe([
 			'Cell 1 of Untitled-1.ipynb raised an error. The notebook is not saved to a file, so the cell\'s code is below. Fix the error.',
 			'',
 			'Code:',
@@ -127,8 +127,8 @@ describe('getErrorPrompt', () => {
 	it('includes the cell\'s code for a notebook with unsaved changes', () => {
 		expect(getLead(getErrorPrompt('fix', {
 			error: 'boom',
-			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2 },
-		}, getPath, undefined, { code: 'print(x)', languageId: 'python', isUntitled: false }))).toBe(
+			location: { kind: 'notebook', uri: notebookUri, cellIndex: 2, code: 'print(x)', languageId: 'python' },
+		}, getPath, undefined, 'dirty'))).toBe(
 			'Cell 3 of analysis.ipynb raised an error. The notebook has unsaved changes, so the cell\'s code is below. Fix the error.'
 		);
 	});
@@ -136,8 +136,8 @@ describe('getErrorPrompt', () => {
 	it('includes the chunk\'s code for a Quarto document that is not saved to a file', () => {
 		const prompt = getErrorPrompt('fix', {
 			error: 'boom',
-			location: { kind: 'quarto', uri: { path: '/work/Untitled-1.qmd' } as Uri, languageId: 'r', startLine: 3, endLine: 3 },
-		}, getPath, undefined, { code: 'log(-1)', languageId: 'r', isUntitled: true });
+			location: { kind: 'quarto', uri: { path: '/work/Untitled-1.qmd' } as Uri, languageId: 'r', startLine: 3, endLine: 3, code: 'log(-1)' },
+		}, getPath, undefined, 'untitled');
 		expect(getLead(prompt)).toBe(
 			'The r code chunk at lines 3-3 of Untitled-1.qmd raised an error. The document is not saved to a file, so the chunk\'s code is below. Fix the error.'
 		);
@@ -154,7 +154,7 @@ describe('getErrorPrompt', () => {
 	it('names the chunk for a Quarto error', () => {
 		expect(getLead(getErrorPrompt('explain', {
 			error: 'boom',
-			location: { kind: 'quarto', uri: { path: '/work/report.qmd' } as Uri, languageId: 'r', startLine: 10, endLine: 12 },
+			location: { kind: 'quarto', uri: { path: '/work/report.qmd' } as Uri, languageId: 'r', startLine: 10, endLine: 12, code: 'log(-1)' },
 		}, getPath))).toBe(
 			'The r code chunk at lines 10-12 of report.qmd raised an error. Explain what caused the error and how to fix it, without making changes or editing any files.'
 		);

@@ -4983,6 +4983,15 @@ declare module 'positron' {
 			/** The 0-based index of the cell. Undefined when the cell no longer exists. */
 			readonly cellIndex?: number;
 
+			/**
+			 * The cell's code, which may have unsaved changes. Undefined when the
+			 * cell no longer exists.
+			 */
+			readonly code?: string;
+
+			/** The cell's language ID, e.g. "python". Undefined when the cell no longer exists. */
+			readonly languageId?: string;
+
 			/** The ID of the notebook's runtime session. Undefined when it has none. */
 			readonly sessionId?: string;
 		}
@@ -5002,6 +5011,9 @@ declare module 'positron' {
 
 			/** The 1-based last line of the chunk's code, inclusive. */
 			readonly endLine: number;
+
+			/** The chunk's code, which may have unsaved changes. */
+			readonly code: string;
 
 			/** The ID of the document's runtime session. Undefined when it has none. */
 			readonly sessionId?: string;

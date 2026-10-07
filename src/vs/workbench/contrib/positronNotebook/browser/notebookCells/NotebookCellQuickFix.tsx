@@ -71,6 +71,7 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 				errorLocation: { kind: 'notebook', uri: instance.uri, sessionId },
 			};
 		}
+		const code = cell.getContent();
 		const cellNumber = cell.index + 1;
 		const path = labelService.getUriLabel(instance.uri, { relative: true });
 		const header = localize('positronNotebookErrorContextHeader', "Error from cell {0} of {1}:", cellNumber, path);
@@ -79,9 +80,9 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 		return {
 			fixPrompt: localize('positronNotebookAssistantFixPromptWithContext', "Fix the error from cell {0} of {1}. The failing code and its error output are attached; fix only this error.", cellNumber, path),
 			explainPrompt: localize('positronNotebookAssistantExplainPromptWithContext', "Explain the error from cell {0} of {1}. The failing code and its error output are attached.", cellNumber, path),
-			attachmentContent: `${header}\n\n${codeHeader}\n${cell.getContent()}\n\n${errorHeader}\n${errorContent}`,
+			attachmentContent: `${header}\n\n${codeHeader}\n${code}\n\n${errorHeader}\n${errorContent}`,
 			errorOutput: errorContent,
-			errorLocation: { kind: 'notebook', uri: instance.uri, cellIndex: cell.index, sessionId },
+			errorLocation: { kind: 'notebook', uri: instance.uri, cellIndex: cell.index, code, languageId: cell.model.language, sessionId },
 		};
 	}, [cell, errorContent, instance, labelService]);
 
