@@ -531,6 +531,14 @@ function safeLinks(text) {
 		(whole, bang, label, url) => (safeUrl(url) ? whole : label));
 }
 
+/** A lone ~ escaped outside code, so GitHub does not strike through "(~L12) ... (~L40)". */
+function escapeLoneTildes(text) {
+	return text.split(/(^(`{3,})[^\n]*\n[\s\S]*?^\2[ \t]*$|`[^`\n]*`)/m).map((part, i) => {
+		// split puts each match and its fence group in the odd slots.
+		return i % 3 === 0 ? part.replace(/(?<![~\\])~(?!~)/g, '\\~') : i % 3 === 1 ? part : '';
+	}).join('');
+}
+
 /**
  * A finding's Evidence as list items. `where` places a path beside the report;
  * `shot` names a screenshot.
@@ -836,10 +844,10 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	}
 	const section = (heading, body) => {
 		if (body) {
-			out.push(`## ${heading}`, safeLinks(body), '');
+			out.push(`## ${heading}`, escapeLoneTildes(safeLinks(body)), '');
 		}
 	};
-	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
+	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', escapeLoneTildes(safeLinks(body)), '', '</details>', '');
 
 	section('Describe the issue', opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.prose || t.summary));
 

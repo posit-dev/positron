@@ -527,10 +527,12 @@ A precondition that only existed in your head is how a finding stops
 reproducing. So is state you did not create. Before writing a finding, compare
 the screen at its first step with what its steps and preconditions produce: a
 console the app started on launch, a setting the launcher or seeded profile
-applied, an editor restored from last time. Write each in, as a step for what
-the app did ("Wait for the Python console to start.") or a precondition for a
-setting. Launch flags belong in the ledger's Environment, and scratch paths in
-Run details.
+applied, an editor restored from last time. Write each in as a precondition,
+the state before step 1, saying when the app did it on its own ("A Python
+console, which Positron starts on launch"); a step is only what the reader
+does. Launch flags belong in the ledger's Environment, and scratch paths in
+Run details: name a workspace by what it holds ("A workspace with
+`shiny_app.R`"), not its path.
 
 Repeat each finding's preconditions in full, one state per line ("pandas 3.0.3
 in `.venv`", "R 4.5.1 with dplyr", the file in backticks and the exact command

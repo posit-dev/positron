@@ -2096,6 +2096,14 @@ const logsRead = p => {
 };
 const logsIssueHtml = (options = {}) => logsHtml({ base: 'https://cdn.example/run1', readFile: logsRead, ...options });
 
+test('a lone ~ means "about", on the card and in the issue; only ~~ strikes through', () => {
+	const md = FULL.replace('**Cause (hypothesis):** the timeout was cut to 10 s.', '**Cause (hypothesis):** `run()` (~L12-40) calls `wait()` (~L80), and `y ~ x` is ~~not~~ fine.');
+	const html = renderReportHtml(md);
+	const card = html.split('<article id="f1"')[1].split('</article>')[0];
+	assert.match(card, /\(~L12-40\) calls <code>wait\(\)<\/code> \(~L80\), and <code>y ~ x<\/code> is <del>not<\/del> fine/);
+	assert.match(issueCopied(html, 1), /\(\\~L12-40\) calls `wait\(\)` \(\\~L80\), and `y ~ x` is ~~not~~ fine/);
+});
+
 test('issue: one button per card, directly before Copy prompt', () => {
 	for (const html of [renderReportHtml(FULL), logsIssueHtml()]) {
 		for (const card of html.split('<article id="f').slice(1)) {

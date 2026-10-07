@@ -59,6 +59,8 @@ const RESULT_MAX = 160;
 // "then" is a second action; a capitalized word is a menu item ("More, then Insert Cell Above").
 const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times)\b/i;
 // A precondition saying how it was done in the app ("started with Run App", "then opened"): that is a step.
+// A scratch path the reader does not have; a workspace is named by what it holds.
+const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
 const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected)\s+(?:with|from|via|by|using)|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran))\b/i;
 const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
 // Where an action stops running code and starts quoting what it waits for.
@@ -94,6 +96,9 @@ function stepProblems(where, text) {
 	const then = THEN_ACTION.exec(plain);
 	if (then) {
 		problems.push(`${where} is two actions ("then ${then[1]}"); write each as its own step`);
+	}
+	if (/^Wait\s+for\b/i.test(plain)) {
+		problems.push(`${where} only waits; merge the wait into the action it waits on, or, when the app does it on its own, make it a precondition: "A Python console, which Positron starts on launch"`);
 	}
 	if (/^With\b/.test(plain)) {
 		problems.push(`${where} starts "With ..."; make what it assumes a precondition, or do it as a step of its own`);
@@ -327,7 +332,7 @@ const HELPERS = (() => {
 	}
 })();
 
-/** Preconditions that are something done in the app, which the rules make steps. */
+/** Preconditions that are something done in the app, which the rules make steps, or that name a scratch path. */
 function lintPreconditionActions(preconditions) {
 	const problems = [];
 	for (const [where, line] of preconditions) {
@@ -335,6 +340,10 @@ function lintPreconditionActions(preconditions) {
 		const done = /^\*\*/.test(text) ? null : DONE_IN_APP.exec(text.replace(/`[^`]*`/g, 'code'));
 		if (done) {
 			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`);
+		}
+		const path = SCRATCH_PATH.exec(text);
+		if (path) {
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" names the path ${path[1].replace(/`$/, '')}; name the workspace by what it holds ("A workspace with \`app.R\`"), and keep scratch paths in Run details`);
 		}
 	}
 	return problems;

@@ -164,6 +164,15 @@ test('flags a precondition that is something done in the app, in the report and 
 	assert.deepEqual(lintLedgerOnly(ledger).filter(x => /done in the app/.test(x)), ['ledger: S02 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
 });
 
+test('flags a precondition that names a scratch path, and a step that only waits', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- Workspace | ${p}\n\n1. Click Retry.`)).filter(x => /names the path/.test(x));
+	assert.deepEqual(pre('the workspace `/private/tmp/et-viewer-mwIP` with `app.R`'), ['report: Finding 1 precondition "Workspace" names the path /private/tmp/et-viewer-mwIP; name the workspace by what it holds ("A workspace with `app.R`"), and keep scratch paths in Run details']);
+	assert.deepEqual(pre('a workspace with `files/ws/app.R`'), []);
+	const step = s => lint(REPORT.replace('1. Click Retry.', `1. ${s}`)).filter(x => /only waits/.test(x));
+	assert.deepEqual(step('Wait for the Python console to start.'), ['report: Finding 1 step 1 only waits; merge the wait into the action it waits on, or, when the app does it on its own, make it a precondition: "A Python console, which Positron starts on launch"']);
+	assert.deepEqual(step('Run `x` and wait for the plot to appear.'), []);
+});
+
 test('flags a step that runs a precondition\'s command again', () => {
 	const repro = (pre, step) => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${pre}\n\n1. ${step}`)).filter(p => /precondition already/.test(p));
 	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Run `%run -i slow.py` in the Python console.'), ['report: Finding 1 step 1 runs `%run -i slow.py`, which a precondition already sets up; start the steps after it']);

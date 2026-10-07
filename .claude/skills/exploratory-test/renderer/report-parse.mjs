@@ -57,6 +57,15 @@ export function safeUrl(url) {
  * right rather than each of the thirty call sites.
  */
 const marked = new Marked({
+	tokenizer: {
+		// Only ~~ strikes through: a lone ~ is "about" (~L120), as on most pages but GitHub's.
+		del(src) {
+			if (/^~(?!~)/.test(src)) {
+				return { type: 'text', raw: '~', text: '~' };
+			}
+			return false;
+		},
+	},
 	renderer: {
 		// Raw HTML in a report is something the agent transcribed, so it is text
 		// to show, not markup to run.
