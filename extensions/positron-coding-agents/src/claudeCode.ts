@@ -18,6 +18,9 @@ const CLAUDE_CODE_EXTENSION_ID = 'anthropic.claude-code';
 /** Claude Code's script in its npm package. */
 const CLAUDE_CODE_NPM_SCRIPT = '@anthropic-ai/claude-code/cli.js';
 
+/** How long the launching notification shows, as in Claude Code's own terminals. */
+const LAUNCHING_NOTIFICATION_DURATION = 2000;
+
 /** Claude Code, through its VS Code extension's chat or terminal. */
 export const claudeCode: CodingAgent = {
 	id: 'claude-code',
@@ -106,8 +109,13 @@ async function openTerminal(prompt: string): Promise<void> {
 	if (!launch) {
 		throw new Error(vscode.l10n.t('Claude Code is not installed: `claude` was not found on the PATH.'));
 	}
-	// Match the terminals Claude Code opens itself: an editor tab beside the
-	// active editor, with its logo, not restored after a reload.
+	// Match the terminals Claude Code opens itself: a brief notification while
+	// it starts, then an editor tab beside the active editor, with its logo,
+	// not restored after a reload. The terminal closes when `claude` exits.
+	vscode.window.withProgress(
+		{ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Claude Code launching...') },
+		() => new Promise(resolve => setTimeout(resolve, LAUNCHING_NOTIFICATION_DURATION)),
+	);
 	const extension = vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID);
 	startInTerminal(launch, prompt, {
 		name: 'Claude Code',
