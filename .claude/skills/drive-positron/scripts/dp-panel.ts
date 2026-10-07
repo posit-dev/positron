@@ -136,8 +136,9 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 				return { ok: true, session: one[0].name, id, deleted: await gone(id) };
 			}
 			const tabs = page.locator(`[data-testid^="${c.tabTestId}"]`);
-			const names = await tabs.evaluateAll(ts => ts.map(t => t.getAttribute('aria-label') ?? ''));
 			const ids = await tabs.evaluateAll((ts, prefix) => ts.map(t => (t.getAttribute('data-testid') ?? '').slice(prefix.length)), c.tabTestId);
+			// The session's name, as lib.consoles reads it: the tab's label without its new-execution count.
+			const names = ids.map(id => all.tabs.find(t => t.id === id)?.name ?? '');
 			// By part of its name, or by its session id when two share a name.
 			const hits = names.flatMap((n, i) => n.includes(a.arg) || ids[i] === a.arg || ids[i].endsWith('-' + a.arg) ? [i] : []);
 			if (hits.length !== 1) { return { ok: false, error: hits.length ? `${hits.length} sessions match; pass the session id` : `no console session named like ${a.arg}`, sessions: names.map((n, i) => `${n} (${ids[i]})`) }; }
@@ -240,7 +241,10 @@ const sessionPicker: PageFn<Record<string, never>> = async (page, _a, lib) => {
 			// A heading is drawn on the first row of its group; recycled rows keep a hidden one.
 			const h = [...r.querySelectorAll(`${q.separator}, ${q.separatorRow}`)].find(x => x.getBoundingClientRect().height > 0);
 			if (h) { heading = clean(h); }
-			return { heading, name: clean(r.querySelector(label.name)), description: clean(r.querySelector(label.description)), detail: clean(r.querySelector(q.meta)) };
+			// A row with no detail hides its detail line but keeps the text a recycled row had, so an
+			// action row would read as a session with another row's path: read only the shown ones.
+			const shown = (sel: string) => [...r.querySelectorAll(sel)].find(x => x.getBoundingClientRect().height > 0);
+			return { heading, name: clean(r.querySelector(label.name)), description: clean(shown(label.description)), detail: clean(shown(q.meta)) };
 		}).filter(r => r.detail);
 	}, { q: lib.css.quickInput, label: lib.css.label, list: lib.css.list });
 	await lib.closeQuickInput();
