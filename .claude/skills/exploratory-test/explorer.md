@@ -482,7 +482,11 @@ finishes, and Interrupt cannot stop it"). State it as a fact in under about 90
 characters, and leave the cause to its own part. Don't write "any", "every" or
 "all" unless the run covered that range: the title is often the only place
 scope is stated. When behavior that used to work is now broken, say so ("X no
-longer Y"), since that decides whether a reader reverts or fixes forward.
+longer Y"), since that decides whether a reader reverts or fixes forward. Name
+a thing by where the reader sees it, not where it lives: "functions that Go to
+Symbol lists", not "functions the language server reports". The kernel, the
+language server and the extension host are where things live; say the pane,
+list or hover that shows them, here and in Observed and Expected.
 
 `Feature` is the area of Positron the finding is in, in lowercase except for
 proper names: "data explorer", "console", "R console", "Positron Assistant".
