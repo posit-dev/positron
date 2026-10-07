@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, otherOpen, parseChecks, queue, readOutcome, readReview, regressions, sameFinding } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, readReview, regressions, sameFinding } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -196,4 +196,11 @@ test('readReview: no JSON, bad JSON, or an unknown verdict is a problem string, 
 test('readReview: notes that are not strings are dropped; revise with no notes is approve', () => {
 	assert.deepEqual(readReview('{"verdict":"revise","notes":[1,"","real"]}'), { verdict: 'revise', notes: ['real'] });
 	assert.deepEqual(readReview('{"verdict":"revise","notes":[]}'), { verdict: 'approve', notes: [] });
+});
+
+test('placeSections: each section runs through its committed last case, and added cases bring their sections', () => {
+	const listed = [{ name: 'a1', group: 'a' }, { name: 'a2', group: 'a' }, { name: 'a-new', group: 'a' }, { name: 'b1', group: 'b' }, { name: 'b-new', group: 'b' }, { name: 'c1', group: 'c' }];
+	const added = [{ name: 'a-new', helper: 'x.sh' }, { name: 'b-new', helper: 'y.sh' }];
+	assert.deepEqual(placeSections([{ id: 'a', last: 'a2' }, { id: 'c', last: 'c1' }], listed, added), [{ id: 'a', last: 'a-new' }, { id: 'b', last: 'b-new' }, { id: 'c', last: 'c1' }]);
+	assert.deepEqual(placeSections([{ id: 'c', last: 'c1' }], listed, [{ name: 'gone', helper: 'x.sh' }]), [{ id: 'c', last: 'c1' }]);
 });

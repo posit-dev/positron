@@ -35,8 +35,9 @@ says how a helper is built and checked.
 7. **Check your fix:** run the helper again on the kept instance; helper edits apply without a
    relaunch. Then stop the instance (smoke prints the `stop.sh` line) and run
    `node .claude/skills/drive-positron/test/check.ts`, which must pass (apart from checks the brief
-   says already fail without your fix). Do not replay smoke again,
-   and do not commit: the workflow commits and reruns smoke.
+   says already fail without your fix). You may run `smoke.ts --until "<your new case>"` once to
+   see the case pass; otherwise do not replay smoke, and do not commit: the workflow commits and
+   reruns smoke.
 8. **Fix the class, in the shared code.** Before editing, look for the same mistake in the other
    helpers (`grep` the pattern across `scripts/`) and in the shared modules (`scripts/dp-lib.ts`
    and the `dp-*.ts` it imports). When the shared code is where it goes wrong, or where it should
@@ -50,11 +51,13 @@ says how a helper is built and checked.
 10. **Add a smoke case for every fix.** In `test/smoke.ts`, add a case in the helper's section that
     fails without your fix: a failure case (`fail: true`, with a `check` on the error text) for
     bad input, a normal case for broken behavior. Add cases; do not edit existing ones. A fix that
-    changes `scripts/` and adds no case is rejected. If no smoke case can show the bug (it only
+    changes `scripts/` and adds no case is rejected. Write each case on one line, like the ones
+    around it. If no smoke case can show the bug (it only
     happens on another platform, or needs state smoke cannot build), set `untestable` to why.
 11. **Close what your fix covers.** The brief lists tonight's other open findings. When your fix
     also fixes one of them, run that finding's steps again after your fix and, if it now passes,
-    put its id in `covers`. List only ids you re-ran.
+    put its id in `covers`. List only finder ids you re-ran; a smoke finding closes when its own
+    case passes in the post-fix run, so leave it out.
 12. **A review may send your change back once.** The brief then ends with the reviewer's notes and
     your change is still in the tree. Act on the notes that are right, keep the rest of the rules,
     and write the outcome file again; your `reason` names any note you did not act on and why.

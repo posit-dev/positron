@@ -280,8 +280,8 @@ jobs:
           # fix-loop refuses a dirty tree itself.
           if [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then echo "::error::HEAD moved from $GITHUB_SHA to $(git rev-parse HEAD) before the fixer ran"; exit 1; fi
           # No session starts past this: the 330-minute timeout, less 30 for the steps after
-          # this one and 40 for the last session (25) and its checks.
-          budget=$(( 330 - 30 - 40 - ($(date +%s) - HEAL_STARTED) / 60 ))
+          # this one and 50 for the last session (25), its review (8) and its checks.
+          budget=$(( 330 - 30 - 50 - ($(date +%s) - HEAL_STARTED) / 60 ))
           [ "$budget" -lt 0 ] && budget=0
           # shellcheck disable=SC2086
           node .claude/skills/drive-positron/heal/fix-loop.ts --dir "$HEAL_DIR" --runner "$RUNNER" --cap 5 --budget-minutes "$budget" -- $APP_ARGS

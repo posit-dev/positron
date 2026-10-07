@@ -23,7 +23,7 @@ import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, SMOKE_ROOT, SMOKE_SESSION, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
-import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, inSections, newCaseProblems, newCheckFailures, otherOpen, parseChecks, queue, readOutcome, regressions, readReview, replaceCases, type FixerOutcome, type Review } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, inSections, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, regressions, readReview, replaceCases, type FixerOutcome, type Review } from './fix-lib.ts';
 import { checksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
@@ -228,6 +228,7 @@ function main(): number {
 			if (second.kind === 'stop') { break; }
 			if (second.kind !== 'outcome' || second.o.outcome !== 'fixed' || !second.touched.length) {
 				discard(pre, false);
+				if (second.kind === 'failed') { failed = true; }
 				const why = second.kind === 'outcome' ? `the revision ended as ${second.o.outcome}` : second.why;
 				save(addFields(f, { outcome: 'fixed', reason: o.reason, reproductions: [o.reproduction], ...o.plain, review: r1.notes, rejected: `review sent it back and ${why}` }));
 				continue;
@@ -262,7 +263,13 @@ function main(): number {
 		const scripts = join(here, '../scripts');
 		const reach = touched.flatMap(p => p === SMOKE && added?.length ? added.map(a => `${SKILL_PREFIX}scripts/${a.helper}`)
 			: p === `${SKILL_PREFIX}scripts/selectors.ts` ? selectorUsers(addedKeys(git('diff', '-U0', '--no-color', pre, sha, '--', p)), scripts) ?? [p] : [p]);
-		const sections = postSections(baseline, affectedHelpers(reach, readGraph(scripts)), f);
+		const scoped = postSections(baseline, affectedHelpers(reach, readGraph(scripts)), f);
+		// Cases the fix added can sit past a section's baseline last case, or in a section the baseline did not pick.
+		let sections = scoped;
+		if (scoped && added?.length) {
+			const listing = spawnSync(process.execPath, [join(here, '../test/smoke.ts'), '--list'], { cwd: repo, encoding: 'utf8' });
+			try { sections = placeSections(scoped, JSON.parse(listing.stdout), added); } catch { sections = null; }
+		}
 		const runs = (sections ?? [null]).map((s, i) => ({ until: s?.last, file: join(dir, sections ? `post-${n}-${i + 1}.json` : `post-${n}.json`) }));
 		const outputs: string[] = [];
 		const results: SmokeResults[] = [];

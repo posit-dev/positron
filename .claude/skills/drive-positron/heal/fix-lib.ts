@@ -151,3 +151,14 @@ export function readReview(text: string | null): Review | string {
 	const notes = Array.isArray(o.notes) ? o.notes.filter((n): n is string => typeof n === 'string' && n.trim() !== '') : [];
 	return { verdict: o.verdict === 'revise' && notes.length ? 'revise' : 'approve', notes };
 }
+
+/**
+ * The post-fix sections from the committed smoke.ts (`smoke.ts --list`): the baseline's last case
+ * misses a case appended after it, and an added case's section may have no baseline case at all.
+ */
+export function placeSections(sections: { id: string; last: string }[], listed: { name: string; group: string }[], added: AddedCase[]): { id: string; last: string }[] {
+	const want = new Set([...sections.map(s => s.id), ...added.flatMap(a => listed.filter(l => l.name === a.name).map(l => l.group))]);
+	const last = new Map<string, string>();
+	for (const l of listed) { if (want.has(l.group)) { last.set(l.group, l.name); } }
+	return [...last].map(([id, name]) => ({ id, last: name }));
+}
