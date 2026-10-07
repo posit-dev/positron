@@ -112,7 +112,29 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 		}
 		case 'delete-session': {
 			const c = lib.css.console;
-			if (!(await lib.consoles()).inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
+			const all = await lib.consoles();
+			if (!all.inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
+			// The session gone when its tab and its console are: a Python session
+			// takes some seconds to shut down, so wait up to 10 s.
+			const gone = async (id: string) => {
+				const left = page.locator(`[data-testid="${c.tabTestId}${id}"], [data-testid="${c.instanceTestId}${id}"]`);
+				for (const end = Date.now() + 10_000; Date.now() < end;) { await lib.sleep(250); if (!await left.count()) { return true; } }
+				return false;
+			};
+			if (!all.tabs.length) {
+				// One session: the console shows no tabs, and its own toolbar has
+				// Delete Session, which deletes the active (the only) session.
+				const one = all.sessions;
+				const list = one.map(t => `${t.name} (${t.id})`);
+				if (one.length !== 1 || !lib.namedLike(one[0], a.arg)) { return { ok: false, error: `no console session named like ${a.arg}`, sessions: list }; }
+				const id = one[0].id;
+				const bar = page.locator(c.pane).filter({ has: page.locator(`[data-testid="${c.instanceTestId}${id}"]`) }).getByRole('toolbar').first();
+				const button = bar.getByRole('button', { name: lib.names.panel.deleteSessionButton, exact: true }).filter({ visible: true });
+				if (!await button.count()) { return { ok: false, error: `the console toolbar shows no ${lib.names.panel.deleteSessionButton} button`, sessions: list }; }
+				if (await button.first().isDisabled()) { return { ok: false, error: `the console toolbar's ${lib.names.panel.deleteSessionButton} is disabled; nothing was deleted`, sessions: list }; }
+				await button.first().click({ timeout: 3000 });
+				return { ok: true, session: one[0].name, id, deleted: await gone(id) };
+			}
 			const tabs = page.locator(`[data-testid^="${c.tabTestId}"]`);
 			const names = await tabs.evaluateAll(ts => ts.map(t => t.getAttribute('aria-label') ?? ''));
 			const ids = await tabs.evaluateAll((ts, prefix) => ts.map(t => (t.getAttribute('data-testid') ?? '').slice(prefix.length)), c.tabTestId);
@@ -131,13 +153,8 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 			const at = labels.findIndex(l => l === del || (l.startsWith(del) && !/[a-z]/.test(l.slice(del.length))));
 			if (at < 0) { await lib.closeMenu(); return { ok: false, error: `the menu has no ${del}`, items: labels }; }
 			await items.nth(at).hover(); await lib.sleep(100); await items.nth(at).click({ timeout: 3000 });
-			// Gone when its tab and its console are: a Python session takes some
-			// seconds to shut down, so wait up to 10 s.
 			const id = ids[hits[0]];
-			const left = page.locator(`[data-testid="${c.tabTestId}${id}"], [data-testid="${c.instanceTestId}${id}"]`);
-			let gone = false;
-			for (const end = Date.now() + 10_000; !gone && Date.now() < end;) { await lib.sleep(250); gone = !await left.count(); }
-			return { ok: true, session: name, id, deleted: gone };
+			return { ok: true, session: name, id, deleted: await gone(id) };
 		}
 		case 'editors': {
 			// Every group, also while the editor area is hidden (the panel

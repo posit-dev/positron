@@ -49,8 +49,10 @@
 #   delete-session WORDS delete the console session whose tab name holds WORDS
 #                        (or whose id is WORDS, as python-1a2b3c4d or the bare
 #                        1a2b3c4d, when two share a name), through the tab's
-#                        context menu, and wait up to 10 s for it to go
-#                        ("deleted"). When it is still there, "prompts" lists a
+#                        context menu; with one session (no tabs), the one
+#                        session when its name holds WORDS or its id is
+#                        WORDS, through the console toolbar's Delete Session
+#                        button. Waits up to 10 s for it to go ("deleted"). When it is still there, "prompts" lists a
 #                        question showing (a busy session may ask first; answer
 #                        with notifications.sh), or "hint" says none is; like
 #                        sessions, it brings the Console view forward first

@@ -17,7 +17,8 @@
 #                    name; with --language, narrows to one of several sessions.
 #                    A --name that matches no session fails, also when there
 #                    is only one session
-#   --tail N         print only the last N lines (default 40; 0 for all)
+#   --tail N         print only the last N lines (default 40; 0 for all);
+#                    anything but a whole number is a usage error
 #   --after TEXT     print only what follows the line of TEXT, such as the
 #                    code you just ran. It prefers the command's echo: a
 #                    prompt line (>, >>>, +, ..., Browse[1]>) whose code is

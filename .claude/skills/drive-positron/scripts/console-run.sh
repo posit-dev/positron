@@ -37,6 +37,9 @@
 #                    the text after the echo of the code's last line (not
 #                    after a traceback's frame of that same line), its rows
 #                    as drawn, blank rows included
+#   --capture-timeout SECS  see --capture. A --timeout or --capture-timeout
+#                    that is not a positive number is a usage error, and
+#                    nothing is typed
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"session":"R 4.5.1","sessionId":"r-cf28f473","switched":true,"busy":false,"echoed":true}

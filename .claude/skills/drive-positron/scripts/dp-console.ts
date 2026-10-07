@@ -7,7 +7,7 @@
 // files are wrappers.
 
 import { readFileSync } from 'fs';
-import { Exit, failText, inPage, language, log, logRead, mod, parse, pause, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, failText, inPage, language, log, logRead, mod, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -159,7 +159,10 @@ function readConsole(session: string, language: string, name: string, expand = f
 			for (let k = 0; k < 10 && await collapsed.count() >= n; k++) { await lib.sleep(100); }
 		}
 		const t = await lib.consoleText(id);
-		return t ? { ok: true, sessionId: id, ...t, collapsed: await collapsed.count(), expanded } : { ok: false, error: `console ${id} is not in the page` };
+		// consoleText names a console by its tab, and one session has no tab: then
+		// the name is the one consoles() gives it (its status line, else the picker).
+		const named = c.sessions.find(x => x.id === id)?.name;
+		return t ? { ok: true, sessionId: id, ...t, session: named || t.session, collapsed: await collapsed.count(), expanded } : { ok: false, error: `console ${id} is not in the page` };
 	};
 	return withConsoleView(session, fn, { lang: language, name, expand });
 }
@@ -301,24 +304,29 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 	'start-session': argv => {
 		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'answer']);
 		if (p.flags.help) { usage('start-session.sh'); }
-		return startSession(p.session, language(p), String(p.flags.name ?? ''), Number(p.flags.timeout ?? 60), String(p.flags.answer ?? ''), !!p.flags.new);
+		return startSession(p.session, language(p), String(p.flags.name ?? ''), seconds(p, 'timeout', 60), String(p.flags.answer ?? ''), !!p.flags.new);
 	},
 	'console-run': argv => {
 		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'capture-timeout'], Infinity);
 		if (p.flags.help) { usage('console-run.sh'); }
 		const lang = language(p);
+		// Checked before anything is typed: a NaN timeout ends the echo wait before it starts.
+		const timeout = seconds(p, 'timeout', 10), captureTimeout = seconds(p, 'capture-timeout', 60);
 		// Read stdin whole: a shell's $(cat) would drop the blank line that ends a Python block.
 		const text = p.rest.length ? p.rest.join(' ') : readFileSync(0, 'utf8');
 		if (!text) { throw new Exit(2, { ok: false, error: 'empty input' }); }
 		return consoleRun(p.session, {
 			language: lang, name: String(p.flags.name ?? ''), text,
-			timeout: Number(p.flags.timeout ?? 10), capture: !!p.flags.capture, captureTimeout: Number(p.flags['capture-timeout'] ?? 60),
+			timeout, capture: !!p.flags.capture, captureTimeout,
 		});
 	},
 	'console-read': argv => {
 		const p = parse(argv, ['session', 'language', 'name', 'tail', 'after']);
 		if (p.flags.help) { usage('console-read.sh'); }
 		const lang = p.flags.language ? language(p) : '';
+		// Number() reads "abc" as NaN (falsy, so every line) and slice(-(-2)) drops the first two.
+		const tailFlag = String(p.flags.tail ?? 40);
+		if (!/^\d+$/.test(tailFlag)) { throw new Exit(2, { ok: false, error: `--tail must be a whole number of lines (0 for all), not ${JSON.stringify(tailFlag)}` }); }
 		const r = readConsole(p.session, lang, String(p.flags.name ?? ''), !!p.flags.expand);
 		if (!r.ok) { failText('console-read.sh', String(r.error)); }
 		const tracebacks = `${r.expanded ? `; expanded ${r.expanded} traceback${r.expanded === 1 ? '' : 's'}` : ''}${r.collapsed ? `; ${r.collapsed} traceback${r.collapsed === 1 ? ' is' : 's are'} collapsed (Show Traceback): its frames are not in this text, --expand shows them` : ''}`;
@@ -331,7 +339,7 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 			process.stderr.write(`console-read.sh: --after matched ${a.used}\n`);
 			text = a.text;
 		}
-		const tail = Number(p.flags.tail ?? 40);
+		const tail = Number(tailFlag);
 		const shown = tail ? text.split('\n').slice(-tail).join('\n') : text;
 		// The last lines are what a reading is usually for.
 		logRead('console-read.sh', p.session, `${r.session}, prompt ${r.prompt}${r.collapsed ? `, ${r.collapsed} collapsed` : ''}: ...${shown.split('\n').filter(l => l.trim()).slice(-3).join(' | ')}`);
