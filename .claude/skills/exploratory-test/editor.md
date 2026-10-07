@@ -6,6 +6,7 @@ The reader knows Positron but has not seen the PR, the code or the run. Many rea
 
 - **The facts are frozen.** Keep every number, quoted UI string, backticked span, file name and value exactly as written. Add no fact, and drop none from Observed or Expected. A clause that only restates the title can go.
 - **Keep what is wrong.** A title says what is broken and how. Reword that, never remove it: "both get the same port" cannot become "a port error".
+- **Keep the words that narrow it.** "hidden", "renamed", "the first": drop one and the bug sounds wider or vaguer than the run showed.
 - Use the words on screen: the button's label, the pane's name, the message's text. Name nothing the reader cannot see (class names, process names, scenario IDs such as S10).
 - Title: what the user sees go wrong, then when. Lead with the visible problem, not the component or the command. One clause, under about 90 characters, no colon, semicolon, parentheses or `|`.
 - One idea per sentence. Subject, verb, object, in the active voice.
@@ -29,6 +30,8 @@ The reader knows Positron but has not seen the PR, the code or the run. Many rea
   -> "Columns that take over 10 s to summarize never load, even after Retry"
 - "Expanded column shows endless loading dots after summaries stop"
   -> "Expanded column keeps loading forever after summaries pause"
+- "Deleting a renamed untitled file leaves its editor tab open under the old name"
+  -> "Editor tab stays open under the old name after a renamed untitled file is deleted", not "...after a file is deleted"
 - Observed: "Of the visible s62 to s79, only s62 has a sparkline. Scrolling up shows s49 to s61 got sparklines: those were off-screen when Continue was pressed."
   -> "Of the visible columns s62 to s79, only s62 has a sparkline. Columns s49 to s61, which were off-screen when Continue was pressed, got sparklines instead."
 
