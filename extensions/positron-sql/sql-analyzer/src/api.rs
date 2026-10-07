@@ -100,6 +100,17 @@ pub struct Scope {
 pub struct Local {
     pub name: String,
     pub kind: LocalKind,
+    /// For an `output`, the column it renames when the select item is nothing but a column.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub column: Option<Renamed>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Renamed {
+    pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qualifier: Option<String>,
 }
 
 /// What a local names; see [`scopes::LocalKind`].
@@ -306,6 +317,9 @@ fn to_local(local: scopes::Local) -> Local {
             scopes::LocalKind::Relation => LocalKind::Relation,
             scopes::LocalKind::Output => LocalKind::Output,
         },
+        column: local
+            .column
+            .map(|column| Renamed { name: column.name, qualifier: column.qualifier }),
     }
 }
 
