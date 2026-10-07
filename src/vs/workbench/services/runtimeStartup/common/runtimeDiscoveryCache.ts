@@ -5,6 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -36,6 +37,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 interface IPersistedCache {
 	schemaVersion: number;
 	buckets: Record<string, IPersistedBucket>;
+	/** The cache instance that wrote this blob. Absent in blobs from older builds. */
+	writerId?: string;
 }
 
 interface IPersistedBucket {
@@ -106,7 +109,10 @@ interface IInternalBucket {
  *   other. We subscribe to external storage changes and reload wholesale on
  *   sibling writes; the resulting last-writer-wins behavior can drop an
  *   in-flight entry but never serves a wrong runtime, and any loss is
- *   recovered on the next discovery or revalidation pass.
+ *   recovered on the next discovery or revalidation pass. The main process
+ *   also sends a window's own writes back to it as external changes, up to a
+ *   couple hundred milliseconds late, so each blob records which instance
+ *   wrote it and we skip reloading our own.
  *
  * - **Disable switch.** {@link RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING} gates
  *   everything: when off, reads return empty and writes no-op, restoring
@@ -117,6 +123,8 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 	declare readonly _serviceBrand: undefined;
 
 	private readonly _buckets = new Map<string, IInternalBucket>();
+
+	private readonly _writerId = generateUuid();
 
 	// Mutable backing array; sessionCounters exposes the same reference typed as
 	// ReadonlyArray so external consumers can't push.
@@ -146,13 +154,15 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		// APPLICATION-scope storage, which is shared across all windows on the
 		// machine, so without this listener two windows would silently clobber
 		// each other on every persist (last-writer-wins on the full JSON blob).
-		// `external: true` filters out our own in-process writes.
+		// `external: true` filters out our own in-process writes. The main
+		// process also echoes our own writes back as external; by then we may
+		// have written newer entries, and reloading the echo would drop them.
 		this._register(this._storageService.onDidChangeValue(
 			StorageScope.APPLICATION,
 			RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
 			this._store,
 		)(e => {
-			if (!e.external) {
+			if (!e.external || this._storedWriterId() === this._writerId) {
 				return;
 			}
 			this._reloadFromStorage();
@@ -404,6 +414,18 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		return p;
 	}
 
+	private _storedWriterId(): string | undefined {
+		const raw = this._storageService.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
+		if (!raw) {
+			return undefined;
+		}
+		try {
+			return (JSON.parse(raw) as IPersistedCache)?.writerId;
+		} catch {
+			return undefined;
+		}
+	}
+
 	private _reloadFromStorage(): void {
 		// Replace in-memory state wholesale: this is called on initial load
 		// AND whenever a sibling window writes the cache, so we can't append.
@@ -459,6 +481,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		const payload: IPersistedCache = {
 			schemaVersion: RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
 			buckets,
+			writerId: this._writerId,
 		};
 		this._storageService.store(
 			RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,

@@ -613,5 +613,43 @@ describe('RuntimeDiscoveryCache', () => {
 			const second = await cache.upsert(metadata({ runtimePath: PY_PATH }));
 			expect(second?.firstSeen).toBe(first?.firstSeen);
 		});
+
+		it('keeps entries written after a write that the main process echoes back late', async () => {
+			// The main process sends every APPLICATION storage change to every
+			// window, including the one that wrote it, about 100-200ms later.
+			// If this window has written again since, the echo carries an older
+			// value and arrives as `external: true`.
+			const cache = makeCache();
+			const altPath = '/opt/python/bin/python3';
+			files.files.set(altPath, { resolved: altPath, size: 50, mtime: 5, ctime: 5 });
+
+			await cache.upsert(metadata({ runtimePath: PY_PATH, runtimeId: 'py' }));
+			const afterPython = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
+			await cache.upsert(metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: R_PATH, runtimeId: 'r' }));
+
+			// The echo of the first write lands, then discovery finds another runtime.
+			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, afterPython, StorageScope.APPLICATION, StorageTarget.MACHINE, /* external */ true);
+			await cache.upsert(metadata({ runtimePath: altPath, runtimeId: 'py-alt' }));
+
+			const ids = cache.getAllBuckets().flatMap(b => b.entries.map(e => e.metadata.runtimeId)).sort();
+			expect(ids).toEqual(['py', 'py-alt', 'r']);
+		});
+
+		it('reloads a write from another cache instance', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH, runtimeId: 'local' }));
+			const local = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
+
+			// A sibling window loads what this one wrote, adds R, and saves.
+			const sibling = makeCache();
+			await sibling.upsert(metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: R_PATH, runtimeId: 'r' }));
+			const fromSibling = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
+
+			// Put back this window's last write, then deliver the sibling's.
+			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, local, StorageScope.APPLICATION, StorageTarget.MACHINE);
+			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, fromSibling, StorageScope.APPLICATION, StorageTarget.MACHINE, /* external */ true);
+
+			expect(cache.getEntries('positron.positron-r', 'r').map(e => e.metadata.runtimeId)).toEqual(['r']);
+		});
 	});
 });
