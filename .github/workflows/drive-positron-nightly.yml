@@ -288,7 +288,10 @@ jobs:
           code=$?
           if [ -d "$HEAL_DIR/patches" ]; then
             # The paths links.ts checksChanged flags: what the post-fix check itself runs.
-            git diff --no-color "$GITHUB_SHA..HEAD" -- .claude/skills/drive-positron/test .claude/skills/drive-positron/heal > "$HEAL_DIR/checks.diff"
+            # smoke.ts only when a fix changed or removed a line; added cases are each fix's own, listed per fix.
+            git diff --no-color "$GITHUB_SHA..HEAD" -- .claude/skills/drive-positron/test .claude/skills/drive-positron/heal ':!.claude/skills/drive-positron/test/smoke.ts' > "$HEAL_DIR/checks.diff"
+            smoke=$(git diff --no-color "$GITHUB_SHA..HEAD" -- .claude/skills/drive-positron/test/smoke.ts)
+            if grep -v '^---' <<< "$smoke" | grep -q '^-'; then echo "$smoke" >> "$HEAL_DIR/checks.diff"; fi
           fi
           exit "$code"
 
