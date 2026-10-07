@@ -2224,7 +2224,7 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
 });
-test('issue: an opening leads the body and the card, and the run\'s record folds below', () => {
+test('issue: an opening follows System details and leads the card, and the run\'s record folds below', () => {
 	const opening = [
 		'**Summary:** When you open a slow column, its summary never loads.',
 		'',
@@ -2238,7 +2238,7 @@ test('issue: an opening leads the body and the card, and the run\'s record folds
 	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n${opening}`);
 	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
 	const body = issueCopied(html, 1);
-	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]), ['Describe the issue', 'Steps to reproduce', 'System details', 'Error messages', 'Evidence']);
+	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]), ['System details', 'Describe the issue', 'Steps to reproduce', 'Error messages', 'Evidence']);
 	assert.ok(body.includes([
 		'## Describe the issue', 'When you open a slow column, its summary never loads.', '',
 		'## Steps to reproduce', '1. Run the slow script.', '2. Open its data frame in the Data Explorer. The summary never loads.', '',

@@ -826,8 +826,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const at = [branch && `\`${branch}\``, sha && `\`${sha}\``].filter(Boolean).join(' @ ');
 	const of = report.pr ? `#${report.pr.number}${at ? ` (${at})` : ''}` : at;
 	const opening = t.opening;
-	// With an opening, the reader's version leads and the system details follow it.
-	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', ...(opening ? [] : [systemDetails(report), ''])];
+	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', systemDetails(report), ''];
 	// Linked both ways, so GitHub cross-references the fix and its PR.
 	const failedFixes = options.ki?.fixFailed.get(f.n);
 	const back = options.ki?.cameBack.get(f.n);
@@ -873,7 +872,6 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 			opening.steps.map((st, i) => `${i + 1}. ${st.replace(/\n/g, '\n   ')}`).join('\n'),
 			capitalize(opening.where),
 		].filter(Boolean).join('\n\n'));
-		out.push(systemDetails(report), '');
 	} else {
 		section('Steps to reproduce', recorded);
 		section('Observed', capitalize(t.observed));
