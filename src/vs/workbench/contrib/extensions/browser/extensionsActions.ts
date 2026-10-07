@@ -642,7 +642,12 @@ export class InstallAction extends ExtensionAction {
 
 	private async getThemeAction(extension: IExtension): Promise<ExtensionAction | undefined> {
 		const colorThemes = await this.workbenchThemeService.getColorThemes();
-		if (colorThemes.some(theme => isThemeFromExtension(theme, extension))) {
+		// --- Start Positron ---
+		// Match SetColorThemeAction, which only offers picker-visible themes.
+		// if (colorThemes.some(theme => isThemeFromExtension(theme, extension))) {
+		const currentColorThemeId = this.workbenchThemeService.getColorTheme().id;
+		if (colorThemes.some(theme => isThemeFromExtension(theme, extension) && isColorThemeVisibleInPicker(theme.id, currentColorThemeId))) {
+			// --- End Positron ---
 			return this.instantiationService.createInstance(SetColorThemeAction);
 		}
 		const fileIconThemes = await this.workbenchThemeService.getFileIconThemes();
@@ -2287,7 +2292,7 @@ export class SetColorThemeAction extends ExtensionAction {
 		// --- Start Positron ---
 		// this.workbenchThemeService.getColorThemes().then(colorThemes => {
 		this.getPickableColorThemes().then(colorThemes => {
-		// --- End Positron ---
+			// --- End Positron ---
 			this.enabled = this.computeEnablement(colorThemes);
 			this.class = this.enabled ? SetColorThemeAction.EnabledClass : SetColorThemeAction.DisabledClass;
 		});
