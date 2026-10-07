@@ -202,7 +202,8 @@ export interface Parsed { session: string; flags: Record<string, string | true>;
  * per command word (the first positional, counted too). A command word not
  * listed is left to the command. Given `switches` (the flags that take no
  * value), any other flag is a usage error too, so a misspelled flag
- * (--langauge) is refused rather than ignored.
+ * (--langauge) is refused rather than ignored. An empty --session is a usage
+ * error too, since it would drive the CLI's "default" session.
  */
 export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches?: string[]): Parsed {
 	const flags: Record<string, string | true> = {};
@@ -224,6 +225,9 @@ export function parse(argv: string[], withValue: string[], most: number | Record
 	}
 	const max = typeof most === 'number' ? most : most[rest[0]] ?? Infinity;
 	if (!flags.help && rest.length > max) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(rest[max])}${max ? ` after ${JSON.stringify(rest.slice(0, max).join(' '))}` : ''}; see --help for the arguments and flags it takes` }); }
+	// An empty --session (last on the line, --session=, --session '') would read as none,
+	// and the CLI would drive its "default" session instead of the caller's instance.
+	if (!flags.help && (flags.session === true || flags.session === '')) { throw new Exit(2, { ok: false, error: '--session needs the session name; leave the flag out to use $PW_SESSION' }); }
 	const session = String(flags.session ?? process.env.PW_SESSION ?? '');
 	return { session, flags, rest };
 }

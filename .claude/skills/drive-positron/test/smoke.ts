@@ -99,6 +99,8 @@ const cases: Case[] = [
 	{ name: 'panel sessions', run: ['panel.sh', 'sessions'], check: o => (o.json!.sessions?.filter((x: Json) => x.language === 'python').length !== 2 && `python sessions: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.id === found.r && x.language === 'r') && 'no r session') || (o.json!.sessions?.filter((x: Json) => x.active).length !== 1 && 'not one active') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
 	// Switching the active console without running code: by language, name or id, never two.
+	{ name: 'panel sessions empty --session=', run: ['panel.sh', 'sessions', '--session='], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--session needs the session name') },
+	{ name: 'panel sessions --session with no value', run: ['panel.sh', 'sessions', '--session'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--session needs the session name') },
 	{ name: 'panel console python (two match)', run: ['panel.sh', 'console', 'python'], fail: true, check: o => includes(o.json!.error, '2 consoles match') || logged('panel.sh -s=net1: FAILED console python: 2 consoles match') },
 	{ name: 'panel console r', quick: true, run: ['panel.sh', 'console', 'r'], check: o => (o.json!.id !== found.r && `id ${o.json!.id}`) || (!o.json!.already && !o.json!.was && 'neither already nor was') },
 	{ name: 'panel console by bare id', run: () => ['panel.sh', 'console', found.first], check: o => (o.json!.id !== `python-${found.first}` && `id ${o.json!.id}`) || logged(`panel.sh -s=net1: console ${found.first} -> active`) },
@@ -213,6 +215,7 @@ const cases: Case[] = [
 	// A second plot: prev and next step between them, each logged with the plot it left.
 	{ name: 'console-run r plot 2', run: ['console-run.sh', '--language', 'r', '--capture', 'plot(1:5, col = "blue", pch = 19)'] },
 	{ name: 'plots prev', wait: 1000, run: ['plots.sh', 'prev'], check: o => (o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}`) || logged('plots.sh -s=net1: click Show Previous Plot -> Plots: "plot') },
+	{ name: 'plots read empty --session', run: ['plots.sh', 'read', '--session', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, '--session needs the session name') },
 	{ name: 'plots prev at the first plot', run: ['plots.sh', 'prev'], fail: true, check: () => logged('plots.sh -s=net1: FAILED prev: ') },
 	{ name: 'plots next', run: ['plots.sh', 'next'], check: o => o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}` },
 	{ name: 'plots open editor', run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "plot') },

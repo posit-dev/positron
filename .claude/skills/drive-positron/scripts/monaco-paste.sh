@@ -59,8 +59,8 @@ while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--append) APPEND=1; shift ;;
 		--no-verify) VERIFY=0; shift ;;
-		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; shift ;;
+		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; }; [[ -n "$PW_SESSION_OVERRIDE" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; } ;;
+		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; [[ -n "$PW_SESSION_OVERRIDE" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; }; shift ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; TEXT_ARG="${*-}"; break ;;
 		-*) echo "monaco-paste.sh: unknown flag $1" >&2; exit 2 ;;

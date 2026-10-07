@@ -61,8 +61,8 @@ while [[ $# -gt 0 ]]; do
 		--max) MAX="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--max=*) MAX="${1#--max=}"; shift ;;
 		--json) JSON=1; shift ;;
-		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; shift ;;
+		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; }; [[ -n "$PW_SESSION_OVERRIDE" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; } ;;
+		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; [[ -n "$PW_SESSION_OVERRIDE" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; }; shift ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) echo "quickpick-enum.sh: unknown arg $1" >&2; exit 2 ;;
 	esac

@@ -108,8 +108,8 @@ LOGMSG=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) SESSION="${1#--session=}"; shift ;;
+		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; }; [[ -n "$SESSION" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; } ;;
+		--session=*) SESSION="${1#--session=}"; [[ -n "$SESSION" ]] || { echo "${0##*/}: --session needs the session name" >&2; exit 2; }; shift ;;
 		--condition) COND="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--log) LOGMSG="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
 		--timeout) TIMEOUT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
