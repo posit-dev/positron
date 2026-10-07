@@ -36,26 +36,31 @@ export const claudeCode: CodingAgent = {
 
 /**
  * Where to open a Claude Code session, honoring `claudeCode.useTerminal`.
- * @returns The surface, or undefined when Claude Code is not installed or too
- *   old to accept a prompt there.
+ * Without its extension, only the `claude` CLI can be installed, so it's the
+ * terminal.
+ * @returns The surface, or undefined when the extension is too old to accept
+ *   a prompt in its chat.
  */
 function getSurface(): ClaudeCodeSurface | undefined {
 	const extension = vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID);
 	if (!extension) {
-		return undefined;
+		return 'terminal';
 	}
 	const version: string = extension.packageJSON.version ?? '0.0.0';
 	const useTerminal = vscode.workspace.getConfiguration('claudeCode').get<boolean>('useTerminal') === true;
 	return getClaudeCodeSurface(version, useTerminal);
 }
 
-/** Claude Code counts as installed while its VS Code extension is. */
+/** Claude Code counts as installed while its VS Code extension or its `claude` CLI is. */
 async function isInstalled(): Promise<boolean> {
-	return vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID) !== undefined;
+	return vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID) !== undefined ||
+		await getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT) !== undefined;
 }
 
 /** Why Claude Code can't take a prompt on the surface the user prefers. */
 async function getProblem(): Promise<AgentProblem | undefined> {
+	// With only the CLI installed, it runs in a terminal and there's no setting
+	// to change.
 	const extension = vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID);
 	if (!extension) {
 		return undefined;
@@ -101,7 +106,7 @@ async function startNew(prompt: string): Promise<void> {
 		case 'terminal':
 			return openTerminal(prompt);
 		case undefined:
-			throw new Error(vscode.l10n.t('Claude Code is not installed or is too old to receive errors.'));
+			throw new Error(vscode.l10n.t('Claude Code is too old to receive errors in its chat.'));
 	}
 }
 
