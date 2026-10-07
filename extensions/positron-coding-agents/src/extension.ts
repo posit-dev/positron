@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { claudeCode } from './claudeCode';
 import { codex } from './codex';
-import { CodingAgent, sendPrompt } from './codingAgent';
+import { AgentStatus, CodingAgent, sendPrompt } from './codingAgent';
 import { ErrorActionKind, getErrorPrompt, UnsavedState } from './errorPrompt';
 
 /** The agents Fix and Explain can send errors to, in the order they are offered. */
@@ -17,16 +17,43 @@ const AGENTS: readonly CodingAgent[] = [claudeCode, codex];
 const FOCUS_CHECK_INTERVAL = 30_000;
 
 export function activate(context: vscode.ExtensionContext): void {
-	// Register each agent once; it is offered while its availability context
-	// key, kept current below, is true.
-	const registrations = AGENTS.map(agent => positron.ai.registerErrorActionHandler(agent.id, agent.label, {
-		when: getAvailableKey(agent),
-		fix: errorContext => startSession(agent, 'fix', errorContext),
-		explain: errorContext => startSession(agent, 'explain', errorContext),
-	}));
-	context.subscriptions.push(...registrations);
+	// Offer each agent while it is installed. While it's installed but can't
+	// take a prompt, its availability context key is false, which marks it
+	// unavailable in the setting, with the reason.
+	const registrationsById = new Map<string, positron.ai.ErrorActionHandlerRegistration>();
+	let isDisposed = false;
+	context.subscriptions.push({
+		dispose: () => {
+			isDisposed = true;
+			registrationsById.forEach(registration => registration.dispose());
+		}
+	});
 
-	// Checks run one at a time, so the context keys always follow the latest
+	/** Bring an agent's registration and availability in line with its status. */
+	const updateAgent = async (agent: CodingAgent, status: AgentStatus) => {
+		if (status.kind === 'notInstalled') {
+			registrationsById.get(agent.id)?.dispose();
+			registrationsById.delete(agent.id);
+			return;
+		}
+		await vscode.commands.executeCommand('setContext', getAvailableKey(agent), status.kind === 'available');
+		if (isDisposed) {
+			return;
+		}
+		let registration = registrationsById.get(agent.id);
+		if (!registration) {
+			registration = positron.ai.registerErrorActionHandler(agent.id, agent.label, {
+				when: getAvailableKey(agent),
+				fix: errorContext => startSession(agent, 'fix', errorContext),
+				explain: errorContext => startSession(agent, 'explain', errorContext),
+			});
+			registrationsById.set(agent.id, registration);
+		}
+		registration.unavailableReason = status.kind === 'unavailable' ? status.reason : undefined;
+		registration.canContinueChat = agent.canContinueChat();
+	};
+
+	// Checks run one at a time, so registrations always follow the latest
 	// result; a check requested during another runs once that one finishes.
 	let isChecking = false;
 	let isCheckRequested = false;
@@ -41,12 +68,11 @@ export function activate(context: vscode.ExtensionContext): void {
 			do {
 				isCheckRequested = false;
 				lastCheckTime = Date.now();
-				const reasons = await Promise.all(AGENTS.map(agent => agent.getUnavailableReason()));
-				await Promise.all(AGENTS.map((agent, i) => {
-					registrations[i].unavailableReason = reasons[i];
-					registrations[i].canContinueChat = agent.canContinueChat();
-					return vscode.commands.executeCommand('setContext', getAvailableKey(agent), reasons[i] === undefined);
-				}));
+				const statuses = await Promise.all(AGENTS.map(agent => agent.getStatus()));
+				if (isDisposed) {
+					return;
+				}
+				await Promise.all(AGENTS.map((agent, i) => updateAgent(agent, statuses[i])));
 			} while (isCheckRequested);
 		} finally {
 			isChecking = false;

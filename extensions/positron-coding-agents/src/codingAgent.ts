@@ -12,6 +12,15 @@ import * as vscode from 'vscode';
 import { AgentLaunch } from './agentLaunch';
 import { findForegroundProcess, parseProcessTable, ProcessInfo, PS_ARGS } from './foregroundProcess';
 
+/**
+ * Whether an agent can take a prompt: not installed (so not offered at all),
+ * installed but unavailable until something about it changes, or available.
+ */
+export type AgentStatus =
+	{ kind: 'notInstalled' } |
+	{ kind: 'unavailable'; reason: string } |
+	{ kind: 'available' };
+
 /** A coding agent that Fix and Explain can send errors to. */
 export interface CodingAgent {
 	/**
@@ -24,11 +33,8 @@ export interface CodingAgent {
 	/** Name shown in the UI. */
 	readonly label: string;
 
-	/**
-	 * Why the agent can't take a prompt, e.g. it isn't installed.
-	 * @returns The reason, or undefined when it can.
-	 */
-	getUnavailableReason(): Promise<string | undefined>;
+	/** Whether the agent is installed and can take a prompt. */
+	getStatus(): Promise<AgentStatus>;
 
 	/**
 	 * Whether the agent can continue the current chat, by pasting into its

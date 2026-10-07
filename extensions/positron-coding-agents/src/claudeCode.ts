@@ -8,7 +8,7 @@ import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { isPastClaudeCodeTrustPrompt, readConfig } from './agentTrust';
 import { getAgentLaunch } from './agentLaunch';
-import { CodingAgent, startInTerminal } from './codingAgent';
+import { AgentStatus, CodingAgent, startInTerminal } from './codingAgent';
 import { isClaudeCodeCommand } from './foregroundProcess';
 import { ClaudeCodeSurface, getClaudeCodeSurface } from './claudeCodeSurface';
 
@@ -25,7 +25,7 @@ const LAUNCHING_NOTIFICATION_DURATION = 2000;
 export const claudeCode: CodingAgent = {
 	id: 'claude-code',
 	label: 'Claude Code',
-	getUnavailableReason,
+	getStatus,
 	// Its chat can only start new conversations; its terminal sessions can be pasted into.
 	canContinueChat: () => getSurface() === 'terminal',
 	isAgentCommand: isClaudeCodeCommand,
@@ -49,26 +49,29 @@ function getSurface(): ClaudeCodeSurface | undefined {
 }
 
 /**
- * Why Claude Code can't take a prompt on the surface the user prefers.
- * @returns The reason, or undefined when it can.
+ * Whether Claude Code can take a prompt on the surface the user prefers.
+ * It counts as installed while its VS Code extension is.
  */
-async function getUnavailableReason(): Promise<string | undefined> {
+async function getStatus(): Promise<AgentStatus> {
 	const extension = vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID);
 	if (!extension) {
-		return vscode.l10n.t('The Claude Code extension is not installed or is disabled.');
+		return { kind: 'notInstalled' };
 	}
 	switch (getSurface()) {
 		case 'chat':
-			return undefined;
+			return { kind: 'available' };
 		case 'terminal':
 			return await getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT)
-				? undefined
-				: vscode.l10n.t('The claude command was not found on the PATH.');
+				? { kind: 'available' }
+				: { kind: 'unavailable', reason: vscode.l10n.t('The claude command was not found on the PATH.') };
 		case undefined:
-			return vscode.l10n.t(
-				'Claude Code {0} is too old to receive errors in its chat. Update it, or turn on Claude Code: Use Terminal.',
-				extension.packageJSON.version
-			);
+			return {
+				kind: 'unavailable',
+				reason: vscode.l10n.t(
+					'Claude Code {0} is too old to receive errors in its chat. Update it, or turn on Claude Code: Use Terminal.',
+					extension.packageJSON.version
+				),
+			};
 	}
 }
 
