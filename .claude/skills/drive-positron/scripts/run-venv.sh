@@ -25,10 +25,21 @@ VENV=""
 FROM="$(cd "$DIR/../../../.." && pwd)/extensions/positron-python/.venv"
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--from) FROM="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--from)
+			# An empty value is a missing one: "$FROM/bin/python" would be /bin/python, the system interpreter.
+			if [[ -z "${2-}" ]]; then
+				echo '{"ok":false,"error":"--from needs a value: the venv to copy"}'
+				exit 2
+			fi
+			FROM="$2"; shift 2 ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		-*) echo "run-venv.sh: unknown flag $1" >&2; exit 2 ;;
-		*) VENV="$1"; shift ;;
+		*)
+			if [[ -n "$VENV" ]]; then
+				jq -nc --arg a "$1" --arg d "$VENV" '{ok: false, error: ("unexpected argument \"" + $a + "\" after \"" + $d + "\"; give one <dir>, see --help")}'
+				exit 2
+			fi
+			VENV="$1"; shift ;;
 	esac
 done
 if [[ -z "$VENV" ]]; then

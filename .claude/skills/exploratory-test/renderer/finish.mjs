@@ -203,7 +203,7 @@ export function applyFeatures(report, features) {
 }
 
 /** The report with the `**<label>:**` line of each finding in `values` replaced. */
-function rewriteLabel(report, label, values) {
+export function rewriteLabel(report, label, values) {
 	if (!(values instanceof Map) || !values.size) {
 		return report;
 	}

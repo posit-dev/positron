@@ -57,6 +57,15 @@ export function safeUrl(url) {
  * right rather than each of the thirty call sites.
  */
 const marked = new Marked({
+	tokenizer: {
+		// Only ~~ strikes through: a lone ~ is "about" (~L120), as on most pages but GitHub's.
+		del(src) {
+			if (/^~(?!~)/.test(src)) {
+				return { type: 'text', raw: '~', text: '~' };
+			}
+			return false;
+		},
+	},
 	renderer: {
 		// Raw HTML in a report is something the agent transcribed, so it is text
 		// to show, not markup to run.
@@ -316,6 +325,49 @@ function labelOf(line) {
 	return m ? m[1].replace(/[:\s]+$/, '').toLowerCase() : null;
 }
 
+// The opening the edit pass writes at the top of a card, in a person's words:
+// what they read first, above the run's own record.
+const OPENING_LABELS = new Set(['summary', 'where']);
+
+/** Where a card's opening sits in its body lines, as `{ start, end }`, or null. */
+export function openingRange(lines) {
+	const start = lines.findIndex(l => labelOf(l) === 'summary');
+	if (start === -1) {
+		return null;
+	}
+	let end = start + 1;
+	for (; end < lines.length; end++) {
+		const text = lines[end].trim();
+		const label = labelOf(lines[end]);
+		if (((label && !OPENING_LABELS.has(label)) || /^(?:#{2,3}\s|<details>)/.test(text))) {
+			break;
+		}
+	}
+	while (end > start + 1 && !lines[end - 1].trim()) {
+		end--;
+	}
+	return { start, end };
+}
+
+/** A card's opening as `{ summary, where }`; null when it has none. */
+export function parseOpening(lines) {
+	const range = openingRange(lines);
+	if (!range) {
+		return null;
+	}
+	const block = lines.slice(range.start, range.end);
+	const out = { summary: '', where: '' };
+	for (let i = 0; i < block.length; i++) {
+		const label = labelOf(block[i]);
+		if (label === 'summary' || label === 'where') {
+			const { text, end } = readLabelled(block, i);
+			out[label] = text;
+			i = end - 1;
+		}
+	}
+	return out;
+}
+
 const IMAGE_EXT = /\.(?:png|jpe?g|gif|webp|avif)$/i;
 
 /** The filename at the end of a URL or path, for matching a hero to its caption. */
@@ -523,25 +575,37 @@ function parseEvidenceBullet(text) {
 			};
 		}
 	}
-	const log = /^`([^`]+)`\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(text);
+	// `**Not logged** -- `<path>` | <window> -- "<expected line>"`: a line the run
+	// looked for and did not find.
+	const missing = /^\*\*Not logged\*\*\s*(?:--|\u2014|-)?\s*([\s\S]*)$/i.exec(text);
+	const body = missing ? missing[1].trim() : text;
+	const log = /^`([^`]+)`\s*((?:\|[^|]*?)*?)\s*(?:--|\u2014|-)?\s*((?:[`"\u201c][\s\S]*)?)$/.exec(body)
+		?? /^`([^`]+)`()\s*(?:--|\u2014|-)?\s*([\s\S]*)$/.exec(body);
 	if (log) {
-		// The bullet usually reads `<path> -- "<quoted line>", <note>`. Keeping the
-		// quote and the note apart lets the tile show the line that proves the
-		// behaviour without the surrounding sentence competing with it.
+		// The bullet reads `<path> | <process> | <when> -- "<quoted line>"`; older
+		// reports add `, <note>` after the quote, kept apart so the row can drop it.
 		//
 		// The closing delimiter has to be the one that opened the span: a log line
 		// quoted in backticks routinely contains double quotes of its own, and
 		// closing on the first of those cut the message in half.
-		const rest = log[2].trim();
+		const meta = log[2].split('|').map(p => p.trim()).filter(Boolean);
+		const rest = log[3].trim();
 		const quoted = /^([`"\u201c])([\s\S]*?)(?:\1|\u201d)\s*[,;]?\s*([\s\S]*)$/.exec(rest);
-		return {
-			kind: 'log',
-			path: log[1],
-			quote: quoted ? quoted[2].trim() : rest,
-			note: quoted ? quoted[3].trim() : '',
-		};
+		const quote = quoted ? quoted[2].trim() : rest;
+		const note = quoted ? quoted[3].trim() : '';
+		// A time or a count has a digit; a process name has none.
+		const when = meta.find(m => /\d/.test(m)) ?? '';
+		return missing
+			? { kind: 'missing', path: log[1], window: when, quote, note }
+			: { kind: 'log', path: log[1], process: meta.find(m => !/\d/.test(m)) ?? '', when, quote, note };
 	}
 	return { kind: 'note', text };
+}
+
+/** False for a file the agent wrote (actions.log, saved notes): it says what the run did, not what Positron did. */
+export function isPositronLog(path) {
+	const file = String(path ?? '').replace(/:\d+$/, '');
+	return /\.log$/i.test(file) && basename(file) !== 'actions.log';
 }
 
 const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
@@ -724,9 +788,18 @@ function parseFindingBody(lines) {
 		errors: [],
 		tests: { cases: [], related: [] },
 		hero: null,
+		opening: parseOpening(lines),
 		matched: 0,
 	};
+	const opening = openingRange(lines);
+	if (opening) {
+		out.matched++;
+	}
 	for (let i = 0; i < lines.length; i++) {
+		if (opening && i >= opening.start && i < opening.end) {
+			i = opening.end - 1;
+			continue;
+		}
 		const line = lines[i];
 		const trimmed = line.trim();
 		if (!trimmed) { continue; }
@@ -761,7 +834,14 @@ function parseFindingBody(lines) {
 					continue;
 				}
 				if (!/^[-*]\s/.test(bullet)) { i = j - 1; break; }
-				out.evidence.push(parseEvidenceBullet(bullet.replace(/^[-*]\s+/, '')));
+				const item = parseEvidenceBullet(bullet.replace(/^[-*]\s+/, ''));
+				// Several log lines go in a code block under the bullet, as logged.
+				const block = (item.kind === 'log' || item.kind === 'missing') && !item.quote ? readSourceBlock(lines, j + 1) : null;
+				if (block) {
+					item.quote = block.text.split('\n').slice(1, -1).join('\n');
+					j = block.end - 1;
+				}
+				out.evidence.push(item);
 				i = j;
 			}
 			continue;
@@ -1425,6 +1505,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			// Issues the verifier says may already describe this finding. Advisory.
 			known: [...new Set([...(row['known'] ?? '').matchAll(/#(\d+)/g)].map(m => Number(m[1])))],
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
+			// The edit pass's opening: the card leads with its summary, and the issue with all of it.
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
 			expectedHtml: parsed.expected ? inline(parsed.expected) : '',
 			// A starting state with a pasted file is the one multi-line item.
@@ -1434,9 +1515,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			// A shot a step names is that step's, whatever its caption says.
 			evidence: parsed.evidence.map(e => (e.kind === 'shot'
 				? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
-				: e.kind === 'log'
-					? { ...e, quoteHtml: inline(e.quote), noteHtml: e.note ? inline(sentenceCase(e.note)) : '' }
-					: { ...e, textHtml: inline(sentenceCase(e.text)) })),
+				: e)),
 			causeHtml: parsed.cause ? inline(parsed.cause) : '',
 			errors: parsed.errors.map(withMetaHtml),
 			tests: {
@@ -1453,6 +1532,7 @@ export function parseReport(markdown, { ledger } = {}) {
 				steps: steps.map(stepText),
 				cause: parsed.cause ?? '',
 				summary: parsed.summary.join(' '),
+				opening: parsed.opening,
 				prose: parsed.matched === 0 ? bodyLines.join('\n').trim() : '',
 			},
 			// Nothing recognisable in the body: render it as prose rather than

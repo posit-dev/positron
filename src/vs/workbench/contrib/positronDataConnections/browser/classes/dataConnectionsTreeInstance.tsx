@@ -28,8 +28,10 @@ import { openDataConnectionNodeDetails, pinDataConnectionNodeDetails } from '../
 import { IDataConnectionNodeDetailsTarget } from '../editor/dataConnectionNodeDetailsEditorInput.js';
 import { IDataConnectionNodeDTO } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
 import { IDataConnectionInstance } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionInstance.js';
-import { IDataConnectionNodeOpener, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
-import { IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
+import { Event } from '../../../../../base/common/event.js';
+import { raceTimeout } from '../../../../../base/common/async.js';
+import { IDataConnectionNodeOpener, IDataConnectionNodeStep, IDataConnectionNodeRevealRequest, IPositronDataConnectionsService } from '../../../../services/positronDataConnections/common/interfaces/positronDataConnectionsService.js';
+import { DataConnectionNodeKind, IDataConnectionHandle, IDataConnectionProfile } from '../../../../services/positronDataConnections/common/interfaces/dataConnectionDriver.js';
 
 /**
  * The row height in pixels. Matches the height used by the previous list-based panel so the
@@ -66,6 +68,11 @@ export type DataConnectionNode =
 		// The name of the namespace group this node was breadcrumbed into, set when the node was
 		// that group's only child. Rendered ahead of the node's own name, as "Schemas / public".
 		readonly labelPrefix?: string;
+
+		// The name of the lone schema this node was spliced up out of, set when the tree dropped that
+		// schema's row -- see _elideSingleSchema. A reveal path still names the schema, so this is
+		// what lets the walk recognize the level that stands in for it.
+		readonly elidedSchema?: string;
 	};
 
 /**
@@ -73,7 +80,7 @@ export type DataConnectionNode =
  * outright when it holds a single schema, rather than breadcrumbed like the rest -- see
  * POSITRON_DATA_CONNECTIONS_TREE_SHOW_SINGLE_SCHEMA_KEY, the opt-in that brings it back.
  */
-const SCHEMAS_GROUP_KIND = 'group-schemas';
+const SCHEMAS_GROUP_KIND = DataConnectionNodeKind.GroupSchemas;
 
 /**
  * Group kinds that name a namespace tier -- the levels a connection is organized by, above the
@@ -84,9 +91,9 @@ const SCHEMAS_GROUP_KIND = 'group-schemas';
  * Deliberately not every container kind. A lone "Tables" or "Columns" group still tells the user
  * what the single row beneath it is, which the row itself does not.
  */
-const BREADCRUMB_GROUP_KINDS = new Set([
-	'group-databases',
-	'group-catalogs',
+const BREADCRUMB_GROUP_KINDS: ReadonlySet<string> = new Set<string>([
+	DataConnectionNodeKind.GroupDatabases,
+	DataConnectionNodeKind.GroupCatalogs,
 	SCHEMAS_GROUP_KIND,
 ]);
 
@@ -113,6 +120,13 @@ export const reloadKey = (node: DataConnectionNode): string =>
 	node.kind === 'entry'
 		? entryNodeId(node.entry.profile.id)
 		: nodeReloadKey(node.dto.kind, node.dto.name);
+
+/**
+ * Compares a node name to one from a reveal path. Case-insensitive as a fallback, because the
+ * case a driver reports a name in is not necessarily the case the path was built from.
+ */
+const namesMatch = (name: string, wanted: string): boolean =>
+	name === wanted || name.toLowerCase() === wanted.toLowerCase();
 
 const wrapEntry = (entry: DataConnectionEntry): TreeNode<DataConnectionNode> => ({
 	id: entryNodeId(entry.profile.id),
@@ -155,10 +169,11 @@ const resolveIndentWidth = (configurationService: IConfigurationService): number
 const wrapDto = (
 	dto: IDataConnectionNodeDTO,
 	handle: IDataConnectionHandle,
-	labelPrefix?: string
+	labelPrefix?: string,
+	elidedSchema?: string
 ): TreeNode<DataConnectionNode> => ({
 	id: dtoNodeId(handle, dto),
-	data: { kind: 'dto', dto, handle, labelPrefix },
+	data: { kind: 'dto', dto, handle, labelPrefix, elidedSchema },
 	hasChildren: dto.hasGetChildren,
 	// A group node names a category rather than a thing it holds, so it keeps its children at its
 	// own indent: "Tables" above a list of tables already says what they are, and spending a level
@@ -196,6 +211,13 @@ interface PathLookup {
  * from it closes -- and drops the loaded subtree so the next expand re-fetches against a fresh
  * handle.
  */
+/**
+ * How long a reveal waits for the tree's roots before giving up. Only reached when the pane was
+ * opened by the reveal itself; bounded so a connection that never loads cannot leave the promise
+ * pending for the life of the window.
+ */
+const REVEAL_ROOTS_TIMEOUT_MS = 10_000;
+
 export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnectionNode> implements IDataConnectionNodeOpener {
 	// Children the breadcrumb look-ahead fetched for a namespace group that went on to keep its row,
 	// held until that group is expanded so the user's own expand doesn't repeat the query. Keyed by
@@ -291,6 +313,18 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 				void this.reloadAll();
 			}
 		}));
+
+		// Reveal requests are claimed from the service rather than read off the event, because a
+		// reveal that had to open the view fired before this instance existed. Claiming covers
+		// both cases with one path, and a claimed request is never acted on twice.
+		const claimReveal = () => {
+			const request = this._service.takePendingReveal();
+			if (request !== undefined) {
+				void this.reveal(request);
+			}
+		};
+		this._register(this._service.onDidRequestReveal(claimReveal));
+		claimReveal();
 	}
 
 	/**
@@ -535,6 +569,129 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			this._pendingScrollToCursor.clear();
 			void this.scrollToCursor();
 		});
+	}
+
+	/**
+	 * Reveals a row of a connection's tree: expands down to it, selects it and scrolls it into view.
+	 *
+	 * The path names rows by kind and name rather than by node id, since ids embed the handle a
+	 * node was fetched under and do not survive a refetch. Display-only grouping rows ("Tables",
+	 * "Columns") are walked past rather than named, so a caller works in terms of the schema
+	 * rather than of how the pane chooses to lay it out.
+	 *
+	 * Gives up quietly if any step is missing. A path comes from a snapshot of the schema -- a
+	 * link in a SQL editor, say -- and the table it names may since have been dropped or renamed,
+	 * which is not worth an error dialog over a click.
+	 * @param request The row to reveal.
+	 */
+	async reveal(request: IDataConnectionNodeRevealRequest): Promise<void> {
+		// The roots may still be loading when a reveal arrives with the view: expand() no-ops on a
+		// node the tree does not have yet, which would lose the reveal silently.
+		await raceTimeout(this._whenRootsLoaded(), REVEAL_ROOTS_TIMEOUT_MS);
+
+		let targetId = entryNodeId(request.profileId);
+		for (const step of request.path) {
+			const childId = await this._findStep(targetId, step);
+			if (childId === undefined) {
+				return;
+			}
+			targetId = childId;
+		}
+
+		// Recomputed after the walk: every expand above rebuilt the projection, so an index taken
+		// earlier would point at a different row.
+		const index = this.visibleNodes.findIndex(visible => visible.node.id === targetId);
+		if (index >= 0) {
+			await this.mouseSelectRow(index, MouseSelectionType.Single);
+		}
+	}
+
+	/** Resolves once the tree has roots to walk, or immediately if it already does. */
+	private async _whenRootsLoaded(): Promise<void> {
+		while (!this.initialLoadCompleted) {
+			await Event.toPromise(this.onDidChangeLoading);
+		}
+	}
+
+	/**
+	 * Finds the child of a node matching one step of a reveal path, expanding as needed.
+	 *
+	 * Kind is preferred but not required: the kinds in a path come from a schema snapshot, and a
+	 * driver that has since started calling a table a view should still be reachable.
+	 */
+	private async _findStep(
+		parentId: string,
+		step: IDataConnectionNodeStep
+	): Promise<string | undefined> {
+		await this.expand(parentId);
+
+		const children = this._childrenOf(parentId);
+		const named = children.filter(child =>
+			child.data.kind === 'dto' && namesMatch(child.data.dto.name, step.name)
+		);
+		// A name in the same case wins over one that only matches without it, so a database that
+		// keeps both `Users` and `users` (quoted identifiers) reveals the one the path asked for.
+		const sameCase = named.filter(child =>
+			child.data.kind === 'dto' && child.data.dto.name === step.name
+		);
+		const candidates = sameCase.length > 0 ? sameCase : named;
+		const exact = candidates.find(child =>
+			child.data.kind === 'dto' && child.data.dto.kind === step.kind
+		);
+		const match = exact ?? candidates[0];
+		if (match !== undefined) {
+			return match.id;
+		}
+
+		// The step names a lone schema the tree dropped (see _elideSingleSchema): its contents stand
+		// at this level, so the walk is already where the step would have taken it.
+		const elided = children.some(child =>
+			child.data.kind === 'dto' &&
+			child.data.elidedSchema !== undefined &&
+			namesMatch(child.data.elidedSchema, step.name)
+		);
+		if (elided) {
+			return parentId;
+		}
+
+		// Not a child directly: descend through the grouping rows the path leaves out.
+		for (const child of children) {
+			if (child.data.kind === 'dto' && CONTAINER_ONLY_KINDS.has(child.data.dto.kind)) {
+				const found = await this._findStep(child.id, step);
+				if (found !== undefined) {
+					return found;
+				}
+			}
+		}
+
+		return undefined;
+	}
+
+	/**
+	 * The immediate children of a node, read off the current projection.
+	 *
+	 * The projection is the only public view of the loaded tree, and it is rebuilt on every
+	 * structural change, so this is read fresh after each expand rather than cached.
+	 */
+	private _childrenOf(parentId: string): TreeNode<DataConnectionNode>[] {
+		const nodes = this.visibleNodes;
+		const parentIndex = nodes.findIndex(visible => visible.node.id === parentId);
+		if (parentIndex < 0) {
+			return [];
+		}
+
+		const parentDepth = nodes[parentIndex].depth;
+		const children: TreeNode<DataConnectionNode>[] = [];
+		for (let index = parentIndex + 1; index < nodes.length; index++) {
+			const visible = nodes[index];
+			if (visible.depth <= parentDepth) {
+				break;
+			}
+			if (visible.depth === parentDepth + 1) {
+				children.push(visible.node);
+			}
+		}
+		return children;
 	}
 
 	/**
@@ -856,7 +1013,7 @@ export class DataConnectionsTreeInstance extends PositronTreeInstance<DataConnec
 			return undefined;
 		}
 
-		return contents.map(dto => wrapDto(dto, handle));
+		return contents.map(dto => wrapDto(dto, handle, undefined, schema.name));
 	}
 
 	/**

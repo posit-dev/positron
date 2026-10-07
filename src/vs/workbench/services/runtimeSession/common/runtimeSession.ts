@@ -12,7 +12,8 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from '../../../../platform/opener/common/opener.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, LanguageStartupBehavior, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, RuntimeStartupPhase } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions, IUpdateNotebookSessionUriOptions } from './runtimeSessionService.js';
+import { ILanguageRuntimeGlobalEvent, INotebookLanguageRuntimeSession, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, INotebookSessionUriChangedEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeStartMode, INotebookRuntimeSessionMetadata, IRuntimeSessionDisplayInfo, IStartNewRuntimeSessionOptions, IUpdateNotebookSessionUriOptions, IRuntimeSessionStartReason, SessionStartReasonId } from './runtimeSessionService.js';
+import { describeSessionStartReason, describeSessionStartReasonForLog } from './sessionStartReasons.js';
 import { RuntimeSessionDisplayInfo } from './runtimeSessionDisplayInfo.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -275,9 +276,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// so they will be in the right order so the first one is the right
 			// one to start.
 			this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(languageRuntimeInfos[0])} automatically starting`);
-			this.autoStartRuntime(languageRuntimeInfos[0],
-				`A file with the language ID ${languageId} was opened.`,
-				true);
+			this.autoStartRuntime(languageRuntimeInfos[0], { id: SessionStartReasonId.LanguageFileOpened }, true);
 		}));
 
 		// When an extension activates, check to see if we have any disconnected
@@ -502,12 +501,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * matches the active runtime for the notebook session.
 	 *
 	 * @param runtimeId The ID of the runtime to select
-	 * @param source The source of the selection
+	 * @param startReason Why the runtime is being selected
 	 * @param notebookUri The URI of the notebook selecting the runtime, if any
 	 *
 	 * @returns A promise that resolves to the session ID if a runtime session was started
 	 */
-	async selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void> {
+	async selectRuntime(runtimeId: string, startReason: IRuntimeSessionStartReason, notebookUri?: URI): Promise<void> {
 		const runtime = this._languageRuntimeService.getRegisteredRuntime(runtimeId);
 		if (!runtime) {
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
@@ -578,7 +577,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			runtime.runtimeName,
 			sessionMode,
 			notebookUri,
-			source,
+			startReason,
 			startMode,
 			// Activate this session if it's for a console (notebooks have their
 			// own activation logic)
@@ -748,7 +747,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param sessionName A human readable name for the session.
 	 * @param sessionMode The mode of the new session.
 	 * @param notebookUri The notebook URI to attach to the session, if any.
-	 * @param source The source of the request to start the runtime.
+	 * @param startReason Why the runtime is being started.
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 * @param options Additional properties for the new session, e.g. whether the user explicitly selected the runtime.
@@ -758,7 +757,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
-		source: string,
+		startReason: IRuntimeSessionStartReason,
 		startMode = RuntimeStartMode.Starting,
 		activate: boolean,
 		options?: IStartNewRuntimeSessionOptions): Promise<string> {
@@ -778,6 +777,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 
+		const source = describeSessionStartReasonForLog(startReason, languageRuntime, notebookUri);
 		const runningSessionId = this.validateRuntimeSessionStart(sessionMode, languageRuntime, notebookUri, source);
 		if (runningSessionId) {
 			return runningSessionId;
@@ -787,7 +787,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// workspace is trusted.
 		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
 			if (sessionMode === LanguageRuntimeSessionMode.Console) {
-				return this.autoStartRuntime(languageRuntime, source, activate);
+				return this.autoStartRuntime(languageRuntime, startReason, activate);
 			} else {
 				throw new Error(`Cannot start a ${sessionMode} session in an untrusted workspace.`);
 			}
@@ -807,7 +807,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return this.doCreateRuntimeSession(languageRuntime,
 			sessionName,
 			sessionMode,
-			source,
+			startReason,
 			startMode,
 			createConsole,
 			activate,
@@ -1215,8 +1215,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param sessionId The session ID of the runtime to restart.
 	 * @param source The source of the request to restart the runtime.
+	 * @param interrupt Whether to offer to interrupt the session if it is busy.
+	 * @param requestingExtensionId The ID of the extension that requested the
+	 * restart, if any.
 	 */
-	async restartSession(sessionId: string, source: string, interrupt: boolean = true): Promise<boolean> {
+	async restartSession(sessionId: string, source: string, interrupt: boolean = true, requestingExtensionId?: string): Promise<boolean> {
 		const activeSession = this._activeSessionsBySessionId.get(sessionId);
 		if (!activeSession) {
 			throw new Error(`No session with ID '${sessionId}' was found.`);
@@ -1256,7 +1259,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				session.dynState.sessionName,
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
-				`'Restart Interpreter' command invoked`,
+				{ id: SessionStartReasonId.RestartUninitializedSession, requestingExtensionId },
 				RuntimeStartMode.Starting,
 				true,
 				{ quartoNotebookUri: session.metadata.quartoNotebookUri }
@@ -1726,7 +1729,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * Automatically starts a runtime.
 	 *
 	 * @param runtime The runtime to start.
-	 * @param source The source of the request to start the runtime.
+	 * @param startReason Why the runtime is being started.
 	 * @param activate Whether to activate/focus the new session after it
 	 * starts.
 	 *
@@ -1735,9 +1738,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	async autoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
-		source: string,
+		startReason: IRuntimeSessionStartReason,
 		activate: boolean
 	): Promise<string> {
+		const source = describeSessionStartReasonForLog(startReason, metadata);
+
 		// Check the setting to see if we should be auto-starting.
 		const startupBehavior = this._configurationService.getValue<LanguageStartupBehavior>(
 			'interpreters.startupBehavior', { overrideIdentifier: metadata.languageId });
@@ -1755,7 +1760,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`${formatLanguageRuntimeMetadata(metadata)} ` +
 				`automatically starting. Source: ${source}`);
 
-			return this.doAutoStartRuntime(metadata, source, activate);
+			return this.doAutoStartRuntime(metadata, startReason, activate);
 		} else {
 			this._logService.debug(`Deferring the start of language runtime ` +
 				`${formatLanguageRuntimeMetadata(metadata)} (Source: ${source}) ` +
@@ -1772,7 +1777,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				this.doAutoStartRuntime(metadata, source, activate);
+				this.doAutoStartRuntime(metadata, startReason, activate);
 			}));
 		}
 
@@ -1828,13 +1833,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * instead if you need those checks.
 	 *
 	 * @param metadata The metadata for the runtime to start.
-	 * @param source The source of the request to start the runtime.
+	 * @param startReason Why the runtime is being started.
 	 * @param activate Whether to activate/focus the new session after it is
 	 * started.
 	 */
 	private async doAutoStartRuntime(
 		metadata: ILanguageRuntimeMetadata,
-		source: string,
+		startReason: IRuntimeSessionStartReason,
 		activate: boolean): Promise<string> {
 		// Auto-started runtimes are (currently) always console sessions.
 		const sessionMode = LanguageRuntimeSessionMode.Console;
@@ -1850,7 +1855,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return startingRuntimePromise.p;
 		}
 
-		const runningSessionId = this.validateRuntimeSessionStart(sessionMode, metadata, notebookUri, source);
+		const runningSessionId = this.validateRuntimeSessionStart(sessionMode, metadata, notebookUri,
+			describeSessionStartReasonForLog(startReason, metadata, notebookUri));
 		if (runningSessionId) {
 			return runningSessionId;
 		}
@@ -1948,7 +1954,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return this.doCreateRuntimeSession(metadata,
 			metadata.runtimeName,
 			sessionMode,
-			source,
+			startReason,
 			RuntimeStartMode.Starting,
 			true, // Create a console
 			activate,
@@ -1961,7 +1967,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param runtimeMetadata The metadata for the runtime to start.
 	 * @param sessionName A human-readable name for the session.
 	 * @param sessionMode The mode for the new session.
-	 * @param source The source of the request to start the runtime.
+	 * @param startReason Why the runtime is being started.
 	 * @param startMode The mode in which to start the runtime.
 	 * @param createConsole Whether to create a console for the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
@@ -1974,7 +1980,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private async doCreateRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
-		source: string,
+		startReason: IRuntimeSessionStartReason,
 		startMode: RuntimeStartMode,
 		createConsole: boolean,
 		activate: boolean,
@@ -2026,7 +2032,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			notebookUri,
 			workingDirectory,
 			createdTimestamp: Date.now(),
-			startReason: source,
+			startReason: describeSessionStartReason(startReason, runtimeMetadata, notebookUri),
+			startReasonId: startReason.id,
+			requestingExtensionId: startReason.requestingExtensionId,
 			userSelected: options?.userSelected,
 			quartoNotebookUri: options?.quartoNotebookUri,
 			owner: options?.owner ?? 'user',
@@ -2771,6 +2779,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Remember the session ID and old working directory for return value
 		const sessionId = session.sessionId;
 		const oldQuartoNotebookUri = session.metadata.quartoNotebookUri;
+		const oldStartReason = session.metadata.startReason;
 		try {
 			// Operations are performed in a specific order to maintain atomic-like behavior
 			// The ordering ensures that even if interrupted between steps, the system won't lose
@@ -2789,6 +2798,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			session.metadata.notebookUri = newUri;
 			if (options?.quartoNotebookUri) {
 				session.metadata.quartoNotebookUri = options.quartoNotebookUri;
+			}
+			// The start reason names the notebook, so describe it again with the
+			// new file name. Sessions saved before start reason IDs keep their text.
+			if (session.metadata.startReasonId) {
+				session.metadata.startReason = describeSessionStartReason(
+					{ id: session.metadata.startReasonId, requestingExtensionId: session.metadata.requestingExtensionId },
+					session.runtimeMetadata,
+					newUri);
 			}
 
 			// 3. Finally remove the old mapping - we do this last because it's
@@ -2843,6 +2860,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			if (options?.quartoNotebookUri && isEqual(session.metadata.quartoNotebookUri, options.quartoNotebookUri)) {
 				session.metadata.quartoNotebookUri = oldQuartoNotebookUri;
 			}
+			session.metadata.startReason = oldStartReason;
 
 			return undefined;
 		}

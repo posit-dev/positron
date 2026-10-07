@@ -126,6 +126,8 @@ const PROFESSIONAL = `
 	--code-blk-border: transparent;
 	--code-cp-hover-bg: rgba(28,31,35,.06);
 	--code-chip-hover-bg: #E5E2DA;
+	--ev-underline: #A8A49A;
+	--ev-mark: #FCEFC7;
 	--cp-rest: #C4C0B6;
 	--cp-hover-bg: #F6F5F1;
 	--toast-bg: #1C1F23;
@@ -266,6 +268,8 @@ const PARTY = `
 	--code-blk-border: #2A2250;
 	--code-cp-hover-bg: rgba(245,241,255,.08);
 	--code-chip-hover-bg: #3A3070;
+	--ev-underline: #8A82B8;
+	--ev-mark: #4A3A12;
 	--cp-rest: #4E4580;
 	--cp-hover-bg: #2A2250;
 	--toast-bg: #241D42;
@@ -633,19 +637,23 @@ article.card .card-details{max-width:720px}
 .lc-tail{font-weight:500;color:var(--faint)}
 /* A count reads "2x" with a letter on the baseline, kept lowercase in an uppercase label. */
 .n-x{text-transform:none;letter-spacing:.02em}
-.ev-log{font-size:12.5px;line-height:1.6;color:var(--body);min-width:0;overflow-wrap:anywhere}
-.ev-sep{color:var(--faint)}
-.ev-note{color:var(--muted)}
 .lc .lc-chev{flex:none;transition:transform .15s ease}
 .lc[open] .lc-chev{transform:rotate(90deg)}
 .lc-body{padding:0 0 16px 20px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .lc-body p{font-size:14px;line-height:1.65;color:var(--body);max-width:var(--measure)}
-.err{display:flex;flex-direction:column;gap:8px;min-width:0}
-.err-meta{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted)}
-.err-src{font-family:var(--mono)}
-.err-code{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--body);background:var(--thead);border:1px solid var(--hairline);border-radius:6px;padding:10px 14px;overflow-x:auto}
-.err-msg{color:var(--major-text);white-space:pre-wrap}
-.err-frame{padding-left:16px;overflow-wrap:anywhere}
+/* Evidence: a muted header over the text as logged, mono for the log and sans
+   for everything about it. The row is the only box; red marks only the error. */
+.lc.ev .lc-body{gap:16px}
+.ev-snip{display:flex;flex-direction:column;gap:6px;min-width:0}
+.ev-snip-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;font-size:12px;color:var(--muted)}
+.ev-snip-h .log-link{font-weight:500}
+.ev-snip-b{font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--body);background:var(--thead);border-radius:6px;padding:10px 14px;white-space:pre;overflow-x:auto}
+.ev-snip a{color:var(--body);text-decoration:underline dotted var(--ev-underline);text-underline-offset:3px}
+.ev-snip a:hover{color:var(--link);text-decoration-color:var(--link)}
+.ev-snip mark{background:var(--ev-mark);color:inherit;border-radius:2px;padding:0 1px}
+.ev-err{color:var(--major-text)}
+.ev-miss-k{font-weight:600;color:var(--body)}
+.ev-miss .ev-snip-b{background:none;border:1px dashed var(--hairline);color:var(--muted)}
 /* Regression test: one label style, one meta style; sizes fixed so the block never inherits the page's. */
 .rt-group{display:flex;flex-direction:column;gap:6px}
 .rt-group+.rt-group{gap:4px}

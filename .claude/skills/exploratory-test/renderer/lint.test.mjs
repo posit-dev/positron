@@ -84,6 +84,19 @@ test('flags a finding with no Feature line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:**')), ['report: Finding 1 has no "**Feature:** <feature>" line']);
 });
 
+test('flags a Feature named in code rather than as a user sees the area', () => {
+	const problem = feature => `report: Finding 1 Feature "${feature}" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"`;
+	for (const feature of ['PositronDynamicModalDialog', 'columnProfileInteger.tsx', '`dataExplorer`']) {
+		assert.deepEqual(lint(REPORT.replace('**Feature:** console', `**Feature:** ${feature}`)), [problem(feature)]);
+	}
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console', '**Feature:** new folder flow')), []);
+});
+
+test('skips the opening the edit pass writes', () => {
+	const opening = '**Summary:** When you click Retry, nothing happens.\n\n**Where:** Web only, as in S05.\n\n';
+	assert.deepEqual(lint(REPORT.replace('**Feature:** console', `${opening}**Feature:** console`)), []);
+});
+
 test('flags a finding that still has an Impact line', () => {
 	assert.deepEqual(lint(REPORT.replace('**Feature:** console\n', '**Feature:** console\n\n**Impact:** The panel stays empty with no error shown.\n')),
 		['report: Finding 1 has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed']);
@@ -140,15 +153,44 @@ test('flags a title that starts lowercase or names code, but not a lowercase pac
 	assert.deepEqual(titled('Help for `dplyr::filter` lands on the stats page'), []);
 });
 
-test('flags a step that runs a precondition\'s command again', () => {
-	const repro = (pre, step) => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${pre}\n\n1. ${step}`)).filter(p => /precondition already/.test(p));
-	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Run `%run -i slow.py` in the Python console.'), ['report: Finding 1 step 1 runs `%run -i slow.py`, which a precondition already sets up; start the steps after it']);
-	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Click Retry.'), []);
-	assert.deepEqual(repro('`debug_demo.R` defines `outer_fn()`', 'Run `outer_fn()` in the R console.'), []);
-	// A check, or an action waiting on output, quotes the code's output or the code itself; it runs nothing.
-	assert.deepEqual(repro('`py.qmd` whose cell prints `tick 0` to `tick 4`', 'VERIFY the console shows `tick 0` to `tick 2` -> PASS'), []);
-	assert.deepEqual(repro('`r.qmd` with an R cell `print(paste("r says", z))`', 'VERIFY cell 2 (`print(paste("r says", z))`) shows its output -> FAIL - Finding 1'), []);
-	assert.deepEqual(repro('`py.qmd` whose cell prints `tick 0` to `tick 4`', 'Click Run this cell and wait until the output shows `tick 0`.'), []);
+test('flags a precondition that is something done in the app, in the report and the ledger', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- app running | ${p}\n\n1. Click Retry.`)).filter(x => /done in the app/.test(x));
+	assert.deepEqual(pre('`app.R` started with its Run Shiny App button'), ['report: Finding 1 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(pre('`flask_app.py` running, then opened in an editor tab'), ['report: Finding 1 precondition "app running" is done in the app ("then opened"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(pre('A Shiny console in which Run Shiny App started `shiny_app.R`'), ['report: Finding 1 precondition "app running" is done in the app ("Run Shiny App"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(pre('A Python 3.12 console, which Positron starts on launch'), []);
+	// State stays a precondition; the command that loads a file is a step.
+	assert.deepEqual(pre('a Python with polars is selected'), []);
+	assert.deepEqual(pre('`slow.py` loaded'), []);
+	const ledger = LEDGER.replace('Status: fail - Finding 1\n', 'Status: fail - Finding 1\n\nPreconditions:\n- app running | `app.R` started with Run Shiny App\n');
+	assert.deepEqual(lintLedgerOnly(ledger).filter(x => /done in the app/.test(x)), ['ledger: S02 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
+});
+
+test('flags a precondition that names a scratch path, and a step that only waits', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- Workspace | ${p}\n\n1. Click Retry.`)).filter(x => /names the path/.test(x));
+	assert.deepEqual(pre('the workspace `/private/tmp/et-viewer-mwIP` with `app.R`'), ['report: Finding 1 precondition "Workspace" names the path /private/tmp/et-viewer-mwIP; name the workspace by what it holds ("A workspace with `app.R`"), and keep scratch paths in Run details']);
+	assert.deepEqual(pre('a workspace with `files/ws/app.R`'), []);
+	const step = s => lint(REPORT.replace('1. Click Retry.', `1. ${s}`)).filter(x => /only waits/.test(x));
+	assert.deepEqual(step('Wait for the Python console to start.'), ['report: Finding 1 step 1 only waits; merge the wait into the action it waits on, or, when the app does it on its own, make it a precondition: "A Python console, which Positron starts on launch"']);
+	assert.deepEqual(step('Run `x` and wait for the plot to appear.'), []);
+});
+
+test('flags a precondition that is a running app, or says "the run\'s"', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- App | ${p}\n\n1. Click Retry.`)).filter(x => /running app|the run's/.test(x));
+	assert.deepEqual(pre('the app from `shiny_app.R` serving on port 56934 in an R Shiny console'), ['report: Finding 1 precondition "App" is a running app ("serving"); start it in the steps, with a check that it runs']);
+	assert.deepEqual(pre('Python 3.12.11 in the run\'s venv with shiny 1.8.0 installed'), ['report: Finding 1 precondition "App" says "the run\'s", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")']);
+	assert.deepEqual(pre('Python 3.12 with shiny 1.8.0'), []);
+	assert.deepEqual(pre('`app.py` that calls `app.run(port=5057)`'), []);
+});
+
+test('flags a precondition that runs a command, which is a step', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${p}\n\n1. Click Retry.`)).filter(x => /precondition "/.test(x));
+	assert.deepEqual(pre('`slow.py` loaded with `%run -i slow.py`'), ['report: Finding 1 precondition "`slow.py` loaded" runs `%run -i slow.py`; run it as a step, and keep the precondition to the file or package']);
+	assert.deepEqual(pre('`debug.R` sourced with `source("debug.R")`'), ['report: Finding 1 precondition "`slow.py` loaded" runs `source("debug.R")`; run it as a step, and keep the precondition to the file or package']);
+	// What a file holds is described, not run.
+	assert.deepEqual(pre('`debug_demo.R`, which defines `outer_fn()`'), []);
+	assert.deepEqual(pre('`py.qmd` whose cell prints `tick 0` to `tick 4`'), []);
+	assert.deepEqual(pre('`app.py` that calls `app.run(port=5057)`'), []);
 });
 
 test('a saved output under logs/ or files/ sits beside a check\'s screenshot, never in place of it', () => {
@@ -168,6 +210,25 @@ test('a reading in actions.log sits beside a check\'s screenshot, never in place
 	assert.deepEqual(problems, ['ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it', 'ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it']);
 	// The ledger-only check run mid-run finds it too, while the instance is up.
 	assert.deepEqual(lintLedgerOnly(ledger, { fileExists: () => true }).filter(p => /S01 step/.test(p)), ['ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it', 'ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it']);
+});
+
+test('Evidence holds Positron log lines only: no notes, no agent files, nothing after the quote', () => {
+	const evidence = lines => REPORT.replace('<details>', ['**Evidence**', '', ...lines, '', '<details>'].join('\n'));
+	assert.deepEqual(lint(evidence([
+		'- `logs/1-exthost.log:5` | Extension host | 00:18:39 -- "env change ==/x== remove"',
+		'- **Not logged** -- `logs/1-exthost.log` | 00:18:39-00:19:24 -- "env change /x add"',
+	])), []);
+	assert.deepEqual(lint(evidence([
+		'- so nothing resolved the new path',
+		'- `actions.log:12` -- "click failed"',
+		'- `logs/S03-later.txt` -- "saved"',
+		'- `logs/1-exthost.log:5` -- "env change /x remove", with no add after it',
+	])).map(p => p.replace(/;.*/, '')), [
+		'report: Finding 1 Evidence has a note ("so nothing resolved the new path")',
+		'report: Finding 1 Evidence cites actions.log:12, which the run wrote, not Positron',
+		'report: Finding 1 Evidence cites logs/S03-later.txt, which the run wrote, not Positron',
+		'report: Finding 1 Evidence follows logs/1-exthost.log:5\'s line with "with no add after it"',
+	]);
 });
 
 test('a finding\'s prose names no scenario ID, but an Evidence caption may', () => {
@@ -519,6 +580,32 @@ test('a step is one action, with no repeat count, second action, assumed state o
 	assert.deepEqual(lint(REPORT, LEDGER.replace('2. VERIFY it loads -> PASS', '2. VERIFY it loads, then shows twice -> PASS')), []);
 });
 
+test('a VERIFY is only the check, with the actions before it as steps of their own', () => {
+	const check = text => lint(REPORT, LEDGER.replace('2. VERIFY it loads -> PASS', `2. VERIFY ${text} -> PASS`)).filter(p => /S01 step 2/.test(p));
+	const did = verb => [`ledger: S01 step 2 VERIFY does something ("${verb}"); make it a step of its own before the check, and keep the VERIFY to what you expect to see`];
+	// Real checks from past runs that name an action word without doing it.
+	for (const text of [
+		'the `n` profile shows Min 5; Max 1500',
+		'Enter creates the folder (Create is enabled)',
+		'focus moves to a footer button',
+		'The dialog closes, focus is back in the editor',
+		'the namespace holds only In, Out, exit, help, open and quit',
+		'the plot still shows the status line (check mark, run time) from its last run',
+		'Tables lists blobs, customers, select and wide',
+		'`n` shows `n`, type int, with no chevron',
+		'the console prints `small big`, then `45`, and returns to a `>>>` prompt',
+		'the kernel is running',
+	]) { assert.deepEqual(check(text), [], text); }
+	assert.deepEqual(check('In the summary panel, type `n` in the column filter and expand the `n` profile; it shows Min 5'), did('type'));
+	assert.deepEqual(check('Typing `n` in the summary column filter and expanding `n` shows Min 5'), did('Typing'));
+	assert.deepEqual(check('after running `del df["num"]`, all 10 rows show'), did('running'));
+	assert.deepEqual(check('clicking Console Information shows "Start Reason"'), did('clicking'));
+	assert.deepEqual(check('the console prints `[1] 2`, and hovering the breakpoint shows "Unverified Breakpoint"'), did('hovering'));
+	assert.deepEqual(check('the pane shows a plot after clicking Show Next Plot'), did('clicking'));
+	assert.deepEqual(lint(REPORT.replace('2. VERIFY the panel loads', '2. VERIFY clicking Retry loads the panel')).filter(p => /VERIFY does/.test(p)),
+		['report: Finding 1 step 2 VERIFY does something ("clicking"); make it a step of its own before the check, and keep the VERIFY to what you expect to see']);
+});
+
 test('a failed scenario\'s Result is its rate only', () => {
 	const result = text => lint(REPORT, LEDGER.replace('Result: Fails 2/2', `Result: ${text}`)).filter(p => /Result:/.test(p));
 	assert.deepEqual(result('Fails 2/2'), []);
@@ -532,6 +619,15 @@ test('flags a hedged title and an editorial Observed', () => {
 	assert.deepEqual(titled('Retry does nothing'), []);
 	const observed = lint(REPORT.replace('**Feature:** console\n', '**Feature:** console\n\n**Observed:** The panel incorrectly stays empty.\n\n**Expected:** The panel loads.\n'));
 	assert.deepEqual(observed, ['report: Finding 1 Observed: says "incorrectly"; say what happened in plain words and let the difference speak']);
+});
+
+test('flags a possessive, a parenthetical and a code name in a title', () => {
+	const titled = t => lint(REPORT.replace(/^### Finding 1: .*$/m, `### Finding 1: ${t}`)).filter(p => /possessive|parenthetical|code name/.test(p));
+	assert.deepEqual(titled('Paused columns\' tooltip is wrong'), ['report: Finding 1 title uses the possessive "columns\'"; say "the <thing> of <owner>" or name the thing on screen']);
+	assert.deepEqual(titled('Retry does nothing (after a reload)'), ['report: Finding 1 title has a parenthetical; fold it into the sentence or move it to Observed']);
+	assert.deepEqual(titled('TableSummaryCache never clears'), ['report: Finding 1 title names TableSummaryCache, a code name a user never sees; say what is on screen, and leave code to Cause']);
+	assert.deepEqual(titled('The quartoNotebookUri is lost on reload'), ['report: Finding 1 title names quartoNotebookUri, a code name a user never sees; say what is on screen, and leave code to Cause']);
+	assert.deepEqual(titled('Plots on macOS lose `TableSummaryCache` on GitHub "Users\' (1)" reload'), []);
 });
 
 test('a cited shot is the one taken at its check: taken once, and in step order', () => {
@@ -602,13 +698,13 @@ test('each rule is an error or a warning, as the table in lint.mjs says', () => 
 	const warnings = [
 		'ledger: S01 step 2 repeats an action ("twice"); a step is one action, so write each one as its own step',
 		'ledger: S01 step 2 is two actions ("then open"); write each as its own step',
+		'ledger: S01 step 2 VERIFY does something ("type"); make it a step of its own before the check, and keep the VERIFY to what you expect to see',
 		'ledger: S01 step 1 starts "With ..."; make what it assumes a precondition, or do it as a step of its own',
 		'ledger: S02 Result: is 170 characters; keep it to one short sentence, and give anything you did not expect its own VERIFY step',
 		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
 		'report: Finding 1 Expected: says "incorrectly"; say what happened in plain words and let the difference speak',
 		'report: Finding 1 Observed: names R, which the title does not; the reference that shows the right answer goes in Expected ("as R shows for the same data")',
 		'report: Finding 1 step 2 has 3 screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out',
-		'report: Finding 1 step 2 runs `library(x)`, which a precondition already sets up; start the steps after it',
 		'report: cite shots as [shots/<file>](shots/<file>), not in backticks: "x"',
 		'report: finding 1 is moderate and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
 	];
@@ -680,3 +776,13 @@ test('render.mjs --check fails on errors only, and checks a ledger alone without
 	}
 });
 
+
+test('flags a long Result and a Cause whose first sentence runs on', () => {
+	const words = n => Array.from({ length: n }, () => 'word').join(' ');
+	const long = lint(REPORT.replace('**Result:** The panel loads.', `**Result:** ${words(61)}.`)).filter(p => /Result:\*\* is/.test(p));
+	assert.deepEqual(long, ['report: **Result:** is 61 words; keep it to 60 or fewer: what works in a phrase, then in bold what is broken']);
+	const caused = lead => lint(REPORT.replace('<details>', `**Cause (hypothesis):** ${lead}. Then \`a.ts:1\` has the detail.\n\n<details>`)).filter(p => /Cause opens/.test(p));
+	assert.deepEqual(caused(`The \`Retry\` handler ${words(38)}`), ['report: Finding 1 Cause opens with a 41-word sentence; name the suspect in 40 words or fewer, then give the detail']);
+	assert.deepEqual(caused(`The \`Retry\` handler ${words(37)}`), []);
+	assert.ok(isWarning(long[0]));
+});

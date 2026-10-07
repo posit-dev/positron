@@ -7,21 +7,28 @@
 import './newFolderFromGitModalDialog.css';
 
 // React.
-import { useCallback, useRef, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
 import { URI } from '../../../base/common/uri.js';
+import { toErrorMessage } from '../../../base/common/errorMessage.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
 import { folderNameFromGitRepoUrl } from './newFolderFromGitFolderName.js';
+import { checkGitStatus, getGitStatusNow, GitStatus } from './newFolderFromGitStatus.js';
+import { CommandsRegistry } from '../../../platform/commands/common/commands.js';
 import { Checkbox } from '../positronComponents/positronModalDialog/components/checkbox.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
+import { PositronReactServices } from '../../../base/browser/positronReactServices.js';
 import { VerticalSpacer } from '../positronComponents/positronModalDialog/components/verticalSpacer.js';
 import { checkIfPathValid, isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
 import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
+import { PositronDynamicModalDialog } from '../positronComponents/positronDynamicModalDialog/positronDynamicModalDialog.js';
+import { OneButtonFooter } from '../positronComponents/positronDynamicModalDialog/components/oneButtonFooter.js';
+import { TwoButtonFooter } from '../positronComponents/positronDynamicModalDialog/components/twoButtonFooter.js';
 import { LabeledFolderInput } from '../positronComponents/positronModalDialog/components/labeledFolderInput.js';
 
 /**
@@ -67,6 +74,25 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 	// Whether the folder name is the user's to maintain. Until they type one, it follows the
 	// repository URL; once they do, their name stands even as the URL keeps changing.
 	const [folderNameEdited, setFolderNameEdited] = useState(false);
+	// Whether Git can clone. Known right away in the common case, so the form shows with no
+	// checking state; otherwise checked once the Git extension has activated.
+	const [gitStatus, setGitStatus] = useState<GitStatus | 'checking'>(
+		() => getGitStatusNow(gitStatusServices(services)) ?? 'checking'
+	);
+
+	// Check the Git status when it was not known right away.
+	useEffect(() => {
+		if (gitStatus !== 'checking') {
+			return;
+		}
+		let disposed = false;
+		checkGitStatus(gitStatusServices(services)).then(status => {
+			if (!disposed) {
+				setGitStatus(status);
+			}
+		});
+		return () => { disposed = true; };
+	}, [gitStatus, services]);
 
 	// Validate the folder name against the parent folder it will be created in.
 	const validateFolderName = useCallback(async (name: string): Promise<string | undefined> => {
@@ -158,6 +184,11 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 		setResult(prevResult => ({ ...prevResult, parentFolder: parentFolderUri }));
 	};
 
+	// Until Git can clone, show why instead of the form.
+	if (gitStatus !== 'available') {
+		return <GitStatusModalDialog gitStatus={gitStatus} renderer={props.renderer} />;
+	}
+
 	// Render.
 	return (
 		<OKCancelModalDialog
@@ -182,7 +213,18 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 				}
 				// Dispose dialog immediately, then start cloning
 				props.renderer.dispose();
-				await props.createFolder(result);
+				try {
+					await props.createFolder(result);
+				} catch (err) {
+					// The Git extension reports clone failures itself, so this sees only a clone
+					// that never started. The dialog is gone, so notify instead, without the URL,
+					// which can contain credentials.
+					services.notificationService.error(localize(
+						'positron.gitCloneFailed',
+						"Could not clone the repository: {0}",
+						toErrorMessage(err)
+					));
+				}
 			}}
 			onCancel={() => props.renderer.dispose()}
 		>
@@ -224,6 +266,123 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 					onChanged={checked => setResult(prevResult => ({ ...prevResult, newWindow: checked }))} />
 			</VerticalSpacer>
 		</OKCancelModalDialog>
+	);
+};
+
+/**
+ * Gets the services the Git status checks read.
+ * @param services The Positron React services.
+ * @returns The services for checkGitStatus and getGitStatusNow.
+ */
+function gitStatusServices(services: PositronReactServices) {
+	return {
+		extensionService: services.extensionService,
+		commandRegistry: CommandsRegistry,
+		contextKeyService: services.contextKeyService,
+		configurationService: services.configurationService,
+	};
+}
+
+/**
+ * GitStatusModalDialogProps interface.
+ */
+interface GitStatusModalDialogProps {
+	renderer: PositronModalReactRenderer;
+	gitStatus: Exclude<GitStatus, 'available'> | 'checking';
+}
+
+/**
+ * Renders a localized message whose {0} placeholder is a setting name, with the setting name in
+ * code font.
+ * @param message The localized message, with its {0} placeholder left unformatted.
+ * @param setting The setting name.
+ * @returns The rendered message.
+ */
+const MessageWithSetting = ({ message, setting }: { message: string; setting: string }) => {
+	const [before, after] = message.split('{0}');
+	return <p>{before}<code>{setting}</code>{after}</p>;
+};
+
+/**
+ * GitStatusModalDialog component. Explains why Git cannot clone. The dialog blocks the rest of the
+ * window, so the user fixes the problem after closing it; the only fix it offers itself is opening
+ * the 'git.enabled' setting, which closes the dialog first.
+ * @param props The component properties.
+ * @returns The rendered component.
+ */
+const GitStatusModalDialog = (props: GitStatusModalDialogProps) => {
+	const services = usePositronReactServicesContext();
+
+	const close = () => props.renderer.dispose();
+	const okFooter = <OneButtonFooter buttonTitle={localize('positronOK', "OK")} onButton={close} />;
+
+	let content: ReactNode;
+	let footer: ReactNode;
+	switch (props.gitStatus) {
+		case 'checking':
+			content = <p>{localize('positron.gitChecking', "Checking for Git...")}</p>;
+			footer = <OneButtonFooter buttonTitle={localize('positronCancel', "Cancel")} onButton={close} />;
+			break;
+		case 'missing':
+			content = <>
+				<p className='git-status-heading'>{localize('positron.gitNotFound', "Git was not found.")}</p>
+				<MessageWithSetting
+					message={localize(
+						'positron.gitNotFoundDetail',
+						"To create a folder from a Git repository, install Git, then reload the window. If Git is installed in a location that Positron does not search, set the {0} setting."
+					)}
+					setting='git.path'
+				/>
+			</>;
+			footer = okFooter;
+			break;
+		case 'disabled':
+			content = <>
+				<p className='git-status-heading'>{localize('positron.gitTurnedOff', "Git is turned off.")}</p>
+				<MessageWithSetting
+					message={localize(
+						'positron.gitTurnedOffDetail',
+						"To create a folder from a Git repository, turn on the {0} setting."
+					)}
+					setting='git.enabled'
+				/>
+			</>;
+			footer = <TwoButtonFooter
+				primaryButtonTitle={localize('positron.gitOpenSettings', "Open Settings")}
+				secondaryButtonTitle={localize('positronCancel', "Cancel")}
+				onPrimaryButton={() => {
+					// Close the dialog first; it would otherwise cover the Settings editor.
+					close();
+					services.commandService.executeCommand('workbench.action.openSettings', 'git.enabled');
+				}}
+				onSecondaryButton={close}
+			/>;
+			break;
+		case 'notReady':
+			content = <>
+				<p className='git-status-heading'>{localize('positron.gitExtensionNotReady', "The Git extension is not ready.")}</p>
+				<p>{localize(
+					'positron.gitExtensionNotReadyDetail',
+					"Make sure that the built-in Git extension is enabled, then reload the window."
+				)}</p>
+			</>;
+			footer = okFooter;
+			break;
+	}
+
+	// Render.
+	return (
+		<PositronDynamicModalDialog
+			content={<div className='git-status'>{content}</div>}
+			footer={footer}
+			renderer={props.renderer}
+			title={localize(
+				'positronNewFolderFromGitModalDialogTitle',
+				"New Folder from Git"
+			)}
+			width={400}
+			onCancel={close}
+		/>
 	);
 };
 

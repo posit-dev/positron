@@ -7,7 +7,7 @@
 // terminal-run.sh wraps it.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, mod, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -16,11 +16,11 @@ import { names } from './selectors.ts';
  * after, or reads its text. Terminals in the panel and in the editor area are
  * xterm elements; only visible ones count, numbered left to right, then top to
  * bottom, without the sticky-scroll overlay (an xterm of its own). The text is
- * drawn on a canvas, so it is read through the Accessible View (Option+F2 on a
- * focused terminal), the same text a screen reader gets.
+ * drawn on a canvas, so it is read through the Accessible View (opened from the
+ * Command Palette on a focused terminal), the same text a screen reader gets.
  * runs in run-code
  */
-const terminal: PageFn<{ index: number; text: string; key: string; read: boolean; tail: number; wait: number }> = async (page, a, lib) => {
+const terminal: PageFn<{ index: number; text: string; key: string; read: boolean; tail: number; wait: number; mod: string }> = async (page, a, lib) => {
 	const all = page.locator(lib.css.terminal.visible).filter({ visible: true });
 	// Just brought forward, the terminal is drawn a moment later.
 	for (let i = 0; i < a.wait * 5 && !await all.count(); i++) { await lib.sleep(200); }
@@ -51,10 +51,22 @@ const terminal: PageFn<{ index: number; text: string; key: string; read: boolean
 		};
 		const read = async () => {
 			await input.focus().catch(() => { });
-			await page.keyboard.press('Alt+F2');
+			// From the Command Palette, which returns focus to the terminal before
+			// running it. Not by its key (Alt+F2, Shift+Alt+F2 on Linux): the
+			// command is not in the terminal's commandsToSkipShell, so xterm sends
+			// the key to the shell (a stray "Q" at the prompt) and nothing opens.
+			if (!await lib.openQuickInput(a.mod + '+Shift+p', '>' + lib.names.palette.openAccessibleView)) { return null; }
+			const p = await lib.pick({ exact: lib.names.palette.openAccessibleView });
+			if (!p.ok) { await lib.closeQuickInput(); return null; }
+			await lib.clickRow(p.row);
 			const view = page.locator(lib.css.terminal.accessibleView).filter({ visible: true }).first();
 			try { await view.waitFor({ timeout: 3000 }); } catch { return null; }
-			const text = (await view.innerText()).replace(/^Accessible View\n?/, '').replace(/\u00A0/g, ' ');
+			// The view is a Monaco editor, which reuses its line divs and places each
+			// by its top: DOM order is not line order, so read them sorted by top.
+			const text = (await view.evaluate((el, sel) => [...el.querySelectorAll<HTMLElement>(sel)]
+				.map(l => [parseFloat(l.style.top) || 0, l.textContent ?? ''] as const)
+				.sort((p, q) => p[0] - q[0])
+				.map(([, t]) => t).join('\n'), lib.css.monaco.drawnLine)).replace(/\u00A0/g, ' ');
 			// It closes when it loses focus; no Escape, which with a busy .qmd in front interrupts its kernel.
 			await lib.blur();
 			await view.waitFor({ state: 'hidden', timeout: 2000 }).catch(() => { });
@@ -74,7 +86,21 @@ const terminal: PageFn<{ index: number; text: string; key: string; read: boolean
 		return { ok: true, ...base, text: (a.tail ? lines.slice(-a.tail) : lines).join('\n'), ...(settled ? {} : { note: running(text) ? 'the last command shows no output after 5 s: it may still be running' : 'the text was still changing after 5 s; this is what it showed last' }) };
 	}
 	if (a.key) {
-		await page.keyboard.press(a.key);
+		// Playwright checks a key name only as it presses it: in Control+BackSpace
+		// it has pressed Control down before it rejects BackSpace, and leaves it
+		// down for every later key. Release what went down, and report the name.
+		try { await page.keyboard.press(a.key); } catch (e) {
+			const unknown = String((e as Error)?.message ?? e).match(/Unknown key: "(.*)"/)?.[1];
+			if (unknown === undefined) { throw e; }
+			// Playwright's own split: "+" ends a name unless it starts one ("Shift++").
+			const tokens: string[] = [];
+			let t = '';
+			for (const ch of a.key) { if (ch === '+' && t) { tokens.push(t); t = ''; } else { t += ch; } }
+			tokens.push(t);
+			const down = tokens.slice(0, Math.max(0, tokens.indexOf(unknown)));
+			for (const k of [...down].reverse()) { await page.keyboard.up(k).catch(() => { }); }
+			return { ok: false, ...base, sent: null, unknownKey: unknown, released: down };
+		}
 		if (!await focused()) { return { ok: false, ...base, sent: null, error: 'focus left the terminal; the key may have gone elsewhere' }; }
 		return { ok: true, ...base, sent: a.key };
 	}
@@ -91,6 +117,11 @@ const terminal: PageFn<{ index: number; text: string; key: string; read: boolean
 	return { ok: true, ...base, entered: true };
 };
 
+// For the hint after an unknown key name: Playwright's names that are often
+// written in another case (BackSpace, PAGEUP), and other programs' names for them.
+const keyNames = ['Backspace', 'Tab', 'Enter', 'Escape', 'Delete', 'Insert', 'Home', 'End', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Control', 'Shift', 'Alt', 'Meta', 'ControlOrMeta'];
+const keyAliases: Record<string, string> = { ctrl: 'Control', control_l: 'Control', cmd: 'Meta', command: 'Meta', super: 'Meta', option: 'Alt', esc: 'Escape', return: 'Enter', del: 'Delete', ins: 'Insert', up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', pgup: 'PageUp', pgdn: 'PageDown', prior: 'PageUp', next: 'PageDown', bksp: 'Backspace' };
+
 export const terminalCommands: Record<string, (argv: string[]) => Json | string> = {
 	'terminal-run': argv => {
 		const p = parse(argv, ['session', 'index', 'key', 'tail'], Infinity);
@@ -104,9 +135,14 @@ export const terminalCommands: Record<string, (argv: string[]) => Json | string>
 		if (p.rest.length > most) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(p.rest[most])}: ${most ? 'give the command as one quoted argument' : `--${read ? 'read' : 'key'} takes no command`}` }); }
 		if (!read && !key && p.rest[0] === 'read') { throw new Exit(2, { ok: false, error: 'to read the terminal pass --read; "read" alone is not typed into the shell' }); }
 		if (p.flags.tail !== undefined && !read) { throw new Exit(2, { ok: false, error: '--tail goes with --read' }); }
+		// Number() would turn "abc" into NaN and "0" into 0, both read below as
+		// "no --index" (terminal 1) or "no --tail" (every line), and a negative
+		// --tail into slice(N): refuse them instead.
+		if (p.flags.index !== undefined && !/^[1-9]\d*$/.test(String(p.flags.index))) { throw new Exit(2, { ok: false, error: `--index must be a terminal number from 1, not ${JSON.stringify(p.flags.index)}` }); }
+		if (p.flags.tail !== undefined && !/^\d+$/.test(String(p.flags.tail))) { throw new Exit(2, { ok: false, error: `--tail must be a whole number of lines (0 for all), not ${JSON.stringify(p.flags.tail)}` }); }
 		const text = read || key ? '' : (p.rest.length ? p.rest.join(' ') : readFileSync(0, 'utf8').replace(/\n$/, ''));
 		if (!read && !key && !text) { throw new Exit(2, { ok: false, error: 'empty input' }); }
-		const args = { index: Number(p.flags.index ?? 0), text, key, read, tail: Number(p.flags.tail ?? 0), wait: 0 };
+		const args = { index: Number(p.flags.index ?? 0), text, key, read, tail: Number(p.flags.tail ?? 0), wait: 0, mod };
 		let r = inPage(p.session, terminal, args);
 		// Another panel tab (the Console, after a console run) hides the terminals:
 		// bring the Terminal view forward, as console-run does the Console.
@@ -116,6 +152,12 @@ export const terminalCommands: Record<string, (argv: string[]) => Json | string>
 			r = { ...inPage(p.session, terminal, { ...args, wait: 3 }), broughtForward: names.palette.focusTerminal };
 		}
 		delete r.noTerminal;
+		if (r.unknownKey !== undefined) {
+			const bad = String(r.unknownKey), released = r.released as string[];
+			const fix = keyNames.find(k => k.toLowerCase() === bad.toLowerCase()) ?? keyAliases[bad.toLowerCase()];
+			const pressed = released.length ? `${released.join(' and ')} went down and up; nothing else was sent` : 'nothing was sent';
+			throw new Exit(2, { ok: false, index: r.index, visible: r.visible, sent: null, error: `${JSON.stringify(bad)} is not a Playwright key name${fix ? ` (try ${fix})` : ''}; ${pressed}. Names are case-sensitive, such as Backspace, Enter, Escape, ArrowUp, Control+c` });
+		}
 		if (r.ok && key) { log('terminal-run.sh', p.session, `key ${key} in terminal ${r.index}`); }
 		if (r.ok && text) { log('terminal-run.sh', p.session, text.split('\n')[0].slice(0, 200)); }
 		return r;

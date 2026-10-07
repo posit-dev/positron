@@ -85,6 +85,14 @@ and the cases those stand on. `--keep` leaves the instance running and prints
 the `stop.sh` line; arguments after `--` go to the app (CI passes
 `--no-sandbox` and software-GL flags).
 
+Each `// ----` section of `cases` is a group in `groups`, with a setup that
+builds what its cases need from earlier sections (an R session, a defined
+function, an open file). `--until NAME` runs NAME's group: its setup (printed
+as `setup: ...`), then its cases through NAME, about 2.5 minutes at most.
+`--from-start` with it replays every case through NAME instead, for a failure
+that needs an earlier section's state. The full run goes through the groups in
+order and skips the setups.
+
 ```
 PASS   1830 ms  start-session r
 FAIL    912 ms  de-read cars.csv
@@ -146,19 +154,16 @@ passes every run (some known failures are timing races that pass now and then).
    bounded wait in the helper; the line shows the tries). Add at least one
    failure case, with the helper's shortest timeout where it takes one: the
    point is that it fails loudly, not how long it waits. Mark the helper's
-   happy path `quick: true`, and any case it stands on.
+   happy path `quick: true`, and any case it stands on. A case that needs
+   state from an earlier section needs it in its group's setup too: check
+   with `smoke.ts --until "<the section's last case>"`.
 3. If the command needs content, add it to `fixture/` (an R and a Python file,
    a `.qmd`, an `.ipynb`, a CSV) and assert on a value only that content has.
 
 ## In CI
 
-`.github/workflows/drive-positron.yml`, both jobs warn-only:
-
-- **drift**: on a PR that touches UI source (Positron's `src/` areas,
-  `extensions/positron-*`, the upstream UI the registry reads) or this skill.
-  Runs drift.ts with no install, lists MISSING entries in the job summary and
-  as warnings on `selectors.ts`; when the PR changes this skill it also
-  installs the root dependencies and runs check.ts.
-- **smoke**: nightly on main (03:30 UTC, Mon-Fri), or a manual run. Builds
-  Positron as `test-e2e-ubuntu.yml` does, in the same image, adds Quarto, and
-  runs smoke.ts.
+`.github/workflows/drive-positron-nightly.yml` builds Positron as
+`test-e2e-ubuntu.yml` does, in the same image, adds Quarto, and runs smoke.ts
+every weekday night (03:30 UTC) or on a manual run, then fixes the helper bugs
+it finds (see [../heal/README.md](../heal/README.md)). Drift is not checked on
+PRs; run drift.ts locally after renaming UI that the registry reads.

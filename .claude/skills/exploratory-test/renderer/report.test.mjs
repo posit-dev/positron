@@ -1278,8 +1278,8 @@ test('renderReportHtml leaves out collapsed rows with nothing in them', () => {
 test('renderReportHtml shows only errors with a stack, and links frames at the commit', () => {
 	const c = card(renderReportHtml(RICH), 1);
 	// A log beside the report opens from its path; the line stays in the text.
-	assert.match(c, /<a href="logs\/app\.log" class="log-link err-src" title="Open the full log"[^>]*>logs\/app\.log<\/a><span title="Logged by Positron\u2019s renderer process \(the UI\)[^"]*">Renderer process<\/span><span>Logged <span class="n-x">2x<\/span> \(after each Retry\)<\/span>/);
-	assert.match(c, /<div class="err-msg">Error: get_column_profiles timed out after 10 seconds<\/div>/);
+	assert.match(c, /<a href="logs\/app\.log" class="log-link" title="Open the full log"[^>]*>logs\/app\.log<\/a><span title="Logged by Positron\u2019s renderer process \(the UI\)[^"]*">Renderer process<\/span><span>Logged <span class="n-x">2x<\/span> \(after each Retry\)<\/span>/);
+	assert.match(c, /<span class="ev-err">Error: get_column_profiles timed out after 10 seconds<\/span>/);
 	assert.match(c, /at Client\.getColumnProfiles \(<a class="err-loc" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/abc1234\/src\/vs\/client\.ts#L212" title="src\/vs\/client\.ts"[^>]*>client\.ts:212<\/a>\)/);
 	// An absolute path is not in the repo, so it is shown but not linked.
 	assert.match(c, /at <span class="err-loc" title="\/abs\/out\/cache\.js">cache\.js:538<\/span>/);
@@ -1301,7 +1301,7 @@ test('renderReportHtml shows a Python traceback as frames, and links only the re
 		'```',
 	].join('\n'))), 1);
 	assert.match(c, /Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">4x<\/span><\/span>/);
-	assert.match(c, /<div class="err-msg">\[positron\.data_explorer\] ERROR \| invalid series dtype<\/div>/);
+	assert.match(c, /<span class="ev-err">\[positron\.data_explorer\] ERROR \| invalid series dtype<\/span>/);
 	assert.match(c, /at _polars_summarize_string \(<a class="err-loc" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/[0-9a-f]+\/extensions\/positron-python\/python_files\/posit\/positron\/data_explorer\.py#L2139"[^>]*>data_explorer\.py:2139<\/a>\)/);
 	// An installed package is not in the repo, so its frame is not linked.
 	assert.match(c, /at wrapper \(<span class="err-loc" title="\.venv\/lib\/python3\.14\/site-packages\/polars\/series\/utils\.py">utils\.py:104<\/span>\)/);
@@ -1404,9 +1404,55 @@ test('renderReportHtml puts a step\'s screenshots on its icon, and keeps the Evi
 	const evidence = /<details class="lc ev">[\s\S]*?<\/details>/.exec(c)[0];
 	assert.doesNotMatch(evidence, /<img|<a class="shot|screenshot/i);
 	assert.doesNotMatch(c, /c\.png"/);
-	assert.match(evidence, /<div class="ev-log"><a href="logs\/app\.log"[^>]*>logs\/app\.log<\/a> <span class="ev-sep" aria-hidden="true">&middot;<\/span> <span class="ev-quote">timed out<\/span> <span class="ev-note">\(Twice\)<\/span><\/div>/);
+	// The log line as logged, without the note after it.
+	assert.match(evidence, /<div class="ev-snip"><div class="ev-snip-h"><a href="logs\/app\.log"[^>]*>logs\/app\.log<\/a><\/div><div class="ev-snip-b">timed out<\/div><\/div>/);
+	assert.doesNotMatch(evidence, /[Tt]wice/);
 	const text = promptText(html, 1);
 	assert.match(text, /### Evidence\n- https:\/\/cdn\.example\/shots\/a\.png — Step 2: The notice\n- https:\/\/cdn\.example\/shots\/b\.png — Step 3: After Retry\n- https:\/\/cdn\.example\/shots\/c\.png — Variant: Five columns\n- \/runs\/r1\/logs\/app\.log/);
+});
+
+function evidenceRow(lines) {
+	const c = card(renderReportHtml(md([
+		'## Findings', '', '| # | Finding | Severity |', '|---|---|---|', '| 1 | a claim | minor |', '',
+		'### Finding 1: a claim', '', '**Observed:** it broke.', '', '**Evidence**', '', ...lines,
+	].join('\n'))), 1);
+	return /<details class="lc ev">[\s\S]*?<\/details>/.exec(c)?.[0] ?? '';
+}
+
+test('Evidence: a log line is a header over the line as logged, with its value highlighted', () => {
+	const ev = evidenceRow(['- `logs/36561-python-language-pack.log:1489` | Extension host | 00:18:39 -- "2026-10-06 00:18:39.958 [debug] env change ==/tmp/w/.venv/bin/python== remove"']);
+	assert.match(ev, /Evidence<span class="lc-tail"> &middot; 1 log line<\/span>/);
+	assert.match(ev, /<div class="ev-snip-h"><a href="logs\/36561-python-language-pack\.log"[^>]*>logs\/36561-python-language-pack\.log:1489<\/a><span title="Logged by the extension host[^"]*">Extension host<\/span><span>00:18:39<\/span><\/div>/);
+	assert.match(ev, /<div class="ev-snip-b">2026-10-06 00:18:39\.958 \[debug\] env change <mark>\/tmp\/w\/\.venv\/bin\/python<\/mark> remove<\/div>/);
+});
+
+test('Evidence: a bare log line takes its process from the file name and its time from the line', () => {
+	const ev = evidenceRow(['- `logs/44987-exthost.log` -- "2026-10-06 00:18:39.958 [info] started"']);
+	assert.match(ev, /<span title="Logged by the extension host[^"]*">Extension host<\/span><span>00:18:39<\/span>/);
+});
+
+test('Evidence: several log lines go in a code block under the bullet, one per line', () => {
+	const ev = evidenceRow(['- `logs/1-renderer.log:10` | 00:00:01', '  ```', '  first line', '    second "line"', '  ```']);
+	assert.match(ev, /Evidence<span class="lc-tail"> &middot; 2 log lines<\/span>/);
+	assert.match(ev, />Renderer process<\/span><span>00:00:01<\/span>/);
+	assert.match(ev, /<div class="ev-snip-b">first line\n {2}second &quot;line&quot;<\/div>/);
+});
+
+test('Evidence: a line that was not logged is a dashed block with the window searched', () => {
+	const ev = evidenceRow([
+		'- `logs/1-exthost.log:5` | Extension host | 00:18:39 -- "env change /x remove"',
+		'- **Not logged** -- `logs/1-exthost.log` | 00:18:39-00:19:24 -- "env change /x add"',
+	]);
+	assert.match(ev, /Evidence<span class="lc-tail"> &middot; 1 log line, 1 missing<\/span>/);
+	assert.match(ev, /<div class="ev-snip ev-miss"><div class="ev-snip-h"><span class="ev-miss-k">Not logged<\/span><a href="logs\/1-exthost\.log"[^>]*>logs\/1-exthost\.log<\/a><span>00:18:39-00:19:24<\/span><\/div><div class="ev-snip-b">env change \/x add<\/div><\/div>/);
+});
+
+test('Evidence: notes and the agent\'s own files stay out of the row', () => {
+	assert.equal(evidenceRow([
+		'- so nothing resolved the new path',
+		'- `actions.log:12` -- "2026-10-06T00:18:39Z click failed"',
+		'- `logs/S03-later.txt` -- "saved"',
+	]), '');
 });
 
 test('parseReport keeps the step of a shot the finding also embeds', () => {
@@ -1843,7 +1889,7 @@ test('logs: the ledger reads its Logs section and a Log field with the stack und
 
 test('logs: the Evidence row links the log by path, with the line only in the text', () => {
 	const c = card(logsHtml(), 1);
-	assert.match(c, /<a href="logs\/44987-app\.log" class="log-link err-src" title="Open the full log"[^>]*>logs\/44987-app\.log:1182<\/a><span title="Logged by Positron\u2019s renderer process \(the UI\)[^"]*">Renderer process<\/span><span>Logged <span class="n-x">2x<\/span> \(after each Retry\)<\/span>/);
+	assert.match(c, /<a href="logs\/44987-app\.log" class="log-link" title="Open the full log"[^>]*>logs\/44987-app\.log:1182<\/a><span title="Logged by Positron\u2019s renderer process \(the UI\)[^"]*">Renderer process<\/span><span>Logged <span class="n-x">2x<\/span> \(after each Retry\)<\/span>/);
 	const hrefs = [...logsHtml().matchAll(/href="(logs\/[^"]*)"/g)].map(m => m[1]);
 	assert.ok(hrefs.length > 0);
 	for (const href of hrefs) {
@@ -2050,6 +2096,14 @@ const logsRead = p => {
 };
 const logsIssueHtml = (options = {}) => logsHtml({ base: 'https://cdn.example/run1', readFile: logsRead, ...options });
 
+test('a lone ~ means "about", on the card and in the issue; only ~~ strikes through', () => {
+	const md = FULL.replace('**Cause (hypothesis):** the timeout was cut to 10 s.', '**Cause (hypothesis):** `run()` (~L12-40) calls `wait()` (~L80), and `y ~ x` is ~~not~~ fine.');
+	const html = renderReportHtml(md);
+	const card = html.split('<article id="f1"')[1].split('</article>')[0];
+	assert.match(card, /\(~L12-40\) calls <code>wait\(\)<\/code> \(~L80\), and <code>y ~ x<\/code> is <del>not<\/del> fine/);
+	assert.match(issueCopied(html, 1), /\(\\~L12-40\) calls `wait\(\)` \(\\~L80\), and `y ~ x` is ~~not~~ fine/);
+});
+
 test('issue: one button per card, directly before Copy prompt', () => {
 	for (const html of [renderReportHtml(FULL), logsIssueHtml()]) {
 		for (const card of html.split('<article id="f').slice(1)) {
@@ -2121,10 +2175,8 @@ test('issue: the body follows the template and leaves out what triage sets', () 
 		'**Positron and OS:**  ',
 		'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)  ',
 		'Ubuntu 22.04, Linux x64',
-		'',
-		'**Session:**  ',
-		'Python 3.10.12 with pandas, polars, duckdb and pyarrow',
 	].join('\n')));
+	assert.doesNotMatch(body, /\*\*Session:/);
 	assert.doesNotMatch(body, /Code - OSS|Please investigate|### Context|!\[|Severity|Status:|Reproduced|Major|Coverage/i);
 	assert.match(body, /^- `slow\.py` \(below\) loaded/m);
 	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
@@ -2177,6 +2229,24 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 1).searchParams.get('title'), `data explorer: ${card[0].toLowerCase()}${card.slice(1)}`);
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
+});
+test('issue: an opening describes the issue but stays off the card, and the run\'s own steps reproduce it', () => {
+	const opening = [
+		'**Summary:** When you open a slow column, its summary never loads.',
+		'',
+		'**Where:** polars only; R was not checked.',
+	].join('\n');
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n${opening}`);
+	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const body = issueCopied(html, 1);
+	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]), ['System details', 'Describe the issue', 'Steps to reproduce', 'Observed', 'Expected', 'Error messages', 'Evidence']);
+	assert.ok(body.includes(['## Describe the issue', 'When you open a slow column, its summary never loads.', '', 'polars only; R was not checked.', '', '## Steps to reproduce'].join('\n')));
+	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
+	assert.doesNotMatch(body, /What the run did/);
+	assert.match(card(html, 1), /<\/h2><\/header>\s*<div class="f-cmp /);
+	assert.doesNotMatch(card(html, 1).split('</header>')[1], /open a slow column|R was not checked|\*\*Summary/);
+	// A finding without an opening keeps the template.
+	assert.match(issueCopied(html, 2), /## Observed\n/);
 });
 test('an older report\'s Impact line and column show nowhere: not on the card, the issue or the prompt', () => {
 	const impact = 'The only way to get the summaries back is to reopen the Data Explorer.';

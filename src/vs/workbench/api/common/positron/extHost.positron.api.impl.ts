@@ -118,7 +118,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer, sessionId, documentUri, executionMetadata, attributionMetadata);
 			},
 			evaluateCode(languageId: string, code: string, cancellationToken?: vscode.CancellationToken, sessionId?: string, whenBusy?: positron.RuntimeBusyBehavior): Thenable<positron.EvalResult> {
-				return extHostLanguageRuntime.evaluateCode(languageId, code, cancellationToken, sessionId, whenBusy);
+				const extensionId = extension.identifier.value;
+				return extHostLanguageRuntime.evaluateCode(languageId, code, extensionId, cancellationToken, sessionId, whenBusy);
 			},
 			executeInlineCell(documentUri, ranges, executionMetadata?): Thenable<void> {
 				const extensionId = extension.identifier.value;
@@ -148,7 +149,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostLanguageRuntime.getNotebookSession(notebookUri);
 			},
 			selectLanguageRuntime(runtimeId: string): Thenable<void> {
-				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId);
+				return extHostLanguageRuntime.selectLanguageRuntime(runtimeId, extension.identifier.value);
 			},
 			startLanguageRuntime(runtimeId: string,
 				sessionName: string,
@@ -165,13 +166,14 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 					sessionName,
 					sessionMode,
 					notebookUri,
+					extension.identifier.value,
 					options);
 			},
 			interruptSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.interruptSession(sessionId);
 			},
 			restartSession(sessionId: string): Thenable<boolean> {
-				return extHostLanguageRuntime.restartSession(sessionId);
+				return extHostLanguageRuntime.restartSession(sessionId, extension.identifier.value);
 			},
 			focusSession(sessionId: string): void {
 				return extHostLanguageRuntime.focusSession(sessionId);
@@ -370,6 +372,35 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			connect(driverId: string, mechanismId: string, parameters: positron.DataConnectionParameterValues): Thenable<positron.DataConnection> {
 				return extHostDataConnections.connect(driverId, mechanismId, parameters);
 			},
+
+			/**
+			 * Returns the connections the user has configured, whether or not they are connected.
+			 * These are the user's own connections, not ones this extension opened.
+			 */
+			/**
+			 * Opens the user's connection for a profile, if it is not already open. Reports whether
+			 * it is now open; rejects when opening was attempted and failed.
+			 */
+			openConnection(profileId: string): Thenable<boolean> {
+				return extHostDataConnections.openConnection(profileId);
+			},
+
+			getConnections(): Thenable<positron.DataConnectionSummary[]> {
+				return extHostDataConnections.getConnections();
+			},
+
+			/**
+			 * Reads the tables and columns a live connection exposes, bounded by `options`.
+			 * @param profileId The connection to read.
+			 * @param options Bounds for the walk.
+			 * @returns The schema, or undefined if the connection is not currently connected.
+			 */
+			getSchema(profileId: string, options?: positron.DataConnectionSchemaOptions): Thenable<positron.DataConnectionSchema | undefined> {
+				return extHostDataConnections.getSchema(profileId, options);
+			},
+
+			/** Fires when the user's connections change. */
+			onDidChangeConnections: extHostDataConnections.onDidChangeConnections,
 		};
 
 		const dataExplorer: typeof positron.dataExplorer = {

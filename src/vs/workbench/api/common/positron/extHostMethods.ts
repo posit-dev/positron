@@ -176,7 +176,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						params.code as string,
 						extensionId,
 						params.focus as boolean,
-						params.allow_incomplete as boolean);
+						params.allow_incomplete as boolean,
+						callerSessionId);
 					break;
 				}
 				case UiFrontendRequest.EvaluateWhenClause: {
@@ -386,13 +387,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return result;
 	}
 
-	async executeCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean): Promise<Record<string, any>> {
+	async executeCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean, callerSessionId?: string): Promise<Record<string, any>> {
 		// This is the frontend method behind `sendToConsole`. Queue the code and
 		// return once it has been accepted; don't wait for it to finish running,
 		// since it runs in the same session that requested it and that session
 		// stays busy until this call returns. Errors from queuing (e.g. the
 		// interpreter failed to start) still propagate back to the caller.
-		await this.runtime.queueCode(languageId, code, extensionId, focus, allowIncomplete);
+		await this.runtime.queueCode(languageId, code, extensionId, focus, allowIncomplete, callerSessionId);
 		return {};
 	}
 

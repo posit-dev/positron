@@ -272,13 +272,6 @@ jobs:
           BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          {
-            echo "diff_stat<<DIFFEOF"
-            # Full paths: the default width elides the src/ or test/ prefix
-            # the gate most needs to see.
-            git --no-pager diff "$BASE"...HEAD --stat=1000
-            echo "DIFFEOF"
-          } >> "$GITHUB_OUTPUT"
 
       # A blocker such as an unmerged companion PR is often named only in the
       # description. Best effort: no PR, or a failed lookup, writes no file and
@@ -316,7 +309,6 @@ jobs:
         with:
           mode: gate
           anthropic-api-key: ${{ env.ANTHROPIC_KEY }}
-          diff-stat: ${{ steps.base.outputs.diff_stat }}
           pr-body-file: ${{ steps.pr-body.outputs.file }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
@@ -520,11 +512,6 @@ jobs:
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "Diff base: $BASE (origin/$BASE_REF)"
-          {
-            echo "diff_stat<<DIFFEOF"
-            git --no-pager diff "$BASE"...HEAD --stat=1000
-            echo "DIFFEOF"
-          } >> "$GITHUB_OUTPUT"
 
       # A dispatched run has no PR in its event. Find the ref's open PR so the
       # summary and report can link it; none found just means no link.
@@ -773,7 +760,6 @@ jobs:
           work-dir: ${{ env.EXPLORE_DIR }}
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
-          diff-stat: ${{ steps.base.outputs.diff_stat }}
           base-sha: ${{ steps.base.outputs.base }}
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}

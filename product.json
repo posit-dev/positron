@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.6.1",
-			"sha256": "88f2ed1a29421435693b8b9b15725e53f9acdd6181571dbd5effe6d674d313b0",
+			"version": "1.7.0",
+			"sha256": "53d44aaa72a5a3824c6475cffb3bc36fc7eba6b7578dbc3222b93ed238d2b5ab",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -343,7 +343,8 @@
 		"https://support.posit.co",
 		"https://*.cloud.databricks.com",
 		"https://*.azuredatabricks.net",
-		"https://*.gcp.databricks.com"
+		"https://*.gcp.databricks.com",
+		"https://oidc.*.amazonaws.com"
 	],
 	"defaultChatAgent": {
 		"extensionId": "GitHub.copilot-chat",

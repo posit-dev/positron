@@ -1784,9 +1784,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * in the same session that requested it, so waiting for completion (as
 	 * `executeCode` does) would deadlock that session, which stays busy until the
 	 * request returns.
+	 *
+	 * `callerSessionId` identifies the kernel session that sent the code, if
+	 * any, so the code is not credited to the extension that relayed it.
 	 */
-	public async queueCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean): Promise<void> {
-		await this._proxy.$executeCode(languageId, extensionId, undefined, code, focus, allowIncomplete);
+	public async queueCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean, callerSessionId?: string): Promise<void> {
+		await this._proxy.$executeCode(languageId, extensionId, undefined, code, focus, allowIncomplete,
+			undefined, undefined, undefined, undefined, undefined, undefined, callerSessionId);
 	}
 
 	/**
@@ -1794,6 +1798,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 *
 	 * @param languageId The language ID to evaluate in
 	 * @param code The code to evaluate
+	 * @param extensionId The ID of the extension that requested the evaluation
 	 * @param token An optional cancellation token
 	 * @param sessionId An optional session ID to target
 	 * @returns A promise that resolves with the evaluation result
@@ -1801,13 +1806,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public evaluateCode(
 		languageId: string,
 		code: string,
+		extensionId: string,
 		token?: CancellationToken,
 		sessionId?: string,
 		whenBusy?: RuntimeBusyBehavior
 	): Promise<EvalResult> {
 		const evaluationId = generateUuid();
 
-		const promise = this._proxy.$evaluateCode(languageId, sessionId, code, evaluationId, whenBusy);
+		const promise = this._proxy.$evaluateCode(languageId, extensionId, sessionId, code, evaluationId, whenBusy);
 
 		// If a cancellation token is provided, register a listener to cancel
 		// the evaluation when the token fires
@@ -1853,9 +1859,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Selects and starts a language runtime.
 	 *
 	 * @param runtimeId The runtime ID to select and start.
+	 * @param requestingExtensionId The ID of the extension making the request.
 	 */
-	public selectLanguageRuntime(runtimeId: string): Promise<void> {
-		return this._proxy.$selectLanguageRuntime(runtimeId);
+	public selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void> {
+		return this._proxy.$selectLanguageRuntime(runtimeId, requestingExtensionId);
 	}
 
 	/**
@@ -1865,6 +1872,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * @param sessionName A human-readable name for the new session.
 	 * @param sessionMode The mode in which the session is to be run.
 	 * @param notebookUri The URI of the notebook document, if in notebook mode.
+	 * @param requestingExtensionId The ID of the extension making the request.
 	 *
 	 * Returns a Thenable that resolves with the newly created session, or
 	 * rejects with an error.
@@ -1873,11 +1881,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
+		requestingExtensionId: string,
 		options?: positron.RuntimeSessionStartOptions): Promise<positron.LanguageRuntimeSession> {
 
 		// Start the runtime and get the session ID
 		const sessionId =
-			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, options);
+			await this._proxy.$startLanguageRuntime(runtimeId, sessionName, sessionMode, notebookUri, requestingExtensionId, options);
 
 		// The process of starting a session in Positron should have caused the
 		// runtime to be registered with the extension host, so we should be able
@@ -1894,9 +1903,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	 * Restarts an active session.
 	 *
 	 * @param sessionId The session ID to restart.
+	 * @param requestingExtensionId The ID of the extension that requested the restart.
 	 */
-	public restartSession(sessionId: string): Promise<boolean> {
-		return this._proxy.$restartSession(sessionId);
+	public restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean> {
+		return this._proxy.$restartSession(sessionId, requestingExtensionId);
 	}
 
 	/**
