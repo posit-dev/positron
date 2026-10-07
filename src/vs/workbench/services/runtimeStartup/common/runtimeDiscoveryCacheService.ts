@@ -206,9 +206,10 @@ export interface IRuntimeDiscoveryCache {
 	 * the entry is rejected and the method returns `undefined`. Also rejects
 	 * runtimes that have not opted in (`metadata.cacheable !== true`).
 	 *
-	 * Updates `firstSeen` to now if no prior entry exists for the same
-	 * `runtimePath`; otherwise preserves the existing `firstSeen` and refreshes
-	 * `lastValidated` and the fingerprint.
+	 * Sets `firstSeen` to now if no prior entry exists for the same
+	 * `runtimePath`, or the prior entry is past the max-age cap; otherwise
+	 * preserves the existing `firstSeen`. Always refreshes `lastValidated` and
+	 * the fingerprint.
 	 */
 	upsert(metadata: ILanguageRuntimeMetadata): Promise<ICachedRuntime | undefined>;
 

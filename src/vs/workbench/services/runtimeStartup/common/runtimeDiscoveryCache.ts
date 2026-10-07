@@ -253,12 +253,15 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			bucket = { entries: new Map(), lastFullDiscovery: 0, discoveryRootSignature: undefined };
 			this._buckets.set(key, bucket);
 		}
+		// An expired entry is hidden from every read, so treat it as absent
+		// here too: a re-found runtime starts a new max-age window.
 		const existing = bucket.entries.get(metadata.runtimePath);
+		const keepFirstSeen = existing !== undefined && existing.firstSeen >= this._maxAgeCutoff();
 		const entry: ICachedRuntime = {
 			metadata,
 			fingerprint: probed.fingerprint,
 			resolvedPath: probed.resolvedPath,
-			firstSeen: existing?.firstSeen ?? now,
+			firstSeen: keepFirstSeen ? existing.firstSeen : now,
 			lastValidated: now,
 		};
 		bucket.entries.set(metadata.runtimePath, entry);
@@ -363,10 +366,15 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 
 	// --- Internals ----------------------------------------------------------
 
-	private _freshEntries(bucket: IInternalBucket): ICachedRuntime[] {
+	/** Entries whose `firstSeen` is older than this have expired. */
+	private _maxAgeCutoff(): number {
 		const days = this._configurationService.getValue<number>(RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_SETTING)
 			?? RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT;
-		const cutoff = Date.now() - days * MS_PER_DAY;
+		return Date.now() - days * MS_PER_DAY;
+	}
+
+	private _freshEntries(bucket: IInternalBucket): ICachedRuntime[] {
+		const cutoff = this._maxAgeCutoff();
 		const out: ICachedRuntime[] = [];
 		for (const entry of bucket.entries.values()) {
 			if (entry.firstSeen >= cutoff) {

@@ -173,9 +173,15 @@ describe('RuntimeDiscoveryCache', () => {
 			expect(first).toBeDefined();
 			const firstSeen = first!.firstSeen;
 
-			const second = await cache.upsert(metadata({ runtimePath: PY_PATH }));
-			expect(second?.firstSeen).toBe(firstSeen);
-			expect(second?.lastValidated).toBeGreaterThanOrEqual(firstSeen);
+			vi.useFakeTimers();
+			vi.setSystemTime(firstSeen + 60 * 60 * 1000);
+			try {
+				const second = await cache.upsert(metadata({ runtimePath: PY_PATH }));
+				expect(second?.firstSeen).toBe(firstSeen);
+				expect(second?.lastValidated).toBe(firstSeen + 60 * 60 * 1000);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 
@@ -274,6 +280,20 @@ describe('RuntimeDiscoveryCache', () => {
 			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
 			try {
 				expect(cache.getEntries('ms.python', 'python')).toEqual([]);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('makes an expired entry fresh again when discovery re-finds it', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH }));
+
+			vi.useFakeTimers();
+			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
+			try {
+				await cache.upsert(metadata({ runtimePath: PY_PATH }));
+				expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
 			} finally {
 				vi.useRealTimers();
 			}
