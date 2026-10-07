@@ -41,12 +41,7 @@ import {
 import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 
 // --- Start Positron ---
-// eslint-disable-next-line import/no-duplicates
-import { RelativePattern, WorkspaceFolder } from 'vscode';
-// eslint-disable-next-line import/no-duplicates
-import { sleep } from '../common/utils/async';
-// eslint-disable-next-line import/no-duplicates
-import { createFileSystemWatcher } from '../common/vscodeApis/workspaceApis';
+import { RecreatedEnvWatcher } from './recreatedEnvWatcher';
 import { getUvDirs, isUvEnvironment, isUvManagedBasePython } from './common/environmentManagers/uv';
 import { isCustomEnvironment, isPythonStartupDisabled } from '../positron/interpreterSettings';
 import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
@@ -838,6 +833,9 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 e.added.forEach((wf) => watcher.watchWorkspace(wf));
             }),
             watcher,
+            // --- Start Positron ---
+            this._recreatedEnvWatcher,
+            // --- End Positron ---
         );
 
         getWorkspaceFolders()?.forEach((wf) => watcher.watchWorkspace(wf));
@@ -889,73 +887,21 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 .filter((env) => isParentPath(env.executable.filename, e.executable))
                 .forEach((env) => {
                     this.removeEnv(env);
-                    this.watchForRecreatedEnv(env.executable.filename, e.workspaceFolder);
+                    this._recreatedEnvWatcher.watch(env.executable.filename, e.workspaceFolder);
                 });
             // --- End Positron ---
         }
     }
 
     // --- Start Positron ---
-    private readonly _recreatedEnvWatchers = new Map<string, Disposable>();
-
-    /**
-     * Watch for a removed workspace env to come back, e.g. `.venv` deleted and
-     * recreated. On Linux the file watcher only reports the new `.venv` folder,
-     * not the files created inside it, so the workspace executable watcher never
-     * sees the new executable. Watch each folder between the workspace and the
-     * executable, and look the executable up once one of them is created.
-     */
-    private watchForRecreatedEnv(executable: string, workspaceFolder: WorkspaceFolder): void {
-        if (this._recreatedEnvWatchers.has(executable)) {
-            return;
+    // Watches for a removed workspace env to come back; see RecreatedEnvWatcher.
+    private readonly _recreatedEnvWatcher = new RecreatedEnvWatcher(async (executable, workspaceFolder) => {
+        const native = await this.finder.resolve(executable).catch(() => undefined);
+        if (native === undefined) {
+            return false;
         }
-
-        const watchers: Disposable[] = [];
-        const stop = () => {
-            watchers.forEach((d) => d.dispose());
-            this._recreatedEnvWatchers.delete(executable);
-        };
-        let checking = false;
-        const onFolderCreated = async () => {
-            if (checking) {
-                return;
-            }
-            checking = true;
-            try {
-                // The executable can lag its folder by a moment while the venv is written,
-                // and PET can fail on a half-written venv. Keep the watchers until the env is
-                // added, so a later folder creation tries again.
-                for (let attempt = 0; attempt < 10; attempt += 1) {
-                    if (await pathExists(executable)) {
-                        const native = await this.finder.resolve(executable).catch(() => undefined);
-                        if (native && (await this.addEnv(native, workspaceFolder.uri))) {
-                            stop();
-                            traceVerbose(`[watchForRecreatedEnv] ${executable} was recreated`);
-                            return;
-                        }
-                    }
-                    await sleep(200);
-                }
-            } finally {
-                checking = false;
-            }
-        };
-
-        const root = workspaceFolder.uri.fsPath;
-        let dir = path.dirname(executable);
-        while (isParentPath(dir, root) && !arePathsSame(dir, root)) {
-            const watcher = createFileSystemWatcher(
-                new RelativePattern(path.dirname(dir), path.basename(dir)),
-                false,
-                true,
-                true,
-            );
-            watchers.push(watcher, watcher.onDidCreate(onFolderCreated));
-            dir = path.dirname(dir);
-        }
-        this._recreatedEnvWatchers.set(executable, { dispose: stop });
-        this._disposables.push({ dispose: stop });
-    }
+        return (await this.addEnv(native, workspaceFolder.uri)) !== undefined;
+    });
     // --- End Positron ---
 }
 
