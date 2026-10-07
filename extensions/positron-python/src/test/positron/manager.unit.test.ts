@@ -1031,6 +1031,63 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         );
     });
 
+    test('interpreter deletion: a delete reported after the env is back keeps sessions on its new runtime', async () => {
+        // Delete and Recreate with another Python, with the delete delivered after the new
+        // session started: only the session on the old runtime is shut down.
+        const venvPath = '/path/to/.venv/bin/python';
+        sinon.stub(fs, 'pathExists').withArgs(venvPath).resolves(true);
+        const currentRuntime = { runtimeId: 'python-3.11', extraRuntimeData: { pythonPath: venvPath } } as any;
+        pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, currentRuntime);
+        const registerStub = sinon
+            .stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath')
+            .resolves(currentRuntime);
+        const staleShutdown = sinon.stub().resolves();
+        const newShutdown = sinon.stub().resolves();
+        getActiveSessionsImpl = async () => [
+            createFakePythonSession({ pythonPath: venvPath }, staleShutdown, 'python-3.12'),
+            createFakePythonSession({ pythonPath: venvPath }, newShutdown, 'python-3.11'),
+        ];
+
+        onDidChangeInterpretersEmitter.fire({ old: { path: venvPath } as any, new: undefined });
+        await new Promise((r) => setTimeout(r, 0));
+
+        sinon.assert.calledOnceWithExactly(registerStub, venvPath, false, true);
+        assert.deepStrictEqual(
+            {
+                staleShutdowns: staleShutdown.callCount,
+                newShutdowns: newShutdown.callCount,
+                stillRegistered: pythonRuntimeManager.registeredPythonRuntimes.has(venvPath),
+            },
+            { staleShutdowns: 1, newShutdowns: 0, stillRegistered: true },
+        );
+    });
+
+    test('interpreter deletion: a path that is back but cannot be resolved is treated as deleted', async () => {
+        // A half-written venv: the executable exists but does not resolve yet.
+        const venvPath = '/path/to/.venv/bin/python';
+        sinon.stub(fs, 'pathExists').withArgs(venvPath).resolves(true);
+        pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, {
+            runtimeId: 'python-3.12',
+            extraRuntimeData: { pythonPath: venvPath },
+        } as any);
+        sinon.stub(pythonRuntimeManager, 'registerLanguageRuntimeFromPath').resolves(undefined);
+        const shutdown = sinon.stub().resolves();
+        getActiveSessionsImpl = async () => [
+            createFakePythonSession({ pythonPath: venvPath }, shutdown, 'python-3.12'),
+        ];
+
+        onDidChangeInterpretersEmitter.fire({ old: { path: venvPath } as any, new: undefined });
+        await new Promise((r) => setTimeout(r, 0));
+
+        assert.deepStrictEqual(
+            {
+                shutdowns: shutdown.callCount,
+                stillRegistered: pythonRuntimeManager.registeredPythonRuntimes.has(venvPath),
+            },
+            { shutdowns: 1, stillRegistered: false },
+        );
+    });
+
     test('interpreter deletion: skips sessions that have exited', async () => {
         // Create Environment > Delete and Recreate can shut down a session the
         // watcher already shut down; a shutdown sent to an exited kernel fails.

@@ -197,7 +197,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      *   forceRefresh so that if a cached discovery pass already registered this
      *   path with a stale version, we re-resolve and supersede it.
      * - Removed (`old` only): retract the removed path's runtime and shut down
-     *   any sessions still backed by it.
+     *   any sessions still backed by it. If an interpreter is back at the path by
+     *   the time the event is handled, keep sessions on its runtime and shut down
+     *   only those on an older one.
      * - Replaced (`old` and `new` with different paths): de-duplication collapsed
      *   one interpreter alias into another (e.g. a symlink resolved to a shorter
      *   path). Retract the old alias's runtime -- which may already be in the
@@ -221,6 +223,22 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
             );
         } else if (event.old && !event.new) {
             const deletedPath = event.old.path;
+            // The interpreter can be back by the time this runs: a delete reported late, after
+            // Create Environment's Delete and Recreate or `rm -rf .venv && uv venv` had already
+            // recreated it and maybe started a session on it. Handle that like a change in
+            // place, keeping sessions on the runtime now at the path, so the new session survives.
+            const current = (await fs.pathExists(deletedPath))
+                ? await this.registerLanguageRuntimeFromPath(
+                      deletedPath,
+                      /* recreateRuntime */ false,
+                      /* forceRefresh */ true,
+                  )
+                : undefined;
+            if (current) {
+                traceInfo(`Interpreter ${deletedPath} was deleted and is back; keeping its current runtime's sessions`);
+                await this.shutdownSessionsForPath(deletedPath, 'replaced interpreter', current.runtimeId);
+                return;
+            }
             this.unregisterRuntimeForPath(deletedPath);
             await this.shutdownSessionsForPath(deletedPath, 'deleted interpreter');
         } else if (event.old && event.new && event.old.path !== event.new.path) {
