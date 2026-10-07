@@ -32,7 +32,8 @@ concurrency:
 
 env:
   HEAL_DIR: /tmp/heal
-  PHASE: ${{ vars.DRIVE_POSITRON_HEAL_PHASE || 'live' }}
+  # A run from any other branch is a test of that branch: it never touches the live PR.
+  PHASE: ${{ github.ref != 'refs/heads/main' && 'burn-in' || vars.DRIVE_POSITRON_HEAL_PHASE || 'live' }}
   REVIEWERS: midleman
   # When the finder runs on its own: nightly, or mondays once the nightly finds settle.
   EXPLORE_ON: nightly
