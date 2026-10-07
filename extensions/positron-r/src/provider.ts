@@ -15,7 +15,7 @@ import * as crypto from 'crypto';
 import { RInstallation, RMetadataExtra, getRHomePath, ReasonDiscovered, friendlyReason, PackagerMetadata, isPixiMetadata, isModuleMetadata, isCondaMetadata, isRVersionsMetadata, ModuleMetadata } from './r-installation';
 import { LOGGER } from './extension';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
-import { getInterpreterOverridePaths, getResolvedFilterSettingPaths, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
+import { getInterpreterOverridePaths, getResolvedFilterSettingPaths, getInterpreterDefinitionPaths, isDefinitionsOnlyDiscovery, printInterpreterSettingsInfo, userRBinaries, userRHeadquarters } from './interpreter-settings.js';
 import { arePathsSame, isDirectory, isFile, isParentPath } from './path-utils.js';
 import { discoverCondaBinaries } from './provider-conda.js';
 import { discoverPixiBinaries } from './provider-pixi.js';
@@ -195,6 +195,7 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
 	addAll(rCurrentSymlinks(userRHeadquarters()));
 	addAll(userRBinaries());
 	addAll(getInterpreterOverridePaths());
+	addAll(getInterpreterDefinitionPaths());
 	if (process.platform !== 'win32') {
 		addAll(R_SERVER_ROOTS_POSIX);
 	}
@@ -221,6 +222,8 @@ export async function getRDiscoveryRootSignature(): Promise<positron.RuntimeRoot
  *   - `interpreters.pathDiscoveryMode`: `'on'`/`'off'`/`'auto'` toggle for
  *     PATH-based current-binary lookup; affects which binary discovery
  *     marks as "current".
+ *   - Positron's `interpreters.discovery`: switching to or from
+ *     `definitionsOnly` changes which installations exist at all.
  *
  * `interpreters.override` contributes as path entries above, not here.
  *
@@ -237,6 +240,8 @@ function getRFilterSettingsDigest(): string {
 		condaDiscovery: config.get<boolean>('interpreters.condaDiscovery') ?? false,
 		pixiDiscovery: config.get<boolean>('interpreters.pixiDiscovery') ?? false,
 		pathDiscoveryMode: config.get<string>('interpreters.pathDiscoveryMode') ?? '',
+		// Only included when set, so the digest is unchanged for everyone else.
+		...(isDefinitionsOnlyDiscovery() ? { definitionsOnly: true } : {}),
 	};
 	return crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex');
 }
@@ -346,6 +351,33 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 
 		// Create an adapter for the kernel to fulfill the LanguageRuntime interface.
 		yield metadata;
+	}
+}
+
+/**
+ * Yields metadata for R binaries named in `interpreters.definitions` that
+ * discovery did not find. Positron hides these and shows only the variants
+ * created from the definitions. The binary path is used as given (not
+ * resolved through symlinks) so it matches the definition's path exactly.
+ *
+ * @param discoveredPaths Runtime paths already yielded by discovery.
+ */
+export async function* rDefinitionOnlyRuntimes(discoveredPaths: ReadonlySet<string>): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+	for (const binpath of getInterpreterDefinitionPaths()) {
+		if (discoveredPaths.has(binpath)) {
+			continue;
+		}
+		if (!fs.existsSync(binpath)) {
+			LOGGER.warn(`Ignoring R binary ${binpath} from interpreters.definitions because it does not exist.`);
+			continue;
+		}
+		const rInst = new RInstallation(binpath, false, [ReasonDiscovered.userSetting]);
+		if (!rInst.usable) {
+			LOGGER.warn(`Ignoring R binary ${binpath} from interpreters.definitions, reason: ${friendlyReason(rInst.reasonRejected)}.`);
+			continue;
+		}
+		const metadata = await makeMetadata(rInst);
+		yield { ...metadata, definitionOnly: true };
 	}
 }
 
