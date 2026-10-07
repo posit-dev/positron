@@ -23,7 +23,7 @@ import { readFixtureState, stopFixture } from '../test/fixture-app.ts';
 import { flagValue, readResults, SMOKE_ROOT, SMOKE_SESSION, unknownArg, type SmokeResults } from '../test/smoke-lib.ts';
 import { addFields, readFindings, readState, writeFinding, writeState, type Finding } from './finding.ts';
 import { addedKeys, affectedHelpers, postSections, readGraph, selectorUsers } from './affected.ts';
-import { addedCases, caseGate, earlierVerdicts, fixedBefore, inSections, newCaseProblems, newCheckFailures, parseChecks, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, inSections, newCaseProblems, newCheckFailures, otherOpen, parseChecks, queue, readOutcome, regressions, replaceCases } from './fix-lib.ts';
 import { checksChanged } from './links.ts';
 import { cascade, mergeResults } from './rerun-lib.ts';
 import { outside, pathsFromStatus, SKILL_PREFIX } from './scope.ts';
@@ -123,6 +123,7 @@ function main(): number {
 		writeFileSync(join(dir, 'fixer-brief.md'), [
 			'# Finding', '', '```json', JSON.stringify(f, null, 2), '```', '',
 			...(earlier.length ? ['# Earlier verdicts', '', ...earlier.map(v => `- ${v}`), ''] : []),
+			...(otherOpen(findings, f.id).length ? ['# Other open findings tonight', '', ...otherOpen(findings, f.id), ''] : []),
 			`Checkout: ${repo}`, `App args for fixture-app.ts launch: ${appArgs.join(' ') || '(none)'}`,
 			`State file for fixture-app.ts --state: ${stateFile}`, `Outcome path: ${outFile}`,
 			...(redOnMain.length ? [`check.ts already fails without your fix: ${redOnMain.join(', ')}. Those checks are not yours to fix.`] : []),
@@ -233,6 +234,7 @@ function main(): number {
 		accepted++;
 		baseline = sections ? replaceCases(baseline, after!) : after!;
 		findings = cascade(findings, after!, f.id, after!.startedAt);
+		if (o.covers?.length) { findings = applyCovers(findings, f.id, o.covers, after!.startedAt); }
 		for (const x of findings) { writeFinding(fdir, x); }
 		console.log(`fix-loop: ${f.id} fixed in ${sha.slice(0, 8)}`);
 	}

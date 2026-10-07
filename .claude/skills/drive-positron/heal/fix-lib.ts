@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
-import type { Finding, Reproduction } from './finding.ts';
+import { addFields, type Finding, type Reproduction } from './finding.ts';
 import { SKILL_PREFIX } from './scope.ts';
 
 /** The report's plain-language account, one sentence each; a session may leave any of them out. */
 export type Plain = { broke?: string; cause?: string; change?: string };
 /** `plain` holds only the fields the session wrote; the outcome file has them at the top level. */
-export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction; plain: Plain; untestable?: string };
+export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction; plain: Plain; untestable?: string; covers?: string[] };
 
 export function queue(findings: Finding[], smokeOrder: string[], cap = 5): { attempt: Finding[]; notAttempted: Finding[] } {
 	const at = (f: Finding) => f.source === 'smoke' ? smokeOrder.indexOf(f.case ?? '') : smokeOrder.length;
@@ -41,7 +41,7 @@ export function replaceCases(baseline: SmokeResults, after: SmokeResults): Smoke
 
 export function readOutcome(text: string | null): FixerOutcome | string {
 	if (text === null) { return 'the fixer wrote no outcome file'; }
-	let o: (Partial<Omit<FixerOutcome, 'plain' | 'untestable'>> & Partial<Record<keyof Plain | 'untestable', unknown>>) | null;
+	let o: (Partial<Omit<FixerOutcome, 'plain' | 'untestable' | 'covers'>> & Partial<Record<keyof Plain | 'untestable' | 'covers', unknown>>) | null;
 	try { o = JSON.parse(text); } catch { return `the outcome file is not JSON: ${text.slice(0, 120)}`; }
 	if (!o || typeof o !== 'object') { return `the outcome file is not a JSON object: ${text.slice(0, 120)}`; }
 	if (!['fixed', 'product', 'flake'].includes(o.outcome as string)) { return `outcome "${o.outcome}" is not fixed, product or flake`; }
@@ -54,7 +54,24 @@ export function readOutcome(text: string | null): FixerOutcome | string {
 		if (typeof v === 'string' && v.trim()) { plain[k] = v.trim(); }
 	}
 	const untestable = typeof o.untestable === 'string' && o.untestable.trim() ? o.untestable.trim() : undefined;
-	return { outcome: o.outcome as FixerOutcome['outcome'], reason: o.reason, reproduction: { ...r, by: 'fixer' } as Reproduction, plain, ...(untestable ? { untestable } : {}) };
+	const covers = Array.isArray(o.covers) ? o.covers.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
+	return {
+		outcome: o.outcome as FixerOutcome['outcome'], reason: o.reason, reproduction: { ...r, by: 'fixer' } as Reproduction, plain,
+		...(untestable ? { untestable } : {}), ...(covers.length ? { covers } : {}),
+	};
+}
+
+/** Tonight's other open findings, one line each, for the fixer to check its fix against. */
+export function otherOpen(findings: Finding[], id: string): string[] {
+	return findings.filter(x => x.id !== id && x.outcome === undefined)
+		.map(x => `- ${x.id} (${x.helper}): ${String(x.observed).replace(/\s+/g, ' ').slice(0, 200)}`);
+}
+
+/** Marks the open finder findings a kept fix covers as resolved by it; smoke findings wait for the post-fix run. */
+export function applyCovers(findings: Finding[], fixedId: string, covers: string[], at: string): Finding[] {
+	return findings.map(x => covers.includes(x.id) && x.id !== fixedId && x.outcome === undefined && x.source === 'finder'
+		? addFields(x, { outcome: 'resolved', resolvedBy: fixedId, reproductions: [{ at, by: 'fixer', result: 'pass', observed: `the ${fixedId} fixer re-ran its steps after the fix` }] })
+		: x);
 }
 
 /** The latest verdicts on finding `id` from earlier nights, newest first; `runs` maps run id to that night's findings. */

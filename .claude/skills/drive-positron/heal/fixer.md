@@ -52,6 +52,9 @@ says how a helper is built and checked.
     bad input, a normal case for broken behavior. Add cases; do not edit existing ones. A fix that
     changes `scripts/` and adds no case is rejected. If no smoke case can show the bug (it only
     happens on another platform, or needs state smoke cannot build), set `untestable` to why.
+11. **Close what your fix covers.** The brief lists tonight's other open findings. When your fix
+    also fixes one of them, run that finding's steps again after your fix and, if it now passes,
+    put its id in `covers`. List only ids you re-ran.
 
 ## Driving the app
 
@@ -75,7 +78,8 @@ Write exactly one JSON file to the outcome path in the brief, then end with a on
       "broke": "what stopped working, as the person using the helper sees it",
       "cause": "why, in one sentence",
       "change": "what the fix does differently (fixed only)",
-      "untestable": "why no smoke case can show this bug (only when you add none)"
+      "untestable": "why no smoke case can show this bug (only when you add none)",
+      "covers": ["ids of other open findings your fix fixes, each re-run after the fix"]
     }
 
 `reason` is for the next fixer and the reviewer. `broke`, `cause` and `change` lead the nightly

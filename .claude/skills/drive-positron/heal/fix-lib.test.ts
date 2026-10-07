@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { addedCases, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, parseChecks, queue, readOutcome, regressions } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, otherOpen, parseChecks, queue, readOutcome, regressions } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -131,4 +131,25 @@ test('readOutcome: keeps an untestable reason', () => {
 	const o = readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'r', reproduction: { result: 'fail', observed: 'o' }, untestable: 'only on Linux' }));
 	assert.ok(typeof o !== 'string');
 	assert.equal(o.untestable, 'only on Linux');
+});
+
+test('otherOpen: one line per other open finding, capped ones included', () => {
+	const fs = [f('smoke-a', 'smoke', 'a'), f('finder-b', 'finder'), f('smoke-c', 'smoke', 'c', 'resolved'), { ...f('finder-d', 'finder'), notAttempted: 'cap' }];
+	assert.deepEqual(otherOpen(fs, 'smoke-a'), ['- finder-b (x.sh): o', '- finder-d (x.sh): o']);
+});
+
+test('applyCovers: resolves covered open finder findings only', () => {
+	const fs = [f('smoke-a', 'smoke', 'a', 'fixed'), f('finder-b', 'finder'), f('smoke-c', 'smoke', 'c'), f('finder-d', 'finder', undefined, 'product')];
+	const got = applyCovers(fs, 'smoke-a', ['finder-b', 'smoke-c', 'finder-d', 'smoke-a', 'nope'], 't');
+	assert.equal(got[1].outcome, 'resolved');
+	assert.equal(got[1].resolvedBy, 'smoke-a');
+	assert.equal(got[1].reproductions.at(-1)!.by, 'fixer');
+	assert.equal(got[2].outcome, undefined, 'a smoke finding waits for its case');
+	assert.equal(got[3].outcome, 'product', 'a decided finding is left alone');
+});
+
+test('readOutcome: keeps covers as a list of strings and drops anything else', () => {
+	const o = readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'r', reproduction: { result: 'fail', observed: 'o' }, covers: ['finder-b', 3, ''] }));
+	assert.ok(typeof o !== 'string');
+	assert.deepEqual(o.covers, ['finder-b']);
 });
