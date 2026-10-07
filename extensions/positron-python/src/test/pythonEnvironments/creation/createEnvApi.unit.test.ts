@@ -266,6 +266,23 @@ suite('Create Environment APIs', () => {
             assert.strictEqual(ids[0], UV_PROVIDER_ID);
         });
 
+        test('uv is not listed when it is not installed and python.allowUvPythonInstall is off', async () => {
+            workspaceConfig.setup((c) => c.get<boolean>('allowUvPythonInstall')).returns(() => false);
+
+            const ids = await getProviderIds();
+
+            assert.ok(!ids.includes(UV_PROVIDER_ID));
+        });
+
+        test('uv is still listed first when it is installed and python.allowUvPythonInstall is off', async () => {
+            isUvInstalledStub.resolves(true);
+            workspaceConfig.setup((c) => c.get<boolean>('allowUvPythonInstall')).returns(() => false);
+
+            const ids = await getProviderIds();
+
+            assert.strictEqual(ids[0], UV_PROVIDER_ID);
+        });
+
         test('uv installed after activation is listed first in the Create Environment quick pick', async () => {
             isUvInstalledStub.resolves(true);
             sinon
