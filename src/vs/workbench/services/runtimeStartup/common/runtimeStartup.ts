@@ -1534,7 +1534,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 		try {
-			const validated = await owner.validateMetadata(task.metadata);
+			let validated = await owner.validateMetadata(task.metadata);
+			// Validators rebuild metadata from scratch; keep a definition-only
+			// runtime hidden.
+			if (task.metadata.definitionOnly) {
+				validated = { ...validated, definitionOnly: true };
+			}
 			this._discoveryCache.sessionCounters.revalidationsSucceeded++;
 			// Registry swap: if the validator returned different metadata,
 			// register it (the registry tolerates re-registration on the same

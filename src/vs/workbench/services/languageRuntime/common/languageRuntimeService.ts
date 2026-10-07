@@ -1066,6 +1066,18 @@ export interface ILanguageRuntimeMetadata {
 	 * (e.g. a venv, renv library, or pyenv/asdf shim).
 	 */
 	readonly cacheable?: boolean;
+
+	/**
+	 * When set, this runtime is a variant of another runtime, created from the
+	 * `interpreters.definitions` entry with this label.
+	 */
+	readonly interpreterDefinition?: string;
+
+	/**
+	 * When true, this runtime was found only because an `interpreters.definitions`
+	 * entry points at it. It is not shown; only its variants are.
+	 */
+	readonly definitionOnly?: boolean;
 }
 
 /**

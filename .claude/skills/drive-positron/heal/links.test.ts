@@ -31,6 +31,10 @@ test('compareUrl trims a long body, keeps the run link, never splits an escape',
 	assert.ok(got.endsWith('(trimmed)\n\nFull run: https://run/1'));
 });
 
+test('compareUrl fits a Slack link by default', () => {
+	assert.ok(compareUrl('b', 't', 'x'.repeat(20000), 'https://run/1').length <= 3000);
+});
+
 test('compareUrl terminates on emoji bodies and never splits a pair', { timeout: 5000 }, () => {
 	const body = 'x'.repeat(50) + '\u{1F600}'.repeat(300);
 	const url = compareUrl('b', 't', body, 'https://run/1', 500);

@@ -6,14 +6,14 @@ description: >
   showing or reading an HTML file, URL or app in the Viewer, finding or adding
   interpreters, listing, switching, starting, restarting or interrupting
   sessions, setting up Python, reading, installing or updating a session's
-  packages, running or debugging a web app (Shiny, Flask, Dash, Streamlit,
-  FastAPI, Gradio, marimo), reading the Data Connections pane, including a
-  connection's tables and columns, and creating, editing or running
-  Jupyter notebook cells. Use when the user wants Positron itself to act, or
-  to know what is installed, rather than to run R or Python code. Triggers:
-  "show the variables pane", "open data.csv", "show this HTML in the Viewer",
-  "switch to my R session", "my session is stuck", "is pandas installed?",
-  "set up a Python environment", "run my shiny app", "what tables are in my
+  packages, starting, listing, stopping or debugging a web app (Shiny, Flask,
+  Dash, Streamlit, FastAPI, Gradio, marimo), reading Data Connections,
+  including a connection's tables and columns, and creating, editing or
+  running notebook cells. Use when the user wants Positron itself to act or to
+  know what is installed, not to run R or Python code. Triggers: "show the
+  variables pane", "open data.csv", "show this HTML in the Viewer", "switch to
+  my R session", "my session is stuck", "is pandas installed?", "set up a
+  Python environment", "run or stop my shiny app", "what tables are in my
   warehouse", "add a cell to this notebook".
 ---
 
@@ -117,8 +117,10 @@ they have none, creating a project environment (venv, Conda, or uv), or finding
 out which interpreter is currently active.
 
 **Interactive web apps** -- [references/interactive-apps.md]({{skill_dir}}/references/interactive-apps.md)
-Read when the user wants a web app running or debugged: "run my app", "start
-the shiny/flask/dash/streamlit/marimo app", "preview my dashboard". Read it
+Read when the user wants a web app running, stopped or debugged, or asks about
+one that is running: "run my app", "start the shiny/flask/dash/streamlit/marimo
+app", "preview my dashboard", "is my app up?", "what's my app's URL?", "stop
+the app". Read it
 **before** starting any app server yourself -- app servers must not be started by
 running code in a session or a raw terminal command for supported app frameworks. The
 commands it documents manage the terminal, detect the app URL, set up any

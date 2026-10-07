@@ -50,7 +50,7 @@ import { createEnvExtApi } from '../envExt/envExtApi';
 import { UserSpecifiedEnvironmentLocator } from './base/locators/lowLevel/userSpecifiedEnvLocator';
 import { ModuleEnvironmentLocator } from './base/locators/lowLevel/moduleEnvironmentLocator';
 import { createNativeEnvironmentsApiWithModules } from './nativeAPI';
-import { isPythonStartupDisabled } from '../positron/interpreterSettings';
+import { isEagerDiscoveryDisabled } from '../positron/interpreterSettings';
 // --- End Positron ---
 
 const PYTHON_ENV_INFO_CACHE_KEY = 'PYTHON_ENV_INFO_CACHEv2';
@@ -117,8 +117,9 @@ export async function activateAndRefreshEnvs(api: IDiscoveryAPI): Promise<Activa
      * it has not previously been triggered
      */
 
-    // Skip the eager refresh when Python startup is disabled (#15004).
-    if (!isPythonStartupDisabled()) {
+    // Skip the eager refresh when Python startup is disabled (#15004) or
+    // discovery is limited to interpreters.definitions.
+    if (!isEagerDiscoveryDisabled()) {
         api.triggerRefresh().ignoreErrors();
     }
 

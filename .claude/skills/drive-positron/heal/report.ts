@@ -37,8 +37,8 @@ export function counts(n: Night) {
 
 export function totalCost(costs: Night['costs']) {
 	const sum = (p: string) => costs.filter(c => c.label.startsWith(p)).reduce((s, c) => s + (c.usd ?? 0), 0);
-	const finder = sum('finder'), fixer = sum('fixer');
-	return { finder, fixer, total: finder + fixer };
+	const finder = sum('finder'), fixer = sum('fixer'), reviewer = sum('reviewer');
+	return { finder, fixer, reviewer, total: finder + fixer + reviewer };
 }
 
 export function shouldNotify(n: Night): boolean {
@@ -112,7 +112,7 @@ function status(f: Finding): string {
 }
 
 /** What was seen, with a helper's JSON reply cut down to its error. */
-const seen = (f: Finding) => { const m = String(f.observed).match(/"error":"((?:[^"\\]|\\.)*)"/); return m ? m[1].replace(/\\"/g, '"') : cut(f.observed, 200); };
+const seen = (f: Finding) => { const m = String(f.observed).match(/"error":"((?:[^"\\]|\\.)*)"\s*[,}]/); return m ? m[1].replace(/\\"/g, '"') : cut(f.observed, 200); };
 const cut = (t: unknown, max: number) => { const x = String(t ?? ''); return x.length > max ? `${x.slice(0, max)}...` : x; };
 
 /** Model text with each @mention and issue reference in a code span, so the PR body pings and links nothing. Existing code spans are left alone. */
@@ -144,6 +144,8 @@ function block(f: Finding, n: Night, h: string): string {
 		`- **What broke:** ${inert(f.broke ?? `${f.helper}: ${seen(f)}`)}`,
 		...(f.cause ? [`- **Why:** ${inert(f.cause)}`] : []),
 		...(f.change && f.outcome === 'fixed' ? [`- **Fix:** ${inert(f.change)}`] : []),
+		...(f.untestable && kept(f) ? [`- **No smoke case:** ${inert(f.untestable)}`] : []),
+		...(f.review?.length || f.revised ? [`- **Review:** ${f.revised ? 'sent back once; after the revision: ' : ''}${f.review?.length ? inert(f.review.join('; ')) : 'no notes'}`] : []),
 		`- **Checked:** ${inert(checked(f, n))}.`,
 		...(runs.length ? [`- **Seen before:** fixed on ${s(runs.length, 'earlier night')} too (${runs.map(r => `run ${r}`).join(', ')}) and came back, so those fixes never landed.`] : []),
 		'', '<details><summary>Evidence</summary>', '',
@@ -187,8 +189,9 @@ function checksSection(n: Night): string {
 }
 
 export function prTitle(n: Night): string {
-	const c = counts(n);
-	return `drive-positron: ${c.fixed} helper fix${c.fixed === 1 ? '' : 'es'} from the nightly run`;
+	const helpers = [...new Set(n.findings.filter(kept).map(f => f.helper))];
+	const named = helpers.length > 3 ? `${helpers.slice(0, 3).join(', ')} and ${s(helpers.length - 3, 'more helper')}` : helpers.join(', ');
+	return named ? `drive-positron: fix ${named} from the nightly run` : 'drive-positron: helper fixes from the nightly run';
 }
 
 /** GitHub caps a PR body at 65536 characters; the findings get what the rest leaves, with room to spare. */
@@ -210,7 +213,7 @@ export function summaryMarkdown(n: Night, runUrl: string): string {
 	const unpriced = n.costs.filter(c => c.usd === null).length;
 	return [
 		`## drive-positron nightly: ${headline(n)}`, '', toDo(n, 'summary'), '', ...problemLines(n), checksSection(n), ...blocks(n, '###', 500000), ...others(n),
-		`Cost: $${cost.total.toFixed(2)} (finder $${cost.finder.toFixed(2)}, fixer $${cost.fixer.toFixed(2)})${unpriced ? `; ${s(unpriced, 'session')} had no cost, counted as $0` : ''}. Run: ${runUrl}`,
+		`Cost: $${cost.total.toFixed(2)} (finder $${cost.finder.toFixed(2)}, fixer $${cost.fixer.toFixed(2)}, reviewer $${cost.reviewer.toFixed(2)})${unpriced ? `; ${s(unpriced, 'session')} had no cost, counted as $0` : ''}. Run: ${runUrl}`,
 	].join('\n');
 }
 

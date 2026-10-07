@@ -1,7 +1,9 @@
 # drive-positron fixer
 
 You get one finding about drive-positron's helpers. Decide what it is, and fix it only if it is a
-helper bug. Read `.claude/skills/drive-positron/SKILL.md` and `CONTRIBUTING.md` first; CONTRIBUTING
+helper bug. A finding is usually one instance of a bug class: fix the class, so the next night
+does not find the same bug in a sibling helper. Read `.claude/skills/drive-positron/SKILL.md` and
+`CONTRIBUTING.md` first; CONTRIBUTING
 says how a helper is built and checked.
 
 ## Rules
@@ -33,8 +35,32 @@ says how a helper is built and checked.
 7. **Check your fix:** run the helper again on the kept instance; helper edits apply without a
    relaunch. Then stop the instance (smoke prints the `stop.sh` line) and run
    `node .claude/skills/drive-positron/test/check.ts`, which must pass (apart from checks the brief
-   says already fail without your fix). Do not replay smoke again,
-   and do not commit: the workflow commits and reruns smoke.
+   says already fail without your fix). You may run `smoke.ts --until "<your new case>"` once to
+   see the case pass; otherwise do not replay smoke, and do not commit: the workflow commits and
+   reruns smoke.
+8. **Fix the class, in the shared code.** Before editing, look for the same mistake in the other
+   helpers (`grep` the pattern across `scripts/`) and in the shared modules (`scripts/dp-lib.ts`
+   and the `dp-*.ts` it imports). When the shared code is where it goes wrong, or where it should
+   be handled for everyone (argument parsing, number and duration flags, session lookup), fix it
+   there and let the callers inherit it; do not patch one caller. Reuse the existing helpers
+   (`parse()`, `seconds()`, `textFlag()` in `dp-lib.ts`) rather than writing a local copy. Your
+   reason names every helper the fix reaches.
+9. **Valid input keeps working.** A command that worked before with valid input must behave the
+   same after your fix. If it cannot (a flag that was silently ignored now errors), the reason says
+   which helpers and inputs change, in one line.
+10. **Add a smoke case for every fix.** In `test/smoke.ts`, add a case in the helper's section that
+    fails without your fix: a failure case (`fail: true`, with a `check` on the error text) for
+    bad input, a normal case for broken behavior. Add cases; do not edit existing ones. A fix that
+    changes `scripts/` and adds no case is rejected. Write each case on one line, like the ones
+    around it. If no smoke case can show the bug (it only
+    happens on another platform, or needs state smoke cannot build), set `untestable` to why.
+11. **Close what your fix covers.** The brief lists tonight's other open findings. When your fix
+    also fixes one of them, run that finding's steps again after your fix and, if it now passes,
+    put its id in `covers`. List only finder ids you re-ran; a smoke finding closes when its own
+    case passes in the post-fix run, so leave it out.
+12. **A review may send your change back once.** The brief then ends with the reviewer's notes and
+    your change is still in the tree. Act on the notes that are right, keep the rest of the rules,
+    and write the outcome file again; your `reason` names any note you did not act on and why.
 
 ## Driving the app
 
@@ -57,7 +83,9 @@ Write exactly one JSON file to the outcome path in the brief, then end with a on
       "reproduction": { "at": "<ISO time>", "by": "fixer", "result": "fail | pass", "observed": "what you saw" },
       "broke": "what stopped working, as the person using the helper sees it",
       "cause": "why, in one sentence",
-      "change": "what the fix does differently (fixed only)"
+      "change": "what the fix does differently (fixed only)",
+      "untestable": "why no smoke case can show this bug (only when you add none)",
+      "covers": ["ids of other open findings your fix fixes, each re-run after the fix"]
     }
 
 `reason` is for the next fixer and the reviewer. `broke`, `cause` and `change` lead the nightly

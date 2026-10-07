@@ -35,9 +35,8 @@ class FakeEnvironment implements McpTerminalEnvironment {
 		this.variables.set(variable, value);
 	}
 
-	clear(): void {
-		this.variables.clear();
-		this.description = undefined;
+	delete(variable: string): void {
+		this.variables.delete(variable);
 	}
 }
 
