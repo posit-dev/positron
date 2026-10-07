@@ -24,8 +24,11 @@ export interface CodingAgent {
 	/** Name shown in the UI. */
 	readonly label: string;
 
-	/** Whether the agent is installed and can take a prompt. */
-	isAvailable(): Promise<boolean>;
+	/**
+	 * Why the agent can't take a prompt, e.g. it isn't installed.
+	 * @returns The reason, or undefined when it can.
+	 */
+	getUnavailableReason(): Promise<string | undefined>;
 
 	/** Whether a process's command line runs the agent's terminal UI. */
 	isAgentCommand(args: string): boolean;

@@ -98,6 +98,12 @@ export interface IErrorActionHandler {
 	run(kind: ErrorActionKind, context: IErrorActionContext, token: CancellationToken): Promise<void>;
 }
 
+/** A registered {@link IErrorActionHandler}. */
+export interface IErrorActionHandlerRegistration extends IDisposable {
+	/** Set why the handler can't take errors, shown in the setting while its `when` is false. */
+	setUnavailableReason(reason: string | undefined): void;
+}
+
 export const IErrorActionsService = createDecorator<IErrorActionsService>('errorActionsService');
 
 /** Tracks registered implementations of the error Fix/Explain actions. */
@@ -114,7 +120,7 @@ export interface IErrorActionsService {
 	 * Register an implementation. Logs and ignores a registration whose id is
 	 * already registered.
 	 */
-	register(handler: IErrorActionHandler): IDisposable;
+	register(handler: IErrorActionHandler): IErrorActionHandlerRegistration;
 
 	/**
 	 * The implementation selected in the ai.errorActions.agent setting, or

@@ -21,7 +21,9 @@ const CODEX_NPM_SCRIPT = '@openai/codex/bin/codex.js';
 export const codex: CodingAgent = {
 	id: 'codex',
 	label: 'Codex',
-	isAvailable: async () => await getAgentLaunch('codex', CODEX_NPM_SCRIPT) !== undefined,
+	getUnavailableReason: async () => await getAgentLaunch('codex', CODEX_NPM_SCRIPT)
+		? undefined
+		: vscode.l10n.t('The codex command was not found on the PATH.'),
 	isAgentCommand: isCodexCommand,
 	isPastTrustPrompt,
 	startNew,

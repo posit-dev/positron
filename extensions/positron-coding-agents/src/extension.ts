@@ -19,13 +19,12 @@ const FOCUS_CHECK_INTERVAL = 30_000;
 export function activate(context: vscode.ExtensionContext): void {
 	// Register each agent once; it is offered while its availability context
 	// key, kept current below, is true.
-	for (const agent of AGENTS) {
-		context.subscriptions.push(positron.ai.registerErrorActionHandler(agent.id, agent.label, {
-			when: getAvailableKey(agent),
-			fix: errorContext => startSession(agent, 'fix', errorContext),
-			explain: errorContext => startSession(agent, 'explain', errorContext),
-		}));
-	}
+	const registrations = AGENTS.map(agent => positron.ai.registerErrorActionHandler(agent.id, agent.label, {
+		when: getAvailableKey(agent),
+		fix: errorContext => startSession(agent, 'fix', errorContext),
+		explain: errorContext => startSession(agent, 'explain', errorContext),
+	}));
+	context.subscriptions.push(...registrations);
 
 	// Checks run one at a time, so the context keys always follow the latest
 	// result; a check requested during another runs once that one finishes.
@@ -42,9 +41,11 @@ export function activate(context: vscode.ExtensionContext): void {
 			do {
 				isCheckRequested = false;
 				lastCheckTime = Date.now();
-				const availabilities = await Promise.all(AGENTS.map(agent => agent.isAvailable()));
-				await Promise.all(AGENTS.map((agent, i) =>
-					vscode.commands.executeCommand('setContext', getAvailableKey(agent), availabilities[i])));
+				const reasons = await Promise.all(AGENTS.map(agent => agent.getUnavailableReason()));
+				await Promise.all(AGENTS.map((agent, i) => {
+					registrations[i].unavailableReason = reasons[i];
+					return vscode.commands.executeCommand('setContext', getAvailableKey(agent), reasons[i] === undefined);
+				}));
 			} while (isCheckRequested);
 		} finally {
 			isChecking = false;

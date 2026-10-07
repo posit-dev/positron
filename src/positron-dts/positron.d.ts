@@ -5044,8 +5044,10 @@ declare module 'positron' {
 			/**
 			 * A context key expression, e.g. `myAgent.isInstalled`, for when the
 			 * handler can take errors. While it is false, the actions go to Posit
-			 * Assistant instead (or are hidden when it can't take them either).
-			 * Always when undefined. Read once, at registration.
+			 * Assistant instead (or are hidden when it can't take them either),
+			 * and the setting marks the handler unavailable, with
+			 * {@link ErrorActionHandlerRegistration.unavailableReason}. Always
+			 * when undefined. Read once, at registration.
 			 */
 			readonly when?: string;
 
@@ -5067,9 +5069,23 @@ declare module 'positron' {
 		 * @param id The unique identifier of the implementation. 'posit-assistant'
 		 *   is reserved for Posit Assistant's, which Positron registers.
 		 * @param label The human-readable name of the implementation, shown in the UI.
-		 * @returns A Disposable that unregisters the implementation.
+		 * @returns The registration, which unregisters the implementation when disposed.
 		 */
-		export function registerErrorActionHandler(id: string, label: string, handler: ErrorActionHandler): vscode.Disposable;
+		export function registerErrorActionHandler(id: string, label: string, handler: ErrorActionHandler): ErrorActionHandlerRegistration;
+
+		/** A registered {@link ErrorActionHandler}. */
+		export interface ErrorActionHandlerRegistration {
+			/**
+			 * Why the handler can't take errors, e.g. "The agent's CLI was not
+			 * found on the PATH.", shown in the setting while its
+			 * {@link ErrorActionHandler.when} is false. Update it when the reason
+			 * changes.
+			 */
+			unavailableReason: string | undefined;
+
+			/** Unregister the handler. */
+			dispose(): void;
+		}
 	}
 
 	/**

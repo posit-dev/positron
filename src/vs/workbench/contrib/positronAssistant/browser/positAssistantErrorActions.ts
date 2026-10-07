@@ -34,7 +34,7 @@ export class PositAssistantErrorActionsContribution extends Disposable implement
 		super();
 
 		// The context key is unset, so false, while Posit Assistant isn't installed.
-		this._register(errorActionsService.register({
+		const registration = this._register(errorActionsService.register({
 			id: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
 			label: POSIT_ASSISTANT_ERROR_ACTIONS_LABEL,
 			when: ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
@@ -43,6 +43,7 @@ export class PositAssistantErrorActionsContribution extends Disposable implement
 				await commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(kind, context, getPath));
 			},
 		}));
+		registration.setUnavailableReason(localize('positron.errorActions.positAssistant.unavailable', "Posit Assistant isn't installed, or has no chat model configured."));
 	}
 }
 

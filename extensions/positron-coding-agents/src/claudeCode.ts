@@ -25,7 +25,7 @@ const LAUNCHING_NOTIFICATION_DURATION = 2000;
 export const claudeCode: CodingAgent = {
 	id: 'claude-code',
 	label: 'Claude Code',
-	isAvailable,
+	getUnavailableReason,
 	isAgentCommand: isClaudeCodeCommand,
 	isPastTrustPrompt,
 	startNew,
@@ -46,15 +46,27 @@ function getSurface(): ClaudeCodeSurface | undefined {
 	return getClaudeCodeSurface(version, useTerminal);
 }
 
-/** Whether Claude Code can take a prompt on the surface the user prefers. */
-async function isAvailable(): Promise<boolean> {
+/**
+ * Why Claude Code can't take a prompt on the surface the user prefers.
+ * @returns The reason, or undefined when it can.
+ */
+async function getUnavailableReason(): Promise<string | undefined> {
+	const extension = vscode.extensions.getExtension(CLAUDE_CODE_EXTENSION_ID);
+	if (!extension) {
+		return vscode.l10n.t('The Claude Code extension is not installed or is disabled.');
+	}
 	switch (getSurface()) {
 		case 'chat':
-			return true;
+			return undefined;
 		case 'terminal':
-			return await getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT) !== undefined;
+			return await getAgentLaunch('claude', CLAUDE_CODE_NPM_SCRIPT)
+				? undefined
+				: vscode.l10n.t('The claude command was not found on the PATH.');
 		case undefined:
-			return false;
+			return vscode.l10n.t(
+				'Claude Code {0} is too old to receive errors in its chat. Update it, or turn on Claude Code: Use Terminal.',
+				extension.packageJSON.version
+			);
 	}
 }
 

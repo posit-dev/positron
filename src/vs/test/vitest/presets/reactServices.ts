@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Event } from '../../../base/common/event.js';
-import { Disposable } from '../../../base/common/lifecycle.js';
 import { TestInstantiationService } from '../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IErrorActionsService } from '../../../workbench/contrib/positronAssistant/common/errorActions.js';
 
@@ -25,7 +24,7 @@ export function stubReactServices(svc: TestInstantiationService): void {
 	// quick fixes call. No registered error action handlers: the quick fixes hide.
 	svc.stub(IErrorActionsService, {
 		onDidChange: Event.None,
-		register: () => Disposable.None,
+		register: () => ({ setUnavailableReason: () => { }, dispose: () => { } }),
 		getConfigured: () => undefined,
 		run: async () => { },
 	});

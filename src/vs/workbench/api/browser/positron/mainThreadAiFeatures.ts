@@ -26,7 +26,7 @@ import { PromptRenderer } from '../../../contrib/positronAssistant/browser/promp
 import { getPositronContextPrompts } from '../../../contrib/positronAssistant/browser/prompts/positronContextPrompts.js';
 import { getForegroundSessionInfo } from '../../../contrib/positronAssistant/browser/prompts/promptSessions.js';
 import * as xml from '../../../contrib/positronAssistant/common/xml.js';
-import { IErrorActionsService } from '../../../contrib/positronAssistant/common/errorActions.js';
+import { IErrorActionHandlerRegistration, IErrorActionsService } from '../../../contrib/positronAssistant/common/errorActions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAiFeatures)
@@ -36,7 +36,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	private readonly _registrations = this._register(new DisposableMap<string>());
 
 	/** Error action handlers registered from the extension host, by handle. */
-	private readonly _errorActionHandlerRegistrations = this._register(new DisposableMap<number>());
+	private readonly _errorActionHandlerRegistrations = this._register(new DisposableMap<number, IErrorActionHandlerRegistration>());
 	private _promptRenderer: PromptRenderer | undefined;
 
 	constructor(
@@ -115,6 +115,13 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	 */
 	$unregisterErrorActionHandler(handle: number): void {
 		this._errorActionHandlerRegistrations.deleteAndDispose(handle);
+	}
+
+	/**
+	 * Set why an error action handler implemented in the extension host can't take errors.
+	 */
+	$setErrorActionHandlerUnavailableReason(handle: number, reason: string | undefined): void {
+		this._errorActionHandlerRegistrations.get(handle)?.setUnavailableReason(reason);
 	}
 
 	/*

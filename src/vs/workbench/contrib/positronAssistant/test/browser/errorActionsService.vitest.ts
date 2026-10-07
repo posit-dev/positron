@@ -59,6 +59,13 @@ describe('ErrorActionsService', () => {
 			.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].enum;
 	}
 
+	/** Each option's label and description, as shown in the setting's dropdown. */
+	function getSettingOptionLabels() {
+		const property = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+			.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY];
+		return property.enumItemLabels?.map((label, i) => ({ label, description: property.enumDescriptions?.[i] }));
+	}
+
 	beforeEach(() => {
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_AGENT_KEY, 'test-agent');
 		trueKeys.clear();
@@ -117,6 +124,23 @@ describe('ErrorActionsService', () => {
 
 		registration.dispose();
 		expect(getSettingOptions()).toEqual(['posit-assistant']);
+	});
+
+	it('marks options unavailable, with the reason, while their when is false', () => {
+		const service = createService();
+		const registration = service.register({ ...createErrorActionHandler(), when: ContextKeyExpr.has('testAgent.isInstalled') });
+		ctx.disposables.add(registration);
+		registration.setUnavailableReason('The test-agent command was not found on the PATH.');
+		expect(getSettingOptionLabels()).toEqual([
+			{ label: 'Posit Assistant', description: '' },
+			{ label: 'Test Agent (unavailable)', description: 'The test-agent command was not found on the PATH. Until it\'s available, Fix and Explain use Posit Assistant.' },
+		]);
+
+		setContextKey('testAgent.isInstalled', true);
+		expect(getSettingOptionLabels()).toEqual([
+			{ label: 'Posit Assistant', description: '' },
+			{ label: 'Test Agent', description: '' },
+		]);
 	});
 
 	it('ignores duplicate ids', () => {

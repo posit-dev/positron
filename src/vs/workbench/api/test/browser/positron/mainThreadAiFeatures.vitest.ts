@@ -21,7 +21,6 @@ import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IAgentAllowedCommandsService, IAgentCommandDescriptor } from '../../../../contrib/positronAiFeatures/common/agentAllowedCommandsService.js';
 import { IErrorActionHandler, IErrorActionsService } from '../../../../contrib/positronAssistant/common/errorActions.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
-import { toDisposable } from '../../../../../base/common/lifecycle.js';
 import { ExtHostAiFeaturesShape } from '../../../common/positron/extHost.positron.protocol.js';
 import { MainThreadAiFeatures } from '../../../browser/positron/mainThreadAiFeatures.js';
 
@@ -48,6 +47,7 @@ describe('MainThreadAiFeatures', () => {
 	let getRegisteredSources: ReturnType<typeof vi.fn<() => IPositronLanguageModelSource[]>>;
 	let runErrorAction: ReturnType<typeof vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>>;
 	let registeredHandlers: IErrorActionHandler[];
+	let unavailableReasons: (string | undefined)[];
 
 	/**
 	 * Constructs a MainThreadAiFeatures with the given initial catalog and returns it. The
@@ -62,6 +62,7 @@ describe('MainThreadAiFeatures', () => {
 		getRegisteredSources = vi.fn<() => IPositronLanguageModelSource[]>(() => []);
 		runErrorAction = vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>(async () => { });
 		registeredHandlers = [];
+		unavailableReasons = [];
 
 		const aiProviderService = stubInterface<IAiProviderService>({
 			whenInitialized,
@@ -95,7 +96,10 @@ describe('MainThreadAiFeatures', () => {
 			stubInterface<IErrorActionsService>({
 				register: handler => {
 					registeredHandlers.push(handler);
-					return toDisposable(() => registeredHandlers.splice(registeredHandlers.indexOf(handler), 1));
+					return {
+						setUnavailableReason: reason => unavailableReasons.push(reason),
+						dispose: () => registeredHandlers.splice(registeredHandlers.indexOf(handler), 1),
+					};
 				},
 			}),
 		));
@@ -179,6 +183,9 @@ describe('MainThreadAiFeatures', () => {
 
 		await errorActionHandler.run('fix', context, CancellationToken.None);
 		expect(runErrorAction).toHaveBeenCalledWith(7, 'fix', context, CancellationToken.None);
+
+		mainThread.$setErrorActionHandlerUnavailableReason(7, 'Not installed.');
+		expect(unavailableReasons).toEqual(['Not installed.']);
 
 		mainThread.$unregisterErrorActionHandler(7);
 		expect(registeredHandlers).toEqual([]);

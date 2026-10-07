@@ -91,7 +91,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler): Disposable {
+	registerErrorActionHandler(id: string, label: string, handler: positron.ai.ErrorActionHandler): positron.ai.ErrorActionHandlerRegistration {
 		// Positron registers Posit Assistant's implementation itself.
 		if (id === POSIT_ASSISTANT_ERROR_ACTIONS_ID) {
 			throw new Error(`The error action handler id '${id}' is reserved`);
@@ -100,10 +100,23 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		this._errorActionHandlersByHandle.set(handle, handler);
 		this._proxy.$registerErrorActionHandler(handle, id, label, handler.when);
 
-		return new Disposable(() => {
-			this._errorActionHandlersByHandle.delete(handle);
-			this._proxy.$unregisterErrorActionHandler(handle);
-		});
+		const proxy = this._proxy;
+		let unavailableReason: string | undefined;
+		return {
+			get unavailableReason() {
+				return unavailableReason;
+			},
+			set unavailableReason(reason: string | undefined) {
+				if (reason !== unavailableReason) {
+					unavailableReason = reason;
+					proxy.$setErrorActionHandlerUnavailableReason(handle, reason);
+				}
+			},
+			dispose: () => {
+				this._errorActionHandlersByHandle.delete(handle);
+				this._proxy.$unregisterErrorActionHandler(handle);
+			},
+		};
 	}
 
 	async $runErrorAction(handle: number, kind: ErrorActionKind, context: IErrorActionContext, token: CancellationToken): Promise<void> {
