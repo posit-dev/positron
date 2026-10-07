@@ -316,7 +316,9 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 		return startSession(p.session, language(p), textFlag(p, 'name'), seconds(p, 'timeout', 60), textFlag(p, 'answer'), !!p.flags.new);
 	},
 	'console-run': argv => {
-		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'capture-timeout'], Infinity);
+		// A flag it does not take is refused: read as a switch, its value (--capture-timout 5)
+		// would be joined to the code and run.
+		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'capture-timeout'], Infinity, ['capture', 'help']);
 		if (p.flags.help) { usage('console-run.sh'); }
 		const lang = language(p);
 		// Checked before anything is typed: a NaN timeout ends the echo wait before it starts.
@@ -331,7 +333,8 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 		});
 	},
 	'console-read': argv => {
-		const p = parse(argv, ['session', 'language', 'name', 'tail', 'after']);
+		// A flag it does not take (--langauge=r) is refused: ignored, the call would read the active console.
+		const p = parse(argv, ['session', 'language', 'name', 'tail', 'after'], 0, ['expand', 'prompt', 'help']);
 		if (p.flags.help) { usage('console-read.sh'); }
 		// An empty --language, --name or --after is a usage error, not the flag left out:
 		// read as absent, the call would read whichever console is active.

@@ -46,7 +46,8 @@
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"session":"R 4.5.1","sessionId":"r-cf28f473","switched":true,"busy":false,"echoed":true}
 # Exit code: 0 when the code landed in the right console, 1 when it did not, 2 on a usage error
-# (a --name given with no value or an empty one is one).
+# (a --name given with no value or an empty one is one, and so is a flag it
+# does not take, such as a misspelled --capture-timout: nothing is typed).
 #
 # Required tools on PATH: node, jq.
 
