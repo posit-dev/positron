@@ -233,6 +233,9 @@ test/unit/reporter.js
 .claude/skills/exploratory-test/renderer/render.mjs
 .github/actions/pr-exploratory-test/comment.mjs
 .github/actions/pr-exploratory-test/comment.test.mjs
+.github/actions/pr-exploratory-test/session.mjs
+.github/actions/pr-exploratory-test/session.test.mjs
+.github/actions/pr-exploratory-test/session-cli.mjs
 .github/actions/pr-test-checker/analyze.mjs
 .github/scripts/release-screenshots/compare-and-report.mjs
 .github/scripts/release-screenshots/compare-and-report.test.mjs

@@ -7,7 +7,7 @@
 // files are wrappers.
 
 import { readFileSync } from 'fs';
-import { Exit, failText, inPage, language, log, logRead, mod, parse, pause, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, failText, inPage, language, log, logRead, mod, parse, pause, seconds, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -159,7 +159,10 @@ function readConsole(session: string, language: string, name: string, expand = f
 			for (let k = 0; k < 10 && await collapsed.count() >= n; k++) { await lib.sleep(100); }
 		}
 		const t = await lib.consoleText(id);
-		return t ? { ok: true, sessionId: id, ...t, collapsed: await collapsed.count(), expanded } : { ok: false, error: `console ${id} is not in the page` };
+		// consoleText names a console by its tab, and one session has no tab: then
+		// the name is the one consoles() gives it (its status line, else the picker).
+		const named = c.sessions.find(x => x.id === id)?.name;
+		return t ? { ok: true, sessionId: id, ...t, session: named || t.session, collapsed: await collapsed.count(), expanded } : { ok: false, error: `console ${id} is not in the page` };
 	};
 	return withConsoleView(session, fn, { lang: language, name, expand });
 }
@@ -233,7 +236,16 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 		// Backspace would empty the open editor instead.
 		const focused = () => inst.locator(c$.input).evaluate(el => el.contains(document.activeElement)).catch(() => false);
 		await input.focus().catch(() => { });
-		if (!await focused()) { return { ok: false, ...base, error: 'the console input would not take focus (the session may be starting or restarting); no keys were pressed' }; }
+		if (!await focused()) {
+			// Say what the console shows: an input() or readline() waiting for an
+			// answer hides the input, and so does a restart.
+			const shown = await lib.consoleText(target);
+			if (typeof shown?.waiting === 'string') {
+				return { ok: false, ...base, waiting: shown.waiting, error: `the console input is hidden: an input request waits for an answer, asking ${JSON.stringify(shown.waiting)}; no keys were pressed` };
+			}
+			const prompt = typeof shown?.prompt === 'string' ? `it shows the prompt ${JSON.stringify(shown.prompt)}` : 'it shows no prompt and no input request';
+			return { ok: false, ...base, error: `the console input would not take focus (${prompt}; a restarting session refuses focus too); no keys were pressed` };
+		}
 		// Only clear text that is there: with the input empty, Select All selects the
 		// whole transcript instead, which then shows highlighted in every screenshot.
 		if (norm(await inst.locator(c$.inputLines).innerText().catch(() => ''))) {
@@ -246,11 +258,13 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 			dt.setData('text/plain', t);
 			el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }));
 		}, a.text);
-		await lib.sleep(50);
-		const shown = norm(await inst.locator(c$.inputLines).innerText().catch(() => ''));
 		// A narrow console wraps a long line across several drawn lines, so compare without spaces and breaks.
+		// A console that just started can take a moment to draw the paste.
 		const flat = (t: string) => t.replace(/\s+/g, '');
-		if (!flat(shown).includes(flat(probe.slice(0, 20)))) { return { ok: false, ...base, error: 'the pasted code is not in the console input' }; }
+		const pasted = async () => flat(norm(await inst.locator(c$.inputLines).innerText().catch(() => ''))).includes(flat(probe.slice(0, 20)));
+		let shown = await pasted();
+		for (const until = Date.now() + 2000; !shown && Date.now() < until;) { await lib.sleep(100); shown = await pasted(); }
+		if (!shown) { return { ok: false, ...base, error: 'the pasted code is not in the console input' }; }
 		if (!await focused()) { return { ok: false, ...base, error: 'focus left the console input before Enter; the code was pasted but not run' }; }
 		await page.keyboard.press('Enter');
 		// The code is echoed above the prompt once the console accepts it; a busy session queues it.
@@ -299,40 +313,60 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 	'start-session': argv => {
 		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'answer']);
 		if (p.flags.help) { usage('start-session.sh'); }
-		return startSession(p.session, language(p), String(p.flags.name ?? ''), Number(p.flags.timeout ?? 60), String(p.flags.answer ?? ''), !!p.flags.new);
+		return startSession(p.session, language(p), textFlag(p, 'name'), seconds(p, 'timeout', 60), textFlag(p, 'answer'), !!p.flags.new);
 	},
 	'console-run': argv => {
-		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'capture-timeout'], Infinity);
+		// A flag it does not take is refused: read as a switch, its value (--capture-timout 5)
+		// would be joined to the code and run.
+		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'capture-timeout'], Infinity, ['capture', 'help']);
 		if (p.flags.help) { usage('console-run.sh'); }
 		const lang = language(p);
+		// Checked before anything is typed: a NaN timeout ends the echo wait before it starts.
+		const timeout = seconds(p, 'timeout', 10), captureTimeout = seconds(p, 'capture-timeout', 60);
+		const name = textFlag(p, 'name');
 		// Read stdin whole: a shell's $(cat) would drop the blank line that ends a Python block.
 		const text = p.rest.length ? p.rest.join(' ') : readFileSync(0, 'utf8');
 		if (!text) { throw new Exit(2, { ok: false, error: 'empty input' }); }
 		return consoleRun(p.session, {
-			language: lang, name: String(p.flags.name ?? ''), text,
-			timeout: Number(p.flags.timeout ?? 10), capture: !!p.flags.capture, captureTimeout: Number(p.flags['capture-timeout'] ?? 60),
+			language: lang, name, text,
+			timeout, capture: !!p.flags.capture, captureTimeout,
 		});
 	},
 	'console-read': argv => {
-		const p = parse(argv, ['session', 'language', 'name', 'tail', 'after']);
+		// A flag it does not take (--langauge=r) is refused: ignored, the call would read the active console.
+		const p = parse(argv, ['session', 'language', 'name', 'tail', 'after'], 0, ['expand', 'prompt', 'help']);
 		if (p.flags.help) { usage('console-read.sh'); }
-		const lang = p.flags.language ? language(p) : '';
-		const r = readConsole(p.session, lang, String(p.flags.name ?? ''), !!p.flags.expand);
+		// An empty --language, --name or --after is a usage error, not the flag left out:
+		// read as absent, the call would read whichever console is active.
+		const lang = p.flags.language === undefined ? '' : language(p);
+		const name = textFlag(p, 'name'), afterText = textFlag(p, 'after');
+		// Number() reads "abc" as NaN (falsy, so every line) and slice(-(-2)) drops the first two.
+		const tailFlag = String(p.flags.tail ?? 40);
+		if (!/^\d+$/.test(tailFlag)) { throw new Exit(2, { ok: false, error: `--tail must be a whole number of lines (0 for all), not ${JSON.stringify(tailFlag)}` }); }
+		const r = readConsole(p.session, lang, name, !!p.flags.expand);
 		if (!r.ok) { failText('console-read.sh', String(r.error)); }
 		const tracebacks = `${r.expanded ? `; expanded ${r.expanded} traceback${r.expanded === 1 ? '' : 's'}` : ''}${r.collapsed ? `; ${r.collapsed} traceback${r.collapsed === 1 ? ' is' : 's are'} collapsed (Show Traceback): its frames are not in this text, --expand shows them` : ''}`;
-		process.stderr.write(`console-read.sh: ${r.session} (${r.sessionId}), prompt ${r.prompt}${tracebacks}\n`);
-		if (p.flags.prompt) { logRead('console-read.sh', p.session, `${r.session}: prompt ${r.prompt}`); return String(r.prompt); }
+		// The input shows no prompt while code runs, and is hidden while an input() waits.
+		const prompt = typeof r.prompt === 'string' ? `prompt ${r.prompt}`
+			: typeof r.waiting === 'string' ? `no prompt: the input is hidden; an input request waits for an answer, asking ${JSON.stringify(r.waiting)}`
+				: 'no prompt: the input shows none (as while code runs)';
+		process.stderr.write(`console-read.sh: ${r.session} (${r.sessionId}), ${prompt}${tracebacks}\n`);
+		if (p.flags.prompt) {
+			if (typeof r.prompt !== 'string' && typeof r.waiting !== 'string') { failText('console-read.sh', `${r.session} shows no prompt now: its input shows none and no input request waits (the console draws no prompt while code runs)`); }
+			logRead('console-read.sh', p.session, `${r.session}: ${prompt}`);
+			return String(typeof r.prompt === 'string' ? r.prompt : r.waiting);
+		}
 		let text = String(r.text).replace(/\n+$/, '');
-		if (p.flags.after) {
-			const a = after(text, String(p.flags.after));
+		if (afterText) {
+			const a = after(text, afterText);
 			if ('error' in a) { failText('console-read.sh', a.error); }
 			process.stderr.write(`console-read.sh: --after matched ${a.used}\n`);
 			text = a.text;
 		}
-		const tail = Number(p.flags.tail ?? 40);
+		const tail = Number(tailFlag);
 		const shown = tail ? text.split('\n').slice(-tail).join('\n') : text;
 		// The last lines are what a reading is usually for.
-		logRead('console-read.sh', p.session, `${r.session}, prompt ${r.prompt}${r.collapsed ? `, ${r.collapsed} collapsed` : ''}: ...${shown.split('\n').filter(l => l.trim()).slice(-3).join(' | ')}`);
+		logRead('console-read.sh', p.session, `${r.session}, ${typeof r.prompt === 'string' ? `prompt ${r.prompt}` : typeof r.waiting === 'string' ? `input request ${JSON.stringify(r.waiting)}` : 'no prompt'}${r.collapsed ? `, ${r.collapsed} collapsed` : ''}: ...${shown.split('\n').filter(l => l.trim()).slice(-3).join(' | ')}`);
 		return shown;
 	},
 };
