@@ -312,6 +312,11 @@ const cases: Case[] = [
 	{ name: 'terminal-run echo', quick: true, wait: 1500, run: ['terminal-run.sh', 'echo smoke-$((6*7))'], check: o => !o.json!.entered && 'not entered' },
 	{ name: 'terminal-run --read', run: ['terminal-run.sh', '--read', '--tail', '5'], check: o => includes(o.json!.text, 'smoke-42') },
 	{ name: 'terminal-run stray read', run: ['terminal-run.sh', 'read'], fail: true, check: o => includes(o.json!.error, '--read') },
+	// Terminals are numbered from 1: --index 0 is refused, not taken as terminal 1; --tail takes a whole number.
+	{ name: 'terminal-run --index 0', run: ['terminal-run.sh', '--index', '0', 'echo smoke-idx0'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--index') },
+	{ name: 'terminal-run --tail -2', run: ['terminal-run.sh', '--read', '--tail', '-2'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--tail') },
+	// An unknown key name is named, with the right one; the Control pressed before it is released.
+	{ name: 'terminal-run unknown key', run: ['terminal-run.sh', '--key', 'Control+BackSpace'], fail: true, check: o => includes(o.json!.error, 'try Backspace') || includes(o.json!.error, 'Control went down and up') },
 	{ name: 'panel terminals', run: ['panel.sh', 'terminals'], check: o => keys(o.json, 'terminals') },
 	{ name: 'panel tab Console', run: ['panel.sh', 'tab', 'Console'], check: o => includes(o.json!.tab, 'Console') },
 	{ name: 'panel tab Console again', run: ['panel.sh', 'tab', 'Console'], check: o => !o.json!.already && 'not reported as already shown' },
