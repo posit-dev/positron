@@ -157,6 +157,8 @@ test('flags a precondition that is something done in the app, in the report and 
 	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- app running | ${p}\n\n1. Click Retry.`)).filter(x => /done in the app/.test(x));
 	assert.deepEqual(pre('`app.R` started with its Run Shiny App button'), ['report: Finding 1 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
 	assert.deepEqual(pre('`flask_app.py` running, then opened in an editor tab'), ['report: Finding 1 precondition "app running" is done in the app ("then opened"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(pre('A Shiny console in which Run Shiny App started `shiny_app.R`'), ['report: Finding 1 precondition "app running" is done in the app ("Run Shiny App"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(pre('A Python 3.12 console, which Positron starts on launch'), []);
 	// State stays a precondition; the command that loads a file is a step.
 	assert.deepEqual(pre('a Python with polars is selected'), []);
 	assert.deepEqual(pre('`slow.py` loaded'), []);

@@ -63,7 +63,7 @@ const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|te
 const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
 // An app already serving is what the steps start, so the reader sees it start.
 const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+/i;
-const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran))\b/i;
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran)|Run(?: Shiny)? App)\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
 const RUN_COMMAND = /^(?:%run\b|%load\b|!|source\(|library\(|require\(|exec\(|import\s|from\s+\S+\s+import\s|install\.packages\(|pip\s)/;
 const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
