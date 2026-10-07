@@ -15,7 +15,9 @@
 # n. Code the console takes as unfinished (a Python block with no blank line
 # after it, an open bracket) leaves it at its continuation prompt ("..." or R's
 # "+") with nothing run, and the script fails and says so: end a Python block
-# with an empty line. Each call waits for its echo, so calls arrive seconds
+# with an empty line. While an input() or readline() waits for an answer the
+# console's input is hidden: the script presses no key and fails, with the
+# question it asks in "waiting". Each call waits for its echo, so calls arrive seconds
 # apart; to test changes in quick succession, send them in one call.
 #
 # Usage:
@@ -37,10 +39,15 @@
 #                    the text after the echo of the code's last line (not
 #                    after a traceback's frame of that same line), its rows
 #                    as drawn, blank rows included
+#   --capture-timeout SECS  see --capture. A --timeout or --capture-timeout
+#                    that is not a positive number is a usage error, and
+#                    nothing is typed
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"session":"R 4.5.1","sessionId":"r-cf28f473","switched":true,"busy":false,"echoed":true}
-# Exit code: 0 when the code landed in the right console, 1 when it did not, 2 on a usage error.
+# Exit code: 0 when the code landed in the right console, 1 when it did not, 2 on a usage error
+# (a --name given with no value or an empty one is one, and so is a flag it
+# does not take, such as a misspelled --capture-timout: nothing is typed).
 #
 # Required tools on PATH: node, jq.
 

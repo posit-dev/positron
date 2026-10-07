@@ -137,9 +137,17 @@ runs:
           else
             git commit -m "$COMMIT_MESSAGE"
             git push origin "$BRANCH"
-            NEW_PR_URL=$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$BODY" ${REVIEWERS:+--reviewer "$REVIEWERS"})
+            NEW_PR_URL=$(gh pr create --base main --head "$BRANCH" --title "$TITLE" --body "$BODY")
             echo "Created new PR: $NEW_PR_URL"
             emit pr_action created
             emit pr_url "$NEW_PR_URL"
+            # Requested separately so a failed review request cannot fail the step after the PR exists.
+            if [ -n "$REVIEWERS" ]; then
+              args=()
+              IFS=',' read -ra logins <<< "$REVIEWERS"
+              for r in "${logins[@]}"; do args+=(-f "reviewers[]=$r"); done
+              gh api "repos/$GITHUB_REPOSITORY/pulls/${NEW_PR_URL##*/}/requested_reviewers" "${args[@]}" >/dev/null \
+                || echo "::warning::Could not request review from $REVIEWERS on $NEW_PR_URL"
+            fi
           fi
         fi

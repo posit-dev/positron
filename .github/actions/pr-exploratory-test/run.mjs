@@ -7,16 +7,18 @@
 // Positron instance already launched and attached by the workflow.
 
 import { query } from '@anthropic-ai/claude-agent-sdk';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { missingFiles, readRunDir, skillVersion, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { applyEdits, buildEditPrompt, buildRetryPrompt, parseEdits, reviewEdits } from '../../../.claude/skills/exploratory-test/renderer/edit.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
-import { buildTaskLine, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, describeChange, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -26,10 +28,10 @@ const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
 // Beside explorer.md, so both prompts come from the harness checkout rather
 // than the branch under test, which may not have this file yet.
 const VERIFIER_PATH = join(dirname(EXPLORER_PATH), 'verifier.md');
+const EDITOR_PATH = join(dirname(EXPLORER_PATH), 'editor.md');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
-const DIFF_STAT = process.env.DIFF_STAT || '(no diff stat provided)';
 const CDP_PORT = mustEnv('CDP_PORT');
 const MODEL = process.env.MODEL || 'opus';
 // What the person asked to test; empty tests the diff.
@@ -53,6 +55,7 @@ const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
 // The verification bills separately from the explore pass, so its cost record
 // outlives the function that produces it.
 let verifyCost = buildCostRecord(null);
+let editCost = buildCostRecord(null);
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -184,6 +187,61 @@ async function verifyReport() {
 	return chunks.length ? fromVerdictLine(chunks[chunks.length - 1]) : null;
 }
 
+/** One editor call: its reply, with its cost added to the edit pass's. */
+async function askEditor(prompt) {
+	const chunks = [];
+	for await (const message of query({
+		prompt,
+		options: {
+			model: VERIFY_MODEL,
+			cwd: WORK_DIR,
+			allowedTools: [],
+			maxTurns: 2,
+			stderr: data => process.stderr.write(`[edit stderr] ${data}`),
+			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
+		},
+	})) {
+		if (message.type === 'assistant') {
+			chunks.push(...(message.message?.content || []).filter(b => b.type === 'text').map(b => b.text));
+		} else if (message.type === 'result') {
+			const record = buildCostRecord(message);
+			console.log(`[edit] result: ${JSON.stringify(record)}`);
+			const add = key => (editCost[key] ?? 0) + (record[key] ?? 0) || null;
+			editCost = { ...record, total_cost_usd: add('total_cost_usd'), num_turns: add('num_turns'), duration_ms: add('duration_ms') };
+		}
+	}
+	return chunks.join('\n');
+}
+
+/**
+ * Writes each finding's opening (summary, where) and a title cut
+ * from it, and rewrites the Result, with a fresh agent that sees each card only
+ * through Expected, never a Cause. Anything the guard rejects gets one more try
+ * with the reason, then is skipped, so the worst case is the report as the
+ * explorer wrote it.
+ */
+async function editReport(report) {
+	const template = readFileSync(EDITOR_PATH, 'utf8');
+	const prompt = buildEditPrompt(template, report);
+	if (!prompt) {
+		return report;
+	}
+	let edited = report;
+	let retry = prompt;
+	for (const last of [false, true]) {
+		const { kept, rejected } = reviewEdits(edited, parseEdits(await askEditor(retry)));
+		for (const r of rejected) {
+			console.log(`[edit] ${last ? 'kept' : 'retrying'} ${r.field === 'result' ? 'the Result' : `Finding ${r.n}'s ${r.field}`}: the rewrite ${r.reason}`);
+		}
+		edited = applyEdits(edited, kept);
+		retry = last ? null : buildRetryPrompt(template, edited, rejected);
+		if (!retry) {
+			break;
+		}
+	}
+	return edited;
+}
+
 async function main() {
 	mkdirSync(join(WORK_DIR, 'shots'), { recursive: true });
 	// Fetched by the workflow while the build ran; the verifier and renderer read it from the run directory.
@@ -194,6 +252,8 @@ async function main() {
 	const knownBrief = buildKnownIssuesBrief(knownIssues);
 
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
+	const git = args => execFileSync('git', ['-C', REPO_ROOT, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+	const { stat, upstream } = describeChange({ git, base: BASE_SHA, head: HEAD_SHA });
 
 	const userPrompt = [
 		'# Brief',
@@ -206,15 +266,16 @@ async function main() {
 		'',
 		'## What changed',
 		'',
+		...(upstream ? [`An upstream merge of ${upstream.files} files. Listed are the ${upstream.seam} where Positron meets it: Positron's own files, upstream files with a \`--- Start Positron ---\` block, and files changed after the merge commit.`, ''] : []),
 		'```',
-		DIFF_STAT,
+		stat,
 		'```',
 		'',
 		`See the full diff with \`git -C ${REPO_ROOT} diff ${BASE_SHA}...${HEAD_SHA}\`.`,
 		'',
 		'## Your task',
 		'',
-		buildTaskLine(FOCUS),
+		buildTaskLine(FOCUS, upstream),
 		'',
 		...(knownBrief ? [knownBrief, ''] : []),
 		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
@@ -266,6 +327,7 @@ async function main() {
 	const footer = () => renderCostFooter([
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: verifyCost },
+		{ label: 'edit', cost: editCost },
 	], MAX_TURNS);
 	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
 	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
@@ -293,8 +355,8 @@ async function main() {
 			model: cost.model,
 			turns: cost.num_turns,
 			maxTurns: MAX_TURNS,
-			costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) || null,
-			durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) || null,
+			costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) + (editCost.total_cost_usd ?? 0) || null,
+			durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) + (editCost.duration_ms ?? 0) || null,
 			parsed: markdown ? parseReport(markdown) : null,
 			checks: readChecks(WORK_DIR),
 			timeLimit: TIME_LIMIT ? { minutes: TIME_LIMIT, reached: timeWasUp, stopped: timedOut } : null,
@@ -345,7 +407,14 @@ async function main() {
 		// Annotation is best effort and never removes a row, because a wrong
 		// FALSE POSITIVE that deleted a real finding would be invisible to
 		// everyone. Shared with local runs through finish.mjs.
-		const reviewed = verdicts ? applyVerification(report, verdicts, { failed: verifyFailed }) : report;
+		const verified = verdicts ? applyVerification(report, verdicts, { failed: verifyFailed }) : report;
+		let reviewed = verified;
+		try {
+			reviewed = await editReport(verified);
+		} catch (err) {
+			// The explorer's wording is still a complete report.
+			console.error(`[edit] failed, findings keep their original wording: ${err}`);
+		}
 		reportMarkdown = `${reviewed}\n\n${footer()}\n`;
 		// Written with the footer: report.md is published to the CDN on its own,
 		// where the step summary's copy of the cost is not reachable.

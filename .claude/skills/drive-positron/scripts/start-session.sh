@@ -29,7 +29,8 @@
 #                    when it leaves no match the unfiltered rows on screen
 #                    are tried
 #   --timeout SECS   how long to wait for the console to be ready (default 60),
-#                    and, first, for a session that is still starting
+#                    and, first, for a session that is still starting; a
+#                    value that is not a positive number is a usage error
 #   --new            start a session even when one of the language (and
 #                    --name) is open already
 #   --answer BUTTON  answer a dialog that holds start-up with this button, such
@@ -46,7 +47,8 @@
 #   {"ok":true,"started":false,"sessionId":"r-5e6f7a8b","session":"R 4.5.1","sessions":["R 4.5.1 (r-5e6f7a8b)"],"note":"..."}
 # The sessionId is what console tabs and the MCP tools name the session by;
 # with several open sessions matching, it is null and "sessions" lists them.
-# Exit code: 0 when the console is ready, 1 when it is not, 2 on a usage error.
+# Exit code: 0 when the console is ready, 1 when it is not, 2 on a usage error
+# (a --name or --answer given with no value or an empty one is one).
 #
 # Required tools on PATH: node, jq.
 

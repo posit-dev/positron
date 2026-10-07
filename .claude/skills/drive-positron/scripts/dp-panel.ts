@@ -112,10 +112,33 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 		}
 		case 'delete-session': {
 			const c = lib.css.console;
-			if (!(await lib.consoles()).inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
+			const all = await lib.consoles();
+			if (!all.inPage) { return { ok: false, noConsoleView: true, error: 'the Console view is not shown (another panel tab is in front), so no console can be read' }; }
+			// The session gone when its tab and its console are: a Python session
+			// takes some seconds to shut down, so wait up to 10 s.
+			const gone = async (id: string) => {
+				const left = page.locator(`[data-testid="${c.tabTestId}${id}"], [data-testid="${c.instanceTestId}${id}"]`);
+				for (const end = Date.now() + 10_000; Date.now() < end;) { await lib.sleep(250); if (!await left.count()) { return true; } }
+				return false;
+			};
+			if (!all.tabs.length) {
+				// One session: the console shows no tabs, and its own toolbar has
+				// Delete Session, which deletes the active (the only) session.
+				const one = all.sessions;
+				const list = one.map(t => `${t.name} (${t.id})`);
+				if (one.length !== 1 || !lib.namedLike(one[0], a.arg)) { return { ok: false, error: `no console session named like ${a.arg}`, sessions: list }; }
+				const id = one[0].id;
+				const bar = page.locator(c.pane).filter({ has: page.locator(`[data-testid="${c.instanceTestId}${id}"]`) }).getByRole('toolbar').first();
+				const button = bar.getByRole('button', { name: lib.names.panel.deleteSessionButton, exact: true }).filter({ visible: true });
+				if (!await button.count()) { return { ok: false, error: `the console toolbar shows no ${lib.names.panel.deleteSessionButton} button`, sessions: list }; }
+				if (await button.first().isDisabled()) { return { ok: false, error: `the console toolbar's ${lib.names.panel.deleteSessionButton} is disabled; nothing was deleted`, sessions: list }; }
+				await button.first().click({ timeout: 3000 });
+				return { ok: true, session: one[0].name, id, deleted: await gone(id) };
+			}
 			const tabs = page.locator(`[data-testid^="${c.tabTestId}"]`);
-			const names = await tabs.evaluateAll(ts => ts.map(t => t.getAttribute('aria-label') ?? ''));
 			const ids = await tabs.evaluateAll((ts, prefix) => ts.map(t => (t.getAttribute('data-testid') ?? '').slice(prefix.length)), c.tabTestId);
+			// The session's name, as lib.consoles reads it: the tab's label without its new-execution count.
+			const names = ids.map(id => all.tabs.find(t => t.id === id)?.name ?? '');
 			// By part of its name, or by its session id when two share a name.
 			const hits = names.flatMap((n, i) => n.includes(a.arg) || ids[i] === a.arg || ids[i].endsWith('-' + a.arg) ? [i] : []);
 			if (hits.length !== 1) { return { ok: false, error: hits.length ? `${hits.length} sessions match; pass the session id` : `no console session named like ${a.arg}`, sessions: names.map((n, i) => `${n} (${ids[i]})`) }; }
@@ -131,13 +154,8 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 			const at = labels.findIndex(l => l === del || (l.startsWith(del) && !/[a-z]/.test(l.slice(del.length))));
 			if (at < 0) { await lib.closeMenu(); return { ok: false, error: `the menu has no ${del}`, items: labels }; }
 			await items.nth(at).hover(); await lib.sleep(100); await items.nth(at).click({ timeout: 3000 });
-			// Gone when its tab and its console are: a Python session takes some
-			// seconds to shut down, so wait up to 10 s.
 			const id = ids[hits[0]];
-			const left = page.locator(`[data-testid="${c.tabTestId}${id}"], [data-testid="${c.instanceTestId}${id}"]`);
-			let gone = false;
-			for (const end = Date.now() + 10_000; !gone && Date.now() < end;) { await lib.sleep(250); gone = !await left.count(); }
-			return { ok: true, session: name, id, deleted: gone };
+			return { ok: true, session: name, id, deleted: await gone(id) };
 		}
 		case 'editors': {
 			// Every group, also while the editor area is hidden (the panel
@@ -198,7 +216,8 @@ const panel: PageFn<Args> = async (page, a, lib) => {
 			};
 		}
 	}
-	return { ok: false, error: 'command: tab, sessions, console, terminals, delete-session, editors, layout or resize' };
+	// Unreachable: panelCommands refuses an unknown command (exit 2) before any page call.
+	return { ok: false, error: `unknown command ${a.cmd}` };
 };
 
 /**
@@ -222,7 +241,10 @@ const sessionPicker: PageFn<Record<string, never>> = async (page, _a, lib) => {
 			// A heading is drawn on the first row of its group; recycled rows keep a hidden one.
 			const h = [...r.querySelectorAll(`${q.separator}, ${q.separatorRow}`)].find(x => x.getBoundingClientRect().height > 0);
 			if (h) { heading = clean(h); }
-			return { heading, name: clean(r.querySelector(label.name)), description: clean(r.querySelector(label.description)), detail: clean(r.querySelector(q.meta)) };
+			// A row with no detail hides its detail line but keeps the text a recycled row had, so an
+			// action row would read as a session with another row's path: read only the shown ones.
+			const shown = (sel: string) => [...r.querySelectorAll(sel)].find(x => x.getBoundingClientRect().height > 0);
+			return { heading, name: clean(r.querySelector(label.name)), description: clean(shown(label.description)), detail: clean(shown(q.meta)) };
 		}).filter(r => r.detail);
 	}, { q: lib.css.quickInput, label: lib.css.label, list: lib.css.list });
 	await lib.closeQuickInput();
@@ -243,6 +265,7 @@ export const panelCommands: Record<string, (argv: string[]) => Json | string> = 
 		const p = parse(argv, ['session'], { tab: 2, sessions: 1, console: 2, terminals: 1, 'delete-session': 2, editors: 1, layout: 1, resize: 3 });
 		const [cmd, arg, a2] = p.rest;
 		if (p.flags.help || !cmd) { usage('panel.sh'); }
+		if (!['tab', 'sessions', 'console', 'terminals', 'delete-session', 'editors', 'layout', 'resize'].includes(cmd)) { throw new Exit(2, { ok: false, error: 'command: tab, sessions, console, terminals, delete-session, editors, layout or resize' }); }
 		if (['tab', 'console', 'delete-session'].includes(cmd) && !arg) { throw new Exit(2, { ok: false, error: `${cmd} needs an argument` }); }
 		if (cmd === 'resize' && (!['sidebar', 'secondary', 'panel'].includes(arg) || !/^\d+$/.test(a2 ?? ''))) { throw new Exit(2, { ok: false, error: 'give sidebar, secondary or panel, and the size in pixels' }); }
 		// The console tabs are in the page only while the Console view is: these bring it forward.

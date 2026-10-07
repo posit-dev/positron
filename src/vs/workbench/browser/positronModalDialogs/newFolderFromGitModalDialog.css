@@ -1,4 +1,26 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+.positron-dynamic-modal-dialog-box .git-status {
+	gap: 8px;
+	display: flex;
+	flex-direction: column;
+	white-space: normal;
+}
+
+.positron-dynamic-modal-dialog-box .git-status p {
+	margin: 0;
+}
+
+.positron-dynamic-modal-dialog-box .git-status .git-status-heading {
+	font-weight: 600;
+}
+
+/* Beats the content area's own 11px code style. */
+.positron-dynamic-modal-dialog-box .content-area .git-status code {
+	font-size: 13px;
+	font-family: var(--monaco-monospace-font);
+	color: var(--vscode-positronModalDialog-preformattedTextForeground);
+}

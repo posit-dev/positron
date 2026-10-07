@@ -2096,6 +2096,14 @@ const logsRead = p => {
 };
 const logsIssueHtml = (options = {}) => logsHtml({ base: 'https://cdn.example/run1', readFile: logsRead, ...options });
 
+test('a lone ~ means "about", on the card and in the issue; only ~~ strikes through', () => {
+	const md = FULL.replace('**Cause (hypothesis):** the timeout was cut to 10 s.', '**Cause (hypothesis):** `run()` (~L12-40) calls `wait()` (~L80), and `y ~ x` is ~~not~~ fine.');
+	const html = renderReportHtml(md);
+	const card = html.split('<article id="f1"')[1].split('</article>')[0];
+	assert.match(card, /\(~L12-40\) calls <code>wait\(\)<\/code> \(~L80\), and <code>y ~ x<\/code> is <del>not<\/del> fine/);
+	assert.match(issueCopied(html, 1), /\(\\~L12-40\) calls `wait\(\)` \(\\~L80\), and `y ~ x` is ~~not~~ fine/);
+});
+
 test('issue: one button per card, directly before Copy prompt', () => {
 	for (const html of [renderReportHtml(FULL), logsIssueHtml()]) {
 		for (const card of html.split('<article id="f').slice(1)) {
@@ -2167,10 +2175,8 @@ test('issue: the body follows the template and leaves out what triage sets', () 
 		'**Positron and OS:**  ',
 		'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)  ',
 		'Ubuntu 22.04, Linux x64',
-		'',
-		'**Session:**  ',
-		'Python 3.10.12 with pandas, polars, duckdb and pyarrow',
 	].join('\n')));
+	assert.doesNotMatch(body, /\*\*Session:/);
 	assert.doesNotMatch(body, /Code - OSS|Please investigate|### Context|!\[|Severity|Status:|Reproduced|Major|Coverage/i);
 	assert.match(body, /^- `slow\.py` \(below\) loaded/m);
 	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
@@ -2223,6 +2229,24 @@ test('issue: a finding\'s Feature prefixes the issue title', () => {
 	assert.equal(issueUrl(html, 1).searchParams.get('title'), `data explorer: ${card[0].toLowerCase()}${card.slice(1)}`);
 	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
 	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
+});
+test('issue: an opening describes the issue but stays off the card, and the run\'s own steps reproduce it', () => {
+	const opening = [
+		'**Summary:** When you open a slow column, its summary never loads.',
+		'',
+		'**Where:** polars only; R was not checked.',
+	].join('\n');
+	const md = LOGS_REPORT.replace(/^(### Finding 1: .*)$/m, `$1\n\n${opening}`);
+	const html = renderReportHtml(md, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
+	const body = issueCopied(html, 1);
+	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]), ['System details', 'Describe the issue', 'Steps to reproduce', 'Observed', 'Expected', 'Error messages', 'Evidence']);
+	assert.ok(body.includes(['## Describe the issue', 'When you open a slow column, its summary never loads.', '', 'polars only; R was not checked.', '', '## Steps to reproduce'].join('\n')));
+	assert.match(body, /^3\. Verify the column summary loads\. → \*\*FAIL\*\*/m);
+	assert.doesNotMatch(body, /What the run did/);
+	assert.match(card(html, 1), /<\/h2><\/header>\s*<div class="f-cmp /);
+	assert.doesNotMatch(card(html, 1).split('</header>')[1], /open a slow column|R was not checked|\*\*Summary/);
+	// A finding without an opening keeps the template.
+	assert.match(issueCopied(html, 2), /## Observed\n/);
 });
 test('an older report\'s Impact line and column show nowhere: not on the card, the issue or the prompt', () => {
 	const impact = 'The only way to get the summaries back is to reopen the Data Explorer.';

@@ -26,17 +26,24 @@
 # Flags:
 #   --session NAME   the @playwright/cli session attached to the instance (or $PW_SESSION)
 #   --index N        which visible terminal, numbered left to right then top to
-#                    bottom; needed only when more than one is visible
+#                    bottom from 1; needed only when more than one is visible.
+#                    Anything but a whole number from 1 is a usage error
 #   --key KEY        send a key instead of a command, such as Control+c to stop
-#                    a server, or Control+d; KEY is a Playwright key name
+#                    a server, or Control+d; KEY is a Playwright key name,
+#                    case-sensitive (Backspace, not BackSpace). An unknown name
+#                    is a usage error that names it, with the right name when it
+#                    is a known miscasing or alias; modifiers before it are
+#                    released, and "error" says what was sent
 #   --read           print the terminal's text instead ("text"); --tail N for
-#                    the last N lines. It reads until two reads 500 ms apart
+#                    the last N lines (0 for all; anything but a whole number
+#                    is a usage error). It reads until two reads 500 ms apart
 #                    agree and the last command shows output, for up to 5 s;
 #                    then "note" says it may still be running
 #
 # Stdout: one JSON line, e.g.
 #   {"ok":true,"index":1,"visible":1,"entered":true}
-# Exit code: 0 when the command went to the terminal, 1 when it did not, 2 on a usage error.
+# Exit code: 0 when the command went to the terminal, 1 when it did not, 2 on a
+# usage error (an unknown --key name too).
 #
 # Required tools on PATH: node, jq.
 
