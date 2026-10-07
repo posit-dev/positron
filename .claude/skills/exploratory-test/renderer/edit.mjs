@@ -14,13 +14,16 @@
 //   node edit.mjs prompt <run dir>
 //     writes <run dir>/edit-prompt.md and prints its path, or says there is
 //     nothing to edit
-//   node edit.mjs apply <run dir> <reply file>
-//     applies the reply's edits to report.md, skipping any the guard rejects
+//   node edit.mjs apply <run dir> <reply file> [--last]
+//     applies the reply's edits to report.md, skipping any the guard rejects.
+//     When it rejects any, it writes <run dir>/edit-retry-prompt.md and prints
+//     its path, for one more try applied with --last.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyTitles, rewriteLabel } from './finish.mjs';
+import { SUMMARY_WORDS, wordsOf } from './lint.mjs';
 
 const FIELDS = { TITLE: 'title', OBSERVED: 'observed', EXPECTED: 'expected' };
 // The Result line is keyed 0, beside the findings' own numbers.
@@ -158,15 +161,36 @@ export function reviewEdits(report, edits) {
 				: lost.length ? `loses ${lost.join(', ')}`
 					: field === 'title' && /[|;]/.test(after) ? 'has a | or ;'
 						: field === 'result' && before.includes('**') && !/\*\*[^*]+\*\*/.test(after) ? 'drops the bold'
-							: '';
+							: field === 'result' && wordsOf(after) > SUMMARY_WORDS ? `is ${wordsOf(after)} words, over ${SUMMARY_WORDS}`
+								: '';
 			if (reason) {
-				rejected.push({ n, field, reason });
+				rejected.push({ n, field, reason, after });
 			} else if (after !== before) {
 				kept.set(n, { ...kept.get(n), [field]: after });
 			}
 		}
 	}
 	return { kept, rejected };
+}
+
+/**
+ * The edit prompt again, for one more try at the rewrites the guard rejected,
+ * each with the reason; null when none can be retried.
+ */
+export function buildRetryPrompt(template, report, rejected) {
+	const current = currentFields(report);
+	const retry = rejected.filter(r => current.get(r.n)?.[r.field] !== undefined);
+	const prompt = retry.length ? buildEditPrompt(template, report) : null;
+	if (!prompt) {
+		return null;
+	}
+	const lines = retry.map(r => `- ${r.field === 'result' ? 'Result' : `Finding ${r.n} ${r.field}`}: "${r.after}" ${r.reason}.`);
+	return [
+		prompt,
+		'## Rewrites to redo',
+		'These rewrites were rejected, so the report keeps the original. Rewrite each one again, fixing what its reason names, and follow every rule above. Reply in the same format with only these fields, or `EDITS: none` to keep the originals.',
+		lines.join('\n'),
+	].join('\n\n');
 }
 
 /** The report with the kept edits applied: the Result, titles in heading and table, Observed and Expected in the card. */
@@ -181,10 +205,11 @@ export function applyEdits(report, kept) {
 const EDITOR_PATH = fileURLToPath(new URL('../editor.md', import.meta.url));
 
 function main(argv) {
-	const [command, dir, replyFile] = argv;
+	const last = argv.includes('--last');
+	const [command, dir, replyFile] = argv.filter(a => a !== '--last');
 	const reportPath = dir && join(dir, 'report.md');
 	if (!reportPath || !existsSync(reportPath)) {
-		console.error('usage: node edit.mjs prompt <run dir>\n       node edit.mjs apply <run dir> <reply file>');
+		console.error('usage: node edit.mjs prompt <run dir>\n       node edit.mjs apply <run dir> <reply file> [--last]');
 		return 2;
 	}
 	const report = readFileSync(reportPath, 'utf8');
@@ -208,8 +233,15 @@ function main(argv) {
 		for (const r of rejected) {
 			console.error(`edit: kept ${r.field === 'result' ? 'the original Result' : `Finding ${r.n}'s original ${r.field}`}: the rewrite ${r.reason}`);
 		}
-		writeFileSync(reportPath, applyEdits(report, kept));
+		const edited = applyEdits(report, kept);
+		writeFileSync(reportPath, edited);
 		console.log(`edit: ${[...kept.values()].reduce((sum, f) => sum + Object.keys(f).length, 0)} field(s) rewritten in ${reportPath}`);
+		const retry = last ? null : buildRetryPrompt(readFileSync(EDITOR_PATH, 'utf8'), edited, rejected);
+		if (retry) {
+			const out = join(dir, 'edit-retry-prompt.md');
+			writeFileSync(out, retry);
+			console.log(`edit: retry prompt at ${out}`);
+		}
 		return 0;
 	}
 	console.error(`edit: unknown command ${command ?? ''}`);

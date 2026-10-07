@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { missingFiles, readRunDir, skillVersion, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
-import { applyEdits, buildEditPrompt, parseEdits, reviewEdits } from '../../../.claude/skills/exploratory-test/renderer/edit.mjs';
+import { applyEdits, buildEditPrompt, buildRetryPrompt, parseEdits, reviewEdits } from '../../../.claude/skills/exploratory-test/renderer/edit.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
@@ -187,16 +187,8 @@ async function verifyReport() {
 	return chunks.length ? fromVerdictLine(chunks[chunks.length - 1]) : null;
 }
 
-/**
- * Rewrites each finding's title, Observed and Expected in plain words, with a
- * fresh agent that sees only the findings, never their Cause. Any rewrite that
- * drops a fact is skipped, so the worst case is the report as the explorer wrote it.
- */
-async function editReport(report) {
-	const prompt = buildEditPrompt(readFileSync(EDITOR_PATH, 'utf8'), report);
-	if (!prompt) {
-		return report;
-	}
+/** One editor call: its reply, with its cost added to the edit pass's. */
+async function askEditor(prompt) {
 	const chunks = [];
 	for await (const message of query({
 		prompt,
@@ -212,15 +204,41 @@ async function editReport(report) {
 		if (message.type === 'assistant') {
 			chunks.push(...(message.message?.content || []).filter(b => b.type === 'text').map(b => b.text));
 		} else if (message.type === 'result') {
-			editCost = buildCostRecord(message);
-			console.log(`[edit] result: ${JSON.stringify(editCost)}`);
+			const record = buildCostRecord(message);
+			console.log(`[edit] result: ${JSON.stringify(record)}`);
+			const add = key => (editCost[key] ?? 0) + (record[key] ?? 0) || null;
+			editCost = { ...record, total_cost_usd: add('total_cost_usd'), num_turns: add('num_turns'), duration_ms: add('duration_ms') };
 		}
 	}
-	const { kept, rejected } = reviewEdits(report, parseEdits(chunks.join('\n')));
-	for (const r of rejected) {
-		console.log(`[edit] kept Finding ${r.n}'s original ${r.field}: the rewrite ${r.reason}`);
+	return chunks.join('\n');
+}
+
+/**
+ * Rewrites the Result and each finding's title, Observed and Expected in plain
+ * words, with a fresh agent that sees only those, never a Cause. Any rewrite
+ * that drops a fact gets one more try with the reason, then is skipped, so the
+ * worst case is the report as the explorer wrote it.
+ */
+async function editReport(report) {
+	const template = readFileSync(EDITOR_PATH, 'utf8');
+	const prompt = buildEditPrompt(template, report);
+	if (!prompt) {
+		return report;
 	}
-	return applyEdits(report, kept);
+	let edited = report;
+	let retry = prompt;
+	for (const last of [false, true]) {
+		const { kept, rejected } = reviewEdits(edited, parseEdits(await askEditor(retry)));
+		for (const r of rejected) {
+			console.log(`[edit] ${last ? 'kept' : 'retrying'} ${r.field === 'result' ? 'the Result' : `Finding ${r.n}'s ${r.field}`}: the rewrite ${r.reason}`);
+		}
+		edited = applyEdits(edited, kept);
+		retry = last ? null : buildRetryPrompt(template, edited, rejected);
+		if (!retry) {
+			break;
+		}
+	}
+	return edited;
 }
 
 async function main() {

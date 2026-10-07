@@ -405,11 +405,11 @@ export function untaggedShots(findings) {
 }
 
 // The Result, and a Cause's lead sentence, are read at a glance.
-const SUMMARY_WORDS = 60;
+export const SUMMARY_WORDS = 60;
 const CAUSE_LEAD_WORDS = 40;
 
 /** Words in prose, a code span counting as one. */
-function wordsOf(text) {
+export function wordsOf(text) {
 	return text.replace(/`[^`]*`/g, 'code').split(/\s+/).filter(Boolean).length;
 }
 

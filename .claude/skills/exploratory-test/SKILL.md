@@ -104,6 +104,9 @@ does. Run `node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
 file and reply as it says, and save its reply to `<run dir>/edit-reply.md`.
 Then run `node <base>/renderer/edit.mjs apply <run dir> <run dir>/edit-reply.md`.
 It keeps the original of any field whose rewrite drops a fact, and says which.
+If it also prints `retry prompt at <path>`, give that file to a fresh agent the
+same way, save its reply to `<run dir>/edit-retry-reply.md`, and run
+`node <base>/renderer/edit.mjs apply <run dir> <run dir>/edit-retry-reply.md --last`.
 
 Then put every run on the report's Run tile, as CI does. Each agent's
 completion notice carries `duration_ms` and `tool_uses`; re-render with them.
