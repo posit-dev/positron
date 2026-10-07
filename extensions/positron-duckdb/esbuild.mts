@@ -19,6 +19,8 @@ run({
 	srcDir,
 	outdir: outDir,
 	additionalOptions: {
+		// Loaded from node_modules at runtime. A packaged build loads it from the
+		// shared extensions/node_modules (see duckdbExtensions in build/lib/extensions.ts).
 		external: ['vscode', 'positron', '@duckdb/node-api', '@duckdb/node-bindings'],
 	},
 }, process.argv);

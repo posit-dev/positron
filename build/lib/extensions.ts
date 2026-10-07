@@ -90,6 +90,66 @@ function updateExtensionPackageJSON(input: Stream, update: (data: any) => any): 
 const positronWebpackExtensions = new Set([
 	'positron-python',
 ]);
+
+// Extensions that load DuckDB (`@duckdb/node-api`) from a forked worker. Each
+// one installs its own copy, so that a dev build and the per-folder `--cpu`
+// rule in build/npm/postinstall.ts keep working. Each copy carries a ~110MB
+// native library, so the packaged build ships one shared copy instead: it
+// leaves the per-extension copies out, and stages the copy of
+// `duckdbSourceExtension` in the shared `extensions/node_modules`, where Node
+// resolution from each `dist/duckdbWorker.js` finds it. See
+// posit-dev/positron#14265.
+const duckdbExtensions = new Set([
+	'positron-duckdb',
+	'positron-data-driver-duckdb',
+	'positron-data-driver-pins',
+]);
+const duckdbSourceExtension = 'positron-duckdb';
+
+// The packages that make up the DuckDB runtime. `detect-libc` is a runtime
+// dependency of `@duckdb/node-bindings` only.
+const duckdbRuntimePackages = ['@duckdb', 'detect-libc'];
+
+function isDuckdbRuntimeFile(relativePath: string): boolean {
+	const normalizedPath = relativePath.split(/[\\/]/).join('/');
+	return duckdbRuntimePackages.some(pkg => normalizedPath.startsWith(`node_modules/${pkg}/`));
+}
+
+/**
+ * Fails the build unless every extension in `duckdbExtensions` has installed the
+ * same DuckDB versions, because one shared copy serves all of them at runtime.
+ */
+function assertDuckdbVersionsMatch(): void {
+	const readVersion = (extensionName: string, pkg: string): string => {
+		const manifestPath = path.join(root, 'extensions', extensionName, 'node_modules', pkg, 'package.json');
+		if (!fs.existsSync(manifestPath)) {
+			return 'not installed';
+		}
+		return JSON.parse(fs.readFileSync(manifestPath, 'utf8')).version;
+	};
+
+	for (const pkg of ['@duckdb/node-api', '@duckdb/node-bindings']) {
+		const versions = [...duckdbExtensions].map(extensionName => ({ extensionName, version: readVersion(extensionName, pkg) }));
+		if (new Set(versions.map(v => v.version)).size !== 1 || versions[0].version === 'not installed') {
+			const details = versions.map(v => `${v.extensionName}: ${v.version}`).join(', ');
+			throw new Error(`The extensions that share DuckDB must install the same version of ${pkg} (${details}). Pin the same exact version in each package.json and run npm install.`);
+		}
+	}
+}
+
+/**
+ * Stages one copy of the DuckDB runtime in `extensions/node_modules`. Applies the
+ * same `.moduleignore` filters as the shared production dependencies.
+ */
+function sharedDuckdbRuntimeStream(): Stream {
+	assertDuckdbVersionsMatch();
+	const sourceRoot = path.join('extensions', duckdbSourceExtension);
+	const src = duckdbRuntimePackages.map(pkg => `${sourceRoot}/node_modules/${pkg}/**`);
+	return gulp.src(src, { base: sourceRoot, dot: true })
+		.pipe(rename(p => p.dirname = `extensions/${p.dirname}`))
+		.pipe(util2.cleanNodeModules(path.join(root, 'build', '.moduleignore')))
+		.pipe(util2.cleanNodeModules(path.join(root, 'build', `.moduleignore.${process.platform}`)));
+}
 // --- End Positron ---
 
 function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolean): Stream {
@@ -313,7 +373,6 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		const extensionsWithNpmDeps = [
 			'positron-duckdb',
 			'positron-data-driver-databricks',
-			'positron-data-driver-duckdb',
 			'positron-data-driver-pins'
 		];
 
@@ -363,6 +422,11 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		if (prunedFileNames.length !== fileNames.length) {
 			fancyLog(`Pruned ${ansiColors.yellow(String(fileNames.length - prunedFileNames.length))} unused dependency files from ${ansiColors.cyan(extensionName)}`);
 			fileNames = prunedFileNames;
+		}
+
+		// DuckDB ships once in the shared node_modules. See duckdbExtensions.
+		if (duckdbExtensions.has(extensionName)) {
+			fileNames = fileNames.filter(fileName => !isDuckdbRuntimeFile(fileName));
 		}
 
 		// Stream the files sequentially rather than eagerly opening a read
@@ -765,6 +829,14 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 		} else {
 			result = localExtensionsStream;
 		}
+
+		// --- Start Positron ---
+		// The DuckDB extensions are all non-native, so stage their shared
+		// runtime in the same pass that leaves out their own copies.
+		if (!native) {
+			result = es.merge(result, sharedDuckdbRuntimeStream());
+		}
+		// --- End Positron ---
 	}
 
 	return (
