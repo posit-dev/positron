@@ -77,8 +77,9 @@ function linkFor(document: vscode.TextDocument, reference: Reference): vscode.Do
 	const path = tablePath(table);
 	let tooltip: string;
 	if (reference.kind === 'column') {
-		path.push({ kind: FIELD, name: reference.name });
-		tooltip = vscode.l10n.t('Reveal {0} in {1}', reference.name, qualifiedName(table));
+		const name = reference.aliasOf ?? reference.name;
+		path.push({ kind: FIELD, name });
+		tooltip = vscode.l10n.t('Reveal {0} in {1}', name, qualifiedName(table));
 	} else {
 		tooltip = vscode.l10n.t('Reveal {0} in Data Connections', qualifiedName(table));
 	}
