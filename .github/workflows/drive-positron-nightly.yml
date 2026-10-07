@@ -243,7 +243,7 @@ jobs:
           git config --global user.email positron-bot@posit.co
 
       # What the build steps leave behind that .gitignore does not cover.
-      # NPM_CONFIG_CACHE is relative, so every npm install dir grows its own .npm-cache.
+      # NPM_CONFIG_CACHE and PIP_CACHE_DIR are relative, so every install dir grows its own cache.
       - name: Exclude build residue from git status
         if: ${{ !cancelled() && steps.smoke.outcome == 'success' && steps.rerun.outcome == 'success' }}
         shell: bash
@@ -252,6 +252,7 @@ jobs:
             echo '/extensions/positron-python/.venv'
             echo '/.node-gyp-cache/'
             echo '.npm-cache/'
+            echo '.pip-cache/'
             echo '/.playwright-browsers/'
           } >> "$(git rev-parse --git-path info/exclude)"
 
