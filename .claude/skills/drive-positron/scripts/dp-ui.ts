@@ -10,7 +10,7 @@
 // view's accessibility tree, so a click that did nothing says so. ui.sh wraps
 // these.
 
-import { Exit, inPage, log, logRead, parse, treeLine, usage, type Json, type PageFn, type Parsed } from './dp-lib.ts';
+import { Exit, inPage, log, logRead, parse, seconds, treeLine, usage, type Json, type PageFn, type Parsed } from './dp-lib.ts';
 
 interface Target { scope: string; role: string; name: string; partial: boolean; nth: number; watch: string; right?: boolean }
 
@@ -305,7 +305,7 @@ export const uiCommands: Record<string, (argv: string[]) => Json | string> = {
 		const p = parse(argv, ['session', 'in', 'nth', 'wait', 'watch', 'for', 'every'], { click: 3, fill: 3, check: 3, choose: 4, watch: 2 });
 		if (p.flags.help || !p.rest[0]) { usage('ui.sh'); }
 		const [cmd, ...r] = p.rest;
-		const wait = Number(p.flags.wait ?? 2) * 1000;
+		const wait = seconds(p, 'wait', 2, true) * 1000;
 		const need = (k: number, what: string) => { if (r.length < k) { throw new Exit(2, { ok: false, error: `give ${what}` }); } };
 		let out: Json;
 		switch (cmd) {
@@ -340,14 +340,14 @@ export const uiCommands: Record<string, (argv: string[]) => Json | string> = {
 				out = inPage(p.session, typeText, { scope: String(p.flags.in ?? ''), text: r.join(' '), enter: !!p.flags.enter });
 				break;
 			case 'watch': {
-				const seconds = Number(p.flags.for ?? 5);
+				const secs = seconds(p, 'for', 5);
 				const every = Number(p.flags.every ?? 100);
-				if (!(seconds > 0 && seconds <= 120) || !(every >= 20 && every <= 5000)) { throw new Exit(2, { ok: false, error: '--for takes 0 to 120 seconds, --every 20 to 5000 ms' }); }
+				if (!(secs <= 120) || !(every >= 20 && every <= 5000)) { throw new Exit(2, { ok: false, error: '--for takes 0 to 120 seconds, --every 20 to 5000 ms' }); }
 				need(1, 'the view, as read takes it');
-				out = inPage(p.session, watch, { scope: r[0], seconds, every });
+				out = inPage(p.session, watch, { scope: r[0], seconds: secs, every });
 				if (out.ok) {
 					const st = out.states as { at: number; lasted: number; diff?: string[]; shown?: boolean }[];
-					logRead('ui.sh', p.session, `watch ${out.view} for ${seconds} s: ${out.changes} change${out.changes === 1 ? '' : 's'}${st.slice(1).map(x => `; at ${x.at} ms for ${x.lasted} ms ${x.shown === false ? 'not shown' : (x.diff ?? []).slice(0, 2).join(' ')}`).join('')}`);
+					logRead('ui.sh', p.session, `watch ${out.view} for ${secs} s: ${out.changes} change${out.changes === 1 ? '' : 's'}${st.slice(1).map(x => `; at ${x.at} ms for ${x.lasted} ms ${x.shown === false ? 'not shown' : (x.diff ?? []).slice(0, 2).join(' ')}`).join('')}`);
 				}
 				return out;
 			}

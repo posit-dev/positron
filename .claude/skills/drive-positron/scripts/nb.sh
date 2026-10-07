@@ -21,7 +21,8 @@
 #             modified
 #   run N     run cell N (1-based) with its own Run Cell button, and report
 #             the cell once its status moves
-#   wait      wait until no cell is running or pending (up to --timeout, default 60 s)
+#   wait      wait until no cell is running or pending (up to --timeout SECS,
+#             default 60 s; not a positive number: a usage error)
 #   ready     wait until the kernel badge shows the kernel idle (after a start,
 #             restart or kernel change; up to --timeout)
 #   kernel W  change the kernel to the picker row holding every word of W, such

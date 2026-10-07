@@ -11,7 +11,7 @@
 
 import { existsSync, readFileSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { cliRun, Exit, inPage, log, parse, pause, usage, type Json, type PageFn } from './dp-lib.ts';
+import { cliRun, Exit, inPage, log, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -73,8 +73,8 @@ function cdpPortOf(userDataDir: string): number {
  * reads in a row) is attached again, on the CDP port given or the one
  * instances.log names.
  */
-function comeBack(session: string, mark: string, seconds: number, port: number): Json {
-	const end = Date.now() + seconds * 1000;
+function comeBack(session: string, mark: string, secs: number, port: number): Json {
+	const end = Date.now() + secs * 1000;
 	let failed = 0;
 	let reattached = false;
 	let last: Json = { ok: false, error: 'no read yet' };
@@ -100,7 +100,7 @@ function comeBack(session: string, mark: string, seconds: number, port: number):
 			try { cliRun(session, ['attach', `--cdp=http://127.0.0.1:${port}`]); reattached = true; } catch (e) { last = { ok: false, error: `attach failed: ${(e as Error).message}` }; }
 		}
 	}
-	return { ok: false, error: `the window did not come back within ${seconds} s${!port ? ' (and no CDP port to attach again: pass --cdp-port)' : ''}`, last: last.error ?? last.title ?? null };
+	return { ok: false, error: `the window did not come back within ${secs} s${!port ? ' (and no CDP port to attach again: pass --cdp-port)' : ''}`, last: last.error ?? last.title ?? null };
 }
 
 export const windowCommands: Record<string, (argv: string[]) => Json | string> = {
@@ -109,7 +109,7 @@ export const windowCommands: Record<string, (argv: string[]) => Json | string> =
 		const [cmd, arg] = p.rest;
 		if (p.flags.help || !cmd) { usage('window.sh'); }
 		const s = p.session;
-		const timeout = Number(p.flags.timeout ?? 60);
+		const timeout = seconds(p, 'timeout', 60);
 		if (cmd === 'select') {
 			if (!/^\d+$/.test(arg ?? '')) { throw new Exit(2, { ok: false, error: 'select N: the window number shot.sh --list shows' }); }
 			const list = inPage(s, windows, {});

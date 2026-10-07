@@ -30,7 +30,8 @@
 #
 # Flags:
 #   --session NAME   the @playwright/cli session attached to the instance (or $PW_SESSION)
-#   --timeout SECS   how long to wait for the window (default 60)
+#   --timeout SECS   how long to wait for the window (default 60); not a positive
+#                    number: a usage error, and nothing is done
 #   --cdp-port PORT  the port to attach again on, when instances.log has none
 #
 # Closing a window: palette-run.sh 'Close Window' (macOS keeps the app

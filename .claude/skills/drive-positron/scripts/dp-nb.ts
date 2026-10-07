@@ -11,7 +11,7 @@
 // these.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, logRead, mod, parse, pause, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, logRead, mod, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { notifications } from './dp-notifications.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
@@ -218,7 +218,7 @@ export const nbCommands: Record<string, (argv: string[]) => Json | string> = {
 		const commands = 'read, run N, wait, ready, kernel WORDS, restart, interrupt, clear, move N up|down, edit N, type N TEXT';
 		if (!notebook) { throw new Exit(2, { ok: false, error: `give --notebook NAME (the notebook's file name), then a command: ${commands}` }); }
 		if (!cmd) { throw new Exit(2, { ok: false, error: `give a command: ${commands}` }); }
-		const base = { notebook, timeout: Number(p.flags.timeout ?? 60), mod };
+		const base = { notebook, timeout: seconds(p, 'timeout', 60), mod };
 		const needN = () => { if (!/^\d+$/.test(arg ?? '')) { throw new Exit(2, { ok: false, error: `${cmd} needs a cell number` }); } return Number(arg); };
 		let out: Json;
 		switch (cmd) {

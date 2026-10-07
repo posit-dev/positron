@@ -122,6 +122,8 @@ const cases: Case[] = [
 	{ name: 'ui watch Console while R prints', run: () => { background(['console-run.sh', '--language', 'r', 'Sys.sleep(1); cat("smoke-watch-seen\\n")']); return ['ui.sh', 'watch', 'Console', '--for', '4', '--every', '50']; }, check: o => (!(o.json!.changes > 0) && 'no change seen') || includes(o.json!.states, '+ smoke-watch-seen') || logged('ui.sh -s=net1: read watch Console for 4 s:') },
 	{ name: 'ui watch missing view', run: ['ui.sh', 'watch', 'No Such View', '--for', '1'], fail: true },
 	{ name: 'ui watch --for too long', run: ['ui.sh', 'watch', 'Console', '--for', '999'], fail: true },
+	{ name: 'ui watch --for not a number', run: ['ui.sh', 'watch', 'Console', '--for', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--for must be a positive number of seconds') },
+	{ name: 'ui click --wait negative', run: ['ui.sh', 'click', 'tab', 'Console', '--wait=-5'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--wait must be a number of seconds, 0 or more') },
 	// A restart of a busy session asks first, in a toast: palette-run reports it.
 	{ name: 'console-run python sleeps (busy)', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, 'import time; time.sleep(6)'] },
 	{ name: 'palette-run restart while busy (toast)', run: ['palette-run.sh', 'Interpreter: Restart Active Interpreter Session'], check: o => includes(o.json!.notification, 'The runtime is busy') || logged('-> toast Warning: The runtime is busy') },
@@ -154,6 +156,8 @@ const cases: Case[] = [
 	{ name: 'editor hover R', run: ['editor.sh', 'hover', '--at', '7:11'], check: o => includes(o.json!.hover, 'Sum of Vector Elements') || (o.json!.closed !== true && 'the hover is still open') },
 	{ name: 'editor definition R', run: ['editor.sh', 'definition', '--at', '7:16'], check: o => (o.json!.line !== 3 && `landed at ${o.json!.tab} ${o.json!.line}`) || includes(o.json!.text, 'double_it <- function') },
 	{ name: 'editor definition R, none', run: ['editor.sh', 'definition', '--at', '2:14'], check: o => (o.json!.found !== false && 'found one') || includes(o.json!.message, "No definition found for '3'") },
+	{ name: 'editor hover --timeout not a number', run: ['editor.sh', 'hover', '--at', '7:11', '--timeout', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds, not "abc"') },
+	{ name: 'editor hover R --timeout 5.', run: ['editor.sh', 'hover', '--at', '7:11', '--timeout', '5.'], check: o => includes(o.json!.hover, 'Sum of Vector Elements') },
 	{ name: 'debug break analysis.R 4', quick: true, run: ['debug.sh', 'break', 'analysis.R', '4'], check: o => includes(o.json!.breakpoints, 'analysis.R 4') },
 	{ name: 'debug state (breakpoint listed)', run: ['debug.sh', 'state'], check: o => includes(o.json!.trees?.Breakpoints, 'analysis.R 4') },
 	// A line breakpoint by the label the view shows; the click renames its row.
@@ -268,6 +272,7 @@ const cases: Case[] = [
 	{ name: 'nb read: every cell still there', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'read'], check: o => o.json!.cells?.length !== 4 && `${o.json!.cells?.length} cells` },
 	{ name: 'nb wait for the sleeping cell', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'wait'] },
 	{ name: 'nb wrong notebook', run: ['nb.sh', '--notebook', 'other.ipynb', 'read'], fail: true },
+	{ name: 'nb wait --timeout not a number', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'wait', '--timeout', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds') },
 	{ name: 'nb type 3 --replace', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'type', '3', '--replace', 'product + 2'], check: o => JSON.stringify(o.json!.source) !== '["product + 2"]' && `source ${JSON.stringify(o.json!.source)}` },
 	{ name: 'nb run 3 after typing', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'run', '3'], check: o => o.json!.cell?.output !== '44' && `output ${o.json!.cell?.output}` },
 	{ name: 'nb type 2 at the end', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'type', '2', '\n# nb-typed'], check: o => (o.json!.source?.[2] !== '# nb-typed' && `source ${JSON.stringify(o.json!.source)}`) || logged('type "\\n# nb-typed" into cell 2 in notebook.ipynb') },
@@ -375,6 +380,7 @@ const cases: Case[] = [
 	// ---- Windows: last, since a reload restarts the page under every helper
 	{ name: 'shot --list', run: ['shot.sh', '--list'], check: o => (o.json!.windows?.length !== 1 && `${o.json!.windows?.length} windows`) || (!o.json!.windows?.[0]?.attached && 'not attached') },
 	{ name: 'window select missing', run: ['window.sh', 'select', '9'], fail: true },
+	{ name: 'window reload --timeout not a number', run: ['window.sh', 'reload', '--timeout', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds') },
 	{ name: 'window reload', quick: true, run: ['window.sh', 'reload'], check: o => (o.json!.folder !== ws && `folder ${o.json!.folder}`) || (!o.json!.title && 'no title') || void (found.reloadDialog = o.json!.dialogs?.[0]?.buttons?.[0] ?? '') || logged('window.sh -s=net1: reload window ->') },
 	// Sessions that did not reconnect raise a dialog after the reload, now and then: answer it.
 	{ name: 'notifications after the reload', quick: true, run: () => found.reloadDialog ? ['notifications.sh', '--click', found.reloadDialog] : ['notifications.sh'] },

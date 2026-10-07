@@ -11,6 +11,9 @@
 # Usage:
 #   stop.sh --cdp-port <port> [--run-dir <dir>] [--timeout <seconds>]
 #
+# --timeout is whole seconds, 1 or more (default 15); anything else is a usage
+# error (exit 2), and nothing is stopped or removed.
+#
 # It signals the process that owns the CDP port, waits for the port to stop
 # answering, forces the stop if it does not, then removes --run-dir. Without
 # --run-dir it stops the instance and deletes nothing (reseed.sh relies on
@@ -38,6 +41,13 @@ while [[ $# -gt 0 ]]; do
 		*) echo "Unknown arg: $1" >&2; exit 2 ;;
 	esac
 done
+
+# seq 1 "$TIMEOUT" below makes no wait at all of "abc", "" or 0, and the
+# instance would be killed at once: refuse those before anything is stopped.
+if ! [[ "$TIMEOUT" =~ ^[0-9]+$ ]] || (( 10#$TIMEOUT == 0 )); then
+	echo "${0##*/}: --timeout takes whole seconds, 1 or more, not '$TIMEOUT'" >&2
+	exit 2
+fi
 
 if [[ -z "$CDP_PORT" ]]; then
 	echo "Usage: stop.sh --cdp-port <port> [--run-dir <dir>] [--timeout <seconds>]" >&2

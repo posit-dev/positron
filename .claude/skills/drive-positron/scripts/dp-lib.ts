@@ -252,13 +252,15 @@ export function pause(seconds: number): void {
 /**
  * A flag's value in seconds, or the default when it is absent. Anything but a
  * positive number is a usage error (exit 2): Number() reads "abc" as NaN and ""
- * as 0, and a wait bounded by either ends before it starts.
+ * as 0, and a wait bounded by either ends before it starts. What Number() reads
+ * as a finite number ("5", "2.5", "5.", "1e2") is taken. With zero, 0 is taken
+ * too (a wait that may be skipped, such as ui.sh --wait 0).
  */
-export function seconds(p: Parsed, flag: string, fallback: number): number {
+export function seconds(p: Parsed, flag: string, fallback: number, zero = false): number {
 	const v = p.flags[flag];
 	if (v === undefined) { return fallback; }
-	const n = typeof v === 'string' && /^\s*\d*\.?\d+\s*$/.test(v) ? Number(v) : NaN;
-	if (!(n > 0)) { throw new Exit(2, { ok: false, error: `--${flag} must be a positive number of seconds, not ${JSON.stringify(v === true ? '' : v)}` }); }
+	const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+	if (!Number.isFinite(n) || !(n > 0 || (zero && n === 0))) { throw new Exit(2, { ok: false, error: `--${flag} must be a ${zero ? 'number of seconds, 0 or more' : 'positive number of seconds'}, not ${JSON.stringify(v === true ? '' : v)}` }); }
 	return n;
 }
 
