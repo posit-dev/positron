@@ -197,6 +197,26 @@ instead of at the top level. If `npm ci` fails, regenerate the lockfile from
 package.json alone with `npm install --package-lock-only` rather than editing it
 further by hand, then confirm with `npm ci --dry-run`.
 
+#### Check for new postinstall artifacts
+
+The `test / unit` CI job fails with `npm install created N files outside
+node_modules/` if postinstall writes a file that isn't in
+`.github/cache-scripts/cache-paths.sh`. On a cache hit postinstall is skipped, so
+an uncached artifact would be missing. Upstream changes to the install scripts
+usually merge without conflicts, and no local step catches this: your tree
+already has the file, and the CI lab reuses warm volumes. Check the install
+scripts by hand:
+
+```bash
+git diff <pre-merge-commit> HEAD -- build/npm/ package.json | grep -nE "writeFile|mkdir|\.build/|path\.join\(root"
+```
+
+For each new output path outside `node_modules/` (for example, the
+`.build/typings/electron.d.ts` download from `build/npm/electronTypes.ts`), add it
+to `NPM_CORE_PATHS` in `cache-paths.sh`. Then add the script that writes it, plus
+any file that pins its content, to `buildScripts` in
+`generate-package-locks-hash.sh`, so the cache key changes when they do.
+
 ### Step 4: Compile
 
 Once installation is complete, compile the code to check for compile errors:
