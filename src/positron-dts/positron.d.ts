@@ -1833,6 +1833,19 @@ declare module 'positron' {
 		updateSessionName(sessionName: string): void;
 
 		/**
+		 * Update the URI of the notebook this session belongs to, for example
+		 * after an untitled notebook or Quarto document is saved to a file.
+		 *
+		 * A session whose language client selects cells by notebook URI should
+		 * implement this and select them again.
+		 *
+		 * @param notebookUri The notebook's new URI
+		 * @param quartoNotebookUri For a Quarto session, the URI of the hidden
+		 *   notebook that holds the document's cells at its new URI
+		 */
+		updateNotebookUri?(notebookUri: vscode.Uri, quartoNotebookUri: vscode.Uri | undefined): Thenable<void>;
+
+		/**
 		 * Returns the kernel launch parameters used to start this session,
 		 * if available.
 		 */

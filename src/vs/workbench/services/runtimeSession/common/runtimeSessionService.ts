@@ -384,6 +384,14 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	updateSessionName(sessionName: string): void;
 
 	/**
+	 * Tells the session that the notebook it belongs to has a new URI, for
+	 * example after an untitled notebook or Quarto document is saved. A
+	 * session whose language client selects cells by URI uses this to follow
+	 * the document.
+	 */
+	updateNotebookUri?(notebookUri: URI, quartoNotebookUri: URI | undefined): void;
+
+	/**
 	 * Get the package manager for this session, if available.
 	 *
 	 * Returns undefined if the runtime does not support package management.

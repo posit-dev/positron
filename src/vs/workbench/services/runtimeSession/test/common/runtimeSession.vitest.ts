@@ -1264,6 +1264,33 @@ describe('Positron - RuntimeSessionService', () => {
 		expect(session.getWorkingDirectory(), 'Working directory should NOT update to new URI parent folder').toBe('');
 	});
 
+	it('updateNotebookSessionUri tells the session its new notebook URIs', async () => {
+		const untitledUri = URI.parse('untitled:Untitled-1');
+		const savedUri = URI.file('/path/to/saved/doc.qmd');
+		const quartoNotebookUri = URI.from({ scheme: 'quarto-cells', path: '/path/to/saved/doc.qmd.ipynb' });
+		const session = await startSession(runtime, LanguageRuntimeSessionMode.Notebook, untitledUri);
+		await timeout(0);
+
+		await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri, { quartoNotebookUri });
+
+		expect(session.notebookUriUpdates).toEqual([
+			{ notebookUri: savedUri.toString(), quartoNotebookUri: quartoNotebookUri.toString() },
+		]);
+	});
+
+	it('updateNotebookSessionUri tells the session its new URI when no Quarto URI is given', async () => {
+		const untitledUri = URI.parse('untitled:Untitled-1.ipynb');
+		const savedUri = URI.file('/path/to/saved/notebook.ipynb');
+		const session = await startSession(runtime, LanguageRuntimeSessionMode.Notebook, untitledUri);
+		await timeout(0);
+
+		await runtimeSessionService.updateNotebookSessionUri(untitledUri, savedUri);
+
+		expect(session.notebookUriUpdates).toEqual([
+			{ notebookUri: savedUri.toString(), quartoNotebookUri: undefined },
+		]);
+	});
+
 	it('updateNotebookSessionUri returns undefined when session not found', async () => {
 		// Create URIs that don't have associated sessions
 		const nonExistentUri = URI.file('/path/to/nonexistent/notebook.ipynb');

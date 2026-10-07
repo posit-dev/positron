@@ -2809,8 +2809,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				oldUri,
 				newUri
 			});
-
-			return sessionId;
 		} catch (error) {
 			// If anything went wrong, attempt to restore the old state manually
 			this._logService.error('Failed to update notebook session URI', error);
@@ -2846,6 +2844,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			return undefined;
 		}
+
+		// Tell the session itself, so a language client that selects cells by
+		// URI follows the document. This runs after the mapping is committed,
+		// so a failure here cannot roll it back, and it is not awaited: the
+		// session restarts its language client, which can take seconds, and
+		// callers await this method before saving the file.
+		try {
+			session.updateNotebookUri?.(newUri, session.metadata.quartoNotebookUri);
+		} catch (error) {
+			this._logService.error('Failed to tell the session about its new notebook URI', error);
+		}
+
+		return sessionId;
 	}
 }
 

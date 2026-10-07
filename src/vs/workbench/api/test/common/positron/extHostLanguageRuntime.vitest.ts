@@ -458,6 +458,37 @@ describe('ExtHostLanguageRuntime', () => {
 			await runtime.$disposeLanguageRuntime(created.handle);
 			await runtime.$disposeLanguageRuntime(restored.handle);
 		});
+
+		it('revives and forwards a notebook URI update to the session', async () => {
+			class UpdatingSession extends TestSession {
+				updates: (string | undefined)[][] = [];
+				override async updateNotebookUri(notebookUri: URI, quartoNotebookUri: URI | undefined): Promise<void> {
+					this.updates.push([
+						notebookUri instanceof URI ? notebookUri.toString() : undefined,
+						quartoNotebookUri instanceof URI ? quartoNotebookUri.toString() : undefined,
+					]);
+				}
+			}
+			const session = new UpdatingSession();
+			runtime.registerLanguageRuntimeManager(extension, 'r', new TestManager(session));
+			const { handle } = await runtime.$createLanguageRuntimeSession(runtimeMetadata, sessionMetadata, 'test');
+			const notebookUri = URI.file('/home/u/a.qmd');
+			const quartoNotebookUri = URI.from({ scheme: 'quarto-cells', path: '/home/u/a.qmd.ipynb' });
+
+			// Over the wire, URIs arrive as plain objects.
+			runtime.$updateNotebookUriLanguageRuntime(handle,
+				JSON.parse(JSON.stringify(notebookUri)), JSON.parse(JSON.stringify(quartoNotebookUri)));
+
+			expect(session.updates).toEqual([['file:///home/u/a.qmd', 'quarto-cells:/home/u/a.qmd.ipynb']]);
+			await runtime.$disposeLanguageRuntime(handle);
+		});
+
+		it('ignores a notebook URI update for a session without the method', async () => {
+			const { handle } = await createAttachedSession(runtime);
+
+			expect(() => runtime.$updateNotebookUriLanguageRuntime(handle, URI.file('/home/u/a.qmd'), undefined)).not.toThrow();
+			await runtime.$disposeLanguageRuntime(handle);
+		});
 	});
 });
 
