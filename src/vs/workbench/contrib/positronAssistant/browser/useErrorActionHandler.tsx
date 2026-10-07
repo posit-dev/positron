@@ -11,7 +11,7 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
 import { IErrorActionHandler, IErrorActionsService } from '../common/errorActions.js';
 
 /**
- * The error action handler selected in the ai.errorActions.target setting, kept
+ * The error action handler selected in the ai.errorActions.agent setting, kept
  * current as the setting and registrations change.
  * @returns The selected implementation, or undefined when errors should go to
  *   Posit Assistant.

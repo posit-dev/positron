@@ -15,13 +15,13 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { ERROR_ACTIONS_TARGET_KEY, ErrorActionKind, IErrorActionContext, IErrorActionHandler, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
+import { ERROR_ACTIONS_AGENT_KEY, ErrorActionKind, IErrorActionContext, IErrorActionHandler, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
 
 /** Name of Posit Assistant's implementation, the setting's default. */
-export const POSIT_ASSISTANT_ERROR_ACTIONS_LABEL = localize('positron.errorActions.target.positAssistant', "Posit Assistant");
+export const POSIT_ASSISTANT_ERROR_ACTIONS_LABEL = localize('positron.errorActions.agent.positAssistant', "Posit Assistant");
 
 /**
- * Build the ai.errorActions.target setting with one option per registered
+ * Build the ai.errorActions.agent setting with one option per registered
  * implementation, always starting with Posit Assistant, the default.
  * Re-registered whenever registrations change so the Settings editor dropdown
  * stays current.
@@ -34,14 +34,14 @@ function getConfigurationNode(registered: readonly IErrorActionHandler[]): IConf
 		title: localize('positron.ai.title', "AI"),
 		type: 'object',
 		properties: {
-			[ERROR_ACTIONS_TARGET_KEY]: {
+			[ERROR_ACTIONS_AGENT_KEY]: {
 				type: 'string',
 				default: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
 				enum: [POSIT_ASSISTANT_ERROR_ACTIONS_ID, ...others.map(handler => handler.id)],
 				enumItemLabels: [POSIT_ASSISTANT_ERROR_ACTIONS_LABEL, ...others.map(handler => handler.label)],
 				description: localize(
-					'positron.errorActions.target',
-					"The assistant to use when you select Fix or Explain on an error in the Console, a notebook, or a Quarto document."
+					'positron.errorActions.agent',
+					"The agent that Fix and Explain send errors to, in the Console, notebooks, and Quarto documents."
 				),
 				scope: ConfigurationScope.WINDOW,
 			},
@@ -51,7 +51,7 @@ function getConfigurationNode(registered: readonly IErrorActionHandler[]): IConf
 
 const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 
-/** The currently registered ai.errorActions.target setting node. */
+/** The currently registered ai.errorActions.agent setting node. */
 let configurationNode = getConfigurationNode([]);
 configurationRegistry.registerConfiguration(configurationNode);
 
@@ -80,7 +80,7 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 		super();
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(ERROR_ACTIONS_TARGET_KEY)) {
+			if (e.affectsConfiguration(ERROR_ACTIONS_AGENT_KEY)) {
 				this._onDidChange.fire();
 			}
 		}));
@@ -111,7 +111,7 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 	}
 
 	getConfigured(): IErrorActionHandler | undefined {
-		const id = this._configurationService.getValue<string>(ERROR_ACTIONS_TARGET_KEY);
+		const id = this._configurationService.getValue<string>(ERROR_ACTIONS_AGENT_KEY);
 		const available = this._registered.filter(handler => !handler.when || this._contextKeyService.contextMatchesRules(handler.when));
 		return available.find(handler => handler.id === id)
 			?? available.find(handler => handler.id === POSIT_ASSISTANT_ERROR_ACTIONS_ID);

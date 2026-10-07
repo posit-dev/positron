@@ -10,8 +10,8 @@ import { UriComponents } from '../../../../base/common/uri.js';
 import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
-/** Setting that picks which implementation of the error Fix/Explain actions to use. */
-export const ERROR_ACTIONS_TARGET_KEY = 'ai.errorActions.target';
+/** Setting that picks the agent the error Fix/Explain actions send errors to. */
+export const ERROR_ACTIONS_AGENT_KEY = 'ai.errorActions.agent';
 
 /**
  * Posit Assistant's implementation, registered by Positron and the setting's
@@ -88,7 +88,7 @@ export interface IErrorActionContext {
 
 /** An implementation of Fix and Explain, e.g. Posit Assistant or one that sends errors to a coding agent. */
 export interface IErrorActionHandler {
-	/** Value of the implementation in the ai.errorActions.target setting. */
+	/** Value of the implementation in the ai.errorActions.agent setting. */
 	readonly id: string;
 	/** Name shown in the setting's dropdown and the actions' tooltips. */
 	readonly label: string;
@@ -117,7 +117,7 @@ export interface IErrorActionsService {
 	register(handler: IErrorActionHandler): IDisposable;
 
 	/**
-	 * The implementation selected in the ai.errorActions.target setting, or
+	 * The implementation selected in the ai.errorActions.agent setting, or
 	 * Posit Assistant's when the selected one is not registered or its `when`
 	 * is false.
 	 * @returns The implementation, or undefined when neither can take errors,

@@ -14,7 +14,7 @@ import { ContextKeyExpr, ContextKeyExpression, IContextKeyChangeEvent, IContextK
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { Registry } from '../../../../../platform/registry/common/platform.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { ERROR_ACTIONS_TARGET_KEY, IErrorActionContext, IErrorActionHandler } from '../../common/errorActions.js';
+import { ERROR_ACTIONS_AGENT_KEY, IErrorActionContext, IErrorActionHandler } from '../../common/errorActions.js';
 import { ErrorActionsService } from '../../browser/errorActionsService.js';
 
 const context: IErrorActionContext = { error: 'boom', chat: 'new' };
@@ -56,11 +56,11 @@ describe('ErrorActionsService', () => {
 
 	function getSettingOptions() {
 		return Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
-			.getConfigurationProperties()[ERROR_ACTIONS_TARGET_KEY].enum;
+			.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].enum;
 	}
 
 	beforeEach(() => {
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_TARGET_KEY, 'test-agent');
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_AGENT_KEY, 'test-agent');
 		trueKeys.clear();
 	});
 
@@ -81,7 +81,7 @@ describe('ErrorActionsService', () => {
 		const positAssistant = createErrorActionHandler('posit-assistant', 'Posit Assistant');
 		ctx.disposables.add(service.register(createErrorActionHandler()));
 		ctx.disposables.add(service.register(positAssistant));
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_TARGET_KEY, 'posit-assistant');
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_AGENT_KEY, 'posit-assistant');
 
 		expect(service.getConfigured()).toBe(positAssistant);
 	});
