@@ -16,6 +16,8 @@ import { createTestContainer } from '../../../../../test/vitest/positronTestCont
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IOpenerService } from '../../../../../platform/opener/common/opener.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { FolderTemplate } from '../../../../services/positronNewFolder/common/positronNewFolder.js';
 import { NewFolderFlowContextProvider, useNewFolderFlowContext } from '../../newFolderFlowContext.js';
@@ -284,6 +286,15 @@ describe('PythonEnvironmentStep uv install', () => {
 		expect(await screen.findByText('uv could not be installed')).toBeInTheDocument();
 		expect(screen.getByText('uv was not found after installing it.')).toBeInTheDocument();
 		expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+	});
+
+	it('says why uv cannot be installed, with no button, when python.allowUvPythonInstall is off', async () => {
+		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('python.allowUvPythonInstall', false);
+		renderUvStep({ ok: true });
+
+		expect(await screen.findByText('Installing uv is turned off by the python.allowUvPythonInstall setting.')).toBeInTheDocument();
+		expect(screen.getByText('uv is not installed')).toBeInTheDocument();
+		expect(screen.queryByRole('button', { name: 'Install uv' })).not.toBeInTheDocument();
 	});
 });
 
