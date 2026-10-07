@@ -58,6 +58,8 @@ const RESULT_MAX = 160;
 // actions.log and a check can sit between any two. A lowercase verb after
 // "then" is a second action; a capitalized word is a menu item ("More, then Insert Cell Above").
 const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times)\b/i;
+// A precondition saying how it was done in the app ("started with Run App", "then opened"): that is a step.
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected)\s+(?:with|from|via|by|using)|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran))\b/i;
 const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
 // Where an action stops running code and starts quoting what it waits for.
 const READS_OUTPUT = /\b(?:until|shows?|showing|prints?|printed|reads|displays?|output)\b/i;
@@ -325,6 +327,19 @@ const HELPERS = (() => {
 	}
 })();
 
+/** Preconditions that are something done in the app, which the rules make steps. */
+function lintPreconditionActions(preconditions) {
+	const problems = [];
+	for (const [where, line] of preconditions) {
+		const text = line.replace(/^[-*]\s+/, '');
+		const done = /^\*\*/.test(text) ? null : DONE_IN_APP.exec(text.replace(/`[^`]*`/g, 'code'));
+		if (done) {
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`);
+		}
+	}
+	return problems;
+}
+
 /** Each scenario's precondition bullets, as `[where, text]`. */
 function ledgerPreconditions(ledger) {
 	const out = [];
@@ -577,7 +592,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		const next = lines.findIndex(({ line }, k) => k > b.k && /^(<details>|## )/.test(line));
 		const end = blocks[j + 1]?.k ?? (next === -1 ? lines.length : next);
 		const card = lines.slice(b.k + 1, end).map(l => l.line);
-		// The edit pass writes the opening after the explorer's checks; its steps are not the run's.
+		// The edit pass writes the opening after the explorer's checks; it is not the run's.
 		const opening = openingRange(card);
 		const body = opening ? [...card.slice(0, opening.start), ...card.slice(opening.end)] : card;
 		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
@@ -760,6 +775,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	}
 
 	problems.push(...lintFiles(markdown, ledger, [...needs, ...ledgerPreconditions(ledger)], { fileExists, listFiles }));
+	problems.push(...lintPreconditionActions([...needs, ...ledgerPreconditions(ledger)]));
 
 	if (ledger !== undefined) {
 		const l = lintLedger(ledger, blockNumbers, fileExists);
@@ -790,6 +806,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog } = {}) {
 	const problems = [...lintLedger(ledger, null, fileExists).problems];
 	problems.push(...lintFiles('', ledger, ledgerPreconditions(ledger), { fileExists, listFiles }));
+	problems.push(...lintPreconditionActions(ledgerPreconditions(ledger)));
 	if (knownIssues?.issues?.length) {
 		problems.push(...lintKnownIssues(ledger, knownIssues, { final: false }));
 	}

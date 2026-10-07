@@ -153,6 +153,17 @@ test('flags a title that starts lowercase or names code, but not a lowercase pac
 	assert.deepEqual(titled('Help for `dplyr::filter` lands on the stats page'), []);
 });
 
+test('flags a precondition that is something done in the app, in the report and the ledger', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- app running | ${p}\n\n1. Click Retry.`)).filter(x => /done in the app/.test(x));
+	assert.deepEqual(pre('`app.R` started with its Run Shiny App button'), ['report: Finding 1 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(pre('`flask_app.py` running, then opened in an editor tab'), ['report: Finding 1 precondition "app running" is done in the app ("then opened"); do it as a step, and keep the precondition to the state before step 1']);
+	// State, and the command that loads a file, stay preconditions.
+	assert.deepEqual(pre('`slow.py` loaded with `%run -i slow.py`'), []);
+	assert.deepEqual(pre('a Python with polars is selected'), []);
+	const ledger = LEDGER.replace('Status: fail - Finding 1\n', 'Status: fail - Finding 1\n\nPreconditions:\n- app running | `app.R` started with Run Shiny App\n');
+	assert.deepEqual(lintLedgerOnly(ledger).filter(x => /done in the app/.test(x)), ['ledger: S02 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
+});
+
 test('flags a step that runs a precondition\'s command again', () => {
 	const repro = (pre, step) => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${pre}\n\n1. ${step}`)).filter(p => /precondition already/.test(p));
 	assert.deepEqual(repro('`slow.py` loaded with `%run -i slow.py`', 'Run `%run -i slow.py` in the Python console.'), ['report: Finding 1 step 1 runs `%run -i slow.py`, which a precondition already sets up; start the steps after it']);
