@@ -7,7 +7,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { Event } from '../../../../../base/common/event.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { INotebookLanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotebookLanguageRuntimeSession, IRuntimeSessionStartReason } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
 // Create the decorator for the service (used in dependency injection).
 export const IRuntimeNotebookKernelService = createDecorator<IRuntimeNotebookKernelService>('runtimeNotebookKernelService');
@@ -31,9 +31,9 @@ export interface IRuntimeNotebookKernelService {
 	/**
 	 * Ensure that a language runtime session is started for a notebook.
 	 * @param notebookUri The URI of the notebook
-	 * @param source The source of the action for debugging purposes
+	 * @param startReason Why the session is being started, with a description for logs
 	 */
-	ensureSessionStarted(notebookUri: URI, source: string): Promise<INotebookLanguageRuntimeSession>;
+	ensureSessionStarted(notebookUri: URI, startReason: IRuntimeSessionStartReason): Promise<INotebookLanguageRuntimeSession>;
 
 	/**
 	 * Execute a code fragment in the context of an existing notebook cell.

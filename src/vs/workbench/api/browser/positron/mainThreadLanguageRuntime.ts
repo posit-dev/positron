@@ -14,7 +14,8 @@ import {
 } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IHostedLanguageContribution, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageExecutionRequested, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeBusyBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget, IRuntimeManager, IRuntimeRootSignature, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeResourceUsage, ILanguageRuntimeLaunchInfo } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimePackage, ILanguageRuntimePackageManager, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IPackageRepositoryRequest, IPackageRepositoryResponse, IPackageSpec, IRuntimeConsoleError, IRuntimeExecutionStatistics, IRuntimeMissingPackage, IRuntimeMissingPackagesTarget, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { createSessionStartReason } from '../../../services/runtimeSession/common/sessionStartReasons.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -2027,10 +2028,9 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to select a previously registered language runtime
-	$selectLanguageRuntime(runtimeId: string): Promise<void> {
+	$selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void> {
 		return this._runtimeSessionService.selectRuntime(
-			runtimeId,
-			'Extension-requested runtime selection via Positron API');
+			runtimeId, createSessionStartReason(SessionStartReasonId.ExtensionApiSelect, { requestingExtension: requestingExtensionId }));
 	}
 
 	// Called by the extension host to get a list of all registered runtimes
@@ -2050,6 +2050,7 @@ export class MainThreadLanguageRuntime
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
+		requestingExtensionId: string,
 		options: RuntimeSessionStartOptions | undefined): Promise<string> {
 		// Revive the URI from the serialized form
 		const uri = URI.revive(notebookUri);
@@ -2061,7 +2062,9 @@ export class MainThreadLanguageRuntime
 			sessionName,
 			sessionMode,
 			uri,
-			'Extension-requested runtime selection via Positron API',
+			createSessionStartReason(
+				options?.owner === 'agent' ? SessionStartReasonId.ExtensionStartedAgentSession : SessionStartReasonId.ExtensionApiStart,
+				{ requestingExtension: requestingExtensionId }),
 			RuntimeStartMode.Starting,
 			options?.activate ?? true,
 			{ owner: options?.owner ?? 'user' });

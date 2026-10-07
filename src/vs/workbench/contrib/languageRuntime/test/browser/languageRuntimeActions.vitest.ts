@@ -19,7 +19,7 @@ import { IEditorService } from '../../../../services/editor/common/editorService
 import { EditorInput } from '../../../../common/editor/editorInput.js';
 import { IUntitledTextResourceEditorInput } from '../../../../common/editor.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
-import { IRuntimeSessionService, ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, ILanguageRuntimeSession, RuntimeStartMode, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ActiveRuntimeSession } from '../../../../services/runtimeSession/common/activeRuntimeSession.js';
 import { UiClientInstance } from '../../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { EvalResult } from '../../../../services/languageRuntime/common/positronUiComm.js';
@@ -1026,7 +1026,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			'My Python Session',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			'Duplicated session: My Python Session',
+			{ id: SessionStartReasonId.DuplicatedConsoleSession, detail: 'A console was duplicated (fromSession: My Python Session)' },
 			RuntimeStartMode.Starting,
 			true
 		);
@@ -1042,7 +1042,7 @@ describe('DuplicateActiveConsoleSessionAction', () => {
 			'Python 3.12',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			'Started console session from notebook session: My Notebook Session',
+			{ id: SessionStartReasonId.DuplicatedNotebookSession, detail: 'A console was started from the Python 3.12 notebook session (interpreter: Python 3.12, fromSession: My Notebook Session)' },
 			RuntimeStartMode.Starting,
 			true
 		);
@@ -1102,7 +1102,7 @@ describe('StartNewConsoleSessionAction', () => {
 			'Python 3.12 (System)',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			'Runtime id supplied to startNewConsoleSession command',
+			{ id: SessionStartReasonId.NewConsoleCommand, detail: 'A command requested a new console for this interpreter (command: workbench.action.language.runtime.startNewConsoleSession)' },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: false }
@@ -1134,7 +1134,7 @@ describe('StartNewConsoleSessionAction', () => {
 			'R 4.4.1',
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			'User selected runtime',
+			{ id: SessionStartReasonId.UserSelectedRuntime, detail: 'You selected this interpreter' },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: true }
@@ -1193,6 +1193,7 @@ describe('startNewAgentSession', () => {
 				sessionName: session.dynState.sessionName,
 				sessionMode: session.metadata.sessionMode,
 				owner: session.metadata.owner,
+				startReasonId: session.metadata.startReasonId,
 				foregroundSessionId: runtimeSessionService.foregroundSession?.sessionId,
 			},
 		};
@@ -1206,6 +1207,7 @@ describe('startNewAgentSession', () => {
 			sessionName: runtime.runtimeName,
 			sessionMode: LanguageRuntimeSessionMode.Console,
 			owner: 'agent',
+			startReasonId: SessionStartReasonId.UserStartedAgentSession,
 			foregroundSessionId: sessionId,
 		});
 	});
