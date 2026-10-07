@@ -874,6 +874,7 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
     >;
     let pythonRuntimeManager: PythonRuntimeManager;
     let selectSpy: sinon.SinonStub;
+    let pathExistsStub: sinon.SinonStub;
     let getActiveSessionsImpl: () => Promise<positron.LanguageRuntimeSession[]>;
     let originalGetActiveSessions: unknown;
 
@@ -905,6 +906,9 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
 
         pythonRuntimeManager = new PythonRuntimeManager(serviceContainer.object, interpreterService.object);
         selectSpy = sinon.stub(pythonRuntimeManager, 'selectLanguageRuntimeFromPath').resolves('runtime-id');
+        // A deleted interpreter's path is gone unless a test says otherwise. Stubbed so the
+        // delete handler doesn't wait on the disk, which can outlast a test's one-tick wait.
+        pathExistsStub = sinon.stub(fs, 'pathExists').resolves(false);
     });
 
     teardown(() => {
@@ -1035,7 +1039,7 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
         // Delete and Recreate with another Python, with the delete delivered after the new
         // session started: only the session on the old runtime is shut down.
         const venvPath = '/path/to/.venv/bin/python';
-        sinon.stub(fs, 'pathExists').withArgs(venvPath).resolves(true);
+        pathExistsStub.withArgs(venvPath).resolves(true);
         const currentRuntime = { runtimeId: 'python-3.11', extraRuntimeData: { pythonPath: venvPath } } as any;
         pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, currentRuntime);
         const registerStub = sinon
@@ -1065,7 +1069,7 @@ suite('Python runtime manager - onDidChangeInterpreter filter', () => {
     test('interpreter deletion: a path that is back but cannot be resolved is treated as deleted', async () => {
         // A half-written venv: the executable exists but does not resolve yet.
         const venvPath = '/path/to/.venv/bin/python';
-        sinon.stub(fs, 'pathExists').withArgs(venvPath).resolves(true);
+        pathExistsStub.withArgs(venvPath).resolves(true);
         pythonRuntimeManager.registeredPythonRuntimes.set(venvPath, {
             runtimeId: 'python-3.12',
             extraRuntimeData: { pythonPath: venvPath },
