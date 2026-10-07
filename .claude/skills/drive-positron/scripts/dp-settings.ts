@@ -34,7 +34,7 @@ function value(text: string): unknown {
 
 export const settingsCommands: Record<string, (argv: string[]) => Json | string> = {
 	settings: argv => {
-		const p = parse(argv, ['session'], { set: 3 });
+		const p = parse(argv, ['session'], { set: 3 }, ['user', 'workspace']);
 		const [cmd, key, raw] = p.rest;
 		if (p.flags.help || !cmd) { usage('settings.sh'); }
 		if (cmd !== 'set') { throw new Exit(2, { ok: false, error: 'command: set KEY VALUE' }); }

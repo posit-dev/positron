@@ -6,7 +6,7 @@
 // run-app: the active editor's Run App button. run-app.sh wraps it.
 
 import { execFileSync } from 'child_process';
-import { inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { inPage, log, parse, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 
 /**
  * The active editor's Run App button ("Run Shiny App", "Run Flask App in
@@ -51,9 +51,9 @@ const runApp: PageFn<{ label: string; list: boolean }> = async (page, a, lib) =>
 
 export const runAppCommands: Record<string, (argv: string[]) => Json | string> = {
 	'run-app': argv => {
-		const p = parse(argv, ['session', 'label']);
+		const p = parse(argv, ['session', 'label'], 0, ['list']);
 		if (p.flags.help) { usage('run-app.sh'); }
-		const r = inPage(p.session, runApp, { label: String(p.flags.label ?? ''), list: !!p.flags.list });
+		const r = inPage(p.session, runApp, { label: textFlag(p, 'label'), list: !!p.flags.list });
 		if (r.clicked) {
 			log('run-app.sh', p.session, String(r.clicked));
 			// Flask defaults to port 5000, which macOS gives to the AirPlay Receiver.

@@ -11,7 +11,7 @@
 
 import { existsSync, readFileSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { cliRun, Exit, inPage, log, parse, pause, usage, type Json, type PageFn } from './dp-lib.ts';
+import { cliRun, Exit, inPage, log, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -109,7 +109,7 @@ export const windowCommands: Record<string, (argv: string[]) => Json | string> =
 		const [cmd, arg] = p.rest;
 		if (p.flags.help || !cmd) { usage('window.sh'); }
 		const s = p.session;
-		const timeout = Number(p.flags.timeout ?? 60);
+		const timeout = seconds(p, 'timeout', 60);
 		if (cmd === 'select') {
 			if (!/^\d+$/.test(arg ?? '')) { throw new Exit(2, { ok: false, error: 'select N: the window number shot.sh --list shows' }); }
 			const list = inPage(s, windows, {});

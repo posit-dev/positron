@@ -10,7 +10,7 @@
 // by label: the whole text of one piece of the row ("orders", without its
 // "Table" prefix). tree.sh wraps these.
 
-import { Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, parse, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 
 interface Args { view: string; cmd: string; label: string; nth: number; item: string }
 
@@ -102,7 +102,7 @@ export const treeCommands: Record<string, (argv: string[]) => Json | string> = {
 		if (p.flags.help || !cmd) { usage('tree.sh'); }
 		if (cmd !== 'rows' && !label) { throw new Exit(2, { ok: false, error: 'give the row label' }); }
 		if (cmd === 'menu' && !item) { throw new Exit(2, { ok: false, error: 'give the row label and the menu item' }); }
-		const view = String(p.flags.view ?? '');
+		const view = textFlag(p, 'view');
 		const out = inPage(p.session, tree, { view, cmd, label: label ?? '', nth: Number(p.flags.nth ?? 0), item: item ?? '' });
 		if (out.ok && cmd !== 'rows' && out.changed !== false) {
 			log('tree.sh', p.session, `${cmd === 'menu' ? `menu "${item}" on` : cmd} "${label}"${p.flags.nth ? ` (nth ${p.flags.nth})` : ''} in ${view || 'any view'}`);

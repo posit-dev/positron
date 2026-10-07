@@ -9,7 +9,7 @@
 // view, so it is scrolled sideways with the wheel events it handles itself,
 // collecting as it goes, and scrolled back. de-read.sh wraps this.
 
-import { inPage, logRead, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { inPage, logRead, parse, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 
 // runs in run-code
 const read: PageFn<{ rows: number; title: string }> = async (page, a, lib) => {
@@ -69,7 +69,7 @@ export const deCommands: Record<string, (argv: string[]) => Json | string> = {
 	'de-read': argv => {
 		const p = parse(argv, ['session', 'rows', 'title']);
 		if (p.flags.help) { usage('de-read.sh'); }
-		const out = inPage(p.session, read, { rows: Number(p.flags.rows ?? 10), title: String(p.flags.title ?? '') });
+		const out = inPage(p.session, read, { rows: Number(p.flags.rows ?? 10), title: textFlag(p, 'title') });
 		if (out.ok) { logRead('de-read.sh', p.session, `${out.title}: ${out.status}; ${(out.columns as string[]).join(', ')}; ${(out.rows as Record<string, unknown>[]).slice(0, 3).map(r => Object.values(r).join(' ')).join(' | ')}`); }
 		return out;
 	},
