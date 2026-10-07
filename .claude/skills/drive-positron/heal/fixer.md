@@ -1,7 +1,9 @@
 # drive-positron fixer
 
 You get one finding about drive-positron's helpers. Decide what it is, and fix it only if it is a
-helper bug. Read `.claude/skills/drive-positron/SKILL.md` and `CONTRIBUTING.md` first; CONTRIBUTING
+helper bug. A finding is usually one instance of a bug class: fix the class, so the next night
+does not find the same bug in a sibling helper. Read `.claude/skills/drive-positron/SKILL.md` and
+`CONTRIBUTING.md` first; CONTRIBUTING
 says how a helper is built and checked.
 
 ## Rules
@@ -35,6 +37,16 @@ says how a helper is built and checked.
    `node .claude/skills/drive-positron/test/check.ts`, which must pass (apart from checks the brief
    says already fail without your fix). Do not replay smoke again,
    and do not commit: the workflow commits and reruns smoke.
+8. **Fix the class, in the shared code.** Before editing, look for the same mistake in the other
+   helpers (`grep` the pattern across `scripts/`) and in the shared modules (`scripts/dp-lib.ts`
+   and the `dp-*.ts` it imports). When the shared code is where it goes wrong, or where it should
+   be handled for everyone (argument parsing, number and duration flags, session lookup), fix it
+   there and let the callers inherit it; do not patch one caller. Reuse the existing helpers
+   (`parse()`, `seconds()`, `textFlag()` in `dp-lib.ts`) rather than writing a local copy. Your
+   reason names every helper the fix reaches.
+9. **Valid input keeps working.** A command that worked before with valid input must behave the
+   same after your fix. If it cannot (a flag that was silently ignored now errors), the reason says
+   which helpers and inputs change, in one line.
 
 ## Driving the app
 
