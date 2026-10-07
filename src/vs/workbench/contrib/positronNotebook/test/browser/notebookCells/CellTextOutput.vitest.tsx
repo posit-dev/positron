@@ -30,7 +30,7 @@ function makeLines(n: number): string {
 }
 
 /** Where the quick fix sends errors, so its buttons render. */
-const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
 describe('CellTextOutput', () => {
 	const ctx = createTestContainer()

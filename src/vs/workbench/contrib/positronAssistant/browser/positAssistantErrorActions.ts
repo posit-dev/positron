@@ -5,20 +5,15 @@
 
 import { localize } from '../../../../nls.js';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
-import { Disposable, MutableDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
-import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ErrorActionKind, IErrorActionContext, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
 import { POSIT_ASSISTANT_ERROR_ACTIONS_LABEL } from './errorActionsService.js';
 import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from './positAssistantChat.js';
-
-/** Identifier of the Posit Assistant extension. */
-const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
 
 // Appended to every Explain prompt. Without it, an agentic assistant treats
 // "Explain this error" plus an attached traceback as license to fix it too.
@@ -26,51 +21,28 @@ const explainOnlyConstraint = localize('positronAssistantExplainOnlyConstraint',
 
 /**
  * Posit Assistant's implementation of the error Fix and Explain actions,
- * registered while the extension is installed and has a usable chat model.
- * It uses only what the `positron.ai.registerErrorActionHandler` API offers
- * an extension, so it could move into Posit Assistant.
+ * available while it has a usable chat model. It uses only what the
+ * `positron.ai.registerErrorActionHandler` API offers an extension, so it
+ * could move into Posit Assistant.
  */
 export class PositAssistantErrorActionsContribution extends Disposable implements IWorkbenchContribution {
-	/** The registration, while Posit Assistant can take errors. */
-	private readonly _registration = this._register(new MutableDisposable());
-
 	constructor(
-		@ICommandService private readonly _commandService: ICommandService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IErrorActionsService private readonly _errorActionsService: IErrorActionsService,
-		@IExtensionService private readonly _extensionService: IExtensionService,
-		@ILabelService private readonly _labelService: ILabelService,
+		@ICommandService commandService: ICommandService,
+		@IErrorActionsService errorActionsService: IErrorActionsService,
+		@ILabelService labelService: ILabelService,
 	) {
 		super();
 
-		this._updateRegistration();
-		const keys = new Set([POSIT_HAS_CHAT_MODELS_KEY]);
-		this._register(this._contextKeyService.onDidChangeContext(e => {
-			if (e.affectsSome(keys)) {
-				this._updateRegistration();
-			}
+		// The context key is unset, so false, while Posit Assistant isn't installed.
+		this._register(errorActionsService.register({
+			id: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
+			label: POSIT_ASSISTANT_ERROR_ACTIONS_LABEL,
+			when: ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
+			run: async (kind, context) => {
+				const getPath = (uri: URI) => labelService.getUriLabel(uri, { relative: true });
+				await commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(kind, context, getPath));
+			},
 		}));
-		this._register(this._extensionService.onDidChangeExtensions(() => this._updateRegistration()));
-	}
-
-	/** Register while Posit Assistant is installed and has a usable chat model. */
-	private _updateRegistration(): void {
-		const key = ExtensionIdentifier.toKey(POSIT_ASSISTANT_EXTENSION_ID);
-		const available = this._contextKeyService.getContextKeyValue<boolean>(POSIT_HAS_CHAT_MODELS_KEY) === true &&
-			this._extensionService.extensions.some(extension => ExtensionIdentifier.toKey(extension.identifier) === key);
-		if (!available) {
-			this._registration.clear();
-		} else if (!this._registration.value) {
-			this._registration.value = this._errorActionsService.register({
-				id: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
-				label: POSIT_ASSISTANT_ERROR_ACTIONS_LABEL,
-				canContinueChat: true,
-				run: async (kind, context) => {
-					const getPath = (uri: URI) => this._labelService.getUriLabel(uri, { relative: true });
-					await this._commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(kind, context, getPath));
-				},
-			});
-		}
 	}
 }
 

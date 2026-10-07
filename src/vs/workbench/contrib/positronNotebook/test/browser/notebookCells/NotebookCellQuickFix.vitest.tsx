@@ -27,7 +27,7 @@ import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCel
 /** The notebook's kernel session. */
 const runtimeSession = constObservable(stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-5678' }));
 
-const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
 describe('NotebookCellQuickFix', () => {
 	const run = vi.fn().mockResolvedValue(undefined);

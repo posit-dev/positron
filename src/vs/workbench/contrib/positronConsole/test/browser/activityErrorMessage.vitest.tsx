@@ -23,7 +23,7 @@ const positronConsoleInstance = {} as IPositronConsoleInstance;
 // The component only reads the two output-line arrays off the error message.
 const errorMessage = { messageOutputLines: [], tracebackOutputLines: [] } as unknown as ActivityItemErrorMessage;
 
-const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
 describe('ActivityErrorMessage assistant actions gate', () => {
 	/** The handler errors go to; undefined when there is none. */

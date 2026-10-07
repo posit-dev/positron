@@ -6,16 +6,11 @@
 /// <reference types="vitest/globals" />
 
 import { decodeBase64 } from '../../../../../base/common/buffer.js';
-import { Emitter } from '../../../../../base/common/event.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IContextKeyChangeEvent, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { ExtensionIdentifier, IExtensionDescription } from '../../../../../platform/extensions/common/extensions.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
-import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { ErrorActionKind, IErrorActionContext, IErrorActionHandler, IErrorActionsService } from '../../common/errorActions.js';
 import { getPositAssistantChatOptions, PositAssistantErrorActionsContribution } from '../../browser/positAssistantErrorActions.js';
 import { NewChatOptions } from '../../browser/positAssistantChat.js';
@@ -101,25 +96,12 @@ describe('getPositAssistantChatOptions', () => {
 });
 
 describe('PositAssistantErrorActionsContribution', () => {
-	const onDidChangeContext = new Emitter<IContextKeyChangeEvent>();
-	const onDidChangeExtensions = new Emitter<never>();
-	/** The posit-assistant.hasChatModels context key's value. */
-	let hasChatModels: boolean | undefined;
-	let extensions: IExtensionDescription[];
 	let registeredHandlers: IErrorActionHandler[];
 	const executeCommand = vi.fn().mockResolvedValue(undefined);
 
 	const ctx = createTestContainer()
 		.withWorkbenchServices()
 		.stub(ICommandService, { executeCommand })
-		.stub(IContextKeyService, {
-			onDidChangeContext: onDidChangeContext.event,
-			getContextKeyValue: <T>() => hasChatModels as T,
-		})
-		.stub(IExtensionService, {
-			onDidChangeExtensions: onDidChangeExtensions.event,
-			get extensions() { return extensions; },
-		})
 		.stub(IErrorActionsService, {
 			register: (handler: IErrorActionHandler) => {
 				registeredHandlers.push(handler);
@@ -130,37 +112,17 @@ describe('PositAssistantErrorActionsContribution', () => {
 		.build();
 
 	beforeEach(() => {
-		hasChatModels = true;
-		extensions = [stubInterface<IExtensionDescription>({ identifier: new ExtensionIdentifier('posit.assistant') })];
 		registeredHandlers = [];
+		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
 	});
 
-	function createContribution(): void {
-		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
-	}
-
-	it('registers while Posit Assistant is installed and has a chat model', () => {
-		createContribution();
-		expect(registeredHandlers.map(({ id, label, canContinueChat }) => ({ id, label, canContinueChat }))).toEqual([
-			{ id: 'posit-assistant', label: 'Posit Assistant', canContinueChat: true },
+	it('is offered while Posit Assistant has a chat model', () => {
+		expect(registeredHandlers.map(({ id, label, when }) => ({ id, label, when: when?.serialize() }))).toEqual([
+			{ id: 'posit-assistant', label: 'Posit Assistant', when: 'posit-assistant.hasChatModels' },
 		]);
 	});
 
-	it('does not register while Posit Assistant is not installed', () => {
-		extensions = [];
-		createContribution();
-		expect(registeredHandlers).toEqual([]);
-	});
-
-	it('unregisters when Posit Assistant loses its last chat model', () => {
-		createContribution();
-		hasChatModels = false;
-		onDidChangeContext.fire({ affectsSome: () => true, allKeysContainedIn: () => true });
-		expect(registeredHandlers).toEqual([]);
-	});
-
 	it('sends the error to a Posit Assistant chat', async () => {
-		createContribution();
 		await registeredHandlers[0].run('fix', { error: 'boom', chat: 'current' }, CancellationToken.None);
 
 		const [command, options] = executeCommand.mock.calls[0] as [string, NewChatOptions];

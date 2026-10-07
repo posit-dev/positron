@@ -10,6 +10,7 @@ import { Disposable, IDisposable, toDisposable } from '../../../../base/common/l
 import { toErrorMessage } from '../../../../base/common/errorMessage.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -57,15 +58,22 @@ configurationRegistry.registerConfiguration(configurationNode);
 export class ErrorActionsService extends Disposable implements IErrorActionsService {
 	declare readonly _serviceBrand: undefined;
 
-	/** Fires when the registered implementations or the configured one change. */
+	/**
+	 * Fires when the registered implementations, the configured one, or
+	 * whether a registered one can take errors change.
+	 */
 	private readonly _onDidChange = this._register(new Emitter<void>());
 	readonly onDidChange = this._onDidChange.event;
 
 	/** Registered implementations, in registration order. */
 	private readonly _registered: IErrorActionHandler[] = [];
 
+	/** Context keys read by the registered implementations' `when` expressions. */
+	private _whenKeys = new Set<string>();
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 	) {
@@ -73,6 +81,13 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 
 		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration(ERROR_ACTIONS_TARGET_KEY)) {
+				this._onDidChange.fire();
+			}
+		}));
+
+		// Handlers' `when` expressions can change which one is configured.
+		this._register(this._contextKeyService.onDidChangeContext(e => {
+			if (this._whenKeys.size > 0 && e.affectsSome(this._whenKeys)) {
 				this._onDidChange.fire();
 			}
 		}));
@@ -97,8 +112,9 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 
 	getConfigured(): IErrorActionHandler | undefined {
 		const id = this._configurationService.getValue<string>(ERROR_ACTIONS_TARGET_KEY);
-		return this._registered.find(handler => handler.id === id)
-			?? this._registered.find(handler => handler.id === POSIT_ASSISTANT_ERROR_ACTIONS_ID);
+		const available = this._registered.filter(handler => !handler.when || this._contextKeyService.contextMatchesRules(handler.when));
+		return available.find(handler => handler.id === id)
+			?? available.find(handler => handler.id === POSIT_ASSISTANT_ERROR_ACTIONS_ID);
 	}
 
 	async run(handler: IErrorActionHandler, kind: ErrorActionKind, context: IErrorActionContext): Promise<void> {
@@ -117,8 +133,9 @@ export class ErrorActionsService extends Disposable implements IErrorActionsServ
 		}
 	}
 
-	/** Refresh the setting's options and notify listeners. */
+	/** Refresh the setting's options and the watched context keys, and notify listeners. */
 	private _update(): void {
+		this._whenKeys = new Set(this._registered.flatMap(handler => handler.when?.keys() ?? []));
 		const node = getConfigurationNode(this._registered);
 		configurationRegistry.updateConfigurations({ add: [node], remove: [configurationNode] });
 		configurationNode = node;

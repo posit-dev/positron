@@ -24,7 +24,7 @@ const quartoKernelManager: Partial<IQuartoKernelManager> = {
 	getSessionForDocument: () => stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-5678' }),
 };
 
-const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
 describe('QuartoOutputQuickFix', () => {
 	/** The handler errors go to; undefined when there is none. */

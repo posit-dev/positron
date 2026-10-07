@@ -36,8 +36,8 @@ interface AssistantErrorQuickFixProps {
 
 /**
  * Presentational "Fix" and "Explain" split buttons for an error output. The
- * primary click sends the error to the handler in a new chat; when the
- * handler can continue the current chat, the dropdown sends it there instead.
+ * primary click sends the error to the handler in a new chat; the dropdown
+ * sends it to the current one.
  *
  * This component does no gating; each caller decides whether to render it (see
  * NotebookCellQuickFix and QuartoOutputQuickFix, which apply their surface's
@@ -62,7 +62,7 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	const pressedExplainHandler = () => runAction('explain', 'new');
 
 	// Memoize dropdown actions for Fix button
-	const fixDropdownActions = useMemo((): IAction[] => !errorActionHandler.canContinueChat ? [] : [
+	const fixDropdownActions = useMemo((): IAction[] => [
 		{
 			id: 'continue-in-existing-chat',
 			label: localize('positronAssistantFixInCurrentChatTarget', "Ask {0} to fix in current chat", errorActionHandler.label),
@@ -74,7 +74,7 @@ export const AssistantErrorQuickFix = (props: AssistantErrorQuickFixProps) => {
 	], [runAction, errorActionHandler]);
 
 	// Memoize dropdown actions for Explain button
-	const explainDropdownActions = useMemo((): IAction[] => !errorActionHandler.canContinueChat ? [] : [
+	const explainDropdownActions = useMemo((): IAction[] => [
 		{
 			id: 'continue-in-existing-chat',
 			label: localize('positronAssistantExplainInCurrentChatTarget', "Ask {0} to explain in current chat", errorActionHandler.label),

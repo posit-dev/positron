@@ -60,7 +60,7 @@ async function isAvailable(): Promise<boolean> {
 
 /** Open a new Claude Code session with the prompt. */
 async function startNew(prompt: string): Promise<void> {
-	// The registration is withdrawn when Claude Code becomes unavailable, but
+	// Fix and Explain stop offering Claude Code when it becomes unavailable, but
 	// an action can still race with that.
 	switch (getSurface()) {
 		case 'chat':

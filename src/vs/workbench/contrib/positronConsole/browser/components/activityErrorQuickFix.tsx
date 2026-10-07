@@ -51,7 +51,7 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	);
 
 	// The console's errors usually follow on from the conversation the user is
-	// having, so they continue the current chat when the handler can.
+	// having, so they continue the current chat.
 	const runAction = (kind: ErrorActionKind) => {
 		const { errorActionHandler, positronConsoleInstance } = props;
 		return services.get(IErrorActionsService).run(errorActionHandler, kind, {
@@ -63,7 +63,7 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 				languageId: positronConsoleInstance.runtimeMetadata.languageId,
 				code: props.code,
 			},
-			chat: errorActionHandler.canContinueChat ? 'current' : 'new',
+			chat: 'current',
 		});
 	};
 

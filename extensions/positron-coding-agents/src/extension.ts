@@ -17,15 +17,22 @@ const AGENTS: readonly CodingAgent[] = [claudeCode, codex];
 const FOCUS_CHECK_INTERVAL = 30_000;
 
 export function activate(context: vscode.ExtensionContext): void {
-	// Offer each agent only while it is installed and able to take a prompt.
-	// Checks run one at a time, so registrations always follow the latest
+	// Register each agent once; it is offered while its availability context
+	// key, kept current below, is true.
+	for (const agent of AGENTS) {
+		context.subscriptions.push(positron.ai.registerErrorActionHandler(agent.id, agent.label, {
+			when: getAvailableKey(agent),
+			fix: errorContext => startSession(agent, 'fix', errorContext),
+			explain: errorContext => startSession(agent, 'explain', errorContext),
+		}));
+	}
+
+	// Checks run one at a time, so the context keys always follow the latest
 	// result; a check requested during another runs once that one finishes.
-	const registrationsById = new Map<string, vscode.Disposable>();
 	let isChecking = false;
 	let isCheckRequested = false;
-	let isDisposed = false;
 	let lastCheckTime = 0;
-	const updateRegistrations = async () => {
+	const updateAvailability = async () => {
 		if (isChecking) {
 			isCheckRequested = true;
 			return;
@@ -36,34 +43,20 @@ export function activate(context: vscode.ExtensionContext): void {
 				isCheckRequested = false;
 				lastCheckTime = Date.now();
 				const availabilities = await Promise.all(AGENTS.map(agent => agent.isAvailable()));
-				if (isDisposed) {
-					return;
-				}
-				AGENTS.forEach((agent, i) => {
-					const registration = registrationsById.get(agent.id);
-					if (availabilities[i] && !registration) {
-						registrationsById.set(agent.id, positron.ai.registerErrorActionHandler(agent.id, agent.label, {
-							canContinueChat: true,
-							fix: errorContext => startSession(agent, 'fix', errorContext),
-							explain: errorContext => startSession(agent, 'explain', errorContext),
-						}));
-					} else if (!availabilities[i] && registration) {
-						registration.dispose();
-						registrationsById.delete(agent.id);
-					}
-				});
+				await Promise.all(AGENTS.map((agent, i) =>
+					vscode.commands.executeCommand('setContext', getAvailableKey(agent), availabilities[i])));
 			} while (isCheckRequested);
 		} finally {
 			isChecking = false;
 		}
 	};
 
-	updateRegistrations();
+	updateAvailability();
 	context.subscriptions.push(
-		vscode.extensions.onDidChange(updateRegistrations),
+		vscode.extensions.onDidChange(updateAvailability),
 		vscode.workspace.onDidChangeConfiguration(e => {
 			if (e.affectsConfiguration('claudeCode.useTerminal')) {
-				updateRegistrations();
+				updateAvailability();
 			}
 		}),
 		// Nothing announces a CLI being installed or removed, so look again
@@ -71,16 +64,15 @@ export function activate(context: vscode.ExtensionContext): void {
 		// PATH, so skip it if one ran recently.
 		vscode.window.onDidChangeWindowState(state => {
 			if (state.focused && Date.now() - lastCheckTime >= FOCUS_CHECK_INTERVAL) {
-				updateRegistrations();
+				updateAvailability();
 			}
-		}),
-		{
-			dispose: () => {
-				isDisposed = true;
-				registrationsById.forEach(registration => registration.dispose());
-			}
-		}
+		})
 	);
+}
+
+/** Context key that is true while an agent can take errors. */
+function getAvailableKey(agent: CodingAgent): string {
+	return `positronCodingAgents.${agent.id}.available`;
 }
 
 /** Open a new agent session with the error from a Fix/Explain action. */

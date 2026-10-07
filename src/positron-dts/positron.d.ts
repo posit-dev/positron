@@ -4949,10 +4949,7 @@ declare module 'positron' {
 			/** Where the error was raised. Undefined when it is not known. */
 			readonly location?: ErrorLocation;
 
-			/**
-			 * Whether to start a new chat or continue the current one. Always
-			 * 'new' unless the handler sets {@link ErrorActionHandler.canContinueChat}.
-			 */
+			/** Whether to start a new chat or continue the current one. */
 			readonly chat: ErrorActionChat;
 		}
 
@@ -5045,11 +5042,12 @@ declare module 'positron' {
 		 */
 		export interface ErrorActionHandler {
 			/**
-			 * Whether the handler can continue the current chat. When true, the
-			 * user is offered actions that pass `chat: 'current'`. Read once, at
-			 * registration.
+			 * A context key expression, e.g. `myAgent.isInstalled`, for when the
+			 * handler can take errors. While it is false, the actions go to Posit
+			 * Assistant instead (or are hidden when it can't take them either).
+			 * Always when undefined. Read once, at registration.
 			 */
-			readonly canContinueChat?: boolean;
+			readonly when?: string;
 
 			/** Fix the error. */
 			fix(context: ErrorActionContext, token: vscode.CancellationToken): Thenable<void>;
@@ -5061,9 +5059,10 @@ declare module 'positron' {
 		/**
 		 * Register an implementation of the error Fix and Explain actions.
 		 *
-		 * Register while the implementation is usable (e.g. while the agent
-		 * it sends errors to is installed) and dispose the registration when
-		 * it is not.
+		 * Use {@link ErrorActionHandler.when} for whether the implementation
+		 * can take errors at the moment (e.g. whether the agent it sends errors
+		 * to is installed), rather than registering and disposing it as that
+		 * changes.
 		 *
 		 * @param id The unique identifier of the implementation. 'posit-assistant'
 		 *   is reserved for Posit Assistant's, which Positron registers.

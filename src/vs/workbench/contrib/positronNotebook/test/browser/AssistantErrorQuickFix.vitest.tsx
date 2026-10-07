@@ -24,7 +24,7 @@ describe('AssistantErrorQuickFix', () => {
 		.build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
+	const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 	const location: IErrorLocation = { kind: 'notebook', uri: URI.file('/work/a.ipynb'), cellIndex: 1, code: 'x', languageId: 'python' };
 
 	function renderQuickFix(overrides: Partial<ComponentProps<typeof AssistantErrorQuickFix>> = {}) {
@@ -75,11 +75,5 @@ describe('AssistantErrorQuickFix', () => {
 		await runDropdownAction();
 
 		expect(run).toHaveBeenCalledWith(errorActionHandler, 'fix', { error: 'NameError: x', location, chat: 'current' });
-	});
-
-	it('hides the continue-in-current-chat dropdowns when the handler cannot continue a chat', () => {
-		renderQuickFix({ errorActionHandler: { ...errorActionHandler, canContinueChat: false } });
-		expect(screen.queryByRole('button', { name: 'More fix options' })).not.toBeInTheDocument();
-		expect(screen.queryByRole('button', { name: 'More explain options' })).not.toBeInTheDocument();
 	});
 });

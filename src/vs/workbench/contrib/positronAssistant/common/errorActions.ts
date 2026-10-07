@@ -7,6 +7,7 @@ import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Event } from '../../../../base/common/event.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { UriComponents } from '../../../../base/common/uri.js';
+import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** Setting that picks which implementation of the error Fix/Explain actions to use. */
@@ -91,8 +92,8 @@ export interface IErrorActionHandler {
 	readonly id: string;
 	/** Name shown in the setting's dropdown and the actions' tooltips. */
 	readonly label: string;
-	/** Whether it can continue the current chat, which offers actions that do. */
-	readonly canContinueChat: boolean;
+	/** When it can take errors; always when undefined. */
+	readonly when?: ContextKeyExpression;
 	/** Run the given action on the error. */
 	run(kind: ErrorActionKind, context: IErrorActionContext, token: CancellationToken): Promise<void>;
 }
@@ -103,7 +104,10 @@ export const IErrorActionsService = createDecorator<IErrorActionsService>('error
 export interface IErrorActionsService {
 	readonly _serviceBrand: undefined;
 
-	/** Fires when the registered implementations or the configured one change. */
+	/**
+	 * Fires when the registered implementations, the configured one, or
+	 * whether a registered one can take errors change.
+	 */
 	readonly onDidChange: Event<void>;
 
 	/**
@@ -114,9 +118,10 @@ export interface IErrorActionsService {
 
 	/**
 	 * The implementation selected in the ai.errorActions.target setting, or
-	 * Posit Assistant's when the selected one is not registered.
-	 * @returns The implementation, or undefined when neither is registered, in
-	 *   which case there is nowhere to send errors.
+	 * Posit Assistant's when the selected one is not registered or its `when`
+	 * is false.
+	 * @returns The implementation, or undefined when neither can take errors,
+	 *   in which case there is nowhere to send them.
 	 */
 	getConfigured(): IErrorActionHandler | undefined;
 

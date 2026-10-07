@@ -27,6 +27,7 @@ import { getPositronContextPrompts } from '../../../contrib/positronAssistant/br
 import { getForegroundSessionInfo } from '../../../contrib/positronAssistant/browser/prompts/promptSessions.js';
 import * as xml from '../../../contrib/positronAssistant/common/xml.js';
 import { IErrorActionsService } from '../../../contrib/positronAssistant/common/errorActions.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadAiFeatures)
 export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeaturesShape {
@@ -100,11 +101,11 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	/**
 	 * Register an error action handler implemented in the extension host.
 	 */
-	$registerErrorActionHandler(handle: number, id: string, label: string, canContinueChat: boolean): void {
+	$registerErrorActionHandler(handle: number, id: string, label: string, when: string | undefined): void {
 		this._errorActionHandlerRegistrations.set(handle, this._errorActionsService.register({
 			id,
 			label,
-			canContinueChat,
+			when: ContextKeyExpr.deserialize(when),
 			run: (kind, context, token) => this._proxy.$runErrorAction(handle, kind, context, token),
 		}));
 	}

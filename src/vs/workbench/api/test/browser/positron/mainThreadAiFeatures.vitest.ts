@@ -172,10 +172,10 @@ describe('MainThreadAiFeatures', () => {
 		const mainThread = await createMainThread([]);
 		const context = { error: 'boom', chat: 'current' as const };
 
-		mainThread.$registerErrorActionHandler(7, 'test-agent', 'Test Agent', true);
+		mainThread.$registerErrorActionHandler(7, 'test-agent', 'Test Agent', 'testAgent.isInstalled');
 		const [errorActionHandler] = registeredHandlers;
-		expect({ id: errorActionHandler.id, label: errorActionHandler.label, canContinueChat: errorActionHandler.canContinueChat })
-			.toEqual({ id: 'test-agent', label: 'Test Agent', canContinueChat: true });
+		expect({ id: errorActionHandler.id, label: errorActionHandler.label, when: errorActionHandler.when?.serialize() })
+			.toEqual({ id: 'test-agent', label: 'Test Agent', when: 'testAgent.isInstalled' });
 
 		await errorActionHandler.run('fix', context, CancellationToken.None);
 		expect(runErrorAction).toHaveBeenCalledWith(7, 'fix', context, CancellationToken.None);

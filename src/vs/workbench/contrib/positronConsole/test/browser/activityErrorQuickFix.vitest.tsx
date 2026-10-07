@@ -30,7 +30,7 @@ const positronConsoleInstance = stubInterface<IPositronConsoleInstance>({
 	runtimeMetadata: stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' }),
 });
 
-const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
 describe('ConsoleQuickFix', () => {
 	const ctx = createTestContainer()
@@ -50,15 +50,5 @@ describe('ConsoleQuickFix', () => {
 			location: { kind: 'console', sessionId: 'python-1234', sessionName: 'Python 3.12.1', languageId: 'python', code: 'print(x)' },
 			chat: 'current',
 		});
-	});
-
-	it('starts a new chat when the handler cannot continue one', async () => {
-		const run = vi.spyOn(ctx.get(IErrorActionsService), 'run');
-
-		const user = userEvent.setup();
-		rtl.render(<ConsoleQuickFix errorActionHandler={{ ...errorActionHandler, canContinueChat: false }} outputLines={outputLines} positronConsoleInstance={positronConsoleInstance} tracebackLines={tracebackLines} />);
-		await user.click(screen.getByText('Fix'));
-
-		expect(run.mock.calls[0][2].chat).toBe('new');
 	});
 });

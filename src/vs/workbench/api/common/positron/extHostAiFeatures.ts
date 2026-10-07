@@ -98,7 +98,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		}
 		const handle = this._nextErrorActionHandle++;
 		this._errorActionHandlersByHandle.set(handle, handler);
-		this._proxy.$registerErrorActionHandler(handle, id, label, handler.canContinueChat === true);
+		this._proxy.$registerErrorActionHandler(handle, id, label, handler.when);
 
 		return new Disposable(() => {
 			this._errorActionHandlersByHandle.delete(handle);

@@ -33,7 +33,7 @@ import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputV
 // out of the viewport while Monaco still renders it -- exactly the flextable
 // sticking case.
 /** Where the quick fix sends errors, so its buttons render. */
-const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', canContinueChat: true, run: async () => { } };
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
 describe('isWebviewOverlayShown', () => {
 	function zone(visible: boolean): HTMLElement {
