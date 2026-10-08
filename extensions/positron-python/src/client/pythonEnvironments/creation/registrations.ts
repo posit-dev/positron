@@ -37,8 +37,5 @@ export async function registerAllCreateEnvironmentFeatures(
     registerCreateEnvironmentButtonFeatures(disposables);
     registerPyProjectTomlFeatures(disposables);
     registerInstalledPackagesDiagnosticsProvider(disposables, interpreterService);
-    // --- Start Positron ---
-    // registerTriggerForPipInTerminal(disposables);
-    registerTriggerForPipInTerminal(disposables, interpreterService);
-    // --- End Positron ---
+    registerTriggerForPipInTerminal(disposables);
 }

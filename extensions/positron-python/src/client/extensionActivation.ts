@@ -17,7 +17,10 @@ import { IConfigurationService, IDisposableRegistry, IExtensions, ILogOutputChan
 import { noop } from './common/utils/misc';
 import { registerTypes as debugConfigurationRegisterTypes } from './debugger/extension/serviceRegistry';
 import { IDebugConfigurationService } from './debugger/extension/types';
-import { IInterpreterService } from './interpreter/contracts';
+// --- Start Positron ---
+// import { IInterpreterService } from './interpreter/contracts';
+import { IActivatedEnvironmentLaunch, IInterpreterService } from './interpreter/contracts';
+// --- End Positron ---
 import { getLanguageConfiguration } from './language/languageConfiguration';
 import { ReplProvider } from './providers/replProvider';
 import { registerTypes as providersRegisterTypes } from './providers/serviceRegistry';
@@ -223,7 +226,7 @@ async function activateLegacy(ext: ExtensionState, startupStopWatch: StopWatch):
             registerCreateEnvironmentTriggers(
                 disposables,
                 serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager),
-                interpreterManager,
+                serviceContainer.get<IActivatedEnvironmentLaunch>(IActivatedEnvironmentLaunch),
             );
             initializePersistentStateForTriggers(ext.context);
         }

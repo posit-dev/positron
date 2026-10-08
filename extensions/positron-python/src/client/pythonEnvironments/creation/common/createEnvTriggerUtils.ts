@@ -4,18 +4,16 @@
 // --- Start Positron ---
 import * as os from 'os';
 import { isPipInstallableToml } from '../provider/venvUtils';
-import { IInterpreterService } from '../../../interpreter/contracts';
-import { EnvironmentType, virtualEnvTypes } from '../../info';
 // --- End Positron ---
 import * as path from 'path';
 import { ConfigurationTarget, Uri, WorkspaceFolder } from 'vscode';
 import * as fsapi from '../../../common/platform/fs-paths';
 import { getPipRequirementsFiles } from '../provider/venvUtils';
+import { getExtension } from '../../../common/vscodeApis/extensionsApi';
+import { PVSC_EXTENSION_ID } from '../../../common/constants';
 // --- Start Positron ---
-// The active interpreter comes from the interpreter service, not the public extension API.
-// import { getExtension } from '../../../common/vscodeApis/extensionsApi';
-// import { PVSC_EXTENSION_ID } from '../../../common/constants';
 // import { PythonExtension } from '../../../api/types';
+import { PythonExtension, ResolvedEnvironment } from '../../../api/types';
 // --- End Positron ---
 import { traceInfo, traceVerbose } from '../../../logging';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
@@ -74,52 +72,52 @@ export async function hasKnownFiles(workspace: WorkspaceFolder): Promise<boolean
 }
 
 // --- Start Positron ---
-// The PET locator reports these kinds as virtual or conda. Pyenv is left out: a pyenv version is
-// a user-wide install, and the interpreter-select modal (isGlobalPython) already treats it so.
-const nonGlobalEnvTypes: EnvironmentType[] = [...virtualEnvTypes, EnvironmentType.ActiveState];
+/**
+ * Whether a resolved environment is a global install rather than a project environment.
+ * Shared by the venv auto-create prompt's gate and the interpreter-select modal.
+ */
+export async function isGlobalEnvironment(details: ResolvedEnvironment): Promise<boolean> {
+    if (details.environment === undefined) {
+        return true;
+    }
+    const execPath = details.executable.uri?.fsPath ?? details.path;
+    // ~/.local installs are user-wide, not project-local.
+    if (execPath.startsWith(path.join(os.homedir(), '.local') + path.sep)) {
+        return true;
+    }
+    // PET maps plain pyenv versions and `pyenv virtualenv` envs to the same kind; only the
+    // latter carries a pyvenv.cfg.
+    if (details.tools.includes('Pyenv')) {
+        return !(await fsapi.pathExists(path.join(details.environment.folderUri.fsPath, 'pyvenv.cfg')));
+    }
+    return false;
+}
+// --- End Positron ---
 
-export async function isGlobalPythonSelected(
-    workspace: WorkspaceFolder,
-    interpreterService: IInterpreterService,
-): Promise<boolean> {
-    // The interpreter service waits for the startup activated-environment selection, which
-    // otherwise lands while this check is reading the setting (posit-dev/positron#16464).
-    const interpreter = await interpreterService.getActiveInterpreter(workspace.uri);
-    const execPath = interpreter?.path;
-    // Also treat ~/.local installs as global - they are user-wide, not project-local.
-    const homeLocal = path.join(os.homedir(), '.local') + path.sep;
-    const isUnderHomeLocal = execPath?.startsWith(homeLocal) ?? false;
-    const isGlobal = interpreter === undefined || !nonGlobalEnvTypes.includes(interpreter.envType) || isUnderHomeLocal;
+export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promise<boolean> {
+    const extension = getExtension<PythonExtension>(PVSC_EXTENSION_ID);
+    if (!extension) {
+        traceInfo('CreateEnv Trigger - Python extension not found, treating selected python as non-global');
+        return false;
+    }
+    const extensionApi: PythonExtension = extension.exports as PythonExtension;
+    const interpreter = extensionApi.environments.getActiveEnvironmentPath(workspace.uri);
+    const details = await extensionApi.environments.resolveEnvironment(interpreter);
+    // --- Start Positron ---
+    const execPath = details?.executable?.uri?.fsPath ?? interpreter.path;
+    // const isGlobal = details?.environment === undefined;
+    const isGlobal = details === undefined || (await isGlobalEnvironment(details));
+    // --- End Positron ---
     if (isGlobal) {
-        traceVerbose(`Selected python for [${workspace.uri.fsPath}] is [global] type: ${execPath}`);
+        traceVerbose(`Selected python for [${workspace.uri.fsPath}] is [global] type: ${interpreter.path}`);
     } else {
         traceInfo(
             `CreateEnv Trigger - Selected python for [${workspace.uri.fsPath}] is not global: ${execPath} ` +
-                `(environment type ${interpreter.envType})`,
+                `(environment type ${details?.environment?.type})`,
         );
     }
     return isGlobal;
 }
-// export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promise<boolean> {
-//     const extension = getExtension<PythonExtension>(PVSC_EXTENSION_ID);
-//     if (!extension) {
-//         traceInfo('CreateEnv Trigger - Python extension not found, treating selected python as non-global');
-//         return false;
-//     }
-//     const extensionApi: PythonExtension = extension.exports as PythonExtension;
-//     const interpreter = extensionApi.environments.getActiveEnvironmentPath(workspace.uri);
-//     const details = await extensionApi.environments.resolveEnvironment(interpreter);
-//     const isGlobal = details?.environment === undefined;
-//     if (isGlobal) {
-//         traceVerbose(`Selected python for [${workspace.uri.fsPath}] is [global] type: ${interpreter.path}`);
-//     } else {
-//         traceVerbose(
-//             `Selected python for [${workspace.uri.fsPath}] is [${details?.environment?.type}] type: ${interpreter.path}`,
-//         );
-//     }
-//     return isGlobal;
-// }
-// --- End Positron ---
 
 /**
  * Checks the setting `python.createEnvironment.trigger` to see if we should perform the checks

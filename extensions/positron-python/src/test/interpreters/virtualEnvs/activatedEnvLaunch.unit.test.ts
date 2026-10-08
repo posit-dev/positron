@@ -101,6 +101,54 @@ suite('Activated Env Launch', async () => {
             pythonPathUpdaterService.verifyAll();
         });
 
+        // --- Start Positron ---
+        test('waitForSelection resolves only after a non-blocking selection has been written', async () => {
+            process.env.VIRTUAL_ENV = virtualEnvPrefix;
+            workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
+            const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
+            workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
+            let written = false;
+            pythonPathUpdaterService
+                .setup((p) =>
+                    p.updatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                )
+                .returns(async () => {
+                    await new Promise((resolve) => setTimeout(resolve, 20));
+                    written = true;
+                });
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+            const prefix = await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv(true);
+            expect(prefix).to.be.equal(virtualEnvPrefix);
+            expect(written).to.be.equal(false, 'non-blocking selection must not wait for the write');
+            await activatedEnvLaunch.waitForSelection();
+            expect(written).to.be.equal(true, 'waitForSelection must join the pending write');
+        });
+
+        test('waitForSelection resolves immediately when no environment is activated', async () => {
+            delete process.env.VIRTUAL_ENV;
+            delete process.env.CONDA_PREFIX;
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+            await activatedEnvLaunch.waitForSelection();
+            pythonPathUpdaterService.verify(
+                (p) =>
+                    p.updatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                TypeMoq.Times.never(),
+            );
+        });
+        // --- End Positron ---
+
         test('Does not update interpreter path if VSCode is not launched via CLI', async () => {
             delete process.env.VSCODE_CLI;
             process.env.CONDA_PREFIX = condaPrefix;

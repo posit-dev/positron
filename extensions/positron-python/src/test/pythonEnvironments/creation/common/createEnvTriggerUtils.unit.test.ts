@@ -5,51 +5,55 @@
 
 import * as os from 'os';
 import * as path from 'path';
+import * as sinon from 'sinon';
 import { assert } from 'chai';
-import * as typemoq from 'typemoq';
-import { Uri, WorkspaceFolder } from 'vscode';
-import { IInterpreterService } from '../../../../client/interpreter/contracts';
-import { EnvironmentType, PythonEnvironment } from '../../../../client/pythonEnvironments/info';
-import { isGlobalPythonSelected } from '../../../../client/pythonEnvironments/creation/common/createEnvTriggerUtils';
+import { Uri } from 'vscode';
+import * as fsapi from '../../../../client/common/platform/fs-paths';
+import { ResolvedEnvironment } from '../../../../client/api/types';
+import { isGlobalEnvironment } from '../../../../client/pythonEnvironments/creation/common/createEnvTriggerUtils';
 
-suite('Create Environment Trigger - isGlobalPythonSelected', () => {
-    const workspace: WorkspaceFolder = { uri: Uri.file('/project'), name: 'project', index: 0 };
-    let interpreterService: typemoq.IMock<IInterpreterService>;
+suite('Create Environment Trigger - isGlobalEnvironment', () => {
+    let pathExistsStub: sinon.SinonStub;
 
     setup(() => {
-        interpreterService = typemoq.Mock.ofType<IInterpreterService>();
+        pathExistsStub = sinon.stub(fsapi, 'pathExists').resolves(false);
     });
 
-    function withActiveInterpreter(interpreter: PythonEnvironment | undefined) {
-        interpreterService
-            .setup((s) => s.getActiveInterpreter(typemoq.It.isAny()))
-            .returns(() => Promise.resolve(interpreter));
+    teardown(() => {
+        sinon.restore();
+    });
+
+    function env(execPath: string, folder?: string, tools: string[] = []): ResolvedEnvironment {
+        return {
+            path: execPath,
+            tools,
+            executable: { uri: Uri.file(execPath) },
+            environment: folder === undefined ? undefined : { type: 'VirtualEnvironment', folderUri: Uri.file(folder) },
+        } as unknown as ResolvedEnvironment;
     }
 
-    function env(envPath: string, envType: EnvironmentType): PythonEnvironment {
-        return { path: envPath, envType, sysPrefix: '' } as PythonEnvironment;
-    }
+    test('an interpreter outside any environment is global', async () => {
+        assert.isTrue(await isGlobalEnvironment(env('/usr/bin/python3')));
+    });
 
-    const cases: [string, PythonEnvironment | undefined, boolean][] = [
-        ['unresolved interpreter', undefined, true],
-        ['system python', env('/usr/bin/python3', EnvironmentType.System), true],
-        ['pyenv version', env('/home/u/.pyenv/versions/3.12.3/bin/python', EnvironmentType.Pyenv), true],
-        ['~/.local install', env(path.join(os.homedir(), '.local', 'bin', 'python'), EnvironmentType.Venv), true],
-        ['venv', env('/project/.venv/bin/python', EnvironmentType.Venv), false],
-        ['conda env', env('/opt/conda/envs/x/bin/python', EnvironmentType.Conda), false],
-        ['uv env', env('/project/.venv/bin/python', EnvironmentType.Uv), false],
-    ];
+    test('a venv is not global', async () => {
+        assert.isFalse(await isGlobalEnvironment(env('/project/.venv/bin/python', '/project/.venv', ['Venv'])));
+    });
 
-    for (const [label, interpreter, expected] of cases) {
-        test(`${label} is ${expected ? 'global' : 'not global'}`, async () => {
-            withActiveInterpreter(interpreter);
-            assert.strictEqual(await isGlobalPythonSelected(workspace, interpreterService.object), expected);
-        });
-    }
+    test('a ~/.local install is global even when reported as an environment', async () => {
+        const local = path.join(os.homedir(), '.local');
+        assert.isTrue(await isGlobalEnvironment(env(path.join(local, 'bin', 'python'), local, ['Venv'])));
+    });
 
-    test('reads the active interpreter for the workspace folder', async () => {
-        withActiveInterpreter(undefined);
-        await isGlobalPythonSelected(workspace, interpreterService.object);
-        interpreterService.verify((s) => s.getActiveInterpreter(workspace.uri), typemoq.Times.once());
+    test('a plain pyenv version is global', async () => {
+        const folder = '/home/u/.pyenv/versions/3.12.3';
+        assert.isTrue(await isGlobalEnvironment(env(path.join(folder, 'bin', 'python'), folder, ['Pyenv'])));
+        sinon.assert.calledOnceWithExactly(pathExistsStub, path.join(folder, 'pyvenv.cfg'));
+    });
+
+    test('a pyenv virtualenv is not global', async () => {
+        const folder = '/home/u/.pyenv/versions/myproj';
+        pathExistsStub.withArgs(path.join(folder, 'pyvenv.cfg')).resolves(true);
+        assert.isFalse(await isGlobalEnvironment(env(path.join(folder, 'bin', 'python'), folder, ['Pyenv'])));
     });
 });
