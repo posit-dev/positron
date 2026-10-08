@@ -2191,6 +2191,12 @@ test('issue: the body follows the template and leaves out what triage sets', () 
 	assert.doesNotMatch(body, /\/runs\/|\/tmp\//);
 });
 
+test('issue: System details add the kernels when the ledger records them', () => {
+	const ledger = LOGS_LEDGER.replace(/^(- Positron [^\n]*\n)/m, '$1- Kernels: Ark 0.1.252+355.f1af004, Kallichore 0.1.71.\n');
+	assert.match(issueCopied(logsIssueHtml({ ledger }), 1), /Ubuntu 22\.04, Linux x64\n\n\*\*Kernels:\*\* Ark 0\.1\.252\+355\.f1af004, Kallichore 0\.1\.71\n/);
+	assert.doesNotMatch(issueCopied(logsIssueHtml(), 1), /Kernels/);
+});
+
 test('issue: an error longer than six lines is clipped, and a run without one says so', () => {
 	const long = LOGS_REPORT.replace(/(\n\s+at TableSummaryCache\.retryColumnProfiles[^\n]*)/, '$1$1$1$1$1');
 	const body = issueCopied(renderReportHtml(long, { ledger: LOGS_LEDGER, readFile: logsRead }), 1);

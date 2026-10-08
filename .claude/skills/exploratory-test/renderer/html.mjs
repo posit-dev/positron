@@ -773,15 +773,17 @@ function renderFeedbackRow(f, options) {
 	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Provide feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 
-/** Positron and OS, each on its own line; the session is in the steps. */
+/** Positron and OS, each on its own line, then the kernels when recorded; the session is in the steps. */
 function systemDetails(report) {
 	const env = report.environment.map(l => l.trim().replace(/^[-*]\s+/, '')).filter(Boolean);
 	const system = env.map(parseSystemLine).find(Boolean);
+	const kernels = env.map(l => /^Kernels:\s*(.+?)\.?$/i.exec(l)?.[1]).find(Boolean);
 	return [
 		'## System details',
 		'**Positron and OS:**  ',
 		// Two trailing spaces keep GitHub's line break.
 		(system ? [system.positron, system.os] : ['Not recorded']).join('  \n'),
+		...(kernels ? ['', `**Kernels:** ${kernels}`] : []),
 	].join('\n');
 }
 
