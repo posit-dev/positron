@@ -1093,8 +1093,9 @@ const LEDGER_SEP = /\s+(?:·|-|\|)\s+/;
 
 /**
  * The ledger Environment's first line, `Positron <version> build <n>, <build>
- * (Code - OSS <v>), on <OS> (<platform>).`, as the issue's two lines; null for
- * any other line. The Code - OSS version is dropped: Run details still has it.
+ * (Code - OSS <v>), on <OS> (<platform>).`, as the issue's Positron and OS
+ * bullets; null for any other line. The Positron bullet keeps only the commit
+ * of its build, and Run details still has the Code - OSS version.
  */
 export function parseSystemLine(text) {
 	const m = /^Positron\s+(.+),\s+on\s+(.+?)\.?$/.exec(String(text ?? '').trim().replace(/^[-*]\s+/, ''));
@@ -1102,12 +1103,11 @@ export function parseSystemLine(text) {
 		return null;
 	}
 	const [version, ...build] = m[1].replace(/\s*\(Code - OSS[^)]*\)/i, '').split(/,\s*/);
-	const kind = build.join(', ').replace(/^an?\s+/i, '').replace(/\b([0-9a-f]{7,40})\b/i, '`$1`');
+	const commit = /\b([0-9a-f]{7,40})\b/i.exec(build.join(', '))?.[1];
 	const os = m[2].trim();
-	const platform = /^(.+?)\s*\(([^)]+)\)$/.exec(os);
 	return {
-		positron: `Positron ${version.trim()}${kind ? ` (${kind})` : ''}`,
-		os: platform ? `${platform[1]}, ${platform[2]}` : /^not recorded$/i.test(os) ? 'OS not recorded' : os,
+		positron: `${version.trim()}${commit ? ` (\`${commit}\`)` : ''}`,
+		os: /^not recorded$/i.test(os) ? 'not recorded' : os,
 	};
 }
 

@@ -773,17 +773,19 @@ function renderFeedbackRow(f, options) {
 	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Provide feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 
-/** Positron and OS, each on its own line, then the kernels when recorded; the session is in the steps. */
+/** Positron, OS and each recorded kernel as a bullet; the session is in the steps. */
 function systemDetails(report) {
 	const env = report.environment.map(l => l.trim().replace(/^[-*]\s+/, '')).filter(Boolean);
 	const system = env.map(parseSystemLine).find(Boolean);
-	const kernels = env.map(l => /^Kernels:\s*(.+?)\.?$/i.exec(l)?.[1]).find(Boolean);
+	// "Kernels: Ark 0.1.252, Kallichore 0.1.71." gives one bullet per kernel.
+	const kernels = (env.map(l => /^Kernels:\s*(.+?)\.?$/i.exec(l)?.[1]).find(Boolean) ?? '')
+		.split(/,\s*/).map(k => /^(\S+)\s+(.+)$/.exec(k.trim())).filter(Boolean);
 	return [
 		'## System details',
-		'**Positron and OS:**  ',
-		// Two trailing spaces keep GitHub's line break.
-		(system ? [system.positron, system.os] : ['Not recorded']).join('  \n'),
-		...(kernels ? ['', `**Kernels:** ${kernels}`] : []),
+		'',
+		`- **Positron:** ${system?.positron ?? 'not recorded'}`,
+		`- **OS:** ${system?.os ?? 'not recorded'}`,
+		...kernels.map(([, name, version]) => `- **${name}:** ${version}`),
 	].join('\n');
 }
 

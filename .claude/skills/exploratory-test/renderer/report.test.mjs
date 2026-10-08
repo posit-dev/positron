@@ -2172,9 +2172,11 @@ test('issue: the body follows the template and leaves out what triage sets', () 
 	assert.deepEqual(headings, ['System details', 'Steps to reproduce', 'Observed', 'Expected', 'Error messages', 'Evidence']);
 	assert.match(body, /^<sub>Reported by \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) of #1234 \(`[^`]+` @ `[0-9a-f]+`\)<\/sub>\n/);
 	assert.ok(body.includes([
-		'**Positron and OS:**  ',
-		'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)  ',
-		'Ubuntu 22.04, Linux x64',
+		'## System details',
+		'',
+		'- **Positron:** 2026.10.0 build 12 (`ed2487a1a2`)',
+		'- **OS:** Ubuntu 22.04 (Linux x64)',
+		'',
 	].join('\n')));
 	assert.doesNotMatch(body, /\*\*Session:/);
 	assert.doesNotMatch(body, /Code - OSS|Please investigate|### Context|!\[|Severity|Status:|Reproduced|Major|Coverage/i);
@@ -2191,9 +2193,9 @@ test('issue: the body follows the template and leaves out what triage sets', () 
 	assert.doesNotMatch(body, /\/runs\/|\/tmp\//);
 });
 
-test('issue: System details add the kernels when the ledger records them', () => {
+test('issue: System details list each kernel the ledger records', () => {
 	const ledger = LOGS_LEDGER.replace(/^(- Positron [^\n]*\n)/m, '$1- Kernels: Ark 0.1.252+355.f1af004, Kallichore 0.1.71.\n');
-	assert.match(issueCopied(logsIssueHtml({ ledger }), 1), /Ubuntu 22\.04, Linux x64\n\n\*\*Kernels:\*\* Ark 0\.1\.252\+355\.f1af004, Kallichore 0\.1\.71\n/);
+	assert.match(issueCopied(logsIssueHtml({ ledger }), 1), /- \*\*OS:\*\* Ubuntu 22\.04 \(Linux x64\)\n- \*\*Ark:\*\* 0\.1\.252\+355\.f1af004\n- \*\*Kallichore:\*\* 0\.1\.71\n/);
 	assert.doesNotMatch(issueCopied(logsIssueHtml(), 1), /Kernels/);
 });
 
@@ -2216,15 +2218,15 @@ test('issue: the likely cause folds as a hypothesis, and a local run links no re
 	assert.match(body, /^<sub>Reported by exploratory test /);
 	assert.doesNotMatch(body, /\/runs\/r1/);
 	assert.match(body, /^Screenshots and logs are in the exploratory test report for this run\.$/m);
-	assert.match(body, /\*\*Positron and OS:\*\* {2}\nNot recorded\n/);
+	assert.match(body, /- \*\*Positron:\*\* not recorded\n- \*\*OS:\*\* not recorded\n/);
 });
 
 test('issue: parseSystemLine reads the ledger line, and "not recorded" where it says so', () => {
 	assert.deepEqual(parseSystemLine('- Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).'),
-		{ positron: 'Positron 2026.10.0 build 12 (dev build of `ed2487a1a2`)', os: 'Ubuntu 22.04, Linux x64' });
+		{ positron: '2026.10.0 build 12 (`ed2487a1a2`)', os: 'Ubuntu 22.04 (Linux x64)' });
 	assert.deepEqual(parseSystemLine('Positron 2026.9.1 build 3, a release build of 0123abcd99 (Code - OSS 1.104.0), on macOS 15.1 (Darwin arm64)'),
-		{ positron: 'Positron 2026.9.1 build 3 (release build of `0123abcd99`)', os: 'macOS 15.1, Darwin arm64' });
-	assert.deepEqual(parseSystemLine('- Positron not recorded, on not recorded.'), { positron: 'Positron not recorded', os: 'OS not recorded' });
+		{ positron: '2026.9.1 build 3 (`0123abcd99`)', os: 'macOS 15.1 (Darwin arm64)' });
+	assert.deepEqual(parseSystemLine('- Positron not recorded, on not recorded.'), { positron: 'not recorded', os: 'not recorded' });
 	assert.equal(parseSystemLine('- Positron (pre-launched, CDP 44987), workspace /tmp/x.'), null);
 });
 
