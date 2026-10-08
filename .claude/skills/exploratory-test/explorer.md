@@ -617,6 +617,8 @@ nothing on screen shows the problem only after checking the whole view in your
 screenshot, including anything beside the value that contradicts it. Leave the
 setup, the values that were right, extra runs and log lines to Reproduce and
 Evidence.
+Put data values in backticks, as you do code, here and in a step's
+`Observed:` line.
 
 ```
 **Observed:** PNG 800x600 vs pane 1200x900; legend cut off.
