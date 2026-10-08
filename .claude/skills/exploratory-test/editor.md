@@ -1,54 +1,43 @@
-An automated test run found the bugs below and wrote each up as a record of the run: harness steps, PASS checks, waits, scenario IDs, and reasoning about what it saw. A developer triaging the filed issue has to translate that back into a bug before they can act on it.
+An automated test run found the bugs below. Your job is compression, not summarization: extract the user-visible failure from each finding's record and compress it into a short GitHub issue title and one opening sentence. The goal is a concise engineer filing a bug for another engineer, not an AI summarizing a test run.
 
-For each finding, write the part a person reads first, and its title. The run's own steps to reproduce stay below it unchanged; they were written on purpose, so do not rewrite them. Leave out anything that is only there as evidence. Each finding is filed as its own issue, so each must stand alone. Then rewrite the report's Result line.
+The record is source material, not prose to preserve. Rewrite freely, keeping only verified facts. The run's own steps to reproduce and its evidence appear below what you write, unchanged.
 
-The reader knows Positron but has not seen the PR, the code or the run.
+## Rules
 
-## Each finding
+1. **One sentence is the default.** Use a second only when the bug cannot be understood without it.
+2. **Lead with the visible failure.** Start with what is wrong. Add the condition that triggers it only when it is needed to tell this bug apart.
+3. **State the expected behavior only when it adds information.** If the right behavior is obvious from the failure, leave it out.
+4. **Do not narrate the test.** No harness actions, waits, checks, retries, setup, investigation history or reasoning.
+5. **Prefer concrete product behavior over abstract language.** Avoid: "the application", "the user", "when attempting to", "it was observed that", "results in", "does not behave as expected", "the expected X is not displayed", "successfully", "upon", "following", "the interface", "causes" (when the run did not establish cause), and "fails to" (when something more concrete is available).
+6. **Do not broaden the bug.** Use only what the run saw. Do not infer impact, root cause, scope, frequency or who is affected.
+7. **Keep exact details exact.** Keep numbers and on-screen text exactly as written. Put data values in backticks in the summary, not in the title. Name UI elements the way a user sees them, not by code names.
+8. **Titles are short but specific.** The issue title becomes `<feature>: <your title>`, so leave the feature out. Keep the condition that narrows the bug when it matters: a size, a file type, a state, a platform, a specific action, or first-versus-second attempt.
 
-**Summary**: one or two sentences, said the way you would tell a colleague at their desk: "When you do X, Y happens instead of Z." Add the one consequence a user hits next only if it is worse than the bug itself. Leave out side observations, comparisons and counts; they stay in the record. Don't start with the feature's name ("In the Data Explorer, ..."); the title carries it. Plain words; no reasoning about why.
+## Bad and better
 
-**Where**: one line, only if it changes who hits it: the platform, build or setting it needs, and what was not checked. If it needs the web build, say "web (and so Workbench)". Leave out the OS and build when nothing suggests the bug depends on them. Otherwise leave it empty.
+Bad: "When attempting to browse for a folder, the application does not display the expected folder picker on the first click."
+Better: "The first Browse... click does nothing; the folder picker opens on the second click."
 
-**Title**: written last, from your summary. The filed issue is titled `<feature>: <your title>`, with the finding's **Feature:** line as the feature, so don't repeat the feature. The title is the summary's first sentence cut to its core: aim for 12 words or fewer, no code or file names, no colon, semicolon or `|`. Keep what makes it a bug: a condition that narrows it ("of 1,000 or more", "until you Tab") or that it persists ("stays that way after reconnecting"). If those take more than 12 words, keep them; a longer true title beats a short one that says less. Start it with a capital unless its first word is a name written in lowercase, such as polars.
+Bad: "It was observed that pressing Enter initially fails to perform the expected action."
+Better: "Pressing Enter on the New Folder Created dialog does nothing until focus has moved with Tab."
 
-The trigger is the one in the finding's heading, which a reviewer has checked: keep it, and do not add one it does not name, in the title or the summary. A comparison in Expected ("as it does when clicked again") is not a trigger.
+Bad: "The folder picker fails to open as expected, which may cause confusion for users."
+Better: "The first Browse... click opens no folder picker."
 
-Keep every fact you use true to the record; do not add one it does not have, and keep numbers, quoted UI text and code exactly as the record writes them. Do not use a name a user would not see on screen: no component, class, function or file names, and no "kernel", "language server", "extension host" or "backend" unless the user would see that word. Name a thing by where the reader sees it: the button's label, the pane's name, the message's text.
-
-## Before -> after
-
-Summary, from a record whose opening said only "Duplicated control in the notebook toolbar":
-"When you open a Python notebook, its toolbar shows the "2 missing packages" badge twice, one on each side of the restart button, instead of once."
-
-Summary, from "Click appears dead; a follow-up Escape cancels the whole flow":
-"The first click on Browse... on the "Folder Name and Location" step does nothing: no folder picker appears. If you press Escape after that dead click, the whole flow is cancelled."
-
-Titles:
-- "first `Browse...` click in the flow shows no folder picker" -> "First Browse... click opens no folder picker"
-- "An offline check says all packages are installed, and it sticks after reconnecting" -> "Offline check says all installed, and stays that way after reconnecting"
-- "Enter does nothing until you Tab to a button" -> "Enter does nothing on New Folder Created dialog until you Tab"
-
-## The Result
-
-Rewrite the Result line too.
-
-- It says what the change does for a user, then, in bold, what is broken. At most two sentences and about 50 words.
-- Say what works in a phrase ("stats are right for most R and polars column types"). Don't list everything tested; the Tested line below it does that.
-- The bold sentence uses the same words as your titles, so the Result and the findings agree. Keep every number, name and value in it, and keep the `**` around it.
-- If it already follows these rules, leave it out of your reply.
+Good:
+- "The toolbar shows the '2 missing packages' badge twice instead of once."
 
 ## Reply
 
-Reply with only this. The RESULT line first, if you changed it, then a block for every finding, in order:
+Reply with only this. First a RESULT line: one or two sentences for the top of the report, saying what works, then in bold what is broken, in the same words as your titles. Then a block for every finding, in order:
 
 ```
-RESULT: <new Result, without the **Result:** label>
+RESULT: <the Result, without the **Result:** label>
 
 === Finding <N>
 TITLE: <title>
-SUMMARY: <summary>
-WHERE: <where line, or nothing>
+SUMMARY: <the opening sentence>
+WHERE: <leave empty unless the bug needs a particular OS, the web build, or a setting turned on. A language, library or condition already in the title or opening never goes here>
 ```
 
 `<N>` is the number in the finding's `### Finding N:` heading.

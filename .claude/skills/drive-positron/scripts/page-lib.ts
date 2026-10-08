@@ -85,7 +85,9 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				menu: visible(page.locator(s.overlay.menu)).last(),
 				notifications: visible(page.locator(s.overlay.notifications)).first(),
 				sidebar: page.locator(s.part.sidebar), secondary: page.locator(s.part.secondary), panel: page.locator(s.part.panel),
-				editor: page.locator(s.editorGroup.active), statusbar: page.locator(s.part.statusbar),
+				// A modal editor (Workspace Trust, Settings) has an active group of its
+				// own, drawn over the main one and later in the DOM.
+				editor: visible(page.locator(s.editorGroup.active)).last(), statusbar: page.locator(s.part.statusbar),
 			};
 			if (!name) { return { loc: page.locator('body'), name: 'page' }; }
 			const key = name.toLowerCase();
@@ -277,12 +279,13 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * The items a list offers, by name: its menu items or options, else its
 		 * buttons (Positron's context menu, a drop-down list's popup and the Data
 		 * Explorer's column picker draw buttons). A name is read without an icon
-		 * glyph or the space around it.
+		 * glyph or the space around it, and by innerText, so a label and its
+		 * description in separate blocks read "uv Use uv to...", not "uvUse uv".
 		 */
 		listIn: async (box: Locator): Promise<List> => {
 			let items = box.locator(s.menu.items).filter({ visible: true });
 			if (!await items.count()) { items = box.getByRole('button').filter({ visible: true }); }
-			const names = (await items.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim())))
+			const names = (await items.evaluateAll(es => es.map(e => (e.getAttribute('aria-label') || (e as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim())))
 				.map(x => x.replace(/[\uE000-\uF8FF]/g, '').trim());
 			const off = await items.evaluateAll(es => es.map(e => (e as HTMLButtonElement).disabled || e.getAttribute('aria-disabled') === 'true'));
 			return { box, items, names, off };

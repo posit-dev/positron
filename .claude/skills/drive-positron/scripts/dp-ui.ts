@@ -43,6 +43,16 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 		all = await find();
 		shown = all.filter({ visible: true });
 	}
+	// A card styled as a radio or checkbox can hide its input at zero size (New
+	// Folder from Template's tiles): the accessibility tree lists it, Playwright
+	// calls it hidden, and a person clicks the label around it.
+	if (!await shown.count() && a.kind === 'click' && /^(radio|checkbox|switch)$/.test(a.role) && await all.count() === 1) {
+		const wrap = all.locator('xpath=ancestor::label[1]');
+		const id = await all.getAttribute('id').catch(() => null);
+		for (const l of [wrap, ...(id ? [scope.locator(`label[for="${id.replace(/"/g, '\\"')}"]`)] : [])]) {
+			if (await l.filter({ visible: true }).count() === 1) { shown = l.filter({ visible: true }); break; }
+		}
+	}
 	const n = await shown.count();
 	const label = `${a.role} "${a.name}"${a.scope ? ' in ' + a.scope : ''}`;
 	if (n === 0) {
@@ -181,7 +191,7 @@ const choose: PageFn<Target & { item: string; wait: number }> = async (page, a, 
 	const t = trig.nth(Math.max(0, (a.nth || 1) - 1));
 	const handle = await t.elementHandle();
 	if (await t.isDisabled().catch(() => false)) { return { ok: false, error: `${a.role} "${a.name}"${a.scope ? ' in ' + a.scope : ''} is disabled; nothing was done` }; }
-	const triggerBefore = await t.evaluate(e => (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim());
+	const triggerBefore = await t.evaluate(e => (e.getAttribute('aria-label') || (e as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim());
 	const before = await lib.snapshot(sc.loc, 400);
 	const toastsBefore = await lib.toasts();
 	await lib.markOverlays(handle);
@@ -205,7 +215,7 @@ const choose: PageFn<Target & { item: string; wait: number }> = async (page, a, 
 	const acted = Date.now();
 	const settled = await lib.settle(sc.loc, before, a.wait);
 	const diff = lib.diff(before, settled.tree);
-	const triggerAfter = await handle?.evaluate(e => e.isConnected ? (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim() : null).catch(() => null) ?? null;
+	const triggerAfter = await handle?.evaluate(e => e.isConnected ? (e.getAttribute('aria-label') || (e as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim() : null).catch(() => null) ?? null;
 	const toasts = await lib.newToasts(toastsBefore, acted + 1500);
 	const renamed = triggerAfter !== null && triggerAfter !== triggerBefore;
 	return {

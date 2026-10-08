@@ -40,13 +40,16 @@
 #                       picker looks like a product bug
 #   --use-mock-keychain keeps the OS keychain out (a GitHubLoginFailed log line
 #                       is expected)
+#   --password-store=basic  (Linux) keeps the "An OS keyring couldn't be
+#                       identified" dialog from blocking the window where no
+#                       keyring runs, as in CI
 #   --skip-welcome      keeps the Welcome editor from taking focus
 #   --disable-backgrounding-occluded-windows, --disable-renderer-backgrounding
 #                       keep a covered window painting; otherwise every click
 #                       and element screenshot times out on Playwright's
 #                       stability check while keys and eval still work
 #   --shared-data-dir, --logsPath (<runDir>/logs), and the CDP and inspect ports
-# --no-default-app-args drops the first five, only for testing what they suppress
+# --no-default-app-args drops all but the last line, only for testing what they suppress
 # (the workspace trust prompt, say).
 #
 # It reads the source profile one way (no --delete) and writes only to the
@@ -215,6 +218,9 @@ REUSE=""
 # them Playwright's actionability checks wait for a frame that never comes.
 AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome
 	--disable-backgrounding-occluded-windows --disable-renderer-backgrounding)
+if [[ "$(uname -s)" == Linux ]]; then
+	AUTOMATION_ARGS+=(--password-store=basic)
+fi
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
@@ -468,7 +474,7 @@ if [[ "$DEFAULT_APP_ARGS" == "1" ]]; then
 	for automation_arg in "${AUTOMATION_ARGS[@]}"; do
 		supplied=0
 		for extra_arg in ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}; do
-			if [[ "$extra_arg" == "$automation_arg" || "$extra_arg" == "$automation_arg="* ]]; then
+			if [[ "$extra_arg" == "${automation_arg%%=*}" || "$extra_arg" == "${automation_arg%%=*}="* ]]; then
 				supplied=1
 				break
 			fi

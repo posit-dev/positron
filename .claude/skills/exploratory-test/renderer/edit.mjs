@@ -216,9 +216,11 @@ function unsupported(text, record) {
 	}
 	const prose = text.replace(FENCE, ' ');
 	for (const fact of factsOf(prose)) {
-		const missing = /^[`"]/.test(fact)
-			? !haystack.includes(fact.slice(1, -1))
-			: !new RegExp(`(?<![\\w.])${escape(bareNumber(fact))}(?![\\w])`).test(bareNumber(haystack));
+		// A number in backticks is still a number: `1500` matches the record's 1,500.
+		const inner = /^`[\d.,]+`$/.test(fact) ? fact.slice(1, -1) : fact;
+		const missing = /^[`"]/.test(inner)
+			? !haystack.includes(inner.slice(1, -1))
+			: !new RegExp(`(?<![\\w.])${escape(bareNumber(inner))}(?![\\w])`).test(bareNumber(haystack));
 		if (missing) {
 			out.push(fact);
 		}

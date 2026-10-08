@@ -118,6 +118,8 @@ test('parseEdits drops steps a writer adds anyway, so they never reach the summa
 test('reviewEdits rejects an opening or title that invents a fact or reads like the run', () => {
 	const review = fields => reasons(reviewEdits(REPORT, parseEdits(reply(fields))).rejected.filter(r => r.n === 1));
 	assert.deepEqual(review({ summary: 'The Viewer stays empty for 45 s.' }), [{ n: 1, field: 'opening', reason: 'cites 45, which the record does not have' }]);
+	assert.deepEqual(review({ summary: 'The Viewer stays empty after `30` s.' }), []);
+	assert.deepEqual(review({ summary: 'The Viewer stays empty for `45` s.' }), [{ n: 1, field: 'opening', reason: 'cites `45`, which the record does not have' }]);
 	assert.deepEqual(review({ where: 'Seen in S10.' }), [{ n: 1, field: 'opening', reason: 'names the scenario ID S10' }]);
 	assert.deepEqual(review({ title: 'Run Shiny App on an R app never shows the running app in the Viewer pane at all' }), [{ n: 1, field: 'title', reason: 'is 18 words, over 15; cut filler, never a word that narrows the bug' }]);
 	assert.deepEqual(review({ title: 'Run Shiny App on an R app leaves the Viewer empty after the app starts' }), []);
