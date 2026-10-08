@@ -11,7 +11,7 @@
 
 import { existsSync, readFileSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { cliRun, Exit, inPage, log, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
+import { cliRun, count, countOf, Exit, inPage, log, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -110,8 +110,10 @@ export const windowCommands: Record<string, (argv: string[]) => Json | string> =
 		if (p.flags.help || !cmd) { usage('window.sh'); }
 		const s = p.session;
 		const timeout = seconds(p, 'timeout', 60);
+		// Read as Number(), "abc" or "" would fall back to instances.log's port without a word.
+		const cdpPort = count(p, 'cdp-port', 0, 1, 'a CDP port number');
 		if (cmd === 'select') {
-			if (!/^\d+$/.test(arg ?? '')) { throw new Exit(2, { ok: false, error: 'select N: the window number shot.sh --list shows' }); }
+			countOf(arg, 'select N', undefined, 1, 'the window number shot.sh --list shows');
 			const list = inPage(s, windows, {});
 			if (!list.ok) { return list; }
 			const all = list.windows as { n: number; title: string }[];
@@ -132,12 +134,12 @@ export const windowCommands: Record<string, (argv: string[]) => Json | string> =
 		const mark = `dp-${Date.now()}`;
 		let before = inPage(s, probe, { mark });
 		// A session that lost the page already (a reload done another way) is attached again first.
-		if (!before.ok && before.cliFailed && p.flags['cdp-port']) {
-			try { cliRun(s, ['attach', `--cdp=http://127.0.0.1:${p.flags['cdp-port']}`]); } catch (e) { return { ok: false, error: `the session has no page, and attach failed: ${(e as Error).message}` }; }
+		if (!before.ok && before.cliFailed && cdpPort) {
+			try { cliRun(s, ['attach', `--cdp=http://127.0.0.1:${cdpPort}`]); } catch (e) { return { ok: false, error: `the session has no page, and attach failed: ${(e as Error).message}` }; }
 			before = { ...inPage(s, probe, { mark }), reattached: true };
 		}
 		if (!before.ok) { return { ...before, hint: 'if the session lost the page, pass --cdp-port to attach it again' }; }
-		const port = Number(p.flags['cdp-port'] ?? 0) || cdpPortOf(String(before.userDataDir));
+		const port = cdpPort || cdpPortOf(String(before.userDataDir));
 		const was = { title: before.title, folder: before.folder };
 		if (cmd === 'new-window') {
 			const opened = paletteRun(s, names.palette.newWindow);

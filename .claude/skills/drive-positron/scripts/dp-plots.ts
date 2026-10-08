@@ -8,7 +8,7 @@
 // thumbnails are buttons holding an image. Found by roles and accessible
 // names, not classes. The pane's buttons and menus are ui.sh calls in plots.sh.
 
-import { Exit, inPage, log, logRead, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { countOf, Exit, inPage, log, logRead, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 
 /**
  * The plot shown (name, sizes, a pixel check), the zoom, the toolbar and the
@@ -149,9 +149,10 @@ export const plotsCommands: Record<string, (argv: string[]) => Json | string> = 
 		const editor = !!p.flags.editor;
 		if (p.flags.help || !cmd) { usage('plots.sh'); }
 		if (cmd !== 'read' && cmd !== 'select' && cmd !== 'remove') { throw new Exit(2, { ok: false, error: 'dp plots: read, select N or remove N' }); }
-		if (cmd !== 'read' && !/^\d+$/.test(n ?? '')) { throw new Exit(2, { ok: false, error: 'give the thumbnail number, 1 = first' }); }
+		// From 1: "0" would reach the page as nth(-1), the last thumbnail, and select or remove it.
+		const thumb = cmd === 'read' ? 0 : countOf(n, `${cmd} N`, undefined, 1, 'the thumbnail number, 1 = first');
 		if (editor && cmd !== 'read') { throw new Exit(2, { ok: false, error: '--editor goes with read' }); }
-		const out = inPage(p.session, plots, { cmd, n: Number(n ?? 0), editor });
+		const out = inPage(p.session, plots, { cmd, n: thumb, editor });
 		if (cmd !== 'read' && (out.ok || out.changed)) { log('plots.sh', p.session, `${cmd === 'select' ? 'select' : 'remove'} plot thumbnail ${n}`, plotLine(out, false)); }
 		// --did: plots.sh's own action, logged with the pane it left.
 		if (cmd === 'read' && out.ok && p.flags.did) { log('plots.sh', p.session, String(p.flags.did), plotLine(out, editor)); }

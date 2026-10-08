@@ -16,6 +16,7 @@
 // help    every .sh parses (bash -n), has a Usage header, and prints exactly that
 //         header for --help and -h through usage() in dp-lib.ts; every dp.ts
 //         command has a .sh
+// args    every bash helper's flag that takes a value also takes --flag=value
 // registry  no helper names a class or test id outside selectors.ts, and every
 //         entry there is read somewhere
 // drift   every selectors.ts entry is still produced by src/ and extensions/
@@ -117,6 +118,28 @@ const checks: Record<string, () => string[] | Promise<string[]>> = {
 			if (!dp.includes(`import { ${m[1]} }`)) { problems.push(`dp.ts spreads ${m[1]} but does not import it`); }
 		}
 		if (commands.length < 15) { problems.push(`only ${commands.length} commands found in dp-*.ts`); }
+		return problems;
+	},
+
+	args: () => {
+		const problems: string[] = [];
+		// A bash helper's flag that takes a value takes --flag=value too, as parse() does for
+		// dp.ts: otherwise the glued flag is read as the command word or an unknown argument.
+		let loops = 0;
+		for (const f of sh) {
+			const text = readFileSync(join(scripts, f), 'utf8');
+			const loop = text.match(/\nwhile \[\[ \$# -gt 0 \]\]; do\n([\s\S]*?)\ndone\n/)?.[1];
+			if (!loop) { continue; }
+			loops++;
+			for (const item of loop.replace(/^\s*case "\$1" in/, '').split(';;')) {
+				const label = item.match(/^\s*(?:#.*\n\s*)*([^\s)]+)\)/)?.[1];
+				if (!label || !/\bshift 2\b/.test(item)) { continue; }
+				for (const flag of label.split('|').filter(l => /^--[\w-]+$/.test(l))) {
+					if (!loop.includes(`${flag}=*`)) { problems.push(`${f}: ${flag} takes a value but not as ${flag}=VALUE; add ${flag}=* to its case that splits a glued flag`); }
+				}
+			}
+		}
+		if (loops < 8) { problems.push(`only ${loops} bash argument loops found; the while/case pattern may have changed`); }
 		return problems;
 	},
 

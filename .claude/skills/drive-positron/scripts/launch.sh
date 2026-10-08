@@ -109,6 +109,9 @@
 set -euo pipefail
 umask 077
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: the error on stderr, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error --text "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 
 # Platform and tool detection. Git Bash on Windows (MSYS) ships neither rsync
 # nor pgrep, and Electron there cannot read MSYS-style paths such as /tmp/x.
@@ -215,18 +218,19 @@ AUTOMATION_ARGS=(--use-mock-keychain --disable-workspace-trust --skip-welcome
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
+		--source-user-data-dir=*|--repo=*|--reuse-profile=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
 		--agents) AGENTS=1; shift ;;
-		--source-user-data-dir) SOURCE_UDD="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--repo) REPO="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--source-user-data-dir) SOURCE_UDD="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--repo) REPO="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		--clone-extensions|--copy-extensions) CLONE_EXTENSIONS=1; shift ;;
 		--full) FULL=1; shift ;;
 		--no-default-app-args) DEFAULT_APP_ARGS=0; shift ;;
 		--keep-first-run-prompts) FIRST_RUN_PROMPTS=1; shift ;;
 		--no-pyrefly) NO_PYREFLY=1; shift ;;
-		--reuse-profile) REUSE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--reuse-profile) REUSE="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; EXTRA_ARGS=("$@"); break ;;
-		*) echo "Unknown arg: $1" >&2; exit 2 ;;
+		*) usage_error "unknown argument $1" ;;
 	esac
 done
 

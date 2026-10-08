@@ -205,7 +205,9 @@ export interface Parsed { session: string; flags: Record<string, string | true>;
  * error too, so a misspelled flag (--clera, --usr) is refused rather than
  * ignored, and so is a value flag last on the line with no value (--click):
  * read as '', it would act like the flag left out. An empty value given on
- * purpose (--flag '', --flag=) is the command's to refuse, with textFlag().
+ * purpose (--flag '', --flag=) is the command's to refuse, with textFlag();
+ * --session is refused here for every command, since '' would drive
+ * playwright-cli's default session instead of $PW_SESSION.
  */
 export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches: string[] = []): Parsed {
 	const flags: Record<string, string | true> = {};
@@ -227,6 +229,7 @@ export function parse(argv: string[], withValue: string[], most: number | Record
 		if (unknown) { throw new Exit(2, { ok: false, error: `unknown flag --${unknown}; it takes ${known.map(f => `--${f}`).join(', ')} (see --help)` }); }
 		const bare = withValue.find(f => flags[f] === true);
 		if (bare) { throw new Exit(2, { ok: false, error: `--${bare} needs a value` }); }
+		textFlag({ session: '', flags, rest }, 'session', '$PW_SESSION');
 	}
 	const max = typeof most === 'number' ? most : most[rest[0]] ?? Infinity;
 	if (!flags.help && rest.length > max) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(rest[max])}${max ? ` after ${JSON.stringify(rest.slice(0, max).join(' '))}` : ''}; see --help for the arguments and flags it takes` }); }
@@ -277,14 +280,40 @@ export function secondsOf(v: string | true | undefined, name: string, fallback: 
 }
 
 /**
+ * A flag that counts something (rows, a match, a window), or the default when
+ * it is absent. Anything but a whole number from `from` (1, or 0 where 0 means
+ * "all") is a usage error (exit 2): Number() reads "abc" as NaN and "" as 0,
+ * which read as the flag left out, and a negative or fractional count reaches
+ * the page as an index that is not there. `what` says what it counts, as in
+ * "--rows must be how many rows to read: a whole number from 1".
+ */
+export function count(p: Parsed, flag: string, fallback: number, from: 0 | 1, what: string): number {
+	return countOf(p.flags[flag], `--${flag}`, fallback, from, what);
+}
+
+/**
+ * The same check for a count given as a positional argument (`select N`):
+ * `name` is how the error names it, and with no `fallback` the argument is
+ * required. Call it before anything is done, so a bad value is refused with
+ * nothing changed; "0" for a 1-based N would reach the page as nth(-1), which
+ * Playwright reads as the last match.
+ */
+export function countOf(v: string | true | undefined, name: string, fallback: number | undefined, from: 0 | 1, what: string): number {
+	if (v === undefined && fallback !== undefined) { return fallback; }
+	if (typeof v !== 'string' || !/^\d+$/.test(v) || Number(v) < from) { throw new Exit(2, { ok: false, error: `${name} must be ${what}: a whole number from ${from}${from ? '' : ' (0 for all)'}, not ${v === undefined ? 'left out' : JSON.stringify(v === true ? '' : v)}` }); }
+	return Number(v);
+}
+
+/**
  * A text flag's value, or '' when it is absent. Given with no value (last on
  * the line, or --flag=) or an empty one is a usage error (exit 2): '' would
  * read as the flag left out, and the command would act on whatever is active.
+ * `absent` is what leaving the flag out gives, for the error to name.
  */
-export function textFlag(p: Parsed, flag: string): string {
+export function textFlag(p: Parsed, flag: string, absent = 'none'): string {
 	const v = p.flags[flag];
 	if (v === undefined) { return ''; }
-	if (v === true || v === '') { throw new Exit(2, { ok: false, error: `--${flag} needs a value; leave the flag out for none` }); }
+	if (v === true || v === '') { throw new Exit(2, { ok: false, error: `--${flag} needs a value; leave the flag out for ${absent}` }); }
 	return v;
 }
 

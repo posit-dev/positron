@@ -30,8 +30,9 @@
 //   dp-clipboard.ts clipboard: the machine's clipboard, its text or image (macOS)
 //   dp-window.ts window: reload, open a folder, a new window, which one is driven
 // and `help X.sh`, which prints a bash script's header for its --help,
-// `log X.sh SESSION TEXT`, a bash recipe's line in the action log, and
-// `fail X.sh SESSION OUTPUT ARGS...`, its failure's line.
+// `log X.sh SESSION TEXT`, a bash recipe's line in the action log,
+// `fail X.sh SESSION OUTPUT ARGS...`, its failure's line, and
+// `usage-error [--text] X.sh ERROR ARGS...`, a bash script's usage error.
 // Shared: dp-lib.ts (Node side: run-code, log, parsing, help), page-lib.ts
 // (the `lib` page functions get), selectors.ts (every selector and name).
 
@@ -88,19 +89,41 @@ function errorOf(out: string): string {
 	try { const j = JSON.parse(out.trim().split('\n').pop() ?? ''); return String(j?.error ?? out); } catch { return out.trim(); }
 }
 
+/**
+ * Logs a failed call: one "FAILED" line under the script, with its arguments
+ * less the session. Every failure leaves one, so a negative check has its
+ * evidence in the action log.
+ */
+function logFailed(script: string, argv: string[], error: string): void {
+	// Only the session is needed here; read it directly, since parse refuses the
+	// very arguments a failure may be about. A --session with no value (the
+	// failure itself, often) names none, so the first one given, else PW_SESSION.
+	const given = argv.map((a, i) => a === '--session' ? argv[i + 1] ?? '' : a.startsWith('--session=') ? a.slice('--session='.length) : '');
+	const session = given.find(s => s && !s.startsWith('--')) || String(process.env.PW_SESSION ?? '');
+	const args = argv.filter((a, i) => !/^--session(=|$)/.test(a) && argv[i - 1] !== '--session');
+	logFailure(script, session, args, error);
+}
+
+/**
+ * `dp.ts usage-error [--text] X.sh ERROR ARGS...`: a bash script's usage error,
+ * ARGS being all the arguments the script was given. It answers as a dp.ts
+ * command does, {"ok":false,"error":ERROR} on stdout, or with --text (a script
+ * whose stdout is not JSON) "X.sh: ERROR" on stderr; logs the failure; exits 2.
+ */
+function usageError(argv: string[]): number {
+	const text = argv[0] === '--text';
+	const [script = '', error = '', ...args] = text ? argv.slice(1) : argv;
+	if (text) { process.stderr.write(`${script}: ${error}\n`); } else { process.stdout.write(JSON.stringify({ ok: false, error }) + '\n'); }
+	logFailed(script, args, error);
+	return 2;
+}
+
 function main(): number {
 	const [name, ...argv] = process.argv.slice(2);
+	if (name === 'usage-error') { return usageError(argv); }
 	const command = commands[name];
-	if (!command) { process.stdout.write(JSON.stringify({ ok: false, error: `command: ${Object.keys(commands).join(', ')}` }) + '\n'); return 2; }
-	// Every failure leaves a line in the action log, so a negative check has its evidence there.
-	const failed = (error: unknown) => {
-		// Only the session is needed here; read it directly, since parse refuses the
-		// very arguments a failure may be about.
-		const at = argv.findIndex(a => a === '--session' || a.startsWith('--session='));
-		const session = at < 0 ? String(process.env.PW_SESSION ?? '') : argv[at].includes('=') ? argv[at].slice('--session='.length) : argv[at + 1] ?? '';
-		const args = argv.filter((a, i) => !/^--session(=|$)/.test(a) && argv[i - 1] !== '--session');
-		logFailure(`${name}.sh`, session, args, String(error ?? ''));
-	};
+	if (!command) { process.stdout.write(JSON.stringify({ ok: false, error: `command: ${[...Object.keys(commands), 'usage-error'].join(', ')}` }) + '\n'); return 2; }
+	const failed = (error: unknown) => logFailed(`${name}.sh`, argv, String(error ?? ''));
 	try {
 		const raw = command(argv);
 		const out = typeof raw === 'string' ? raw : explainFailure(raw);
