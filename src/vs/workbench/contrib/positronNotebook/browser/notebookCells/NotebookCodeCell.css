@@ -98,7 +98,7 @@
 
 		/* Muted label shown when output is collapsed, clickable to expand. */
 		.collapsed-output-label {
-			font-family: system-ui, sans-serif !important;
+			font-family: system-ui, sans-serif;
 			font-size: 12px;
 			font-style: italic;
 			opacity: 0.75;
