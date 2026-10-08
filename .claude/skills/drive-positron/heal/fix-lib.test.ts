@@ -103,6 +103,11 @@ test('addedCases: a removed or changed line, or a non-case line, gives null', ()
 	assert.equal(addedCases('@@ -1,0 +1 @@\n+const found = {};'), null);
 });
 
+test('addedCases: an added comment line is not a change to smoke', () => {
+	assert.deepEqual(addedCases("@@ -1,0 +1,2 @@\n+\t// why the case exists\n+\t{ name: 'x', run: ['ui.sh', 'click'] },"), [{ name: 'x', helper: 'ui.sh' }]);
+	assert.deepEqual(addedCases('@@ -1,0 +1 @@\n+\t// only a comment'), []);
+});
+
 test('addedCases: an escaped quote in the name is kept', () => {
 	assert.deepEqual(addedCases("@@ -1,0 +1 @@\n+\t{ name: 'ui.sh can\\'t find it', run: ['ui.sh', 'x'], fail: true },"), [{ name: "ui.sh can't find it", helper: 'ui.sh' }]);
 	assert.deepEqual(addedCases("@@ -1,0 +1 @@\n+\t{ name: 'ui.sh a\\\\b', run: ['ui.sh', 'x'] },"), [{ name: 'ui.sh a\\b', helper: 'ui.sh' }]);

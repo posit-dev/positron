@@ -115,7 +115,7 @@ export type AddedCase = { name: string; helper: string };
 export function addedCases(diff: string): AddedCase[] | null {
 	const out: AddedCase[] = [];
 	for (const l of diff.split('\n')) {
-		if (/^(diff |index |--- |\+\+\+ |@@|\\| )/.test(l) || l === '' || /^\+\s*$/.test(l)) { continue; }
+		if (/^(diff |index |--- |\+\+\+ |@@|\\| )/.test(l) || l === '' || /^\+\s*(\/\/.*)?$/.test(l)) { continue; }
 		const m = l.match(/^\+\t+\{ name: '((?:[^'\\]|\\.)+)',.*\brun: (?:\(\) => )?\['([a-z-]+\.sh)'/);
 		if (!m) { return null; }
 		out.push({ name: m[1].replace(/\\(.)/g, '$1'), helper: m[2] });
