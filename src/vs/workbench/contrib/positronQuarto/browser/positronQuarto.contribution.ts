@@ -16,6 +16,7 @@ import { GroupIdentifier, GroupModelChangeKind } from '../../../common/editor.js
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { registerEditorContribution, EditorContributionInstantiation } from '../../../../editor/browser/editorExtensions.js';
 import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
 import { QuartoDocumentModelService, IQuartoDocumentModelService } from './quartoDocumentModelService.js';
 import { QuartoKernelManager, IQuartoKernelManager, QuartoKernelState } from './quartoKernelManager.js';
 import { QuartoExecutionManager, IQuartoExecutionManager } from './quartoExecutionManager.js';
@@ -40,7 +41,6 @@ import {
 	QUARTO_LANGUAGE_IDS,
 	affectsQuartoConfig,
 	isQuartoDocument,
-	isQuartoOrRmdFile,
 	usingQuartoInlineOutput,
 } from '../common/positronQuartoConfig.js';
 import { ILanguageRuntimeService, RuntimeStartupPhase } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -115,6 +115,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		@IQuartoKernelManager private readonly _quartoKernelManager: IQuartoKernelManager,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@IModelService private readonly _modelService: IModelService,
 	) {
 		super();
 
@@ -267,7 +268,7 @@ class QuartoInlineOutputContribution extends Disposable implements IWorkbenchCon
 		}
 
 		const uri = editor.resource;
-		if (!uri || !isQuartoOrRmdFile(uri.path)) {
+		if (!uri || !isQuartoDocument(uri.path, this._modelService.getModel(uri)?.getLanguageId())) {
 			return;
 		}
 
