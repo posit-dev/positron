@@ -13,9 +13,9 @@ import { isoWeek, pickArea, type Area } from './finder-lib.ts';
 const here = dirname(new URL(import.meta.url).pathname);
 const areas = (JSON.parse(readFileSync(join(here, 'areas.json'), 'utf8')) as { areas: Area[] }).areas;
 
-test('every helper is in exactly one area, besides arguments', () => {
+test('every helper is in exactly one area', () => {
 	const sh = readdirSync(join(here, '../scripts')).filter(f => f.endsWith('.sh')).sort();
-	const listed = areas.filter(a => a.name !== 'arguments').flatMap(a => a.helpers).sort();
+	const listed = areas.flatMap(a => a.helpers).sort();
 	assert.deepEqual(listed, sh);
 });
 

@@ -3,12 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// The finder: one read-only agent session exploring one area of the helpers.
+// The finder: one read-only agent session that reproduces the leads from
+// exploratory runs (leads.ts), then explores one area of the helpers.
 //
-//   node .claude/skills/drive-positron/heal/finder.ts --dir /tmp/heal --runner PATH/session-cli.mjs [--minutes 45] [-- APP ARGS...]
+//   node .claude/skills/drive-positron/heal/finder.ts --dir /tmp/heal --runner PATH/session-cli.mjs [--minutes 45] [--leads-only] [-- APP ARGS...]
 //
 // Launches its own instance (session heal-find), picks the area, runs the
 // session, keeps the findings that validate, and stops the instance.
+// --leads-only skips the area: the scheduled run explores only when a manual run asks.
 
 import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'fs';
@@ -18,6 +20,10 @@ import { launchFixture, readFixtureState, stopFixture, type App } from '../test/
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
 import { readFindings, validateFinding } from './finding.ts';
 import { isoWeek, pickArea, type Area } from './finder-lib.ts';
+import { formatLeads, type Lead } from './leads-lib.ts';
+
+/** How many leads the brief lists; the rest wait for a night with fewer. */
+const MAX_LEADS = 8;
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repo = resolve(here, '../../../..');
@@ -30,7 +36,7 @@ function main(): number {
 	const dash = process.argv.indexOf('--');
 	const own = process.argv.slice(2, dash < 0 ? undefined : dash);
 	const appArgs = dash < 0 ? [] : process.argv.slice(dash + 1);
-	const bad = unknownArg(own, ['--dir', '--runner', '--minutes']);
+	const bad = unknownArg(own.filter(a => a !== '--leads-only'), ['--dir', '--runner', '--minutes']);
 	if (bad !== null) { console.log(`finder: unknown argument ${JSON.stringify(bad)}`); return 2; }
 	const flag = (name: string): string | null => {
 		const v = flagValue(own, name);
@@ -40,6 +46,7 @@ function main(): number {
 	const dir = flag('--dir') ?? '/tmp/heal';
 	const runner = flag('--runner');
 	const minutes = flag('--minutes') ?? '45';
+	const leadsOnly = own.includes('--leads-only');
 	if (!runner) { console.log('finder: --runner is required'); return 2; }
 	if (!/^[1-9]\d*$/.test(minutes)) { console.log('finder: --minutes must be a positive integer'); return 2; }
 
@@ -47,7 +54,10 @@ function main(): number {
 	const recentDir = join(dir, 'recent');
 	const recent = existsSync(recentDir) ? readdirSync(recentDir, { withFileTypes: true }).filter(d => d.isDirectory()).flatMap(d => readFindings(join(recentDir, d.name))) : [];
 	const { area, why } = pickArea(areas, isoWeek(new Date()), recent);
-	console.log(`finder: area ${area.name} (${why})`);
+	const leadsFile = join(dir, 'leads.json');
+	const leads = existsSync(leadsFile) ? (JSON.parse(readFileSync(leadsFile, 'utf8')) as { leads: Lead[] }).leads : [];
+	if (leadsOnly && !leads.length) { console.log('finder: --leads-only and no leads; nothing to do'); return 0; }
+	console.log(`finder: ${Math.min(leads.length, MAX_LEADS)} of ${leads.length} lead(s)${leadsOnly ? ', no area' : `, then area ${area.name} (${why})`}`);
 
 	const scratch = join(dir, 'finder-new');
 	rmSync(scratch, { recursive: true, force: true });
@@ -63,8 +73,8 @@ function main(): number {
 			writeFileSync(stateFile, JSON.stringify({ cdpPort: a.cdpPort, runDir: a.runDir }));
 		} });
 		const brief = [
-			`Area: ${area.name}: ${area.focus}.`,
-			`Helpers: ${area.helpers.join(', ')}.`,
+			...(leads.length ? [`Leads (see "Leads from exploratory runs"), most telling first:\n\n${formatLeads(leads, MAX_LEADS)}`] : []),
+			...(leadsOnly ? ['No area tonight: stop once the leads are done.'] : [`Area: ${area.name}: ${area.focus}.`, `Helpers: ${area.helpers.join(', ')}.`]),
 			`Checkout: ${repo}. Run helpers from there.`,
 			`A Positron instance is running on a copy of the smoke fixture and attached as Playwright session \`heal-find\` (CDP port ${up.cdpPort}). Pass \`--session heal-find\` to every helper.`,
 			`To start over on a fresh instance: \`node .claude/skills/drive-positron/test/fixture-app.ts stop --session heal-find --root /tmp/dp-heal-find --state ${stateFile}\`, then \`node .claude/skills/drive-positron/test/fixture-app.ts launch --session heal-find --root /tmp/dp-heal-find --state ${stateFile} -- ${appArgs.join(' ')}\`; the new cdpPort is in ${stateFile} and in the JSON it prints.`,

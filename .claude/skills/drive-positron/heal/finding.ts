@@ -21,6 +21,8 @@ export interface Finding {
 	smokeSections?: string[];
 	/** The fixer's plain-language account, one sentence each: what broke, why, and what the fix changes. */
 	broke?: string; cause?: string; change?: string;
+	/** The fixer's account of a check it changed under test/ or heal/: which, what it asserted, and why. */
+	checks?: string;
 	/** Earlier runs that fixed this finding too; it came back, so those fixes never landed. */
 	fixedBefore?: string[];
 	/** The smoke cases a kept fix added. */
@@ -31,6 +33,12 @@ export interface Finding {
 	review?: string[];
 	/** The fixer revised its change once after a review. */
 	revised?: boolean;
+	/** The last review's verdict on the kept change; a revise was recorded, not obeyed. */
+	reviewVerdict?: 'approve' | 'revise';
+	/** The exploratory run whose failure led the finder here; absent for a finding from exploring an area. */
+	lead?: string;
+	/** The helpers the kept change can reach, or 'all'. */
+	reaches?: string[] | 'all';
 }
 
 const OUTCOMES = ['fixed', 'product', 'flake', 'resolved'];

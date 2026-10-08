@@ -278,8 +278,6 @@ case "$CMD" in
 		fi
 		[[ -n "$A1" ]] || { echo '{"ok":false,"error":"give the expression"}'; exit 2; }
 		ui type "$A1" --enter --in panel ;;
-	# A flag it does not take, where the command goes, is named as one.
-	-*) jq -nc --arg a "$CMD" '{ok: false, error: ("unknown flag " + ($a | sub("=.*"; "")) + "; see --help for the flags it takes")}'; exit 2 ;;
 	*) echo '{"ok":false,"error":"command: state, break, step, wait, frame, watch, filter, console or eval"}'; exit 2 ;;
 esac
 }

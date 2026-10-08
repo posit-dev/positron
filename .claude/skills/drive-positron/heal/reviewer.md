@@ -12,7 +12,7 @@ Smoke and `check.ts` run after you, so do not re-run anything. Your job is what 
    (`scripts/dp-lib.ts` and the `dp-*.ts` files) that this fix leaves broken? `grep` for the
    pattern. Name each one with file and line.
 2. **Shared code.** Does the fix copy logic that already exists in `dp-lib.ts` (`parse()`,
-   `seconds()`, `textFlag()`) or patch one caller where the shared code is the thing that is wrong?
+   `seconds()`, `count()`) or patch one caller where the shared code is the thing that is wrong?
 3. **Valid input.** Could a command that worked before with valid input now behave differently?
    Name the input.
 4. **The new smoke case.** Would it fail without the fix? Does a failure case check the error text,
@@ -20,6 +20,8 @@ Smoke and `check.ts` run after you, so do not re-run anything. Your job is what 
 5. **The rules.** No sleeps, retries or longer timeouts to get a pass; no loosened check; no change
    that hides a Positron bug.
 6. **Scope.** Any change that has nothing to do with the finding.
+7. **New surface.** For a finder finding with no `lead`, any new flag, command or accepted form is
+   a `revise`: only a failure from a real exploratory run adds one.
 
 ## Verdict
 

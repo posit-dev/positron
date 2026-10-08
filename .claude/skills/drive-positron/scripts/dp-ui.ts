@@ -10,7 +10,7 @@
 // view's accessibility tree, so a click that did nothing says so. ui.sh wraps
 // these.
 
-import { count, Exit, inPage, log, logRead, parse, seconds, treeLine, textFlag, usage, type Json, type PageFn, type Parsed } from './dp-lib.ts';
+import { count, Exit, inPage, log, logRead, parse, seconds, treeLine, usage, type Json, type PageFn, type Parsed } from './dp-lib.ts';
 
 interface Target { scope: string; role: string; name: string; partial: boolean; nth: number; watch: string; right?: boolean }
 
@@ -298,7 +298,7 @@ function readout(out: Json): string {
 }
 
 const target = (p: Parsed, role: string, name: string): Target =>
-	({ scope: textFlag(p, 'in'), role, name, partial: !!p.flags.partial, nth: count(p, 'nth', 0, 1, 'which match to take, 1 = first'), watch: textFlag(p, 'watch') });
+	({ scope: String(p.flags.in ?? ''), role, name, partial: !!p.flags.partial, nth: count(p, 'nth', 0, 1, 'which match to take, 1 = first'), watch: String(p.flags.watch ?? '') });
 
 export const uiCommands: Record<string, (argv: string[]) => Json | string> = {
 	ui: argv => {
@@ -337,7 +337,7 @@ export const uiCommands: Record<string, (argv: string[]) => Json | string> = {
 				break;
 			case 'type':
 				need(1, 'the text');
-				out = inPage(p.session, typeText, { scope: textFlag(p, 'in'), text: r.join(' '), enter: !!p.flags.enter });
+				out = inPage(p.session, typeText, { scope: String(p.flags.in ?? ''), text: r.join(' '), enter: !!p.flags.enter });
 				break;
 			case 'watch': {
 				const seconds = Number(p.flags.for ?? 5);

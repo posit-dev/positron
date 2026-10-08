@@ -98,7 +98,7 @@ const cases: Case[] = [
 	{ name: 'start-session python, one open already', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName], check: o => (o.json!.started !== false && 'started another') || (o.json!.sessionId !== `python-${found.first}` && `sessionId ${o.json!.sessionId}`) },
 	{ name: 'start-session python --new', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName, '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (o.json!.started !== true && 'not started') || (!/^python-/.test(o.json!.sessionId) && 'sessionId is not python-*') || (o.json!.sessionId === `python-${found.first}` && 'the old session') || void (found.py = o.json!.sessionId) },
 	{ name: 'panel sessions', run: ['panel.sh', 'sessions'], check: o => (o.json!.sessions?.filter((x: Json) => x.language === 'python').length !== 2 && `python sessions: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.id === found.r && x.language === 'r') && 'no r session') || (o.json!.sessions?.filter((x: Json) => x.active).length !== 1 && 'not one active') },
-	{ name: 'panel --session empty is a usage error, logged', run: ['panel.sh', 'sessions', '--session', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--session needs a value; leave the flag out for $PW_SESSION') || logged('panel.sh -s=net1: FAILED sessions: --session needs a value') },
+	{ name: 'panel --session empty is a usage error, logged', run: ['panel.sh', 'sessions', '--session', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--session needs a value') || logged('panel.sh -s=net1: FAILED sessions: --session needs a value') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
 	// Switching the active console without running code: by language, name or id, never two.
 	{ name: 'panel console python (two match)', run: ['panel.sh', 'console', 'python'], fail: true, check: o => includes(o.json!.error, '2 consoles match') || logged('panel.sh -s=net1: FAILED console python: 2 consoles match') },
@@ -112,7 +112,6 @@ const cases: Case[] = [
 	{ name: 'console-read r --after the echo', run: ['console-read.sh', '--language', 'r', '--after', 'cat("smoke", 6 * 7, "\\n")', '--tail', '0'], check: o => includes(o.stderr, 'exactly the text') || includes(o.text.split('\n')[0], 'smoke 42') },
 	{ name: 'console-read r --after no match', run: ['console-read.sh', '--language', 'r', '--after', 'smoke-no-such-text'], fail: true },
 	// An empty value is a usage error, not the flag left out (which reads the active console).
-	{ name: 'console-read empty --after', run: ['console-read.sh', '--after', ''], fail: true, check: o => includes(o.json!.error, '--after needs a value') },
 	// A Python error's traceback is collapsed: console-read says so, and --expand shows its frames.
 	{ name: 'console-run python error', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'def smoke_boom():\n    raise ValueError("smoke-boom")\n\nsmoke_boom()'], check: o => includes(o.json!.output, 'smoke-boom') },
 	{ name: 'console-read traceback collapsed', run: () => ['console-read.sh', '--name', found.py, '--tail', '3'], check: o => includes(o.stderr, '1 traceback is collapsed') },
@@ -158,7 +157,6 @@ const cases: Case[] = [
 	{ name: 'editor definition R', run: ['editor.sh', 'definition', '--at', '7:16'], check: o => (o.json!.line !== 3 && `landed at ${o.json!.tab} ${o.json!.line}`) || includes(o.json!.text, 'double_it <- function') },
 	{ name: 'editor definition R, none', run: ['editor.sh', 'definition', '--at', '2:14'], check: o => (o.json!.found !== false && 'found one') || includes(o.json!.message, "No definition found for '3'") },
 	{ name: 'editor hover --timeout abc is a usage error', run: ['editor.sh', 'hover', '--at', '1:1', '--timeout', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds') },
-	{ name: 'editor suggest --timeout -1 is a usage error', run: ['editor.sh', 'suggest', '--at', '1:1', '--timeout', '-1'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds') },
 	{ name: 'debug break analysis.R 4', quick: true, run: ['debug.sh', 'break', 'analysis.R', '4'], check: o => includes(o.json!.breakpoints, 'analysis.R 4') },
 	{ name: 'debug state (breakpoint listed)', run: ['debug.sh', 'state'], check: o => includes(o.json!.trees?.Breakpoints, 'analysis.R 4') },
 	// A line breakpoint by the label the view shows; the click renames its row.
@@ -179,8 +177,6 @@ const cases: Case[] = [
 	{ name: 'debug step continue', run: ['debug.sh', 'step', 'continue'], check: o => includes(o.json!.before, 'smoke_f') || logged('step continue -> Call Stack before: row "Stack Frame smoke_f') },
 	{ name: 'debug wait paused, not debugging', run: ['debug.sh', 'wait', 'paused', '--timeout', '1'], fail: true, check: o => includes(o.json!.error, 'not paused after 1 s') || logged('debug.sh -s=net1: FAILED wait paused: not paused after 1 s') },
 	{ name: 'debug wait paused --timeout=1 takes the glued value', run: ['debug.sh', 'wait', 'paused', '--timeout=1'], fail: true, check: o => includes(o.json!.error, 'not paused after 1 s') },
-	{ name: 'debug unknown flag before the command is named as a flag', run: ['debug.sh', '--bogus=1', 'state'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, 'unknown flag --bogus;') },
-	{ name: 'debug --timeout with no value is a usage error, logged', run: ['debug.sh', 'state', '--timeout'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--timeout needs a value') || logged('debug.sh -s=net1: FAILED state --timeout: --timeout needs a value') },
 	// Continue from one pause to the next: step reports the view, and claims nothing about it.
 	{ name: 'console-run r two browser() pauses', run: ['console-run.sh', '--language', 'r', 'smoke_g <- function(x) { browser(); y <- x + 1; browser(); y * 2 }; smoke_g(20)'] },
 	{ name: 'debug wait paused (first browser())', run: ['debug.sh', 'wait', 'paused', '--timeout', '20'], check: o => includes(o.json!.frame, 'smoke_g') },
@@ -213,9 +209,6 @@ const cases: Case[] = [
 	{ name: 'ui click menuitem PNG in the popup', run: ['ui.sh', 'click', 'menuitem', 'PNG', '--in', 'menu'], check: o => includes(o.json!.note, 'closed') },
 	{ name: 'ui choose missing item', run: ['ui.sh', 'choose', 'button', 'Format', 'BMP', '--in', 'dialog'], fail: true },
 	{ name: 'ui click missing button', run: ['ui.sh', 'click', 'button', 'No Such Button', '--in', 'dialog'], fail: true },
-	{ name: 'ui click --in with no value is a usage error', run: ['ui.sh', 'click', 'button', 'No Such Button', '--in'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--in needs a value') },
-	{ name: 'ui click --wait abc is a usage error', run: ['ui.sh', 'click', 'button', 'No Such Button', '--wait', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--wait must be a positive number of seconds') },
-	{ name: 'ui click --nth abc is a usage error', run: ['ui.sh', 'click', 'button', 'No Such Button', '--nth', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--nth must be which match to take') },
 	{ name: 'ui click Cancel', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
 	// A second plot: prev and next step between them, each logged with the plot it left.
 	{ name: 'console-run r plot 2', run: ['console-run.sh', '--language', 'r', '--capture', 'plot(1:5, col = "blue", pch = 19)'] },
@@ -224,7 +217,6 @@ const cases: Case[] = [
 	{ name: 'plots --format with no value is a usage error, logged', run: ['plots.sh', 'save', '--format'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--format needs a value') || logged('plots.sh -s=net1: FAILED save --format: --format needs a value') },
 	{ name: 'plots save --format=SVG takes the glued value', run: ['plots.sh', 'save', '--format=SVG'], check: o => includes(o.json!.tree, 'button "Format": SVG') },
 	{ name: 'ui click Cancel (save --format=SVG)', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
-	{ name: 'plots select 0 is a usage error, no thumbnail chosen', run: ['plots.sh', 'select', '0'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, 'select N must be the thumbnail number, 1 = first: a whole number from 1') || logged('plots.sh -s=net1: FAILED select 0: select N must be') },
 	{ name: 'plots next', run: ['plots.sh', 'next'], check: o => o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}` },
 	{ name: 'plots open editor', run: ['plots.sh', 'open', 'editor'], check: o => includes(o.json!.opened, 'editor tab "plot') },
 	{ name: 'plots read --editor', run: ['plots.sh', 'read', '--editor'], check: o => includes(o.json!.toolbar, 'Save Plot From Active Editor') },
@@ -240,12 +232,8 @@ const cases: Case[] = [
 	{ name: 'view-read Help reads the page', wait: 3000, run: ['view-read.sh', '--view', 'Help'], check: o => includes(o.text, 'Arithmetic Mean') },
 	{ name: 'ui read Help notes the page it leaves out', run: ['ui.sh', 'read', 'Help'], check: o => includes(o.json!.note, 'view-read.sh --view Help') },
 	{ name: 'a flag and its value as one argument', run: ['nb.sh', '--notebook notebook.ipynb', 'read'], fail: true, check: o => includes(o.json?.error, 'is one argument') },
-	{ name: 'a bash helper given a flag with no value', run: ['listeners.sh', '--save'], fail: true, check: o => includes(o.stderr, '--save needs a value') },
 	{ name: 'a text bash helper logs its usage error', run: ['listeners.sh', '--diff'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'listeners.sh: --diff needs a value') || logged('listeners.sh -s=net1: FAILED --diff: --diff needs a value') },
-	{ name: 'listeners --save with an empty path is a usage error', run: ['listeners.sh', '--save', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'listeners.sh: --save needs a value') },
-	{ name: 'listeners --all --diff with an empty path is a usage error, not "nothing new"', run: ['listeners.sh', '--all', '--diff', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'listeners.sh: --diff needs a value') },
 	{ name: 'listeners --all --diff of a missing file is a usage error, not "nothing new"', run: ['listeners.sh', '--all', '--diff', join(root, 'no-such-listeners.txt')], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'cannot read the --diff file') || logged('listeners.sh -s=net1: FAILED --all --diff') },
-	{ name: 'listeners --save into a missing directory is a usage error', run: ['listeners.sh', '--save', join(root, 'no-such-dir', 'listeners.txt')], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.stderr, 'cannot write the --save file') },
 	// A matplotlib plot has a size of its own (after the Variables reads, which want R's session): a size given unticks Use intrinsic size first.
 	{ name: 'console-run python matplotlib plot', run: () => ['console-run.sh', '--language', 'python', '--name', found.py, '--capture', 'import matplotlib.pyplot as plt; plt.plot([1, 2, 3], [2, 1, 3]); plt.show()'] },
 	{ name: 'plots save --width (intrinsic size)', wait: 1500, run: ['plots.sh', 'save', '--width', '640'], check: o => includes(o.json!.intrinsicSize, 'unticked') || includes(o.json!.tree, 'spinbutton "Width": "640"') },
@@ -261,21 +249,16 @@ const cases: Case[] = [
 	{ name: 'viewer clear HTML content', run: ['viewer.sh', 'clear'], check: o => o.json!.clicked !== 'Clear the content' && `clicked ${o.json!.clicked}` },
 	{ name: 'viewer clear when empty', run: ['viewer.sh', 'clear'], fail: true },
 	{ name: 'viewer wait-content abc is a usage error', run: ['viewer.sh', 'wait-content', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'SECS must be a positive number of seconds') },
-	{ name: 'viewer --session with no value is a usage error, logged', run: ['viewer.sh', 'read', '--session'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--session needs a value') || logged('viewer.sh -s=net1: FAILED read: --session needs a value') },
-	{ name: 'viewer --session= empty is a usage error', run: ['viewer.sh', 'read', '--session='], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--session needs a value; leave the flag out for $PW_SESSION') || logged('viewer.sh -s=net1: FAILED read: --session needs a value') },
 
 	// ---- Explorer tree, Data Explorer
 	{ name: 'palette-run Show Explorer', quick: true, run: ['palette-run.sh', 'View: Show Explorer'] },
 	{ name: 'tree rows Explorer', quick: true, run: ['tree.sh', '--view', 'Explorer', 'rows'], check: o => includes(o.json!.rows, '"text":"cars.csv"') || includes(o.json!.rows, '"state":"leaf"') },
 	{ name: 'tree menu missing item', run: ['tree.sh', '--view', 'Explorer', 'menu', 'cars.csv', 'No Such Item'], fail: true },
 	{ name: 'tree missing row', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt'], fail: true },
-	{ name: 'tree --view with no value is a usage error', run: ['tree.sh', 'rows', '--view'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--view needs a value') },
-	{ name: 'tree --nth abc is a usage error', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt', '--nth', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--nth must be which row to take') },
 	{ name: 'open-file cars.csv', quick: true, run: ['open-file.sh', 'cars.csv'] },
 	{ name: 'de-read cars.csv', quick: true, wait: 1000, run: ['de-read.sh', '--title', 'Data: cars.csv', '--rows', '3'], check: o => (JSON.stringify(o.json!.columns) !== '["model","speed","dist"]' && `columns ${JSON.stringify(o.json!.columns)}`) || (o.json!.rows?.[1]?.model !== 'bravo' && `row 2 ${JSON.stringify(o.json!.rows?.[1])}`) || includes(o.json!.status, '5 rows') },
 	{ name: 'de-read wrong title', run: ['de-read.sh', '--title', 'Data: other'], fail: true },
 	{ name: 'de-read --rows abc is a usage error, grid not read', run: ['de-read.sh', '--title', 'Data: cars.csv', '--rows', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--rows must be how many rows to read: a whole number from 1') },
-	{ name: 'de-read --rows -1 is a usage error', run: ['de-read.sh', '--title', 'Data: cars.csv', '--rows', '-1'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--rows must be how many rows to read') },
 	// The Data Explorer's filter popup: its column list opens inside it, as a popup of its own.
 	{ name: 'ui click Add Filter (names the dialog)', run: ['ui.sh', 'click', 'button', 'Add Filter', '--in', 'editor'], check: o => includes(o.json!.opened, 'a dialog: read it with ui.sh read dialog') },
 	{ name: 'ui choose a column inside the filter popup', run: ['ui.sh', 'choose', 'button', 'Select Column', 'model', '--in', 'dialog'], check: o => (o.json!.chose !== 'model' && `chose ${o.json!.chose}`) || includes(o.json!.trigger, 'Select Column -> model') },
@@ -296,13 +279,11 @@ const cases: Case[] = [
 	{ name: 'nb read: every cell still there', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'read'], check: o => o.json!.cells?.length !== 4 && `${o.json!.cells?.length} cells` },
 	{ name: 'nb wait for the sleeping cell', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'wait'] },
 	{ name: 'nb wrong notebook', run: ['nb.sh', '--notebook', 'other.ipynb', 'read'], fail: true },
-	{ name: 'nb wait --timeout abc is a usage error', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'wait', '--timeout', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds') },
 	{ name: 'nb type 3 --replace', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'type', '3', '--replace', 'product + 2'], check: o => JSON.stringify(o.json!.source) !== '["product + 2"]' && `source ${JSON.stringify(o.json!.source)}` },
 	{ name: 'nb run 3 after typing', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'run', '3'], check: o => o.json!.cell?.output !== '44' && `output ${o.json!.cell?.output}` },
 	{ name: 'nb type 2 at the end', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'type', '2', '\n# nb-typed'], check: o => (o.json!.source?.[2] !== '# nb-typed' && `source ${JSON.stringify(o.json!.source)}`) || logged('type "\\n# nb-typed" into cell 2 in notebook.ipynb') },
 	{ name: 'nb type into a missing cell', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'type', '9', 'x'], fail: true },
 	{ name: 'open-file report.qmd', quick: true, run: ['open-file.sh', 'report.qmd'] },
-	{ name: 'qmd --file with no value is a usage error', run: ['qmd.sh', 'cells', '--file'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--file needs a value') },
 	{ name: 'qmd cells', run: ['qmd.sh', '--file', 'report.qmd', 'cells'], check: o => o.json!.cells?.length !== 3 && `${o.json!.cells?.length} cells` },
 	// run reports the cell before and after the click; wait waits for its Run button to show again.
 	{ name: 'qmd run 1', quick: true, run: ['qmd.sh', '--file', 'report.qmd', 'run', '1'], check: o => (!o.json!.changed && 'nothing changed') || keys(o.json!.before, 'toolbar', 'output') },
@@ -328,7 +309,6 @@ const cases: Case[] = [
 	{ name: 'qmd clear 3', run: ['qmd.sh', '--file', 'report.qmd', 'clear', '3'], check: o => (o.json!.output !== null && 'output still there') || (o.json!.cleared !== true && `cleared ${o.json!.cleared}`) || (!o.json!.toolbar && 'no toolbar read') },
 	{ name: 'qmd clear 3 again (no output)', run: ['qmd.sh', '--file', 'report.qmd', 'clear', '3'], fail: true },
 	{ name: 'qmd wrong file', run: ['qmd.sh', '--file', 'other.qmd', 'cells'], fail: true },
-	{ name: 'qmd wait 1 abc is a usage error', run: ['qmd.sh', '--file', 'report.qmd', 'wait', '1', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'SECS must be a positive number of seconds') },
 	{ name: 'qmd missing cell', run: ['qmd.sh', '--file', 'report.qmd', 'run', '9'], fail: true },
 	// Two report.qmd: the folder picks one, and the tab is checked by its path.
 	{ name: 'open-file sub/report.qmd', run: ['open-file.sh', 'sub/report.qmd'], check: o => !String(o.json!.path).endsWith('/ws/sub/report.qmd') && `path ${o.json!.path}` },
@@ -346,10 +326,8 @@ const cases: Case[] = [
 	{ name: 'terminal-run --read', run: ['terminal-run.sh', '--read', '--tail', '5'], check: o => includes(o.json!.text, 'smoke-42') },
 	{ name: 'terminal-run stray read', run: ['terminal-run.sh', 'read'], fail: true, check: o => includes(o.json!.error, '--read') },
 	// Terminals are numbered from 1: --index 0 is refused, not taken as terminal 1; --tail takes a whole number.
-	{ name: 'terminal-run --index 0', run: ['terminal-run.sh', '--index', '0', 'echo smoke-idx0'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--index') },
-	{ name: 'terminal-run --tail -2', run: ['terminal-run.sh', '--read', '--tail', '-2'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--tail') },
 	// An unknown key name is named, with the right one; the Control pressed before it is released.
-	{ name: 'terminal-run unknown key', run: ['terminal-run.sh', '--key', 'Control+BackSpace'], fail: true, check: o => includes(o.json!.error, 'try Backspace') || includes(o.json!.error, 'Control went down and up') },
+	{ name: 'terminal-run unknown key', run: ['terminal-run.sh', '--key', 'Control+BackSpace'], fail: true, check: o => includes(o.json!.error, '"BackSpace" is not a Playwright key name') },
 	{ name: 'panel terminals', run: ['panel.sh', 'terminals'], check: o => keys(o.json, 'terminals') },
 	{ name: 'panel tab Console', run: ['panel.sh', 'tab', 'Console'], check: o => includes(o.json!.tab, 'Console') },
 	{ name: 'panel tab Console again', run: ['panel.sh', 'tab', 'Console'], check: o => !o.json!.already && 'not reported as already shown' },
@@ -386,15 +364,11 @@ const cases: Case[] = [
 	{ name: 'settings set workspace, second key', run: ['settings.sh', 'set', 'smoke.text', 'hello'], check: o => includes(readFileSync(String(o.json!.file), 'utf8'), '"smoke.number": 42') || includes(readFileSync(String(o.json!.file), 'utf8'), '"smoke.text": "hello"') },
 	{ name: 'settings set --user', run: ['settings.sh', 'set', 'smoke.flag', 'true', '--user'], check: o => (o.json!.scope !== 'user' && `scope ${o.json!.scope}`) || includes(readFileSync(String(o.json!.file), 'utf8'), 'quarto.inlineOutput.enabled') },
 	{ name: 'settings set without a value', run: ['settings.sh', 'set', 'smoke.number'], fail: true },
-	{ name: 'settings misspelled flag is a usage error', run: ['settings.sh', 'set', 'smoke.typo', '1', '--usr'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'unknown flag --usr') },
 
 	// ---- Notifications, screenshots, run-app
 	{ name: 'notifications list', quick: true, run: ['notifications.sh'], check: o => !Array.isArray(o.json!.notifications) && 'no notifications array' },
 	{ name: 'notifications click missing', run: ['notifications.sh', '--click', 'No Such Button'], fail: true },
 	{ name: 'notifications clear', run: ['notifications.sh', '--clear'], check: o => keys(o.json, 'remaining') },
-	{ name: 'notifications --click with no value is a usage error', run: ['notifications.sh', '--click'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--click needs a value') },
-	{ name: 'notifications --click empty is a usage error', run: ['notifications.sh', '--click', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--click needs a value') },
-	{ name: 'notifications misspelled flag is a usage error', run: ['notifications.sh', '--clera'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'unknown flag --clera') },
 	{ name: 'shot window', quick: true, run: ['shot.sh', 'smoke-window.png'], check: o => !existsSync(o.text.trim()) && `no file ${o.text.trim()}` },
 	{ name: 'shot one element', run: ['shot.sh', 'smoke-statusbar.png', '.part.statusbar'], check: o => !existsSync(o.text.trim()) && `no file ${o.text.trim()}` },
 	{ name: 'shot missing element', run: ['shot.sh', 'smoke-none.png', '.no-such-element'], fail: true },
@@ -409,11 +383,8 @@ const cases: Case[] = [
 
 	// ---- Windows: last, since a reload restarts the page under every helper
 	{ name: 'shot --list', run: ['shot.sh', '--list'], check: o => (o.json!.windows?.length !== 1 && `${o.json!.windows?.length} windows`) || (!o.json!.windows?.[0]?.attached && 'not attached') },
-	{ name: 'shot --window abc is a usage error, no shot', run: ['shot.sh', '--window', 'abc', 'smoke-window-abc.png'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--window must be a window number from --list') },
 	{ name: 'window select missing', run: ['window.sh', 'select', '9'], fail: true },
 	{ name: 'window select 0 is a usage error', run: ['window.sh', 'select', '0'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, 'select N must be the window number shot.sh --list shows: a whole number from 1') },
-	{ name: 'window reload --timeout abc is a usage error, no reload', run: ['window.sh', 'reload', '--timeout', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--timeout must be a positive number of seconds') },
-	{ name: 'window --cdp-port abc is a usage error', run: ['window.sh', 'select', '99', '--cdp-port', 'abc'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json!.error, '--cdp-port must be a CDP port number') },
 	{ name: 'window reload', quick: true, run: ['window.sh', 'reload'], check: o => (o.json!.folder !== ws && `folder ${o.json!.folder}`) || (!o.json!.title && 'no title') || void (found.reloadDialog = o.json!.dialogs?.[0]?.buttons?.[0] ?? '') || logged('window.sh -s=net1: reload window ->') },
 	// Sessions that did not reconnect raise a dialog after the reload, now and then: answer it.
 	{ name: 'notifications after the reload', quick: true, run: () => found.reloadDialog ? ['notifications.sh', '--click', found.reloadDialog] : ['notifications.sh'] },

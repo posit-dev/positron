@@ -203,11 +203,8 @@ export interface Parsed { session: string; flags: Record<string, string | true>;
  * listed is left to the command. A flag that is neither in `withValue` nor in
  * `switches` (the flags that take no value; --help always counts) is a usage
  * error too, so a misspelled flag (--clera, --usr) is refused rather than
- * ignored, and so is a value flag last on the line with no value (--click):
- * read as '', it would act like the flag left out. An empty value given on
- * purpose (--flag '', --flag=) is the command's to refuse, with textFlag();
- * --session is refused here for every command, since '' would drive
- * playwright-cli's default session instead of $PW_SESSION.
+ * ignored, and so is a value flag with no value (last on the line, --flag= or
+ * --flag ''): read as '', it would act like the flag left out.
  */
 export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches: string[] = []): Parsed {
 	const flags: Record<string, string | true> = {};
@@ -227,9 +224,8 @@ export function parse(argv: string[], withValue: string[], most: number | Record
 		const known = [...withValue, ...switches.filter(f => f !== 'help')];
 		const unknown = Object.keys(flags).find(f => !known.includes(f));
 		if (unknown) { throw new Exit(2, { ok: false, error: `unknown flag --${unknown}; it takes ${known.map(f => `--${f}`).join(', ')} (see --help)` }); }
-		const bare = withValue.find(f => flags[f] === true);
+		const bare = withValue.find(f => flags[f] === true || flags[f] === '');
 		if (bare) { throw new Exit(2, { ok: false, error: `--${bare} needs a value` }); }
-		textFlag({ session: '', flags, rest }, 'session', '$PW_SESSION');
 	}
 	const max = typeof most === 'number' ? most : most[rest[0]] ?? Infinity;
 	if (!flags.help && rest.length > max) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(rest[max])}${max ? ` after ${JSON.stringify(rest.slice(0, max).join(' '))}` : ''}; see --help for the arguments and flags it takes` }); }
@@ -302,19 +298,6 @@ export function countOf(v: string | true | undefined, name: string, fallback: nu
 	if (v === undefined && fallback !== undefined) { return fallback; }
 	if (typeof v !== 'string' || !/^\d+$/.test(v) || Number(v) < from) { throw new Exit(2, { ok: false, error: `${name} must be ${what}: a whole number from ${from}${from ? '' : ' (0 for all)'}, not ${v === undefined ? 'left out' : JSON.stringify(v === true ? '' : v)}` }); }
 	return Number(v);
-}
-
-/**
- * A text flag's value, or '' when it is absent. Given with no value (last on
- * the line, or --flag=) or an empty one is a usage error (exit 2): '' would
- * read as the flag left out, and the command would act on whatever is active.
- * `absent` is what leaving the flag out gives, for the error to name.
- */
-export function textFlag(p: Parsed, flag: string, absent = 'none'): string {
-	const v = p.flags[flag];
-	if (v === undefined) { return ''; }
-	if (v === true || v === '') { throw new Exit(2, { ok: false, error: `--${flag} needs a value; leave the flag out for ${absent}` }); }
-	return v;
 }
 
 export function language(p: Parsed): 'python' | 'r' {

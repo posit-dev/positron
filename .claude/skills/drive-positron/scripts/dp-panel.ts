@@ -266,7 +266,6 @@ export const panelCommands: Record<string, (argv: string[]) => Json | string> = 
 		const [cmd, arg, a2] = p.rest;
 		if (p.flags.help || !cmd) { usage('panel.sh'); }
 		if (!['tab', 'sessions', 'console', 'terminals', 'delete-session', 'editors', 'layout', 'resize'].includes(cmd)) { throw new Exit(2, { ok: false, error: 'command: tab, sessions, console, terminals, delete-session, editors, layout or resize' }); }
-		if (p.flags.all !== undefined && (cmd !== 'sessions' || p.flags.all !== true)) { throw new Exit(2, { ok: false, error: '--all goes only with sessions, and takes no value' }); }
 		if (['tab', 'console', 'delete-session'].includes(cmd) && !arg) { throw new Exit(2, { ok: false, error: `${cmd} needs an argument` }); }
 		if (cmd === 'resize' && (!['sidebar', 'secondary', 'panel'].includes(arg) || !/^\d+$/.test(a2 ?? ''))) { throw new Exit(2, { ok: false, error: 'give sidebar, secondary or panel, and the size in pixels' }); }
 		// The console tabs are in the page only while the Console view is: these bring it forward.

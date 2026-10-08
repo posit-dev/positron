@@ -61,11 +61,12 @@ test('cost splits finder and fixer', () => {
 });
 
 test('PR body lists each finding with both runs, and leads with checks changed', () => {
-	const n = night({ findings: [f('a', { outcome: 'fixed', checksChanged: true, reason: 'why it changed' }), f('d', { outcome: 'product' })], checksDiff: '-old\n+new' });
+	const n = night({ findings: [f('a', { outcome: 'fixed', checksChanged: true, reason: 'why it changed' }), f('d', { outcome: 'product' })], checksDiff: 'diff --git a/.claude/skills/drive-positron/test/check.ts b/.claude/skills/drive-positron/test/check.ts\n-old\n+new' });
 	const body = prBody(n, 'https://run');
 	assert.ok(body.startsWith('### Checks changed'));
 	assert.match(body, /why it changed/);
-	assert.match(body, /```diff\n-old\n\+new\n```/);
+	assert.match(body, /^Changed: `test\/check\.ts`$/m);
+	assert.doesNotMatch(body, /```diff|-old/);
 	assert.match(slackText(n, 'u', null), /changes test\/ or heal\//);
 	assert.doesNotMatch(slackText(night({ findings: [f('a', { outcome: 'fixed' })] }), 'u', null), /heal\//);
 	assert.match(body, /first.*second/s);
@@ -184,19 +185,13 @@ test('PR body stays under the GitHub limit with a huge diff and many findings', 
 	const many = Array.from({ length: 300 }, (_, i) => f(`f${i}`, { outcome: 'fixed', checksChanged: true, reason: 'r'.repeat(300), observed: 'o'.repeat(500) }));
 	const body = prBody(night({ findings: many, checksDiff: '+x\n'.repeat(100000) }), 'https://run');
 	assert.ok(body.length < 65536, String(body.length));
-	assert.match(body, /truncated, see the run/);
 	assert.match(body, /And \d+ more, see the run summary/);
 });
 
-test('the diff fence outgrows backticks inside the diff', () => {
-	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', checksChanged: true })], checksDiff: '+```js\n+x\n+```' }), 'u');
-	assert.match(body, /````diff\n\+```js/);
-});
-
-test('changed smoke checks with a blank diff say so instead of an empty fence', () => {
+test('changed checks with a blank diff leave out the file list', () => {
 	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', checksChanged: true })], checksDiff: '  \n' }), 'u');
-	assert.match(body, /\(diff unavailable\)/);
-	assert.doesNotMatch(body, /```diff/);
+	assert.match(body, /^### Checks changed/);
+	assert.doesNotMatch(body, /Changed:/);
 });
 
 test('slack text escapes mrkdwn and drops empty links', () => {
@@ -249,4 +244,27 @@ test('a kept fix shows its review notes, its revision, and why it has no smoke c
 	const body = prBody(n, 'u');
 	assert.match(body, /\*\*Review:\*\* sent back once; after the revision: dp-x\.ts:3 has the same bug/);
 	assert.match(body, /\*\*No smoke case:\*\* Linux only/);
+});
+
+test('the review line says when the last review still asks for changes', () => {
+	const body = (extra: Partial<Finding>) => prBody(night({ findings: [f('a', { outcome: 'fixed', ...extra })], state: { gate: 'pass' } }), 'u');
+	assert.match(body({ review: ['n1'], revised: true, reviewVerdict: 'revise' }), /\*\*Review:\*\* sent back once and still asks for changes: n1/);
+	assert.match(body({ review: ['n1'], revised: true, reviewVerdict: 'revise' }), /\*\*To do:\*\*.*Before merging, read the review notes on "a": the reviewer still asks for changes\./);
+	assert.match(body({ review: ['n1'], reviewVerdict: 'revise' }), /\*\*Review:\*\* asks for changes; no time was left to send it back: n1/);
+	assert.match(body({ revised: true, reviewVerdict: 'approve' }), /\*\*Review:\*\* sent back once, then approved\n/);
+	assert.match(body({ review: ['n1'], reviewVerdict: 'approve' }), /\*\*Review:\*\* approved with notes: n1/);
+	assert.doesNotMatch(body({ review: ['n1'], revised: true, reviewVerdict: 'approve' }), /still asks/);
+});
+
+test('Checks changed uses the fixer\'s account of the check, or the reason cut at a word', () => {
+	const changed = (extra: Partial<Finding>) => prBody(night({ findings: [f('a', { outcome: 'fixed', checksChanged: true, ...extra })], checksDiff: '+x' }), 'u');
+	assert.match(changed({ reason: 'long reason', checks: 'check.ts gains args' }), /^- a: check\.ts gains args$/m);
+	const cutAt = changed({ reason: `${'word '.repeat(70)}needs a value` }).match(/^- a: (.*)$/m)![1];
+	assert.ok(cutAt.endsWith('word...') && cutAt.length <= 303, cutAt);
+});
+
+test('the title counts every helper the fixes reach', () => {
+	const fixed = (id: string, helper: string, reaches?: string[] | 'all') => f(id, { helper, outcome: 'fixed', ...(reaches ? { reaches } : {}) });
+	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh', ['a.sh', 'b.sh', 'c.sh', 'd.sh', 'e.sh']), fixed('b', 'b.sh', ['b.sh'])] })), 'drive-positron: fix a.sh, b.sh and 3 more helpers from the nightly run');
+	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh', 'all'), fixed('b', 'b.sh', ['b.sh'])] })), 'drive-positron: fix a.sh, b.sh and code every helper shares from the nightly run');
 });
