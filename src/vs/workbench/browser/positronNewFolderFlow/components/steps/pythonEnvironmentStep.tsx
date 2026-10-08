@@ -30,7 +30,6 @@ import { condaInterpretersToDropdownItems } from '../../utilities/condaUtils.js'
 import { uvInterpretersToDropdownItems } from '../../utilities/uvUtils.js';
 import { PathDisplay } from '../pathDisplay.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { URI } from '../../../../../base/common/uri.js';
@@ -40,18 +39,6 @@ const CONDA_INSTALL_DOCS_URL = 'https://www.anaconda.com/docs/getting-started/in
 
 // NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
 // changes. See src/vs/workbench/browser/positronNewFolderFlow/components/steps/rConfigurationStep.tsx
-
-/**
- * Says that installing uv is turned off, with the setting name in code font. A link to the setting
- * would open the Settings editor behind this modal flow.
- */
-const UvInstallDisabledMessage = () => {
-	const [before, after] = localize(
-		'pythonEnvironmentSubStep.uvCallout.installDisabled',
-		"Installing uv is turned off by the {0} setting."
-	).split('{0}');
-	return <>{before}<code>python.allowUvPythonInstall</code>{after}</>;
-};
 
 /**
  * The PythonEnvironmentStep component is specific to Python projects in the New Folder Flow.
@@ -81,8 +68,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 	const [isUvInstalled, setIsUvInstalled] = useState(context.isUvInstalled);
 	const [uvInstallPending, setUvInstallPending] = useState(context.uvInstallPending);
 	const [uvInstallError, setUvInstallError] = useState(context.uvInstallError);
-	// Undefined when the Python extension hasn't registered the setting, which keeps its default.
-	const allowUvInstall = usePositronConfiguration<boolean>('python.allowUvPythonInstall') !== false;
 	const versionDropdownRef = useRef<HTMLButtonElement>(null);
 	const focusVersionsAfterInstall = useRef(false);
 
@@ -362,18 +347,16 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						<div>
 							{failed ?
 								uvInstallError :
-								allowUvInstall ?
-									localize(
-										'pythonEnvironmentSubStep.uvCallout.body',
-										"Install downloads and runs the official installer script from astral.sh."
-									) :
-									<UvInstallDisabledMessage />
+								localize(
+									'pythonEnvironmentSubStep.uvCallout.body',
+									"Install downloads and runs the official installer script from astral.sh."
+								)
 							}
 						</div>
 					</div>
 					{/* Inert while the install runs, but still focusable, so keyboard focus stays */}
 					{/* on the button instead of dropping to the top of the dialog. */}
-					{allowUvInstall && <Button
+					<Button
 						ariaDisabled={uvInstallPending}
 						className={positronClassNames('dialog-button', 'install-uv-button', { default: !failed })}
 						onPressed={onInstallUv}
@@ -399,7 +382,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 									"Install uv"
 								)
 						}
-					</Button>}
+					</Button>
 				</div>
 			);
 		}
@@ -523,15 +506,10 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		// empty search.
 		if (!interpretersAvailable()) {
 			if (context.usesUvEnv && isUvInstalled === false) {
-				return allowUvInstall ?
-					localize(
-						'pythonInterpreterSubStep.dropDown.title.uvNotInstalled',
-						"Install uv to select a Python version"
-					) :
-					localize(
-						'pythonInterpreterSubStep.dropDown.title.uvRequired',
-						"uv is required to select a Python version"
-					);
+				return localize(
+					'pythonInterpreterSubStep.dropDown.title.uvNotInstalled',
+					"Install uv to select a Python version"
+				);
 			}
 
 			if (context.usesCondaEnv && isCondaInstalled === false) {
