@@ -17,6 +17,27 @@ sentence in `error`. It reports what is on screen, never what it inferred. These
 Positron behaving wrongly while the helper reports it faithfully is a product bug: report it with
 `"expected"` saying what Positron should have done, and say "product" in `observed`.
 
+## Leads from exploratory runs
+
+When the brief lists leads, work them first, in order. Each is a helper failure from the past
+week's exploratory runs, which reach the features PRs change, with how often it happened and what
+the agent did next: `retried` (the same command worked soon after, often with other arguments),
+`by hand` (it gave up on the helper), or `unresolved`. The example lines are the run's
+`actions.log`; the run link is for you, not something to open.
+
+For each, set up the state the example shows on your instance and run the failing command, then
+decide which it is:
+
+- A helper bug: the app could do it and the helper could not, or said the wrong thing. Write a
+  finding, with the run link in `observed`.
+- A product bug: the helper reported what Positron did. Write it as a product finding.
+- The agent's mistake: a wrong argument or a command that does not exist. A finding only if the
+  error did not say what to do instead, or the same guess shows up in more than one run: then the
+  helper should accept it or name the right one.
+- Not reproducible here: say so in your final message, with what you tried.
+
+Then explore the area, if the brief names one, with the time left.
+
 ## How to look
 
 The area for this run is in the brief. Put the helpers in odd states rather than the happy path:

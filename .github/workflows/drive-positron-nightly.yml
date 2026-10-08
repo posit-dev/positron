@@ -1,7 +1,8 @@
 name: "drive-positron: Nightly Self-Heal"
 
 # Keeps drive-positron's helpers working. Runs smoke, reruns the failures once
-# to keep only the ones that hold up, explores one area on explore nights, and
+# to keep only the ones that hold up, reproduces the helper failures from the past
+# week's exploratory runs, explores one area on explore nights, and
 # has an agent fix helper bugs one at a time, each checked by check.ts and
 # smoke over the sections it can reach. Live (the default): passing fixes go to one rolling PR,
 # with review requested from REVIEWERS. Burn-in: each night's go to a candidate branch, linked in
@@ -208,6 +209,14 @@ jobs:
         shell: bash
         run: node .claude/skills/drive-positron/heal/recent.ts --dir "$HEAL_DIR"
 
+      # Helper failures in the past week's exploratory runs, for the finder to reproduce first.
+      - name: Fetch the past week's exploratory-run failures
+        id: leads
+        shell: bash
+        run: |
+          node .claude/skills/drive-positron/heal/leads.ts --dir "$HEAL_DIR"
+          echo "count=$(jq '.leads | length' "$HEAL_DIR/leads.json" 2>/dev/null || echo 0)" >> "$GITHUB_OUTPUT"
+
       - name: Any findings yet?
         id: any
         shell: bash
@@ -215,7 +224,7 @@ jobs:
 
       - name: Load the Anthropic key
         # hashFiles only sees the workspace, so the findings check is a step output.
-        if: steps.explore.outputs.run == 'true' || steps.any.outputs.findings == 'true'
+        if: steps.explore.outputs.run == 'true' || steps.leads.outputs.count != '0' || steps.any.outputs.findings == 'true'
         uses: 1password/load-secrets-action@v5
         with:
           export-env: true
@@ -224,15 +233,17 @@ jobs:
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Finder
-        if: steps.explore.outputs.run == 'true'
+        if: steps.explore.outputs.run == 'true' || steps.leads.outputs.count != '0'
         shell: bash
         env:
           ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
           GITHUB_TOKEN: ''
           GH_TOKEN: ''
+          EXPLORE: ${{ steps.explore.outputs.run }}
         run: |
+          only=$([ "$EXPLORE" = true ] || echo --leads-only)
           # shellcheck disable=SC2086
-          node .claude/skills/drive-positron/heal/finder.ts --dir "$HEAL_DIR" --runner "$RUNNER" --minutes 45 -- $APP_ARGS
+          node .claude/skills/drive-positron/heal/finder.ts --dir "$HEAL_DIR" --runner "$RUNNER" --minutes 45 $only -- $APP_ARGS
 
       # fix-loop commits, and refuses a dirty tree. The container runs as root over a checkout.
       - name: Set up git
