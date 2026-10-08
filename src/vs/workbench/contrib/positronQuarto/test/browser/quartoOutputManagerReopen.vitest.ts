@@ -20,6 +20,7 @@ import { IQuartoDocumentModel, QuartoCodeCell } from '../../common/quartoTypes.j
 import { QUARTO_INLINE_OUTPUT_ENABLED } from '../../common/positronQuartoConfig.js';
 import { IPositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
+import { IUntitledTextEditorService } from '../../../../services/untitled/common/untitledTextEditorService.js';
 
 /**
  * Regression coverage for the close-and-reopen flake where a Quarto .qmd's
@@ -87,6 +88,7 @@ describe('QuartoOutputContribution -- cached output restore on reopen', () => {
 		})
 		.stub(IPositronNotebookOutputWebviewService, {})
 		.stub(IResourceUsageHistoryService, {})
+		.stub(IUntitledTextEditorService, { onDidSave: Event.None })
 		.build();
 
 	beforeEach(() => {
