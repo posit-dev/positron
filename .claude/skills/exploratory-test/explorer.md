@@ -225,6 +225,7 @@ PR: <owner>/<repo>#<number> - Branch: <branch> - Commit: <short sha>
 
 ## Environment
 - Positron <version> build <n>, <dev build | release build> of <short sha> (Code - OSS <version>), on <OS> <version> (<platform> <arch>).
+- Kernels: Ark <version>, Kallichore <version>.
 - <Python or R> <version> with <the packages the run used>.
 - <anything else true for the whole run: launch, workspace, window, and the machine's time zone (`date +%Z`) when a check involves dates or times>
 
@@ -286,11 +287,14 @@ Steps:
   before you move to the next area, and if that fails it is a finding. Only
   when time runs out first, note it under Noticed.
 - `## Environment` holds only what is true for the whole run. The issue button
-  copies its first bullet into System details, so read each value, never
+  copies its first two bullets into System details, so read each value, never
   guess: version and build from `positronVersion` and `positronBuildNumber` in
   `product.json`, the commit from `git rev-parse --short=10 HEAD`, Code - OSS
   from `package.json`'s `version`, the OS from `sw_vers` or `/etc/os-release`
-  and `uname -sm`.
+  and `uname -sm`, Ark from `extensions/positron-r/resources/ark/VERSION`, and
+  Kallichore from `extensions/positron-supervisor/resources/kallichore/VERSION`
+  (in a release build, under the app's `resources/app/`). Leave Ark out when
+  the run uses no R.
 - `## Logs` is written at the end, one line per file in `logs/` that the app
   or an interpreter wrote, with its errors ("2 errors, both in Finding 1", "no
   errors"). An error no check is tied to is counted here and nowhere else.

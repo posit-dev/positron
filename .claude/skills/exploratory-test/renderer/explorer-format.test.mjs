@@ -51,7 +51,7 @@ const LEDGER = template(/^# Test ledger/);
 // Placeholders whose value the parser or lint reads. Every other placeholder
 // is prose to them and gets filler text. An array is used up in order.
 const VALUES = {
-	'<version>': ['2026.10.0', '1.105.0', '22.04', '3.12.3'],
+	'<version>': ['2026.10.0', '1.105.0', '22.04', '0.1.252', '0.1.71', '3.12.3'],
 	'<n>': '12',
 	'<why it is worse than the title suggests, in one sentence; leave the line out when nothing is>': 'Nothing on screen says the view is unfinished.',
 	'<M>': '3',
