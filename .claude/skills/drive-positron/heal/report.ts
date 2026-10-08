@@ -15,6 +15,7 @@ import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { flagValue, unknownArg } from '../test/smoke-lib.ts';
 import type { Finding, State } from './finding.ts';
+import { SKILL_PREFIX } from './scope.ts';
 
 export interface Night {
 	findings: Finding[]; flakes: { name: string }[]; unconfirmed: { name: string }[]; state: State; smokeRed: boolean; jobFailed: string | null;
@@ -95,6 +96,8 @@ function toDo(n: Night, where: 'summary' | 'pr' | 'slack'): string {
 		else if (where !== 'slack') { out.push(where === 'pr' ? 'Review and merge this PR.' : 'Review the fix: the Slack DM links the branch, and the patch is in the run artifacts.'); }
 		// The PR body and summary open with the Checks changed section; Slack has only this line.
 		if (where === 'slack' && fixes.some(f => f.checksChanged)) { out.push('A fix changes test/ or heal/, which judge the fixes; review that diff first.'); }
+		const unsettled = fixes.filter(f => f.reviewVerdict === 'revise');
+		if (unsettled.length) { out.push(`Before merging, read the review notes on ${unsettled.map(f => `"${title(f)}"`).join(', ')}: the reviewer still asks for changes.`); }
 		const back = fixes.filter(f => f.fixedBefore?.length);
 		if (back.length && where !== 'slack') { out.push(`${back.map(f => `"${title(f)}"`).join(', ')} came back after being fixed on earlier nights; those fixes were never merged.`); }
 	}
@@ -113,6 +116,8 @@ function status(f: Finding): string {
 
 /** What was seen, with a helper's JSON reply cut down to its error. */
 const seen = (f: Finding) => { const m = String(f.observed).match(/"error":"((?:[^"\\]|\\.)*)"\s*[,}]/); return m ? m[1].replace(/\\"/g, '"') : cut(f.observed, 200); };
+/** Cut at the last whole word within `max`. */
+const cutWord = (t: string, max: number) => t.length > max ? `${t.slice(0, max + 1).replace(/\s+\S*$/, '')}...` : t;
 const cut = (t: unknown, max: number) => { const x = String(t ?? ''); return x.length > max ? `${x.slice(0, max)}...` : x; };
 
 /** Model text with each @mention and issue reference in a code span, so the PR body pings and links nothing. Existing code spans are left alone. */
@@ -136,6 +141,14 @@ function checked(f: Finding, n: Night): string {
 	return `${tries} before the fix; check.ts${red} and ${ss ? `the smoke ${ss.join(', ')} ${ss.length === 1 ? 'section' : 'sections'}` : 'all of smoke'} pass with it${ss ? ' (the next nightly runs all of smoke)' : ''}`;
 }
 
+/** The last review's verdict and its notes; a revise on a kept fix was recorded, not obeyed. */
+function reviewLine(f: Finding): string {
+	const notes = f.review?.length ? inert(f.review.join('; ')) : '';
+	if (f.reviewVerdict === 'revise') { return `${f.revised ? 'sent back once and still asks for changes' : 'asks for changes; no time was left to send it back'}: ${notes}`; }
+	if (f.reviewVerdict === 'approve') { return `${f.revised ? 'sent back once, then approved' : 'approved'}${notes ? ` with notes: ${notes}` : ''}`; }
+	return `${f.revised ? 'sent back once; after the revision: ' : ''}${notes || 'no notes'}`;
+}
+
 /** A finding as a heading, the plain account, and the evidence folded away. */
 function block(f: Finding, n: Night, h: string): string {
 	const runs = f.fixedBefore ?? [];
@@ -145,7 +158,7 @@ function block(f: Finding, n: Night, h: string): string {
 		...(f.cause ? [`- **Why:** ${inert(f.cause)}`] : []),
 		...(f.change && f.outcome === 'fixed' ? [`- **Fix:** ${inert(f.change)}`] : []),
 		...(f.untestable && kept(f) ? [`- **No smoke case:** ${inert(f.untestable)}`] : []),
-		...(f.review?.length || f.revised ? [`- **Review:** ${f.revised ? 'sent back once; after the revision: ' : ''}${f.review?.length ? inert(f.review.join('; ')) : 'no notes'}`] : []),
+		...(f.review?.length || f.revised ? [`- **Review:** ${reviewLine(f)}`] : []),
 		`- **Checked:** ${inert(checked(f, n))}.`,
 		...(runs.length ? [`- **Seen before:** fixed on ${s(runs.length, 'earlier night')} too (${runs.map(r => `run ${r}`).join(', ')}) and came back, so those fixes never landed.`] : []),
 		'', '<details><summary>Evidence</summary>', '',
@@ -171,7 +184,6 @@ function blocks(n: Night, h: string, budget: number): string[] {
 }
 const problemLines = (n: Night) => n.problems?.length ? ['**Report problems** (these inputs were skipped):', ...n.problems.map(p => `- ${p}`), ''] : [];
 
-const MAX_DIFF = 20000;
 const MAX_LISTED = 40;
 
 /** A code fence longer than any backtick run in the text, so the text cannot close it. */
@@ -183,14 +195,18 @@ function fenced(text: string, info: string): string {
 function checksSection(n: Night): string {
 	const changed = n.findings.filter(f => f.checksChanged && !f.rejected);
 	if (!changed.length) { return ''; }
-	const diff = n.checksDiff.trim();
-	const body = !diff ? '(diff unavailable)' : fenced(diff.length > MAX_DIFF ? diff.slice(0, MAX_DIFF) : diff, 'diff') + (diff.length > MAX_DIFF ? '\n(truncated, see the run)' : '');
-	return ['### Checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${inert((f.reason ?? '').slice(0, 300))}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', body, '', ''].join('\n');
+	// The diff itself is in the PR's files; the body names them.
+	const files = [...n.checksDiff.matchAll(/^diff --git a\/(\S+)/gm)].map(m => `\`${m[1].replace(SKILL_PREFIX, '')}\``);
+	return ['### Checks changed', '', ...changed.slice(0, MAX_LISTED).map(f => `- ${f.id}: ${inert(f.checks ?? cutWord(f.reason ?? '', 300))}`), ...(changed.length > MAX_LISTED ? [`- and ${changed.length - MAX_LISTED} more, see the run summary`] : []), '', ...(files.length ? [`Changed: ${files.join(', ')}`, ''] : []), ''].join('\n');
 }
 
 export function prTitle(n: Night): string {
-	const helpers = [...new Set(n.findings.filter(kept).map(f => f.helper))];
-	const named = helpers.length > 3 ? `${helpers.slice(0, 3).join(', ')} and ${s(helpers.length - 3, 'more helper')}` : helpers.join(', ');
+	const fixes = n.findings.filter(kept);
+	const helpers = [...new Set(fixes.map(f => f.helper))];
+	const shown = helpers.slice(0, 3);
+	const all = fixes.some(f => f.reaches === 'all');
+	const more = new Set([...helpers, ...fixes.flatMap(f => Array.isArray(f.reaches) ? f.reaches : [])].filter(h => !shown.includes(h))).size;
+	const named = all ? `${shown.join(', ')} and code every helper shares` : more ? `${shown.join(', ')} and ${s(more, 'more helper')}` : shown.join(', ');
 	return named ? `drive-positron: fix ${named} from the nightly run` : 'drive-positron: helper fixes from the nightly run';
 }
 

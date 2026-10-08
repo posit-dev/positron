@@ -209,3 +209,8 @@ test('placeSections: each section runs through its committed last case, and adde
 	assert.deepEqual(placeSections([{ id: 'a', last: 'a2' }, { id: 'c', last: 'c1' }], listed, added), [{ id: 'a', last: 'a-new' }, { id: 'b', last: 'b-new' }, { id: 'c', last: 'c1' }]);
 	assert.deepEqual(placeSections([{ id: 'c', last: 'c1' }], listed, [{ name: 'gone', helper: 'x.sh' }]), [{ id: 'c', last: 'c1' }]);
 });
+
+test('readOutcome keeps the fixer\'s account of a changed check', () => {
+	const ok = readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'r', reproduction: { at: 't', by: 'fixer', result: 'fail', observed: 'o' }, checks: ' check.ts gains args ' }));
+	assert.deepEqual(typeof ok === 'object' && ok.plain, { checks: 'check.ts gains args' });
+});

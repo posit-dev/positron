@@ -30,8 +30,8 @@ says how a helper is built and checked.
 5. **No sleeps, retries or longer timeouts to get a pass.** Waiting for a named condition the
    helper can observe is fine; waiting longer and hoping is not.
 6. **Never loosen a check.** `test/` and `heal/` hold the checks your fix is judged by; a change
-   there is flagged at the top of the report. If you change one, the reason must say which check,
-   what it asserted before, and why the old assertion was wrong.
+   there is flagged at the top of the report. If you change one, `checks` says which check, what it
+   asserted before, and why the old assertion was wrong, in one or two sentences.
 7. **Check your fix:** run the helper again on the kept instance; helper edits apply without a
    relaunch. Then stop the instance (smoke prints the `stop.sh` line) and run
    `node .claude/skills/drive-positron/test/check.ts`, which must pass (apart from checks the brief
@@ -85,6 +85,7 @@ Write exactly one JSON file to the outcome path in the brief, then end with a on
       "cause": "why, in one sentence",
       "change": "what the fix does differently (fixed only)",
       "untestable": "why no smoke case can show this bug (only when you add none)",
+      "checks": "the check you changed under test/ or heal/, what it asserted, and why (only when you change one)",
       "covers": ["ids of other open findings your fix fixes, each re-run after the fix"]
     }
 

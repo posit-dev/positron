@@ -8,7 +8,7 @@ import { addFields, type Finding, type Reproduction } from './finding.ts';
 import { SKILL_PREFIX } from './scope.ts';
 
 /** The report's plain-language account, one sentence each; a session may leave any of them out. */
-export type Plain = { broke?: string; cause?: string; change?: string };
+export type Plain = { broke?: string; cause?: string; change?: string; checks?: string };
 /** `plain` holds only the fields the session wrote; the outcome file has them at the top level. */
 export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction; plain: Plain; untestable?: string; covers?: string[] };
 
@@ -49,7 +49,7 @@ export function readOutcome(text: string | null): FixerOutcome | string {
 	const r = o.reproduction;
 	if (!r || typeof r.observed !== 'string' || (r.result !== 'fail' && r.result !== 'pass')) { return 'the outcome has no reproduction'; }
 	const plain: Plain = {};
-	for (const k of ['broke', 'cause', 'change'] as const) {
+	for (const k of ['broke', 'cause', 'change', 'checks'] as const) {
 		const v = o[k];
 		if (typeof v === 'string' && v.trim()) { plain[k] = v.trim(); }
 	}
