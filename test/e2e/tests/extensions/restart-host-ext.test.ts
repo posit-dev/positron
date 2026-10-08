@@ -28,7 +28,7 @@ test.describe.skip('Restart Host Extension', {
 		await app.workbench.console.waitForConsoleContents('101');
 	});
 
-	test('Verify Restart Extension Host command works - Python', async function ({ app, python }) {
+	test('Verify Restart Extension Host command works - Python', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
 		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
 		await app.workbench.console.waitForReady('>>>');

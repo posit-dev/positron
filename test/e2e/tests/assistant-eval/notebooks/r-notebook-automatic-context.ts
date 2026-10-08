@@ -25,7 +25,7 @@ export const rNotebookAutomaticContext: EvalTestCase = {
 	description: 'Ensure small notebooks have automatic context without tool calls',
 	prompt,
 	mode,
-	tags: [TestTags.POSITRON_NOTEBOOKS],
+	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
 
 	run: async ({ app, hotKeys, settings }): Promise<RunResult> => {
 		const { assistant, notebooksPositron } = app.workbench;

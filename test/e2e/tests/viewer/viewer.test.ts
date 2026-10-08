@@ -16,7 +16,7 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 		await app.workbench.viewer.clearViewer();
 	});
 
-	test('Python - Verify Viewer opens for WebBrowser calls', async function ({ app, python }) {
+	test('Python - Verify Viewer opens for WebBrowser calls', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const { console, viewer } = app.workbench;
 
 		await console.executeCode('Python', pythonScript);
@@ -26,7 +26,7 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 
 	// Only web renders the preview iframe via an HTML string (previewOverlayWebview.ts);
 	// Electron navigates the webview directly and never produces a #preview-iframe element.
-	test('Python - Verify Viewer preserves query params through HTML embedding', { tag: [tags.WEB_ONLY] },
+	test('Python - Verify Viewer preserves query params through HTML embedding', { tag: [tags.WEB_ONLY, tags.PYTHON] },
 		async function ({ app, python }) {
 			const { console, viewer } = app.workbench;
 
@@ -45,7 +45,7 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 		});
 
 	// note: this test is skipped on firefox - it fails
-	test('Python - Verify Viewer displays great-tables', { tag: [tags.WEB, tags.CROSS_BROWSER] },
+	test('Python - Verify Viewer displays great-tables', { tag: [tags.WEB, tags.CROSS_BROWSER, tags.PYTHON] },
 		async function ({ app, python }) {
 			const { console, viewer } = app.workbench;
 
@@ -85,7 +85,7 @@ test.describe('Viewer', { tag: [tags.VIEWER, tags.CONSOLE] }, () => {
 	// which is a separate origin from the webview. Copying a selection out of
 	// that cross-origin frame is what regressed. A same-origin page (plain HTML)
 	// does not exercise the bug, so this serves the probe text over HTTP.
-	test('Python - Verify selected text can be copied from the Viewer', { tag: [tags.WIN] }, async function ({ app, python }) {
+	test('Python - Verify selected text can be copied from the Viewer', { tag: [tags.WIN, tags.PYTHON] }, async function ({ app, python }) {
 		const { console, viewer, clipboard, hotKeys } = app.workbench;
 
 		await console.executeCode('Python', pythonViewerServerScript);

@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Run Selection in Cell', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS],
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.PYTHON],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/3804' }],
 }, () => {
 

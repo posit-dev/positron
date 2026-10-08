@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../_test.setup';
+import { tags, test } from '../_test.setup';
 import { defineMemoryScenario } from './memory-scenario';
 
 test.use({
@@ -24,6 +24,7 @@ const LINES = 10_000;
 // subtraction is by eye until #15495.
 defineMemoryScenario({
 	scenario: 'console-output',
+	tag: tags.PYTHON,
 	prepare: async ({ app, sessions }) => {
 		const { console } = app.workbench;
 

@@ -40,7 +40,7 @@ test.describe('DuckDB Connection', {
 		configurePasswordStore();
 	});
 
-	test('Python - Can establish a DuckDB connection', async function ({ python, app }) {
+	test('Python - Can establish a DuckDB connection', { tag: [tags.PYTHON] }, async function ({ python, app }) {
 
 		await app.workbench.console.pasteCodeToConsole(connectionCode, true);
 		await app.workbench.console.waitForExecutionComplete();

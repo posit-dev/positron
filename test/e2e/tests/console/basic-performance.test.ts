@@ -13,7 +13,7 @@ test.describe('Console Performance', {
 	tag: [tags.SESSIONS, tags.CONSOLE, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Python Performance - Console loads under 30 seconds', async ({ app, python, sessions }) => {
+	test('Python Performance - Console loads under 30 seconds', { tag: [tags.PYTHON] }, async ({ app, python, sessions }) => {
 		const start = Date.now();
 		await sessions.expectAllSessionsToBeReady();
 		const end = Date.now();

@@ -21,7 +21,7 @@ test.describe('SQLite DB Connection', {
 		await app.workbench.connections.deleteConnection();
 	});
 
-	test('Python - Can establish a SQLite connection, disconnect & reconnect', async function ({ app, python }) {
+	test('Python - Can establish a SQLite connection, disconnect & reconnect', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');

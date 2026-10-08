@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Cell Execution with raises-exception tag', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.PYTHON]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

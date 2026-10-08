@@ -40,7 +40,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Python - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, python }) {
+	test('Python - Verify basic help functionality', { tag: [tags.WIN, tags.PYTHON] }, async function ({ app, python }) {
 		await app.workbench.console.executeCode('Python', `?load`);
 
 		await expect(async () => {
@@ -50,7 +50,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 
 	});
 
-	test('R - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, r }) {
+	test('R - Verify basic help functionality', { tag: [tags.WIN, tags.ARK] }, async function ({ app, r }) {
 		await app.workbench.console.executeCode('R', `?load()`);
 
 		await expect(async () => {

@@ -65,6 +65,7 @@ test.describe('Console Performance: Code Execution', {
 			const code = lang === 'Python' ? scenario.python : scenario.r;
 
 			test(`${lang} - ${scenario.name}`,
+				{ tag: lang === 'Python' ? [tags.PYTHON] : [tags.ARK] },
 				async function ({ app, page, sessions, metric }) {
 					const { console: positronConsole } = app.workbench;
 					await sessions.start(runtime, { reuse: true });

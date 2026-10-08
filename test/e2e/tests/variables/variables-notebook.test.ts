@@ -25,7 +25,7 @@ test.describe('Variables Pane - Notebook', {
 	// hook or in-body: a layout command in a hook destabilizes the session-metadata
 	// dialog the interpreter fixtures open, and an in-body command-palette layout
 	// command disrupts notebook creation.
-	test('Python - Verify variables persist across cells', async function ({ app, python }) {
+	test('Python - Verify variables persist across cells', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const { notebooksPositron } = app.workbench;
 
 		await notebooksPositron.newNotebook();
@@ -53,7 +53,7 @@ test.describe('Variables Pane - Notebook', {
 		await variables.expectVariableToBe('y', '2 3 4 5');
 	});
 
-	test('Python - Verify Variables pane basic function for notebook', async function ({ app, python }) {
+	test('Python - Verify Variables pane basic function for notebook', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const { notebooksPositron, variables, hotKeys } = app.workbench;
 
 		// Create a variable via a notebook
@@ -66,7 +66,7 @@ test.describe('Variables Pane - Notebook', {
 	});
 
 	test('Python - Verify Variables pane stays on notebook session after opening Data Explorer', {
-		tag: [tags.DATA_EXPLORER]
+		tag: [tags.DATA_EXPLORER, tags.PYTHON]
 	}, async function ({ app, hotKeys, python }) {
 		const { notebooksPositron, variables, editors } = app.workbench;
 
@@ -90,7 +90,7 @@ test.describe('Variables Pane - Notebook', {
 	// the editor area collapsed; that layout leaks into subsequent tests and breaks
 	// any test that creates a notebook and reads its cell output or notebook-scoped
 	// variables. Running it last keeps that leaked layout from affecting the others.
-	test('Python - Verify Variables available after reload', async function ({ app, hotKeys, python }) {
+	test('Python - Verify Variables available after reload', { tag: [tags.PYTHON] }, async function ({ app, hotKeys, python }) {
 		const { notebooksPositron, variables } = app.workbench;
 
 		await hotKeys.stackedLayout();

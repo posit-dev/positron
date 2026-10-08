@@ -18,7 +18,7 @@ test.describe('Hover', {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 	});
 
-	test('Python - Verify pd.DataFrame hover shows preview', async function ({ app, page, python }) {
+	test('Python - Verify pd.DataFrame hover shows preview', { tag: [tags.PYTHON] }, async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openFile(join(
 			app.workspacePathOrFolder,
 			'workspaces', 'generate-data-frames-py', 'simple-data-frames.py',

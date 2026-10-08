@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Sessions: Management', {
-	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
+	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL, tags.PYTHON, tags.ARK]
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {

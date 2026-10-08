@@ -13,7 +13,7 @@ test.use({
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 test.describe('New Folder Flow: Python Project', {
-	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB]
+	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB, tags.PYTHON]
 }, () => {
 	const folderTemplate = FolderTemplate.PYTHON_PROJECT;
 

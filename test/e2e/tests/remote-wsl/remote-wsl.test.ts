@@ -114,7 +114,7 @@ test.describe('Remote WSL', {
 		});
 	});
 
-	test('Verify Python code runs in a WSL distro', async function ({ app }) {
+	test('Verify Python code runs in a WSL distro', { tag: [tags.PYTHON] }, async function ({ app }) {
 		// Reconnecting may still pay for a cold REH download if this test runs first.
 		test.slow();
 
@@ -132,7 +132,7 @@ test.describe('Remote WSL', {
 		});
 	});
 
-	test('Verify R code runs in a WSL distro', async function ({ app }) {
+	test('Verify R code runs in a WSL distro', { tag: [tags.ARK] }, async function ({ app }) {
 		// Reconnecting may still pay for a cold REH download if this test runs first.
 		test.slow();
 

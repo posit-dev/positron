@@ -25,7 +25,7 @@ export const rNotebookEditCells: EvalTestCase = {
 	description: 'Ensure editNotebook is used when editing notebook cells',
 	prompt,
 	mode,
-	tags: [TestTags.POSITRON_NOTEBOOKS],
+	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.ARK],
 
 	run: async ({ app, hotKeys, settings }): Promise<RunResult> => {
 		const { assistant, notebooksPositron } = app.workbench;

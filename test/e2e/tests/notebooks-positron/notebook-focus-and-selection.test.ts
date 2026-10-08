@@ -20,7 +20,7 @@ test.describe('Notebook Focus and Selection', {
 		await hotKeys.closeSecondarySidebar();
 	});
 
-	test('Multi-select + Shift+Enter runs all selected code cells', async function ({ app, sessions }) {
+	test('Multi-select + Shift+Enter runs all selected code cells', { tag: [tags.PYTHON] }, async function ({ app, sessions }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
 
@@ -113,7 +113,7 @@ test.describe('Notebook Focus and Selection', {
 	});
 
 
-	test('Notebook navigation and default cell selection between tabs', async function ({ app, python }) {
+	test('Notebook navigation and default cell selection between tabs', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
 		await notebooksPositron.newNotebook({ codeCells: 3, markdownCells: 1 });

@@ -28,7 +28,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		await app.workbench.modelProviderModal.logoutModelProvider(PROVIDER);
 	});
 
-	test('Notebook AI features hidden when AI disabled', async function ({ app, settings }) {
+	test('Notebook AI features hidden when AI disabled', { tag: [tags.ARK] }, async function ({ app, settings }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Turn off the AI main switch, which gates all of Positron's AI features
@@ -48,7 +48,7 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		await notebooksPositron.expectErrorAssistantButtonsVisible(false);
 	});
 
-	test('Notebook AI features visible when AI enabled', async function ({ app, settings }) {
+	test('Notebook AI features visible when AI enabled', { tag: [tags.ARK] }, async function ({ app, settings }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Turn on the AI main switch
@@ -87,7 +87,7 @@ test.describe('Notebook Assistant: Interaction Flow', {
 		await app.workbench.modelProviderModal.logoutModelProvider(PROVIDER);
 	});
 
-	test('Fix error button opens chat and sends error context', async function ({ app }) {
+	test('Fix error button opens chat and sends error context', { tag: [tags.PYTHON] }, async function ({ app }) {
 		const { notebooksPositron, positAssistant } = app.workbench;
 
 		// Create notebook
@@ -118,7 +118,7 @@ test.describe('Notebook Assistant: Interaction Flow', {
 		expect((await positAssistant.getLastResponseText()).length).toBeGreaterThan(0);
 	});
 
-	test('Explain error button opens chat and sends error context', async function ({ app }) {
+	test('Explain error button opens chat and sends error context', { tag: [tags.PYTHON] }, async function ({ app }) {
 		const { notebooksPositron, positAssistant } = app.workbench;
 
 		// Create notebook

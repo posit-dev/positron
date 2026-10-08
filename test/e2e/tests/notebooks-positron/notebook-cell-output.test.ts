@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Cell Output', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.PYTHON]
 }, () => {
 
 	test('Collapse, expand, and clear output', async function ({ app }) {

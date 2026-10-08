@@ -131,7 +131,7 @@ test.describe('Packages Pane - Large Library', {
 	});
 
 	test('Python - Packages pane loads and filters a 1,500-package library',
-		async function ({ app, python: _python, executeCode }) {
+		{ tag: [tags.PYTHON] }, async function ({ app, python: _python, executeCode }) {
 			const { console, packages } = app.workbench;
 
 			await executeCode('Python', `exec(open(${JSON.stringify(pyScript.replace(/\\/g, '/'))}).read())`);
@@ -152,7 +152,7 @@ test.describe('Packages Pane - Large Library', {
 		});
 
 	test('R - Packages pane loads and filters a 1,500-package library',
-		async function ({ app, r: _r, executeCode }) {
+		{ tag: [tags.ARK] }, async function ({ app, r: _r, executeCode }) {
 			const { console, packages } = app.workbench;
 
 			await executeCode('R', `source(${JSON.stringify(rScript.replace(/\\/g, '/'))})`);

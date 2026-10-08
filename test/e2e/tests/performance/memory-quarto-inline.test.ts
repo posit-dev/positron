@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test } from '../_test.setup';
+import { tags, test } from '../_test.setup';
 import { defineMemoryScenario } from './memory-scenario';
 
 test.use({
@@ -30,6 +30,7 @@ const FILE = join('workspaces', 'quarto_inline_output', 'r_data_frame.qmd');
 // dependency to break.
 defineMemoryScenario({
 	scenario: 'quarto-inline',
+	tag: tags.ARK,
 	prepare: async ({ app, sessions, openFile }) => {
 		const { editors, inlineQuarto } = app.workbench;
 

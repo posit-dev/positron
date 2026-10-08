@@ -27,7 +27,7 @@ import { test } from './_test.setup.js';
 test.use({ suiteId: __filename });
 
 test.describe('Notebook Debugging', {
-	tag: [tags.DEBUG, tags.NOTEBOOKS, tags.WEB, tags.WIN]
+	tag: [tags.DEBUG, tags.NOTEBOOKS, tags.WEB, tags.WIN, tags.PYTHON]
 }, () => {
 
 	test.beforeEach(async ({ app }) => {

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../_test.setup';
+import { tags, test } from '../_test.setup';
 import { defineMemoryScenario } from './memory-scenario';
 
 test.use({
@@ -28,6 +28,7 @@ const CELL_COUNT = 30;
 // is by eye until #15495.
 defineMemoryScenario({
 	scenario: 'notebook',
+	tag: tags.PYTHON,
 	prepare: async ({ app }) => {
 		const { notebooksPositron } = app.workbench;
 

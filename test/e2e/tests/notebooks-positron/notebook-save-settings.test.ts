@@ -29,7 +29,7 @@ async function readJson(filePath: string) {
 }
 
 test.describe('Positron Notebooks: Save Settings', {
-	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.POSITRON_NOTEBOOKS, tags.PYTHON]
 }, () => {
 
 	let savedFilePath: string;

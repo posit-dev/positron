@@ -32,7 +32,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			await outline.focus();
 		});
 
-		test('Verify outline is based on editor and per session', async function ({ app, sessions }) {
+		test('Verify outline is based on editor and per session', { tag: [tags.PYTHON] }, async function ({ app, sessions }) {
 			const { outline, console, editor } = app.workbench;
 
 			// No active session: Pyrefly serves Python symbols without one, Ark does not
@@ -81,7 +81,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 		});
 
 		test('Verify outline after reload with Python in foreground and R in background', {
-			tag: [tags.ARK],
+			tag: [tags.ARK, tags.PYTHON],
 		}, async function ({ app, hotKeys, sessions }) {
 			const { outline, editor } = app.workbench;
 
@@ -110,7 +110,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 		});
 
 		test('Verify outline after reload with R in foreground and Python in background', {
-			tag: [tags.ARK],
+			tag: [tags.ARK, tags.PYTHON],
 		}, async function ({ app, hotKeys, sessions }) {
 			const { outline, editor } = app.workbench;
 
@@ -149,7 +149,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.PYREFLY] }, () => {
 			]);
 		});
 
-		test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
+		test('Python - Verify Outline Contents', { tag: [tags.PYTHON] }, async function ({ app, python, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 
 			await expect(async () => {

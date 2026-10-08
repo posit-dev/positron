@@ -46,7 +46,7 @@ ${filler}
 }
 
 test.describe('Quarto - Inline Output: Raw HTML scroll', {
-	tag: [tags.QUARTO]
+	tag: [tags.QUARTO, tags.ARK]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

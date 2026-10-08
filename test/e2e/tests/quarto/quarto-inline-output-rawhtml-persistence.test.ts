@@ -41,7 +41,7 @@ hchart(data.frame(x = 1:5, y = c(1, 4, 9, 16, 25)), "scatter", hcaes(x, y))
 }
 
 test.describe('Quarto - Inline Output: Raw HTML persistence', {
-	tag: [tags.QUARTO]
+	tag: [tags.QUARTO, tags.ARK]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

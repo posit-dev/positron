@@ -50,7 +50,7 @@ ${filler}
 }
 
 test.describe('Quarto - Inline Output: Webview scroll', {
-	tag: [tags.WEB, tags.WIN, tags.QUARTO]
+	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.PYTHON]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

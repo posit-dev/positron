@@ -19,7 +19,7 @@ test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tag
 		await app.workbench.viewer.refreshViewer();
 	});
 
-	test('Python - Verify Basic Shiny App', async function ({ app, page, python }) {
+	test('Python - Verify Basic Shiny App', { tag: [tags.PYTHON] }, async function ({ app, page, python }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
 		await app.workbench.quickaccess.runCommand('shiny.python.runApp');
 		const headerLocator = app.web

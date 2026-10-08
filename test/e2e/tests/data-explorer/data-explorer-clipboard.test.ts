@@ -23,11 +23,11 @@ const testCases: {
 	data: string;
 	tags: string[];
 }[] = [
-		{ env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")', tags: [tags.WIN] },
+		{ env: 'R', rowIndexOffset: 1, data: 'df <- read.csv("data-files/small_file.csv")', tags: [tags.WIN, tags.ARK] },
 		{ env: 'DuckDB', rowIndexOffset: 0, data: 'data-files/small_file.csv', tags: [tags.WIN, tags.DUCK_DB] },
-		{ env: 'Polars', rowIndexOffset: 0, data: 'import polars as pl; df = pl.read_csv("data-files/small_file.csv")', tags: [tags.WIN] },
+		{ env: 'Polars', rowIndexOffset: 0, data: 'import polars as pl; df = pl.read_csv("data-files/small_file.csv")', tags: [tags.WIN, tags.PYTHON] },
 		// Note: Pandas test is problematic on Windows in CI and the clipboard content is incorrect. Jon confirmed manually on his Windows machine that it works.
-		{ env: 'Pandas', rowIndexOffset: 0, data: 'import pandas as pd; df = pd.read_csv("data-files/small_file.csv")', tags: [] }
+		{ env: 'Pandas', rowIndexOffset: 0, data: 'import pandas as pd; df = pd.read_csv("data-files/small_file.csv")', tags: [tags.PYTHON] }
 	];
 
 test.use({

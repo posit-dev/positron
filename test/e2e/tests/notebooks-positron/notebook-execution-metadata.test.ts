@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Positron Notebooks: Execution Metadata', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.WIN, tags.WEB]
+	tag: [tags.POSITRON_NOTEBOOKS, tags.WIN, tags.WEB, tags.PYTHON]
 }, () => {
 
 	test('Python - Positron notebook cells include output_width_px and output_pixel_ratio in execution metadata', async function ({ app, python }) {

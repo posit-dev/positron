@@ -79,7 +79,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 
 	testCases.forEach(({ environment, data: dataScript, expectedCodeStyle, dataObjectType, expectedGeneratedCode }) => {
 
-		test(`${environment} - ${expectedCodeStyle} (${dataObjectType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric }) {
+		test(`${environment} - ${expectedCodeStyle} (${dataObjectType}) - Verify copy code behavior with basic filters`, { tag: environment === 'Python' ? [tags.PYTHON] : [tags.ARK] }, async function ({ app, sessions, hotKeys, metric }) {
 			const { dataExplorer, variables, modals, console, clipboard, toasts } = app.workbench;
 
 			// execute code to create a data construct

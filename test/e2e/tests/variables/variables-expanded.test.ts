@@ -15,7 +15,7 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES, tag
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Python - Verify children values and types display when variable is expanded', async function ({ app, python }) {
+	test('Python - Verify children values and types display when variable is expanded', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const { variables, console, layouts } = app.workbench;
 
 		await console.executeCode('Python', script);

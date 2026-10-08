@@ -89,7 +89,7 @@ async function exerciseCellFeatures(app: Application, page: Page, hotKeys: HotKe
 // results, so only the extension's log can tell them apart.
 //
 // Electron only: the web build does not write extension logs to disk.
-test.describe('Quarto - No Virtual Documents', { tag: [tags.QUARTO, tags.ARK] }, () => {
+test.describe('Quarto - No Virtual Documents', { tag: [tags.QUARTO, tags.ARK, tags.PYTHON] }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {
 		await hotKeys.closeSecondarySidebar();

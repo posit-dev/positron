@@ -13,7 +13,7 @@ test.use({
 test.describe('Managed Credentials - Snowflake', {
 	tag: [tags.WORKBENCH_SNOWFLAKE]
 }, () => {
-	test('R - Verify SNOWFLAKE_ACCOUNT environment variable is set', async function ({ app, r }) {
+	test('R - Verify SNOWFLAKE_ACCOUNT environment variable is set', { tag: [tags.ARK] }, async function ({ app, r }) {
 		await app.workbench.console.executeCode('R', 'Sys.getenv("SNOWFLAKE_ACCOUNT")');
 		await app.workbench.console.waitForConsoleContents(process.env.SNOWFLAKE_ACCOUNT!);
 	});

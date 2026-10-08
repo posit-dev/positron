@@ -11,7 +11,7 @@ test.use({
 
 
 test.describe('Sessions: Accessibility',
-	{ tag: [tags.WIN, tags.WEB, tags.ACCESSIBILITY, tags.SESSIONS, tags.CONSOLE] }, () => {
+	{ tag: [tags.WIN, tags.WEB, tags.ACCESSIBILITY, tags.SESSIONS, tags.CONSOLE, tags.PYTHON] }, () => {
 		test.beforeEach(async function ({ hotKeys }) {
 			await hotKeys.closeSecondarySidebar();
 		});
@@ -34,7 +34,7 @@ test.describe('Sessions: Accessibility',
 			await sessions.delete(pySessionAlt.id);
 		});
 
-		test('Validate sessions are keyboard accessible', async function ({ sessions, page }) {
+		test('Validate sessions are keyboard accessible', { tag: [tags.ARK] }, async function ({ sessions, page }) {
 			const [pySession, rSession, pySession2] = await sessions.start(['python', 'r', 'python']);
 			const newSessionName = 'This is a test';
 

@@ -14,7 +14,7 @@ test.describe('Console Output Log', { tag: [tags.WEB, tags.WIN, tags.OUTPUT, tag
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Python - Verify Console Output Log Contents', async function ({ app, python }) {
+	test('Python - Verify Console Output Log Contents', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const activeConsole = app.workbench.console.activeConsole;
 		await activeConsole.click();
 

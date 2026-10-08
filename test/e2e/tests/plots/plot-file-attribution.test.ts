@@ -39,7 +39,7 @@ const languageConfigs: LanguageConfig[] = [
 			'plt.show()',
 			''
 		].join('\n'),
-		tags: [],
+		tags: [tags.PYTHON],
 		runFileCommand: 'python.execInConsole',
 	},
 ];
@@ -123,7 +123,7 @@ test.describe('Plot Session Select', { tag: [tags.PLOTS] }, () => {
 		await cleanup.removeTestFiles([pyFileName]);
 	});
 
-	test('Clicking plot session button updates the interpreter picker', async function ({ app, sessions, openFile, hotKeys }) {
+	test('Clicking plot session button updates the interpreter picker', { tag: [tags.PYTHON, tags.ARK] }, async function ({ app, sessions, openFile, hotKeys }) {
 		const { plots } = app.workbench;
 
 		// Start Python and generate a plot

@@ -47,7 +47,7 @@ ${filler}
 }
 
 test.describe('Quarto - Inline Output: Widget scroll trap', {
-	tag: [tags.QUARTO]
+	tag: [tags.QUARTO, tags.ARK]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

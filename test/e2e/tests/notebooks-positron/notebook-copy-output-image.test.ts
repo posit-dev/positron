@@ -17,7 +17,7 @@ plt.plot([1, 2, 3], [1, 4, 9])
 plt.show()`;
 
 test.describe('Positron Notebooks: Copy Output Image', {
-	tag: [tags.POSITRON_NOTEBOOKS, tags.WIN, tags.WEB]
+	tag: [tags.POSITRON_NOTEBOOKS, tags.WIN, tags.WEB, tags.PYTHON]
 }, () => {
 
 	test.beforeEach(async function ({ app, python }) {

@@ -23,7 +23,7 @@ test.use({
 const isMacIntel = process.platform === 'darwin' && process.arch === 'x64';
 
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
-	test.describe('Python Plots', () => {
+	test.describe('Python Plots', { tag: [tags.PYTHON] }, () => {
 
 		test.beforeAll(async function ({ sessions }) {
 			await sessions.start('python');

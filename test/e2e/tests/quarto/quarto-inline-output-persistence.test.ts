@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Quarto - Inline Output: Persistence', {
-	tag: [tags.WEB, tags.WIN, tags.QUARTO]
+	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.PYTHON]
 }, () => {
 
 	// Saved under a random name, so teardown cannot know it up front.
