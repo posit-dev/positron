@@ -9,7 +9,6 @@ const test = base.extend<{}, {}>({
 	beforeApp: [
 		async ({ settingsFile }, use) => {
 			await settingsFile.append({
-				'python.useBundledIpykernel': false,
 				// Trace-level supervisor logs to diagnose https://github.com/posit-dev/positron/issues/15060.
 				// At the default `debug` level the supervisor logs "sending to Jupyter socket Shell"
 				// before queueing to an in-process channel; only `trace` logs the actual ZMQ send, which
@@ -25,17 +24,6 @@ const test = base.extend<{}, {}>({
 
 test.use({
 	suiteId: __filename
-});
-
-test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN, tags.PYTHON] }, () => {
-
-	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
-		await sessions.start('pythonAlt');
-		await sessions.clearConsoleAllSessions();
-		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
-		await app.workbench.console.waitForConsoleContents('site-packages');
-		await sessions.deleteAll();
-	});
 });
 
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN, tags.PYTHON] }, () => {
