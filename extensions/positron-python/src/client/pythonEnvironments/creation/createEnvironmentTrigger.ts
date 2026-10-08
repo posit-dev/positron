@@ -42,7 +42,7 @@ import {
 } from './provider/autoCreateVenv';
 import { autoSyncUvEnv, autoInstallPixiEnv, showPixiNotInstalledWarning } from './provider/autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../positron/manager';
-import { IInterpreterService } from '../../interpreter/contracts';
+import { IActivatedEnvironmentLaunch } from '../../interpreter/contracts';
 import { getPixi } from '../common/environmentManagers/pixi';
 import * as path from 'path';
 import * as fsapi from '../../common/platform/fs-paths';
@@ -68,7 +68,7 @@ export interface CreateEnvironmentTriggerOptions {
 // Set once in registerCreateEnvironmentTriggers, which runs during activation before any
 // check. Both are singletons, so every later check (including reruns) reads the same ones.
 let pythonRuntimeManager: IPythonRuntimeManager;
-let interpreterService: IInterpreterService;
+let activatedEnvLaunch: IActivatedEnvironmentLaunch;
 
 /**
  * Shows the auto-create notification and dispatches on the user's response. Shared by the
@@ -121,6 +121,10 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
     // 2. The workspace does NOT have "requirements.txt", "requirements/*.txt", or "pyproject.toml"
     // 3. The workspace has known files for other environment types like environment.yml, conda.yml, poetry.lock, etc.
     // 4. The selected python is NOT classified as a global python interpreter
+    //
+    // The startup activated-environment selection writes the interpreter setting a few ms
+    // after activation; join it so the gate reads that interpreter, not the stale setting.
+    await activatedEnvLaunch.waitForSelection();
     const [
         venvExists,
         condaExists,
@@ -137,7 +141,7 @@ async function createEnvironmentCheckForWorkspace(uri: Uri): Promise<void> {
         hasRequirementFiles(workspace),
         hasPyprojectToml(workspace),
         hasKnownFiles(workspace),
-        isGlobalPythonSelected(workspace, interpreterService).then((isGlobal) => !isGlobal),
+        isGlobalPythonSelected(workspace).then((isGlobal) => !isGlobal),
         fsapi.pathExists(path.join(workspace.uri.fsPath, 'uv.lock')),
         fsapi.pathExists(path.join(workspace.uri.fsPath, 'pixi.lock')),
         hasPixiEnv(workspace),
@@ -269,12 +273,12 @@ export function registerCreateEnvironmentTriggers(
     disposables: Disposable[],
     // --- Start Positron ---
     runtimeManager: IPythonRuntimeManager,
-    interpreters: IInterpreterService,
+    launch: IActivatedEnvironmentLaunch,
     // --- End Positron ---
 ): void {
     // --- Start Positron ---
     pythonRuntimeManager = runtimeManager;
-    interpreterService = interpreters;
+    activatedEnvLaunch = launch;
     // --- End Positron ---
     disposables.push(
         registerCommand(Commands.Create_Environment_Check, (file: Resource) => {

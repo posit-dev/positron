@@ -24,7 +24,7 @@ import { Common, CreateEnv } from '../../../client/common/utils/localize';
 import * as autoCreateVenv from '../../../client/pythonEnvironments/creation/provider/autoCreateVenv';
 import * as autoCreateLockFileEnv from '../../../client/pythonEnvironments/creation/provider/autoCreateLockFileEnv';
 import { IPythonRuntimeManager } from '../../../client/positron/manager';
-import { IInterpreterService } from '../../../client/interpreter/contracts';
+import { IActivatedEnvironmentLaunch } from '../../../client/interpreter/contracts';
 import * as fsapi from '../../../client/common/platform/fs-paths';
 import * as pixiModule from '../../../client/pythonEnvironments/common/environmentManagers/pixi';
 // --- End Positron ---
@@ -53,8 +53,8 @@ suite('Create Environment Trigger', () => {
     let autoSyncUvEnvStub: sinon.SinonStub;
     let autoInstallPixiEnvStub: sinon.SinonStub;
     let showPixiNotInstalledWarningStub: sinon.SinonStub;
-    const interpreterService = {} as IInterpreterService;
     const pythonRuntimeManager = {} as IPythonRuntimeManager;
+    const activatedEnvLaunch = { waitForSelection: () => Promise.resolve() } as unknown as IActivatedEnvironmentLaunch;
     const pixi = {} as pixiModule.Pixi;
     // --- End Positron ---
 
@@ -113,7 +113,7 @@ suite('Create Environment Trigger', () => {
         showPixiNotInstalledWarningStub = sinon.stub(autoCreateLockFileEnv, 'showPixiNotInstalledWarning');
         showPixiNotInstalledWarningStub.resolves(undefined);
         sinon.stub(commandApis, 'registerCommand').returns({ dispose: () => undefined });
-        registerCreateEnvironmentTriggers([], pythonRuntimeManager, interpreterService);
+        registerCreateEnvironmentTriggers([], pythonRuntimeManager, activatedEnvLaunch);
         // --- End Positron ---
     });
 
