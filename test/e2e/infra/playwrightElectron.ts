@@ -30,17 +30,9 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 	args.push('--enable-smoke-test-driver');
 
 	// --- Start Positron ---
-	// Keep secret storage off the real OS keyring on every platform, not just in Docker. Each
-	// host fails differently and both failures are modal dialogs that intercept all input, so
-	// the run hangs until a human notices and dismisses one by hand:
-	//
-	//   Linux without a keyring backend -- "An OS keyring couldn't be identified..."
-	//   macOS with a locally built (ad-hoc signed) app -- the native Keychain access prompt,
-	//   which returns every time the signature changes, i.e. after every rebuild
-	//
-	// `--password-store=basic` covers the Linux side; `--use-mock-keychain` is the macOS one and
-	// is ignored elsewhere. Both are set at launch time because the per-test argv.json approach
-	// runs after the app has already started.
+	// Keep secret storage off the OS keyring on every platform. Otherwise a modal blocks all
+	// input: Linux with no keyring backend, or macOS asking Keychain access for a locally built app.
+	// --use-mock-keychain is macOS-only and ignored elsewhere.
 	args.push('--password-store=basic');
 	args.push('--use-mock-keychain');
 	// --- End Positron ---
