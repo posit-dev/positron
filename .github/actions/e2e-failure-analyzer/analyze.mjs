@@ -13,6 +13,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, existsSync, appendFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { decorateReport } from './report-format.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const MODEL = process.env.MODEL || 'opus';
@@ -272,6 +273,24 @@ function renderJobSetupFailures(runInfo, projects) {
 	return out.join('\n') + unpositionedNote;
 }
 
+/**
+ * Pre-compute deterministic severity per test: HARD = appears in result.failures
+ * (failed all retries); FLAKY = only appears in failedTests (recovered on retry).
+ * This must be computed here -- the model will misclassify if asked to count attempts.
+ * Match on (title, normalizedSpecPath). failures.file is a playwright-normalized
+ * absolute path while testDetails.file is project-relative; we strip up to the
+ * `tests/` root so the suffixes can be compared directly. Using the full project-
+ * relative suffix (not just basename) avoids false matches when two test files in
+ * different directories happen to share a basename and a test title.
+ */
+function classifyTests(result) {
+	const hardKeys = new Set((result.failures || []).map(f => `${f.title}|||${normalizeSpecPath(f.file)}`));
+	return (result.testDetails || []).map(t => ({
+		test: t,
+		severity: hardKeys.has(`${t.title}|||${normalizeSpecPath(t.file)}`) ? 'HARD' : 'FLAKY',
+	}));
+}
+
 function renderProjectFailures(projects, historyMap, runInfo) {
 	if (projects.length === 0) { return '(no e2e projects)'; }
 	const out = [];
@@ -291,17 +310,6 @@ function renderProjectFailures(projects, historyMap, runInfo) {
 		out.push(`Hard failures (failed all retries): ${finalFailures.length}`);
 		out.push(`Total failed attempts (incl. flaky recoveries): ${allAttempts.length}`);
 
-		// Pre-compute deterministic severity per test: HARD = appears in result.failures
-		// (failed all retries); FLAKY = only appears in failedTests (recovered on retry).
-		// This must be computed here -- the model will misclassify if asked to count attempts.
-		// Match on (title, normalizedSpecPath). failures.file is a playwright-normalized
-		// absolute path while testDetails.file is project-relative; we strip up to the
-		// `tests/` root so the suffixes can be compared directly. Using the full project-
-		// relative suffix (not just basename) avoids false matches when two test files in
-		// different directories happen to share a basename and a test title.
-		const hardKeys = new Set(finalFailures.map(f => `${f.title}|||${normalizeSpecPath(f.file)}`));
-
-		const details = result.testDetails || [];
 		// Flaky tests (passed on retry) get a compact one-line mention -- name +
 		// history -- and are collected here; hard failures get the full evidence
 		// block inline. A flaky test did NOT break this run (it went green on
@@ -310,10 +318,7 @@ function renderProjectFailures(projects, historyMap, runInfo) {
 		// for handoff while restricting the dominant token cost (per-attempt image
 		// and trace evidence, which the model reads) to hard failures only.
 		const flakyLines = [];
-		for (const t of details) {
-			const key = `${t.title}|||${normalizeSpecPath(t.file)}`;
-			const severity = hardKeys.has(key) ? 'HARD' : 'FLAKY';
-
+		for (const { test: t, severity } of classifyTests(result)) {
 			if (severity !== 'HARD') {
 				const hist = findHistoryFor(historyMap, t.title, t.file);
 				flakyLines.push(`- ${t.title} (${t.file})${hist ? ` -- ${historyOneLiner(hist)}` : ''}`);
@@ -571,23 +576,42 @@ Report structure:
 
 ## Summary
 
-| Test | Platform | Root cause | Severity |
-|------|----------|------------|----------|
-| <test name> | <project / OS> | <category> | hard |
+| Test | Platform | Root cause |
+|------|----------|------------|
+| <test name> | <project / OS> | <category> |
 
-List every HARD failure as a row (severity is always "hard" in this table). Keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard by definition -- include them as rows with the job name as the test name. Do NOT put flaky tests in this table.
+List every HARD failure as a row. Write each Root cause cell as just the rubric category name, spelled exactly as the rubric spells it (prefix "suspected" for a suspected product regression) -- no parenthetical; the explanation belongs in Detailed Analysis. The Action rebuilds this table after you write it: it adds a colored category icon to each row, counts rows by category for a callout above the table and the Slack post, and adds a legend. So do not add icons, emoji, a legend, or a count yourself. Keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard by definition -- include them as rows with the job name as the test name. Do NOT put flaky tests in this table.
 
 Read the input's \`## Job setup step failures\` section FIRST and let it settle the root cause before you open any screenshot or trace. A test in a job whose setup failed does not get the same row as the same test in a job whose setup was clean -- give them separate rows with their separate root causes.
 
 ## Detailed Analysis
 
-For each distinct HARD failure (or group), provide:
-- **<test name>** (<platform>) -- <root cause category>
-  - Setup: <include this line ONLY when the failure's job had a pre-test setup step failure; name the step and what it was installing. Omit the line entirely otherwise -- do not write "setup ok">
-  - Evidence: <1-2 sentences citing what the screenshot/trace/page snapshot shows>
-  - Commit: <relevant changed files, or "no related changes">
-  - History: <history line, or "no data available">
-  - Action: <what the developer should do>
+One section per distinct HARD failure (or group of the same test across platforms), in this exact layout, with a \`---\` line between sections:
+
+### <test name>
+
+<sub><platform(s)> &middot; <root cause category, with confidence if suspected></sub>
+
+**What happened:** <1-2 short sentences in plain language that someone who has never seen this test can follow: what the test was trying to do, what went wrong, and whether the problem is in the product, the test, or the CI environment. No selectors, CSS classes, file paths, line numbers, or rubric terms -- those belong in Evidence. Example: "The test opens the Output panel and scrolls to the top, but new log lines kept arriving and pulled the view back to the bottom. The product is fine; the test needs to wait for the output to stop.">
+
+**Setup:** <include this paragraph ONLY when the failure's job had a pre-test setup step failure; name the step and what it was installing. Omit it entirely otherwise -- do not write "setup ok">
+
+**Action:** <the single next step and who owns it, in at most 2 sentences and about 50 words. When the cause is unconfirmed, name the one check that would confirm or refute it -- not a full investigation plan; the reasoning behind it belongs in Evidence detail.>
+
+**Evidence:** <at most 2 short sentences: the single most decisive observation from the screenshot/trace/page snapshot>
+
+<details><summary>Evidence detail</summary>
+
+<the full evidence reasoning: what each screenshot, trace step, DOM-presence line, page snapshot, and log line shows, and what it rules in or out>
+
+</details>
+
+<sub>**Commit:** <relevant changed files, or "no related changes"> &middot; **History:** <one short line: pass rate, and onset or trend if it matters, or "no data available"></sub>
+
+Layout rules:
+- The \`###\` heading is the test name exactly as it appears in the Summary table's Test cell, with nothing before it -- the Action matches the heading to the row to add its icon.
+- Keep a blank line after the \`<summary>\` line and before \`</details>\`; GitHub only renders the markdown inside the block with that spacing. Omit the block when the short Evidence line already says everything.
+- Keep the Evidence line itself short -- the detail block is where the reasoning goes.
 
 ## Flaky (passed on retry)
 
@@ -683,6 +707,9 @@ async function main() {
 
 	const assistantMessages = [];
 	let turnCount = 0;
+	// Shown under the Summary table. `model` starts as the requested alias and
+	// is replaced by the resolved model ID from the SDK's init message.
+	const runStats = { model: MODEL, turns: undefined, costUsd: undefined };
 
 	for await (const message of query({
 		prompt: userPrompt,
@@ -715,23 +742,41 @@ async function main() {
 			if (toolUses.length) {
 				console.log(`[turn ${turnCount}] tool calls: ${toolUses.join(' | ')}`);
 			}
+		} else if (message.type === 'system' && message.subtype === 'init') {
+			runStats.model = message.model || runStats.model;
 		} else if (message.type === 'result') {
+			runStats.turns = message.num_turns;
+			runStats.costUsd = message.total_cost_usd;
 			console.log(`[analyzer] usage: input=${message.usage?.input_tokens} output=${message.usage?.output_tokens} cost_usd=${message.total_cost_usd}`);
 		}
 	}
 
 	const report = pickReport(assistantMessages);
 	const header = renderReportHeader(runInfo);
+	const statsNote = renderRunStats(runStats);
 	if (!report) {
 		console.error('[analyzer] no markdown report produced');
-		writeStepSummary(`${header}\n\n## E2E Failure Analysis\n\n_Analyzer produced no report. Check action logs._\n`);
+		writeStepSummary(`${header}\n\n## E2E Failure Analysis\n\n_Analyzer produced no report. Check action logs._\n\n<sub>${statsNote}</sub>\n`);
 		process.exit(1);
 	}
 
-	const fullReport = `${header}\n\n${report}`;
+	// Callout, table icons, and the Slack breakdown are built from the Summary
+	// table here rather than by the model, so they are consistent every run.
+	const flakyCount = projects.flatMap(p => classifyTests(p.result)).filter(c => c.severity === 'FLAKY').length;
+	const decorated = decorateReport(report, { flakyCount, note: statsNote });
+	const fullReport = `${header}\n\n${decorated.report}`;
 	writeStepSummary(fullReport);
 	writeFileSync(join(WORK_DIR, 'analysis-report.md'), fullReport);
 	console.log(`[analyzer] wrote ${fullReport.length} chars to step summary`);
+
+	// One-line issue breakdown for the Slack thread post in action.yml. Skipped
+	// when the Summary table can't be parsed; the post then omits the breakdown.
+	if (decorated.slack) {
+		writeFileSync(join(WORK_DIR, 'slack-summary.txt'), decorated.slack);
+		console.log(`[analyzer] slack summary: ${decorated.slack}`);
+	} else {
+		console.warn('[analyzer] WARN: could not parse the Summary table; Slack post will omit the breakdown');
+	}
 }
 
 function renderReportHeader(runInfo) {
@@ -746,6 +791,14 @@ function renderReportHeader(runInfo) {
 	const linkText = url ? `[${workflow} run #${runId}](${url})` : `${workflow} run #${runId}`;
 	const commitSegment = sha ? ` -- commit \`${sha}\`${subject ? ` "${subject}"` : ''}` : '';
 	return `> Analyzed ${linkText} on \`${branch}\`${commitSegment}`;
+}
+
+/** Inline note on what the analysis itself took: model, turns, and cost. */
+function renderRunStats({ model, turns, costUsd }) {
+	const parts = [`\`${model}\``];
+	if (Number.isFinite(turns)) { parts.push(`${turns} turn${turns === 1 ? '' : 's'}`); }
+	if (Number.isFinite(costUsd)) { parts.push(`$${costUsd.toFixed(2)}`); }
+	return `Analysis run: ${parts.join(', ')}`;
 }
 
 function pickReport(messages) {
