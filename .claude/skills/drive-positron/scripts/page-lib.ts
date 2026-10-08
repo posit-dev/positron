@@ -11,8 +11,8 @@
 //   registry          css, names: selectors.ts, passed in by inPage
 //   waits and focus   sleep, blur
 //   scopes and views  scope, snapshot, byRole, unstack
-//   overlays          quickOpen, closeQuickInput, openQuickInput, rows, pick,
-//                     clickRow
+//   overlays          quickOpen, closeQuickInput, openQuickInput, rows,
+//                     allRows, pick, clickRow
 //   dialogs and menus dialogs, explain, toasts, newToast, listIn, menu,
 //                     closeMenu, choose
 //   opened, on top    markOverlays, opened, onTop, failure
@@ -147,13 +147,16 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 		 * name without a trailing keybinding ("Continue (F5)" for Continue), then
 		 * the name before a comma and more (a Breakpoints row "dbg.R 7, Unverified
 		 * Breakpoint" for "dbg.R 7", the label the view shows), then, with
-		 * partial, any name holding it. A leading icon glyph is ignored (the Data
-		 * Explorer's column buttons read " team", an icon before the name).
+		 * partial, any name holding it. An icon glyph at either end is ignored, as
+		 * read leaves it out (the Data Explorer's column buttons read " team", an
+		 * icon before the name; a notebook's "Positron Notebook" editor-type
+		 * button ends in a drop-down chevron).
 		 */
 		byRole: async (scope: ReturnType<typeof page.locator>, role: string, name: string, partial: boolean) => {
 			const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			const lead = '^[\\s\\uE000-\\uF8FF]*';
-			const tries = [new RegExp(`${lead}${esc}\\s*$`, 'i'), new RegExp(`${lead}${esc}\\s*\\(.*\\)\\s*$`, 'i'), new RegExp(`${lead}${esc}\\s*,`, 'i'), ...(partial ? [new RegExp(esc, 'i')] : [])];
+			const tail = '[\\s\\uE000-\\uF8FF]*$';
+			const tries = [new RegExp(`${lead}${esc}${tail}`, 'i'), new RegExp(`${lead}${esc}\\s*\\(.*\\)${tail}`, 'i'), new RegExp(`${lead}${esc}\\s*,`, 'i'), ...(partial ? [new RegExp(esc, 'i')] : [])];
 			for (const re of tries) {
 				const all = scope.getByRole(role as Parameters<typeof page.getByRole>[0], { name: re });
 				if (await all.count()) { return all; }
@@ -186,6 +189,47 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				}))
 				.filter(r => Number.isFinite(r.index) && !r.separator);
 		}, { q: s.quickInput, label: s.label, list: s.list }),
+		/**
+		 * Every row of the open quick input, not only the ones drawn: the list is
+		 * virtual, so this walks it with ArrowDown from the filter, reading the rows
+		 * drawn at each step, until focus comes round to where it started (or stops
+		 * at the end, in a list that does not loop, and is put back). It presses no
+		 * key unless focus is in the quick input; then, or after max steps, it
+		 * returns what it read with complete false.
+		 */
+		allRows: async (max = 100) => {
+			const seen = new Map<number, Awaited<ReturnType<typeof lib.rows>>[number]>();
+			const read = async () => { for (const r of await lib.rows()) { seen.set(r.index, r); } };
+			// The focused row's index once the list has drawn: -1 for none, null when focus is outside the quick input.
+			const at = () => page.evaluate(({ q, list }) => new Promise<number | null>(done => requestAnimationFrame(() => requestAnimationFrame(() => {
+				const w = [...document.querySelectorAll<HTMLElement>(q.widget)].find(x => x.offsetParent !== null);
+				const f = w?.contains(document.activeElement) ? w.querySelector(list.focusedRow) : undefined;
+				done(f === undefined ? null : f ? Number(f.getAttribute(list.indexAttr)) : -1);
+			}))), { q: s.quickInput, list: s.list });
+			await read();
+			let start = await at();
+			// Nothing focused yet: the first ArrowDown focuses the first row.
+			if (start === -1) { await page.keyboard.press('ArrowDown'); start = await at(); await read(); }
+			let complete = false;
+			if (start !== null && start >= 0) {
+				let prev = start;
+				for (let i = 0; i < max; i++) {
+					await page.keyboard.press('ArrowDown');
+					const now = await at();
+					await read();
+					if (now === null || now < 0) { break; }
+					if (now === start || now === prev) { complete = true; break; }
+					prev = now;
+				}
+				// A list that does not loop ends with focus at its end: walk it back.
+				for (let i = 0; i < max; i++) {
+					const now = await at();
+					if (now === null || now <= start) { break; }
+					await page.keyboard.press('ArrowUp');
+				}
+			}
+			return { rows: [...seen.values()].sort((x, y) => x.index - y.index), complete };
+		},
 		/**
 		 * The one row a match picks, waiting up to a second for the list to filter.
 		 * With words, each must be a whole word ("R" is not the r in "positron-python");
@@ -422,7 +466,7 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const css = waiting.match(/^locator\('([^']*)'\)/)?.[1] ?? '';
 			const parts: Record<string, string> = { [s.editorGroup.active]: 'editor', [s.part.editor]: 'editor', [s.part.sidebar]: 'sidebar', [s.part.secondary]: 'secondary', [s.part.panel]: 'panel', [s.part.statusbar]: 'statusbar', [s.overlay.dialog]: 'dialog', [s.overlay.menu]: 'menu', [s.quickInput.widget]: 'quickpick' };
 			const role = waiting.match(/getByRole\('(\w+)'(?:, \{ name: \/(.*?)\/i? \})?/);
-			// The name as lib.byRole wrote it: ^[\s\uE000-\uF8FF]*NAME\s*$, with a "(keys)" or "," tail, escaped.
+			// The name as lib.byRole wrote it: ^[\s\uE000-\uF8FF]*NAME[\s\uE000-\uF8FF]*$, with a "(keys)" or "," tail, escaped.
 			const name = (role?.[2] ?? '').split('[\\s\\uE000-\\uF8FF]*').join('').split('\\s*').join('').replace(/^\^|\$$/g, '').replace(/(\\\(\.\*\\\)|,)$/, '').replace(/\\(.)/g, '$1');
 			const target = role ? `${role[1]}${name ? ` "${name}"` : ''}` : 'the element';
 			const where = parts[css] ? ` in ${parts[css]}` : css && !/^(body|html)$/.test(css) ? ` in ${css.length > 60 ? 'its view' : css}` : '';

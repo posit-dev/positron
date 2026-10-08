@@ -27,7 +27,9 @@
 #                    first, so a row below the ones on screen is found; the
 #                    filter takes words in the order the row shows them, and
 #                    when it leaves no match the unfiltered rows on screen
-#                    are tried
+#                    are tried. When no row matches, the error's "shown"
+#                    lists every interpreter of the language in the picker,
+#                    the rows below the screen too, to choose --name from
 #   --timeout SECS   how long to wait for the console to be ready (default 60),
 #                    and, first, for a session that is still starting; a
 #                    value that is not a positive number is a usage error

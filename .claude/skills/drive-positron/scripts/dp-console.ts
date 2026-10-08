@@ -55,9 +55,17 @@ function startSession(session: string, language: 'python' | 'r', name: string, t
 			p = await lib.pick({ words: a.words });
 		}
 		if (!p.ok) {
+			// pick shows the first rows on screen, of any language. With --name and no
+			// match, walk the whole unfiltered picker and list this language's rows:
+			// the interpreters --name can be chosen from.
+			const all = a.name && p.error.startsWith('no row matches') ? await lib.allRows() : null;
+			const ours = (all?.rows ?? []).filter(r => r.label.startsWith(a.word + ' ')).map(r => r.label + (r.description ? ' (' + r.description + ')' : ''));
 			// Interpreter discovery lists languages one by one: say whether this one has any row yet.
-			const listed = (await lib.rows()).some(r => r.label.startsWith(a.word + ' '));
+			const listed = ours.length > 0 || (await lib.rows()).some(r => r.label.startsWith(a.word + ' '));
 			await lib.closeQuickInput();
+			if (ours.length) {
+				return { ok: false, error: `--name "${a.name}" matches no ${a.word} interpreter the picker could pick; pass words from one of the rows in "shown" as --name, in the order the row shows them, such as its version`, shown: ours, ...(all!.complete ? {} : { more: 'the picker lists more rows than were read' }), listed };
+			}
 			return { ...p, listed };
 		}
 		if (!p.row.label.startsWith(a.word + ' ')) {
