@@ -191,7 +191,7 @@ const choose: PageFn<Target & { item: string; wait: number }> = async (page, a, 
 	const t = trig.nth(Math.max(0, (a.nth || 1) - 1));
 	const handle = await t.elementHandle();
 	if (await t.isDisabled().catch(() => false)) { return { ok: false, error: `${a.role} "${a.name}"${a.scope ? ' in ' + a.scope : ''} is disabled; nothing was done` }; }
-	const triggerBefore = await t.evaluate(e => (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim());
+	const triggerBefore = await t.evaluate(e => (e.getAttribute('aria-label') || (e as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim());
 	const before = await lib.snapshot(sc.loc, 400);
 	const toastsBefore = await lib.toasts();
 	await lib.markOverlays(handle);
@@ -215,7 +215,7 @@ const choose: PageFn<Target & { item: string; wait: number }> = async (page, a, 
 	const acted = Date.now();
 	const settled = await lib.settle(sc.loc, before, a.wait);
 	const diff = lib.diff(before, settled.tree);
-	const triggerAfter = await handle?.evaluate(e => e.isConnected ? (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim() : null).catch(() => null) ?? null;
+	const triggerAfter = await handle?.evaluate(e => e.isConnected ? (e.getAttribute('aria-label') || (e as HTMLElement).innerText || '').replace(/\s+/g, ' ').trim() : null).catch(() => null) ?? null;
 	const toasts = await lib.newToasts(toastsBefore, acted + 1500);
 	const renamed = triggerAfter !== null && triggerAfter !== triggerBefore;
 	return {
