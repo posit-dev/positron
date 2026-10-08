@@ -13,7 +13,7 @@ import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
 import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { isUriComponents, URI } from '../../../../base/common/uri.js';
+import { isUriComponents, URI, UriComponents } from '../../../../base/common/uri.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { IPackageRepositoryRequest, IPackageRepositoryResponse, IRuntimeSessionMetadata, reviveRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -1074,6 +1074,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Cannot update session name for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
 		}
 		this._runtimeSessions[handle].updateSessionName(sessionName);
+	}
+
+	$updateNotebookUriLanguageRuntime(handle: number, notebookUri: UriComponents, quartoNotebookUri: UriComponents | undefined): void {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot update notebook URI for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+		session.updateNotebookUri?.(URI.revive(notebookUri), quartoNotebookUri ? URI.revive(quartoNotebookUri) : undefined)
+			?.then(undefined, err => this._logService.error(`Failed to update notebook URI for session ${session.metadata.sessionId}: ${err}`));
 	}
 
 	$showProfileLanguageRuntime(handle: number): Thenable<void> {

@@ -680,57 +680,60 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 `pending: ${this._lspQueue.pending}`,
             vscode.LogLevel.Debug,
         );
-        return this._lspQueue.add(async () => {
-            if (!this._kernel) {
-                traceWarn('Cannot activate LSP; kernel not started');
-                return;
-            }
+        return this._lspQueue.add(() => this._activateLspNow(reason));
+    }
 
+    /** Activates the LSP. Must run inside `_lspQueue`; use `activateLsp()` otherwise. */
+    private async _activateLspNow(reason: string): Promise<void> {
+        if (!this._kernel) {
+            traceWarn('Cannot activate LSP; kernel not started');
+            return;
+        }
+
+        this._kernel.emitJupyterLog(
+            `LSP activation started. Reason: ${reason}. ` +
+                `Queue size: ${this._lspQueue.size}, ` +
+                `pending: ${this._lspQueue.pending}`,
+            vscode.LogLevel.Debug,
+        );
+
+        if (!this._lsp) {
             this._kernel.emitJupyterLog(
-                `LSP activation started. Reason: ${reason}. ` +
-                    `Queue size: ${this._lspQueue.size}, ` +
-                    `pending: ${this._lspQueue.pending}`,
-                vscode.LogLevel.Debug,
+                'Tried to activate LSP but no LSP instance is available',
+                vscode.LogLevel.Warning,
             );
+            return;
+        }
 
-            if (!this._lsp) {
-                this._kernel.emitJupyterLog(
-                    'Tried to activate LSP but no LSP instance is available',
-                    vscode.LogLevel.Warning,
-                );
-                return;
-            }
+        if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
+            this._kernel.emitJupyterLog('LSP already active', vscode.LogLevel.Debug);
+            return;
+        }
 
-            if (this._lsp.state !== LspState.stopped && this._lsp.state !== LspState.uninitialized) {
-                this._kernel.emitJupyterLog('LSP already active', vscode.LogLevel.Debug);
-                return;
-            }
+        this._kernel.emitJupyterLog('Starting Positron LSP server');
 
-            this._kernel.emitJupyterLog('Starting Positron LSP server');
+        // Create the LSP comm, which also starts the LSP server.
+        // We await the server selected port (the server selects the
+        // port since it is in charge of binding to it, which avoids
+        // race conditions). We also use this promise to avoid restarting
+        // in the middle of initialization.
+        this._lspClientId = this._kernel.createPositronLspClientId();
+        // Bind the LSP to IPv4 loopback and connect the client to the same
+        // address; otherwise the client's `localhost` resolution can land on
+        // `::1` and miss the server when IPv4 is disabled.
+        const host = '127.0.0.1';
+        this._lspStartingPromise = this._kernel.startPositronLsp(this._lspClientId, host);
+        let port: number;
+        try {
+            port = await this._lspStartingPromise;
+        } catch (err) {
+            this._kernel.emitJupyterLog(`Error starting Positron LSP: ${err}`, vscode.LogLevel.Error);
+            return;
+        }
 
-            // Create the LSP comm, which also starts the LSP server.
-            // We await the server selected port (the server selects the
-            // port since it is in charge of binding to it, which avoids
-            // race conditions). We also use this promise to avoid restarting
-            // in the middle of initialization.
-            this._lspClientId = this._kernel.createPositronLspClientId();
-            // Bind the LSP to IPv4 loopback and connect the client to the same
-            // address; otherwise the client's `localhost` resolution can land on
-            // `::1` and miss the server when IPv4 is disabled.
-            const host = '127.0.0.1';
-            this._lspStartingPromise = this._kernel.startPositronLsp(this._lspClientId, host);
-            let port: number;
-            try {
-                port = await this._lspStartingPromise;
-            } catch (err) {
-                this._kernel.emitJupyterLog(`Error starting Positron LSP: ${err}`, vscode.LogLevel.Error);
-                return;
-            }
+        this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
 
-            this._kernel.emitJupyterLog(`Starting Positron LSP client on port ${port}`);
-
-            await this._lsp.activate(port, host);
-        });
+        await this._lsp.activate(port, host);
     }
 
     /**
@@ -754,26 +757,29 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 `pending: ${this._lspQueue.pending}`,
             vscode.LogLevel.Debug,
         );
-        return this._lspQueue.add(async () => {
-            this._kernel?.emitJupyterLog(
-                `LSP deactivation started. Reason: ${reason}. ` +
-                    `Queue size: ${this._lspQueue.size}, ` +
-                    `pending: ${this._lspQueue.pending}`,
-                vscode.LogLevel.Debug,
-            );
-            if (!this._lsp || this._lsp.state !== LspState.running) {
-                this._kernel?.emitJupyterLog('LSP already deactivated', vscode.LogLevel.Debug);
-                return;
-            }
+        return this._lspQueue.add(() => this._deactivateLspNow(reason));
+    }
 
-            this._kernel?.emitJupyterLog(`Stopping Positron LSP server, reason: ${reason}`);
-            await this._lsp.deactivate();
-            if (this._lspClientId) {
-                this._kernel?.removeClient(this._lspClientId);
-                this._lspClientId = undefined;
-            }
-            this._kernel?.emitJupyterLog(`Positron LSP server stopped`, vscode.LogLevel.Debug);
-        });
+    /** Deactivates the LSP. Must run inside `_lspQueue`; use `deactivateLsp()` otherwise. */
+    private async _deactivateLspNow(reason: string): Promise<void> {
+        this._kernel?.emitJupyterLog(
+            `LSP deactivation started. Reason: ${reason}. ` +
+                `Queue size: ${this._lspQueue.size}, ` +
+                `pending: ${this._lspQueue.pending}`,
+            vscode.LogLevel.Debug,
+        );
+        if (!this._lsp || this._lsp.state !== LspState.running) {
+            this._kernel?.emitJupyterLog('LSP already deactivated', vscode.LogLevel.Debug);
+            return;
+        }
+
+        this._kernel?.emitJupyterLog(`Stopping Positron LSP server, reason: ${reason}`);
+        await this._lsp.deactivate();
+        if (this._lspClientId) {
+            this._kernel?.removeClient(this._lspClientId);
+            this._lspClientId = undefined;
+        }
+        this._kernel?.emitJupyterLog(`Positron LSP server stopped`, vscode.LogLevel.Debug);
     }
 
     async restart(workingDirectory?: string): Promise<void> {
@@ -874,6 +880,34 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     updateSessionName(sessionName: string): void {
         this.dynState.sessionName = sessionName;
         this._kernel?.updateSessionName(sessionName);
+    }
+
+    /**
+     * Follow the notebook (or Quarto document) to its new URI.
+     *
+     * The LSP picks and claims the cells it serves from this session's metadata
+     * when it activates, so a running LSP is restarted. It must stop before the
+     * metadata changes, because stopping releases the claim on whatever URI the
+     * metadata holds. Doing it all in one queue task keeps anything else from
+     * starting or stopping the LSP in between.
+     */
+    async updateNotebookUri(notebookUri: vscode.Uri, quartoNotebookUri: vscode.Uri | undefined): Promise<void> {
+        return this._lspQueue.add(async () => {
+            const wasRunning = this._lsp?.state === LspState.running;
+            if (wasRunning) {
+                await this._deactivateLspNow('notebook URI changed');
+            }
+
+            const metadata = this.metadata as {
+                -readonly [K in keyof positron.RuntimeSessionMetadata]: positron.RuntimeSessionMetadata[K];
+            };
+            metadata.notebookUri = notebookUri;
+            metadata.quartoNotebookUri = quartoNotebookUri;
+
+            if (wasRunning) {
+                await this._activateLspNow('notebook URI changed');
+            }
+        });
     }
 
     private async createKernel(): Promise<JupyterLanguageRuntimeSession> {

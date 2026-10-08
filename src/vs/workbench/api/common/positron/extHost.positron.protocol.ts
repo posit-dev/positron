@@ -154,6 +154,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;
 	$listOutputChannelsLanguageRuntime(handle: number): Promise<LanguageRuntimeSessionChannel[]>;
 	$updateSessionNameLanguageRuntime(handle: number, sessionName: string): void;
+	$updateNotebookUriLanguageRuntime(handle: number, notebookUri: UriComponents, quartoNotebookUri: UriComponents | undefined): void;
 	$showProfileLanguageRuntime(handle: number): void;
 	$getLaunchInfo(handle: number): Promise<ILanguageRuntimeLaunchInfo | undefined>;
 	$discoverLanguageRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): void;
