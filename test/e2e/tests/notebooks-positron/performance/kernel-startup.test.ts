@@ -28,7 +28,7 @@ test.describe('Positron Notebooks: Kernel Startup', {
 	});
 
 	for (const { lang, target } of LANGUAGES) {
-		test(`Notebook Kernel Start: ${lang}`, async function ({ app, metric }) {
+		test(`Notebook Kernel Start: ${lang}`, { tag: lang === 'Python' ? [tags.PYTHON] : [tags.ARK] }, async function ({ app, metric }) {
 			const { notebooks, notebooksPositron } = app.workbench;
 
 			// Fresh untitled Positron notebook so kernel startup happens under test control.

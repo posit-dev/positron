@@ -37,7 +37,7 @@ test.describe('Packages Pane', {
 	// python is uv; pythonAlt is pyenv
 	const pythonRuntimes: SessionRuntimes[] = ['python', 'pythonAlt'];
 
-	test.describe('Python - Install, search, and uninstall package', () => {
+	test.describe('Python - Install, search, and uninstall package', { tag: [tags.PYTHON] }, () => {
 		test.beforeAll(async function ({ app, openFolder }) {
 			await openFolder('test-files/workspaces/packages-pane-python');
 		});
@@ -66,7 +66,7 @@ test.describe('Packages Pane', {
 	});
 
 	test('R - Install, search, and uninstall package', {
-		tag: [tags.WIN]
+		tag: [tags.WIN, tags.ARK]
 	},
 		async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
@@ -92,7 +92,7 @@ test.describe('Packages Pane', {
 			await runCommand('workbench.action.maximizePanel');
 		});
 
-		test('R - Opens package help in Help pane', async function ({ app, r: _r }) {
+		test('R - Opens package help in Help pane', { tag: [tags.ARK] }, async function ({ app, r: _r }) {
 			const { packages } = app.workbench;
 
 			// Base is always attached
@@ -100,7 +100,7 @@ test.describe('Packages Pane', {
 			await packages.expectHelpPaneToContainText('The R Base Package');
 		});
 
-		test('Python - Opens package help in Help pane', { tag: [tags.WEB] },
+		test('Python - Opens package help in Help pane', { tag: [tags.WEB, tags.PYTHON] },
 			async function ({ app, python: _python, executeCode }) {
 				const { packages } = app.workbench;
 
@@ -114,7 +114,7 @@ test.describe('Packages Pane', {
 	});
 
 	test.describe('URL button', () => {
-		test('Python - Shows external link for a package with a homepage', { tag: [tags.WEB] },
+		test('Python - Shows external link for a package with a homepage', { tag: [tags.WEB, tags.PYTHON] },
 			async function ({ app, python: _python }) {
 				const { packages } = app.workbench;
 

@@ -39,7 +39,7 @@ test.use({
 });
 
 test.describe('Python Venv Auto-Creation', {
-	tag: [tags.INTERPRETER, tags.WEB]
+	tag: [tags.INTERPRETER, tags.WEB, tags.PYTHON]
 }, () => {
 	test.skip(process.env.IS_OPENSUSE === 'true', 'Skip on openSuse');
 	test.slow();

@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Quarto - Inline Output: Execution', {
-	tag: [tags.WEB, tags.WIN, tags.QUARTO]
+	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.PYTHON]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {

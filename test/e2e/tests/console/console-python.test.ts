@@ -27,7 +27,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
+test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN, tags.PYTHON] }, () => {
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
 		await sessions.start('pythonAlt');
@@ -38,7 +38,7 @@ test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, 
 	});
 });
 
-test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
+test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN, tags.PYTHON] }, () => {
 
 	test('Python - do not allow extra console output on start', async function ({ app, python }) {
 

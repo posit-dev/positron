@@ -22,7 +22,7 @@ let connectUserPassword: string;
 // network.
 let connectServer!: string;
 
-test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PUBLISHER] }, () => {
+test.describe('Publisher - Shiny', { tag: [tags.WORKBENCH, tags.CONNECT, tags.PUBLISHER, tags.PYTHON] }, () => {
 
 	test.beforeAll('Get connect API key', async function ({ app, runDockerCommand, hotKeys }) {
 

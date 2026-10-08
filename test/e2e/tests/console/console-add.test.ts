@@ -14,7 +14,7 @@ test.describe('Console: Add +', {
 }, () => {
 
 	test('Validate Console + button menu shows both active and disconnected sessions', {
-		tag: [tags.ARK]
+		tag: [tags.ARK, tags.PYTHON]
 	}, async function ({ app }) {
 		const { sessions, console } = app.workbench;
 		const [pythonSession, rSession] = await sessions.start(['python', 'r', 'r', 'r', 'r', 'r', 'r',]);

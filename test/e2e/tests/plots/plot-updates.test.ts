@@ -53,7 +53,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - plot should not be updated after initial appearance', {
-			tag: [tags.WEB]
+			tag: [tags.WEB, tags.PYTHON]
 		}, async function ({ app, python }) {
 
 			const code = `

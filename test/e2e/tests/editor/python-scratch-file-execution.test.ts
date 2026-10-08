@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Python Scratch File', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, () => {
+test.describe('Python Scratch File', { tag: [tags.WEB, tags.EDITOR, tags.WIN, tags.PYTHON] }, () => {
 	test('Verify that lines in a python scratch file with magics can be executed', async function ({ app, python, runCommand }) {
 
 		const filename = 'Untitled-1';

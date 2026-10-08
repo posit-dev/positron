@@ -26,12 +26,14 @@ let dataExplorer: DataExplorer;
 const testCases = [
 	{
 		title: 'R - Can load data frame via variables pane',
+		tags: [tags.ARK],
 		openFile: 'workspaces/generate-data-frames-r/simple-data-frames.r',
 		variable: 'df',
 		tabName: 'Data: df',
 	},
 	{
 		title: 'Python - Can load data frame via variables pane',
+		tags: [tags.PYTHON],
 		openFile: 'workspaces/generate-data-frames-py/simple-data-frames.py',
 		variable: 'df',
 		tabName: 'Data: df',
@@ -66,7 +68,7 @@ test.describe('Editor Action Bar: Data Files', {
 	});
 
 	for (const testCase of testCases) {
-		test(testCase.title, async function ({ app, sessions, openDataFile, openFile }) {
+		test(testCase.title, { tag: testCase.tags ?? [] }, async function ({ app, sessions, openDataFile, openFile }) {
 			// Set interpreter
 			const language = testCase.title.startsWith('R') ? 'r' : 'python';
 			await sessions.start(language);

@@ -58,7 +58,7 @@ test.describe('Install Missing Packages', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Console - a missing-module error offers to install the package', async function ({ app, python }) {
+	test('Console - a missing-module error offers to install the package', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const { console, packages } = app.workbench;
 		const page = app.code.driver.currentPage;
 		testLanguage = 'Python';
@@ -84,7 +84,7 @@ test.describe('Install Missing Packages', {
 		});
 	});
 
-	test('Command - Install Missing Packages installs a referenced Python package', async function ({ app, python, openFile }) {
+	test('Command - Install Missing Packages installs a referenced Python package', { tag: [tags.PYTHON] }, async function ({ app, python, openFile }) {
 		const { packages, quickaccess } = app.workbench;
 		const page = app.code.driver.currentPage;
 		const fileName = 'missing_packages_install.py';
@@ -111,7 +111,7 @@ test.describe('Install Missing Packages', {
 		await fs.rm(filePath, { force: true });
 	});
 
-	test('Command - Install Missing Packages installs a referenced R package', async function ({ app, r, openFile }) {
+	test('Command - Install Missing Packages installs a referenced R package', { tag: [tags.ARK] }, async function ({ app, r, openFile }) {
 		const { packages, quickaccess } = app.workbench;
 		const page = app.code.driver.currentPage;
 		const fileName = 'missing_packages_install.R';
@@ -134,7 +134,7 @@ test.describe('Install Missing Packages', {
 		await fs.rm(filePath, { force: true });
 	});
 
-	test('Command - Check for Missing Packages prompts before installing', async function ({ app, python, openFile }) {
+	test('Command - Check for Missing Packages prompts before installing', { tag: [tags.PYTHON] }, async function ({ app, python, openFile }) {
 		const { packages, quickaccess } = app.workbench;
 		const page = app.code.driver.currentPage;
 		const fileName = 'missing_packages_check.py';

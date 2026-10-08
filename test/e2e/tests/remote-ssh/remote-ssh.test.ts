@@ -14,7 +14,7 @@ test.use({
 });
 
 test.describe('Remote SSH', {
-	tag: [tags.REMOTE_SSH]
+	tag: [tags.REMOTE_SSH, tags.PYTHON, tags.ARK]
 }, () => {
 
 	test.beforeAll(async ({ settings }) => {

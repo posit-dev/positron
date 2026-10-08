@@ -14,7 +14,7 @@ test.describe('Session Picker', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS]
 }, () => {
 
-	test('Python - Start and verify session via session picker', async function ({ sessions }) {
+	test('Python - Start and verify session via session picker', { tag: [tags.PYTHON] }, async function ({ sessions }) {
 		const pythonSession = await sessions.start('python', { triggerMode: 'session-picker', reuse: false });
 
 		await sessions.expectSessionPickerToBe(pythonSession.name);
@@ -30,7 +30,7 @@ test.describe('Session Picker', {
 		await sessions.expectAllSessionsToBeReady();
 	});
 
-	test('Verify Session Picker updates correctly across multiple active sessions', async function ({ sessions }) {
+	test('Verify Session Picker updates correctly across multiple active sessions', { tag: [tags.PYTHON, tags.ARK] }, async function ({ sessions }) {
 		// Start Python and R sessions
 		const [pySession, rSession] = await sessions.start(['python', 'r']);
 
@@ -52,7 +52,7 @@ test.describe('Session Picker', {
 		await sessions.expectSessionPickerToBe(pySession.name);
 	});
 
-	test('Verify Session Quickpick ranks sessions by last used', async function ({ app, page }) {
+	test('Verify Session Quickpick ranks sessions by last used', { tag: [tags.PYTHON, tags.ARK] }, async function ({ app, page }) {
 		const { sessions } = app.workbench;
 		const [rSession, rAltSession] = await sessions.start(['r', 'rAlt']);
 

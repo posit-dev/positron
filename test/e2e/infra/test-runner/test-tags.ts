@@ -77,6 +77,7 @@ export enum FeatureTags {
 	PLOTS = '@:plots',
 	PROBLEMS = '@:problems',
 	PUBLISHER = '@:publisher',
+	PYTHON = '@:python',
 	PYREFLY = '@:pyrefly',
 	REFERENCES = '@:references',
 	R_MARKDOWN = '@:r-markdown',

@@ -33,7 +33,7 @@ test.describe('Environment Modules', { tag: [tags.WORKBENCH, tags.ENVIRONMENT_MO
 		}
 	}
 
-	test('Python - Create module environment', async function ({ app, runDockerCommand, sessions }) {
+	test('Python - Create module environment', { tag: [tags.PYTHON] }, async function ({ app, runDockerCommand, sessions }) {
 		await app.workbench.quickaccess.createModuleEnvironment(
 			'Python 3.12.10 Module',
 			['python'],
@@ -54,7 +54,7 @@ test.describe('Environment Modules', { tag: [tags.WORKBENCH, tags.ENVIRONMENT_MO
 		await app.workbench.console.waitForConsoleContents('Module');
 	});
 
-	test('R - Create module environment', async function ({ app, runDockerCommand, sessions }) {
+	test('R - Create module environment', { tag: [tags.ARK] }, async function ({ app, runDockerCommand, sessions }) {
 		await app.workbench.quickaccess.createModuleEnvironment(
 			'R 4.4.1 Module',
 			['r'],

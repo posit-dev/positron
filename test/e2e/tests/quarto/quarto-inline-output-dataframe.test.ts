@@ -14,7 +14,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 	tag: [tags.WEB, tags.WIN, tags.QUARTO]
 }, () => {
 
-	test('Python - Verify DataFrame output shows HTML only, not duplicate text and HTML', async function ({ python, app, openFile, settings }) {
+	test('Python - Verify DataFrame output shows HTML only, not duplicate text and HTML', { tag: [tags.PYTHON] }, async function ({ python, app, openFile, settings }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		// Disable inline data explorer so DataFrame falls back to HTML rendering
@@ -48,7 +48,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 	});
 
 	test('Python - Verify DataFrame shows inline data explorer', {
-		tag: [tags.DATA_EXPLORER]
+		tag: [tags.DATA_EXPLORER, tags.PYTHON]
 	}, async function ({ python, app, openFile }) {
 		const { editors, inlineQuarto, inlineDataExplorer } = app.workbench;
 
@@ -76,7 +76,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 	});
 
 	test('R - Verify DataFrame shows inline data explorer', {
-		tag: [tags.DATA_EXPLORER]
+		tag: [tags.DATA_EXPLORER, tags.ARK]
 	}, async function ({ r, app, openFile }) {
 		const { editors, inlineQuarto, inlineDataExplorer } = app.workbench;
 
@@ -104,7 +104,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 	});
 
 	test('R - Verify DataFrame output persists correctly after window reload', {
-		tag: [tags.DATA_EXPLORER]
+		tag: [tags.DATA_EXPLORER, tags.ARK]
 	}, async function ({ r, app, openFile, hotKeys }) {
 		const { editors, inlineQuarto, inlineDataExplorer } = app.workbench;
 
@@ -146,7 +146,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 		await inlineQuarto.expectNoDataExplorerMetadata();
 	});
 
-	test('Python - Verify interactive HTML widget persists correctly after close and reopen', async function ({ python, app, openFile, hotKeys }) {
+	test('Python - Verify interactive HTML widget persists correctly after close and reopen', { tag: [tags.PYTHON] }, async function ({ python, app, openFile, hotKeys }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		const filePath = join('workspaces', 'quarto_inline_output', 'interactive_plot.qmd');
@@ -178,7 +178,7 @@ test.describe('Quarto - Inline Output: DataFrame and Interactive HTML', {
 		await inlineQuarto.expectStdoutNotContains(['application/vnd.plotly', '"data":', '"layout":']);
 	});
 
-	test('Python - Verify interactive HTML widget persists correctly after window reload', async function ({ python, app, openFile, hotKeys }) {
+	test('Python - Verify interactive HTML widget persists correctly after window reload', { tag: [tags.PYTHON] }, async function ({ python, app, openFile, hotKeys }) {
 		const { editors, inlineQuarto } = app.workbench;
 
 		const filePath = join('workspaces', 'quarto_inline_output', 'interactive_plot.qmd');

@@ -46,7 +46,7 @@ test.describe('Quarto - Outline', { tag: [tags.QUARTO, tags.OUTLINE] }, () => {
 	});
 
 	test('Python - Outline nests code cell symbols under their chunk', {
-		tag: [tags.PYREFLY]
+		tag: [tags.PYREFLY, tags.PYTHON]
 	}, async function ({ app, openFile, sessions }) {
 		// Positron's own Python language server offers no document symbols, so
 		// the cell symbols come from Pyrefly, which only the Pyrefly job enables.

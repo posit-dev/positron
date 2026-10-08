@@ -27,7 +27,7 @@ test.describe('Postgres DB Connection', {
 		test.skip(process.platform === 'darwin', 'No Postgres container available on macOS CI');
 	});
 
-	test('Python - Can establish a Postgres connection to a docker container', async function ({ app, hotKeys, python }) {
+	test('Python - Can establish a Postgres connection to a docker container', { tag: [tags.PYTHON] }, async function ({ app, hotKeys, python }) {
 
 		await app.workbench.connections.openConnectionPane();
 

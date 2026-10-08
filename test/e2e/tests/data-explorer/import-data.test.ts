@@ -22,7 +22,7 @@ test.describe('Data Explorer - Import Data', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python Pandas - Verify importing a CSV creates a dataframe in the session', async function ({ app, openDataFile, python }) {
+	test('Python Pandas - Verify importing a CSV creates a dataframe in the session', { tag: [tags.PYTHON] }, async function ({ app, openDataFile, python }) {
 		const { dataExplorer, variables } = app.workbench;
 
 		await openDataFile(join('data-files', 'small_file.csv'));
@@ -41,7 +41,7 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('small_file', /10 rows/);
 	});
 
-	test('R readr - Verify importing a CSV creates a dataframe in the session', async function ({ app, openDataFile, r }) {
+	test('R readr - Verify importing a CSV creates a dataframe in the session', { tag: [tags.ARK] }, async function ({ app, openDataFile, r }) {
 		const { dataExplorer, variables } = app.workbench;
 
 		await openDataFile(join('data-files', 'small_file.csv'));
@@ -63,7 +63,7 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('small_file', /10 rows x 10 columns/);
 	});
 
-	test('Python Pandas - Verify importing an XLSX honors the selected sheet', async function ({ app, openDataFile, python }) {
+	test('Python Pandas - Verify importing an XLSX honors the selected sheet', { tag: [tags.PYTHON] }, async function ({ app, openDataFile, python }) {
 		const { dataExplorer, variables } = app.workbench;
 
 		await openDataFile(join('data-files', 'ap-math-enrollment', 'ap-math-enrollment.xlsx'));
@@ -90,7 +90,7 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('ap_math_enrollment', /\d+ rows/);
 	});
 
-	test('R readxl - Verify importing an XLSX honors the selected sheet', async function ({ app, openDataFile, r }) {
+	test('R readxl - Verify importing an XLSX honors the selected sheet', { tag: [tags.ARK] }, async function ({ app, openDataFile, r }) {
 		const { dataExplorer, variables } = app.workbench;
 
 		await openDataFile(join('data-files', 'ap-math-enrollment', 'ap-math-enrollment.xlsx'));
@@ -117,7 +117,7 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('ap_math_enrollment', /61 rows x 23 columns/);
 	});
 
-	test('R nanoparquet - Verify importing a Parquet file creates a dataframe in the session', async function ({ app, openDataFile, r }) {
+	test('R nanoparquet - Verify importing a Parquet file creates a dataframe in the session', { tag: [tags.ARK] }, async function ({ app, openDataFile, r }) {
 		const { dataExplorer, variables } = app.workbench;
 
 		await openDataFile(join('data-files', 'misc-parquet', 'decimal_types.parquet'));
@@ -136,7 +136,7 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('decimal_types', /4 rows x 4 columns/);
 	});
 
-	test('Variables pane button - Verify Import Data picks a file then opens the dialog', async function ({ app, python }) {
+	test('Variables pane button - Verify Import Data picks a file then opens the dialog', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const { dataExplorer, quickInput, variables } = app.workbench;
 
 		await variables.clickImportData();
@@ -152,7 +152,7 @@ test.describe('Data Explorer - Import Data', {
 		await dataExplorer.importDataModal.clickCancel();
 	});
 
-	test('Python Pandas - Verify filters and sorts carry into the imported dataframe', async function ({ app, openDataFile, python }) {
+	test('Python Pandas - Verify filters and sorts carry into the imported dataframe', { tag: [tags.PYTHON] }, async function ({ app, openDataFile, python }) {
 		const { dataExplorer, editorActionBar, variables } = app.workbench;
 
 		await openDataFile(join('data-files', 'small_file.csv'));
@@ -183,7 +183,7 @@ test.describe('Data Explorer - Import Data', {
 
 	// The R generator emits a dplyr pipeline the unit tests only compare as a string. This is the
 	// only place that pipeline is executed, so it is what catches code dplyr cannot run.
-	test('R readr - Verify filters and sorts carry into the imported dataframe', async function ({ app, openDataFile, r }) {
+	test('R readr - Verify filters and sorts carry into the imported dataframe', { tag: [tags.ARK] }, async function ({ app, openDataFile, r }) {
 		const { dataExplorer, variables } = app.workbench;
 
 		await openDataFile(join('data-files', 'small_file.csv'));
@@ -210,7 +210,7 @@ test.describe('Data Explorer - Import Data', {
 		await variables.expectVariableToBe('small_file', /5 rows x 10 columns/);
 	});
 
-	test('Kernel-backed explorer - Verify Convert to Code shows and Import Data does not', async function ({ app, executeCode, python }) {
+	test('Kernel-backed explorer - Verify Convert to Code shows and Import Data does not', { tag: [tags.PYTHON] }, async function ({ app, executeCode, python }) {
 		const { dataExplorer, editorActionBar, variables } = app.workbench;
 
 		await executeCode('Python', 'import pandas as pd\ndf = pd.DataFrame({"a": [3, 1, 2]})');
@@ -238,7 +238,7 @@ test.describe('Data Explorer - Import Data from the Explorer context menu', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Explorer context menu - Verify Import Data opens the dialog over the file', async function ({ app, python }) {
+	test('Explorer context menu - Verify Import Data opens the dialog over the file', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const { contextMenu, dataExplorer, quickaccess } = app.workbench;
 		const page = app.code.driver.currentPage;
 

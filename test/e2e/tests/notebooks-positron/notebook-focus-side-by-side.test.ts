@@ -18,7 +18,7 @@ test.use({
 });
 
 test.describe('Notebook Side-by-Side Focus', {
-	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WIN, tags.WEB, tags.POSITRON_NOTEBOOKS, tags.PYTHON]
 }, () => {
 
 	test.beforeAll(async function ({ hotKeys }) {

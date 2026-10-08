@@ -63,7 +63,7 @@ test.describe('Evaluate Code', {
 		});
 	});
 
-	test.describe('Python', () => {
+	test.describe('Python', { tag: [tags.PYTHON] }, () => {
 		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.layouts.enterLayout('stacked');
 		});

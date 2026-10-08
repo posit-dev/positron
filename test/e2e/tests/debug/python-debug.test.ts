@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Python Debugging', {
-	tag: [tags.DEBUG, tags.WEB, tags.WIN]
+	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.PYTHON]
 }, () => {
 
 	test('Python - Verify Basic Script Debugging', async function ({ app, python, openFile }) {

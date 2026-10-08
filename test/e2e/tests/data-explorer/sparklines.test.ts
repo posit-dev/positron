@@ -21,7 +21,7 @@ test.describe('Data Explorer - Sparklines', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python Pandas - Verify downward trending graph', async ({ app, executeCode, hotKeys, python }) => {
+	test('Python Pandas - Verify downward trending graph', { tag: [tags.PYTHON] }, async ({ app, executeCode, hotKeys, python }) => {
 		const { dataExplorer, variables, editors } = app.workbench;
 
 		await executeCode('Python', pythonScript);
@@ -37,7 +37,7 @@ test.describe('Data Explorer - Sparklines', {
 	});
 
 
-	test('R - Verify downward trending graph', async ({ app, executeCode, hotKeys, r }) => {
+	test('R - Verify downward trending graph', { tag: [tags.ARK] }, async ({ app, executeCode, hotKeys, r }) => {
 		const { dataExplorer, variables, editors } = app.workbench;
 
 		await executeCode('R', rScript);

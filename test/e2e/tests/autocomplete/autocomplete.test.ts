@@ -18,7 +18,7 @@ test.describe('Autocomplete', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions, hotKeys }) {
+	test('Python - Verify autocomplete suggestions in Console and Editor', { tag: [tags.PYTHON] }, async function ({ app, runCommand, sessions, hotKeys }) {
 		const { editors, console } = app.workbench;
 
 		const [pySession1, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt']);
@@ -54,7 +54,7 @@ test.describe('Autocomplete', {
 		await editors.expectSuggestionListCount(0);
 	});
 
-	test('Python - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, hotKeys, sessions }) {
+	test('Python - Verify autocomplete suggestions (LSP is alive) after restart', { tag: [tags.PYTHON] }, async function ({ app, hotKeys, sessions }) {
 		const { console } = app.workbench;
 
 		const [pySession, pyAltSession] = await sessions.start(['python', 'pythonAlt']);

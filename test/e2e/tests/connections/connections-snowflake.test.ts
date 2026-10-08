@@ -19,7 +19,7 @@ test.describe('Snowflake Connection', {
 	tag: [tags.WEB, tags.CONNECTIONS]
 }, () => {
 
-	test('Python - Can establish a Snowflake connection', async function ({ python, packages, app }) {
+	test('Python - Can establish a Snowflake connection', { tag: [tags.PYTHON] }, async function ({ python, packages, app }) {
 
 		await packages.manage('snowflake', 'install');
 

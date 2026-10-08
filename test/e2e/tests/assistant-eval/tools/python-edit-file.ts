@@ -6,6 +6,7 @@
 import { expect } from '@playwright/test';
 import { join } from 'path';
 import { EvalTestCase, RunResult } from '../types';
+import { TestTags } from '../../../infra';
 
 /**
  * Test: editFile tool usage
@@ -20,6 +21,7 @@ export const pythonEditFile: EvalTestCase = {
 	description: 'Ensure editFile tool is called when editing files',
 	prompt,
 	mode,
+	tags: [TestTags.PYTHON],
 
 	run: async ({ app, sessions, hotKeys }): Promise<RunResult> => {
 		const { assistant, console, quickaccess } = app.workbench;

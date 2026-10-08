@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Quarto - Inline Output: Tab Switch Persistence', {
-	tag: [tags.QUARTO, tags.DATA_EXPLORER]
+	tag: [tags.QUARTO, tags.DATA_EXPLORER, tags.ARK]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {

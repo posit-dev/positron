@@ -80,7 +80,7 @@ async function configureCodex(app: Application): Promise<{ command: string; args
 test.describe('MCP Server', {
 	tag: [tags.WEB, tags.MCP, tags.CONSOLE, tags.SESSIONS]
 }, () => {
-	test('Python - Agent code runs in the session and is attributed in the console', async function ({ app, python }) {
+	test('Python - Agent code runs in the session and is attributed in the console', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		expect(await agent.listTools()).toEqual(expect.arrayContaining([
@@ -110,7 +110,7 @@ test.describe('MCP Server', {
 			.toContainText('Claude Code');
 	});
 
-	test('Python - The console is busy while agent code runs, and the agent can interrupt it', async function ({ app, python }) {
+	test('Python - The console is busy while agent code runs, and the agent can interrupt it', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		const running = agent.callTool('execute_code', {
@@ -127,7 +127,7 @@ test.describe('MCP Server', {
 		await app.workbench.console.waitForExecutionComplete();
 	});
 
-	test('Python - An agent can look at the current plot', async function ({ app, python }) {
+	test('Python - An agent can look at the current plot', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		const drawn = await agent.callTool('execute_code', {
@@ -141,7 +141,7 @@ test.describe('MCP Server', {
 		expect(plot.content.find(block => block.type === 'image')?.mimeType).toMatch(/^image\//);
 	});
 
-	test('Python - Silent evaluation returns a value to the agent', async function ({ app, python }) {
+	test('Python - Silent evaluation returns a value to the agent', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		const result = await agent.callTool('evaluate_code', { code: '6 * 7' });
@@ -169,7 +169,7 @@ test.describe('MCP Server', {
 		await app.workbench.console.waitForConsoleContents('hello from R', { exact: true });
 	});
 
-	test('Positron commands are searchable and runnable', async function ({ app, python }) {
+	test('Positron commands are searchable and runnable', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 
 		const commands = await agent.callTool('list_positron_commands', { query: 'plots' });
@@ -184,7 +184,7 @@ test.describe('MCP Server', {
 			.toBeVisible();
 	});
 
-	test('A request without a valid token is refused', async function ({ app, python }) {
+	test('A request without a valid token is refused', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		const agent = await connectAgent(app);
 		// Reach the same endpoint the real client is using, with a token that
 		// was never issued.
@@ -203,7 +203,7 @@ test.describe('MCP Server', {
 test.describe('MCP Server over stdio', {
 	tag: [tags.MCP, tags.CONSOLE, tags.SESSIONS]
 }, () => {
-	test('Python - An agent Positron configured runs code over stdio', async function ({ app, python }) {
+	test('Python - An agent Positron configured runs code over stdio', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		// Wait for the workspace to be registered, which is what writes the
 		// files the bridge finds it by.
 		await connectAgent(app);
