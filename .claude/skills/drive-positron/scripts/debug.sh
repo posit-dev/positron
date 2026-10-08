@@ -101,6 +101,9 @@
 
 set -u
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: one JSON line on stdout, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 SESSION=""
 COND=""
 TIMEOUT=30
@@ -108,11 +111,11 @@ LOGMSG=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) SESSION="${1#--session=}"; shift ;;
-		--condition) COND="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--log) LOGMSG="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--timeout) TIMEOUT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--session=*|--condition=*|--log=*|--timeout=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--session) [[ -n "${2-}" ]] || usage_error "--session needs a value; leave the flag out for \$PW_SESSION"; SESSION="$2"; shift 2 ;;
+		--condition) COND="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--log) LOGMSG="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--timeout) TIMEOUT="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) ARGS+=("$1"); shift ;;
 	esac
@@ -275,6 +278,8 @@ case "$CMD" in
 		fi
 		[[ -n "$A1" ]] || { echo '{"ok":false,"error":"give the expression"}'; exit 2; }
 		ui type "$A1" --enter --in panel ;;
+	# A flag it does not take, where the command goes, is named as one.
+	-*) jq -nc --arg a "$CMD" '{ok: false, error: ("unknown flag " + ($a | sub("=.*"; "")) + "; see --help for the flags it takes")}'; exit 2 ;;
 	*) echo '{"ok":false,"error":"command: state, break, step, wait, frame, watch, filter, console or eval"}'; exit 2 ;;
 esac
 }

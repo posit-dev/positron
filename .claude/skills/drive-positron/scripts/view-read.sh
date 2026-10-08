@@ -19,25 +19,21 @@
 
 set -u
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: the error on stderr, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error --text "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 SESSION=""
 VIEW=""
-ARGS=()
 BAD=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) SESSION="${1#--session=}"; shift ;;
-		--view) VIEW="${2-}"; ARGS+=("$1" "${2-}"); shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--session=*|--view=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--session) [[ -n "${2-}" ]] || usage_error "--session needs a value; leave the flag out for \$PW_SESSION"; SESSION="$2"; shift 2 ;;
+		--view) VIEW="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
-		*) BAD="${BAD:-$1}"; ARGS+=("$1"); shift ;;
+		*) BAD="${BAD:-$1}"; shift ;;
 	esac
 done
-# A usage error is a failure like any other: one line in the action log.
-usage_error() {
-	echo "view-read.sh: $1" >&2
-	node "$DIR/dp.ts" fail view-read.sh "$SESSION" "$1" ${ARGS[@]+"${ARGS[@]}"} >/dev/null
-	exit 2
-}
 [[ -z "$BAD" ]] || usage_error "unexpected argument \"$BAD\"; give the view as --view TITLE"
 [[ -n "$VIEW" ]] || usage_error "give --view TITLE"
 S=(); [[ -n "$SESSION" ]] && S=(--session "$SESSION")

@@ -42,6 +42,9 @@
 
 set -u
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: one JSON line on stdout, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 
 # Call the repo's playwright-cli directly: npx resolves the same package but
 # costs about a second per invocation. Located from this script, not from $PWD.
@@ -57,13 +60,13 @@ TEXT_ARG=""
 PW_SESSION_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
+		--session=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
 		--append) APPEND=1; shift ;;
 		--no-verify) VERIFY=0; shift ;;
-		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; shift ;;
+		--session) [[ -n "${2-}" ]] || usage_error "--session needs a value; leave the flag out for \$PW_SESSION"; PW_SESSION_OVERRIDE="$2"; shift 2 ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		--) shift; TEXT_ARG="${*-}"; break ;;
-		-*) echo "monaco-paste.sh: unknown flag $1" >&2; exit 2 ;;
+		-*) usage_error "unknown flag $1" ;;
 		*) TEXT_ARG="$1"; shift ;;
 	esac
 done
@@ -83,10 +86,7 @@ else
 	TEXT="${TEXT%x}"
 fi
 
-if [[ -z "$TEXT" ]]; then
-	echo '{"ok":false,"error":"empty input"}' >&2
-	exit 2
-fi
+[[ -n "$TEXT" ]] || usage_error "empty input"
 
 # Sanity: required tools on PATH.
 for tool in npx node jq; do

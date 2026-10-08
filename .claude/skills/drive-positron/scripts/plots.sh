@@ -93,17 +93,20 @@
 
 set -u
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: one JSON line on stdout, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 SESSION=""
 FORMAT="" WIDTH="" HEIGHT="" NAME=""
 ARGS=()
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) SESSION="${1#--session=}"; shift ;;
-		--format) FORMAT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--width) WIDTH="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--height) HEIGHT="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--name) NAME="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--session=*|--format=*|--width=*|--height=*|--name=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--session) [[ -n "${2-}" ]] || usage_error "--session needs a value; leave the flag out for \$PW_SESSION"; SESSION="$2"; shift 2 ;;
+		--format) FORMAT="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--width) WIDTH="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--height) HEIGHT="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
+		--name) NAME="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		*) ARGS+=("$1"); shift ;;
 	esac
@@ -148,8 +151,8 @@ case "$CMD" in
 		R=$(then_read "click $B" uiq click button "$B" --in "$views_plots") || { echo "$R"; exit 1; }
 		echo "$R" | jq -c --argjson w "$W" '. + {before: $w}' ;;
 	select|remove)
-		[[ "$ARG" =~ ^[0-9]+$ ]] || { echo '{"ok":false,"error":"give the thumbnail number, 1 = first"}'; exit 2; }
-		dp "$CMD" "$ARG" ;;
+		# dp-plots.ts checks N (a whole number from 1) before the page is touched.
+		dp "$CMD" ${ARGS[1]+"$ARG"} ;;
 	zoom)
 		[[ -n "$ARG" ]] || { echo '{"ok":false,"error":"give the zoom: Fit, 50%, 75%, 100% or 200%"}'; exit 2; }
 		CUR=$(dp read | jq -r '.zoom // empty')
@@ -206,6 +209,8 @@ case "$CMD" in
 		if [[ -n "$HEIGHT" ]]; then F=$(ui fill Height "$HEIGHT" --in dialog) || { echo "$F"; exit 1; }; fi
 		# The dialog as it reads now is this command's reading.
 		DRIVE_POSITRON_QUIET_READS='' ui read dialog | jq -c --arg i "$INTRINSIC" --arg c "$plots_intrinsicSize" 'if $i != "" then . + {intrinsicSize: ($c + " " + $i)} else . end' ;;
+	# A flag it does not take, where the command goes, is named as one.
+	-*) jq -nc --arg a "$CMD" '{ok: false, error: ("unknown flag " + ($a | sub("=.*"; "")) + "; see --help for the flags it takes")}'; exit 2 ;;
 	*) echo '{"ok":false,"error":"command: read, prev, next, select, remove, zoom, open, clear or save"}'; exit 2 ;;
 esac
 }

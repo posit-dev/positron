@@ -45,6 +45,9 @@
 
 set -u
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: the error on stderr, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error --text "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 
 # Call the repo's playwright-cli directly: npx resolves the same package but
 # costs about a second per invocation. Located from this script, not from $PWD.
@@ -58,19 +61,17 @@ JSON=0
 PW_SESSION_OVERRIDE=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--max) MAX="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--max=*) MAX="${1#--max=}"; shift ;;
+		--max=*|--session=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--max) MAX="${2-}"; shift 2 || usage_error "$1 needs a value" ;;
 		--json) JSON=1; shift ;;
-		--session) PW_SESSION_OVERRIDE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) PW_SESSION_OVERRIDE="${1#--session=}"; shift ;;
+		--session) [[ -n "${2-}" ]] || usage_error "--session needs a value; leave the flag out for \$PW_SESSION"; PW_SESSION_OVERRIDE="$2"; shift 2 ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
-		*) echo "quickpick-enum.sh: unknown arg $1" >&2; exit 2 ;;
+		*) usage_error "unknown argument $1" ;;
 	esac
 done
 
 if [[ ! "$MAX" =~ ^[0-9]+$ ]] || (( MAX < 1 )); then
-	echo "quickpick-enum.sh: --max must be a positive integer" >&2
-	exit 2
+	usage_error "--max must be a positive integer"
 fi
 
 for tool in npx jq; do
