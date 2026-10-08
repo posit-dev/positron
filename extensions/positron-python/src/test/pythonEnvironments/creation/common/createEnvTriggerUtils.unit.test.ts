@@ -48,7 +48,11 @@ suite('Create Environment Trigger - isGlobalEnvironment', () => {
         assert.isFalse(await isGlobalEnvironment(env('/project/.venv/bin/python', '/project/.venv', ['Uv'])));
     });
 
-    test('a ~/.local install is global even when reported as an environment', async () => {
+    test('a ~/.local install is global even when reported as an environment', async function () {
+        if (process.platform === 'win32') {
+            // Not an install location on Windows, and Uri.file lowercases the drive letter there.
+            this.skip();
+        }
         const local = path.join(os.homedir(), '.local');
         assert.isTrue(await isGlobalEnvironment(env(path.join(local, 'bin', 'python'), local, ['Venv'])));
     });
