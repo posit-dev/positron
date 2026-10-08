@@ -1055,9 +1055,9 @@ abstract class RunTestDecoration {
 		const clickGroups = this.getClickGroups(newTests);
 		if (visible === this.visible && equals(this.displayedStates, displayedStates)
 			&& clickGroups.primary === this.clickGroups.primary && clickGroups.alternate === this.clickGroups.alternate) {
-			// --- End Positron ---
 			return false;
 		}
+		// --- End Positron ---
 
 		this.tests = newTests;
 		this.displayedStates = displayedStates;
