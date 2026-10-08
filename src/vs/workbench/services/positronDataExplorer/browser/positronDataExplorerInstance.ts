@@ -16,7 +16,7 @@ import { Severity } from '../../../../platform/notification/common/notification.
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
+import { IDataExplorerViewContext, IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { buildDataImportView } from '../common/positronDataImportView.js';
 import { IDataImportView } from '../common/positronDataImporterRegistry.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
@@ -27,6 +27,8 @@ import { ClipboardCell, ClipboardCellIndexes, ClipboardColumnIndexes, ClipboardR
  * Constants.
  */
 const MAX_CLIPBOARD_CELLS = 10_000;
+const MAX_CONTEXT_CELLS = 100;
+const MAX_CONTEXT_NAMES = 50;
 
 /**
  * PositronDataExplorerInstance class.
@@ -484,6 +486,56 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			state,
 			columnIndices => this._dataExplorerClientInstance.getSchema(columnIndices)
 		);
+	}
+
+	/**
+	 * Describes the current view, cursor, and selection. See the interface JSDoc.
+	 */
+	async getViewContext(): Promise<IDataExplorerViewContext> {
+		const state = await this._dataExplorerClientInstance.getBackendState();
+		const view = await buildDataImportView(
+			state,
+			columnIndices => this._dataExplorerClientInstance.getSchema(columnIndices)
+		);
+		const columnName = (index: number) => this._tableDataCache.getColumnSchema(index)?.column_name ?? `${index}`;
+		const rowLabel = (index: number) => this._tableDataCache.getRowLabel(index) ?? `${index}`;
+		const grid = this._tableDataDataGridInstance;
+
+		const context: IDataExplorerViewContext = {
+			displayName: state.display_name,
+			shape: { rows: state.table_shape.num_rows, columns: state.table_shape.num_columns },
+			unfilteredShape: { rows: state.table_unfiltered_shape.num_rows, columns: state.table_unfiltered_shape.num_columns },
+			rowFilters: view?.rowFilters.map(filter => JSON.stringify(filter)) ?? [],
+			sortKeys: view?.sortKeys.map(key => ({ column: key.columnName, ascending: key.ascending })) ?? [],
+		};
+
+		if (grid.cursorColumnIndex >= 0 && grid.cursorRowIndex >= 0) {
+			context.cursor = { column: columnName(grid.cursorColumnIndex), row: rowLabel(grid.cursorRowIndex) };
+		}
+
+		const selection = grid.getSelection();
+		if (selection) {
+			// Whole rows span every column and whole columns span every row.
+			const columnIndexes = selection instanceof ClipboardRowIndexes ?
+				Array.from({ length: state.table_shape.num_columns }, (_, index) => index) :
+				selection instanceof ClipboardColumnIndexes ? selection.indexes : selection.columnIndexes;
+			const rowIndexes = selection instanceof ClipboardRowIndexes ? selection.indexes :
+				selection instanceof ClipboardCellIndexes ? selection.rowIndexes : undefined;
+			const rowCount = rowIndexes?.length ?? state.table_shape.num_rows;
+
+			context.selection = {
+				kind: selection instanceof ClipboardColumnIndexes ? 'columns' :
+					selection instanceof ClipboardRowIndexes ? 'rows' : 'cells',
+				columnCount: columnIndexes.length,
+				rowCount,
+				columns: columnIndexes.length <= MAX_CONTEXT_NAMES ? columnIndexes.map(columnName) : undefined,
+				rows: rowIndexes && rowIndexes.length <= MAX_CONTEXT_NAMES ? rowIndexes.map(rowLabel) : undefined,
+				values: columnIndexes.length * rowCount <= MAX_CONTEXT_CELLS ?
+					await grid.copyClipboardData(selection) : undefined,
+			};
+		}
+
+		return context;
 	}
 
 	/**

@@ -838,6 +838,18 @@ export class PositronDataConnectionsService extends Disposable implements IPosit
 	}
 
 	/**
+	 * Gets the profile of the connection a dataset was previewed from.
+	 */
+	getProfileForDataset(datasetId: string): IDataConnectionProfile | undefined {
+		for (const [profileId, datasetIds] of this._previewedDatasetIds) {
+			if (datasetIds.has(datasetId)) {
+				return this.getProfile(profileId);
+			}
+		}
+		return undefined;
+	}
+
+	/**
 	 * Closes the profile's connection as soon as nothing is using it.
 	 */
 	disconnectWhenUnused(profileId: string): void {

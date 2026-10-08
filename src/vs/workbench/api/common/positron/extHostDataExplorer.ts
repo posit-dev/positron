@@ -99,6 +99,13 @@ export class ExtHostDataExplorer implements extHostProtocol.ExtHostDataExplorerS
 		});
 	}
 
+	/**
+	 * Gets a description of the Data Explorer in the active editor.
+	 */
+	getContext(): Promise<positron.dataExplorer.DataExplorerContext | undefined> {
+		return this._proxy.$getActiveDataExplorerContext();
+	}
+
 	// --- ExtHostDataExplorerShape (called by the main thread) ---
 
 	async $handleRpc(providerId: string, rpc: IDataExplorerRpcDto): Promise<IDataExplorerResponseDto> {

@@ -4376,6 +4376,70 @@ declare module 'positron' {
 		 * @returns A disposable that unregisters the importer.
 		 */
 		export function registerDataImporter(importer: DataImporter): vscode.Disposable;
+
+		/**
+		 * Where the data shown in a Data Explorer came from. Fields are set when they are known.
+		 */
+		export interface DataExplorerSource {
+			/** The ID of the language runtime session that owns the data, for kernel-backed data. */
+			sessionId?: string;
+			/** The language of the session that owns the data (e.g. 'Python', 'R'). */
+			languageName?: string;
+			/** The URI of the file being viewed, for file-backed data. */
+			fileUri?: string;
+			/** The name of the data connection the data was previewed from. */
+			connectionName?: string;
+			/** The name of the data connection's driver (e.g. 'PostgreSQL'). */
+			connectionDriver?: string;
+		}
+
+		/**
+		 * The selected region of a Data Explorer grid.
+		 */
+		export interface DataExplorerSelection {
+			/** Whether whole columns, whole rows, or a range of cells are selected. */
+			kind: 'columns' | 'rows' | 'cells';
+			/** The number of selected columns. */
+			columnCount: number;
+			/** The number of selected rows. */
+			rowCount: number;
+			/** The names of the selected columns, when few enough to list. */
+			columns?: string[];
+			/** The labels of the selected rows, when few enough to list. Undefined for column selections. */
+			rows?: string[];
+			/** The selected values as TSV, when the selection is small enough. */
+			values?: string;
+		}
+
+		/**
+		 * Describes the Data Explorer in the active editor.
+		 */
+		export interface DataExplorerContext {
+			/** The name of the data, e.g. the variable name, expression, file name, or table name. */
+			displayName: string;
+			/** Where the data came from. */
+			source: DataExplorerSource;
+			/** The number of rows and columns after filtering. */
+			shape: { rows: number; columns: number };
+			/** The number of rows and columns before filtering. */
+			unfilteredShape: { rows: number; columns: number };
+			/** Descriptions of the active row filters. */
+			rowFilters: string[];
+			/** The active sort keys, in priority order. */
+			sortKeys: Array<{ column: string; ascending: boolean }>;
+			/** The cell the cursor is on; the row is identified by its label. */
+			cursor?: { column: string; row: string };
+			/** The selected region, if any. */
+			selection?: DataExplorerSelection;
+		}
+
+		/**
+		 * Gets a description of the Data Explorer in the active editor, including where its data
+		 * came from, the cursor position, and the selection.
+		 *
+		 * @returns The context, or undefined if the active editor is not a Data Explorer.
+		 */
+		export function getContext(): Thenable<DataExplorerContext | undefined>;
 	}
 
 	/**

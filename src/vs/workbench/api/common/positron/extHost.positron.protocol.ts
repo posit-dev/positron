@@ -15,7 +15,7 @@ import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes
 import { IRange } from '../../../../editor/common/core/range.js';
 import { INotebookCellOutputDTO, INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 export type { INotebookCellOutputDTO };
-import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, RuntimeSessionStartOptions, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, RuntimeSessionStartOptions, type notebooks, type dataExplorer } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IGenerateAssistantPromptRequest, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, IShowLanguageModelConfigOptions } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
@@ -429,6 +429,7 @@ export interface MainThreadDataExplorerShape extends IDisposable {
 	$open(providerId: string, datasetId: string, displayName: string): Promise<void>;
 	$registerDataImporter(handle: number, metadata: IDataImporterMetadata): void;
 	$unregisterDataImporter(handle: number): void;
+	$getActiveDataExplorerContext(): Promise<dataExplorer.DataExplorerContext | undefined>;
 }
 
 /**
