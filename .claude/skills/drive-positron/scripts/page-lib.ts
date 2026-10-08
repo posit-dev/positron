@@ -85,7 +85,9 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 				menu: visible(page.locator(s.overlay.menu)).last(),
 				notifications: visible(page.locator(s.overlay.notifications)).first(),
 				sidebar: page.locator(s.part.sidebar), secondary: page.locator(s.part.secondary), panel: page.locator(s.part.panel),
-				editor: page.locator(s.editorGroup.active), statusbar: page.locator(s.part.statusbar),
+				// A modal editor (Workspace Trust, Settings) has an active group of its
+				// own, drawn over the main one and later in the DOM.
+				editor: visible(page.locator(s.editorGroup.active)).last(), statusbar: page.locator(s.part.statusbar),
 			};
 			if (!name) { return { loc: page.locator('body'), name: 'page' }; }
 			const key = name.toLowerCase();

@@ -43,6 +43,16 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 		all = await find();
 		shown = all.filter({ visible: true });
 	}
+	// A card styled as a radio or checkbox can hide its input at zero size (New
+	// Folder from Template's tiles): the accessibility tree lists it, Playwright
+	// calls it hidden, and a person clicks the label around it.
+	if (!await shown.count() && a.kind === 'click' && /^(radio|checkbox|switch)$/.test(a.role) && await all.count() === 1) {
+		const wrap = all.locator('xpath=ancestor::label[1]');
+		const id = await all.getAttribute('id').catch(() => null);
+		for (const l of [wrap, ...(id ? [scope.locator(`label[for="${id.replace(/"/g, '\\"')}"]`)] : [])]) {
+			if (await l.filter({ visible: true }).count() === 1) { shown = l.filter({ visible: true }); break; }
+		}
+	}
 	const n = await shown.count();
 	const label = `${a.role} "${a.name}"${a.scope ? ' in ' + a.scope : ''}`;
 	if (n === 0) {

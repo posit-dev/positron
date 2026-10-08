@@ -88,6 +88,13 @@ For a PR, start with its own code paths: the lines the diff changes and the
 manual checks its description lists, then the wider blast radius. A fix whose
 trigger you cannot produce goes under Not run, saying why.
 
+Take the way in a person takes. `palette-run.sh` is the safest way to run a
+command and the least common way a person does: they click the toolbar button
+or the gutter, press the shortcut, or pick from a menu, and each can run
+different code. On the diff's own code paths, reach each action at least once
+the way a person would (`ui.sh click` or `choose`, or a key press), and keep
+the palette for setup.
+
 Test the state a real user is in. A fresh disposable profile is the easy thing
 to test and the least representative one; warm start, a populated workspace,
 and cached state are the common cases and are where this has found its worst
