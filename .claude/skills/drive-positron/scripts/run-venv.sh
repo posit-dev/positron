@@ -21,31 +21,26 @@
 
 set -u
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: one JSON line on stdout, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 VENV=""
 FROM="$(cd "$DIR/../../../.." && pwd)/extensions/positron-python/.venv"
 while [[ $# -gt 0 ]]; do
 	case "$1" in
+		--from=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
 		--from)
 			# An empty value is a missing one: "$FROM/bin/python" would be /bin/python, the system interpreter.
-			if [[ -z "${2-}" ]]; then
-				echo '{"ok":false,"error":"--from needs a value: the venv to copy"}'
-				exit 2
-			fi
+			[[ -n "${2-}" ]] || usage_error "--from needs a value: the venv to copy"
 			FROM="$2"; shift 2 ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
-		-*) echo "run-venv.sh: unknown flag $1" >&2; exit 2 ;;
+		-*) usage_error "unknown flag $1" ;;
 		*)
-			if [[ -n "$VENV" ]]; then
-				jq -nc --arg a "$1" --arg d "$VENV" '{ok: false, error: ("unexpected argument \"" + $a + "\" after \"" + $d + "\"; give one <dir>, see --help")}'
-				exit 2
-			fi
+			[[ -z "$VENV" ]] || usage_error "unexpected argument \"$1\" after \"$VENV\"; give one <dir>, see --help"
 			VENV="$1"; shift ;;
 	esac
 done
-if [[ -z "$VENV" ]]; then
-	echo '{"ok":false,"error":"give the directory to make the venv in"}'
-	exit 2
-fi
+[[ -n "$VENV" ]] || usage_error "give the directory to make the venv in"
 if [[ ! -x "$FROM/bin/python" ]]; then
 	printf '{"ok":false,"error":"no venv at %s"}\n' "$FROM"
 	exit 1

@@ -27,12 +27,16 @@
 #   With a tree, also "(<command> <pid> < ... < instance <pid>)".
 #   With --diff, only the listeners not in the saved list.
 # Exit code: 0, or 1 with --diff when there is a new listener, 2 when the
-# instance is not running or not given.
+# instance is not running or not given, or the --save file cannot be written
+# or the --diff file read (an empty path included): nothing was saved or compared.
 #
 # Required tools on PATH: lsof.
 
 set -u
 DIR="$(dirname "${BASH_SOURCE[0]}")"
+# A usage error: the error on stderr, a FAILED line in the action log, exit 2.
+ARGV=("$@")
+usage_error() { exec node "$DIR/dp.ts" usage-error --text "${0##*/}" "$1" ${ARGV[@]+"${ARGV[@]}"}; }
 TREE=""
 SESSION="${PW_SESSION:-}"
 ALL=0
@@ -40,18 +44,23 @@ MODE=""
 FILE=""
 while [[ $# -gt 0 ]]; do
 	case "$1" in
-		--tree) TREE="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session) SESSION="${2-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
-		--session=*) SESSION="${1#--session=}"; shift ;;
+		--tree=*|--session=*|--save=*|--diff=*) set -- "${1%%=*}" "${1#*=}" "${@:2}" ;;  # --flag=value is --flag value, as in the dp.ts helpers
+		--tree) [[ -n "${2-}" ]] || usage_error "$1 needs a value: the instance's PID"; TREE="$2"; shift 2 ;;
+		--session) [[ -n "${2-}" ]] || usage_error "--session needs a value; leave the flag out for \$PW_SESSION"; SESSION="$2"; shift 2 ;;
 		--all) ALL=1; shift ;;
-		--save|--diff) MODE="$1"; FILE="${2:-}"; shift 2 || { echo "${0##*/}: $1 needs a value" >&2; exit 2; } ;;
+		--save|--diff) [[ -n "${2-}" ]] || usage_error "$1 needs a value: the file of the list"; MODE="$1"; FILE="$2"; shift 2 ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
-		*) echo "listeners.sh: unknown arg $1" >&2; exit 2 ;;
+		*) usage_error "unknown argument $1" ;;
 	esac
 done
+# The saved list, read once (a pipe given as the file reads only once): an unread list
+# compared with nothing would exit 0, "no new listener".
+if [[ "$MODE" == --diff ]]; then
+	SAVED=$(cat -- "$FILE" 2>/dev/null) || usage_error "cannot read the --diff file $FILE; save it first with --save $FILE"
+fi
 # --diff looks at your instance only: the one the session drives, unless --tree or --all.
 if [[ "$MODE" == --diff && -z "$TREE" && "$ALL" == 0 ]]; then
-	[[ -n "$SESSION" ]] || { echo "listeners.sh: --diff looks only at your instance: pass --session NAME or --tree PID, or --all for every listener on the machine" >&2; exit 2; }
+	[[ -n "$SESSION" ]] || usage_error "--diff looks only at your instance: pass --session NAME or --tree PID, or --all for every listener on the machine"
 	# The browser process of the instance the session is attached to is its main process.
 	TREE=$("$(dirname "$0")/../../../../node_modules/.bin/playwright-cli" -s="$SESSION" --raw run-code \
 		'async page => { const s = await page.context().browser().newBrowserCDPSession(); return String((await s.send("SystemInfo.getProcessInfo")).processInfo.find(p => p.type === "browser").id); }' 2>/dev/null | jq -r . 2>/dev/null)
@@ -93,10 +102,12 @@ list() {
 	fi
 }
 case "$MODE" in
-	--save) list > "$FILE"; wc -l < "$FILE" | tr -d ' ' | sed 's/$/ listeners saved/' >&2 ;;
+	--save)
+		{ : > "$FILE"; } 2>/dev/null || usage_error "cannot write the --save file $FILE; its directory must exist and be writable"
+		list > "$FILE"; wc -l < "$FILE" | tr -d ' ' | sed 's/$/ listeners saved/' >&2 ;;
 	--diff)
 		# By port, PID and command: a line from a tree also carries its chain.
-		NEW=$(list | awk 'NR == FNR { seen[$1 " " $2 " " $3] = 1; next } !seen[$1 " " $2 " " $3]' "$FILE" -)
+		NEW=$(list | awk 'NR == FNR { seen[$1 " " $2 " " $3] = 1; next } !seen[$1 " " $2 " " $3]' <(printf '%s\n' "$SAVED") -)
 		if [[ -n "$NEW" ]]; then
 			printf '%s\n' "$NEW" | sort -n
 			exit 1

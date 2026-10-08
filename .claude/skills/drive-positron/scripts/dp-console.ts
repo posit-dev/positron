@@ -7,7 +7,7 @@
 // files are wrappers.
 
 import { readFileSync } from 'fs';
-import { Exit, failText, inPage, language, log, logRead, mod, parse, pause, seconds, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
+import { count, Exit, failText, inPage, language, log, logRead, mod, parse, pause, seconds, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -355,8 +355,7 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 		const lang = p.flags.language === undefined ? '' : language(p);
 		const name = textFlag(p, 'name'), afterText = textFlag(p, 'after');
 		// Number() reads "abc" as NaN (falsy, so every line) and slice(-(-2)) drops the first two.
-		const tailFlag = String(p.flags.tail ?? 40);
-		if (!/^\d+$/.test(tailFlag)) { throw new Exit(2, { ok: false, error: `--tail must be a whole number of lines (0 for all), not ${JSON.stringify(tailFlag)}` }); }
+		const tail = count(p, 'tail', 40, 0, 'how many lines to read');
 		const r = readConsole(p.session, lang, name, !!p.flags.expand);
 		if (!r.ok) { failText('console-read.sh', String(r.error)); }
 		const tracebacks = `${r.expanded ? `; expanded ${r.expanded} traceback${r.expanded === 1 ? '' : 's'}` : ''}${r.collapsed ? `; ${r.collapsed} traceback${r.collapsed === 1 ? ' is' : 's are'} collapsed (Show Traceback): its frames are not in this text, --expand shows them` : ''}`;
@@ -377,7 +376,6 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 			process.stderr.write(`console-read.sh: --after matched ${a.used}\n`);
 			text = a.text;
 		}
-		const tail = Number(tailFlag);
 		const shown = tail ? text.split('\n').slice(-tail).join('\n') : text;
 		// The last lines are what a reading is usually for.
 		logRead('console-read.sh', p.session, `${r.session}, ${typeof r.prompt === 'string' ? `prompt ${r.prompt}` : typeof r.waiting === 'string' ? `input request ${JSON.stringify(r.waiting)}` : 'no prompt'}${r.collapsed ? `, ${r.collapsed} collapsed` : ''}: ...${shown.split('\n').filter(l => l.trim()).slice(-3).join(' | ')}`);

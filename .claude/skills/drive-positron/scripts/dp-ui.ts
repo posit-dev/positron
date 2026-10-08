@@ -10,7 +10,7 @@
 // view's accessibility tree, so a click that did nothing says so. ui.sh wraps
 // these.
 
-import { Exit, inPage, log, logRead, parse, seconds, treeLine, textFlag, usage, type Json, type PageFn, type Parsed } from './dp-lib.ts';
+import { count, Exit, inPage, log, logRead, parse, seconds, treeLine, textFlag, usage, type Json, type PageFn, type Parsed } from './dp-lib.ts';
 
 interface Target { scope: string; role: string; name: string; partial: boolean; nth: number; watch: string; right?: boolean }
 
@@ -298,7 +298,7 @@ function readout(out: Json): string {
 }
 
 const target = (p: Parsed, role: string, name: string): Target =>
-	({ scope: textFlag(p, 'in'), role, name, partial: !!p.flags.partial, nth: Number(p.flags.nth ?? 0), watch: textFlag(p, 'watch') });
+	({ scope: textFlag(p, 'in'), role, name, partial: !!p.flags.partial, nth: count(p, 'nth', 0, 1, 'which match to take, 1 = first'), watch: textFlag(p, 'watch') });
 
 export const uiCommands: Record<string, (argv: string[]) => Json | string> = {
 	ui: argv => {

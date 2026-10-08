@@ -7,7 +7,7 @@
 // terminal-run.sh wraps it.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, mod, parse, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
+import { count, Exit, inPage, log, mod, parse, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -135,14 +135,12 @@ export const terminalCommands: Record<string, (argv: string[]) => Json | string>
 		if (p.rest.length > most) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(p.rest[most])}: ${most ? 'give the command as one quoted argument' : `--${read ? 'read' : 'key'} takes no command`}` }); }
 		if (!read && !key && p.rest[0] === 'read') { throw new Exit(2, { ok: false, error: 'to read the terminal pass --read; "read" alone is not typed into the shell' }); }
 		if (p.flags.tail !== undefined && !read) { throw new Exit(2, { ok: false, error: '--tail goes with --read' }); }
-		// Number() would turn "abc" into NaN and "0" into 0, both read below as
-		// "no --index" (terminal 1) or "no --tail" (every line), and a negative
-		// --tail into slice(N): refuse them instead.
-		if (p.flags.index !== undefined && !/^[1-9]\d*$/.test(String(p.flags.index))) { throw new Exit(2, { ok: false, error: `--index must be a terminal number from 1, not ${JSON.stringify(p.flags.index)}` }); }
-		if (p.flags.tail !== undefined && !/^\d+$/.test(String(p.flags.tail))) { throw new Exit(2, { ok: false, error: `--tail must be a whole number of lines (0 for all), not ${JSON.stringify(p.flags.tail)}` }); }
+		// count() refuses "abc", "", "0" and "-2" for --index, which Number() would read as
+		// "no --index" (terminal 1), and a negative --tail, which would reach slice(N).
+		const index = count(p, 'index', 0, 1, 'a terminal number'), tail = count(p, 'tail', 0, 0, 'how many lines to read');
 		const text = read || key ? '' : (p.rest.length ? p.rest.join(' ') : readFileSync(0, 'utf8').replace(/\n$/, ''));
 		if (!read && !key && !text) { throw new Exit(2, { ok: false, error: 'empty input' }); }
-		const args = { index: Number(p.flags.index ?? 0), text, key, read, tail: Number(p.flags.tail ?? 0), wait: 0, mod };
+		const args = { index, text, key, read, tail, wait: 0, mod };
 		let r = inPage(p.session, terminal, args);
 		// Another panel tab (the Console, after a console run) hides the terminals:
 		// bring the Terminal view forward, as console-run does the Console.

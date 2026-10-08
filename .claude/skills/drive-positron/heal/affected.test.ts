@@ -18,7 +18,7 @@ const hit = (...paths: string[]) => { const a = affectedHelpers(paths.map(p => P
 test('readGraph knows the module of every command a .sh runs', () => {
 	for (const f of readdirSync(scripts).filter(f => f.endsWith('.sh'))) {
 		for (const m of readFileSync(join(scripts, f), 'utf8').matchAll(/dp\.ts" ([a-z][a-z-]*)/g)) {
-			if (!['help', 'log', 'fail'].includes(m[1])) { assert.ok(g.moduleOf.has(m[1]), `${f}: dp.ts ${m[1]} has no module`); }
+			if (!['help', 'log', 'fail', 'usage-error'].includes(m[1])) { assert.ok(g.moduleOf.has(m[1]), `${f}: dp.ts ${m[1]} has no module`); }
 		}
 	}
 });
