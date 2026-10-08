@@ -388,7 +388,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			// the action-bar button because the Cmd+L C keybinding does not clear headlessly.
 			await app.workbench.plots.clearAllPlots();
 			// Save Plot defaults to the last active file's folder, not the workspace root.
-			await app.workbench.quickaccess.runCommand('workbench.action.clearEditorHistory');
+			await app.workbench.quickaccess.clearEditorHistory();
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {

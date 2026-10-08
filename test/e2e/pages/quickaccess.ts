@@ -35,16 +35,23 @@ export class QuickAccess {
 		await this.quickInput.selectQuickInputElement(0);
 	}
 
+	async clearEditorHistory(): Promise<void> {
+		await this.runCommand('workbench.action.clearEditorHistory');
+
+		// Externally launched servers lack --enable-smoke-test-driver, so the confirm shows.
+		if (/(8080|8787|8888)/.test(this.code.driver.currentPage.url())) {
+			const clearButton = this.code.driver.currentPage.getByRole('button', { name: 'Clear', exact: true });
+			await expect(clearButton).toBeVisible();
+			await clearButton.click();
+		}
+	}
+
 	async openFileQuickAccessAndWait(
 		searchValue: string,
 		expectedFirstElementNameOrExpectedResultCount: string | number
 	): Promise<void> {
 		// Clear editor history to ensure Quick Access is not "polluted"
-		await this.runCommand('workbench.action.clearEditorHistory');
-
-		if (/(8080|8787)/.test(this.code.driver.currentPage.url())) {
-			await this.code.driver.currentPage.getByRole('button', { name: 'Clear', exact: true }).click();
-		}
+		await this.clearEditorHistory();
 
 		await expect(async () => {
 			// Open Quick Access and wait for the elements to appear
