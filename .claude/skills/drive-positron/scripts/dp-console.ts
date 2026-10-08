@@ -325,7 +325,7 @@ function consoleRun(session: string, o: { language: 'python' | 'r'; name: string
 
 export const consoleCommands: Record<string, (argv: string[]) => Json | string> = {
 	'start-session': argv => {
-		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'answer']);
+		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'answer'], 0, ['new']);
 		if (p.flags.help) { usage('start-session.sh'); }
 		return startSession(p.session, language(p), textFlag(p, 'name'), seconds(p, 'timeout', 60), textFlag(p, 'answer'), !!p.flags.new);
 	},

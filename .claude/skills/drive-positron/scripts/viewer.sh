@@ -27,7 +27,8 @@
 #   fill NAME T  type T into the field named NAME (or labelled, or with that
 #                placeholder) inside the page
 #   wait-content [SECS]
-#                wait up to SECS (default 15) for the page to show anything;
+#                wait up to SECS (default 15; not a positive number: a
+#                usage error) for the page to show anything;
 #                says "blank" when it never does, which a snapshot alone cannot
 #                tell from a page still loading
 #

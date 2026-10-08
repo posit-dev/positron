@@ -200,11 +200,14 @@ export interface Parsed { session: string; flags: Record<string, string | true>;
  * listed. Positional arguments beyond `most` are a usage error (exit 2), so a
  * stray word is refused rather than typed or run; `most` is a count, or a count
  * per command word (the first positional, counted too). A command word not
- * listed is left to the command. Given `switches` (the flags that take no
- * value), any other flag is a usage error too, so a misspelled flag
- * (--langauge) is refused rather than ignored.
+ * listed is left to the command. A flag that is neither in `withValue` nor in
+ * `switches` (the flags that take no value; --help always counts) is a usage
+ * error too, so a misspelled flag (--clera, --usr) is refused rather than
+ * ignored, and so is a value flag last on the line with no value (--click):
+ * read as '', it would act like the flag left out. An empty value given on
+ * purpose (--flag '', --flag=) is the command's to refuse, with textFlag().
  */
-export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches?: string[]): Parsed {
+export function parse(argv: string[], withValue: string[], most: number | Record<string, number> = 0, switches: string[] = []): Parsed {
 	const flags: Record<string, string | true> = {};
 	const rest: string[] = [];
 	for (let i = 0; i < argv.length; i++) {
@@ -216,11 +219,14 @@ export function parse(argv: string[], withValue: string[], most: number | Record
 		if (/^--[\w-]+\s/.test(a)) { throw new Exit(2, { ok: false, error: `${JSON.stringify(a)} is one argument; pass the flag and its value as two (or --flag=value)` }); }
 		const m = a.match(/^--([\w-]+)(?:=(.*))?$/);
 		if (!m) { rest.push(a); continue; }
-		if (m[2] !== undefined) { flags[m[1]] = m[2]; } else if (withValue.includes(m[1])) { flags[m[1]] = argv[++i] ?? ''; } else { flags[m[1]] = true; }
+		if (m[2] !== undefined) { flags[m[1]] = m[2]; } else if (withValue.includes(m[1])) { flags[m[1]] = i + 1 < argv.length ? argv[++i] : true; } else { flags[m[1]] = true; }
 	}
-	if (switches && !flags.help) {
-		const unknown = Object.keys(flags).find(f => !withValue.includes(f) && !switches.includes(f));
-		if (unknown) { throw new Exit(2, { ok: false, error: `unknown flag --${unknown}; it takes ${[...withValue, ...switches].map(f => `--${f}`).join(', ')} (see --help)` }); }
+	if (!flags.help) {
+		const known = [...withValue, ...switches.filter(f => f !== 'help')];
+		const unknown = Object.keys(flags).find(f => !known.includes(f));
+		if (unknown) { throw new Exit(2, { ok: false, error: `unknown flag --${unknown}; it takes ${known.map(f => `--${f}`).join(', ')} (see --help)` }); }
+		const bare = withValue.find(f => flags[f] === true);
+		if (bare) { throw new Exit(2, { ok: false, error: `--${bare} needs a value` }); }
 	}
 	const max = typeof most === 'number' ? most : most[rest[0]] ?? Infinity;
 	if (!flags.help && rest.length > max) { throw new Exit(2, { ok: false, error: `unexpected argument ${JSON.stringify(rest[max])}${max ? ` after ${JSON.stringify(rest.slice(0, max).join(' '))}` : ''}; see --help for the arguments and flags it takes` }); }
@@ -255,10 +261,18 @@ export function pause(seconds: number): void {
  * as 0, and a wait bounded by either ends before it starts.
  */
 export function seconds(p: Parsed, flag: string, fallback: number): number {
-	const v = p.flags[flag];
+	return secondsOf(p.flags[flag], `--${flag}`, fallback);
+}
+
+/**
+ * The same check for a duration given as a positional argument (`wait N SECS`):
+ * `name` is how the error names it. Call it before anything is done, so a bad
+ * value is refused with nothing changed.
+ */
+export function secondsOf(v: string | true | undefined, name: string, fallback: number): number {
 	if (v === undefined) { return fallback; }
 	const n = typeof v === 'string' && /^\s*\d*\.?\d+\s*$/.test(v) ? Number(v) : NaN;
-	if (!(n > 0)) { throw new Exit(2, { ok: false, error: `--${flag} must be a positive number of seconds, not ${JSON.stringify(v === true ? '' : v)}` }); }
+	if (!(n > 0)) { throw new Exit(2, { ok: false, error: `${name} must be a positive number of seconds, not ${JSON.stringify(v === true ? '' : v)}` }); }
 	return n;
 }
 

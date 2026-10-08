@@ -8,7 +8,7 @@
 
 import { existsSync, mkdirSync, rmSync, statSync } from 'fs';
 import { basename, dirname, join, resolve } from 'path';
-import { failText, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { failText, inPage, log, parse, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 
 /**
  * The app's windows, numbered from 1 in the order the browser lists them; the
@@ -89,13 +89,13 @@ function shot(session: string, file: string, target: string, window: number, vie
 
 export const shotCommands: Record<string, (argv: string[]) => Json | string> = {
 	'shot': argv => {
-		const p = parse(argv, ['session', 'window', 'view'], 2);
+		const p = parse(argv, ['session', 'window', 'view'], 2, ['list']);
 		if (p.flags.help) { usage('shot.sh'); }
 		if (p.flags.list) { return inPage(p.session, listWindows, {}); }
 		if (!p.rest[0]) { failText('shot.sh', 'give the file name', 2); }
 		if (badShotName(p.rest[0])) { failText('shot.sh', badShotName(p.rest[0]), 2); }
 		if (p.flags.view !== undefined && (p.rest[1] || p.flags.window)) { failText('shot.sh', '--view takes no SELECTOR and no --window', 2); }
-		const r = shot(p.session, p.rest[0], p.rest[1] ?? '', Number(p.flags.window ?? 0), String(p.flags.view ?? ''));
+		const r = shot(p.session, p.rest[0], p.rest[1] ?? '', Number(p.flags.window ?? 0), textFlag(p, 'view'));
 		if (!r.ok) { failText('shot.sh', String(r.error)); }
 		return String(r.path);
 	},

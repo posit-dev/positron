@@ -74,7 +74,8 @@
 #   --partial       let NAME match part of the accessible name
 #   --watch VIEW    report the change in this view instead (click Step Over,
 #                   watch Call Stack)
-#   --wait SECS     how long to wait for the view to change after an action (default 2)
+#   --wait SECS     how long to wait for the view to change after an action
+#                   (default 2); not a positive number: a usage error
 #   --for SECS      watch: how long to sample (default 5, at most 120)
 #   --every MS      watch: how often (default 100, 20 to 5000)
 #
