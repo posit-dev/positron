@@ -40,6 +40,14 @@ suite('Create Environment Trigger - isGlobalEnvironment', () => {
         assert.isFalse(await isGlobalEnvironment(env('/project/.venv/bin/python', '/project/.venv', ['Venv'])));
     });
 
+    test('a conda environment is not global', async () => {
+        assert.isFalse(await isGlobalEnvironment(env('/opt/conda/envs/x/bin/python', '/opt/conda/envs/x', ['Conda'])));
+    });
+
+    test('a uv environment is not global', async () => {
+        assert.isFalse(await isGlobalEnvironment(env('/project/.venv/bin/python', '/project/.venv', ['Uv'])));
+    });
+
     test('a ~/.local install is global even when reported as an environment', async () => {
         const local = path.join(os.homedir(), '.local');
         assert.isTrue(await isGlobalEnvironment(env(path.join(local, 'bin', 'python'), local, ['Venv'])));
