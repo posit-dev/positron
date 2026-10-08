@@ -23,7 +23,8 @@
 #             the cell once its status moves
 #   wait      wait until no cell is running or pending (up to --timeout, default 60 s)
 #   ready     wait until the kernel badge shows the kernel idle (after a start,
-#             restart or kernel change; up to --timeout)
+#             restart or kernel change; up to --timeout). A --timeout that is
+#             not a positive number of seconds is a usage error
 #   kernel W  change the kernel to the picker row holding every word of W, such
 #             as "R 4.5.1" or "3.14.6 uv"; refuses when no picker opens, so
 #             nothing is typed into the notebook

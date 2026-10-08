@@ -13,7 +13,7 @@
 // each command puts the cursor in the cell and the mouse over it first.
 
 import { readFileSync, existsSync } from 'fs';
-import { Exit, inPage, log, logRead, mod, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, logRead, mod, parse, secondsOf, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 import { names } from './selectors.ts';
 
 interface Cell { n: number; language: string; fenceLine: number; firstCodeLine: number; endLine: number }
@@ -333,7 +333,9 @@ export const qmdCommands: Record<string, (argv: string[]) => Json | string> = {
 		const p = parse(argv, ['session', 'file'], { cells: 1, read: 1, state: 2, run: 2, stop: 2, clear: 2, wait: 3, button: 3, menu: 3, link: 3 });
 		const [cmd, a1, a2] = p.rest;
 		if (p.flags.help || !cmd) { usage('qmd.sh'); }
-		const f = inPage(p.session, activeFile, { want: String(p.flags.file ?? '') });
+		// wait N SECS: refused before anything is read or done.
+		const waitFor = cmd === 'wait' ? secondsOf(a2, 'SECS', 60) : 60;
+		const f = inPage(p.session, activeFile, { want: textFlag(p, 'file') });
 		if (!f.ok) { return f; }
 		// Refuse to act on another file than the one meant: a failed open leaves the last one active.
 		if (p.flags.file && f.name !== p.flags.file) { return { ok: false, error: `the active editor is ${f.name}, not ${p.flags.file}; open it first`, file: f.name }; }
@@ -374,7 +376,7 @@ export const qmdCommands: Record<string, (argv: string[]) => Json | string> = {
 				if (!out.ok && shown) { out = { ...out, error: `no "${names.qmd.stop}" or "${names.qmd.cancel}" button: the toolbar shows ${shown[1]}` }; }
 			}
 		} else {
-			out = inPage(p.session, cellAction, { cell, label, mod, seconds: Number(a2 ?? 60), cmd, text });
+			out = inPage(p.session, cellAction, { cell, label, mod, seconds: waitFor, cmd, text });
 		}
 		// The cell after the action: its toolbar state and output.
 		const t = out.toolbar as { state: string } | null;

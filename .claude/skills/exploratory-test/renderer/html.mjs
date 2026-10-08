@@ -17,7 +17,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog } from './report-parse.mjs';
+import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog, LOWERCASE_NAMES } from './report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
@@ -173,7 +173,8 @@ function severityWords(sev) {
 }
 
 function capitalize(text) {
-	return text ? text[0].toUpperCase() + text.slice(1) : text;
+	// A name written in lowercase (polars, pandas) keeps its case.
+	return text && !LOWERCASE_NAMES.has(/^[\w.-]+/.exec(text)?.[0]) ? text[0].toUpperCase() + text.slice(1) : text;
 }
 
 /** A finding's status, lowercase: the verifier's verdict over the run's own. */
@@ -530,6 +531,14 @@ function safeLinks(text) {
 		(whole, bang, label, url) => (safeUrl(url) ? whole : label));
 }
 
+/** A lone ~ escaped outside code, so GitHub does not strike through "(~L12) ... (~L40)". */
+function escapeLoneTildes(text) {
+	return text.split(/(^(`{3,})[^\n]*\n[\s\S]*?^\2[ \t]*$|`[^`\n]*`)/m).map((part, i) => {
+		// split puts each match and its fence group in the odd slots.
+		return i % 3 === 0 ? part.replace(/(?<![~\\])~(?!~)/g, '\\~') : i % 3 === 1 ? part : '';
+	}).join('');
+}
+
 /**
  * A finding's Evidence as list items. `where` places a path beside the report;
  * `shot` names a screenshot.
@@ -764,20 +773,15 @@ function renderFeedbackRow(f, options) {
 	return `<div class="fb" role="group" aria-live="polite" data-report="${escapeHtml(url)}" data-finding="f${f.n}" aria-label="Provide feedback on finding ${f.n}"><span class="fb-q">Is this finding right?</span>${links.join('')}</div>`;
 }
 
-/** Positron and OS, then the session, each value on its own line under its label. */
+/** Positron and OS, each on its own line; the session is in the steps. */
 function systemDetails(report) {
 	const env = report.environment.map(l => l.trim().replace(/^[-*]\s+/, '')).filter(Boolean);
 	const system = env.map(parseSystemLine).find(Boolean);
-	const session = env.filter(l => /^(?:Python|R)\s+\d/.test(l)).map(l => l.replace(/\.$/, ''));
-	// Two trailing spaces keep GitHub's line break.
-	const lines = group => group.join('  \n');
 	return [
 		'## System details',
 		'**Positron and OS:**  ',
-		lines(system ? [system.positron, system.os] : ['Not recorded']),
-		'',
-		'**Session:**  ',
-		lines(session.length ? session : ['Not recorded']),
+		// Two trailing spaces keep GitHub's line break.
+		(system ? [system.positron, system.os] : ['Not recorded']).join('  \n'),
 	].join('\n');
 }
 
@@ -824,6 +828,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	const by = url ? `[exploratory test](${url}#f${f.n})` : 'exploratory test';
 	const at = [branch && `\`${branch}\``, sha && `\`${sha}\``].filter(Boolean).join(' @ ');
 	const of = report.pr ? `#${report.pr.number}${at ? ` (${at})` : ''}` : at;
+	const opening = t.opening;
 	const out = [`<sub>Reported by ${by}${of ? ` of ${of}` : ''}</sub>`, '', systemDetails(report), ''];
 	// Linked both ways, so GitHub cross-references the fix and its PR.
 	const failedFixes = options.ki?.fixFailed.get(f.n);
@@ -839,12 +844,12 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	}
 	const section = (heading, body) => {
 		if (body) {
-			out.push(`## ${heading}`, safeLinks(body), '');
+			out.push(`## ${heading}`, escapeLoneTildes(safeLinks(body)), '');
 		}
 	};
-	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', safeLinks(body), '', '</details>', '');
+	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', escapeLoneTildes(safeLinks(body)), '', '</details>', '');
 
-	section('Describe the issue', capitalize(t.prose || t.summary));
+	section('Describe the issue', opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.prose || t.summary));
 
 	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();

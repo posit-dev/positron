@@ -11,7 +11,7 @@
 // editor.sh wraps these.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, logRead, mod, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, logRead, mod, parse, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 
 /** The editor as it reads, with the drawn lines from..to when given. runs in run-code */
 const read: PageFn<{ from: number; to: number }> = async (_page, a, lib) => lib.editor(a.from ? a : undefined);
@@ -366,12 +366,14 @@ export const editorCommands: Record<string, (argv: string[]) => Json | string> =
 				break;
 			}
 			case 'suggest': case 'hover': case 'definition': {
+				// Read before moving the cursor, so a bad value is refused with nothing done.
+				const timeout = seconds(p, 'timeout', 5);
 				if (p.flags.at !== undefined) {
 					const [line, column] = position(String(p.flags.at));
 					const g = inPage(s, goto, { line, column, mod });
 					if (!g.ok) { return g; }
 				}
-				out = inPage(s, feature, { kind: cmd, mod, timeout: Number(p.flags.timeout ?? 5) });
+				out = inPage(s, feature, { kind: cmd, mod, timeout });
 				if (out.ok) {
 					const what = cmd === 'suggest' ? `${out.shown} of ${out.total} rows: ${(out.rows as string[]).slice(0, 5).join(' | ')}${out.message ? String(out.message) : ''}`
 						: cmd === 'hover' ? JSON.stringify(String(out.hover).slice(0, 120))

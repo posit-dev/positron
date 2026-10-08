@@ -7,7 +7,7 @@
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../../base/common/event.js';
-import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
@@ -22,7 +22,7 @@ import { IQuartoExecutionManager } from '../../../../contrib/positronQuarto/comm
 import { IRuntimeNotebookKernelService } from '../../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { IWorkbenchEnvironmentService } from '../../../../services/environment/common/environmentService.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { IPositronConnectionsService } from '../../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -33,7 +33,7 @@ import { IPositronIPyWidgetsService } from '../../../../services/positronIPyWidg
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IExtHostContext } from '../../../../services/extensions/common/extHostCustomers.js';
 import { ExtHostLanguageRuntimeShape, RuntimeSessionCapabilities } from '../../../common/positron/extHost.positron.protocol.js';
@@ -175,6 +175,58 @@ describe('ExtHostLanguageRuntimeSessionAdapter - missing-package capabilities', 
 	});
 });
 
+/**
+ * Creates a MainThreadLanguageRuntime with stub services.
+ */
+function createMainThreadLanguageRuntime(
+	disposables: Pick<DisposableStore, 'add'>,
+	runtimeSessionService: IRuntimeSessionService = stubInterface<IRuntimeSessionService>({ registerSessionManager: () => Disposable.None }),
+	consoleExecuteCode?: IPositronConsoleService['executeCode'],
+) {
+	const consoleEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+	const notebookEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+	const quartoEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+
+	const $notifyCodeExecuted = vi.fn();
+	const proxy = stubInterface<ExtHostLanguageRuntimeShape>({ $notifyCodeExecuted });
+	const extHostContext = stubInterface<IExtHostContext>({
+		getProxy: (() => proxy) as unknown as IExtHostContext['getProxy'],
+	});
+
+	const mainThread = new MainThreadLanguageRuntime(
+		extHostContext,
+		stubInterface<ILanguageRuntimeService>({ onDidRegisterRuntime: Event.None }),
+		runtimeSessionService,
+		stubInterface<IRuntimeStartupService>({ registerRuntimeManager: () => Disposable.None }),
+		stubInterface<IRuntimeNotebookKernelService>({ initialize: vi.fn(), onDidExecuteCode: notebookEmitter.event }),
+		stubInterface<IPositronConsoleService>({
+			initialize: vi.fn(),
+			onDidExecuteCode: consoleEmitter.event,
+			...(consoleExecuteCode && { executeCode: consoleExecuteCode }),
+		}),
+		stubInterface<IPositronDataExplorerService>({ initialize: vi.fn() }),
+		stubInterface<IPositronVariablesService>({ initialize: vi.fn() }),
+		stubInterface<IPositronHelpService>({ initialize: vi.fn() }),
+		stubInterface<IPositronPlotsService>({ initialize: vi.fn() }),
+		stubInterface<IPositronIPyWidgetsService>({ initialize: vi.fn() }),
+		stubInterface<IPositronWebviewPreloadService>({ initialize: vi.fn() }),
+		stubInterface<IPositronConnectionsService>({ initialize: vi.fn() }),
+		stubInterface<INotificationService>({}),
+		stubInterface<IQuartoExecutionManager>({ onDidExecuteCode: quartoEmitter.event }),
+		stubInterface<IPathService>({}),
+		new NullLogService(),
+		stubInterface<ICommandService>({}),
+		stubInterface<INotebookService>({}),
+		stubInterface<IEditorService>({}),
+		stubInterface<IOpenerService>({}),
+		stubInterface<IWorkbenchEnvironmentService>({}),
+		stubInterface<IExecutionHistoryService>({}),
+		stubInterface<IConfigurationService>({}),
+	);
+	disposables.add(mainThread);
+	return { mainThread, consoleEmitter, notebookEmitter, quartoEmitter, $notifyCodeExecuted };
+}
+
 describe('MainThreadLanguageRuntime - code execution event forwarding', () => {
 	const disposables = ensureNoLeakedDisposables();
 
@@ -193,44 +245,7 @@ describe('MainThreadLanguageRuntime - code execution event forwarding', () => {
 	}
 
 	function createMainThread() {
-		const consoleEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
-		const notebookEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
-		const quartoEmitter = disposables.add(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
-
-		const $notifyCodeExecuted = vi.fn();
-		const proxy = stubInterface<ExtHostLanguageRuntimeShape>({ $notifyCodeExecuted });
-		const extHostContext = stubInterface<IExtHostContext>({
-			getProxy: (() => proxy) as unknown as IExtHostContext['getProxy'],
-		});
-
-		const mainThread = new MainThreadLanguageRuntime(
-			extHostContext,
-			stubInterface<ILanguageRuntimeService>({ onDidRegisterRuntime: Event.None }),
-			stubInterface<IRuntimeSessionService>({ registerSessionManager: () => Disposable.None }),
-			stubInterface<IRuntimeStartupService>({ registerRuntimeManager: () => Disposable.None }),
-			stubInterface<IRuntimeNotebookKernelService>({ initialize: vi.fn(), onDidExecuteCode: notebookEmitter.event }),
-			stubInterface<IPositronConsoleService>({ initialize: vi.fn(), onDidExecuteCode: consoleEmitter.event }),
-			stubInterface<IPositronDataExplorerService>({ initialize: vi.fn() }),
-			stubInterface<IPositronVariablesService>({ initialize: vi.fn() }),
-			stubInterface<IPositronHelpService>({ initialize: vi.fn() }),
-			stubInterface<IPositronPlotsService>({ initialize: vi.fn() }),
-			stubInterface<IPositronIPyWidgetsService>({ initialize: vi.fn() }),
-			stubInterface<IPositronWebviewPreloadService>({ initialize: vi.fn() }),
-			stubInterface<IPositronConnectionsService>({ initialize: vi.fn() }),
-			stubInterface<INotificationService>({}),
-			stubInterface<IQuartoExecutionManager>({ onDidExecuteCode: quartoEmitter.event }),
-			stubInterface<IPathService>({}),
-			new NullLogService(),
-			stubInterface<ICommandService>({}),
-			stubInterface<INotebookService>({}),
-			stubInterface<IEditorService>({}),
-			stubInterface<IOpenerService>({}),
-			stubInterface<IWorkbenchEnvironmentService>({}),
-			stubInterface<IExecutionHistoryService>({}),
-			stubInterface<IConfigurationService>({}),
-		);
-		disposables.add(mainThread);
-		return { consoleEmitter, notebookEmitter, quartoEmitter, $notifyCodeExecuted };
+		return createMainThreadLanguageRuntime(disposables);
 	}
 
 	it('forwards code execution events from the console, notebook, and Quarto sources to the extension host', () => {
@@ -249,5 +264,92 @@ describe('MainThreadLanguageRuntime - code execution event forwarding', () => {
 			notebookEvent,
 			quartoEvent,
 		]);
+	});
+});
+
+describe('MainThreadLanguageRuntime - extension-requested sessions', () => {
+	const disposables = ensureNoLeakedDisposables();
+
+	it('names the calling extension in the start reason', async () => {
+		const selectRuntime = vi.fn<IRuntimeSessionService['selectRuntime']>(async () => { });
+		const startNewRuntimeSession = vi.fn<IRuntimeSessionService['startNewRuntimeSession']>(async () => 'session-1');
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+			selectRuntime,
+			startNewRuntimeSession,
+		}));
+
+		await mainThread.$selectLanguageRuntime('r-1', 'positron.positron-r');
+		await mainThread.$startLanguageRuntime('python-1', 'Python 3.12', LanguageRuntimeSessionMode.Console, undefined, 'positron.positron-python', undefined);
+
+		expect([selectRuntime.mock.calls[0][1], startNewRuntimeSession.mock.calls[0][4]]).toEqual([
+			{ id: SessionStartReasonId.ExtensionApiSelect, requestingExtensionId: 'positron.positron-r' },
+			{ id: SessionStartReasonId.ExtensionApiStart, requestingExtensionId: 'positron.positron-python' },
+		]);
+	});
+
+	it('passes the calling extension to a restart', async () => {
+		const restartSession = vi.fn<IRuntimeSessionService['restartSession']>(async () => true);
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+			restartSession,
+		}));
+
+		await mainThread.$restartSession('session-1', 'positron.positron-run-app');
+
+		expect(restartSession.mock.calls[0]).toEqual([
+			'session-1', 'Extension-requested runtime restart via Positron API', true, 'positron.positron-run-app']);
+	});
+
+	it('attributes code to the calling extension and the kernel that sent it, ignoring caller-supplied values', async () => {
+		const executeCode = vi.fn<IPositronConsoleService['executeCode']>(async () => 'session-1');
+		const kernelSession = stubInterface<ILanguageRuntimeSession>({ sessionId: 'r-notebook-1' });
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+			getSession: sessionId => sessionId === kernelSession.sessionId ? kernelSession : undefined,
+		}), executeCode);
+		const forged = { extensionId: 'example.forged', callerSessionId: 'forged-session' };
+
+		await mainThread.$executeCode('r', 'posit.shiny', undefined, 'x', false,
+			undefined, undefined, undefined, undefined, undefined, undefined, forged);
+		await mainThread.$executeCode('r', 'positron.positron-supervisor', undefined, 'x', false,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined, 'r-notebook-1');
+		// An extension can pass any session ID to `positron.methods.call`; one that names no
+		// session doesn't count, so the extension is still credited.
+		await mainThread.$executeCode('r', 'posit.shiny', undefined, 'x', false,
+			undefined, undefined, undefined, undefined, undefined, undefined, undefined, 'made-up-session');
+
+		expect(executeCode.mock.calls.map(call => call[3])).toEqual([
+			{ source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny', callerSessionId: undefined } },
+			{ source: CodeAttributionSource.Extension, metadata: { extensionId: 'positron.positron-supervisor', callerSessionId: 'r-notebook-1' } },
+			{ source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny', callerSessionId: undefined } },
+		]);
+	});
+
+	it('attributes the console that evaluateCode starts to the calling extension', async () => {
+		const executeCode = vi.fn<IPositronConsoleService['executeCode']>(async () => 'session-1');
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+			getActiveSessions: () => [],
+		}), executeCode);
+
+		// No session ever appears, so the evaluation itself fails; this test only covers the start.
+		await expect(mainThread.$evaluateCode('python', 'posit.shiny', undefined, '1', 'eval-1')).rejects.toThrow();
+
+		expect(executeCode.mock.calls[0][3]).toEqual({ source: CodeAttributionSource.Extension, metadata: { extensionId: 'posit.shiny' } });
+	});
+
+	it('records an agent session started by an extension', async () => {
+		const startNewRuntimeSession = vi.fn<IRuntimeSessionService['startNewRuntimeSession']>(async () => 'session-1');
+		const { mainThread } = createMainThreadLanguageRuntime(disposables, stubInterface<IRuntimeSessionService>({
+			registerSessionManager: () => Disposable.None,
+			startNewRuntimeSession,
+		}));
+
+		await mainThread.$startLanguageRuntime('python-1', 'Python 3.12', LanguageRuntimeSessionMode.Console, undefined, 'posit.assistant', { owner: 'agent', activate: false });
+
+		expect(startNewRuntimeSession.mock.calls[0][4]).toEqual(
+			{ id: SessionStartReasonId.ExtensionStartedAgentSession, requestingExtensionId: 'posit.assistant' },
+		);
 	});
 });

@@ -15,7 +15,7 @@
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { basename, isDefaultsOnly, isNewTestFile, isPositronLog, LOWERCASE_NAMES, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, isPositronLog, LOWERCASE_NAMES, openingRange, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -58,9 +58,15 @@ const RESULT_MAX = 160;
 // actions.log and a check can sit between any two. A lowercase verb after
 // "then" is a second action; a capitalized word is a menu item ("More, then Insert Cell Above").
 const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times)\b/i;
+// A precondition saying how it was done in the app ("started with Run App", "then opened"): that is a step.
+// A scratch path the reader does not have; a workspace is named by what it holds.
+const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
+// An app already serving is what the steps start, so the reader sees it start.
+const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+/i;
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran)|Run(?: Shiny)? App)\b/i;
+// Code a precondition runs rather than describes: loading it is step 1.
+const RUN_COMMAND = /^(?:%run\b|%load\b|!|source\(|library\(|require\(|exec\(|import\s|from\s+\S+\s+import\s|install\.packages\(|pip\s)/;
 const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
-// Where an action stops running code and starts quoting what it waits for.
-const READS_OUTPUT = /\b(?:until|shows?|showing|prints?|printed|reads|displays?|output)\b/i;
 // A session ID changes every launch, so a step that names one cannot be replayed.
 const SESSION_ID = /\b(?:python|r)-[0-9a-f]{8}\b/i;
 
@@ -92,6 +98,9 @@ function stepProblems(where, text) {
 	const then = THEN_ACTION.exec(plain);
 	if (then) {
 		problems.push(`${where} is two actions ("then ${then[1]}"); write each as its own step`);
+	}
+	if (/^Wait\s+for\b/i.test(plain)) {
+		problems.push(`${where} only waits; merge the wait into the action it waits on, or, when the app does it on its own, make it a precondition: "A Python console, which Positron starts on launch"`);
 	}
 	if (/^With\b/.test(plain)) {
 		problems.push(`${where} starts "With ..."; make what it assumes a precondition, or do it as a step of its own`);
@@ -325,6 +334,34 @@ const HELPERS = (() => {
 	}
 })();
 
+/** Preconditions that are something done in the app, which the rules make steps, or that name a scratch path or the run. */
+function lintPreconditionActions(preconditions) {
+	const problems = [];
+	for (const [where, line] of preconditions) {
+		const text = line.replace(/^[-*]\s+/, '');
+		const command = /^\*\*/.test(text) ? null : [...text.matchAll(/`([^`]+)`/g)].map(m => m[1].trim()).find(c => RUN_COMMAND.test(c));
+		if (command) {
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" runs \`${command}\`; run it as a step, and keep the precondition to the file or package`);
+		}
+		const done = /^\*\*/.test(text) || command ? null : DONE_IN_APP.exec(text.replace(/`[^`]*`/g, 'code'));
+		if (done) {
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`);
+		}
+		const running = RUNNING_APP.exec(text.replace(/`[^`]*`/g, 'code'));
+		if (running) {
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is a running app ("${running[0]}"); start it in the steps, with a check that it runs`);
+		}
+		if (where.startsWith('Finding') && /\bthe run's\b/i.test(text)) {
+			problems.push(`report: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" says "the run's", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")`);
+		}
+		const path = SCRATCH_PATH.exec(text);
+		if (path) {
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" names the path ${path[1].replace(/`$/, '')}; name the workspace by what it holds ("A workspace with \`app.R\`"), and keep scratch paths in Run details`);
+		}
+	}
+	return problems;
+}
+
 /** Each scenario's precondition bullets, as `[where, text]`. */
 function ledgerPreconditions(ledger) {
 	const out = [];
@@ -404,6 +441,15 @@ export function untaggedShots(findings) {
 	return findings.flatMap(f => f.evidence.filter(e => e.kind === 'shot' && !onStep(f, e)).map(e => ({ n: f.n, file: e.file })));
 }
 
+// The Result, and a Cause's lead sentence, are read at a glance.
+export const SUMMARY_WORDS = 60;
+const CAUSE_LEAD_WORDS = 40;
+
+/** Words in prose, a code span counting as one. */
+export function wordsOf(text) {
+	return text.replace(/`[^`]*`/g, 'code').split(/\s+/).filter(Boolean).length;
+}
+
 /** Sentences in prose, with code spans masked so a `.` inside one cannot end a sentence. */
 function sentencesOf(text) {
 	return text.replace(/`[^`]*`/g, 'code').split(/(?<=[.!?])\s+(?=["A-Z])/).filter(Boolean);
@@ -435,6 +481,11 @@ const BACKENDS = [['pandas', /\bpandas\b/i], ['polars', /\bpolars\b/i], ['R', /\
  *   two numbers.
  */
 
+// camelCase, or PascalCase of three or more words: a class or function name.
+const CODE_NAME = /\b(?:[a-z]+(?:[A-Z][a-z0-9]*)+|[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+){2,})\b/;
+// Product names CODE_NAME would mistake for code.
+const PRODUCT_NAMES = new Set(['macOS', 'iPython', 'JavaScript', 'TypeScript', 'PowerShell', 'JupyterLab']);
+
 function clarityProblems(n, title, observed, expected) {
 	const problems = [];
 	// A title says what a user sees, so it reads as a sentence, not as code.
@@ -450,6 +501,20 @@ function clarityProblems(n, title, observed, expected) {
 	const hedge = /\b(may|might|seems?|appears? to)\b/i.exec(prose(title));
 	if (hedge) {
 		problems.push(`report: Finding ${n} title hedges with "${hedge[1]}"; state what the run saw as a fact`);
+	}
+	const plain = text => prose(text).replace(/"[^"]*"/g, '');
+	const possessive = /\b\w+s'(?=\s)/.exec(plain(title));
+	if (possessive) {
+		problems.push(`report: Finding ${n} title uses the possessive "${possessive[0]}"; say "the <thing> of <owner>" or name the thing on screen`);
+	}
+	if (plain(title).includes('(')) {
+		problems.push(`report: Finding ${n} title has a parenthetical; fold it into the sentence or move it to Observed`);
+	}
+	for (const [label, text] of [['title', title], ['Observed', observed], ['Expected', expected]]) {
+		const code = text && CODE_NAME.exec(plain(text));
+		if (code && !PRODUCT_NAMES.has(code[0])) {
+			problems.push(`report: Finding ${n} ${label} names ${code[0]}, a code name a user never sees; say what is on screen, and leave code to Cause`);
+		}
 	}
 	for (const [label, text] of [['Observed', observed], ['Expected', expected]]) {
 		if (text && prose(text).includes(';')) {
@@ -502,6 +567,11 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	if (result && /^(yes|no|mostly|partly|partially)\b/i.test(result)) {
 		problems.push('report: **Result:** answers a question; state what the change does instead');
 	}
+	// Most readers stop at the Result, so it fits in a glance; the Tested line lists the rest.
+	const resultWords = result ? wordsOf(result) : 0;
+	if (resultWords > SUMMARY_WORDS) {
+		problems.push(`report: **Result:** is ${resultWords} words; keep it to ${SUMMARY_WORDS} or fewer: what works in a phrase, then in bold what is broken`);
+	}
 
 	// A block with no table row (or no table at all) is flagged below, block by block.
 	const rows = tableRows(lines, h => h.includes('finding') && h.includes('severity')) ?? [];
@@ -543,7 +613,10 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		// the verifier's reply can say "same as Finding 1" about the report.
 		const next = lines.findIndex(({ line }, k) => k > b.k && /^(<details>|## )/.test(line));
 		const end = blocks[j + 1]?.k ?? (next === -1 ? lines.length : next);
-		const body = lines.slice(b.k + 1, end).map(l => l.line);
+		const card = lines.slice(b.k + 1, end).map(l => l.line);
+		// The edit pass writes the opening after the explorer's checks; it is not the run's.
+		const opening = openingRange(card);
+		const body = opening ? [...card.slice(0, opening.start), ...card.slice(opening.end)] : card;
 		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
 			needs.push([`Finding ${b.n}`, l]);
 		}
@@ -564,8 +637,11 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 			problems.push(`report: Finding ${b.n} Preconditions: says only "defaults"; leave the line out`);
 		}
 		// The filed issue's title is `<Feature>: <claim>`.
-		if (!body.some(l => /^\*\*Feature:\*\*\s*\S/.test(l))) {
+		const feature = body.find(l => /^\*\*Feature:\*\*\s*\S/.test(l))?.replace(/^\*\*Feature:\*\*\s*/, '').trim();
+		if (!feature) {
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
+		} else if ((CODE_NAME.test(feature) && !PRODUCT_NAMES.has(CODE_NAME.exec(feature)[0])) || /`|\w\.[a-z]{1,4}\b/.test(feature)) {
+			problems.push(`report: Finding ${b.n} Feature "${feature}" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"`);
 		}
 		if (body.some(l => /^\*\*Impact:\*\*/.test(l))) {
 			problems.push(`report: Finding ${b.n} has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed`);
@@ -644,22 +720,12 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 			}
 		}
 	}
-	// A precondition is the state the steps start from, so no step runs it again.
+	// A reader who stops after a Cause's first sentence still learns the suspect.
 	for (const f of parseReport(text).findings) {
-		const commands = f.preconditions
-			.flatMap(p => [...p.matchAll(/<code[^>]*>([^<]+)<\/code>/g)].map(m => m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim()))
-			// A bare name() names a function the file defines, not a command run.
-			.filter(c => /[\s(]|^[%!]/.test(c) && !/^[\w.$]+\(\)$/.test(c));
-		f.steps.forEach((st, k) => {
-			// A check quotes what it reads, and an action that waits on output
-			// ("until the console shows `tick 0`") runs only what comes before it.
-			if (st.kind === 'verify') { return; }
-			const runs = (st.md ?? '').split(READS_OUTPUT)[0];
-			const again = commands.find(c => runs.includes('`' + c + '`'));
-			if (again) {
-				problems.push(`report: Finding ${f.n} step ${k + 1} runs \`${again}\`, which a precondition already sets up; start the steps after it`);
-			}
-		});
+		const lead = f.text.cause && sentencesOf(f.text.cause)[0];
+		if (lead && wordsOf(lead) > CAUSE_LEAD_WORDS) {
+			problems.push(`report: Finding ${f.n} Cause opens with a ${wordsOf(lead)}-word sentence; name the suspect in ${CAUSE_LEAD_WORDS} words or fewer, then give the detail`);
+		}
 	}
 	for (const { n, file } of untaggedShots(parseReport(text).findings)) {
 		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step`);
@@ -714,6 +780,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	}
 
 	problems.push(...lintFiles(markdown, ledger, [...needs, ...ledgerPreconditions(ledger)], { fileExists, listFiles }));
+	problems.push(...lintPreconditionActions([...needs, ...ledgerPreconditions(ledger)]));
 
 	if (ledger !== undefined) {
 		const l = lintLedger(ledger, blockNumbers, fileExists);
@@ -744,6 +811,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog } = {}) {
 	const problems = [...lintLedger(ledger, null, fileExists).problems];
 	problems.push(...lintFiles('', ledger, ledgerPreconditions(ledger), { fileExists, listFiles }));
+	problems.push(...lintPreconditionActions(ledgerPreconditions(ledger)));
 	if (knownIssues?.issues?.length) {
 		problems.push(...lintKnownIssues(ledger, knownIssues, { final: false }));
 	}
@@ -900,6 +968,8 @@ const WARNINGS = [
 	/Result: of a failed scenario is its rate only/,
 	/Result: is \S+ (?:characters|sentences)/,
 	/\*\*Result:\*\* answers a question/,
+	/\*\*Result:\*\* is \d+ words/,
+	/ Cause opens with a \d+-word sentence/,
 	/drop the Introduced\?\/Origin column/,
 	/drop the Impact column/,
 	/ precondition ".*?" needs "/,
@@ -910,6 +980,9 @@ const WARNINGS = [
 	/ title starts with a lowercase letter/,
 	/ title names code/,
 	/ title hedges with /,
+	/ title uses the possessive /,
+	/ title has a parenthetical/,
+	/ names \S+, a code name a user never sees/,
 	/ joins notes with a semicolon/,
 	/ (?:Observed|Expected): says "/,
 	/ Observed: names .*, which the title does not/,
@@ -917,7 +990,6 @@ const WARNINGS = [
 	/steps are instructions for the reader, so leave run notes out/,
 	/cite shots as \[shots\//,
 	/map compiled frames to source paths/,
-	/, which a precondition already sets up/,
 	/ has \S+ screenshots; keep the one/,
 	/ repeats the first one's caption/,
 	/ twice, bare and as /,

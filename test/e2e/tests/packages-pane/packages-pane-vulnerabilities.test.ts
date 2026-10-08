@@ -86,8 +86,16 @@ test.describe('Packages Pane - Security Advisories', {
 		await packages.expectPackageNotInList('bottle');
 	});
 
-	test('R - Flags an installed package with an unscored CRAN advisory', async function ({ app, r: _r }) {
+	test('R - Flags an installed package with an unscored CRAN advisory', async function ({ app, r: _r, executeCode }) {
 		const { packages } = app.workbench;
+
+		// widgetframe has system requirements, all already in the image. With `CI`
+		// set, pak still refreshes them, running `apt-get -y update` against the
+		// Ubuntu mirrors; when a mirror stalls, the install hangs and the package
+		// never reaches the list. Nothing here tests system requirements, so turn
+		// them off. pak forwards `pkg.*` options to its worker process on every
+		// call, so setting the option in the console session takes effect.
+		await executeCode('R', 'options(pkg.sysreqs = FALSE)', { maximizeConsole: false });
 
 		// widgetframe is affected by RSEC-2026-0 with no fixed version, so its
 		// latest release is vulnerable and no version pin (and no source build) is

@@ -57,7 +57,7 @@ test('slack folds the findings a fix resolved into its block', () => {
 });
 
 test('cost splits finder and fixer', () => {
-	assert.deepEqual(totalCost([{ label: 'finder-session', usd: 2 }, { label: 'fixer-a', usd: 1.5 }, { label: 'fixer-b', usd: null }]), { finder: 2, fixer: 1.5, total: 3.5 });
+	assert.deepEqual(totalCost([{ label: 'finder-session', usd: 2 }, { label: 'fixer-a', usd: 1.5 }, { label: 'fixer-b', usd: null }, { label: 'reviewer-a-1', usd: 0.25 }]), { finder: 2, fixer: 1.5, reviewer: 0.25, total: 3.75 });
 });
 
 test('PR body lists each finding with both runs, and leads with checks changed', () => {
@@ -69,7 +69,7 @@ test('PR body lists each finding with both runs, and leads with checks changed',
 	assert.match(slackText(n, 'u', null), /changes test\/ or heal\//);
 	assert.doesNotMatch(slackText(night({ findings: [f('a', { outcome: 'fixed' })] }), 'u', null), /heal\//);
 	assert.match(body, /first.*second/s);
-	assert.match(prTitle(n), /1 helper fix/);
+	assert.equal(prTitle(n), 'drive-positron: fix x.sh from the nightly run');
 });
 
 test('summary names a wholesale break and a scope violation', () => {
@@ -227,4 +227,26 @@ test('inert wraps mentions and issue references in code spans, outside existing 
 	const body = prBody(night({ findings: [f('a', { outcome: 'fixed', broke: 'pinged @org/team', cause: 'see #42', change: 'c', reason: 'r @me' })] }), 'u');
 	assert.doesNotMatch(body, /[^`]@org\/team|[^`]#42|[^`]@me/);
 	for (const wrapped of ['`@org/team`', '`#42`', '`@me`']) { assert.ok(body.includes(wrapped), wrapped); }
+});
+
+test('the title names the fixed helpers, at most three', () => {
+	const fixed = (id: string, helper: string) => f(id, { helper, outcome: 'fixed' });
+	assert.equal(prTitle(night({ findings: [fixed('a', 'a.sh'), fixed('b', 'b.sh'), fixed('c', 'a.sh')] })), 'drive-positron: fix a.sh, b.sh from the nightly run');
+	assert.equal(prTitle(night({ findings: ['a', 'b', 'c', 'd', 'e'].map(h => fixed(h, `${h}.sh`)) })), 'drive-positron: fix a.sh, b.sh, c.sh and 2 more helpers from the nightly run');
+	assert.equal(prTitle(night({ findings: ['a', 'b', 'c', 'd'].map(h => fixed(h, `${h}.sh`)) })), 'drive-positron: fix a.sh, b.sh, c.sh and 1 more helper from the nightly run');
+	assert.equal(prTitle(night({ findings: [f('a', { outcome: 'fixed', rejected: 'r' })] })), 'drive-positron: helper fixes from the nightly run');
+});
+
+test('What broke: invalid JSON in observed is shown cut, not stopped at its stray quote', () => {
+	const observed = '{"ok":false,"error":"/tmp/heal/q"x" is not a venv"}';
+	const body = summaryMarkdown(night({ findings: [f('a', { source: 'finder', case: undefined, helper: 'run-venv.sh', observed })] }), 'u');
+	assert.match(body, /What broke:\*\* run-venv\.sh: \{"ok":false/);
+	assert.doesNotMatch(body, /What broke:\*\* run-venv\.sh: \/tmp\/heal\/q\n/);
+});
+
+test('a kept fix shows its review notes, its revision, and why it has no smoke case', () => {
+	const n = night({ findings: [f('a', { outcome: 'fixed', review: ['dp-x.ts:3 has the same bug'], revised: true, untestable: 'Linux only' })], state: { gate: 'pass' } });
+	const body = prBody(n, 'u');
+	assert.match(body, /\*\*Review:\*\* sent back once; after the revision: dp-x\.ts:3 has the same bug/);
+	assert.match(body, /\*\*No smoke case:\*\* Linux only/);
 });

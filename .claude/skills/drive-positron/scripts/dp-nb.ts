@@ -11,7 +11,7 @@
 // these.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, logRead, mod, parse, pause, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, logRead, mod, parse, pause, seconds, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 import { notifications } from './dp-notifications.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
@@ -211,14 +211,14 @@ const nb: PageFn<Args> = async (page, a, lib) => {
 
 export const nbCommands: Record<string, (argv: string[]) => Json | string> = {
 	nb: argv => {
-		const p = parse(argv, ['session', 'notebook', 'timeout'], { read: 1, wait: 1, ready: 1, restart: 1, interrupt: 1, clear: 1, run: 2, edit: 2, move: 3, kernel: 3 });
+		const p = parse(argv, ['session', 'notebook', 'timeout'], { read: 1, wait: 1, ready: 1, restart: 1, interrupt: 1, clear: 1, run: 2, edit: 2, move: 3, kernel: 3 }, ['replace']);
 		const [cmd, arg, arg2] = p.rest;
 		if (p.flags.help) { usage('nb.sh'); }
-		const notebook = String(p.flags.notebook ?? '').split('/').pop() ?? '';
+		const notebook = textFlag(p, 'notebook').split('/').pop() ?? '';
 		const commands = 'read, run N, wait, ready, kernel WORDS, restart, interrupt, clear, move N up|down, edit N, type N TEXT';
 		if (!notebook) { throw new Exit(2, { ok: false, error: `give --notebook NAME (the notebook's file name), then a command: ${commands}` }); }
 		if (!cmd) { throw new Exit(2, { ok: false, error: `give a command: ${commands}` }); }
-		const base = { notebook, timeout: Number(p.flags.timeout ?? 60), mod };
+		const base = { notebook, timeout: seconds(p, 'timeout', 60), mod };
 		const needN = () => { if (!/^\d+$/.test(arg ?? '')) { throw new Exit(2, { ok: false, error: `${cmd} needs a cell number` }); } return Number(arg); };
 		let out: Json;
 		switch (cmd) {

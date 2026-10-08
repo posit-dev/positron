@@ -89,11 +89,11 @@ export interface IRuntimePickerItem {
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
-	$selectLanguageRuntime(runtimeId: string): Promise<void>;
-	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined, options: RuntimeSessionStartOptions | undefined): Promise<string>;
+	$selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void>;
+	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined, requestingExtensionId: string, options: RuntimeSessionStartOptions | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
-	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>): Promise<string>;
+	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>, callerSessionId?: string): Promise<string>;
 	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
@@ -103,7 +103,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getNotebookSession(notebookUri: URI): Promise<IActiveRuntimeSessionMetadataDto | undefined>;
 	$subscribeToSession(sessionId: string): void;
 	$unsubscribeFromSession(sessionId: string): void;
-	$restartSession(sessionId: string): Promise<boolean>;
+	$restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean>;
 	$interruptSession(sessionId: string): Promise<void>;
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
@@ -122,7 +122,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void;
 	$emitLanguageRuntimeDisconnect(sessionId: string): void;
 	$emitLanguageRuntimeReconnect(sessionId: string): void;
-	$evaluateCode(languageId: string, sessionId: string | undefined, code: string, evaluationId: string, whenBusy?: RuntimeBusyBehavior): Promise<EvalResult>;
+	$evaluateCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, evaluationId: string, whenBusy?: RuntimeBusyBehavior): Promise<EvalResult>;
 	$cancelEvaluation(sessionId: string, evaluationId: string): void;
 	$registerRuntimePickerContribution(handle: number, languageId: string): void;
 	$unregisterRuntimePickerContribution(handle: number): void;

@@ -262,10 +262,11 @@ const sessionPicker: PageFn<Record<string, never>> = async (page, _a, lib) => {
 
 export const panelCommands: Record<string, (argv: string[]) => Json | string> = {
 	panel: argv => {
-		const p = parse(argv, ['session'], { tab: 2, sessions: 1, console: 2, terminals: 1, 'delete-session': 2, editors: 1, layout: 1, resize: 3 });
+		const p = parse(argv, ['session'], { tab: 2, sessions: 1, console: 2, terminals: 1, 'delete-session': 2, editors: 1, layout: 1, resize: 3 }, ['all', 'help']);
 		const [cmd, arg, a2] = p.rest;
 		if (p.flags.help || !cmd) { usage('panel.sh'); }
 		if (!['tab', 'sessions', 'console', 'terminals', 'delete-session', 'editors', 'layout', 'resize'].includes(cmd)) { throw new Exit(2, { ok: false, error: 'command: tab, sessions, console, terminals, delete-session, editors, layout or resize' }); }
+		if (p.flags.all !== undefined && (cmd !== 'sessions' || p.flags.all !== true)) { throw new Exit(2, { ok: false, error: '--all goes only with sessions, and takes no value' }); }
 		if (['tab', 'console', 'delete-session'].includes(cmd) && !arg) { throw new Exit(2, { ok: false, error: `${cmd} needs an argument` }); }
 		if (cmd === 'resize' && (!['sidebar', 'secondary', 'panel'].includes(arg) || !/^\d+$/.test(a2 ?? ''))) { throw new Exit(2, { ok: false, error: 'give sidebar, secondary or panel, and the size in pixels' }); }
 		// The console tabs are in the page only while the Console view is: these bring it forward.
@@ -277,13 +278,27 @@ export const panelCommands: Record<string, (argv: string[]) => Json | string> = 
 			if (!opened.ok) { return opened; }
 			const picked = inPage(p.session, sessionPicker, {});
 			if (!picked.ok) { return picked; }
-			const consoles = c.sessions as { name: string; id: string }[];
-			const all = (picked.sessions as { kind: string; name: string }[]).map(x => {
-				const tab = x.kind === 'console' ? consoles.find(t => t.name === x.name) : undefined;
-				return tab ? { ...tab, ...x } : x;
+			// A picker row has no id, only the name its tab has, and two sessions can share
+			// one name. The picker and the tabs both list consoles oldest first, so the k-th
+			// row of a name is the k-th tab of that name. The picker leaves out a session
+			// that exited and still has its tab: when a name's rows and tabs do not line up
+			// (other counts, or the foreground row not at the active tab), they get no id.
+			const consoles = c.sessions as { name: string; id: string; active: boolean }[];
+			const rows = picked.sessions as { kind: string; name: string; foreground?: boolean }[];
+			const unpaired = new Set<string>();
+			const all = rows.map(x => {
+				if (x.kind !== 'console') { return x; }
+				const tabs = consoles.filter(t => t.name === x.name);
+				const mine = rows.filter(r => r.kind === 'console' && r.name === x.name);
+				const lined = tabs.length === mine.length && mine.every((r, i) => !r.foreground || tabs[i].active);
+				if (!lined) { unpaired.add(x.name); return x; }
+				return { ...tabs[mine.indexOf(x)], ...x };
 			});
-			logRead('panel.sh', p.session, `sessions --all: ${all.map(x => `${x.kind} ${'document' in x ? x.document + ' ' : ''}${x.name}`).join(', ')}`);
-			return { ok: true, count: all.length, sessions: all };
+			logRead('panel.sh', p.session, `sessions --all: ${all.map(x => `${x.kind} ${'document' in x ? x.document + ' ' : ''}${x.name}${'id' in x ? ` (${x.id})` : ''}`).join(', ')}`);
+			return {
+				ok: true, count: all.length, sessions: all,
+				...(unpaired.size ? { note: `no id for the console rows named ${[...unpaired].join(', ')}: their tabs do not line up with the picker's rows (it leaves out an exited session); panel.sh sessions lists the tabs' ids` } : {}),
+			};
 		}
 		let out = ['sessions', 'console', 'delete-session'].includes(cmd) ? withConsoleView(p.session, panel, { cmd, arg: arg ?? '', px: 0 }) : inPage(p.session, panel, { cmd, arg: arg ?? '', px: Number(a2 ?? 0) });
 		if (out.ok && !out.already) {

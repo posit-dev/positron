@@ -7,7 +7,7 @@
 // terminal-run.sh wraps it.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, mod, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, mod, parse, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -124,10 +124,10 @@ const keyAliases: Record<string, string> = { ctrl: 'Control', control_l: 'Contro
 
 export const terminalCommands: Record<string, (argv: string[]) => Json | string> = {
 	'terminal-run': argv => {
-		const p = parse(argv, ['session', 'index', 'key', 'tail'], Infinity);
+		const p = parse(argv, ['session', 'index', 'key', 'tail'], Infinity, ['read']);
 		if (p.flags.help) { usage('terminal-run.sh'); }
 		const read = !!p.flags.read;
-		const key = String(p.flags.key ?? '');
+		const key = textFlag(p, 'key');
 		// The command is one argument (quoted), and --read and --key take none: a
 		// stray word would be typed into the shell. "read" alone is the --read
 		// it looks like (other helpers have a read command), not the shell builtin.

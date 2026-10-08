@@ -423,8 +423,17 @@ function normalizeSpecPath(file) {
 function buildHistoryByKey(history) {
 	const map = new Map();
 	if (history && Array.isArray(history.tests)) {
+		// The API reports the query window once, at the top level, not per test.
+		// Carry it onto each entry so the per-test history line can state it:
+		// without the window bounds, a "Started today" onset is indistinguishable
+		// from a first-seen date censored by the start of the window.
+		const queryWindow = {
+			lookback_days: history.lookback_days,
+			window_start: history.window_start,
+			branch: history.branch,
+		};
 		for (const t of history.tests) {
-			if (t.test_key) { map.set(t.test_key, t); }
+			if (t.test_key) { map.set(t.test_key, { ...queryWindow, ...t }); }
 		}
 	}
 	return map;
@@ -470,7 +479,8 @@ function renderHistoryForTest(entry) {
 	const total = h.total_runs ?? 0;
 	const failRate = h.fail_rate != null ? `${(h.fail_rate * 100).toFixed(0)}%` : '?';
 	const passRate = h.pass_rate != null ? `${(h.pass_rate * 100).toFixed(0)}%` : '?';
-	lines.push(`History (last ${entry.lookback_days || '?'} days, branch ${entry.branch || '?'}):`);
+	const windowStart = entry.window_start ? `, window_start ${entry.window_start}` : '';
+	lines.push(`History (last ${entry.lookback_days || '?'} days${windowStart}, branch ${entry.branch || '?'}):`);
 	lines.push(`  passed ${passed}/${total} (${passRate}), failed ${h.fail_count ?? 0} (${failRate}), flaky ${h.flaky_count ?? 0}, last_status=${h.last_status || '?'}`);
 	if (entry.insight) {
 		const ins = entry.insight;

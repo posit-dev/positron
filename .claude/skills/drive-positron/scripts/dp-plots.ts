@@ -144,7 +144,7 @@ function plotLine(out: Json, editor: boolean): string {
 
 export const plotsCommands: Record<string, (argv: string[]) => Json | string> = {
 	plots: argv => {
-		const p = parse(argv, ['session', 'did'], { read: 1, select: 2, remove: 2 });
+		const p = parse(argv, ['session', 'did'], { read: 1, select: 2, remove: 2 }, ['editor']);
 		const [cmd, n] = p.rest;
 		const editor = !!p.flags.editor;
 		if (p.flags.help || !cmd) { usage('plots.sh'); }

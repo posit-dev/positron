@@ -59,6 +59,24 @@ export function isCompletenessVerified(attribution: IConsoleCodeAttribution): bo
 }
 
 /**
+ * A well-known key in {@link IConsoleCodeAttribution.metadata}. When set to
+ * `true`, a person chose to run the code, such as with a chat code block's Run
+ * in Console button, even though the code came from an assistant.
+ */
+export const USER_INITIATED_METADATA_KEY = 'userInitiated';
+
+/**
+ * Returns whether the given attribution marks its code as run by the user.
+ * See {@link USER_INITIATED_METADATA_KEY}.
+ *
+ * @param attribution The attribution describing the source of the code.
+ * @returns `true` if a person chose to run the code.
+ */
+export function isUserInitiated(attribution: IConsoleCodeAttribution): boolean {
+	return attribution.metadata?.[USER_INITIATED_METADATA_KEY] === true;
+}
+
+/**
  * Represents a code fragment and its execution options sent to a language runtime.
  */
 export interface ILanguageRuntimeCodeExecutedEvent {

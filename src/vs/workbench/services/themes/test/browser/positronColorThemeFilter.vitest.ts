@@ -17,6 +17,10 @@ describe('isColorThemeVisibleInPicker', () => {
 		expect(isColorThemeVisibleInPicker(upstreamVisualStudioLight, positronDark)).toBe(false);
 	});
 
+	it('keeps the Positron themes', () => {
+		expect(isColorThemeVisibleInPicker(positronDark, positron2026Dark)).toBe(true);
+	});
+
 	it('keeps the 2026 themes', () => {
 		expect(isColorThemeVisibleInPicker(positron2026Dark, positronDark)).toBe(true);
 	});
