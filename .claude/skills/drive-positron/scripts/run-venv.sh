@@ -35,9 +35,7 @@ while [[ $# -gt 0 ]]; do
 			FROM="$2"; shift 2 ;;
 		-h|--help) exec node "$DIR/dp.ts" help "$0" ;;
 		-*) usage_error "unknown flag $1" ;;
-		*)
-			[[ -z "$VENV" ]] || usage_error "unexpected argument \"$1\" after \"$VENV\"; give one <dir>, see --help"
-			VENV="$1"; shift ;;
+		*) VENV="$1"; shift ;;
 	esac
 done
 [[ -n "$VENV" ]] || usage_error "give the directory to make the venv in"

@@ -43,7 +43,7 @@ says how a helper is built and checked.
    and the `dp-*.ts` it imports). When the shared code is where it goes wrong, or where it should
    be handled for everyone (argument parsing, number and duration flags, session lookup), fix it
    there and let the callers inherit it; do not patch one caller. Reuse the existing helpers
-   (`parse()`, `seconds()`, `textFlag()` in `dp-lib.ts`) rather than writing a local copy. Your
+   (`parse()`, `seconds()`, `count()` in `dp-lib.ts`) rather than writing a local copy. Your
    reason names every helper the fix reaches.
 9. **Valid input keeps working.** A command that worked before with valid input must behave the
    same after your fix. If it cannot (a flag that was silently ignored now errors), the reason says

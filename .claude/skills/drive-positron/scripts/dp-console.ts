@@ -7,7 +7,7 @@
 // files are wrappers.
 
 import { readFileSync } from 'fs';
-import { count, Exit, failText, inPage, language, log, logRead, mod, parse, pause, seconds, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
+import { count, Exit, failText, inPage, language, log, logRead, mod, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -327,7 +327,7 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 	'start-session': argv => {
 		const p = parse(argv, ['session', 'language', 'name', 'timeout', 'answer'], 0, ['new']);
 		if (p.flags.help) { usage('start-session.sh'); }
-		return startSession(p.session, language(p), textFlag(p, 'name'), seconds(p, 'timeout', 60), textFlag(p, 'answer'), !!p.flags.new);
+		return startSession(p.session, language(p), String(p.flags.name ?? ''), seconds(p, 'timeout', 60), String(p.flags.answer ?? ''), !!p.flags.new);
 	},
 	'console-run': argv => {
 		// A flag it does not take is refused: read as a switch, its value (--capture-timout 5)
@@ -337,7 +337,7 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 		const lang = language(p);
 		// Checked before anything is typed: a NaN timeout ends the echo wait before it starts.
 		const timeout = seconds(p, 'timeout', 10), captureTimeout = seconds(p, 'capture-timeout', 60);
-		const name = textFlag(p, 'name');
+		const name = String(p.flags.name ?? '');
 		// Read stdin whole: a shell's $(cat) would drop the blank line that ends a Python block.
 		const text = p.rest.length ? p.rest.join(' ') : readFileSync(0, 'utf8');
 		if (!text) { throw new Exit(2, { ok: false, error: 'empty input' }); }
@@ -350,10 +350,8 @@ export const consoleCommands: Record<string, (argv: string[]) => Json | string> 
 		// A flag it does not take (--langauge=r) is refused: ignored, the call would read the active console.
 		const p = parse(argv, ['session', 'language', 'name', 'tail', 'after'], 0, ['expand', 'prompt', 'help']);
 		if (p.flags.help) { usage('console-read.sh'); }
-		// An empty --language, --name or --after is a usage error, not the flag left out:
-		// read as absent, the call would read whichever console is active.
 		const lang = p.flags.language === undefined ? '' : language(p);
-		const name = textFlag(p, 'name'), afterText = textFlag(p, 'after');
+		const name = String(p.flags.name ?? ''), afterText = String(p.flags.after ?? '');
 		// Number() reads "abc" as NaN (falsy, so every line) and slice(-(-2)) drops the first two.
 		const tail = count(p, 'tail', 40, 0, 'how many lines to read');
 		const r = readConsole(p.session, lang, name, !!p.flags.expand);

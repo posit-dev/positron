@@ -13,7 +13,7 @@
 // each command puts the cursor in the cell and the mouse over it first.
 
 import { readFileSync, existsSync } from 'fs';
-import { Exit, inPage, log, logRead, mod, parse, secondsOf, textFlag, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, logRead, mod, parse, secondsOf, usage, type Json, type PageFn } from './dp-lib.ts';
 import { names } from './selectors.ts';
 
 interface Cell { n: number; language: string; fenceLine: number; firstCodeLine: number; endLine: number }
@@ -335,7 +335,7 @@ export const qmdCommands: Record<string, (argv: string[]) => Json | string> = {
 		if (p.flags.help || !cmd) { usage('qmd.sh'); }
 		// wait N SECS: refused before anything is read or done.
 		const waitFor = cmd === 'wait' ? secondsOf(a2, 'SECS', 60) : 60;
-		const f = inPage(p.session, activeFile, { want: textFlag(p, 'file') });
+		const f = inPage(p.session, activeFile, { want: String(p.flags.file ?? '') });
 		if (!f.ok) { return f; }
 		// Refuse to act on another file than the one meant: a failed open leaves the last one active.
 		if (p.flags.file && f.name !== p.flags.file) { return { ok: false, error: `the active editor is ${f.name}, not ${p.flags.file}; open it first`, file: f.name }; }

@@ -53,11 +53,8 @@ while [[ $# -gt 0 ]]; do
 		*) usage_error "unknown argument $1" ;;
 	esac
 done
-# The saved list, read once (a pipe given as the file reads only once): an unread list
-# compared with nothing would exit 0, "no new listener".
-if [[ "$MODE" == --diff ]]; then
-	SAVED=$(cat -- "$FILE" 2>/dev/null) || usage_error "cannot read the --diff file $FILE; save it first with --save $FILE"
-fi
+# An unread list compared with nothing would exit 0, "no new listener".
+[[ "$MODE" != --diff || -r "$FILE" ]] || usage_error "cannot read the --diff file $FILE; save it first with --save $FILE"
 # --diff looks at your instance only: the one the session drives, unless --tree or --all.
 if [[ "$MODE" == --diff && -z "$TREE" && "$ALL" == 0 ]]; then
 	[[ -n "$SESSION" ]] || usage_error "--diff looks only at your instance: pass --session NAME or --tree PID, or --all for every listener on the machine"
@@ -103,11 +100,10 @@ list() {
 }
 case "$MODE" in
 	--save)
-		{ : > "$FILE"; } 2>/dev/null || usage_error "cannot write the --save file $FILE; its directory must exist and be writable"
 		list > "$FILE"; wc -l < "$FILE" | tr -d ' ' | sed 's/$/ listeners saved/' >&2 ;;
 	--diff)
 		# By port, PID and command: a line from a tree also carries its chain.
-		NEW=$(list | awk 'NR == FNR { seen[$1 " " $2 " " $3] = 1; next } !seen[$1 " " $2 " " $3]' <(printf '%s\n' "$SAVED") -)
+		NEW=$(list | awk 'NR == FNR { seen[$1 " " $2 " " $3] = 1; next } !seen[$1 " " $2 " " $3]' "$FILE" -)
 		if [[ -n "$NEW" ]]; then
 			printf '%s\n' "$NEW" | sort -n
 			exit 1

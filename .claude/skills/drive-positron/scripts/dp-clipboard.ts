@@ -38,8 +38,7 @@ export const clipboardCommands: Record<string, (argv: string[]) => Json | string
 		if (p.flags.help || !p.rest[0]) { usage('clipboard.sh'); }
 		if (p.rest[0] !== 'read') { throw new Exit(2, { ok: false, error: 'command: read [--image FILE]' }); }
 		if (process.platform !== 'darwin') { return { ok: false, error: `clipboard.sh reads the clipboard on macOS only (osascript); this is ${process.platform}, so nothing was read` }; }
-		const file = typeof p.flags.image === 'string' ? p.flags.image : '';
-		if (p.flags.image !== undefined && !file) { throw new Exit(2, { ok: false, error: '--image takes the file to write, such as clip-01.png' }); }
+		const file = String(p.flags.image ?? '');
 		// A bare name goes in the run's shots folder, as shot.sh's does, and is never overwritten.
 		const path = !file ? '' : file.includes('/') ? resolve(file) : join(process.env.DRIVE_POSITRON_SHOTS ?? '.', file);
 		if (path && existsSync(path)) { return { ok: false, error: `${path} already exists; give another name` }; }

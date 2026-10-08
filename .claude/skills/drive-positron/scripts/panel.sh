@@ -75,8 +75,7 @@
 #                        below it, the part closes ("now": "hidden", and a note)
 #
 # Stdout: one JSON line. Exit code: 0 on success, 1 when the tab, terminal or
-# session is not there, 2 on a usage error (an unknown flag, or --all on a
-# command other than sessions).
+# session is not there, 2 on a usage error.
 
 # Implemented in dp-panel.ts.
 exec node "$(dirname "${BASH_SOURCE[0]}")/dp.ts" panel "$@"
