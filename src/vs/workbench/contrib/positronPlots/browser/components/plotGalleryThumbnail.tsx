@@ -84,8 +84,9 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 		<div className={'plot-thumbnail' + (props.selected ? ' selected' : '')}>
 			<button
 				ref={plotThumbnailButtonRef}
-				data-plot-id={props.plotClient.id}
+				aria-pressed={props.selected}
 				className='plot-thumbnail-button'
+				data-plot-id={props.plotClient.id}
 				onClick={selectPlot}
 				onKeyDown={handleKeyDown}
 			>
@@ -100,6 +101,7 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 			</button>
 			<button
 				ref={plotRemoveButtonRef}
+				aria-label={removePlotTitle}
 				className='plot-close codicon codicon-close'
 				tabIndex={props.selected ? 0 : -1}
 				title={removePlotTitle}

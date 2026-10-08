@@ -150,6 +150,9 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	return (
 		<div
 			ref={ref}
+			// The header's name is the column's name and type, said once, rather than
+			// everything inside it, which would add the column menu button's name.
+			aria-label={props.column ? [props.column.name, props.column.description].filter(Boolean).join(' ') : undefined}
 			className={positronClassNames(
 				'data-grid-column-header',
 				{ pinned: props.pinned },
@@ -227,12 +230,13 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				{props.column &&
 					<Button
 						ref={sortingButtonRef}
+						ariaLabel={nls.localize('positronDataGrid.columnHeader.columnActions', "Column Actions")}
 						className='sort-button'
 						mouseTrigger={MouseTrigger.MouseDown}
 						tabIndex={-1}
 						onPressed={dropdownPressed}
 					>
-						<div className='codicon codicon-positron-vertical-ellipsis' style={{ fontSize: 18 }} />
+						<div aria-hidden='true' className='codicon codicon-positron-vertical-ellipsis' style={{ fontSize: 18 }} />
 					</Button>
 				}
 			</div>

@@ -64,4 +64,13 @@ describe('Plot gallery removal', () => {
 		// The two remaining plots should still be shown in the gallery.
 		expect(screen.getAllByRole('button', { name: 'Remove plot' })).toHaveLength(2);
 	});
+
+	it('marks only the selected plot thumbnail as pressed', async () => {
+		const plotsService = await createPlots();
+
+		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
+
+		// getByRole throws unless exactly one thumbnail is pressed.
+		expect(screen.getByRole('button', { pressed: true })).toHaveAttribute('data-plot-id', plotsService.selectedPlotId);
+	});
 });
