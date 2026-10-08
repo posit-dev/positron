@@ -35,6 +35,8 @@ export interface Finding {
 	revised?: boolean;
 	/** The last review's verdict on the kept change; a revise was recorded, not obeyed. */
 	reviewVerdict?: 'approve' | 'revise';
+	/** The exploratory run whose failure led the finder here; absent for a finding from exploring an area. */
+	lead?: string;
 	/** The helpers the kept change can reach, or 'all'. */
 	reaches?: string[] | 'all';
 }

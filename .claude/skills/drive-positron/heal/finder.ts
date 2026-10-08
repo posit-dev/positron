@@ -10,7 +10,7 @@
 //
 // Launches its own instance (session heal-find), picks the area, runs the
 // session, keeps the findings that validate, and stops the instance.
-// --leads-only skips the area, for nights that are not explore nights.
+// --leads-only skips the area: the scheduled run explores only when a manual run asks.
 
 import { spawnSync } from 'child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'fs';

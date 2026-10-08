@@ -20,6 +20,8 @@ Smoke and `check.ts` run after you, so do not re-run anything. Your job is what 
 5. **The rules.** No sleeps, retries or longer timeouts to get a pass; no loosened check; no change
    that hides a Positron bug.
 6. **Scope.** Any change that has nothing to do with the finding.
+7. **New surface.** For a finder finding with no `lead`, any new flag, command or accepted form is
+   a `revise`: only a failure from a real exploratory run adds one.
 
 ## Verdict
 

@@ -2,7 +2,7 @@ name: "drive-positron: Nightly Self-Heal"
 
 # Keeps drive-positron's helpers working. Runs smoke, reruns the failures once
 # to keep only the ones that hold up, reproduces the helper failures from the past
-# week's exploratory runs, explores one area on explore nights, and
+# week's exploratory runs (one area is explored too only when a manual run asks), and
 # has an agent fix helper bugs one at a time, each checked by check.ts and
 # smoke over the sections it can reach. Live (the default): passing fixes go to one rolling PR,
 # with review requested from REVIEWERS. Burn-in: each night's go to a candidate branch, linked in
@@ -19,10 +19,9 @@ on:
         type: boolean
         default: false
       explore:
-        description: "Run the finder: auto (per EXPLORE_ON), on, or off"
-        type: choice
-        options: [auto, "on", "off"]
-        default: auto
+        description: "After the leads, explore one area of the helpers (off on a scheduled run)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,8 +35,6 @@ env:
   # A run from any other branch is a test of that branch: it never touches the live PR.
   PHASE: ${{ github.ref != 'refs/heads/main' && 'burn-in' || vars.DRIVE_POSITRON_HEAL_PHASE || 'live' }}
   REVIEWERS: midleman
-  # When the finder runs on its own: nightly, or mondays once the nightly finds settle.
-  EXPLORE_ON: nightly
 
 jobs:
   heal:
@@ -192,18 +189,6 @@ jobs:
           # shellcheck disable=SC2086
           node .claude/skills/drive-positron/heal/rerun.ts --dir "$HEAL_DIR" -- $APP_ARGS
 
-      - name: Explore night?
-        id: explore
-        shell: bash
-        env:
-          WANT: ${{ inputs.explore || 'auto' }}
-        run: |
-          want="$WANT"
-          if [ "$want" = auto ]; then
-            if [ "$EXPLORE_ON" = nightly ] || [ "$(date -u +%u)" = 1 ]; then want=on; else want=off; fi
-          fi
-          echo "run=$([ "$want" = on ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
       # The finder picks its area from these, and the fixer's brief lists earlier verdicts.
       - name: Fetch the past week's findings
         shell: bash
@@ -224,7 +209,7 @@ jobs:
 
       - name: Load the Anthropic key
         # hashFiles only sees the workspace, so the findings check is a step output.
-        if: steps.explore.outputs.run == 'true' || steps.leads.outputs.count != '0' || steps.any.outputs.findings == 'true'
+        if: inputs.explore || steps.leads.outputs.count != '0' || steps.any.outputs.findings == 'true'
         uses: 1password/load-secrets-action@v5
         with:
           export-env: true
@@ -233,13 +218,13 @@ jobs:
           ANTHROPIC_KEY: "op://Positron/Anthropic/credential"
 
       - name: Finder
-        if: steps.explore.outputs.run == 'true' || steps.leads.outputs.count != '0'
+        if: inputs.explore || steps.leads.outputs.count != '0'
         shell: bash
         env:
           ANTHROPIC_API_KEY: ${{ env.ANTHROPIC_KEY }}
           GITHUB_TOKEN: ''
           GH_TOKEN: ''
-          EXPLORE: ${{ steps.explore.outputs.run }}
+          EXPLORE: ${{ inputs.explore }}
         run: |
           only=$([ "$EXPLORE" = true ] || echo --leads-only)
           # shellcheck disable=SC2086

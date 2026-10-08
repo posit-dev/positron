@@ -29,7 +29,7 @@ For each, set up the state the example shows on your instance and run the failin
 decide which it is:
 
 - A helper bug: the app could do it and the helper could not, or said the wrong thing. Write a
-  finding, with the run link in `observed`.
+  finding, with the run link in `lead`.
 - A product bug: the helper reported what Positron did. Write it as a product finding.
 - The agent's mistake: a wrong argument or a command that does not exist. A finding only if the
   error did not say what to do instead, or the same guess shows up in more than one run: then the
@@ -40,11 +40,12 @@ Then explore the area, if the brief names one, with the time left.
 
 ## How to look
 
-The area for this run is in the brief. Put the helpers in odd states rather than the happy path:
-a busy session, code sent during a restart, right after Reload Window, two sessions of one
-language, the window at 400 px wide (`window.sh`), a dialog open on top, a popup inside a dialog,
-a view that has not appeared yet. Pass bad arguments: a missing flag value, `--flag=value` glued,
-an unknown argument, an empty string.
+Only when the brief names an area. Use its helpers the way an agent testing a feature would: the
+commands and arguments their headers show, in the states such a run reaches (a busy session, two
+sessions of one language, right after Reload Window, a dialog open on top). Do not hunt for bad
+input such as misspelled flags or non-numeric values; argument parsing is shared and covered by
+smoke. A finding here reports a helper that is wrong on a path it already offers, not one that is
+missing a feature.
 
 ## Before you write a finding
 
@@ -68,5 +69,6 @@ One JSON file per finding in the findings directory from the brief, named `finde
       ]
     }
 
+Add `"lead": "<run link>"` when the finding came from a lead; leave it out otherwise.
 `id` is lowercase letters, digits and dashes. Steps are commands someone else can run in order on a
 fresh instance. End with a two-line summary: how many findings, and the area covered.

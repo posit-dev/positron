@@ -13,9 +13,10 @@
 4. `leads.ts`: reads the helper failures from the past week's exploratory runs (`test-exploratory.yml`
    artifacts' `actions.log`) into `leads.json`, grouped by helper and error, with what the agent
    did next. Those runs reach the features PRs change, which smoke and the areas do not
-5. `finder.ts`: one agent session reproduces the top leads, then, on explore nights (`EXPLORE_ON`
-   in the workflow: nightly, or Mondays), explores one area (`areas.json`), and writes findings.
-   On other nights it runs with `--leads-only` when there are leads
+5. `finder.ts`: one agent session reproduces the top leads and writes findings. It runs only when
+   there are leads, so it goes quiet as the helpers stop failing real runs. Exploring one area
+   (`areas.json`) as well is opt-in (the `explore` input of a manual run), for a new helper; a
+   finding from it may fix a helper but not add a flag or command
 6. `fix-loop.ts`: one fixer session per finding (at most 5). A fix that changes a helper must add a
    smoke case; a read-only reviewer (`reviewer.md`, Sonnet) checks the diff and may send it back
    to the fixer once. Each fix is then committed, then `check.ts`

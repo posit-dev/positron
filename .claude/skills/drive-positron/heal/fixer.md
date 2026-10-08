@@ -54,11 +54,15 @@ says how a helper is built and checked.
     changes `scripts/` and adds no case is rejected. Write each case on one line, like the ones
     around it. If no smoke case can show the bug (it only
     happens on another platform, or needs state smoke cannot build), set `untestable` to why.
-11. **Close what your fix covers.** The brief lists tonight's other open findings. When your fix
+11. **Only a real run adds a feature.** A finder finding with no `lead` came from exploring, not
+    from a real run: fix what is wrong on a path the helper already offers, but add no flag,
+    command or accepted form. If only a new one would fix it, make the helper fail loud with a
+    sentence saying what it cannot do, instead.
+12. **Close what your fix covers.** The brief lists tonight's other open findings. When your fix
     also fixes one of them, run that finding's steps again after your fix and, if it now passes,
     put its id in `covers`. List only finder ids you re-ran; a smoke finding closes when its own
     case passes in the post-fix run, so leave it out.
-12. **A review may send your change back once.** The brief then ends with the reviewer's notes and
+13. **A review may send your change back once.** The brief then ends with the reviewer's notes and
     your change is still in the tree. Act on the notes that are right, keep the rest of the rules,
     and write the outcome file again; your `reason` names any note you did not act on and why.
 
