@@ -14,6 +14,7 @@ import {
 	MAX_RELATIVE_PATH_LENGTH,
 	describeBudget
 } from './positron-path-budget.ts';
+import { checkSharedDuckdbRuntime, duckdbBindingPackage } from './positron-duckdb-runtime.ts';
 
 /** How many offenders to name when the check fails. */
 const REPORTED_OFFENDERS = 10;
@@ -90,6 +91,11 @@ export interface IPackagedTreeCheckOptions {
 	 */
 	pathLengths: boolean;
 	budgets?: IFileCountBudgets;
+	/**
+	 * The build target, to check the shared DuckDB runtime for it. See
+	 * positron-duckdb-runtime.ts.
+	 */
+	duckdbTarget?: { platform: string; arch: string };
 }
 
 export interface IPackagedTreeResult {
@@ -335,11 +341,36 @@ function reportFileCounts(result: IFileCountResult, budgets: IFileCountBudgets):
 		+ offenders.map(offender => `${offender.name} (${offender.files} of ${offender.budget})`).join(', ');
 }
 
+/** Logs the DuckDB runtime result. Returns an error message when the runtime is incomplete. */
+function reportDuckdbRuntime(extensionsPath: string, { platform, arch }: { platform: string; arch: string }): string | undefined {
+	const problems = checkSharedDuckdbRuntime(extensionsPath, platform, arch);
+	const binding = duckdbBindingPackage(platform, arch);
+
+	if (problems.length === 0) {
+		if (binding) {
+			fancyLog(`DuckDB runtime ok: ${ansiColors.cyan(binding)} in the shared node_modules`);
+		} else {
+			fancyLog.warn(`DuckDB publishes no binding for ${platform}-${arch}. The DuckDB features do not work in this build.`);
+		}
+		return undefined;
+	}
+
+	fancyLog.error(`The shared DuckDB runtime is incomplete for ${platform}-${arch}:`);
+	for (const problem of problems) {
+		fancyLog.error(`  ${problem}`);
+	}
+	fancyLog.error('The DuckDB workers cannot load DuckDB, so the Data Explorer and the DuckDB and pins connections fail.');
+	fancyLog.error('See build/lib/positron-duckdb-runtime.ts and posit-dev/positron#14265.');
+
+	return `the shared DuckDB runtime is incomplete: ${problems.join('; ')}`;
+}
+
 /**
  * Fails the build when an extension, or `extensions/` as a whole, ships more
  * files than its budget, and, with `pathLengths`, when a path is too long for a
- * Windows per-user install or auto-update. Both results are logged before the
- * function throws, so that one build shows every problem. With
+ * Windows per-user install or auto-update. With `duckdbTarget`, it also fails
+ * when the shared DuckDB runtime is incomplete for the target. All results are
+ * logged before the function throws, so that one build shows every problem. With
  * `POSITRON_IGNORE_FILE_BUDGET` set, a file count over budget is only a
  * warning.
  *
@@ -358,7 +389,8 @@ export function checkPackagedTree(appRoot: string, extensionsDir: string, option
 
 	const errors = [
 		pathLengths && reportPathLengths(pathLengths),
-		reportFileCounts(fileCounts, budgets)
+		reportFileCounts(fileCounts, budgets),
+		options.duckdbTarget && reportDuckdbRuntime(path.join(appRoot, extensionsDir), options.duckdbTarget)
 	].filter(error => error !== undefined);
 
 	if (errors.length) {
