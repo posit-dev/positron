@@ -181,6 +181,7 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 			// See related discussion: https://github.com/microsoft/playwright/issues/33303#issuecomment-2442096479
 			context.tracing.start = async (...args) => {
 				logger.log('Tracing is already managed, skipping default tracing start.');
+				return { dispose: async () => { }, [Symbol.asyncDispose]: async () => { } };
 			};
 			// --- End Positron ---
 		} catch (error) {
