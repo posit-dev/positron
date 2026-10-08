@@ -24,6 +24,11 @@ function writeTree(root: string, files: Record<string, string>): void {
 	}
 }
 
+/**
+ * The contents of a `package.json`. The versions in these tests are placeholders,
+ * not the DuckDB version that Positron ships. The checks compare the installed
+ * versions with each other, so a DuckDB upgrade needs no change here.
+ */
 function manifest(version: string, dependencies: Record<string, string> = {}): string {
 	return JSON.stringify({ version, dependencies });
 }
@@ -34,12 +39,12 @@ const COMPLETE_TREE: Record<string, string> = {
 	'positron-data-driver-duckdb/package.json': '{}',
 	'positron-data-driver-pins/package.json': '{}',
 	'positron-data-driver-pins/node_modules/js-yaml/package.json': manifest('4.1.0'),
-	'node_modules/@duckdb/node-api/package.json': manifest('1.5.5-r.3', { '@duckdb/node-bindings': '1.5.5-r.3' }),
-	'node_modules/@duckdb/node-bindings/package.json': manifest('1.5.5-r.3', { 'detect-libc': '^2.1.2' }),
+	'node_modules/@duckdb/node-api/package.json': manifest('1.0.0', { '@duckdb/node-bindings': '1.0.0' }),
+	'node_modules/@duckdb/node-bindings/package.json': manifest('1.0.0', { 'detect-libc': '^1.0.0' }),
 	'node_modules/@duckdb/node-bindings/duckdb.js': '',
-	'node_modules/@duckdb/node-bindings-darwin-arm64/package.json': manifest('1.5.5-r.3'),
+	'node_modules/@duckdb/node-bindings-darwin-arm64/package.json': manifest('1.0.0'),
 	'node_modules/@duckdb/node-bindings-darwin-arm64/duckdb.node': '',
-	'node_modules/detect-libc/package.json': manifest('2.1.2'),
+	'node_modules/detect-libc/package.json': manifest('1.0.0'),
 };
 
 suite('positron-duckdb-runtime', () => {
@@ -97,9 +102,9 @@ suite('positron-duckdb-runtime', () => {
 
 		test('passes when every extension installed the same versions', () => {
 			writeTree(root, {
-				...install('positron-duckdb', '1.5.5-r.3'),
-				...install('positron-data-driver-duckdb', '1.5.5-r.3'),
-				...install('positron-data-driver-pins', '1.5.5-r.3'),
+				...install('positron-duckdb', '1.0.0'),
+				...install('positron-data-driver-duckdb', '1.0.0'),
+				...install('positron-data-driver-pins', '1.0.0'),
 			});
 
 			assert.doesNotThrow(() => assertDuckdbVersionsMatch(root));
@@ -107,22 +112,22 @@ suite('positron-duckdb-runtime', () => {
 
 		test('fails on a different version, and names every extension', () => {
 			writeTree(root, {
-				...install('positron-duckdb', '1.5.5-r.3'),
-				...install('positron-data-driver-duckdb', '1.5.5-r.3'),
-				...install('positron-data-driver-pins', '1.5.5-r.99'),
+				...install('positron-duckdb', '1.0.0'),
+				...install('positron-data-driver-duckdb', '1.0.0'),
+				...install('positron-data-driver-pins', '2.0.0'),
 			});
 
 			assert.throws(() => assertDuckdbVersionsMatch(root), {
 				message: 'The extensions that share DuckDB must install the same version of @duckdb/node-api '
-					+ '(positron-duckdb: 1.5.5-r.3, positron-data-driver-duckdb: 1.5.5-r.3, positron-data-driver-pins: 1.5.5-r.99). '
+					+ '(positron-duckdb: 1.0.0, positron-data-driver-duckdb: 1.0.0, positron-data-driver-pins: 2.0.0). '
 					+ 'Pin the same exact version in each package.json and run npm install.'
 			});
 		});
 
 		test('fails when an extension has not installed DuckDB', () => {
 			writeTree(root, {
-				...install('positron-duckdb', '1.5.5-r.3'),
-				...install('positron-data-driver-duckdb', '1.5.5-r.3'),
+				...install('positron-duckdb', '1.0.0'),
+				...install('positron-data-driver-duckdb', '1.0.0'),
 			});
 
 			assert.throws(() => assertDuckdbVersionsMatch(root), /positron-data-driver-pins: not installed/);
@@ -176,8 +181,8 @@ suite('positron-duckdb-runtime', () => {
 		test('fails when an extension ships its own copy', () => {
 			writeTree(root, {
 				...COMPLETE_TREE,
-				'positron-data-driver-pins/node_modules/@duckdb/node-api/package.json': manifest('1.5.5-r.3'),
-				'positron-data-driver-pins/node_modules/detect-libc/package.json': manifest('2.1.2'),
+				'positron-data-driver-pins/node_modules/@duckdb/node-api/package.json': manifest('1.0.0'),
+				'positron-data-driver-pins/node_modules/detect-libc/package.json': manifest('1.0.0'),
 			});
 
 			assert.deepStrictEqual(checkSharedDuckdbRuntime(root, 'darwin', 'arm64'), [
@@ -189,7 +194,7 @@ suite('positron-duckdb-runtime', () => {
 		test('fails when a runtime dependency does not resolve in the shared node_modules', () => {
 			writeTree(root, {
 				...COMPLETE_TREE,
-				'node_modules/@duckdb/node-bindings/package.json': manifest('1.5.5-r.3', { 'detect-libc': '^2.1.2', 'new-dependency': '^1.0.0' }),
+				'node_modules/@duckdb/node-bindings/package.json': manifest('1.0.0', { 'detect-libc': '^1.0.0', 'new-dependency': '^1.0.0' }),
 			});
 			fs.rmSync(path.join(root, 'node_modules/detect-libc'), { recursive: true });
 
@@ -202,7 +207,7 @@ suite('positron-duckdb-runtime', () => {
 		test('resolves a dependency nested inside the package that needs it', () => {
 			writeTree(root, {
 				...COMPLETE_TREE,
-				'node_modules/@duckdb/node-bindings/node_modules/detect-libc/package.json': manifest('2.1.2'),
+				'node_modules/@duckdb/node-bindings/node_modules/detect-libc/package.json': manifest('1.0.0'),
 			});
 			fs.rmSync(path.join(root, 'node_modules/detect-libc'), { recursive: true });
 
