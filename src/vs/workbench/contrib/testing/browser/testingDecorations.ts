@@ -48,6 +48,9 @@ import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uri
 import { EditorLineNumberContextMenu, GutterActionsRegistry } from '../../codeEditor/browser/editorLineNumberMenu.js';
 import { DefaultGutterClickAction, TestingConfigKeys, getTestingConfiguration } from '../common/configuration.js';
 import { TestCommandId, Testing, labelForTestInState } from '../common/constants.js';
+// --- Start Positron ---
+import { IGutterClickGroups, resolveGutterClickGroups } from '../common/positronGutterClickAction.js';
+// --- End Positron ---
 import { TestId } from '../common/testId.js';
 import { ITestProfileService } from '../common/testProfileService.js';
 import { ITestResult, LiveTestResult, TestResultItemChangeReason } from '../common/testResult.js';
@@ -156,6 +159,9 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 		@ITestResultService private readonly results: ITestResultService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IModelService private readonly modelService: IModelService,
+		// --- Start Positron ---
+		@ITestProfileService testProfileService: ITestProfileService,
+		// --- End Positron ---
 	) {
 		super();
 		this._register(codeEditorService.registerDecorationType('test-message-decoration', TestMessageDecoration.decorationId, {}, undefined));
@@ -189,6 +195,10 @@ export class TestingDecorationService extends Disposable implements ITestingDeco
 			this.results.onTestChanged,
 			this.testService.excluded.onTestExclusionsChanged,
 			Event.filter(configurationService.onDidChangeConfiguration, e => e.affectsConfiguration(TestingConfigKeys.GutterEnabled)),
+			// --- Start Positron ---
+			// Gutter click groups depend on which profiles each controller registers.
+			testProfileService.onDidChange,
+			// --- End Positron ---
 		)(() => {
 			if (!debounceInvalidate.isScheduled()) {
 				debounceInvalidate.schedule();
@@ -710,7 +720,12 @@ const createRunTestDecoration = (
 	tests: readonly IncrementalTestCollectionItem[],
 	states: readonly (TestResultItem | undefined)[],
 	visible: boolean,
-	defaultGutterAction: DefaultGutterClickAction,
+	// --- Start Positron ---
+	// Take the resolved click groups instead of the raw setting, so the
+	// alternate icon reflects what Alt+click will actually run.
+	// defaultGutterAction: DefaultGutterClickAction,
+	clickGroups: IGutterClickGroups,
+	// --- End Positron ---
 ): IModelDeltaDecoration & { alternate?: IModelDecorationOptions } => {
 	const range = tests[0]?.item.range;
 	if (!range) {
@@ -748,9 +763,18 @@ const createRunTestDecoration = (
 		? (hasMultipleTests ? testingRunAllIcon : testingRunIcon)
 		: testingStatesToIcons.get(computedState)!;
 
-	const alternateIcon = defaultGutterAction === DefaultGutterClickAction.Debug
-		? (hasMultipleTests ? testingRunAllIcon : testingRunIcon)
-		: (hasMultipleTests ? testingDebugAllIcon : testingDebugIcon);
+	// --- Start Positron ---
+	// Derive the alternate icon from the group Alt+click runs. When the test's
+	// controller can't run a distinct alternate (e.g. R tests have no Debug
+	// profile), there is no alternate icon and holding Alt changes nothing.
+	// const alternateIcon = defaultGutterAction === DefaultGutterClickAction.Debug
+	// 	? (hasMultipleTests ? testingRunAllIcon : testingRunIcon)
+	// 	: (hasMultipleTests ? testingDebugAllIcon : testingDebugIcon);
+	const hasAlternate = clickGroups.alternate !== clickGroups.primary;
+	const alternateIcon = clickGroups.alternate === TestRunProfileBitset.Debug
+		? (hasMultipleTests ? testingDebugAllIcon : testingDebugIcon)
+		: (hasMultipleTests ? testingRunAllIcon : testingRunIcon);
+	// --- End Positron ---
 
 	let hoverMessage: IMarkdownString | undefined;
 
@@ -788,7 +812,10 @@ const createRunTestDecoration = (
 	return {
 		range: collapseRange(range),
 		options: defaultOptions,
-		alternate: alternateOptions,
+		// --- Start Positron ---
+		// alternate: alternateOptions,
+		alternate: hasAlternate ? alternateOptions : undefined,
+		// --- End Positron ---
 	};
 };
 
@@ -933,14 +960,42 @@ abstract class RunTestDecoration {
 		@IMenuService protected readonly menuService: IMenuService,
 	) {
 		this.displayedStates = tests.map(t => t.resultItem?.computedState);
+		// --- Start Positron ---
+		// Build the decoration from the click groups the tests' controllers
+		// can actually run, and remember them so profile changes trigger a rebuild.
+		this.clickGroups = this.getClickGroups(tests);
 		this.editorDecoration = createRunTestDecoration(
 			tests.map(t => t.test),
 			tests.map(t => t.resultItem),
 			visible,
-			getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction),
+			// getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction),
+			this.clickGroups,
 		);
+		// --- End Positron ---
 		this.editorDecoration.options.glyphMarginHoverMessage = new MarkdownString().appendText(this.getGutterLabel());
 	}
+
+	// --- Start Positron ---
+	/** The click groups the current decoration was built for. */
+	private clickGroups: IGutterClickGroups;
+
+	/**
+	 * Resolves the groups a click and Alt+click run for the given tests. A line
+	 * supports a group if any of its tests' controllers has a profile for it,
+	 * matching the gutter context menu.
+	 */
+	private getClickGroups(tests: readonly { test: IncrementalTestCollectionItem }[]): IGutterClickGroups {
+		let capabilities = 0;
+		for (const { test } of tests) {
+			capabilities |= this.testProfileService.capabilitiesForTest(test.item);
+		}
+
+		return resolveGutterClickGroups(
+			getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction),
+			capabilities,
+		);
+	}
+	// --- End Positron ---
 
 	/** @inheritdoc */
 	public click(e: IEditorMouseEvent): boolean {
@@ -953,22 +1008,33 @@ abstract class RunTestDecoration {
 			return false;
 		}
 
-		const alternateAction = e.event.altKey;
-		switch (getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction)) {
-			case DefaultGutterClickAction.ContextMenu:
-				this.showContextMenu(e);
-				break;
-			case DefaultGutterClickAction.Debug:
-				this.runWith(alternateAction ? TestRunProfileBitset.Run : TestRunProfileBitset.Debug);
-				break;
-			case DefaultGutterClickAction.Coverage:
-				this.runWith(alternateAction ? TestRunProfileBitset.Debug : TestRunProfileBitset.Coverage);
-				break;
-			case DefaultGutterClickAction.Run:
-			default:
-				this.runWith(alternateAction ? TestRunProfileBitset.Debug : TestRunProfileBitset.Run);
-				break;
+		// --- Start Positron ---
+		// Check the tests' controller capabilities at click time, so a Debug or
+		// Coverage group the controller has no profile for falls back to Run
+		// instead of silently doing nothing (e.g. R tests have no Debug profile).
+		// const alternateAction = e.event.altKey;
+		// switch (getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction)) {
+		// 	case DefaultGutterClickAction.ContextMenu:
+		// 		this.showContextMenu(e);
+		// 		break;
+		// 	case DefaultGutterClickAction.Debug:
+		// 		this.runWith(alternateAction ? TestRunProfileBitset.Run : TestRunProfileBitset.Debug);
+		// 		break;
+		// 	case DefaultGutterClickAction.Coverage:
+		// 		this.runWith(alternateAction ? TestRunProfileBitset.Debug : TestRunProfileBitset.Coverage);
+		// 		break;
+		// 	case DefaultGutterClickAction.Run:
+		// 	default:
+		// 		this.runWith(alternateAction ? TestRunProfileBitset.Debug : TestRunProfileBitset.Run);
+		// 		break;
+		// }
+		if (getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction) === DefaultGutterClickAction.ContextMenu) {
+			this.showContextMenu(e);
+		} else {
+			const { primary, alternate } = this.getClickGroups(this.tests);
+			this.runWith(e.event.altKey ? alternate : primary);
 		}
+		// --- End Positron ---
 
 		return true;
 	}
@@ -982,19 +1048,32 @@ abstract class RunTestDecoration {
 		resultItem: TestResultItem | undefined;
 	}[], visible: boolean): boolean {
 		const displayedStates = newTests.map(t => t.resultItem?.computedState);
-		if (visible === this.visible && equals(this.displayedStates, displayedStates)) {
+		// --- Start Positron ---
+		// Also rebuild when the click groups change, e.g. after a controller
+		// registers or removes a Debug profile.
+		// if (visible === this.visible && equals(this.displayedStates, displayedStates)) {
+		const clickGroups = this.getClickGroups(newTests);
+		if (visible === this.visible && equals(this.displayedStates, displayedStates)
+			&& clickGroups.primary === this.clickGroups.primary && clickGroups.alternate === this.clickGroups.alternate) {
+			// --- End Positron ---
 			return false;
 		}
 
 		this.tests = newTests;
 		this.displayedStates = displayedStates;
 		this.visible = visible;
+		// --- Start Positron ---
+		this.clickGroups = clickGroups;
+		// --- End Positron ---
 
 		const { options, alternate } = createRunTestDecoration(
 			newTests.map(t => t.test),
 			newTests.map(t => t.resultItem),
 			visible,
-			getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction)
+			// --- Start Positron ---
+			// getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction)
+			clickGroups,
+			// --- End Positron ---
 		);
 
 		this.editorDecoration.options = options;
@@ -1028,17 +1107,34 @@ abstract class RunTestDecoration {
 	}
 
 	private getGutterLabel() {
-		switch (getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction)) {
-			case DefaultGutterClickAction.ContextMenu:
-				return localize('testing.gutterMsg.contextMenu', 'Click for test options');
-			case DefaultGutterClickAction.Debug:
+		// --- Start Positron ---
+		// Describe the group a click actually runs, which falls back to Run
+		// when the tests' controller has no Debug or Coverage profile.
+		// switch (getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction)) {
+		// 	case DefaultGutterClickAction.ContextMenu:
+		// 		return localize('testing.gutterMsg.contextMenu', 'Click for test options');
+		// 	case DefaultGutterClickAction.Debug:
+		// 		return localize('testing.gutterMsg.debug', 'Click to debug tests, right click for more options');
+		// 	case DefaultGutterClickAction.Coverage:
+		// 		return localize('testing.gutterMsg.coverage', 'Click to run tests with coverage, right click for more options');
+		// 	case DefaultGutterClickAction.Run:
+		// 	default:
+		// 		return localize('testing.gutterMsg.run', 'Click to run tests, right click for more options');
+		// }
+		if (getTestingConfiguration(this.configurationService, TestingConfigKeys.DefaultGutterClickAction) === DefaultGutterClickAction.ContextMenu) {
+			return localize('testing.gutterMsg.contextMenu', 'Click for test options');
+		}
+
+		switch (this.clickGroups.primary) {
+			case TestRunProfileBitset.Debug:
 				return localize('testing.gutterMsg.debug', 'Click to debug tests, right click for more options');
-			case DefaultGutterClickAction.Coverage:
+			case TestRunProfileBitset.Coverage:
 				return localize('testing.gutterMsg.coverage', 'Click to run tests with coverage, right click for more options');
-			case DefaultGutterClickAction.Run:
+			case TestRunProfileBitset.Run:
 			default:
 				return localize('testing.gutterMsg.run', 'Click to run tests, right click for more options');
 		}
+		// --- End Positron ---
 	}
 
 	/**
