@@ -23,6 +23,7 @@ import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/conda
 import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/venvCreationProvider';
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
 import { traceInfo, traceVerbose } from '../logging';
+import { isGlobalEnvironment } from '../pythonEnvironments/creation/common/createEnvTriggerUtils';
 
 const ENVIRONMENT_PROVIDERS_ENABLED_KEY = 'environmentProviders.enabled';
 const DEPRECATED_ENVIRONMENT_PROVIDERS_ENABLE_KEY = 'environmentProviders.enable';
@@ -132,7 +133,7 @@ export async function createEnvironmentAndRegister(
  * @param interpreterPath The interpreter path to check.
  * @returns True if the interpreter is a global python installation, false if it is not, and
  * undefined if the check could not be performed.
- * Implementation is based on isGlobalPythonSelected in extensions/positron-python/src/client/pythonEnvironments/creation/common/createEnvTriggerUtils.ts
+ * Shares its rule with the venv auto-create prompt's gate (isGlobalPythonSelected).
  */
 export async function isGlobalPython(interpreterPath: string): Promise<boolean | undefined> {
     const extension = getExtension<PythonExtension>(PVSC_EXTENSION_ID);
@@ -146,18 +147,7 @@ export async function isGlobalPython(interpreterPath: string): Promise<boolean |
     if (!interpreterDetails) {
         return undefined;
     }
-
-    // If the interpreter is not in a virtual environment, it is a global python installation
-    if (interpreterDetails.environment === undefined) {
-        return true;
-    }
-
-    // If the interpreter is in a virtual environment, but was installed via Pyenv, it is a global python installation
-    if (interpreterDetails.tools.includes('Pyenv')) {
-        return true;
-    }
-
-    return false;
+    return isGlobalEnvironment(interpreterDetails);
 }
 
 /**

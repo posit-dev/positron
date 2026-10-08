@@ -86,6 +86,15 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
         return this._selectIfLaunchedViaActivatedEnv(doNotBlockOnSelection);
     }
 
+    // --- Start Positron ---
+    private selectionWritten: Promise<void> | undefined;
+
+    public async waitForSelection(): Promise<void> {
+        await this.selectIfLaunchedViaActivatedEnv(true);
+        await this.selectionWritten?.catch(() => undefined);
+    }
+    // --- End Positron ---
+
     @cache(-1, true)
     private async _selectIfLaunchedViaActivatedEnv(doNotBlockOnSelection = false): Promise<string | undefined> {
         if (process.env.VSCODE_CLI !== '1') {
@@ -112,12 +121,24 @@ export class ActivatedEnvironmentLaunch implements IActivatedEnvironmentLaunch {
                 prefix,
             )}', selecting it as the interpreter for workspace.`,
         );
-        if (doNotBlockOnSelection) {
-            this.setInterpeterInStorage(prefix).ignoreErrors();
-        } else {
-            await this.setInterpeterInStorage(prefix);
+        // --- Start Positron ---
+        // Kept so waitForSelection can join the write instead of racing it.
+        // if (doNotBlockOnSelection) {
+        //     this.setInterpeterInStorage(prefix).ignoreErrors();
+        // } else {
+        //     await this.setInterpeterInStorage(prefix);
+        //     await sleep(1); // Yield control so config service can update itself.
+        // }
+        const written = this.setInterpeterInStorage(prefix).then(async () => {
             await sleep(1); // Yield control so config service can update itself.
+        });
+        this.selectionWritten = written;
+        if (doNotBlockOnSelection) {
+            written.ignoreErrors();
+        } else {
+            await written;
         }
+        // --- End Positron ---
         this.inMemorySelection = undefined; // Once we have set the prefix in storage, clear the in memory selection.
         return prefix;
     }

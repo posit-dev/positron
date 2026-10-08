@@ -11,7 +11,10 @@ import * as fsapi from '../../../common/platform/fs-paths';
 import { getPipRequirementsFiles } from '../provider/venvUtils';
 import { getExtension } from '../../../common/vscodeApis/extensionsApi';
 import { PVSC_EXTENSION_ID } from '../../../common/constants';
-import { PythonExtension } from '../../../api/types';
+// --- Start Positron ---
+// import { PythonExtension } from '../../../api/types';
+import { PythonExtension, ResolvedEnvironment } from '../../../api/types';
+// --- End Positron ---
 import { traceInfo, traceVerbose } from '../../../logging';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { getWorkspaceStateValue } from '../../../common/persistentState';
@@ -68,6 +71,29 @@ export async function hasKnownFiles(workspace: WorkspaceFolder): Promise<boolean
     return found;
 }
 
+// --- Start Positron ---
+/**
+ * Whether a resolved environment is a global install rather than a project environment.
+ * Shared by the venv auto-create prompt's gate and the interpreter-select modal.
+ */
+export async function isGlobalEnvironment(details: ResolvedEnvironment): Promise<boolean> {
+    if (details.environment === undefined) {
+        return true;
+    }
+    const execPath = details.executable.uri?.fsPath ?? details.path;
+    // ~/.local installs are user-wide, not project-local.
+    if (execPath.startsWith(path.join(os.homedir(), '.local') + path.sep)) {
+        return true;
+    }
+    // PET maps plain pyenv versions and `pyenv virtualenv` envs to the same kind; only the
+    // latter carries a pyvenv.cfg.
+    if (details.tools.includes('Pyenv')) {
+        return !(await fsapi.pathExists(path.join(details.environment.folderUri.fsPath, 'pyvenv.cfg')));
+    }
+    return false;
+}
+// --- End Positron ---
+
 export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promise<boolean> {
     const extension = getExtension<PythonExtension>(PVSC_EXTENSION_ID);
     if (!extension) {
@@ -79,10 +105,8 @@ export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promis
     const details = await extensionApi.environments.resolveEnvironment(interpreter);
     // --- Start Positron ---
     const execPath = details?.executable?.uri?.fsPath ?? interpreter.path;
-    // Also treat ~/.local installs as global - they are user-wide, not project-local.
-    const homeLocal = path.join(os.homedir(), '.local') + path.sep;
-    const isUnderHomeLocal = execPath.startsWith(homeLocal);
-    const isGlobal = details?.environment === undefined || isUnderHomeLocal;
+    // const isGlobal = details?.environment === undefined;
+    const isGlobal = details === undefined || (await isGlobalEnvironment(details));
     // --- End Positron ---
     if (isGlobal) {
         traceVerbose(`Selected python for [${workspace.uri.fsPath}] is [global] type: ${interpreter.path}`);

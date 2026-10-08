@@ -15,6 +15,10 @@ import { IInterpreterService } from '../../../client/interpreter/contracts';
 import { ActivatedEnvironmentLaunch } from '../../../client/interpreter/virtualEnvs/activatedEnvLaunch';
 import { PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import { Conda } from '../../../client/pythonEnvironments/common/environmentManagers/conda';
+// --- Start Positron ---
+import * as interpreterSettings from '../../../client/positron/interpreterSettings';
+import { InspectInterpreterSettingType } from '../../../client/common/types';
+// --- End Positron ---
 
 suite('Activated Env Launch', async () => {
     const uri = Uri.file('a');
@@ -100,6 +104,119 @@ suite('Activated Env Launch', async () => {
             expect(result).to.be.equal(condaPrefix, 'Incorrect value');
             pythonPathUpdaterService.verifyAll();
         });
+
+        // --- Start Positron ---
+        test('waitForSelection resolves only after a non-blocking selection has been written', async () => {
+            process.env.VIRTUAL_ENV = virtualEnvPrefix;
+            workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
+            const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
+            workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
+            let written = false;
+            pythonPathUpdaterService
+                .setup((p) =>
+                    p.updatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                )
+                .returns(async () => {
+                    await new Promise((resolve) => setTimeout(resolve, 20));
+                    written = true;
+                });
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+            const prefix = await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv(true);
+            expect(prefix).to.be.equal(virtualEnvPrefix);
+            expect(written).to.be.equal(false, 'non-blocking selection must not wait for the write');
+            await activatedEnvLaunch.waitForSelection();
+            expect(written).to.be.equal(true, 'waitForSelection must join the pending write');
+        });
+
+        test('waitForSelection resolves immediately when no environment is activated', async () => {
+            delete process.env.VIRTUAL_ENV;
+            delete process.env.CONDA_PREFIX;
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+            await activatedEnvLaunch.waitForSelection();
+            pythonPathUpdaterService.verify(
+                (p) =>
+                    p.updatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                TypeMoq.Times.never(),
+            );
+        });
+        test('waitForSelection resolves after a blocking selection has been written', async () => {
+            process.env.VIRTUAL_ENV = virtualEnvPrefix;
+            workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
+            const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
+            workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
+            pythonPathUpdaterService
+                .setup((p) =>
+                    p.updatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                )
+                .returns(() => Promise.resolve())
+                .verifiable(TypeMoq.Times.once());
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+            expect(await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv()).to.be.equal(virtualEnvPrefix);
+            await activatedEnvLaunch.waitForSelection();
+            pythonPathUpdaterService.verifyAll();
+        });
+
+        test('waitForSelection resolves when the selection write fails', async () => {
+            process.env.VIRTUAL_ENV = virtualEnvPrefix;
+            workspaceService.setup((w) => w.workspaceFile).returns(() => undefined);
+            const workspaceFolder: WorkspaceFolder = { name: 'one', uri, index: 0 };
+            workspaceService.setup((w) => w.workspaceFolders).returns(() => [workspaceFolder]);
+            pythonPathUpdaterService
+                .setup((p) =>
+                    p.updatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                )
+                .returns(() => Promise.reject(new Error('settings write failed')));
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+            expect(await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv(true)).to.be.equal(virtualEnvPrefix);
+            await activatedEnvLaunch.waitForSelection();
+        });
+
+        test('waitForSelection resolves when the user default interpreter wins over the activated env', async () => {
+            process.env.VIRTUAL_ENV = virtualEnvPrefix;
+            sinon
+                .stub(interpreterSettings, 'getUserDefaultInterpreter')
+                .returns({ globalValue: '/usr/bin/python3' } as unknown as InspectInterpreterSettingType);
+            workspaceService.setup((w) => w.workspaceFolders).returns(() => undefined);
+            activatedEnvLaunch = new ActivatedEnvironmentLaunch(
+                workspaceService.object,
+                appShell.object,
+                pythonPathUpdaterService.object,
+                interpreterService.object,
+                processServiceFactory.object,
+            );
+            expect(await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv(true)).to.be.equal(undefined);
+            await activatedEnvLaunch.waitForSelection();
+            pythonPathUpdaterService.verify(
+                (p) =>
+                    p.updatePythonPath(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()),
+                TypeMoq.Times.never(),
+            );
+        });
+        // --- End Positron ---
 
         test('Does not update interpreter path if VSCode is not launched via CLI', async () => {
             delete process.env.VSCODE_CLI;
