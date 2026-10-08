@@ -13,7 +13,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { readFileSync, existsSync, appendFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseSummaryRootCauses, renderSlackSummary } from './slack-summary.mjs';
+import { decorateReport } from './report-format.mjs';
 
 const WORK_DIR = mustEnv('WORK_DIR');
 const MODEL = process.env.MODEL || 'opus';
@@ -576,31 +576,42 @@ Report structure:
 
 ## Summary
 
-| Test | Platform | Root cause | Severity |
-|------|----------|------------|----------|
-| <test name> | <project / OS> | <category> | hard |
+| Test | Platform | Root cause |
+|------|----------|------------|
+| <test name> | <project / OS> | <category> |
 
-List every HARD failure as a row (severity is always "hard" in this table). Start each Root cause cell with the rubric category name exactly as the rubric spells it (prefix "suspected" for a suspected product regression), optionally followed by a short parenthetical -- the Slack breakdown counts rows by that leading category. Keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard by definition -- include them as rows with the job name as the test name. Do NOT put flaky tests in this table.
+List every HARD failure as a row. Write each Root cause cell as just the rubric category name, spelled exactly as the rubric spells it (prefix "suspected" for a suspected product regression) -- no parenthetical; the explanation belongs in Detailed Analysis. The Action rebuilds this table after you write it: it adds a colored category icon to each row, counts rows by category for a callout above the table and the Slack post, and adds a legend. So do not add icons, emoji, a legend, or a count yourself. Keep failures from the same test file adjacent. Non-e2e job failures (unit tests, build failures, etc.) are hard by definition -- include them as rows with the job name as the test name. Do NOT put flaky tests in this table.
 
 Read the input's \`## Job setup step failures\` section FIRST and let it settle the root cause before you open any screenshot or trace. A test in a job whose setup failed does not get the same row as the same test in a job whose setup was clean -- give them separate rows with their separate root causes.
 
 ## Detailed Analysis
 
-For each distinct HARD failure (or group), provide:
-- **<test name>** (<platform>) -- <root cause category>
-  - What happened: <1-2 short sentences in plain language that someone who has never seen this test can follow: what the test was trying to do, what went wrong, and whether the problem is in the product, the test, or the CI environment. No selectors, CSS classes, file paths, line numbers, or rubric terms -- those belong in Evidence. Example: "The test opens the Output panel and scrolls to the top, but new log lines kept arriving and pulled the view back to the bottom. The product is fine; the test needs to wait for the output to stop.">
-  - Setup: <include this line ONLY when the failure's job had a pre-test setup step failure; name the step and what it was installing. Omit the line entirely otherwise -- do not write "setup ok">
-  - Evidence: <at most 2 short sentences: the single most decisive observation from the screenshot/trace/page snapshot>
-    <details><summary>Evidence detail</summary>
+One section per distinct HARD failure (or group of the same test across platforms), in this exact layout, with a \`---\` line between sections:
 
-    <the full evidence reasoning: what each screenshot, trace step, DOM-presence line, page snapshot, and log line shows, and what it rules in or out>
+### <test name>
 
-    </details>
-  - Commit: <relevant changed files, or "no related changes">
-  - History: <history line, or "no data available">
-  - Action: <what the developer should do>
+<sub><platform(s)> &middot; <root cause category, with confidence if suspected></sub>
 
-Copy the Evidence detail block's layout exactly: \`<details>\` on the line directly after the Evidence line, indented 4 spaces; a blank line after the \`<summary>\` line and before \`</details>\`; the detail text indented 4 spaces. GitHub only renders the markdown inside the block with that spacing. Keep the Evidence line itself short -- the detail block is where the reasoning goes. Omit the block when the short Evidence line already says everything.
+**What happened:** <1-2 short sentences in plain language that someone who has never seen this test can follow: what the test was trying to do, what went wrong, and whether the problem is in the product, the test, or the CI environment. No selectors, CSS classes, file paths, line numbers, or rubric terms -- those belong in Evidence. Example: "The test opens the Output panel and scrolls to the top, but new log lines kept arriving and pulled the view back to the bottom. The product is fine; the test needs to wait for the output to stop.">
+
+**Setup:** <include this paragraph ONLY when the failure's job had a pre-test setup step failure; name the step and what it was installing. Omit it entirely otherwise -- do not write "setup ok">
+
+**Action:** <the single next step and who owns it, in at most 2 sentences and about 50 words. When the cause is unconfirmed, name the one check that would confirm or refute it -- not a full investigation plan; the reasoning behind it belongs in Evidence detail.>
+
+**Evidence:** <at most 2 short sentences: the single most decisive observation from the screenshot/trace/page snapshot>
+
+<details><summary>Evidence detail</summary>
+
+<the full evidence reasoning: what each screenshot, trace step, DOM-presence line, page snapshot, and log line shows, and what it rules in or out>
+
+</details>
+
+<sub>**Commit:** <relevant changed files, or "no related changes"> &middot; **History:** <one short line: pass rate, and onset or trend if it matters, or "no data available"></sub>
+
+Layout rules:
+- The \`###\` heading is the test name exactly as it appears in the Summary table's Test cell, with nothing before it -- the Action matches the heading to the row to add its icon.
+- Keep a blank line after the \`<summary>\` line and before \`</details>\`; GitHub only renders the markdown inside the block with that spacing. Omit the block when the short Evidence line already says everything.
+- Keep the Evidence line itself short -- the detail block is where the reasoning goes.
 
 ## Flaky (passed on retry)
 
@@ -745,22 +756,24 @@ async function main() {
 	const statsNote = renderRunStats(runStats);
 	if (!report) {
 		console.error('[analyzer] no markdown report produced');
-		writeStepSummary(`${header}\n\n## E2E Failure Analysis\n\n_Analyzer produced no report. Check action logs._\n\n${statsNote}\n`);
+		writeStepSummary(`${header}\n\n## E2E Failure Analysis\n\n_Analyzer produced no report. Check action logs._\n\n<sub>${statsNote}</sub>\n`);
 		process.exit(1);
 	}
 
-	const fullReport = `${header}\n\n${addSummaryNote(report, statsNote)}`;
+	// Callout, table icons, and the Slack breakdown are built from the Summary
+	// table here rather than by the model, so they are consistent every run.
+	const flakyCount = projects.flatMap(p => classifyTests(p.result)).filter(c => c.severity === 'FLAKY').length;
+	const decorated = decorateReport(report, { flakyCount, note: statsNote });
+	const fullReport = `${header}\n\n${decorated.report}`;
 	writeStepSummary(fullReport);
 	writeFileSync(join(WORK_DIR, 'analysis-report.md'), fullReport);
 	console.log(`[analyzer] wrote ${fullReport.length} chars to step summary`);
 
 	// One-line issue breakdown for the Slack thread post in action.yml. Skipped
 	// when the Summary table can't be parsed; the post then omits the breakdown.
-	const flakyCount = projects.flatMap(p => classifyTests(p.result)).filter(c => c.severity === 'FLAKY').length;
-	const slackSummary = renderSlackSummary(parseSummaryRootCauses(report), flakyCount);
-	if (slackSummary) {
-		writeFileSync(join(WORK_DIR, 'slack-summary.txt'), slackSummary);
-		console.log(`[analyzer] slack summary: ${slackSummary}`);
+	if (decorated.slack) {
+		writeFileSync(join(WORK_DIR, 'slack-summary.txt'), decorated.slack);
+		console.log(`[analyzer] slack summary: ${decorated.slack}`);
 	} else {
 		console.warn('[analyzer] WARN: could not parse the Summary table; Slack post will omit the breakdown');
 	}
@@ -780,24 +793,12 @@ function renderReportHeader(runInfo) {
 	return `> Analyzed ${linkText} on \`${branch}\`${commitSegment}`;
 }
 
-/** One-line note on what the analysis itself took: model, turns, and cost. */
+/** Inline note on what the analysis itself took: model, turns, and cost. */
 function renderRunStats({ model, turns, costUsd }) {
 	const parts = [`\`${model}\``];
 	if (Number.isFinite(turns)) { parts.push(`${turns} turn${turns === 1 ? '' : 's'}`); }
 	if (Number.isFinite(costUsd)) { parts.push(`$${costUsd.toFixed(2)}`); }
-	return `<sub>Analysis run: ${parts.join(', ')}</sub>`;
-}
-
-/**
- * Insert `note` at the end of the report's `## Summary` section, just before
- * the next `## ` heading. Appends it when there is no later heading.
- */
-function addSummaryNote(report, note) {
-	const summaryStart = report.indexOf('## Summary');
-	const nextHeading = summaryStart >= 0 ? report.slice(summaryStart + 1).search(/\n## /) : -1;
-	if (nextHeading < 0) { return `${report.trimEnd()}\n\n${note}\n`; }
-	const at = summaryStart + 1 + nextHeading + 1;
-	return `${report.slice(0, at).trimEnd()}\n\n${note}\n\n${report.slice(at)}`;
+	return `Analysis run: ${parts.join(', ')}`;
 }
 
 function pickReport(messages) {
