@@ -52,15 +52,18 @@ workbenchRegistry.registerWorkbenchContribution(MissingPackagesPrecomputeContrib
 workbenchRegistry.registerWorkbenchContribution(MissingPackagesContextKeyContribution, LifecyclePhase.Restored);
 
 // Editor action bar badge (scenario 2) for scripts whose language has a session
-// that supports missing packages, and Quarto documents. The editor action bar
-// is disabled for notebooks, so notebooks get a separate mount below. Quarto
-// documents are multi-language; the service splits them into per-language code
-// chunks and routes each to its session.
+// that supports missing packages, and Quarto documents. The Positron notebook
+// toolbar also renders this menu, so notebooks are excluded here and get their
+// own mount below. Quarto documents are multi-language; the service splits them
+// into per-language code chunks and routes each to its session.
 PositronActionBarWidgetRegistry.registerWidget({
 	id: 'positronMissingPackages.editorBadge',
 	menuId: MenuId.EditorActionsRight,
 	order: 95,
-	when: MISSING_PACKAGES_SUPPORTED_KEY,
+	when: ContextKeyExpr.and(
+		MISSING_PACKAGES_SUPPORTED_KEY,
+		ContextKeyExpr.notEquals('activeEditor', POSITRON_NOTEBOOK_EDITOR_ID),
+	),
 	selfContained: true,
 	componentFactory: (accessor) => () => React.createElement(MissingPackagesBadgeMount, { accessor }),
 });
