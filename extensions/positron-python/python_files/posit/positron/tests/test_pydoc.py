@@ -336,6 +336,26 @@ def test_get_summary(obj: Any, expected: str) -> None:
     assert result == expected
 
 
+class _AmbiguousTruthValue:
+    def __eq__(self, other: object) -> "_AmbiguousTruthValue":  # type: ignore[override]
+        return self
+
+    def __bool__(self) -> bool:
+        raise TypeError("The truth value is ambiguous")
+
+
+class _AnyAttribute:
+    """Object summary."""
+
+    # Mimics `polars.col`, which returns an expression for any attribute name.
+    def __getattr__(self, name: str) -> _AmbiguousTruthValue:
+        return _AmbiguousTruthValue()
+
+
+def test_get_summary_any_attribute() -> None:
+    assert _get_summary(_AnyAttribute()) == "Object summary."
+
+
 def _assert_html_equal(result: str, expected: str) -> None:
     # Ignore whitespace between lines.
     # This is specifically to handle the fact that black removes trailing whitespaces from our
