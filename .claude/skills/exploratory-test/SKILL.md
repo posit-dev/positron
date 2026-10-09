@@ -47,9 +47,13 @@ Write the brief to a file in your scratch directory. The pipeline adds
 
 ## Run it
 
-Run this as a background command:
+Run this as a background command, with values in place of shell variables.
+Its first line is what the person sees in the background shell list:
 
-`node <base>/renderer/pipeline.mjs run --brief <brief file> --repo <checkout> --base <base sha> --head <head sha> --base-name <base branch> --time-limit <minutes>`
+```
+# explore: <feature>, <minutes> min
+node <base>/renderer/pipeline.mjs run --brief <brief file> --repo <checkout> --base <base sha> --head <head sha> --base-name <base branch> --time-limit <minutes>
+```
 
 It makes the run directory and prints it first, then runs each agent as a
 `claude -p` session: an Opus explorer, a verifier that checks its findings, an
