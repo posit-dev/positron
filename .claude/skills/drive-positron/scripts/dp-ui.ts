@@ -10,7 +10,7 @@
 // view's accessibility tree, so a click that did nothing says so. ui.sh wraps
 // these.
 
-import { count, Exit, inPage, log, logRead, parse, seconds, treeLine, usage, type Json, type PageFn, type Parsed } from './dp-lib.ts';
+import { count, Exit, inPage, log, logRead, notACommand, parse, seconds, treeLine, usage, type Json, type PageFn, type Parsed } from './dp-lib.ts';
 
 interface Target { scope: string; role: string; name: string; partial: boolean; nth: number; watch: string; right?: boolean }
 
@@ -96,7 +96,7 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 	if (a.kind === 'click') {
 		// A menu ignores a click that arrives before the pointer rests on the item.
 		if (a.scope.toLowerCase() === 'menu') { await el.hover({ timeout: 3000 }); await lib.sleep(100); }
-		await el.click({ timeout: 3000, ...(a.right ? { button: 'right' as const } : {}) });
+		await lib.click(el, a.right ? { button: 'right' } : {});
 	} else if (a.kind === 'fill') {
 		await el.fill(a.text, { timeout: 3000 });
 		const now = await el.inputValue().catch(() => null);
@@ -121,7 +121,7 @@ const action: PageFn<Target & { kind: string; text: string; want: string; wait: 
 		const was = await state();
 		const want = a.want === 'on';
 		if (was === want) { return { ok: true, [a.role]: actual, already: true, checked: was }; }
-		await box.click({ timeout: 3000 });
+		await lib.click(box);
 		let now = was;
 		for (let i = 0; i < 10 && now !== want; i++) { await lib.sleep(100); now = await state().catch(() => now); }
 		const renamed = await nameOf().catch(() => null);
@@ -195,7 +195,7 @@ const choose: PageFn<Target & { item: string; wait: number }> = async (page, a, 
 	const before = await lib.snapshot(sc.loc, 400);
 	const toastsBefore = await lib.toasts();
 	await lib.markOverlays(handle);
-	await t.click({ timeout: 3000 });
+	await lib.click(t);
 	const end = Date.now() + 3000;
 	// A popup can draw its box before its rows: wait for an item too.
 	let list = await lib.opened(true);
@@ -366,7 +366,7 @@ export const uiCommands: Record<string, (argv: string[]) => Json | string> = {
 				out = inPage(p.session, pickRow, { text: r.join(' ') });
 				break;
 			default:
-				throw new Exit(2, { ok: false, error: 'command: read, watch, click, fill, check, choose, type or pick' });
+				notACommand(cmd, ['read', 'watch', 'click', 'fill', 'check', 'choose', 'type', 'pick'], { tabs: 'ui.sh read panel shows the panel tabs, and panel.sh editors lists the editor tabs' });
 		}
 		if (out.ok && !out.already) { log('ui.sh', p.session, `${cmd} ${r.map(x => JSON.stringify(x)).join(' ')}${p.flags.in ? ' in ' + p.flags.in : ''}${out.renamed ? ` (renamed ${out.renamed})` : ''}`, readout(out)); }
 		return out;

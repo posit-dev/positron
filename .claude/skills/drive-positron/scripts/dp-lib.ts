@@ -249,6 +249,27 @@ export function usage(script: string): never {
 	throw new Exit(0, '');
 }
 
+/**
+ * Refuses a command word the helper does not have (exit 2), before any page
+ * call, with an error that names the word and lists the commands. `commands`
+ * are as the error lists them, each with what it takes ('tab NAME'). A word
+ * explorers guessed before gets its answer from `guesses` (panel.sh's "tabs":
+ * which command lists which tabs); any other word that a command starts with,
+ * or that starts with a command ("sessio", "plot"), names that command.
+ */
+export function commandWord(cmd: string, commands: string[], guesses: Record<string, string> = {}): void {
+	if (!commands.some(c => c.split(' ')[0] === cmd)) { notACommand(cmd, commands, guesses); }
+}
+
+/** The usage error commandWord throws, for a `default:` branch that has only unknown words left. */
+export function notACommand(cmd: string, commands: string[], guesses: Record<string, string> = {}): never {
+	const words = commands.map(c => c.split(' ')[0]);
+	const near = cmd.length > 2 ? words.filter(w => w.startsWith(cmd) || cmd.startsWith(w)) : [];
+	const hint = Object.hasOwn(guesses, cmd) ? guesses[cmd] : near.length ? `the nearest is ${near.join(' or ')}` : '';
+	const list = commands.length > 1 ? `${commands.slice(0, -1).join(', ')} or ${commands[commands.length - 1]}` : commands.join('');
+	throw new Exit(2, { ok: false, error: `${JSON.stringify(cmd)} is not a command${hint ? `: ${hint}` : ''}; the commands: ${list}` });
+}
+
 /** Blocks for this many seconds, between two page calls. */
 export function pause(seconds: number): void {
 	Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, seconds * 1000);

@@ -99,8 +99,11 @@ const cases: Case[] = [
 	{ name: 'start-session python --new', run: () => ['start-session.sh', '--language', 'python', '--name', found.pyName, '--new'], check: o => keys(o.json, 'runtime', 'sessionId') || (o.json!.started !== true && 'not started') || (!/^python-/.test(o.json!.sessionId) && 'sessionId is not python-*') || (o.json!.sessionId === `python-${found.first}` && 'the old session') || void (found.py = o.json!.sessionId) },
 	{ name: 'panel sessions', run: ['panel.sh', 'sessions'], check: o => (o.json!.sessions?.filter((x: Json) => x.language === 'python').length !== 2 && `python sessions: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.id === found.r && x.language === 'r') && 'no r session') || (o.json!.sessions?.filter((x: Json) => x.active).length !== 1 && 'not one active') },
 	{ name: 'panel --session empty is a usage error, logged', run: ['panel.sh', 'sessions', '--session', ''], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--session needs a value') || logged('panel.sh -s=net1: FAILED sessions: --session needs a value') },
+	{ name: 'panel tabs is not a command, and says which command lists which tabs', run: ['panel.sh', 'tabs'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"tabs" is not a command: editors lists the editor tabs, ui.sh read panel shows the panel tabs') || logged('panel.sh -s=net1: FAILED tabs: "tabs" is not a command') },
+	{ name: 'panel sessio names the nearest command', run: ['panel.sh', 'sessio'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"sessio" is not a command: the nearest is sessions') },
 	{ name: 'start-session bad language', run: ['start-session.sh', '--language', 'julia'], fail: true },
 	{ name: 'start-session --name no row matches lists the language rows', run: ['start-session.sh', '--language', 'python', '--name', 'no-such-interpreter', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'matches no Python interpreter the picker could pick') || (!o.json!.shown?.length && 'no rows shown') || (o.json!.shown.some((x: string) => !x.startsWith('Python ')) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) },
+	{ name: 'start-session several interpreters match names --name and lists them all', run: ['start-session.sh', '--language', 'python', '--new', '--timeout', '5'], fail: true, check: o => includes(o.json!.error, 'Python interpreters match; pass words from one of the rows in "shown" as --name') || (o.json!.shown?.some((x: string) => !x.startsWith('Python ')) && `not only Python rows: ${JSON.stringify(o.json!.shown)}`) || (o.json!.shown?.length !== Number(o.json!.error!.split(' ')[0]) && `${o.json!.shown?.length} rows shown for: ${o.json!.error}`) },
 	// Switching the active console without running code: by language, name or id, never two.
 	{ name: 'panel console python (two match)', run: ['panel.sh', 'console', 'python'], fail: true, check: o => includes(o.json!.error, '2 consoles match') || logged('panel.sh -s=net1: FAILED console python: 2 consoles match') },
 	{ name: 'panel console r', quick: true, run: ['panel.sh', 'console', 'r'], check: o => (o.json!.id !== found.r && `id ${o.json!.id}`) || (!o.json!.already && !o.json!.was && 'neither already nor was') },
@@ -216,6 +219,7 @@ const cases: Case[] = [
 	{ name: 'plots prev', wait: 1000, run: ['plots.sh', 'prev'], check: o => (o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}`) || logged('plots.sh -s=net1: click Show Previous Plot -> Plots: "plot') },
 	{ name: 'plots prev at the first plot', run: ['plots.sh', 'prev'], fail: true, check: () => logged('plots.sh -s=net1: FAILED prev: ') },
 	{ name: 'plots --format with no value is a usage error, logged', run: ['plots.sh', 'save', '--format'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '--format needs a value') || logged('plots.sh -s=net1: FAILED save --format: --format needs a value') },
+	{ name: 'plots unknown command is a usage error, logged', run: ['plots.sh', 'foo'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"foo" is not a command') || logged('plots.sh -s=net1: FAILED foo: "foo" is not a command') },
 	{ name: 'plots save --format=SVG takes the glued value', run: ['plots.sh', 'save', '--format=SVG'], check: o => includes(o.json!.tree, 'button "Format": SVG') },
 	{ name: 'ui click Cancel (save --format=SVG)', run: ['ui.sh', 'click', 'button', 'Cancel', '--in', 'dialog'], check: o => includes(o.json!.note, 'closed') },
 	{ name: 'plots next', run: ['plots.sh', 'next'], check: o => o.json!.plot?.name === o.json!.before?.plot?.name && `still ${o.json!.plot?.name}` },
@@ -256,6 +260,7 @@ const cases: Case[] = [
 	{ name: 'tree rows Explorer', quick: true, run: ['tree.sh', '--view', 'Explorer', 'rows'], check: o => includes(o.json!.rows, '"text":"cars.csv"') || includes(o.json!.rows, '"state":"leaf"') },
 	{ name: 'tree menu missing item', run: ['tree.sh', '--view', 'Explorer', 'menu', 'cars.csv', 'No Such Item'], fail: true },
 	{ name: 'tree missing row', run: ['tree.sh', '--view', 'Explorer', 'click', 'no-such-file.txt'], fail: true },
+	{ name: 'tree unknown command is a usage error, before the page', run: ['tree.sh', '--view', 'Explorer', 'expnad', 'cars.csv'], fail: true, check: o => (o.code !== 2 && `exit ${o.code}`) || includes(o.json?.error, '"expnad" is not a command') },
 	{ name: 'open-file cars.csv', quick: true, run: ['open-file.sh', 'cars.csv'] },
 	{ name: 'de-read cars.csv', quick: true, wait: 1000, run: ['de-read.sh', '--title', 'Data: cars.csv', '--rows', '3'], check: o => (JSON.stringify(o.json!.columns) !== '["model","speed","dist"]' && `columns ${JSON.stringify(o.json!.columns)}`) || (o.json!.rows?.[1]?.model !== 'bravo' && `row 2 ${JSON.stringify(o.json!.rows?.[1])}`) || includes(o.json!.status, '5 rows') },
 	{ name: 'de-read wrong title', run: ['de-read.sh', '--title', 'Data: other'], fail: true },
@@ -286,6 +291,10 @@ const cases: Case[] = [
 	{ name: 'nb type into a missing cell', run: ['nb.sh', '--notebook', 'notebook.ipynb', 'type', '9', 'x'], fail: true },
 	// The editor-type button's name ends in its chevron glyph, which read leaves out: click takes the name read shows.
 	{ name: 'ui click a button named with a trailing icon (Positron Notebook)', run: ['ui.sh', 'click', 'button', 'Positron Notebook', '--in', 'editor'], check: o => includes(o.json!.did, 'click button "Positron Notebook" in editor') },
+	// That click opens the editor-type menu, which the editor title's mousedown-queued focus closes unless click lets it run before releasing.
+	{ name: 'ui read menu: the editor-type button opened its menu', run: ['ui.sh', 'read', 'menu'], check: o => includes(o.json!.tree, 'menuitemcheckbox "Text Editor"') },
+	{ name: 'ui click the current editor type (closes the menu)', run: ['ui.sh', 'click', 'menuitemcheckbox', 'Positron Notebook', '--partial', '--in', 'menu'], check: o => includes(o.json!.note, 'the menu closed') },
+	{ name: 'ui choose an editor type from the editor-type button', run: ['ui.sh', 'choose', 'button', 'Positron Notebook', 'Positron Notebook - Native .ipynb Support', '--in', 'editor'], check: o => o.json!.chose !== 'Positron Notebook - Native .ipynb Support' && `chose ${o.json!.chose}` },
 	{ name: 'open-file report.qmd', quick: true, run: ['open-file.sh', 'report.qmd'] },
 	{ name: 'qmd cells', run: ['qmd.sh', '--file', 'report.qmd', 'cells'], check: o => o.json!.cells?.length !== 3 && `${o.json!.cells?.length} cells` },
 	// run reports the cell before and after the click; wait waits for its Run button to show again.

@@ -12,7 +12,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { applyEdits, modify, parse as parseJsonc, type ParseError } from 'jsonc-parser';
-import { Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { commandWord, Exit, inPage, log, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 
 /**
  * The user settings file and the open folder, from the window's configuration
@@ -37,7 +37,7 @@ export const settingsCommands: Record<string, (argv: string[]) => Json | string>
 		const p = parse(argv, ['session'], { set: 3 }, ['user', 'workspace']);
 		const [cmd, key, raw] = p.rest;
 		if (p.flags.help || !cmd) { usage('settings.sh'); }
-		if (cmd !== 'set') { throw new Exit(2, { ok: false, error: 'command: set KEY VALUE' }); }
+		commandWord(cmd, ['set KEY VALUE']);
 		if (!key || raw === undefined) { throw new Exit(2, { ok: false, error: 'give the KEY and the VALUE' }); }
 		if (p.flags.user && p.flags.workspace) { throw new Exit(2, { ok: false, error: '--user or --workspace, not both' }); }
 		const where = p.flags.user ? 'user' : 'workspace';

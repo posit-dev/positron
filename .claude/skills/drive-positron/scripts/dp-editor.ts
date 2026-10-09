@@ -11,7 +11,7 @@
 // editor.sh wraps these.
 
 import { readFileSync } from 'fs';
-import { Exit, inPage, log, logRead, mod, parse, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
+import { Exit, inPage, log, logRead, mod, notACommand, parse, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 
 /** The editor as it reads, with the drawn lines from..to when given. runs in run-code */
 const read: PageFn<{ from: number; to: number }> = async (_page, a, lib) => lib.editor(a.from ? a : undefined);
@@ -391,7 +391,7 @@ export const editorCommands: Record<string, (argv: string[]) => Json | string> =
 				did = 'run the line or selection';
 				break;
 			default:
-				throw new Exit(2, { ok: false, error: 'command: read, cursor, goto, type, key, delete, insert, save, run, suggest, hover or definition' });
+				notACommand(cmd, ['read', 'cursor', 'goto', 'type', 'key', 'delete', 'insert', 'save', 'run', 'suggest', 'hover', 'definition'], { tabs: 'panel.sh editors lists the editor tabs' });
 		}
 		if (out.ok) { log('editor.sh', s, `${did} in ${out.tab}`, (out.line ? `cursor ${out.line}:${out.column}${out.dirty ? ' (unsaved)' : ''} ${JSON.stringify(out.text ?? '')}` : '') + (out.changed === false ? '; changed nothing' : '')); }
 		return out;

@@ -9,10 +9,10 @@
 // enforces that. Its members, by section:
 //
 //   registry          css, names: selectors.ts, passed in by inPage
-//   waits and focus   sleep, blur
+//   waits and focus   sleep, blur, click
 //   scopes and views  scope, snapshot, byRole, unstack
 //   overlays          quickOpen, closeQuickInput, openQuickInput, rows,
-//                     allRows, pick, clickRow
+//                     allRows, hasWords, pick, clickRow
 //   dialogs and menus dialogs, explain, toasts, newToast, listIn, menu,
 //                     closeMenu, choose
 //   opened, on top    markOverlays, opened, onTop, failure
@@ -54,6 +54,25 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			const wb = document.querySelector<HTMLElement>(root);
 			if (wb) { wb.setAttribute('tabindex', '-1'); wb.focus(); }
 		}, s.workbench.root),
+		/**
+		 * Clicks as a person does: press, let the page run the tasks the press
+		 * queued, release. Playwright's own click releases at once, so the click
+		 * handler runs before them, and one that opens a menu loses it: the editor
+		 * title's mousedown (upstream editorGroupView.ts) queues a focus of the
+		 * editor that then takes focus from the editor-type button's menu, which
+		 * closes on blur. A trial click first does Playwright's checks (in view,
+		 * visible, stable, enabled, not covered), so a failure reads as the click's.
+		 */
+		click: async (el: Locator | ElementHandle, opts: { button?: 'left' | 'right'; timeout?: number } = {}) => {
+			await el.click({ trial: true, button: opts.button, timeout: opts.timeout ?? 3000 });
+			const box = await el.boundingBox();
+			if (!box) { throw new Error('the element went away before the click; nothing was done'); }
+			await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+			await page.mouse.down({ button: opts.button });
+			// One task turn: a setTimeout(0) queued now runs after those the press queued.
+			await page.evaluate(() => new Promise<void>(r => setTimeout(r, 0)));
+			await page.mouse.up({ button: opts.button });
+		},
 
 		// ---- Scopes and views: where a command looks, and what it reads there
 		/**
@@ -231,15 +250,23 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			return { rows: [...seen.values()].sort((x, y) => x.index - y.index), complete };
 		},
 		/**
+		 * Whether a row holds all these words, each a whole word ("R" is not the r
+		 * in "positron-python"); a word may end at a dot, so "4.5" matches "4.5.1".
+		 */
+		hasWords: (text: string) => {
+			const words = text.split(/\s+/).filter(Boolean)
+				.map(x => new RegExp('(^|[^\\w.-])' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\w-])', 'i'));
+			return (r: { label: string; description: string }) => words.every(x => x.test(r.label + ' ' + r.description));
+		},
+		/**
 		 * The one row a match picks, waiting up to a second for the list to filter.
-		 * With words, each must be a whole word ("R" is not the r in "positron-python");
-		 * a word may end at a dot, so "4.5" matches "4.5.1".
+		 * Words match as lib.hasWords does. On failure, "shown" holds up to 8 rows
+		 * and "more" says how many it left out.
 		 */
 		pick: async (m: { exact?: string; words?: string; folder?: string; preferRoot?: boolean }) => {
-			const words = (m.words ?? '').split(/\s+/).filter(Boolean)
-				.map(x => new RegExp('(^|[^\\w.-])' + x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '($|[^\\w-])', 'i'));
+			const words = lib.hasWords(m.words ?? '');
 			const hit = (r: { label: string; description: string }) =>
-				(m.exact !== undefined ? r.label === m.exact : words.every(x => x.test(r.label + ' ' + r.description)))
+				(m.exact !== undefined ? r.label === m.exact : words(r))
 				// A folder is the whole description, or its end ("rapp" in "apps/rapp").
 				&& (!m.folder || r.description === m.folder || r.description.endsWith('/' + m.folder) || r.description.endsWith(' ' + m.folder));
 			// Quick Open lists recent files first and adds search results a moment
@@ -256,10 +283,10 @@ export function makeLib(page: Page, ui: { css: Css; names: Names }) {
 			let found = all.filter(hit);
 			// A bare file name means the one at the workspace root, which has no folder beside it.
 			if (found.length > 1 && m.preferRoot && found.filter(r => !r.description).length === 1) { found = found.filter(r => !r.description); }
-			const show = (rs: typeof all) => rs.slice(0, 8).map(r => r.label + (r.description ? ' (' + r.description + ')' : ''));
+			const show = (rs: typeof all) => ({ shown: rs.slice(0, 8).map(r => r.label + (r.description ? ' (' + r.description + ')' : '')), ...(rs.length > 8 ? { more: `${rs.length - 8} more rows not shown` } : {}) });
 			const want = m.exact ?? m.words;
-			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"`, shown: show(all) }; }
-			if (found.length > 1) { return { ok: false as const, error: `${found.length} rows match "${want}"; be more specific`, shown: show(found) }; }
+			if (found.length === 0) { return { ok: false as const, error: `no row matches "${want}"`, ...show(all) }; }
+			if (found.length > 1) { return { ok: false as const, error: `${found.length} rows match "${want}"; be more specific`, ...show(found) }; }
 			return { ok: true as const, row: found[0] };
 		},
 		/**
