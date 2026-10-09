@@ -173,9 +173,15 @@ describe('RuntimeDiscoveryCache', () => {
 			expect(first).toBeDefined();
 			const firstSeen = first!.firstSeen;
 
-			const second = await cache.upsert(metadata({ runtimePath: PY_PATH }));
-			expect(second?.firstSeen).toBe(firstSeen);
-			expect(second?.lastValidated).toBeGreaterThanOrEqual(firstSeen);
+			vi.useFakeTimers();
+			vi.setSystemTime(firstSeen + 60 * 60 * 1000);
+			try {
+				const second = await cache.upsert(metadata({ runtimePath: PY_PATH }));
+				expect(second?.firstSeen).toBe(firstSeen);
+				expect(second?.lastValidated).toBe(firstSeen + 60 * 60 * 1000);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 
@@ -274,6 +280,53 @@ describe('RuntimeDiscoveryCache', () => {
 			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
 			try {
 				expect(cache.getEntries('ms.python', 'python')).toEqual([]);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('returns a runtime that is added again after its stored entry expired', async () => {
+			await makeCache().upsert(metadata({ runtimePath: PY_PATH }));
+
+			vi.useFakeTimers();
+			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
+			try {
+				// The next launch loads the stored entry after it expired.
+				const cache = makeCache();
+				await cache.upsert(metadata({ runtimePath: PY_PATH }));
+				expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('keeps an entry hidden when it expires during a session and is then updated', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH }));
+
+			vi.useFakeTimers();
+			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
+			try {
+				// Stands in for a background revalidation, which updates the
+				// entry in place.
+				await cache.upsert(metadata({ runtimePath: PY_PATH }));
+				expect(cache.getEntries('ms.python', 'python')).toEqual([]);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('leaves expired entries out of storage', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH }));
+
+			vi.useFakeTimers();
+			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
+			try {
+				await cache.upsert(metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: R_PATH, runtimeId: 'r' }));
+
+				const saved = JSON.parse(storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!);
+				expect(Object.keys(saved.buckets)).toEqual(['positron.positron-r::r']);
 			} finally {
 				vi.useRealTimers();
 			}
@@ -592,6 +645,45 @@ describe('RuntimeDiscoveryCache', () => {
 			const first = await cache.upsert(metadata({ runtimePath: PY_PATH }));
 			const second = await cache.upsert(metadata({ runtimePath: PY_PATH }));
 			expect(second?.firstSeen).toBe(first?.firstSeen);
+		});
+
+		it('keeps newer entries when a late copy of its own earlier save arrives', async () => {
+			// The main process sends each save back to the window that made it,
+			// a couple hundred milliseconds later, with `external: true`. By then
+			// the window may have saved again, so the copy holds older data.
+			const cache = makeCache();
+			const altPath = '/opt/python/bin/python3';
+			files.files.set(altPath, { resolved: altPath, size: 50, mtime: 5, ctime: 5 });
+
+			await cache.upsert(metadata({ runtimePath: PY_PATH, runtimeId: 'py' }));
+			const afterPython = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
+			await cache.upsert(metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: R_PATH, runtimeId: 'r' }));
+
+			// The late copy of the first save arrives, then discovery finds another runtime.
+			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, afterPython, StorageScope.APPLICATION, StorageTarget.MACHINE, /* external */ true);
+			await cache.upsert(metadata({ runtimePath: altPath, runtimeId: 'py-alt' }));
+
+			const ids = cache.getAllBuckets().flatMap(b => b.entries.map(e => e.metadata.runtimeId)).sort();
+			expect(ids).toEqual(['py', 'py-alt', 'r']);
+		});
+
+		it('reloads a save from another window that has a different writer ID', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH, runtimeId: 'local' }));
+			const local = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
+
+			// A sibling window loads what this one wrote, adds R, and saves.
+			const sibling = makeCache();
+			await sibling.upsert(metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: R_PATH, runtimeId: 'r' }));
+			const fromSibling = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
+
+			// Both caches share one storage service, and saving an unchanged
+			// value fires no event. Put this window's save back first so the
+			// sibling's save fires the event again, this time as external.
+			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, local, StorageScope.APPLICATION, StorageTarget.MACHINE);
+			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, fromSibling, StorageScope.APPLICATION, StorageTarget.MACHINE, /* external */ true);
+
+			expect(cache.getEntries('positron.positron-r', 'r').map(e => e.metadata.runtimeId)).toEqual(['r']);
 		});
 	});
 });
