@@ -460,8 +460,10 @@ export async function searchIssues(terms, repo = DEFAULT_REPO, { auth = token() 
 /** A search's results as `#12 (closed): "title"` lines, or `no matches`. Titles are quoted as data. */
 export function formatSearch(items) {
 	const issues = (items ?? []).filter(i => !i.pull_request);
+	// Not planned is the verifier's cue that the behavior was judged intended.
+	const state = i => i.state !== 'closed' ? 'open' : i.state_reason === 'not_planned' ? 'closed as not planned' : 'closed';
 	return issues.length
-		? issues.map(i => `#${i.number} (${i.state === 'closed' ? 'closed' : 'open'}): ${JSON.stringify(i.title ?? '')}`).join('\n')
+		? issues.map(i => `#${i.number} (${state(i)}): ${JSON.stringify(i.title ?? '')}`).join('\n')
 		: 'no matches';
 }
 

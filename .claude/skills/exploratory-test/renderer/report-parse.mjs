@@ -1022,7 +1022,7 @@ function parseVerification(lines) {
 	for (const line of lines) {
 		const trimmed = line.trim();
 		// The findings carry the matches; as a line here it would only repeat them.
-		if (/^KNOWN:/i.test(trimmed)) {
+		if (/^(?:KNOWN|INTENDED):/i.test(trimmed)) {
 			continue;
 		}
 		// The Linked issues rows carry these.
@@ -1504,6 +1504,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			verified: ['confirmed', 'disputed', 'unresolved'].includes(verified) ? verified : null,
 			// Issues the verifier says may already describe this finding. Advisory.
 			known: [...new Set([...(row['known'] ?? '').matchAll(/#(\d+)/g)].map(m => Number(m[1])))],
+			intended: [...new Set([...(row['intended'] ?? '').matchAll(/#(\d+)/g)].map(m => Number(m[1])))],
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			// The edit pass's opening: the card leads with its summary, and the issue with all of it.
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',

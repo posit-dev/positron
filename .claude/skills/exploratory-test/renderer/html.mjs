@@ -622,6 +622,8 @@ function buildAgentPrompt(f, report, options = {}) {
 		const issue = options.ki?.byNumber.get(n);
 		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
 	}).join('\n'));
+	// A match on a not-planned issue: check it was not judged intended before fixing.
+	section('Closed as not planned', (f.intended ?? []).map(n => `- ${REPO_URL}/issues/${Number(n)}`).join('\n'));
 	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 	section('Preconditions', t.preconditions.length === 1
@@ -1144,6 +1146,9 @@ function cardIssueItems(f, word, ki, refs) {
 	const known = possiblyKnown(f, ki);
 	if (known.length) {
 		items.push(item('Dupe?', known));
+	}
+	if (f.intended?.length) {
+		items.push(item('Intended?', f.intended));
 	}
 	return items;
 }

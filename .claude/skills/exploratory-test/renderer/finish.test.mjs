@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { annotateFindingsTable, applyVerification, buildVerifyPrompt, findingNumbers, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseTitles, parseVerdicts, verdictMismatch, verifyLogLines } from './finish.mjs';
+import { annotateFindingsTable, applyVerification, buildVerifyPrompt, findingNumbers, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseIntended, parseKnown, parseTitles, parseVerdicts, verdictMismatch, verifyLogLines } from './finish.mjs';
 
 const TABLE = [
 	'# Exploratory test: something',
@@ -70,6 +70,12 @@ test('parseKnown reads the issue numbers per finding and skips what it cannot re
 	assert.equal(parseKnown(null).size, 0);
 });
 
+test('parseIntended reads its own line, not KNOWN', () => {
+	const reply = 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nKNOWN: 1=#15102\nINTENDED: 2=#14210; x=#1';
+	assert.deepEqual([...parseIntended(reply)], [[2, [14210]]]);
+	assert.deepEqual([...parseKnown(reply)], [[1, [15102]]]);
+});
+
 test('parseFeatures reads the feature per finding and skips what it cannot read', () => {
 	const f = parseFeatures('VERDICTS: 1=CONFIRMED\nFEATURE: 1=new folder flow; 2="modal dialogs"; 3=; x=console; 4=a | b\nprose');
 	assert.deepEqual([...f], [[1, 'new folder flow'], [2, 'modal dialogs']]);
@@ -126,6 +132,17 @@ test('annotateFindingsTable adds a Known column after Verified when an issue mat
 	assert.match(out, /\| 2 \| second claim .* \| confirmed \| #15102, #14991 \|/);
 	// No match, no column.
 	assert.doesNotMatch(annotateFindingsTable(TABLE, parseVerdicts('VERDICTS: 1=CONFIRMED')), /Known/);
+});
+
+test('fromVerdictLine keeps an INTENDED line written before the VERDICTS line', () => {
+	assert.equal(fromVerdictLine('notes\nINTENDED: 1=#5\nVERDICTS: 1=CONFIRMED'), 'INTENDED: 1=#5\nVERDICTS: 1=CONFIRMED');
+});
+
+test('applyVerification adds an Intended column after Known, and drops nothing', () => {
+	const out = applyVerification(TABLE, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nKNOWN: 1=#15102\nINTENDED: 2=#14210');
+	assert.match(out, /\| Reproduction \| Verified \| Known \| Intended \|\n/);
+	assert.match(out, /\| 1 \| first claim .* \| confirmed \| #15102 \| - \|/);
+	assert.match(out, /\| 2 \| second claim .* \| confirmed \| - \| #14210 \|/);
 });
 
 test('applyVerification adds the Known column from the reply', () => {

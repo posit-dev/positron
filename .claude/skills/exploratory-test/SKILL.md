@@ -7,7 +7,7 @@ metadata:
   # verifier.md, isolator.md, editor.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.55"
+  version: "1.56"
 ---
 
 # Exploratory testing

@@ -63,8 +63,8 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 }
 
 /**
- * The verifier's reply from its VERDICTS line on, or from its KNOWN, LINKED,
- * FEATURE or TITLE line if that came first. Its final message can open with notes to
+ * The verifier's reply from its VERDICTS line on, or from its KNOWN, INTENDED,
+ * LINKED, FEATURE or TITLE line if that came first. Its final message can open with notes to
  * itself, which would otherwise lead the Verification details.
  */
 export function fromVerdictLine(text) {
@@ -72,7 +72,7 @@ export function fromVerdictLine(text) {
 		return text;
 	}
 	const lines = text.split('\n');
-	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED|FEATURE|TITLE):/.test(l.trim().toUpperCase()));
+	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|INTENDED|LINKED|FEATURE|TITLE):/.test(l.trim().toUpperCase()));
 	return at > 0 ? lines.slice(at).join('\n') : text;
 }
 
@@ -116,11 +116,23 @@ export function parseVerdicts(text) {
  * cannot read is skipped, like parseVerdicts.
  */
 export function parseKnown(text) {
+	return parseIssueLine(text, 'KNOWN');
+}
+
+/**
+ * Parses the verifier's INTENDED line, the same shape as KNOWN: findings that
+ * match an issue closed as not planned, so the behavior was judged intended.
+ */
+export function parseIntended(text) {
+	return parseIssueLine(text, 'INTENDED');
+}
+
+function parseIssueLine(text, name) {
 	const out = new Map();
 	if (typeof text !== 'string') {
 		return out;
 	}
-	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('KNOWN:'));
+	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith(`${name}:`));
 	if (!line) {
 		return out;
 	}
@@ -222,21 +234,25 @@ export function rewriteLabel(report, label, values) {
 }
 
 /**
- * Appends a `Verified` column to the findings table, and a `Known` column when
- * the verifier matched a finding to an existing issue.
+ * Appends a `Verified` column to the findings table, a `Known` column when
+ * the verifier matched a finding to an existing issue, and an `Intended`
+ * column when it matched one to an issue closed as not planned.
  *
  * Best effort by design: the table is written by an agent, and its shape has
  * drifted before. Anything unexpected returns the report untouched so a
  * cosmetic column can never cost the report its findings. The verdicts are
  * appended in full below regardless, so nothing is lost when this bails.
  */
-export function annotateFindingsTable(report, verdicts, known = new Map()) {
+export function annotateFindingsTable(report, verdicts, known = new Map(), intended = new Map()) {
 	const columns = [];
 	if (verdicts instanceof Map && verdicts.size) {
 		columns.push(['Verified', n => verdicts.get(n) || '-']);
 	}
 	if (known instanceof Map && known.size) {
 		columns.push(['Known', n => (known.get(n) || []).map(i => `#${i}`).join(', ') || '-']);
+	}
+	if (intended instanceof Map && intended.size) {
+		columns.push(['Intended', n => (intended.get(n) || []).map(i => `#${i}`).join(', ') || '-']);
 	}
 	if (typeof report !== 'string' || !columns.length) {
 		return report;
@@ -348,7 +364,7 @@ export function applyVerification(report, verdicts, { failed = false } = {}) {
 		? `## Verification\n\n${verdicts}\n`
 		: `<details>\n<summary>Verification details</summary>\n\n${PREAMBLE}\n\n${verdicts}\n\n</details>\n`;
 	const revised = failed ? report : applyTitles(applyFeatures(report, parseFeatures(verdicts)), parseTitles(verdicts));
-	return `${annotateFindingsTable(revised, parseVerdicts(verdicts), parseKnown(verdicts))}\n\n${section}`;
+	return `${annotateFindingsTable(revised, parseVerdicts(verdicts), parseKnown(verdicts), parseIntended(verdicts))}\n\n${section}`;
 }
 
 /**

@@ -1250,6 +1250,22 @@ test('a finding the verifier matched to an issue says so on its card and in its 
 	assert.doesNotMatch(renderReportHtml(FULL), /class="f-ki"|Possibly known|ki-known/);
 });
 
+test('a finding matched to a not-planned issue says Intended? on its card and in its prompt', () => {
+	const intended = FULL
+		.replace('| Reproduction | Verified |', '| Reproduction | Verified | Intended |')
+		.replace('|--------------|----------|', '|--------------|----------|---|')
+		.replace('| 3/3 | confirmed |', '| 3/3 | confirmed | - |')
+		.replace('| 1/1 | confirmed |', '| 1/1 | confirmed | #14210 |')
+		.replace('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE', 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nINTENDED: 2=#14210');
+	assert.deepEqual(parseReport(intended).findings.map(f => f.intended), [[], [14210]]);
+	const html = renderReportHtml(intended);
+	assert.match(card(html, 2), /<span class="f-ki">Intended\? <a class="ki-num" href="[^"]+\/issues\/14210"[^>]*>#14210<\/a><\/span>/);
+	assert.doesNotMatch(card(html, 1), /Intended\?/);
+	assert.ok(promptText(html, 2).includes('### Closed as not planned\n- https://github.com/posit-dev/positron/issues/14210\n'));
+	assert.doesNotMatch(promptText(html, 1), /not planned/);
+	assert.doesNotMatch(html, /INTENDED:/);
+});
+
 test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
 	const html = renderReportHtml(md([
 		'## Findings', '',
