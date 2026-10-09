@@ -107,6 +107,7 @@ def _locatable_key(key: str, obj: Any) -> str:
 
 def _resolve_help_object(request: str | Any) -> Any:
     """Resolve a help request (an object or an import path) to an object, or None."""
+
     # pydoc.resolve lets us handle an object or an import path. If it can't
     # resolve the request (e.g. a PyPI distribution name like "scikit-learn"
     # whose import name is "sklearn"), try mapping the distribution name to its

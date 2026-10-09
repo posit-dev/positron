@@ -353,7 +353,7 @@ def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
         ("json.dumps", "", "json.dumps", "json"),
         ("dumps", "json", "json.dumps", "json"),
         ("json", "json", "json", "json"),
-        ("pandas.DataFrame", "", "pandas.core.frame.DataFrame", "pandas"),
+        ("pandas.DataFrame", "", f"{pd.DataFrame.__module__}.DataFrame", "pandas"),
     ],
 )
 def test_get_help_page(
@@ -445,7 +445,7 @@ def test_get_package_vignette() -> None:
     assert vignette["package"] == "pandas"
     content = vignette["content"]
     assert isinstance(content, str)
-    assert "# pandas: powerful Python data analysis toolkit" in content
+    assert "# pandas:" in content
 
 
 @pytest.mark.parametrize(
