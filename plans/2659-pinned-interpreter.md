@@ -115,14 +115,14 @@ Scenario: user settings point at `/usr/local/bin/python3.12`. You clone a projec
 | B. A workspace- or folder-level pinned interpreter beats `.venv`; `.venv` beats a user-level one | The project's `.venv`. A workspace-level pinned interpreter, if set, beats both. |
 | C. `.venv` beats every pinned interpreter (today) | The project's `.venv`, even when the project's own settings pin something else. |
 
-Leaning B. With this design, B is a choice the Python extension makes in step 2: when the project has a `.venv`, `.conda`, or `*/bin/python`, it doesn't report a user-level pinned interpreter. Core doesn't need to know. The resulting order:
+If B is chosen, the Python extension handles it in step 2: when the project has a `.venv`, `.conda`, or `*/bin/python`, it doesn't report a user-level pinned interpreter. Core doesn't need to know. The order would be:
 
 | Project has | Order on launch ("folder", "workspace", "user" = the pinned interpreter set at that level) |
 |---|---|
 | `.venv` / `.conda` / `*/bin/python` | folder > workspace > affiliation > `.venv` detection (user not reported) |
 | None of those | folder > workspace > user > affiliation |
 
-The order has to look like this to stay consistent. A simpler "folder > workspace > `.venv` > user > affiliation" would mean adding a user-level pinned interpreter flips whether your own dropdown pick sticks in a venv project.
+B has to work this way to stay consistent. A simpler "folder > workspace > `.venv` > user > affiliation" would mean adding a user-level pinned interpreter flips whether your own dropdown pick sticks in a venv project.
 
 Questions for Isabel:
 
@@ -148,15 +148,6 @@ Core also needs to learn when a pinned interpreter is set but broken, so it can 
 | A. New optional method for pinned interpreters | e.g. `pinnedWorkspaceRuntime()`, returning the pinned runtime or "interpreter pinned at path X, failed because Y." `recommendedWorkspaceRuntime()` returns guesses only. |
 | B. Flag on the existing method | `recommendedWorkspaceRuntime()` also reports pinned vs guessed, plus failure details. |
 | C. Core reads the settings itself | Each language declares its pinning setting in `package.json`. Core reads it, resolves `${workspaceFolder}`, and calls the existing `registerRuntimeFromPath()` (`positron.d.ts:1313`). |
-
-Leaning A:
-
-- Steps 2 and 4 each get their own call.
-- The failure result gets its own shape.
-- Runtime extensions without a pinning setting don't have to change.
-- Language-specific choices stay in the extension, including how Q8 is answered.
-
-Dhruvi hasn't decided and wants Isabel's input.
 
 ### Q10. Does a pinned R get its conda or pixi environment?
 
