@@ -215,7 +215,7 @@ suite('Create virtual environment prompt - gate', () => {
         autoCreateVenvWithDepsStub = sinon.stub(autoCreateVenv, 'autoCreateVenvWithDeps').resolves(undefined);
         sinon
             .stub(autoCreateVenv, 'detectAutoCreateContext')
-            .resolves({ hasRequirements: false, hasPyprojectToml: false, uvAvailable: false });
+            .resolves({ hasRequirements: false, hasPyprojectToml: false, useUv: false });
         showPromptStub = sinon.stub(positronApis, 'showThreeButtonModalDialogPrompt').resolves(undefined);
         executeCommandStub = sinon.stub(commandApis, 'executeCommand').resolves(undefined);
     });
@@ -265,7 +265,7 @@ suite('Create virtual environment prompt - gate', () => {
         (autoCreateVenv.detectAutoCreateContext as sinon.SinonStub).resolves({
             hasRequirements: true,
             hasPyprojectToml: false,
-            uvAvailable: true,
+            useUv: true,
         });
         showPromptStub.resolves(CreateEnv.InterpreterSelect.createEnvironment);
 

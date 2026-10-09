@@ -8,7 +8,7 @@ import { CancellationToken, QuickPickItem, WorkspaceFolder } from 'vscode';
 import { CreateEnv } from '../../../common/utils/localize';
 import { traceError } from '../../../logging';
 import { CreateEnvironmentProgress } from '../types';
-import { isUvInstalled } from '../../common/environmentManagers/uv';
+import { ensureUvInstalledWithProgress } from '../../common/environmentManagers/uvPythonInstaller';
 import { executeCommand } from '../../../common/vscodeApis/commandApis';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { showQuickPickWithBack } from '../../../common/vscodeApis/windowApis';
@@ -23,25 +23,23 @@ import { IPythonRuntimeManager } from '../../../positron/manager';
 export interface AutoCreateVenvContext {
     hasRequirements: boolean;
     hasPyprojectToml: boolean;
-    uvAvailable: boolean;
+    /** Create the venv with uv, installing uv first (with consent) if it is missing. */
+    useUv: boolean;
 }
 
 export async function detectAutoCreateContext(workspace: WorkspaceFolder): Promise<AutoCreateVenvContext> {
-    const [reqFiles, uvInstalled, tomlExists] = await Promise.all([
-        getPipRequirementsFiles(workspace),
-        isUvInstalled(),
-        hasPyprojectToml(workspace),
-    ]);
+    const [reqFiles, tomlExists] = await Promise.all([getPipRequirementsFiles(workspace), hasPyprojectToml(workspace)]);
 
     // uv creates the environment around a Python it may download, so the setting that
     // gates downloading a Python also gates offering uv at all. Read live so that
-    // turning it off takes effect without a reload.
+    // turning it off takes effect without a reload. uv need not be installed yet:
+    // autoCreateVenvWithDeps offers to install it.
     const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
 
     return {
         hasRequirements: (reqFiles?.length ?? 0) > 0,
         hasPyprojectToml: tomlExists,
-        uvAvailable: uvInstalled && allowUvPythonInstall,
+        useUv: allowUvPythonInstall,
     };
 }
 
@@ -56,7 +54,7 @@ export function describeDepFiles(ctx: AutoCreateVenvContext): string {
 }
 
 export function describeTool(ctx: AutoCreateVenvContext): string {
-    return ctx.uvAvailable ? 'uv' : 'venv';
+    return ctx.useUv ? 'uv' : 'venv';
 }
 
 interface DepSource {
@@ -164,11 +162,13 @@ export async function uvInstallDeps(
  * When the caller already knows which provider to use, it passes
  * `providerOptions` and those are used as-is. Otherwise:
  *
- * - uv available and pyproject.toml is the only dep source: runs `uv sync`,
+ * - uv used: installs uv first if it is missing (with consent), and creates
+ *   nothing if the user declines or the install fails.
+ * - uv used and pyproject.toml is the only dep source: runs `uv sync`,
  *   falling through to the next case if it fails.
- * - uv available: uses the uv provider with auto-selected Python version
+ * - uv used: uses the uv provider with auto-selected Python version
  *   and dep installation.
- * - uv not available: opens the standard Create Environment wizard so the
+ * - uv not used: opens the standard Create Environment wizard so the
  *   user can pick an interpreter.
  *
  * @param providerOptions Provider selection to use instead of choosing one here,
@@ -198,7 +198,11 @@ export async function autoCreateVenvWithDeps(
 
     if (providerOptions) {
         Object.assign(options, providerOptions);
-    } else if (ctx.uvAvailable) {
+    } else if (ctx.useUv) {
+        // ensureUvInstalledWithProgress shows any install error itself.
+        if (!(await ensureUvInstalledWithProgress()).ok) {
+            return undefined;
+        }
         // Let uv pick the interpreter so the user's uv config (e.g. python-preference) is honored.
         const pyprojectOnly = sources.length === 1 && sources[0].label === 'pyproject.toml';
         if (pythonRuntimeManager && pyprojectOnly && (await syncUvEnv(workspace, pythonRuntimeManager))) {

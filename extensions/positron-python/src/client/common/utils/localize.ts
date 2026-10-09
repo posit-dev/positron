@@ -319,6 +319,12 @@ export namespace InterpreterQuickPickList {
             l10n.t('Virtual environment created with Python {0}', version);
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
         export const uvInstallFailed = l10n.t('Failed to install uv.');
+        export const uvInstallDisabled = l10n.t(
+            'uv is not installed, and installing it is turned off by the [Allow Uv Python Install]({0}) setting.',
+            `command:workbench.action.openSettings?${encodeURIComponent(
+                JSON.stringify(['python.allowUvPythonInstall']),
+            )}`,
+        );
         export const createVenvTitle = l10n.t('Create a Virtual Environment');
         export const createVenvPrompt = (version: string, workspaceFolder: string) =>
             l10n.t(
