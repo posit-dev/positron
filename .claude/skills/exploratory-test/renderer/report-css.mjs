@@ -76,8 +76,6 @@ const PROFESSIONAL = `
 	--pop-shadow: 0 8px 24px rgba(28,31,35,.12);
 	--ki-closed: #8A6BBE;
 	--ki-x: #C4402B;
-	--ki-grp-hover: #F4F2EC;
-	--ki-chev-on: #6A6F76;
 
 	--label-color: var(--muted);
 	--label-ls: 0.1em;
@@ -219,8 +217,6 @@ const PARTY = `
 	--pop-shadow: 0 8px 24px rgba(0,0,0,.4);
 	--ki-closed: #B79CFF;
 	--ki-x: #FF6B8B;
-	--ki-grp-hover: #2A2250;
-	--ki-chev-on: #CFC8EA;
 
 	--label-color: #FF6AC1;
 	--label-ls: 0.14em;
@@ -459,28 +455,16 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .status-check{stroke:var(--pass-fill)}
 .status.muted{color:var(--muted)}
 
-/* Known issues: the Findings table's Status labels and closed "Linked issues"
-   row, the card's linked issues, GitHub issue links, and their preview card */
-.ki-title{font-size:15px;font-weight:500;color:var(--body);line-height:1.4}
-.ki-sub{font-size:13px;color:var(--muted)}
+/* Known issues: the Findings table's Status labels and "Linked issues" row,
+   the card's linked issues, GitHub issue links, and their preview card */
 .ki-st{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;font-size:13px;color:var(--body)}
 .ki-reg{display:inline-flex;align-items:center;gap:6px;color:var(--body);font-weight:400}
 .ki-x{display:inline-flex;color:var(--ki-x)}
 .ki-st .ki-state{font-size:12.5px;color:var(--muted)}
-.ki-grp>summary,.ki-grp>.ki-hd{display:grid;grid-template-columns:110px minmax(0,1fr) 12px;gap:16px;align-items:center;padding:11px 20px;background:var(--thead);border-top:1px solid var(--border);font-size:12.5px;color:var(--faint)}
-.ki-grp>summary{cursor:pointer;list-style:none}
-.ki-grp>summary::-webkit-details-marker{display:none}
+.ki-bar{display:grid;grid-template-columns:110px minmax(0,1fr);gap:16px;align-items:center;padding:11px 20px;background:var(--thead);border-top:1px solid var(--border);font-size:12.5px;color:var(--faint)}
 .ki-grp .ki-lbl{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
-.ki-grp>summary b,.ki-grp>.ki-hd b{font-weight:600;color:var(--body)}
+.ki-bar b{font-weight:600;color:var(--body)}
 .ki-dot{color:var(--dot-neutral);margin:0 6px}
-.ki-grp>summary:hover{background:var(--ki-grp-hover)}
-.ki-grp>summary:hover b{color:var(--ink)}
-.ki-grp>summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
-.ki-chev{color:var(--faint);transition:transform .15s ease;flex:none}
-.ki-grp[open]>summary{border-bottom:1px solid var(--hairline)}
-.ki-grp[open] .ki-chev{transform:rotate(90deg)}
-.ki-grp>summary:hover .ki-chev,.ki-grp[open] .ki-chev,.ki-grp>summary:focus-visible .ki-chev{color:var(--ki-chev-on)}
-.ki-grp .ki-row:last-child{border-bottom:0}
 .ki-cnt{color:var(--muted);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--muted) 50%,transparent);text-underline-offset:3px;cursor:pointer;border-radius:2px}
 .ki-cnt:hover,.ki-cnt[aria-expanded="true"]{color:var(--ink);text-decoration-color:currentColor}
 .ki-cnt:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -491,8 +475,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ki-lc-m{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
 a.ki-lc-n{font-family:var(--mono);font-size:12px;color:var(--link);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--link) 50%,transparent);text-underline-offset:3px}
 a.ki-lc-n:hover,a.ki-lc-n:focus-visible{text-decoration:underline dotted;text-decoration-color:currentColor}
-@media (prefers-reduced-motion:reduce){.ki-chev{transition:none}}
-/* The summary and the line draw their own top border. */
+/* The row draws its own top border. */
 .row:has(+ .ki-grp){border-bottom:0}
 /* A dotted text underline, never a border: the global a:hover underline would draw a second line. */
 a.ki-num,a.ki-ev{color:var(--link);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--link) 50%,transparent);text-underline-offset:3px}

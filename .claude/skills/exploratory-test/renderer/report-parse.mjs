@@ -1034,7 +1034,7 @@ function parseVerification(lines) {
 		if (/^KNOWN:/i.test(trimmed)) {
 			continue;
 		}
-		// The Linked issues rows carry these.
+		// They order the observed list.
 		if (/^LINKED:/i.test(trimmed)) {
 			linked = parseLinked(trimmed);
 			continue;

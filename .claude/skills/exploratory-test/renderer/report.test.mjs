@@ -2804,34 +2804,31 @@ const KI_ISSUES = {
 };
 const kiHtml = (options = {}) => renderReportHtml(KI_REPORT, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, startedAt: new Date('2026-09-29T00:00:00Z'), ...options });
 const findingsOf = html => html.slice(html.indexOf('id="findings"'), html.indexOf('</section>', html.indexOf('id="findings"')));
-const kiRows = html => [...findingsOf(html).matchAll(/<div class="row findings-grid ki-row">([\s\S]*?)<\/div>/g)].map(m => m[1]);
 const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>(?=\\n)`).exec(findingsOf(html))[0];
-const linkedOf = html => /<details class="ki-grp">[\s\S]*?<\/details>/.exec(findingsOf(html))?.[0] ?? '';
+const linkedOf = html => /<div class="ki-grp">[\s\S]*?<\/div><\/div>/.exec(findingsOf(html))?.[0] ?? '';
 const kiList = (html, id) => new RegExp(`<div class="ki-list" id="${id}" hidden>([\\s\\S]*?)</div></div>(?=<div class="ki-list"|\\n)`).exec(findingsOf(html))?.[1] ?? '';
 const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
+const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
+const kiIt = (n, title, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/${n}" target="_blank" rel="noopener">#${n}</a><span>${title}<span class="ki-lc-m">${meta}</span></span>`;
 
-test('Linked issues is one closed row under the findings, counting what is inside', () => {
+test('Linked issues is one plain row under the findings, with every count opening its list', () => {
 	const html = kiHtml();
 	const f = findingsOf(html);
 	const linked = linkedOf(html);
-	assert.ok(f.indexOf('<a href="#f3"') < f.indexOf('<details class="ki-grp">'), 'under the findings');
-	assert.doesNotMatch(linked, /<details class="ki-grp" open/);
-	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
-	assert.ok(linked.startsWith(`<details class="ki-grp"><summary><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">3 observed${dot}${kiCnt('ki-list-fix', '1 fix verified')}${dot}${kiCnt('ki-list-no', '1 not observed')}</span><svg class="ki-chev"`), linked.slice(0, 400));
-	assert.doesNotMatch(f, /ki-group|ki-foot|ki-line|Already filed/);
-	assert.ok(f.indexOf('</details>') < f.indexOf('id="ki-list-fix"'), 'lists sit outside the row');
+	assert.ok(f.indexOf('<a href="#f3"') < f.indexOf('<div class="ki-grp">'), 'under the findings');
+	assert.equal(linked, `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${kiCnt('ki-list-fix', '1 fix verified')}${KI_DOT}${kiCnt('ki-list-obs', '3 observed')}${KI_DOT}${kiCnt('ki-list-no', '1 not observed')}</span></div></div>`);
+	assert.doesNotMatch(f, /<details|<summary|ki-chev|ki-row|ki-title|ki-sub|ki-group|ki-foot|ki-line|Already filed/);
+	assert.ok(f.indexOf(linked) + linked.length < f.indexOf('id="ki-list-obs"'), 'lists sit outside the row');
 	assert.ok(html.includes("closest('.ki-cnt')"), 'list script');
 });
 
-test('Linked issues lists open observed issues by severity, unrated last, then the fixes verified and the rest', () => {
+test('the observed list orders open issues by severity, unrated last, with where each was seen', () => {
 	const html = kiHtml();
-	assert.deepEqual(kiRows(html).map(r => />#(\d+)<\/a>/.exec(r)[1]), ['23', '26', '22']);
-	const [, twice, unrated] = kiRows(html);
-	assert.match(twice, /Observed in 2 scenarios &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a>/);
-	assert.match(twice, /<span class="rate">2<\/span>/);
-	assert.match(twice, /<span class="ki-st"><span>Open &middot; <a class="ki-num"/);
-	assert.ok(unrated.startsWith('<span></span>'), 'no pill when the verifier gave no severity');
-	assert.doesNotMatch(unrated, /Unrated|&mdash;/);
+	const obs = kiList(html, 'ki-list-obs');
+	assert.ok(obs.startsWith('<div class="ki-lc-h">Known issues observed this run</div>'), obs.slice(0, 200));
+	assert.deepEqual([...obs.matchAll(/>#(\d+)<\/a>/g)].map(m => m[1]), ['23', '26', '22']);
+	assert.match(obs, /#26<\/a><span>minor one<span class="ki-lc-m">Open &middot; seen in &ldquo;[^&]+&rdquo; and &ldquo;[^&]+&rdquo; &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a><\/span>/);
+	assert.doesNotMatch(obs, /class="pill|class="rate|ki-num/, 'no severity, count or card link');
 });
 
 test('the fix verified and not observed lists name each issue with its state and where it stood', () => {
@@ -2844,23 +2841,20 @@ test('the fix verified and not observed lists name each issue with its state and
 	assert.match(kiList(unseen, 'ki-list-no'), /#22<\/a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; no scenario reached it<\/span>/);
 });
 
-test('Linked issues leaves out zero counts, opens only onto observed issues, and is left out with no counts', () => {
+test('Linked issues leaves out zero counts, and is left out with no counts', () => {
 	const noFix = kiHtml({ ledger: KI_LEDGER.replace('Issue: #10 fix held\n', '') });
-	assert.match(linkedOf(noFix), /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span><span class="ki-cnt"[^>]*>1 not observed<\/span><\/span>/);
+	assert.match(linkedOf(noFix), new RegExp(`<span class="ki-sum">${kiCnt('ki-list-obs', '3 observed')}${KI_DOT}${kiCnt('ki-list-no', '1 not observed')}</span>`));
 	assert.doesNotMatch(findingsOf(noFix), /ki-list-fix/);
-	// Nothing observed: the same row with its counts, but nothing to open.
 	const f = findingsOf(kiHtml({ ledger: KI_LEDGER.replace(/^Issue: #2[236] observed\n/gm, '') }));
-	assert.doesNotMatch(f, /<details class="ki-grp"|ki-chev/);
-	assert.match(f, new RegExp(`<div class="ki-grp"><div class="ki-hd"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${kiCnt('ki-list-fix', '1 fix verified')}<span class="ki-dot" aria-hidden="true">&middot;</span>${kiCnt('ki-list-no', '4 not observed')}</span></div></div>`));
+	assert.match(f, new RegExp(`<span class="ki-sum">${kiCnt('ki-list-fix', '1 fix verified')}${KI_DOT}${kiCnt('ki-list-no', '4 not observed')}</span>`));
+	assert.doesNotMatch(f, /ki-list-obs/);
 	const onlyFixes = { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) };
 	assert.equal(linkedOf(kiHtml({ knownIssues: onlyFixes })), '', 'a failed fix is a finding and an unexercised one is in Coverage');
 });
 
 test('known issues are not findings: no number, no card, not counted', () => {
 	const html = kiHtml();
-	for (const row of kiRows(html)) {
-		assert.doesNotMatch(row, /class="n"|href="#f/);
-	}
+	assert.doesNotMatch(kiList(html, 'ki-list-obs'), /class="n"|href="#f/);
 	assert.equal((findingsOf(html).match(/<a href="#f\d+" class="row/g) ?? []).length, 3);
 });
 
@@ -2930,7 +2924,7 @@ test('Coverage leads each row\'s result with its fixes and linked issues, after 
 
 test('issue text from GitHub is escaped in rows and data attributes, and the preview script ships only with them', () => {
 	const html = kiHtml();
-	assert.match(html, /<span class="ki-title">Title &quot;&lt;script&gt;&amp;<\/span>/);
+	assert.match(kiList(html, 'ki-list-obs'), /#22<\/a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">/);
 	assert.match(html, /data-title="Title &quot;&lt;script&gt;&amp;" data-summary="a &quot;&lt;b&gt;&quot; &amp; c"/);
 	assert.doesNotMatch(html, /Title "<script>/);
 	assert.ok(html.includes('a.ki-num[data-title]'), 'preview script');
@@ -2947,14 +2941,11 @@ test('the issue body names the fix that did not hold, or the issue that regresse
 const NO_FINDINGS = KI_REPORT.replace(/## Findings[\s\S]*?(?=<details>)/, 'No findings.\n\n').replace(/VERDICTS: .*\nKNOWN: .*/, 'VERDICTS: none').replace('**1.** Checks out.', '');
 const passing = ledger => ledger.replace(/Status: fail - Finding \d/g, 'Status: pass').replace('Issue: #11 fix did not hold', 'Issue: #11 fix held').replace(/^Issue: #2[15] .*\n/gm, '');
 
-test('with no findings, the empty state and an open Linked issues row show without a header, when some were observed', () => {
+test('with no findings, every linked count joins the empty state and there is no Linked issues row', () => {
 	const f = findingsOf(renderReportHtml(NO_FINDINGS, { ledger: passing(KI_LEDGER), knownIssues: KI_ISSUES }));
-	assert.doesNotMatch(f, /row-head/);
-	const dot = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
-	assert.ok(f.includes(`<b>No new findings</b><span class="ki-empty-sum"><b>5</b> passed${dot}<b>3</b> not run</span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>`), f.slice(0, 600));
-	assert.ok(f.indexOf('ki-empty') < f.indexOf('ki-grp'));
-	assert.match(f, /<details class="ki-grp" open><summary>/);
-	assert.match(f, /<span class="ki-sum">3 observed<span class="ki-dot" aria-hidden="true">&middot;<\/span><span class="ki-cnt"[^>]*>2 fix verified<\/span>/);
+	assert.doesNotMatch(f, /row-head|ki-grp|ki-bar/);
+	assert.ok(f.includes(`<b>No new findings</b><span class="ki-empty-sum"><b>5</b> passed${KI_DOT}<b>3</b> not run${KI_DOT}${kiCnt('ki-list-fix', '2 fixes verified')}${KI_DOT}${kiCnt('ki-list-obs', '3 known issues observed')}${KI_DOT}${kiCnt('ki-list-no', '4 linked issues not observed')}</span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>`), f.slice(0, 1200));
+	assert.match(f, /<div class="ki-list" id="ki-list-obs" hidden><div class="ki-lc-h">Known issues observed this run<\/div>/);
 });
 
 test('with no findings and nothing observed, the linked counts join the empty state and there is no Linked issues row', () => {
