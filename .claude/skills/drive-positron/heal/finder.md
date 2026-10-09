@@ -85,5 +85,6 @@ Add `"lead": "<run link>"` when the finding came from a lead; leave it out other
 with a lead also has `"cost": { "kind": "gave up | by hand | repeated", "evidence": "..." }`, where
 `evidence` quotes the `actions.log` lines after the failure that show the cost. A lead finding
 without one is thrown away.
-`id` is lowercase letters, digits and dashes. Steps are commands someone else can run in order on a
-fresh instance. End with a two-line summary: how many findings, and the area covered.
+`id` is lowercase letters, digits and dashes; a finding that is one of the brief's known product
+bugs keeps that bug's id, so the report shows it as known. Steps are commands someone else can run
+in order on a fresh instance. End with a two-line summary: how many findings, and the area covered.
