@@ -7,9 +7,11 @@
 import './actionBars.css';
 
 // React.
-import { PropsWithChildren, useEffect, useState } from 'react';
+import { FormEvent, KeyboardEvent, PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import { isCancellationError } from '../../../../../base/common/errors.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { localize } from '../../../../../nls.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
@@ -23,6 +25,8 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { HelpTopicSuggestion } from '../../../../services/languageRuntime/common/positronHelpComm.js';
+import { HelpTopicResult } from '../positronHelpService.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -34,6 +38,238 @@ const tooltipPreviousTopic = localize('positronPreviousTopic', "Previous topic")
 const tooltipNextTopic = localize('positronNextTopic', "Next topic");
 const tooltipShowPositronHelp = localize('positronShowPositronHelp', "Show Positron help");
 const tooltipHelpHistory = localize('positronHelpHistory', "Help history");
+const clearHelpSearch = localize('positronHelpSearch.clear', "Clear help search");
+const noHelpSearchRuntime = localize('positronHelpSearch.noRuntime', "Start an interpreter to search help");
+
+const kMaximumSuggestions = 50;
+
+const HelpSearch = () => {
+	const services = usePositronReactServicesContext();
+	const inFlight = useRef<{ sessionId: string; promise: Promise<HelpTopicSuggestion[]> } | undefined>(undefined);
+	const [foregroundSession, setForegroundSession] = useState(services.runtimeSessionService.foregroundSession);
+	const [query, setQuery] = useState('');
+	const [topics, setTopics] = useState<HelpTopicSuggestion[]>([]);
+	const [focused, setFocused] = useState(false);
+	const [activeIndex, setActiveIndex] = useState(-1);
+	const [submitting, setSubmitting] = useState(false);
+	const submission = useRef(0);
+	const activeSubmission = useRef<{ query: string; topic: string | undefined } | undefined>(undefined);
+	const suggestionSessionVersion = useRef(0);
+	const suggestionsRef = useRef<HTMLDivElement>(null);
+	const [runtimeState, setRuntimeState] = useState(foregroundSession?.getRuntimeState());
+
+	useEffect(() => {
+		const disposable = services.runtimeSessionService.onDidChangeForegroundSession(session => {
+			// Invalidate responses synchronously, before React runs effect cleanup.
+			suggestionSessionVersion.current++;
+			setForegroundSession(session);
+			setRuntimeState(session?.getRuntimeState());
+			submission.current++;
+			activeSubmission.current = undefined;
+			setSubmitting(false);
+			setTopics([]);
+			setActiveIndex(-1);
+		});
+		return () => {
+			disposable.dispose();
+			if (activeSubmission.current) {
+				activeSubmission.current = undefined;
+				services.positronHelpService.cancelSearch();
+			}
+		};
+	}, [services.runtimeSessionService, services.positronHelpService]);
+
+	useEffect(() => {
+		const listener = foregroundSession?.onDidChangeRuntimeState(setRuntimeState);
+		return () => listener?.dispose();
+	}, [foregroundSession]);
+
+	useEffect(() => {
+		if (!focused || !foregroundSession || !query.trim()) {
+			setTopics([]);
+			setActiveIndex(-1);
+			return;
+		}
+		// Keep the current list during the debounce and request. Cleanup prevents
+		// a response for an earlier query or session from replacing it.
+		let cancelled = false;
+		const sessionVersion = suggestionSessionVersion.current;
+		const isCurrent = () => !cancelled && sessionVersion === suggestionSessionVersion.current;
+		let dispatched = false;
+		let timer: number | undefined;
+		const ready = () => [RuntimeState.Idle, RuntimeState.Ready].includes(foregroundSession.getRuntimeState());
+		const requestSuggestions = async () => {
+			if (!isCurrent() || dispatched || !ready()) {
+				return;
+			}
+			if (inFlight.current?.sessionId === foregroundSession.sessionId) {
+				await inFlight.current.promise.catch(() => []);
+			}
+			if (!isCurrent() || dispatched || !ready()) {
+				return;
+			}
+			dispatched = true;
+			const promise = services.positronHelpService.getHelpTopics(query.trim(), kMaximumSuggestions);
+			const request = { sessionId: foregroundSession.sessionId, promise };
+			inFlight.current = request;
+			try {
+				const result = await promise;
+				if (isCurrent()) {
+					setTopics(result);
+					setActiveIndex(-1);
+				}
+			} catch {
+				// Full search remains available when suggestions fail.
+			} finally {
+				if (inFlight.current === request) {
+					inFlight.current = undefined;
+				}
+			}
+		};
+		const schedule = () => {
+			if (!dispatched) {
+				window.clearTimeout(timer);
+				timer = window.setTimeout(() => void requestSuggestions(), 200);
+			}
+		};
+		// Wait for idle if user code is running. Once dispatched, the comm's
+		// own Busy/Idle events must not trigger another identical request.
+		const listener = foregroundSession.onDidChangeRuntimeState(schedule);
+		schedule();
+		return () => {
+			cancelled = true;
+			window.clearTimeout(timer);
+			listener.dispose();
+		};
+	}, [focused, foregroundSession, query, services.positronHelpService]);
+
+	const suggestionsVisible = focused && topics.length > 0;
+
+	useEffect(() => {
+		if (suggestionsVisible && activeIndex >= 0) {
+			suggestionsRef.current?.children[activeIndex]?.scrollIntoView({ block: 'nearest' });
+		}
+	}, [activeIndex, suggestionsVisible]);
+
+	const cancelSubmission = () => {
+		submission.current++;
+		if (activeSubmission.current) {
+			activeSubmission.current = undefined;
+			services.positronHelpService.cancelSearch();
+		}
+		setSubmitting(false);
+	};
+
+	const runSearch = async (topic?: HelpTopicSuggestion) => {
+		const value = query.trim();
+		if ((!value && !topic) || !foregroundSession) {
+			return;
+		}
+		// Ignore repeated Enter/click events for the same pending request.
+		if (activeSubmission.current?.query === value && (!topic || activeSubmission.current.topic === topic.topic)) {
+			return;
+		}
+		cancelSubmission();
+		const currentSubmission = ++submission.current;
+		activeSubmission.current = { query: value, topic: topic?.topic };
+		setSubmitting(true);
+		setActiveIndex(-1);
+		setFocused(false);
+		try {
+			const result = topic
+				? await services.positronHelpService.showHelpTopicForForegroundSession(topic.topic)
+				: await services.positronHelpService.searchHelp(value);
+			if (activeSubmission.current && submission.current === currentSubmission) {
+				if (topic && result === HelpTopicResult.NotFound) {
+					services.notificationService.info(localize('positronHelpSearch.notFound', "No help found for '{0}'.", topic.topic));
+				} else if (result === HelpTopicResult.Unavailable || result === false) {
+					services.notificationService.info(localize('positronHelpSearch.unavailable', "Help search is unavailable for the active interpreter."));
+				}
+			}
+		} catch (error) {
+			if (isCancellationError(error) || !activeSubmission.current || submission.current !== currentSubmission) {
+				return;
+			}
+			services.notificationService.warn(localize('positronHelpSearch.error', "An error occurred while searching help: {0}", error.message));
+		} finally {
+			if (activeSubmission.current && submission.current === currentSubmission) {
+				activeSubmission.current = undefined;
+				setSubmitting(false);
+			}
+		}
+	};
+
+	const onSubmit = (event: FormEvent) => {
+		event.preventDefault();
+		void runSearch(suggestionsVisible && activeIndex >= 0 ? topics[activeIndex] : undefined);
+	};
+
+	const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+		if (event.key === 'ArrowDown' && suggestionsVisible) {
+			event.preventDefault();
+			setActiveIndex(index => Math.min(index + 1, topics.length - 1));
+		} else if (event.key === 'ArrowUp' && suggestionsVisible) {
+			event.preventDefault();
+			setActiveIndex(index => Math.max(index - 1, -1));
+		} else if (event.key === 'Escape') {
+			cancelSubmission();
+			setActiveIndex(-1);
+			setFocused(false);
+		}
+	};
+
+	const languageName = foregroundSession?.runtimeMetadata.languageName;
+	const placeholder = languageName
+		? localize('positronHelpSearch.placeholder', "Search {0} Help", languageName)
+		: noHelpSearchRuntime;
+	const listId = 'positron-help-search-suggestions';
+
+	return (
+		<form className='help-search' onSubmit={onSubmit}>
+			<span className={ThemeIcon.asClassName(ThemeIcon.fromId('search'))} />
+			<input
+				aria-activedescendant={suggestionsVisible && activeIndex >= 0 && activeIndex < topics.length ? `${listId}-${activeIndex}` : undefined}
+				aria-autocomplete='list'
+				aria-controls={suggestionsVisible ? listId : undefined}
+				aria-expanded={suggestionsVisible}
+				aria-label={placeholder}
+				autoComplete='off'
+				disabled={!foregroundSession}
+				placeholder={placeholder}
+				role='combobox'
+				value={query}
+				onBlur={() => { setFocused(false); setActiveIndex(-1); }}
+				onChange={event => { setQuery(event.target.value); setActiveIndex(-1); setFocused(true); }}
+				onFocus={() => setFocused(true)}
+				onKeyDown={onKeyDown}
+			/>
+			{submitting && <span role='status'>
+				{runtimeState === RuntimeState.Busy || runtimeState === RuntimeState.Interrupting
+					? localize('positronHelpSearch.waiting', "Waiting for interpreter...")
+					: localize('positronHelpSearch.searching', "Searching...")}
+			</span>}
+			{query && <button aria-label={clearHelpSearch} type='button' onClick={() => { cancelSubmission(); setQuery(''); setActiveIndex(-1); setFocused(false); }}>
+				<span className={ThemeIcon.asClassName(ThemeIcon.fromId('close'))} />
+			</button>}
+			{suggestionsVisible && <div ref={suggestionsRef} aria-label={placeholder} className='help-search-suggestions' id={listId} role='listbox'>
+				{topics.map((suggestion, index) => <button
+					key={suggestion.topic}
+					aria-selected={index === activeIndex}
+					className={index === activeIndex ? 'active' : undefined}
+					id={`${listId}-${index}`}
+					role='option'
+					tabIndex={-1}
+					type='button'
+					onClick={() => void runSearch(suggestion)}
+					onMouseDown={event => event.preventDefault()}
+				>
+					<span>{suggestion.label}</span>
+					{suggestion.detail && <span className='detail'>{suggestion.detail}</span>}
+				</button>)}
+			</div>}
+		</form>
+	);
+};
 
 /**
  * Shortens a URL.
@@ -148,30 +384,35 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
 				>
-					<ActionBarButton
-						ariaLabel={tooltipPreviousTopic}
-						disabled={!canNavigateBackward}
-						icon={ThemeIcon.fromId('positron-left-arrow')}
-						tooltip={tooltipPreviousTopic}
-						onPressed={() => services.positronHelpService.navigateBackward()}
-					/>
-					<ActionBarButton
-						ariaLabel={tooltipNextTopic}
-						disabled={!canNavigateForward}
-						icon={ThemeIcon.fromId('positron-right-arrow')}
-						tooltip={tooltipNextTopic}
-						onPressed={() => services.positronHelpService.navigateForward()}
-					/>
+					<ActionBarRegion location='left'>
+						<ActionBarButton
+							ariaLabel={tooltipPreviousTopic}
+							disabled={!canNavigateBackward}
+							icon={ThemeIcon.fromId('positron-left-arrow')}
+							tooltip={tooltipPreviousTopic}
+							onPressed={() => services.positronHelpService.navigateBackward()}
+						/>
+						<ActionBarButton
+							ariaLabel={tooltipNextTopic}
+							disabled={!canNavigateForward}
+							icon={ThemeIcon.fromId('positron-right-arrow')}
+							tooltip={tooltipNextTopic}
+							onPressed={() => services.positronHelpService.navigateForward()}
+						/>
 
-					<ActionBarSeparator />
+						<ActionBarSeparator />
 
-					<ActionBarButton
-						ariaLabel={tooltipShowPositronHelp}
-						disabled={props.onHome === undefined}
-						icon={ThemeIcon.fromId('positron-home')}
-						tooltip={tooltipShowPositronHelp}
-						onPressed={() => props.onHome()}
-					/>
+						<ActionBarButton
+							ariaLabel={tooltipShowPositronHelp}
+							disabled={props.onHome === undefined}
+							icon={ThemeIcon.fromId('positron-home')}
+							tooltip={tooltipShowPositronHelp}
+							onPressed={() => props.onHome()}
+						/>
+					</ActionBarRegion>
+					<ActionBarRegion location='right' minWidth={0}>
+						<HelpSearch />
+					</ActionBarRegion>
 
 					{/* <ActionBarSeparator /> */}
 					{/* <ActionBarButton

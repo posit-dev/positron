@@ -24,6 +24,94 @@
 					"description": "Whether the topic was found and shown. Topics are shown via a Show Help notification."
 				}
 			}
+		},
+		{
+			"name": "search_help",
+			"summary": "Search the active interpreter's help system.",
+			"description": "Searches interpreter-wide help and displays the resulting page via a Show Help notification.",
+			"params": [
+				{
+					"name": "query",
+					"description": "The help query to search for",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "search_id",
+					"required": true,
+					"description": "Opaque identifier supplied by the frontend for this UI search. Echo it in the resulting Show Help notification.",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "boolean",
+					"description": "Whether the search results navigation was requested. This does not confirm that the frontend displayed or finished loading the page."
+				}
+			}
+		},
+		{
+			"name": "get_help_topics",
+			"summary": "Find help topics for autocomplete.",
+			"description": "Returns at most limit matching help topic suggestions, filtered and ranked by the backend. An empty query returns no suggestions.",
+			"params": [
+				{
+					"name": "query",
+					"required": true,
+					"description": "The text to match against help topic labels.",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "limit",
+					"required": true,
+					"description": "Maximum number of suggestions to return, from 1 to 50.",
+					"schema": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 50
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "array",
+					"description": "Help topic suggestions.",
+					"items": {
+						"$ref": "#/components/schemas/help_topic_suggestion"
+					}
+				}
+			}
 		}
-	]
+	],
+	"components": {
+		"schemas": {
+			"help_topic_suggestion": {
+				"type": "object",
+				"description": "A help topic offered as an autocomplete suggestion.",
+				"properties": {
+					"label": {
+						"type": "string",
+						"description": "The topic label shown to the user."
+					},
+					"topic": {
+						"type": "string",
+						"description": "The exact topic value used to open help."
+					},
+					"detail": {
+						"type": "string",
+						"description": "Optional context such as the package containing the topic."
+					}
+				},
+				"required": [
+					"label",
+					"topic"
+				]
+			}
+		}
+	}
 }
