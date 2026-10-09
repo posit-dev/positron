@@ -109,10 +109,14 @@ interface IInternalBucket {
  *   other. We subscribe to external storage changes and reload wholesale on
  *   sibling writes; the resulting last-writer-wins behavior can drop an
  *   in-flight entry but never serves a wrong runtime, and any loss is
- *   recovered on the next discovery or revalidation pass. The main process
- *   also sends a window's own writes back to it as external changes, up to a
- *   couple hundred milliseconds late, so each blob records which instance
- *   wrote it and we skip reloading our own.
+ *   recovered on the next discovery or revalidation pass.
+ *
+ *   The main process also sends each save back to the window that made it,
+ *   a couple hundred milliseconds later, flagged as if another window had
+ *   written it. During discovery we save faster than that, so by the time a
+ *   copy arrives we may have saved newer entries, and reloading the copy
+ *   would lose them. Each save records which cache instance wrote it so we
+ *   can ignore copies of our own saves.
  *
  * - **Disable switch.** {@link RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING} gates
  *   everything: when off, reads return empty and writes no-op, restoring
@@ -154,9 +158,12 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		// APPLICATION-scope storage, which is shared across all windows on the
 		// machine, so without this listener two windows would silently clobber
 		// each other on every persist (last-writer-wins on the full JSON blob).
-		// `external: true` filters out our own in-process writes. The main
-		// process also echoes our own writes back as external; by then we may
-		// have written newer entries, and reloading the echo would drop them.
+		//
+		// Skip our own saves. Each one fires this event twice: right away
+		// with `external` set to false, and again a couple hundred
+		// milliseconds later, when the main process sends it back with
+		// `external` set to true. The writer ID check skips the second one,
+		// since reloading it could lose newer entries (see the class comment).
 		this._register(this._storageService.onDidChangeValue(
 			StorageScope.APPLICATION,
 			RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
