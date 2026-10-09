@@ -5,13 +5,15 @@
 
 import { localize } from '../../../../nls.js';
 import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { ErrorActionKind, IErrorActionContext, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
+import { ERROR_ACTIONS_AGENTS_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 import { POSIT_ASSISTANT_ERROR_ACTIONS_LABEL } from './errorActionsService.js';
 import { NewChatOptions, POSIT_HAS_CHAT_MODELS_KEY, POSIT_NEW_CHAT_COMMAND } from './positAssistantChat.js';
 
@@ -23,39 +25,66 @@ const explainOnlyConstraint = localize('positronAssistantExplainOnlyConstraint',
  * Posit Assistant's implementation of the error Fix and Explain actions,
  * available while it has a usable chat model. It uses only what the
  * `positron.ai.registerErrorActionHandler` API offers an extension, so it
- * could move into Posit Assistant.
+ * could move into Posit Assistant. Registered only while
+ * `ai.errorActions.agents.enabled` is on; while it's off, the Fix and Explain
+ * buttons call Posit Assistant directly.
  */
 export class PositAssistantErrorActionsContribution extends Disposable implements IWorkbenchContribution {
+	/** The registration and its listeners, set while the setting is on. */
+	private readonly _registration = this._register(new MutableDisposable<DisposableStore>());
+
 	constructor(
-		@ICommandService commandService: ICommandService,
-		@IContextKeyService contextKeyService: IContextKeyService,
-		@IErrorActionsService errorActionsService: IErrorActionsService,
-		@ILabelService labelService: ILabelService,
+		@ICommandService private readonly _commandService: ICommandService,
+		@IConfigurationService configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IErrorActionsService private readonly _errorActionsService: IErrorActionsService,
+		@ILabelService private readonly _labelService: ILabelService,
 	) {
 		super();
 
+		const update = () => {
+			const isEnabled = configurationService.getValue<boolean>(ERROR_ACTIONS_AGENTS_ENABLED_KEY) === true;
+			if (isEnabled && !this._registration.value) {
+				this._registration.value = this._registerHandler();
+			} else if (!isEnabled) {
+				this._registration.clear();
+			}
+		};
+		update();
+		this._register(configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(ERROR_ACTIONS_AGENTS_ENABLED_KEY)) {
+				update();
+			}
+		}));
+	}
+
+	/** Register Posit Assistant's handler, and keep its problem current. */
+	private _registerHandler(): DisposableStore {
+		const store = new DisposableStore();
+
 		// The context key is unset, so false, while Posit Assistant isn't installed.
-		const registration = this._register(errorActionsService.register({
+		const registration = store.add(this._errorActionsService.register({
 			id: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
 			label: POSIT_ASSISTANT_ERROR_ACTIONS_LABEL,
 			when: ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
 			run: async (kind, context) => {
-				const getPath = (uri: URI) => labelService.getUriLabel(uri, { relative: true });
-				await commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(kind, context, getPath));
+				const getPath = (uri: URI) => this._labelService.getUriLabel(uri, { relative: true });
+				await this._commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(kind, context, getPath));
 			},
 		}));
 
 		// Say why it's unavailable in the agent picker.
-		const updateProblem = () => registration.setProblem(contextKeyService.getContextKeyValue<boolean>(POSIT_HAS_CHAT_MODELS_KEY)
+		const updateProblem = () => registration.setProblem(this._contextKeyService.getContextKeyValue<boolean>(POSIT_HAS_CHAT_MODELS_KEY)
 			? undefined
 			: localize('positronAssistantErrorActionsNoModel', "Posit Assistant is not installed or has no language model. Configure one to send errors to it."));
 		updateProblem();
 		const hasChatModelsKeys = new Set([POSIT_HAS_CHAT_MODELS_KEY]);
-		this._register(contextKeyService.onDidChangeContext(e => {
+		store.add(this._contextKeyService.onDidChangeContext(e => {
 			if (e.affectsSome(hasChatModelsKeys)) {
 				updateProblem();
 			}
 		}));
+		return store;
 	}
 }
 

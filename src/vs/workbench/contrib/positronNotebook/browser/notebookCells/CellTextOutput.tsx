@@ -14,6 +14,9 @@ import { useNotebookInstance, useNotebookOptions } from '../NotebookInstanceProv
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { localize } from '../../../../../nls.js';
 import { NotebookCellQuickFix } from './NotebookCellQuickFix.js';
+import { NotebookCellErrorActions } from './NotebookCellErrorActions.js';
+import { usePositronConfiguration } from '../../../../../base/browser/positronReactHooks.js';
+import { ERROR_ACTIONS_AGENTS_ENABLED_KEY } from '../../../positronAssistant/common/positronAIConfiguration.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 const showMoreLinesLabel = (n: number) => localize(
@@ -70,6 +73,7 @@ export function CellTextOutput({
 	const layoutConfig = useNotebookOptions().getLayoutConfiguration();
 	const truncation = truncateToNumberOfLines(content, outputScrolling, layoutConfig.outputLineLimit);
 	const outputWordWrap = layoutConfig.outputWordWrap;
+	const errorActionsAgentsEnabled = usePositronConfiguration<boolean>(ERROR_ACTIONS_AGENTS_ENABLED_KEY);
 
 	return <>
 		<div
@@ -90,7 +94,10 @@ export function CellTextOutput({
 				<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentAfter)} />
 			</>}
 		</div>
-		{type === 'error' && <NotebookCellQuickFix errorContent={content} />}
+		{type === 'error' && (errorActionsAgentsEnabled === true
+			? <NotebookCellErrorActions errorContent={content} />
+			: <NotebookCellQuickFix errorContent={content} />
+		)}
 	</>;
 }
 

@@ -5,14 +5,16 @@
 
 /// <reference types="vitest/globals" />
 
-import { act } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { Event } from '../../../../../base/common/event.js';
 import { BareFontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { EditorOption } from '../../../../../editor/common/config/editorOptions.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { IErrorActionHandler, IErrorActionsService } from '../../../positronAssistant/common/errorActions.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
@@ -32,9 +34,6 @@ import { chooseHtmlRenderMode, isInertHtml, isWebviewOverlayShown, QuartoOutputV
 // probe is one frame stale and, worse, stays truthy for a zone that has scrolled
 // out of the viewport while Monaco still renders it -- exactly the flextable
 // sticking case.
-/** Where the quick fix sends errors, so its buttons render. */
-const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
-
 describe('isWebviewOverlayShown', () => {
 	function zone(visible: boolean): HTMLElement {
 		const el = document.createElement('div');
@@ -194,6 +193,9 @@ describe('QuartoOutputViewZone collapse across a re-execution', () => {
 // fires, leaving the zone too short so the buttons paint over the editor lines
 // below The zone must instead re-measure deterministically once the buttons
 // render.
+/** Where the error actions send errors while agents are enabled. */
+const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
+
 describe('QuartoOutputViewZone error quick-fix height', () => {
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -220,7 +222,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		return 0;
 	}
 
-	function createViewZone(): QuartoOutputViewZone {
+	function createViewZone(configurationService?: IConfigurationService): QuartoOutputViewZone {
 		const containerDomNode = document.createElement('div');
 		const editor = stubInterface<ICodeEditor>({
 			getContainerDomNode: () => containerDomNode,
@@ -240,7 +242,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		});
 		return new QuartoOutputViewZone(
 			editor, 'cell-1', 1,
-			undefined, undefined, 40, undefined, undefined, undefined, undefined, undefined,
+			undefined, undefined, 40, configurationService, undefined, undefined, undefined, undefined,
 			measureOffsetHeight,
 		);
 	}
@@ -258,6 +260,7 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 	it('grows to fit the async quick-fix buttons on the first run and again on a re-run', async () => {
 		// Gate the assistant on so the Fix/Explain buttons actually render.
 		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration('ai.enabled', true);
+		(ctx.get(IContextKeyService) as MockContextKeyService).createKey('posit-assistant.hasChatModels', true);
 		// The view zone renders the buttons through a PositronReactRenderer,
 		// which reads the services singleton; bridge the test container in.
 		PositronReactServices.services = ctx.reactServices;
@@ -279,6 +282,27 @@ describe('QuartoOutputViewZone error quick-fix height', () => {
 		});
 		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
 
+		zone.dispose();
+	});
+
+	it('grows to fit the error action buttons while agents are enabled', async () => {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		configurationService.setUserConfiguration('ai.enabled', true);
+		configurationService.setUserConfiguration('ai.errorActions.agents.enabled', true);
+		PositronReactServices.services = ctx.reactServices;
+
+		const zone = createViewZone(configurationService);
+		zone.enableQuickFix();
+		// Attach the zone so its buttons can be found by role.
+		document.body.appendChild(zone.domNode);
+
+		await act(async () => {
+			zone.addOutput(errorOutput('err-1'));
+		});
+		expect(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' })).toBeInTheDocument();
+		expect(zone.heightInPx).toBe(TEXT_HEIGHT + BUTTONS_HEIGHT + 13);
+
+		zone.domNode.remove();
 		zone.dispose();
 	});
 });

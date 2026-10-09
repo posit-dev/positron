@@ -29,7 +29,7 @@ function makeLines(n: number): string {
 	return Array.from({ length: n }, (_, i) => `line ${i + 1}`).join('\n');
 }
 
-/** Where the quick fix sends errors, so its buttons render. */
+/** Where the error actions send errors while agents are enabled. */
 const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
 describe('CellTextOutput', () => {
@@ -97,12 +97,27 @@ describe('CellTextOutput', () => {
 		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
+		configurationService.setUserConfiguration('ai.errorActions.agents.enabled', false);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
+		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 
 		expect(screen.getByTestId('cell-text-output')).toHaveClass('notebook-error');
 		expect(screen.getByRole('group', { name: /quick fix/i })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Ask assistant to fix in new chat' })).toBeInTheDocument();
+	});
+
+	it('renders error actions for the selected agent while agents are enabled', () => {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
+		configurationService.setUserConfiguration('positron.notebook.enabled', true);
+		configurationService.setUserConfiguration('ai.errorActions.agents.enabled', true);
+		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, true);
+
+		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
+
+		expect(screen.getByRole('button', { name: 'Ask Test Agent to fix in new chat' })).toBeInTheDocument();
 	});
 
 	it('does not render quick-fix for errors when assistant is disabled', () => {
@@ -121,6 +136,7 @@ describe('CellTextOutput', () => {
 		const contextKeyService = ctx.get(IContextKeyService) as MockContextKeyService;
 		configurationService.setUserConfiguration('positron.notebook.enabled', true);
 		contextKeyService.createKey(NotebookContextKeys.aiEnabled.key, false);
+		contextKeyService.createKey('posit-assistant.hasChatModels', true);
 
 		renderCellTextOutput({ content: 'NameError: name "x" is not defined', type: 'error' });
 

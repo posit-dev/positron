@@ -22,14 +22,14 @@ import { IPositronNotebookInstance } from '../../../browser/IPositronNotebookIns
 import { NotebookInstanceProvider } from '../../../browser/NotebookInstanceProvider.js';
 import { IPositronNotebookCell } from '../../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { CellProvider } from '../../../browser/notebookCells/CellProvider.js';
-import { NotebookCellQuickFix } from '../../../browser/notebookCells/NotebookCellQuickFix.js';
+import { NotebookCellErrorActions } from '../../../browser/notebookCells/NotebookCellErrorActions.js';
 
 /** The notebook's kernel session. */
 const runtimeSession = constObservable(stubInterface<ILanguageRuntimeSession>({ sessionId: 'python-5678' }));
 
 const errorActionHandler: IErrorActionHandler = { id: 'test-agent', label: 'Test Agent', run: async () => { } };
 
-describe('NotebookCellQuickFix', () => {
+describe('NotebookCellErrorActions', () => {
 	const run = vi.fn().mockResolvedValue(undefined);
 	const ctx = createTestContainer()
 		.withReactServices()
@@ -46,7 +46,7 @@ describe('NotebookCellQuickFix', () => {
 		rtl.render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellProvider cell={cell}>
-					<NotebookCellQuickFix errorContent={'NameError: x'} />
+					<NotebookCellErrorActions errorContent={'NameError: x'} />
 				</CellProvider>
 			</NotebookInstanceProvider>
 		);
@@ -68,7 +68,7 @@ describe('NotebookCellQuickFix', () => {
 		rtl.render(
 			<NotebookInstanceProvider instance={instance}>
 				<CellProvider cell={cell}>
-					<NotebookCellQuickFix errorContent={'NameError: x'} />
+					<NotebookCellErrorActions errorContent={'NameError: x'} />
 				</CellProvider>
 			</NotebookInstanceProvider>
 		);

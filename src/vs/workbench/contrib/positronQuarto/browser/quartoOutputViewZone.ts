@@ -40,6 +40,8 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { getDefaultHoverDelegate } from '../../../../base/browser/ui/hover/hoverDelegateFactory.js';
 import { IManagedHover } from '../../../../base/browser/ui/hover/hover.js';
 import { QuartoOutputQuickFix } from './QuartoOutputQuickFix.js';
+import { QuartoOutputErrorActions, QuartoOutputErrorActionsProps } from './QuartoOutputErrorActions.js';
+import { ERROR_ACTIONS_AGENTS_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 
 /**
  * Minimum height for a view zone in pixels.
@@ -2621,16 +2623,20 @@ export class QuartoOutputViewZone extends Disposable implements IViewZone {
 
 			this._quickFixRenderer?.dispose();
 			this._quickFixRenderer = new PositronReactRenderer(quickFixContainer);
+			const quickFixProps: QuartoOutputErrorActionsProps = {
+				errorContent: errorText,
+				cellContext: this._cellContext,
+				// The buttons mount asynchronously; re-measure once they are in
+				// the DOM so the zone reserves room for them. Relying on the
+				// ResizeObserver alone misses a re-run that produces an
+				// identically sized error (posit-dev/positron#14844).
+				onLayout: () => this._updateHeight(),
+			};
+			// Read as each error renders, so a change applies to the next error.
 			this._quickFixRenderer.render(
-				React.createElement(QuartoOutputQuickFix, {
-					errorContent: errorText,
-					cellContext: this._cellContext,
-					// The buttons mount asynchronously; re-measure once they are in
-					// the DOM so the zone reserves room for them. Relying on the
-					// ResizeObserver alone misses a re-run that produces an
-					// identically sized error (posit-dev/positron#14844).
-					onLayout: () => this._updateHeight(),
-				})
+				this._configurationService?.getValue<boolean>(ERROR_ACTIONS_AGENTS_ENABLED_KEY) === true
+					? React.createElement(QuartoOutputErrorActions, quickFixProps)
+					: React.createElement(QuartoOutputQuickFix, quickFixProps)
 			);
 		}
 

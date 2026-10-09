@@ -13,13 +13,20 @@ import { ErrorActionKind, getErrorPrompt, UnsavedState } from './errorPrompt';
 /** The agents Fix and Explain can send errors to, in the order they are offered. */
 const AGENTS: readonly CodingAgent[] = [claudeCode, codex];
 
+/**
+ * Whether Fix and Explain can send errors to coding agents. Mirrors
+ * ERROR_ACTIONS_AGENTS_ENABLED_KEY in positronAIConfigurationKeys.ts.
+ */
+const ERROR_ACTIONS_AGENTS_ENABLED_KEY = 'ai.errorActions.agents.enabled';
+
 /** Minimum time between availability checks triggered by the window regaining focus. */
 const FOCUS_CHECK_INTERVAL = 30_000;
 
 export function activate(context: vscode.ExtensionContext): void {
-	// Offer each agent while it is installed. An installed agent that can't
-	// take a prompt (e.g. a setting needs changing) stays on offer, shows the
-	// problem in the agent picker, and explains it when it's used.
+	// Offer each agent while it is installed and the setting is on. An
+	// installed agent that can't take a prompt (e.g. a setting needs changing)
+	// stays on offer, shows the problem in the agent picker, and explains it
+	// when it's used.
 	const registrationsById = new Map<string, positron.ai.ErrorActionHandlerRegistration>();
 	let isDisposed = false;
 	context.subscriptions.push({
@@ -44,7 +51,11 @@ export function activate(context: vscode.ExtensionContext): void {
 			do {
 				isCheckRequested = false;
 				lastCheckTime = Date.now();
-				const installed = await Promise.all(AGENTS.map(agent => agent.isInstalled()));
+				// Don't look for agents while the setting is off.
+				const isEnabled = vscode.workspace.getConfiguration().get<boolean>(ERROR_ACTIONS_AGENTS_ENABLED_KEY) === true;
+				const installed = isEnabled
+					? await Promise.all(AGENTS.map(agent => agent.isInstalled()))
+					: AGENTS.map(() => false);
 				const problems = await Promise.all(AGENTS.map((agent, i) => installed[i] ? agent.getProblem() : undefined));
 				if (isDisposed) {
 					return;
@@ -76,7 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
 		vscode.extensions.onDidChange(updateRegistrations),
 		vscode.workspace.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('claudeCode.useTerminal')) {
+			if (e.affectsConfiguration(ERROR_ACTIONS_AGENTS_ENABLED_KEY) || e.affectsConfiguration('claudeCode.useTerminal')) {
 				updateRegistrations();
 			}
 		}),

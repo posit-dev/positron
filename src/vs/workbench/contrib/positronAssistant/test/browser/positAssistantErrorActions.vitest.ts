@@ -9,6 +9,9 @@ import { decodeBase64 } from '../../../../../base/common/buffer.js';
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { ErrorActionKind, IErrorActionContext, IErrorActionHandler, IErrorActionsService } from '../../common/errorActions.js';
@@ -111,9 +114,26 @@ describe('PositAssistantErrorActionsContribution', () => {
 		.stub(ILabelService, { getUriLabel: (uri: URI) => getPath(uri) })
 		.build();
 
+	function setAgentsEnabled(enabled: boolean) {
+		const configurationService = ctx.get(IConfigurationService) as TestConfigurationService;
+		configurationService.setUserConfiguration('ai.errorActions.agents.enabled', enabled);
+		configurationService.onDidChangeConfigurationEmitter.fire(stubInterface<IConfigurationChangeEvent>({
+			affectsConfiguration: (key: string) => key === 'ai.errorActions.agents.enabled',
+		}));
+	}
+
 	beforeEach(() => {
 		registeredHandlers = [];
+		setAgentsEnabled(true);
 		ctx.disposables.add(ctx.instantiationService.createInstance(PositAssistantErrorActionsContribution));
+	});
+
+	it('is registered only while error actions can go to agents', () => {
+		setAgentsEnabled(false);
+		expect(registeredHandlers).toEqual([]);
+
+		setAgentsEnabled(true);
+		expect(registeredHandlers.map(({ id }) => id)).toEqual(['posit-assistant']);
 	});
 
 	it('is offered while Posit Assistant has a chat model', () => {

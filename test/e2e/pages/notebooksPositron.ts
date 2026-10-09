@@ -98,8 +98,8 @@ export class PositronNotebooks extends Notebooks {
 
 	// Assistant buttons (shown on error cells when assistant is enabled)
 	private askAssistantButton = this.editorActionBar.getByRole('button', { name: 'Ask Assistant', exact: true });
-	private fixErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask Posit Assistant to fix in new chat/i });
-	private explainErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask Posit Assistant to explain in new chat/i });
+	private fixErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask assistant to fix/i });
+	private explainErrorButton = this.code.driver.currentPage.getByRole('button', { name: /Ask assistant to explain/i });
 
 	// Search Widget
 	private searchWidget = this.code.driver.currentPage.locator('.positron-find-widget');
@@ -915,7 +915,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Click the "Ask Posit Assistant to fix" button on an error cell.
+	 * Action: Click the "Ask assistant to fix" button on an error cell.
 	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
 	 */
 	async clickFixErrorButton(): Promise<void> {
@@ -925,7 +925,7 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
-	 * Action: Click the "Ask Posit Assistant to explain" button on an error cell.
+	 * Action: Click the "Ask assistant to explain" button on an error cell.
 	 * Requires: assistant enabled, a model signed in, and an error visible in a cell.
 	 */
 	async clickExplainErrorButton(): Promise<void> {

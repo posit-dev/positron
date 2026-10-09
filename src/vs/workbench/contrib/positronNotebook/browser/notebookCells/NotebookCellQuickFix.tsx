@@ -8,14 +8,16 @@ import { useCallback } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { usePositronConfiguration, useContextKey } from '../../../../../base/browser/positronReactHooks.js';
+import { usePositronConfiguration, useContextKey, useContextKeyFromString } from '../../../../../base/browser/positronReactHooks.js';
 import { POSITRON_NOTEBOOK_ENABLED_KEY } from '../../common/positronNotebookConfig.js';
 import { NotebookContextKeys } from '../../common/notebookContextKeys.js';
-import { IErrorLocation } from '../../../positronAssistant/common/errorActions.js';
-import { useErrorActionHandler } from '../../../positronAssistant/browser/useErrorActionHandler.js';
-import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { POSIT_HAS_CHAT_MODELS_KEY } from '../../../positronAssistant/browser/positAssistantChat.js';
 import { AssistantErrorQuickFix } from './AssistantErrorQuickFix.js';
-import { useOptionalCell } from './CellProvider.js';
+
+const fixPrompt = localize('positronNotebookAssistantFixPrompt', "Fix this notebook cell error.");
+const explainPrompt = localize('positronNotebookAssistantExplainPrompt', "Explain this notebook cell error.");
+
+const ATTACHMENT_NAME = localize('positronNotebookAssistantErrorAttachmentName', "Notebook Cell Error");
 
 /**
  * Props for the NotebookCellQuickFix component.
@@ -27,7 +29,7 @@ interface NotebookCellQuickFixProps {
 
 /**
  * Quick fix buttons for notebook cell errors. Gates on the notebook's AI
- * switches and, when enabled, delegates the buttons to
+ * switches and, when enabled, delegates the buttons and assistant wiring to
  * {@link AssistantErrorQuickFix}.
  */
 export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
@@ -40,37 +42,29 @@ export const NotebookCellQuickFix = (props: NotebookCellQuickFixProps) => {
 	// settings' default of true.
 	const notebookAiEnabled = useContextKey<boolean>(NotebookContextKeys.aiEnabled);
 	const enableNotebookMode = usePositronConfiguration<boolean>(POSITRON_NOTEBOOK_ENABLED_KEY);
-	const configuredHandler = useErrorActionHandler();
-
-	const instance = useNotebookInstance();
-	const cell = useOptionalCell();
+	// Set by the Posit Assistant extension when it has at least one usable model.
+	const hasChatModels = useContextKeyFromString<boolean>(POSIT_HAS_CHAT_MODELS_KEY);
 
 	// Stable identity so AssistantErrorQuickFix's click handler and dropdown
-	// actions aren't recreated on every render. Resolved at click time so the
-	// cell index and code reflect any cells added, moved, or edited since the
-	// error.
-	const getLocation = useCallback((): IErrorLocation => {
-		const sessionId = instance.runtimeSession.get()?.sessionId;
-
-		// The cell's index is -1 once it is removed from the notebook.
-		if (!cell || cell.index < 0) {
-			return { kind: 'notebook', uri: instance.uri, sessionId };
-		}
-		return { kind: 'notebook', uri: instance.uri, cellIndex: cell.index, code: cell.getContent(), languageId: cell.model.language, sessionId };
-	}, [cell, instance]);
+	// actions aren't recreated on every render.
+	const getPayload = useCallback(
+		() => ({ fixPrompt, explainPrompt, attachmentContent: errorContent }),
+		[errorContent]
+	);
 
 	// Only show buttons if notebook AI is enabled, notebook mode is enabled, and
-	// there is somewhere to send the error
-	if (notebookAiEnabled === false || !enableNotebookMode || !configuredHandler) {
+	// chat models are available
+	const showQuickFix = notebookAiEnabled !== false && enableNotebookMode && hasChatModels;
+
+	// Don't render if assistant features are not enabled
+	if (!showQuickFix) {
 		return null;
 	}
 
 	return (
 		<AssistantErrorQuickFix
-			canContinueChat={configuredHandler.canContinueChat}
-			errorActionHandler={configuredHandler.handler}
-			errorOutput={errorContent}
-			getLocation={getLocation}
+			attachmentName={ATTACHMENT_NAME}
+			getPayload={getPayload}
 			groupAriaLabel={localize('positron.notebook.quickFixGroup', "Cell output quick fix actions")}
 		/>
 	);

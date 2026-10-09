@@ -62,3 +62,11 @@ export const MCP_STATUS_BAR_KEY = 'ai.mcp.statusBar';
  * requires {@link AI_ENABLED_KEY}.
  */
 export const AGENT_SESSIONS_ENABLED_KEY = 'ai.agentSessions.enabled';
+
+/**
+ * Whether the Fix and Explain buttons on console, notebook, and Quarto errors
+ * can send errors to coding agents (e.g. Claude Code, Codex) as well as Posit
+ * Assistant. Off, they behave as before agents could be selected: they always
+ * go to Posit Assistant. Experimental; also requires {@link AI_ENABLED_KEY}.
+ */
+export const ERROR_ACTIONS_AGENTS_ENABLED_KEY = 'ai.errorActions.agents.enabled';

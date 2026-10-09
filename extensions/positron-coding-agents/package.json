@@ -21,6 +21,9 @@
 	"extensionKind": [
 		"workspace"
 	],
+	"enabledApiProposals": [
+		"positronErrorActions"
+	],
 	"activationEvents": [
 		"onAiEnabled"
 	],

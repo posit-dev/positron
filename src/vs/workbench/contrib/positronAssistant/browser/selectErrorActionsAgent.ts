@@ -9,7 +9,7 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
 import { IErrorActionsService, IRegisteredErrorActionHandler, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
-import { AI_ENABLED_KEY } from '../common/positronAIConfiguration.js';
+import { AI_ENABLED_KEY, ERROR_ACTIONS_AGENTS_ENABLED_KEY } from '../common/positronAIConfiguration.js';
 
 /** A registered implementation in the agent picker. */
 interface IAgentPickItem extends IQuickPickItem {
@@ -50,7 +50,7 @@ export class SelectErrorActionsAgentAction extends Action2 {
 			title: localize2('positron.errorActions.selectAgent', "Select Agent for Fix/Explain"),
 			category: localize2('positron.ai.category', "AI"),
 			f1: true,
-			precondition: ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+			precondition: ContextKeyExpr.and(ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`), ContextKeyExpr.has(`config.${ERROR_ACTIONS_AGENTS_ENABLED_KEY}`)),
 		});
 	}
 
