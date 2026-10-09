@@ -5,8 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -225,5 +225,35 @@ test('the CLI names what it needs', () => {
 		assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'report.md'), '--time-limit', '10m'], { encoding: 'utf8' }).status, 2);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('a stopped run stops the agent it started', async () => {
+	const home = mkdtempSync(join(tmpdir(), 'pipeline-stop-'));
+	const bin = join(home, 'bin');
+	const pidFile = join(home, 'agent.pid');
+	mkdirSync(bin);
+	// A stand-in for claude that only records its pid and waits.
+	writeFileSync(join(bin, 'claude'), `#!/bin/sh\necho $$ > '${pidFile}'\nexec sleep 60\n`);
+	chmodSync(join(bin, 'claude'), 0o755);
+	writeFileSync(join(home, 'brief.md'), 'Test the Variables pane.\n');
+	const run = spawn('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none'], {
+		env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}` }, stdio: 'ignore',
+	});
+	try {
+		while (!existsSync(pidFile) || !readFileSync(pidFile, 'utf8').trim()) {
+			await new Promise(resolve => setTimeout(resolve, 50));
+		}
+		const agent = Number(readFileSync(pidFile, 'utf8'));
+		const code = await new Promise(resolve => {
+			run.on('exit', resolve);
+			run.kill('SIGTERM');
+		});
+		assert.equal(code, 143);
+		await new Promise(resolve => setTimeout(resolve, 200));
+		assert.throws(() => process.kill(agent, 0));
+	} finally {
+		run.kill('SIGKILL');
+		rmSync(home, { recursive: true, force: true });
 	}
 });

@@ -27,7 +27,7 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { runClaude } from './claude-cli.mjs';
+import { runClaude, stopAgents } from './claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './edit.mjs';
 import { applyVerifyReply, parseVerdicts, writeVerifyPrompt } from './finish.mjs';
 
@@ -278,17 +278,28 @@ async function main(argv) {
 	}
 	const log = line => console.error(`pipeline: ${line}`);
 	const number = value => value === undefined || value === '' || Number.isNaN(Number(value)) ? null : Number(value);
-	let dir = given;
+	const dir = fresh ? makeRunDir() : given;
+	// The feed names the run directory $RUN and the checkout's files by their paths in it.
+	const runAgent = step => runClaude({ ...step, feedPaths: { [dir]: '$RUN', [`${values.repo}/`]: '' } });
 	let explored;
+	// A stopped run stops its agents and the instances they launched, rather
+	// than leaving them running on their own.
+	for (const [signal, code] of [['SIGINT', 130], ['SIGTERM', 143], ['SIGHUP', 129]]) {
+		process.once(signal, () => {
+			log(`stopped (${signal}); stopping its agents and instances`);
+			stopAgents();
+			stopInstances(dir);
+			process.exit(code);
+		});
+	}
 	if (fresh) {
-		dir = makeRunDir();
 		const timeLimitPath = timeLimitFile(dir);
 		if (limit !== 'none') {
 			writeFileSync(timeLimitPath, `${limit}\n`);
 		}
 		console.log(`run directory: ${dir}`);
 		log(limit === 'none' ? 'exploring with no time limit' : `exploring for ${limit} minutes; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);
-		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent: runClaude, timeLimitPath, log });
+		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, log });
 		if (!existsSync(join(dir, 'report.md'))) {
 			stopInstances(dir);
 			log(`the explorer wrote no report.md; what it left is in ${dir}`);
@@ -296,7 +307,7 @@ async function main(argv) {
 		}
 	}
 	const explorer = explored ?? { model: values.model ?? 'opus', durationMs: number(values['duration-ms']), turns: number(values.turns), costUsd: null };
-	const passes = await finishRun(dir, { repo: values.repo, base: values.base, head: values.head, baseName: values['base-name'], runAgent: runClaude, log });
+	const passes = await finishRun(dir, { repo: values.repo, base: values.base, head: values.head, baseName: values['base-name'], runAgent, log });
 	// The page is written even when render exits 1 for a missing file; it says which.
 	const args = [RENDER, join(dir, 'report.md'), ...renderFlags(explorer, passes), ...(values['no-agent-prompts'] ? ['--no-agent-prompts'] : [])];
 	try {

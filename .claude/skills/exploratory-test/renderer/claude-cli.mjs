@@ -17,6 +17,15 @@ import { readTimeLimit } from './time-up-hook.mjs';
 /** How long an agent has to write up after its time is up, before it is stopped; CI's too. */
 const WRAP_UP_MINUTES = 10;
 const HOOK = fileURLToPath(new URL('./time-up-hook.mjs', import.meta.url));
+/** The `claude` processes still running, so a stopped run can stop them too. */
+const running = new Set();
+
+/** Stops every agent still running; for a run that is itself being stopped. */
+export function stopAgents() {
+	for (const child of running) {
+		child.kill('SIGTERM');
+	}
+}
 
 /**
  * Runs `claude` with `args`, `prompt` on stdin, passing each streamed event to
@@ -26,6 +35,7 @@ function execClaude(args, prompt, { cwd, stopAfterMs = () => Infinity, onEvent =
 	return new Promise((resolve, reject) => {
 		const started = Date.now();
 		const child = spawn('claude', args, { cwd, stdio: ['pipe', 'pipe', 'inherit'] });
+		running.add(child);
 		let stdout = '';
 		let pending = '';
 		let killed = false;
@@ -48,6 +58,7 @@ function execClaude(args, prompt, { cwd, stopAfterMs = () => Infinity, onEvent =
 		});
 		child.on('error', reject);
 		child.on('close', status => {
+			running.delete(child);
 			clearInterval(timer);
 			resolve({ stdout, status, killed, ms: Date.now() - started });
 		});
@@ -68,24 +79,28 @@ function parseResult(run) {
 	return run.stdout.split('\n').map(parseLine).filter(event => event?.type === 'result').pop() ?? null;
 }
 
-const oneLine = (text, max = 160) => {
-	const flat = String(text).replace(/\s+/g, ' ').trim();
+const oneLine = (text, max = 160, paths = {}) => {
+	const flat = Object.entries(paths).reduce((t, [path, name]) => t.split(path).join(name), String(text)).replace(/\s+/g, ' ').trim();
 	return flat.length > max ? `${flat.slice(0, max - 3)}...` : flat;
 };
 
-/** What a streamed event shows in the live feed: one line per note or tool call. */
-export function describeEvent(event) {
+/**
+ * What a streamed event shows in the live feed: one line per note or tool
+ * call, with `paths` (`{ path: name }`) shortened to their names.
+ */
+export function describeEvent(event, paths = {}) {
 	if (event.type !== 'assistant') {
 		return [];
 	}
 	return (event.message?.content ?? []).flatMap(block => {
 		if (block.type === 'text' && block.text.trim()) {
-			return [oneLine(block.text)];
+			return [oneLine(block.text, 160, paths)];
 		}
 		if (block.type === 'tool_use') {
+			// A Bash call's description says what it is for; its command opens with setup.
 			const input = block.input ?? {};
-			const target = input.command ?? input.file_path ?? input.pattern ?? JSON.stringify(input);
-			return [`${block.name}  ${oneLine(target, 140)}`];
+			const target = input.description ?? input.command ?? input.file_path ?? input.pattern ?? JSON.stringify(input);
+			return [`${block.name}  ${oneLine(target, 140, paths)}`];
 		}
 		return [];
 	});
@@ -124,7 +139,7 @@ function timeLimitSettings(path, minutes, message, minuteMs) {
  * `timeUpMessage` once it is up. One stopped for running past it returns no
  * text and no cost, since only a finished `claude -p` reports one.
  */
-export async function runClaude({ prompt, model, role = 'agent', tools = [], cwd, resume, timeLimitMinutes = null, timeLimitPath = null, timeUpMessage = '', minuteMs = 60000, feed = line => process.stderr.write(`${line}\n`), exec = execClaude }) {
+export async function runClaude({ prompt, model, role = 'agent', tools = [], cwd, feedPaths = {}, resume, timeLimitMinutes = null, timeLimitPath = null, timeUpMessage = '', minuteMs = 60000, feed = line => process.stderr.write(`${line}\n`), exec = execClaude }) {
 	const sessionId = resume ?? randomUUID();
 	const limit = timeLimitMinutes !== null || timeLimitPath ? timeLimitSettings(timeLimitPath, timeLimitMinutes, timeUpMessage, minuteMs) : null;
 	const args = [
@@ -139,7 +154,7 @@ export async function runClaude({ prompt, model, role = 'agent', tools = [], cwd
 	];
 	let run;
 	try {
-		const onEvent = event => describeEvent(event).forEach(line => feed(`  ${role}: ${line}`));
+		const onEvent = event => describeEvent(event, feedPaths).forEach(line => feed(`  ${role}: ${line}`));
 		run = await exec(args, prompt, { cwd, stopAfterMs: limit ? limit.stopAfterMs : () => Infinity, onEvent });
 	} finally {
 		limit?.cleanup();

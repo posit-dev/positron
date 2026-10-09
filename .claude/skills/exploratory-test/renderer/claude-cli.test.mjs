@@ -48,6 +48,8 @@ test('the feed shows each note and tool call, one line each, under the agent\'s 
 		{ type: 'tool_use', name: 'Glob', input: { path: '/x' } },
 	] } };
 	assert.deepEqual(describeEvent(event), ['Opening the notebook.', 'Bash  qmd.sh open a.qmd', 'Read  /run/shots/01.png', 'Glob  {"path":"/x"}']);
+	const bash = { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: '. /run/x/tmp/env.sh; cd /repo; ./launch.sh', description: 'Launch Positron for /run/x' } }] } };
+	assert.deepEqual(describeEvent(bash, { '/run/x': '$RUN' }), ['Bash  Launch Positron for $RUN']);
 	assert.deepEqual(describeEvent({ type: 'user', message: { content: [{ type: 'tool_result', content: 'hi' }] } }), []);
 	const lines = [];
 	const exec = async (args, prompt, options) => {
