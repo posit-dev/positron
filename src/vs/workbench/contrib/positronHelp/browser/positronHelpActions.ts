@@ -269,3 +269,215 @@ export class LookupHelpTopic extends Action2 {
 		return { found: true, topic, languageId };
 	}
 }
+
+/**
+ * Result of calling a help method on an interpreter session: the method's
+ * result when it returned an object, or a message explaining why not.
+ */
+interface IHelpMethodResult<T> {
+	languageId?: string;
+	value?: T;
+	message?: string;
+}
+
+/**
+ * Calls a help method on an interpreter session for the given language
+ * (defaulting to the foreground session's language), preferring the
+ * foreground session. Runtimes return an object on success and a message
+ * string otherwise.
+ */
+async function callHelpMethod<T>(
+	sessionService: IRuntimeSessionService,
+	languageIdArg: string | undefined,
+	method: string,
+	...args: string[]
+): Promise<IHelpMethodResult<T>> {
+	const foreground = sessionService.foregroundSession;
+	const languageId = languageIdArg || foreground?.runtimeMetadata.languageId;
+	const session = foreground?.runtimeMetadata.languageId === languageId ?
+		foreground :
+		sessionService.activeSessions.find(s => s.runtimeMetadata.languageId === languageId);
+	if (!session?.callMethod) {
+		return { languageId, message: languageId ? `No running ${languageId} interpreter session to read help from.` : 'No interpreter session is running.' };
+	}
+
+	try {
+		const result = await session.callMethod(method, ...args);
+		if (result && typeof result === 'object') {
+			return { languageId, value: result as T };
+		}
+		return { languageId, message: typeof result === 'string' ? result : 'No help found.' };
+	} catch (err) {
+		return { languageId, message: `Error reading help: ${err.message}` };
+	}
+}
+
+/**
+ * Trims a string argument, treating anything else as empty.
+ */
+function stringArg(arg: unknown): string {
+	return typeof arg === 'string' ? arg.trim() : '';
+}
+
+const languageIdArg = { name: 'languageId', description: 'Language of the package or topic, such as r or python. Defaults to the language of the foreground interpreter session.', schema: { type: 'string' as const } };
+
+/**
+ * Result of the readHelpTopic command.
+ */
+interface IReadHelpTopicResult {
+	found: boolean;
+	languageId?: string;
+	topic?: string;
+	package?: string;
+	content?: string;
+	message?: string;
+}
+
+export class ReadHelpTopic extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.help.readHelpTopic',
+			title: {
+				value: localize('positron.help.readHelpTopic', 'Read Help Topic'),
+				original: 'Read Help Topic'
+			},
+			category: Categories.Help,
+			f1: false,
+			metadata: {
+				description: localize('positron.help.readHelpTopic.description', "Read the help page for a topic, such as a function, class, or package, from a running interpreter session and return it as Markdown. Does not show anything to the user. Covers any installed package, including private or internal ones."),
+				agentCompatible: true,
+				args: [
+					{ name: 'topic', description: 'Help topic to read: a function, class, or other object name (for example: mean, or pandas.DataFrame.merge).', schema: { type: 'string' } },
+					languageIdArg,
+					{ name: 'package', description: 'Package containing the topic (for example: dplyr). Optional; when omitted, all installed packages are searched (R) or the topic is resolved as an import path (Python).', schema: { type: 'string' } },
+				],
+				returns: 'An object with found, languageId, topic, package, content, and message. When found is true, content is the help page as Markdown, and topic and package identify the page that was read. When found is false, message explains why (no topic provided, no session for the language, topic not found, or a lookup error).',
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor, topicArg?: string, languageId?: string, packageArg?: string): Promise<IReadHelpTopicResult> {
+		const topic = stringArg(topicArg);
+		if (!topic) {
+			return { found: false, message: 'No help topic provided.' };
+		}
+
+		const result = await callHelpMethod<{ help_text: string; topic: string; package: string }>(
+			accessor.get(IRuntimeSessionService), languageId, 'get_help_page', topic, stringArg(packageArg));
+		if (!result.value) {
+			return { found: false, languageId: result.languageId, message: result.message };
+		}
+		const page = result.value;
+		return { found: true, languageId: result.languageId, topic: page.topic, package: page.package, content: page.help_text };
+	}
+}
+
+/**
+ * Result of the listPackageDocs command.
+ */
+interface IListPackageDocsResult {
+	found: boolean;
+	languageId?: string;
+	package?: string;
+	topics?: { topic: string; title: string; aliases?: string }[];
+	vignettes?: { name: string; title: string }[];
+	message?: string;
+}
+
+export class ListPackageDocs extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.help.listPackageDocs',
+			title: {
+				value: localize('positron.help.listPackageDocs', 'List Package Documentation'),
+				original: 'List Package Documentation'
+			},
+			category: Categories.Help,
+			f1: false,
+			metadata: {
+				description: localize('positron.help.listPackageDocs.description', "List the documentation for an installed package from a running interpreter session: its help topics and its vignettes (long-form guides). Read individual pages with positron.help.readHelpTopic and positron.help.readVignette. For Python, topics are the package's public members, and the README is its only vignette."),
+				agentCompatible: true,
+				args: [
+					{ name: 'package', description: 'Name of the package (for example: dplyr or pandas).', schema: { type: 'string' } },
+					languageIdArg,
+				],
+				returns: 'An object with found, languageId, package, topics, vignettes, and message. When found is true, topics lists help topics (topic, title, and for R, aliases naming the functions the topic documents) and vignettes lists vignettes (name and title). When found is false, message explains why (no package provided, no session for the language, package not installed, or a lookup error).',
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor, packageArg?: string, languageId?: string): Promise<IListPackageDocsResult> {
+		const packageName = stringArg(packageArg);
+		if (!packageName) {
+			return { found: false, message: 'No package provided.' };
+		}
+
+		const result = await callHelpMethod<Required<Pick<IListPackageDocsResult, 'package' | 'topics' | 'vignettes'>>>(
+			accessor.get(IRuntimeSessionService), languageId, 'list_package_docs', packageName);
+		if (!result.value) {
+			return { found: false, languageId: result.languageId, message: result.message };
+		}
+		// Runtimes may return null for an empty list.
+		const docs = result.value;
+		return {
+			found: true,
+			languageId: result.languageId,
+			package: docs.package,
+			topics: Array.isArray(docs.topics) ? docs.topics : [],
+			vignettes: Array.isArray(docs.vignettes) ? docs.vignettes : [],
+		};
+	}
+}
+
+/**
+ * Result of the readVignette command.
+ */
+interface IReadVignetteResult {
+	found: boolean;
+	languageId?: string;
+	package?: string;
+	vignette?: string;
+	title?: string;
+	content?: string;
+	message?: string;
+}
+
+export class ReadVignette extends Action2 {
+	constructor() {
+		super({
+			id: 'positron.help.readVignette',
+			title: {
+				value: localize('positron.help.readVignette', 'Read Vignette'),
+				original: 'Read Vignette'
+			},
+			category: Categories.Help,
+			f1: false,
+			metadata: {
+				description: localize('positron.help.readVignette.description', "Read a vignette (a long-form guide to a package) from a running interpreter session and return it as Markdown. Does not show anything to the user. Get vignette names from positron.help.listPackageDocs. For Python, the package's README is its only vignette, named README."),
+				agentCompatible: true,
+				args: [
+					{ name: 'package', description: 'Name of the package (for example: dplyr).', schema: { type: 'string' } },
+					{ name: 'vignette', description: 'Name of the vignette, as listed by positron.help.listPackageDocs (for example: colwise).', schema: { type: 'string' } },
+					languageIdArg,
+				],
+				returns: 'An object with found, languageId, package, vignette, title, content, and message. When found is true, content is the vignette as Markdown (or its source, for vignettes without HTML output). When found is false, message explains why (missing arguments, no session for the language, vignette not found, or a lookup error).',
+			},
+		});
+	}
+
+	async run(accessor: ServicesAccessor, packageArg?: string, vignetteArg?: string, languageId?: string): Promise<IReadVignetteResult> {
+		const packageName = stringArg(packageArg);
+		const vignetteName = stringArg(vignetteArg);
+		if (!packageName || !vignetteName) {
+			return { found: false, message: 'Both a package and a vignette name are required.' };
+		}
+
+		const result = await callHelpMethod<{ content: string; title: string; name: string; package: string }>(
+			accessor.get(IRuntimeSessionService), languageId, 'get_package_vignette', packageName, vignetteName);
+		if (!result.value) {
+			return { found: false, languageId: result.languageId, message: result.message };
+		}
+		const vignette = result.value;
+		return { found: true, languageId: result.languageId, package: vignette.package, vignette: vignette.name, title: vignette.title, content: vignette.content };
+	}
+}

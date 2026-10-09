@@ -6,11 +6,13 @@
 from __future__ import annotations
 
 import contextlib
+import importlib.metadata
+import inspect
 import logging
 import pydoc
 import re
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .help_comm import (
     HelpBackendMessageContent,
@@ -20,8 +22,8 @@ from .help_comm import (
     ShowHelpTopicRequest,
 )
 from .positron_comm import CommMessage, PositronComm
-from .pydoc import start_server
-from .utils import JsonRecord, get_module_name, get_qualname
+from .pydoc import member_summaries, render_markdown, start_server
+from .utils import JsonData, JsonRecord, get_module_name, get_qualname
 
 if TYPE_CHECKING:
     from comm.base_comm import BaseComm
@@ -101,6 +103,105 @@ def _locatable_key(key: str, obj: Any) -> str:
                 return candidate
 
     return key
+
+
+def _resolve_help_object(request: str | Any) -> Any:
+    """Resolve a help request (an object or an import path) to an object, or None."""
+    # pydoc.resolve lets us handle an object or an import path. If it can't
+    # resolve the request (e.g. a PyPI distribution name like "scikit-learn"
+    # whose import name is "sklearn"), try mapping the distribution name to its
+    # top-level module(s) and resolving those.
+    candidates = [request]
+    if isinstance(request, str):
+        candidates += _distribution_to_modules(request)
+    for candidate in candidates:
+        result = None
+        with contextlib.suppress(ImportError):
+            result = pydoc.resolve(thing=candidate)
+        if result is not None:
+            return result[0]
+    return None
+
+
+def get_help_page(topic: str, package: str = "") -> JsonData:
+    """
+    Get the help page for a topic as Markdown.
+
+    Returns a dict with the Markdown `help_text` and the resolved `topic` and `package`, or a
+    message string if no help page was found.
+    """
+    if package and topic != package and not topic.startswith(f"{package}."):
+        topic = f"{package}.{topic}"
+
+    try:
+        obj = _resolve_help_object(topic)
+        if obj is None:
+            return f"No help page found for topic {topic}."
+        return {
+            "help_text": render_markdown(obj),
+            "topic": get_qualname(obj),
+            "package": (get_module_name(obj) or "").split(".")[0],
+        }
+    except Exception as exception:
+        return f"Error getting help for topic {topic}: {exception}"
+
+
+def list_package_docs(package: str) -> JsonData:
+    """
+    List the documentation for a package.
+
+    Returns a dict with the package's public members as help `topics` and its README as the only
+    entry in `vignettes`, or a message string if the package is not installed.
+    """
+    module = None
+    with contextlib.suppress(Exception):
+        module = _resolve_help_object(package)
+    if not inspect.ismodule(module):
+        return f"Package {package} is not installed."
+
+    topics: list[JsonData] = [
+        {"topic": f"{module.__name__}.{name}", "title": summary}
+        for name, summary in member_summaries(module)
+    ]
+    vignettes: list[JsonData] = []
+    if _readme(module.__name__) is not None:
+        vignettes.append({"name": "README", "title": f"{package} README"})
+    return {"package": module.__name__, "topics": topics, "vignettes": vignettes}
+
+
+def get_package_vignette(package: str, vignette: str) -> JsonData:
+    """
+    Get a package's README, the closest Python equivalent of an R vignette.
+
+    Returns a dict with the vignette's `content`, `title`, `name`, and `package`, or a message
+    string if it is not found.
+    """
+    readme = _readme(package)
+    if readme is None:
+        return f"Package {package} has no vignettes."
+    if vignette != "README":
+        return f"No vignette {vignette} found for package {package}. Available vignettes: README."
+    return {"content": readme, "title": f"{package} README", "name": "README", "package": package}
+
+
+def _readme(package: str) -> str | None:
+    """The long description (usually the README) of the distribution providing `package`."""
+    names = [package]
+    with contextlib.suppress(ImportError):
+        # packages_distributions exists on Python >= 3.10.
+        from importlib.metadata import (
+            packages_distributions,  # type: ignore[reportGeneralTypeIssues]
+        )
+
+        names += packages_distributions().get(package.split(".")[0], [])
+
+    for name in names:
+        with contextlib.suppress(importlib.metadata.PackageNotFoundError):
+            metadata = cast("Any", importlib.metadata.distribution(name).metadata)
+            readme = metadata.get_payload() or metadata.get("Description")
+            if readme and readme.strip() != "UNKNOWN":
+                return readme
+    return None
 
 
 def help(topic="help"):  # noqa: A001
@@ -189,27 +290,11 @@ class HelpService:
             return
 
         # Map from the object to the URL for the pydoc server.
-        # We first use pydoc.resolve, which lets us handle an object or an import path.
-        result = None
-        with contextlib.suppress(ImportError):
-            result = pydoc.resolve(thing=request)
-
-        # If pydoc can't resolve the request (e.g. a PyPI distribution name like
-        # "scikit-learn" whose import name is "sklearn"), try mapping the
-        # distribution name to its top-level module(s) and resolving those.
-        if result is None and isinstance(request, str):
-            for module_name in _distribution_to_modules(request):
-                with contextlib.suppress(ImportError):
-                    result = pydoc.resolve(thing=module_name)
-                if result is not None:
-                    break
-
-        if result is None:
+        obj = _resolve_help_object(request)
+        if obj is None:
             # We could not resolve to an object, try to get help for the request as a string.
             key = request
         else:
-            # We resolved to an object.
-            obj = result[0]
             key = get_qualname(obj)
 
             # Not sure why, but some qualified names cause errors in pydoc. Manually replace these with
