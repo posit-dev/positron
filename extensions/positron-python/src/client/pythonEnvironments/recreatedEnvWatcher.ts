@@ -44,7 +44,6 @@ export class RecreatedEnvWatcher implements Disposable {
 
         const watchers: Disposable[] = [];
         const stop = () => {
-            clearTimeout(timeout);
             watchers.forEach((d) => d.dispose());
             this._watchers.delete(executable);
         };
@@ -52,6 +51,7 @@ export class RecreatedEnvWatcher implements Disposable {
             stop();
             traceVerbose(`[RecreatedEnvWatcher] Stopped watching for ${executable} to be recreated`);
         }, RECREATE_TIMEOUT_MS);
+        watchers.push({ dispose: () => clearTimeout(timeout) });
         let checking = false;
         let queuedAttempts = 0;
         // Looks the executable up, up to `attempts` times 200ms apart. The executable can lag
