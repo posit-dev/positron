@@ -56,7 +56,8 @@ It makes the run directory and prints it first, then runs each agent as a
 isolator when one needs controls, and an editor that rewrites their openings
 in plain words, as CI does. It prints the `index.html` path last. Keeping the
 agents out of your session keeps screenshots, snapshots and dead ends out of
-it too.
+it too. Its output is a live feed of each agent's notes and tool calls; tell
+the person they can open the background shell to watch it.
 
 Exploring stops after 30 minutes unless the person names another limit
 ("spend an hour on it"; `--time-limit none` for "no limit"). Tell them the

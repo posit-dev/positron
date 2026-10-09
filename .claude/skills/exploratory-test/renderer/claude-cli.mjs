@@ -18,12 +18,16 @@ import { readTimeLimit } from './time-up-hook.mjs';
 const WRAP_UP_MINUTES = 10;
 const HOOK = fileURLToPath(new URL('./time-up-hook.mjs', import.meta.url));
 
-/** Runs `claude` with `args`, `prompt` on stdin; stops it once `stopAfterMs()` has passed. */
-function execClaude(args, prompt, { cwd, stopAfterMs = () => Infinity, pollMs = 5000 }) {
+/**
+ * Runs `claude` with `args`, `prompt` on stdin, passing each streamed event to
+ * `onEvent`; stops it once `stopAfterMs()` has passed.
+ */
+function execClaude(args, prompt, { cwd, stopAfterMs = () => Infinity, onEvent = () => { }, pollMs = 5000 }) {
 	return new Promise((resolve, reject) => {
 		const started = Date.now();
 		const child = spawn('claude', args, { cwd, stdio: ['pipe', 'pipe', 'inherit'] });
 		let stdout = '';
+		let pending = '';
 		let killed = false;
 		const timer = setInterval(() => {
 			if (!killed && Date.now() - started >= stopAfterMs()) {
@@ -31,7 +35,17 @@ function execClaude(args, prompt, { cwd, stopAfterMs = () => Infinity, pollMs = 
 				child.kill('SIGTERM');
 			}
 		}, pollMs);
-		child.stdout.on('data', chunk => { stdout += chunk; });
+		child.stdout.on('data', chunk => {
+			stdout += chunk;
+			const lines = (pending + chunk).split('\n');
+			pending = lines.pop();
+			for (const line of lines) {
+				const event = parseLine(line);
+				if (event) {
+					onEvent(event);
+				}
+			}
+		});
 		child.on('error', reject);
 		child.on('close', status => {
 			clearInterval(timer);
@@ -41,12 +55,40 @@ function execClaude(args, prompt, { cwd, stopAfterMs = () => Infinity, pollMs = 
 	});
 }
 
-function parseResult(run) {
+function parseLine(line) {
 	try {
-		return JSON.parse(run.stdout);
+		return JSON.parse(line);
 	} catch {
 		return null;
 	}
+}
+
+/** The stream's closing `result` event, which carries the reply and its usage. */
+function parseResult(run) {
+	return run.stdout.split('\n').map(parseLine).filter(event => event?.type === 'result').pop() ?? null;
+}
+
+const oneLine = (text, max = 160) => {
+	const flat = String(text).replace(/\s+/g, ' ').trim();
+	return flat.length > max ? `${flat.slice(0, max - 3)}...` : flat;
+};
+
+/** What a streamed event shows in the live feed: one line per note or tool call. */
+export function describeEvent(event) {
+	if (event.type !== 'assistant') {
+		return [];
+	}
+	return (event.message?.content ?? []).flatMap(block => {
+		if (block.type === 'text' && block.text.trim()) {
+			return [oneLine(block.text)];
+		}
+		if (block.type === 'tool_use') {
+			const input = block.input ?? {};
+			const target = input.command ?? input.file_path ?? input.pattern ?? JSON.stringify(input);
+			return [`${block.name}  ${oneLine(target, 140)}`];
+		}
+		return [];
+	});
 }
 
 const shellQuote = text => `'${String(text).replace(/'/g, `'\\''`)}'`;
@@ -82,11 +124,12 @@ function timeLimitSettings(path, minutes, message, minuteMs) {
  * `timeUpMessage` once it is up. One stopped for running past it returns no
  * text and no cost, since only a finished `claude -p` reports one.
  */
-export async function runClaude({ prompt, model, tools = [], cwd, resume, timeLimitMinutes = null, timeLimitPath = null, timeUpMessage = '', minuteMs = 60000, exec = execClaude }) {
+export async function runClaude({ prompt, model, role = 'agent', tools = [], cwd, resume, timeLimitMinutes = null, timeLimitPath = null, timeUpMessage = '', minuteMs = 60000, feed = line => process.stderr.write(`${line}\n`), exec = execClaude }) {
 	const sessionId = resume ?? randomUUID();
 	const limit = timeLimitMinutes !== null || timeLimitPath ? timeLimitSettings(timeLimitPath, timeLimitMinutes, timeUpMessage, minuteMs) : null;
 	const args = [
-		'-p', '--output-format', 'json', '--model', model,
+		// Streamed, so the person can watch each step in the feed.
+		'-p', '--output-format', 'stream-json', '--verbose', '--model', model,
 		// The person's own hooks, plugins and MCP servers are not the agent's.
 		'--setting-sources', 'project', '--strict-mcp-config',
 		'--permission-mode', 'dontAsk', '--tools', tools.join(','),
@@ -96,7 +139,8 @@ export async function runClaude({ prompt, model, tools = [], cwd, resume, timeLi
 	];
 	let run;
 	try {
-		run = await exec(args, prompt, { cwd, stopAfterMs: limit ? limit.stopAfterMs : () => Infinity });
+		const onEvent = event => describeEvent(event).forEach(line => feed(`  ${role}: ${line}`));
+		run = await exec(args, prompt, { cwd, stopAfterMs: limit ? limit.stopAfterMs : () => Infinity, onEvent });
 	} finally {
 		limit?.cleanup();
 	}

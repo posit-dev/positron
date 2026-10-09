@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { runClaude } from './claude-cli.mjs';
+import { describeEvent, runClaude } from './claude-cli.mjs';
 
 const result = fields => JSON.stringify({ type: 'result', is_error: false, result: 'reply', duration_ms: 1000, num_turns: 3, total_cost_usd: 0.25, ...fields });
 
@@ -30,8 +30,33 @@ test('a session gets its tools, model and a session id, and returns its reply an
 	const [{ args, prompt, options }] = calls;
 	assert.deepEqual({ prompt, cwd: options.cwd, stopAt: calls[0].stopAt }, { prompt: 'read this', cwd: '/repo', stopAt: Infinity });
 	assert.ok(!args.includes('--settings'));
-	assert.deepEqual([flag(args, '--model'), flag(args, '--tools'), flag(args, '--allowedTools'), flag(args, '--output-format')], ['sonnet', 'Bash,Read', 'Bash,Read', 'json']);
+	assert.deepEqual([flag(args, '--model'), flag(args, '--tools'), flag(args, '--allowedTools'), flag(args, '--output-format')], ['sonnet', 'Bash,Read', 'Bash,Read', 'stream-json']);
 	assert.deepEqual(out, { text: 'reply', durationMs: 1000, turns: 3, costUsd: 0.25, sessionId: flag(args, '--session-id') });
+});
+
+test('the stream\'s result event is the reply, after the events before it', async () => {
+	const assistant = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: 'Looking.' }] } });
+	const { exec } = fakeExec([{ stdout: `${assistant}\n${result({ result: 'done' })}\n` }]);
+	assert.equal((await runClaude({ prompt: 'p', model: 'sonnet', exec })).text, 'done');
+});
+
+test('the feed shows each note and tool call, one line each, under the agent\'s role', async () => {
+	const event = { type: 'assistant', message: { content: [
+		{ type: 'text', text: 'Opening the\nnotebook.' },
+		{ type: 'tool_use', name: 'Bash', input: { command: 'qmd.sh open a.qmd' } },
+		{ type: 'tool_use', name: 'Read', input: { file_path: '/run/shots/01.png' } },
+		{ type: 'tool_use', name: 'Glob', input: { path: '/x' } },
+	] } };
+	assert.deepEqual(describeEvent(event), ['Opening the notebook.', 'Bash  qmd.sh open a.qmd', 'Read  /run/shots/01.png', 'Glob  {"path":"/x"}']);
+	assert.deepEqual(describeEvent({ type: 'user', message: { content: [{ type: 'tool_result', content: 'hi' }] } }), []);
+	const lines = [];
+	const exec = async (args, prompt, options) => {
+		options.onEvent(event);
+		return { status: 0, killed: false, ms: 1, stdout: result({}) };
+	};
+	await runClaude({ prompt: 'p', model: 'opus', role: 'explore', feed: line => lines.push(line), exec });
+	assert.deepEqual(lines[0], '  explore: Opening the notebook.');
+	assert.equal(lines.length, 4);
 });
 
 test('a session with no tools has them all turned off', async () => {
