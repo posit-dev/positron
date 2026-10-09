@@ -10,7 +10,7 @@ import { unthemedButtonStyles } from '../../../../base/browser/ui/button/button.
 import { unthemedListStyles } from '../../../../base/browser/ui/list/listWidget.js';
 import { unthemedToggleStyles } from '../../../../base/browser/ui/toggle/toggle.js';
 import { Event } from '../../../../base/common/event.js';
-import { raceTimeout } from '../../../../base/common/async.js';
+import { raceTimeout, timeout } from '../../../../base/common/async.js';
 import { unthemedCountStyles } from '../../../../base/browser/ui/countBadge/countBadge.js';
 import { unthemedKeybindingLabelOptions } from '../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
 import { unthemedProgressBarOptions } from '../../../../base/browser/ui/progressbar/progressbar.js';
@@ -162,6 +162,67 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 
 		quickpick.hide();
 		assert.strictEqual(modalContent.inert, false);
+	});
+
+	/**
+	 * Builds an overlay with a dialog box inside it, the way PositronModalReactRenderer does.
+	 * Closing the modal removes the overlay, not the dialog box.
+	 */
+	function addPositronModal(): { overlay: HTMLElement; dialogBox: HTMLElement } {
+		const overlay = document.createElement('div');
+		const dialogBox = document.createElement('div');
+		dialogBox.className = 'positron-modal-dialog-box';
+		overlay.appendChild(dialogBox);
+		controller.container.appendChild(overlay);
+		store.add(toDisposable(() => overlay.remove()));
+		return { overlay, dialogBox };
+	}
+
+	test('quick input shown after a modal closes stays visible', async () => {
+		// https://github.com/posit-dev/positron/issues/9494
+		const modal = addPositronModal();
+		const quickpick = store.add(controller.createQuickPick());
+		quickpick.show();
+		quickpick.hide();
+		modal.overlay.remove();
+
+		const inputBox = store.add(controller.createInputBox());
+		inputBox.show();
+		await timeout(0);
+
+		assert.strictEqual(controller.isVisible(), true);
+	});
+
+	test('quick input shown in a second modal stays visible', async () => {
+		// https://github.com/posit-dev/positron/issues/16290
+		const first = addPositronModal();
+		const quickpick = store.add(controller.createQuickPick());
+		quickpick.show();
+		quickpick.hide();
+		first.overlay.remove();
+
+		const second = addPositronModal();
+		quickpick.show();
+		await timeout(0);
+
+		assert.deepStrictEqual(
+			{ visible: controller.isVisible(), inSecondModal: !!second.dialogBox.querySelector('.quick-input-widget') },
+			{ visible: true, inSecondModal: true }
+		);
+	});
+
+	test('visible quick input hides when its modal drops it', async () => {
+		// Shown twice so the second show, which does not reparent, must still be watched.
+		const modal = addPositronModal();
+		const quickpick = store.add(controller.createQuickPick());
+		quickpick.show();
+		quickpick.hide();
+		quickpick.show();
+
+		modal.dialogBox.replaceChildren();
+		await timeout(0);
+
+		assert.strictEqual(controller.isVisible(), false);
 	});
 	// --- End Positron ---
 
