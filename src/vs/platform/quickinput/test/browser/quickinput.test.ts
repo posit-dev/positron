@@ -224,6 +224,19 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 
 		assert.strictEqual(controller.isVisible(), false);
 	});
+
+	test('visible quick input moved into a modal hides when its modal drops it', async () => {
+		const quickpick = store.add(controller.createQuickPick());
+		quickpick.show();
+
+		// A modal opens while the quick input is visible; the next access moves it in.
+		const modal = addPositronModal();
+		controller.focus();
+		modal.dialogBox.replaceChildren();
+		await timeout(0);
+
+		assert.strictEqual(controller.isVisible(), false);
+	});
 	// --- End Positron ---
 
 	teardown(() => {

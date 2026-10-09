@@ -189,6 +189,10 @@ export class QuickInputController extends Disposable {
 				dom.append(modalContainer, this.ui.container);
 				this.ui.container.style.position = 'fixed'; // modal hides overflow so this positions it so that nothing is hidden
 				this.ui.container.style.zIndex = 'auto'; // paint in DOM order inside the dialog rather than at 2550 outside it
+				if (this.isVisible()) {
+					// a modal opened while the quick input was visible
+					this.watchPositronModal(modalContainer);
+				}
 			}
 			if (applyInert) {
 				this.watchPositronModal(modalContainer);
