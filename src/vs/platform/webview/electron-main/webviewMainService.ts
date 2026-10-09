@@ -14,14 +14,12 @@ import { IFileService } from '../../files/common/files.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { Rectangle, webFrameMain, Menu, MenuItem } from 'electron';
+// eslint-disable-next-line no-duplicate-imports
+import { DisposableMap, IDisposable } from '../../../base/common/lifecycle.js';
+// eslint-disable-next-line no-duplicate-imports
+import { WebviewMenuShortcutsTarget, WebviewFrameId, FrameNavigationEvent } from '../common/webviewManagerService.js';
 import { VSBuffer } from '../../../base/common/buffer.js';
 import { Schemas } from '../../../base/common/network.js';
-
-// eslint-disable-next-line no-duplicate-imports
-import { IDisposable } from '../../../base/common/lifecycle.js';
-
-// eslint-disable-next-line no-duplicate-imports
-import { WebviewFrameId, FrameNavigationEvent } from '../common/webviewManagerService.js';
 import { DeferredPromise } from '../../../base/common/async.js';
 // --- End Positron ---
 
@@ -32,6 +30,12 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 	private readonly _onFoundInFrame = this._register(new Emitter<FoundInFrameResult>());
 	public readonly onFoundInFrame = this._onFoundInFrame.event;
 
+	// --- Start Positron ---
+	// Key by the resolved contents, not the request object or numeric window ID:
+	// both target forms share ownership, and replacement windows cannot inherit it.
+	private readonly _menuShortcutOwners = this._register(new DisposableMap<WebContents, { webviewId: string; dispose(): void }>());
+	// --- End Positron ---
+
 	constructor(
 		@IFileService fileService: IFileService,
 		@IWindowsMainService private readonly windowsMainService: IWindowsMainService,
@@ -40,7 +44,10 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		this._register(new WebviewProtocolProvider(fileService));
 	}
 
-	public async setIgnoreMenuShortcuts(id: WebviewWebContentsId | WebviewWindowId, enabled: boolean): Promise<void> {
+	// --- Start Positron ---
+	// public async setIgnoreMenuShortcuts(id: WebviewWebContentsId | WebviewWindowId, enabled: boolean): Promise<void> {
+	public async setIgnoreMenuShortcuts(id: WebviewMenuShortcutsTarget, enabled: boolean): Promise<void> {
+		// --- End Positron ---
 		let contents: WebContents | undefined;
 
 		if (typeof (id as WebviewWindowId).windowId === 'number') {
@@ -59,9 +66,42 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 		}
 
 		if (!contents.isDestroyed()) {
+			// --- Start Positron ---
+			const owner = this._menuShortcutOwners.get(contents);
+			if (enabled) {
+				if (owner) {
+					// Retain only the latest focus, not a set of stale focused webviews.
+					owner.webviewId = id.webviewId;
+				} else {
+					const target = contents;
+					const onDestroyed = () => this._menuShortcutOwners.deleteAndDispose(target);
+					target.once('destroyed', onDestroyed);
+					this._menuShortcutOwners.set(target, {
+						webviewId: id.webviewId,
+						dispose: () => target.removeListener('destroyed', onDestroyed),
+					});
+				}
+			} else if (owner?.webviewId === id.webviewId) {
+				this._menuShortcutOwners.deleteAndDispose(contents);
+			} else {
+				// A late release from a webview that no longer owns the target.
+				return;
+			}
+			// --- End Positron ---
 			contents.setIgnoreMenuShortcuts(enabled);
 		}
 	}
+
+	// --- Start Positron ---
+	public override dispose(): void {
+		for (const contents of this._menuShortcutOwners.keys()) {
+			if (!contents.isDestroyed()) {
+				contents.setIgnoreMenuShortcuts(false);
+			}
+		}
+		super.dispose();
+	}
+	// --- End Positron ---
 
 	public async findInFrame(windowId: WebviewWindowId, frameName: string, text: string, options: { findNext?: boolean; forward?: boolean }): Promise<void> {
 		const initialFrame = this.getFrameByName(windowId, frameName);
