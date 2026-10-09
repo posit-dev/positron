@@ -244,10 +244,10 @@ export class InlineQuarto {
 		});
 	}
 
-	async runCellAndWaitForOutput({ cellLine, outputLine, timeout = 60000 }: { cellLine: number; outputLine: number; timeout?: number }): Promise<void> {
+	async runCellAndWaitForOutput({ cellLine, outputLine, target, timeout = 60000 }: { cellLine: number; outputLine: number; target?: Locator; timeout?: number }): Promise<void> {
 		await test.step(`Run cell at line ${cellLine} and wait for output at line ${outputLine}`, async () => {
 			await this._runCellUntilStarted(cellLine, () => this.runCurrentCell());
-			await this.revealOutput(outputLine, { timeout });
+			await this.revealOutput(outputLine, { target, timeout });
 		});
 	}
 
