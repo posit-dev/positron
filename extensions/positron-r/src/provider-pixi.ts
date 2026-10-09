@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025-2026 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -120,6 +120,57 @@ export function getPixiRPaths(envPath: string): string[] {
 }
 
 /**
+ * Whether a folder is the root of a Pixi project: it has a `pixi.toml`, or a
+ * `pyproject.toml` with a `[tool.pixi]` section. Only these folders are
+ * searched by `discoverPixiBinaries()`.
+ */
+export function isPixiProjectFolder(folderPath: string): boolean {
+	if (fs.existsSync(path.join(folderPath, 'pixi.toml'))) {
+		return true;
+	}
+	try {
+		const content = fs.readFileSync(path.join(folderPath, 'pyproject.toml'), 'utf-8');
+		return content.includes('[tool.pixi]');
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Paths that change when a Pixi project's environments do, for the R
+ * discovery-root signature (see `getRDiscoveryRootSignature()`). For each
+ * folder that is a Pixi project, returns:
+ *
+ *   - `<folder>/.pixi/envs`: appears on the first `pixi install`, and its
+ *     mtime moves when an environment is added or removed.
+ *   - `<folder>/pixi.lock`: rewritten when packages (e.g. `r-base`) are added
+ *     to or updated in an existing environment.
+ *
+ * Pixi R runtimes are never cached, so they only reach the interpreter list
+ * through a full discovery pass. Without these entries, opening a Pixi
+ * project for the first time produces the same signature as the last project
+ * opened, and discovery is skipped.
+ *
+ * @param enabled Whether `positron.r.interpreters.pixiDiscovery` is on; when
+ *   off, Pixi discovery doesn't run, so nothing is returned.
+ * @param folderPaths The workspace folder paths `discoverPixiBinaries()` searches.
+ * @returns The candidate paths, in workspace-folder order.
+ */
+export function pixiRootSignatureCandidates(enabled: boolean, folderPaths: readonly string[]): string[] {
+	if (!enabled) {
+		return [];
+	}
+	const candidates: string[] = [];
+	for (const folderPath of folderPaths) {
+		if (isPixiProjectFolder(folderPath)) {
+			candidates.push(path.join(folderPath, '.pixi', 'envs'));
+			candidates.push(path.join(folderPath, 'pixi.lock'));
+		}
+	}
+	return candidates;
+}
+
+/**
  * Discovers R binaries that are installed in Pixi environments within open workspaces.
  * @returns Pixi R binaries.
  */
@@ -141,24 +192,8 @@ export async function discoverPixiBinaries(): Promise<RBinary[]> {
 	for (const folder of workspaceFolders) {
 		const folderPath = folder.uri.fsPath;
 
-		// Check if this workspace has a pixi.toml file
-		const pixiTomlPath = path.join(folderPath, 'pixi.toml');
-		const pyprojectPath = path.join(folderPath, 'pyproject.toml');
-
-		if (!fs.existsSync(pixiTomlPath) && !fs.existsSync(pyprojectPath)) {
+		if (!isPixiProjectFolder(folderPath)) {
 			continue;
-		}
-
-		// For pyproject.toml, check if it has a [tool.pixi] section
-		if (!fs.existsSync(pixiTomlPath) && fs.existsSync(pyprojectPath)) {
-			try {
-				const content = fs.readFileSync(pyprojectPath, 'utf-8');
-				if (!content.includes('[tool.pixi]')) {
-					continue;
-				}
-			} catch {
-				continue;
-			}
 		}
 
 		const pixiEnvs = await getPixiEnvironments(folderPath);

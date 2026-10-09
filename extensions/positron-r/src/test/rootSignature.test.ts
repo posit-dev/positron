@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { computeRootSignatureEntries, rCurrentSymlinks } from '../provider';
+import { pixiRootSignatureCandidates } from '../provider-pixi';
 
 /**
  * Set `process.platform` for the duration of a callback and restore it after.
@@ -97,6 +98,71 @@ suite('R discovery-root signature', () => {
 				{ path: realHq, exists: true, mtimeMs: fs.statSync(hq).mtimeMs },
 				{ path: path.join(hq, 'current'), exists: false, mtimeMs: 0 },
 			]);
+		});
+	});
+
+	// A Pixi project's R is never cached, so it only reaches the interpreter
+	// list through a full discovery pass. The project's `.pixi/envs` and
+	// `pixi.lock` are part of the signature so that opening a new Pixi project
+	// triggers one, rather than reusing the last project's signature.
+	suite('pixiRootSignatureCandidates', () => {
+		let root: string;
+		let project: string;
+		let other: string;
+
+		setup(() => {
+			root = fs.mkdtempSync(path.join(os.tmpdir(), 'r-pixi-'));
+			project = path.join(root, 'project');
+			other = path.join(root, 'other');
+			fs.mkdirSync(project);
+			fs.mkdirSync(other);
+			fs.writeFileSync(path.join(project, 'pixi.toml'), '[workspace]\nname = "project"\n');
+		});
+
+		teardown(() => {
+			fs.rmSync(root, { recursive: true, force: true });
+		});
+
+		test('returns nothing when Pixi discovery is off', () => {
+			assert.deepStrictEqual(pixiRootSignatureCandidates(false, [project, other]), []);
+		});
+
+		test('returns .pixi/envs and pixi.lock for each Pixi project folder only', () => {
+			fs.writeFileSync(path.join(other, 'pyproject.toml'), '[project]\nname = "other"\n');
+			assert.deepStrictEqual(pixiRootSignatureCandidates(true, [project, other]), [
+				path.join(project, '.pixi', 'envs'),
+				path.join(project, 'pixi.lock'),
+			]);
+
+			// A pyproject.toml with a [tool.pixi] section is a Pixi project too.
+			fs.writeFileSync(path.join(other, 'pyproject.toml'), '[project]\nname = "other"\n\n[tool.pixi]\n');
+			assert.deepStrictEqual(pixiRootSignatureCandidates(true, [project, other]), [
+				path.join(project, '.pixi', 'envs'),
+				path.join(project, 'pixi.lock'),
+				path.join(other, '.pixi', 'envs'),
+				path.join(other, 'pixi.lock'),
+			]);
+		});
+
+		test('the signature changes when a Pixi environment is installed', () => {
+			const candidates = pixiRootSignatureCandidates(true, [project]);
+			const before = computeRootSignatureEntries(candidates);
+			assert.ok(before.every(e => !e.exists), 'nothing is installed yet');
+
+			// `pixi install` creates the lock file and the environment.
+			fs.writeFileSync(path.join(project, 'pixi.lock'), 'version: 6\n');
+			fs.mkdirSync(path.join(project, '.pixi', 'envs', 'default'), { recursive: true });
+
+			const after = computeRootSignatureEntries(candidates);
+			assert.ok(after.every(e => e.exists), 'the environment and lock file now exist');
+			assert.notDeepStrictEqual(after, before);
+		});
+
+		test('a different Pixi project gives a different signature', () => {
+			fs.writeFileSync(path.join(other, 'pixi.toml'), '[workspace]\nname = "other"\n');
+			const a = computeRootSignatureEntries(pixiRootSignatureCandidates(true, [project]));
+			const b = computeRootSignatureEntries(pixiRootSignatureCandidates(true, [other]));
+			assert.notDeepStrictEqual(a, b);
 		});
 	});
 });
