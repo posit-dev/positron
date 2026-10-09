@@ -17,25 +17,32 @@ describe('PlotGalleryThumbnail', () => {
 	const ctx = createTestContainer().withReactServices().build();
 	const rtl = setupRTLRenderer(() => ctx.reactServices);
 
-	function renderThumbnail(id: string, name?: string) {
+	function thumbnail(id: string, name?: string, selected = false) {
 		const plotClient = stubInterface<StaticPlotClient>({ id, uri: 'data:image/png;base64,', metadata: { id, created: 0, code: '', session_id: 'session', name } });
-		rtl.render(
-			<PlotGalleryThumbnail focusNextPlotThumbnail={() => { }} focusPreviousPlotThumbnail={() => { }} plotClient={plotClient} selected={false}>
+		return (
+			<PlotGalleryThumbnail key={id} focusNextPlotThumbnail={() => { }} focusPreviousPlotThumbnail={() => { }} plotClient={plotClient} selected={selected}>
 				<StaticPlotThumbnail plotClient={plotClient} />
 			</PlotGalleryThumbnail>
 		);
 	}
 
 	it('names a named plot thumbnail once', () => {
-		renderThumbnail('plot1', 'plot 1');
+		rtl.render(thumbnail('plot1', 'plot 1'));
 
 		// The name option matches the whole accessible name, so "plot 1 plot 1" would not match.
 		expect(screen.getByRole('button', { name: 'plot 1' })).toBeInTheDocument();
 	});
 
 	it('names an unnamed plot thumbnail from the image', () => {
-		renderThumbnail('plot1');
+		rtl.render(thumbnail('plot1'));
 
 		expect(screen.getByRole('button', { name: 'Plot plot1' })).toBeInTheDocument();
+	});
+
+	it('marks only the selected plot thumbnail as current', () => {
+		rtl.render(<>{[thumbnail('plot1', 'plot 1'), thumbnail('plot2', 'plot 2', true)]}</>);
+
+		// getByRole throws unless exactly one thumbnail is current.
+		expect(screen.getByRole('button', { current: true })).toHaveAccessibleName('plot 2');
 	});
 });

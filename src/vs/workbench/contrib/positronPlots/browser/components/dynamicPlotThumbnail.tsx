@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { PlaceholderThumbnail } from './placeholderThumbnail.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { plotThumbnailAlt } from './plotGalleryThumbnail.js';
 
 /**
  * DynamicPlotThumbnailProps interface.
@@ -52,7 +53,7 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 	// Consider: we probably want a more explicit loading state; as written we
 	// will show the old URI until the new one is ready.
 	if (uri) {
-		return <img alt={props.plotClient.metadata.name ? '' : 'Plot ' + props.plotClient.id} className='plot' src={uri} />;
+		return <img alt={plotThumbnailAlt(props.plotClient)} className='plot' src={uri} />;
 	} else {
 		return <PlaceholderThumbnail />;
 	}
