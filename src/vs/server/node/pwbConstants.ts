@@ -87,7 +87,7 @@ export function computeDeploymentPrefix(sessionUrl: string | undefined): string 
 	return prefix.startsWith('/') && !prefix.startsWith('//') ? prefix : '';
 }
 
-export const WORKBENCH_DEPLOYMENT_PREFIX = computeDeploymentPrefix(process.env['RS_SESSION_URL']);
+export const WORKBENCH_DEPLOYMENT_PREFIX = computeDeploymentPrefix(process.env.RS_SESSION_URL);
 
 const OAUTH_CALLBACK_STATIC_SEGMENT = 'callback-0';
 

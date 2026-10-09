@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<script>
+		<script nonce="{{WORKBENCH_SCRIPT_NONCE}}">
 			performance.mark('code/didStartRenderer');
 		</script>
 		<meta charset="utf-8" />
@@ -20,6 +20,7 @@
 
 		<!-- Workbench Configuration -->
 		<meta id="vscode-workbench-web-configuration" data-settings="{{WORKBENCH_WEB_CONFIGURATION}}">
+		<meta id="vscode-workbench-web-base-url" data-settings="{{WORKBENCH_WEB_BASE_URL}}">
 
 		<!-- Workbench Auth Session -->
 		<meta id="vscode-workbench-auth-session" data-settings="{{WORKBENCH_AUTH_SESSION}}">
@@ -35,19 +36,18 @@
 	</body>
 
 	<!-- Startup (do not modify order of script tags!) -->
-	<script>
+	<script nonce="{{WORKBENCH_SCRIPT_NONCE}}">
 		// --- Start PWB ---
-		// const baseUrl = new URL('{{WORKBENCH_WEB_BASE_URL}}', window.location.origin).toString();
-		const baseUrl = new URL('{{WORKBENCH_WEB_BASE_URL}}', window.location).toString();
+		// const baseUrl = new URL(document.getElementById('vscode-workbench-web-base-url').getAttribute('data-settings'), window.location.origin).toString();
+		const baseUrl = new URL(document.getElementById('vscode-workbench-web-base-url').getAttribute('data-settings'), window.location).toString();
 		// --- End PWB ---
 		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
 	</script>
 	<!-- Start PWB: marker script is injected by webClientServer.ts only when isWorkbench is true; read by platform.isWorkbench in the browser -->
 	{{PWB_WORKBENCH_MARKER}}
 	<!-- End PWB -->
-
 	<!--- Start Positron --->
-	<script>
+	<script nonce="{{WORKBENCH_SCRIPT_NONCE}}">
 		const importMap = { imports: {} };
 		const addModule = (packageName) => {
 			const module = `esm-package-dependencies/${packageName}.js`;
@@ -70,17 +70,12 @@
 
 		const importMapElement = document.createElement("script");
 		importMapElement.type = "importmap";
-		importMapElement.setAttribute("nonce", "1nline-m4p");
+		importMapElement.nonce = document.currentScript.nonce;
 		importMapElement.textContent = JSON.stringify(importMap, undefined, 2);
 		document.head.appendChild(importMapElement);
 	</script>
 	<!--- End Positron --->
-
-	<!-- Start PWB: marker script is injected by webClientServer.ts only when isWorkbench is true; read by platform.isWorkbench in the browser -->
-	{{PWB_WORKBENCH_MARKER}}
-	<!-- End PWB -->
-
-	<script>
+	<script nonce="{{WORKBENCH_SCRIPT_NONCE}}">
 		performance.mark('code/willLoadWorkbenchMain');
 	</script>
 	<!-- always ensure built in english NLS messages -->

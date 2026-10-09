@@ -376,6 +376,10 @@
 			"apple": {
 				"id": "apple",
 				"name": "Apple"
+			},
+			"microsoft": {
+				"id": "microsoft",
+				"name": "Microsoft"
 			}
 		},
 		"providerExtensionId": "vscode.github-authentication",
@@ -761,6 +765,9 @@
 		"positron-custom-provider": [
 			"positron.authentication",
 			"posit.assistant"
+		],
+		"microsoft": [
+			"vscode.github-authentication"
 		]
 	},
 	"onboardingKeymaps": [

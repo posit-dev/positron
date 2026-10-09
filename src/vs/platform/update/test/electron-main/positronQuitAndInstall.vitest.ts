@@ -14,6 +14,7 @@ import { IEnvironmentMainService } from '../../../environment/electron-main/envi
 import { IRequestService } from '../../../request/common/request.js';
 import { ITelemetryService } from '../../../telemetry/common/telemetry.js';
 import { IApplicationStorageMainService } from '../../../storage/electron-main/storageMainService.js';
+import { Event } from '../../../../base/common/event.js';
 import { IMeteredConnectionService } from '../../../meteredConnection/common/meteredConnection.js';
 import { IProductService } from '../../../product/common/productService.js';
 import { INativeHostMainService } from '../../../native/electron-main/nativeHostMainService.js';
@@ -110,7 +111,7 @@ describe('AbstractUpdateService quit-and-install hooks', () => {
 			new NullLogService(),
 			stubInterface<ITelemetryService>({}),
 			stubInterface<IApplicationStorageMainService>({}),
-			stubInterface<IMeteredConnectionService>({}),
+			stubInterface<IMeteredConnectionService>({ onDidChangeIsConnectionMetered: Event.None }),
 			stubInterface<IProductService>({}),
 			stubInterface<INativeHostMainService>({}),
 			stubInterface<IStateService>({}),
@@ -259,7 +260,8 @@ describe('AbstractUpdateService overwrite updates', () => {
 			stubInterface<IApplicationStorageMainService>({}),
 			stubInterface<IMeteredConnectionService>({
 				// A getter, so a test can flip `metered` after the service is built.
-				get isConnectionMetered() { return metered; }
+				get isConnectionMetered() { return metered; },
+				onDidChangeIsConnectionMetered: Event.None,
 			}),
 			stubInterface<IProductService>({
 				positronVersion: options?.positronVersion ?? '2026.09.0',

@@ -33,6 +33,7 @@ import { reviewEdits } from './reviewEdits.js';
 import { ITerminalEditorService, ITerminalGroupService, ITerminalService } from '../../../terminal/browser/terminal.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { ChatCopyKind, IChatService } from '../../common/chatService/chatService.js';
+import { isAgentHostSessionResource } from '../../common/chatSessionsService.js';
 import { IChatRequestViewModel, IChatResponseViewModel, isRequestVM, isResponseVM } from '../../common/model/chatViewModel.js';
 import { ChatAgentLocation } from '../../common/constants.js';
 import { IChatCodeBlockContextProviderService, IChatWidgetService } from '../chat.js';
@@ -205,6 +206,7 @@ export function registerChatCodeBlockActions() {
 					applyCodeBlockSuggestionId: undefined,
 					source: undefined,
 					sourceRequestId: undefined,
+					isAgentHostSession: isAgentHostSessionResource(context.element.sessionResource),
 				});
 			}
 		}
@@ -273,6 +275,7 @@ export function registerChatCodeBlockActions() {
 				applyCodeBlockSuggestionId: undefined,
 				source: undefined,
 				sourceRequestId: undefined,
+				isAgentHostSession: isAgentHostSessionResource(element.sessionResource),
 			});
 		}
 
@@ -443,6 +446,7 @@ export function registerChatCodeBlockActions() {
 					applyCodeBlockSuggestionId: undefined,
 					source: undefined,
 					sourceRequestId: undefined,
+					isAgentHostSession: isAgentHostSessionResource(context.element.sessionResource),
 				});
 			}
 		}

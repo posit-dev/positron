@@ -27,9 +27,10 @@ jobs:
       # --- End PWB ---
       NPM_ARCH: x64
       VSCODE_ARCH: x64
+      VSCODE_SKIP_PRELAUNCH: '1'
     steps:
       - name: Checkout microsoft/vscode
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         # --- Start PWB: this fork disables git-lfs (see .gitattributes) and the runner image
         # doesn't have git-lfs installed, so omit lfs: true here ---
         # --- End PWB ---
@@ -37,7 +38,7 @@ jobs:
       # --- Start PWB: upstream's "Detect Agent Host E2E changes" step is intentionally not
       # reincorporated. It only feeds VSCODE_SKIP_AGENT_HOST_E2E into the Electron integration
       # test step, which this job doesn't run, and it is gated on the `electron_tests` /
-      # `unit_and_integration_tests` inputs that this reduced workflow doesn't declare. ---
+      # `integration_tests` inputs that this reduced workflow doesn't declare. ---
       # --- End PWB ---
 
       - name: Setup Node.js
@@ -72,6 +73,22 @@ jobs:
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
+
+      # --- Start PWB: the hosted runner's single root disk is nearly full of preinstalled
+      # toolchains this job never uses, and the tests exhaust what's left, killing the runner
+      # worker with "No space left on device". ---
+      - name: Free disk space
+        run: |
+          sudo rm -rf \
+            /usr/local/lib/android \
+            /usr/share/dotnet \
+            /usr/share/swift \
+            /usr/local/share/boost \
+            /usr/local/.ghcup \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL
+          df -h /
+      # --- End PWB ---
 
       - name: Restore node_modules cache
         id: cache-node-modules
@@ -127,7 +144,7 @@ jobs:
 
       - name: Restore built-in extensions cache
         id: cache-builtin-extensions
-        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           enableCrossOsArchive: true
           path: .build/builtInExtensions
@@ -266,8 +283,23 @@ jobs:
       - name: Transpile client and extensions
         run: npm run gulp transpile-client-esbuild transpile-extensions
 
+      # --- Start PWB: the unit tests below have exhausted the root disk and taken the runner
+      # worker down with them, so record headroom and the biggest consumers while the log is
+      # still being uploaded. `-x` keeps `du` on the root filesystem. ---
+      - name: Diagnostics before unit tests (disk space)
+        run: |
+          df -h
+          echo "--- top consumers on / ---"
+          du -xhd1 / 2>/dev/null | sort -rh | head -20 || true
+          echo "--- top consumers under $HOME ---"
+          du -xhd1 "$HOME" 2>/dev/null | sort -rh | head -20 || true
+          echo "--- top consumers under ${TMPDIR:-/tmp} ---"
+          du -xhd1 "${TMPDIR:-/tmp}" 2>/dev/null | sort -rh | head -20 || true
+        continue-on-error: true
+      # --- End PWB ---
+
       # --- Start PWB: upstream gates this step behind `inputs.electron_tests &&
-      # inputs.unit_and_integration_tests`, since upstream only runs it from the Electron
+      # inputs.unit_tests`, since upstream only runs it from the Electron
       # invocation of this reusable workflow. This job only ever runs the Browser invocation (see
       # below), so that condition would never be true here; the gate is dropped so the step
       # actually runs. Name, timeout, and run command are otherwise identical to upstream. ---
@@ -307,7 +339,11 @@ jobs:
       # coverage for this platform. ---
       # --- End PWB ---
 
+      # --- Start PWB: upstream gates this step behind `inputs.integration_tests ||
+      # inputs.smoke_tests`, inputs this reduced workflow doesn't declare; this job always runs
+      # both, so the gate is dropped ---
       - name: Compile extensions for integration tests & smoke tests
+      # --- End PWB ---
         run: |
           set -e
           npm run gulp \
@@ -341,9 +377,17 @@ jobs:
         working-directory: test/smoke
         run: npm run compile
 
-      - name: Diagnostics before smoke test run (processes, max_user_watches, number of opened file handles)
+      - name: Diagnostics before smoke test run (disk space, processes, max_user_watches, number of opened file handles)
         run: |
           set -e
+          # --- Start PWB: disk headroom after the unit and integration tests, to compare
+          # against the reading taken before the unit tests ---
+          df -h
+          echo "--- top consumers on / ---"
+          du -xhd1 / 2>/dev/null | sort -rh | head -20 || true
+          echo "--- top consumers under ${TMPDIR:-/tmp} ---"
+          du -xhd1 "${TMPDIR:-/tmp}" 2>/dev/null | sort -rh | head -20 || true
+          # --- End PWB ---
           ps -ef
           cat /proc/sys/fs/inotify/max_user_watches
           lsof | wc -l
@@ -357,10 +401,15 @@ jobs:
         timeout-minutes: 20
         run: npm run smoketest-no-compile -- --web --tracing --headless
 
-      - name: Diagnostics after smoke test run (processes, max_user_watches, number of opened file handles)
+      - name: Diagnostics after smoke test run (disk space, processes, max_user_watches, number of opened file handles)
         if: always()
         run: |
           set -e
+          # --- Start PWB: disk headroom once everything has run ---
+          df -h
+          echo "--- top consumers on / ---"
+          du -xhd1 / 2>/dev/null | sort -rh | head -20 || true
+          # --- End PWB ---
           ps -ef
           cat /proc/sys/fs/inotify/max_user_watches
           lsof | wc -l
