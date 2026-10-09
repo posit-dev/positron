@@ -8,7 +8,7 @@ import * as playwright from '@playwright/test';
 const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
-import { join } from 'path';
+import { basename, join } from 'path';
 import * as fs from 'fs';
 
 // Local imports
@@ -304,6 +304,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			await quickInput.waitForQuickInputOpened();
 			await quickInput.type(filePath);
 			await quickInput.clickOkButton();
+			// The save outlives the dialog; wait for the editor to show the new file.
+			await app.workbench.editors.waitForActiveTab(basename(filePath));
 		});
 	},
 
