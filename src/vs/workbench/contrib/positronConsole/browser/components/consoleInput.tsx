@@ -81,6 +81,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	// onDidChangeActivePositronConsoleInstance handler.
 	const focusWhenActiveRef = useRef(false);
 
+	// Whether the input lost focus because it was hidden (e.g. during a restart), so focus can be
+	// restored when it is shown again.
+	const hiddenRef = useRef(props.hidden);
+	hiddenRef.current = props.hidden;
+	const refocusOnShowRef = useRef(false);
+
 	// State hooks.
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
@@ -805,6 +811,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			if (historyBrowserActiveRef.current) {
 				disengageHistoryBrowser();
 			}
+
+			refocusOnShowRef.current = hiddenRef.current;
 		}));
 
 		// Set the value change handler.
@@ -1109,6 +1117,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			codeEditorWidgetRef.current?.focus();
 		}
 	}, [active, codeEditorWidgetRef]);
+
+	// Restore focus lost to hiding, unless the user has since focused something else.
+	useEffect(() => {
+		if (!props.hidden && refocusOnShowRef.current) {
+			refocusOnShowRef.current = false;
+			const activeElement = DOM.getActiveElement();
+			if (!activeElement || activeElement === DOM.getActiveDocument().body) {
+				codeEditorWidgetRef.current?.focus();
+			}
+		}
+	}, [props.hidden, codeEditorWidgetRef]);
 
 	// Experimental.
 	useEffect(() => {
