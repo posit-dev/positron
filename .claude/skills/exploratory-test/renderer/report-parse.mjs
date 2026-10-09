@@ -1019,8 +1019,17 @@ function parseVerification(lines) {
 	const body = [];
 	let preamble = '';
 	let linked = new Map();
+	const change = new Set();
 	for (const line of lines) {
 		const trimmed = line.trim();
+		// The change mark in the Findings table carries these.
+		if (/^CHANGE:/i.test(trimmed)) {
+			for (const part of trimmed.slice(trimmed.indexOf(':') + 1).split(';')) {
+				const m = /^(\d+)\s*=\s*related$/i.exec(part.trim());
+				if (m) { change.add(Number(m[1])); }
+			}
+			continue;
+		}
 		// The findings carry the matches; as a line here it would only repeat them.
 		if (/^KNOWN:/i.test(trimmed)) {
 			continue;
@@ -1048,7 +1057,7 @@ function parseVerification(lines) {
 		}
 		body.push(line);
 	}
-	return { preambleHtml: preamble ? inline(preamble) : '', verdicts, linked, bodyHtml: block(body.join('\n')) };
+	return { preambleHtml: preamble ? inline(preamble) : '', verdicts, linked, change, bodyHtml: block(body.join('\n')) };
 }
 
 /**

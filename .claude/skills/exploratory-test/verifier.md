@@ -118,6 +118,30 @@ TITLE: 1=Project R is missing from the picker when its signature check times out
 
 Leave it out when every title holds.
 
+Last, a line for the findings whose fix likely belongs to the change under
+test. {{CHANGE_SCOPE}}
+
+CHANGE: 1=related; 3=related
+
+List a finding only when you CONFIRM it and traced its cause to the lines a
+fix would change. For each one:
+
+1. Name the most direct fix: the file and lines it would change. Not any fix
+   that would work: almost every bug has one that touches the diff, such as a
+   guard at a new call site.
+2. Run `git -C {{REPO}} blame -w -M -C {{HEAD}} -L <start>,<end> -- <file>` on
+   those lines, and check each blamed commit against
+   `git -C {{REPO}} rev-list {{CHANGE_RANGE}}`. The flags keep a reformatted or
+   moved line with the commit that first wrote it, which a plain diff does not.
+3. If the fix restores or changes a line the diff deleted, count it as in the
+   change. Blame cannot see a deleted line.
+4. List the finding if any line from step 2 or 3 is in the change. Leave it
+   off otherwise, including when the fix is in older code the change newly
+   reaches.
+
+This says where the fix likely goes, not who caused the bug, and nothing was
+run against the base. Leave the line out when no finding is related.
+
 Then keep it short. The table column is what a reviewer reads; this section is
 for what the column cannot say.
 
@@ -152,6 +176,8 @@ for what the column cannot say.
 - An issue on the LINKED line gets one line: what the run saw that set its
   severity.
 - A finding on the FEATURE or TITLE line gets one line: what moved it.
+- A finding on the CHANGE line gets one line: the fix you named, and the
+  commit in the change or the deleted line it touches.
 - A finding you dispute or cannot resolve gets a short paragraph: the evidence
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have

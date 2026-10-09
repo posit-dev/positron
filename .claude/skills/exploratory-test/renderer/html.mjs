@@ -279,8 +279,25 @@ function renderNoFindings(report, ki) {
 const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
 const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 
-function renderFindingsList(report, ki = null) {
-	const rows = report.findings.map(f => {
+/**
+ * The change mark: the verifier's call that a confirmed finding's most direct
+ * fix likely goes in code the change under test touched. Only on a run with a
+ * usable base. The glyph is hidden from screen readers, which read the text
+ * instead; the last row's tooltip opens upward, away from the panel's edge.
+ */
+function changeMark(report, f, base, last) {
+	if (base?.usable !== true || !report.verification?.change?.has(f.n) || statusWord(f) !== 'confirmed') {
+		return '';
+	}
+	const title = `Likely related to this ${report.pr ? 'PR' : 'branch'}`;
+	const text = `Based on code changes. Not verified against ${base.name ? escapeHtml(base.name) : 'the base branch'}.`;
+	return `<span class="chg${last ? ' chg-up' : ''}"><span aria-hidden="true">&Delta;</span>`
+		+ `<span class="chg-sr">${title}. ${text}</span>`
+		+ `<span class="chg-tip" aria-hidden="true"><b>${title}</b><span>${text}</span></span></span>`;
+}
+
+function renderFindingsList(report, ki = null, changeBase = null) {
+	const rows = report.findings.map((f, i) => {
 		const word = statusWord(f);
 		const verdict = word === 'confirmed'
 			? `<span class="status">${ICON.statusCheck}Confirmed</span>`
@@ -303,7 +320,7 @@ function renderFindingsList(report, ki = null) {
 		const status = below.length ? `<span class="ki-st">${top}${below.join('')}</span>` : verdict;
 		return `<a href="#f${f.n}" class="row findings-grid">`
 			+ `<span>${pill(f.severity)}</span>`
-			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}</span></span>`
+			+ `<span class="finding-cell"><span class="claim"><span class="n">${f.n}</span>${f.rowTitle}${changeMark(report, f, changeBase, i === report.findings.length - 1)}</span></span>`
 			+ `<span class="rate">${escapeHtml(f.reproduced)}</span>`
 			+ status
 			+ '</a>';
@@ -1828,7 +1845,7 @@ ${report.leadHtml ? `<p class="lead">${linkIssues(report.leadHtml, options.refs)
 
 ${renderTiles(report)}
 
-${renderFindingsList(report, ki)}
+${renderFindingsList(report, ki, options.changeBase)}
 
 ${report.findings.map(f => renderFindingCard(f, report, options)).join('\n\n')}
 
@@ -1875,6 +1892,15 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
  * What the page reads from the run directory besides report.md: the ledger,
  * the linked issues known-issues.mjs fetched, and the files the report names.
  */
+/** finish.mjs's change-base.json: whether the run had a usable base, and its name. */
+function readChangeBase(dir) {
+	try {
+		return JSON.parse(readFileSync(join(dir, 'change-base.json'), 'utf8'));
+	} catch {
+		return undefined;
+	}
+}
+
 export function readRunDir(dir) {
 	const ledgerPath = join(dir, 'ledger.md');
 	const fileExists = path => existsSync(join(dir, path));
@@ -1883,6 +1909,7 @@ export function readRunDir(dir) {
 		actionsLog: existsSync(join(dir, 'actions.log')) ? readFileSync(join(dir, 'actions.log'), 'utf8') : undefined,
 		knownIssues: readKnownIssues(dir) ?? undefined,
 		issueRefs: readIssueRefs(dir),
+		changeBase: readChangeBase(dir),
 		fileExists,
 		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
 	};

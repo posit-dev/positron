@@ -7,7 +7,7 @@ metadata:
   # verifier.md, isolator.md, editor.md, the text renderer/known-issues.mjs prints, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
-  version: "1.55"
+  version: "1.56"
 ---
 
 # Exploratory testing
@@ -25,8 +25,8 @@ because it re-sends your whole conversation on every turn. Sonnet is only for a
 narrow re-test of one known scenario; it is not good enough for discovery.
 
 The brief is the only context the agent has, so make it self-contained: the
-checkout path, the branch, the base and head SHAs and the `git diff` that shows
-the change between them, what the change is meant to
+checkout path, the branch, the base branch and the base and head SHAs taken
+from it, the `git diff` that shows the change between them, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about,
 riskiest first. State intent and risk; do not state what you expect to work.
 When the feature has variants a setting chooses, such as the Positron and the
@@ -70,8 +70,8 @@ session you are working in.
 When the agent finishes, stop any instance it left running:
 `bash <base>/renderer/stop-instances.sh <run dir>`. Then have a second agent
 check its findings, as CI does.
-With the base and head SHAs from the brief, run:
-`node <base>/renderer/finish.mjs prompt <run dir> --repo <checkout> --base <base sha> --head <head sha>`.
+With the base branch and the SHAs from the brief, run:
+`node <base>/renderer/finish.mjs prompt <run dir> --repo <checkout> --base <base sha> --head <head sha> --base-name <base branch>`.
 If it prints `no findings`, skip to the render. Otherwise it prints the path of
 a prompt file. Spawn a fresh agent with `subagent_type: "general-purpose"` and
 `model: "sonnet"`, tell it to read that file and do what it says, and save its

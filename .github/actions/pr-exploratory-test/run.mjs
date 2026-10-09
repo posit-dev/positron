@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { missingFiles, readRunDir, skillVersion, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { applyVerification, buildVerifyPrompt, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { applyVerification, buildVerifyPrompt, changeBase, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines, writeChangeBase } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
 import { applyEdits, buildEditPrompt, buildRetryPrompt, parseEdits, reviewEdits } from '../../../.claude/skills/exploratory-test/renderer/edit.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
@@ -155,9 +155,9 @@ Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full comman
  */
 // Takes no report: the verifier is pointed at report.md on disk rather than
 // handed its text, so that it reads the same bytes the reviewer will.
-async function verifyReport() {
+async function verifyReport(base) {
 	const prompt = buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
-		workDir: WORK_DIR, repoRoot: REPO_ROOT, baseSha: BASE_SHA, headSha: HEAD_SHA,
+		workDir: WORK_DIR, repoRoot: REPO_ROOT, baseSha: BASE_SHA, headSha: HEAD_SHA, changeBase: base,
 	});
 
 	const chunks = [];
@@ -254,6 +254,9 @@ async function main() {
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 	const git = args => execFileSync('git', ['-C', REPO_ROOT, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
 	const { stat, upstream } = describeChange({ git, base: BASE_SHA, head: HEAD_SHA });
+	// The renderer reads it back with the rest of the run directory.
+	const base = changeBase(REPO_ROOT, BASE_SHA, HEAD_SHA, process.env.BASE_REF);
+	writeChangeBase(WORK_DIR, base);
 
 	const userPrompt = [
 		'# Brief',
@@ -391,7 +394,7 @@ async function main() {
 			console.log('[verify] skipped: the report has no findings to verify');
 		} else if (VERIFY_ENABLED) {
 			try {
-				verdicts = await verifyReport();
+				verdicts = await verifyReport(base);
 			} catch (err) {
 				// A failed verification must not cost the run its report. Say so
 				// in the summary rather than dropping it silently.
@@ -438,6 +441,7 @@ async function main() {
 				readFile: run.readFile,
 				startedAt: STARTED_AT,
 				knownIssues,
+				changeBase: run.changeBase,
 			});
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const { logs, files } = missingFiles(parsed, run.fileExists);

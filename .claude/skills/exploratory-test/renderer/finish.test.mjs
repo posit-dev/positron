@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { annotateFindingsTable, applyVerification, buildVerifyPrompt, findingNumbers, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseTitles, parseVerdicts, verdictMismatch, verifyLogLines } from './finish.mjs';
+import { annotateFindingsTable, applyVerification, buildVerifyPrompt, changeBase, findingNumbers, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseKnown, parseTitles, parseVerdicts, verdictMismatch, verifyLogLines } from './finish.mjs';
 
 const TABLE = [
 	'# Exploratory test: something',
@@ -381,4 +381,58 @@ test('apply refuses verdicts keyed to other numbers, writes nothing, and takes a
 test('the verify prompt says to key verdicts by Finding number, not row order', () => {
 	assert.match(VERIFIER, /Key every entry, on this line and every line below, by\nthe Finding number as written/);
 	assert.match(VERIFIER, /Never by the row's position/);
+});
+
+/** A throwaway repo with two commits, for changeBase's rev-list. */
+function twoCommitRepo() {
+	const repo = mkdtempSync(join(tmpdir(), 'finish-git-'));
+	const git = (...args) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { encoding: 'utf8' }).trim();
+	git('init', '-q');
+	git('commit', '-q', '--allow-empty', '-m', 'base');
+	const base = git('rev-parse', 'HEAD');
+	git('commit', '-q', '--allow-empty', '-m', 'change');
+	return { repo, base, head: git('rev-parse', 'HEAD') };
+}
+
+test('changeBase is usable only with commits between the base and the head', () => {
+	const { repo, base, head } = twoCommitRepo();
+	try {
+		assert.deepEqual(changeBase(repo, base, head, 'main'), { usable: true, reason: '', name: 'main' });
+		assert.deepEqual(changeBase(repo, base, head), { usable: true, reason: '', name: null });
+		assert.equal(changeBase(repo, '', head, 'main').usable, false);
+		assert.equal(changeBase(repo, head, head, 'main').usable, false);
+		// A main run: the head is behind or at the base, so nothing is the change's.
+		assert.deepEqual(changeBase(repo, head, base, 'main'), { usable: false, reason: 'no commits between the base and the head', name: 'main' });
+		assert.equal(changeBase('/no/such/repo', base, head).usable, false);
+	} finally {
+		rmSync(repo, { recursive: true, force: true });
+	}
+});
+
+test('buildVerifyPrompt asks for a CHANGE line only when the base is usable', () => {
+	const usable = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: true } });
+	assert.match(usable, /The change under test is the commits in `aaaa1111\.\.bbbb2222`\./);
+	assert.match(usable, /\nCHANGE: 1=related; 3=related\n/);
+	assert.match(usable, /git -C \/repo blame -w -M -C bbbb2222 -L <start>,<end> -- <file>/);
+	assert.match(usable, /git -C \/repo rev-list aaaa1111\.\.bbbb2222/);
+	const none = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: false, reason: 'the base is the head' } });
+	assert.match(none, /This run has no usable base \(the base is the head\), so write no CHANGE line/);
+	assert.match(buildVerifyPrompt(VERIFIER, RUN), /no usable base \(none was given\)/);
+});
+
+test('fromVerdictLine keeps a CHANGE line written before the VERDICTS line', () => {
+	assert.equal(fromVerdictLine('thinking...\nCHANGE: 1=related\nVERDICTS: 1=CONFIRMED'), 'CHANGE: 1=related\nVERDICTS: 1=CONFIRMED');
+});
+
+test('prompt records the base for the renderer, named when given', () => {
+	const { repo, base, head } = twoCommitRepo();
+	const dir = runDir(TABLE);
+	try {
+		execFileSync('node', [SCRIPT, 'prompt', dir, '--repo', repo, '--base', base, '--head', head, '--base-name', 'release/1']);
+		assert.deepEqual(JSON.parse(readFileSync(join(dir, 'change-base.json'), 'utf8')), { usable: true, name: 'release/1' });
+		assert.match(readFileSync(join(dir, 'verify-prompt.md'), 'utf8'), /The change under test is the commits in/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+		rmSync(repo, { recursive: true, force: true });
+	}
 });

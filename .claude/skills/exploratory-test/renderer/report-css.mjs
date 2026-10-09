@@ -120,6 +120,7 @@ const PROFESSIONAL = `
 	--tip-border: #E7E4DC;
 	--tip-text: #3D4148;
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
+	--chg-shadow: 0 4px 14px rgba(0,0,0,.08);
 	--code-blk-bg: #F1EFEA;
 	--rt-tag-bg: #EFEDE7;
 	--rt-tag-ink: #3D4148;
@@ -262,6 +263,7 @@ const PARTY = `
 	--tip-border: #5B4F92;
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
+	--chg-shadow: 0 4px 14px rgba(0,0,0,.35);
 	--code-blk-bg: #19132F;
 	--rt-tag-bg: #3A2F6B;
 	--rt-tag-ink: #F5F1FF;
@@ -442,6 +444,16 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell{display:flex;flex-direction:column;gap:4px}
 .finding-cell .claim{font-size:15px;font-weight:500;color:var(--ink);line-height:1.4}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
+/* Change mark: the verifier's call that the most direct fix is in code the
+   change under test touched. The row is a link, so the tooltip also opens on
+   the row's keyboard focus rather than on a focusable mark. */
+.chg{position:relative;display:inline-block;margin-left:8px;font-size:15px;font-weight:400;line-height:1;color:var(--link);cursor:help}
+.chg-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.chg-tip{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--chg-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
+.chg-tip b{font-weight:600;color:var(--tip-text)}
+.chg:hover .chg-tip,a.row:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
+.chg-up .chg-tip{top:auto;bottom:calc(100% + 8px)}
+@media (prefers-reduced-motion:reduce){.chg-tip{transition:none}}
 .rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
 .status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
 .status-check{stroke:var(--pass-fill)}

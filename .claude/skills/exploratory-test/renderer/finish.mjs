@@ -8,12 +8,13 @@
 // an agent and each side runs it its own way; everything around it is here.
 //
 // Local usage, around a verifier subagent:
-//   node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha>
+//   node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>]
 //     writes <run dir>/verify-prompt.md and prints its path, or says there
-//     are no findings to verify
+//     are no findings to verify, and writes <run dir>/change-base.json
 //   node finish.mjs apply <run dir> <reply file>
 //     adds the reply's verdicts to report.md
 
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,7 +29,7 @@ import { parseLedger } from './report-parse.mjs';
  * unless `actionsLog` is given. A placeholder with no value, or a value with
  * no placeholder, throws, so the template and this list cannot drift apart quietly.
  */
-export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog }) {
+export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, changeBase }) {
 	const logPath = join(workDir, 'actions.log');
 	const log = actionsLog ?? (existsSync(logPath) ? readFileSync(logPath, 'utf8') : undefined);
 	const logProblems = log === undefined ? [] : lintActionsLog(log);
@@ -43,6 +44,11 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		KNOWN_ISSUES: `${workDir}/known-issues.json`,
 		REPO: repoRoot,
 		DIFF: `${baseSha}...${headSha}`,
+		HEAD: headSha,
+		CHANGE_RANGE: `${baseSha}..${headSha}`,
+		CHANGE_SCOPE: changeBase?.usable
+			? `The change under test is the commits in \`${baseSha}..${headSha}\`.`
+			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so write no CHANGE line and skip the rest of this section.`,
 		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
@@ -63,8 +69,34 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 }
 
 /**
+ * Whether the run has a base the change mark can be judged against: a base
+ * SHA, not the head, with commits between them. A main run has none. `name`
+ * is the base ref the reader knows, when the caller has it.
+ */
+export function changeBase(repoRoot, baseSha, headSha, name) {
+	const out = reason => ({ usable: !reason, reason, name: name || null });
+	if (!baseSha || !headSha) {
+		return out('no base commit');
+	}
+	if (baseSha === headSha) {
+		return out('the base is the head');
+	}
+	try {
+		const count = execFileSync('git', ['-C', repoRoot, 'rev-list', '--count', `${baseSha}..${headSha}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+		return out(count === '0' ? 'no commits between the base and the head' : '');
+	} catch {
+		return out('git could not list the commits between the base and the head');
+	}
+}
+
+/** Writes what the renderer needs of changeBase to <run dir>/change-base.json. */
+export function writeChangeBase(dir, base) {
+	writeFileSync(join(dir, 'change-base.json'), `${JSON.stringify({ usable: base.usable, name: base.name })}\n`);
+}
+
+/**
  * The verifier's reply from its VERDICTS line on, or from its KNOWN, LINKED,
- * FEATURE or TITLE line if that came first. Its final message can open with notes to
+ * FEATURE, TITLE or CHANGE line if that came first. Its final message can open with notes to
  * itself, which would otherwise lead the Verification details.
  */
 export function fromVerdictLine(text) {
@@ -72,7 +104,7 @@ export function fromVerdictLine(text) {
 		return text;
 	}
 	const lines = text.split('\n');
-	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED|FEATURE|TITLE):/.test(l.trim().toUpperCase()));
+	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED|FEATURE|TITLE|CHANGE):/.test(l.trim().toUpperCase()));
 	return at > 0 ? lines.slice(at).join('\n') : text;
 }
 
@@ -365,12 +397,12 @@ function main(argv) {
 	const { values, positionals } = parseArgs({
 		args: argv,
 		allowPositionals: true,
-		options: { repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' } },
+		options: { repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' } },
 	});
 	const [command, dir, replyFile] = positionals;
 	const reportPath = dir && join(dir, 'report.md');
 	if (!reportPath || !existsSync(reportPath)) {
-		console.error('usage: node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha>\n       node finish.mjs apply <run dir> <reply file>');
+		console.error('usage: node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>]\n       node finish.mjs apply <run dir> <reply file>');
 		return 2;
 	}
 	const report = readFileSync(reportPath, 'utf8');
@@ -388,9 +420,11 @@ function main(argv) {
 			console.error('finish: prompt needs --repo, --base and --head');
 			return 2;
 		}
+		const base = changeBase(values.repo, values.base, values.head, values['base-name']);
+		writeChangeBase(dir, base);
 		const out = join(dir, 'verify-prompt.md');
 		writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
-			workDir: dir, repoRoot: values.repo, baseSha: values.base, headSha: values.head,
+			workDir: dir, repoRoot: values.repo, baseSha: values.base, headSha: values.head, changeBase: base,
 		}));
 		console.log(out);
 		return 0;

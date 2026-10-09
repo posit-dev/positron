@@ -3023,3 +3023,28 @@ test('an issue named in the lead or the verifier notes gets a preview link too',
 	const verification = html.slice(html.lastIndexOf('Searches returned'));
 	assert.match(verification, /only <a class="ki-num" href="[^"]+\/issues\/3698"[^>]*data-title="Blurry labels"/);
 });
+
+test('the change mark: a confirmed finding on the CHANGE line, on a run with a usable base, in the table only', () => {
+	const src = FULL.replace('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE', 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nCHANGE: 1=related; 2=related');
+	const rowOf = (html, n) => html.match(new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>`))[0];
+	const usable = { usable: true, name: 'release/2026.10' };
+	const html = renderReportHtml(src, { changeBase: usable });
+	assert.equal(rowOf(html, 1).match(/class="chg[ "]/g)?.length, 1);
+	assert.match(rowOf(html, 1), /<span class="chg"><span aria-hidden="true">&Delta;<\/span><span class="chg-sr">Likely related to this branch\. Based on code changes\. Not verified against release\/2026\.10\.<\/span><span class="chg-tip" aria-hidden="true"><b>Likely related to this branch<\/b><span>Based on code changes\. Not verified against release\/2026\.10\.<\/span><\/span><\/span>/);
+	// The last row's tooltip opens upward, away from the panel's clipped edge.
+	assert.match(rowOf(html, 2), /<span class="chg chg-up">/);
+	assert.equal((html.match(/class="chg[ "]/g) ?? []).length, 2, 'no mark on the cards');
+	assert.doesNotMatch(html, /CHANGE:/, 'the line itself is not shown');
+
+	// Only a confirmed finding: a disputed one keeps no mark.
+	const disputed = renderReportHtml(src.replace('| 1/1 | confirmed |', '| 1/1 | disputed |'), { changeBase: usable });
+	assert.doesNotMatch(rowOf(disputed, 2), /class="chg/);
+
+	// No usable base, or none recorded: no mark at all.
+	assert.doesNotMatch(renderReportHtml(src, { changeBase: { usable: false, name: 'main' } }), /class="chg[ "]/);
+	assert.doesNotMatch(renderReportHtml(src), /class="chg[ "]/);
+
+	// A PR run says PR; a base with no name says the base branch.
+	const pr = renderReportHtml(src.replace('`branch/name` | `abc1234`\n', '`branch/name` | `abc1234`\n\nPR: posit-dev/positron#1234\n'), { changeBase: { usable: true, name: null } });
+	assert.match(rowOf(pr, 1), /<b>Likely related to this PR<\/b><span>Based on code changes\. Not verified against the base branch\.<\/span>/);
+});
