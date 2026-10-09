@@ -23,6 +23,11 @@ says how a helper is built and checked.
    bug stops showing. Calling it a regression needs evidence that the case once passed on this
    platform (`git log` on the helper and its case); a helper that never worked here is the
    helper's bug.
+   **Look for the issue.** For a `product` outcome, search the open issues for its symptom, a
+   few words at a time, and set `issue` only to one that describes the same behavior. An earlier
+   verdict that names an issue is the place to start. Search with
+   `curl -s "https://api.github.com/search/issues?q=repo:posit-dev/positron+is:issue+is:open+<words>"`
+   (ten searches a minute). Only read: never comment on or open an issue.
    **`product` means Positron-owned behavior.** When the cause is in upstream VS Code code that
    Positron has not changed (`scripts/file-origin.sh <file>`, and no `// --- Start Positron ---`
    block around it), the helper adapts: the outcome is `fixed`, and the reason names the upstream
@@ -93,8 +98,11 @@ Write exactly one JSON file to the outcome path in the brief, then end with a on
       "change": "what the fix does differently (fixed only)",
       "untestable": "why no smoke case can show this bug (only when you add none)",
       "checks": "the check you changed under test/ or heal/, what it asserted, and why (only when you change one)",
-      "covers": ["ids of other open findings your fix fixes, each re-run after the fix"]
+      "covers": ["ids of other open findings your fix fixes, each re-run after the fix"],
+      "issue": 12345
     }
+
+`issue` is the open issue that already describes a `product` outcome; leave it out otherwise.
 
 `reason` is for the next fixer and the reviewer. `broke`, `cause` and `change` lead the nightly
 report, for a reader who has not seen the code: one plain sentence each, under about 25 words, no

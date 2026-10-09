@@ -45,6 +45,7 @@ jobs:
       contents: read
       packages: read
       actions: read
+      issues: read
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24:24.18.0
       options: --user 0:0 --init

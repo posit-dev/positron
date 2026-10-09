@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { CaseResult, SmokeResults } from '../test/smoke-lib.ts';
 import type { Finding } from './finding.ts';
-import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, readReview, regressions, sameFinding } from './fix-lib.ts';
+import { addedCases, applyCovers, caseGate, earlierVerdicts, fixedBefore, knownProduct, newCaseProblems, newCheckFailures, otherOpen, parseChecks, placeSections, queue, readOutcome, readReview, regressions, sameFinding } from './fix-lib.ts';
 
 const f = (id: string, source: Finding['source'], kase?: string, outcome?: Finding['outcome']): Finding => ({
 	id, source, case: kase, helper: 'x.sh', steps: ['s'], observed: 'o', expected: 'e', outcome,
@@ -218,4 +218,31 @@ test('placeSections: each section runs through its committed last case, and adde
 test('readOutcome keeps the fixer\'s account of a changed check', () => {
 	const ok = readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'r', reproduction: { at: 't', by: 'fixer', result: 'fail', observed: 'o' }, checks: ' check.ts gains args ' }));
 	assert.deepEqual(typeof ok === 'object' && ok.plain, { checks: 'check.ts gains args' });
+});
+
+test('readOutcome keeps an issue number only on a product outcome', () => {
+	const rep = { at: 't', by: 'fixer', result: 'fail', observed: 'o' };
+	assert.equal((readOutcome(JSON.stringify({ outcome: 'product', reason: 'r', reproduction: rep, issue: 16340 })) as { issue?: number }).issue, 16340);
+	assert.equal((readOutcome(JSON.stringify({ outcome: 'product', reason: 'r', reproduction: rep, issue: '16340' })) as { issue?: number }).issue, undefined);
+	assert.equal((readOutcome(JSON.stringify({ outcome: 'fixed', reason: 'r', reproduction: rep, issue: 16340 })) as { issue?: number }).issue, undefined);
+});
+
+test('earlierVerdicts names the issue a product verdict was filed as', () => {
+	const runs = new Map([['9', [{ ...f('smoke-a', 'smoke', 'a', 'product'), reason: 'modal', issue: 16340 }]]]);
+	assert.deepEqual(earlierVerdicts(runs, f('smoke-a', 'smoke', 'a')), ['run 9: product (issue #16340): modal']);
+});
+
+test('knownProduct: the newest exact verdict is product with an issue still open', () => {
+	const p = (id: string, issue?: number) => ({ ...f(id, 'finder', undefined, 'product'), reason: 'r', issue });
+	const now = f('finder-a', 'finder');
+	const open = { 16340: 'open' as const };
+	assert.equal(knownProduct(new Map([['9', [p('finder-a', 16340)]]]), now, open)?.issue, 16340);
+	assert.equal(knownProduct(new Map([['9', [p('finder-a', 16340)]]]), now, { 16340: 'closed' }), null, 'a closed issue may be fixed; the fixer looks again');
+	assert.equal(knownProduct(new Map([['9', [p('finder-a', 16340)]]]), now, {}), null, 'no state fetched: the fixer runs');
+	assert.equal(knownProduct(new Map([['9', [p('finder-a')]]]), now, open), null, 'no issue on file');
+	assert.equal(knownProduct(new Map([['9', [p('finder-b', 16340)]]]), now, open), null, 'a related finding is not the same one');
+	assert.equal(knownProduct(new Map([['9', [p('finder-a', 16340)]], ['10', [{ ...f('finder-a', 'finder', undefined, 'fixed'), reason: 'r' }]]]), now, open), null, 'a newer verdict differs');
+	const got = knownProduct(new Map([['8', [p('finder-a', 16340)]], ['9', [{ ...p('finder-a', 16340), broke: 'b' }]]]), now, open);
+	assert.equal(got?.run, '9');
+	assert.equal(got?.finding.broke, 'b');
 });
