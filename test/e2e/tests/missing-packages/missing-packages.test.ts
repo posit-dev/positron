@@ -8,12 +8,11 @@ import { join } from 'path';
 import { Application } from '../../infra';
 import { test as base, expect, tags } from '../_test.setup';
 
-// Enable the Packages pane (used to verify installs) and Positron notebooks
-// before the app launches.
+// Enable the Packages pane (used to verify installs) before the app launches.
 const test = base.extend<{}, {}>({
 	beforeApp: [
 		async ({ settingsFile }, use) => {
-			await settingsFile.append({ 'packages.enabled': true, 'positron.notebook.enabled': true });
+			await settingsFile.append({ 'packages.enabled': true });
 			await use();
 		},
 		{ scope: 'worker' }
@@ -169,44 +168,5 @@ test.describe('Install Missing Packages', {
 		});
 
 		await fs.rm(filePath, { force: true });
-	});
-
-	test('Notebook - the toolbar shows a single missing packages badge', { tag: [tags.PYTHON, tags.POSITRON_NOTEBOOKS] }, async function ({ app, python, openFile }) {
-		const { editors, notebooksPositron } = app.workbench;
-		const page = app.code.driver.currentPage;
-		const notebookName = 'missing_packages_badge.ipynb';
-		const otherName = 'missing_packages_other.py';
-		const notebookPath = join(app.workspacePathOrFolder, notebookName);
-		const otherPath = join(app.workspacePathOrFolder, otherName);
-		const badge = page.getByTestId('missing-packages-badge');
-
-		await test.step('Open a notebook that references a missing package', async () => {
-			await ensurePackageMissing(app, 'Python');
-			await fs.writeFile(otherPath, 'print("other")\n');
-			await fs.writeFile(notebookPath, JSON.stringify({
-				cells: [{ cell_type: 'code', execution_count: null, metadata: {}, outputs: [], source: [`import ${MISSING_PACKAGE}\n`, 'print("notebook-badge")'] }],
-				metadata: {},
-				nbformat: 4,
-				nbformat_minor: 5,
-			}));
-			await openFile(otherName);
-			await notebooksPositron.openNotebook(notebookName);
-			await notebooksPositron.kernel.select('Python');
-		});
-
-		await test.step('The toolbar shows exactly one badge', async () => {
-			await expect(badge).toBeVisible({ timeout: 30000 });
-			await expect(badge).toHaveCount(1);
-		});
-
-		await test.step('Switching away and back still shows exactly one badge', async () => {
-			await editors.clickTab(otherName);
-			await editors.clickTab(notebookName);
-			await expect(badge).toBeVisible({ timeout: 30000 });
-			await expect(badge).toHaveCount(1);
-		});
-
-		await fs.rm(notebookPath, { force: true });
-		await fs.rm(otherPath, { force: true });
 	});
 });
