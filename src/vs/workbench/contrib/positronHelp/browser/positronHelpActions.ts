@@ -293,7 +293,7 @@ async function callHelpMethod<T>(
 	...args: string[]
 ): Promise<IHelpMethodResult<T>> {
 	const foreground = sessionService.foregroundSession;
-	const languageId = languageIdArg || foreground?.runtimeMetadata.languageId;
+	const languageId = stringArg(languageIdArg).toLowerCase() || foreground?.runtimeMetadata.languageId;
 	const session = foreground?.runtimeMetadata.languageId === languageId ?
 		foreground :
 		sessionService.activeSessions.find(s => s.runtimeMetadata.languageId === languageId);

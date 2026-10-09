@@ -62,7 +62,7 @@ describe('ReadHelpTopic', () => {
 	});
 
 	it('reads a topic from a session for the requested language and package', async () => {
-		await run('read_csv', 'python', 'pandas');
+		await run('read_csv', ' Python ', 'pandas');
 
 		expect(pythonCall).toHaveBeenCalledWith('get_help_page', 'read_csv', 'pandas');
 		expect(rCall).not.toHaveBeenCalled();

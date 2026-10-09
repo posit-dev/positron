@@ -985,18 +985,24 @@ def member_summaries(object_: Any) -> list[tuple[str, str]]:
         return []
 
     all_ = getattr(object_, "__all__", None)
-    result = []
+    members = []
     with contextlib.suppress(Exception):
-        for member_name, member in inspect.getmembers(object_):
-            if member_name.startswith("_") or (all_ is not None and member_name not in all_):
-                continue
-            # Skip names a module imports from elsewhere, unless it exports them.
-            if (
-                inspect.ismodule(object_)
-                and all_ is None
-                and (inspect.ismodule(member) or inspect.getmodule(member) not in (None, object_))
-            ):
-                continue
+        members = inspect.getmembers(object_)
+
+    result = []
+    for member_name, member in members:
+        if member_name.startswith("_") or (all_ is not None and member_name not in all_):
+            continue
+        with contextlib.suppress(Exception):
+            # Skip names a module imports from outside its package, unless it exports them.
+            if inspect.ismodule(object_) and all_ is None:
+                source = getattr(inspect.getmodule(member), "__name__", None)
+                if inspect.ismodule(member) or (
+                    source is not None
+                    and source != object_.__name__
+                    and not source.startswith(f"{object_.__name__}.")
+                ):
+                    continue
             summary = ""
             if callable(member) or inspect.ismodule(member):
                 summary = (_get_summary(member) or "").replace("\n", " ")

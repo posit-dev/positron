@@ -399,6 +399,31 @@ def test_list_package_docs() -> None:
     assert docs["vignettes"] == [{"name": "README", "title": "pandas README"}]
 
 
+def test_list_package_docs_includes_reexports(monkeypatch: pytest.MonkeyPatch) -> None:
+    package = types.ModuleType("fakepkg")
+    submodule = types.ModuleType("fakepkg.sub")
+    other = types.ModuleType("otherpkg")
+
+    def reexported():
+        """Defined in a submodule."""
+
+    def imported():
+        """Defined in another package."""
+
+    reexported.__module__ = submodule.__name__
+    imported.__module__ = other.__name__
+    package.reexported = reexported  # type: ignore[attr-defined]
+    package.imported = imported  # type: ignore[attr-defined]
+    package.sub = submodule  # type: ignore[attr-defined]
+    for module in (package, submodule, other):
+        monkeypatch.setitem(sys.modules, module.__name__, module)
+
+    docs = list_package_docs("fakepkg")
+
+    assert isinstance(docs, dict)
+    assert docs["topics"] == [{"topic": "fakepkg.reexported", "title": "Defined in a submodule."}]
+
+
 def test_list_package_docs_without_readme() -> None:
     docs = list_package_docs("json")
 

@@ -111,10 +111,12 @@ def _resolve_help_object(request: str | Any) -> Any:
     # resolve the request (e.g. a PyPI distribution name like "scikit-learn"
     # whose import name is "sklearn"), try mapping the distribution name to its
     # top-level module(s) and resolving those.
-    candidates = [request]
-    if isinstance(request, str):
-        candidates += _distribution_to_modules(request)
-    for candidate in candidates:
+    def candidates():
+        yield request
+        if isinstance(request, str):
+            yield from _distribution_to_modules(request)
+
+    for candidate in candidates():
         result = None
         with contextlib.suppress(ImportError):
             result = pydoc.resolve(thing=candidate)
@@ -186,8 +188,9 @@ def get_package_vignette(package: str, vignette: str) -> JsonData:
 
 def _readme(package: str) -> str | None:
     """The long description (usually the README) of the distribution providing `package`."""
+    # Broken distribution metadata can raise arbitrary errors; treat it as no README.
     names = [package]
-    with contextlib.suppress(ImportError):
+    with contextlib.suppress(Exception):
         # packages_distributions exists on Python >= 3.10.
         from importlib.metadata import (
             packages_distributions,  # type: ignore[reportGeneralTypeIssues]
@@ -196,7 +199,7 @@ def _readme(package: str) -> str | None:
         names += packages_distributions().get(package.split(".")[0], [])
 
     for name in names:
-        with contextlib.suppress(importlib.metadata.PackageNotFoundError):
+        with contextlib.suppress(Exception):
             metadata = cast("Any", importlib.metadata.distribution(name).metadata)
             readme = metadata.get_payload() or metadata.get("Description")
             if readme and readme.strip() != "UNKNOWN":
