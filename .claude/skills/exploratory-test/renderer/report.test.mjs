@@ -2809,7 +2809,6 @@ const linkedOf = html => /<div class="ki-grp">[\s\S]*?<\/div><\/div>/.exec(findi
 const kiList = (html, id) => new RegExp(`<div class="ki-list" id="${id}" hidden>([\\s\\S]*?)</div></div>(?=<div class="ki-list"|\\n)`).exec(findingsOf(html))?.[1] ?? '';
 const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
 const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
-const kiIt = (n, title, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/${n}" target="_blank" rel="noopener">#${n}</a><span>${title}<span class="ki-lc-m">${meta}</span></span>`;
 
 test('Linked issues is one plain row under the findings, with every count opening its list', () => {
 	const html = kiHtml();
