@@ -505,6 +505,11 @@ test('timeUpHook adds nothing before the deadline, then tells every tool result 
 	assert.match(timeUpMessage(20), new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
 });
 
+test('timeUpHook tells an agent that is not the explorer its own message', async () => {
+	const hook = timeUpHook({ deadline: 0, minutes: 12, message: 'Write isolation.md now.' });
+	assert.equal((await hook({ hook_event_name: 'PostToolUse' })).hookSpecificOutput.additionalContext, 'Write isolation.md now.');
+});
+
 test('renderPrComment says when a run was stopped at its time limit', () => {
 	const md = ['| # | Finding | Severity |', '|---|---|---|', '| 1 | x | minor |'].join('\n');
 	const withReport = renderPrComment({ state: 'timed-out', markdown: md, baseUrl: 'https://cdn/x', runUrl: 'https://run', headSha: 'abc1234' });

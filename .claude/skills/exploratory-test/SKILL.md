@@ -4,7 +4,8 @@ description: "Explore a running Positron instance as a real user to find genuine
 disable-model-invocation: true
 metadata:
   # Bump when the agent is told something new: this file, explorer.md,
-  # verifier.md, isolator.md, editor.md, the text renderer/known-issues.mjs prints, or the
+  # verifier.md, isolator.md, editor.md, the text renderer/known-issues.mjs prints, the
+  # messages renderer/pipeline.mjs, finish.mjs and edit.mjs send with them, or the
   # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
   # grouped by it, so a renderer change does not count.
   version: "1.56"
@@ -67,56 +68,17 @@ session you are working in.
 
 ## Verify, then render
 
-When the agent finishes, stop any instance it left running:
-`bash <base>/renderer/stop-instances.sh <run dir>`. Then have a second agent
-check its findings, as CI does.
-With the base and head SHAs from the brief, run:
-`node <base>/renderer/finish.mjs prompt <run dir> --repo <checkout> --base <base sha> --head <head sha>`.
-If it prints `no findings`, skip to the render. Otherwise it prints the path of
-a prompt file. Spawn a fresh agent with `subagent_type: "general-purpose"` and
-`model: "sonnet"`, tell it to read that file and do what it says, and save its
-reply exactly as returned to `<run dir>/verify-reply.md`.
+When the agent finishes, a second agent checks its findings and a third
+rewrites their openings in plain words, as CI does. Wait for the explorer's
+completion notice; its report can arrive first. Then, with the base and head
+SHAs from the brief and the notice's `duration_ms` and `tool_uses`, run this as
+a background command:
 
-If the reply's VERDICTS line has an UNRESOLVED finding, isolate it before
-applying anything. Spawn one fresh agent with `subagent_type: "general-purpose"`
-and `model: "sonnet"`, tell it to read `<base>/isolator.md` and do what it says,
-and give it the run directory, the checkout, the base and head SHAs, the
-UNRESOLVED findings by name ("Finding 3"), and for each the evidence the
-verifier said is missing, quoted from its reply: that is the control to run
-first. Start a timer, `sleep 720`, as a background command; if the isolator is
-still running when it ends, tell it to write up. When it returns, run `stop-instances.sh` again,
-then send the verifier, with SendMessage: "Read `<run dir>/isolation.md`,
-revise those findings' verdicts, and name the Cause and Feature it points to,
-with a FEATURE line when the Feature changes and a TITLE line when the title names the wrong trigger. If a cause is broader than the
-cases in its table, narrow it. Reply again in full, in the same format." Save that reply over `verify-reply.md`.
+`node <base>/renderer/pipeline.mjs run <run dir> --repo <checkout> --base <base sha> --head <head sha> --duration-ms <duration_ms> --turns <tool_uses>`
 
-Then run
-`node <base>/renderer/finish.mjs apply <run dir> <run dir>/verify-reply.md`.
-When the VERDICTS line's numbers are not the report's Finding numbers, apply
-writes nothing and says why: send the verifier that message with SendMessage,
-save its reply over `verify-reply.md`, and apply again.
-The verdicts are advisory: do not edit them or drop a finding over them.
-
-Then have a fresh agent write each finding's opening in plain words (what a
-person reads first in the filed issue: a summary and where it happens; the
-explorer's steps stay as written) with a title cut from it, and rewrite the Result, as CI does. Run `node <base>/renderer/edit.mjs prompt <run dir>`. Unless it prints
-`nothing to edit`, it prints the path of a prompt file. Spawn a fresh agent with
-`subagent_type: "general-purpose"` and `model: "sonnet"`, tell it to read that
-file and reply as it says, and save its reply to `<run dir>/edit-reply.md`.
-Then run `node <base>/renderer/edit.mjs apply <run dir> <run dir>/edit-reply.md`.
-It keeps the original of anything the rewrite gets wrong (a fact the run did
-not record, code the reader must run left out), and says which.
-If it also prints `retry prompt at <path>`, give that file to a fresh agent the
-same way, save its reply to `<run dir>/edit-retry-reply.md`, and run
-`node <base>/renderer/edit.mjs apply <run dir> <run dir>/edit-retry-reply.md --last`.
-
-Then put every run on the report's Run tile, as CI does. Each agent's
-completion notice carries `duration_ms` and `tool_uses`; re-render with them.
-Sum the verifier's passes when you sent it back after isolation. Leave out the
-`--verify-*` flags when there was nothing to verify, and the `--isolate-*` flags
-when nothing was isolated:
-`node <render.mjs> <report.md> --model <model id> --duration-ms <duration_ms> --turns <tool_uses> --verify-model <model id> --verify-duration-ms <duration_ms> --verify-turns <tool_uses> --isolate-model <model id> --isolate-duration-ms <duration_ms> --isolate-turns <tool_uses>`.
-The agents cannot do this themselves, because they do not see their own totals.
+It runs each of those agents itself and prints the `index.html` path. It takes
+a few minutes, or about 20 when a finding needs isolating. The verdicts are
+advisory: do not edit them or drop a finding over them.
 
 ## Present it, then offer to publish
 

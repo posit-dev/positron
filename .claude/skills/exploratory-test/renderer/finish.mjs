@@ -377,6 +377,59 @@ export function isVerified(report) {
 
 const VERIFIER_PATH = fileURLToPath(new URL('../verifier.md', import.meta.url));
 
+/** A run directory's report, ledger and known issues, as the verify steps read them. */
+function readRun(dir) {
+	const ledgerPath = join(dir, 'ledger.md');
+	const knownIssues = readKnownIssues(dir);
+	const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : '';
+	return { report: readFileSync(join(dir, 'report.md'), 'utf8'), ledger, knownIssues, observed: observedLinked(knownIssues, ledger) };
+}
+
+/**
+ * Writes <run dir>/verify-prompt.md and returns its path, or null when there
+ * is nothing to verify. Linked issues the run ran into still need a severity.
+ */
+export function writeVerifyPrompt(dir, { repo, base, head }) {
+	const { report, observed } = readRun(dir);
+	if (!hasFindings(report) && !observed.length) {
+		return null;
+	}
+	const out = join(dir, 'verify-prompt.md');
+	writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
+		workDir: dir, repoRoot: repo, baseSha: base, headSha: head,
+	}));
+	return out;
+}
+
+/**
+ * Adds a verifier reply to report.md. Returns `{ mismatch }`, writing nothing,
+ * when its VERDICTS are keyed to other numbers than the report's, so a
+ * corrected reply can be applied; with `giveUp` that marks the findings
+ * unreviewed instead. An `error`, or an empty reply or one with no verdicts,
+ * says the verification did not complete rather than leaving the findings
+ * looking reviewed. Otherwise returns `{ failed, logLines }`.
+ */
+export function applyVerifyReply(dir, reply, { error = '', giveUp = false } = {}) {
+	const { report, ledger, knownIssues } = readRun(dir);
+	if (isVerified(report)) {
+		return { already: true };
+	}
+	reply = String(reply ?? '').trim();
+	const findings = hasFindings(report);
+	const mismatch = !error && findings && parseVerdicts(reply).size ? verdictMismatch(report, reply) : '';
+	if (mismatch && !giveUp) {
+		return { mismatch };
+	}
+	const failed = Boolean(error || mismatch) || !reply || (findings && !parseVerdicts(reply).size);
+	const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
+	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : reply ? ': the reply had no VERDICTS line' : '';
+	const verdicts = failed
+		? `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`
+		: fromVerdictLine(reply);
+	writeFileSync(join(dir, 'report.md'), applyVerification(report.trimEnd(), verdicts, { failed }));
+	return { failed, logLines: verifyLogLines(knownIssues, ledger, error ? '' : reply) };
+}
+
 function main(argv) {
 	const { values, positionals } = parseArgs({
 		args: argv,
@@ -389,26 +442,13 @@ function main(argv) {
 		console.error('usage: node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha>\n       node finish.mjs apply <run dir> <reply file>');
 		return 2;
 	}
-	const report = readFileSync(reportPath, 'utf8');
-	const ledgerPath = join(dir, 'ledger.md');
-	const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : '';
-	const knownIssues = readKnownIssues(dir);
-	const observed = observedLinked(knownIssues, ledger);
 	if (command === 'prompt') {
-		// Linked issues the run ran into still need a severity.
-		if (!hasFindings(report) && !observed.length) {
-			console.log('no findings: nothing to verify');
-			return 0;
-		}
 		if (!values.repo || !values.base || !values.head) {
 			console.error('finish: prompt needs --repo, --base and --head');
 			return 2;
 		}
-		const out = join(dir, 'verify-prompt.md');
-		writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
-			workDir: dir, repoRoot: values.repo, baseSha: values.base, headSha: values.head,
-		}));
-		console.log(out);
+		const out = writeVerifyPrompt(dir, values);
+		console.log(out ?? 'no findings: nothing to verify');
 		return 0;
 	}
 	if (command === 'apply') {
@@ -418,31 +458,19 @@ function main(argv) {
 			console.error(`finish: reply file not found: ${replyFile ?? '(none given)'}`);
 			return 2;
 		}
-		if (isVerified(report)) {
+		const result = applyVerifyReply(dir, readFileSync(replyFile, 'utf8'));
+		if (result.already) {
 			console.error('finish: report.md is already verified');
 			return 1;
 		}
-		const reply = readFileSync(replyFile, 'utf8').trim();
-		const findings = hasFindings(report);
-		// Verdicts keyed to other numbers than the report's would mark the wrong
-		// findings: refuse, writing nothing, so a corrected reply can be applied.
-		const mismatch = findings && parseVerdicts(reply).size ? verdictMismatch(report, reply) : '';
-		if (mismatch) {
-			console.error(`finish: ${mismatch} Send the verifier this message, save its corrected reply and apply again.`);
+		if (result.mismatch) {
+			console.error(`finish: ${result.mismatch} Send the verifier this message, save its corrected reply and apply again.`);
 			return 1;
 		}
-		// An empty reply, or one with no verdicts, still says so, rather than
-		// leaving the findings looking reviewed.
-		const failed = !reply || (findings && !parseVerdicts(reply).size);
-		const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
-		const verdicts = failed
-			? `_Verification did not complete${reply ? `: the reply had no VERDICTS line` : ''}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`
-			: fromVerdictLine(reply);
-		writeFileSync(reportPath, applyVerification(report.trimEnd(), verdicts, { failed }));
-		for (const line of verifyLogLines(knownIssues, ledger, reply)) {
+		for (const line of result.logLines) {
 			console.error(`finish: ${line}`);
 		}
-		console.log(`finish: ${failed ? 'marked unreviewed' : 'verdicts added to'} ${reportPath}`);
+		console.log(`finish: ${result.failed ? 'marked unreviewed' : 'verdicts added to'} ${reportPath}`);
 		return 0;
 	}
 	console.error(`finish: unknown command ${command ?? ''}`);
