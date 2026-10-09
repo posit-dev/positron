@@ -27,6 +27,10 @@ Local and CI runs share every step after the explorer: `finishRun` in
 agent. Locally that is `claude -p` (`renderer/claude-cli.mjs`), which uses the
 person's own login; in CI it is an Agent SDK session (`run.mjs`). So a change
 to the order, a retry or a fallback goes in `pipeline.mjs`, and both get it.
+A local run's explorer is a `claude -p` session too, started by `pipeline.mjs
+run --brief`; CI starts its own. Either way a time limit is a hook that tells
+the agent once it is up (`renderer/time-up-hook.mjs` locally), and the agent
+is stopped only if it is still going ten minutes later.
 
 No step after the explorer can fail the run. A crashed or empty reply leaves
 the report as the explorer wrote it, with the findings marked unreviewed.
@@ -37,7 +41,7 @@ the report as the explorer wrote it, with the findings marked unreviewed.
 |---|---|
 | What an agent is told | `explorer.md`, `verifier.md`, `isolator.md`, `editor.md` |
 | Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
-| How a local run starts an agent | `renderer/claude-cli.mjs` |
+| How a local run starts an agent, and its time limit | `renderer/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/finish.mjs` |
 | The editor's prompt and how rewrites are checked | `renderer/edit.mjs` |
 | The report format | `explorer.md` (the spec), `renderer/report-parse.mjs` (the parser), `renderer/lint.mjs` (the checks) |

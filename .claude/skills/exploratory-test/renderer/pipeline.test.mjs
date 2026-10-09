@@ -10,7 +10,7 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, renderFlags, reviseMessage } from './pipeline.mjs';
+import { explore, EXPLORE_TIME_UP, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, renderFlags, reviseMessage } from './pipeline.mjs';
 
 const REPORT = [
 	'# Exploratory test: something',
@@ -185,6 +185,31 @@ test('renderFlags needs the explorer\'s time', () => {
 	assert.deepEqual(renderFlags({ model: 'opus', durationMs: 60000, turns: null }, []), ['--model', 'opus', '--duration-ms', '60000']);
 });
 
+test('renderFlags passes on the explorer\'s cost when it has one', () => {
+	assert.deepEqual(renderFlags({ model: 'opus', durationMs: 60000, turns: 5, costUsd: 2.5 }, []), ['--model', 'opus', '--duration-ms', '60000', '--turns', '5', '--cost-usd', '2.5']);
+});
+
+test('the explorer gets explorer.md, the brief and its run directory, and keeps its usage', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'pipeline-'));
+	const calls = [];
+	try {
+		const pass = await explore(dir, {
+			brief: 'Test the Variables pane.\n', repo: '/repo', timeLimitPath: join(dir, 'time-limit'),
+			runAgent: async step => { calls.push(step); return { text: 'Found one.', durationMs: 600000, turns: 70, costUsd: 3.1 }; },
+		});
+		const [step] = calls;
+		assert.match(step.prompt, /^# Exploratory testing: the explorer/);
+		assert.match(step.prompt, /# Brief\n\nTest the Variables pane\.\n/);
+		assert.ok(step.prompt.includes(`Run directory: \`${dir}\``));
+		assert.deepEqual({ ...step, prompt: undefined }, { role: 'explore', purpose: 'explore', model: 'opus', prompt: undefined, tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', timeLimitPath: join(dir, 'time-limit'), timeUpMessage: EXPLORE_TIME_UP });
+		assert.deepEqual(pass, { role: 'explore', model: 'opus', durationMs: 600000, turns: 70, costUsd: 3.1 });
+		assert.equal(readFileSync(join(dir, 'explore-reply.md'), 'utf8'), 'Found one.');
+		assert.equal(await explore(dir, { brief: 'b', repo: '/repo', runAgent: async () => { throw new Error('no login'); } }), null);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
 const SCRIPT = fileURLToPath(new URL('./pipeline.mjs', import.meta.url));
 
 test('the CLI names what it needs', () => {
@@ -195,6 +220,9 @@ test('the CLI names what it needs', () => {
 		const missing = spawnSync('node', [SCRIPT, 'run', dir], { encoding: 'utf8' });
 		assert.equal(missing.status, 2);
 		assert.match(missing.stderr, /verifying needs --repo, --base and --head/);
+		// A fresh run needs a brief that exists and a limit in whole minutes.
+		assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'missing.md')], { encoding: 'utf8' }).status, 2);
+		assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'report.md'), '--time-limit', '10m'], { encoding: 'utf8' }).status, 2);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}

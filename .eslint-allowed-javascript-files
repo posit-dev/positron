@@ -219,6 +219,8 @@ test/unit/reporter.js
 .claude/skills/exploratory-test/renderer/edit.test.mjs
 .claude/skills/exploratory-test/renderer/claude-cli.mjs
 .claude/skills/exploratory-test/renderer/claude-cli.test.mjs
+.claude/skills/exploratory-test/renderer/time-up-hook.mjs
+.claude/skills/exploratory-test/renderer/time-up-hook.test.mjs
 .claude/skills/exploratory-test/renderer/pipeline.mjs
 .claude/skills/exploratory-test/renderer/pipeline.test.mjs
 .claude/skills/exploratory-test/renderer/stats.mjs

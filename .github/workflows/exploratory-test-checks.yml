@@ -52,7 +52,7 @@ jobs:
           # The files SKILL.md's version comment lists: what the agents are
           # told and allowed, and what is done with their replies.
           ACTION=.github/actions/pr-exploratory-test
-          CHANGED=$(git diff --name-only HEAD^1 HEAD -- "$SKILL/SKILL.md" "$SKILL/explorer.md" "$SKILL/verifier.md" "$SKILL/isolator.md" "$SKILL/editor.md" "$SKILL/renderer/known-issues.mjs" "$SKILL/renderer/pipeline.mjs" "$SKILL/renderer/finish.mjs" "$SKILL/renderer/edit.mjs" "$SKILL/renderer/claude-cli.mjs" "$ACTION/run.mjs" "$ACTION/lib.mjs")
+          CHANGED=$(git diff --name-only HEAD^1 HEAD -- "$SKILL/SKILL.md" "$SKILL/explorer.md" "$SKILL/verifier.md" "$SKILL/isolator.md" "$SKILL/editor.md" "$SKILL/renderer/known-issues.mjs" "$SKILL/renderer/pipeline.mjs" "$SKILL/renderer/finish.mjs" "$SKILL/renderer/edit.mjs" "$SKILL/renderer/claude-cli.mjs" "$SKILL/renderer/time-up-hook.mjs" "$ACTION/run.mjs" "$ACTION/lib.mjs")
           if [ -z "$CHANGED" ]; then
             echo "Nothing that shapes a run's findings changed."
             exit 0

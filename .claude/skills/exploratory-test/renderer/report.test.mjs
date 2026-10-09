@@ -1996,6 +1996,16 @@ test('render.mjs writes the explore and verify passes and their total, replacing
 	rmSync(dir, { recursive: true, force: true });
 });
 
+test('render.mjs gives the total a cost when every pass has one', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.md');
+	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, '--model', 'opus', '--duration-ms', '1500000', '--turns', '142', '--cost-usd', '3.7', '--verify-model', 'sonnet', '--verify-duration-ms', '180000', '--verify-turns', '24', '--verify-cost-usd', '0.4231'], { encoding: 'utf8' });
+	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
+	assert.deepEqual(footer, ['_explore: Opus | $3.70 | 142 turns | 25m_', '_verify: Sonnet | $0.42 | 24 turns | 3m_', '_total: $4.12 | 28m_']);
+	rmSync(dir, { recursive: true, force: true });
+});
+
 test('render.mjs keeps the stats CI recorded when it replays a CI run', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
 	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });

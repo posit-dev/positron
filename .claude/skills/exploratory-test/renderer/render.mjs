@@ -5,7 +5,7 @@
 
 // Renders a local run's report.md as index.html beside it, the same page CI
 // publishes. Usage:
-//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>]
+//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--cost-usd <n>]
 //     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n> --verify-cost-usd <n>]
 //     [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n> --isolate-cost-usd <n>] [--no-agent-prompts] [--base <url> --out <file>]
 // The flags record the explore agent's run, and the verifier's when there was
@@ -28,6 +28,7 @@ const { values: flags, positionals } = parseArgs({
 	options: {
 		model: { type: 'string' },
 		'duration-ms': { type: 'string' },
+		'cost-usd': { type: 'string' },
 		turns: { type: 'string' },
 		'verify-model': { type: 'string' },
 		'verify-duration-ms': { type: 'string' },
@@ -45,7 +46,7 @@ const { values: flags, positionals } = parseArgs({
 });
 const input = positionals[0];
 if (!input) {
-	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n> --verify-cost-usd <n>] [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n> --isolate-cost-usd <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
+	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--cost-usd <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n> --verify-cost-usd <n>] [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n> --isolate-cost-usd <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
 	process.exit(1);
 }
 
@@ -115,7 +116,7 @@ if (flags.check) {
 if (flags['duration-ms']) {
 	// Written here rather than by the action's renderCostFooter (lib.mjs):
 	// a local run has no bill, and that footer drops any pass without one.
-	// The explorer's cost is unknown; the later passes' is claude -p's estimate.
+	// Each cost is claude -p's estimate; a replay's explorer has none.
 	const line = (label, model, turns, ms, cost) => `_${label}: ${[modelDisplayName(model), cost && `$${Number(cost).toFixed(2)}`, turns && `${turns} turns`, formatMinutes(ms)].filter(Boolean).join(' | ')}_`;
 	const explore = Number(flags['duration-ms']);
 	const verify = Number(flags['verify-duration-ms']);
@@ -126,9 +127,12 @@ if (flags['duration-ms']) {
 		flags['verify-duration-ms'] !== undefined && line('verify', flags['verify-model'], flags['verify-turns'], verify, flags['verify-cost-usd']),
 		flags['isolate-duration-ms'] !== undefined && line('isolate', flags['isolate-model'], flags['isolate-turns'], isolate, flags['isolate-cost-usd']),
 	].filter(Boolean);
+	// The total has a cost only when every pass that ran has one.
+	const costs = [flags['cost-usd'], ...['verify', 'isolate'].filter(role => flags[`${role}-duration-ms`] !== undefined).map(role => flags[`${role}-cost-usd`])];
+	const totalCost = costs.every(c => c !== undefined && c !== '') ? `$${costs.reduce((sum, c) => sum + Number(c), 0).toFixed(2)}` : null;
 	const footer = later.length
-		? [line('explore', flags.model, flags.turns, explore), ...later, `_total: ${formatMinutes(explore + (verify || 0) + (isolate || 0))}_`].join('\n')
-		: line('explore', flags.model, flags.turns, explore);
+		? [line('explore', flags.model, flags.turns, explore, flags['cost-usd']), ...later, `_total: ${[totalCost, formatMinutes(explore + (verify || 0) + (isolate || 0))].filter(Boolean).join(' | ')}_`].join('\n')
+		: line('explore', flags.model, flags.turns, explore, flags['cost-usd']);
 	// Re-rendering must not stack a second footer under the first; only the
 	// labels a footer is written with, so a body line like `_note: x_` survives.
 	const body = markdown.split('\n').filter(l => !/^_(explore|verify|isolate|total):.*_$/.test(l.trim())).join('\n').trimEnd();
@@ -150,7 +154,7 @@ const stats = flags['duration-ms'] && !ranInCi(dir) ? buildStats({
 	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
 	version: skillVersion(),
 	model: flags.model,
-	// A subagent's tool_uses, which is what the footer calls turns here.
+	// claude -p's num_turns, or a replayed run's subagent tool_uses.
 	turns: flags.turns ? Number(flags.turns) : null,
 	durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0) + (Number(flags['isolate-duration-ms']) || 0),
 	// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.

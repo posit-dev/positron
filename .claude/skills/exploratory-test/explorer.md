@@ -60,10 +60,8 @@ report.
 
 ## Set up the run directory
 
-Make a fresh run directory before you launch, in one step, so two runs that
-start in the same second cannot share it, and never write into an existing one:
-`RUN=$(mktemp -d "$HOME/.claude/skills/exploratory-test/output/$(date +%Y%m%dT%H%M%S)-XXXX")`.
-Right after making it:
+Your brief names the run directory, already made. Before you launch, set
+`RUN` to it, then:
 
 - `export DRIVE_POSITRON_LOG="$RUN/actions.log" DRIVE_POSITRON_SHOTS="$RUN/shots"`,
   so every helper logs there and `shot.sh` saves straight into `shots/`. Never
