@@ -39,6 +39,10 @@ inputs:
     description: "Explore and gate modes: diff base SHA"
     required: false
     default: ""
+  base-ref:
+    description: "Explore mode: the base branch's name, which the Findings table's change mark names"
+    required: false
+    default: ""
   head-sha:
     description: "Head SHA"
     required: true
@@ -171,6 +175,7 @@ runs:
         BRANCH: ${{ inputs.branch }}
         PR_BODY_FILE: ${{ inputs.pr-body-file }}
         BASE_SHA: ${{ inputs.base-sha }}
+        BASE_REF: ${{ inputs.base-ref }}
         HEAD_SHA: ${{ inputs.head-sha }}
         MODEL: ${{ inputs.model }}
         FOCUS: ${{ inputs.focus }}

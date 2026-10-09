@@ -6,12 +6,15 @@
 /// <reference types="vitest/globals" />
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { IFileService, IFileStatWithPartialMetadata } from '../../../../../platform/files/common/files.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
@@ -31,10 +34,12 @@ import {
 	RuntimeStartupPhase,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
+import { IPathService } from '../../../path/common/pathService.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
+import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
 import { SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
 import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
@@ -353,7 +358,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
 		});
 
-		it("skips a manager that hosts no contributions at all", async () => {
+		it('skips a manager that hosts no contributions at all', async () => {
 			// Ext host hasn't activated yet (or hosts no language runtime
 			// managers); planner has nothing to do for it. Different from
 			// cold-start, where the ext host *does* host contributions but
@@ -965,6 +970,75 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			const result = await svc.registerRuntimeFromPath('python', '/usr/bin/python3');
 
 			expect(result).toBe(languageRuntimeService.getRegisteredRuntime(md.runtimeId));
+		});
+	});
+
+	describe('expired cache entries', () => {
+		// Uses the real cache. The fake's `upsert` always sets `firstSeen` to
+		// now, so its entries never stay expired.
+		function makeRealCache(): RuntimeDiscoveryCache {
+			const fileService = stubInterface<IFileService>({
+				realpath: async () => undefined,
+				stat: async () => stubInterface<IFileStatWithPartialMetadata>({ isFile: true, isDirectory: false, size: 1, mtime: 1, ctime: 1 }),
+			});
+			return new RuntimeDiscoveryCache(
+				ctx.get(IStorageService),
+				config,
+				fileService,
+				new NullLogService(),
+				stubInterface<IPathService>(),
+			);
+		}
+
+		it('uses the cache again on the launch after expired entries trigger a full discovery', async () => {
+			const md = metadata();
+			const contribution = { extensionId: 'ms.python', languageId: 'python', alwaysRediscover: false };
+
+			async function launch(): Promise<string> {
+				// Disposed at the end: only one `RuntimeStartupService` can exist at a time.
+				const store = new DisposableStore();
+				try {
+					// A new cache, so it loads what the previous launch saved.
+					const realCache = store.add(makeRealCache());
+					ctx.instantiationService.stub(IRuntimeDiscoveryCache, realCache);
+					const svc = store.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+					store.add(svc.registerRuntimeManager(makeManager({ id: 1, owns: [md], contributions: [contribution] })));
+
+					const plans = await managersNeedingFullDiscovery(svc);
+					if (plans.length === 0) {
+						return 'warm-start';
+					}
+					// Fake a full discovery that finds the same interpreter again.
+					realCache.setLastFullDiscovery('ms.python', 'python', Date.now());
+					for (const entry of realCache.getEntries('ms.python', 'python')) {
+						realCache.invalidate('ms.python', 'python', entry.metadata.runtimePath);
+					}
+					await realCache.upsert(md);
+					return lastFullDiscoveryReason(svc);
+				} finally {
+					store.dispose();
+				}
+			}
+
+			const HOUR_MS = 60 * 60 * 1000;
+			const DAY_MS = 24 * HOUR_MS;
+			vi.useFakeTimers({ toFake: ['Date'] });
+			try {
+				const day0 = Date.now();
+				const reasons: string[] = [];
+				reasons.push(await launch());
+				vi.setSystemTime(day0 + HOUR_MS);
+				reasons.push(await launch());
+				// Not opened for 31 days, past the 30-day max age.
+				vi.setSystemTime(day0 + 31 * DAY_MS);
+				reasons.push(await launch());
+				vi.setSystemTime(day0 + 31 * DAY_MS + HOUR_MS);
+				reasons.push(await launch());
+
+				expect(reasons).toEqual(['cold-start', 'warm-start', 'cold-start', 'warm-start']);
+			} finally {
+				vi.useRealTimers();
+			}
 		});
 	});
 });

@@ -9,9 +9,10 @@
 //
 // Local usage, once the explorer has written report.md:
 //   node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha>
-//     [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]
+//     [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]
 //     runs each agent as a `claude -p` session and renders the report.
-//     --duration-ms, --turns and --model are the explorer's, for the Run tile.
+//     --base-name is the base branch, for the change mark; --duration-ms,
+//     --turns and --model are the explorer's, for the Run tile.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -80,7 +81,7 @@ function isolatePrompt(dir, { repo, base, head }, findings, reply) {
  * so the worst case is the report as the explorer wrote it. Each reply is kept
  * in `<purpose>-reply.md` for whoever debugs the run.
  */
-export async function finishRun(dir, { repo, base, head, runAgent, verify = true, model = 'sonnet', stop = stopInstances, log = () => { } }) {
+export async function finishRun(dir, { repo, base, head, baseName, runAgent, verify = true, model = 'sonnet', stop = stopInstances, log = () => { } }) {
 	const passes = [];
 	const ask = async step => {
 		log(`${step.resume ? 'message to' : 'new'} ${step.role} agent: ${step.purpose}`);
@@ -101,7 +102,7 @@ export async function finishRun(dir, { repo, base, head, runAgent, verify = true
 	}
 	stop(dir);
 	if (verify) {
-		await verifyFindings(dir, { repo, base, head }, ask, stop, log);
+		await verifyFindings(dir, { repo, base, head, baseName }, ask, stop, log);
 	}
 	await editReport(dir, ask, log);
 	return passes;
@@ -185,21 +186,21 @@ async function main(argv) {
 		args: argv,
 		allowPositionals: true,
 		options: {
-			repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' },
+			repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' },
 			'duration-ms': { type: 'string' }, turns: { type: 'string' }, model: { type: 'string' },
 			'no-agent-prompts': { type: 'boolean' },
 		},
 	});
 	const [command, dir] = positionals;
 	if (command !== 'run' || !dir || !existsSync(join(dir, 'report.md'))) {
-		console.error('usage: node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha> [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]');
+		console.error('usage: node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]');
 		return 2;
 	}
 	const number = value => value === undefined || value === '' || Number.isNaN(Number(value)) ? null : Number(value);
 	const explore = { model: values.model ?? 'opus', durationMs: number(values['duration-ms']), turns: number(values.turns) };
 	let passes;
 	try {
-		passes = await finishRun(dir, { ...values, runAgent: runClaude, log: line => console.error(`pipeline: ${line}`) });
+		passes = await finishRun(dir, { ...values, baseName: values['base-name'], runAgent: runClaude, log: line => console.error(`pipeline: ${line}`) });
 	} catch (err) {
 		console.error(err.message);
 		return 2;

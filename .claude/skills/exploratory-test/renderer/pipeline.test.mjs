@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,7 +38,7 @@ const REPORT = [
 	'',
 ].join('\n');
 
-const SHAS = { repo: '/repo', base: 'aaaa1111', head: 'bbbb2222' };
+const SHAS = { repo: '/repo', base: 'aaaa1111', head: 'bbbb2222', baseName: 'main' };
 
 /**
  * Runs the pipeline on a fresh run directory with a fake agent per purpose:
@@ -64,7 +64,10 @@ async function runWith(report, agents, options = {}) {
 		});
 		run.report = readFileSync(join(dir, 'report.md'), 'utf8');
 		run.purposes = run.steps.map(s => s.purpose);
-		run.exists = name => existsSync(join(dir, name));
+		// Listed before the directory is removed below.
+		const files = readdirSync(dir);
+		run.exists = name => files.includes(name);
+		run.changeBase = files.includes('change-base.json') ? JSON.parse(readFileSync(join(dir, 'change-base.json'), 'utf8')) : null;
 		return run;
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
@@ -88,6 +91,7 @@ test('a clean verify goes on to the editor, and each agent is recorded', async (
 	assert.match(verify.prompt, /aaaa1111/);
 	assert.deepEqual({ ...edit, prompt: undefined }, { model: 'sonnet', role: 'edit', purpose: 'edit', tools: [], cwd: run.dir, prompt: undefined });
 	assert.match(run.report, /\| 2 \| second claim .* \| confirmed \|/);
+	assert.equal(run.changeBase.name, 'main', 'the base branch reaches the change mark');
 	assert.equal(run.stops, 1);
 	assert.deepEqual(run.passes, [
 		{ role: 'verify', model: 'sonnet', durationMs: 1000, turns: 2, costUsd: 0.5 },

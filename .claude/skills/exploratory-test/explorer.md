@@ -688,7 +688,9 @@ first." Describe the old code's behavior, not the run you did not do. When the
 diff changes what unchanged code is given, write "reachable through this
 change; cannot tell if it predates it without a base build". Otherwise, if the
 diff does not settle it, leave origin out, and never label a finding new or
-pre-existing.
+pre-existing. The verifier reads that sentence and decides which findings the
+Findings table marks as likely related to the change; add no column or mark
+for it yourself.
 
 To see which language client served a request, turn on its LSP trace: the
 extension's trace setting (`<server>.trace.server` at `verbose`) and its

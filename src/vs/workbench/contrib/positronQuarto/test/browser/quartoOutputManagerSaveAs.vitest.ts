@@ -22,25 +22,28 @@ import { IQuartoDocumentModel, QuartoCodeCell } from '../../common/quartoTypes.j
 import { QUARTO_INLINE_OUTPUT_ENABLED } from '../../common/positronQuartoConfig.js';
 import { IPositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IResourceUsageHistoryService } from '../../../../services/positronConsole/browser/resourceUsageHistoryService.js';
+import { IUntitledTextEditorService, IUntitledTextEditorModelSaveEvent } from '../../../../services/untitled/common/untitledTextEditorService.js';
 
 /**
  * Regression coverage for inline output disappearing after a window reload when
  * an untitled Quarto document was saved with Save As.
  *
- * On the untitled->saved transition the contribution rebinds the output cache to
- * the saved document's URI. The rebind used to require a `file` scheme, so a
- * remote or web save (`vscode-remote`) left the cache keyed to the untitled URI
- * with nothing for the reload to restore from.
+ * When an untitled document is saved, the contribution rebinds the output cache
+ * to the saved document's URI. The rebind runs on the untitled save event, not on
+ * any model swap, because the editor widget is reused across tabs. It used to
+ * require a `file` scheme, so a remote or web save (`vscode-remote`) left the
+ * cache keyed to the untitled URI with nothing for the reload to restore from.
  */
 describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 	const cellId = '0-abchash-unlabeled';
 	const contentHash = 'abchash';
-	const untitledUri = URI.from({ scheme: 'untitled', path: '/Untitled-1.qmd' });
+	const untitledUri = URI.from({ scheme: 'untitled', path: 'Untitled-1' });
 	const output: ICellOutput = { outputId: 'out-1', items: [{ mime: 'text/plain', data: 'plot' }] };
 
 	// Describe-scope so the container's stubs capture stable references at
 	// build() time; reset per test (see beforeEach) for isolation.
 	const modelChangeEmitter = new Emitter<IModelChangedEvent>();
+	const untitledSaveEmitter = new Emitter<IUntitledTextEditorModelSaveEvent>();
 	let liveCells: QuartoCodeCell[] = [];
 	let untitledCache = new Map<string, ICellOutput[]>();
 	let currentModel: ITextModel | undefined;
@@ -89,6 +92,7 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 		})
 		.stub(IPositronNotebookOutputWebviewService, {})
 		.stub(IResourceUsageHistoryService, {})
+		.stub(IUntitledTextEditorService, { onDidSave: untitledSaveEmitter.event })
 		.build();
 
 	beforeEach(() => {
@@ -121,7 +125,11 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 	 * model change that a Save As produces, landing on `savedUri`. The saved
 	 * document parses as `savedCells`, which defaults to the cached cell.
 	 */
-	function saveAsTo(savedUri: URI, savedCells: QuartoCodeCell[] = [cell()]): QuartoOutputContribution {
+	function saveAsTo(
+		savedUri: URI,
+		savedCells: QuartoCodeCell[] = [cell()],
+		{ saved = true }: { saved?: boolean } = {},
+	): QuartoOutputContribution {
 		modelFor(untitledUri);
 		const editor = stubInterface<ICodeEditor>({
 			hasModel: (() => true) as ICodeEditor['hasModel'],
@@ -133,8 +141,12 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 		QUARTO_INLINE_OUTPUT_ENABLED.bindTo(ctx.get(IContextKeyService)).set(true);
 		const contribution = ctx.disposables.add(ctx.instantiationService.createInstance(QuartoOutputContribution, editor));
 
-		// The save swaps the editor's model for the saved document, which the
-		// document model reports as parsed by the time the change is handled.
+		// The untitled save event fires before the editor swaps its model for the
+		// saved document, which the document model reports as parsed by the time
+		// the change is handled. A plain tab switch swaps the model with no save.
+		if (saved) {
+			untitledSaveEmitter.fire({ source: untitledUri, target: savedUri });
+		}
 		modelFor(savedUri);
 		liveCells = savedCells;
 		modelChangeEmitter.fire({ oldModelUrl: untitledUri, newModelUrl: savedUri });
@@ -204,7 +216,13 @@ describe('QuartoOutputContribution -- cache rebind on Save As', () => {
 	});
 
 	it('does not rebind when an untitled document is swapped for another untitled one', () => {
-		saveAsTo(URI.from({ scheme: 'untitled', path: '/Untitled-2.qmd' }));
+		saveAsTo(URI.from({ scheme: 'untitled', path: 'Untitled-2' }), [cell()], { saved: false });
+
+		expect({ cacheWrites, clearedUris }).toEqual({ cacheWrites: [], clearedUris: [] });
+	});
+
+	it('does not rebind or clear the untitled cache when switching tabs without saving', () => {
+		saveAsTo(URI.file('/w/other.qmd'), [cell()], { saved: false });
 
 		expect({ cacheWrites, clearedUris }).toEqual({ cacheWrites: [], clearedUris: [] });
 	});

@@ -10,7 +10,9 @@ directory's `report.md`. See the change with `git -C <checkout> diff
 Use `.claude/skills/drive-positron` from the checkout. Do not build: the
 checkout is already built at the head SHA. Launch your own instance, piping
 the launch through `tee -a "<run dir>/instances.jsonl"`, and stop it when you
-are done. Write only `isolation.md` and files under `<run dir>/isolation/`.
+are done. Its scripts take the session as `--session <name>` before the
+command (`scripts/ui.sh --session iso read Console`); `-s=<name>` is
+`playwright-cli`'s flag, not theirs. Write only `isolation.md` and files under `<run dir>/isolation/`.
 
 Take the findings most severe first. For each, reproduce it once from its
 steps, then run the control your brief says the verifier found missing: it is

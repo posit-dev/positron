@@ -3,12 +3,13 @@ name: exploratory-test
 description: "Explore a running Positron instance as a real user to find genuine problems in a change you just made. Use when asked to exploratorily test, QA, manually test, or poke at a branch, PR, or feature through the real UI. This is discovery testing against the live app to find bugs, NOT writing automated tests; use author-e2e-tests or author-vitest-tests for that. Worth its cost for a user-visible behavior change, not for a refactor or a typo fix. Only runs when a person invokes it explicitly."
 disable-model-invocation: true
 metadata:
-  # Bump when the agent is told something new: this file, explorer.md,
-  # verifier.md, isolator.md, editor.md, the text renderer/known-issues.mjs prints, the
-  # messages renderer/pipeline.mjs, finish.mjs and edit.mjs send with them, or the
-  # prompt CI builds in pr-exploratory-test's run.mjs and lib.mjs. Feedback is
-  # grouped by it, so a renderer change does not count.
-  version: "1.56"
+  # Bump when a run could find or judge findings differently: what an agent is
+  # told or allowed, or what is done with its reply. That is this file,
+  # explorer.md, verifier.md, isolator.md, editor.md, renderer/known-issues.mjs,
+  # pipeline.mjs, finish.mjs, edit.mjs and claude-cli.mjs, and
+  # pr-exploratory-test's run.mjs and lib.mjs. Feedback is grouped by it, so a
+  # change to how the page looks does not count.
+  version: "1.57"
 ---
 
 # Exploratory testing
@@ -26,8 +27,8 @@ because it re-sends your whole conversation on every turn. Sonnet is only for a
 narrow re-test of one known scenario; it is not good enough for discovery.
 
 The brief is the only context the agent has, so make it self-contained: the
-checkout path, the branch, the base and head SHAs and the `git diff` that shows
-the change between them, what the change is meant to
+checkout path, the branch, the base branch and the base and head SHAs taken
+from it, the `git diff` that shows the change between them, what the change is meant to
 do as a user would describe it, and the blast radius you are nervous about,
 riskiest first. State intent and risk; do not state what you expect to work.
 When the feature has variants a setting chooses, such as the Positron and the
@@ -70,11 +71,11 @@ session you are working in.
 
 When the agent finishes, a second agent checks its findings and a third
 rewrites their openings in plain words, as CI does. Wait for the explorer's
-completion notice; its report can arrive first. Then, with the base and head
-SHAs from the brief and the notice's `duration_ms` and `tool_uses`, run this as
-a background command:
+completion notice; its report can arrive first. Then, with the base branch and
+the SHAs from the brief and the notice's `duration_ms` and `tool_uses`, run this
+as a background command:
 
-`node <base>/renderer/pipeline.mjs run <run dir> --repo <checkout> --base <base sha> --head <head sha> --duration-ms <duration_ms> --turns <tool_uses>`
+`node <base>/renderer/pipeline.mjs run <run dir> --repo <checkout> --base <base sha> --head <head sha> --base-name <base branch> --duration-ms <duration_ms> --turns <tool_uses>`
 
 It runs each of those agents itself and prints the `index.html` path. It takes
 a few minutes, or about 20 when a finding needs isolating. The verdicts are

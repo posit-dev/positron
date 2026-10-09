@@ -42,13 +42,18 @@ export async function reportUsage({ email, event, runId, stats }, { fetch = glob
 	}
 }
 
+/** Whether CI ran this run: only CI writes cost.json. Rendering one locally is a replay. */
+export function ranInCi(runDir) {
+	return existsSync(join(runDir, 'cost.json'));
+}
+
 /** Written once a run's row is sent, so re-rendering the run sends no second row. */
 export const REPORTED_FILE = 'usage-reported';
 
 /** Sends the run's row unless an earlier render already did, or CI ran it; a failed send is retried next render. */
 export async function reportUsageOnce(runDir, row, options) {
 	const marker = join(runDir, REPORTED_FILE);
-	if (existsSync(marker) || existsSync(join(runDir, 'cost.json'))) {
+	if (existsSync(marker) || ranInCi(runDir)) {
 		return false;
 	}
 	const sent = await reportUsage(row, options);

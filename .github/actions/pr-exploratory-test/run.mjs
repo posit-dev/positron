@@ -330,8 +330,9 @@ async function main() {
 		// fallback write above. Annotation is best effort and never removes a
 		// row, because a wrong FALSE POSITIVE that deleted a real finding would
 		// be invisible to everyone.
+		await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
+		// Read after the pipeline, which writes change-base.json.
 		const run = readRunDir(WORK_DIR);
-		await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
 		const reviewed = readFileSync(join(WORK_DIR, 'report.md'), 'utf8').trimEnd();
 		reportMarkdown = `${reviewed}\n\n${footer()}\n`;
 		// Written with the footer: report.md is published to the CDN on its own,
@@ -356,6 +357,7 @@ async function main() {
 				readFile: run.readFile,
 				startedAt: STARTED_AT,
 				knownIssues,
+				changeBase: run.changeBase,
 			});
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const { logs, files } = missingFiles(parsed, run.fileExists);

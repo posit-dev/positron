@@ -5,6 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -36,6 +37,8 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 interface IPersistedCache {
 	schemaVersion: number;
 	buckets: Record<string, IPersistedBucket>;
+	/** ID of the cache instance that saved this. Missing in data saved by older builds. */
+	writerId?: string;
 }
 
 interface IPersistedBucket {
@@ -108,6 +111,13 @@ interface IInternalBucket {
  *   in-flight entry but never serves a wrong runtime, and any loss is
  *   recovered on the next discovery or revalidation pass.
  *
+ *   The main process also sends each save back to the window that made it,
+ *   a couple hundred milliseconds later, flagged as if another window had
+ *   written it. During discovery we save faster than that, so by the time a
+ *   copy arrives we may have saved newer entries, and reloading the copy
+ *   would lose them. Each save records which cache instance wrote it so we
+ *   can ignore copies of our own saves.
+ *
  * - **Disable switch.** {@link RUNTIME_DISCOVERY_CACHE_ENABLED_SETTING} gates
  *   everything: when off, reads return empty and writes no-op, restoring
  *   pre-cache cold-start behavior with no other code paths to touch.
@@ -117,6 +127,8 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 	declare readonly _serviceBrand: undefined;
 
 	private readonly _buckets = new Map<string, IInternalBucket>();
+
+	private readonly _writerId = generateUuid();
 
 	// Mutable backing array; sessionCounters exposes the same reference typed as
 	// ReadonlyArray so external consumers can't push.
@@ -146,13 +158,18 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		// APPLICATION-scope storage, which is shared across all windows on the
 		// machine, so without this listener two windows would silently clobber
 		// each other on every persist (last-writer-wins on the full JSON blob).
-		// `external: true` filters out our own in-process writes.
+		//
+		// Skip our own saves. Each one fires this event twice: right away
+		// with `external` set to false, and again a couple hundred
+		// milliseconds later, when the main process sends it back with
+		// `external` set to true. The writer ID check skips the second one,
+		// since reloading it could lose newer entries (see the class comment).
 		this._register(this._storageService.onDidChangeValue(
 			StorageScope.APPLICATION,
 			RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,
 			this._store,
 		)(e => {
-			if (!e.external) {
+			if (!e.external || this._storedWriterId() === this._writerId) {
 				return;
 			}
 			this._reloadFromStorage();
@@ -204,7 +221,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		if (!bucket) {
 			return [];
 		}
-		return this._freshEntries(bucket);
+		return this._freshEntries(bucket.entries.values());
 	}
 
 	public getAllBuckets(): readonly IDiscoveryCacheBucket[] {
@@ -218,7 +235,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			out.push({
 				extensionId: parsed.extensionId,
 				languageId: parsed.languageId,
-				entries: this._freshEntries(bucket),
+				entries: this._freshEntries(bucket.entries.values()),
 				lastFullDiscovery: bucket.lastFullDiscovery,
 				discoveryRootSignature: bucket.discoveryRootSignature,
 			});
@@ -363,12 +380,12 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 
 	// --- Internals ----------------------------------------------------------
 
-	private _freshEntries(bucket: IInternalBucket): ICachedRuntime[] {
+	private _freshEntries(entries: Iterable<ICachedRuntime>): ICachedRuntime[] {
 		const days = this._configurationService.getValue<number>(RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_SETTING)
 			?? RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT;
 		const cutoff = Date.now() - days * MS_PER_DAY;
 		const out: ICachedRuntime[] = [];
-		for (const entry of bucket.entries.values()) {
+		for (const entry of entries) {
 			if (entry.firstSeen >= cutoff) {
 				out.push(entry);
 			}
@@ -396,6 +413,18 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		return p;
 	}
 
+	private _storedWriterId(): string | undefined {
+		const raw = this._storageService.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION);
+		if (!raw) {
+			return undefined;
+		}
+		try {
+			return (JSON.parse(raw) as IPersistedCache)?.writerId;
+		} catch {
+			return undefined;
+		}
+	}
+
 	private _reloadFromStorage(): void {
 		// Replace in-memory state wholesale: this is called on initial load
 		// AND whenever a sibling window writes the cache, so we can't append.
@@ -420,11 +449,12 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			return;
 		}
 		for (const [key, bucket] of Object.entries(parsed.buckets)) {
+			// Drop expired entries. If discovery finds one of these runtimes
+			// again, upsert() then treats it as new and resets firstSeen.
+			const stored = (bucket.entries ?? []).filter(entry => entry?.metadata?.runtimePath);
 			const entries = new Map<string, ICachedRuntime>();
-			for (const entry of bucket.entries ?? []) {
-				if (entry?.metadata?.runtimePath) {
-					entries.set(entry.metadata.runtimePath, entry);
-				}
+			for (const entry of this._freshEntries(stored)) {
+				entries.set(entry.metadata.runtimePath, entry);
 			}
 			this._buckets.set(key, {
 				entries,
@@ -437,13 +467,15 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 	private _persist(): void {
 		const buckets: Record<string, IPersistedBucket> = {};
 		for (const [key, bucket] of this._buckets) {
-			if (bucket.entries.size === 0
+			// Leave out entries that expired since they were loaded.
+			const entries = this._freshEntries(bucket.entries.values());
+			if (entries.length === 0
 				&& bucket.lastFullDiscovery === 0
 				&& !bucket.discoveryRootSignature) {
 				continue;
 			}
 			buckets[key] = {
-				entries: Array.from(bucket.entries.values()),
+				entries,
 				lastFullDiscovery: bucket.lastFullDiscovery,
 				discoveryRootSignature: bucket.discoveryRootSignature,
 			};
@@ -451,6 +483,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		const payload: IPersistedCache = {
 			schemaVersion: RUNTIME_DISCOVERY_CACHE_SCHEMA_VERSION,
 			buckets,
+			writerId: this._writerId,
 		};
 		this._storageService.store(
 			RUNTIME_DISCOVERY_CACHE_STORAGE_KEY,

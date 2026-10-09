@@ -56,11 +56,12 @@ Launching and driving the app belongs to drive-positron. See its
 
 ## Rules
 
-- **Bump the version when an agent is told something new.** That is
-  `metadata.version` in SKILL.md; the comment above it lists the files that
-  count. Stats and feedback are grouped by version, so a prompt change under
-  an old number muddies both. One bump per PR is enough. A renderer-only
-  change needs none.
+- **Bump the version when a run could find or judge findings differently.**
+  That is `metadata.version` in SKILL.md; the comment above it lists the files
+  that count: the prompts, and the code that sets what agents may do and turns
+  their replies into the report. Stats and feedback are grouped by version, so
+  such a change under an old number muddies both. One bump per PR is enough. A
+  change to how the page looks needs none.
 - **Verdicts annotate, they never delete.** A wrong FALSE POSITIVE that
   removed a real finding would be invisible to everyone.
 - **Order lives in `pipeline.mjs`.** Don't add a step to SKILL.md or to

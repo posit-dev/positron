@@ -60,13 +60,13 @@ const { formatMinutes, modelDisplayName, parseReport } = await import('./report-
 const { lintLedgerOnly, lintReport, splitProblems, untaggedShots } = await import('./lint.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
-const { reportUsageOnce } = await import('./usage.mjs');
+const { ranInCi, reportUsageOnce } = await import('./usage.mjs');
 
 const dir = dirname(resolve(input));
 // The ledger alone, while the run is still exploring and there is no report yet.
 const ledgerOnly = flags.check && (basename(input) === 'ledger.md' || !existsSync(input));
 let markdown = ledgerOnly ? '' : readFileSync(input, 'utf8');
-const { ledger, actionsLog, knownIssues, fileExists, readFile } = readRunDir(dir);
+const { ledger, actionsLog, knownIssues, changeBase, fileExists, readFile } = readRunDir(dir);
 // Every file saved under files/, so lint can find one the ledger never listed.
 const listFiles = () => {
 	const root = join(dir, 'files');
@@ -143,8 +143,9 @@ const born = statSync(dir).birthtime;
 const parsed = parseReport(markdown, { ledger });
 
 // The Run tile's render is the run's last: record its stats, as CI's run.mjs
-// does, before the page is written, so the page can link them.
-const stats = flags['duration-ms'] ? buildStats({
+// does, before the page is written, so the page can link them. A replayed CI
+// run keeps the stats CI recorded.
+const stats = flags['duration-ms'] && !ranInCi(dir) ? buildStats({
 	where: 'local',
 	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
 	version: skillVersion(),
@@ -190,6 +191,7 @@ await writeRunPage(out, markdown, parsed, {
 	startedAt: born.getTime() > 0 ? born : undefined,
 	knownIssues,
 	issueRefs,
+	changeBase,
 });
 console.log(out);
 
