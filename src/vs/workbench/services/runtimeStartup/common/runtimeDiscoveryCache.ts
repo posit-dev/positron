@@ -214,7 +214,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 		if (!bucket) {
 			return [];
 		}
-		return this._freshEntries(bucket);
+		return this._freshEntries(bucket.entries.values());
 	}
 
 	public getAllBuckets(): readonly IDiscoveryCacheBucket[] {
@@ -228,7 +228,7 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			out.push({
 				extensionId: parsed.extensionId,
 				languageId: parsed.languageId,
-				entries: this._freshEntries(bucket),
+				entries: this._freshEntries(bucket.entries.values()),
 				lastFullDiscovery: bucket.lastFullDiscovery,
 				discoveryRootSignature: bucket.discoveryRootSignature,
 			});
@@ -263,15 +263,12 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			bucket = { entries: new Map(), lastFullDiscovery: 0, discoveryRootSignature: undefined };
 			this._buckets.set(key, bucket);
 		}
-		// An expired entry is hidden from every read, so treat it as absent
-		// here too: a re-found runtime starts a new max-age window.
 		const existing = bucket.entries.get(metadata.runtimePath);
-		const keepFirstSeen = existing !== undefined && existing.firstSeen >= this._maxAgeCutoff();
 		const entry: ICachedRuntime = {
 			metadata,
 			fingerprint: probed.fingerprint,
 			resolvedPath: probed.resolvedPath,
-			firstSeen: keepFirstSeen ? existing.firstSeen : now,
+			firstSeen: existing?.firstSeen ?? now,
 			lastValidated: now,
 		};
 		bucket.entries.set(metadata.runtimePath, entry);
@@ -376,17 +373,12 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 
 	// --- Internals ----------------------------------------------------------
 
-	/** Entries whose `firstSeen` is older than this have expired. */
-	private _maxAgeCutoff(): number {
+	private _freshEntries(entries: Iterable<ICachedRuntime>): ICachedRuntime[] {
 		const days = this._configurationService.getValue<number>(RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_SETTING)
 			?? RUNTIME_DISCOVERY_CACHE_MAX_AGE_DAYS_DEFAULT;
-		return Date.now() - days * MS_PER_DAY;
-	}
-
-	private _freshEntries(bucket: IInternalBucket): ICachedRuntime[] {
-		const cutoff = this._maxAgeCutoff();
+		const cutoff = Date.now() - days * MS_PER_DAY;
 		const out: ICachedRuntime[] = [];
-		for (const entry of bucket.entries.values()) {
+		for (const entry of entries) {
 			if (entry.firstSeen >= cutoff) {
 				out.push(entry);
 			}
@@ -450,11 +442,12 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			return;
 		}
 		for (const [key, bucket] of Object.entries(parsed.buckets)) {
+			// Drop entries that expired while stored, so a runtime that
+			// discovery finds again gets a new firstSeen.
+			const stored = (bucket.entries ?? []).filter(entry => entry?.metadata?.runtimePath);
 			const entries = new Map<string, ICachedRuntime>();
-			for (const entry of bucket.entries ?? []) {
-				if (entry?.metadata?.runtimePath) {
-					entries.set(entry.metadata.runtimePath, entry);
-				}
+			for (const entry of this._freshEntries(stored)) {
+				entries.set(entry.metadata.runtimePath, entry);
 			}
 			this._buckets.set(key, {
 				entries,
@@ -467,13 +460,15 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 	private _persist(): void {
 		const buckets: Record<string, IPersistedBucket> = {};
 		for (const [key, bucket] of this._buckets) {
-			if (bucket.entries.size === 0
+			// Leave out entries that expired since they were loaded.
+			const entries = this._freshEntries(bucket.entries.values());
+			if (entries.length === 0
 				&& bucket.lastFullDiscovery === 0
 				&& !bucket.discoveryRootSignature) {
 				continue;
 			}
 			buckets[key] = {
-				entries: Array.from(bucket.entries.values()),
+				entries,
 				lastFullDiscovery: bucket.lastFullDiscovery,
 				discoveryRootSignature: bucket.discoveryRootSignature,
 			};

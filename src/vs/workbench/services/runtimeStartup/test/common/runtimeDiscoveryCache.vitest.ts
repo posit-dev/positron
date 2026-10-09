@@ -285,15 +285,47 @@ describe('RuntimeDiscoveryCache', () => {
 			}
 		});
 
-		it('makes an expired entry fresh again when discovery re-finds it', async () => {
+		it('gives a re-found runtime a new firstSeen when its stored entry expired', async () => {
+			await makeCache().upsert(metadata({ runtimePath: PY_PATH }));
+
+			vi.useFakeTimers();
+			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
+			try {
+				// The next launch loads the stored entry after it expired.
+				const cache = makeCache();
+				await cache.upsert(metadata({ runtimePath: PY_PATH }));
+				expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('keeps firstSeen when an entry expires during a session and is upserted', async () => {
 			const cache = makeCache();
 			await cache.upsert(metadata({ runtimePath: PY_PATH }));
 
 			vi.useFakeTimers();
 			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
 			try {
+				// A background revalidation that lands just after the cutoff.
 				await cache.upsert(metadata({ runtimePath: PY_PATH }));
-				expect(cache.getEntries('ms.python', 'python')).toHaveLength(1);
+				expect(cache.getEntries('ms.python', 'python')).toEqual([]);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+
+		it('leaves expired entries out of storage', async () => {
+			const cache = makeCache();
+			await cache.upsert(metadata({ runtimePath: PY_PATH }));
+
+			vi.useFakeTimers();
+			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
+			try {
+				await cache.upsert(metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: R_PATH, runtimeId: 'r' }));
+
+				const saved = JSON.parse(storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!);
+				expect(Object.keys(saved.buckets)).toEqual(['positron.positron-r::r']);
 			} finally {
 				vi.useRealTimers();
 			}
