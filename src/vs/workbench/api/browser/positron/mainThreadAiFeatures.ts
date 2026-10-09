@@ -124,6 +124,13 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 		this._errorActionHandlerRegistrations.get(handle)?.setCanContinueChat(canContinueChat);
 	}
 
+	/**
+	 * Set what keeps an error action handler implemented in the extension host from working fully.
+	 */
+	$setErrorActionHandlerProblem(handle: number, problem: string | undefined): void {
+		this._errorActionHandlerRegistrations.get(handle)?.setProblem(problem);
+	}
+
 	/*
 	 * Show a modal dialog for language model configuration. Return a promise resolving to the
 	 * configuration saved by the user.

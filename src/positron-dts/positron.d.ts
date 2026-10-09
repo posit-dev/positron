@@ -5041,8 +5041,8 @@ declare module 'positron' {
 		/**
 		 * An implementation of the Fix and Explain actions on console,
 		 * notebook, and Quarto errors, e.g. one that sends errors to a coding
-		 * agent. The user picks which implementation handles errors in the
-		 * Positron UI.
+		 * agent. The user picks which implementation handles errors with the
+		 * "AI: Select Agent for Fix/Explain" command.
 		 */
 		export interface ErrorActionHandler {
 			/**
@@ -5053,7 +5053,8 @@ declare module 'positron' {
 			 *
 			 * Disable a handler only when it can't do anything useful. While it
 			 * is enabled but can't send an error (e.g. a setting needs changing),
-			 * it should tell the user why and how to fix it when they use it.
+			 * set {@link ErrorActionHandlerRegistration.problem}, and tell the
+			 * user why and how to fix it when they use it.
 			 */
 			readonly when?: string;
 
@@ -5086,6 +5087,14 @@ declare module 'positron' {
 			 * when that changes, e.g. with the agent's settings.
 			 */
 			canContinueChat: boolean;
+
+			/**
+			 * What keeps the handler from working fully, e.g. "The claude
+			 * command was not found on the PATH.", shown with it in the agent
+			 * picker. Undefined, the default, while nothing does. Update it when
+			 * that changes.
+			 */
+			problem: string | undefined;
 
 			/** Unregister the handler. */
 			dispose(): void;

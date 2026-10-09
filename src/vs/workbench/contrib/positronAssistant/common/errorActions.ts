@@ -10,12 +10,9 @@ import { UriComponents } from '../../../../base/common/uri.js';
 import { ContextKeyExpression } from '../../../../platform/contextkey/common/contextkey.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
-/** Setting that picks the agent the error Fix/Explain actions send errors to. */
-export const ERROR_ACTIONS_AGENT_KEY = 'ai.errorActions.agent';
-
 /**
- * Posit Assistant's implementation, registered by Positron and the setting's
- * default. Reserved; extensions cannot register it.
+ * Posit Assistant's implementation, registered by Positron and selected until
+ * the user selects another. Reserved; extensions cannot register it.
  */
 export const POSIT_ASSISTANT_ERROR_ACTIONS_ID = 'posit-assistant';
 
@@ -88,11 +85,13 @@ export interface IErrorActionContext {
 
 /** An implementation of Fix and Explain, e.g. Posit Assistant or one that sends errors to a coding agent. */
 export interface IErrorActionHandler {
-	/** Value of the implementation in the ai.errorActions.agent setting. */
 	readonly id: string;
-	/** Name shown in the setting's dropdown and the actions' tooltips. */
+	/** Name shown in the agent picker and the actions' tooltips. */
 	readonly label: string;
-	/** When it is enabled; always when undefined. */
+	/**
+	 * When it can take errors; always when undefined. While it can't, errors go
+	 * to Posit Assistant.
+	 */
 	readonly when?: ContextKeyExpression;
 	/** Run the given action on the error. */
 	run(kind: ErrorActionKind, context: IErrorActionContext, token: CancellationToken): Promise<void>;
@@ -102,17 +101,35 @@ export interface IErrorActionHandler {
 export interface IErrorActionHandlerRegistration extends IDisposable {
 	/** Set whether the handler can continue the current chat. It can until this is called. */
 	setCanContinueChat(canContinueChat: boolean): void;
+
+	/**
+	 * Set what keeps the handler from working fully, e.g. "The claude command
+	 * was not found.", shown in the agent picker. Undefined while nothing does.
+	 */
+	setProblem(problem: string | undefined): void;
+}
+
+/** A registered {@link IErrorActionHandler}, as offered in the agent picker. */
+export interface IRegisteredErrorActionHandler {
+	readonly handler: IErrorActionHandler;
+	/** Whether its `when` holds, so errors can go to it. */
+	readonly isEnabled: boolean;
+	/** What keeps it from working fully; undefined while nothing does. */
+	readonly problem: string | undefined;
 }
 
 export const IErrorActionsService = createDecorator<IErrorActionsService>('errorActionsService');
 
-/** Tracks registered implementations of the error Fix/Explain actions. */
+/**
+ * Tracks registered implementations of the error Fix/Explain actions and which
+ * one the user selected.
+ */
 export interface IErrorActionsService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * Fires when the registered implementations, the configured one, or
-	 * whether a registered one can take errors or continue a chat change.
+	 * Fires when the registered implementations, the selected one, or a
+	 * registered one's state (enabled, problem, can continue a chat) change.
 	 */
 	readonly onDidChange: Event<void>;
 
@@ -122,10 +139,21 @@ export interface IErrorActionsService {
 	 */
 	register(handler: IErrorActionHandler): IErrorActionHandlerRegistration;
 
+	/** The registered implementations, Posit Assistant's first. */
+	getRegistered(): readonly IRegisteredErrorActionHandler[];
+
 	/**
-	 * The implementation selected in the ai.errorActions.agent setting, or
-	 * Posit Assistant's when the selected one is not registered or its `when`
-	 * is false.
+	 * The id of the implementation the user selected, in any workspace. Posit
+	 * Assistant's until they select another.
+	 */
+	readonly selectedId: string;
+
+	/** Select the implementation errors go to. */
+	select(id: string): void;
+
+	/**
+	 * The implementation errors go to: the selected one, or Posit Assistant's
+	 * when the selected one is not registered or its `when` is false.
 	 * @returns The implementation, or undefined when neither can take errors,
 	 *   in which case there is nowhere to send them.
 	 */

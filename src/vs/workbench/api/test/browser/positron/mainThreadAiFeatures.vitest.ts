@@ -48,6 +48,7 @@ describe('MainThreadAiFeatures', () => {
 	let runErrorAction: ReturnType<typeof vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>>;
 	let registeredHandlers: IErrorActionHandler[];
 	let canContinueChats: boolean[];
+	let problems: (string | undefined)[];
 
 	/**
 	 * Constructs a MainThreadAiFeatures with the given initial catalog and returns it. The
@@ -63,6 +64,7 @@ describe('MainThreadAiFeatures', () => {
 		runErrorAction = vi.fn<ExtHostAiFeaturesShape['$runErrorAction']>(async () => { });
 		registeredHandlers = [];
 		canContinueChats = [];
+		problems = [];
 
 		const aiProviderService = stubInterface<IAiProviderService>({
 			whenInitialized,
@@ -98,6 +100,7 @@ describe('MainThreadAiFeatures', () => {
 					registeredHandlers.push(handler);
 					return {
 						setCanContinueChat: canContinueChat => canContinueChats.push(canContinueChat),
+						setProblem: problem => problems.push(problem),
 						dispose: () => registeredHandlers.splice(registeredHandlers.indexOf(handler), 1),
 					};
 				},
@@ -186,6 +189,9 @@ describe('MainThreadAiFeatures', () => {
 
 		mainThread.$setErrorActionHandlerCanContinueChat(7, false);
 		expect(canContinueChats).toEqual([false]);
+
+		mainThread.$setErrorActionHandlerProblem(7, 'Not signed in.');
+		expect(problems).toEqual(['Not signed in.']);
 
 		mainThread.$unregisterErrorActionHandler(7);
 		expect(registeredHandlers).toEqual([]);

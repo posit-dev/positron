@@ -30,8 +30,8 @@ export interface AgentProblemAction {
 /** A coding agent that Fix and Explain can send errors to. */
 export interface CodingAgent {
 	/**
-	 * Value of the agent in the ai.errorActions.agent setting. Matches the
-	 * agent's ID in positron-supervisor's MCP agent table, which is how the
+	 * ID of the agent's error action handler. Matches the agent's ID in
+	 * positron-supervisor's MCP agent table, which is how the
 	 * supervisor is asked whether the agent can reach Positron's MCP server.
 	 */
 	readonly id: string;

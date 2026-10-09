@@ -468,6 +468,7 @@ export interface MainThreadAiFeaturesShape {
 	$registerErrorActionHandler(handle: number, id: string, label: string, when: string | undefined): void;
 	$unregisterErrorActionHandler(handle: number): void;
 	$setErrorActionHandlerCanContinueChat(handle: number, canContinueChat: boolean): void;
+	$setErrorActionHandlerProblem(handle: number, problem: string | undefined): void;
 }
 
 export interface ExtHostAiFeaturesShape {

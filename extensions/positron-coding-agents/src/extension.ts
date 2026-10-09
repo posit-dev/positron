@@ -13,16 +13,13 @@ import { ErrorActionKind, getErrorPrompt, UnsavedState } from './errorPrompt';
 /** The agents Fix and Explain can send errors to, in the order they are offered. */
 const AGENTS: readonly CodingAgent[] = [claudeCode, codex];
 
-/** The ai.errorActions.agent setting, within the `ai` section. */
-const AGENT_SETTING = 'errorActions.agent';
-
 /** Minimum time between availability checks triggered by the window regaining focus. */
 const FOCUS_CHECK_INTERVAL = 30_000;
 
 export function activate(context: vscode.ExtensionContext): void {
 	// Offer each agent while it is installed. An installed agent that can't
-	// take a prompt (e.g. a setting needs changing) stays on offer and explains
-	// the problem when it's used or selected.
+	// take a prompt (e.g. a setting needs changing) stays on offer, shows the
+	// problem in the agent picker, and explains it when it's used.
 	const registrationsById = new Map<string, positron.ai.ErrorActionHandlerRegistration>();
 	let isDisposed = false;
 	context.subscriptions.push({
@@ -48,6 +45,7 @@ export function activate(context: vscode.ExtensionContext): void {
 				isCheckRequested = false;
 				lastCheckTime = Date.now();
 				const installed = await Promise.all(AGENTS.map(agent => agent.isInstalled()));
+				const problems = await Promise.all(AGENTS.map((agent, i) => installed[i] ? agent.getProblem() : undefined));
 				if (isDisposed) {
 					return;
 				}
@@ -66,6 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
 						registrationsById.set(agent.id, registration);
 					}
 					registration.canContinueChat = agent.canContinueChat();
+					registration.problem = problems[i]?.message;
 				});
 			} while (isCheckRequested);
 		} finally {
@@ -89,36 +88,7 @@ export function activate(context: vscode.ExtensionContext): void {
 				updateRegistrations();
 			}
 		}),
-		watchAgentSelection(),
 	);
-}
-
-/**
- * When the user picks one of these agents for Fix and Explain and it can't
- * take a prompt, say why and how to fix it rather than waiting for the first
- * error. Compares each settings scope (User, Workspace, folder) with its last
- * value, so a pick in one scope is noticed even when another overrides it.
- */
-function watchAgentSelection(): vscode.Disposable {
-	const getValues = () => {
-		const inspected = vscode.workspace.getConfiguration('ai').inspect<string>(AGENT_SETTING);
-		return [inspected?.globalValue, inspected?.workspaceValue, inspected?.workspaceFolderValue];
-	};
-	let previousValues = getValues();
-	return vscode.workspace.onDidChangeConfiguration(async e => {
-		if (!e.affectsConfiguration(`ai.${AGENT_SETTING}`)) {
-			return;
-		}
-		const values = getValues();
-		const pickedIds = new Set(values.filter((value, i) => value !== previousValues[i]));
-		previousValues = values;
-		for (const agent of AGENTS.filter(agent => pickedIds.has(agent.id))) {
-			const problem = await agent.getProblem();
-			if (problem) {
-				showProblem(problem);
-			}
-		}
-	});
 }
 
 /** Show an agent's problem, with buttons to fix it. */

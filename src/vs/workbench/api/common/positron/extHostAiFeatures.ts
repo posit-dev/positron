@@ -102,6 +102,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 
 		const proxy = this._proxy;
 		let canContinueChat = true;
+		let problem: string | undefined;
 		return {
 			get canContinueChat() {
 				return canContinueChat;
@@ -110,6 +111,15 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 				if (value !== canContinueChat) {
 					canContinueChat = value;
 					proxy.$setErrorActionHandlerCanContinueChat(handle, value);
+				}
+			},
+			get problem() {
+				return problem;
+			},
+			set problem(value: string | undefined) {
+				if (value !== problem) {
+					problem = value;
+					proxy.$setErrorActionHandlerProblem(handle, value);
 				}
 			},
 			dispose: () => {

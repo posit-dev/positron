@@ -24,7 +24,8 @@ export function stubReactServices(svc: TestInstantiationService): void {
 	// quick fixes call. No registered error action handlers: the quick fixes hide.
 	svc.stub(IErrorActionsService, {
 		onDidChange: Event.None,
-		register: () => ({ setCanContinueChat: () => { }, dispose: () => { } }),
+		register: () => ({ setCanContinueChat: () => { }, setProblem: () => { }, dispose: () => { } }),
+		getRegistered: () => [], selectedId: 'posit-assistant', select: () => { },
 		getConfigured: () => undefined, canContinueChat: () => true,
 		run: async () => { },
 	});

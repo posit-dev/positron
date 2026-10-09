@@ -7,14 +7,11 @@
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../../base/common/event.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../../platform/configuration/common/configurationRegistry.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { ContextKeyExpr, ContextKeyExpression, IContextKeyChangeEvent, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { Registry } from '../../../../../platform/registry/common/platform.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
-import { ERROR_ACTIONS_AGENT_KEY, IErrorActionContext, IErrorActionHandler } from '../../common/errorActions.js';
+import { IErrorActionContext, IErrorActionHandler } from '../../common/errorActions.js';
 import { ErrorActionsService } from '../../browser/errorActionsService.js';
 
 const context: IErrorActionContext = { error: 'boom', chat: 'new' };
@@ -54,13 +51,13 @@ describe('ErrorActionsService', () => {
 		return { id, label, run: vi.fn().mockResolvedValue(undefined) };
 	}
 
-	function getSettingOptions() {
-		return Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
-			.getConfigurationProperties()[ERROR_ACTIONS_AGENT_KEY].enum;
+	/** Summarize the registered handlers as the agent picker offers them. */
+	function getRegisteredSummary(service: ErrorActionsService) {
+		return service.getRegistered().map(({ handler, isEnabled, problem }) => ({ id: handler.id, isEnabled, problem }));
 	}
 
 	beforeEach(() => {
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_AGENT_KEY, 'test-agent');
+		ctx.get(IStorageService).store('positron.errorActions.selectedAgent', 'test-agent', StorageScope.PROFILE, StorageTarget.USER);
 		trueKeys.clear();
 	});
 
@@ -76,14 +73,25 @@ describe('ErrorActionsService', () => {
 		expect(service.getConfigured()).toBeUndefined();
 	});
 
-	it('uses Posit Assistant when it is selected', () => {
+	it('uses Posit Assistant until another is selected', () => {
+		ctx.get(IStorageService).remove('positron.errorActions.selectedAgent', StorageScope.PROFILE);
 		const service = createService();
+		const errorActionHandler = createErrorActionHandler();
 		const positAssistant = createErrorActionHandler('posit-assistant', 'Posit Assistant');
-		ctx.disposables.add(service.register(createErrorActionHandler()));
+		ctx.disposables.add(service.register(errorActionHandler));
 		ctx.disposables.add(service.register(positAssistant));
-		(ctx.get(IConfigurationService) as TestConfigurationService).setUserConfiguration(ERROR_ACTIONS_AGENT_KEY, 'posit-assistant');
-
 		expect(service.getConfigured()).toBe(positAssistant);
+
+		const onDidChange = vi.fn();
+		ctx.disposables.add(service.onDidChange(onDidChange));
+		service.select('test-agent');
+		expect(onDidChange).toHaveBeenCalledTimes(1);
+		expect(service.getConfigured()).toBe(errorActionHandler);
+	});
+
+	it('shares the selection across workspaces', () => {
+		createService().select('posit-assistant');
+		expect(createService().selectedId).toBe('posit-assistant');
 	});
 
 	it('falls back to Posit Assistant while the selected handler is not registered', () => {
@@ -109,14 +117,29 @@ describe('ErrorActionsService', () => {
 		expect(service.getConfigured()).toBe(errorActionHandler);
 	});
 
-	it('lists registered error action handlers in the setting options, after Posit Assistant', () => {
+	it('lists registered handlers Posit Assistant first, with whether they can take errors', () => {
 		const service = createService();
-		const registration = service.register(createErrorActionHandler());
+		const registration = service.register({ ...createErrorActionHandler(), when: ContextKeyExpr.has('testAgent.isInstalled') });
 		ctx.disposables.add(service.register(createErrorActionHandler('posit-assistant', 'Posit Assistant')));
-		expect(getSettingOptions()).toEqual(['posit-assistant', 'test-agent']);
+		expect(getRegisteredSummary(service)).toEqual([
+			{ id: 'posit-assistant', isEnabled: true, problem: undefined },
+			{ id: 'test-agent', isEnabled: false, problem: undefined },
+		]);
 
 		registration.dispose();
-		expect(getSettingOptions()).toEqual(['posit-assistant']);
+		expect(getRegisteredSummary(service).map(({ id }) => id)).toEqual(['posit-assistant']);
+	});
+
+	it('tracks what keeps a handler from working fully', () => {
+		const service = createService();
+		const registration = service.register(createErrorActionHandler());
+		ctx.disposables.add(registration);
+		const onDidChange = vi.fn();
+		ctx.disposables.add(service.onDidChange(onDidChange));
+
+		registration.setProblem('The test command was not found.');
+		expect(getRegisteredSummary(service)).toEqual([{ id: 'test-agent', isEnabled: true, problem: 'The test command was not found.' }]);
+		expect(onDidChange).toHaveBeenCalledTimes(1);
 	});
 
 	it('tracks whether a handler can continue the current chat', () => {
@@ -139,7 +162,7 @@ describe('ErrorActionsService', () => {
 		ctx.disposables.add(service.register(first));
 		ctx.disposables.add(service.register(createErrorActionHandler()));
 
-		expect(getSettingOptions()).toEqual(['posit-assistant', 'test-agent']);
+		expect(getRegisteredSummary(service).map(({ id }) => id)).toEqual(['test-agent']);
 		expect(service.getConfigured()).toBe(first);
 	});
 

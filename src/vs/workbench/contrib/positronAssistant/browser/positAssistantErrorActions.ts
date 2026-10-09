@@ -8,7 +8,7 @@ import { encodeBase64, VSBuffer } from '../../../../base/common/buffer.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IWorkbenchContribution } from '../../../common/contributions.js';
 import { ErrorActionKind, IErrorActionContext, IErrorActionsService, POSIT_ASSISTANT_ERROR_ACTIONS_ID } from '../common/errorActions.js';
@@ -28,13 +28,14 @@ const explainOnlyConstraint = localize('positronAssistantExplainOnlyConstraint',
 export class PositAssistantErrorActionsContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@ICommandService commandService: ICommandService,
+		@IContextKeyService contextKeyService: IContextKeyService,
 		@IErrorActionsService errorActionsService: IErrorActionsService,
 		@ILabelService labelService: ILabelService,
 	) {
 		super();
 
 		// The context key is unset, so false, while Posit Assistant isn't installed.
-		this._register(errorActionsService.register({
+		const registration = this._register(errorActionsService.register({
 			id: POSIT_ASSISTANT_ERROR_ACTIONS_ID,
 			label: POSIT_ASSISTANT_ERROR_ACTIONS_LABEL,
 			when: ContextKeyExpr.has(POSIT_HAS_CHAT_MODELS_KEY),
@@ -42,6 +43,18 @@ export class PositAssistantErrorActionsContribution extends Disposable implement
 				const getPath = (uri: URI) => labelService.getUriLabel(uri, { relative: true });
 				await commandService.executeCommand(POSIT_NEW_CHAT_COMMAND, getPositAssistantChatOptions(kind, context, getPath));
 			},
+		}));
+
+		// Say why it's unavailable in the agent picker.
+		const updateProblem = () => registration.setProblem(contextKeyService.getContextKeyValue<boolean>(POSIT_HAS_CHAT_MODELS_KEY)
+			? undefined
+			: localize('positronAssistantErrorActionsNoModel', "Posit Assistant is not installed or has no language model. Configure one to send errors to it."));
+		updateProblem();
+		const hasChatModelsKeys = new Set([POSIT_HAS_CHAT_MODELS_KEY]);
+		this._register(contextKeyService.onDidChangeContext(e => {
+			if (e.affectsSome(hasChatModelsKeys)) {
+				updateProblem();
+			}
 		}));
 	}
 }

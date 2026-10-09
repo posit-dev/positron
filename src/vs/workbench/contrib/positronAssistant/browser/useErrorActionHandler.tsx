@@ -17,9 +17,9 @@ export interface IConfiguredErrorActionHandler {
 }
 
 /**
- * The error action handler errors go to (the one selected in the
- * ai.errorActions.agent setting, or Posit Assistant), kept current as the
- * setting, registrations, and handlers' availability change.
+ * The error action handler errors go to (the one the user selected, or Posit
+ * Assistant), kept current as the selection, registrations, and handlers'
+ * availability change.
  * @returns The handler, or undefined when there is nowhere to send errors.
  */
 export function useErrorActionHandler(): IConfiguredErrorActionHandler | undefined {
