@@ -265,8 +265,7 @@ export const panelCommands: Record<string, (argv: string[]) => Json | string> = 
 		const p = parse(argv, ['session'], { tab: 2, sessions: 1, console: 2, terminals: 1, 'delete-session': 2, editors: 1, layout: 1, resize: 3 }, ['all', 'help']);
 		const [cmd, arg, a2] = p.rest;
 		if (p.flags.help || !cmd) { usage('panel.sh'); }
-		// "tabs" was guessed in more than one run: no command lists every tab, so say which does which.
-		commandWord(cmd, ['tab NAME', 'sessions', 'console WHICH', 'terminals', 'delete-session WORDS', 'editors', 'layout', 'resize PART PX'], { tabs: 'editors lists the editor tabs, ui.sh read panel shows the panel tabs, and tab NAME shows one panel tab' });
+		commandWord(cmd, ['tab NAME', 'sessions', 'console WHICH', 'terminals', 'delete-session WORDS', 'editors', 'layout', 'resize PART PX']);
 		if (['tab', 'console', 'delete-session'].includes(cmd) && !arg) { throw new Exit(2, { ok: false, error: `${cmd} needs an argument` }); }
 		if (cmd === 'resize' && (!['sidebar', 'secondary', 'panel'].includes(arg) || !/^\d+$/.test(a2 ?? ''))) { throw new Exit(2, { ok: false, error: 'give sidebar, secondary or panel, and the size in pixels' }); }
 		// The console tabs are in the page only while the Console view is: these bring it forward.

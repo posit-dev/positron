@@ -366,7 +366,7 @@ export const uiCommands: Record<string, (argv: string[]) => Json | string> = {
 				out = inPage(p.session, pickRow, { text: r.join(' ') });
 				break;
 			default:
-				notACommand(cmd, ['read', 'watch', 'click', 'fill', 'check', 'choose', 'type', 'pick'], { tabs: 'ui.sh read panel shows the panel tabs, and panel.sh editors lists the editor tabs' });
+				notACommand(cmd, ['read', 'watch', 'click', 'fill', 'check', 'choose', 'type', 'pick']);
 		}
 		if (out.ok && !out.already) { log('ui.sh', p.session, `${cmd} ${r.map(x => JSON.stringify(x)).join(' ')}${p.flags.in ? ' in ' + p.flags.in : ''}${out.renamed ? ` (renamed ${out.renamed})` : ''}`, readout(out)); }
 		return out;

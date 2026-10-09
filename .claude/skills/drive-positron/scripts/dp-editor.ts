@@ -391,7 +391,7 @@ export const editorCommands: Record<string, (argv: string[]) => Json | string> =
 				did = 'run the line or selection';
 				break;
 			default:
-				notACommand(cmd, ['read', 'cursor', 'goto', 'type', 'key', 'delete', 'insert', 'save', 'run', 'suggest', 'hover', 'definition'], { tabs: 'panel.sh editors lists the editor tabs' });
+				notACommand(cmd, ['read', 'cursor', 'goto', 'type', 'key', 'delete', 'insert', 'save', 'run', 'suggest', 'hover', 'definition']);
 		}
 		if (out.ok) { log('editor.sh', s, `${did} in ${out.tab}`, (out.line ? `cursor ${out.line}:${out.column}${out.dirty ? ' (unsaved)' : ''} ${JSON.stringify(out.text ?? '')}` : '') + (out.changed === false ? '; changed nothing' : '')); }
 		return out;

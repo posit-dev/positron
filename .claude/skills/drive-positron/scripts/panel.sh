@@ -75,8 +75,8 @@
 #                        below it, the part closes ("now": "hidden", and a note)
 #
 # No command lists the panel's own tabs: ui.sh read panel shows them. A word
-# that is not a command is a usage error naming it ("tabs" also says which
-# command lists which tabs, a part of a command's name says that command).
+# that is not a command is a usage error naming it (a part of a command's name
+# says that command).
 #
 # Stdout: one JSON line. Exit code: 0 on success, 1 when the tab, terminal or
 # session is not there, 2 on a usage error.
