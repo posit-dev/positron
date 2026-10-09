@@ -392,10 +392,12 @@ def test_list_package_docs() -> None:
 
     assert isinstance(docs, dict)
     assert docs["package"] == "pandas"
+    topics = docs["topics"]
+    assert isinstance(topics, list)
     assert {
         "topic": "pandas.read_csv",
         "title": "Read a comma-separated values (csv) file into DataFrame.",
-    } in docs["topics"]
+    } in topics
     assert docs["vignettes"] == [{"name": "README", "title": "pandas README"}]
 
 
@@ -441,7 +443,9 @@ def test_get_package_vignette() -> None:
     assert isinstance(vignette, dict)
     assert vignette["name"] == "README"
     assert vignette["package"] == "pandas"
-    assert "# pandas: powerful Python data analysis toolkit" in vignette["content"]
+    content = vignette["content"]
+    assert isinstance(content, str)
+    assert "# pandas: powerful Python data analysis toolkit" in content
 
 
 @pytest.mark.parametrize(
