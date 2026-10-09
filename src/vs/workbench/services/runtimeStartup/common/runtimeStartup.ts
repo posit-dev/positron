@@ -1616,8 +1616,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		if (metadata.runtimeId === affiliatedRuntimeId) {
 			// Heal any stale fields in the stored affiliation (e.g. a runtimePath
 			// that was ~-shortened before the runtimePath/runtimeDisplayPath split)
-			// by overwriting with the freshly-discovered metadata.
-			this.saveAffiliatedRuntime({ ...affiliated, metadata });
+			// by overwriting with the freshly-discovered metadata. Keep the stored
+			// extraRuntimeData: the extension reads it when validating the
+			// affiliation, and it records facts from when the runtime was chosen
+			// (e.g. R's `current` flag, which makes the affiliation follow the
+			// current R instead of this binary).
+			this.saveAffiliatedRuntime({
+				...affiliated,
+				metadata: { ...metadata, extraRuntimeData: affiliated.metadata.extraRuntimeData },
+			});
 
 			try {
 

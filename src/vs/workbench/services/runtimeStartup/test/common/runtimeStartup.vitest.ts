@@ -1238,6 +1238,43 @@ describe('RuntimeStartupService - affiliation healing', () => {
 		// getAffiliatedRuntimes() returns the live registered metadata (absolute path).
 		expect(svc.getAffiliatedRuntimes()[0].runtimePath).toBe(freshRuntimePath);
 	});
+
+	it('keeps a stored affiliation that follows the current R when an older R re-registers', async () => {
+		// R runtime IDs hash only the binary path and version, so the same
+		// runtime ID comes back after `rig default` points at a newer R. The
+		// R extension's validateMetadata only swaps in the current R when the
+		// stored affiliation says `current: true`.
+		const runtimeId = 'r-4.5-current-flag-test';
+		const languageId = 'r';
+		const runtimePath = '/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/bin/R';
+		const storageKey = `positron.affiliatedRuntimeMetadata.v2.${languageId}`;
+		const scope = StorageScope.WORKSPACE;
+
+		// Affiliated while R 4.5 was the current R.
+		const affiliated = {
+			metadata: {
+				...metadata({ languageId, runtimePath, runtimeId, extensionId: 'ms.r' }),
+				extraRuntimeData: { binpath: runtimePath, current: true },
+			},
+			lastUsed: 0,
+			lastStarted: 0,
+		};
+		ctx.get(IStorageService).store(storageKey, JSON.stringify(affiliated), scope, StorageTarget.MACHINE);
+
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.LoadingCache;
+
+		// Re-discovered after a newer R became current.
+		await ctx.get(ILanguageRuntimeService).registerRuntime({
+			...metadata({ languageId, runtimePath, runtimeId, extensionId: 'ms.r' }),
+			startupBehavior: LanguageRuntimeStartupBehavior.Manual,
+			extraRuntimeData: { binpath: runtimePath, current: false },
+		});
+
+		const stored = JSON.parse(ctx.get(IStorageService).get(storageKey, scope)!);
+		expect(stored.metadata.extraRuntimeData.current).toBe(true);
+	});
 });
 
 describe('RuntimeStartupService - restored sessions', () => {
