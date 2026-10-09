@@ -1916,7 +1916,7 @@
                     "category": "Python",
                     "command": "python.installPythonViaUv",
                     "title": "%python.command.python.installPythonViaUv.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported"
+                    "when": "!virtualWorkspace && shellExecutionSupported && config.python.allowUvPythonInstall"
                 },
                 {
                     "category": "Python",
