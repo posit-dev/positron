@@ -14,7 +14,7 @@ import sys
 import types
 import webbrowser
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Union, cast
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
@@ -22,6 +22,7 @@ from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
 from ._vendor.pydantic import BaseModel
+from .help import get_help_page, get_package_vignette, list_package_docs
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .ui_comm import (
     CallMethodParams,
@@ -362,6 +363,28 @@ def _get_package_detail(_kernel: "PositronIPyKernel", params: List[JsonData]) ->
     return detail
 
 
+def _string_params(params: List[JsonData], counts: tuple[int, ...], expected: str) -> List[str]:
+    if not (
+        isinstance(params, list)
+        and len(params) in counts
+        and all(isinstance(param, str) for param in params)
+    ):
+        raise _InvalidParamsError(f"Expected {expected}, got: {params}")
+    return cast("List[str]", params)
+
+
+def _get_help_page(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+    return get_help_page(*_string_params(params, (1, 2), "a help topic and optional package name"))
+
+
+def _list_package_docs(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+    return list_package_docs(*_string_params(params, (1,), "a package name"))
+
+
+def _get_package_vignette(_kernel: "PositronIPyKernel", params: List[JsonData]) -> JsonData:
+    return get_package_vignette(*_string_params(params, (2,), "a package and vignette name"))
+
+
 # Get all installed packages
 def _get_packages_installed(kernel: "PositronIPyKernel", _params: List[JsonData]) -> JsonData:
     # `attached` mirrors R's search()-membership semantics: true when the
@@ -436,6 +459,9 @@ _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional
     "getPackagesInstalled": _get_packages_installed,
     "getPackageDetail": _get_package_detail,
     "checkRequiresPython": _check_requires_python,
+    "get_help_page": _get_help_page,
+    "list_package_docs": _list_package_docs,
+    "get_package_vignette": _get_package_vignette,
 }
 
 

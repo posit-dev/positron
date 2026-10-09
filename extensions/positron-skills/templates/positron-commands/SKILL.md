@@ -7,9 +7,9 @@ description: >
   interpreters, listing, switching, starting, restarting or interrupting
   sessions, setting up Python, reading, installing or updating a session's
   packages, starting, listing, stopping or debugging a web app (Shiny, Flask,
-  Dash, Streamlit, FastAPI, Gradio, marimo), reading Data Connections,
-  including a connection's tables and columns, and creating, editing or
-  running notebook cells. Use when the user wants Positron itself to act or to
+  Dash, Streamlit, FastAPI, Gradio, marimo), reading Data Connections and
+  their tables and columns, creating, editing or running notebook cells, and
+  reading help. Use when the user wants Positron itself to act or to
   know what is installed, not to run R or Python code. Triggers: "show the
   variables pane", "open data.csv", "show this HTML in the Viewer", "switch to
   my R session", "my session is stuck", "is pandas installed?", "set up a
@@ -101,7 +101,9 @@ selected.
 
 **Stuck sessions and help** -- [references/troubleshooting.md]({{skill_dir}}/references/troubleshooting.md)
 Read when the user asks about a session that is stuck, needs interrupting, or
-needs restarting. Also covers looking up a help topic for a function or symbol.
+needs restarting. Also covers showing a help topic to the user, and reading
+installed help and vignettes yourself -- read them before explaining how to use
+a function or package, its arguments, or an error it raises.
 
 **Packages** -- [references/packages.md]({{skill_dir}}/references/packages.md)
 Read when the user asks about: what is installed in a session and at which

@@ -15,7 +15,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from positron.help import HelpService, _locatable_key, help  # noqa: A004
+from positron.help import (
+    HelpService,
+    _locatable_key,
+    get_help_page,
+    get_package_vignette,
+    help,  # noqa: A004
+    list_package_docs,
+)
 from positron.help_comm import HelpBackendRequest, HelpFrontendEvent, ShowHelpKind
 
 from .conftest import DummyComm
@@ -338,3 +345,119 @@ def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
         json_rpc_response(result=True),
         show_help_event(f"{mock_pydoc_thread.url}get?key=logging"),
     ]
+
+
+@pytest.mark.parametrize(
+    ("topic", "package", "expected_topic", "expected_package"),
+    [
+        ("json.dumps", "", "json.dumps", "json"),
+        ("dumps", "json", "json.dumps", "json"),
+        ("json", "json", "json", "json"),
+        ("pandas.DataFrame", "", f"{pd.DataFrame.__module__}.DataFrame", "pandas"),
+    ],
+)
+def test_get_help_page(
+    topic: str, package: str, expected_topic: str, expected_package: str
+) -> None:
+    page = get_help_page(topic, package)
+
+    assert isinstance(page, dict)
+    assert page["topic"] == expected_topic
+    assert page["package"] == expected_package
+    assert isinstance(page["help_text"], str)
+    assert page["help_text"].startswith(f"# `{expected_topic}`")
+
+
+def test_get_help_page_markdown() -> None:
+    page = get_help_page("json")
+
+    assert isinstance(page, dict)
+    help_text = page["help_text"]
+    assert isinstance(help_text, str)
+    assert "## Members" in help_text
+    assert "- `dumps`: Serialize ``obj`` to a JSON formatted ``str``." in help_text
+    # Private members and names imported from elsewhere are left out.
+    assert "`_default_encoder`" not in help_text
+    assert "`codecs`" not in help_text
+
+
+def test_get_help_page_not_found() -> None:
+    assert get_help_page("not_a_module.not_a_function") == (
+        "No help page found for topic not_a_module.not_a_function."
+    )
+
+
+def test_list_package_docs() -> None:
+    docs = list_package_docs("pandas")
+
+    assert isinstance(docs, dict)
+    assert docs["package"] == "pandas"
+    topics = docs["topics"]
+    assert isinstance(topics, list)
+    assert {
+        "topic": "pandas.read_csv",
+        "title": "Read a comma-separated values (csv) file into DataFrame.",
+    } in topics
+    assert docs["vignettes"] == [{"name": "README", "title": "pandas README"}]
+
+
+def test_list_package_docs_includes_reexports(monkeypatch: pytest.MonkeyPatch) -> None:
+    package = types.ModuleType("fakepkg")
+    submodule = types.ModuleType("fakepkg.sub")
+    other = types.ModuleType("otherpkg")
+
+    def reexported():
+        """Defined in a submodule."""
+
+    def imported():
+        """Defined in another package."""
+
+    reexported.__module__ = submodule.__name__
+    imported.__module__ = other.__name__
+    package.reexported = reexported  # type: ignore[attr-defined]
+    package.imported = imported  # type: ignore[attr-defined]
+    package.sub = submodule  # type: ignore[attr-defined]
+    for module in (package, submodule, other):
+        monkeypatch.setitem(sys.modules, module.__name__, module)
+
+    docs = list_package_docs("fakepkg")
+
+    assert isinstance(docs, dict)
+    assert docs["topics"] == [{"topic": "fakepkg.reexported", "title": "Defined in a submodule."}]
+
+
+def test_list_package_docs_without_readme() -> None:
+    docs = list_package_docs("json")
+
+    assert isinstance(docs, dict)
+    assert docs["vignettes"] == []
+
+
+def test_list_package_docs_not_installed() -> None:
+    assert list_package_docs("not_a_package") == "Package not_a_package is not installed."
+
+
+def test_get_package_vignette() -> None:
+    vignette = get_package_vignette("pandas", "README")
+
+    assert isinstance(vignette, dict)
+    assert vignette["name"] == "README"
+    assert vignette["package"] == "pandas"
+    content = vignette["content"]
+    assert isinstance(content, str)
+    assert "# pandas:" in content
+
+
+@pytest.mark.parametrize(
+    ("package", "vignette", "message"),
+    [
+        (
+            "pandas",
+            "intro",
+            "No vignette intro found for package pandas. Available vignettes: README.",
+        ),
+        ("json", "README", "Package json has no vignettes."),
+    ],
+)
+def test_get_package_vignette_not_found(package: str, vignette: str, message: str) -> None:
+    assert get_package_vignette(package, vignette) == message
