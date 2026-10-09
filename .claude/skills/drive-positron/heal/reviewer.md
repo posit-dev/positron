@@ -22,6 +22,9 @@ Smoke and `check.ts` run after you, so do not re-run anything. Your job is what 
 6. **Scope.** Any change that has nothing to do with the finding.
 7. **New surface.** For a finder finding with no `lead`, any new flag, command or accepted form is
    a `revise`: only a failure from a real exploratory run adds one.
+8. **Size.** Is the change bigger than the finding? A table of guessed inputs, a hand-kept copy of
+   a list the code already has, or edits to sibling helpers the fixer did not show failing the
+   same way are each a `revise`.
 
 ## Verdict
 

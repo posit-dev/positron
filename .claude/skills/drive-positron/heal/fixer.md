@@ -45,6 +45,9 @@ says how a helper is built and checked.
    there and let the callers inherit it; do not patch one caller. Reuse the existing helpers
    (`parse()`, `seconds()`, `count()` in `dp-lib.ts`) rather than writing a local copy. Your
    reason names every helper the fix reaches.
+   **Size the fix to the finding.** A sibling joins the fix only when you ran it and it fails the
+   same way. An error that did not say what to do gets a better sentence, not a table of the
+   words agents might guess; and never a hand-kept copy of a list the code already has.
 9. **Valid input keeps working.** A command that worked before with valid input must behave the
    same after your fix. If it cannot (a flag that was silently ignored now errors), the reason says
    which helpers and inputs change, in one line.
