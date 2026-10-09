@@ -209,7 +209,7 @@ case "$CMD" in
 		if [[ -n "$HEIGHT" ]]; then F=$(ui fill Height "$HEIGHT" --in dialog) || { echo "$F"; exit 1; }; fi
 		# The dialog as it reads now is this command's reading.
 		DRIVE_POSITRON_QUIET_READS='' ui read dialog | jq -c --arg i "$INTRINSIC" --arg c "$plots_intrinsicSize" 'if $i != "" then . + {intrinsicSize: ($c + " " + $i)} else . end' ;;
-	*) echo '{"ok":false,"error":"command: read, prev, next, select, remove, zoom, open, clear or save"}'; exit 2 ;;
+	*) usage_error "\"$CMD\" is not a command; the commands: read, prev, next, select N, remove N, zoom LEVEL, open WHERE, clear or save" ;;
 esac
 }
 

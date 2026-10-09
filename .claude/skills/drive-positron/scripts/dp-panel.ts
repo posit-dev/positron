@@ -8,7 +8,7 @@
 // terminal list, an editor tab's unsaved mark and part sizes are not in the
 // accessibility tree and are read from the page. panel.sh wraps these.
 
-import { Exit, inPage, log, logRead, parse, usage, type Json, type PageFn } from './dp-lib.ts';
+import { commandWord, Exit, inPage, log, logRead, parse, usage, type Json, type PageFn } from './dp-lib.ts';
 import { withConsoleView } from './dp-console.ts';
 import { notifications } from './dp-notifications.ts';
 import { paletteRun } from './dp-palette.ts';
@@ -265,7 +265,7 @@ export const panelCommands: Record<string, (argv: string[]) => Json | string> = 
 		const p = parse(argv, ['session'], { tab: 2, sessions: 1, console: 2, terminals: 1, 'delete-session': 2, editors: 1, layout: 1, resize: 3 }, ['all', 'help']);
 		const [cmd, arg, a2] = p.rest;
 		if (p.flags.help || !cmd) { usage('panel.sh'); }
-		if (!['tab', 'sessions', 'console', 'terminals', 'delete-session', 'editors', 'layout', 'resize'].includes(cmd)) { throw new Exit(2, { ok: false, error: 'command: tab, sessions, console, terminals, delete-session, editors, layout or resize' }); }
+		commandWord(cmd, ['tab NAME', 'sessions', 'console WHICH', 'terminals', 'delete-session WORDS', 'editors', 'layout', 'resize PART PX']);
 		if (['tab', 'console', 'delete-session'].includes(cmd) && !arg) { throw new Exit(2, { ok: false, error: `${cmd} needs an argument` }); }
 		if (cmd === 'resize' && (!['sidebar', 'secondary', 'panel'].includes(arg) || !/^\d+$/.test(a2 ?? ''))) { throw new Exit(2, { ok: false, error: 'give sidebar, secondary or panel, and the size in pixels' }); }
 		// The console tabs are in the page only while the Console view is: these bring it forward.

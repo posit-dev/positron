@@ -13,7 +13,7 @@
 // each command puts the cursor in the cell and the mouse over it first.
 
 import { readFileSync, existsSync } from 'fs';
-import { Exit, inPage, log, logRead, mod, parse, secondsOf, usage, type Json, type PageFn } from './dp-lib.ts';
+import { commandWord, Exit, inPage, log, logRead, mod, parse, secondsOf, usage, type Json, type PageFn } from './dp-lib.ts';
 import { names } from './selectors.ts';
 
 interface Cell { n: number; language: string; fenceLine: number; firstCodeLine: number; endLine: number }
@@ -333,6 +333,7 @@ export const qmdCommands: Record<string, (argv: string[]) => Json | string> = {
 		const p = parse(argv, ['session', 'file'], { cells: 1, read: 1, state: 2, run: 2, stop: 2, clear: 2, wait: 3, button: 3, menu: 3, link: 3 });
 		const [cmd, a1, a2] = p.rest;
 		if (p.flags.help || !cmd) { usage('qmd.sh'); }
+		commandWord(cmd, ['cells', 'read', 'state N', 'run N', 'wait N [SECS]', 'stop N', 'button N LABEL', 'menu N ITEM', 'clear N', 'link N TEXT']);
 		// wait N SECS: refused before anything is read or done.
 		const waitFor = cmd === 'wait' ? secondsOf(a2, 'SECS', 60) : 60;
 		const f = inPage(p.session, activeFile, { want: String(p.flags.file ?? '') });
@@ -356,7 +357,6 @@ export const qmdCommands: Record<string, (argv: string[]) => Json | string> = {
 			if (r.ok) { logRead('qmd.sh', p.session, `${f.name} lines ${r.visible}: ${(r.outputs as { afterLine: unknown; text: string }[]).map(o => `after ${o.afterLine} ${JSON.stringify(o.text.slice(0, 60))}`).join(', ') || 'no outputs'}${off.length ? `; cells ${off.join(', ')} off screen, not read` : ''}`); }
 			return { ...r, ...(r.ok && off.length ? { notRead: off, notReadNote: `${off.length} of ${cells.length} cells end off screen (cells ${off.join(', ')}): their outputs, if any, were not read; qmd.sh state N reads one cell's` } : {}), ...file };
 		}
-		if (!['run', 'stop', 'wait', 'state', 'button', 'menu', 'clear', 'link'].includes(cmd)) { throw new Exit(2, { ok: false, error: 'command: cells, read, state, run, wait, stop, button, menu, clear or link' }); }
 		const cell = cells.find(c => c.n === Number(a1));
 		if (!cell) { return { ok: false, error: `no cell ${a1} in ${f.name}; it has ${cells.length}`, ...file }; }
 		// Lines come from the saved file: after unsaved edits they point at the wrong cell.

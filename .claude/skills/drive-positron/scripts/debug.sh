@@ -278,7 +278,7 @@ case "$CMD" in
 		fi
 		[[ -n "$A1" ]] || { echo '{"ok":false,"error":"give the expression"}'; exit 2; }
 		ui type "$A1" --enter --in panel ;;
-	*) echo '{"ok":false,"error":"command: state, break, step, wait, frame, watch, filter, console or eval"}'; exit 2 ;;
+	*) usage_error "\"$CMD\" is not a command; the commands: state, break, step, wait, frame, watch, filter, console or eval" ;;
 esac
 }
 

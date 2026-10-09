@@ -43,6 +43,9 @@
 #                         banner): start it in the background, act, then wait.
 #                         The view must be on screen when it starts
 #   click ROLE NAME       roles: button, tab, treeitem, row, checkbox, link, option...
+#                         Pressed, then released once the page has run what the
+#                         press queued, as a person's click is (choose and check
+#                         click so too): a menu the click opens stays open
 #   fill NAME TEXT        a field by its name: textbox, spinbutton, combobox or
 #                         searchbox
 #   check NAME on|off     a checkbox, by the check mark drawn; reports "checked"

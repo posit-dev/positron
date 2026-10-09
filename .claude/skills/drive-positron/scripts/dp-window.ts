@@ -11,7 +11,7 @@
 
 import { existsSync, readFileSync, statSync } from 'fs';
 import { dirname, join, resolve } from 'path';
-import { cliRun, count, countOf, Exit, inPage, log, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
+import { cliRun, commandWord, count, countOf, Exit, inPage, log, parse, pause, seconds, usage, type Json, type PageFn } from './dp-lib.ts';
 import { paletteRun } from './dp-palette.ts';
 import { names } from './selectors.ts';
 
@@ -124,7 +124,7 @@ export const windowCommands: Record<string, (argv: string[]) => Json | string> =
 			log('window.sh', s, `select window ${arg}`, `${JSON.stringify(now.title)}, folder ${now.folder ?? 'none'}`);
 			return { ok: true, window: Number(arg), title: now.title, folder: now.folder };
 		}
-		if (!['reload', 'open-folder', 'new-window'].includes(cmd)) { throw new Exit(2, { ok: false, error: 'command: reload, open-folder PATH, new-window or select N' }); }
+		commandWord(cmd, ['reload', 'open-folder PATH', 'new-window', 'select N']);
 		let folder = '';
 		if (cmd === 'open-folder') {
 			if (!arg) { throw new Exit(2, { ok: false, error: 'open-folder needs the folder\'s path' }); }
