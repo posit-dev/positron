@@ -990,7 +990,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			);
 		}
 
-		it('goes back to warm starts after a full discovery re-finds an expired interpreter', async () => {
+		it('uses the cache again on the launch after expired entries trigger a full discovery', async () => {
 			const md = metadata();
 			const contribution = { extensionId: 'ms.python', languageId: 'python', alwaysRediscover: false };
 

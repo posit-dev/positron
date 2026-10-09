@@ -285,7 +285,7 @@ describe('RuntimeDiscoveryCache', () => {
 			}
 		});
 
-		it('gives a re-found runtime a new firstSeen when its stored entry expired', async () => {
+		it('returns a runtime that is added again after its stored entry expired', async () => {
 			await makeCache().upsert(metadata({ runtimePath: PY_PATH }));
 
 			vi.useFakeTimers();
@@ -300,7 +300,7 @@ describe('RuntimeDiscoveryCache', () => {
 			}
 		});
 
-		it('keeps firstSeen when an entry expires during a session and is upserted', async () => {
+		it('keeps an entry hidden when it expires during a session and is then updated', async () => {
 			const cache = makeCache();
 			await cache.upsert(metadata({ runtimePath: PY_PATH }));
 
@@ -646,7 +646,7 @@ describe('RuntimeDiscoveryCache', () => {
 			expect(second?.firstSeen).toBe(first?.firstSeen);
 		});
 
-		it('keeps entries written after a write that the main process echoes back late', async () => {
+		it('keeps newer entries when a late copy of its own earlier save arrives', async () => {
 			// The main process sends every APPLICATION storage change to every
 			// window, including the one that wrote it, about 100-200ms later.
 			// If this window has written again since, the echo carries an older
@@ -667,7 +667,7 @@ describe('RuntimeDiscoveryCache', () => {
 			expect(ids).toEqual(['py', 'py-alt', 'r']);
 		});
 
-		it('reloads a write from another cache instance', async () => {
+		it('reloads a save from another window that has a different writer ID', async () => {
 			const cache = makeCache();
 			await cache.upsert(metadata({ runtimePath: PY_PATH, runtimeId: 'local' }));
 			const local = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
