@@ -3,7 +3,7 @@
 Issue: https://github.com/posit-dev/positron/issues/2659
 Proposal comment: https://github.com/posit-dev/positron/issues/2659#issuecomment-6021716658
 
-This records the questions Dhruvi worked through while planning #2659, the answer to each, and why. Q8 and Q9 are still open and need input from Isabel. They are marked "(open)". Two related items from #15825 are at the end.
+This records the questions Dhruvi worked through while planning #2659, the answer to each, and why. Q8, Q9, and Q18 are still open and need input from Isabel. They are marked "(open)".
 
 ## Summary
 
@@ -201,7 +201,7 @@ One PR containing:
 - The Python changes: the pinned interpreter vs `.venv` order (Q8) and reading enforced values (Q13)
 - The setting descriptions
 
-Docs in positron-website#486 follow. The PR waits until Q8 and Q9 are settled.
+Docs in positron-website#486 follow. The PR waits until Q8, Q9, and Q18 are settled.
 
 ### Q17. Tests
 
@@ -218,14 +218,29 @@ Docs in positron-website#486 follow. The PR waits until Q8 and Q9 are settled.
 
 The existing e2e tests only cover a workspace with no affiliation. That's the one case where the old and new behavior agree.
 
+### Q18. Should a pinned interpreter start under `startupBehavior: recommended`? (open)
+
+`interpreters.startupBehavior` already has a `recommended` value (`languageRuntimeService.ts:824`). Its description says an interpreter "will start when the extension providing the interpreter recommends it." #15825 item 2 confirms the intent: under `recommended`, the affiliated runtime should not start when a folder reopens.
+
+Today the step that starts affiliated runtimes (step 3) only runs for languages set to `always` or `auto` (`runtimeStartup.ts:1862`). Under `recommended`, it skips the language. Recommendations (step 4) still start.
+
+That matters for this design, because the pinned runtime is stored as the affiliation. Left as is, a pinned interpreter would not start under `recommended`, even though step 2 wrote it.
+
+Scenario: a user sets `startupBehavior: recommended` for Python. The project's `.vscode/settings.json` pins Python 3.11, and the project also has a `.venv`.
+
+| Option | What starts on reopen |
+|---|---|
+| A. A pinned interpreter counts as a recommendation | Python 3.11. Under `recommended`, a dropdown pick still doesn't start on reopen, but a pinned interpreter does. |
+| B. A pinned interpreter is an affiliation, and `recommended` skips it | The `.venv`, which comes from step 4. The pinned interpreter only decides what starts under `always` and `auto`. |
+
+Questions for Isabel:
+
+1. Is `recommended` meant to skip dropdown picks only, or anything stored as the affiliation?
+2. Does the answer change if the pinned interpreter comes from user settings instead of the project?
+
 ## To check during implementation
 
 These follow from the design. They weren't decided in the Q&A:
 
 - **Opening a file later in the session.** The path that starts a runtime when you open a file of that language skips any language that has an affiliation (`runtimeStartup.ts:422-430`). Once a pinned runtime is stored as the affiliation, that path behaves as it does today for any affiliated runtime. If that means nothing starts, the gap already exists for every affiliation, not just pinned ones.
 - **R's "newest R" guess.** When a folder looks like an R project, R discovery marks the newest R to start right away (`provider.ts:327-337`). The path that starts it doesn't check the affiliation (`runtimeStartup.ts:406-410`). Confirm it can't start ahead of the pinned R.
-
-## Also open: items from #15825
-
-- **Item 2** proposes `interpreters.startupBehavior: recommended`, under which the affiliated runtime does not start on reopen. Since the pinned runtime is stored as the affiliation, how should it behave under `recommended`? The working assumption is that a pinned interpreter counts as "recommended" and starts.
-- **Item 5** says exclude and override beat `defaultInterpreterPath` and `interpreters.default`. This plan agrees (Q14).
