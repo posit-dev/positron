@@ -27,6 +27,7 @@ import * as externalDeps from '../../client/pythonEnvironments/common/externalDe
 import * as nativeFinder from '../../client/pythonEnvironments/base/locators/common/nativePythonFinder';
 import { EventEmitter, FileSystemWatcher, RelativePattern, Uri, WorkspaceFoldersChangeEvent } from 'vscode';
 import * as asyncUtils from '../../client/common/utils/async';
+import { RECREATE_TIMEOUT_MS } from '../../client/pythonEnvironments/recreatedEnvWatcher';
 import { FileChangeType } from '../../client/common/platform/fileSystemWatcher';
 import { PythonEnvCollectionChangedEvent } from '../../client/pythonEnvironments/base/watcher';
 // --- End Positron ---
@@ -1500,6 +1501,28 @@ suite('Native Python API', () => {
                 api.getEnvs().map((env) => env.executable.filename),
                 [venvPython],
             );
+        });
+
+        test('watching for a removed env stops after the time limit', async () => {
+            const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+            try {
+                deleteVenv();
+                await clock.tickAsync(RECREATE_TIMEOUT_MS);
+                // A folder created after the time limit no longer brings the env back.
+                executableExists = true;
+                fireFolderCreated(venvDir);
+                await clock.tickAsync(10);
+
+                assert.deepStrictEqual(
+                    {
+                        watchersDisposed: folderWatchers.map((w) => w.disposed),
+                        envs: api.getEnvs().map((env) => env.executable.filename),
+                    },
+                    { watchersDisposed: [true, true], envs: [] },
+                );
+            } finally {
+                clock.restore();
+            }
         });
 
         test('removing the workspace folder stops watching for its removed envs', async () => {

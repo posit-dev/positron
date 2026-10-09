@@ -11,11 +11,17 @@ import { traceVerbose } from '../logging';
 import { arePathsSame, isParentPath, pathExists } from './common/externalDependencies';
 
 /**
+ * How long to watch for a removed env to come back.
+ */
+export const RECREATE_TIMEOUT_MS = 10 * 60 * 1000;
+
+/**
  * Watches for removed workspace envs to come back, e.g. `.venv` deleted and recreated.
  * On Linux the file watcher only reports the new `.venv` folder, not the files created
  * inside it, so the workspace executable watcher never sees the new executable. For each
  * removed env, this watches every folder between the workspace and the executable, and
- * looks the executable up once one of them is created.
+ * looks the executable up once one of them is created. Not every removed env comes back,
+ * so it stops watching an env after `RECREATE_TIMEOUT_MS`.
  */
 export class RecreatedEnvWatcher implements Disposable {
     private readonly _watchers = new Map<string, { workspaceFolder: WorkspaceFolder; stop: () => void }>();
@@ -38,9 +44,14 @@ export class RecreatedEnvWatcher implements Disposable {
 
         const watchers: Disposable[] = [];
         const stop = () => {
+            clearTimeout(timeout);
             watchers.forEach((d) => d.dispose());
             this._watchers.delete(executable);
         };
+        const timeout = setTimeout(() => {
+            stop();
+            traceVerbose(`[RecreatedEnvWatcher] Stopped watching for ${executable} to be recreated`);
+        }, RECREATE_TIMEOUT_MS);
         let checking = false;
         let queuedAttempts = 0;
         // Looks the executable up, up to `attempts` times 200ms apart. The executable can lag
