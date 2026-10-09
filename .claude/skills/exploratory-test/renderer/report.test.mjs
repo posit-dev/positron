@@ -892,6 +892,13 @@ test('renderReportHtml keys the Run tile by model and sizes stages by cost', () 
 	assert.doesNotMatch(tiles, /turns|77/);
 });
 
+test('renderReportHtml sizes the Run tile by time when a pass has no cost', () => {
+	const html = renderReportHtml('# t\n\n_explore: Opus | 69 turns | 11m_\n_verify: Sonnet | $0.19 | 9 turns | <1m_\n_total: 12m_');
+	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
+	assert.match(tiles, /flex:110 1 0;background:var\(--stage-1\)/);
+	assert.match(tiles, /flex:5 1 0;background:var\(--stage-2\)/);
+});
+
 test('renderReportHtml opens Run details with the Agents table', () => {
 	const html = renderReportHtml(FULL);
 	assert.match(html, /<span class="hint">Agents, /);
