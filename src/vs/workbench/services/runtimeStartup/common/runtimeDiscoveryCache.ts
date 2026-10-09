@@ -37,7 +37,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 interface IPersistedCache {
 	schemaVersion: number;
 	buckets: Record<string, IPersistedBucket>;
-	/** The cache instance that wrote this blob. Absent in blobs from older builds. */
+	/** ID of the cache instance that saved this. Missing in data saved by older builds. */
 	writerId?: string;
 }
 
@@ -449,8 +449,8 @@ export class RuntimeDiscoveryCache extends Disposable implements IRuntimeDiscove
 			return;
 		}
 		for (const [key, bucket] of Object.entries(parsed.buckets)) {
-			// Drop entries that expired while stored, so a runtime that
-			// discovery finds again gets a new firstSeen.
+			// Drop expired entries. If discovery finds one of these runtimes
+			// again, upsert() then treats it as new and resets firstSeen.
 			const stored = (bucket.entries ?? []).filter(entry => entry?.metadata?.runtimePath);
 			const entries = new Map<string, ICachedRuntime>();
 			for (const entry of this._freshEntries(stored)) {

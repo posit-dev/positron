@@ -358,7 +358,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
 		});
 
-		it("skips a manager that hosts no contributions at all", async () => {
+		it('skips a manager that hosts no contributions at all', async () => {
 			// Ext host hasn't activated yet (or hosts no language runtime
 			// managers); planner has nothing to do for it. Different from
 			// cold-start, where the ext host *does* host contributions but
@@ -974,8 +974,8 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 	});
 
 	describe('expired cache entries', () => {
-		// Uses the real cache: the fake's `upsert` always writes a new
-		// `firstSeen`, so it can't show how expired entries age.
+		// Uses the real cache. The fake's `upsert` always sets `firstSeen` to
+		// now, so its entries never stay expired.
 		function makeRealCache(): RuntimeDiscoveryCache {
 			const fileService = stubInterface<IFileService>({
 				realpath: async () => undefined,
@@ -994,14 +994,11 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			const md = metadata();
 			const contribution = { extensionId: 'ms.python', languageId: 'python', alwaysRediscover: false };
 
-			// Opens Positron with the cache as stored by the previous launch.
-			// When a full discovery is planned, runs it the way
-			// `discoverAllRuntimes` does and returns the reason.
-			// Only one `RuntimeStartupService` can exist at a time, so each
-			// launch disposes its own before the next one starts.
 			async function launch(): Promise<string> {
+				// Disposed at the end: only one `RuntimeStartupService` can exist at a time.
 				const store = new DisposableStore();
 				try {
+					// A new cache, so it loads what the previous launch saved.
 					const realCache = store.add(makeRealCache());
 					ctx.instantiationService.stub(IRuntimeDiscoveryCache, realCache);
 					const svc = store.add(ctx.instantiationService.createInstance(RuntimeStartupService));
@@ -1011,12 +1008,11 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 					if (plans.length === 0) {
 						return 'warm-start';
 					}
+					// Fake a full discovery that finds the same interpreter again.
 					realCache.setLastFullDiscovery('ms.python', 'python', Date.now());
 					for (const entry of realCache.getEntries('ms.python', 'python')) {
 						realCache.invalidate('ms.python', 'python', entry.metadata.runtimePath);
 					}
-					// What `registerDiscoveredRuntime` does with each runtime the
-					// extension finds.
 					await realCache.upsert(md);
 					return lastFullDiscoveryReason(svc);
 				} finally {

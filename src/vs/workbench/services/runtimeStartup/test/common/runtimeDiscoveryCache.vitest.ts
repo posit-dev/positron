@@ -307,7 +307,8 @@ describe('RuntimeDiscoveryCache', () => {
 			vi.useFakeTimers();
 			vi.setSystemTime(Date.now() + MAX_AGE_MS + 1);
 			try {
-				// A background revalidation that lands just after the cutoff.
+				// Stands in for a background revalidation, which updates the
+				// entry in place.
 				await cache.upsert(metadata({ runtimePath: PY_PATH }));
 				expect(cache.getEntries('ms.python', 'python')).toEqual([]);
 			} finally {
@@ -647,10 +648,9 @@ describe('RuntimeDiscoveryCache', () => {
 		});
 
 		it('keeps newer entries when a late copy of its own earlier save arrives', async () => {
-			// The main process sends every APPLICATION storage change to every
-			// window, including the one that wrote it, about 100-200ms later.
-			// If this window has written again since, the echo carries an older
-			// value and arrives as `external: true`.
+			// The main process sends each save back to the window that made it,
+			// a couple hundred milliseconds later, with `external: true`. By then
+			// the window may have saved again, so the copy holds older data.
 			const cache = makeCache();
 			const altPath = '/opt/python/bin/python3';
 			files.files.set(altPath, { resolved: altPath, size: 50, mtime: 5, ctime: 5 });
@@ -659,7 +659,7 @@ describe('RuntimeDiscoveryCache', () => {
 			const afterPython = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
 			await cache.upsert(metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: R_PATH, runtimeId: 'r' }));
 
-			// The echo of the first write lands, then discovery finds another runtime.
+			// The late copy of the first save arrives, then discovery finds another runtime.
 			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, afterPython, StorageScope.APPLICATION, StorageTarget.MACHINE, /* external */ true);
 			await cache.upsert(metadata({ runtimePath: altPath, runtimeId: 'py-alt' }));
 
@@ -677,7 +677,9 @@ describe('RuntimeDiscoveryCache', () => {
 			await sibling.upsert(metadata({ extensionId: 'positron.positron-r', languageId: 'r', runtimePath: R_PATH, runtimeId: 'r' }));
 			const fromSibling = storage.get(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, StorageScope.APPLICATION)!;
 
-			// Put back this window's last write, then deliver the sibling's.
+			// Both caches share one storage service, and saving an unchanged
+			// value fires no event. Put this window's save back first so the
+			// sibling's save fires the event again, this time as external.
 			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, local, StorageScope.APPLICATION, StorageTarget.MACHINE);
 			storage.store(RUNTIME_DISCOVERY_CACHE_STORAGE_KEY, fromSibling, StorageScope.APPLICATION, StorageTarget.MACHINE, /* external */ true);
 
