@@ -18,6 +18,9 @@ import {
     EnvironmentDidCreateEvent,
 } from './proposed.createEnvApis';
 import { CreateEnvironmentOptionsInternal } from './types';
+// --- Start Positron ---
+import { withoutReusedMarker } from './reusedEnvironment';
+// --- End Positron ---
 
 const onCreateEnvironmentStartedEvent = new EventEmitter<EnvironmentWillCreateEvent>();
 const onCreateEnvironmentExitedEvent = new EventEmitter<EnvironmentDidCreateEvent>();
@@ -36,7 +39,11 @@ function fireStartedEvent(options?: CreateEnvironmentOptions): void {
 function fireExitedEvent(result?: CreateEnvironmentResult, options?: CreateEnvironmentOptions, error?: Error): void {
     startedEventCount -= 1;
     if (result) {
-        onCreateEnvironmentExitedEvent.fire({ options, ...result });
+        // --- Start Positron ---
+        // Keep Positron's internal reused marker out of the public creation event.
+        // onCreateEnvironmentExitedEvent.fire({ options, ...result });
+        onCreateEnvironmentExitedEvent.fire({ options, ...withoutReusedMarker(result) });
+        // --- End Positron ---
     } else if (error) {
         onCreateEnvironmentExitedEvent.fire({ options, error });
     }

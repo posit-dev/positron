@@ -77,6 +77,19 @@ class PythonWatcherImpl implements PythonWatcher {
                 this.fireWorkspaceEvent(FileChangeType.Deleted, wf, uri);
             }),
         );
+        // --- Start Positron ---
+        // Deleting a folder is reported as one delete for the folder, not one per
+        // file inside it, so `rm -rf .venv` may never match the pattern above.
+        // Report every deleted path. This sends the same watch request as the
+        // watcher above, so it adds no file system watcher.
+        const deleteWatcher = createFileSystemWatcher(new RelativePattern(wf, '**'), true, true, false);
+        disposables.push(
+            deleteWatcher,
+            deleteWatcher.onDidDelete((uri) => {
+                this.fireWorkspaceEvent(FileChangeType.Deleted, wf, uri);
+            }),
+        );
+        // --- End Positron ---
 
         const disposable = {
             dispose: () => {
