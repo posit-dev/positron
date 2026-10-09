@@ -38,8 +38,8 @@ DIR="exploratory-report-local-$(date -u +%Y%m%d-%H%M%S)-$(openssl rand -hex 4)"
 STAGE=$(mktemp -d "${TMPDIR:-/tmp}/exploratory-publish.XXXXXX")
 trap 'rm -rf "$STAGE"' EXIT
 cp -a "$RUN/." "$STAGE/"
-# The verifier's prompt and instances.jsonl name local paths, and the reply is in the report already.
-rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html" "$STAGE/og.png" "$STAGE/verify-prompt.md" "$STAGE/verify-reply.md" "$STAGE/instances.jsonl"
+# The agents' prompts and instances.jsonl name local paths, and the replies are in the report already.
+rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html" "$STAGE/og.png" "$STAGE"/*-prompt.md "$STAGE"/*-reply.md "$STAGE/instances.jsonl"
 # From the run directory, whose logs and start time the page reads. The render
 # exits non-zero for a listed file that is missing, to fail the run that wrote
 # it; the page is written first and shows that file unlinked, so publishing

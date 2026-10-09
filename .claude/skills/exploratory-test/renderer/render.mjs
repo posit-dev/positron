@@ -5,9 +5,9 @@
 
 // Renders a local run's report.md as index.html beside it, the same page CI
 // publishes. Usage:
-//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>]
-//     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>]
-//     [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n>] [--no-agent-prompts] [--base <url> --out <file>]
+//   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--cost-usd <n>]
+//     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n> --verify-cost-usd <n>]
+//     [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n> --isolate-cost-usd <n>] [--no-agent-prompts] [--base <url> --out <file>]
 // The flags record the explore agent's run, and the verifier's when there was
 // one, on the Run tile, as CI's cost footer does. Given --duration-ms, they replace the report's footer lines.
 // --no-agent-prompts leaves out the findings' copy-for-agent buttons.
@@ -28,13 +28,16 @@ const { values: flags, positionals } = parseArgs({
 	options: {
 		model: { type: 'string' },
 		'duration-ms': { type: 'string' },
+		'cost-usd': { type: 'string' },
 		turns: { type: 'string' },
 		'verify-model': { type: 'string' },
 		'verify-duration-ms': { type: 'string' },
 		'verify-turns': { type: 'string' },
+		'verify-cost-usd': { type: 'string' },
 		'isolate-model': { type: 'string' },
 		'isolate-duration-ms': { type: 'string' },
 		'isolate-turns': { type: 'string' },
+		'isolate-cost-usd': { type: 'string' },
 		'no-agent-prompts': { type: 'boolean' },
 		check: { type: 'boolean' },
 		base: { type: 'string' },
@@ -43,7 +46,7 @@ const { values: flags, positionals } = parseArgs({
 });
 const input = positionals[0];
 if (!input) {
-	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>] [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
+	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--cost-usd <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n> --verify-cost-usd <n>] [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n> --isolate-cost-usd <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
 	process.exit(1);
 }
 
@@ -58,7 +61,7 @@ const { formatMinutes, modelDisplayName, parseReport } = await import('./report-
 const { lintLedgerOnly, lintReport, splitProblems, untaggedShots } = await import('./lint.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
-const { reportUsageOnce } = await import('./usage.mjs');
+const { ranInCi, reportUsageOnce } = await import('./usage.mjs');
 
 const dir = dirname(resolve(input));
 // The ledger alone, while the run is still exploring and there is no report yet.
@@ -113,19 +116,22 @@ if (flags.check) {
 if (flags['duration-ms']) {
 	// Written here rather than by the action's renderCostFooter (lib.mjs):
 	// a local run has no bill, and that footer drops any pass without one.
-	const line = (label, model, turns, ms) => `_${label}: ${[modelDisplayName(model), turns && `${turns} turns`, formatMinutes(ms)].filter(Boolean).join(' | ')}_`;
+	// Each cost is claude -p's estimate; a replay's explorer has none.
+	const line = (label, model, turns, ms, cost) => `_${label}: ${[modelDisplayName(model), cost && `$${Number(cost).toFixed(2)}`, turns && `${turns} turns`, formatMinutes(ms)].filter(Boolean).join(' | ')}_`;
 	const explore = Number(flags['duration-ms']);
 	const verify = Number(flags['verify-duration-ms']);
 	const isolate = Number(flags['isolate-duration-ms']);
 	// The total covers every pass, as CI's does; with one pass there is none.
 	// Its flag, not its value, says there was a pass: 0 ms is still one.
 	const later = [
-		flags['verify-duration-ms'] !== undefined && line('verify', flags['verify-model'], flags['verify-turns'], verify),
-		flags['isolate-duration-ms'] !== undefined && line('isolate', flags['isolate-model'], flags['isolate-turns'], isolate),
+		flags['verify-duration-ms'] !== undefined && line('verify', flags['verify-model'], flags['verify-turns'], verify, flags['verify-cost-usd']),
+		flags['isolate-duration-ms'] !== undefined && line('isolate', flags['isolate-model'], flags['isolate-turns'], isolate, flags['isolate-cost-usd']),
 	].filter(Boolean);
+	const cost = totalCostUsd();
+	const totalCost = cost === null ? null : `$${cost.toFixed(2)}`;
 	const footer = later.length
-		? [line('explore', flags.model, flags.turns, explore), ...later, `_total: ${formatMinutes(explore + (verify || 0) + (isolate || 0))}_`].join('\n')
-		: line('explore', flags.model, flags.turns, explore);
+		? [line('explore', flags.model, flags.turns, explore, flags['cost-usd']), ...later, `_total: ${[totalCost, formatMinutes(explore + (verify || 0) + (isolate || 0))].filter(Boolean).join(' | ')}_`].join('\n')
+		: line('explore', flags.model, flags.turns, explore, flags['cost-usd']);
 	// Re-rendering must not stack a second footer under the first; only the
 	// labels a footer is written with, so a body line like `_note: x_` survives.
 	const body = markdown.split('\n').filter(l => !/^_(explore|verify|isolate|total):.*_$/.test(l.trim())).join('\n').trimEnd();
@@ -140,14 +146,22 @@ const born = statSync(dir).birthtime;
 const parsed = parseReport(markdown, { ledger });
 
 // The Run tile's render is the run's last: record its stats, as CI's run.mjs
-// does, before the page is written, so the page can link them.
-const stats = flags['duration-ms'] ? buildStats({
+// does, before the page is written, so the page can link them. A replayed CI
+// run keeps the stats CI recorded.
+// Every pass's cost added up, or null unless every pass that ran has one.
+function totalCostUsd() {
+	const costs = [flags['cost-usd'], ...['verify', 'isolate'].filter(role => flags[`${role}-duration-ms`] !== undefined).map(role => flags[`${role}-cost-usd`])];
+	return costs.every(c => c !== undefined && c !== '') ? costs.reduce((sum, c) => sum + Number(c), 0) : null;
+}
+
+const stats = flags['duration-ms'] && !ranInCi(dir) ? buildStats({
 	where: 'local',
 	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
 	version: skillVersion(),
 	model: flags.model,
-	// A subagent's tool_uses, which is what the footer calls turns here.
+	// claude -p's num_turns, or a replayed run's subagent tool_uses.
 	turns: flags.turns ? Number(flags.turns) : null,
+	costUsd: totalCostUsd(),
 	durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0) + (Number(flags['isolate-duration-ms']) || 0),
 	// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
 	isolate: flags['isolate-duration-ms'] !== undefined

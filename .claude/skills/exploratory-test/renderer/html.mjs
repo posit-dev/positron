@@ -115,6 +115,12 @@ function dollars(text) {
 	return Number.isFinite(n) ? n : 0;
 }
 
+/** A footer duration, `11m` or `<1m`, in minutes; a pass under half a minute counts as half. */
+function minutes(text) {
+	const m = /^(<)?(\d+)m$/.exec(String(text ?? ''));
+	return m ? (m[1] ? 0.5 : Number(m[2])) : 0;
+}
+
 function renderTiles(report) {
 	const { severityCounts: sev, scenarios, cost } = report;
 	const hasFindings = report.findings.length > 0 || report.findingCount > 0;
@@ -143,9 +149,11 @@ function renderTiles(report) {
 		+ bar(scenarioSegments)
 		+ legend(scenarioSegments.map(s => ({ ...s, strong: s.count }))));
 
-	// Sized by cost, the one number the stages share a unit for.
+	// Sized by cost, or by time when a pass's cost is unknown, as a local
+	// explorer's is: counting it as $0 drew the verifier as the whole run.
+	const byCost = cost.passes.every(p => p.cost);
 	const stages = cost.passes.map((p, i) => ({
-		count: Math.round(dollars(p.cost) * 100),
+		count: byCost ? Math.round(dollars(p.cost) * 100) : Math.round(minutes(p.duration) * 10),
 		color: stageColor(i),
 		strong: p.model,
 		word: p.label,
@@ -631,6 +639,8 @@ function buildAgentPrompt(f, report, options = {}) {
 		const issue = options.ki?.byNumber.get(n);
 		return `- ${REPO_URL}/issues/${Number(n)}${issue ? ` (${issue.state === 'closed' ? 'closed' : 'open'}): ${issue.title}` : ''}`;
 	}).join('\n'));
+	// A match on a not-planned issue: check it was not judged intended before fixing.
+	section('Closed as not planned', (f.intended ?? []).map(n => `- ${REPO_URL}/issues/${Number(n)}`).join('\n'));
 	section('Observed', capitalize(t.observed));
 	section('Expected', capitalize(t.expected));
 	section('Preconditions', t.preconditions.length === 1
@@ -1153,6 +1163,9 @@ function cardIssueItems(f, word, ki, refs) {
 	const known = possiblyKnown(f, ki);
 	if (known.length) {
 		items.push(item('Dupe?', known));
+	}
+	if (f.intended?.length) {
+		items.push(item('Intended?', f.intended));
 	}
 	return items;
 }

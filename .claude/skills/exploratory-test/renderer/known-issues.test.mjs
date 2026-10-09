@@ -32,6 +32,7 @@ test('formatSearch lists issues with their state, quotes titles, and says when n
 		{ number: 14, state: 'open', title: 'Viewer' },
 	];
 	assert.equal(formatSearch(items), '#12 (closed): "Console \\"hangs\\""\n#14 (open): "Viewer"');
+	assert.equal(formatSearch([{ number: 15, state: 'closed', state_reason: 'not_planned', title: 'By design' }]), '#15 (closed as not planned): "By design"');
 	assert.equal(formatSearch([]), 'no matches');
 });
 

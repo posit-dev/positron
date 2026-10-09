@@ -392,9 +392,9 @@ export function timeUpMessage(minutes) {
  * Before then it adds nothing: told its budget or the time left, the agent
  * rushed from the first step and wrapped up at about 70% of it, in every CI
  * run that had a limit. `onTimeUp` is called the first time. `now` is the
- * clock, for tests.
+ * clock, for tests. `message` replaces the explorer's.
  */
-export function timeUpHook({ deadline, minutes, now = Date.now, onTimeUp = () => {} }) {
+export function timeUpHook({ deadline, minutes, message = '', now = Date.now, onTimeUp = () => {} }) {
 	let told = false;
 	return async input => {
 		if (now() < deadline) {
@@ -404,7 +404,7 @@ export function timeUpHook({ deadline, minutes, now = Date.now, onTimeUp = () =>
 			told = true;
 			onTimeUp();
 		}
-		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: timeUpMessage(minutes) } };
+		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: message || timeUpMessage(minutes) } };
 	};
 }
 

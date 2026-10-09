@@ -95,8 +95,8 @@ export function writeChangeBase(dir, base) {
 }
 
 /**
- * The verifier's reply from its VERDICTS line on, or from its KNOWN, LINKED,
- * FEATURE, TITLE or CHANGE line if that came first. Its final message can open with notes to
+ * The verifier's reply from its VERDICTS line on, or from its KNOWN, INTENDED,
+ * LINKED, FEATURE, TITLE or CHANGE line if that came first. Its final message can open with notes to
  * itself, which would otherwise lead the Verification details.
  */
 export function fromVerdictLine(text) {
@@ -104,7 +104,7 @@ export function fromVerdictLine(text) {
 		return text;
 	}
 	const lines = text.split('\n');
-	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|LINKED|FEATURE|TITLE|CHANGE):/.test(l.trim().toUpperCase()));
+	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|INTENDED|LINKED|FEATURE|TITLE|CHANGE):/.test(l.trim().toUpperCase()));
 	return at > 0 ? lines.slice(at).join('\n') : text;
 }
 
@@ -148,11 +148,23 @@ export function parseVerdicts(text) {
  * cannot read is skipped, like parseVerdicts.
  */
 export function parseKnown(text) {
+	return parseIssueLine(text, 'KNOWN');
+}
+
+/**
+ * Parses the verifier's INTENDED line, the same shape as KNOWN: findings that
+ * match an issue closed as not planned, so the behavior was judged intended.
+ */
+export function parseIntended(text) {
+	return parseIssueLine(text, 'INTENDED');
+}
+
+function parseIssueLine(text, name) {
 	const out = new Map();
 	if (typeof text !== 'string') {
 		return out;
 	}
-	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('KNOWN:'));
+	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith(`${name}:`));
 	if (!line) {
 		return out;
 	}
@@ -254,21 +266,25 @@ export function rewriteLabel(report, label, values) {
 }
 
 /**
- * Appends a `Verified` column to the findings table, and a `Known` column when
- * the verifier matched a finding to an existing issue.
+ * Appends a `Verified` column to the findings table, a `Known` column when
+ * the verifier matched a finding to an existing issue, and an `Intended`
+ * column when it matched one to an issue closed as not planned.
  *
  * Best effort by design: the table is written by an agent, and its shape has
  * drifted before. Anything unexpected returns the report untouched so a
  * cosmetic column can never cost the report its findings. The verdicts are
  * appended in full below regardless, so nothing is lost when this bails.
  */
-export function annotateFindingsTable(report, verdicts, known = new Map()) {
+export function annotateFindingsTable(report, verdicts, known = new Map(), intended = new Map()) {
 	const columns = [];
 	if (verdicts instanceof Map && verdicts.size) {
 		columns.push(['Verified', n => verdicts.get(n) || '-']);
 	}
 	if (known instanceof Map && known.size) {
 		columns.push(['Known', n => (known.get(n) || []).map(i => `#${i}`).join(', ') || '-']);
+	}
+	if (intended instanceof Map && intended.size) {
+		columns.push(['Intended', n => (intended.get(n) || []).map(i => `#${i}`).join(', ') || '-']);
 	}
 	if (typeof report !== 'string' || !columns.length) {
 		return report;
@@ -380,7 +396,7 @@ export function applyVerification(report, verdicts, { failed = false } = {}) {
 		? `## Verification\n\n${verdicts}\n`
 		: `<details>\n<summary>Verification details</summary>\n\n${PREAMBLE}\n\n${verdicts}\n\n</details>\n`;
 	const revised = failed ? report : applyTitles(applyFeatures(report, parseFeatures(verdicts)), parseTitles(verdicts));
-	return `${annotateFindingsTable(revised, parseVerdicts(verdicts), parseKnown(verdicts))}\n\n${section}`;
+	return `${annotateFindingsTable(revised, parseVerdicts(verdicts), parseKnown(verdicts), parseIntended(verdicts))}\n\n${section}`;
 }
 
 /**
@@ -392,6 +408,62 @@ export function isVerified(report) {
 }
 
 const VERIFIER_PATH = fileURLToPath(new URL('../verifier.md', import.meta.url));
+
+/** A run directory's report, ledger and known issues, as the verify steps read them. */
+function readRun(dir) {
+	const ledgerPath = join(dir, 'ledger.md');
+	const knownIssues = readKnownIssues(dir);
+	const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : '';
+	return { report: readFileSync(join(dir, 'report.md'), 'utf8'), ledger, knownIssues, observed: observedLinked(knownIssues, ledger) };
+}
+
+/**
+ * Writes <run dir>/change-base.json, and <run dir>/verify-prompt.md and returns
+ * its path, or null when there is nothing to verify. Linked issues the run ran
+ * into still need a severity. `baseName` is the base branch, for the change mark.
+ */
+export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
+	const changed = changeBase(repo, base, head, baseName);
+	writeChangeBase(dir, changed);
+	const { report, observed } = readRun(dir);
+	if (!hasFindings(report) && !observed.length) {
+		return null;
+	}
+	const out = join(dir, 'verify-prompt.md');
+	writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
+		workDir: dir, repoRoot: repo, baseSha: base, headSha: head, changeBase: changed,
+	}));
+	return out;
+}
+
+/**
+ * Adds a verifier reply to report.md. Returns `{ mismatch }`, writing nothing,
+ * when its VERDICTS are keyed to other numbers than the report's, so a
+ * corrected reply can be applied; with `giveUp` that marks the findings
+ * unreviewed instead. An `error`, or an empty reply or one with no verdicts,
+ * says the verification did not complete rather than leaving the findings
+ * looking reviewed. Otherwise returns `{ failed, logLines }`.
+ */
+export function applyVerifyReply(dir, reply, { error = '', giveUp = false } = {}) {
+	const { report, ledger, knownIssues } = readRun(dir);
+	if (isVerified(report)) {
+		return { already: true };
+	}
+	reply = String(reply ?? '').trim();
+	const findings = hasFindings(report);
+	const mismatch = !error && findings && parseVerdicts(reply).size ? verdictMismatch(report, reply) : '';
+	if (mismatch && !giveUp) {
+		return { mismatch };
+	}
+	const failed = Boolean(error || mismatch) || !reply || (findings && !parseVerdicts(reply).size);
+	const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
+	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : reply ? ': the reply had no VERDICTS line' : '';
+	const verdicts = failed
+		? `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`
+		: fromVerdictLine(reply);
+	writeFileSync(join(dir, 'report.md'), applyVerification(report.trimEnd(), verdicts, { failed }));
+	return { failed, logLines: verifyLogLines(knownIssues, ledger, error ? '' : reply) };
+}
 
 function main(argv) {
 	const { values, positionals } = parseArgs({
@@ -405,28 +477,13 @@ function main(argv) {
 		console.error('usage: node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>]\n       node finish.mjs apply <run dir> <reply file>');
 		return 2;
 	}
-	const report = readFileSync(reportPath, 'utf8');
-	const ledgerPath = join(dir, 'ledger.md');
-	const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : '';
-	const knownIssues = readKnownIssues(dir);
-	const observed = observedLinked(knownIssues, ledger);
 	if (command === 'prompt') {
-		// Linked issues the run ran into still need a severity.
-		if (!hasFindings(report) && !observed.length) {
-			console.log('no findings: nothing to verify');
-			return 0;
-		}
 		if (!values.repo || !values.base || !values.head) {
 			console.error('finish: prompt needs --repo, --base and --head');
 			return 2;
 		}
-		const base = changeBase(values.repo, values.base, values.head, values['base-name']);
-		writeChangeBase(dir, base);
-		const out = join(dir, 'verify-prompt.md');
-		writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
-			workDir: dir, repoRoot: values.repo, baseSha: values.base, headSha: values.head, changeBase: base,
-		}));
-		console.log(out);
+		const out = writeVerifyPrompt(dir, { ...values, baseName: values['base-name'] });
+		console.log(out ?? 'no findings: nothing to verify');
 		return 0;
 	}
 	if (command === 'apply') {
@@ -436,31 +493,19 @@ function main(argv) {
 			console.error(`finish: reply file not found: ${replyFile ?? '(none given)'}`);
 			return 2;
 		}
-		if (isVerified(report)) {
+		const result = applyVerifyReply(dir, readFileSync(replyFile, 'utf8'));
+		if (result.already) {
 			console.error('finish: report.md is already verified');
 			return 1;
 		}
-		const reply = readFileSync(replyFile, 'utf8').trim();
-		const findings = hasFindings(report);
-		// Verdicts keyed to other numbers than the report's would mark the wrong
-		// findings: refuse, writing nothing, so a corrected reply can be applied.
-		const mismatch = findings && parseVerdicts(reply).size ? verdictMismatch(report, reply) : '';
-		if (mismatch) {
-			console.error(`finish: ${mismatch} Send the verifier this message, save its corrected reply and apply again.`);
+		if (result.mismatch) {
+			console.error(`finish: ${result.mismatch} Send the verifier this message, save its corrected reply and apply again.`);
 			return 1;
 		}
-		// An empty reply, or one with no verdicts, still says so, rather than
-		// leaving the findings looking reviewed.
-		const failed = !reply || (findings && !parseVerdicts(reply).size);
-		const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
-		const verdicts = failed
-			? `_Verification did not complete${reply ? `: the reply had no VERDICTS line` : ''}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`
-			: fromVerdictLine(reply);
-		writeFileSync(reportPath, applyVerification(report.trimEnd(), verdicts, { failed }));
-		for (const line of verifyLogLines(knownIssues, ledger, reply)) {
+		for (const line of result.logLines) {
 			console.error(`finish: ${line}`);
 		}
-		console.log(`finish: ${failed ? 'marked unreviewed' : 'verdicts added to'} ${reportPath}`);
+		console.log(`finish: ${result.failed ? 'marked unreviewed' : 'verdicts added to'} ${reportPath}`);
 		return 0;
 	}
 	console.error(`finish: unknown command ${command ?? ''}`);

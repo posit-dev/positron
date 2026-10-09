@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { reportUsage, reportUsageOnce } from './usage.mjs';
@@ -48,6 +48,18 @@ test('reportUsageOnce sends one row per run, and retries a send that failed', as
 		assert.equal(await reportUsageOnce(dir, ROW, { fetch, env: {} }), true);
 		assert.equal(await reportUsageOnce(dir, ROW, { fetch, env: {} }), false);
 		assert.equal(calls, 2);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('reportUsageOnce sends nothing for a CI run, which a local render can only be replaying', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'usage-'));
+	try {
+		writeFileSync(join(dir, 'cost.json'), '{}');
+		let calls = 0;
+		assert.equal(await reportUsageOnce(dir, ROW, { fetch: async () => { calls++; return { ok: true }; }, env: {} }), false);
+		assert.equal(calls, 0);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}

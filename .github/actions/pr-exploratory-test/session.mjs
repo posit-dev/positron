@@ -24,9 +24,11 @@ export function writeGuard(root) {
 	};
 }
 
-export async function runSession({ prompt, systemPrompt, allowedTools, model, maxTurns, cwd, writeRoot, timeLimit = null, effort = '', thinking, claudeCodePath, label = 'session', query = sdkQuery, minuteMs = 60000, log = console.log }) {
+export async function runSession({ prompt, systemPrompt, allowedTools, model, maxTurns, cwd, writeRoot, resume, timeLimit = null, timeUpMessage = '', effort = '', thinking, claudeCodePath, label = 'session', query = sdkQuery, minuteMs = 60000, log = console.log }) {
 	const texts = [];
 	let cost = buildCostRecord(null);
+	// Kept so a later message can resume this session.
+	let sessionId = null;
 	let timedOut = false;
 	let timeWasUp = false;
 	// Counts assistant messages, which is not what maxTurns limits: the SDK's
@@ -40,6 +42,7 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 		const hook = timeUpHook({
 			deadline: Date.now() + timeLimit * minuteMs,
 			minutes: timeLimit,
+			message: timeUpMessage,
 			onTimeUp: () => { timeWasUp = true; log(`[${label}] time limit: ${timeLimit}m are up; told the agent to wrap up`); },
 		});
 		let hookCalled = false;
@@ -70,9 +73,11 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 				...(effort ? { effort } : {}),
 				...(claudeCodePath ? { pathToClaudeCodeExecutable: claudeCodePath } : {}),
 				...(hooks ? { hooks } : {}),
+				...(resume ? { resume } : {}),
 				...(writeRoot ? { canUseTool: writeGuard(writeRoot) } : {}),
 			},
 		})) {
+			sessionId ??= message.session_id ?? null;
 			if (message.type === 'assistant') {
 				messages++;
 				const content = message.message?.content || [];
@@ -98,5 +103,5 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 	} finally {
 		clearTimeout(hardStop);
 	}
-	return { texts, finalText: texts.at(-1) ?? '', cost, timedOut, timeWasUp, messages };
+	return { texts, finalText: texts.at(-1) ?? '', cost, timedOut, timeWasUp, messages, sessionId };
 }

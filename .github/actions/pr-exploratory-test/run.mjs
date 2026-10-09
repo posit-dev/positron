@@ -6,15 +6,14 @@
 // Drives the Claude Agent SDK to run the exploratory-test skill against a
 // Positron instance already launched and attached by the workflow.
 
-import { query } from '@anthropic-ai/claude-agent-sdk';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { missingFiles, readRunDir, skillVersion, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-import { applyVerification, buildVerifyPrompt, changeBase, fromVerdictLine, hasFindings, observedLinked, readKnownIssues, verifyLogLines, writeChangeBase } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
-import { applyEdits, buildEditPrompt, buildRetryPrompt, parseEdits, reviewEdits } from '../../../.claude/skills/exploratory-test/renderer/edit.mjs';
+import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { finishRun } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
@@ -25,10 +24,6 @@ const STARTED_AT = new Date();
 const WORK_DIR = mustEnv('WORK_DIR');
 const REPO_ROOT = mustEnv('REPO_ROOT');
 const EXPLORER_PATH = mustEnv('EXPLORER_PATH');
-// Beside explorer.md, so both prompts come from the harness checkout rather
-// than the branch under test, which may not have this file yet.
-const VERIFIER_PATH = join(dirname(EXPLORER_PATH), 'verifier.md');
-const EDITOR_PATH = join(dirname(EXPLORER_PATH), 'editor.md');
 const BASE_SHA = mustEnv('BASE_SHA');
 const HEAD_SHA = mustEnv('HEAD_SHA');
 const BRANCH = mustEnv('BRANCH');
@@ -50,12 +45,12 @@ let timeWasUp = false;
 const VERIFY_MODEL = process.env.VERIFY_MODEL || 'sonnet';
 const VERIFY_MAX_TURNS = parsePosIntEnv('VERIFY_MAX_TURNS', 60, process.env.VERIFY_MAX_TURNS);
 const VERIFY_ENABLED = process.env.VERIFY !== 'false';
+// The isolator drives the app, but only to run a few controls in its 12 minutes.
+const ISOLATE_MAX_TURNS = parsePosIntEnv('ISOLATE_MAX_TURNS', 100, process.env.ISOLATE_MAX_TURNS);
 // Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
 const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
-// The verification bills separately from the explore pass, so its cost record
-// outlives the function that produces it.
-let verifyCost = buildCostRecord(null);
-let editCost = buildCostRecord(null);
+// Each later pass bills separately from the explore pass, summed over its sessions.
+const passCosts = { verify: buildCostRecord(null), isolate: buildCostRecord(null), edit: buildCostRecord(null) };
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -141,105 +136,53 @@ npx @playwright/cli -s=positron snapshot
 Read \`${REPO_ROOT}/.claude/skills/drive-positron/SKILL.md\` for the full command surface before driving.
 `;
 
+// What the isolator needs to know about this container, after isolator.md.
+const ISOLATE_CI_TAIL = `
+
+---
+
+# CI run
+
+The checkout is \`${REPO_ROOT}\`. Positron is already launched, with a Playwright session named \`positron\` attached on CDP port ${CDP_PORT}: the explorer's, in whatever state it left it. Never stop it. Launch your own as isolator.md says. \`npm run prelaunch\` already ran in this job and is the slow part of \`launch.sh\`, so strip it first:
+
+\`\`\`bash
+sed 's#node build/lib/preLaunch.ts#true#' \\
+  .claude/skills/drive-positron/scripts/launch.sh > /tmp/launch-cold.sh
+chmod +x /tmp/launch-cold.sh
+\`\`\`
+
+${ENVIRONMENT}
+`;
+
 /**
- * Re-reads the finished report with a fresh agent that never drove the app.
+ * Runs one agent the pipeline asks for, as an Agent SDK session.
  *
- * The reporting agent cannot audit itself: one run wrote "shipped defaults" on
- * the Only under line and described the fake HOME it had just introduced in the
- * same sentence, then filed the resulting hang as a major defect. A separate
- * agent asked what the setup could explain and found the cause in launch.sh in
- * about 80k tokens, under one percent of what the run itself reads.
- *
- * Read-only and advisory. Verdicts are appended, never applied: a pass that can
- * delete findings can bury real ones where nobody sees it happen.
+ * The verifier re-reads the finished report with a fresh agent that never
+ * drove the app. The reporting agent cannot audit itself: one run wrote
+ * "shipped defaults" on the Only under line and described the fake HOME it
+ * had just introduced in the same sentence, then filed the resulting hang as a
+ * major defect. A separate agent asked what the setup could explain found the
+ * cause in launch.sh in about 80k tokens, under one percent of what the run
+ * itself reads. Its verdicts are advisory and never remove a finding.
  */
-// Takes no report: the verifier is pointed at report.md on disk rather than
-// handed its text, so that it reads the same bytes the reviewer will.
-async function verifyReport(base) {
-	const prompt = buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
-		workDir: WORK_DIR, repoRoot: REPO_ROOT, baseSha: BASE_SHA, headSha: HEAD_SHA, changeBase: base,
+async function runAgent(step) {
+	const maxTurns = { edit: 2, isolate: ISOLATE_MAX_TURNS, verify: VERIFY_MAX_TURNS }[step.role];
+	const result = await runSession({
+		model: step.model, claudeCodePath: CLAUDE_CODE_PATH, label: step.purpose,
+		prompt: step.role === 'isolate' ? step.prompt + ISOLATE_CI_TAIL : step.prompt,
+		allowedTools: step.tools, maxTurns, cwd: step.cwd, resume: step.resume,
+		timeLimit: step.timeLimitMinutes ?? null, timeUpMessage: step.timeUpMessage,
+		...(step.role === 'verify' ? { effort: 'medium' } : {}),
 	});
-
-	const chunks = [];
-	for await (const message of query({
-		prompt,
-		options: {
-			model: VERIFY_MODEL,
-			cwd: REPO_ROOT,
-			allowedTools: ['Bash', 'Read', 'Glob', 'Grep'],
-			maxTurns: VERIFY_MAX_TURNS,
-			effort: 'medium',
-			stderr: data => process.stderr.write(`[verify stderr] ${data}`),
-			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
-		},
-	})) {
-		if (message.type === 'assistant') {
-			const text = (message.message?.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-			if (text) {
-				chunks.push(text);
-			}
-		} else if (message.type === 'result') {
-			verifyCost = buildCostRecord(message);
-			console.log(`[verify] result: ${JSON.stringify(verifyCost)}`);
-			writeFileSync(join(WORK_DIR, 'verify-cost.json'), JSON.stringify(verifyCost, null, 2));
-		}
-	}
-	return chunks.length ? fromVerdictLine(chunks[chunks.length - 1]) : null;
+	addCost(step.role, result.cost);
+	return { text: result.finalText, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId };
 }
 
-/** One editor call: its reply, with its cost added to the edit pass's. */
-async function askEditor(prompt) {
-	const chunks = [];
-	for await (const message of query({
-		prompt,
-		options: {
-			model: VERIFY_MODEL,
-			cwd: WORK_DIR,
-			allowedTools: [],
-			maxTurns: 2,
-			stderr: data => process.stderr.write(`[edit stderr] ${data}`),
-			...(CLAUDE_CODE_PATH ? { pathToClaudeCodeExecutable: CLAUDE_CODE_PATH } : {}),
-		},
-	})) {
-		if (message.type === 'assistant') {
-			chunks.push(...(message.message?.content || []).filter(b => b.type === 'text').map(b => b.text));
-		} else if (message.type === 'result') {
-			const record = buildCostRecord(message);
-			console.log(`[edit] result: ${JSON.stringify(record)}`);
-			const add = key => (editCost[key] ?? 0) + (record[key] ?? 0) || null;
-			editCost = { ...record, total_cost_usd: add('total_cost_usd'), num_turns: add('num_turns'), duration_ms: add('duration_ms') };
-		}
-	}
-	return chunks.join('\n');
-}
-
-/**
- * Writes each finding's opening (summary, where) and a title cut
- * from it, and rewrites the Result, with a fresh agent that sees each card only
- * through Expected, never a Cause. Anything the guard rejects gets one more try
- * with the reason, then is skipped, so the worst case is the report as the
- * explorer wrote it.
- */
-async function editReport(report) {
-	const template = readFileSync(EDITOR_PATH, 'utf8');
-	const prompt = buildEditPrompt(template, report);
-	if (!prompt) {
-		return report;
-	}
-	let edited = report;
-	let retry = prompt;
-	for (const last of [false, true]) {
-		const { kept, rejected } = reviewEdits(edited, parseEdits(await askEditor(retry)));
-		for (const r of rejected) {
-			console.log(`[edit] ${last ? 'kept' : 'retrying'} ${r.field === 'result' ? 'the Result' : `Finding ${r.n}'s ${r.field}`}: the rewrite ${r.reason}`);
-		}
-		edited = applyEdits(edited, kept);
-		retry = last ? null : buildRetryPrompt(template, edited, rejected);
-		if (!retry) {
-			break;
-		}
-	}
-	return edited;
+/** Adds a session's cost to its pass's. */
+function addCost(role, record) {
+	const sum = passCosts[role];
+	const add = key => (sum[key] ?? 0) + (record[key] ?? 0) || null;
+	passCosts[role] = { ...record, total_cost_usd: add('total_cost_usd'), num_turns: add('num_turns'), duration_ms: add('duration_ms') };
 }
 
 async function main() {
@@ -254,9 +197,6 @@ async function main() {
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
 	const git = args => execFileSync('git', ['-C', REPO_ROOT, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
 	const { stat, upstream } = describeChange({ git, base: BASE_SHA, head: HEAD_SHA });
-	// The renderer reads it back with the rest of the run directory.
-	const base = changeBase(REPO_ROOT, BASE_SHA, HEAD_SHA, process.env.BASE_REF);
-	writeChangeBase(WORK_DIR, base);
 
 	const userPrompt = [
 		'# Brief',
@@ -324,13 +264,14 @@ async function main() {
 		// back to scraping chat text.
 	}
 
-	// Lazy: verifyCost is not filled in until the verification below has run, and
+	// Lazy: passCosts is not filled in until the verification below has run, and
 	// rendering this eagerly left the verify line and the total out of every
 	// footer. In the order they ran; the gate bills in its own job.
 	const footer = () => renderCostFooter([
 		{ label: 'explore', main: true, cost },
-		{ label: 'verify', cost: verifyCost },
-		{ label: 'edit', cost: editCost },
+		{ label: 'verify', cost: passCosts.verify },
+		{ label: 'isolate', cost: passCosts.isolate },
+		{ label: 'edit', cost: passCosts.edit },
 	], MAX_TURNS);
 	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
 	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
@@ -358,8 +299,10 @@ async function main() {
 			model: cost.model,
 			turns: cost.num_turns,
 			maxTurns: MAX_TURNS,
-			costUsd: (cost.total_cost_usd ?? 0) + (verifyCost.total_cost_usd ?? 0) + (editCost.total_cost_usd ?? 0) || null,
-			durationMs: (cost.duration_ms ?? 0) + (verifyCost.duration_ms ?? 0) + (editCost.duration_ms ?? 0) || null,
+			costUsd: [cost, ...Object.values(passCosts)].reduce((sum, c) => sum + (c.total_cost_usd ?? 0), 0) || null,
+			durationMs: [cost, ...Object.values(passCosts)].reduce((sum, c) => sum + (c.duration_ms ?? 0), 0) || null,
+			// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
+			isolate: passCosts.isolate.duration_ms ? { durationMs: passCosts.isolate.duration_ms, turns: passCosts.isolate.num_turns } : null,
 			parsed: markdown ? parseReport(markdown) : null,
 			checks: readChecks(WORK_DIR),
 			timeLimit: TIME_LIMIT ? { minutes: TIME_LIMIT, reached: timeWasUp, stopped: timedOut } : null,
@@ -383,41 +326,14 @@ async function main() {
 			writeFileSync(join(WORK_DIR, 'report.md'), report);
 		}
 
-		// Verification runs against report.md on disk, so it has to come after
-		// the fallback write above.
-		let verdicts = null;
-		let verifyFailed = false;
+		// The pipeline reads report.md on disk, so it has to come after the
+		// fallback write above. Annotation is best effort and never removes a
+		// row, because a wrong FALSE POSITIVE that deleted a real finding would
+		// be invisible to everyone.
+		await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
+		// Read after the pipeline, which writes change-base.json.
 		const run = readRunDir(WORK_DIR);
-		// Linked issues the run ran into still need a severity.
-		const observed = observedLinked(knownIssues, run.ledger);
-		if (VERIFY_ENABLED && !hasFindings(report) && !observed.length) {
-			console.log('[verify] skipped: the report has no findings to verify');
-		} else if (VERIFY_ENABLED) {
-			try {
-				verdicts = await verifyReport(base);
-			} catch (err) {
-				// A failed verification must not cost the run its report. Say so
-				// in the summary rather than dropping it silently.
-				console.error(`[verify] failed: ${err}`);
-				verifyFailed = true;
-				verdicts = `_Verification did not complete: ${err}. ${hasFindings(report) ? 'The findings above are unreviewed.' : 'The known issues above are unrated.'}_`;
-			}
-			for (const line of verifyLogLines(knownIssues, run.ledger, verifyFailed ? '' : verdicts)) {
-				console.log(`[verify] ${line}`);
-			}
-		}
-
-		// Annotation is best effort and never removes a row, because a wrong
-		// FALSE POSITIVE that deleted a real finding would be invisible to
-		// everyone. Shared with local runs through finish.mjs.
-		const verified = verdicts ? applyVerification(report, verdicts, { failed: verifyFailed }) : report;
-		let reviewed = verified;
-		try {
-			reviewed = await editReport(verified);
-		} catch (err) {
-			// The explorer's wording is still a complete report.
-			console.error(`[edit] failed, findings keep their original wording: ${err}`);
-		}
+		const reviewed = readFileSync(join(WORK_DIR, 'report.md'), 'utf8').trimEnd();
 		reportMarkdown = `${reviewed}\n\n${footer()}\n`;
 		// Written with the footer: report.md is published to the CDN on its own,
 		// where the step summary's copy of the cost is not reachable.

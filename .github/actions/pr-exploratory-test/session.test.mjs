@@ -27,6 +27,14 @@ test('collects text and the cost record, and passes the options through', async 
 	assert.equal(seen.options.canUseTool, undefined);
 });
 
+test('returns the session id, and resumes a session it is given', async () => {
+	let seen;
+	const query = async function* ({ options }) { seen = options; yield { type: 'system', session_id: 's1' }; yield assistant('again'); yield result; };
+	const s = await runSession({ prompt: 'p', allowedTools: [], model: 'sonnet', maxTurns: 9, cwd: '/r', resume: 's0', query, log: quiet });
+	assert.equal(seen.resume, 's0');
+	assert.equal(s.sessionId, 's1');
+});
+
 test('a time limit installs the hook and aborts after the wrap-up', async () => {
 	let opts;
 	const query = async function* ({ options }) {

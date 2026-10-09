@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -892,6 +892,13 @@ test('renderReportHtml keys the Run tile by model and sizes stages by cost', () 
 	assert.doesNotMatch(tiles, /turns|77/);
 });
 
+test('renderReportHtml sizes the Run tile by time when a pass has no cost', () => {
+	const html = renderReportHtml('# t\n\n_explore: Opus | 69 turns | 11m_\n_verify: Sonnet | $0.19 | 9 turns | <1m_\n_total: 12m_');
+	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
+	assert.match(tiles, /flex:110 1 0;background:var\(--stage-1\)/);
+	assert.match(tiles, /flex:5 1 0;background:var\(--stage-2\)/);
+});
+
 test('renderReportHtml opens Run details with the Agents table', () => {
 	const html = renderReportHtml(FULL);
 	assert.match(html, /<span class="hint">Agents, /);
@@ -1248,6 +1255,22 @@ test('a finding the verifier matched to an issue says so on its card and in its 
 	// The cards carry it, so the verification fold does not repeat the raw line.
 	assert.doesNotMatch(html, /KNOWN:/);
 	assert.doesNotMatch(renderReportHtml(FULL), /class="f-ki"|Possibly known|ki-known/);
+});
+
+test('a finding matched to a not-planned issue says Intended? on its card and in its prompt', () => {
+	const intended = FULL
+		.replace('| Reproduction | Verified |', '| Reproduction | Verified | Intended |')
+		.replace('|--------------|----------|', '|--------------|----------|---|')
+		.replace('| 3/3 | confirmed |', '| 3/3 | confirmed | - |')
+		.replace('| 1/1 | confirmed |', '| 1/1 | confirmed | #14210 |')
+		.replace('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE', 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nINTENDED: 2=#14210');
+	assert.deepEqual(parseReport(intended).findings.map(f => f.intended), [[], [14210]]);
+	const html = renderReportHtml(intended);
+	assert.match(card(html, 2), /<span class="f-ki">Intended\? <a class="ki-num" href="[^"]+\/issues\/14210"[^>]*>#14210<\/a><\/span>/);
+	assert.doesNotMatch(card(html, 1), /Intended\?/);
+	assert.ok(promptText(html, 2).includes('### Closed as not planned\n- https://github.com/posit-dev/positron/issues/14210\n'));
+	assert.doesNotMatch(promptText(html, 1), /not planned/);
+	assert.doesNotMatch(html, /INTENDED:/);
 });
 
 test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
@@ -1964,12 +1987,33 @@ test('render.mjs writes the explore and verify passes and their total, replacing
 	const report = join(dir, 'report.md');
 	const render = args => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, ...args], { encoding: 'utf8' });
 	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142']);
-	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '180000', '--verify-turns', '24']);
+	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '180000', '--verify-turns', '24', '--verify-cost-usd', '0.4231']);
 	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
-	assert.deepEqual(footer, ['_explore: Opus 5.5 | 142 turns | 25m_', '_verify: Sonnet 5 | 24 turns | 3m_', '_total: 28m_']);
+	assert.deepEqual(footer, ['_explore: Opus 5.5 | 142 turns | 25m_', '_verify: Sonnet 5 | $0.42 | 24 turns | 3m_', '_total: 28m_']);
 	const { cost } = parseReport(readFileSync(report, 'utf8'));
-	assert.deepEqual(cost.passes.map(p => p.label), ['explore', 'verify']);
+	assert.deepEqual(cost.passes.map(p => [p.label, p.cost]), [['explore', null], ['verify', '$0.42']]);
 	assert.equal(cost.duration, '28m');
+	rmSync(dir, { recursive: true, force: true });
+});
+
+test('render.mjs gives the total and the stats a cost when every pass has one', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.md');
+	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, '--model', 'opus', '--duration-ms', '1500000', '--turns', '142', '--cost-usd', '3.7', '--verify-model', 'sonnet', '--verify-duration-ms', '180000', '--verify-turns', '24', '--verify-cost-usd', '0.4231'], { encoding: 'utf8' });
+	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
+	assert.deepEqual(footer, ['_explore: Opus | $3.70 | 142 turns | 25m_', '_verify: Sonnet | $0.42 | 24 turns | 3m_', '_total: $4.12 | 28m_']);
+	assert.equal(JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8')).costUsd, 4.12);
+	rmSync(dir, { recursive: true, force: true });
+});
+
+test('render.mjs keeps the stats CI recorded when it replays a CI run', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	writeFileSync(join(dir, 'cost.json'), '{}');
+	writeFileSync(join(dir, 'stats.json'), '{"where":"ci"}\n');
+	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), join(dir, 'report.md'), '--duration-ms', '60000']);
+	assert.equal(readFileSync(join(dir, 'stats.json'), 'utf8'), '{"where":"ci"}\n');
 	rmSync(dir, { recursive: true, force: true });
 });
 
@@ -1987,6 +2031,7 @@ test('modelDisplayName reads a model id the way the report names it', () => {
 	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');
 	assert.equal(modelDisplayName('claude-haiku-4-5-20251001'), 'Haiku 4.5');
 	assert.equal(modelDisplayName('claude-opus-5-5[1m]'), 'Opus 5.5');
+	assert.equal(modelDisplayName('sonnet'), 'Sonnet');
 	assert.equal(modelDisplayName('some-other-model'), 'some-other-model');
 	assert.equal(modelDisplayName(null), null);
 });

@@ -349,6 +349,41 @@ function named(n, field) {
 	return n === SUMMARY ? 'the Result' : `Finding ${n}'s ${field}`;
 }
 
+/** Writes <run dir>/edit-prompt.md and returns its path, or null when there is nothing to edit. */
+export function writeEditPrompt(dir) {
+	const prompt = buildEditPrompt(readFileSync(EDITOR_PATH, 'utf8'), readFileSync(join(dir, 'report.md'), 'utf8'));
+	if (!prompt) {
+		return null;
+	}
+	const out = join(dir, 'edit-prompt.md');
+	writeFileSync(out, prompt);
+	return out;
+}
+
+/**
+ * Applies an editor reply to report.md, skipping any edit the guard rejects.
+ * Unless `last`, a rejection writes <run dir>/edit-retry-prompt.md for one
+ * more try. Returns `{ written, rejected, retry }`, with retry the prompt's
+ * path or null, and each rejection as a log line.
+ */
+export function applyEditReply(dir, reply, { last = false } = {}) {
+	const reportPath = join(dir, 'report.md');
+	const report = readFileSync(reportPath, 'utf8');
+	const { kept, rejected } = reviewEdits(report, parseEdits(String(reply ?? '')));
+	const edited = applyEdits(report, kept);
+	writeFileSync(reportPath, edited);
+	const prompt = last ? null : buildRetryPrompt(readFileSync(EDITOR_PATH, 'utf8'), edited, rejected);
+	const retry = prompt ? join(dir, 'edit-retry-prompt.md') : null;
+	if (retry) {
+		writeFileSync(retry, prompt);
+	}
+	return {
+		written: [...kept.values()].reduce((sum, f) => sum + Object.keys(f).length, 0),
+		rejected: rejected.map(r => `kept the original of ${named(r.n, r.field)}: the rewrite ${r.reason}`),
+		retry,
+	};
+}
+
 function main(argv) {
 	const last = argv.includes('--last');
 	const [command, dir, replyFile] = argv.filter(a => a !== '--last');
@@ -357,16 +392,8 @@ function main(argv) {
 		console.error('usage: node edit.mjs prompt <run dir>\n       node edit.mjs apply <run dir> <reply file> [--last]');
 		return 2;
 	}
-	const report = readFileSync(reportPath, 'utf8');
 	if (command === 'prompt') {
-		const prompt = buildEditPrompt(readFileSync(EDITOR_PATH, 'utf8'), report);
-		if (!prompt) {
-			console.log('nothing to edit: no Result or findings');
-			return 0;
-		}
-		const out = join(dir, 'edit-prompt.md');
-		writeFileSync(out, prompt);
-		console.log(out);
+		console.log(writeEditPrompt(dir) ?? 'nothing to edit: no Result or findings');
 		return 0;
 	}
 	if (command === 'apply') {
@@ -374,18 +401,13 @@ function main(argv) {
 			console.error(`edit: reply file not found: ${replyFile ?? '(none given)'}`);
 			return 2;
 		}
-		const { kept, rejected } = reviewEdits(report, parseEdits(readFileSync(replyFile, 'utf8')));
-		for (const r of rejected) {
-			console.error(`edit: kept the original of ${named(r.n, r.field)}: the rewrite ${r.reason}`);
+		const { written, rejected, retry } = applyEditReply(dir, readFileSync(replyFile, 'utf8'), { last });
+		for (const line of rejected) {
+			console.error(`edit: ${line}`);
 		}
-		const edited = applyEdits(report, kept);
-		writeFileSync(reportPath, edited);
-		console.log(`edit: ${[...kept.values()].reduce((sum, f) => sum + Object.keys(f).length, 0)} field(s) written in ${reportPath}`);
-		const retry = last ? null : buildRetryPrompt(readFileSync(EDITOR_PATH, 'utf8'), edited, rejected);
+		console.log(`edit: ${written} field(s) written in ${reportPath}`);
 		if (retry) {
-			const out = join(dir, 'edit-retry-prompt.md');
-			writeFileSync(out, retry);
-			console.log(`edit: retry prompt at ${out}`);
+			console.log(`edit: retry prompt at ${retry}`);
 		}
 		return 0;
 	}

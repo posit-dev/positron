@@ -387,6 +387,10 @@ export function modelDisplayName(id) {
 	if (!id) {
 		return null;
 	}
+	// The alias a local run spawns its agents with.
+	if (/^(?:opus|sonnet|haiku|fable)$/.test(id)) {
+		return `${id[0].toUpperCase()}${id.slice(1)}`;
+	}
 	const m = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[[^\]]*\])?$/.exec(id);
 	if (!m) {
 		return id;
@@ -1031,7 +1035,7 @@ function parseVerification(lines) {
 			continue;
 		}
 		// The findings carry the matches; as a line here it would only repeat them.
-		if (/^KNOWN:/i.test(trimmed)) {
+		if (/^(?:KNOWN|INTENDED):/i.test(trimmed)) {
 			continue;
 		}
 		// They order the observed list.
@@ -1513,6 +1517,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			verified: ['confirmed', 'disputed', 'unresolved'].includes(verified) ? verified : null,
 			// Issues the verifier says may already describe this finding. Advisory.
 			known: [...new Set([...(row['known'] ?? '').matchAll(/#(\d+)/g)].map(m => Number(m[1])))],
+			intended: [...new Set([...(row['intended'] ?? '').matchAll(/#(\d+)/g)].map(m => Number(m[1])))],
 			summaryHtml: parsed.summary.length ? inline(parsed.summary.join(' ')) : '',
 			// The edit pass's opening: the card leads with its summary, and the issue with all of it.
 			observedHtml: parsed.observed ? inline(parsed.observed) : '',
