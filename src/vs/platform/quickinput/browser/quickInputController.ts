@@ -12,7 +12,7 @@ import { ProgressBar } from '../../../base/browser/ui/progressbar/progressbar.js
 import { disposableTimeout } from '../../../base/common/async.js';
 import { CancellationToken } from '../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../base/common/event.js';
-import { Disposable, DisposableStore, IDisposable, MutableDisposable, dispose } from '../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore, IDisposable, MutableDisposable, dispose, toDisposable } from '../../../base/common/lifecycle.js';
 import Severity from '../../../base/common/severity.js';
 import { isString } from '../../../base/common/types.js';
 import { isModifierKey } from '../../../base/common/keyCodes.js';
@@ -137,8 +137,12 @@ export class QuickInputController extends Disposable {
 		this.viewState = this.loadViewState();
 
 		// --- Start Positron ---
-		// When the quick pick hides, restore interaction on the Positron modal it was reparented into (if any).
-		this._register(this.onHide(() => this.clearPositronModalInert()));
+		// When the quick pick hides, restore interaction on the Positron modal it was reparented into (if any),
+		// and stop watching that modal.
+		this._register(this.onHide(() => {
+			this.clearPositronModalInert();
+			this.positronModalObserver.clear();
+		}));
 		// --- End Positron ---
 	}
 
@@ -163,6 +167,13 @@ export class QuickInputController extends Disposable {
 	private positronModalInertElements: HTMLElement[] = [];
 
 	/**
+	 * Watches the modal hosting a visible quick input and hides the quick input if the modal
+	 * drops it. Cleared on hide and before every move, so it can never fire on the move of a
+	 * later quick input out of a modal that has already closed.
+	 */
+	private readonly positronModalObserver = this._register(new MutableDisposable());
+
+	/**
 	 * Special handling for Positron modals. Reparents the quick input into the modal so it is
 	 * inside the dialog's focus scope, and marks the modal's other children `inert` so the dialog
 	 * can't be interacted with while the quick pick is open (matching the desktop modality
@@ -174,24 +185,24 @@ export class QuickInputController extends Disposable {
 		if (modalContainer && this.ui) {
 			if (!modalContainer.isSameNode(this.ui.container.parentNode)) {
 				// a Positron modal is open, the quick pick will need to set its parent to it
+				this.positronModalObserver.clear();
 				dom.append(modalContainer, this.ui.container);
 				this.ui.container.style.position = 'fixed'; // modal hides overflow so this positions it so that nothing is hidden
 				this.ui.container.style.zIndex = 'auto'; // paint in DOM order inside the dialog rather than at 2550 outside it
-				// close the quick pick if the modal closed
-				new MutationObserver((_mutations, observer) => {
-					if (this.ui && !modalContainer.contains(this.ui.container)) {
-						this.hide();
-						observer.disconnect();
-					}
-				}).observe(modalContainer, { childList: true });
+				if (this.isVisible()) {
+					// a modal opened while the quick input was visible
+					this.watchPositronModal(modalContainer);
+				}
 			}
 			if (applyInert) {
+				this.watchPositronModal(modalContainer);
 				this.applyPositronModalInert(modalContainer);
 			}
 		} else {
 			if (this.ui) {
 				// restore parent
 				if (!this._container.isSameNode(this.ui.container.parentNode)) {
+					this.positronModalObserver.clear();
 					this._container.appendChild(this.ui.container);
 					this.ui.container.style.zIndex = '';
 					this.ui.container.style.position = 'absolute';
@@ -222,6 +233,19 @@ export class QuickInputController extends Disposable {
 		);
 		const topDialog = dialogs.length ? dialogs[dialogs.length - 1] : undefined;
 		return dom.isHTMLElement(topDialog) ? topDialog : undefined;
+	}
+
+	/**
+	 * Closes the quick input if the modal hosting it drops it.
+	 */
+	private watchPositronModal(modalContainer: HTMLElement) {
+		const observer = new MutationObserver(() => {
+			if (this.ui && !modalContainer.contains(this.ui.container)) {
+				this.hide();
+			}
+		});
+		observer.observe(modalContainer, { childList: true });
+		this.positronModalObserver.value = toDisposable(() => observer.disconnect());
 	}
 
 	private applyPositronModalInert(modalContainer: HTMLElement) {
