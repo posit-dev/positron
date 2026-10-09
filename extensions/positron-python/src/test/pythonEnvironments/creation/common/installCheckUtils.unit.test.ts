@@ -89,6 +89,21 @@ suite('Install check diagnostics tests', () => {
         configMock.verifyAll();
     });
 
+    // --- Start Positron ---
+    test('Does not write bytecode into the extension folder', async () => {
+        configMock.setup((c) => c.get<string>('missingPackage.severity', 'Hint')).returns(() => 'Hint');
+        let dontWriteBytecode: string | undefined;
+        plainExecStub.callsFake((_cmd: string, _args: string[], options: SpawnOptions) => {
+            dontWriteBytecode = options.env?.PYTHONDONTWRITEBYTECODE;
+            return { stdout: '', stderr: '' };
+        });
+        const someFile = getSomeRequirementFile();
+        await getInstalledPackagesDiagnostics(interpreterService.object, someFile.object);
+
+        assert.deepStrictEqual(dontWriteBytecode, '1');
+    });
+    // --- End Positron ---
+
     [
         ['Error', '0'],
         ['Warning', '1'],

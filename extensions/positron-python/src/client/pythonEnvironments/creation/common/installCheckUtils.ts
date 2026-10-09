@@ -66,7 +66,17 @@ export async function getInstalledPackagesDiagnostics(
     const scriptPath = installedCheckScript();
     try {
         traceInfo('Running installed packages checker: ', interpreter, scriptPath, doc.uri.fsPath);
-        const envCopy = { ...process.env, VSCODE_MISSING_PGK_SEVERITY: `${getMissingPackageSeverity(doc)}` };
+        // --- Start Positron ---
+        // const envCopy = { ...process.env, VSCODE_MISSING_PGK_SEVERITY: `${getMissingPackageSeverity(doc)}` };
+        // The script imports libraries that ship with the extension. Do not
+        // write their bytecode into the extension folder, which can be inside
+        // a signed or read-only app bundle.
+        const envCopy = {
+            ...process.env,
+            VSCODE_MISSING_PGK_SEVERITY: `${getMissingPackageSeverity(doc)}`,
+            PYTHONDONTWRITEBYTECODE: '1',
+        };
+        // --- End Positron ---
         const result = await plainExec(interpreter.path, [scriptPath, doc.uri.fsPath], {
             env: envCopy,
         });

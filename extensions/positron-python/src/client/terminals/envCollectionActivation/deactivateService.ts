@@ -5,11 +5,17 @@
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { ITerminalManager } from '../../common/application/types';
-import { pathExists } from '../../common/platform/fs-paths';
+// --- Start Positron ---
+// import { pathExists } from '../../common/platform/fs-paths';
+import { copyFile, pathExists } from '../../common/platform/fs-paths';
+// --- End Positron ---
 import { _SCRIPTS_DIR } from '../../common/process/internal/scripts/constants';
 import { identifyShellFromShellPath } from '../../common/terminal/shellDetectors/baseShellDetector';
 import { ITerminalHelper, TerminalShellType } from '../../common/terminal/types';
-import { Resource } from '../../common/types';
+// --- Start Positron ---
+// import { Resource } from '../../common/types';
+import { IExtensionContext, Resource } from '../../common/types';
+// --- End Positron ---
 import { waitForCondition } from '../../common/utils/async';
 import { cache } from '../../common/utils/decorators';
 import { StopWatch } from '../../common/utils/stopWatch';
@@ -34,11 +40,19 @@ const ShellIntegrationShells = [
 export class TerminalDeactivateService implements ITerminalDeactivateService {
     private readonly envVarScript = path.join(_SCRIPTS_DIR, 'printEnvVariablesToFile.py');
 
+    // --- Start Positron ---
+    // constructor(
+    //     @inject(ITerminalManager) private readonly terminalManager: ITerminalManager,
+    //     @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
+    //     @inject(ITerminalHelper) private readonly terminalHelper: ITerminalHelper,
+    // ) {}
     constructor(
         @inject(ITerminalManager) private readonly terminalManager: ITerminalManager,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
         @inject(ITerminalHelper) private readonly terminalHelper: ITerminalHelper,
+        @inject(IExtensionContext) private readonly context: IExtensionContext,
     ) {}
+    // --- End Positron ---
 
     @cache(-1, true)
     public async initializeScriptParams(shell: string): Promise<void> {
@@ -47,6 +61,16 @@ export class TerminalDeactivateService implements ITerminalDeactivateService {
             return;
         }
         const shellType = identifyShellFromShellPath(shell);
+        // --- Start Positron ---
+        // The script reads envVars.txt from its own folder, and the extension
+        // folder can be inside a signed or read-only app bundle. Copy the
+        // script to global storage so that both files are written there.
+        const scriptName = this.getScriptName(shellType);
+        await copyFile(
+            path.join(_SCRIPTS_DIR, 'deactivate', this.getShellFolderName(shellType), scriptName),
+            path.join(location, scriptName),
+        );
+        // --- End Positron ---
         const terminal = this.terminalManager.createTerminal({
             name: `Python ${shellType} Deactivate`,
             shellPath: shell,
@@ -81,8 +105,23 @@ export class TerminalDeactivateService implements ITerminalDeactivateService {
         if (!ShellIntegrationShells.includes(shellType)) {
             return undefined;
         }
-        return path.join(_SCRIPTS_DIR, 'deactivate', this.getShellFolderName(shellType));
+        // --- Start Positron ---
+        // return path.join(_SCRIPTS_DIR, 'deactivate', this.getShellFolderName(shellType));
+        return path.join(this.context.globalStorageUri.fsPath, 'deactivate', this.getShellFolderName(shellType));
+        // --- End Positron ---
     }
+
+    // --- Start Positron ---
+    private getScriptName(shellType: TerminalShellType): string {
+        switch (shellType) {
+            case TerminalShellType.powershell:
+            case TerminalShellType.powershellCore:
+                return 'deactivate.ps1';
+            default:
+                return 'deactivate';
+        }
+    }
+    // --- End Positron ---
 
     private getShellFolderName(shellType: TerminalShellType): string {
         switch (shellType) {
