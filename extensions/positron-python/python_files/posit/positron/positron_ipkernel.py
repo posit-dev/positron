@@ -690,14 +690,6 @@ class PositronIPyKernel(IPythonKernel):
             category=UserWarning,
             message="Matplotlib is currently using module://matplotlib_inline.backend_inline",
         )
-        # Trying to import a module that's "auto-imported" by Jedi shows a warning in the Positron
-        # Console.
-        warnings.filterwarnings(
-            "ignore",
-            category=UserWarning,
-            message=r"Module [^\s]+ not importable in path",
-            module="jedi",
-        )
 
         # Due to PEP0765, this is fixed in ipython 9.X, but we bundle
         # earlier versions to support Python 3.10
