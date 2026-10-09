@@ -60,7 +60,8 @@ export class SelectErrorActionsAgentAction extends Action2 {
 
 		const items = getAgentPickItems(errorActionsService.getRegistered(), errorActionsService.selectedId);
 		const picked = await quickInputService.pick(items, {
-			placeHolder: localize('positron.errorActions.selectAgent.placeholder', "Select the agent that fixes and explains errors"),
+			title: localize('positron.errorActions.selectAgent.title', "Select Agent for Fix/Explain"),
+			placeHolder: localize('positron.errorActions.selectAgent.placeholder', "Select the agent used by the Fix and Explain buttons on errors"),
 			activeItem: items.find((item): item is IAgentPickItem => item.type !== 'separator' && item.id === errorActionsService.selectedId),
 		});
 		if (picked) {
