@@ -61,8 +61,10 @@ it too.
 Exploring stops after 30 minutes unless the person names another limit
 ("spend an hour on it"; `--time-limit none` for "no limit"). Tell them the
 limit and that they can change it at any time. To change it, write the new
-total minutes to `<run dir>/time-limit`; write `0` to stop exploring now. The
-explorer is then told to write up, which takes a few minutes. Verifying adds a
+total minutes to the time-limit file the command prints; write `0` to stop
+exploring now. The explorer is then told to write up, which takes a few
+minutes. The file is kept out of the run directory, where the explorer would
+find its budget; keep it out of the brief too. Verifying adds a
 few more, or about 20 when a finding needs isolating. The verdicts are
 advisory: do not edit them or drop a finding over them.
 

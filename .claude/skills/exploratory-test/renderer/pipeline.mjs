@@ -12,8 +12,10 @@
 //     [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts]
 //     makes a run directory, prints it, explores with the brief, then runs the
 //     rest and renders the report. --base-name is the base branch, for the
-//     change mark. The time limit is in <run dir>/time-limit, read throughout:
-//     write other minutes to it to change it, or 0 to stop exploring now.
+//     change mark. The time limit is in the file it prints, read throughout:
+//     write other minutes to it to change it, or 0 to stop exploring now. It
+//     is kept out of the run directory, since an explorer that finds its
+//     budget rushes and wraps up early.
 //   node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha>
 //     [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]
 //     replays a run whose report.md is as its explorer left it; --duration-ms,
@@ -22,7 +24,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude } from './claude-cli.mjs';
@@ -37,6 +39,7 @@ const ISOLATOR_PATH = fileURLToPath(new URL('../isolator.md', import.meta.url));
 const STOP_INSTANCES = fileURLToPath(new URL('./stop-instances.sh', import.meta.url));
 const RENDER = fileURLToPath(new URL('./render.mjs', import.meta.url));
 const SELF = fileURLToPath(import.meta.url);
+const STATE_DIR = join(homedir(), '.local', 'state', 'exploratory-test');
 
 /** What the verifier is sent once the isolator has written isolation.md. */
 export function reviseMessage(dir) {
@@ -95,10 +98,17 @@ export async function explore(dir, { brief, repo, runAgent, model = 'opus', time
  * Claude Code blocks an agent's writes there, whatever its permissions.
  */
 function makeRunDir() {
-	const output = join(homedir(), '.local', 'state', 'exploratory-test', 'output');
+	const output = join(STATE_DIR, 'output');
 	mkdirSync(output, { recursive: true });
 	const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, '');
 	return mkdtempSync(join(output, `${stamp}-`));
+}
+
+/** Where a run's time limit is kept, out of the explorer's sight. */
+function timeLimitFile(dir) {
+	const limits = join(STATE_DIR, 'time-limits');
+	mkdirSync(limits, { recursive: true });
+	return join(limits, basename(dir));
 }
 
 /** Stops what the run's agents launched; a failure only warns, since the report does not depend on it. */
@@ -272,7 +282,7 @@ async function main(argv) {
 	let explored;
 	if (fresh) {
 		dir = makeRunDir();
-		const timeLimitPath = join(dir, 'time-limit');
+		const timeLimitPath = timeLimitFile(dir);
 		if (limit !== 'none') {
 			writeFileSync(timeLimitPath, `${limit}\n`);
 		}

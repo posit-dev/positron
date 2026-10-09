@@ -127,9 +127,8 @@ if (flags['duration-ms']) {
 		flags['verify-duration-ms'] !== undefined && line('verify', flags['verify-model'], flags['verify-turns'], verify, flags['verify-cost-usd']),
 		flags['isolate-duration-ms'] !== undefined && line('isolate', flags['isolate-model'], flags['isolate-turns'], isolate, flags['isolate-cost-usd']),
 	].filter(Boolean);
-	// The total has a cost only when every pass that ran has one.
-	const costs = [flags['cost-usd'], ...['verify', 'isolate'].filter(role => flags[`${role}-duration-ms`] !== undefined).map(role => flags[`${role}-cost-usd`])];
-	const totalCost = costs.every(c => c !== undefined && c !== '') ? `$${costs.reduce((sum, c) => sum + Number(c), 0).toFixed(2)}` : null;
+	const cost = totalCostUsd();
+	const totalCost = cost === null ? null : `$${cost.toFixed(2)}`;
 	const footer = later.length
 		? [line('explore', flags.model, flags.turns, explore, flags['cost-usd']), ...later, `_total: ${[totalCost, formatMinutes(explore + (verify || 0) + (isolate || 0))].filter(Boolean).join(' | ')}_`].join('\n')
 		: line('explore', flags.model, flags.turns, explore, flags['cost-usd']);
@@ -149,6 +148,12 @@ const parsed = parseReport(markdown, { ledger });
 // The Run tile's render is the run's last: record its stats, as CI's run.mjs
 // does, before the page is written, so the page can link them. A replayed CI
 // run keeps the stats CI recorded.
+// Every pass's cost added up, or null unless every pass that ran has one.
+function totalCostUsd() {
+	const costs = [flags['cost-usd'], ...['verify', 'isolate'].filter(role => flags[`${role}-duration-ms`] !== undefined).map(role => flags[`${role}-cost-usd`])];
+	return costs.every(c => c !== undefined && c !== '') ? costs.reduce((sum, c) => sum + Number(c), 0) : null;
+}
+
 const stats = flags['duration-ms'] && !ranInCi(dir) ? buildStats({
 	where: 'local',
 	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
@@ -156,6 +161,7 @@ const stats = flags['duration-ms'] && !ranInCi(dir) ? buildStats({
 	model: flags.model,
 	// claude -p's num_turns, or a replayed run's subagent tool_uses.
 	turns: flags.turns ? Number(flags.turns) : null,
+	costUsd: totalCostUsd(),
 	durationMs: Number(flags['duration-ms']) + (Number(flags['verify-duration-ms']) || 0) + (Number(flags['isolate-duration-ms']) || 0),
 	// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
 	isolate: flags['isolate-duration-ms'] !== undefined
