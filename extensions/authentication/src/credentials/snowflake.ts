@@ -7,8 +7,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { AuthProviderLogger } from '../authProviderLogger';
+import { IS_RUNNING_ON_PWB } from '../constants';
 
 const logger = new AuthProviderLogger('Snowflake Auth');
+
+// This path is checked on every getSessions call, so only warn once.
+let warnedNoSnowflakeHome = false;
 
 /**
  * Configuration for detected Snowflake credentials
@@ -161,7 +165,14 @@ export function getSnowflakeConnectionsTomlPath(
 			return path.join(expandedHome, 'connections.toml');
 		}
 
-		logger.warn('No SNOWFLAKE_HOME configured - unable to determine connections.toml path');
+		// SNOWFLAKE_HOME is only expected on Workbench, so it's normal for it to be missing on Desktop.
+		const message = 'No SNOWFLAKE_HOME configured - unable to determine connections.toml path';
+		if (IS_RUNNING_ON_PWB && !warnedNoSnowflakeHome) {
+			warnedNoSnowflakeHome = true;
+			logger.warn(message);
+		} else {
+			logger.debug(message);
+		}
 		return undefined;
 	} catch (error) {
 		logger.warn(`Failed to get connections.toml path: ${error}`);
