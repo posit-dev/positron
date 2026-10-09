@@ -101,7 +101,7 @@ function toDo(n: Night, where: 'summary' | 'pr' | 'slack'): string {
 		const back = fixes.filter(f => f.fixedBefore?.length);
 		if (back.length && where !== 'slack') { out.push(`${back.map(f => `"${title(f)}"`).join(', ')} came back after being fixed on earlier nights; those fixes were never merged.`); }
 	}
-	const product = n.findings.filter(f => f.outcome === 'product').length;
+	const product = n.findings.filter(f => f.outcome === 'product' && !f.issue).length;
 	if (product) { out.push(`Look at the ${s(product, 'product bug')} below and file an issue if there is none.`); }
 	if (n.smokeRed && !n.findings.length && n.unconfirmed.length) { out.push('Smoke failed, but the rerun never reached those cases; see Unconfirmed.'); }
 	return where === 'slack' ? out.join(' ') : `**To do:** ${out.join(' ') || 'nothing.'}`;
@@ -149,6 +149,8 @@ function reviewLine(f: Finding): string {
 	return `${f.revised ? 'sent back once; after the revision: ' : ''}${notes || 'no notes'}`;
 }
 
+const COST = { 'gave up': 'the agent gave up', 'by hand': 'the agent did it by hand', 'repeated': 'the agent hit it again' };
+
 /** A finding as a heading, the plain account, and the evidence folded away. */
 function block(f: Finding, n: Night, h: string): string {
 	const runs = f.fixedBefore ?? [];
@@ -156,6 +158,8 @@ function block(f: Finding, n: Night, h: string): string {
 		`${h} ${title(f)}: ${status(f)}`, '',
 		`- **What broke:** ${inert(f.broke ?? `${f.helper}: ${seen(f)}`)}`,
 		...(f.cause ? [`- **Why:** ${inert(f.cause)}`] : []),
+		...(f.cost ? [`- **In a real run:** ${COST[f.cost.kind] ?? f.cost.kind}: ${inert(cut(f.cost.evidence, 300).replace(/\s+/g, ' '))}`] : []),
+		...(f.issue ? [`- **Known issue:** \`#${f.issue}\`, hit again tonight.`] : []),
 		...(f.change && f.outcome === 'fixed' ? [`- **Fix:** ${inert(f.change)}`] : []),
 		...(f.untestable && kept(f) ? [`- **No smoke case:** ${inert(f.untestable)}`] : []),
 		...(f.review?.length || f.revised ? [`- **Review:** ${reviewLine(f)}`] : []),
@@ -252,6 +256,7 @@ export function slackText(n: Night, runUrl: string, link: { kind: 'compare' | 'p
 		`*Broke*${DOT}${esc(f.broke ?? seen(f))}`,
 		kept(f) && f.change ? `*Fix*${DOT}${esc(f.change)}` : kept(f) ? '' : `*Status*${DOT}${esc(status(f))}`,
 		!kept(f) && f.cause ? `*Why*${DOT}${esc(f.cause)}` : '',
+		f.issue ? `_Known issue #${f.issue}, hit again tonight._` : '',
 		kept(f) && resolved(f).length ? esc(also(resolved(f))) : '',
 		kept(f) && f.fixedBefore?.length ? `_Fixed on ${s(f.fixedBefore.length, 'earlier nightly', 'earlier nightlies')} too, but those fixes never merged._` : '',
 	].filter(Boolean).join('\n');

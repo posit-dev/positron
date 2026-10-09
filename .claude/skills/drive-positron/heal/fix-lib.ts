@@ -10,7 +10,7 @@ import { SKILL_PREFIX } from './scope.ts';
 /** The report's plain-language account, one sentence each; a session may leave any of them out. */
 export type Plain = { broke?: string; cause?: string; change?: string; checks?: string };
 /** `plain` holds only the fields the session wrote; the outcome file has them at the top level. */
-export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction; plain: Plain; untestable?: string; covers?: string[] };
+export type FixerOutcome = { outcome: 'fixed' | 'product' | 'flake'; reason: string; reproduction: Reproduction; plain: Plain; untestable?: string; covers?: string[]; issue?: number };
 
 export function queue(findings: Finding[], smokeOrder: string[], cap = 5): { attempt: Finding[]; notAttempted: Finding[] } {
 	const at = (f: Finding) => f.source === 'smoke' ? smokeOrder.indexOf(f.case ?? '') : smokeOrder.length;
@@ -41,7 +41,7 @@ export function replaceCases(baseline: SmokeResults, after: SmokeResults): Smoke
 
 export function readOutcome(text: string | null): FixerOutcome | string {
 	if (text === null) { return 'the fixer wrote no outcome file'; }
-	let o: (Partial<Omit<FixerOutcome, 'plain' | 'untestable' | 'covers'>> & Partial<Record<keyof Plain | 'untestable' | 'covers', unknown>>) | null;
+	let o: (Partial<Omit<FixerOutcome, 'plain' | 'untestable' | 'covers' | 'issue'>> & Partial<Record<keyof Plain | 'untestable' | 'covers' | 'issue', unknown>>) | null;
 	try { o = JSON.parse(text); } catch { return `the outcome file is not JSON: ${text.slice(0, 120)}`; }
 	if (!o || typeof o !== 'object') { return `the outcome file is not a JSON object: ${text.slice(0, 120)}`; }
 	if (!['fixed', 'product', 'flake'].includes(o.outcome as string)) { return `outcome "${o.outcome}" is not fixed, product or flake`; }
@@ -55,9 +55,10 @@ export function readOutcome(text: string | null): FixerOutcome | string {
 	}
 	const untestable = typeof o.untestable === 'string' && o.untestable.trim() ? o.untestable.trim() : undefined;
 	const covers = Array.isArray(o.covers) ? o.covers.filter((x): x is string => typeof x === 'string' && x.trim() !== '') : [];
+	const issue = o.outcome === 'product' && Number.isInteger(o.issue) && (o.issue as number) > 0 ? o.issue as number : undefined;
 	return {
 		outcome: o.outcome as FixerOutcome['outcome'], reason: o.reason, reproduction: { ...r, by: 'fixer' } as Reproduction, plain,
-		...(untestable ? { untestable } : {}), ...(covers.length ? { covers } : {}),
+		...(untestable ? { untestable } : {}), ...(covers.length ? { covers } : {}), ...(issue ? { issue } : {}),
 	};
 }
 
@@ -79,7 +80,7 @@ export function sameFinding(a: Finding, b: Finding): boolean {
 	return a.id === b.id || (a.source === 'smoke' && b.source === 'smoke' && a.case !== undefined && a.case === b.case);
 }
 
-const verdict = (run: string, x: Finding, label = '') => `run ${run}${label}: ${x.outcome}${x.rejected ? ` (rejected: ${x.rejected})` : ''}: ${x.reason ?? ''}`;
+const verdict = (run: string, x: Finding, label = '') => `run ${run}${label}: ${x.outcome}${x.issue ? ` (issue #${x.issue})` : ''}${x.rejected ? ` (rejected: ${x.rejected})` : ''}: ${x.reason ?? ''}`;
 
 /** The latest verdicts on finding `f` from earlier nights, newest first; a finder finding's ids drift, so same-helper ones follow, labeled. */
 export function earlierVerdicts(runs: Map<string, Finding[]>, f: Finding, max = 3): string[] {
@@ -89,6 +90,17 @@ export function earlierVerdicts(runs: Map<string, Finding[]>, f: Finding, max = 
 	const related = f.source !== 'finder' ? [] : newest.flatMap(([run, fs]) => fs.filter(x => decided(x) && x.source === 'finder' && x.helper === f.helper && !sameFinding(x, f))
 		.map(x => verdict(run, x, ` (related, same helper ${f.helper})`)));
 	return [...exact, ...related].slice(0, max);
+}
+
+/** Issue number to state, as recent.ts fetched them; an issue missing here counts as not known open. */
+export type IssueStates = Record<number, 'open' | 'closed'>;
+
+/** The newest earlier verdict on `f` when it was a product bug filed as an issue still open; null otherwise. */
+export function knownProduct(runs: Map<string, Finding[]>, f: Finding, states: IssueStates): { run: string; issue: number; finding: Finding } | null {
+	const newest = [...runs].sort(([a], [b]) => Number(b) - Number(a))
+		.flatMap(([run, fs]) => fs.filter(x => x.outcome !== undefined && x.outcome !== 'resolved' && sameFinding(x, f)).map(finding => ({ run, finding })))[0];
+	const issue = newest?.finding.outcome === 'product' ? newest.finding.issue : undefined;
+	return issue && states[issue] === 'open' ? { run: newest.run, issue, finding: newest.finding } : null;
 }
 
 /** The earlier runs, newest first, that fixed finding `f` and kept the fix. */
