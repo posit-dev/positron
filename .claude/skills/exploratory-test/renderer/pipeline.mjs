@@ -155,7 +155,7 @@ async function editReport(dir, ask, log) {
 
 /**
  * The Run tile's render.mjs flags from the explorer's pass and `passes`: the
- * verifier's summed over its sessions, and the isolator's. None without the
+ * verifier's summed over its sessions, and the isolator's, with what they cost. None without the
  * explorer's time, which the footer is built on.
  */
 export function renderFlags(explore, passes) {
@@ -165,6 +165,7 @@ export function renderFlags(explore, passes) {
 			model: own[0].model,
 			durationMs: own.reduce((total, p) => total + (p.durationMs ?? 0), 0),
 			turns: own.some(p => p.turns !== null) ? own.reduce((total, p) => total + (p.turns ?? 0), 0) : null,
+			costUsd: own.some(p => p.costUsd !== null) ? own.reduce((total, p) => total + (p.costUsd ?? 0), 0) : null,
 		} : null;
 	};
 	if (explore?.durationMs === null || explore?.durationMs === undefined) {
@@ -174,6 +175,7 @@ export function renderFlags(explore, passes) {
 		...(pass.model ? [`--${prefix}model`, pass.model] : []),
 		`--${prefix}duration-ms`, String(pass.durationMs),
 		...(pass.turns !== null && pass.turns !== undefined ? [`--${prefix}turns`, String(pass.turns)] : []),
+		...(pass.costUsd !== null && pass.costUsd !== undefined ? [`--${prefix}cost-usd`, String(pass.costUsd)] : []),
 	] : [];
 	return [...flags('', explore), ...flags('verify-', sum('verify')), ...flags('isolate-', sum('isolate'))];
 }

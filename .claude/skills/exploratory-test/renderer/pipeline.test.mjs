@@ -118,8 +118,8 @@ test('an UNRESOLVED verdict is isolated, then the verifier revises in the same s
 	assert.match(run.report, /\| 2 \| second claim .* \| confirmed \|/);
 	assert.deepEqual(renderFlags({ model: 'opus', durationMs: 60000, turns: 40 }, run.passes), [
 		'--model', 'opus', '--duration-ms', '60000', '--turns', '40',
-		'--verify-model', 'sonnet', '--verify-duration-ms', '2000', '--verify-turns', '4',
-		'--isolate-model', 'sonnet', '--isolate-duration-ms', '1000', '--isolate-turns', '2',
+		'--verify-model', 'sonnet', '--verify-duration-ms', '2000', '--verify-turns', '4', '--verify-cost-usd', '1',
+		'--isolate-model', 'sonnet', '--isolate-duration-ms', '1000', '--isolate-turns', '2', '--isolate-cost-usd', '0.5',
 	]);
 });
 

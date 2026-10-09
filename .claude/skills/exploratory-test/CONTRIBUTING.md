@@ -89,9 +89,10 @@ that touches these folders.
 
 No test runs a real agent. For a change to a prompt or to the pipeline,
 replay a saved run: copy a run directory whose `report.md` is as the explorer
-left it, and run `EXPLORATORY_TEST_NO_USAGE=1 node renderer/pipeline.mjs run
-<copy> --repo <checkout> --base <sha> --head <sha>` on it. The variable keeps
-the replay out of the usage counts. That covers everything after the explorer,
+left it, and run `node renderer/pipeline.mjs run <copy> --repo <checkout>
+--base <sha> --head <sha>` on it. A replay sends no usage row: a CI run has
+`cost.json`, and a local one keeps the `usage-reported` marker from its first
+render. That covers everything after the explorer,
 the isolator included when a finding comes back UNRESOLVED. For the explorer,
 run the skill locally on a small branch, or start `test-exploratory.yml` with
 workflow_dispatch on your branch. A `/explore` comment always runs main's copy

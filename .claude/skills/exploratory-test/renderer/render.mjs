@@ -6,8 +6,8 @@
 // Renders a local run's report.md as index.html beside it, the same page CI
 // publishes. Usage:
 //   node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>]
-//     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>]
-//     [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n>] [--no-agent-prompts] [--base <url> --out <file>]
+//     [--verify-model <id> --verify-duration-ms <n> --verify-turns <n> --verify-cost-usd <n>]
+//     [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n> --isolate-cost-usd <n>] [--no-agent-prompts] [--base <url> --out <file>]
 // The flags record the explore agent's run, and the verifier's when there was
 // one, on the Run tile, as CI's cost footer does. Given --duration-ms, they replace the report's footer lines.
 // --no-agent-prompts leaves out the findings' copy-for-agent buttons.
@@ -32,9 +32,11 @@ const { values: flags, positionals } = parseArgs({
 		'verify-model': { type: 'string' },
 		'verify-duration-ms': { type: 'string' },
 		'verify-turns': { type: 'string' },
+		'verify-cost-usd': { type: 'string' },
 		'isolate-model': { type: 'string' },
 		'isolate-duration-ms': { type: 'string' },
 		'isolate-turns': { type: 'string' },
+		'isolate-cost-usd': { type: 'string' },
 		'no-agent-prompts': { type: 'boolean' },
 		check: { type: 'boolean' },
 		base: { type: 'string' },
@@ -43,7 +45,7 @@ const { values: flags, positionals } = parseArgs({
 });
 const input = positionals[0];
 if (!input) {
-	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n>] [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
+	console.error('usage: node render.mjs <path/to/report.md> [--model <id>] [--duration-ms <n>] [--turns <n>] [--verify-model <id> --verify-duration-ms <n> --verify-turns <n> --verify-cost-usd <n>] [--isolate-model <id> --isolate-duration-ms <n> --isolate-turns <n> --isolate-cost-usd <n>] [--no-agent-prompts] [--base <url> --out <file>] [--check]');
 	process.exit(1);
 }
 
@@ -113,15 +115,16 @@ if (flags.check) {
 if (flags['duration-ms']) {
 	// Written here rather than by the action's renderCostFooter (lib.mjs):
 	// a local run has no bill, and that footer drops any pass without one.
-	const line = (label, model, turns, ms) => `_${label}: ${[modelDisplayName(model), turns && `${turns} turns`, formatMinutes(ms)].filter(Boolean).join(' | ')}_`;
+	// The explorer's cost is unknown; the later passes' is claude -p's estimate.
+	const line = (label, model, turns, ms, cost) => `_${label}: ${[modelDisplayName(model), cost && `$${Number(cost).toFixed(2)}`, turns && `${turns} turns`, formatMinutes(ms)].filter(Boolean).join(' | ')}_`;
 	const explore = Number(flags['duration-ms']);
 	const verify = Number(flags['verify-duration-ms']);
 	const isolate = Number(flags['isolate-duration-ms']);
 	// The total covers every pass, as CI's does; with one pass there is none.
 	// Its flag, not its value, says there was a pass: 0 ms is still one.
 	const later = [
-		flags['verify-duration-ms'] !== undefined && line('verify', flags['verify-model'], flags['verify-turns'], verify),
-		flags['isolate-duration-ms'] !== undefined && line('isolate', flags['isolate-model'], flags['isolate-turns'], isolate),
+		flags['verify-duration-ms'] !== undefined && line('verify', flags['verify-model'], flags['verify-turns'], verify, flags['verify-cost-usd']),
+		flags['isolate-duration-ms'] !== undefined && line('isolate', flags['isolate-model'], flags['isolate-turns'], isolate, flags['isolate-cost-usd']),
 	].filter(Boolean);
 	const footer = later.length
 		? [line('explore', flags.model, flags.turns, explore), ...later, `_total: ${formatMinutes(explore + (verify || 0) + (isolate || 0))}_`].join('\n')

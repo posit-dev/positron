@@ -1980,11 +1980,11 @@ test('render.mjs writes the explore and verify passes and their total, replacing
 	const report = join(dir, 'report.md');
 	const render = args => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, ...args], { encoding: 'utf8' });
 	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142']);
-	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '180000', '--verify-turns', '24']);
+	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '180000', '--verify-turns', '24', '--verify-cost-usd', '0.4231']);
 	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
-	assert.deepEqual(footer, ['_explore: Opus 5.5 | 142 turns | 25m_', '_verify: Sonnet 5 | 24 turns | 3m_', '_total: 28m_']);
+	assert.deepEqual(footer, ['_explore: Opus 5.5 | 142 turns | 25m_', '_verify: Sonnet 5 | $0.42 | 24 turns | 3m_', '_total: 28m_']);
 	const { cost } = parseReport(readFileSync(report, 'utf8'));
-	assert.deepEqual(cost.passes.map(p => p.label), ['explore', 'verify']);
+	assert.deepEqual(cost.passes.map(p => [p.label, p.cost]), [['explore', null], ['verify', '$0.42']]);
 	assert.equal(cost.duration, '28m');
 	rmSync(dir, { recursive: true, force: true });
 });

@@ -5,7 +5,8 @@
 
 // Counts local runs, which otherwise stay on the tester's machine unless
 // published. One row per run goes to a Google Form; EXPLORATORY_TEST_NO_USAGE=1
-// opts out.
+// opts out. A CI run's directory, which has cost.json, sends none: CI counts its
+// own runs, so rendering one again is a replay.
 
 import { existsSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -44,10 +45,10 @@ export async function reportUsage({ email, event, runId, stats }, { fetch = glob
 /** Written once a run's row is sent, so re-rendering the run sends no second row. */
 export const REPORTED_FILE = 'usage-reported';
 
-/** Sends the run's row unless an earlier render already did; a failed send is retried next render. */
+/** Sends the run's row unless an earlier render already did, or CI ran it; a failed send is retried next render. */
 export async function reportUsageOnce(runDir, row, options) {
 	const marker = join(runDir, REPORTED_FILE);
-	if (existsSync(marker)) {
+	if (existsSync(marker) || existsSync(join(runDir, 'cost.json'))) {
 		return false;
 	}
 	const sent = await reportUsage(row, options);
