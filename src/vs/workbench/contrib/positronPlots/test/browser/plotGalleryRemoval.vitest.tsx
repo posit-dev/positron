@@ -65,12 +65,12 @@ describe('Plot gallery removal', () => {
 		expect(screen.getAllByRole('button', { name: 'Remove plot' })).toHaveLength(2);
 	});
 
-	it('marks only the selected plot thumbnail as pressed', async () => {
+	it('marks only the selected plot thumbnail as current', async () => {
 		const plotsService = await createPlots();
 
 		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
 
-		// getByRole throws unless exactly one thumbnail is pressed.
-		expect(screen.getByRole('button', { pressed: true })).toHaveAttribute('data-plot-id', plotsService.selectedPlotId);
+		// getByRole throws unless exactly one thumbnail is current.
+		expect(screen.getByRole('button', { current: true })).toHaveAttribute('data-plot-id', plotsService.selectedPlotId);
 	});
 });

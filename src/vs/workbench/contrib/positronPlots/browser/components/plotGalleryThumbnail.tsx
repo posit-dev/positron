@@ -84,7 +84,7 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 		<div className={'plot-thumbnail' + (props.selected ? ' selected' : '')}>
 			<button
 				ref={plotThumbnailButtonRef}
-				aria-pressed={props.selected}
+				aria-current={props.selected}
 				className='plot-thumbnail-button'
 				data-plot-id={props.plotClient.id}
 				onClick={selectPlot}

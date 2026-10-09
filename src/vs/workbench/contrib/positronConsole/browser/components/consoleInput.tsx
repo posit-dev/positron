@@ -47,6 +47,7 @@ import { okToTakeFocus as okToTakeFocusHelper } from './consoleInputFocus.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
 
 // Position enumeration.
 const enum Position {
@@ -71,9 +72,14 @@ interface ConsoleInputProps {
 export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
+	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
 	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
+
+	// Whether to focus the code editor widget once this console renders as active. See the
+	// onDidChangeActivePositronConsoleInstance handler.
+	const focusWhenActiveRef = useRef(false);
 
 	// State hooks.
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
@@ -860,11 +866,14 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(
 			services.positronConsoleService.onDidChangeActivePositronConsoleInstance(
 				positronConsoleInstance => {
-					if (positronConsoleInstance === props.positronConsoleInstance) {
-						// If it's OK to take focus, drive focus into the code editor widget.
-						if (okToTakeFocus()) {
-							codeEditorWidget.focus();
-						}
+					// If it's OK to take focus, drive focus into the code editor widget.
+					if (positronConsoleInstance === props.positronConsoleInstance && okToTakeFocus()) {
+						codeEditorWidget.focus();
+						// This fires before React re-renders, so the console can still be inert and
+						// ignore the focus. If so, retry once it renders as active.
+						focusWhenActiveRef.current = !codeEditorWidget.hasTextFocus();
+					} else {
+						focusWhenActiveRef.current = false;
 					}
 				}
 			)
@@ -1090,6 +1099,16 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		return () => disposableStore.dispose();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
+
+	// Finish a focus request that arrived while this console was still inert.
+	const active = positronConsoleContext.activePositronConsoleInstance?.sessionId ===
+		props.positronConsoleInstance.sessionId;
+	useEffect(() => {
+		if (active && focusWhenActiveRef.current) {
+			focusWhenActiveRef.current = false;
+			codeEditorWidgetRef.current?.focus();
+		}
+	}, [active, codeEditorWidgetRef]);
 
 	// Experimental.
 	useEffect(() => {
