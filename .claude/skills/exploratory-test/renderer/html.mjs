@@ -133,7 +133,7 @@ function renderTiles(report) {
 		+ legend(findingSegments.map(s => ({ ...s, strong: s.count }))));
 
 	const scenarioSegments = [
-		{ count: scenarios.pass, color: 'var(--pass-fill)', word: 'passed' },
+		{ count: scenarios.pass, color: 'var(--success)', word: 'passed' },
 		{ count: scenarios.issues, color: 'var(--moderate-dot)', word: 'failed' },
 		{ count: scenarios.notRun, color: 'var(--notrun-bar)', word: 'not run' },
 	].filter(s => s.count > 0);

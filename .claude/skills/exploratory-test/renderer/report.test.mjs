@@ -1077,7 +1077,7 @@ test('renderReportHtml greens only the check beside Confirmed in the findings ta
 	assert.match(html, /<span class="status"><svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2"/);
 	assert.doesNotMatch(html, /<span class="status"><svg[^>]*currentColor/);
 	assert.match(html, /\.status\{[^}]*color:var\(--body\)/);
-	assert.match(html, /\.status-check\{stroke:var\(--pass-fill\)\}/);
+	assert.match(html, /\.status-check\{stroke:var\(--success\)\}/);
 });
 
 test('renderReportHtml points the tile arrow straight down', () => {
