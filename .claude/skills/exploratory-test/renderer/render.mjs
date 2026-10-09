@@ -64,7 +64,7 @@ const dir = dirname(resolve(input));
 // The ledger alone, while the run is still exploring and there is no report yet.
 const ledgerOnly = flags.check && (basename(input) === 'ledger.md' || !existsSync(input));
 let markdown = ledgerOnly ? '' : readFileSync(input, 'utf8');
-const { ledger, actionsLog, knownIssues, fileExists, readFile } = readRunDir(dir);
+const { ledger, actionsLog, knownIssues, changeBase, fileExists, readFile } = readRunDir(dir);
 // Every file saved under files/, so lint can find one the ledger never listed.
 const listFiles = () => {
 	const root = join(dir, 'files');
@@ -187,6 +187,7 @@ await writeRunPage(out, markdown, parsed, {
 	startedAt: born.getTime() > 0 ? born : undefined,
 	knownIssues,
 	issueRefs,
+	changeBase,
 });
 console.log(out);
 

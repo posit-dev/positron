@@ -511,6 +511,7 @@ jobs:
           BASE=$(git merge-base "origin/$BASE_REF" HEAD)
           echo "base=$BASE" >> "$GITHUB_OUTPUT"
           echo "head=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "ref=$BASE_REF" >> "$GITHUB_OUTPUT"
           echo "Diff base: $BASE (origin/$BASE_REF)"
 
       # A dispatched run has no PR in its event. Find the ref's open PR so the
@@ -761,6 +762,7 @@ jobs:
           cdp-port: ${{ env.CDP_PORT }}
           branch: ${{ inputs.ref || needs.membership.outputs.head_ref }}
           base-sha: ${{ steps.base.outputs.base }}
+          base-ref: ${{ steps.base.outputs.ref }}
           head-sha: ${{ steps.base.outputs.head }}
           report-base-url: ${{ env.REPORT_BASE_URL }}
           model: ${{ matrix.model }}

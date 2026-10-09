@@ -39,8 +39,9 @@ const PROFESSIONAL = `
 	--minor-dot: #A3ABB6;
 	--minor-text: #4A5563;
 	--minor-bg: #EEF0F3;
-	--pass-fill: #3E8E62;
-	--pass-text: #2F7A4F;
+	/* One green and one red per theme for every status mark: checks, PASS/FAIL, dots, the fix x. */
+	--success: #1A7F45;
+	--danger: #A12C1F;
 	--pass-bg: #E8F3EC;
 	--notrun: #E2DFD7;
 	--notrun-bar: #DAD6CD;
@@ -65,19 +66,14 @@ const PROFESSIONAL = `
 	--cv-chev: #C4C0B6;
 	--st-ev: #8A8F96;
 	--st-target: #F6F1E4;
-	--st-pass-bg: #E4F1E8;
-	--st-pass-text: #2A6F47;
+	--st-pass-bg: #EDF7F0;
 	--st-fail-bg: #FBE7E3;
-	--st-fail-text: #9A2A1D;
 	--cv-open: #F7F6F1;
 	--cv-open-hover: #F2F0EA;
 	--pop-border: #E7E4DC;
 	--pop-sep: #EFEDE7;
 	--pop-shadow: 0 8px 24px rgba(28,31,35,.12);
 	--ki-closed: #8A6BBE;
-	--ki-x: #C4402B;
-	--ki-grp-hover: #F4F2EC;
-	--ki-chev-on: #6A6F76;
 
 	--label-color: var(--muted);
 	--label-ls: 0.1em;
@@ -106,7 +102,7 @@ const PROFESSIONAL = `
 	--sig-bug-glow: none;
 	--sig-medium: #6A6F76;
 	--sig-bang: #A12C1F;
-	--sig-ok: #2F7A4F;
+	--sig-ok: var(--success);
 	--sig-ok-glow: none;
 	--sig-legal: #A8A49A;
 	--lb-nav-bg: #FFFFFF;
@@ -120,6 +116,10 @@ const PROFESSIONAL = `
 	--tip-border: #E7E4DC;
 	--tip-text: #3D4148;
 	--tip-shadow: 0 1px 2px rgba(28,31,35,0.06);
+	--chg-shadow: 0 4px 14px rgba(0,0,0,.08);
+	/* Brighter than --link for small marks on white rows; too faint for text on tinted ones. */
+	--accent-mark: #2A7D6A;
+	--chg-weight: 500;
 	--code-blk-bg: #F1EFEA;
 	--rt-tag-bg: #EFEDE7;
 	--rt-tag-ink: #3D4148;
@@ -181,8 +181,8 @@ const PARTY = `
 	--minor-dot: #8E86C4;
 	--minor-text: #C9C2EE;
 	--minor-bg: #2C2654;
-	--pass-fill: #3BD69E;
-	--pass-text: #4BE8B0;
+	--success: #3BD69E;
+	--danger: #FF8FA8;
 	--pass-bg: #17352C;
 	--notrun: #3A3068;
 	--notrun-bar: #4A3F7A;
@@ -208,18 +208,13 @@ const PARTY = `
 	--st-ev: #8A82B8;
 	--st-target: #2A2250;
 	--st-pass-bg: #153B35;
-	--st-pass-text: #3BD69E;
 	--st-fail-bg: #3A1834;
-	--st-fail-text: #FF8FA8;
 	--cv-open: #2A2250;
 	--cv-open-hover: #302860;
 	--pop-border: #5B4F92;
 	--pop-sep: #342A5C;
 	--pop-shadow: 0 8px 24px rgba(0,0,0,.4);
 	--ki-closed: #B79CFF;
-	--ki-x: #FF6B8B;
-	--ki-grp-hover: #2A2250;
-	--ki-chev-on: #CFC8EA;
 
 	--label-color: #FF6AC1;
 	--label-ls: 0.14em;
@@ -262,6 +257,9 @@ const PARTY = `
 	--tip-border: #5B4F92;
 	--tip-text: #F5F1FF;
 	--tip-shadow: none;
+	--chg-shadow: 0 4px 14px rgba(0,0,0,.35);
+	--accent-mark: #5CE1E6;
+	--chg-weight: 400;
 	--code-blk-bg: #19132F;
 	--rt-tag-bg: #3A2F6B;
 	--rt-tag-ink: #F5F1FF;
@@ -357,7 +355,7 @@ h1.title{margin:0;font-family:var(--display);font-weight:600;font-size:34px;line
 .sh-btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 .sh-btn svg{width:13px;height:13px}
 .sh-btn .sh-ok{display:none}
-.sh-btn.is-copied{color:var(--pass-fill)}
+.sh-btn.is-copied{color:var(--success)}
 .sh-btn.is-copied .sh-ok{display:block}
 .sh-btn.is-copied .sh-ico{display:none}
 @media (prefers-reduced-motion:reduce){.mode-tip,.sh-btn{transition:none}}
@@ -442,33 +440,31 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .finding-cell{display:flex;flex-direction:column;gap:4px}
 .finding-cell .claim{font-size:15px;font-weight:500;color:var(--ink);line-height:1.4}
 .finding-cell .claim .n{font-family:var(--mono);color:var(--faint);margin-right:8px}
+/* Change mark: the verifier's call that the most direct fix is in code the
+   change under test touched. The row is a link, so the tooltip also opens on
+   the row's keyboard focus rather than on a focusable mark. */
+.chg{position:relative;display:inline-block;margin-left:8px;font-size:15px;font-weight:var(--chg-weight);line-height:1;color:var(--accent-mark);cursor:help}
+.chg-sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.chg-tip{position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:2px;width:max-content;max-width:340px;padding:7px 10px;border-radius:6px;background:var(--tip-bg);border:1px solid var(--tip-border);box-shadow:var(--chg-shadow);font-family:var(--sans);font-size:12px;font-weight:400;letter-spacing:0;line-height:1.45;color:var(--muted);text-align:left;white-space:normal;opacity:0;visibility:hidden;pointer-events:none;z-index:5;transition:opacity .12s ease,visibility 0s linear .12s}
+.chg-tip b{font-weight:600;color:var(--tip-text)}
+.chg:hover .chg-tip,a.row:focus-visible .chg-tip{opacity:1;visibility:visible;transition:opacity .12s ease}
+.chg-up .chg-tip{top:auto;bottom:calc(100% + 8px)}
+@media (prefers-reduced-motion:reduce){.chg-tip{transition:none}}
 .rate{text-align:right;font-family:var(--mono);font-size:13px;color:var(--body)}
 .status{display:flex;justify-content:flex-end;align-items:center;gap:6px;font-size:13px;color:var(--body)}
-.status-check{stroke:var(--pass-fill)}
+.status-check{stroke:var(--success)}
 .status.muted{color:var(--muted)}
 
-/* Known issues: the Findings table's Status labels and closed "Linked issues"
-   row, the card's linked issues, GitHub issue links, and their preview card */
-.ki-title{font-size:15px;font-weight:500;color:var(--body);line-height:1.4}
-.ki-sub{font-size:13px;color:var(--muted)}
+/* Known issues: the Findings table's Status labels and "Linked issues" row,
+   the card's linked issues, GitHub issue links, and their preview card */
 .ki-st{display:flex;flex-direction:column;align-items:flex-end;gap:2px;text-align:right;font-size:13px;color:var(--body)}
 .ki-reg{display:inline-flex;align-items:center;gap:6px;color:var(--body);font-weight:400}
-.ki-x{display:inline-flex;color:var(--ki-x)}
+.ki-x{display:inline-flex;color:var(--danger)}
 .ki-st .ki-state{font-size:12.5px;color:var(--muted)}
-.ki-grp>summary,.ki-grp>.ki-hd{display:grid;grid-template-columns:110px minmax(0,1fr) 12px;gap:16px;align-items:center;padding:11px 20px;background:var(--thead);border-top:1px solid var(--border);font-size:12.5px;color:var(--faint)}
-.ki-grp>summary{cursor:pointer;list-style:none}
-.ki-grp>summary::-webkit-details-marker{display:none}
+.ki-bar{display:grid;grid-template-columns:110px minmax(0,1fr);gap:16px;align-items:center;padding:11px 20px;background:var(--thead);border-top:1px solid var(--border);font-size:12.5px;color:var(--faint)}
 .ki-grp .ki-lbl{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
-.ki-grp>summary b,.ki-grp>.ki-hd b{font-weight:600;color:var(--body)}
+.ki-bar b{font-weight:600;color:var(--body)}
 .ki-dot{color:var(--dot-neutral);margin:0 6px}
-.ki-grp>summary:hover{background:var(--ki-grp-hover)}
-.ki-grp>summary:hover b{color:var(--ink)}
-.ki-grp>summary:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
-.ki-chev{color:var(--faint);transition:transform .15s ease;flex:none}
-.ki-grp[open]>summary{border-bottom:1px solid var(--hairline)}
-.ki-grp[open] .ki-chev{transform:rotate(90deg)}
-.ki-grp>summary:hover .ki-chev,.ki-grp[open] .ki-chev,.ki-grp>summary:focus-visible .ki-chev{color:var(--ki-chev-on)}
-.ki-grp .ki-row:last-child{border-bottom:0}
 .ki-cnt{color:var(--muted);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--muted) 50%,transparent);text-underline-offset:3px;cursor:pointer;border-radius:2px}
 .ki-cnt:hover,.ki-cnt[aria-expanded="true"]{color:var(--ink);text-decoration-color:currentColor}
 .ki-cnt:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -479,8 +475,7 @@ a.row:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .ki-lc-m{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
 a.ki-lc-n{font-family:var(--mono);font-size:12px;color:var(--link);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--link) 50%,transparent);text-underline-offset:3px}
 a.ki-lc-n:hover,a.ki-lc-n:focus-visible{text-decoration:underline dotted;text-decoration-color:currentColor}
-@media (prefers-reduced-motion:reduce){.ki-chev{transition:none}}
-/* The summary and the line draw their own top border. */
+/* The row draws its own top border. */
 .row:has(+ .ki-grp){border-bottom:0}
 /* A dotted text underline, never a border: the global a:hover underline would draw a second line. */
 a.ki-num,a.ki-ev{color:var(--link);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:color-mix(in srgb,var(--link) 50%,transparent);text-underline-offset:3px}
@@ -489,7 +484,7 @@ a.ki-num,.ki-num-t{font-family:var(--mono);font-size:12px}
 a.ki-num:hover,a.ki-num:focus-visible,a.ki-ev:hover,a.ki-ev:focus-visible{color:var(--link-hover);text-decoration:underline dotted;text-decoration-thickness:1px;text-decoration-color:currentColor;outline:none}
 a.ki-num:focus-visible,a.ki-ev:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:2px}
 .ki-empty{display:flex;align-items:center;gap:12px;padding:20px}
-.ki-empty-ic{width:28px;height:28px;border-radius:50%;background:var(--pass-bg);color:var(--pass-fill);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.ki-empty-ic{width:28px;height:28px;border-radius:50%;background:var(--pass-bg);color:var(--success);display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .ki-empty b{display:block;font-size:15px;font-weight:600;color:var(--ink);line-height:1.4}
 .ki-empty-sum{font-size:13px;line-height:1.6;color:var(--muted)}
 .ki-empty-sum b{display:inline;font-size:13px;font-weight:500;color:var(--body)}
@@ -498,7 +493,7 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .ki-card.is-open{display:flex}
 .ki-card-top{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
 .ki-card-top .ki-s{font-weight:500}
-.ki-card-top .ki-s.is-open{color:var(--pass-fill)}
+.ki-card-top .ki-s.is-open{color:var(--success)}
 .ki-card-top .ki-s.is-closed{color:var(--ki-closed)}
 .ki-card-top .ki-s.is-merged{color:var(--ki-closed)}
 .ki-card-top .ki-n{font-family:var(--mono);font-size:11.5px;color:var(--faint)}
@@ -527,7 +522,7 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .meta .rule{align-self:center;width:1px;height:12px;background:var(--divider)}
 .meta .sep{color:var(--sep)}
 .meta .confirmed{display:inline-flex;align-items:baseline;gap:4px;color:var(--muted);font-weight:400}
-.meta .confirmed svg{align-self:center;color:var(--pass-text)}
+.meta .confirmed svg{align-self:center;color:var(--success)}
 .meta .reproduced{color:var(--faint-rate)}
 /* A finding's linked issues end the meta line; a label never wraps away from its number. */
 .meta .f-ki{color:var(--faint-rate);white-space:nowrap}
@@ -547,7 +542,7 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .gh-toast.show{opacity:1;transform:translate(-50%,0)}
 .gh-toast svg{color:var(--toast-check)}
 @media (prefers-reduced-motion:reduce){.gh-btn,.gh-toast{transition:none}}
-.cp-btn.is-copied{color:var(--pass-fill) !important}
+.cp-btn.is-copied{color:var(--success) !important}
 .cp-btn.is-copied .cp-ok{display:block}
 .cp-btn.is-copied .cp-ico{display:none}
 /* Copy link: last in the row, after Copy prompt. Same look as Copy prompt. */
@@ -558,7 +553,7 @@ a.ki-empty-go{margin-left:auto;font-size:13px;white-space:nowrap}
 .card .ln-btn:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
 .ln-btn:hover::after,.ln-btn:focus-visible::after,.ln-btn.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .ln-btn .ln-ok{display:none}
-.ln-btn.is-copied{color:var(--pass-fill) !important}
+.ln-btn.is-copied{color:var(--success) !important}
 .ln-btn.is-copied .ln-ok{display:block}
 .ln-btn.is-copied .ln-ico{display:none}
 /* Opened from a shared link: a short ring shows which finding was meant. */
@@ -580,12 +575,12 @@ article.card:target{animation:ln-ring 2.4s ease-out 1}
 code.cc{position:relative;cursor:pointer;transition:background-color .15s ease}
 code.cc:hover{background:var(--code-chip-hover-bg)}
 code.cc:hover::after,code.cc.is-copied::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 6px);transform:translateX(-50%);white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);box-shadow:var(--tip-shadow);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:5}
-code.cc.is-copied::after{color:var(--pass-fill)}
+code.cc.is-copied::after{color:var(--success)}
 @media (prefers-reduced-motion:reduce){code.cc{transition:none}}
 .code-cp:focus-visible{outline:2px solid var(--focus);outline-offset:1px;color:var(--ink)}
 .code-cp:hover::after,.code-cp:focus-visible::after,.code-cp.is-copied::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);right:0;white-space:nowrap;padding:2px 7px;border-radius:5px;background:var(--tip-bg);color:var(--tip-text);border:1px solid var(--tip-border);font-family:var(--sans);font-size:11px;font-weight:500;line-height:1.5;pointer-events:none;z-index:3}
 .code-cp .cp-ok{display:none}
-.code-cp.is-copied{color:var(--pass-fill) !important}
+.code-cp.is-copied{color:var(--success) !important}
 .code-cp.is-copied .cp-ok{display:block}
 .code-cp.is-copied .cp-ico{display:none}
 @media (hover:none){.code-cp{opacity:.8}}
@@ -651,7 +646,7 @@ article.card .card-details{max-width:720px}
 .ev-snip a{color:var(--body);text-decoration:underline dotted var(--ev-underline);text-underline-offset:3px}
 .ev-snip a:hover{color:var(--link);text-decoration-color:var(--link)}
 .ev-snip mark{background:var(--ev-mark);color:inherit;border-radius:2px;padding:0 1px}
-.ev-err{color:var(--major-text)}
+.ev-err{color:var(--danger)}
 .ev-miss-k{font-weight:600;color:var(--body)}
 .ev-miss .ev-snip-b{background:none;border:1px dashed var(--hairline);color:var(--muted)}
 /* Regression test: one label style, one meta style; sizes fixed so the block never inherits the page's. */
@@ -710,7 +705,7 @@ span.rt-file{color:var(--body)}
    it. */
 .cov-scenario{display:flex;align-items:flex-start;gap:13px;color:var(--ink)}
 .cov-dot{flex:none;width:8px;height:8px;margin-top:7px;border-radius:50%}
-.cov-dot.pass{background:var(--pass-fill)}
+.cov-dot.pass{background:var(--success)}
 .cov-dot.issue{background:var(--moderate-dot)}
 .cov-dot.none{background:var(--dot-neutral)}
 /* Indented by the dot plus the gap, so the label starts where the text does. */
@@ -781,8 +776,8 @@ span.rt-file{color:var(--body)}
 .st-v{color:inherit}
 /* PASS / FAIL as tinted tags, like the severity pills */
 .st-rs{display:inline-block;margin-left:8px;padding:2px 6px 1px;border-radius:4px;font-size:10.5px;font-weight:700;letter-spacing:.06em;line-height:1.3;vertical-align:.08em;white-space:nowrap}
-.st-pass{background:var(--st-pass-bg);color:var(--st-pass-text)}
-.st-fail{background:var(--st-fail-bg);color:var(--st-fail-text)}
+.st-pass{background:var(--st-pass-bg);color:var(--success)}
+.st-fail{background:var(--st-fail-bg);color:var(--danger)}
 .st-sep{color:var(--sep)}
 /* The tag already separates the icon from the text */
 .st-rs+.st-sep{display:none}
@@ -827,7 +822,7 @@ a.st-ev.ev-below .ev-pop{bottom:auto;top:calc(100% + 8px)}
 .agents-row .num{font-family:var(--mono);font-size:13px}
 .agents-row .muted{color:var(--muted);font-weight:400}
 .verdicts{display:flex;flex-wrap:wrap;gap:8px}
-.verdict{font-family:var(--mono);font-size:12px;padding:3px 8px;border-radius:6px;background:var(--pass-bg);color:var(--pass-text)}
+.verdict{font-family:var(--mono);font-size:12px;padding:3px 8px;border-radius:6px;background:var(--pass-bg);color:var(--success)}
 .verdict.disputed{background:var(--major-bg);color:var(--major-text)}
 .verdict.unresolved{background:var(--minor-bg);color:var(--minor-text)}
 
@@ -911,7 +906,7 @@ footer.sig{display:flex;flex-direction:column;align-items:center;gap:12px;paddin
 .fv-b{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:0;border-radius:6px;background:transparent;color:var(--muted);font:500 12.5px var(--sans);cursor:pointer;text-decoration:none}
 .fv-b:hover{background:var(--code-cp-hover-bg);color:var(--ink);text-decoration:none}
 .fv-b:focus-visible{outline:2px solid var(--focus);outline-offset:1px}
-.fv-b.is-done{color:var(--pass-fill)}
+.fv-b.is-done{color:var(--success)}
 .fv .lb-close{margin-left:6px;width:30px;height:30px}
 .fv-src{flex:1 1 auto;min-height:0;margin:0;padding:12px 16px 14px 0;overflow:auto;background:none;font-family:var(--mono);font-size:13px;line-height:1.6;color:var(--code-text);counter-reset:fl}
 .fv-src .l{display:block;position:relative;padding-left:52px;white-space:pre}
