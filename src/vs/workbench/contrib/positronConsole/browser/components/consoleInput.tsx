@@ -77,16 +77,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Reference hooks.
 	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
 
-	// Whether to focus the code editor widget once this console renders as active. See the
-	// onDidChangeActivePositronConsoleInstance handler.
-	const focusWhenActiveRef = useRef(false);
-
-	// Whether the input lost focus because it was hidden (e.g. during a restart), so focus can be
-	// restored when it is shown again.
-	const hiddenRef = useRef(props.hidden);
-	hiddenRef.current = props.hidden;
-	const refocusOnShowRef = useRef(false);
-
 	// State hooks.
 	const [, setCodeEditorWidget, codeEditorWidgetRef] = useStateRef<CodeEditorWidget>(undefined!);
 	const [, setCodeEditorWidth, codeEditorWidthRef] = useStateRef(props.width);
@@ -811,8 +801,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			if (historyBrowserActiveRef.current) {
 				disengageHistoryBrowser();
 			}
-
-			refocusOnShowRef.current = hiddenRef.current;
 		}));
 
 		// Set the value change handler.
@@ -874,14 +862,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(
 			services.positronConsoleService.onDidChangeActivePositronConsoleInstance(
 				positronConsoleInstance => {
-					// If it's OK to take focus, drive focus into the code editor widget.
-					if (positronConsoleInstance === props.positronConsoleInstance && okToTakeFocus()) {
-						codeEditorWidget.focus();
-						// This fires before React re-renders, so the console can still be inert and
-						// ignore the focus. If so, retry once it renders as active.
-						focusWhenActiveRef.current = !codeEditorWidget.hasTextFocus();
-					} else {
-						focusWhenActiveRef.current = false;
+					if (positronConsoleInstance === props.positronConsoleInstance) {
+						// If it's OK to take focus, drive focus into the code editor widget.
+						if (okToTakeFocus()) {
+							codeEditorWidget.focus();
+						}
 					}
 				}
 			)
@@ -1108,26 +1093,17 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	// Finish a focus request that arrived while this console was still inert.
+	// Inactive consoles are inert and a hidden input is display: none, so focus() does nothing
+	// until a render clears both. Take focus once the input can accept it.
 	const active = positronConsoleContext.activePositronConsoleInstance?.sessionId ===
 		props.positronConsoleInstance.sessionId;
-	useEffect(() => {
-		if (active && focusWhenActiveRef.current) {
-			focusWhenActiveRef.current = false;
+	const canTakeFocus = active && !props.hidden;
+	useLayoutEffect(() => {
+		if (canTakeFocus && okToTakeFocus()) {
 			codeEditorWidgetRef.current?.focus();
 		}
-	}, [active, codeEditorWidgetRef]);
-
-	// Restore focus lost to hiding, unless the user has since focused something else.
-	useEffect(() => {
-		if (!props.hidden && refocusOnShowRef.current) {
-			refocusOnShowRef.current = false;
-			const activeElement = DOM.getActiveElement();
-			if (!activeElement || activeElement === DOM.getActiveDocument().body) {
-				codeEditorWidgetRef.current?.focus();
-			}
-		}
-	}, [props.hidden, codeEditorWidgetRef]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [canTakeFocus]);
 
 	// Experimental.
 	useEffect(() => {
