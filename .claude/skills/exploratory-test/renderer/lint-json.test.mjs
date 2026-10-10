@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkReportJson, lintReportJson, mergeRetry, schemaProblems } from './lint-json.mjs';
+import { checkReportJson, formatProblems, lintReportJson, mergeRetry, schemaProblems } from './lint-json.mjs';
 
 const LEDGER = [
 	'# Scenario ledger',
@@ -158,5 +158,22 @@ test('the schema check names each field that is missing or of the wrong kind', (
 		'report.findings[0].n is below 1',
 		'report.findings[0].severity is "big", not one of major, minor',
 		'report.findings[1].n is string, not integer',
+	]);
+});
+
+test('the write-up rules report.md is held to apply to report.json\'s fields', () => {
+	const j = json();
+	j.header = { result: 'Yes, it copies the accessor from the menu.' };
+	Object.assign(j.findings[0], {
+		severity: 'major', reproduced: { n: 1, m: 1 }, feature: 'object explorer', title: 'Copy may paste the value',
+		observed: 'The pasted text is `x@y.z`.', expected: 'The accessor.', preconditions: [{ text: 'A JSON file open' }], tests: { cases: [], related: [] },
+	});
+	j.findings[0].steps[0].text = 'Click the `email` row, then press Ctrl+Shift+C.';
+	assert.deepEqual(formatProblems(j, LEDGER).filter(p => p.startsWith('report')), [
+		'report: **Result:** answers a question; state what the change does instead',
+		'report: finding 1 is major and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
+		'report: Finding 1 precondition "A JSON file open" needs "<short name> | <full text>"',
+		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
+		'report: Finding 1 step 1 is two actions ("then press"); write each as its own step',
 	]);
 });

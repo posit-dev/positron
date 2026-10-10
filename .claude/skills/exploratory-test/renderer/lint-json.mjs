@@ -3,15 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Checks report.json against the ledger it was written from. The ledger is
+// Checks report.json against the ledger it was written from, and against the
+// rules report.md is held to that are not its layout (lint.mjs). The ledger is
 // the record of what the run did; the report may leave out, but not add or
 // change. Usage: node lint-json.mjs <report.json> [ledger.md]
 // Each run is logged to json-checks.jsonl beside the report.
 
-import { appendFileSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { appendFileSync, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { rateProblem } from './lint.mjs';
+import { readKnownIssues } from './finish.mjs';
+import { absolutePathProblems, findingProblems, modelProblems, rateProblem, rateProblems, resultProblems, runProblems, splitProblems } from './lint.mjs';
+import { reportFromJson } from './report-json.mjs';
 import { parseLedger, plainText, verifyText } from './report-parse.mjs';
 
 const norm = text => String(text ?? '').replace(/\s+/g, ' ').replace(/[.\s]+$/, '').trim();
@@ -192,6 +196,48 @@ export function schemaProblems(json, schema = SCHEMA, at = 'report', root = sche
 	];
 }
 
+/** Every string in a value, for the files/ paths its prose names. */
+const stringsOf = value => (typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(stringsOf) : []);
+
+/**
+ * The rules report.md is held to, on report.json's fields: its words, steps,
+ * preconditions and evidence, and the run directory it was written from.
+ * `options` are lintReport's. Layout rules have no counterpart: the schema
+ * holds the shape.
+ */
+export function formatProblems(json, ledger, options = {}) {
+	const header = json.header ?? {};
+	const findings = json.findings ?? [];
+	const problems = [...resultProblems(header.result ?? '')];
+	for (const f of findings) {
+		problems.push(...rateProblems(f.n, f.severity, f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : ''));
+		const steps = (f.steps ?? []).map((s, i) => ({ n: String(i + 1), verify: s.kind === 'verify', text: s.text, result: s.result?.toUpperCase() }));
+		problems.push(...findingProblems(f.n, {
+			title: f.title,
+			feature: f.feature,
+			observed: f.observed,
+			expected: f.expected,
+			preconditions: (f.preconditions ?? []).map(p => ({ name: p.name, text: p.text ?? '' })),
+			steps,
+			lines: [f.observed, f.expected, f.cause, ...steps.map(st => st.text)].filter(Boolean),
+		}));
+		const frame = (f.errors ?? []).flatMap(e => e.frames ?? []).find(fr => /\bout\/vs\/\S+\.js$/.test(fr.path ?? ''));
+		if (frame) {
+			problems.push(`report: map compiled frames to source paths: "${frame.path}:${frame.line}"`);
+		}
+		problems.push(...absolutePathProblems('report', (f.evidence ?? []).map(e => e.path ?? '')));
+	}
+	problems.push(...absolutePathProblems('report', [...(json.logs ?? []), ...(json.files ?? [])].map(x => x.path ?? '')));
+	problems.push(...modelProblems(reportFromJson(json, { ledger }).findings, ledger, options));
+	problems.push(...runProblems(stringsOf({ header, findings }).join('\n'), ledger, {
+		...options,
+		needs: findings.flatMap(f => (f.preconditions ?? []).map(p => [`Finding ${f.n}`, `${p.name ? `${p.name} | ` : ''}${p.text ?? ''}`])),
+		findingNumbers: new Set(findings.map(f => f.n)),
+		notExercised: header.notExercised,
+	}));
+	return problems;
+}
+
 /** Problems with report.json against the ledger, as `report.json: ...` lines. */
 export function lintReportJson(json, ledgerText) {
 	return checkReportJson(json, ledgerText).map(p => `report.json: ${p.text}`);
@@ -235,6 +281,25 @@ export function mergeRetry(first, retry, problems) {
 	};
 }
 
+/** lintReport's options for the run directory `dir`, as render.mjs builds them. */
+function runDirOptions(dir) {
+	const read = name => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : undefined);
+	const files = join(dir, 'files');
+	// Test paths are relative to the checkout the explorer runs in.
+	const repo = (() => {
+		try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
+	})();
+	return {
+		fileExists: path => existsSync(join(dir, path)),
+		listFiles: () => (existsSync(files)
+			? readdirSync(files, { recursive: true }).map(p => join(files, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
+			: []),
+		repoFileExists: repo ? path => existsSync(join(repo, path)) : undefined,
+		knownIssues: readKnownIssues(dir) ?? undefined,
+		actionsLog: read('actions.log'),
+	};
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
 	const [input, ledgerPath] = process.argv.slice(2);
 	if (!input) {
@@ -245,14 +310,23 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 	try {
 		const json = JSON.parse(readFileSync(input, 'utf8'));
 		const shape = schemaProblems(json);
-		problems = shape.length ? shape.map(p => `report.json: ${p}`) : lintReportJson(json, readFileSync(ledgerPath ?? join(dirname(input), 'ledger.md'), 'utf8'));
+		if (shape.length) {
+			problems = shape.map(p => `report.json: ${p}`);
+		} else {
+			const ledger = readFileSync(ledgerPath ?? join(dirname(input), 'ledger.md'), 'utf8');
+			problems = [...lintReportJson(json, ledger), ...formatProblems(json, ledger, runDirOptions(dirname(input)))];
+		}
 	} catch (err) {
 		problems = [`report.json: ${err.message}`];
 	}
+	const { errors, warnings } = splitProblems(problems);
 	// How many checks a report took to pass, and what each one found.
-	appendFileSync(join(dirname(input), 'json-checks.jsonl'), `${JSON.stringify({ at: new Date().toISOString(), problems })}\n`);
-	for (const p of problems) {
-		console.log(p);
+	appendFileSync(join(dirname(input), 'json-checks.jsonl'), `${JSON.stringify({ at: new Date().toISOString(), errors, warnings })}\n`);
+	if (errors.length) {
+		console.log(`errors, fix each one and check again:\n${errors.map(p => `  ${p}`).join('\n')}`);
 	}
-	process.exitCode = problems.length ? 1 : 0;
+	if (warnings.length) {
+		console.log(`warnings, fix any that are quick; they need no further check:\n${warnings.map(p => `  ${p}`).join('\n')}`);
+	}
+	process.exitCode = errors.length ? 1 : 0;
 }

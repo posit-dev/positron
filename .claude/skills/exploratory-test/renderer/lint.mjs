@@ -634,6 +634,212 @@ function clarityProblems(n, title, observed, expected) {
 	return problems;
 }
 
+// The rules below take a report's fields, not its layout, so report.md and
+// report.json (lint-json.mjs) share them.
+
+/** The rules on the header's Result line. */
+export function resultProblems(result) {
+	const problems = [];
+	if (/^(yes|no|mostly|partly|partially)\b/i.test(result)) {
+		problems.push('report: **Result:** answers a question; state what the change does instead');
+	}
+	// Most readers stop at the Result, so it fits in a glance; the Tested line lists the rest.
+	const words = wordsOf(result);
+	if (words > SUMMARY_WORDS) {
+		problems.push(`report: **Result:** is ${words} words; keep it to ${SUMMARY_WORDS} or fewer: what works in a phrase, then in bold what is broken`);
+	}
+	return problems;
+}
+
+/** The rules on a finding's severity and its rate, "N/M". */
+export function rateProblems(n, severity, reproduction) {
+	const problems = [];
+	if (!['major', 'moderate', 'minor'].includes(severity?.toLowerCase())) {
+		problems.push(`report: finding ${n} Severity must be major, moderate or minor, got "${severity ?? ''}"`);
+	}
+	const rate = /^(\d+)\/(\d+)$/.exec(reproduction ?? '');
+	if (!rate) {
+		problems.push(`report: finding ${n} Reproduction must be N/M, got "${reproduction ?? ''}"`);
+	} else if (Number(rate[2]) < 2 && ['major', 'moderate'].includes(severity?.toLowerCase())) {
+		// One sighting reads as thin to a reviewer, and a repeat in the same instance
+		// is cheap. A warning, never an error: severity is the user's impact, and an
+		// error here would reward rating a finding lower to get past it.
+		problems.push(`report: finding ${n} is ${severity.toLowerCase()} and was tried once (${reproduction}); keep the severity, and repeat its steps if the instance is still up`);
+	}
+	return problems;
+}
+
+/**
+ * The rules on one finding's words: its preconditions, Feature, title,
+ * Observed, Expected and steps. `preconditions` is `{ name, text }`, `steps`
+ * as stepListProblems takes them (with `raw`, a VERIFY's text and result, and
+ * `line`, as written), and `lines` all of its prose.
+ */
+export function findingProblems(n, { title, feature, observed, expected, preconditions = [], steps = [], lines = [] }) {
+	const problems = [];
+	// The card shows the short name, as Coverage does, and the full text on hover.
+	for (const { name, text } of preconditions) {
+		if (!name) {
+			problems.push(`report: Finding ${n} precondition "${text.slice(0, 40)}" needs "<short name> | <full text>"`);
+		} else if (name.split(/\s+/).length > 5) {
+			problems.push(`report: Finding ${n} precondition name "${name}" is ${name.split(/\s+/).length} words; keep it to 2 to 4`);
+		}
+	}
+	// The filed issue's title is `<Feature>: <claim>`.
+	if (feature && ((CODE_NAME.test(feature) && !PRODUCT_NAMES.has(CODE_NAME.exec(feature)[0])) || /`|\w\.[a-z]{1,4}\b/.test(feature))) {
+		problems.push(`report: Finding ${n} Feature "${feature}" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"`);
+	}
+	for (const [label, text] of [['Observed', observed], ['Expected', expected]]) {
+		if (text !== undefined) {
+			problems.push(...comparisonProblems(n, label, text));
+		}
+	}
+	problems.push(...clarityProblems(n, title, observed, expected));
+	// Steps are instructions for the reader; which scenario ran them, and how, is the ledger's.
+	for (const st of steps) {
+		const where = `report: Finding ${n} step ${st.n}`;
+		problems.push(...(st.verify ? verifyProblems(where, st.raw ?? st.text) : stepProblems(where, st.text)));
+		const line = st.line ?? st.text;
+		const id = SCENARIO_ID.exec(line.replace(/`[^`]*`/g, ''));
+		if (id) {
+			problems.push(`report: Finding ${n} step "${line.slice(0, 50)}" names ${id[0]}; steps are instructions for the reader, so leave run notes out`);
+		}
+	}
+	problems.push(...stepListProblems(`report: Finding ${n}`, steps));
+	const pointer = lines.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
+	if (pointer) {
+		problems.push(`report: Finding ${n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`);
+	}
+	return problems;
+}
+
+/**
+ * The rules on findings as the page shows them: the report model parseReport
+ * and reportFromJson both build.
+ */
+export function modelProblems(findings, ledger, { repoFileExists } = {}) {
+	const problems = [];
+	// Readers never see scenario IDs, so a finding's prose says what a run was in words.
+	for (const f of findings) {
+		const fields = [['title', f.title], ['Observed', f.observedHtml], ['Expected', f.expectedHtml], ['Cause', f.causeHtml]];
+		for (const [label, value] of fields) {
+			const words = String(value ?? '').replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/`[^`]*`/g, '').replace(/<[^>]+>/g, '');
+			const ids = [...new Set([...words.matchAll(/(?<![\w/.-])[SN]\d{2,}(?![\w-])/g)].map(m => m[0]))];
+			if (ids.length) {
+				problems.push(`report: Finding ${f.n} ${label} names ${ids.join(', ')}; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs`);
+			}
+		}
+	}
+	// A reader who stops after a Cause's first sentence still learns the suspect.
+	for (const f of findings) {
+		const lead = f.text.cause && sentencesOf(f.text.cause)[0];
+		if (lead && wordsOf(lead) > CAUSE_LEAD_WORDS) {
+			problems.push(`report: Finding ${f.n} Cause opens with a ${wordsOf(lead)}-word sentence; name the suspect in ${CAUSE_LEAD_WORDS} words or fewer, then give the detail`);
+		}
+	}
+	for (const { n, file } of untaggedShots(findings)) {
+		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step`);
+	}
+	// A shot captioned with a scenario is that scenario's run of the bug, so the ledger shows it there.
+	const exercised = parseLedger(ledger)?.exercised;
+	for (const f of exercised ? findings : []) {
+		for (const e of f.evidence.filter(e => e.kind === 'shot' && e.scenario)) {
+			const s = exercised.find(s => s.id === e.scenario);
+			if (!s) {
+				problems.push(`report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, which the ledger does not have; name the scenario that took it`);
+			} else if (!s.steps.some(st => st.evidence.some(x => basename(x.file || x.href) === e.file))) {
+				problems.push(`report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, but ${e.scenario} never cites it as Evidence; name the scenario that took it`);
+			}
+		}
+	}
+	// One screenshot shows a check; a second earns its place only by showing a
+	// different moment, and says so. A control proves Expected, not the failure.
+	for (const f of findings) {
+		f.steps.forEach((st, i) => {
+			// A step's moments are the shots its own Evidence: line cites. One
+			// listed under Evidence for the step but not cited by it is another
+			// run's, as is another scenario's: not a second moment of this one.
+			const own = new Set(st.evidence.map(x => x.file));
+			const shots = f.evidence.filter(e => e.kind === 'shot' && !e.scenario && own.has(e.file));
+			if (shots.length > 2) {
+				problems.push(`report: Finding ${f.n} step ${i + 1} has ${shots.length} screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out`);
+			} else if (shots.length === 2 && shots[0].caption === shots[1].caption) {
+				problems.push(`report: Finding ${f.n} step ${i + 1}'s second screenshot ${shots[1].file} repeats the first one's caption; caption it under Evidence with what it shows that the first does not`);
+			}
+		});
+	}
+	// Evidence shows what Positron logged and nothing else; reasons go in Observed or Cause.
+	for (const f of findings) {
+		for (const e of f.evidence) {
+			if (e.kind === 'note') {
+				problems.push(`report: Finding ${f.n} Evidence has a note ("${e.text.slice(0, 50)}"); Evidence is log lines only, so state it in Observed or Cause`);
+			} else if (e.kind === 'log' && !isPositronLog(e.path)) {
+				problems.push(`report: Finding ${f.n} Evidence cites ${e.path}, which the run wrote, not Positron; cite the Positron log line, or state what happened in Observed`);
+			} else if ((e.kind === 'log' || e.kind === 'missing') && e.note) {
+				problems.push(`report: Finding ${f.n} Evidence follows ${e.path}'s line with "${e.note.slice(0, 50)}"; quote the line alone, and put what it means in Observed or Cause`);
+			}
+		}
+	}
+	for (const f of repoFileExists ? findings : []) {
+		const paths = [...f.tests.cases.filter(c => c.path && !isNewTestFile(c)), ...f.tests.related].map(t => t.path);
+		for (const p of new Set(paths.filter(p => !repoFileExists(p)))) {
+			problems.push(`report: Finding ${f.n} names test file ${p}, which is not in the repository; fix the path, mark it (new file), or drop it`);
+		}
+	}
+	return problems;
+}
+
+// Only citations: a Run details line may name the workspace path.
+const ABSOLUTE = /^`?(\/|~\/)/;
+
+/** The files a line cites: link targets, a Log: or Evidence: value, a ## Files row. */
+function citedPaths(line) {
+	return [
+		...[...line.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]),
+		...(/^\s*(?:Log|Evidence):\s*(\S+)/.exec(line)?.slice(1) ?? []),
+		...(/^-\s+(\S+)\s+\|/.exec(line)?.slice(1) ?? []),
+	];
+}
+
+/** The first of `paths` that is absolute, as a problem. */
+export function absolutePathProblems(name, paths) {
+	const abs = paths.find(p => ABSOLUTE.test(p));
+	return abs ? [`${name}: cite files relative to the run directory, not ${abs}`] : [];
+}
+
+/**
+ * The rules on the run directory the report was written from: the ledger, the
+ * files the setup names, linked issues and actions.log. `text` is the
+ * report's prose, for the files/ paths it names; `needs` is `[where, text]` for
+ * each of its setup lines.
+ */
+export function runProblems(text, ledger, { needs = [], findingNumbers, notExercised, fileExists, listFiles, knownIssues, actionsLog } = {}) {
+	const problems = [];
+	for (const { line } of prose(ledger)) {
+		problems.push(...absolutePathProblems('ledger', citedPaths(line)));
+	}
+	problems.push(...lintFiles(text, ledger, [...needs, ...ledgerPreconditions(ledger)], { fileExists, listFiles }));
+	problems.push(...lintPreconditionActions([...needs, ...ledgerPreconditions(ledger)]));
+	if (ledger !== undefined) {
+		const l = lintLedger(ledger, findingNumbers, fileExists);
+		problems.push(...l.problems);
+		if (notExercised && !/^`?none`?\.?$/i.test(notExercised) && !l.notRun) {
+			problems.push('ledger: **Not exercised:** names surfaces, so ## Not run needs an N line for each');
+		}
+		if (knownIssues?.issues?.length) {
+			problems.push(...lintKnownIssues(ledger, knownIssues));
+		}
+		if (actionsLog !== undefined) {
+			problems.push(...lintShotNames(ledger, actionsLog));
+			problems.push(...lintShotTiming(ledger, actionsLog));
+		}
+	}
+	if (actionsLog !== undefined) {
+		problems.push(...lintActionsLog(actionsLog));
+	}
+	return problems;
+}
+
 /**
  * @param {string} markdown report.md
  * @param {string | undefined} ledger ledger.md, when the run wrote one
@@ -658,13 +864,8 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 	for (const [name, value] of [['Result', result], ['Tested', tested], ['Not exercised', notExercised]]) {
 		if (!value) { problems.push(`report: missing the **${name}:** line above ## Findings`); }
 	}
-	if (result && /^(yes|no|mostly|partly|partially)\b/i.test(result)) {
-		problems.push('report: **Result:** answers a question; state what the change does instead');
-	}
-	// Most readers stop at the Result, so it fits in a glance; the Tested line lists the rest.
-	const resultWords = result ? wordsOf(result) : 0;
-	if (resultWords > SUMMARY_WORDS) {
-		problems.push(`report: **Result:** is ${resultWords} words; keep it to ${SUMMARY_WORDS} or fewer: what works in a phrase, then in bold what is broken`);
+	if (result) {
+		problems.push(...resultProblems(result));
 	}
 
 	// A block with no table row (or no table at all) is flagged below, block by block.
@@ -676,19 +877,7 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		problems.push('report: drop the Impact column; the title says what is broken');
 	}
 	for (const row of rows) {
-		const n = row['#'];
-		if (!['major', 'moderate', 'minor'].includes(row.severity?.toLowerCase())) {
-			problems.push(`report: finding ${n} Severity must be major, moderate or minor, got "${row.severity ?? ''}"`);
-		}
-		const rate = /^(\d+)\/(\d+)$/.exec(row.reproduction ?? '');
-		if (!rate) {
-			problems.push(`report: finding ${n} Reproduction must be N/M, got "${row.reproduction ?? ''}"`);
-		} else if (Number(rate[2]) < 2 && ['major', 'moderate'].includes(row.severity?.toLowerCase())) {
-			// One sighting reads as thin to a reviewer, and a repeat in the same instance
-			// is cheap. A warning, never an error: severity is the user's impact, and an
-			// error here would reward rating a finding lower to get past it.
-			problems.push(`report: finding ${n} is ${row.severity.toLowerCase()} and was tried once (${row.reproduction}); keep the severity, and repeat its steps if the instance is still up`);
-		}
+		problems.push(...rateProblems(row['#'], row.severity, row.reproduction));
 	}
 
 	const blocks = [];
@@ -716,15 +905,10 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		}
 		// The bullets under a bare Preconditions: line are its setup too.
 		const at = body.findIndex(l => /^\*\*Preconditions:\*\*\s*$/.test(l));
+		const preconditions = [];
 		for (let k = at + 1; at !== -1 && /^[-*]\s+/.test(body[k] ?? ''); k++) {
 			needs.push([`Finding ${b.n}`, body[k]]);
-			// The card shows the short name, as Coverage does, and the full text on hover.
-			const name = /^[-*]\s+([^|]+?)\s+\|\s+\S/.exec(body[k])?.[1];
-			if (!name) {
-				problems.push(`report: Finding ${b.n} precondition "${body[k].replace(/^[-*]\s+/, '').slice(0, 40)}" needs "<short name> | <full text>"`);
-			} else if (name.split(/\s+/).length > 5) {
-				problems.push(`report: Finding ${b.n} precondition name "${name}" is ${name.split(/\s+/).length} words; keep it to 2 to 4`);
-			}
+			preconditions.push({ name: /^[-*]\s+([^|]+?)\s+\|\s+\S/.exec(body[k])?.[1], text: body[k].replace(/^[-*]\s+/, '') });
 		}
 		const pre = body.find(l => l.startsWith('**Preconditions:**'));
 		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {
@@ -734,8 +918,6 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		const feature = body.find(l => /^\*\*Feature:\*\*\s*\S/.test(l))?.replace(/^\*\*Feature:\*\*\s*/, '').trim();
 		if (!feature) {
 			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
-		} else if ((CODE_NAME.test(feature) && !PRODUCT_NAMES.has(CODE_NAME.exec(feature)[0])) || /`|\w\.[a-z]{1,4}\b/.test(feature)) {
-			problems.push(`report: Finding ${b.n} Feature "${feature}" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"`);
 		}
 		if (body.some(l => /^\*\*Impact:\*\*/.test(l))) {
 			problems.push(`report: Finding ${b.n} has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed`);
@@ -747,31 +929,14 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 			if (at !== -1) {
 				const end = body.findIndex((l, k) => k > at && !l.trim());
 				said[label] = body.slice(at, end === -1 ? body.length : end).join(' ').slice(label.length + 5).trim();
-				problems.push(...comparisonProblems(b.n, label, said[label]));
 			}
 		}
-		problems.push(...clarityProblems(b.n, lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, ''), said.Observed, said.Expected));
-		// Steps are instructions for the reader; which scenario ran them, and how, is the ledger's.
-		const steps = [];
-		for (const step of body.filter(l => /^\d+\.\s/.test(l))) {
-			const action = /^(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(step);
-			if (action) {
-				problems.push(...stepProblems(`report: Finding ${b.n} step ${action[1]}`, action[2]));
-				steps.push({ n: action[1], verify: false, text: action[2] });
-			}
-			const verify = /^(\d+)\.\s+VERIFY\b(.*)$/i.exec(step);
-			if (verify) {
-				problems.push(...verifyProblems(`report: Finding ${b.n} step ${verify[1]}`, verify[2]));
-				steps.push({ n: verify[1], verify: true, text: verify[2].replace(/\s*->.*$/, '').trim(), result: /->\s*(PASS|FAIL)\b/i.exec(verify[2])?.[1].toUpperCase() });
-			}
-			const id = SCENARIO_ID.exec(step.replace(/`[^`]*`/g, ''));
-			if (id) {
-				problems.push(`report: Finding ${b.n} step "${step.slice(0, 50)}" names ${id[0]}; steps are instructions for the reader, so leave run notes out`);
-			}
-		}
-		problems.push(...stepListProblems(`report: Finding ${b.n}`, steps));
-		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
-		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }
+		const steps = body.map(l => /^(\d+)\.\s+(VERIFY\b)?(.*)$/i.exec(l)).filter(Boolean).map(([line, n, verify, text]) => (verify
+			? { n, verify: true, text: text.replace(/\s*->.*$/, '').trim(), raw: text, result: /->\s*(PASS|FAIL)\b/i.exec(text)?.[1].toUpperCase(), line }
+			: { n, verify: false, text, line }));
+		problems.push(...findingProblems(b.n, {
+			title: lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, ''), feature, observed: said.Observed, expected: said.Expected, preconditions, steps, lines: body,
+		}));
 	});
 
 	for (const { line } of lines) {
@@ -782,18 +947,8 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		const image = [...line.matchAll(/\]\(([^)\s]+\.(?:png|jpe?g|gif|webp))\)/gi)].map(m => m[1]).find(p => !p.startsWith('shots/'));
 		if (image) { problems.push(`report: link screenshots as shots/<file>, not ${image}`); }
 	}
-	// Only citations: a Run details line may name the workspace path.
-	const ABSOLUTE = /^`?(\/|~\/)/;
-	for (const [name, source] of [['report', lines], ['ledger', prose(ledger)]]) {
-		for (const { line } of source) {
-			const cited = [
-				...[...line.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]),
-				...(/^\s*(?:Log|Evidence):\s*(\S+)/.exec(line)?.slice(1) ?? []),
-				...(/^-\s+(\S+)\s+\|/.exec(line)?.slice(1) ?? []),
-			];
-			const abs = cited.find(p => ABSOLUTE.test(p));
-			if (abs) { problems.push(`${name}: cite files relative to the run directory, not ${abs}`); }
-		}
+	for (const { line } of lines) {
+		problems.push(...absolutePathProblems('report', citedPaths(line)));
 	}
 	// Stacks sit in fences, so this one reads every line. Only out/vs has maps.
 	const frame = text.split('\n').find(line => /^\s+at .*\bout\/vs\/\S+\.js:\d+/.test(line));
@@ -812,96 +967,8 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 
 	const rates = new Map(rows.map(row => [row['#'], row.reproduction]));
 	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? [], rates));
-	// Readers never see scenario IDs, so a finding's prose says what a run was in words.
-	for (const f of parseReport(text).findings) {
-		const fields = [['title', f.title], ['Observed', f.observedHtml], ['Expected', f.expectedHtml], ['Cause', f.causeHtml]];
-		for (const [label, value] of fields) {
-			const words = String(value ?? '').replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/`[^`]*`/g, '').replace(/<[^>]+>/g, '');
-			const ids = [...new Set([...words.matchAll(/(?<![\w/.-])[SN]\d{2,}(?![\w-])/g)].map(m => m[0]))];
-			if (ids.length) {
-				problems.push(`report: Finding ${f.n} ${label} names ${ids.join(', ')}; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs`);
-			}
-		}
-	}
-	// A reader who stops after a Cause's first sentence still learns the suspect.
-	for (const f of parseReport(text).findings) {
-		const lead = f.text.cause && sentencesOf(f.text.cause)[0];
-		if (lead && wordsOf(lead) > CAUSE_LEAD_WORDS) {
-			problems.push(`report: Finding ${f.n} Cause opens with a ${wordsOf(lead)}-word sentence; name the suspect in ${CAUSE_LEAD_WORDS} words or fewer, then give the detail`);
-		}
-	}
-	for (const { n, file } of untaggedShots(parseReport(text).findings)) {
-		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step`);
-	}
-	// A shot captioned with a scenario is that scenario's run of the bug, so the ledger shows it there.
-	const exercised = parseLedger(ledger)?.exercised;
-	for (const f of exercised ? parseReport(text).findings : []) {
-		for (const e of f.evidence.filter(e => e.kind === 'shot' && e.scenario)) {
-			const s = exercised.find(s => s.id === e.scenario);
-			if (!s) {
-				problems.push(`report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, which the ledger does not have; name the scenario that took it`);
-			} else if (!s.steps.some(st => st.evidence.some(x => basename(x.file || x.href) === e.file))) {
-				problems.push(`report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, but ${e.scenario} never cites it as Evidence; name the scenario that took it`);
-			}
-		}
-	}
-	// One screenshot shows a check; a second earns its place only by showing a
-	// different moment, and says so. A control proves Expected, not the failure.
-	for (const f of parseReport(text).findings) {
-		f.steps.forEach((st, i) => {
-			// A step's moments are the shots its own Evidence: line cites. One
-			// listed under Evidence for the step but not cited by it is another
-			// run's, as is another scenario's: not a second moment of this one.
-			const own = new Set(st.evidence.map(x => x.file));
-			const shots = f.evidence.filter(e => e.kind === 'shot' && !e.scenario && own.has(e.file));
-			if (shots.length > 2) {
-				problems.push(`report: Finding ${f.n} step ${i + 1} has ${shots.length} screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out`);
-			} else if (shots.length === 2 && shots[0].caption === shots[1].caption) {
-				problems.push(`report: Finding ${f.n} step ${i + 1}'s second screenshot ${shots[1].file} repeats the first one's caption; caption it under Evidence with what it shows that the first does not`);
-			}
-		});
-	}
-	// Evidence shows what Positron logged and nothing else; reasons go in Observed or Cause.
-	for (const f of parseReport(text).findings) {
-		for (const e of f.evidence) {
-			if (e.kind === 'note') {
-				problems.push(`report: Finding ${f.n} Evidence has a note ("${e.text.slice(0, 50)}"); Evidence is log lines only, so state it in Observed or Cause`);
-			} else if (e.kind === 'log' && !isPositronLog(e.path)) {
-				problems.push(`report: Finding ${f.n} Evidence cites ${e.path}, which the run wrote, not Positron; cite the Positron log line, or state what happened in Observed`);
-			} else if ((e.kind === 'log' || e.kind === 'missing') && e.note) {
-				problems.push(`report: Finding ${f.n} Evidence follows ${e.path}'s line with "${e.note.slice(0, 50)}"; quote the line alone, and put what it means in Observed or Cause`);
-			}
-		}
-	}
-	if (repoFileExists) {
-		for (const f of parseReport(text).findings) {
-			const paths = [...f.tests.cases.filter(c => c.path && !isNewTestFile(c)), ...f.tests.related].map(t => t.path);
-			for (const p of new Set(paths.filter(p => !repoFileExists(p)))) {
-				problems.push(`report: Finding ${f.n} names test file ${p}, which is not in the repository; fix the path, mark it (new file), or drop it`);
-			}
-		}
-	}
-
-	problems.push(...lintFiles(markdown, ledger, [...needs, ...ledgerPreconditions(ledger)], { fileExists, listFiles }));
-	problems.push(...lintPreconditionActions([...needs, ...ledgerPreconditions(ledger)]));
-
-	if (ledger !== undefined) {
-		const l = lintLedger(ledger, blockNumbers, fileExists);
-		problems.push(...l.problems);
-		if (notExercised && !/^`?none`?\.?$/i.test(notExercised) && !l.notRun) {
-			problems.push('ledger: **Not exercised:** names surfaces, so ## Not run needs an N line for each');
-		}
-		if (knownIssues?.issues?.length) {
-			problems.push(...lintKnownIssues(ledger, knownIssues));
-		}
-		if (actionsLog !== undefined) {
-			problems.push(...lintShotNames(ledger, actionsLog));
-			problems.push(...lintShotTiming(ledger, actionsLog));
-		}
-	}
-	if (actionsLog !== undefined) {
-		problems.push(...lintActionsLog(actionsLog));
-	}
+	problems.push(...modelProblems(parseReport(text).findings, ledger, { repoFileExists }));
+	problems.push(...runProblems(markdown, ledger, { needs, findingNumbers: blockNumbers, notExercised, fileExists, listFiles, knownIssues, actionsLog }));
 	return problems;
 }
 
