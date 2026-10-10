@@ -47,6 +47,7 @@ import { okToTakeFocus as okToTakeFocusHelper } from './consoleInputFocus.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { getForegroundDebugState, isForegroundDebugSession } from '../../../debug/common/debug.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
 
 // Position enumeration.
 const enum Position {
@@ -71,6 +72,7 @@ interface ConsoleInputProps {
 export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Context hooks.
 	const services = usePositronReactServicesContext();
+	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
 	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
@@ -1090,6 +1092,18 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		return () => disposableStore.dispose();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
+
+	// Inactive consoles are inert and a hidden input is display: none, so focus() does nothing
+	// until a render clears both. Take focus once the input can accept it.
+	const active = positronConsoleContext.activePositronConsoleInstance?.sessionId ===
+		props.positronConsoleInstance.sessionId;
+	const canTakeFocus = active && !props.hidden;
+	useLayoutEffect(() => {
+		if (canTakeFocus && okToTakeFocus()) {
+			codeEditorWidgetRef.current?.focus();
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [canTakeFocus]);
 
 	// Experimental.
 	useEffect(() => {

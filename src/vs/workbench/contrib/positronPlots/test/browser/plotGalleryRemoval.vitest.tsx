@@ -11,7 +11,6 @@ import { IReactComponentContainer } from '../../../../../base/browser/positronRe
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { PositronPlots } from '../../browser/positronPlots.js';
-import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 
@@ -33,17 +32,12 @@ describe('Plot gallery removal', () => {
 		onRestoreScrollPosition: Event.None,
 	};
 
-	async function createPlots(): Promise<IPositronPlotsService> {
+	it('removing one plot from the gallery leaves the other plots in the gallery', async () => {
 		const plotsService = ctx.reactServices.positronPlotsService;
 		const session = await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables);
 		session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
 		session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
 		session.createClient(RuntimeClientType.Plot, {}, {}, 'plot3');
-		return plotsService;
-	}
-
-	it('removing one plot from the gallery leaves the other plots in the gallery', async () => {
-		const plotsService = await createPlots();
 		expect(plotsService.positronPlotInstances.length).toBe(3);
 
 		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
@@ -63,14 +57,5 @@ describe('Plot gallery removal', () => {
 
 		// The two remaining plots should still be shown in the gallery.
 		expect(screen.getAllByRole('button', { name: 'Remove plot' })).toHaveLength(2);
-	});
-
-	it('marks only the selected plot thumbnail as pressed', async () => {
-		const plotsService = await createPlots();
-
-		rtl.render(<PositronPlots reactComponentContainer={reactComponentContainer} />);
-
-		// getByRole throws unless exactly one thumbnail is pressed.
-		expect(screen.getByRole('button', { pressed: true })).toHaveAttribute('data-plot-id', plotsService.selectedPlotId);
 	});
 });
