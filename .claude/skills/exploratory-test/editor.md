@@ -11,7 +11,7 @@ The record is source material, not prose to preserve. Rewrite freely, keeping on
 5. **Prefer concrete product behavior over abstract language.** Avoid: "the application", "the user", "when attempting to", "it was observed that", "results in", "does not behave as expected", "the expected X is not displayed", "successfully", "upon", "following", "the interface", "causes" (when the run did not establish cause), and "fails to" (when something more concrete is available).
 6. **Do not broaden the bug.** Use only what the run saw. Do not infer impact, root cause, scope, frequency or who is affected.
 7. **Keep exact details exact.** Keep numbers and on-screen text exactly as written. Put data values in backticks in the summary, not in the title. Name UI elements the way a user sees them, not by code names.
-8. **Titles are short but specific.** The issue title becomes `<feature>: <your title>`, so leave the feature out. Keep the condition that narrows the bug when it matters: a size, a file type, a state, a platform, a specific action, or first-versus-second attempt.
+8. **Titles are short but specific.** The issue title becomes `<feature>: <your title>`, so leave the feature out. Keep the condition that narrows the bug when it matters: a size, a file type, a state, a platform, a specific action, or first-versus-second attempt. Name what the user has open by its kind (Quarto document, notebook, R script), then narrow by language: "Python Quarto documents", not "Python documents".
 
 ## Bad and better
 

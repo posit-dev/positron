@@ -1775,7 +1775,8 @@ window.addEventListener('resize',function(){if(cur){place(cur);}});})();`;
  * when the run began, which dates the footer's copyright; it defaults to now.
  */
 export function renderReportHtml(markdown, options = {}) {
-	const report = parseReport(markdown, { ledger: options.ledger });
+	// `options.report` is a model already built, from report.json.
+	const report = options.report ?? parseReport(markdown, { ledger: options.ledger });
 	// `readFile` reads a path beside the report; the viewer, the Test files
 	// list and the prompt all show the same resolved files.
 	options = { ...options, files: resolveFiles(report.files, options.readFile) };

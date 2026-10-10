@@ -45,6 +45,15 @@ on:
         required: false
         default: true
         type: boolean
+      # Trial: json has the explorer write report.json and skips the markdown passes.
+      report_format:
+        description: "Report format"
+        required: false
+        default: "md"
+        type: choice
+        options:
+          - md
+          - json
   # `/explore` (or `/test`, `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
   # code, so the membership job is the entire defence. See its comment.
@@ -771,6 +780,7 @@ jobs:
           # The PR link in the summary and the report header. No PR, no link.
           pr-number: ${{ github.event.issue.number || steps.pr.outputs.number }}
           known-issues: ${{ steps.known.outputs.file }}
+          report-format: ${{ inputs.report_format || 'md' }}
 
       # The app and the agent both hold these, and everything below is
       # published: the run directory to a public CDN, the rest as an artifact.

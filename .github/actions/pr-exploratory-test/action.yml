@@ -78,6 +78,10 @@ inputs:
     description: "Give each finding in the HTML report a button that copies it as a prompt for an agent. Set to 'false' where AI policy does not allow it."
     required: false
     default: "true"
+  report-format:
+    description: "Trial: 'json' has the explorer write report.json, and skips the verifier, isolator and editor."
+    required: false
+    default: "md"
   mode:
     description: "gate (read the diff and rule on it), explore (the full run), or comment (post or edit a /test run's PR comment)"
     required: false
@@ -184,6 +188,7 @@ runs:
         TIME_LIMIT: ${{ inputs.time-limit }}
         REPORT_BASE_URL: ${{ inputs.report-base-url }}
         AGENT_PROMPTS: ${{ inputs.agent-prompts }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
         KNOWN_ISSUES: ${{ inputs.known-issues }}
         COMMENT_STATE: ${{ inputs.comment-state }}
         OUTCOME: ${{ inputs.outcome }}

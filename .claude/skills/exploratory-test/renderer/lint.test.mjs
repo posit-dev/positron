@@ -183,6 +183,70 @@ test('flags a precondition that is a running app, or says "the run\'s"', () => {
 	assert.deepEqual(pre('`app.py` that calls `app.run(port=5057)`'), []);
 });
 
+test('flags a step that waits a fixed time, unless it says what it waits for or why the time matters', () => {
+	const step = s => lint(REPORT.replace('1. Click Retry.', `1. ${s}`)).filter(x => /fixed time/.test(x));
+	assert.deepEqual(step('Run `Interpreter: Discover All Interpreters` and wait 30 seconds.'), ['report: Finding 1 step 1 waits a fixed time ("wait 30 seconds"); wait for what the app shows when it is done ("wait for the console prompt"), or say why the time matters ("wait 10 s, past the 5 s timeout")']);
+	assert.deepEqual(step('Click Start Session and wait for it to be ready.'), []);
+	// A time is kept when the step says why it matters: an absence, a timeout, a race.
+	assert.deepEqual(step('Wait about 40 s, well past the 8 s the cell takes.'), []);
+	assert.deepEqual(step('Wait 9 s without answering the toast.'), []);
+	assert.deepEqual(step('Press Cmd+Shift+0 and wait 10 s for `R 4.5.1 restarted.`.'), []);
+	const verify = lint(REPORT.replace('2. VERIFY the panel loads', '2. VERIFY after waiting 5s the panel loads')).filter(x => /fixed time/.test(x));
+	assert.deepEqual(verify, ['report: Finding 1 step 2 waits a fixed time ("waiting 5s"); wait for what the app shows when it is done ("wait for the console prompt"), or say why the time matters ("wait 10 s, past the 5 s timeout")']);
+});
+
+test('flags a step joined by "and" or a semicolon, or done to each of several targets', () => {
+	const step = s => lint(REPORT.replace('1. Click Retry.', `1. ${s}`)).filter(x => /two actions|repeats an action/.test(x));
+	assert.deepEqual(step('Run `Interpreter: Start New Console Session` and pick R 4.5.1.'), ['report: Finding 1 step 1 is two actions ("and pick"); write each as its own step']);
+	assert.deepEqual(step('Type `x`, and press Enter.'), ['report: Finding 1 step 1 is two actions (", and press"); write each as its own step']);
+	assert.deepEqual(step('Open the file; close it.'), ['report: Finding 1 step 1 is two actions ("; close"); write each as its own step']);
+	assert.deepEqual(step('Click the expand chevron on each of the four columns.'), ['report: Finding 1 step 1 repeats an action ("each of"); a step is one action, so write each one as its own step']);
+	assert.deepEqual(step('Run `a; b` in the console, and wait for the prompt.'), []);
+	assert.deepEqual(step('Click Rows and Columns.'), []);
+});
+
+test('flags a step that names a scratch path or, in the ledger, a scenario', () => {
+	const step = s => lint(REPORT.replace('1. Click Retry.', `1. ${s}`)).filter(x => /names the path/.test(x));
+	assert.deepEqual(step('Open `/private/tmp/et-ws/app.R`.'), ['report: Finding 1 step 1 names the path /private/tmp/et-ws/app.R, which the reader does not have; name the file by its files/ path or what it holds']);
+	assert.deepEqual(step('Open `files/ws/app.R`.'), []);
+	const ledger = s => lintLedgerOnly(LEDGER.replace('1. Click Retry.', `1. ${s}`)).filter(x => /has no scenarios/.test(x));
+	assert.deepEqual(ledger('Press Enter to close the quick pick S05 left open.'), ['ledger: S02 step 1 names S05; the step is copied into the finding, whose reader has no scenarios, so say what is open instead']);
+	assert.deepEqual(ledger('Copy `files/settings.S08.json` to the user settings.'), []);
+});
+
+test('flags steps that start from what an earlier scenario left: only checks, or an Escape first', () => {
+	const steps = s => lintLedgerOnly(LEDGER.replace('1. Click Retry.\n2. VERIFY it loads', s)).filter(x => /S02 (has only|step \d+ presses)/.test(x));
+	assert.deepEqual(steps('1. VERIFY it loads'), ['ledger: S02 has only VERIFY steps; write the actions that get the app to what they check']);
+	assert.deepEqual(steps('1. Press Escape.\n2. Click Retry.\n3. VERIFY it loads'), ['ledger: S02 step 1 presses Escape first, closing what an earlier scenario left open; start from the preconditions']);
+	assert.deepEqual(steps('1. Click Retry.\n2. Press Escape.\n3. VERIFY it loads'), []);
+});
+
+test('flags a check repeated after the same actions, but not a recovery or a check after a new action', () => {
+	const steps = s => lintLedgerOnly(LEDGER.replace('1. Click Retry.\n2. VERIFY it loads -> FAIL - Finding 1', s)).filter(x => /repeats step/.test(x));
+	assert.deepEqual(steps('1. Click Retry.\n2. VERIFY it loads -> FAIL - Finding 1\n3. Click Retry.\n4. VERIFY it loads -> FAIL - Finding 1'), ["ledger: S02 step 4 repeats step 2's check after the same actions; write the steps once and count the retry in the rate"]);
+	// The fault removed and the trigger repeated is a recovery check: its result differs.
+	assert.deepEqual(steps('1. Click Retry.\n2. VERIFY it loads -> FAIL - Finding 1\n3. Reconnect the network.\n4. Click Retry.\n5. VERIFY it loads -> PASS'), []);
+	assert.deepEqual(steps('1. Click Retry.\n2. VERIFY it loads -> FAIL - Finding 1\n3. Reload the window.\n4. VERIFY it loads -> FAIL - Finding 1'), []);
+});
+
+test('flags a Command Palette row picked with no step that opens the palette', () => {
+	const steps = s => lint(REPORT.replace('1. Click Retry.', s)).filter(x => /Command Palette row/.test(x));
+	assert.deepEqual(steps('1. Click the `Workspaces: New Folder from Template...` row in the Command Palette.'), ['report: Finding 1 step 1 picks a Command Palette row, but no step before it opens the palette and types the command']);
+	assert.deepEqual(steps('1. Open the Command Palette and type `New Folder`.\n1. Click the `Workspaces: New Folder from Template...` row in the Command Palette.'), []);
+});
+
+test('flags a precondition that is state made in the app: a session value, a shown page, a console a scenario started', () => {
+	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- State | ${p}\n\n1. Click Retry.`)).filter(x => /done in the app|running app/.test(x));
+	assert.deepEqual(pre('any URL shown in the Viewer, here the R Shiny app'), ['report: Finding 1 precondition "State" is done in the app ("shown in the"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(pre('the R Shiny app running in its Shiny console'), ['report: Finding 1 precondition "State" is a running app ("running in its Shiny console"); start it in the steps, with a check that it runs']);
+	assert.deepEqual(pre('A Python 3.12 console, which Positron starts on launch'), []);
+	const ledger = p => lintLedgerOnly(LEDGER.replace('Status: fail - Finding 1\n', `Status: fail - Finding 1\n\nPreconditions:\n- ${p}\n`)).filter(x => /done in the app/.test(x));
+	assert.deepEqual(ledger('`pd_ints` in the session | S01 | Defined in the Python console by S01 (files/ints.py)'), ['ledger: S02 precondition "`pd_ints` in the session" is done in the app ("in the session"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(ledger('R console | S03 | The R console started in S03'), ['ledger: S02 precondition "R console" is done in the app ("started in S03"); do it as a step, and keep the precondition to the state before step 1']);
+	// A file a scenario left on disk is still a file.
+	assert.deepEqual(ledger('expired cache | S02 | S02\'s profile after Positron quit, every firstSeen moved back 40 days by `files/backdate.py`'), []);
+});
+
 test('flags a precondition that runs a command, which is a step', () => {
 	const pre = p => lint(REPORT.replace('**Feature:** console\n\n1. Click Retry.', `**Feature:** console\n\n**Repro**\n\n**Preconditions:**\n- \`slow.py\` loaded | ${p}\n\n1. Click Retry.`)).filter(x => /precondition "/.test(x));
 	assert.deepEqual(pre('`slow.py` loaded with `%run -i slow.py`'), ['report: Finding 1 precondition "`slow.py` loaded" runs `%run -i slow.py`; run it as a step, and keep the precondition to the file or package']);
@@ -196,7 +260,7 @@ test('flags a precondition that runs a command, which is a step', () => {
 test('a saved output under logs/ or files/ sits beside a check\'s screenshot, never in place of it', () => {
 	const ledger = '# Test ledger\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY port 8000 is closed -> PASS\n   Evidence: logs/listeners-after.txt\n2. VERIFY the notebook saves its outputs -> PASS\n   Evidence: files/saved.ipynb\n3. VERIFY the file says 1 -> PASS\n   Evidence: S01-01.png, logs/missing.txt\n4. VERIFY the notebook saves its outputs -> PASS\n   Evidence: S01-02.png, files/saved.ipynb\n';
 	const has = p => p !== 'logs/missing.txt';
-	const problems = lintReport(REPORT, ledger, { fileExists: has }).filter(p => /S01/.test(p));
+	const problems = lintReport(REPORT, ledger, { fileExists: has }).filter(p => /S01.* cites /.test(p));
 	assert.deepEqual(problems, [
 		'ledger: S01 cites Evidence: logs/missing.txt, which is not in the run directory',
 		'ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it',
@@ -206,7 +270,7 @@ test('a saved output under logs/ or files/ sits beside a check\'s screenshot, ne
 
 test('a reading in actions.log sits beside a check\'s screenshot, never in place of it', () => {
 	const ledger = '# Test ledger\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY cell 4 fails with NameError -> PASS\n   Evidence: actions.log:5\n2. VERIFY cells 1 to 9 each show their output -> PASS\n   Evidence: S01-01.png, actions.log:41, actions.log:44\n3. VERIFY the file says 1 -> PASS\n   Evidence: none, read in the console\n';
-	const problems = lintReport(REPORT, ledger, { fileExists: () => true }).filter(p => /S01/.test(p));
+	const problems = lintReport(REPORT, ledger, { fileExists: () => true }).filter(p => /S01.* cites /.test(p));
 	assert.deepEqual(problems, ['ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it', 'ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it']);
 	// The ledger-only check run mid-run finds it too, while the instance is up.
 	assert.deepEqual(lintLedgerOnly(ledger, { fileExists: () => true }).filter(p => /S01 step/.test(p)), ['ledger: S01 step 1 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it', 'ledger: S01 step 3 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it']);
@@ -380,6 +444,19 @@ test('a repro is one scenario\'s steps, and that scenario failed for the finding
 	// A Status that names two findings links the scenario to both.
 	const two = ledger.replace('## S01 - Panel loads\nStatus: pass', '## S01 - Panel loads\nStatus: fail - Findings 2, 1');
 	assert.deepEqual(lintReport(withShots('p.png'), two, { fileExists: () => true }).filter(p => /steps (mix|come from)/.test(p)), []);
+});
+
+test('the table\'s rate is the repro scenario\'s, plus retries the run logged as scenarios of their own', () => {
+	const report = REPORT.replace('1. Click Retry.\n2. VERIFY the panel loads -> FAIL - Finding 1\n',
+		'**Repro**\n\n1. Click Retry.\n2. VERIFY the panel loads -> FAIL - Finding 1\n   Evidence: a.png\n');
+	const rate = (ledger, r = '2/2') => lint(report.replace('| moderate | 2/2 |', `| moderate | ${r} |`), ledger).filter(p => /Reproduction is/.test(p));
+	assert.deepEqual(rate(LEDGER), []);
+	const once = LEDGER.replace('Result: Fails 2/2', 'Result: Fails 1/1');
+	assert.deepEqual(rate(once), ['report: Finding 1 Reproduction is 2/2, but S02, whose steps the repro shows, fails 1/1; give that rate']);
+	// A second try logged as its own scenario counts, up to its tries.
+	const retried = once.replace('## Not run', '## S03 - Retry, second try\nStatus: fail - Finding 1\nResult: Fails 1/1\n\nSteps:\n1. Click Retry.\n2. VERIFY it loads -> FAIL - Finding 1\n   Evidence: b.png\n\n## Not run');
+	assert.deepEqual(rate(retried), []);
+	assert.deepEqual(rate(retried, '3/3'), ['report: Finding 1 Reproduction is 3/3, but S02, whose steps the repro shows, fails 1/1 and the scenarios that failed for it fail 2/2 in all; give a rate between the two, counting only tries of the same steps']);
 });
 
 test('flags a test file that is not in the repository, but not one marked new', () => {

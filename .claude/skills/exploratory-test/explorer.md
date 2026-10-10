@@ -342,12 +342,14 @@ returns each distinct state with when it appeared and how long it lasted.
   switched by running code is "Run `pass` in the Python console", not "Click
   the Python tab". Two actions are two steps, and so is a repeated click. Merge
   a wait into its action, naming what you waited for: "Run X and wait for the
-  plot to appear." When the bug needs you to act before something finishes,
-  say what it races instead.
+  plot to appear.", never a time ("wait 30 seconds") when the app shows it is
+  done. When the bug needs you to act before something finishes, say what it
+  races instead.
 - Every action that changed state a later step or screenshot depends on is a
   step, even a second run of the same code; never explain away a value with an
   action no step took. Leave out what changed nothing, such as a click repeated
-  because the first did not register, or a snapshot.
+  because the first did not register, or a snapshot. A retry of the same
+  steps is counted in the Result's rate, not written out again.
 - Name the exact way in, as the UI labels it: the palette command in
   backticks, with its category (`Workspaces: New Folder from Template...`),
   the menu path, the button, or the key. Two ways in can open different
@@ -525,6 +527,11 @@ Keep one replay instance at a time. A window reload is not cold. If the replay
 fails where the others passed, look for what the steps leave out and write it
 in.
 
+A race that fails only some tries is hard for a reader to see. Scale its
+trigger up (more files, sessions or rows) until it fails every try, then cold
+replay that version twice and make it the finding's steps. Name the smaller
+version and its rate in the finding.
+
 ### Steps and preconditions
 
 A finding's steps are the minimal sequence from the scenario that found it,
@@ -537,7 +544,8 @@ A precondition that only existed in your head is how a finding stops
 reproducing. So is state you did not create. Before writing a finding, compare
 the screen at its first step with what its steps and preconditions produce: a
 console the app started on launch, a setting the launcher or seeded profile
-applied, an editor restored from last time. Write each in as a precondition,
+applied (including one you wrote into the seed yourself), an editor restored
+from last time. Write each in as a precondition,
 the state before step 1, saying when the app did it on its own ("A Python
 console, which Positron starts on launch"); a step is only what the reader
 does. Launch flags belong in the ledger's Environment, and scratch paths in
@@ -606,7 +614,9 @@ the code pointers>
 - `<repo-relative test file>` -- <Unit, Extension, or E2E>, <what it covers, in a phrase>
 ````
 
-Keep the blank lines, and keep steps at the left margin.
+Keep the blank lines, and keep steps at the left margin. The first time an
+Evidence line names an internal ID (a session, client or request ID), say
+which file, document or session it belongs to.
 
 ### Observed and Expected
 

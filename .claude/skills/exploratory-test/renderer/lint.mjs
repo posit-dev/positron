@@ -57,18 +57,29 @@ const RESULT_MAX = 160;
 // A step is one action, so the verifier can match it to one line of
 // actions.log and a check can sit between any two. A lowercase verb after
 // "then" is a second action; a capitalized word is a menu item ("More, then Insert Cell Above").
-const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times)\b/i;
+const REPEATED = /\b(twice|thrice|(?:two|three|four|five|six|seven|eight|nine|ten|\d+) times|each of)\b/i;
 // A precondition saying how it was done in the app ("started with Run App", "then opened"): that is a step.
 // A scratch path the reader does not have; a workspace is named by what it holds.
 const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\/(?:Users|home)\/\S*)/;
 // An app already serving is what the steps start, so the reader sees it start.
-const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+/i;
-const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran)|Run(?: Shiny)? App)\b/i;
+const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+|\brunning in (?:\w+ ){0,3}console\b/i;
+const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
 const RUN_COMMAND = /^(?:%run\b|%load\b|!|source\(|library\(|require\(|exec\(|import\s|from\s+\S+\s+import\s|install\.packages\(|pip\s)/;
 const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
 // A session ID changes every launch, so a step that names one cannot be replayed.
+// A scenario ID, but not one inside a file name ("settings.S08.json").
+const SCENARIO_ID = /(?<![.\w-])[SN]\d{2,}\b(?!\.\w)/;
 const SESSION_ID = /\b(?:python|r)-[0-9a-f]{8}\b/i;
+// A second action joined by "and" or a semicolon. "and wait for <state>" is how
+// the reader knows the first one finished, so it stays.
+const AND_ACTION = /(?:,\s*and\s+(?!wait\s+(?:for|until)\b)(\w+)|;\s*(\w+)|\band\s+(pick|choose|select|click|press|type|run|open|close)\b)/;
+// A wait the reader cannot see end; the state it waits for can be. A time is
+// kept when the step says what it waits for or why the time matters: a check
+// that something does not happen, a timeout, a race.
+const WAIT_REASON = /^\s*(?:\S+\s+){0,2}?(?:for\b|until\b)|\b(?:past|longer than|without|timeout|times? out|debounce|expir\w*|throttl\w*|nothing|still|later)\b/i;
+const FIXED_WAIT = /\bwait(?:s|ing)?\s+(?:about\s+|at least\s+|up to\s+)?\d+(?:\.\d+)?\s*(?:ms|s|secs?|seconds?|minutes?)\b/i;
+const OPENS_PALETTE = /ctrl\+shift\+p|cmd\+shift\+p|\bF1\b|command palette|show all commands/i;
 
 /** The rules every action step follows, in the ledger and on a finding card. */
 // An action inside a VERIFY, as most past runs wrote it: "typing `n` shows ...",
@@ -85,7 +96,46 @@ const VERIFY_ACTION = [
 function verifyProblems(where, text) {
 	const plain = text.replace(/`[^`]*`/g, 'code').replace(/\s*->.*$/, '').trim();
 	const verb = VERIFY_ACTION.map(re => re.exec(plain)?.[1]).find(Boolean);
-	return verb ? [`${where} VERIFY does something ("${verb}"); make it a step of its own before the check, and keep the VERIFY to what you expect to see`] : [];
+	return [
+		...(verb ? [`${where} VERIFY does something ("${verb}"); make it a step of its own before the check, and keep the VERIFY to what you expect to see`] : []),
+		...waitProblems(where, plain),
+	];
+}
+
+function waitProblems(where, plain) {
+	const wait = FIXED_WAIT.exec(plain);
+	return wait && !WAIT_REASON.test(plain.slice(wait.index + wait[0].length)) && !/\b(?:without|still|later)\b/i.test(plain.slice(0, wait.index)) ? [`${where} waits a fixed time ("${wait[0]}"); wait for what the app shows when it is done ("wait for the console prompt"), or say why the time matters ("wait 10 s, past the 5 s timeout")`] : [];
+}
+
+/**
+ * The rules a scenario's or a finding's steps follow as a list: each step is
+ * one the reader can do from the one before. `steps` is `{ n, verify, text }`.
+ */
+function stepListProblems(where, steps) {
+	const problems = [];
+	const actions = steps.filter(st => !st.verify);
+	if (steps.length && !actions.length) {
+		problems.push(`${where} has only VERIFY steps; write the actions that get the app to what they check`);
+	}
+	if (/^press\s+esc(?:ape)?\b/i.test(actions[0]?.text ?? '') && actions[0] === steps[0]) {
+		problems.push(`${where} step ${steps[0].n} presses Escape first, closing what an earlier scenario left open; start from the preconditions`);
+	}
+	const norm = t => t.toLowerCase().replace(/[`"'.]/g, '').replace(/\s+/g, ' ').trim();
+	steps.forEach((st, i) => {
+		if (!st.verify && /\b(?:row|item|entry)\b.*\bCommand Palette\b/i.test(st.text) && !steps.slice(0, i).some(p => OPENS_PALETTE.test(p.text.replace(/\bin the Command Palette\b/i, '')))) {
+			problems.push(`${where} step ${st.n} picks a Command Palette row, but no step before it opens the palette and types the command`);
+		}
+		if (!st.verify) { return; }
+		// The same check after the same actions is a retry: the rate counts it, the steps do not.
+		const earlier = steps.slice(0, i).findLastIndex(p => p.verify && norm(p.text) === norm(st.text) && p.result === st.result);
+		if (earlier === -1) { return; }
+		const before = new Set(steps.slice(0, earlier).filter(p => !p.verify).map(p => norm(p.text)));
+		const between = steps.slice(earlier + 1, i).filter(p => !p.verify);
+		if (between.every(p => before.has(norm(p.text)))) {
+			problems.push(`${where} step ${st.n} repeats step ${steps[earlier].n}'s check after the same actions; write the steps once and count the retry in the rate`);
+		}
+	});
+	return problems;
 }
 
 function stepProblems(where, text) {
@@ -96,8 +146,14 @@ function stepProblems(where, text) {
 		problems.push(`${where} repeats an action ("${repeated[1]}"); a step is one action, so write each one as its own step`);
 	}
 	const then = THEN_ACTION.exec(plain);
-	if (then) {
-		problems.push(`${where} is two actions ("then ${then[1]}"); write each as its own step`);
+	const and = then ? null : AND_ACTION.exec(plain);
+	if (then || and) {
+		problems.push(`${where} is two actions ("${then ? `then ${then[1]}` : and[0].trim()}"); write each as its own step`);
+	}
+	problems.push(...waitProblems(where, plain));
+	const path = SCRATCH_PATH.exec(text);
+	if (path) {
+		problems.push(`${where} names the path ${path[1].replace(/[`'".,)]+$/, '')}, which the reader does not have; name the file by its files/ path or what it holds`);
 	}
 	if (/^Wait\s+for\b/i.test(plain)) {
 		problems.push(`${where} only waits; merge the wait into the action it waits on, or, when the app does it on its own, make it a precondition: "A Python console, which Positron starts on launch"`);
@@ -121,7 +177,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 	for (const { line } of lines) {
 		const head = /^##\s+(S\d+)\b/.exec(line);
 		if (head) {
-			current = { id: head[1], status: null, verifies: [] };
+			current = { id: head[1], status: null, verifies: [], steps: [] };
 			scenarios.push(current);
 			continue;
 		}
@@ -132,9 +188,15 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 		const result = /^Result:\s*(.*)$/.exec(line);
 		if (result) { current.result = result[1].trim(); }
 		const action = /^\s*(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(line);
-		if (action) { problems.push(...stepProblems(`ledger: ${current.id} step ${action[1]}`, action[2])); }
+		if (action) {
+			problems.push(...stepProblems(`ledger: ${current.id} step ${action[1]}`, action[2]));
+			current.steps.push({ n: action[1], verify: false, text: action[2] });
+			const id = SCENARIO_ID.exec(action[2].replace(/`[^`]*`/g, ''));
+			if (id) { problems.push(`ledger: ${current.id} step ${action[1]} names ${id[0]}; the step is copied into the finding, whose reader has no scenarios, so say what is open instead`); }
+		}
 		const verify = /^\s*(\d+)\.\s+VERIFY\b(.*)$/i.exec(line);
 		if (verify) {
+			current.steps.push({ n: verify[1], verify: true, text: verify[2].replace(/\s*->.*$/, '').trim(), result: /->\s*(PASS|FAIL)\b/i.exec(verify[2])?.[1].toUpperCase() });
 			problems.push(...verifyProblems(`ledger: ${current.id} step ${verify[1]}`, verify[2]));
 			current.verifies.push({ step: verify[1], fail: /->\s*FAIL\b/i.test(line), finding: Number(/->\s*FAIL\s*-\s*Finding\s+(\d+)/i.exec(line)?.[1]) || null, observed: false, evidence: false, log: false });
 		}
@@ -186,6 +248,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			}
 		}
 		if (!s.verifies.length) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
+		problems.push(...stepListProblems(`ledger: ${s.id}`, s.steps));
 		// A Result that runs on is usually carrying something the run did not
 		// expect, and in a pass that is where a finding goes unnoticed.
 		if (s.result && (s.result.length > RESULT_MAX || sentencesOf(s.result).length > 1)) {
@@ -222,12 +285,38 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 	return { problems, scenarioCount: scenarios.length, notRun };
 }
 
+const namesFinding = (s, n) => s.findings.includes(n) || s.steps.some(st => st.finding === n);
+const failsOf = s => /\bFails (\d+)\/(\d+)\b/.exec(String(s.resultHtml ?? '').replace(/<[^>]+>/g, ''))?.slice(1).map(Number) ?? null;
+
+/**
+ * How a finding's rate ("N/M") disagrees with the ledger, or null. It is at
+ * least the repro scenario's own and at most every try of every scenario that
+ * failed for the finding: a retry the run logged as a scenario of its own counts.
+ */
+export function rateProblem(rate, owner, failed) {
+	const got = /^(\d+)\/(\d+)$/.exec(String(rate ?? '').trim())?.slice(1).map(Number);
+	const own = failsOf(owner);
+	if (!got || !own) {
+		return null;
+	}
+	const all = failed.map(failsOf).filter(Boolean).reduce(([n, m], [a, b]) => [n + a, m + b], [0, 0]);
+	const [max, maxTries] = [Math.max(all[0], own[0]), Math.max(all[1], own[1])];
+	if (got[0] >= own[0] && got[1] >= own[1] && got[0] <= max && got[1] <= maxTries && got[0] <= got[1]) {
+		return null;
+	}
+	const base = `is ${got.join('/')}, but ${owner.id}, whose steps the repro shows, fails ${own.join('/')}`;
+	return max === own[0] && maxTries === own[1]
+		? `${base}; give that rate`
+		: `${base} and the scenarios that failed for it fail ${max}/${maxTries} in all; give a rate between the two, counting only tries of the same steps`;
+}
+
 /**
  * A finding's repro is one ledger scenario's steps: every screenshot its steps
  * cite comes from a single scenario, and that scenario failed for this finding.
  * Another run's screenshots go under Evidence, captioned with the step they prove.
+ * The table's rate fits the ledger (see rateProblem).
  */
-function lintReproScenario(findings, scenarios) {
+function lintReproScenario(findings, scenarios, rates = new Map()) {
 	const problems = [];
 	const shotsOf = steps => new Set(steps.flatMap(st => st.evidence.map(e => basename(e.file || e.href))));
 	const owners = scenarios.map(s => ({ s, shots: shotsOf(s.steps) }));
@@ -238,9 +327,14 @@ function lintReproScenario(findings, scenarios) {
 		if (!whole.length) {
 			const ids = owners.filter(o => cited.some(shot => o.shots.has(shot))).map(o => o.s.id);
 			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and another run's screenshots go under Evidence, captioned "Step N:" for the step they prove`);
-		} else if (!whole.some(s => s.findings.includes(f.n) || s.steps.some(st => st.finding === f.n))) {
+		} else if (!whole.some(s => namesFinding(s, f.n))) {
 			problems.push(`report: Finding ${f.n}'s steps come from ${whole.map(s => s.id).join(' or ')}, whose Status does not name Finding ${f.n}`);
 		} else {
+			const owner = whole.find(s => namesFinding(s, f.n));
+			const problem = rateProblem(rates.get(String(f.n)), owner, scenarios.filter(s => namesFinding(s, f.n)));
+			if (problem) {
+				problems.push(`report: Finding ${f.n} Reproduction ${problem}`);
+			}
 			// The steps and their shots are one scenario's, so the files they name are too.
 			// The drive-positron scripts a step was run with are not the scenario's files.
 			const names = steps => new Set(steps.flatMap(st => [...String(st.md ?? '').matchAll(FILE_NAME)].map(m => basename(m[1]))).filter(n => !/\.sh$/.test(n)));
@@ -658,16 +752,24 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		}
 		problems.push(...clarityProblems(b.n, lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, ''), said.Observed, said.Expected));
 		// Steps are instructions for the reader; which scenario ran them, and how, is the ledger's.
+		const steps = [];
 		for (const step of body.filter(l => /^\d+\.\s/.test(l))) {
 			const action = /^(\d+)\.\s+(?!VERIFY\b)(.*)$/i.exec(step);
-			if (action) { problems.push(...stepProblems(`report: Finding ${b.n} step ${action[1]}`, action[2])); }
+			if (action) {
+				problems.push(...stepProblems(`report: Finding ${b.n} step ${action[1]}`, action[2]));
+				steps.push({ n: action[1], verify: false, text: action[2] });
+			}
 			const verify = /^(\d+)\.\s+VERIFY\b(.*)$/i.exec(step);
-			if (verify) { problems.push(...verifyProblems(`report: Finding ${b.n} step ${verify[1]}`, verify[2])); }
-			const id = /\b[SN]\d{2,}\b/.exec(step.replace(/`[^`]*`/g, ''));
+			if (verify) {
+				problems.push(...verifyProblems(`report: Finding ${b.n} step ${verify[1]}`, verify[2]));
+				steps.push({ n: verify[1], verify: true, text: verify[2].replace(/\s*->.*$/, '').trim(), result: /->\s*(PASS|FAIL)\b/i.exec(verify[2])?.[1].toUpperCase() });
+			}
+			const id = SCENARIO_ID.exec(step.replace(/`[^`]*`/g, ''));
 			if (id) {
 				problems.push(`report: Finding ${b.n} step "${step.slice(0, 50)}" names ${id[0]}; steps are instructions for the reader, so leave run notes out`);
 			}
 		}
+		problems.push(...stepListProblems(`report: Finding ${b.n}`, steps));
 		const pointer = body.find(l => /\b(as (in )?Finding \d+|same as (above|Finding))\b/i.test(l));
 		if (pointer) { problems.push(`report: Finding ${b.n} points at another finding ("${pointer.trim().slice(0, 60)}"); write its steps in full`); }
 	});
@@ -708,7 +810,8 @@ export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileEx
 		for (const p of missing) { problems.push(`report: links ${p}, which is not in the run directory`); }
 	}
 
-	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? []));
+	const rates = new Map(rows.map(row => [row['#'], row.reproduction]));
+	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? [], rates));
 	// Readers never see scenario IDs, so a finding's prose says what a run was in words.
 	for (const f of parseReport(text).findings) {
 		const fields = [['title', f.title], ['Observed', f.observedHtml], ['Expected', f.expectedHtml], ['Cause', f.causeHtml]];
@@ -962,6 +1065,10 @@ export function lintShotTiming(ledger, actionsLog) {
 // when quick, never worth another render. A rule not listed here is an error.
 const WARNINGS = [
 	/ repeats an action \(/,
+	/ waits a fixed time \(/,
+	/ presses Escape first, closing what an earlier scenario left open/,
+	/ repeats step \d+'s check after the same actions/,
+	/; the step is copied into the finding, whose reader has no scenarios/,
 	/ is two actions \(/,
 	/ VERIFY does something \(/,
 	/ starts "With \.\.\."/,

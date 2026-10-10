@@ -30,6 +30,8 @@ For EACH finding, answer these five questions explicitly:
    screen shows the problem, check that against the screenshots, the values
    beside it included: a Max below the Mean on the same panel is on screen.
    Say so when a screenshot contradicts it.
+   When the Cause is a race, find the log lines that show the events in the
+   order it claims, with their timestamps, or say the order is unconfirmed.
 2. Could anything the reporting agent did to its own test environment produce
    the reported symptom? Read the action log, the ledger's `## Environment` and
    Run details for how it set the machine up, then ask whether that setup,

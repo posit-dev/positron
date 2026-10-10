@@ -16,6 +16,7 @@ import { readKnownIssues } from '../../../.claude/skills/exploratory-test/render
 import { finishRun } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
+import { jsonOverride, settleReportJson, summaryMarkdown, writeJsonPage } from './json-report.mjs';
 import { runSession } from './session.mjs';
 import { buildTaskLine, describeChange, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
@@ -49,8 +50,10 @@ const VERIFY_ENABLED = process.env.VERIFY !== 'false';
 const ISOLATE_MAX_TURNS = parsePosIntEnv('ISOLATE_MAX_TURNS', 100, process.env.ISOLATE_MAX_TURNS);
 // Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
 const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
+// Trial: the explorer writes report.json, and the markdown passes do not run.
+const JSON_REPORT = process.env.REPORT_FORMAT === 'json';
 // Each later pass bills separately from the explore pass, summed over its sessions.
-const passCosts = { verify: buildCostRecord(null), isolate: buildCostRecord(null), edit: buildCostRecord(null) };
+const passCosts = { verify: buildCostRecord(null), isolate: buildCostRecord(null), edit: buildCostRecord(null), retry: buildCostRecord(null) };
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -74,11 +77,11 @@ function mustEnv(name) {
 // published beside shots/, so they resolve without a base URL in the prompt.
 const RENDER_PATH = fileURLToPath(new URL('../../../.claude/skills/exploratory-test/renderer/render.mjs', import.meta.url));
 const CI_OVERRIDES = [
-		`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`report.md\`, \`ledger.md\` and \`actions.log\` directly in it, screenshots in \`${WORK_DIR}/shots/\`, and the files your scenarios use in \`${WORK_DIR}/files/\` (the skill's Test files rule).`,
+	`**Write the run directory to \`${WORK_DIR}\`**, not to any path under \`~/.claude\`. Put \`${JSON_REPORT ? 'report.json' : 'report.md'}\`, \`ledger.md\` and \`actions.log\` directly in it, screenshots in \`${WORK_DIR}/shots/\`, and the files your scenarios use in \`${WORK_DIR}/files/\` (the skill's Test files rule).`,
 	'**Do NOT clean up the pre-launched instance.** Do not run `stop.sh` against it, do not close the `positron` Playwright session, do not remove the run directory. The container is destroyed when the job ends, and cleanup would delete the screenshots before they are uploaded. Instances you launched yourself are yours to stop.',
 	`**Keep the logs in \`${WORK_DIR}/logs/\`.** Follow the skill's Logs section for the pre-launched instance and any you launch. The pre-launched instance's run directory is the only one under \`/tmp/positron-dev-launch/\` when you start, so note it before you launch another. A finding whose log was deleted cannot be checked by the person reading the report.`,
 	'**Do not look the PR up.** Leave out the report\'s `PR:` line, which the workflow adds, and start the ledger\'s header line at `Branch:`.',
-	`**Do not render the report; check it.** The workflow renders \`index.html\` itself once verification has been added. Instead of the skill's render step, run \`node ${RENDER_PATH} --check "${WORK_DIR}/report.md"\`, fix every line it prints, and run it again until it prints none.`,
+	JSON_REPORT ? jsonOverride(WORK_DIR) : `**Do not render the report; check it.** The workflow renders \`index.html\` itself once verification has been added. Instead of the skill's render step, run \`node ${RENDER_PATH} --check "${WORK_DIR}/report.md"\`, fix every line it prints, and run it again until it prints none.`,
 ];
 const CI_OVERRIDES_LIST = CI_OVERRIDES.map((text, i) => `${i + 1}. ${text}`).join('\n');
 
@@ -223,7 +226,7 @@ async function main() {
 		...(knownBrief ? [knownBrief, ''] : []),
 		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
 		'',
-		'Write the report to `report.md` in the run directory. Return a two or three line summary and nothing else.',
+		`Write the report to \`${JSON_REPORT ? 'report.json' : 'report.md'}\` in the run directory. Return a two or three line summary and nothing else.`,
 	].join('\n');
 
 	console.log(`[exploratory] WORK_DIR=${WORK_DIR} model=${MODEL} effort=${EFFORT || 'default'} maxTurns=${MAX_TURNS} timeLimit=${TIME_LIMIT ? `${TIME_LIMIT}m` : 'none'}`);
@@ -257,8 +260,20 @@ async function main() {
 	// when present. Only fall back to scraping chat text if it is missing or
 	// empty, and never overwrite a report that came from the file.
 	let fileReport = null;
+	let jsonReport = null;
+	if (JSON_REPORT) {
+		const resume = session.sessionId ? async prompt => {
+			const again = await runSession({ prompt, systemPrompt, allowedTools: ['Bash', 'Read', 'Glob', 'Grep'], model: MODEL, maxTurns: 30, cwd: REPO_ROOT, resume: session.sessionId, claudeCodePath: CLAUDE_CODE_PATH, label: 'json-retry' });
+			addCost('retry', again.cost);
+		} : null;
+		jsonReport = await settleReportJson(WORK_DIR, { resume, log: line => console.log(line) });
+		if (jsonReport && /^\d+$/.test(process.env.PR_NUMBER ?? '') && process.env.GITHUB_REPOSITORY) {
+			jsonReport.header = { ...jsonReport.header, pr: { repo: process.env.GITHUB_REPOSITORY, number: Number(process.env.PR_NUMBER) } };
+			writeFileSync(join(WORK_DIR, 'report.json'), `${JSON.stringify(jsonReport, null, '\t')}\n`);
+		}
+	}
 	try {
-		fileReport = readFileSync(join(WORK_DIR, 'report.md'), 'utf8');
+		fileReport = jsonReport ? summaryMarkdown(jsonReport) : readFileSync(join(WORK_DIR, 'report.md'), 'utf8');
 	} catch {
 		// Expected when the agent never wrote the file; resolveReport falls
 		// back to scraping chat text.
@@ -272,6 +287,7 @@ async function main() {
 		{ label: 'verify', cost: passCosts.verify },
 		{ label: 'isolate', cost: passCosts.isolate },
 		{ label: 'edit', cost: passCosts.edit },
+		{ label: 'json retry', cost: passCosts.retry },
 	], MAX_TURNS);
 	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
 	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
@@ -330,7 +346,11 @@ async function main() {
 		// fallback write above. Annotation is best effort and never removes a
 		// row, because a wrong FALSE POSITIVE that deleted a real finding would
 		// be invisible to everyone.
-		await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
+		if (jsonReport) {
+			writeFileSync(join(WORK_DIR, 'report.md'), report);
+		} else {
+			await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
+		}
 		// Read after the pipeline, which writes change-base.json.
 		const run = readRunDir(WORK_DIR);
 		const reviewed = readFileSync(join(WORK_DIR, 'report.md'), 'utf8').trimEnd();
@@ -343,30 +363,38 @@ async function main() {
 		// and a rendered page is easier to read than raw markdown with absolute
 		// image URLs in it. The markdown stays: the verification pass reads it,
 		// and a file you can grep is worth keeping.
-		try {
-			const parsed = parseReport(reportMarkdown, { ledger: run.ledger });
-			await writeRunPage(join(WORK_DIR, 'index.html'), reportMarkdown, parsed, {
-				agentPrompts: AGENT_PROMPTS,
-				// Coverage is built from the run's ledger when it wrote one.
-				ledger: run.ledger,
-				// Evidence in the prompt has to open from wherever it is pasted.
-				base: REPORT_BASE_URL || WORK_DIR,
-				skillVersion: skillVersion(),
-				diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
-				fileExists: run.fileExists,
-				readFile: run.readFile,
-				startedAt: STARTED_AT,
-				knownIssues,
-				changeBase: run.changeBase,
-			});
-			// Warned rather than failed: the page still renders, with the missing files unlinked.
-			const { logs, files } = missingFiles(parsed, run.fileExists);
-			const missing = [...logs, ...files];
-			if (missing.length) {
-				console.error(`[report] WARN: files listed but not in the run directory: ${missing.join(', ')}`);
+		if (jsonReport) {
+			try {
+				await writeJsonPage(WORK_DIR, jsonReport, { agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
+			} catch (err) {
+				console.error(`[report] could not render report.json: ${err}`);
 			}
-		} catch (err) {
-			console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
+		} else {
+			try {
+				const parsed = parseReport(reportMarkdown, { ledger: run.ledger });
+				await writeRunPage(join(WORK_DIR, 'index.html'), reportMarkdown, parsed, {
+					agentPrompts: AGENT_PROMPTS,
+					// Coverage is built from the run's ledger when it wrote one.
+					ledger: run.ledger,
+					// Evidence in the prompt has to open from wherever it is pasted.
+					base: REPORT_BASE_URL || WORK_DIR,
+					skillVersion: skillVersion(),
+					diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`,
+					fileExists: run.fileExists,
+					readFile: run.readFile,
+					startedAt: STARTED_AT,
+					knownIssues,
+					changeBase: run.changeBase,
+				});
+				// Warned rather than failed: the page still renders, with the missing files unlinked.
+				const { logs, files } = missingFiles(parsed, run.fileExists);
+				const missing = [...logs, ...files];
+				if (missing.length) {
+					console.error(`[report] WARN: files listed but not in the run directory: ${missing.join(', ')}`);
+				}
+			} catch (err) {
+				console.error(`[report] could not render HTML, markdown is unaffected: ${err}`);
+			}
 		}
 		summary = renderStepSummary(reportMarkdown, REPORT_BASE_URL);
 	} else if (timedOut) {

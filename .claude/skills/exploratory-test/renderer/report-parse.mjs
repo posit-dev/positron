@@ -91,7 +91,7 @@ const marked = new Marked({
 });
 
 /** Inline markdown to HTML, for the contents of one line or cell. */
-function inline(text) {
+export function inline(text) {
 	return marked.parseInline(String(text ?? '').trim());
 }
 
@@ -102,12 +102,12 @@ export function unescapeHtml(html) {
 }
 
 /** Inline markdown as plain text, for attributes such as a caption or label. */
-function plainText(text) {
+export function plainText(text) {
 	return unescapeHtml(inline(text).replace(/<[^>]*>/g, '')).trim();
 }
 
 /** Block markdown to HTML, for a run of lines that may hold lists or code. */
-function block(text) {
+export function block(text) {
 	return marked.parse(String(text ?? '').trim());
 }
 
@@ -122,7 +122,7 @@ function block(text) {
 /** Package and tool names written in lowercase by convention; a sentence may start with one. */
 export const LOWERCASE_NAMES = new Set(['pandas', 'polars', 'numpy', 'dplyr', 'ggplot2', 'tibble', 'data.table', 'pip', 'uv', 'pak', 'renv', 'reticulate', 'ipykernel', 'matplotlib', 'plotly', 'shiny', 'knitr', 'rmarkdown', 'rlang', 'tidyr', 'readr', 'purrr', 'scikit-learn', 'scipy', 'pyarrow', 'duckdb']);
 
-function sentenceCase(text) {
+export function sentenceCase(text) {
 	const s = String(text ?? '');
 	if (!/^[a-z]/.test(s)) {
 		return s;
@@ -470,7 +470,7 @@ const STEP_RESULT = /^([\s\S]*?)\s*(?:->|=>|\u2192)\s*(PASS|FAIL)\b([\s\S]*)$/i;
 const STEP_FIELD = /^(observed|evidence|log):\s*([\s\S]*)$/i;
 
 /** `VERIFY The summary loads` becomes `Verify the summary loads`. */
-function verifyText(text) {
+export function verifyText(text) {
 	const shout = /^VERIFY\b:?\s*/.exec(text);
 	if (!shout && /^(?:verify|check|confirm)\b/i.test(text)) {
 		return text[0].toUpperCase() + text.slice(1);
@@ -546,7 +546,7 @@ function typedStep(lines) {
 }
 
 /** A step as the agent prompt writes it: `Verify ... \u2192 FAIL (observed: ...)`. */
-function stepText(step) {
+export function stepText(step) {
 	const result = !step.result ? ''
 		: ` \u2192 ${step.result.toUpperCase()}${step.observed ? ` (observed: ${step.observed})` : ''}`;
 	// The card has no place for a log line, so the prompt is where it goes.
@@ -695,7 +695,7 @@ function readSourceBlock(lines, from) {
 }
 
 /** An error from its log source, its `|` fields, and the message-then-frames body. */
-function errorFrom(source, meta, body) {
+export function errorFrom(source, meta, body) {
 	const message = [];
 	const frames = [];
 	for (const raw of body) {
@@ -720,7 +720,7 @@ function errorFrom(source, meta, body) {
  * A ledger `Log: <file>:<line> | <process> | <count>` and the lines under it, or
  * null for `none found in ...` or a line with nothing under it.
  */
-function parseLogField(head, body) {
+export function parseLogField(head, body) {
 	if (!head || /^none found\b/i.test(head) || !body.length) {
 		return null;
 	}
@@ -1304,14 +1304,14 @@ export function parseLedger(markdown) {
 	};
 }
 
-function withMetaHtml(e) {
+export function withMetaHtml(e) {
 	// A letter x sits on the baseline where a multiplication sign floats; the
 	// span keeps it lowercase inside an uppercase label.
 	return { ...e, metaHtml: e.meta.map(m => inline(m).replace(/(\d+)\s*(?:x\b|\u00d7)/g, '<span class="n-x">$1x</span>')) };
 }
 
 /** Scenario tallies for the tile, from Coverage rows. */
-function scenarioCounts({ exercised, notExercised }) {
+export function scenarioCounts({ exercised, notExercised }) {
 	const issue = r => r.status === 'fail' || Boolean(r.finding);
 	return {
 		exercised: exercised.length,
@@ -1338,6 +1338,109 @@ function fenceMask(lines) {
  * the run's ledger, Coverage and the Coverage tile come from it instead of
  * the report's Coverage tables.
  */
+/**
+ * A finding's evidence as the card shows it. `steps` are typed steps, each
+ * citing `{ href, file }` shots; shot items are `{ kind, src, file, step,
+ * scenario?, caption, featured? }`. Returns a new array.
+ */
+export function arrangeEvidence(steps, evidence, n) {
+	evidence = evidence.map(e => ({ ...e }));
+	const stepOf = new Map();
+	steps.forEach((step, k) => step.evidence.forEach(e => {
+		if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
+	}));
+	// Another scenario's shot of the bug, captioned with that scenario and no
+	// step on this card, shows the failure again: it opens from the step that fails.
+	const failing = steps.findIndex(st => st.result === 'fail' && st.finding === n);
+	const failAt = failing !== -1 ? failing : steps.findIndex(st => st.result === 'fail');
+	for (const e of evidence.filter(e => e.kind === 'shot' && e.scenario && !stepOf.has(e.file))) {
+		const order = e.step?.order;
+		if (failAt !== -1 && !(Number.isInteger(order) && order >= 1 && order <= steps.length)) {
+			e.step = { label: `Step ${failAt + 1}`, order: failAt + 1 };
+		}
+	}
+	// A shot a step cites is evidence whether or not a bullet repeats it, so
+	// every check's picture reaches the gallery.
+	const cited = new Set(evidence.filter(e => e.kind === 'shot').map(e => e.file));
+	for (const step of steps) {
+		for (const e of step.evidence.filter(e => !cited.has(e.file))) {
+			cited.add(e.file);
+			evidence.push({ kind: 'shot', src: e.href, file: e.file, caption: plainText(step.md) });
+		}
+	}
+	// Screenshots in step order, so they read like the repro. Within a step,
+	// the shots its own Evidence: line cites come first, in that order: the
+	// step's icon opens on the one that shows its check, and any extra follows.
+	// Logs and notes keep their order after them. Sort is stable.
+	const order = e => (stepOf.get(e.file) ?? e.step)?.order ?? Number.MAX_SAFE_INTEGER;
+	const citedAt = e => {
+		const k = steps[order(e) - 1]?.evidence.findIndex(x => x.file === e.file) ?? -1;
+		return k === -1 ? Number.MAX_SAFE_INTEGER : k;
+	};
+	const shots = evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b) || citedAt(a) - citedAt(b));
+	// A shot a step names is that step's, whatever its caption says.
+	return [...shots, ...evidence.filter(e => e.kind !== 'shot')].map(e => (e.kind === 'shot'
+		? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
+		: e));
+}
+
+/**
+ * A finding whose report wrote no Error output takes the errors its ledger
+ * checks logged, so the log a check cited reaches the card and the prompt.
+ */
+export function fillStepErrors(findings, coverage) {
+	for (const f of findings) {
+		if (f.errors.length) { continue; }
+		const logged = [...f.steps, ...coverage.exercised.flatMap(r => r.steps).filter(st => st.finding === f.n)]
+			.map(st => st.error).filter(Boolean);
+		// The finding's repro usually repeats the ledger step, Log and all.
+		const seen = new Set();
+		f.errors = logged.filter(e => !seen.has(`${e.source}\n${e.message}`) && seen.add(`${e.source}\n${e.message}`))
+			.map(withMetaHtml);
+	}
+}
+
+/**
+ * The lead's emphasis is the agent's: it is the only thing in the pipeline
+ * that watched the run, so it is the only thing that knows which clause is
+ * the point. A `**...**` covering most of the sentence emphasises nothing,
+ * so it is dropped rather than rendered.
+ */
+export function leadHtml(result) {
+	const emphasised = [...result.matchAll(/\*\*([\s\S]+?)\*\*/g)]
+		.reduce((sum, m) => sum + m[1].length, 0);
+	const lead = emphasised > result.replace(/\*/g, '').length * 0.8
+		? result.replace(/\*\*/g, '')
+		: result;
+	return lead ? inline(lead) : '';
+}
+
+/**
+ * The scope sentence introduces Coverage, where the scenario count is the
+ * row count of the table directly below it. Repeating the number in the
+ * sentence made the reader check one against the other for no reason.
+ *
+ * `Tested` is written as a phrase completing its label; standing on its own
+ * above the table it has to read as a sentence, so it gets a capital and a
+ * full stop.
+ */
+export function scopeHtml(tested) {
+	const phrase = tested.replace(/,\s*\d+\s+scenarios?\s*$/i, '').trim();
+	return phrase ? inline(sentenceCase(phrase) + (/[.!?]$/.test(phrase) ? '' : '.')) : '';
+}
+
+/** Run details' sections with the ledger's Environment after Change under test, unless the report wrote its own. */
+export function withEnvironment(runDetails, environment) {
+	const html = environment?.length ? block(environment.join('\n')) : '';
+	if (!html || runDetails?.some(s => /^environment$/i.test(s.title))) {
+		return runDetails;
+	}
+	const sections = runDetails ?? [];
+	const at = sections.findIndex(s => /^change under test$/i.test(s.title)) + 1;
+	sections.splice(at, 0, { title: 'Environment', html });
+	return sections;
+}
+
 export function parseReport(markdown, { ledger } = {}) {
 	const lines = String(markdown ?? '').split('\n');
 	// A `## ` line in a pasted cell is source, not a section.
@@ -1378,18 +1481,6 @@ export function parseReport(markdown, { ledger } = {}) {
 			labels.set(key, line.trim().replace(/^\*\*[^*]+:\*\*\s*/, ''));
 		}
 	});
-
-	// The scope sentence introduces Coverage, where the scenario count is the
-	// row count of the table directly below it. Repeating the number in the
-	// sentence made the reader check one against the other for no reason.
-	//
-	// `Tested` is written as a phrase completing its label; standing on its own
-	// above the table it has to read as a sentence, so it gets a capital and a
-	// full stop.
-	const scopePhrase = (labels.get('tested') ?? '').replace(/,\s*\d+\s+scenarios?\s*$/i, '').trim();
-	const scope = scopePhrase
-		? sentenceCase(scopePhrase) + (/[.!?]$/.test(scopePhrase) ? '' : '.')
-		: '';
 
 	const findingsTable = findTable(lines, h => h.includes('#') && h.includes('finding'));
 	const byNumber = new Map();
@@ -1468,40 +1559,6 @@ export function parseReport(markdown, { ledger } = {}) {
 		const preconditions = named.map(p => p.text);
 
 		const steps = parsed.steps.map(typedStep);
-		const stepOf = new Map();
-		steps.forEach((step, k) => step.evidence.forEach(e => {
-			if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
-		}));
-		// Another scenario's shot of the bug, captioned with that scenario and no
-		// step on this card, shows the failure again: it opens from the step that fails.
-		const failing = steps.findIndex(st => st.result === 'fail' && st.finding === start.n);
-		const failAt = failing !== -1 ? failing : steps.findIndex(st => st.result === 'fail');
-		for (const e of parsed.evidence.filter(e => e.kind === 'shot' && e.scenario && !stepOf.has(e.file))) {
-			const order = e.step?.order;
-			if (failAt !== -1 && !(Number.isInteger(order) && order >= 1 && order <= steps.length)) {
-				e.step = { label: `Step ${failAt + 1}`, order: failAt + 1 };
-			}
-		}
-		// A shot a step cites is evidence whether or not a bullet repeats it, so
-		// every check's picture reaches the gallery.
-		const cited = new Set(parsed.evidence.filter(e => e.kind === 'shot').map(e => e.file));
-		for (const step of steps) {
-			for (const e of step.evidence.filter(e => !cited.has(e.file))) {
-				cited.add(e.file);
-				parsed.evidence.push({ kind: 'shot', src: e.href, file: e.file, caption: plainText(step.md) });
-			}
-		}
-		// Screenshots in step order, so they read like the repro. Within a step,
-		// the shots its own Evidence: line cites come first, in that order: the
-		// step's icon opens on the one that shows its check, and any extra follows.
-		// Logs and notes keep their order after them. Sort is stable.
-		const order = e => (stepOf.get(e.file) ?? e.step)?.order ?? Number.MAX_SAFE_INTEGER;
-		const citedAt = e => {
-			const k = steps[order(e) - 1]?.evidence.findIndex(x => x.file === e.file) ?? -1;
-			return k === -1 ? Number.MAX_SAFE_INTEGER : k;
-		};
-		const shots = parsed.evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b) || citedAt(a) - citedAt(b));
-		parsed.evidence = [...shots, ...parsed.evidence.filter(e => e.kind !== 'shot')];
 
 		return {
 			n: start.n,
@@ -1526,10 +1583,7 @@ export function parseReport(markdown, { ledger } = {}) {
 			preconditions: preconditions.map(t => (t.includes('\n') ? block(t) : inline(t))),
 			preconditionNames: named.map(p => (p.name ? inline(p.name) : '')),
 			steps,
-			// A shot a step names is that step's, whatever its caption says.
-			evidence: parsed.evidence.map(e => (e.kind === 'shot'
-				? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
-				: e)),
+			evidence: arrangeEvidence(steps, parsed.evidence, start.n),
 			causeHtml: parsed.cause ? inline(parsed.cause) : '',
 			errors: parsed.errors.map(withMetaHtml),
 			tests: {
@@ -1628,45 +1682,17 @@ export function parseReport(markdown, { ledger } = {}) {
 		// can say so rather than vanish.
 		: { exercised, notExercised, notExercisedListed: notExercisedHeading !== -1 };
 
-	// A finding whose report wrote no Error output takes the errors its ledger
-	// checks logged, so the log a check cited reaches the card and the prompt.
-	for (const f of findings) {
-		if (f.errors.length) { continue; }
-		const logged = [...f.steps, ...coverage.exercised.flatMap(r => r.steps).filter(st => st.finding === f.n)]
-			.map(st => st.error).filter(Boolean);
-		// The finding's repro usually repeats the ledger step, Log and all.
-		const seen = new Set();
-		f.errors = logged.filter(e => !seen.has(`${e.source}\n${e.message}`) && seen.add(`${e.source}\n${e.message}`))
-			.map(withMetaHtml);
-	}
+	fillStepErrors(findings, coverage);
 
-	let runDetails = parseRunDetails(readDetails(lines, 'Run details'));
 	// The ledger's Environment is the run-wide setup, so Run details shows it
-	// rather than the report repeating it. A report that wrote its own keeps it.
-	const environment = fromLedger?.environment?.length ? block(fromLedger.environment.join('\n')) : '';
-	if (environment && !runDetails?.some(s => /^environment$/i.test(s.title))) {
-		const sections = runDetails ?? [];
-		const at = sections.findIndex(s => /^change under test$/i.test(s.title)) + 1;
-		sections.splice(at, 0, { title: 'Environment', html: environment });
-		runDetails = sections;
-	}
+	// rather than the report repeating it.
+	const runDetails = withEnvironment(parseRunDetails(readDetails(lines, 'Run details')), fromLedger?.environment);
 	const verification = parseVerification(readDetails(lines, 'Verification details'));
 
 	const passes = lines.map(parseCostLine).filter(Boolean);
 	const main = passes.find(p => p.label === 'explore') ?? passes[0] ?? null;
 	const total = passes.find(p => p.label === 'total');
 	const billed = passes.filter(p => p.label !== 'total');
-
-	// The lead's emphasis is the agent's: it is the only thing in the pipeline
-	// that watched the run, so it is the only thing that knows which clause is
-	// the point. A `**...**` covering most of the sentence emphasises nothing,
-	// so it is dropped rather than rendered.
-	const result = labels.get('result') ?? '';
-	const emphasised = [...result.matchAll(/\*\*([\s\S]+?)\*\*/g)]
-		.reduce((sum, m) => sum + m[1].length, 0);
-	const lead = emphasised > result.replace(/\*/g, '').length * 0.8
-		? result.replace(/\*\*/g, '')
-		: result;
 
 	// A run can report findings in the table without a block for each, or the
 	// other way round, so the count is the union. The breakdown reads the table,
@@ -1688,8 +1714,8 @@ export function parseReport(markdown, { ledger } = {}) {
 		title,
 		chips,
 		pr,
-		leadHtml: lead ? inline(lead) : '',
-		scopeHtml: scope ? inline(scope) : '',
+		leadHtml: leadHtml(labels.get('result') ?? ''),
+		scopeHtml: scopeHtml(labels.get('tested') ?? ''),
 		findings,
 		severityCounts,
 		findingCount,

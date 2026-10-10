@@ -1,0 +1,491 @@
+{
+	"type": "object",
+	"required": [
+		"header",
+		"findings",
+		"scenarios",
+		"logs",
+		"files",
+		"environment"
+	],
+	"$defs": {
+		"md": {
+			"type": "string",
+			"description": "markdown"
+		},
+		"int": {
+			"type": "integer",
+			"minimum": 1
+		},
+		"issueRef": {
+			"type": "object",
+			"required": [
+				"n",
+				"kind"
+			],
+			"properties": {
+				"n": {
+					"$ref": "#/$defs/int"
+				},
+				"kind": {
+					"enum": [
+						"observed",
+						"back",
+						"held",
+						"failed",
+						"skipped",
+						"not-exercised"
+					]
+				}
+			}
+		},
+		"step": {
+			"type": "object",
+			"required": [
+				"kind",
+				"text"
+			],
+			"properties": {
+				"kind": {
+					"enum": [
+						"action",
+						"verify"
+					]
+				},
+				"text": {
+					"$ref": "#/$defs/md"
+				},
+				"result": {
+					"enum": [
+						"pass",
+						"fail"
+					]
+				},
+				"finding": {
+					"$ref": "#/$defs/int"
+				},
+				"observed": {
+					"$ref": "#/$defs/md"
+				},
+				"shots": {
+					"type": "array",
+					"items": {
+						"type": "string",
+						"pattern": "^shots/"
+					}
+				},
+				"log": {
+					"type": "object",
+					"properties": {
+						"source": {
+							"type": "string"
+						},
+						"body": {
+							"type": "string"
+						}
+					}
+				},
+				"code": {
+					"$ref": "#/$defs/md"
+				}
+			}
+		},
+		"error": {
+			"type": "object",
+			"required": [
+				"source",
+				"message"
+			],
+			"properties": {
+				"source": {
+					"type": "string"
+				},
+				"process": {
+					"type": "string"
+				},
+				"count": {
+					"type": "integer"
+				},
+				"message": {
+					"type": "string"
+				},
+				"frames": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"fn": {
+								"type": "string"
+							},
+							"path": {
+								"type": "string"
+							},
+							"line": {
+								"type": "integer"
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"properties": {
+		"header": {
+			"type": "object",
+			"required": [
+				"title",
+				"branch",
+				"sha",
+				"result",
+				"tested",
+				"notExercised"
+			],
+			"properties": {
+				"title": {
+					"type": "string"
+				},
+				"branch": {
+					"type": "string"
+				},
+				"sha": {
+					"type": "string"
+				},
+				"pr": {
+					"type": "object",
+					"properties": {
+						"repo": {
+							"type": "string"
+						},
+						"number": {
+							"type": "integer"
+						}
+					}
+				},
+				"result": {
+					"$ref": "#/$defs/md"
+				},
+				"tested": {
+					"$ref": "#/$defs/md"
+				},
+				"notExercised": {
+					"$ref": "#/$defs/md"
+				},
+				"details": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"title": {
+								"type": "string"
+							},
+							"body": {
+								"$ref": "#/$defs/md"
+							}
+						}
+					}
+				}
+			}
+		},
+		"findings": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": [
+					"n",
+					"severity",
+					"reproduced",
+					"feature",
+					"title",
+					"observed",
+					"expected",
+					"steps",
+					"tests"
+				],
+				"properties": {
+					"n": {
+						"$ref": "#/$defs/int"
+					},
+					"severity": {
+						"enum": [
+							"major",
+							"moderate",
+							"minor"
+						]
+					},
+					"reproduced": {
+						"type": "object",
+						"required": [
+							"n",
+							"m"
+						],
+						"properties": {
+							"n": {
+								"type": "integer"
+							},
+							"m": {
+								"type": "integer"
+							}
+						}
+					},
+					"feature": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"observed": {
+						"$ref": "#/$defs/md"
+					},
+					"expected": {
+						"$ref": "#/$defs/md"
+					},
+					"cause": {
+						"$ref": "#/$defs/md"
+					},
+					"preconditions": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								},
+								"text": {
+									"$ref": "#/$defs/md"
+								},
+								"file": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"steps": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/step"
+						}
+					},
+					"evidence": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": [
+								"kind"
+							],
+							"properties": {
+								"kind": {
+									"enum": [
+										"shot",
+										"log",
+										"missing",
+										"note"
+									]
+								},
+								"path": {
+									"type": "string"
+								},
+								"step": {
+									"type": "integer"
+								},
+								"scenario": {
+									"type": "string"
+								},
+								"featured": {
+									"type": "boolean"
+								},
+								"process": {
+									"type": "string"
+								},
+								"when": {
+									"type": "string"
+								},
+								"window": {
+									"type": "string"
+								},
+								"quote": {
+									"type": "string"
+								},
+								"caption": {
+									"$ref": "#/$defs/md"
+								}
+							}
+						}
+					},
+					"errors": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/error"
+						}
+					},
+					"tests": {
+						"type": "object",
+						"properties": {
+							"cases": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"text": {
+											"$ref": "#/$defs/md"
+										},
+										"level": {
+											"enum": [
+												"unit",
+												"extension",
+												"e2e"
+											]
+										},
+										"path": {
+											"type": "string"
+										},
+										"isNew": {
+											"type": "boolean"
+										}
+									},
+									"required": [
+										"text",
+										"level",
+										"path",
+										"isNew"
+									]
+								}
+							},
+							"related": {
+								"type": "array",
+								"items": {
+									"type": "object",
+									"properties": {
+										"path": {
+											"type": "string"
+										},
+										"level": {
+											"enum": [
+												"unit",
+												"extension",
+												"e2e"
+											]
+										},
+										"note": {
+											"$ref": "#/$defs/md"
+										}
+									},
+									"required": [
+										"path",
+										"level",
+										"note"
+									]
+								}
+							}
+						},
+						"required": [
+							"cases",
+							"related"
+						]
+					}
+				}
+			}
+		},
+		"scenarios": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": [
+					"id",
+					"name",
+					"status"
+				],
+				"properties": {
+					"id": {
+						"type": "string",
+						"pattern": "^[SN]\\d+$"
+					},
+					"name": {
+						"$ref": "#/$defs/md"
+					},
+					"status": {
+						"enum": [
+							"pass",
+							"fail",
+							"not-run"
+						]
+					},
+					"findings": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/int"
+						}
+					},
+					"result": {
+						"$ref": "#/$defs/md"
+					},
+					"reason": {
+						"$ref": "#/$defs/md"
+					},
+					"issues": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/issueRef"
+						}
+					}
+				}
+			}
+		},
+		"logs": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": [
+					"path"
+				],
+				"properties": {
+					"path": {
+						"type": "string"
+					},
+					"source": {
+						"$ref": "#/$defs/md"
+					},
+					"note": {
+						"$ref": "#/$defs/md"
+					}
+				}
+			}
+		},
+		"files": {
+			"type": "array",
+			"items": {
+				"type": "object",
+				"required": [
+					"path"
+				],
+				"properties": {
+					"path": {
+						"type": "string"
+					},
+					"desc": {
+						"$ref": "#/$defs/md"
+					},
+					"uses": {
+						"$ref": "#/$defs/md"
+					}
+				}
+			}
+		},
+		"environment": {
+			"type": "object",
+			"properties": {
+				"positron": {
+					"type": "string"
+				},
+				"os": {
+					"type": "string"
+				},
+				"kernels": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			}
+		}
+	}
+}
