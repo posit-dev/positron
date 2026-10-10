@@ -77,6 +77,32 @@ function stepProblems(f, scenario) {
 }
 
 /**
+ * The finding's repro is the shortest way to its failure: it ends at its first
+ * failing check, and no setup step (one before the first check) changes what a
+ * precondition already set. A later change may be the trigger.
+ */
+function reproProblems(f) {
+	const problems = [];
+	const steps = f.steps ?? [];
+	const fails = steps.findIndex(s => s.kind === 'verify' && s.result === 'fail' && (s.finding ?? f.n) === f.n);
+	if (fails >= 0 && fails < steps.length - 1) {
+		problems.push(`Finding ${f.n} goes on for ${steps.length - fails - 1} steps after its failure at step ${fails + 1}; end the steps there, and put a later sighting or other trigger in Observed`);
+	}
+	const codes = text => [...String(text ?? '').matchAll(/`([^`]+)`/g)].map(m => m[1]);
+	const setup = steps.slice(0, Math.max(0, steps.findIndex(s => s.kind === 'verify')));
+	for (const p of f.preconditions ?? []) {
+		const set = new Set(codes(`${p.name ?? ''} ${p.text ?? ''}`));
+		setup.forEach((s, i) => {
+			const code = /^(?:set|change|turn|enable|disable|toggle)\b/i.test(norm(s.text)) && codes(s.text).find(c => set.has(c));
+			if (code) {
+				problems.push(`Finding ${f.n} step ${i + 1} changes \`${code}\`, which precondition "${p.name ?? p.text}" already sets; a precondition is the state before step 1, so give the value step 1 starts from`);
+			}
+		});
+	}
+	return problems;
+}
+
+/**
  * Problems with report.json against the ledger, each with the finding number
  * or scenario ID it is about, so a retry can be taken for those parts only.
  */
@@ -136,6 +162,7 @@ export function checkReportJson(json, ledgerText) {
 
 	// Each finding: one scenario's steps and its rate.
 	for (const f of findings) {
+		reproProblems(f).forEach(text => onFinding(f.n, text));
 		const owners = ledger.exercised.filter(s => named(s, f.n));
 		if (!owners.length) {
 			continue;
@@ -250,7 +277,7 @@ export function buildRetryPrompt(problems) {
 		'',
 		...problems.map(p => `- ${p.text}`),
 		'',
-		'Fix each one from ledger.md: a finding\'s steps and rate are the scenario\'s that failed for it, each step as the ledger words it (you may trim, not add), and each scenario\'s status and rate as the ledger records them. Where the ledger supports neither version, drop the claim. Change nothing else, and return the whole report again.',
+		'Fix each one from ledger.md: a finding\'s rate is the scenario\'s that failed for it, and its steps the fewest of that scenario\'s that reach the finding\'s first failing check, ending there, each as the ledger words it (you may trim, not add); each scenario\'s status and rate are as the ledger records them. Where the ledger supports neither version, drop the claim. Change nothing else, and return the whole report again.',
 	].join('\n');
 }
 
