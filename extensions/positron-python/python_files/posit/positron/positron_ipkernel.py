@@ -42,6 +42,7 @@ from .help import HelpService, _distribution_to_modules, help  # noqa: A004
 from .lsp import LSPService
 from .matplotlib_backend.backend import Backend
 from .matplotlib_backend.compat import register_with_legacy_ipython
+from .object_explorer import ObjectExplorerService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.haystack import patch_haystack_is_in_jupyter
 from .patch.holoviews import set_holoviews_extension
@@ -59,6 +60,7 @@ if TYPE_CHECKING:
 
 class _CommTarget(str, enum.Enum):
     DataExplorer = "positron.dataExplorer"
+    ObjectExplorer = "positron.objectExplorer"
     Ui = "positron.ui"
     Help = "positron.help"
     Lsp = "positron.lsp"
@@ -205,11 +207,16 @@ class PositronMagics(Magics):
             ):
                 title = title[1:-1]
 
-        # Register a dataset with the data explorer service.
+        # Show tables in the data explorer and other nested objects in the object explorer.
+        variable_path = [encode_access_key(args.object)]
+        kernel = self.shell.kernel
         try:
-            self.shell.kernel.data_explorer_service.register_table(
-                obj, title, variable_path=[encode_access_key(args.object)]
-            )
+            if kernel.data_explorer_service.is_supported(obj):
+                kernel.data_explorer_service.register_table(obj, title, variable_path=variable_path)
+            else:
+                kernel.object_explorer_service.register_object(
+                    obj, title, variable_path=variable_path, root_accessor=args.object
+                )
         except TypeError as e:
             raise UsageError(f"cannot view object of type '{get_qualname(obj)}'") from e
 
@@ -666,6 +673,9 @@ class PositronIPyKernel(IPythonKernel):
 
         # Create Positron services
         self.data_explorer_service = DataExplorerService(_CommTarget.DataExplorer, self.job_queue)
+        self.object_explorer_service = ObjectExplorerService(
+            _CommTarget.ObjectExplorer, self.data_explorer_service
+        )
         self.plots_service = PlotsService(_CommTarget.Plot, self.session_mode)
         self.ui_service = UiService(self)
         self.help_service = HelpService()
@@ -756,6 +766,7 @@ class PositronIPyKernel(IPythonKernel):
 
         # Shutdown Positron services
         self.data_explorer_service.shutdown()
+        self.object_explorer_service.shutdown()
         self.ui_service.shutdown()
         self.help_service.shutdown()
         self.lsp_service.shutdown()

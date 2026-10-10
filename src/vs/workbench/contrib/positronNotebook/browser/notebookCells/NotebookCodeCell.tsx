@@ -35,6 +35,7 @@ import { LatexOutput } from './LatexOutput.js';
 import { useCellContextMenu } from './useCellContextMenu.js';
 import { MenuId } from '../../../../../platform/actions/common/actions.js';
 import { DataExplorerCellOutput } from './DataExplorerCellOutput.js';
+import { ObjectExplorerCellOutput } from './ObjectExplorerCellOutput.js';
 import { JsonOutput } from './JsonOutput.js';
 import { NotebookErrorBoundary } from '../NotebookErrorBoundary.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -359,6 +360,8 @@ const CellOutput = React.memo(function CellOutput(output: CellOutputProps) {
 			return <JsonOutput data={parsed.data} outputId={output.outputId} />;
 		case 'dataExplorer':
 			return <DataExplorerCellOutput outputs={outputs} parsed={parsed} />;
+		case 'objectExplorer':
+			return <ObjectExplorerCellOutput outputs={outputs} parsed={parsed} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{parsed.content}

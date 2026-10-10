@@ -10,9 +10,10 @@ import { hasKey } from '../../../../base/common/types.js';
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput, IOutputItemDto } from '../../notebook/common/notebookCommon.js';
-import { ParsedDataExplorerOutput, ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
+import { ParsedDataExplorerOutput, ParsedObjectExplorerOutput, ParsedOutput, ParsedTextOutput } from './PositronNotebookCells/IPositronNotebookCell.js';
 import { parseVariablePath } from '../../../services/positronDataExplorer/common/utils.js';
 import { getImageDataUrl } from '../../../services/positronPlots/common/imageDataUrl.js';
+import { OBJECT_EXPLORER_MIME_TYPE } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 
 /**
  * MIME type for Positron inline data explorer
@@ -27,6 +28,14 @@ export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+js
  */
 export function isDataExplorerMimeType(mime: string): boolean {
 	return mime.toLowerCase() === DATA_EXPLORER_MIME_TYPE.toLowerCase();
+}
+
+/**
+ * Case-insensitive check for the object explorer MIME type, for the same reason as
+ * {@link isDataExplorerMimeType}.
+ */
+export function isObjectExplorerMimeType(mime: string): boolean {
+	return mime.toLowerCase() === OBJECT_EXPLORER_MIME_TYPE.toLowerCase();
 }
 
 type CellOutputInfo = { id: string; content: string };
@@ -183,6 +192,22 @@ export function parseOutputData(outputItem: IOutputItemDto, metadata?: Record<st
 				source: payload.source,
 				variablePath,
 			} satisfies ParsedDataExplorerOutput;
+		} catch {
+			// Fall through to unknown if parsing fails
+		}
+	}
+
+	// Handle Positron inline object explorer MIME type
+	if (isObjectExplorerMimeType(mime)) {
+		try {
+			const payload = JSON.parse(message);
+			return {
+				type: 'objectExplorer',
+				commId: payload.comm_id,
+				title: payload.title,
+				version: payload.version,
+				variablePath: parseVariablePath(payload.variable_path),
+			} satisfies ParsedObjectExplorerOutput;
 		} catch {
 			// Fall through to unknown if parsing fails
 		}

@@ -73,10 +73,11 @@ Explorer's column summary panel.
 
 **Opening files** -- [references/files.md]({{skill_dir}}/references/files.md)
 Read when the user wants a file open in Positron: "open data.csv", "show me
-that file", "let's look at this CSV/Parquet/Excel file", or anything that should
-land in the Data Explorer. Read it **before** opening anything -- it documents
-the one command that opens a known path, and names the similar-looking ids that
-open a file picker instead and hand the task back to the user.
+that file", "let's look at this CSV/Parquet/Excel file", "browse this JSON
+file", or anything that should land in the Data Explorer or Object Explorer.
+Read it **before** opening anything -- it documents the commands that open a
+known path, and names the similar-looking ids that open a file picker instead
+and hand the task back to the user.
 
 **Viewer** -- [references/viewer.md]({{skill_dir}}/references/viewer.md)
 Read when the user wants to see HTML you have written -- a page, chart, report,

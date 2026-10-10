@@ -101,8 +101,8 @@ export type DataFrameResolution =
  * Resolves the identifier at the given editor position to a viewable variable
  * in the runtime session for the position's (embedded) language.
  *
- * This is the shared resolution flow behind both the "View Data Frame at
- * Cursor" command and the "Open in Data Explorer" code action. It does not
+ * This is the shared resolution flow behind both the "View Variable at
+ * Cursor" command and the "Open in Data/Object Explorer" code action. It does not
  * surface any notifications; callers map the returned {@link DataFrameResolution}
  * to user-facing messages as appropriate.
  *

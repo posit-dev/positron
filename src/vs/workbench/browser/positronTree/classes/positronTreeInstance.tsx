@@ -14,7 +14,8 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { disposableTimeout, Limiter } from '../../../../base/common/async.js';
 import { IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { DataGridInstance, MouseSelectionType, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { DataGridInstance, MouseSelectionType, RowDescriptor, RowSelectionState, SelectionCursorOptions, selectionCursorOptions } from '../../positronDataGrid/classes/dataGridInstance.js';
+import { computeRowStructure, computeStickyRows, RowStructure } from './stickyRows.js';
 import { TreeNode, TreeNodeContext, VisibleNode } from './treeNode.js';
 import { buildVisibleNodes, findParentIndex } from './treeProjection.js';
 
@@ -78,6 +79,10 @@ interface PositronTreeBaseOptions<T> {
 
 	// Whether to apply default focused/selected styling on the row wrapper. Defaults to true.
 	readonly useDefaultStyling?: boolean;
+
+	// Whether the expanded ancestors of the rows at the top of the viewport stick to the top, as in
+	// the editor's sticky scroll. Defaults to false.
+	readonly stickyScroll?: boolean;
 }
 
 /**
@@ -101,6 +106,11 @@ const REFRESHED_HIGHLIGHT_DURATION = 1500;
  * doesn't fan out into dozens of simultaneous queries against the source.
  */
 const RESTORE_FETCH_CONCURRENCY = 8;
+
+/**
+ * The most ancestors that stick to the top of the viewport.
+ */
+const MAX_STICKY_ROWS = 5;
 
 /**
  * ExpansionSnapshot type. The shape of an expanded subtree, captured before a reload drops it.
@@ -151,6 +161,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	// Per-level indent width in pixels and whether to apply default focus/selection styling.
 	private _indentWidth: number;
 	private readonly _useDefaultStyling: boolean;
+	private readonly _stickyScroll: boolean;
 
 	// Structural tree state.
 	private _roots: readonly TreeNode<T>[] = [];
@@ -185,8 +196,14 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	// Pending roots fetch. Same idea for getRoots / refresh.
 	private _pendingRootsFetch: Promise<void> | undefined;
 
+	// Row heights that differ from the default, keyed by node id.
+	private readonly _nodeHeights = new Map<string, number>();
+
 	// The current flat projection. Rebuilt whenever structural state changes.
 	private _visibleNodes: readonly VisibleNode<T>[] = [];
+
+	// The structure of the visible nodes, computed when the sticky rows first need it.
+	private _rowStructure: RowStructure | undefined;
 
 	// Whether the initial roots load has completed at least once. Lets consumers distinguish
 	// "loading initial data" from "no roots."
@@ -238,6 +255,7 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		this._getReloadKey = options.getReloadKey ?? (node => node.id);
 		this._indentWidth = options.indentWidth;
 		this._useDefaultStyling = options.useDefaultStyling ?? true;
+		this._stickyScroll = options.stickyScroll ?? false;
 
 		// Lock the column count to one.
 		this._columnLayoutManager.setEntries(1);
@@ -473,6 +491,13 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 	}
 
 	/**
+	 * The given node's loaded children, or undefined if they are not loaded.
+	 */
+	getLoadedChildren(id: string): readonly TreeNode<T>[] | undefined {
+		return this._children.get(id);
+	}
+
+	/**
 	 * Push escape hatch: replace the roots without going through getRoots. Used when the
 	 * consumer has the data in hand (e.g. a sync event source).
 	 */
@@ -626,6 +651,25 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		}
 
 		this._indentWidth = indentWidth;
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
+	 * Sets the height of a node's row, or restores the default height.
+	 * @param id The node id.
+	 * @param height The height in pixels, or undefined for the default height.
+	 */
+	setNodeHeight(id: string, height: number | undefined): void {
+		if (this._nodeHeights.get(id) === height) {
+			return;
+		}
+
+		if (height === undefined) {
+			this._nodeHeights.delete(id);
+		} else {
+			this._nodeHeights.set(id, height);
+		}
+		this._applyNodeHeights();
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -894,6 +938,22 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		return fetchPromise;
 	}
 
+	/**
+	 * Applies the node heights to the rows of the projection.
+	 */
+	private _applyNodeHeights(): void {
+		this._rowLayoutManager.clearSizeOverrides();
+		if (this._nodeHeights.size === 0) {
+			return;
+		}
+		this._visibleNodes.forEach((visible, index) => {
+			const height = this._nodeHeights.get(visible.node.id);
+			if (height !== undefined) {
+				this._rowLayoutManager.setSizeOverride(index, height);
+			}
+		});
+	}
+
 	private _rebuildProjection(): void {
 		this._visibleNodes = buildVisibleNodes<T>({
 			roots: this._roots,
@@ -905,8 +965,9 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 			recentlyRefreshed: this._recentlyRefreshed,
 		});
 
-		// All rows are the same height; the row layout manager just needs the count.
+		this._rowStructure = undefined;
 		this._rowLayoutManager.setEntries(this._visibleNodes.length);
+		this._applyNodeHeights();
 
 		// If the cursor landed past the last visible row (e.g. after a collapse), pull it back.
 		if (this._visibleNodes.length === 0) {
@@ -946,13 +1007,36 @@ export class PositronTreeInstance<T> extends DataGridInstance {
 		return columnIndex === 0 ? this.layoutWidth : undefined;
 	}
 
+	override stickyRows(): readonly RowDescriptor[] {
+		if (!this._stickyScroll) {
+			return [];
+		}
+		this._rowStructure ??= computeRowStructure(this._visibleNodes);
+		return computeStickyRows(this._visibleNodes, this._rowStructure, index => this.rowTop(index), this.verticalScrollOffset, this.defaultRowHeight, MAX_STICKY_ROWS);
+	}
+
+	/**
+	 * Gets the top of the row at an index; past the last row, the bottom of the rows.
+	 */
+	rowTop(index: number): number {
+		return this._rowLayoutManager.getLayoutEntry(index)?.start ?? this._rowLayoutManager.unpinnedLayoutEntriesSize;
+	}
+
+	/**
+	 * Selects the row. A row clicked in the band of sticky rows is also scrolled into view, as the
+	 * editor does for a sticky line.
+	 */
 	override async mouseSelectCell(
 		_columnIndex: number,
 		rowIndex: number,
 		_pinned: boolean,
 		mouseSelectionType: MouseSelectionType
 	): Promise<void> {
+		const sticky = this.stickyRows().some(row => row.rowIndex === rowIndex);
 		await this.mouseSelectRow(rowIndex, mouseSelectionType);
+		if (sticky) {
+			await this.scrollToRow(rowIndex);
+		}
 	}
 
 	/**

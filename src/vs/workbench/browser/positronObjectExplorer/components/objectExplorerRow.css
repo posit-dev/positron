@@ -1,0 +1,146 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2026 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/*
+ * The Name cell absorbs the tree's indent, so the Type and Value columns line up across depths.
+ */
+.object-explorer-row {
+	display: grid;
+	grid-template-columns: var(--object-explorer-name-width) var(--object-explorer-type-width) minmax(0, 1fr);
+	align-items: center;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+}
+
+.object-explorer-row .object-explorer-cell {
+	min-width: 0;
+	padding-right: 8px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.object-explorer-row .object-explorer-cell.type {
+	opacity: 0.8;
+}
+
+.object-explorer-row .object-explorer-cell.value.cycle {
+	font-style: italic;
+	opacity: 0.8;
+}
+
+.object-explorer-row .max-depth-indicator {
+	margin-left: 4px;
+	vertical-align: middle;
+	opacity: 0.6;
+}
+
+.object-explorer-row.more .object-explorer-cell.name {
+	grid-column: 1 / -1;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-style: italic;
+}
+
+.object-explorer-row .object-explorer-match {
+	background-color: var(--vscode-list-filterMatchBackground);
+	outline: 1px solid var(--vscode-list-filterMatchBorder);
+	outline-offset: -1px;
+	border-radius: 2px;
+}
+
+/*
+ * An expanded row shows its value wrapped, up to ten lines, with the Name and Type on its first line.
+ */
+.object-explorer-row.expanded {
+	align-items: start;
+}
+
+.object-explorer-row.expanded .object-explorer-cell.name,
+.object-explorer-row.expanded .object-explorer-cell.type {
+	line-height: 24px;
+}
+
+.object-explorer-row.expanded .object-explorer-cell.value {
+	position: relative;
+	padding: 3px 24px 3px 0;
+	line-height: 18px;
+}
+
+.object-explorer-row .value-text {
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.object-explorer-row.expanded .value-text {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 10;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+/*
+ * A table's value is followed by the button that opens it in a Data Explorer.
+ */
+.object-explorer-row .object-explorer-cell.value.table {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	padding-right: 4px;
+}
+
+.object-explorer-row .object-explorer-cell.value.table .value-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.object-explorer-row .open-value {
+	position: absolute;
+	right: 4px;
+	bottom: 3px;
+}
+
+.object-explorer-row .open-value,
+.object-explorer-row .view-table {
+	flex: none;
+	width: 18px;
+	height: 18px;
+	padding: 0;
+	border: 0;
+	border-radius: 3px;
+	background: transparent;
+	color: var(--vscode-icon-foreground);
+	cursor: pointer;
+}
+
+.object-explorer-row .open-value:hover,
+.object-explorer-row .view-table:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.object-explorer-search-footer {
+	height: 100%;
+	padding: 0 8px;
+	line-height: 32px;
+	text-align: center;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+	font-style: italic;
+	color: var(--vscode-list-deemphasizedForeground);
+}
+
+.object-explorer-search-footer a {
+	color: var(--vscode-textLink-foreground);
+	text-decoration: none;
+}
+
+.object-explorer-search-footer a:hover {
+	color: var(--vscode-textLink-activeForeground);
+	text-decoration: underline;
+}

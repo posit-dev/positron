@@ -16,6 +16,8 @@ import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronCon
  */
 export const DATA_EXPLORER_MIME_TYPE = 'application/vnd.positron.dataExplorer+json';
 
+export { OBJECT_EXPLORER_MIME_TYPE } from '../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
+
 // Service decorators
 export const IQuartoOutputCacheService = createDecorator<IQuartoOutputCacheService>('quartoOutputCacheService');
 

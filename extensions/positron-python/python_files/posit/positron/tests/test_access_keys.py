@@ -43,7 +43,8 @@ except ImportError:
     + COMPLEX_CASES
     + BYTES_CASES
     + RANGE_CASES
-    + TIMESTAMP_CASES,
+    + TIMESTAMP_CASES
+    + [None, (), (1, "a"), (None, (2.5, True))],
 )
 def test_encode_decode_access_key(case: Any) -> None:
     """Test that we can encode and decode to recovery supported data types."""
@@ -79,8 +80,9 @@ def test_encode_access_key_not_hashable_error(case: Any) -> None:
 @pytest.mark.parametrize(
     "case",
     [
-        torch.tensor([]) if torch else None,
+        *([torch.tensor([])] if torch else []),
         lambda x: x,
+        (1, lambda x: x),
     ],
 )
 def test_encode_access_key_not_implemented_error(case: Any) -> None:

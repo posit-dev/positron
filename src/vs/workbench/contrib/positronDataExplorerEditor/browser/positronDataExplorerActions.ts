@@ -27,6 +27,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { IDataFrameResolutionServices, resolveDataFrameAtPosition } from './positronDataExplorerResolveDataFrame.js';
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronObjectExplorerService } from '../../../services/positronObjectExplorer/browser/interfaces/positronObjectExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_FILE_BACKED, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_XLSX, POSITRON_DATA_EXPLORER_LAYOUT, POSITRON_DATA_EXPLORER_IS_FOCUSED } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
@@ -34,7 +35,7 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
-import { toLocalResource } from '../../../../base/common/resources.js';
+import { extname, toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/convertToCodeModalDialog.js';
 import { showFileOptionsModalDialog } from '../../../browser/positronModalDialogs/fileOptionsModalDialog.js';
@@ -42,7 +43,7 @@ import { IPositronDataImporterRegistry } from '../../../services/positronDataExp
 import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { CodeSyntaxName } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { mainWindow } from '../../../../base/browser/window.js';
-import { IImportDataServices, importDataResourceArgument, openFileAndShowImportDataDialog, showImportDataDialogForInstance } from './positronDataExplorerImportData.js';
+import { IImportDataServices, importDataResourceArgument, openFileAndShowImportDataDialog, showImportDataDialogForFile, showImportDataDialogForInstance } from './positronDataExplorerImportData.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { ExplorerFolderContext } from '../../files/common/files.js';
@@ -1215,13 +1216,14 @@ class PositronImportDataFromFileAction extends Action2 {
 	 */
 	constructor() {
 		// Match the file types the Data Explorer opens and an importer can read (.csv/.tsv/.xlsx/
-		// .parquet/.parq). Compressed files (.gz) are deliberately absent: the importer registry
-		// matches only the final extension, so gzip support is its own change.
+		// .parquet/.parq), and JSON, which opens in the Object Explorer instead. Compressed files
+		// (.gz) are deliberately absent: the importer registry matches only the final extension, so
+		// gzip support is its own change.
 		// Scheme-gate to files a runtime session could plausibly open; a virtual-filesystem file
 		// names no path on the session's machine, so no menu item is offered for it.
 		const importableFile = ContextKeyExpr.and(
 			ExplorerFolderContext.toNegated(),
-			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq)$/i),
+			ContextKeyExpr.regex(ResourceContextKey.Extension.key, /\.(csv|tsv|xlsx|parquet|parq|json)$/i),
 			ContextKeyExpr.or(
 				ResourceContextKey.Scheme.isEqualTo(Schemas.file),
 				ResourceContextKey.Scheme.isEqualTo(Schemas.vscodeRemote)
@@ -1265,6 +1267,7 @@ class PositronImportDataFromFileAction extends Action2 {
 	async run(accessor: ServicesAccessor, resource?: unknown): Promise<void> {
 		// Access the services we need. An accessor is only valid before the first await.
 		const fileDialogService = accessor.get(IFileDialogService);
+		const objectExplorerService = accessor.get(IPositronObjectExplorerService);
 		const services: IImportDataServices = {
 			editorService: accessor.get(IEditorService),
 			environmentService: accessor.get(IWorkbenchEnvironmentService),
@@ -1288,13 +1291,20 @@ class PositronImportDataFromFileAction extends Action2 {
 				defaultUri: await fileDialogService.defaultFilePath(),
 				filters: [{
 					name: localize('positronDataExplorer.importDataPickerFilter', "Data Files"),
-					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq']
+					extensions: ['csv', 'tsv', 'xlsx', 'parquet', 'parq', 'json']
 				}]
 			});
 			fileUri = uris?.at(0);
 			if (!fileUri) {
 				return;
 			}
+		}
+
+		// JSON is nested data rather than a table, so it opens in the Object Explorer.
+		if (extname(fileUri).toLowerCase() === '.json') {
+			await objectExplorerService.openWithJsonFile(fileUri);
+			await showImportDataDialogForFile(services, fileUri, {}, undefined);
+			return;
 		}
 
 		await openFileAndShowImportDataDialog(services, fileUri);
@@ -1477,7 +1487,7 @@ class PositronDataExplorerShowCellContextMenuAction extends Action2 {
 }
 
 /**
- * PositronDataExplorerViewDataFrameAtCursorAction opens the Data Explorer
+ * PositronDataExplorerViewDataFrameAtCursorAction opens a viewer
  * for the identifier at the editor cursor, if that identifier names a
  * viewable variable in the console session for the editor's language.
  */
@@ -1486,8 +1496,8 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 		super({
 			id: PositronDataExplorerCommandId.ViewDataFrameAtCursorAction,
 			title: {
-				value: localize('positronDataExplorer.viewDataFrameAtCursor', 'View Data Frame at Cursor'),
-				original: 'View Data Frame at Cursor'
+				value: localize('positronDataExplorer.viewDataFrameAtCursor', 'View Variable at Cursor'),
+				original: 'View Variable at Cursor'
 			},
 			category,
 			f1: true,
@@ -1526,6 +1536,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const editorService = accessor.get(IEditorService);
 		const dataExplorerService = accessor.get(IPositronDataExplorerService);
+		const objectExplorerService = accessor.get(IPositronObjectExplorerService);
 		const notificationService = accessor.get(INotificationService);
 		const services: IDataFrameResolutionServices = {
 			configurationService: accessor.get(IConfigurationService),
@@ -1539,7 +1550,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 		if (!isCodeEditor(control)) {
 			notificationService.info(localize(
 				'positron.viewDataFrameAtCursor.noEditor',
-				"Place the cursor in the editor on the data frame you'd like to view."
+				"Place the cursor in the editor on the variable you'd like to view."
 			));
 			return;
 		}
@@ -1592,7 +1603,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 				} else {
 					notificationService.info(localize(
 						'positron.viewDataFrameAtCursor.notDefined',
-						"'{0}' is not a data frame defined in the active session.",
+						"'{0}' is not a variable defined in the active session.",
 						resolution.symbol,
 					));
 				}
@@ -1600,7 +1611,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 			case 'not-viewable':
 				notificationService.info(localize(
 					'positron.viewDataFrameAtCursor.notViewable',
-					"'{0}' is not viewable in the Data Explorer.",
+					"'{0}' is not viewable.",
 					resolution.symbol,
 				));
 				return;
@@ -1609,6 +1620,7 @@ export class PositronDataExplorerViewDataFrameAtCursorAction extends Action2 {
 					resolution.sessionId,
 					resolution.item,
 					dataExplorerService,
+					objectExplorerService,
 					notificationService,
 				);
 				return;
@@ -1652,6 +1664,7 @@ export class PositronDataExplorerViewDataFrameByVariableAction extends Action2 {
 		}
 		const variablesService = accessor.get(IPositronVariablesService);
 		const dataExplorerService = accessor.get(IPositronDataExplorerService);
+		const objectExplorerService = accessor.get(IPositronObjectExplorerService);
 		const notificationService = accessor.get(INotificationService);
 
 		const instance = variablesService.positronVariablesInstances.find(
@@ -1668,6 +1681,7 @@ export class PositronDataExplorerViewDataFrameByVariableAction extends Action2 {
 			args.sessionId,
 			item,
 			dataExplorerService,
+			objectExplorerService,
 			notificationService,
 		);
 	}

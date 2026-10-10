@@ -1,0 +1,15 @@
+{
+	"openrpc": "1.3.0",
+	"info": {
+		"title": "Object Explorer Frontend",
+		"version": "1.0.0"
+	},
+	"methods": [
+		{
+			"name": "update",
+			"summary": "The explored object changed",
+			"description": "Sent after the backend detects that the explored object was reassigned or otherwise changed. The frontend re-fetches every loaded level, preserving expansion.",
+			"params": []
+		}
+	]
+}

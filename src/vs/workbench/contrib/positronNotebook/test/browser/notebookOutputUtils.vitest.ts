@@ -8,6 +8,7 @@
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { DATA_EXPLORER_MIME_TYPE, parseOutputData } from '../../browser/getOutputContents.js';
+import { OBJECT_EXPLORER_MIME_TYPE } from '../../../../services/positronObjectExplorer/common/objectExplorerBackend.js';
 import { ParsedDataExplorerOutput } from '../../browser/PositronNotebookCells/IPositronNotebookCell.js';
 import { HtmlRenderMode, htmlRenderMode, pickPreferredOutputItem } from '../../browser/PositronNotebookCells/notebookOutputUtils.js';
 import { parseVariablePath } from '../../../../services/positronDataExplorer/common/utils.js';
@@ -267,6 +268,26 @@ describe('Notebook Output Utils', () => {
 			const uppercaseMime = 'Application/Vnd.Positron.DataExplorer+JSON';
 			const result = parseOutputData(makeOutputItem(uppercaseMime, validPayload));
 			expect(result.type).toBe('dataExplorer');
+		});
+	});
+
+	describe('object explorer MIME type', () => {
+		it('parses the payload', () => {
+			const payload = JSON.stringify({ comm_id: 'id', title: 'config', version: 1, variable_path: ['config'] });
+
+			expect(parseOutputData(makeOutputItem(OBJECT_EXPLORER_MIME_TYPE, payload))).toEqual({
+				type: 'objectExplorer',
+				commId: 'id',
+				title: 'config',
+				version: 1,
+				variablePath: ['config'],
+			});
+		});
+
+		it('is preferred over text/plain', () => {
+			const items = [makeOutputItem('text/plain', "{'a': 1}"), makeOutputItem(OBJECT_EXPLORER_MIME_TYPE, '{}')];
+
+			expect(pickPreferredOutputItem(items)?.mime).toBe(OBJECT_EXPLORER_MIME_TYPE);
 		});
 	});
 
