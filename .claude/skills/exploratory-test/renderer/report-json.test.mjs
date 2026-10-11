@@ -198,14 +198,6 @@ test('tests carry their level, path and a "new file" note', () => {
 	);
 });
 
-test('with no ledger, coverage comes from the report\'s scenarios', () => {
-	const { coverage } = reportFromJson(json());
-	assert.deepEqual(
-		{ exercised: coverage.exercised.map(s => [s.id, s.status, s.findings]), notExercised: coverage.notExercised.map(s => [s.id, s.reason]) },
-		{ exercised: [['S01', 'fail', [1]]], notExercised: [['S02', 'no web build']] },
-	);
-});
-
 test('the pipeline\'s cost passes reach the Run tile, with a total only when each has a cost', () => {
 	const cost = passes => reportFromJson({ ...json(), cost: { passes } }).cost;
 	assert.deepEqual(cost([

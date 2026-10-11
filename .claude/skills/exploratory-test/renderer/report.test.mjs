@@ -3,6 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Tests for the report model and page. Markup is pinned by scenes at the end:
+// each renders one case and names the decision it shows, and
+// fixtures/scenes.expected.txt holds what each rendered. After a change you
+// meant, rewrite it and review its diff:
+//   UPDATE_PAGES=1 node --test report.test.mjs
+// The tests above the scenes check what a saved page cannot: values the page
+// does not show, what its scripts do, and what a hostile report cannot do.
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -12,12 +20,14 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLedger, parseSystemLine } from './ledger.mjs';
 import { modelDisplayName, safeUrl } from './text.mjs';
-import { previewSummary, renderReportHtml } from './html.mjs';
+import { renderReportHtml } from './html.mjs';
 import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
+
+// ---- Inputs ----------------------------------------------------------------
 
 const HEADER = {
 	title: 'Exploratory test: something',
@@ -31,7 +41,7 @@ const HEADER = {
 /** A report.json with the shared header, and `parts` over it; `parts.header` merges into the header. */
 function rep(parts = {}) {
 	const { header, ...rest } = parts;
-	return { header: { ...HEADER, ...header }, findings: [], scenarios: [], logs: [], files: [], environment: {}, ...rest };
+	return { header: { ...HEADER, ...header }, findings: [], ...rest };
 }
 
 /** A finding with only what the schema requires, and `fields` over it. */
@@ -43,13 +53,20 @@ const act = text => ({ kind: 'action', text });
 const pass = (text, fields = {}) => ({ kind: 'verify', text, result: 'pass', ...fields });
 const fail = (text, finding, fields = {}) => ({ kind: 'verify', text, result: 'fail', finding, ...fields });
 
-/** The page for report.json `json`; `options.ledger` builds Coverage too. */
+/** The page for report.json `json`, dated so it renders the same every year; `options.ledger` builds Coverage. */
 function render(json, options = {}) {
-	return renderReportHtml(reportFromJson(json, { ledger: options.ledger }), options);
+	return renderReportHtml(reportFromJson(json, { ledger: options.ledger }), { startedAt: new Date('2026-09-29T00:00:00Z'), ...options });
 }
 
 /** The model for report.json `json`. */
 const model = (json, ledger) => reportFromJson(json, { ledger });
+
+/** A ledger section per scenario: `[id, name, status, result]`, and `[id, name, reason]` for not run. */
+function ledgerOf(rows) {
+	const run = rows.filter(r => r.length === 4).map(([id, name, status, result]) => `## ${id} - ${name}\nStatus: ${status}\nResult: ${result}\n`);
+	const notRun = rows.filter(r => r.length === 3).map(([id, name, reason]) => `- ${id} - ${name} - ${reason}`);
+	return [...run, ...(notRun.length ? ['## Not run', ...notRun] : [])].join('\n');
+}
 
 /** A report with one of everything the template lays out. */
 const FULL = rep({
@@ -82,12 +99,6 @@ const FULL = rep({
 			expected: 'a 6 px gap.',
 		}),
 	],
-	scenarios: [
-		{ id: 'S01', name: 'pandas frame', status: 'pass', result: 'everything loads' },
-		{ id: 'S02', name: 'polars frame', status: 'pass', result: 'same as pandas' },
-		{ id: 'S03', name: 'expand while paused', status: 'fail', result: 'dots never resolve', findings: [1] },
-		{ id: 'N01', name: 'the web build', status: 'not-run', reason: 'desktop only' },
-	],
 	verification: { failed: false, text: 'A second agent re-read this report.\n\n**1.** Checks out.' },
 	cost: {
 		passes: [
@@ -96,699 +107,15 @@ const FULL = rep({
 		],
 	},
 });
-
-/** FULL's findings alone, with no Coverage, Run details or cost. */
-const FINDINGS_ONLY = rep({ findings: FULL.findings });
-
-test('reportFromJson lifts the title, the chips and the lead out of the header', () => {
-	const r = model(FULL);
-	assert.equal(r.title, 'something');
-	assert.deepEqual(r.chips, ['branch/name', 'abc1234']);
-	// The agent's own emphasis survives: it is the only thing that watched the
-	// run, so it is the only thing that knows which clause is the point.
-	assert.match(r.leadHtml, /<strong>But not on slow sources\.<\/strong>/);
-});
-
-test('reportFromJson drops emphasis that covers the whole Result', () => {
-	const r = model(rep({ header: { result: '**Everything is broken everywhere.**' } }));
-	// Emphasis on everything emphasises nothing, so it is not rendered as such.
-	assert.doesNotMatch(r.leadHtml, /<strong>/);
-	assert.match(r.leadHtml, /Everything is broken everywhere\./);
-});
-
-test('reportFromJson reads the scope as a sentence, without the scenario count', () => {
-	const r = model(FULL);
-	// Coverage's own table is the count; repeating it made the reader check one
-	// against the other for nothing.
-	assert.equal(r.scopeHtml, 'The summary panel on two backends.');
-});
-
-test('reportFromJson tallies severities and scenarios for the tiles', () => {
-	const r = model(FULL);
-	assert.equal(r.findingCount, 2);
-	assert.deepEqual(r.severityCounts, { major: 1, moderate: 0, minor: 1 });
-	assert.deepEqual(r.scenarios, { exercised: 3, pass: 2, issues: 1, notRun: 1 });
-});
-
-test('the Findings table has no Origin column', () => {
-	const html = render(FULL);
-	const head = /<div class="row row-head findings-grid">(.*?)<\/div>/.exec(html)[1];
-	assert.deepEqual([...head.matchAll(/<span[^>]*>([^<]*)<\/span>/g)].map(m => m[1]),
-		['Severity', 'Finding', 'Reproduced', 'Status']);
-	assert.match(html, /\.findings-grid\{grid-template-columns:110px minmax\(0,1fr\) 90px 140px\}/);
-	assert.doesNotMatch(html, /class="org|origin-cell|\.org\{|>Pre-existing<|>New</);
-	assert.doesNotMatch(promptText(html, 1), /^(Origin|Introduced)/m);
-});
-
-test('reportFromJson keeps a featured shot first in Evidence, once', () => {
-	const f = model(FULL).findings[0];
-	const shots = f.evidence.filter(e => e.kind === 'shot');
-	assert.equal(shots.filter(e => e.file === '01-stuck.png').length, 1);
-	assert.equal(shots[0].featured, true);
-	assert.equal(shots[0].caption, 'The spinner, 60 s later');
-});
-
-test('renderReportHtml ships both themes, defaulting to Professional', () => {
-	const html = render(FULL);
-	assert.match(html, /<html lang="en" data-theme="professional">/);
-	assert.match(html, /:root\[data-theme="professional"\]/);
-	assert.match(html, /:root\[data-theme="party"\]/);
-	// Applied before the first paint, so a saved choice does not flash.
-	assert.ok(html.indexOf('localStorage.getItem') < html.indexOf('<body>'));
-	// One toggle, named for what it does: light and dark, never the theme names.
-	assert.match(html, /<button type="button" class="mode-tip th-sw" data-tip="Switch to dark mode" aria-label="Switch to dark mode"><svg class="th-moon"[^]*?<svg class="th-sun"/);
-	assert.doesNotMatch(html, /class="switch"|aria-pressed|Switch to (Party|Professional)/);
-	// Both themes share one layout: dark has no grid banner under the header.
-	assert.doesNotMatch(html, /class="motif"|rotateX|\.head\{padding-bottom/);
-	assert.match(html, /<p class="lead">.*<\/p>\n<\/header>/);
-	assert.match(html, /\.th-sw \.th-sun,:root\[data-theme="party"\] \.th-sw \.th-moon\{display:none\}/);
-});
-
-test('reportFromJson takes Run details from the header and the verdicts from the findings', () => {
-	const r = model({ ...FULL, findings: [FULL.findings[0], { ...FULL.findings[1], verified: 'disputed' }] });
-	assert.deepEqual(r.runDetails.map(s => s.title), ['Change under test', 'Environment']);
-	assert.deepEqual(r.verification.verdicts, [
-		{ n: 1, word: 'confirmed' },
-		{ n: 2, word: 'disputed' },
-	]);
-});
-
-test('reportFromJson reads each cost pass and the total', () => {
-	const { cost } = model(FULL);
-	assert.equal(cost.total, '$3.75');
-	// The run took 31 minutes; 26 of them were the explore pass.
-	assert.equal(cost.duration, '31m');
-	assert.deepEqual(cost.passes.map(p => p.label), ['explore', 'verify']);
-	assert.equal(cost.passes[0].maxTurns, '200');
-});
-
-test('reportFromJson takes the one pass as the total when there was nothing to verify', () => {
-	const one = rep({ cost: { passes: [{ label: 'explore', model: 'claude-opus-5-5', costUsd: 0.55, turns: 18, maxTurns: 200, durationMs: 180000 }] } });
-	const { cost } = model(one);
-	assert.equal(cost.total, '$0.55');
-	assert.equal(cost.duration, '3m');
-	assert.match(render(one), /<span class="tile-num">3m<\/span><span class="unit">\$0\.55<\/span>/);
-});
-
-/** Runs the page script against a stub DOM; returns the toggle, the Share button and what happened. */
-function headerDom(html, { secure = true, clipboardFails = false } = {}) {
-	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('.th-sw'));
-	assert.ok(src);
-	const attrs = { 'data-theme': 'professional' };
-	const root = { getAttribute: k => attrs[k], setAttribute: (k, v) => { attrs[k] = v; } };
-	const el = () => {
-		const e = { dataset: {}, attrs: {}, classes: new Set(), handlers: {}, textContent: '' };
-		e.setAttribute = (k, v) => { e.attrs[k] = v; };
-		e.addEventListener = (type, fn) => { e.handlers[type] = fn; };
-		e.classList = { add: c => e.classes.add(c), remove: c => e.classes.delete(c), toggle() {} };
-		return e;
-	};
-	const sw = el();
-	const share = el();
-	const label = el();
-	label.textContent = 'Share';
-	share.querySelector = () => label;
-	const stored = {};
-	const copied = [];
-	const replaced = [];
-	const timers = [];
-	let execCopies = 0;
-	const document = {
-		documentElement: root,
-		querySelector: sel => ({ '.th-sw': sw, '.sh-btn': share })[sel] ?? null,
-		querySelectorAll: () => [],
-		getElementById: () => null,
-		addEventListener() {},
-		createElement: () => ({ style: {}, setAttribute() {}, select() {}, remove() {} }),
-		body: { appendChild: ta => copied.push(ta.value) },
-		execCommand: () => { execCopies++; return true; },
-	};
-	const thenable = ok => ({ then: (done, fail) => (ok ? done() : fail()) });
-	const window = { isSecureContext: secure, addEventListener() {}, scrollY: 0 };
-	const navigator = { clipboard: { writeText: text => { copied.push(text); return thenable(!clipboardFails); } } };
-	const location = { href: 'https://cdn.example/run1/index.html#f2', pathname: '/run1/index.html', search: '' };
-	const history = { replaceState: (s, t, url) => replaced.push(url) };
-	const localStorage = { setItem: (k, v) => { stored[k] = v; } };
-	new Function('document', 'window', 'navigator', 'location', 'history', 'localStorage', 'setTimeout', 'clearTimeout', src)(
-		document, window, navigator, location, history, localStorage, fn => timers.push(fn), () => {});
-	return { attrs, sw, share, label, stored, copied, replaced, timers, execCopies: () => execCopies };
-}
-
-test('header: the toggle switches between light and dark, says which it goes to, and remembers it', () => {
-	const h = headerDom(render(FULL));
-	assert.equal(h.sw.attrs['aria-label'], 'Switch to dark mode');
-	h.sw.handlers.click();
-	assert.equal(h.attrs['data-theme'], 'party');
-	assert.deepEqual([h.sw.dataset.tip, h.sw.attrs['aria-label']], ['Switch to light mode', 'Switch to light mode']);
-	assert.equal(h.stored['exploratory-report-theme'], 'party');
-	h.sw.handlers.click();
-	assert.equal(h.attrs['data-theme'], 'professional');
-	assert.equal(h.sw.dataset.tip, 'Switch to dark mode');
-});
-
-test('header: Share copies the report URL with no anchor, clears it from the address bar, and says Copied for a moment', () => {
-	const html = render(FULL);
-	assert.match(html, /<div class="eyebrow">.*<div class="hd-act hd-inline"><button type="button" class="mode-tip th-sw" [^>]*>.*<\/button><button type="button" class="sh-btn" aria-label="Share: copy a link to this report"><svg class="sh-ico"[^]*?<svg class="sh-ok"[^]*?<span class="sh-l">Share<\/span><\/button><\/div><\/div>/);
-	assert.match(html, /\.hd-act\.hd-inline\{[^}]*margin:0 0 0 auto/);
-	const h = headerDom(html);
-	h.share.handlers.click();
-	assert.deepEqual(h.copied, ['https://cdn.example/run1/index.html']);
-	assert.deepEqual(h.replaced, ['/run1/index.html']);
-	assert.ok(h.share.classes.has('is-copied'));
-	assert.equal(h.label.textContent, 'Copied');
-	h.timers.pop()();
-	assert.ok(!h.share.classes.has('is-copied'));
-	assert.equal(h.label.textContent, 'Share');
-	// Without the Clipboard API, or when it refuses, a hidden textarea copies it.
-	for (const opts of [{ secure: false }, { clipboardFails: true }]) {
-		const f = headerDom(html, opts);
-		f.share.handlers.click();
-		assert.equal(f.execCopies(), 1);
-		assert.equal(f.copied.at(-1), 'https://cdn.example/run1/index.html');
-		assert.equal(f.label.textContent, 'Copied');
-	}
-});
-
-test('renderReportHtml stays self-contained but for Google Fonts', () => {
-	const html = render(FULL);
-	assert.doesNotMatch(html, /<script[^>]+src=/);
-	const sheets = [...html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)].map(m => m[1]);
-	assert.equal(sheets.length, 1);
-	assert.match(sheets[0], /^https:\/\/fonts\.googleapis\.com\//);
-	// Every family names a system fallback.
-	assert.doesNotMatch(html, /--sans: '[^']+';/);
-});
-
-test('renderReportHtml links each summary tile to the section it counts', () => {
-	const html = render(FULL);
-	assert.match(html, /href="#findings" data-tip="Jump to Findings"/);
-	// Deliberately Coverage, not Scenarios: it teaches where the numbers come from.
-	assert.match(html, /href="#coverage" data-tip="Jump to Coverage"/);
-	assert.match(html, /href="#run-details" data-tip="Jump to Run details"/);
-});
-
-test('renderReportHtml leaves a tile inert when its section does not exist', () => {
-	// No Run details in this report, so the tile promises nothing it cannot do.
-	const html = render(rep({ findings: FULL.findings, scenarios: FULL.scenarios }));
-	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
-	assert.doesNotMatch(tiles, /href="#run-details"/);
-	assert.doesNotMatch(tiles, /Jump to Run details/);
-	// No pointer, no arrow and no tooltip either: it is not a link at all.
-	assert.match(tiles, /<div class="tile">/);
-	assert.equal((tiles.match(/tile-arrow/g) || []).length, 2);
-});
-
-test('renderReportHtml marks a major finding card only for the Party theme', () => {
-	const html = render(FULL);
-	assert.match(html, /<article id="f1" class="card major">/);
-	assert.match(html, /<article id="f2" class="card">/);
-	// Professional resolves the same class to no decoration at all.
-	assert.match(html, /--major-card-shadow: none;/);
-});
-
-test('renderReportHtml puts no thumbnail on a card: each screenshot is a link its step opens', () => {
-	const html = render(TYPED);
-	const c = html.slice(html.indexOf('<article id="f2"'), html.indexOf('</article>', html.indexOf('<article id="f2"')));
-	assert.doesNotMatch(c, /<figure|class="shots"/);
-	// The only image is the step icon's preview; the full-size one is a hidden link to the raw file.
-	assert.equal((c.match(/<img [^>]*23-continue-visible-still-empty\.png"/g) || []).length, 1);
-	assert.match(c, /<a class="shot" id="shot-f2-1" href="shots\/23-continue-visible-still-empty\.png"[^>]*data-step-href="#f2-s5" hidden><\/a>/);
-	assert.match(html, /<div class="lb" id="lightbox"[^>]*hidden>/);
-	// A shot that names no step has nowhere to open from, so only the prompt lists it.
-	const full = render(FULL);
-	assert.doesNotMatch(card(full, 1), /01-stuck\.png"/);
-	assert.match(promptText(full, 1), /01-stuck\.png/);
-});
-
-test('renderReportHtml renders a run with no findings and no issues', () => {
-	const html = render(rep({ scenarios: [{ id: 'S01', name: 'pandas frame', status: 'pass', result: 'everything loads' }] }));
-	// No rows to label, so no column header: just the empty state.
-	assert.match(html, /id="findings"/);
-	assert.doesNotMatch(html, /row-head findings-grid/);
-	assert.match(html, /<b>No new findings<\/b><span class="ki-empty-sum"><b>1<\/b> passed<\/span><\/span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage<\/a><\/div>/);
-	assert.match(html, /<div class="tile-num">0<\/div>/);
-	// One scenario, all passing: no issue segment and no not-run segment.
-	assert.match(html, /<b>1<\/b> pass/);
-	assert.doesNotMatch(html, /<b>\d+<\/b> issues/);
-	assert.doesNotMatch(html, /<b>\d+<\/b> not run/);
-});
-
-test('renderReportHtml escapes a title that contains markup', () => {
-	const html = render(rep({ header: { title: 'A <script>alert(1)</script> title' } }));
-	assert.doesNotMatch(html, /<title>[^<]*<script>/);
-	assert.match(html, /&lt;script&gt;/);
-});
-
-test('renderReportHtml survives a report with no title', () => {
-	const html = render(rep({ header: { title: undefined } }));
-	assert.match(html, /<h1 class="title">Exploratory test<\/h1>/);
-});
-
-// A report is written by an agent reading a branch's diff, its logs and its UI,
-// and the page is published on a domain shared with every other run. Anything a
-// hostile branch can get quoted into a report must come out as text.
-
-test('safeUrl keeps http, https, mailto and relative paths', () => {
-	assert.equal(safeUrl('https://cdn.example/shots/a.png'), 'https://cdn.example/shots/a.png');
-	assert.equal(safeUrl('http://x/a.png'), 'http://x/a.png');
-	assert.equal(safeUrl('mailto:a@b.c'), 'mailto:a@b.c');
-	assert.equal(safeUrl('shots/a.png'), 'shots/a.png');
-	assert.equal(safeUrl('/shots/a.png'), '/shots/a.png');
-});
-
-test('safeUrl rejects a scheme that can execute, however it is spelled', () => {
-	assert.equal(safeUrl('javascript:alert(1)'), null);
-	assert.equal(safeUrl('JaVaScRiPt:alert(1)'), null);
-	assert.equal(safeUrl('data:text/html,<script>alert(1)</script>'), null);
-	assert.equal(safeUrl('vbscript:msgbox'), null);
-	// Browsers ignore control characters inside a scheme; the guard must too.
-	assert.equal(safeUrl('java\nscript:alert(1)'), null);
-	assert.equal(safeUrl('  javascript:alert(1)'), null);
-	assert.equal(safeUrl(''), null);
-});
-
-test('reportFromJson renders raw HTML in a report as text, not markup', () => {
-	const f = model(rep({
-		findings: [fnd(1, {
-			observed: 'it broke <img src=x onerror=alert(1)> and <script>alert(2)</script>.',
-			expected: 'a `<div>` element, shown as code.',
-		})],
-	})).findings[0];
-	// The words survive as text -- "onerror" is still readable -- but no tag does.
-	assert.doesNotMatch(f.observedHtml, /<img|<script/);
-	assert.match(f.observedHtml, /&lt;img src=x onerror=alert\(1\)&gt;/);
-	assert.match(f.observedHtml, /&lt;script&gt;alert\(2\)&lt;\/script&gt;/);
-	// A code span still shows its angle brackets, which is why this is escaped
-	// at the renderer rather than by mangling the input.
-	assert.match(f.expectedHtml, /<code>&lt;div&gt;<\/code>/);
-});
-
-test('reportFromJson strips a link a reader could be made to execute', () => {
-	const observed = model(rep({
-		findings: [fnd(1, { observed: 'see [the log](javascript:alert(1)) and [the shot](https://cdn.example/a.png).' })],
-	})).findings[0].observedHtml;
-	assert.doesNotMatch(observed, /javascript:/);
-	// The words survive; only the link does not.
-	assert.match(observed, /the log/);
-	assert.match(observed, /<a href="https:\/\/cdn\.example\/a\.png">the shot<\/a>/);
-});
-
-test('reportFromJson refuses an evidence shot whose extension hides its scheme', () => {
-	const json = rep({
-		findings: [fnd(1, {
-			evidence: [
-				{ kind: 'shot', path: 'javascript:alert(1)//shots/01.png', caption: 'looks like a screenshot' },
-				{ kind: 'shot', path: 'https://cdn.example/shots/02.png', caption: 'a real one' },
-			],
-		})],
-	});
-	// basename() ends in .png either way, so the extension test alone let it past.
-	assert.deepEqual(model(json).findings[0].evidence.filter(e => e.kind === 'shot').map(e => e.src),
-		['https://cdn.example/shots/02.png']);
-	assert.doesNotMatch(render(json), /javascript:/);
-});
-
-test('renderReportHtml emits no executable scheme anywhere on the page', () => {
-	const html = render(FULL);
-	assert.doesNotMatch(html, /href="\s*javascript:/i);
-	assert.doesNotMatch(html, /src="\s*(?:javascript|data):/i);
-});
-
-test('reportFromJson takes the chips from the header, not from anywhere backticked', () => {
-	const r = model(rep({
-		header: { branch: undefined, sha: undefined },
-		findings: [fnd(1, { observed: '`some/path.ts` misbehaves.' })],
-	}));
-	// No branch in this report, so there are no chips to show.
-	assert.deepEqual(r.chips, []);
-});
-
-test('renderReportHtml counts each coverage kind on its filter tab', () => {
-	const html = render(FULL);
-	const tabs = html.slice(html.indexOf('<div class="cf-tabs">'), html.indexOf('<div class="panel cf-card">'));
-	const counts = [...tabs.matchAll(/<span class="cf-l">([^<]+) <span class="cf-cnt">(\d+)<\/span><\/span>/g)].map(m => `${m[1]} ${m[2]}`);
-	assert.deepEqual(counts, ['All 4', 'Failed 1', 'Passed 2', 'Not run 1']);
-	// A hidden semibold copy holds each tab's selected width.
-	assert.match(tabs, /<span class="cf-g" aria-hidden="true">Passed 2<\/span><\/label>/);
-	// One radio per tab, All checked, all ahead of the tabs and the card.
-	assert.match(html, /<input type="radio" name="cf" id="cf-all" class="cf-radio" checked><input type="radio" name="cf" id="cf-i" class="cf-radio"><input type="radio" name="cf" id="cf-p" class="cf-radio"><input type="radio" name="cf" id="cf-n" class="cf-radio">\n<div class="cf-tabs">/);
-	// One table: no subheadings, no dashed second table.
-	assert.doesNotMatch(html, /cov-title|panel dashed|cov-group/);
-	assert.match(html, /<div class="section-head"><h2 class="section-label">Exploratory Coverage<\/h2><\/div>/);
-});
-
-test('renderReportHtml omits a filter tab with no rows, but never All', () => {
-	const html = render(rep({ scenarios: [{ id: 'S01', name: 'pandas frame', status: 'pass', result: 'fine' }] }));
-	assert.match(html, /<label for="cf-all"/);
-	assert.match(html, /<label for="cf-p"/);
-	assert.doesNotMatch(html, /id="cf-i"|id="cf-n"|for="cf-i"|for="cf-n"/);
-	// report.json lists every scenario, so none not run says so.
-	assert.match(html, /cov-empty">Everything in scope was exercised\./);
-});
-
-test('renderReportHtml puts the status dot inside the scenario cell', () => {
-	const html = render(FULL);
-	// The dot belongs to the scenario, so it is not a grid column of its own and
-	// the header indents its label to where the text starts instead.
-	assert.match(html, /<span class="cov-scenario"><span class="cov-dot pass" aria-hidden="true"><\/span><span>/);
-	assert.match(html, /<span class="cov-scenario"><span class="cov-dot issue" aria-hidden="true"><\/span><span>/);
-	assert.match(html, /<span class="cov-scenario"><span class="cov-dot none" aria-hidden="true"><\/span><span>/);
-	assert.match(html, /<div class="row row-head coverage-grid"><span class="cov-head-scenario">Scenario<\/span>/);
-	assert.doesNotMatch(html, /coverage-grid"><span><\/span>/);
-});
-
-test('renderReportHtml signs off with a mark, not a cost line', () => {
-	const html = render(FULL);
-	assert.match(html, /<footer class="sig">/);
-	assert.match(html, /<div class="sg" aria-hidden="true">/);
-	assert.match(html, /Generated by <a class="sig-link"/);
-	// The run's cost belongs on the Run tile. Nothing below the last section
-	// shows cost, tokens or turns.
-	const footer = html.slice(html.indexOf('<footer'));
-	assert.doesNotMatch(footer, /\$\d|turns|tokens/);
-	assert.doesNotMatch(html, /footer class="cost"/);
-	// The tile still carries it.
-	assert.match(html.slice(0, html.indexOf('<footer')), /\$3\.12/);
-});
-
-test('renderReportHtml links the signature to the skill that wrote the report', () => {
-	const html = render(FULL);
-	// The arrow says the link leaves the page, so it has to go somewhere.
-	assert.match(html, /<a class="sig-link" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/main\/\.claude\/skills\/exploratory-test\/SKILL\.md" target="_blank" rel="noreferrer">exploratory-test &#8599;<\/a>/);
-	// The placeholder it replaced is gone.
-	assert.doesNotMatch(html, /data-skill-url/);
-});
-
-test('renderReportHtml dates the copyright by the run, not the render', () => {
-	const html = render(FULL, { startedAt: new Date(2031, 0, 5) });
-	// Fine print directly under the credit, in the same footer.
-	assert.match(html, /Generated by <a class="sig-link"[^\n]*<\/p>\n<p class="sig-legal">&copy; 2031 Posit Software, PBC<\/p>\n<\/footer>/);
-	assert.match(render(FULL), new RegExp(`&copy; ${new Date().getFullYear()} Posit Software, PBC`));
-});
-
-test('renderReportHtml keeps the signature legible without animation', () => {
-	const html = render(FULL);
-	// Reduced motion keeps the line and the check and drops the performance.
-	assert.match(html, /@media \(prefers-reduced-motion:reduce\)\{\s*\.sg \*\{animation:none !important\}/);
-	assert.match(html, /\.sg-pop\{opacity:1\}/);
-	assert.match(html, /\.sg-bug,\.sg-mag,\.sg-q,\.sg-bang\{opacity:0 !important\}/);
-});
-
-test('renderReportHtml lists each precondition on its own line with its own P, above the steps, with no popover', () => {
-	const html = render(FULL);
-	const repro = html.slice(html.indexOf('<div class="f-sec repro">'), html.indexOf('</article>', html.indexOf('<div class="f-sec repro">')));
-	assert.match(repro, /<ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P<\/span>/);
-	// Setup before actions; no hover popover on the card, and none of the labels this replaced.
-	assert.ok(repro.indexOf('f-pl') < repro.indexOf('class="repro-steps'));
-	assert.doesNotMatch(repro, /pre-pop|cv-pre/);
-	assert.doesNotMatch(html, /repro-label|Only under|Start:/);
-});
-
-test('renderReportHtml drops a preconditions list that says only "defaults"', () => {
-	const build = value => render(rep({
-		findings: [fnd(1, { preconditions: [{ name: 'defaults', text: value }], steps: [act('Do the thing.')] })],
-	}));
-	// Nothing to say, so no label and no empty list to read past.
-	const bare = build('Shipped defaults.');
-	assert.doesNotMatch(bare, /class="f-pl"/);
-	assert.match(bare, /<div class="repro-group steps"><ol class="repro-steps/);
-	// Qualified, so it earns its line.
-	const qualified = build('Shipped defaults. Slowness is manufactured with a slow hash.');
-	assert.match(qualified, /class="f-pl"/);
-	assert.match(qualified, /Slowness is manufactured/);
-});
-
-test('reportFromJson renders a step\'s code under it, escaped', () => {
-	const f = model(rep({
-		findings: [fnd(1, {
-			steps: [
-				{ kind: 'action', text: 'Add a markdown cell with this source:', code: '```\n<div class="alert">\n\n**Tip:** text\n\n</div>\n```' },
-				act('Render the cell.'),
-				act('Click **Show Details**.'),
-			],
-			observed: 'it broke.',
-		})],
-	})).findings[0];
-	assert.equal(f.steps.length, 3);
-	assert.match(f.steps[0].blockHtml, /<pre><code>/);
-	assert.match(f.steps[0].blockHtml, /&lt;div class=&quot;alert&quot;&gt;/);
-	assert.match(f.steps[1].html, /Render the cell/);
-	assert.match(f.steps[2].html, /Show Details/);
-	assert.match(f.observedHtml, /it broke/);
-});
-
-test('renderReportHtml lists each precondition by its text, with a pasted file kept as a block', () => {
-	const f = model(rep({
-		findings: [fnd(1, {
-			preconditions: [
-				{ name: 'notebook on', text: '`positron.notebook.enabled: true` in `.vscode/settings.json`' },
-				{ name: '`nb.ipynb`', text: '`nb.ipynb` in the workspace\n```python\nimport cv2\n```' },
-				{ name: 'venv', text: 'A Python 3.10.15 venv with ipykernel' },
-			],
-			steps: [act('Start a Python console.'), act('Open `nb.ipynb`.')],
-		})],
-	})).findings[0];
-	assert.equal(f.preconditions.length, 3);
-	assert.match(f.preconditions[0], /enabled: true<\/code> in <code>\.vscode\/settings\.json<\/code>/);
-	assert.match(f.preconditions[1], /<code class="language-python">import cv2/);
-	assert.match(f.preconditions[2], /^A Python 3\.10\.15 venv with ipykernel$/);
-	assert.match(render(rep({
-		findings: [fnd(1, { preconditions: [{ name: 'One', text: 'the first state' }, { name: '`two.py` saved', text: 'the second state' }], steps: [act('First.')] })],
-	})), /<ul class="f-pl" aria-label="Preconditions"><li><span class="f-pl-p" aria-hidden="true">P<\/span>The first state<\/li><li><span class="f-pl-p" aria-hidden="true">P<\/span>The second state<\/li><\/ul>/);
-});
-
-test('renderReportHtml puts the whole run on the Run tile', () => {
-	const html = render(FULL);
-	const tile = html.slice(html.indexOf('<div class="tile-label">Run</div>'));
-	// Both figures cover both passes; the duration used to be the explore
-	// pass's while the cost beside it was the total.
-	assert.match(tile, /<span class="tile-num">31m<\/span><span class="unit">\$3\.75<\/span>/);
-});
-
-test('reportFromJson names each pass\'s model, and a pass without one', () => {
-	const { cost } = model(FULL);
-	assert.equal(cost.passes[0].model, 'Opus 5.5');
-	assert.equal(cost.passes[0].cost, '$3.12');
-	assert.equal(cost.passes[1].model, null);
-	assert.equal(cost.passes[1].turns, '31');
-});
-
-test('reportFromJson reads a pass shorter than a minute', () => {
-	const { cost } = model(rep({ cost: { passes: [{ label: 'verify', model: 'claude-sonnet-5', costUsd: 0.02, turns: 3, durationMs: 20000 }] } }));
-	assert.equal(cost.passes[0].duration, '<1m');
-	assert.equal(cost.passes[0].model, 'Sonnet 5');
-});
-
-test('renderReportHtml keys the Run tile by model and sizes stages by cost', () => {
-	const html = render(FULL);
-	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
-	assert.match(tiles, /flex:312 1 0;background:var\(--stage-1\)/);
-	assert.match(tiles, /flex:63 1 0;background:var\(--stage-2\)/);
-	assert.match(tiles, /<b>Opus 5\.5<\/b> explore/);
-	// No model on record: the role alone.
-	assert.match(tiles, /<span class="legend-item">verify<\/span>/);
-	// Turn counts live in the Agents table, not on the tile.
-	assert.doesNotMatch(tiles, /turns|77/);
-});
-
-test('renderReportHtml sizes the Run tile by time when a pass has no cost', () => {
-	const html = render(rep({
-		cost: {
-			passes: [
-				{ label: 'explore', model: 'opus', costUsd: null, turns: 69, durationMs: 660000 },
-				{ label: 'verify', model: 'sonnet', costUsd: 0.19, turns: 9, durationMs: 20000 },
-			],
-		},
-	}));
-	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
-	assert.match(tiles, /flex:110 1 0;background:var\(--stage-1\)/);
-	assert.match(tiles, /flex:5 1 0;background:var\(--stage-2\)/);
-});
-
-test('renderReportHtml opens Run details with the Agents table', () => {
-	const html = render(FULL);
-	assert.match(html, /<span class="hint">Agents, /);
-	const agents = html.slice(html.indexOf('<div class="fold-part agents">'));
-	assert.match(agents, /<span>Explore<\/span><span>Opus 5\.5<\/span><span class="num">\$3\.12<\/span><span class="num muted">77 of 200<\/span>/);
-	assert.match(agents, /<span class="num muted">31<\/span>/);
-	assert.match(agents, /<span>Total<\/span><span class="muted">31m elapsed<\/span><span class="num">\$3\.75<\/span><span class="num muted">108<\/span>/);
-});
-
-test('renderReportHtml gives a report with only its cost a Run details fold', () => {
-	const html = render(rep({ cost: { passes: [{ label: 'explore', model: null, costUsd: 1, turns: 5, maxTurns: 200, durationMs: 120000 }] } }));
-	assert.match(html, /<details id="run-details">/);
-	assert.match(html, /<a class="tile tip" href="#run-details"/);
-});
-
-test('renderReportHtml orders issues, passes, then not run, and collapses the passes past the first 4', () => {
-	const passed = n => ({ id: `S${String(n).padStart(2, '0')}`, name: `pass ${n}`, status: 'pass', result: 'fine' });
-	const html = render(rep({
-		scenarios: [
-			...[1, 2, 3, 4, 5].map(passed),
-			{ id: 'S20', name: 'second hit', status: 'fail', result: 'broke', findings: [2] },
-			...[6, 7, 8].map(passed),
-			{ id: 'S21', name: 'first hit', status: 'fail', result: 'broke', findings: [1] },
-			...[9, 10].map(passed),
-			...Array.from({ length: 12 }, (_, i) => ({ id: `N${String(i + 1).padStart(2, '0')}`, name: `skip ${i}`, status: 'not-run', reason: 'later' })),
-		],
-	}));
-	const body = html.slice(html.indexOf('<body'));
-	const order = [...body.matchAll(/<span>((?:pass|first|second|skip) [^<]*)<\/span>/g)].map(m => m[1]);
-	assert.deepEqual(order.slice(0, 7), ['first hit', 'second hit', 'pass 1', 'pass 2', 'pass 3', 'pass 4', 'pass 5']);
-	assert.deepEqual(order.slice(12, 14), ['skip 0', 'skip 1']);
-	assert.equal(order.length, 24);
-	// Only passes collapse; every issue and not-run row shows under All.
-	assert.equal((body.match(/cov-extra/g) || []).length, 6);
-	assert.equal((body.match(/class="[^"]*cf-[in] cov-extra/g) || []).length, 0);
-	// The footer counts the whole table.
-	assert.match(html, /<input type="checkbox" id="cov-all" class="cov-toggle" aria-label="Show all 24 scenarios">/);
-	assert.match(html, /<label for="cov-all" class="cov-more"><span class="cov-all">Show all 24 scenarios<\/span><span class="cov-less">Show fewer<\/span>/);
-});
-
-test('renderReportHtml shows a short Exercised table in full with no toggle', () => {
-	const html = render(FULL);
-	assert.doesNotMatch(html.slice(html.indexOf('<body')), /cov-toggle|cov-extra/);
-});
-
-test('renderReportHtml writes tile legends as plain text in bar order', () => {
-	const html = render(FULL);
-	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
-	// No colour keys: each item names what it counts, split by a quiet middot.
-	assert.doesNotMatch(tiles, /class="key"/);
-	assert.match(tiles, /<span class="legend-item"><b>1<\/b> major<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> minor<\/span>/);
-	assert.match(tiles, /<b>2<\/b> passed<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> failed<\/span><span class="legend-sep" aria-hidden="true">&middot;<\/span><span class="legend-item"><b>1<\/b> not run/);
-});
-
-test('renderReportHtml says so when nothing was not run', () => {
-	const json = rep({
-		scenarios: [
-			{ id: 'S01', name: 'pandas frame', status: 'pass', result: 'fine' },
-			{ id: 'S02', name: 'polars frame', status: 'fail', result: 'broke', findings: [1] },
-		],
-	});
-	const r = model(json);
-	assert.deepEqual(r.coverage.notExercised, []);
-	assert.equal(r.scenarios.notRun, 0);
-	const html = render(json);
-	assert.match(html, /<\/div>\n<\/div>\n<p class="cov-empty">Everything in scope was exercised\.<\/p>\n<\/div>\n<\/section>/);
-	assert.doesNotMatch(html, /id="cf-n"/);
-	// A zero count gets no bar segment and no legend item.
-	const tiles = html.slice(html.indexOf('<section class="tiles">'), html.indexOf('</section>'));
-	assert.doesNotMatch(tiles, /not run|notrun-bar/);
-});
-
-test('renderReportHtml writes a not-run row as a Result spanning three columns', () => {
-	const html = render(FULL);
-	const row = html.match(/<div class="row coverage-grid cf-r cf-n" id="cv-row-\d+">[\s\S]*?<\/div>/)[0];
-	assert.match(row, /<span class="cov-dot none" aria-hidden="true"><\/span>/);
-	assert.match(row, /<span class="cov-notrun"><span class="cov-nr">Not run<\/span> &middot; /);
-	// Nothing to open and no chevron cell.
-	assert.doesNotMatch(row, /cv-chev|<details/);
-	assert.doesNotMatch(html, /cov-head-reason|>Reason</);
-});
-
-/** The text of finding `n`'s copyable prompt block. */
-function promptText(html, n) {
-	const m = new RegExp(`<script type="text/plain" id="prompt-f${n}">([\\s\\S]*?)</script>`).exec(html);
-	return m ? m[1] : null;
-}
-
-test('renderReportHtml writes each finding as an agent prompt, from the parsed fields', () => {
-	const html = render(FULL, { base: '/runs/r1', diff: 'aaaa1111...bbbb2222' });
-	assert.equal(promptText(html, 1), [
-		'## Finding 1 \u2014 Major',
-		'',
-		'A longer claim.',
-		'',
-		'Status: Confirmed',
-		'Reproduced: 3/3',
-		'',
-		'### Observed',
-		'It spun forever.',
-		'',
-		'### Expected',
-		'It should have stopped.',
-		'',
-		'### Preconditions',
-		'A console with pandas',
-		'',
-		'### Reproduction',
-		'1. Run the thing.',
-		'2. Wait 15 s.',
-		'',
-		'### Evidence',
-		'- https://cdn.example/shots/01-stuck.png \u2014 The spinner, 60 s later',
-		'- /runs/r1/logs/app.log \u2014 [123:INFO:CONSOLE] "RPC timed out after 5 seconds"',
-		'',
-		'### Likely cause (hypothesis, not verified)',
-		'The timeout was cut to 10 s.',
-		'',
-		'### Context',
-		'Branch: branch/name',
-		'Commit: abc1234',
-		'Diff: aaaa1111...bbbb2222',
-		'',
-		'Please investigate this finding using the repository and the evidence above.',
-	].join('\n'));
-	// One button per card, before Copy link, pointing at its own block.
-	assert.match(html, /<span class="group context">[\s\S]*?<\/span><a class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="cp-btn" data-tip="Copy agent prompt" data-prompt="prompt-f1" aria-label="Copy prompt for an agent: finding 1"><svg class="cp-ico"[\s\S]*?<\/button><button type="button" class="ln-btn"/);
-	assert.match(html, /document\.querySelectorAll\('\.cp-btn,\.code-cp'\)/);
-});
-
-test('renderReportHtml leaves empty prompt sections out', () => {
-	const html = render(rep({ findings: [fnd(1, { observed: 'it broke.' })] }));
-	const text = promptText(html, 1);
-	assert.match(text, /### Observed\nIt broke\./);
-	assert.doesNotMatch(text, /### (Impact|Expected|Preconditions|Reproduction|Evidence|Likely cause)/);
-	// No range was given, so Context names only what the header carries.
-	assert.match(text, /### Context\nBranch: branch\/name\nCommit: abc1234\n\nPlease investigate/);
-});
-
-test('renderReportHtml copies a prompt mentioning </script> as written, not as escaped', () => {
-	const html = render(rep({ findings: [fnd(1, { observed: 'the tag `</script>` ended the block.' })] }));
-	const block = promptText(html, 1);
-	assert.doesNotMatch(block, /<\/script/i);
-	// Run the copy handler's own unescape over the block, as the page does.
-	const [, pattern, flags, replacement] = /text=el\.textContent\.trim\(\)\.replace\(\/(.+?)\/([a-z]*),'([^']*)'\);/.exec(html);
-	assert.match(block.replace(new RegExp(pattern, flags), replacement), /The tag `<\/script>` ended the block/);
-});
-
-test('renderReportHtml emits inline scripts that parse, cut where the HTML parser cuts them', () => {
-	const html = render(FULL);
-	const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script[\s/>]/gi)].map(m => m[1]);
-	assert.ok(scripts.length >= 2);
-	for (const src of scripts) {
-		assert.doesNotThrow(() => new Function(src));
-	}
-});
-
-test('renderReportHtml renders no prompt buttons, blocks or script when agent prompts are off', () => {
-	const html = render(FULL, { agentPrompts: false });
-	assert.doesNotMatch(html, /cp-btn"|id="prompt-f|querySelectorAll\('\.cp-btn,\.code-cp'\)/);
-	// Filing an issue and copying a link do not depend on the prompts.
-	assert.match(html, /<a class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="ln-btn"[\s\S]*?<\/button><\/div>/);
-	assert.match(html, /<script type="text\/plain" id="issue-f1">/);
-});
-
-test('renderReportHtml greens only the check beside Confirmed in the findings table', () => {
-	const html = render(FULL);
-	assert.match(html, /<span class="status"><svg class="status-check" aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke-width="2"/);
-	assert.doesNotMatch(html, /<span class="status"><svg[^>]*currentColor/);
-	assert.match(html, /\.status\{[^}]*color:var\(--body\)/);
-	assert.match(html, /\.status-check\{stroke:var\(--success\)\}/);
-});
-
-test('renderReportHtml points the tile arrow straight down', () => {
-	const html = render(FULL);
-	assert.match(html, /class="tile-arrow"[^>]*><path d="M8 3\.5v9"><\/path><path d="M4\.5 9l3\.5 3\.5L11\.5 9"><\/path><\/svg>/);
-	assert.doesNotMatch(html, /M5 5l6 6/);
-});
-
-test('renderReportHtml mutes the Show all row and only recolours it on hover', () => {
-	const html = render(FULL);
-	assert.match(html, /\.cov-more\{[^}]*color:var\(--muted\);cursor:pointer;transition:color \.15s ease\}/);
-	assert.match(html, /\.cov-more:hover\{color:var\(--link\)\}/);
-});
+const FULL_LEDGER = ledgerOf([
+	['S01', 'pandas frame', 'pass', 'everything loads'],
+	['S02', 'polars frame', 'pass', 'same as pandas'],
+	['S03', 'expand while paused', 'fail - Finding 1', 'dots never resolve'],
+	['N01', 'the web build', 'desktop only'],
+]);
+const fullHtml = (json = FULL, options = {}) => render(json, { ledger: FULL_LEDGER, ...options });
+/** FULL with finding `n`'s fields replaced. */
+const fullWith = (n, fields) => ({ ...FULL, findings: FULL.findings.map(f => (f.n === n ? { ...f, ...fields } : f)) });
 
 /** A finding with every collapsed row and step-tagged shots, and Coverage from a ledger with steps. */
 const RICH = rep({
@@ -845,390 +172,6 @@ const RICH_LEDGER = [
 const richHtml = (json = RICH, options = {}) => render(json, { ledger: RICH_LEDGER, ...options });
 /** RICH with finding `n`'s fields replaced. */
 const richWith = (n, fields) => ({ ...RICH, findings: RICH.findings.map(f => (f.n === n ? { ...f, ...fields } : f)) });
-
-/** The card as rendered, without its prompt block. */
-function card(html, n) {
-	const start = html.indexOf(`<article id="f${n}"`);
-	const end = html.indexOf('</article>', start);
-	const prompt = html.indexOf('<script type="text/plain"', start);
-	return html.slice(start, prompt !== -1 && prompt < end ? prompt : end);
-}
-
-test('renderReportHtml follows a finding title with Observed beside Expected, then Reproduce', () => {
-	const c = card(richHtml(richWith(1, { expected: 'it loads.' })), 1);
-	assert.doesNotMatch(c, /card-summary|class="two"|class="oe|>Actual</);
-	// One comparison row, Observed first and marked by the finding's severity.
-	assert.match(c, /<\/h2><\/header>\s*<div class="f-cmp major"><div class="f-cmp-o"><div class="f-lab">Observed<\/div><p class="f-txt">it never loads\.<\/p><\/div><div class="f-cmp-e"><div class="f-lab">Expected<\/div><p class="f-txt">it loads\.<\/p><\/div><\/div>/);
-	const labels = [...c.matchAll(/<div class="f-lab">([^<]+)<\/div>/g)].map(m => m[1]);
-	assert.deepEqual(labels, ['Observed', 'Expected', 'Reproduce']);
-});
-
-test('renderReportHtml ends a card with closed rows: evidence, cause, test gap', () => {
-	const c = card(richHtml(), 1);
-	const rows = [...c.matchAll(/<details class="(lc[^"]*)">/g)].map(m => m[1]);
-	assert.deepEqual(rows, ['lc ev', 'lc hyp', 'lc regtest']);
-	assert.doesNotMatch(c, /<details class="lc[^"]*" open/);
-	// Evidence holds what no step does, as text: the error and the log line.
-	assert.match(c, /Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">2x<\/span>, 1 log line<\/span>/);
-	assert.match(c, /Likely cause<span class="lc-tail"> &middot; Hypothesis<\/span>/);
-	assert.match(c, /Test gap<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
-	assert.doesNotMatch(c, /Error output|Regression test/);
-	assert.doesNotMatch(c, /class="cause"/);
-});
-
-test('the test gap follows the verdict: hidden when disputed, caveated when unresolved', () => {
-	const verdict = word => richHtml(richWith(1, { verified: word }));
-	const disputed = verdict('disputed');
-	assert.doesNotMatch(card(disputed, 1), /lc regtest/);
-	assert.doesNotMatch(promptText(disputed, 1), /### Test gap/);
-	const unresolved = verdict('unresolved');
-	assert.match(card(unresolved, 1), /Test gap<span class="lc-tail"> &middot; 2 missing cases \u00b7 finding unresolved<\/span>/);
-	assert.match(promptText(unresolved, 1), /^### Test gap \(suggestion; the verifier left this finding unresolved\)$/m);
-	assert.match(card(verdict('confirmed'), 1), /Test gap<span class="lc-tail"> &middot; 2 missing cases<\/span>/);
-});
-
-test('the card, the list and the prompt all show the verifier\'s verdict over the run\'s own', () => {
-	const html = richHtml(richWith(1, { verified: 'disputed' }));
-	assert.match(card(html, 1), /<span class="confirmed">Disputed<\/span>/);
-	assert.doesNotMatch(card(html, 1), />Confirmed</);
-	assert.match(html, /<span class="status muted">Disputed<\/span>/);
-	assert.match(promptText(html, 1), /^Status: Disputed$/m);
-	assert.match(card(richHtml(), 1), /<span class="confirmed"><svg[^>]*>[\s\S]*?<\/svg>Confirmed<\/span>/, 'unverified keeps the run\'s own');
-});
-
-test('a finding the verifier matched to an issue says so on its card and in its prompt, and nowhere else', () => {
-	const known = {
-		...FULL,
-		findings: [{ ...FULL.findings[0], known: [15102, 14991] }, FULL.findings[1]],
-	};
-	assert.deepEqual(model(known).findings.map(f => f.known), [[15102, 14991], []]);
-	const html = render(known);
-	// The meta line ends with it, after Reproduced; the title goes straight on.
-	assert.match(card(html, 1), /Reproduced 3\/3<\/span><span class="sep" aria-hidden="true">&middot;<\/span><span class="f-ki">Dupe\? <a class="ki-num" href="https:\/\/github\.com\/posit-dev\/positron\/issues\/15102" target="_blank" rel="noopener">#15102<\/a> <a class="ki-num" href="[^"]+\/issues\/14991"[^>]*>#14991<\/a><\/span><\/span>/);
-	assert.doesNotMatch(card(html, 2), /Dupe\?/);
-	assert.ok(promptText(html, 1).includes('### Possible duplicates\n- https://github.com/posit-dev/positron/issues/15102\n- https://github.com/posit-dev/positron/issues/14991\n'));
-	assert.doesNotMatch(promptText(html, 2), /Possible duplicates/);
-	const row = /<a href="#f1" class="row findings-grid">.*?<\/a>\n/s.exec(html)[0];
-	assert.doesNotMatch(row, /Dupe|15102/, 'the row does not repeat it');
-	assert.doesNotMatch(render(FULL), /class="f-ki"|Possibly known|ki-known/);
-});
-
-test('a finding matched to a not-planned issue says Intended? on its card and in its prompt', () => {
-	const intended = {
-		...FULL,
-		findings: [FULL.findings[0], { ...FULL.findings[1], intended: [14210] }],
-	};
-	assert.deepEqual(model(intended).findings.map(f => f.intended), [[], [14210]]);
-	const html = render(intended);
-	assert.match(card(html, 2), /<span class="f-ki">Intended\? <a class="ki-num" href="[^"]+\/issues\/14210"[^>]*>#14210<\/a><\/span>/);
-	assert.doesNotMatch(card(html, 1), /Intended\?/);
-	assert.ok(promptText(html, 2).includes('### Closed as not planned\n- https://github.com/posit-dev/positron/issues/14210\n'));
-	assert.doesNotMatch(promptText(html, 1), /not planned/);
-});
-
-test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
-	const html = render(rep({
-		findings: [fnd(1, {
-			observed: 'it broke.',
-			tests: { cases: [{ text: 'A checked box reads as checked.', level: 'unit', path: '', isNew: true }], related: [] },
-		})],
-	}));
-	const c = card(html, 1);
-	assert.match(c, /<li>A checked box reads as checked\.<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit<\/span><span>new file<\/span><\/div><\/li>/);
-	assert.doesNotMatch(c, /rt-file|-- Unit/);
-	assert.match(html, /- A checked box reads as checked\. \u2192 Unit test; place it per the repo's test guidance/);
-});
-
-test('renderReportHtml leaves out collapsed rows with nothing in them', () => {
-	const html = render(rep({ findings: [fnd(1, { observed: 'it broke.' })] }));
-	assert.doesNotMatch(card(html, 1), /card-details/);
-	const second = card(richHtml(), 2);
-	assert.deepEqual([...second.matchAll(/<details class="(lc[^"]*)">/g)].map(m => m[1]), ['lc regtest']);
-});
-
-test('renderReportHtml shows only errors with a stack, and links frames at the commit', () => {
-	const c = card(richHtml(), 1);
-	// A log beside the report opens from its path; the line stays in the text.
-	assert.match(c, /<a href="logs\/app\.log" class="log-link" title="Open the full log"[^>]*>logs\/app\.log<\/a><span title="Logged by Positron\u2019s renderer process \(the UI\)[^"]*">Renderer process<\/span><span>Logged <span class="n-x">2x<\/span><\/span>/);
-	assert.match(c, /<span class="ev-err">Error: get_column_profiles timed out after 10 seconds<\/span>/);
-	assert.match(c, /at Client\.getColumnProfiles \(<a class="err-loc" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/abc1234\/src\/vs\/client\.ts#L212" title="src\/vs\/client\.ts"[^>]*>client\.ts:212<\/a>\)/);
-	// An absolute path is not in the repo, so it is shown but not linked.
-	assert.match(c, /at <span class="err-loc" title="\/abs\/out\/cache\.js">cache\.js:538<\/span>/);
-	assert.doesNotMatch(c, /no stack here/);
-});
-
-test('renderReportHtml shows a Python traceback as frames, and links only the repo\'s files', () => {
-	const c = card(render(rep({
-		findings: [fnd(1, {
-			errors: [{
-				source: 'logs/python-kernel.log:23',
-				process: 'Python kernel',
-				count: 4,
-				message: '[positron.data_explorer] ERROR | invalid series dtype',
-				frames: [
-					{ fn: '_polars_summarize_string', path: 'extensions/positron-python/python_files/posit/positron/data_explorer.py', line: 2139 },
-					{ fn: 'wrapper', path: '.venv/lib/python3.14/site-packages/polars/series/utils.py', line: 104 },
-				],
-			}],
-		})],
-	})), 1);
-	assert.match(c, /Evidence<span class="lc-tail"> &middot; 1 error, <span class="n-x">4x<\/span><\/span>/);
-	assert.match(c, /<span class="ev-err">\[positron\.data_explorer\] ERROR \| invalid series dtype<\/span>/);
-	assert.match(c, /at _polars_summarize_string \(<a class="err-loc" href="https:\/\/github\.com\/posit-dev\/positron\/blob\/[0-9a-f]+\/extensions\/positron-python\/python_files\/posit\/positron\/data_explorer\.py#L2139"[^>]*>data_explorer\.py:2139<\/a>\)/);
-	// An installed package is not in the repo, so its frame is not linked.
-	assert.match(c, /at wrapper \(<span class="err-loc" title="\.venv\/lib\/python3\.14\/site-packages\/polars\/series\/utils\.py">utils\.py:104<\/span>\)/);
-	assert.match(c, /<span title="Logged by the language runtime">Python kernel<\/span>/);
-});
-
-test('a step opens on the screenshot it cites, before any listed under Evidence for it', () => {
-	const [f] = model(rep({
-		findings: [fnd(1, {
-			steps: [act('Run `%view df`.'), fail('it loads', 1, { shots: ['shots/S03-03.png', 'shots/S03-03b.png'] })],
-			evidence: [
-				{ kind: 'shot', path: 'shots/S03-13.png', step: 2, caption: 'pandas loads the same column' },
-				{ kind: 'shot', path: 'shots/S03-03b.png', step: 2, caption: 'still loading 15 s later' },
-			],
-		})],
-	})).findings;
-	assert.deepEqual(f.evidence.filter(e => e.kind === 'shot').map(e => `${e.file} ${e.caption}`),
-		['S03-03.png Verify it loads', 'S03-03b.png Still loading 15 s later', 'S03-13.png pandas loads the same column']);
-});
-
-test('renderReportHtml keeps every error in the prompt, stack or not', () => {
-	const text = promptText(richHtml(RICH, { base: '/runs/r1' }), 1);
-	assert.match(text, /### Error output\n```\nError: get_column_profiles[\s\S]*?\n```\nLogged in \/runs\/r1\/logs\/app\.log \(Renderer\), 2x\./);
-	assert.match(text, /```\nWarning: no stack here\n```\nLogged in \/runs\/r1\/logs\/ext\.log \(Extension host\)\./);
-	// Evidence, Error output, Likely cause, Test gap, Context.
-	const order = ['### Evidence', '### Error output', '### Likely cause', '### Test gap (suggestion)', '### Context'].map(h => text.indexOf(h));
-	assert.deepEqual(order, [...order].sort((a, b) => a - b));
-	assert.ok(order.every(i => i !== -1));
-});
-
-test('renderReportHtml writes regression cases as a numbered list led by a type tag', () => {
-	const html = richHtml();
-	const c = card(html, 1);
-	const sep = ' <span class="rt-sep" aria-hidden="true">&middot;</span> ';
-	assert.match(c, /<div class="rt-label">Suggested cases<\/div><ol class="rt-cases"><li>Retry after a timeout loads the summary\./);
-	assert.ok(c.includes('<div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit</span><span>Add to <a class="rt-file" href="https://github.com/posit-dev/positron/blob/abc1234/src/vs/test/cache.test.ts"'));
-	// A file the case says to create has nothing to link to.
-	assert.ok(c.includes('<span class="rt-t rt-t-tint">E2E</span><span>Add to <span class="rt-file" title="test/e2e/tests/slow.test.ts">slow.test.ts</span>'));
-	assert.ok(c.includes(`slow.test.ts</span>${sep}new file</span></div>`));
-	// Other tests lists only files the cases have not named, as a bulleted list with the same row.
-	const others = c.slice(c.indexOf('Other tests that touch this code'));
-	assert.match(others, /^Other tests that touch this code<\/div><ul class="rt-other"><li><div class="rt-meta rt-row"><span class="rt-t rt-t-tint">Unit<\/span><span><a class="rt-file"/);
-	assert.ok(others.includes(`>client.test.ts</a>${sep}checks request shape only</span></div></li>`));
-	assert.doesNotMatch(others, /already named above/);
-	assert.doesNotMatch(c, /rt-level|rt-sugg|suggestion<\/span>/);
-	const tests = RICH.findings[0].tests;
-	const dir = card(richHtml(richWith(1, { tests: { ...tests, cases: [tests.cases[0], { ...tests.cases[1], path: 'test/e2e/tests/data-explorer/' }] } })), 1);
-	assert.ok(dir.includes('Add to <span class="rt-file" title="test/e2e/tests/data-explorer/">data-explorer/</span>'));
-	// One case is still a numbered list.
-	const second = card(html, 2);
-	assert.match(second, /<div class="rt-label">Suggested case<\/div><ol class="rt-cases"><li>One case only\.<div class="rt-meta rt-row">/);
-	assert.match(second, /1 missing case<\/span>/);
-	assert.doesNotMatch(second, /Other tests/);
-});
-
-test('report CSS: regression test block has fixed sizes and a tint tag', () => {
-	const html = richHtml();
-	assert.match(html, /\.rt-cases\{margin:0;padding-left:20px;font-size:14px;line-height:1\.6;/);
-	assert.match(html, /\.rt-meta\{margin-top:3px;font-size:12\.5px;line-height:1\.55;color:var\(--muted\)\}/);
-	assert.match(html, /\.rt-file\{font-family:var\(--mono\);font-size:12px;/);
-	assert.match(html, /\.rt-t-tint\{padding:3px 5px;border-radius:4px;background:var\(--rt-tag-bg\);color:var\(--rt-tag-ink\)\}/);
-	// Party's tag is lighter than the card, with ink text, so it does not blend in.
-	assert.match(html, /--rt-tag-bg: #3A2F6B;\s*--rt-tag-ink: #F5F1FF;/);
-});
-
-test('renderReportHtml writes the test gap into the prompt after the cause', () => {
-	const text = promptText(richHtml(), 1);
-	assert.match(text, new RegExp([
-		'### Test gap \\(suggestion\\)',
-		'- Retry after a timeout loads the summary\\. \u2192 add to src/vs/test/cache\\.test\\.ts \\(Unit\\)',
-		'- A slow source offers no Retry\\. \u2192 add to test/e2e/tests/slow\\.test\\.ts \\(E2E\\)',
-		'Other tests that touch this code: src/vs/test/client\\.test\\.ts \\(Unit\\)',
-		'',
-		'### Context',
-	].join('\n')));
-});
-
-test('renderReportHtml puts a step\'s screenshots on its icon, and keeps the Evidence row text only', () => {
-	const html = richHtml(RICH, { base: '/runs/r1' });
-	const c = card(html, 1);
-	assert.doesNotMatch(c, /logtile|class="f-sec evidence"|<figcaption/);
-	// No gallery: a step's shots are hidden links its icon opens, and the
-	// full-size view links the step back.
-	const hidden = /<div class="shot-links" hidden>([\s\S]*?)<\/div>/.exec(c)[1];
-	assert.deepEqual([...hidden.matchAll(/data-file="([^"]+)"/g)].map(m => m[1]), ['a.png', 'b.png']);
-	assert.match(hidden, /data-step="Step 2" data-step-href="#f1-s2" hidden><\/a>/);
-	// Evidence never holds an image or says "screenshot"; a shot with no step has nowhere to open from.
-	const evidence = /<details class="lc ev">[\s\S]*?<\/details>/.exec(c)[0];
-	assert.doesNotMatch(evidence, /<img|<a class="shot|screenshot/i);
-	assert.doesNotMatch(c, /c\.png"/);
-	// The log line as logged.
-	assert.match(evidence, /<div class="ev-snip"><div class="ev-snip-h"><a href="logs\/app\.log"[^>]*>logs\/app\.log<\/a><\/div><div class="ev-snip-b">timed out<\/div><\/div>/);
-	const text = promptText(html, 1);
-	assert.match(text, /### Evidence\n- https:\/\/cdn\.example\/shots\/a\.png \u2014 Step 2: The notice\n- https:\/\/cdn\.example\/shots\/b\.png \u2014 Step 3: After Retry\n- https:\/\/cdn\.example\/shots\/c\.png \u2014 Variant: five columns\n- \/runs\/r1\/logs\/app\.log/);
-});
-
-/** The Evidence row of a finding whose evidence is `items`, or '' when it has none. */
-function evidenceRow(items) {
-	const c = card(render(rep({ findings: [fnd(1, { observed: 'it broke.', evidence: items })] })), 1);
-	return /<details class="lc ev">[\s\S]*?<\/details>/.exec(c)?.[0] ?? '';
-}
-
-test('Evidence: a log line is a header over the line as logged, with its value highlighted', () => {
-	const ev = evidenceRow([{ kind: 'log', path: 'logs/36561-python-language-pack.log:1489', process: 'Extension host', when: '00:18:39', quote: '2026-10-06 00:18:39.958 [debug] env change ==/tmp/w/.venv/bin/python== remove' }]);
-	assert.match(ev, /Evidence<span class="lc-tail"> &middot; 1 log line<\/span>/);
-	assert.match(ev, /<div class="ev-snip-h"><a href="logs\/36561-python-language-pack\.log"[^>]*>logs\/36561-python-language-pack\.log:1489<\/a><span title="Logged by the extension host[^"]*">Extension host<\/span><span>00:18:39<\/span><\/div>/);
-	assert.match(ev, /<div class="ev-snip-b">2026-10-06 00:18:39\.958 \[debug\] env change <mark>\/tmp\/w\/\.venv\/bin\/python<\/mark> remove<\/div>/);
-});
-
-test('Evidence: a bare log line takes its process from the file name and its time from the line', () => {
-	const ev = evidenceRow([{ kind: 'log', path: 'logs/44987-exthost.log', quote: '2026-10-06 00:18:39.958 [info] started' }]);
-	assert.match(ev, /<span title="Logged by the extension host[^"]*">Extension host<\/span><span>00:18:39<\/span>/);
-});
-
-test('Evidence: several log lines are one quote, one per line', () => {
-	const ev = evidenceRow([{ kind: 'log', path: 'logs/1-renderer.log:10', when: '00:00:01', quote: 'first line\n  second "line"' }]);
-	assert.match(ev, /Evidence<span class="lc-tail"> &middot; 2 log lines<\/span>/);
-	assert.match(ev, />Renderer process<\/span><span>00:00:01<\/span>/);
-	assert.match(ev, /<div class="ev-snip-b">first line\n {2}second &quot;line&quot;<\/div>/);
-});
-
-test('Evidence: a line that was not logged is a dashed block with the window searched', () => {
-	const ev = evidenceRow([
-		{ kind: 'log', path: 'logs/1-exthost.log:5', process: 'Extension host', when: '00:18:39', quote: 'env change /x remove' },
-		{ kind: 'missing', path: 'logs/1-exthost.log', window: '00:18:39-00:19:24', quote: 'env change /x add' },
-	]);
-	assert.match(ev, /Evidence<span class="lc-tail"> &middot; 1 log line, 1 missing<\/span>/);
-	assert.match(ev, /<div class="ev-snip ev-miss"><div class="ev-snip-h"><span class="ev-miss-k">Not logged<\/span><a href="logs\/1-exthost\.log"[^>]*>logs\/1-exthost\.log<\/a><span>00:18:39-00:19:24<\/span><\/div><div class="ev-snip-b">env change \/x add<\/div><\/div>/);
-});
-
-test('Evidence: notes and the agent\'s own files stay out of the row', () => {
-	assert.equal(evidenceRow([
-		{ kind: 'note', caption: 'so nothing resolved the new path' },
-		{ kind: 'log', path: 'actions.log:12', quote: '2026-10-06T00:18:39Z click failed' },
-		{ kind: 'log', path: 'logs/S03-later.txt', quote: 'saved' },
-	]), '');
-});
-
-test('renderReportHtml opens a passing coverage row on its steps, not a finding row', () => {
-	const html = richHtml();
-	const cov = html.slice(html.indexOf('id="coverage"'));
-	assert.match(cov, /<details class="cv cf-r cf-p" id="cv-row-\d+"><summary class="row coverage-grid"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>pandas frame<\/span><\/span>[\s\S]*?<span class="cv-chev-cell"><svg class="cv-chev"[\s\S]*?<\/summary><div class="cv-steps"><ol class="steps"><li>Build <code class="cc" data-tip="Copy">df<\/code>\.<\/li>\n<li>Run <code class="cc" data-tip="Copy">%view df<\/code>\.<\/li><\/ol><\/div><\/details>/);
-	// No steps, nothing to open.
-	assert.match(cov, /<div class="row coverage-grid cf-r cf-p" id="cv-row-\d+"><span class="cov-scenario"><span class="cov-dot pass"[^>]*><\/span><span>polars frame<\/span>[\s\S]*?<span><\/span><\/div>/);
-	// The finding link leads, and the row does not expand.
-	assert.match(cov, /<div class="row coverage-grid cf-r cf-i" id="cv-row-1"><span class="cov-scenario"><span class="cov-dot issue"[^>]*><\/span><span>slow column<\/span><\/span><span class="cov-result"><a href="#f1" class="cv-f">Finding 1<\/a><\/span>/);
-	assert.doesNotMatch(cov, /Should not render/);
-	assert.match(cov, /<span class="cov-head-scenario">Scenario<\/span><span>Result<\/span><span><\/span><\/div>/);
-});
-
-test('renderReportHtml puts a passing row\'s screenshot on its verify step, not in a column', () => {
-	const html = richHtml();
-	const cov = html.slice(html.indexOf('id="coverage"'), html.indexOf('</section>', html.indexOf('id="coverage"')));
-	assert.doesNotMatch(cov, /class="ref|Screenshot<\/span>/);
-	// The icon trails the last step and opens the lightbox as a group of one.
-	assert.match(cov, /<li><span class="st-v">Verify it loads\.<\/span><span class="st-rs st-pass">PASS<\/span> <span class="st-sep" aria-hidden="true">&middot;<\/span> <a class="st-ev" href="https:\/\/cdn\.example\/shots\/arrow\.png" data-lb="cv-\d+" data-caption="arrow frame" data-file="arrow\.png" aria-label="Screenshot for this step: arrow frame"><svg/);
-	assert.doesNotMatch(cov, /Build <code>tbl<\/code>\. <span class="st-sep"/);
-	assert.match(html, /querySelectorAll\('a\.shot,a\.st-ev\[data-lb\]'\)/);
-});
-
-test('renderReportHtml keeps Show all working over expandable rows', () => {
-	const ledger = Array.from({ length: 10 }, (_, i) => `## S${String(i + 1).padStart(2, '0')} - pass ${i}\nStatus: pass\nResult: fine\n\nSteps:\n1. Step for ${i}.\n`).join('\n');
-	const body = render(rep(), { ledger }).slice(render(rep(), { ledger }).indexOf('<body'));
-	// The hidden rows stay siblings of the checkbox, which the CSS toggle needs.
-	assert.equal((body.match(/<details class="cv cf-r cf-p cov-extra" id="cv-row-\d+">/g) || []).length, 6);
-	assert.match(body, /<div class="cov-rows">\n<input type="checkbox" id="cov-all" class="cov-toggle"[^>]*>\n<details class="cv cf-r cf-p" id="cv-row-1">/);
-});
-
-test('report CSS lines up every coverage row on one Scenario | Result | chevron grid', () => {
-	const html = render(RICH);
-	assert.match(html, /\.coverage-grid\{grid-template-columns:minmax\(0,40fr\) minmax\(0,60fr\) 12px;padding:12px 20px\}/);
-	assert.match(html, /\.cov-notrun\{grid-column:span 2;/);
-	assert.match(html, /\.cov-scenario\{display:flex;align-items:flex-start;gap:13px;/);
-	assert.match(html, /\.cov-head-scenario\{padding-left:21px\}/);
-	// Not-run dots match the others now.
-	assert.match(html, /\.cov-dot\.none\{background:var\(--dot-neutral\)\}/);
-});
-
-test('ledger: Noticed notes stay in the ledger and never reach the report', () => {
-	// The report shows only what the run checked, so Coverage counts add up.
-	const ledger = LEDGER.replace('## Not run', '## Noticed\n- O01 - The summary shows 16% for 2 of 12 missing values - seen in S01, not checked\n\n## Not run');
-	const html = render(TYPED, { ledger });
-	assert.doesNotMatch(html, /16% for 2 of 12|cf-tab-o|cf-r cf-o|Noticed/);
-	assert.equal(coverageOf(html), coverageOf(render(TYPED, { ledger: LEDGER })));
-});
-
-test('report CSS filters rows by the checked tab and keeps Show all to All', () => {
-	const html = render(RICH);
-	assert.match(html, /#cf-i:checked~\.cf-card \.cf-r:not\(\.cf-i\),#cf-p:checked~\.cf-card \.cf-r:not\(\.cf-p\),#cf-n:checked~\.cf-card \.cf-r:not\(\.cf-n\)\{display:none !important\}/);
-	assert.match(html, /#cf-i:checked~\.cf-card \.cov-more,#cf-p:checked~\.cf-card \.cov-more,#cf-n:checked~\.cf-card \.cov-more\{display:none !important\}/);
-	assert.match(html, /#cf-p:checked~\.cf-card details\.cov-extra\.cf-p\{display:block !important\}/);
-	// Selected is ink, not an accent, and the focus ring sits off the label.
-	assert.match(html, /\.cf-tab-n\{color:var\(--ink\);border-bottom-color:var\(--ink\)\}/);
-	assert.match(html, /\.cf-tab-n\{outline:2px solid var\(--focus\);outline-offset:4px;/);
-	assert.match(html, /\.cov-rows\{position:relative;margin-bottom:-1px;font-size:14px;line-height:1\.5\}/);
-	assert.match(html, /\.cf-tab \.cf-cnt\{color:var\(--faint\);font-weight:400;margin-left:3px\}/);
-	assert.match(html, /\.cf-tab \.cf-g\{visibility:hidden;font-weight:600;padding-right:3px\}/);
-});
-
-test('report CSS gives Professional a teal accent with an ink kicker, and leaves Party and the Run bar alone', () => {
-	const html = render(RICH);
-	assert.doesNotMatch(html, /#2F5F8A|#1E4466/i);
-	assert.match(html, /--link: #2E6B5E;\n\t--link-hover: #1F5046;/);
-	assert.match(html, /--focus: #2E6B5E;/);
-	assert.match(html, /--eyebrow-color: var\(--ink\);/);
-	assert.match(html, /--eyebrow-color: #FF6AC1;/);
-	assert.match(html, /--link: #5CE1E6;/);
-	assert.match(html, /--stage-1: #5E646C;/);
-});
-
-test('renderReportHtml fences an error in the prompt so a ``` line inside cannot close it', () => {
-	const json = rep({ findings: [fnd(1, { title: 'Broke', severity: 'major', observed: 'x', expected: 'y', errors: [{ source: 'logs/a.log', process: 'Renderer', message: 'Error: bad template\n```\ntail' }] })] });
-	const text = promptText(render(json), 1);
-	assert.match(text, /\n````\nError: bad template\n```\ntail\n````/);
-});
-
-test('renderReportHtml links the PR in the header and the prompt, only when there is one', () => {
-	const html = richHtml({ ...RICH, header: { ...RICH.header, pr: { repo: 'posit-dev/positron', number: 1234 } } });
-	assert.match(html, /<span class="kicker">Exploratory test<\/span><span class="bullet"><\/span><a class="pr-link" href="https:\/\/github\.com\/posit-dev\/positron\/pull\/1234" target="_blank" rel="noopener" title="Open the pull request on GitHub">PR #1234<svg[^>]*>[\s\S]*?<\/svg><\/a><code>branch\/name<\/code><code>abc1234<\/code><div class="hd-act hd-inline">/);
-	assert.match(promptText(html, 1), /### Context\nPR: https:\/\/github\.com\/posit-dev\/positron\/pull\/1234\nBranch: branch\/name\n/);
-	assert.match(html, /\.pr-link\{font-weight:500;white-space:nowrap\}/);
-
-	// No PR: nothing in its place, in the header or the prompt.
-	const plain = richHtml();
-	assert.doesNotMatch(plain.slice(plain.indexOf('<body')), /pr-link|PR #|Local run/);
-	assert.match(promptText(plain, 1), /### Context\nBranch: branch\/name\n/);
-});
-
-test('reportFromJson only links a PR whose repo is a real owner/repo', () => {
-	const pr = value => model(rep({ header: { pr: value } })).pr;
-	assert.deepEqual(pr({ repo: 'posit-dev/positron', number: 16188 }), { number: 16188, url: 'https://github.com/posit-dev/positron/pull/16188' });
-	assert.equal(pr({ repo: 'javascript:alert(1)', number: 1 }), undefined);
-	assert.equal(pr({ repo: 'evil.com/x/y', number: 1 }), undefined);
-	assert.equal(pr(undefined), undefined);
-});
-
-test('finding: a shot a step cites reaches its step even when no Evidence item names it', () => {
-	const html = render(rep({
-		findings: [fnd(1, {
-			severity: 'major',
-			preconditions: [{ name: 'panel closed', text: 'the panel closed' }],
-			steps: [
-				pass('the panel opens', { shots: ['shots/S01-01.png'] }),
-				act('Click Retry.'),
-				fail('it loads', 1, { observed: 'empty', shots: ['shots/S01-03.png'] }),
-			],
-			evidence: [{ kind: 'shot', path: 'shots/S01-03.png', step: 3, caption: 'empty panel' }],
-		})],
-	}));
-	const card = html.slice(html.indexOf('<article id="f1"'), html.indexOf('</article>', html.indexOf('<article id="f1"')));
-	const links = [...card.matchAll(/<a class="shot" id="shot-f1-(\d)" href="([^"]+)"[^>]*data-step="([^"]+)"[^>]*hidden>/g)].map(m => [m[1], m[2], m[3]]);
-	assert.deepEqual(links, [['1', 'shots/S01-01.png', 'Step 1'], ['2', 'shots/S01-03.png', 'Step 3']]);
-	assert.doesNotMatch(card, /<figure>/);
-	assert.match(card, /<li id="f1-s1">[\s\S]*?data-open="shot-f1-1"/);
-});
 
 // Two findings from a real run, with S08, S09, S01 and S04 of its ledger: two failing scenarios, two passing.
 const SLOW_PY = { name: '`slow.py` loaded', text: '`slow.py` loaded with `%run -i slow.py`.' };
@@ -1289,412 +232,14 @@ const TYPED = rep({
 		}),
 	],
 });
-/** The ledger's S01, S04, S08 and S09, which TYPED's findings and passes come from. */
-const typedLedger = () => {
-	const [head, ...sections] = LEDGER.split(/\n(?=## )/);
-	return [head, ...sections.filter(s => /^## S0[1489] /.test(s))].join('\n');
-};
-const typedHtml = (json = TYPED, options = {}) => render(json, { ledger: typedLedger(), ...options });
+const LEDGER = readFileSync(new URL('./fixtures/ledger.md', import.meta.url), 'utf8');
 /** TYPED with finding `n`'s step `k` (1-based) replaced. */
 const typedStep = (n, k, step) => ({ ...TYPED, findings: TYPED.findings.map(f => (f.n === n ? { ...f, steps: f.steps.map((s, i) => (i === k - 1 ? step : s)) } : f)) });
-
-test('typed steps: every verify step carries its result, and no action does', () => {
-	const html = typedHtml();
-	const count = re => (html.match(re) ?? []).length;
-	assert.equal(count(/class="st-rs st-pass"/g), 4);
-	assert.equal(count(/class="st-rs st-fail"/g), 4);
-	// 8 verify steps across the cards and Coverage, and no result on any action.
-	assert.equal(count(/class="st-rs /g), 8);
-	assert.equal(count(/class="st-v"/g), 8);
-});
-
-const PHOTO = '<svg aria-hidden="true" width="1em" height="1em" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><rect x="2" y="3" width="12" height="10" rx="1.5"></rect><path d="M2.5 11l3.5-3.5 3 3 2-2 2.5 2.5"></path></svg>';
-
-test('typed steps: the finding card reads Verify PASS, action, Verify FAIL with its observation', () => {
-	const html = typedHtml();
-	const card = html.slice(html.indexOf('<article id="f2"'), html.indexOf('</article>', html.indexOf('<article id="f2"')));
-	const li = k => new RegExp(`<li id="f2-s${k}">([\\s\\S]*?)</li>`).exec(card)?.[1] ?? '';
-	assert.equal(li(3), '<span class="st-v">Verify s00 to s13 have sparklines.</span><span class="st-rs st-pass">PASS</span>');
-	assert.doesNotMatch(li(4), /st-v|st-rs/);
-	assert.equal(li(5), '<span class="st-v">Verify the visible columns s62 to s79 get sparklines.</span>'
-		+ '<span class="st-rs st-fail">FAIL</span> <span class="st-sep" aria-hidden="true">&middot;</span> '
-		+ '<a class="st-ev" href="#shot-f2-1" data-open="shot-f2-1" aria-label="Screenshot for this step">'
-		+ '<span class="ev-pop" aria-hidden="true"><img src="shots/23-continue-visible-still-empty.png" alt="" loading="lazy"><span class="ev-cap">Click to enlarge</span></span>'
-		+ `${PHOTO}</a>`
-		+ '<span class="st-obs">Observed: Only s62 has one.</span>');
-	// The icon rides on verify steps only, and the card never names its own finding.
-	const list = card.slice(card.indexOf('<ol class="repro-steps steps">'), card.indexOf('</ol>'));
-	assert.doesNotMatch(list, /Finding 2/);
-	assert.doesNotMatch(li(4), /st-ev/);
-	// A shot the step names takes that step's number, and links back to it.
-	assert.match(card, /id="shot-f2-1"[^>]*data-step="Step 5" data-step-href="#f2-s5"/);
-	assert.match(card, /data-step="Step 7" data-step-href="#f2-s7"/);
-	assert.match(html, /\.steps li:target\{background:var\(--st-target\)\}/);
-});
-
-test('typed steps: Observed stays off the steps when the card says it once', () => {
-	const html = typedHtml(typedStep(2, 5, act('Look at the visible columns.')));
-	const card = html.slice(html.indexOf('<article id="f2"'));
-	assert.doesNotMatch(card.slice(0, card.indexOf('</article>')), /st-obs/);
-});
-
-test('typed steps: a passing row puts its photo on the verify step it proves', () => {
-	const cov = typedHtml().split('id="coverage"')[1];
-	assert.match(cov, /as before\.<\/span><span class="st-rs st-pass">PASS<\/span> <span class="st-sep" aria-hidden="true">&middot;<\/span> <a class="st-ev" href="shots\/01-df-open\.png"/);
-	assert.match(cov, /Continue&quot;\.<\/span><span class="st-rs st-pass">PASS<\/span> <span class="st-sep"[^>]*>&middot;<\/span> <a class="st-ev" href="shots\/04-slow-paused\.png"/);
-	assert.doesNotMatch(cov, /Evidence:/);
-	assert.match(cov, /<li>Watch for 35 s\.<\/li>/);
-});
-
-test('typed steps: a check with no result gets no invented one', () => {
-	const json = rep({ findings: [fnd(1, { steps: [act('Open it.'), { kind: 'verify', text: 'Check that it loads.' }, { kind: 'verify', text: 'confirm the dialog closes' }] })] });
-	const html = render(json);
-	assert.deepEqual(model(json).findings[0].steps.map(s => [s.kind, s.result]), [['action', null], ['verify', null], ['verify', null]]);
-	assert.match(html, /<li id="f1-s2"><span class="st-v">Check that it loads\.<\/span><\/li>/);
-	assert.match(html, /<li id="f1-s3"><span class="st-v">Confirm the dialog closes<\/span><\/li>/);
-	assert.doesNotMatch(html, /class="st-rs /);
-});
-
-test('typed steps: the agent prompt writes results after an arrow', () => {
-	const html = typedHtml();
-	const prompt = /<script type="text\/plain" id="prompt-f2"[^>]*>([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '';
-	assert.match(prompt, /3\. Verify s00 to s13 have sparklines\. \u2192 PASS\n/);
-	assert.match(prompt, /5\. Verify the visible columns s62 to s79 get sparklines\. \u2192 FAIL \(observed: Only s62 has one\.\)\n/);
-	assert.match(prompt, /^PR: https:\/\/github\.com\/posit-dev\/positron\/pull\/1234$/m);
-});
-
-const LEDGER = readFileSync(new URL('./fixtures/ledger.md', import.meta.url), 'utf8');
-const coverageOf = html => html.slice(html.indexOf('id="coverage"'), html.indexOf('</section>', html.indexOf('id="coverage"')));
-
-test('ledger: parses scenarios, preconditions, typed steps and not-run rows', () => {
-	const cov = parseLedger(LEDGER);
-	assert.deepEqual(cov.exercised.map(r => `${r.id}:${r.status}:${r.finding ?? ''}`),
-		['S01:pass:', 'S02:pass:', 'S03:pass:', 'S04:pass:', 'S05:pass:', 'S06:pass:', 'S08:fail:1', 'S09:fail:2']);
-	const s03 = cov.exercised[2];
-	assert.deepEqual(s03.pre.map(p => p.from), ['S02']);
-	assert.match(s03.pre[0].howHtml, /opened with <code>%view edge<\/code>/);
-	assert.deepEqual(cov.exercised[7].steps.map(s => s.result ?? 'action'), ['action', 'action', 'pass', 'action', 'fail', 'action', 'fail']);
-	assert.deepEqual(cov.exercised[6].steps[2].evidence.map(e => e.href), ['shots/09-one12-unavailable.png', 'shots/07-slow12-unavailable.png']);
-	assert.deepEqual(cov.notExercised.map(r => r.id), ['N01', 'N02', 'N05']);
-	assert.equal(cov.notExercised[1].reasonHtml, 'Could not make value fetches slow: the slow-hash trick only slows profiling');
-	// Environment is whole-run context for Run details, never a Coverage row.
-	assert.doesNotMatch(JSON.stringify([cov.exercised, cov.notExercised]), /CDP 44987/);
-	assert.match(cov.environment.join('\n'), /CDP 44987/);
-});
-
-test('ledger: reads the middle-dot and arrow forms the same as ASCII', () => {
-	const cov = parseLedger([
-		'## S01 \u00b7 slow column', 'Status: fail \u00b7 Finding 3', 'Result: Fails 3/3', '',
-		'Steps:', '1. Run it.', '2. VERIFY The summary loads. \u2192 FAIL \u00b7 Finding 3', '   Observed: Dots.', '',
-		'## Not run', '- N01 \u00b7 Positron web \u00b7 Desktop build only',
-	].join('\n'));
-	assert.equal(cov.exercised[0].finding, 3);
-	assert.equal(cov.exercised[0].steps[1].md, 'Verify the summary loads.');
-	assert.equal(cov.exercised[0].steps[1].observed, 'Dots.');
-	assert.equal(cov.notExercised[0].reasonHtml, 'Desktop build only');
-	assert.equal(parseLedger('# Test ledger\n\n## Environment\n- x'), null);
-});
-
-test('ledger: Coverage and the Coverage tile come from the ledger, not the report\'s scenarios', () => {
-	const report = model(TYPED, LEDGER);
-	assert.deepEqual(report.scenarios, { exercised: 8, pass: 6, issues: 2, notRun: 3 });
-	const html = render(TYPED, { ledger: LEDGER });
-	// The tile's number is every scenario, so the legend adds up to it.
-	assert.match(html, /<div class="tile-label">Coverage<\/div><div class="tile-figure"><span class="tile-num">11<\/span><span class="unit">scenarios<\/span>/);
-	const cov = coverageOf(html);
-	// One table: no subheadings, no second table.
-	assert.doesNotMatch(cov, /Exercised|Not exercised|<h3/);
-	assert.match(cov, /cf-tab-all"><span class="cf-l">All <span class="cf-cnt">11<\/span>/);
-	assert.match(cov, /cf-tab-i"><span class="cf-l">Failed <span class="cf-cnt">2<\/span>/);
-	assert.match(cov, /cf-tab-p"><span class="cf-l">Passed <span class="cf-cnt">6<\/span>/);
-	assert.match(cov, /cf-tab-n"><span class="cf-l">Not run <span class="cf-cnt">3<\/span>/);
-	// Issues in finding order, then passes in run order, then not run.
-	const order = [...cov.matchAll(/id="cv-row-(\d+)"[\s\S]*?<span class="cov-dot (\w+)"[^>]*><\/span><span>([^<]+)/g)].map(m => `${m[1]}:${m[2]}:${m[3]}`);
-	assert.deepEqual(order.map(o => o.split(':').slice(0, 2).join(':')), [
-		'1:issue', '2:issue', '3:pass', '4:pass', '5:pass', '6:pass', '7:pass', '8:pass', '9:none', '10:none', '11:none',
-	]);
-	assert.match(cov, /<a href="#f1" class="cv-f">Finding 1<\/a><\/span>/);
-	// Two passes past the first four wait behind Show all, which counts every row.
-	assert.equal((cov.match(/cov-extra/g) || []).length, 2);
-	assert.match(cov, /<span class="cov-all">Show all 11 scenarios<\/span><span class="cov-less">Show fewer<\/span>/);
-	assert.doesNotMatch(cov, /Everything in scope was exercised/);
-});
-
-test('ledger: a finding row links every finding its steps failed on, not just its first', () => {
-	const ledger = LEDGER.replace('5. VERIFY The summary loads after Retry. -> FAIL - Finding 1', '5. VERIFY The summary loads after Retry. -> FAIL - Finding 2');
-	const cov = coverageOf(render(TYPED, { ledger }));
-	// Two findings share no one rate, so the row only maps to them.
-	assert.match(cov, /<span class="cov-result"><a href="#f1" class="cv-f">Finding 1<\/a> &middot; <a href="#f2" class="cv-f">Finding 2<\/a><\/span>/);
-});
-
-test('ledger: an expanded row shows P plus short names, with the how-to in a popover', () => {
-	const cov = coverageOf(render(TYPED, { ledger: LEDGER }));
-	const row = /<details class="cv cf-r cf-p" id="cv-row-5">[\s\S]*?<\/details>/.exec(cov)[0];
-	assert.match(row, /<span>Expand on a healthy source<\/span>/);
-	assert.match(row, /<div class="cv-steps"><p class="cv-pre" tabindex="0" aria-label="Preconditions"><span class="pre-mark" aria-hidden="true">P<\/span><code>edge<\/code> open<span class="pre-pop" role="tooltip"><span class="pre-t">Preconditions<\/span><span class="pre-i"><b><code>edge<\/code> open<\/b>Created in <a href="#cv-row-4">Edge values/);
-	assert.doesNotMatch(row, /<ul/);
-	// Not-created state has no "Created in".
-	const s04 = /<details class="cv cf-r cf-p" id="cv-row-6">[\s\S]*?<\/details>/.exec(cov)[0];
-	assert.match(s04, /<b><code>slow\.py<\/code> loaded<\/b>Run <code>%run -i slow\.py<\/code>/);
-	assert.doesNotMatch(s04, /Created in/);
-	// No preconditions, no P line.
-	const s01 = /<details class="cv cf-r cf-p" id="cv-row-3">[\s\S]*?<\/details>/.exec(cov)[0];
-	assert.doesNotMatch(s01, /cv-pre/);
-	assert.match(s01, /<span class="st-rs st-pass">PASS<\/span> <span class="st-sep" aria-hidden="true">&middot;<\/span> <a class="st-ev" href="shots\/01-df-open\.png"/);
-});
-
-test('ledger: nothing not run means no Not run tab and a line saying so', () => {
-	const ledger = LEDGER.slice(0, LEDGER.indexOf('## Not run'));
-	const cov = coverageOf(render(TYPED, { ledger }));
-	assert.doesNotMatch(cov, /cf-tab-n|id="cf-n"|cf-r cf-n/);
-	assert.match(cov, /<p class="cov-empty">Everything in scope was exercised\.<\/p>/);
-});
-
-test('report CSS: expanded rows tint the header only, number steps in the gutter, and let popovers out', () => {
-	const html = render(TYPED, { ledger: LEDGER });
-	assert.match(html, /\.cv\[open\]>summary\{background:var\(--cv-open\);position:relative\}/);
-	assert.match(html, /\.cv\[open\]>summary::after\{content:"";position:absolute;left:41px;right:20px;bottom:0;height:1px;background:var\(--border\)\}/);
-	assert.match(html, /\.cv-steps ol>li\{position:relative;margin:0 0 2px;padding-left:0;counter-increment:st\}/);
-	assert.match(html, /\.cv-steps ol>li::before\{content:counter\(st\);display:inline-block;width:20px;margin:0 7px 0 -27px;/);
-	assert.match(html, /\.cv-pre \.pre-mark\{display:inline-block;width:20px;margin:0 7px 0 -27px;/);
-	assert.match(html, /\.cf-card\{overflow:visible\}/);
-	// The P popover triggers on the P and names only, opens upward, and waits out a passing mouse.
-	assert.match(html, /\.cv-pre\{position:relative;width:fit-content;/);
-	assert.match(html, /\.pre-pop\{position:absolute;bottom:calc\(100% \+ 6px\);[^}]*visibility:hidden;opacity:0;/);
-	assert.match(html, /\.cv-pre:hover \.pre-pop\{visibility:visible;opacity:1;transition:opacity \.12s ease \.15s,visibility 0s linear \.15s\}/);
-	assert.match(html, /\.cv-pre:focus \.pre-pop,\.cv-pre:focus-within \.pre-pop\{visibility:visible;opacity:1;transition:none\}/);
-	assert.doesNotMatch(html, /\.pre-pop\{[^}]*display:none/);
-	assert.match(html, /\.st-v\{color:inherit\}/);
-	// The finding link's underline is Professional's alone.
-	assert.match(html, /:root\[data-theme=professional\] \.cv-f\{text-decoration:underline;/);
-	assert.doesNotMatch(html, /^\.cv-f\{text-decoration/m);
-});
-
-test('finding steps: a step with two shots shows the icon with a count', () => {
-	const html = render(rep({
-		findings: [fnd(1, {
-			preconditions: [{ name: 'nothing', text: 'nothing' }],
-			steps: [act('Open it.'), fail('it loads.', 1)],
-			evidence: [
-				{ kind: 'shot', path: 'https://cdn.example/shots/a.png', step: 2, caption: 'first' },
-				{ kind: 'shot', path: 'https://cdn.example/shots/b.png', step: 2, caption: 'second' },
-			],
-		})],
-	}));
-	assert.match(html, /<a class="st-ev" href="#shot-f1-1" data-open="shot-f1-1" aria-label="2 screenshots for this step"><span class="ev-pop" aria-hidden="true"><img src="https:\/\/cdn\.example\/shots\/a\.png" alt="" loading="lazy"><span class="ev-cap">1 of 2 &middot; click to enlarge<\/span><\/span><svg[\s\S]*?<\/svg><span class="st-n">2<\/span><\/a>/);
-	assert.doesNotMatch(/<li id="f1-s1">.*?<\/li>/.exec(html)[0], /st-ev/);
-});
-
-test('lightbox: the caption names the step and links it; the copy button shows the copy icon', () => {
-	const html = typedHtml();
-	assert.match(html, /st\.className='lb-step'/);
-	assert.match(html, /\.lb-step\{font-weight:600;color:var\(--ink\);text-decoration:none\}/);
-	assert.match(html, /<svg class="cp-ico"[^>]*><rect x="5\.5" y="5\.5" width="8" height="8" rx="1\.6"><\/rect>/);
-	assert.doesNotMatch(html, /M7 3c\.35 2\.7/);
-});
-
-test('coverage: a scenario name reaches the photo caption as plain text', () => {
-	const ledger = '## S01 - **Bold** `code` [link](https://x.example) & more\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY it shows -> PASS\n   Evidence: https://cdn.example/shots/a.png\n';
-	assert.match(render(rep(), { ledger }), /data-caption="Bold code link &amp; more"/);
-});
-
-test('typed steps: a step Log line reaches the agent prompt', () => {
-	assert.match(typedHtml(), /\n\s*Log: get_column_profiles timed out after 10 seconds \(Renderer, 2x\)/);
-});
-
+const typedHtml = (json = TYPED, options = {}) => render(json, { ledger: LEDGER, ...options });
 const FENCED = typedStep(1, 1, {
 	kind: 'action',
 	text: 'In the Python console, make a one-column table:',
 	code: '```python\n%run -i slow.py\none12 = make_slow(ncols=1, nrows=1000, delay=0.012)\n```',
-});
-
-test('code blocks: a fenced step block gets a hover copy button that copies only the code', () => {
-	const html = typedHtml(FENCED);
-	assert.match(html, /<li id="f1-s1">In the Python console, make a one-column table:\s*<div class="code-blk"><pre><code[^>]*>%run -i slow\.py\none12 = make_slow\(ncols=1, nrows=1000, delay=0\.012\)\n?<\/code><\/pre><button type="button" class="code-cp" data-tip="Copy code" aria-label="Copy code"><svg class="cp-ico" aria-hidden="true" width="14" height="14"[\s\S]*?<svg class="cp-ok" aria-hidden="true" width="14" height="14"[\s\S]*?<\/button><\/div>\s*<\/li>/);
-	assert.match(html, /querySelectorAll\('\.cp-btn,\.code-cp'\)/);
-	assert.match(html, /text=pre\.textContent;/);
-	assert.match(html, /\.code-cp\{position:absolute;top:7px;right:7px;width:26px;height:26px;[^}]*opacity:0;/);
-	assert.match(html, /\.code-blk:hover \.code-cp,\.code-blk:focus-within \.code-cp,\.code-cp\.is-copied\{opacity:1\}/);
-	assert.match(html, /@media \(hover:none\)\{\.code-cp\{opacity:\.8\}\}/);
-	assert.match(html, /--code-blk-bg: #F1EFEA;/);
-	assert.match(html, /--code-blk-bg: #19132F;/);
-});
-
-test('code blocks: the copy script ships for code blocks even with agent prompts off', () => {
-	const html = typedHtml(FENCED, { agentPrompts: false });
-	assert.doesNotMatch(html, /class="cp-btn"/);
-	assert.match(html, /class="code-cp"/);
-	assert.match(html, /querySelectorAll\('\.cp-btn,\.code-cp'\)/);
-	assert.doesNotMatch(typedHtml(TYPED, { agentPrompts: false }), /\.cp-btn,\.code-cp/);
-});
-
-test('code blocks: a fenced block under a ledger step gets the copy button in Coverage', () => {
-	const ledger = [
-		'# Test ledger', '', '## Environment', '- desktop', '', '---', '',
-		'## S01 - Paced loading', 'Status: pass', 'Result: loads', '', 'Steps:',
-		'1. Load the slow source:', '', '   ```python', '   %run -i slow.py', '   slow = make_slow()', '   ```',
-		'2. VERIFY it loads -> PASS', '',
-	].join('\n');
-	const cov = coverageOf(render(TYPED, { ledger }));
-	assert.match(cov, /<div class="code-blk"><pre><code[^>]*>%run -i slow\.py\nslow = make_slow\(\)\n?<\/code><\/pre><button type="button" class="code-cp"/);
-});
-
-const LOGS_DIR = new URL('./fixtures/logs-run/', import.meta.url);
-/** The logs run's report.json, with no Features and the explorer's cost, as the page tests want it. */
-const LOGS_FIXTURE = JSON.parse(readFileSync(new URL('report.json', LOGS_DIR), 'utf8'));
-const LOGS_REPORT = {
-	...LOGS_FIXTURE,
-	findings: LOGS_FIXTURE.findings.map(f => ({ ...f, feature: '', preconditions: [SLOW_PY] })),
-	cost: { passes: [{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 120, durationMs: 1500000 }] },
-};
-/** LOGS_REPORT with finding `n`'s fields replaced. */
-const logsWith = (n, fields) => ({ ...LOGS_REPORT, findings: LOGS_REPORT.findings.map(f => (f.n === n ? { ...f, ...fields } : f)) });
-
-const LOGS_LEDGER = readFileSync(new URL('ledger.md', LOGS_DIR), 'utf8');
-const logsHtml = (options = {}) => render(LOGS_REPORT, { ledger: LOGS_LEDGER, base: '/runs/r2', ...options });
-
-test('logs: the ledger reads its Logs section and a Log field with the stack under it', () => {
-	const ledger = parseLedger(LOGS_LEDGER);
-	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log']);
-	assert.equal(ledger.logs[0].source, 'Positron window (renderer and dev-tools console)');
-	const step = ledger.exercised.find(r => r.id === 'S08').steps[2];
-	assert.equal(step.error.source, 'logs/44987-app.log:1182');
-	assert.deepEqual(step.error.meta, ['Renderer', 'Logged 2x (after each Retry)']);
-	assert.equal(step.error.count, 2);
-	assert.equal(step.error.frames.length, 3);
-	// The stack is the Log's, not a block under the step.
-	assert.equal(step.blockHtml, '');
-	assert.equal(parseLedger('## S01 - x\nSteps:\n1. VERIFY y -> FAIL - Finding 1\n   Log: none found in logs/a.log\n').exercised[0].steps[0].error, null);
-});
-
-test('logs: the Evidence row links the log by path, with the line only in the text', () => {
-	const c = card(logsHtml(), 1);
-	assert.match(c, /<a href="logs\/44987-app\.log" class="log-link" title="Open the full log"[^>]*>logs\/44987-app\.log:1182<\/a><span title="Logged by Positron\u2019s renderer process \(the UI\)[^"]*">Renderer process<\/span><span>Logged <span class="n-x">2x<\/span> \(after each Retry\)<\/span>/);
-	const hrefs = [...logsHtml().matchAll(/href="(logs\/[^"]*)"/g)].map(m => m[1]);
-	assert.ok(hrefs.length > 0);
-	for (const href of hrefs) {
-		assert.ok(existsSync(new URL(href, LOGS_DIR)), `${href} exists`);
-	}
-	assert.doesNotMatch(logsHtml(), /href="(\/(?!#)|~|\/tmp)/);
-	// Logs never join the screenshot gallery.
-	for (const m of logsHtml().matchAll(/<div class="shots">([\s\S]*?)<\/div><\/div>/g)) {
-		assert.doesNotMatch(m[1], /\.log\b/);
-	}
-});
-
-test('logs: a bare-message Log gets no card row but reaches the prompt', () => {
-	const html = logsHtml();
-	assert.doesNotMatch(card(html, 2), /Error output/);
-	assert.match(promptText(html, 2), /Warning: profile request for s63 cancelled/);
-});
-
-test('logs: the prompt carries the absolute log line in Evidence and the stack verbatim', () => {
-	const text = promptText(logsHtml(), 1);
-	assert.match(text, /### Evidence\n[\s\S]*- \/runs\/r2\/logs\/44987-app\.log:1182 \u2014 \u201cError: get_column_profiles timed out after 10 seconds\u201d \(Renderer, 2x after each Retry\)\n/);
-	assert.match(text, /```\nError: get_column_profiles timed out after 10 seconds\n {2}at DataExplorerClient\.getColumnProfiles \(languageRuntimeDataExplorerClient\.ts:212\)\n {2}at TableSummaryCache\.loadColumnProfiles/);
-	assert.match(text, /\n```\nLogged in \/runs\/r2\/logs\/44987-app\.log:1182 \(Renderer\), 2x after each Retry\./);
-});
-
-test('logs: Run details lists the ledger and one row per log, before Branch verification', () => {
-	const html = logsHtml();
-	const folds = html.slice(html.indexOf('id="run-details"'));
-	const labels = [...folds.matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]);
-	assert.deepEqual(labels, ['Agents', 'Change under test', 'Environment', 'State manipulation', 'Test ledger', 'Logs', 'Test files', 'Branch verification']);
-	assert.match(folds, /recorded as the run went: <a href="ledger\.md" class="log-file">ledger\.md<\/a>/);
-	const rows = /<ul class="log-list">([\s\S]*?)<\/ul>/.exec(folds)[1].match(/<li>/g);
-	assert.equal(rows.length, parseLedger(LOGS_LEDGER).logs.length);
-	assert.ok(folds.includes('<li><a href="logs/exthost.log" class="log-file" title="Open the full log" target="_blank" rel="noreferrer">logs/exthost.log</a> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">Extension host</span> <span class="log-sep" aria-hidden="true">&middot;</span> <span class="log-note">no errors</span></li>'));
-});
-
-test('logs: a listed file that is missing is shown unlinked, and a folder never links', () => {
-	const html = render(LOGS_REPORT, {
-		ledger: `${LOGS_LEDGER}\n`.replace('## Logs\n', '## Logs\n- logs/all/44987/ | Every log | artifact only\n'),
-		fileExists: p => p !== 'logs/exthost.log',
-	});
-	assert.match(html, /<span class="log-file">logs\/exthost\.log<\/span>/);
-	assert.match(html, /<span class="log-file">logs\/all\/44987\/<\/span>/);
-	assert.doesNotMatch(html, /href="logs\/(exthost\.log|all)/);
-});
-
-test('logs: render.mjs fails the run when a listed log was not copied', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
-	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
-	const render = () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), join(dir, 'report.json')], { encoding: 'utf8' });
-	assert.equal(render().status, 0);
-	rmSync(join(dir, 'logs', 'python-console.log'));
-	const failed = render();
-	assert.equal(failed.status, 1);
-	assert.match(failed.stderr, /logs\/python-console\.log/);
-	assert.ok(existsSync(join(dir, 'index.html')));
-	rmSync(dir, { recursive: true, force: true });
-});
-
-test('Run details leaves the explorer\'s format checks to stats.json', () => {
-	// They tune the skill, not the reader's view of the product.
-	const html = render(LOGS_REPORT, {
-		readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(JSON.stringify({ problems: 1, rules: { 'report: x': 1 } })) : null),
-		fileExists: p => p === 'stats.json',
-	});
-	assert.doesNotMatch(html, /Format checks|format-rules|Raw stats/);
-});
-
-/** A copy of the logs run with `passes` as report.json's cost, as the pipeline leaves it. */
-function costedRun(passes) {
-	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
-	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
-	const report = join(dir, 'report.json');
-	writeFileSync(report, JSON.stringify({ ...JSON.parse(readFileSync(report, 'utf8')), cost: { passes } }));
-	return { dir, render: () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report], { encoding: 'utf8' }) };
-}
-
-test('render.mjs gives the stats a cost when every pass has one, and shows each pass', () => {
-	const { dir, render } = costedRun([
-		{ label: 'explore', model: 'opus', costUsd: 3.7, turns: 142, durationMs: 1500000 },
-		{ label: 'verify', model: 'sonnet', costUsd: 0.4231, turns: 24, durationMs: 180000 },
-	]);
-	render();
-	assert.equal(JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8')).costUsd, 4.12);
-	assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /<div class="agents-row"><span>Verify<\/span>/);
-	rmSync(dir, { recursive: true, force: true });
-});
-
-test('render.mjs keeps the stats CI recorded when it replays a CI run', () => {
-	const { dir, render } = costedRun([{ label: 'explore', model: 'opus', costUsd: null, turns: 10, durationMs: 60000 }]);
-	writeFileSync(join(dir, 'cost.json'), '{}');
-	writeFileSync(join(dir, 'stats.json'), '{"where":"ci"}\n');
-	render();
-	assert.equal(readFileSync(join(dir, 'stats.json'), 'utf8'), '{"where":"ci"}\n');
-	rmSync(dir, { recursive: true, force: true });
-});
-
-test('modelDisplayName reads a model id the way the report names it', () => {
-	assert.equal(modelDisplayName('claude-opus-5-5'), 'Opus 5.5');
-	assert.equal(modelDisplayName('claude-sonnet-5'), 'Sonnet 5');
-	assert.equal(modelDisplayName('claude-haiku-4-5-20251001'), 'Haiku 4.5');
-	assert.equal(modelDisplayName('claude-opus-5-5[1m]'), 'Opus 5.5');
-	assert.equal(modelDisplayName('sonnet'), 'Sonnet');
-	assert.equal(modelDisplayName('some-other-model'), 'some-other-model');
-	assert.equal(modelDisplayName(null), null);
-});
-
-test('derived: a finding\'s status comes from its rate: 0/M is Unproven', () => {
-	const [f] = model(TYPED).findings;
-	assert.equal(f.confirmed, 'Confirmed');
-	assert.equal(f.reproduced, '3/3');
-	assert.equal(model(rep({ findings: [fnd(1, { reproduced: { n: 0, m: 3 } })] })).findings[0].confirmed, 'Unproven');
-});
-
-test('derived: Run details shows the ledger Environment after Change under test', () => {
-	const env = s => s.find(p => p.title === 'Environment');
-	const details = [{ title: 'Change under test', body: 'x' }, { title: 'Branch verification', body: 'y' }];
-	const folded = { ...TYPED, header: { ...TYPED.header, details } };
-	assert.match(env(model(folded, LEDGER).runDetails).html, /CDP 44987/);
-	assert.deepEqual(model(folded, LEDGER).runDetails.map(s => s.title), ['Change under test', 'Environment', 'Branch verification']);
-	// A report that wrote its own keeps it.
-	const own = { ...TYPED, header: { ...TYPED.header, details: [details[0], { title: 'Environment', body: 'mine' }, details[1]] } };
-	const sections = model(own, LEDGER).runDetails;
-	assert.equal(sections.filter(s => s.title === 'Environment').length, 1);
-	assert.match(env(sections).html, /mine/);
 });
 
 const STACKED = rep({
@@ -1711,637 +256,22 @@ const STACKED = rep({
 	})],
 });
 
-test('renderReportHtml keeps a step\'s screenshots as one lightbox group behind its icon', () => {
-	const c = card(render(STACKED), 1);
-	assert.doesNotMatch(c, /<figure>/);
-	// Every shot stays reachable by id, a step's shots in their own group.
-	assert.match(c, /<a class="shot" id="shot-f1-1" href="shots\/a\.png" data-lb="f1-g1"[^>]*hidden><\/a>/);
-	assert.match(c, /<a class="shot" id="shot-f1-2" href="shots\/b\.png" data-lb="f1-g1"[^>]*hidden><\/a>/);
-	assert.match(c, /<a class="shot" id="shot-f1-3" href="shots\/c\.png" data-lb="f1-g2"[^>]*hidden><\/a>/);
-	// The step icon opens the step's first shot and says how many it holds.
-	assert.match(c, /data-open="shot-f1-1" aria-label="2 screenshots for this step"/);
-	assert.match(c, /data-open="shot-f1-3" aria-label="Screenshot for this step"/);
-});
-
-test('renderReportHtml pages a stack in the lightbox without wrapping', () => {
-	const html = render(STACKED);
-	assert.match(html, /<div class="lb-img"><img alt="">\n<button type="button" class="lb-nav lb-prev" hidden>/);
-	assert.match(html, /function show\(i\)\{if\(i<0\|\|i>=group\.length\)\{return;\}/);
-	assert.match(html, /pos\.textContent=\(at\+1\)\+' \/ '\+group\.length/);
-	assert.match(html, /<\/div>\n<span class="lb-pos" hidden><\/span>\n<button type="button" class="lb-close"/);
-	assert.doesNotMatch(html, /lb-dots/);
-	assert.doesNotMatch(html, /\.shot\.stk::after/);
-	assert.match(html, /<a class="shot" id="shot-f1-2" [^>]*hidden><\/a>/);
-});
-
-// ---- File a GitHub issue --------------------------------------------------
-
-const issueBlock = (html, n) => {
-	const m = new RegExp(`<script type="text/plain" id="issue-f${n}">([\\s\\S]*?)</script>`).exec(html);
-	return m ? m[1] : null;
+const LOGS_DIR = new URL('./fixtures/logs-run/', import.meta.url);
+const LOGS_FIXTURE = JSON.parse(readFileSync(new URL('report.json', LOGS_DIR), 'utf8'));
+/** The logs run's report.json, with no Features and the explorer's cost. */
+const LOGS_REPORT = {
+	...LOGS_FIXTURE,
+	findings: LOGS_FIXTURE.findings.map(f => ({ ...f, feature: '', preconditions: [SLOW_PY] })),
+	cost: { passes: [{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 120, durationMs: 1500000 }] },
 };
-const issueAnchor = (html, n) => new RegExp(`<a class="gh-btn"[^>]*aria-label="File a GitHub issue for finding ${n} [^"]*">`).exec(html)?.[0];
-const unescapeHtml = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, '\'').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-const issueUrl = (html, n) => new URL(unescapeHtml(/href="([^"]*)"/.exec(issueAnchor(html, n))[1]));
-// What the page's copy handler hands the clipboard.
-const issueCopied = (html, n) => issueBlock(html, n).replace(/<\\(?=\/script|!--)/gi, '<');
+/** LOGS_REPORT with finding `n`'s fields replaced. */
+const logsWith = (n, fields) => ({ ...LOGS_REPORT, findings: LOGS_REPORT.findings.map(f => (f.n === n ? { ...f, ...fields } : f)) });
+const LOGS_LEDGER = readFileSync(new URL('ledger.md', LOGS_DIR), 'utf8');
 const logsRead = p => {
 	try { return readFileSync(new URL(p, LOGS_DIR)); } catch { return null; }
 };
-const logsIssueHtml = (options = {}) => logsHtml({ base: 'https://cdn.example/run1', readFile: logsRead, ...options });
-
-test('a lone ~ means "about", on the card and in the issue; only ~~ strikes through', () => {
-	const json = { ...FULL, findings: [{ ...FULL.findings[0], cause: '`run()` (~L12-40) calls `wait()` (~L80), and `y ~ x` is ~~not~~ fine.' }, FULL.findings[1]] };
-	const html = render(json);
-	const card = html.split('<article id="f1"')[1].split('</article>')[0];
-	assert.match(card, /\(~L12-40\) calls <code>wait\(\)<\/code> \(~L80\), and <code>y ~ x<\/code> is <del>not<\/del> fine/);
-	assert.match(issueCopied(html, 1), /\(\\~L12-40\) calls `wait\(\)` \(\\~L80\), and `y ~ x` is ~~not~~ fine/);
-});
-
-test('issue: one button per card, directly before Copy prompt', () => {
-	for (const html of [render(FULL), logsIssueHtml()]) {
-		for (const card of html.split('<article id="f').slice(1)) {
-			assert.equal((card.match(/class="gh-btn"/g) || []).length, 1);
-			assert.match(card, /<\/svg><\/a><button type="button" class="cp-btn"/);
-		}
-	}
-	const off = render(FULL, { agentPrompts: false });
-	assert.match(off, /class="gh-btn"[^>]*>[\s\S]*?<\/a><button type="button" class="ln-btn"/);
-});
-
-// ---- Copy link to a finding -------------------------------------------------
-
-test('link: one button per card, last in the meta row, naming its own anchor', () => {
-	for (const options of [{}, { agentPrompts: false }]) {
-		const html = render(FULL, options);
-		const cards = html.split('<article id="f').slice(1);
-		assert.ok(cards.length >= 1);
-		for (const card of cards) {
-			const n = /^(\d+)"/.exec(card)[1];
-			assert.equal((card.match(/class="ln-btn"/g) || []).length, 1);
-			assert.match(card, new RegExp(`<button type="button" class="ln-btn" data-link-to="f${n}" data-tip="Copy link" aria-label="Copy link to finding ${n}"><svg class="ln-ico"[\\s\\S]*?<svg class="ln-ok"[\\s\\S]*?</button></div>`));
-		}
-		assert.match(html, /querySelectorAll\('\[data-link-to\]'\)/);
-	}
-});
-
-test('link: the script copies the page URL with the anchor and updates the address bar in place', () => {
-	const html = render(FULL);
-	const src = /<script>(document\.querySelectorAll\('\[data-link-to\]'\)[\s\S]*?)<\/script>/.exec(html)[1];
-	assert.match(src, /location\.href\.split\('#'\)\[0\]\+'#'\+id/);
-	assert.match(src, /history\.replaceState\(null,'','#'\+id\)/);
-	assert.match(src, /b\.dataset\.tip='Link copied'/);
-	assert.match(src, /document\.execCommand\('copy'\)/);
-});
-
-test('link: spacing matches the other icons, and a linked card rings briefly', () => {
-	const html = render(FULL);
-	assert.match(html, /\.cp-btn:has\(\+\.ln-btn\)\{margin-right:0\}/);
-	assert.match(html, /\.cp-btn\+\.ln-btn,\.gh-btn\+\.ln-btn\{margin-left:-19px\}/);
-	assert.match(html, /article\.card:target\{animation:ln-ring 2\.4s/);
-	assert.match(html, /prefers-reduced-motion:reduce\)\{\.ln-btn\{transition:none\}article\.card:target\{animation:none;box-shadow:0 0 0 2px var\(--ln-ring\)\}\}/);
-	assert.equal((html.match(/--ln-ring: rgba/g) || []).length, 2);
-});
-
-test('issue: the link opens a blank bug form titled as the card, with the embedded text as its body', () => {
-	const html = logsIssueHtml();
-	for (const n of [1, 2]) {
-		const title = unescapeHtml(new RegExp(`<article id="f${n}"[\\s\\S]*?<h2 class="card-title">([^<]*)</h2>`).exec(html)[1]);
-		const url = issueUrl(html, n);
-		assert.equal(`${url.origin}${url.pathname}`, 'https://github.com/posit-dev/positron/issues/new');
-		assert.equal(url.searchParams.get('title'), title);
-		assert.equal(url.searchParams.get('labels'), 'ai-discovered');
-		assert.equal(url.searchParams.get('template'), null);
-		assert.equal(url.searchParams.get('body'), issueCopied(html, n));
-		assert.ok(url.href.length <= 8000);
-		assert.match(issueAnchor(html, n), / target="_blank" rel="noopener" data-tip="File a GitHub issue"/);
-		assert.doesNotMatch(issueAnchor(html, n), /data-issue/);
-	}
-});
-
-test('issue: the body follows the template and leaves out what triage sets', () => {
-	const body = issueCopied(logsIssueHtml(), 1);
-	const headings = [...body.matchAll(/^## (.+)$/gm)].map(m => m[1]);
-	// With no summary prose there is nothing to describe beyond the title, so that section is left out.
-	assert.deepEqual(headings, ['System details', 'Steps to reproduce', 'Observed', 'Expected', 'Error messages', 'Evidence']);
-	assert.match(body, /^<sub>Reported by \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) of #1234 \(`[^`]+` @ `[0-9a-f]+`\)<\/sub>\n/);
-	assert.ok(body.includes([
-		'## System details',
-		'',
-		'- **Positron:** 2026.10.0 build 12 (`ed2487a1a2`)',
-		'- **OS:** Ubuntu 22.04 (Linux x64)',
-		'',
-	].join('\n')));
-	assert.doesNotMatch(body, /\*\*Session:/);
-	assert.doesNotMatch(body, /Code - OSS|Please investigate|### Context|!\[|Severity|Status:|Reproduced|Major|Coverage/i);
-	assert.match(body, /^- `slow\.py` \(below\) loaded/m);
-	assert.match(body, /^3\. Verify the column summary loads\. \u2192 \*\*FAIL\*\*/m);
-	assert.doesNotMatch(body, /^\s*Log:/m);
-	assert.match(body, /## Error messages\n```\nError: get_column_profiles timed out/);
-	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run\.$/m);
-	assert.doesNotMatch(body, /09-one12-unavailable\.png/);
-	// The bullets say what they are.
-	assert.doesNotMatch(body, /Preconditions/);
-	assert.match(body, /## Steps to reproduce\n- `slow\.py` \(below\) loaded[^\n]*\n\n1\. /);
-	assert.match(body, /<details><summary>slow\.py<\/summary>\n\n```python\n# slow\.py/);
-	assert.doesNotMatch(body, /\/runs\/|\/tmp\//);
-});
-
-test('issue: System details list each kernel the ledger records', () => {
-	const ledger = LOGS_LEDGER.replace(/^(- Positron [^\n]*\n)/m, '$1- Kernels: Ark 0.1.252+355.f1af004, Kallichore 0.1.71.\n');
-	assert.match(issueCopied(logsIssueHtml({ ledger }), 1), /- \*\*OS:\*\* Ubuntu 22\.04 \(Linux x64\)\n- \*\*Ark:\*\* 0\.1\.252\+355\.f1af004\n- \*\*Kallichore:\*\* 0\.1\.71\n/);
-	assert.doesNotMatch(issueCopied(logsIssueHtml(), 1), /Kernels/);
-});
-
-test('issue: an error longer than six lines is clipped, and a run without one says so', () => {
-	const [f] = LOGS_REPORT.findings;
-	const step = f.steps[2];
-	const frame = step.log.body.split('\n').at(-1);
-	const long = logsWith(1, { steps: f.steps.map((s, i) => (i === 2 ? { ...s, log: { ...s.log, body: [step.log.body, frame, frame, frame, frame].join('\n') } } : s)) });
-	const body = issueCopied(render(long, { ledger: LOGS_LEDGER, readFile: logsRead }), 1);
-	const fence = /## Error messages\n```\n([\s\S]*?)\n```/.exec(body)[1].split('\n');
-	assert.equal(fence.length, 7);
-	assert.equal(fence.at(-1), '    \u2026');
-	assert.match(issueCopied(render(rep({ findings: [fnd(1, { observed: 'nothing.' })] })), 1), /## Error messages\nNone recorded by the run\./);
-});
-
-test('issue: the likely cause folds as a hypothesis, and a local run links no report', () => {
-	const html = render(FULL, { base: '/runs/r1' });
-	const body = issueCopied(html, 1);
-	assert.match(body, /<details><summary>[^<]*hypothesis[^<]*<\/summary>\n\nThe timeout was cut to 10 s\.\n\n<\/details>/);
-	assert.match(body, /^<sub>Reported by exploratory test /);
-	assert.doesNotMatch(body, /\/runs\/r1/);
-	assert.match(body, /^Screenshots and logs are in the exploratory test report for this run\.$/m);
-	assert.match(body, /- \*\*Positron:\*\* not recorded\n- \*\*OS:\*\* not recorded\n/);
-});
-
-test('issue: parseSystemLine reads the ledger line, and "not recorded" where it says so', () => {
-	assert.deepEqual(parseSystemLine('- Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).'),
-		{ positron: '2026.10.0 build 12 (`ed2487a1a2`)', os: 'Ubuntu 22.04 (Linux x64)' });
-	assert.deepEqual(parseSystemLine('Positron 2026.9.1 build 3, a release build of 0123abcd99 (Code - OSS 1.104.0), on macOS 15.1 (Darwin arm64)'),
-		{ positron: '2026.9.1 build 3 (`0123abcd99`)', os: 'macOS 15.1 (Darwin arm64)' });
-	assert.deepEqual(parseSystemLine('- Positron not recorded, on not recorded.'), { positron: 'not recorded', os: 'not recorded' });
-	assert.equal(parseSystemLine('- Positron (pre-launched, CDP 44987), workspace /tmp/x.'), null);
-});
-
-test('issue: a finding\'s Feature prefixes the issue title', () => {
-	const html = render(logsWith(1, { feature: 'data explorer' }), { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
-	const card = unescapeHtml(/<article id="f1"[\s\S]*?<h2 class="card-title">([^<]*)<\/h2>/.exec(html)[1]);
-	assert.equal(issueUrl(html, 1).searchParams.get('title'), `data explorer: ${card[0].toLowerCase()}${card.slice(1)}`);
-	assert.equal(issueUrl(html, 2).searchParams.get('title').includes('data explorer'), false);
-	assert.doesNotMatch(html, /Feature:<\/strong>|\*\*Feature:\*\*/);
-});
-
-test('issue: an opening describes the issue but stays off the card, and the run\'s own steps reproduce it', () => {
-	const json = logsWith(1, { summary: 'When you open a slow column, its summary never loads.', where: 'polars only; R was not checked.' });
-	const html = render(json, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
-	const body = issueCopied(html, 1);
-	assert.deepEqual([...body.matchAll(/^## (.+)$/gm)].map(m => m[1]), ['System details', 'Describe the issue', 'Steps to reproduce', 'Observed', 'Expected', 'Error messages', 'Evidence']);
-	assert.ok(body.includes(['## Describe the issue', 'When you open a slow column, its summary never loads.', '', 'polars only; R was not checked.', '', '## Steps to reproduce'].join('\n')));
-	assert.match(body, /^3\. Verify the column summary loads\. \u2192 \*\*FAIL\*\*/m);
-	assert.doesNotMatch(body, /What the run did/);
-	assert.match(card(html, 1), /<\/h2><\/header>\s*<div class="f-cmp /);
-	assert.doesNotMatch(card(html, 1).split('</header>')[1], /open a slow column|R was not checked/);
-	// A finding without an opening keeps the template.
-	assert.match(issueCopied(html, 2), /## Observed\n/);
-});
-
-test('issue: the claim after the Feature starts lowercase unless its first word is a name', () => {
-	const title = (claim, observed) => {
-		const json = logsWith(1, { title: claim, feature: 'console', ...(observed ? { observed } : {}) });
-		const html = render(json, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
-		return issueUrl(html, 1).searchParams.get('title');
-	};
-	assert.equal(title('Typing while busy aborts'), 'console: typing while busy aborts');
-	assert.equal(title('R aborts while busy'), 'console: R aborts while busy');
-	assert.equal(title('PyPI lookups are skipped'), 'console: PyPI lookups are skipped');
-	assert.equal(title('A preview goes blank'), 'console: a preview goes blank');
-	// Named nowhere else, a capitalized word cannot be told from a sentence start.
-	assert.equal(title('Quarto previews go blank'), 'console: quarto previews go blank');
-	assert.equal(title('Quarto previews go blank', 'Opening the Quarto preview shows nothing.'), 'console: Quarto previews go blank');
-});
-
-test('issue: a body too long for the link drops the file text, then falls back to copying', () => {
-	const big = p => p.endsWith('slow.py') ? Buffer.from(`x = 1\n`.repeat(2000)) : logsRead(p);
-	const dropped = logsIssueHtml({ readFile: big });
-	const url = issueUrl(dropped, 1);
-	assert.ok(url.href.length <= 8000);
-	assert.match(url.searchParams.get('body'), /^`slow\.py` is in the report's `files\/` folder\.$/m);
-	assert.doesNotMatch(url.searchParams.get('body'), /<summary>slow\.py/);
-	assert.doesNotMatch(dropped, /data-issue=/);
-
-	const huge = logsWith(1, { observed: `${'very long. '.repeat(900)}${LOGS_REPORT.findings[0].observed}` });
-	const html = render(huge, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
-	const anchor = issueAnchor(html, 1);
-	const fallback = issueUrl(html, 1);
-	assert.equal(fallback.searchParams.get('body'), null);
-	assert.equal(fallback.searchParams.get('labels'), 'ai-discovered');
-	assert.match(anchor, / data-issue="issue-f1"/);
-	// The copy holds everything, file text included.
-	assert.match(issueCopied(html, 1), /<summary>slow\.py<\/summary>/);
-
-	// Run the page's handler against a stub DOM: a click copies the text and shows the toast.
-	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('gh-toast'));
-	assert.ok(src);
-	assert.ok(!logsIssueHtml().includes('gh-toast\''));
-	const el = () => ({ classList: { add(c) { this.on = c; }, remove() { this.on = null; } }, setAttribute() {}, appendChild() {}, querySelector: () => ({}) });
-	const toast = el();
-	let handler, copied;
-	const link = { dataset: { issue: 'issue-f1' }, addEventListener: (_, fn) => { handler = fn; } };
-	const document = {
-		createElement: () => toast, body: { appendChild() {} },
-		querySelectorAll: () => [link],
-		getElementById: id => id === 'issue-f1' ? { textContent: unescapeHtml(issueBlock(html, 1)) } : null,
-	};
-	const navigator = { clipboard: { writeText: t => { copied = t; return { then: ok => ok() }; } } };
-	new Function('document', 'navigator', 'window', 'setTimeout', 'clearTimeout', src)(document, navigator, { isSecureContext: true }, () => 0, () => {});
-	handler();
-	assert.equal(copied, issueCopied(html, 1));
-	assert.equal(toast.classList.on, 'show');
-	assert.match(src, /Description copied\. Paste it into the issue on GitHub\./);
-	assert.match(src, /,5000\)/);
-});
-
-test('issue: a body too long for the link drops sections least needed first, and keeps the repro', () => {
-	const long = logsWith(1, { cause: 'long hypothesis. '.repeat(400) });
-	const html = render(long, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead });
-	const url = issueUrl(html, 1);
-	const body = url.searchParams.get('body');
-	assert.ok(url.href.length <= 8000);
-	assert.doesNotMatch(issueAnchor(html, 1), /data-issue=/);
-	// Dropped in order up to the cause: files, the test gap, the cause.
-	assert.doesNotMatch(body, /Likely cause|Test gap|<summary>slow\.py/);
-	assert.match(body, /^Screenshots and logs are in the \[exploratory test\]\(https:\/\/cdn\.example\/run1\/index\.html#f1\) report for this run\.$/m);
-	// Not reached: the repro and the error output stay.
-	assert.match(body, /## Steps to reproduce/);
-	assert.match(body, /## Observed\nThe summary never loads/);
-	assert.doesNotMatch(body, /## Error messages\n(?:In the|None recorded)/);
-});
-
-test('issue: a saved script cannot end the embedded block early', () => {
-	const html = render(rep({ findings: [fnd(1, { observed: 'the tag `</script>` and `<!--` ended the block.' })] }));
-	assert.doesNotMatch(issueBlock(html, 1), /<\/script|<!--/i);
-	assert.match(issueCopied(html, 1), /`<\/script>` and `<!--`/);
-	assert.match(issueUrl(html, 1).searchParams.get('body'), /`<\/script>` and `<!--`/);
-});
-
-test('issue: icons rest until their own button is hovered', () => {
-	const html = render(FULL);
-	assert.doesNotMatch(html, /\.card:hover \.cp-btn|\.card:hover \.gh-btn/);
-	assert.match(html, /\.gh-btn\{[^}]*color:var\(--cp-rest\)/);
-	assert.match(html, /\.gh-btn:hover\{color:var\(--ink\);background:var\(--cp-hover-bg\)\}/);
-	assert.match(html, /\.gh-btn\+\.cp-btn\{margin-left:-19px\}/);
-});
-
-const FINDING_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform';
-
-/** Each finding row's pre-filled answers, by form question. */
-function feedbackAnswers(html) {
-	const hrefs = [...html.matchAll(/<div class="fb" [^>]*>(.*?)<\/div>/g)].flatMap(m => [...m[1].matchAll(/href="([^"]+)"/g)].map(h => h[1]));
-	return hrefs.map(href => {
-		const url = new URL(href.replace(/&amp;/g, '&'));
-		assert.equal(`${url.origin}${url.pathname}`, FINDING_FORM);
-		// The "Feedback on" question is gone from both forms.
-		assert.equal(url.searchParams.has('entry.857252905'), false);
-		return {
-			report: url.searchParams.get('entry.1746253506'),
-			version: url.searchParams.get('entry.1873070470'),
-			finding: url.searchParams.get('entry.890833928'),
-			verdict: url.searchParams.get('entry.427792690'),
-		};
-	});
-}
-
-test('feedback: a published page asks about each finding, and the verdicts match the form exactly', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1/', skillVersion: '1.2' });
-	const answers = feedbackAnswers(html);
-	const titles = model(FULL).findings.map(f => f.title);
-	assert.equal(titles[0], 'a longer claim');
-	// In the form's order, which is also the buttons'.
-	const verdicts = ['Real issue', 'Not a bug', 'Enhancement idea', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
-	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(verdict =>
-		({ report: `https://cdn.example/run1/index.html#f${n}`, version: 'v1.2', finding: `Finding ${n} \u00b7 ${titles[n - 1]}`, verdict }))));
-	assert.equal((html.match(/<div class="fb" /g) ?? []).length, 2);
-	assert.match(html, /<span class="fb-q">Is this finding right\?<\/span>/);
-	assert.match(html, />Couldn&rsquo;t tell<\/a>/);
-	assert.match(html, />Enhancement<\/a>/);
-	// The row closes its card: after Suggested tests, before the card ends.
-	assert.match(html, /<div class="fb" role="group" [^>]*aria-label="Provide feedback on finding 1">.*<\/div>\n<script type="text\/plain" id="prompt-f1">/);
-});
-
-test('feedback: there is none for the whole report, only for each finding', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	assert.doesNotMatch(html, /fb-top|Give feedback|1FAIpQLSegogwIITog5IQGT0uUBYKekKRXO2nHSiAU4T4otg7FQc20qw/);
-	assert.match(html, /exploratory-feedback/);
-});
-
-test('feedback: a local page asks too, naming the run by its directory, never its path', () => {
-	for (const base of ['/Users/someone/20261001T120000', '/Users/someone/20261001T120000/', '20261001T120000', 'C:\\Users\\someone\\20261001T120000', 'C:\\Users\\someone\\20261001T120000\\']) {
-		const html = render(FULL, { base, skillVersion: '1.2' });
-		assert.deepEqual([...new Set(feedbackAnswers(html).map(a => a.report))], ['local:20261001T120000#f1', 'local:20261001T120000#f2']);
-		assert.doesNotMatch([...html.matchAll(/(?:href|data-submit)="(https:\/\/docs\.google\.com[^"]*)"/g)].join(' '), /someone/);
-		assert.match(html, /exploratory-feedback/);
-	}
-	// Who ran it, when git knows; a published page never says.
-	const local = render(FULL, { base: '/Users/someone/20261001T120000', author: 'a@posit.co', skillVersion: '1.2' });
-	const published = render(FULL, { base: 'https://cdn.example/run1', author: 'a@posit.co', skillVersion: '1.2' });
-	assert.equal(feedbackAnswers(local)[0].report, 'local:a@posit.co/20261001T120000#f1');
-	assert.doesNotMatch(published, /a@posit\.co/);
-	// With no base at all there is nothing to name the report by.
-	assert.doesNotMatch(render(FULL, { skillVersion: '1.2' }), /docs\.google\.com|class="fb[ "]|exploratory-feedback/);
-});
-
-/** Runs the page's feedback script against a stub window; returns a click dispatcher and the window.open calls. */
-function feedbackPopup(html, { blocked = false } = {}) {
-	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('exploratory-feedback'));
-	assert.ok(src);
-	const opens = [];
-	let handler;
-	const popup = { closed: false, location: { href: '' }, focused: 0, focus() { this.focused++; } };
-	const window = {
-		screenX: 100, screenY: 50, outerWidth: 1400, outerHeight: 1000,
-		open: (url, name, features) => { opens.push({ url, name, features }); return blocked || name === '_blank' ? null : popup; },
-	};
-	const document = { querySelectorAll: () => [], addEventListener: (type, fn) => { assert.equal(type, 'click'); handler = fn; } };
-	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, window, { availWidth: 1440, availHeight: 900 }, null, () => {});
-	const click = (href, mods = {}) => {
-		const a = { href, dataset: {} };
-		const e = { button: 0, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, target: { closest: sel => sel === '.fb a' ? a : null }, ...mods };
-		handler(e);
-		return e.defaultPrevented;
-	};
-	return { click, opens, popup };
-}
-
-test('feedback: a plain click opens the form in one reused pop-up over the report', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	// The links still work with script off.
-	assert.ok([...html.matchAll(/<a href="https:\/\/docs\.google\.com[^>]*>/g)].every(m => / target="_blank" rel="noopener"/.test(m[0])));
-	const { click, opens, popup } = feedbackPopup(html);
-	assert.equal(click('https://forms.example/finding'), true);
-	// 680 x 820, which fits the 1440 x 900 screen; centred across, a third of the way down.
-	assert.deepEqual(opens, [{ url: '', name: 'exploratory-feedback', features: 'popup,width=680,height=820,left=460,top=110' }]);
-	assert.doesNotMatch(opens[0].features, /noopener/);
-	assert.equal(popup.location.href, 'https://forms.example/finding');
-	assert.equal(click('https://forms.example/report'), true);
-	assert.equal(opens.length, 1);
-	assert.equal(popup.location.href, 'https://forms.example/report');
-	assert.equal(popup.focused, 2);
-	// Once it is closed, the next click opens a new one.
-	popup.closed = true;
-	click('https://forms.example/finding');
-	assert.equal(opens.length, 2);
-});
-
-test('feedback: a modified or middle click keeps the link\'s own behaviour, and a blocked pop-up falls back to a tab', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	const { click, opens } = feedbackPopup(html);
-	for (const mods of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
-		assert.equal(click('https://forms.example/finding', mods), false, JSON.stringify(mods));
-	}
-	assert.equal(opens.length, 0);
-	const blocked = feedbackPopup(html, { blocked: true });
-	assert.equal(blocked.click('https://forms.example/finding'), true);
-	assert.deepEqual(blocked.opens.map(o => [o.url, o.name, o.features]).at(-1), ['https://forms.example/finding', '_blank', 'noopener']);
-	// A page with no base has no feedback links, so no script for them.
-	assert.doesNotMatch(render(FULL, { skillVersion: '1.2' }), /exploratory-feedback/);
-});
-
-test('feedback: each verdict also carries its one-click submit address, with the same answers', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	const rows = [...html.matchAll(/<div class="fb" ([^>]*)>(.*?)<\/div>/g)];
-	assert.equal(rows.length, 2);
-	assert.match(rows[1][1], /^role="group" aria-live="polite" data-report="https:\/\/cdn\.example\/run1\/index\.html" data-finding="f2" /);
-	for (const [, , inner] of rows) {
-		const links = [...inner.matchAll(/<a href="([^"]+)" data-submit="([^"]+)" data-verdict="([^"]+)"/g)];
-		assert.equal(links.length, 5);
-		for (const [, href, submit, verdict] of links) {
-			const form = new URL(href.replace(/&amp;/g, '&'));
-			const one = new URL(submit.replace(/&amp;/g, '&'));
-			// The address that worked when tried by hand: no usp, and a Submit.
-			assert.equal(`${one.origin}${one.pathname}`, FINDING_FORM.replace(/viewform$/, 'formResponse'));
-			assert.equal(one.searchParams.get('submit'), 'Submit');
-			assert.equal(one.searchParams.has('usp'), false);
-			assert.equal(one.searchParams.get('entry.427792690'), verdict.replace(/&#39;/g, '\''));
-			for (const entry of ['entry.1746253506', 'entry.1873070470', 'entry.890833928', 'entry.427792690']) {
-				assert.equal(one.searchParams.get(entry), form.searchParams.get(entry), entry);
-			}
-		}
-	}
-});
-
-/** A fake DOM, just enough for the feedback script: a page of rows built from the rendered HTML. */
-function feedbackDom(html, storage) {
-	const matches = (el, sel) => sel.split(', ').some(one => {
-		if (one === '.fb a') {
-			return el.tag === 'a' && !!el.parent?.closest('.fb');
-		}
-		const [, tag, cls, data] = /^(a|button|span|div)?(?:\.([\w-]+))?(?:\[data-([\w-]+)\])?$/.exec(one) ?? [];
-		return (!tag || el.tag === tag) && (!cls || el.classList.includes(cls)) && (!data || data in el.dataset);
-	});
-	class El {
-		constructor(tag, parent) { this.tag = tag; this.parent = parent; this.children = []; this.dataset = {}; this.attrs = {}; this.className = ''; this.textContent = ''; this.hidden = false; }
-		get classList() { return this.className.split(/\s+/); }
-		// Only the empty span the answer pill's label goes in becomes an element.
-		set innerHTML(v) { this.html = v; if (v.includes('<span></span>')) { this.appendChild(new El('span', this)); } }
-		setAttribute(k, v) { this.attrs[k] = v; if (k.startsWith('data-')) { this.dataset[k.slice(5)] = v; } }
-		appendChild(c) { c.parent = this; this.children.push(c); return c; }
-		remove() { this.parent.children = this.parent.children.filter(c => c !== this); }
-		focus() { page.focused = this; }
-		all() { return this.children.flatMap(c => [c, ...c.all()]); }
-		querySelectorAll(sel) { return this.all().filter(e => matches(e, sel)); }
-		querySelector(sel) { return this.querySelectorAll(sel)[0] ?? null; }
-		closest(sel) { for (let e = this; e && e.tag; e = e.parent) { if (matches(e, sel)) { return e; } } return null; }
-		get text() { return this.textContent + this.children.map(c => c.text).join(''); }
-		get label() { return this.children.filter(c => !c.hidden).map(c => c.text).join('|'); }
-	}
-	const page = new El('body', null);
-	for (const [, attrs, inner] of html.matchAll(/<div class="fb" ([^>]*)>(.*?)<\/div>/g)) {
-		const row = page.appendChild(new El('div', page));
-		row.className = 'fb';
-		for (const [, k, v] of attrs.matchAll(/(data-[\w-]+)="([^"]*)"/g)) { row.setAttribute(k, v); }
-		const q = row.appendChild(new El('span', row)); q.className = 'fb-q'; q.textContent = 'Is this finding right?';
-		for (const [, href, submit, verdict, label] of inner.matchAll(/<a href="([^"]+)" data-submit="([^"]+)" data-verdict="([^"]+)"[^>]*>([^<]+)<\/a>/g)) {
-			const a = row.appendChild(new El('a', row));
-			a.href = href.replace(/&amp;/g, '&');
-			a.setAttribute('data-submit', submit.replace(/&amp;/g, '&'));
-			a.setAttribute('data-verdict', verdict.replace(/&#39;/g, '\''));
-			a.textContent = label.replace('&rsquo;', '\u2019');
-		}
-	}
-	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('exploratory-feedback'));
-	const opens = [];
-	let handler;
-	const popup = { closed: false, location: {}, focus() {} };
-	Object.defineProperty(popup.location, 'href', { set(v) { opens.push(v); } });
-	const body = new El('body', null);
-	const timers = [];
-	const document = {
-		body,
-		querySelectorAll: sel => page.querySelectorAll(sel),
-		createElement: tag => new El(tag, null),
-		createTextNode: text => Object.assign(new El('#text', null), { textContent: text }),
-		addEventListener: (_, fn) => { handler = fn; },
-	};
-	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, { open: () => popup }, {}, storage, fn => timers.push(fn));
-	const rows = page.children;
-	// The hidden frames a verdict click loads, which record it with no window.
-	const sends = () => body.children.map(f => f.src);
-	const click = (el, mods = {}) => {
-		const e = { button: 0, target: el, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...mods };
-		handler(e);
-		return e.defaultPrevented;
-	};
-	const verdict = (row, name) => row.children.find(c => c.dataset.verdict === name);
-	return { page, rows, click, opens, sends, body, timers, verdict };
-}
-
-function memoryStorage() {
-	const map = new Map();
-	return { map, getItem: k => map.get(k) ?? null, setItem: (k, v) => map.set(k, String(v)), removeItem: k => map.delete(k) };
-}
-
-test('feedback: a verdict click records it in one click and shows the answer, remembered on reload', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	const storage = memoryStorage();
-	const { rows, click, opens, sends, body, timers, verdict, page } = feedbackDom(html, storage);
-	const pick = verdict(rows[1], 'Not a bug');
-	assert.equal(click(pick), true);
-	// No window: the verdict goes in a hidden frame, which is removed later.
-	assert.deepEqual(opens, []);
-	assert.deepEqual(sends(), [pick.dataset.submit]);
-	const [frame] = body.children;
-	assert.equal(frame.tag, 'iframe');
-	assert.equal(frame.hidden, true);
-	timers.forEach(fn => fn());
-	assert.deepEqual(sends(), []);
-	assert.equal(rows[1].label, 'Is this finding right?|Not a bug|Add a note');
-	const pill = rows[1].querySelector('.fb-done');
-	assert.equal(pill.tag, 'button');
-	assert.equal(pill.attrs['aria-label'], 'Your answer: Not a bug. Change answer');
-	assert.equal(pill.dataset.tip, 'Change answer');
-	assert.match(pill.html, /class="fb-car"/);
-	assert.equal(rows[0].label.split('|').length, 6, 'the other finding is untouched');
-	assert.deepEqual([...storage.map].filter(([k]) => k !== 'fb:id'), [['fb:https://cdn.example/run1/index.html#f2', 'Not a bug']]);
-	const note = rows[1].querySelector('.fb-note');
-	assert.equal(page.focused, note);
-	// Add a note opens the pre-filled form, and records nothing more.
-	assert.equal(note.href, pick.href);
-	click(note);
-	assert.deepEqual(opens, [pick.href]);
-
-	// A reload shows the answer again, without submitting.
-	const again = feedbackDom(html, storage);
-	assert.equal(again.rows[1].label, 'Is this finding right?|Not a bug|Add a note');
-	assert.deepEqual(again.opens, []);
-
-	assert.deepEqual(again.sends(), []);
-
-	// Clicking the answer forgets it and brings the buttons back, sending nothing.
-	again.click(again.rows[1].querySelector('.fb-done'));
-	assert.equal(again.rows[1].label, 'Is this finding right?|Real issue|Not a bug|Enhancement|Not worth reporting|Couldn\u2019t tell');
-	assert.deepEqual([...storage.map.keys()], ['fb:id']);
-	assert.equal(again.page.focused, again.verdict(again.rows[1], 'Real issue'));
-	assert.deepEqual(again.sends(), []);
-	// Picking again sends the new verdict.
-	const other = again.verdict(again.rows[1], 'Real issue');
-	again.click(other);
-	assert.deepEqual(again.sends(), [other.dataset.submit]);
-});
-
-test('feedback: a modified click opens the form without recording, and blocked storage only loses the memory', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	const storage = memoryStorage();
-	const { rows, click, opens, sends, verdict } = feedbackDom(html, storage);
-	assert.equal(click(verdict(rows[0], 'Real issue'), { metaKey: true }), false);
-	assert.deepEqual(opens, []);
-	assert.deepEqual(sends(), []);
-	assert.deepEqual([...storage.map.keys()], ['fb:id']);
-	assert.equal(rows[0].label.split('|').length, 6);
-
-	const throwing = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() { throw new Error('blocked'); } };
-	const blocked = feedbackDom(html, throwing);
-	blocked.click(blocked.verdict(blocked.rows[0], 'Real issue'));
-	assert.equal(blocked.sends().length, 1);
-	assert.equal(blocked.rows[0].label, 'Is this finding right?|Real issue|Add a note');
-
-	// A stored value that is not one of the page's verdicts is dropped, never shown.
-	const planted = memoryStorage();
-	planted.setItem('fb:https://cdn.example/run1/index.html#f1', '<img src=x onerror=alert(1)>');
-	const p = feedbackDom(html, planted);
-	assert.equal(p.rows[0].label.split('|').length, 6);
-	assert.deepEqual([...planted.map.keys()], ['fb:id']);
-});
-
-test('feedback: every finding answer from a browser carries the same random ID, kept across reloads', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	const ids = links => links.flatMap(a => [a.href, a.dataset.submit]).map(u => new URL(u).searchParams.getAll('entry.1280428395'));
-	const storage = memoryStorage();
-	const first = feedbackDom(html, storage);
-	const links = first.rows.flatMap(r => r.querySelectorAll('a[data-verdict]'));
-	const [[id]] = ids(links);
-	assert.match(id, /^[0-9a-f]{12}$/);
-	assert.ok(ids(links).every(v => v.length === 1 && v[0] === id), 'once per link, the same everywhere');
-	assert.equal(storage.getItem('fb:id'), id);
-	const again = feedbackDom(html, storage);
-	assert.ok(ids(again.rows.flatMap(r => r.querySelectorAll('a[data-verdict]'))).every(v => v[0] === id));
-	// A different browser gets its own; one that cannot store gets one per page.
-	assert.notEqual(ids(feedbackDom(html, memoryStorage()).rows[0].querySelectorAll('a[data-verdict]'))[0][0], id);
-	// A stored value that is not an ID is replaced.
-	const planted = memoryStorage();
-	planted.setItem('fb:id', '&entry.427792690=Not%20a%20bug');
-	const p = feedbackDom(html, planted);
-	assert.match(planted.getItem('fb:id'), /^[0-9a-f]{12}$/);
-	assert.ok(ids(p.rows[0].querySelectorAll('a[data-verdict]')).every(v => v[0] === planted.getItem('fb:id')));
-});
-
-test('feedback: a missing skill version is sent as unknown, never blank', () => {
-	const html = render(FULL, { base: 'https://cdn.example/run1' });
-	assert.ok(feedbackAnswers(html).every(a => a.version === 'unknown'));
-});
-
-test('skillVersion reads SKILL.md\'s frontmatter, never its body, with no v', () => {
-	assert.match(skillVersion(), /^\d+\.\d+/);
-	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: "2.3"\n---\n'), '2.3');
-	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: v2.3\n---\n'), '2.3');
-	assert.equal(skillVersion('---\nname: x\n---\n\nversion: 9.9\n'), null);
-});
-
-test('the footer names the version the feedback links send, with a v, published or not', () => {
-	for (const base of ['https://cdn.example/run1', '/tmp/run1']) {
-		const html = render(FULL, { base, skillVersion: '1.2' });
-		assert.match(html, /<a class="sig-link" [^>]*>exploratory-test <span class="sig-ver">v1\.2<\/span> &#8599;<\/a>/);
-	}
-	const published = render(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
-	assert.ok(feedbackAnswers(published, 'fb').every(a => a.version === 'v1.2'));
-	// No version: the name alone, with no empty span and no placeholder.
-	assert.match(render(FULL), /<a class="sig-link" [^>]*>exploratory-test &#8599;<\/a>/);
-	assert.doesNotMatch(render(FULL), /sig-ver/);
-});
-
-test('code copy: inline code in Reproduce copies on click, and nothing else on the card does', () => {
-	const html = render(rep({
-		findings: [fnd(1, {
-			preconditions: [{ name: 'console', text: 'a Python console.' }, { name: '`slow.py` loaded', text: '`slow.py` loaded with `%run -i slow.py`.' }],
-			steps: [
-				{ kind: 'action', text: 'Run `%view df`.', code: '```python\ndf.head()\n```' },
-				fail('the grid shows `df`.', 1),
-			],
-			observed: 'the grid showed `None`.',
-		})],
-	}));
-	const chips = [...html.matchAll(/<code class="cc" data-tip="Copy">([^<]*)<\/code>/g)].map(m => m[1]);
-	// A precondition shows once, on its own line; there is no popover to repeat it.
-	assert.deepEqual(chips, ['slow.py', '%run -i slow.py', '%view df', 'df']);
-	// A code block keeps its own Copy button; Observed is prose, not a command.
-	assert.match(html, /<pre><code class="language-python">df\.head\(\)\n?<\/code><\/pre>/);
-	assert.match(html, /<div class="f-lab">Observed<\/div><p class="f-txt">the grid showed <code>None<\/code>/);
-	assert.match(html, /code\.cc'\)\.forEach/);
-});
-
-test('code copy: a page with no inline code in Reproduce ships no script for it', () => {
-	assert.doesNotMatch(render(rep()), /code\.cc'\)\.forEach/);
-});
+/** The logs run as published, with its files read for the issue bodies. */
+const logsHtml = (json = LOGS_REPORT, options = {}) => render(json, { ledger: LOGS_LEDGER, base: 'https://cdn.example/run1', readFile: logsRead, ...options });
 
 // Known issues: issues the PR fixes and issues that mention it, fetched before the run.
 const KI_VERIFICATION = { failed: false, text: 'A second agent.\n\n**1.** Checks out.', linked: [{ issue: 23, severity: 'major' }, { issue: 20, severity: 'minor' }, { issue: 26, severity: 'minor' }] };
@@ -2352,15 +282,10 @@ const KI_REPORT = {
 		fnd(2, { severity: 'minor', reproduced: { n: 2, m: 2 }, title: 'Old bug back', verified: 'disputed', known: [21], observed: 'it is back.', expected: 'it is gone.' }),
 		fnd(3, { severity: 'moderate', reproduced: { n: 2, m: 2 }, title: 'Looks known', verified: 'unresolved', known: [25, 20], observed: 'it is slow.', expected: 'it is fast.' }),
 	],
-	scenarios: [],
-	logs: [],
-	files: [],
-	environment: {},
 	verification: KI_VERIFICATION,
 };
 /** KI_REPORT with finding `n`'s fields replaced. */
-const kiWith = (n, fields, report = KI_REPORT) => ({ ...report, findings: report.findings.map(f => (f.n === n ? { ...f, ...fields } : f)) });
-
+const kiWith = (n, fields) => ({ ...KI_REPORT, findings: KI_REPORT.findings.map(f => (f.n === n ? { ...f, ...fields } : f)) });
 const KI_LEDGER = `## S01 - fix one
 Status: pass
 Result: loads
@@ -2409,239 +334,934 @@ const KI_ISSUES = {
 		{ number: 26, relation: 'linked', state: 'open', title: 'minor one', createdAt: '2026-08-20T00:00:00Z', summary: '' },
 	],
 };
-const kiHtml = (options = {}) => render(KI_REPORT, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, startedAt: new Date('2026-09-29T00:00:00Z'), ...options });
-
-const findingsOf = html => html.slice(html.indexOf('id="findings"'), html.indexOf('</section>', html.indexOf('id="findings"')));
-const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>(?=\\n)`).exec(findingsOf(html))[0];
-const linkedOf = html => /<div class="ki-grp">[\s\S]*?<\/div><\/div>/.exec(findingsOf(html))?.[0] ?? '';
-const kiList = (html, id) => new RegExp(`<div class="ki-list" id="${id}" hidden>([\\s\\S]*?)</div></div>(?=<div class="ki-list"|\\n)`).exec(findingsOf(html))?.[1] ?? '';
-const kiCnt = (id, text) => `<span class="ki-cnt" role="button" tabindex="0" aria-haspopup="dialog" aria-expanded="false" aria-controls="${id}">${text}</span>`;
-const KI_DOT = '<span class="ki-dot" aria-hidden="true">&middot;</span>';
-
-test('Linked issues is one plain row under the findings, with every count opening its list', () => {
-	const html = kiHtml();
-	const f = findingsOf(html);
-	const linked = linkedOf(html);
-	assert.ok(f.indexOf('<a href="#f3"') < f.indexOf('<div class="ki-grp">'), 'under the findings');
-	assert.equal(linked, `<div class="ki-grp"><div class="ki-bar"><span class="ki-lbl"><b>Linked issues</b></span><span class="ki-sum">${kiCnt('ki-list-fix', '1 fix verified')}${KI_DOT}${kiCnt('ki-list-obs', '3 observed')}${KI_DOT}${kiCnt('ki-list-no', '1 not observed')}</span></div></div>`);
-	assert.doesNotMatch(f, /<details|<summary|ki-chev|ki-row|ki-title|ki-sub|ki-group|ki-foot|ki-line|Already filed/);
-	assert.ok(f.indexOf(linked) + linked.length < f.indexOf('id="ki-list-obs"'), 'lists sit outside the row');
-	assert.ok(html.includes("closest('.ki-cnt')"), 'list script');
-});
-
-test('the observed list orders open issues by severity, unrated last, with where each was seen', () => {
-	const html = kiHtml();
-	const obs = kiList(html, 'ki-list-obs');
-	assert.ok(obs.startsWith('<div class="ki-lc-h">Known issues observed this run</div>'), obs.slice(0, 200));
-	assert.deepEqual([...obs.matchAll(/>#(\d+)<\/a>/g)].map(m => m[1]), ['23', '26', '22']);
-	assert.match(obs, /#26<\/a><span>minor one<span class="ki-lc-m">Open &middot; seen in &ldquo;[^&]+&rdquo; and &ldquo;[^&]+&rdquo; &middot; <a class="ki-ev" href="#cv-row-\d+">View evidence<\/a><\/span>/);
-	assert.doesNotMatch(obs, /class="pill|class="rate|ki-num/, 'no severity, count or card link');
-});
-
-test('the fix verified and not observed lists name each issue with its state and where it stood', () => {
-	const html = kiHtml();
-	const it = (n, title, meta) => `<div class="ki-lc-it"><a class="ki-lc-n" href="https://github.com/posit-dev/positron/issues/${n}" target="_blank" rel="noopener">#${n}</a><span>${title}<span class="ki-lc-m">${meta}</span></span>`;
-	assert.equal(kiList(html, 'ki-list-fix'), `<div class="ki-lc-h">Fix verified this run</div>${it(10, 'held', 'Open &middot; passed in &ldquo;fix one&rdquo;')}`);
-	// A closed issue that came back and an issue a finding matched are findings, so neither is listed.
-	assert.equal(kiList(html, 'ki-list-no'), `<div class="ki-lc-h">Linked to this PR, not observed</div>${it(24, 'not seen', 'Open &middot; skipped on purpose, see Coverage')}`);
-	const unseen = kiHtml({ ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') });
-	assert.match(kiList(unseen, 'ki-list-no'), /#22<\/a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">Open &middot; no scenario reached it<\/span>/);
-});
-
-test('Linked issues leaves out zero counts, and is left out with no counts', () => {
-	const noFix = kiHtml({ ledger: KI_LEDGER.replace('Issue: #10 fix held\n', '') });
-	assert.match(linkedOf(noFix), new RegExp(`<span class="ki-sum">${kiCnt('ki-list-obs', '3 observed')}${KI_DOT}${kiCnt('ki-list-no', '1 not observed')}</span>`));
-	assert.doesNotMatch(findingsOf(noFix), /ki-list-fix/);
-	const f = findingsOf(kiHtml({ ledger: KI_LEDGER.replace(/^Issue: #2[236] observed\n/gm, '') }));
-	assert.match(f, new RegExp(`<span class="ki-sum">${kiCnt('ki-list-fix', '1 fix verified')}${KI_DOT}${kiCnt('ki-list-no', '4 not observed')}</span>`));
-	assert.doesNotMatch(f, /ki-list-obs/);
-	const onlyFixes = { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) };
-	assert.equal(linkedOf(kiHtml({ knownIssues: onlyFixes })), '', 'a failed fix is a finding and an unexercised one is in Coverage');
-});
-
-test('known issues are not findings: no number, no card, not counted', () => {
-	const html = kiHtml();
-	assert.doesNotMatch(kiList(html, 'ki-list-obs'), /class="n"|href="#f/);
-	assert.equal((findingsOf(html).match(/<a href="#f\d+" class="row/g) ?? []).length, 3);
-});
-
-test('a fix that did not hold and a closed issue that came back are findings with a red x and plain numbers', () => {
-	const html = kiHtml();
-	const one = findingRow(html, 1);
-	assert.match(one, /<span class="ki-st"><span class="ki-reg"><span class="ki-x"><svg[^>]*>[\s\S]*?<\/svg><\/span>Fix didn&rsquo;t hold<\/span><span class="ki-state">Fixes <span class="ki-num-t"[^>]*>#11<\/span><\/span><\/span>/);
-	assert.doesNotMatch(one.slice(1), /<a /, 'no link inside the row link');
-	assert.doesNotMatch(one, /Dupe/, 'the card carries it');
-	const back = findingRow(render(kiWith(2, { verified: 'confirmed' }), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2);
-	assert.match(back, /<span class="ki-reg"><span class="ki-x">[\s\S]*?<\/span>Regressed<\/span><span class="ki-state">Closed &middot; <span class="ki-num-t"[^>]*>#21<\/span><\/span>/);
-});
-
-test('an issue number in a row previews on hover but is not a link, so the row click stands', () => {
-	const html = kiHtml();
-	assert.match(findingRow(html, 1), /<span class="ki-num-t" data-state="open" data-opened="Opened Aug 20" data-title="failed" data-summary="x">#11<\/span>/);
-	assert.ok(html.includes(".ki-num-t[data-title]"), 'the preview script picks it up');
-	assert.match(findingRow(kiHtml({ knownIssues: { ...KI_ISSUES, issues: [] } }), 1), /<a href="#f1" class="row findings-grid">/);
-});
-
-test('a verdict other than Confirmed takes the label\'s place, with the issue line kept under it', () => {
-	const two = findingRow(kiHtml(), 2);
-	assert.match(two, /<span class="ki-st"><span class="status muted">Disputed<\/span><span class="ki-state">Closed &middot; <span class="ki-num-t"[^>]*>#21<\/span><\/span><\/span>/);
-	assert.doesNotMatch(two, /Regressed|ki-x/);
-});
-
-test('a finding that matches an open linked issue says Dupe? under its verdict, with a count past the first', () => {
-	const three = findingRow(kiHtml(), 3);
-	assert.match(three, /<span class="ki-st"><span class="status muted">Unresolved<\/span><span class="ki-state">Dupe\? <span class="ki-num-t"[^>]*>#25<\/span> \+1<\/span><\/span>/);
-	const one = findingRow(kiHtml({ knownIssues: { ...KI_ISSUES, issues: KI_ISSUES.issues.filter(i => i.number !== 20) } }), 3);
-	assert.match(one, /Dupe\? <span class="ki-num-t"[^>]*>#25<\/span><\/span>/);
-	assert.doesNotMatch(findingRow(kiHtml(), 1), /Dupe/, 'a match on a fix or an unlisted issue changes no Status');
-	// A finding's own issue wins, so the cell stays two lines and the match stays on the card.
-	const mixed = render({ ...kiWith(1, { known: [11, 25] }), verification: KI_VERIFICATION }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
-	assert.equal((findingRow(mixed, 1).match(/ki-state/g) ?? []).length, 1);
-	assert.doesNotMatch(findingRow(mixed, 1), /Dupe/);
-	assert.match(card(mixed, 1), /<span class="f-ki">Dupe\? <a class="ki-num"[^>]*>#25<\/a><\/span>/);
-});
-
-test('the card\'s meta line ends with its linked issues: the fix or regression, then any dupes, never its own issue twice', () => {
-	const html = kiHtml();
-	const items = n => [...card(html, n).matchAll(/<span class="f-ki">([\s\S]*?)<\/span>/g)].map(m => m[1].replace(/<a class="ki-num"[^>]*>(#\d+)<\/a>/g, '$1'));
-	assert.ok(card(html, 1).indexOf('f-ki') < card(html, 1).indexOf('card-title'), 'in the meta line, above the title');
-	assert.deepEqual(items(1), ['Fix didn&rsquo;t hold #11', 'Dupe? #15102']);
-	// Verify disputed it, so its issue line stands in without the claim.
-	assert.deepEqual(items(2), ['Closed &middot; #21']);
-	assert.deepEqual(items(3), ['Dupe? #25 #20']);
-	assert.match(card(html, 3), /<a class="ki-num"[^>]*data-title="also similar"[^>]*>#20<\/a>/, 'the number keeps its preview');
-	// The prompt names the same issues, with the list's state and title where it has them.
-	assert.ok(promptText(html, 1).includes('### Possible duplicates\n- https://github.com/posit-dev/positron/issues/15102\n\n'));
-	assert.ok(promptText(html, 3).includes('### Possible duplicates\n- https://github.com/posit-dev/positron/issues/25 (open): similar\n- https://github.com/posit-dev/positron/issues/20 (open): also similar\n'));
-	assert.match(html, /\.meta \.f-ki\{color:var\(--faint-rate\);white-space:nowrap\}/);
-});
-
-test('Coverage leads each row\'s result with its fixes and linked issues, after any finding link, and adds a Not run row for an unrecorded fix', () => {
-	const c = coverageOf(kiHtml()).replace(/<a class="ki-num"[^>]*>/g, '<a>');
-	// A finding's row only maps to it; the card has the bug and its rate.
-	assert.match(c, /Finding 1<\/a> &middot; Fix didn&rsquo;t hold for <a>#11<\/a><\/span>/);
-	assert.match(c, /Finding 2<\/a> &middot; Regressed <a>#21<\/a><\/span>/);
-	assert.match(c, /"cov-result">Fix verified for <a>#10<\/a> &middot; Also observed <a>#26<\/a> &middot; Loads/);
-	assert.match(c, /"cov-result">Also observed <a>#22<\/a>, <a>#23<\/a>, <a>#26<\/a> &middot; Fine/);
-	assert.match(c, /Not run<\/span> &middot; Fix for <a>#12<\/a> not exercised: desktop only/);
-	assert.match(c, /Not run<\/span> &middot; Already filed as <a>#24<\/a>/);
-	assert.match(c, /Not run<\/span> &middot; Fix for <a>#13<\/a> not exercised: the run did not record it/);
-	assert.match(c, /Not run <span class="cf-cnt">3<\/span>/, 'the synthesized row is counted');
-});
-
-test('issue text from GitHub is escaped in rows and data attributes, and the preview script ships only with them', () => {
-	const html = kiHtml();
-	assert.match(kiList(html, 'ki-list-obs'), /#22<\/a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">/);
-	assert.match(html, /data-title="Title &quot;&lt;script&gt;&amp;" data-summary="a &quot;&lt;b&gt;&quot; &amp; c"/);
-	assert.doesNotMatch(html, /Title "<script>/);
-	assert.ok(html.includes('a.ki-num[data-title]'), 'preview script');
-	assert.ok(!render(KI_REPORT, { ledger: KI_LEDGER }).includes('a.ki-num[data-title]'), 'no script without issues');
-});
-
-test('the issue body names the fix that did not hold, or the issue that regressed, and the PR', () => {
-	const html = kiHtml({ base: 'https://cdn.example/run1' });
-	const body = n => issueUrl(html, n).searchParams.get('body');
-	assert.ok(body(1).startsWith('The fix for #11 in #100 didn\'t hold.\n\n'), body(1).slice(0, 80));
-	assert.ok(body(2).startsWith('#21 regressed in #100.\n\n'), body(2).slice(0, 80));
-});
-
+const kiHtml = (json = KI_REPORT, options = {}) => render(json, { ledger: KI_LEDGER, knownIssues: KI_ISSUES, base: 'https://cdn.example/run1', ...options });
 const NO_FINDINGS = { ...KI_REPORT, findings: [], verification: { failed: false, text: 'A second agent.', linked: KI_VERIFICATION.linked } };
-
+/** KI_LEDGER with every scenario passing and every fix held. */
 const passing = ledger => ledger.replace(/Status: fail - Finding \d/g, 'Status: pass').replace('Issue: #11 fix did not hold', 'Issue: #11 fix held').replace(/^Issue: #2[15] .*\n/gm, '');
 
-test('with no findings, every linked count joins the empty state and there is no Linked issues row', () => {
-	const f = findingsOf(render(NO_FINDINGS, { ledger: passing(KI_LEDGER), knownIssues: KI_ISSUES }));
-	assert.doesNotMatch(f, /row-head|ki-grp|ki-bar/);
-	assert.ok(f.includes(`<b>No new findings</b><span class="ki-empty-sum"><b>5</b> passed${KI_DOT}<b>3</b> not run${KI_DOT}${kiCnt('ki-list-fix', '2 fixes verified')}${KI_DOT}${kiCnt('ki-list-obs', '3 known issues observed')}${KI_DOT}${kiCnt('ki-list-no', '4 linked issues not observed')}</span></span><a class="ki-ev ki-empty-go" href="#coverage">See Coverage</a></div>`), f.slice(0, 1200));
-	assert.match(f, /<div class="ki-list" id="ki-list-obs" hidden><div class="ki-lc-h">Known issues observed this run<\/div>/);
+// ---- Slices of a page ------------------------------------------------------
+
+/** From `start` to the first `end` after it. */
+const between = (html, start, end) => {
+	const i = html.indexOf(start);
+	return i === -1 ? '' : html.slice(i, html.indexOf(end, i));
+};
+/** The card as rendered, without its prompt block. */
+function card(html, n) {
+	const start = html.indexOf(`<article id="f${n}"`);
+	const end = html.indexOf('</article>', start);
+	const prompt = html.indexOf('<script type="text/plain"', start);
+	return html.slice(start, prompt !== -1 && prompt < end ? prompt : end);
+}
+/** The text of finding `n`'s copyable prompt block. */
+const promptText = (html, n) => new RegExp(`<script type="text/plain" id="prompt-f${n}">([\\s\\S]*?)</script>`).exec(html)?.[1] ?? null;
+const issueBlock = (html, n) => new RegExp(`<script type="text/plain" id="issue-f${n}">([\\s\\S]*?)</script>`).exec(html)?.[1] ?? null;
+const issueAnchor = (html, n) => new RegExp(`<a class="gh-btn"[^>]*aria-label="File a GitHub issue for finding ${n} [^"]*">`).exec(html)?.[0];
+const unescapeHtml = s => s.replace(/&quot;/g, '"').replace(/&#39;/g, '\'').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const issueUrl = (html, n) => new URL(unescapeHtml(/href="([^"]*)"/.exec(issueAnchor(html, n))[1]));
+// What the page's copy handler hands the clipboard.
+const issueCopied = (html, n) => issueBlock(html, n).replace(/<\\(?=\/script|!--)/gi, '<');
+const tiles = html => between(html, '<section class="tiles">', '</section>');
+const coverageOf = html => between(html, 'id="coverage"', '</section>');
+const findingsOf = html => between(html, 'id="findings"', '</section>');
+const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
+const runDetails = html => between(html, '<details id="run-details">', '</details>\n</section>');
+const footer = html => between(html, '<footer', '</footer>');
+const foldLabels = html => [...runDetails(html).matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]).join(', ');
+/** Which of the page's optional scripts it ships. */
+const scripts = html => Object.entries({
+	copy: '.cp-btn,.code-cp', codeCopy: 'code.cc\').forEach', feedback: 'exploratory-feedback', issueList: 'closest(\'.ki-cnt\')', issuePreview: 'a.ki-num[data-title]',
+}).filter(([, s]) => html.includes(s)).map(([k]) => k).join(' ') || '(none)';
+/** The body, with each script cut to its first line, since the saved pages pin the scripts. */
+const body = html => html.slice(html.indexOf('<body')).replace(/<script>([\s\S]*?)<\/script>/g, (_, s) => `<script>${s.slice(0, 60)}...</script>`);
+/** The Evidence row of a finding whose evidence is `items`, or '' when it has none. */
+const evidenceRow = items => /<details class="lc ev">[\s\S]*?<\/details>/.exec(card(render(rep({ findings: [fnd(1, { observed: 'it broke.', evidence: items })] })), 1))?.[0] ?? '';
+
+// ---- The model -------------------------------------------------------------
+
+test('reportFromJson lifts the title, the chips and the lead out of the header', () => {
+	const r = model(FULL);
+	assert.equal(r.title, 'something');
+	assert.deepEqual(r.chips, ['branch/name', 'abc1234']);
+	// The agent's own emphasis survives: it is the only thing that watched the
+	// run, so it is the only thing that knows which clause is the point.
+	assert.match(r.leadHtml, /<strong>But not on slow sources\.<\/strong>/);
+	// Emphasis on everything emphasises nothing.
+	assert.doesNotMatch(model(rep({ header: { result: '**Everything is broken everywhere.**' } })).leadHtml, /<strong>/);
+	// Coverage's own table is the count, so the scope does not repeat it.
+	assert.equal(r.scopeHtml, 'The summary panel on two backends.');
+	// No branch, so no chips, whatever else is backticked.
+	assert.deepEqual(model(rep({ header: { branch: undefined, sha: undefined }, findings: [fnd(1, { observed: '`some/path.ts` misbehaves.' })] })).chips, []);
 });
 
-test('with no findings and nothing observed, the linked counts join the empty state and there is no Linked issues row', () => {
-	// Drop every observed sighting, so what's left is fixes that held and issues not observed.
-	const ledger = passing(KI_LEDGER).replace(/^Issue: #\d+ observed.*\n/gm, '').replace(/ - Also observed #\d+/g, '');
-	const f = findingsOf(render(NO_FINDINGS, { ledger, knownIssues: KI_ISSUES }));
-	assert.doesNotMatch(f, /ki-grp|row-head/);
-	assert.match(f, /<span class="ki-empty-sum"><b>\d+<\/b> passed[\s\S]*?<span class="ki-cnt"[^>]*aria-controls="ki-list-fix">\d+ fix(es)? verified<\/span>[\s\S]*?<span class="ki-cnt"[^>]*aria-controls="ki-list-no">\d+ linked issues? not observed<\/span><\/span>/);
-	assert.match(f, /<div class="ki-list" id="ki-list-no" hidden>/);
-	assert.match(f, /<div class="ki-list" id="ki-list-fix" hidden>/);
+test('reportFromJson tallies severities and scenarios for the tiles, from the ledger', () => {
+	const r = model(FULL, FULL_LEDGER);
+	assert.equal(r.findingCount, 2);
+	assert.deepEqual(r.severityCounts, { major: 1, moderate: 0, minor: 1 });
+	assert.deepEqual(r.scenarios, { exercised: 3, pass: 2, issues: 1, notRun: 1 });
+	assert.deepEqual(model(TYPED, LEDGER).scenarios, { exercised: 8, pass: 6, issues: 2, notRun: 3 });
 });
 
-test('with no findings and no linked issues, only the empty state shows', () => {
-	const f = findingsOf(render(NO_FINDINGS, { ledger: passing(KI_LEDGER).replace(/^Issue: .*\n/gm, '') }));
-	assert.doesNotMatch(f, /row-head|ki-grp|ki-list/);
-	assert.match(f, /ki-empty/);
-	assert.ok(!render(NO_FINDINGS).includes("closest('.ki-cnt')"), 'no list script');
+test('reportFromJson keeps a featured shot first in Evidence, once, and a step\'s cited shot before its listed ones', () => {
+	const shots = f => f.evidence.filter(e => e.kind === 'shot');
+	const full = shots(model(FULL).findings[0]);
+	assert.equal(full.filter(e => e.file === '01-stuck.png').length, 1);
+	assert.deepEqual([full[0].featured, full[0].caption], [true, 'The spinner, 60 s later']);
+	const [f] = model(rep({
+		findings: [fnd(1, {
+			steps: [act('Run `%view df`.'), fail('it loads', 1, { shots: ['shots/S03-03.png', 'shots/S03-03b.png'] })],
+			evidence: [
+				{ kind: 'shot', path: 'shots/S03-13.png', step: 2, caption: 'pandas loads the same column' },
+				{ kind: 'shot', path: 'shots/S03-03b.png', step: 2, caption: 'still loading 15 s later' },
+			],
+		})],
+	})).findings;
+	assert.deepEqual(shots(f).map(e => `${e.file} ${e.caption}`),
+		['S03-03.png Verify it loads', 'S03-03b.png Still loading 15 s later', 'S03-13.png pandas loads the same column']);
 });
 
-test('renderReportHtml gives chat apps a link preview', () => {
-	const html = render(rep({ header: { title: 'Exploratory test: a "quoted" title', branch: undefined, sha: undefined } }));
-	// The site name already says what it is, so the title is just the report's.
-	assert.match(html, /<meta property="og:site_name" content="Positron exploratory test">\n<meta property="og:title" content="A &quot;quoted&quot; title">/);
-	// No branch, so no description rather than an empty one.
-	assert.doesNotMatch(html, /description/);
+test('reportFromJson takes Run details from the header and the verdicts from the findings', () => {
+	const r = model(fullWith(2, { verified: 'disputed' }));
+	assert.deepEqual(r.runDetails.map(s => s.title), ['Change under test', 'Environment']);
+	assert.deepEqual(r.verification.verdicts, [{ n: 1, word: 'confirmed' }, { n: 2, word: 'disputed' }]);
+	// The ledger's Environment goes after Change under test, unless the report wrote its own.
+	const details = [{ title: 'Change under test', body: 'x' }, { title: 'Branch verification', body: 'y' }];
+	const folded = model({ ...TYPED, header: { ...TYPED.header, details } }, LEDGER).runDetails;
+	assert.deepEqual(folded.map(s => s.title), ['Change under test', 'Environment', 'Branch verification']);
+	assert.match(folded[1].html, /CDP 44987/);
+	const own = model({ ...TYPED, header: { ...TYPED.header, details: [details[0], { title: 'Environment', body: 'mine' }, details[1]] } }, LEDGER).runDetails;
+	assert.deepEqual(own.filter(s => s.title === 'Environment').map(s => s.html.trim()), ['<p>mine</p>']);
 });
 
-test('renderReportHtml adds the link image only when the caller wrote one', () => {
-	assert.doesNotMatch(render(FULL), /og:image/);
-	const tags = html => html.match(/<meta property="og:image[^>]*>/g);
-	assert.deepEqual(tags(render(FULL, { ogImage: 'https://cdn.example/run/og.png' })), [
-		'<meta property="og:image" content="https://cdn.example/run/og.png">',
-		'<meta property="og:image:width" content="1200">',
-		'<meta property="og:image:height" content="630">',
-		'<meta property="og:image:alt" content="1 major, 1 minor findings">',
+test('reportFromJson reads each cost pass and the total', () => {
+	const { cost } = model(FULL);
+	assert.equal(cost.total, '$3.75');
+	// The run took 31 minutes; 26 of them were the explore pass.
+	assert.equal(cost.duration, '31m');
+	assert.deepEqual(cost.passes.map(p => [p.label, p.model, p.cost, p.turns, p.maxTurns]), [['explore', 'Opus 5.5', '$3.12', '77', '200'], ['verify', null, '$0.63', '31', null]]);
+	const short = model(rep({ cost: { passes: [{ label: 'verify', model: 'claude-sonnet-5', costUsd: 0.02, turns: 3, durationMs: 20000 }] } })).cost;
+	assert.deepEqual([short.passes[0].duration, short.passes[0].model, short.total], ['<1m', 'Sonnet 5', '$0.02']);
+});
+
+test('derived: a finding\'s status comes from its rate: 0/M is Unproven', () => {
+	const [f] = model(TYPED).findings;
+	assert.deepEqual([f.confirmed, f.reproduced], ['Confirmed', '3/3']);
+	assert.equal(model(rep({ findings: [fnd(1, { reproduced: { n: 0, m: 3 } })] })).findings[0].confirmed, 'Unproven');
+	// A check with no result gets no invented one.
+	const steps = model(rep({ findings: [fnd(1, { steps: [act('Open it.'), { kind: 'verify', text: 'Check that it loads.' }] })] })).findings[0].steps;
+	assert.deepEqual(steps.map(s => [s.kind, s.result]), [['action', null], ['verify', null]]);
+});
+
+test('modelDisplayName reads a model id the way the report names it', () => {
+	assert.deepEqual(['claude-opus-5-5', 'claude-sonnet-5', 'claude-haiku-4-5-20251001', 'claude-opus-5-5[1m]', 'sonnet', 'some-other-model', null].map(modelDisplayName),
+		['Opus 5.5', 'Sonnet 5', 'Haiku 4.5', 'Opus 5.5', 'Sonnet', 'some-other-model', null]);
+});
+
+test('skillVersion reads SKILL.md\'s frontmatter, never its body, with no v', () => {
+	assert.match(skillVersion(), /^\d+\.\d+/);
+	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: "2.3"\n---\n'), '2.3');
+	assert.equal(skillVersion('---\nname: x\nmetadata:\n  version: v2.3\n---\n'), '2.3');
+	assert.equal(skillVersion('---\nname: x\n---\n\nversion: 9.9\n'), null);
+});
+
+// ---- The ledger ------------------------------------------------------------
+
+test('ledger: parses scenarios, preconditions, typed steps and not-run rows', () => {
+	const cov = parseLedger(LEDGER);
+	assert.deepEqual(cov.exercised.map(r => `${r.id}:${r.status}:${r.finding ?? ''}`),
+		['S01:pass:', 'S02:pass:', 'S03:pass:', 'S04:pass:', 'S05:pass:', 'S06:pass:', 'S08:fail:1', 'S09:fail:2']);
+	const s03 = cov.exercised[2];
+	assert.deepEqual(s03.pre.map(p => p.from), ['S02']);
+	assert.match(s03.pre[0].howHtml, /opened with <code>%view edge<\/code>/);
+	assert.deepEqual(cov.exercised[7].steps.map(s => s.result ?? 'action'), ['action', 'action', 'pass', 'action', 'fail', 'action', 'fail']);
+	assert.deepEqual(cov.exercised[6].steps[2].evidence.map(e => e.href), ['shots/09-one12-unavailable.png', 'shots/07-slow12-unavailable.png']);
+	assert.deepEqual(cov.notExercised.map(r => r.id), ['N01', 'N02', 'N05']);
+	assert.equal(cov.notExercised[1].reasonHtml, 'Could not make value fetches slow: the slow-hash trick only slows profiling');
+	// Environment is whole-run context for Run details, never a Coverage row.
+	assert.doesNotMatch(JSON.stringify([cov.exercised, cov.notExercised]), /CDP 44987/);
+	assert.match(cov.environment.join('\n'), /CDP 44987/);
+});
+
+test('ledger: reads the middle-dot and arrow forms the same as ASCII', () => {
+	const cov = parseLedger([
+		'## S01 \u00b7 slow column', 'Status: fail \u00b7 Finding 3', 'Result: Fails 3/3', '',
+		'Steps:', '1. Run it.', '2. VERIFY The summary loads. \u2192 FAIL \u00b7 Finding 3', '   Observed: Dots.', '',
+		'## Not run', '- N01 \u00b7 Positron web \u00b7 Desktop build only',
+	].join('\n'));
+	assert.equal(cov.exercised[0].finding, 3);
+	assert.equal(cov.exercised[0].steps[1].md, 'Verify the summary loads.');
+	assert.equal(cov.exercised[0].steps[1].observed, 'Dots.');
+	assert.equal(cov.notExercised[0].reasonHtml, 'Desktop build only');
+	assert.equal(parseLedger('# Test ledger\n\n## Environment\n- x'), null);
+});
+
+test('ledger: reads its Logs section and a Log field with the stack under it', () => {
+	const ledger = parseLedger(LOGS_LEDGER);
+	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log']);
+	assert.equal(ledger.logs[0].source, 'Positron window (renderer and dev-tools console)');
+	const step = ledger.exercised.find(r => r.id === 'S08').steps[2];
+	assert.equal(step.error.source, 'logs/44987-app.log:1182');
+	assert.deepEqual(step.error.meta, ['Renderer', 'Logged 2x (after each Retry)']);
+	assert.deepEqual([step.error.count, step.error.frames.length], [2, 3]);
+	// The stack is the Log's, not a block under the step.
+	assert.equal(step.blockHtml, '');
+	assert.equal(parseLedger('## S01 - x\nSteps:\n1. VERIFY y -> FAIL - Finding 1\n   Log: none found in logs/a.log\n').exercised[0].steps[0].error, null);
+});
+
+test('ledger: Noticed notes stay in the ledger and never reach the report', () => {
+	// The report shows only what the run checked, so Coverage counts add up.
+	const ledger = LEDGER.replace('## Not run', '## Noticed\n- O01 - The summary shows 16% for 2 of 12 missing values - seen in S01, not checked\n\n## Not run');
+	assert.equal(coverageOf(typedHtml(TYPED, { ledger })), coverageOf(typedHtml()));
+});
+
+test('issue: parseSystemLine reads the ledger line, and "not recorded" where it says so', () => {
+	assert.deepEqual(parseSystemLine('- Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0), on Ubuntu 22.04 (Linux x64).'),
+		{ positron: '2026.10.0 build 12 (`ed2487a1a2`)', os: 'Ubuntu 22.04 (Linux x64)' });
+	assert.deepEqual(parseSystemLine('Positron 2026.9.1 build 3, a release build of 0123abcd99 (Code - OSS 1.104.0), on macOS 15.1 (Darwin arm64)'),
+		{ positron: '2026.9.1 build 3 (`0123abcd99`)', os: 'macOS 15.1 (Darwin arm64)' });
+	assert.deepEqual(parseSystemLine('- Positron not recorded, on not recorded.'), { positron: 'not recorded', os: 'not recorded' });
+	assert.equal(parseSystemLine('- Positron (pre-launched, CDP 44987), workspace /tmp/x.'), null);
+});
+
+// ---- What a hostile report cannot do ----------------------------------------
+// A report is written by an agent reading a branch's diff, its logs and its UI,
+// and the page is published on a domain shared with every other run. Anything a
+// hostile branch can get quoted into a report must come out as text.
+
+test('safeUrl keeps http, https, mailto and relative paths, and rejects a scheme that can execute', () => {
+	for (const ok of ['https://cdn.example/shots/a.png', 'http://x/a.png', 'mailto:a@b.c', 'shots/a.png', '/shots/a.png']) {
+		assert.equal(safeUrl(ok), ok);
+	}
+	// Browsers ignore control characters inside a scheme; the guard must too.
+	for (const bad of ['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,<script>alert(1)</script>', 'vbscript:msgbox', 'java\nscript:alert(1)', '  javascript:alert(1)', '']) {
+		assert.equal(safeUrl(bad), null, bad);
+	}
+});
+
+test('reportFromJson renders raw HTML in a report as text, and strips a link a reader could be made to execute', () => {
+	const f = model(rep({
+		findings: [fnd(1, {
+			observed: 'it broke <img src=x onerror=alert(1)> and <script>alert(2)</script>, see [the log](javascript:alert(1)) and [the shot](https://cdn.example/a.png).',
+			expected: 'a `<div>` element, shown as code.',
+		})],
+	})).findings[0];
+	assert.doesNotMatch(f.observedHtml, /<img|<script|javascript:/);
+	assert.match(f.observedHtml, /&lt;img src=x onerror=alert\(1\)&gt;.*the log.*<a href="https:\/\/cdn\.example\/a\.png">the shot<\/a>/);
+	// A code span still shows its angle brackets, which is why this is escaped at the renderer.
+	assert.match(f.expectedHtml, /<code>&lt;div&gt;<\/code>/);
+	assert.doesNotMatch(render(rep({ header: { title: 'A <script>alert(1)</script> title' } })), /<title>[^<]*<script>/);
+});
+
+test('reportFromJson refuses an evidence shot whose extension hides its scheme', () => {
+	const json = rep({
+		findings: [fnd(1, {
+			evidence: [
+				{ kind: 'shot', path: 'javascript:alert(1)//shots/01.png', caption: 'looks like a screenshot' },
+				{ kind: 'shot', path: 'https://cdn.example/shots/02.png', caption: 'a real one' },
+			],
+		})],
+	});
+	// basename() ends in .png either way, so the extension test alone let it past.
+	assert.deepEqual(model(json).findings[0].evidence.filter(e => e.kind === 'shot').map(e => e.src), ['https://cdn.example/shots/02.png']);
+	for (const html of [render(json), fullHtml()]) {
+		assert.doesNotMatch(html, /javascript:|src="\s*data:/i);
+	}
+});
+
+test('reportFromJson only links a PR whose repo is a real owner/repo', () => {
+	const pr = value => model(rep({ header: { pr: value } })).pr;
+	assert.deepEqual(pr({ repo: 'posit-dev/positron', number: 16188 }), { number: 16188, url: 'https://github.com/posit-dev/positron/pull/16188' });
+	for (const bad of [{ repo: 'javascript:alert(1)', number: 1 }, { repo: 'evil.com/x/y', number: 1 }, undefined]) {
+		assert.equal(pr(bad), undefined);
+	}
+});
+
+test('renderReportHtml stays self-contained but for Google Fonts', () => {
+	const html = fullHtml();
+	assert.doesNotMatch(html, /<script[^>]+src=/);
+	const sheets = [...html.matchAll(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/g)].map(m => m[1]);
+	assert.equal(sheets.length, 1);
+	assert.match(sheets[0], /^https:\/\/fonts\.googleapis\.com\//);
+	// Every family names a system fallback.
+	assert.doesNotMatch(html, /--sans: '[^']+';/);
+});
+
+test('a prompt or issue mentioning </script> or <!-- cannot end its block, and copies as written', () => {
+	const html = render(rep({ findings: [fnd(1, { observed: 'the tag `</script>` and `<!--` ended the block.' })] }));
+	assert.doesNotMatch(promptText(html, 1), /<\/script/i);
+	assert.doesNotMatch(issueBlock(html, 1), /<\/script|<!--/i);
+	// Run the copy handler's own unescape over the block, as the page does.
+	const [, pattern, flags, replacement] = /text=el\.textContent\.trim\(\)\.replace\(\/(.+?)\/([a-z]*),'([^']*)'\);/.exec(html);
+	assert.match(promptText(html, 1).replace(new RegExp(pattern, flags), replacement), /`<\/script>` and `<!--`/);
+	assert.match(issueCopied(html, 1), /`<\/script>` and `<!--`/);
+	assert.match(issueUrl(html, 1).searchParams.get('body'), /`<\/script>` and `<!--`/);
+});
+
+test('issue text from GitHub is escaped in rows and data attributes', () => {
+	const html = kiHtml();
+	assert.match(html, /#22<\/a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">/);
+	assert.match(html, /data-title="Title &quot;&lt;script&gt;&amp;" data-summary="a &quot;&lt;b&gt;&quot; &amp; c"/);
+	assert.doesNotMatch(html, /Title "<script>/);
+});
+
+test('feedback: a local page names the run by its directory, never its path, and a published one never names who ran it', () => {
+	const reports = html => [...new Set([...html.matchAll(/entry\.1746253506=([^&"]+)/g)].map(m => decodeURIComponent(m[1])))];
+	for (const base of ['/Users/someone/20261001T120000', '/Users/someone/20261001T120000/', '20261001T120000', 'C:\\Users\\someone\\20261001T120000', 'C:\\Users\\someone\\20261001T120000\\']) {
+		const html = fullHtml(FULL, { base, skillVersion: '1.2' });
+		assert.deepEqual(reports(html), ['local:20261001T120000#f1', 'local:20261001T120000#f2']);
+		assert.doesNotMatch([...html.matchAll(/(?:href|data-submit)="(https:\/\/docs\.google\.com[^"]*)"/g)].join(' '), /someone/);
+	}
+	assert.deepEqual(reports(fullHtml(FULL, { base: '/Users/someone/20261001T120000', author: 'a@posit.co' }))[0], 'local:a@posit.co/20261001T120000#f1');
+	assert.doesNotMatch(fullHtml(FULL, { base: 'https://cdn.example/run1', author: 'a@posit.co' }), /a@posit\.co/);
+});
+
+// ---- The page's scripts ----------------------------------------------------
+
+test('renderReportHtml emits inline scripts that parse, cut where the HTML parser cuts them', () => {
+	for (const html of [fullHtml(FULL, { base: 'https://cdn.example/run1' }), typedHtml(FENCED), kiHtml()]) {
+		const srcs = [...html.matchAll(/<script>([\s\S]*?)<\/script[\s/>]/gi)].map(m => m[1]);
+		assert.ok(srcs.length >= 2);
+		for (const src of srcs) {
+			assert.doesNotThrow(() => new Function(src));
+		}
+	}
+});
+
+/** Runs the page script against a stub DOM; returns the toggle, the Share button and what happened. */
+function headerDom(html, { secure = true, clipboardFails = false } = {}) {
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('.th-sw'));
+	assert.ok(src);
+	const attrs = { 'data-theme': 'professional' };
+	const root = { getAttribute: k => attrs[k], setAttribute: (k, v) => { attrs[k] = v; } };
+	const el = () => {
+		const e = { dataset: {}, attrs: {}, classes: new Set(), handlers: {}, textContent: '' };
+		e.setAttribute = (k, v) => { e.attrs[k] = v; };
+		e.addEventListener = (type, fn) => { e.handlers[type] = fn; };
+		e.classList = { add: c => e.classes.add(c), remove: c => e.classes.delete(c), toggle() {} };
+		return e;
+	};
+	const sw = el();
+	const share = el();
+	const label = el();
+	label.textContent = 'Share';
+	share.querySelector = () => label;
+	const stored = {};
+	const copied = [];
+	const replaced = [];
+	const timers = [];
+	let execCopies = 0;
+	const document = {
+		documentElement: root,
+		querySelector: sel => ({ '.th-sw': sw, '.sh-btn': share })[sel] ?? null,
+		querySelectorAll: () => [],
+		getElementById: () => null,
+		addEventListener() {},
+		createElement: () => ({ style: {}, setAttribute() {}, select() {}, remove() {} }),
+		body: { appendChild: ta => copied.push(ta.value) },
+		execCommand: () => { execCopies++; return true; },
+	};
+	const thenable = ok => ({ then: (done, failed) => (ok ? done() : failed()) });
+	const window = { isSecureContext: secure, addEventListener() {}, scrollY: 0 };
+	const navigator = { clipboard: { writeText: text => { copied.push(text); return thenable(!clipboardFails); } } };
+	const location = { href: 'https://cdn.example/run1/index.html#f2', pathname: '/run1/index.html', search: '' };
+	const history = { replaceState: (s, t, url) => replaced.push(url) };
+	const localStorage = { setItem: (k, v) => { stored[k] = v; } };
+	new Function('document', 'window', 'navigator', 'location', 'history', 'localStorage', 'setTimeout', 'clearTimeout', src)(
+		document, window, navigator, location, history, localStorage, fn => timers.push(fn), () => {});
+	return { attrs, sw, share, label, stored, copied, replaced, timers, execCopies: () => execCopies };
+}
+
+test('header: the toggle switches between light and dark, says which it goes to, and remembers it', () => {
+	const h = headerDom(fullHtml());
+	assert.equal(h.sw.attrs['aria-label'], 'Switch to dark mode');
+	h.sw.handlers.click();
+	assert.equal(h.attrs['data-theme'], 'party');
+	assert.deepEqual([h.sw.dataset.tip, h.sw.attrs['aria-label']], ['Switch to light mode', 'Switch to light mode']);
+	assert.equal(h.stored['exploratory-report-theme'], 'party');
+	h.sw.handlers.click();
+	assert.equal(h.attrs['data-theme'], 'professional');
+	assert.equal(h.sw.dataset.tip, 'Switch to dark mode');
+});
+
+test('header: Share copies the report URL with no anchor, clears it from the address bar, and says Copied for a moment', () => {
+	const html = fullHtml();
+	const h = headerDom(html);
+	h.share.handlers.click();
+	assert.deepEqual(h.copied, ['https://cdn.example/run1/index.html']);
+	assert.deepEqual(h.replaced, ['/run1/index.html']);
+	assert.ok(h.share.classes.has('is-copied'));
+	assert.equal(h.label.textContent, 'Copied');
+	h.timers.pop()();
+	assert.ok(!h.share.classes.has('is-copied'));
+	assert.equal(h.label.textContent, 'Share');
+	// Without the Clipboard API, or when it refuses, a hidden textarea copies it.
+	for (const opts of [{ secure: false }, { clipboardFails: true }]) {
+		const f = headerDom(html, opts);
+		f.share.handlers.click();
+		assert.equal(f.execCopies(), 1);
+		assert.equal(f.copied.at(-1), 'https://cdn.example/run1/index.html');
+		assert.equal(f.label.textContent, 'Copied');
+	}
+});
+
+test('link: the script copies the page URL with the anchor and updates the address bar in place', () => {
+	const src = /<script>(document\.querySelectorAll\('\[data-link-to\]'\)[\s\S]*?)<\/script>/.exec(fullHtml())[1];
+	assert.match(src, /location\.href\.split\('#'\)\[0\]\+'#'\+id/);
+	assert.match(src, /history\.replaceState\(null,'','#'\+id\)/);
+	assert.match(src, /b\.dataset\.tip='Link copied'/);
+	assert.match(src, /document\.execCommand\('copy'\)/);
+});
+
+test('issue: the link opens a blank bug form titled as the card, with the embedded text as its body', () => {
+	const html = logsHtml();
+	for (const n of [1, 2]) {
+		const title = unescapeHtml(new RegExp(`<article id="f${n}"[\\s\\S]*?<h2 class="card-title">([^<]*)</h2>`).exec(html)[1]);
+		const url = issueUrl(html, n);
+		assert.equal(`${url.origin}${url.pathname}`, 'https://github.com/posit-dev/positron/issues/new');
+		assert.deepEqual([url.searchParams.get('title'), url.searchParams.get('labels'), url.searchParams.get('template')], [title, 'ai-discovered', null]);
+		assert.equal(url.searchParams.get('body'), issueCopied(html, n));
+		assert.ok(url.href.length <= 8000);
+	}
+});
+
+test('issue: a body too long for the link drops the file text, then falls back to copying', () => {
+	const big = p => p.endsWith('slow.py') ? Buffer.from(`x = 1\n`.repeat(2000)) : logsRead(p);
+	const dropped = logsHtml(LOGS_REPORT, { readFile: big });
+	const url = issueUrl(dropped, 1);
+	assert.ok(url.href.length <= 8000);
+	assert.match(url.searchParams.get('body'), /^`slow\.py` is in the report's `files\/` folder\.$/m);
+	assert.doesNotMatch(url.searchParams.get('body'), /<summary>slow\.py/);
+	assert.doesNotMatch(dropped, /data-issue=/);
+
+	const html = logsHtml(logsWith(1, { observed: `${'very long. '.repeat(900)}${LOGS_REPORT.findings[0].observed}` }));
+	const fallback = issueUrl(html, 1);
+	assert.deepEqual([fallback.searchParams.get('body'), fallback.searchParams.get('labels')], [null, 'ai-discovered']);
+	assert.match(issueAnchor(html, 1), / data-issue="issue-f1"/);
+	// The copy holds everything, file text included.
+	assert.match(issueCopied(html, 1), /<summary>slow\.py<\/summary>/);
+
+	// Run the page's handler against a stub DOM: a click copies the text and shows the toast.
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('gh-toast'));
+	assert.ok(src);
+	assert.ok(!logsHtml().includes('gh-toast\''));
+	const el = () => ({ classList: { add(c) { this.on = c; }, remove() { this.on = null; } }, setAttribute() {}, appendChild() {}, querySelector: () => ({}) });
+	const toast = el();
+	let handler, copied;
+	const link = { dataset: { issue: 'issue-f1' }, addEventListener: (_, fn) => { handler = fn; } };
+	const document = {
+		createElement: () => toast, body: { appendChild() {} },
+		querySelectorAll: () => [link],
+		getElementById: id => id === 'issue-f1' ? { textContent: unescapeHtml(issueBlock(html, 1)) } : null,
+	};
+	const navigator = { clipboard: { writeText: t => { copied = t; return { then: ok => ok() }; } } };
+	new Function('document', 'navigator', 'window', 'setTimeout', 'clearTimeout', src)(document, navigator, { isSecureContext: true }, () => 0, () => {});
+	handler();
+	assert.equal(copied, issueCopied(html, 1));
+	assert.equal(toast.classList.on, 'show');
+	assert.match(src, /Description copied\. Paste it into the issue on GitHub\./);
+});
+
+test('issue: a body too long for the link drops sections least needed first, and keeps the repro', () => {
+	const html = logsHtml(logsWith(1, { cause: 'long hypothesis. '.repeat(400) }));
+	const url = issueUrl(html, 1);
+	const issue = url.searchParams.get('body');
+	assert.ok(url.href.length <= 8000);
+	assert.doesNotMatch(issueAnchor(html, 1), /data-issue=/);
+	// Dropped in order up to the cause: files, the test gap, the cause.
+	assert.doesNotMatch(issue, /Likely cause|Test gap|<summary>slow\.py/);
+	// Not reached: the repro and the error output stay.
+	assert.match(issue, /## Steps to reproduce/);
+	assert.match(issue, /## Observed\nThe summary never loads/);
+	assert.doesNotMatch(issue, /## Error messages\n(?:In the|None recorded)/);
+});
+
+const FINDING_FORM = 'https://docs.google.com/forms/d/e/1FAIpQLSc98gL34VYnh7oZAJ1MVj0HRvFUV9YI4xc8nFvMtWiqrsxiiw/viewform';
+
+test('feedback: each verdict carries the form\'s exact answers, and a one-click submit address with the same ones', () => {
+	const html = fullHtml(FULL, { base: 'https://cdn.example/run1/', skillVersion: '1.2' });
+	const titles = model(FULL).findings.map(f => f.title);
+	const verdicts = ['Real issue', 'Not a bug', 'Enhancement idea', 'Real, but not worth reporting', 'Couldn\'t tell from the report'];
+	const links = [...html.matchAll(/<a href="([^"]+)" data-submit="([^"]+)" data-verdict="([^"]+)"/g)];
+	const entries = ['entry.1746253506', 'entry.1873070470', 'entry.890833928', 'entry.427792690'];
+	const answers = links.map(([, href, submit]) => {
+		const form = new URL(href.replace(/&amp;/g, '&'));
+		const one = new URL(submit.replace(/&amp;/g, '&'));
+		assert.equal(`${form.origin}${form.pathname}`, FINDING_FORM);
+		// The address that worked when tried by hand: no usp, and a Submit.
+		assert.equal(`${one.origin}${one.pathname}`, FINDING_FORM.replace(/viewform$/, 'formResponse'));
+		assert.deepEqual([one.searchParams.get('submit'), one.searchParams.has('usp')], ['Submit', false]);
+		assert.deepEqual(entries.map(e => one.searchParams.get(e)), entries.map(e => form.searchParams.get(e)));
+		return entries.map(e => form.searchParams.get(e));
+	});
+	assert.deepEqual(answers, [1, 2].flatMap(n => verdicts.map(v => [`https://cdn.example/run1/index.html#f${n}`, 'v1.2', `Finding ${n} \u00b7 ${titles[n - 1]}`, v])));
+	// A missing skill version is sent as unknown, never blank.
+	assert.ok([...fullHtml(FULL, { base: 'https://cdn.example/run1' }).matchAll(/entry\.1873070470=([^&"]+)/g)].every(m => m[1] === 'unknown'));
+});
+
+/** Runs the page's feedback script against a stub window; returns a click dispatcher and the window.open calls. */
+function feedbackPopup(html, { blocked = false } = {}) {
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('exploratory-feedback'));
+	assert.ok(src);
+	const opens = [];
+	let handler;
+	const popup = { closed: false, location: { href: '' }, focused: 0, focus() { this.focused++; } };
+	const window = {
+		screenX: 100, screenY: 50, outerWidth: 1400, outerHeight: 1000,
+		open: (url, name, features) => { opens.push({ url, name, features }); return blocked || name === '_blank' ? null : popup; },
+	};
+	const document = { querySelectorAll: () => [], addEventListener: (type, fn) => { assert.equal(type, 'click'); handler = fn; } };
+	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, window, { availWidth: 1440, availHeight: 900 }, null, () => {});
+	const click = (href, mods = {}) => {
+		const a = { href, dataset: {} };
+		const e = { button: 0, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, target: { closest: sel => sel === '.fb a' ? a : null }, ...mods };
+		handler(e);
+		return e.defaultPrevented;
+	};
+	return { click, opens, popup };
+}
+
+test('feedback: a plain click opens the form in one reused pop-up over the report', () => {
+	const html = fullHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	// The links still work with script off.
+	assert.ok([...html.matchAll(/<a href="https:\/\/docs\.google\.com[^>]*>/g)].every(m => / target="_blank" rel="noopener"/.test(m[0])));
+	const { click, opens, popup } = feedbackPopup(html);
+	assert.equal(click('https://forms.example/finding'), true);
+	// 680 x 820, which fits the 1440 x 900 screen; centred across, a third of the way down.
+	assert.deepEqual(opens, [{ url: '', name: 'exploratory-feedback', features: 'popup,width=680,height=820,left=460,top=110' }]);
+	assert.equal(popup.location.href, 'https://forms.example/finding');
+	assert.equal(click('https://forms.example/report'), true);
+	assert.equal(opens.length, 1);
+	assert.equal(popup.location.href, 'https://forms.example/report');
+	assert.equal(popup.focused, 2);
+	// Once it is closed, the next click opens a new one.
+	popup.closed = true;
+	click('https://forms.example/finding');
+	assert.equal(opens.length, 2);
+});
+
+test('feedback: a modified or middle click keeps the link\'s own behaviour, and a blocked pop-up falls back to a tab', () => {
+	const html = fullHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const { click, opens } = feedbackPopup(html);
+	for (const mods of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+		assert.equal(click('https://forms.example/finding', mods), false, JSON.stringify(mods));
+	}
+	assert.equal(opens.length, 0);
+	const blocked = feedbackPopup(html, { blocked: true });
+	assert.equal(blocked.click('https://forms.example/finding'), true);
+	assert.deepEqual(blocked.opens.map(o => [o.url, o.name, o.features]).at(-1), ['https://forms.example/finding', '_blank', 'noopener']);
+});
+
+/** A fake DOM, just enough for the feedback script: a page of rows built from the rendered HTML. */
+function feedbackDom(html, storage) {
+	const matches = (el, sel) => sel.split(', ').some(one => {
+		if (one === '.fb a') {
+			return el.tag === 'a' && !!el.parent?.closest('.fb');
+		}
+		const [, tag, cls, data] = /^(a|button|span|div)?(?:\.([\w-]+))?(?:\[data-([\w-]+)\])?$/.exec(one) ?? [];
+		return (!tag || el.tag === tag) && (!cls || el.classList.includes(cls)) && (!data || data in el.dataset);
+	});
+	class El {
+		constructor(tag, parent) { this.tag = tag; this.parent = parent; this.children = []; this.dataset = {}; this.attrs = {}; this.className = ''; this.textContent = ''; this.hidden = false; }
+		get classList() { return this.className.split(/\s+/); }
+		// Only the empty span the answer pill's label goes in becomes an element.
+		set innerHTML(v) { this.html = v; if (v.includes('<span></span>')) { this.appendChild(new El('span', this)); } }
+		setAttribute(k, v) { this.attrs[k] = v; if (k.startsWith('data-')) { this.dataset[k.slice(5)] = v; } }
+		appendChild(c) { c.parent = this; this.children.push(c); return c; }
+		remove() { this.parent.children = this.parent.children.filter(c => c !== this); }
+		focus() { page.focused = this; }
+		all() { return this.children.flatMap(c => [c, ...c.all()]); }
+		querySelectorAll(sel) { return this.all().filter(e => matches(e, sel)); }
+		querySelector(sel) { return this.querySelectorAll(sel)[0] ?? null; }
+		closest(sel) { for (let e = this; e && e.tag; e = e.parent) { if (matches(e, sel)) { return e; } } return null; }
+		get text() { return this.textContent + this.children.map(c => c.text).join(''); }
+		get label() { return this.children.filter(c => !c.hidden).map(c => c.text).join('|'); }
+	}
+	const page = new El('body', null);
+	for (const [, attrs, inner] of html.matchAll(/<div class="fb" ([^>]*)>(.*?)<\/div>/g)) {
+		const row = page.appendChild(new El('div', page));
+		row.className = 'fb';
+		for (const [, k, v] of attrs.matchAll(/(data-[\w-]+)="([^"]*)"/g)) { row.setAttribute(k, v); }
+		const q = row.appendChild(new El('span', row)); q.className = 'fb-q'; q.textContent = 'Is this finding right?';
+		for (const [, href, submit, verdict, label] of inner.matchAll(/<a href="([^"]+)" data-submit="([^"]+)" data-verdict="([^"]+)"[^>]*>([^<]+)<\/a>/g)) {
+			const a = row.appendChild(new El('a', row));
+			a.href = href.replace(/&amp;/g, '&');
+			a.setAttribute('data-submit', submit.replace(/&amp;/g, '&'));
+			a.setAttribute('data-verdict', verdict.replace(/&#39;/g, '\''));
+			a.textContent = label.replace('&rsquo;', '\u2019');
+		}
+	}
+	const src = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]).find(s => s.includes('exploratory-feedback'));
+	const opens = [];
+	let handler;
+	const popup = { closed: false, location: {}, focus() {} };
+	Object.defineProperty(popup.location, 'href', { set(v) { opens.push(v); } });
+	const frames = new El('body', null);
+	const timers = [];
+	const document = {
+		body: frames,
+		querySelectorAll: sel => page.querySelectorAll(sel),
+		createElement: tag => new El(tag, null),
+		createTextNode: text => Object.assign(new El('#text', null), { textContent: text }),
+		addEventListener: (_, fn) => { handler = fn; },
+	};
+	new Function('document', 'window', 'screen', 'localStorage', 'setTimeout', src)(document, { open: () => popup }, {}, storage, fn => timers.push(fn));
+	const rows = page.children;
+	// The hidden frames a verdict click loads, which record it with no window.
+	const sends = () => frames.children.map(f => f.src);
+	const click = (el, mods = {}) => {
+		const e = { button: 0, target: el, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...mods };
+		handler(e);
+		return e.defaultPrevented;
+	};
+	const verdict = (row, name) => row.children.find(c => c.dataset.verdict === name);
+	return { page, rows, click, opens, sends, frames, timers, verdict };
+}
+
+function memoryStorage() {
+	const map = new Map();
+	return { map, getItem: k => map.get(k) ?? null, setItem: (k, v) => map.set(k, String(v)), removeItem: k => map.delete(k) };
+}
+
+test('feedback: a verdict click records it in one click and shows the answer, remembered on reload', () => {
+	const html = fullHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const storage = memoryStorage();
+	const { rows, click, opens, sends, frames, timers, verdict, page } = feedbackDom(html, storage);
+	const pick = verdict(rows[1], 'Not a bug');
+	assert.equal(click(pick), true);
+	// No window: the verdict goes in a hidden frame, which is removed later.
+	assert.deepEqual(opens, []);
+	assert.deepEqual(sends(), [pick.dataset.submit]);
+	const [frame] = frames.children;
+	assert.deepEqual([frame.tag, frame.hidden], ['iframe', true]);
+	timers.forEach(fn => fn());
+	assert.deepEqual(sends(), []);
+	assert.equal(rows[1].label, 'Is this finding right?|Not a bug|Add a note');
+	const pill = rows[1].querySelector('.fb-done');
+	assert.equal(pill.tag, 'button');
+	assert.equal(pill.attrs['aria-label'], 'Your answer: Not a bug. Change answer');
+	assert.equal(pill.dataset.tip, 'Change answer');
+	assert.equal(rows[0].label.split('|').length, 6, 'the other finding is untouched');
+	assert.deepEqual([...storage.map].filter(([k]) => k !== 'fb:id'), [['fb:https://cdn.example/run1/index.html#f2', 'Not a bug']]);
+	const note = rows[1].querySelector('.fb-note');
+	assert.equal(page.focused, note);
+	// Add a note opens the pre-filled form, and records nothing more.
+	assert.equal(note.href, pick.href);
+	click(note);
+	assert.deepEqual(opens, [pick.href]);
+
+	// A reload shows the answer again, without submitting.
+	const again = feedbackDom(html, storage);
+	assert.equal(again.rows[1].label, 'Is this finding right?|Not a bug|Add a note');
+	assert.deepEqual([again.opens, again.sends()], [[], []]);
+	// Clicking the answer forgets it and brings the buttons back, sending nothing.
+	again.click(again.rows[1].querySelector('.fb-done'));
+	assert.equal(again.rows[1].label, 'Is this finding right?|Real issue|Not a bug|Enhancement|Not worth reporting|Couldn\u2019t tell');
+	assert.deepEqual([...storage.map.keys()], ['fb:id']);
+	assert.equal(again.page.focused, again.verdict(again.rows[1], 'Real issue'));
+	assert.deepEqual(again.sends(), []);
+	// Picking again sends the new verdict.
+	const other = again.verdict(again.rows[1], 'Real issue');
+	again.click(other);
+	assert.deepEqual(again.sends(), [other.dataset.submit]);
+});
+
+test('feedback: a modified click opens the form without recording, and blocked storage only loses the memory', () => {
+	const html = fullHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const storage = memoryStorage();
+	const { rows, click, opens, sends, verdict } = feedbackDom(html, storage);
+	assert.equal(click(verdict(rows[0], 'Real issue'), { metaKey: true }), false);
+	assert.deepEqual([opens, sends(), [...storage.map.keys()]], [[], [], ['fb:id']]);
+	assert.equal(rows[0].label.split('|').length, 6);
+
+	const throwing = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() { throw new Error('blocked'); } };
+	const blocked = feedbackDom(html, throwing);
+	blocked.click(blocked.verdict(blocked.rows[0], 'Real issue'));
+	assert.equal(blocked.sends().length, 1);
+	assert.equal(blocked.rows[0].label, 'Is this finding right?|Real issue|Add a note');
+
+	// A stored value that is not one of the page's verdicts is dropped, never shown.
+	const planted = memoryStorage();
+	planted.setItem('fb:https://cdn.example/run1/index.html#f1', '<img src=x onerror=alert(1)>');
+	const p = feedbackDom(html, planted);
+	assert.equal(p.rows[0].label.split('|').length, 6);
+	assert.deepEqual([...planted.map.keys()], ['fb:id']);
+});
+
+test('feedback: every finding answer from a browser carries the same random ID, kept across reloads', () => {
+	const html = fullHtml(FULL, { base: 'https://cdn.example/run1', skillVersion: '1.2' });
+	const ids = links => links.flatMap(a => [a.href, a.dataset.submit]).map(u => new URL(u).searchParams.getAll('entry.1280428395'));
+	const storage = memoryStorage();
+	const first = feedbackDom(html, storage);
+	const links = first.rows.flatMap(r => r.querySelectorAll('a[data-verdict]'));
+	const [[id]] = ids(links);
+	assert.match(id, /^[0-9a-f]{12}$/);
+	assert.ok(ids(links).every(v => v.length === 1 && v[0] === id), 'once per link, the same everywhere');
+	assert.equal(storage.getItem('fb:id'), id);
+	const again = feedbackDom(html, storage);
+	assert.ok(ids(again.rows.flatMap(r => r.querySelectorAll('a[data-verdict]'))).every(v => v[0] === id));
+	// A different browser gets its own.
+	assert.notEqual(ids(feedbackDom(html, memoryStorage()).rows[0].querySelectorAll('a[data-verdict]'))[0][0], id);
+	// A stored value that is not an ID is replaced.
+	const planted = memoryStorage();
+	planted.setItem('fb:id', '&entry.427792690=Not%20a%20bug');
+	const p = feedbackDom(html, planted);
+	assert.match(planted.getItem('fb:id'), /^[0-9a-f]{12}$/);
+	assert.ok(ids(p.rows[0].querySelectorAll('a[data-verdict]')).every(v => v[0] === planted.getItem('fb:id')));
+});
+
+// ---- render.mjs ------------------------------------------------------------
+
+/** A copy of the logs run, with `passes` as report.json's cost when given, and a function that renders it. */
+function runCopy(passes) {
+	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
+	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const report = join(dir, 'report.json');
+	if (passes) {
+		writeFileSync(report, JSON.stringify({ ...JSON.parse(readFileSync(report, 'utf8')), cost: { passes } }));
+	}
+	return { dir, run: () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report], { encoding: 'utf8' }) };
+}
+
+test('render.mjs fails the run when a listed log was not copied, and still writes the page', () => {
+	const { dir, run } = runCopy();
+	assert.equal(run().status, 0);
+	rmSync(join(dir, 'logs', 'python-console.log'));
+	const failed = run();
+	assert.equal(failed.status, 1);
+	assert.match(failed.stderr, /logs\/python-console\.log/);
+	assert.ok(existsSync(join(dir, 'index.html')));
+	rmSync(dir, { recursive: true, force: true });
+});
+
+test('render.mjs gives the stats a cost when every pass has one, and keeps the stats CI recorded', () => {
+	const costed = runCopy([
+		{ label: 'explore', model: 'opus', costUsd: 3.7, turns: 142, durationMs: 1500000 },
+		{ label: 'verify', model: 'sonnet', costUsd: 0.4231, turns: 24, durationMs: 180000 },
 	]);
-	assert.match(render(rep(), { ogImage: 'https://cdn.example/og.png' }), /og:image:alt" content="No findings"/);
-	assert.match(render(rep({ findings: [fnd(1)] }), { ogImage: 'https://cdn.example/og.png' }), /og:image:alt" content="1 minor finding"/);
+	costed.run();
+	assert.equal(JSON.parse(readFileSync(join(costed.dir, 'stats.json'), 'utf8')).costUsd, 4.12);
+	rmSync(costed.dir, { recursive: true, force: true });
+	const replay = runCopy([{ label: 'explore', model: 'opus', costUsd: null, turns: 10, durationMs: 60000 }]);
+	writeFileSync(join(replay.dir, 'cost.json'), '{}');
+	writeFileSync(join(replay.dir, 'stats.json'), '{"where":"ci"}\n');
+	replay.run();
+	assert.equal(readFileSync(join(replay.dir, 'stats.json'), 'utf8'), '{"where":"ci"}\n');
+	rmSync(replay.dir, { recursive: true, force: true });
 });
 
-test('previewSummary names the PR and branch only, since the image shows the counts', () => {
-	const report = { pr: { number: 16378 }, chips: ['feature/interpreter-skill', 'f3f04ee7db'] };
-	assert.equal(previewSummary(report), 'PR #16378 on feature/interpreter-skill');
-	assert.equal(previewSummary({ ...report, pr: null }), 'feature/interpreter-skill');
+test('logs: every log the page links was copied beside it, and nothing links outside the run', () => {
+	const html = logsHtml(LOGS_REPORT, { base: '/runs/r2' });
+	const hrefs = [...html.matchAll(/href="(logs\/[^"]*)"/g)].map(m => m[1]);
+	assert.ok(hrefs.length > 0);
+	for (const href of hrefs) {
+		assert.ok(existsSync(new URL(href, LOGS_DIR)), `${href} exists`);
+	}
+	assert.doesNotMatch(html, /href="(\/(?!#)|~|\/tmp)/);
 });
 
-test('an issue or PR named in a card gets a preview link, and a PR opens as a pull', () => {
-	const report = rep({ findings: [{ ...FULL.findings[0], expected: 'it should have stopped, as #2330 says, since #8126.' }, FULL.findings[1]] });
-	const issueRefs = [
-		{ number: 2330, kind: 'issue', state: 'open', title: 'Zoom spec', createdAt: '2026-08-20T00:00:00Z', summary: 'sizes' },
-		{ number: 8126, kind: 'pr', state: 'merged', title: 'Zoom plots', createdAt: '2026-08-20T00:00:00Z', summary: '' },
-	];
-	const card = /<article id="f1"[\s\S]*?<\/article>/.exec(render(report, { issueRefs }))[0];
-	assert.deepEqual([...card.matchAll(/<a class="ki-num" href="([^"]+)"[^>]*data-state="(\w+)"[^>]*>#(\d+)/g)].map(m => [m[1].replace(/.*\.com\//, ''), m[2], m[3]]), [
-		['posit-dev/positron/issues/2330', 'open', '2330'],
-		['posit-dev/positron/pull/8126', 'merged', '8126'],
-	]);
-	assert.doesNotMatch(render(report), /class="ki-num"/, 'a number with no preview stays text');
-});
+// ---- Scenes ----------------------------------------------------------------
+// Each renders one case; its name says what the page should do there. The
+// saved pages pin the CSS and the scripts, so scenes show markup and text.
 
-test('an issue named in the lead or the verifier notes gets a preview link too', () => {
-	const issueRefs = [{ number: 3698, kind: 'issue', state: 'open', title: 'Blurry labels', createdAt: '2026-08-20T00:00:00Z', summary: '' }];
-	const report = { ...FINDINGS_ONLY, verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
-	const html = render(report, { issueRefs });
-	const verification = html.slice(html.lastIndexOf('Searches returned'));
-	assert.match(verification, /only <a class="ki-num" href="[^"]+\/issues\/3698"[^>]*data-title="Blurry labels"/);
-});
+const issueTitle = (claim, observed) => issueUrl(logsHtml(logsWith(1, { title: claim, feature: 'console', ...(observed ? { observed } : {}) })), 1).searchParams.get('title');
+const preconditions = text => card(render(rep({ findings: [fnd(1, { preconditions: [{ name: 'defaults', text }], steps: [act('Do the thing.')] })] })), 1);
+const passed = n => [`S${String(n).padStart(2, '0')}`, `pass ${n}`, 'pass', 'fine'];
+const LONG_LEDGER = ledgerOf([
+	...[1, 2, 3, 4, 5].map(passed), ['S20', 'second hit', 'fail - Finding 2', 'broke'], ...[6, 7, 8].map(passed),
+	['S21', 'first hit', 'fail - Finding 1', 'broke'], ...[9, 10].map(passed),
+	...Array.from({ length: 12 }, (_, i) => [`N${String(i + 1).padStart(2, '0')}`, `skip ${i}`, 'later']),
+]);
+const KNOWN = fullWith(1, { known: [15102, 14991] });
+const CHANGED = { ...FULL, verification: { ...FULL.verification, related: [1, 2] } };
+const USABLE = { usable: true, name: 'release/2026.10' };
+const ISSUE_REFS = [
+	{ number: 2330, kind: 'issue', state: 'open', title: 'Zoom spec', createdAt: '2026-08-20T00:00:00Z', summary: 'sizes' },
+	{ number: 8126, kind: 'pr', state: 'merged', title: 'Zoom plots', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+	{ number: 3698, kind: 'issue', state: 'open', title: 'Blurry labels', createdAt: '2026-08-20T00:00:00Z', summary: '' },
+];
 
-test('the change mark: a confirmed finding the verifier marked related, on a run with a usable base, in the table only', () => {
-	const src = { ...FULL, verification: { ...FULL.verification, related: [1, 2] } };
-	const rowOf = (html, n) => html.match(new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>`))[0];
-	const usable = { usable: true, name: 'release/2026.10' };
-	const html = render(src, { changeBase: usable });
-	assert.equal(rowOf(html, 1).match(/class="chg[ "]/g)?.length, 1);
-	assert.match(rowOf(html, 1), /<span class="chg"><span aria-hidden="true">&Delta;<\/span><span class="chg-sr">Likely related to this branch\. Based on code changes\. Not verified against release\/2026\.10\.<\/span><span class="chg-tip" aria-hidden="true"><b>Likely related to this branch<\/b><span>Based on code changes\. Not verified against release\/2026\.10\.<\/span><\/span><\/span>/);
-	// The last row's tooltip opens upward, away from the panel's clipped edge.
-	assert.match(rowOf(html, 2), /<span class="chg chg-up">/);
-	assert.equal((html.match(/class="chg[ "]/g) ?? []).length, 2, 'no mark on the cards');
+const SCENES = {
+	// Whole pages, each showing most of the layout once.
+	'one of everything: tiles, findings table, cards, coverage, run details, footer': () => body(fullHtml(FULL, { base: '/runs/r1', diff: 'aaaa1111...bbbb2222' })),
+	'a card with every collapsed row, step-tagged shots, errors with frames, and a test gap': () => body(richHtml(RICH, { base: '/runs/r1' })),
+	'typed steps: verify steps carry PASS or FAIL, a PR run links its PR, and Coverage comes from the ledger': () => body(typedHtml()),
+	'a step\'s shots are one lightbox group behind its icon': () => card(render(STACKED), 1),
+	'a published logs run: issue bodies follow the template, and Run details lists the ledger and each log': () => [issueCopied(logsHtml(), 1), issueCopied(logsHtml(), 2), runDetails(logsHtml())].join('\n--\n'),
+	'known issues: Linked issues row, fixes that did not hold, regressions and dupes': () => body(kiHtml()),
 
-	// Only a confirmed finding: a disputed one keeps no mark.
-	const disputed = render({ ...src, findings: [src.findings[0], { ...src.findings[1], verified: 'disputed' }] }, { changeBase: usable });
-	assert.doesNotMatch(rowOf(disputed, 2), /class="chg/);
+	// The header, tiles and footer.
+	'a report with no title gets the kicker alone': () => between(render(rep({ header: { title: undefined } })), '<h1', '</h1>'),
+	'with no Run details, the Run tile is not a link': () => tiles(render(rep({ findings: FULL.findings }), { ledger: FULL_LEDGER })),
+	'a report with only its cost still gets a Run details fold': () => tiles(render(rep({ cost: { passes: [{ label: 'explore', model: null, costUsd: 1, turns: 5, maxTurns: 200, durationMs: 120000 }] } }))),
+	'the Run tile sizes stages by time when a pass has no cost': () => tiles(render(rep({ cost: { passes: [{ label: 'explore', model: 'opus', costUsd: null, turns: 69, durationMs: 660000 }, { label: 'verify', model: 'sonnet', costUsd: 0.19, turns: 9, durationMs: 20000 }] } }))),
+	'the copyright is dated by the run, and the version shows with a v when known': () => [footer(fullHtml(FULL, { startedAt: new Date(2031, 0, 5) })), footer(fullHtml(FULL, { skillVersion: '1.2' }))].join('\n'),
+	'chat apps get a preview: the title alone, no description without a branch, an image only when written': () => [
+		render(rep({ header: { title: 'Exploratory test: a "quoted" title', branch: undefined, sha: undefined } })),
+		fullHtml(FULL, { ogImage: 'https://cdn.example/run/og.png' }),
+		render(rep(), { ogImage: 'https://cdn.example/og.png' }),
+		render(rep({ findings: [fnd(1)] }), { ogImage: 'https://cdn.example/og.png' }),
+	].map(html => (html.match(/<meta (?:property|name)="(?:og:|description)[^>]*>/g) ?? []).join('\n')).join('\n--\n'),
 
-	// No usable base, or none recorded: no mark at all.
-	assert.doesNotMatch(render(src, { changeBase: { usable: false, name: 'main' } }), /class="chg[ "]/);
-	assert.doesNotMatch(render(src), /class="chg[ "]/);
+	// Findings.
+	'no findings and no issues: an empty state and no column header': () => findingsOf(render(rep(), { ledger: ledgerOf([['S01', 'pandas frame', 'pass', 'everything loads']]) })),
+	'a "defaults" precondition is dropped, and a qualified one kept': () => [preconditions('Shipped defaults.'), preconditions('Shipped defaults. Slowness is manufactured with a slow hash.')].join('\n--\n'),
+	'each precondition by its text, with a pasted file kept as a block': () => card(render(rep({
+		findings: [fnd(1, {
+			preconditions: [
+				{ name: 'notebook on', text: '`positron.notebook.enabled: true` in `.vscode/settings.json`' },
+				{ name: '`nb.ipynb`', text: '`nb.ipynb` in the workspace\n```python\nimport cv2\n```' },
+				{ name: 'venv', text: 'A Python 3.10.15 venv with ipykernel' },
+			],
+			steps: [{ kind: 'action', text: 'Add a markdown cell with this source:', code: '```\n<div class="alert">\n\n**Tip:** text\n\n</div>\n```' }, act('Open `nb.ipynb`.')],
+		})],
+	})), 1),
+	'a prompt leaves empty sections out, and Context names only what the header carries': () => promptText(render(rep({ findings: [fnd(1, { observed: 'it broke.' })] })), 1),
+	'with agent prompts off: no prompt button or block, and issue and link buttons stay': () => `${card(fullHtml(FULL, { agentPrompts: false }), 1)}\nscripts: ${scripts(fullHtml(FULL, { agentPrompts: false }))}`,
+	'the verifier\'s verdict wins on card, row and prompt; a disputed finding hides its test gap': () => {
+		const html = richHtml(richWith(1, { verified: 'disputed' }));
+		return [card(html, 1), findingRow(html, 1), promptText(html, 1)].join('\n--\n');
+	},
+	'an unresolved finding caveats its test gap': () => {
+		const html = richHtml(richWith(1, { verified: 'unresolved' }));
+		return [between(card(html, 1), '<details class="lc regtest">', '</summary>'), promptText(html, 1)].join('\n--\n');
+	},
+	'a finding the verifier matched to an issue says Dupe? on its card and prompt only': () => [card(fullHtml(KNOWN), 1), findingRow(fullHtml(KNOWN), 1), promptText(fullHtml(KNOWN), 1)].join('\n--\n'),
+	'a finding matched to a not-planned issue says Intended?': () => [card(fullHtml(fullWith(2, { intended: [14210] })), 2), promptText(fullHtml(fullWith(2, { intended: [14210] })), 2)].join('\n--\n'),
+	'a missing case with no file keeps its level and says new file': () => {
+		const html = render(rep({ findings: [fnd(1, { observed: 'it broke.', tests: { cases: [{ text: 'A checked box reads as checked.', level: 'unit', path: '', isNew: true }], related: [] } })] }));
+		return [card(html, 1), promptText(html, 1)].join('\n--\n');
+	},
+	'a regression case naming a folder shows the folder': () => between(card(richHtml(richWith(1, { tests: { ...RICH.findings[0].tests, cases: [RICH.findings[0].tests.cases[0], { ...RICH.findings[0].tests.cases[1], path: 'test/e2e/tests/data-explorer/' }] } })), 1), '<ol class="rt-cases">', '</ol>'),
+	'a card with nothing to collapse has no collapsed rows': () => card(render(rep({ findings: [fnd(1, { observed: 'it broke.' })] })), 1),
+	'a Python traceback shows as frames, linking only the repo\'s files': () => card(render(rep({
+		findings: [fnd(1, {
+			errors: [{
+				source: 'logs/python-kernel.log:23', process: 'Python kernel', count: 4, message: '[positron.data_explorer] ERROR | invalid series dtype',
+				frames: [
+					{ fn: '_polars_summarize_string', path: 'extensions/positron-python/python_files/posit/positron/data_explorer.py', line: 2139 },
+					{ fn: 'wrapper', path: '.venv/lib/python3.14/site-packages/polars/series/utils.py', line: 104 },
+				],
+			}],
+		})],
+	})), 1),
+	'an error fence in the prompt is longer than any ``` inside it': () => promptText(render(rep({ findings: [fnd(1, { observed: 'x', errors: [{ source: 'logs/a.log', process: 'Renderer', message: 'Error: bad template\n```\ntail' }] })] })), 1),
+	'Evidence rows: a log header over the line, a bare log, several lines, a line not logged; notes and the agent\'s files stay out': () => [
+		[{ kind: 'log', path: 'logs/36561-python-language-pack.log:1489', process: 'Extension host', when: '00:18:39', quote: '2026-10-06 00:18:39.958 [debug] env change ==/tmp/w/.venv/bin/python== remove' }],
+		[{ kind: 'log', path: 'logs/44987-exthost.log', quote: '2026-10-06 00:18:39.958 [info] started' }],
+		[{ kind: 'log', path: 'logs/1-renderer.log:10', when: '00:00:01', quote: 'first line\n  second "line"' }],
+		[{ kind: 'log', path: 'logs/1-exthost.log:5', process: 'Extension host', when: '00:18:39', quote: 'env change /x remove' }, { kind: 'missing', path: 'logs/1-exthost.log', window: '00:18:39-00:19:24', quote: 'env change /x add' }],
+		[{ kind: 'note', caption: 'so nothing resolved the new path' }, { kind: 'log', path: 'actions.log:12', quote: '2026-10-06T00:18:39Z click failed' }, { kind: 'log', path: 'logs/S03-later.txt', quote: 'saved' }],
+	].map(evidenceRow).join('\n--\n'),
+	'Observed stays off the steps when the card says it once': () => card(typedHtml(typedStep(2, 5, act('Look at the visible columns.'))), 2),
+	'a step with two shots shows the icon with a count': () => card(render(rep({
+		findings: [fnd(1, {
+			steps: [act('Open it.'), fail('it loads.', 1)],
+			evidence: [{ kind: 'shot', path: 'https://cdn.example/shots/a.png', step: 2, caption: 'first' }, { kind: 'shot', path: 'https://cdn.example/shots/b.png', step: 2, caption: 'second' }],
+		})],
+	})), 1),
+	'a shot a step cites reaches its step with no Evidence item, and a check with no result gets none': () => card(render(rep({
+		findings: [fnd(1, {
+			steps: [pass('the panel opens', { shots: ['shots/S01-01.png'] }), act('Click Retry.'), fail('it loads', 1, { observed: 'empty', shots: ['shots/S01-03.png'] }), { kind: 'verify', text: 'confirm the dialog closes' }],
+			evidence: [{ kind: 'shot', path: 'shots/S01-03.png', step: 3, caption: 'empty panel' }],
+		})],
+	})), 1),
+	'a fenced step block gets its own copy button, with prompts on or off': () => `${card(typedHtml(FENCED), 1)}\nscripts: ${scripts(typedHtml(FENCED))}; prompts off: ${scripts(typedHtml(FENCED, { agentPrompts: false }))}; no block, prompts off: ${scripts(typedHtml(TYPED, { agentPrompts: false }))}`,
+	'inline code in Reproduce copies on click; Observed and code blocks do not': () => {
+		const html = render(rep({
+			findings: [fnd(1, {
+				preconditions: [{ name: 'console', text: 'a Python console.' }, SLOW_PY],
+				steps: [{ kind: 'action', text: 'Run `%view df`.', code: '```python\ndf.head()\n```' }, fail('the grid shows `df`.', 1)],
+				observed: 'the grid showed `None`.',
+			})],
+		}));
+		return `${card(html, 1)}\nscripts: ${scripts(html)}; with no inline code: ${scripts(render(rep()))}`;
+	},
+	'a lone ~ means about, and only ~~ strikes through, on the card and in the issue': () => {
+		const html = fullHtml(fullWith(1, { cause: '`run()` (~L12-40) calls `wait()` (~L80), and `y ~ x` is ~~not~~ fine.' }));
+		return [between(card(html, 1), '<details class="lc hyp">', '</details>'), issueCopied(html, 1)].join('\n--\n');
+	},
+	'an issue or PR named in a card, the lead or the verifier notes gets a preview link; with no preview it stays text': () => {
+		const json = { ...fullWith(1, { expected: 'it should have stopped, as #2330 says, since #8126.' }), verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
+		return [between(card(fullHtml(json, { issueRefs: ISSUE_REFS }), 1), '<div class="f-cmp', '</div></div>'), between(fullHtml(json, { issueRefs: ISSUE_REFS }), 'Searches returned', '</p>'), between(card(fullHtml(json), 1), '<div class="f-cmp', '</div></div>')].join('\n--\n');
+	},
+	'the change mark: a confirmed related finding on a run with a usable base, in the table only, opening upward on the last row': () => findingsOf(fullHtml(CHANGED, { changeBase: USABLE })),
+	'no change mark on a disputed finding, without a usable base, or with no base recorded': () => [
+		findingRow(fullHtml({ ...CHANGED, findings: [CHANGED.findings[0], { ...CHANGED.findings[1], verified: 'disputed' }] }, { changeBase: USABLE }), 2),
+		findingRow(fullHtml(CHANGED, { changeBase: { usable: false, name: 'main' } }), 1),
+		findingRow(fullHtml(CHANGED), 1),
+	].join('\n--\n'),
+	'a PR run\'s change mark says PR, and a base with no name says the base branch': () => findingRow(fullHtml({ ...CHANGED, header: { ...CHANGED.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } }), 1),
 
-	// A PR run says PR; a base with no name says the base branch.
-	const pr = render({ ...src, header: { ...src.header, pr: { repo: 'posit-dev/positron', number: 1234 } } }, { changeBase: { usable: true, name: null } });
-	assert.match(rowOf(pr, 1), /<b>Likely related to this PR<\/b><span>Based on code changes\. Not verified against the base branch\.<\/span>/);
+	// Coverage.
+	'issues, then passes, then not run; passes past the first 4 collapse behind Show all': () => coverageOf(render(rep(), { ledger: LONG_LEDGER })),
+	'one passing scenario: no empty filter tabs, and a line saying everything was exercised': () => `${coverageOf(render(rep(), { ledger: ledgerOf([['S01', 'pandas frame', 'pass', 'fine']]) }))}\n${tiles(render(rep(), { ledger: ledgerOf([['S01', 'pandas frame', 'pass', 'fine']]) }))}`,
+	'Show all keeps working over rows that expand': () => coverageOf(render(rep(), { ledger: Array.from({ length: 10 }, (_, i) => `## S${String(i + 1).padStart(2, '0')} - pass ${i}\nStatus: pass\nResult: fine\n\nSteps:\n1. Step for ${i}.\n`).join('\n') })),
+	'a finding row links every finding its steps failed on': () => findingRow(coverageOf(typedHtml(TYPED, { ledger: LEDGER.replace('5. VERIFY The summary loads after Retry. -> FAIL - Finding 1', '5. VERIFY The summary loads after Retry. -> FAIL - Finding 2') })), 1) || between(coverageOf(typedHtml(TYPED, { ledger: LEDGER.replace('5. VERIFY The summary loads after Retry. -> FAIL - Finding 1', '5. VERIFY The summary loads after Retry. -> FAIL - Finding 2') })), 'id="cv-row-1"', '</div>'),
+	'nothing not run: no Not run tab, and a line saying so': () => {
+		const cov = coverageOf(typedHtml(TYPED, { ledger: LEDGER.slice(0, LEDGER.indexOf('## Not run')) }));
+		return `${between(cov, '<div class="cf-tabs">', '<div class="panel cf-card">')}${cov.slice(cov.lastIndexOf('<label for="cov-all"'))}`;
+	},
+	'a scenario name reaches the photo caption as plain text': () => coverageOf(render(rep(), { ledger: '## S01 - **Bold** `code` [link](https://x.example) & more\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY it shows -> PASS\n   Evidence: https://cdn.example/shots/a.png\n' })),
+	'a fenced block under a ledger step gets the copy button in Coverage': () => coverageOf(render(TYPED, { ledger: ['# Test ledger', '', '## Environment', '- desktop', '', '---', '', '## S01 - Paced loading', 'Status: pass', 'Result: loads', '', 'Steps:', '1. Load the slow source:', '', '   ```python', '   %run -i slow.py', '   slow = make_slow()', '   ```', '2. VERIFY it loads -> PASS', ''].join('\n') })),
+
+	// Run details.
+	'a listed file that is missing is shown unlinked, and a folder never links': () => between(render(LOGS_REPORT, { ledger: LOGS_LEDGER.replace('## Logs\n', '## Logs\n- logs/all/44987/ | Every log | artifact only\n'), fileExists: p => p !== 'logs/exthost.log' }), '<ul class="log-list">', '</ul>'),
+	'Run details leaves the explorer\'s format checks to stats.json': () => foldLabels(render(LOGS_REPORT, { ledger: LOGS_LEDGER, readFile: p => (p === 'format-checks.jsonl' ? Buffer.from(JSON.stringify({ problems: 1, rules: { 'report: x': 1 } })) : null), fileExists: p => p === 'stats.json' })),
+
+	// Filing an issue.
+	'issue titles: the Feature leads, and the claim starts lowercase unless its first word is a name used elsewhere': () => [
+		['Typing while busy aborts'], ['R aborts while busy'], ['PyPI lookups are skipped'], ['A preview goes blank'],
+		['Quarto previews go blank'], ['Quarto previews go blank', 'Opening the Quarto preview shows nothing.'],
+	].map(args => issueTitle(...args)).join('\n'),
+	'issue: System details list each kernel the ledger records': () => issueCopied(logsHtml(LOGS_REPORT, { ledger: LOGS_LEDGER.replace(/^(- Positron [^\n]*\n)/m, '$1- Kernels: Ark 0.1.252+355.f1af004, Kallichore 0.1.71.\n') }), 1),
+	'issue: an error longer than six lines is clipped, and a finding with none says so': () => {
+		const [f] = LOGS_REPORT.findings;
+		const step = f.steps[2];
+		const frame = step.log.body.split('\n').at(-1);
+		const long = logsWith(1, { steps: f.steps.map((s, i) => (i === 2 ? { ...s, log: { ...s.log, body: [step.log.body, frame, frame, frame, frame].join('\n') } } : s)) });
+		return [between(issueCopied(logsHtml(long), 1), '## Error messages', '## Evidence'), between(issueCopied(render(rep({ findings: [fnd(1, { observed: 'nothing.' })] })), 1), '## Error messages', '## Evidence')].join('\n--\n');
+	},
+	'issue: a local run links no report, and the likely cause folds as a hypothesis': () => issueCopied(fullHtml(FULL, { base: '/runs/r1' }), 1),
+	'issue: an opening describes the issue but stays off the card': () => {
+		const html = logsHtml(logsWith(1, { summary: 'When you open a slow column, its summary never loads.', where: 'polars only; R was not checked.' }));
+		return [issueCopied(html, 1), between(card(html, 1), '</header>', '<div class="f-sec repro">')].join('\n--\n');
+	},
+
+	// Known issues.
+	'Linked issues leaves out a zero count': () => findingsOf(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace('Issue: #10 fix held\n', '') })).split('<div class="ki-list"')[0].slice(-700),
+	'Linked issues with nothing observed': () => between(findingsOf(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #2[236] observed\n/gm, '') })), '<div class="ki-grp">', '<div class="ki-list"'),
+	'no Linked issues row when a failed fix is a finding and an unexercised one is in Coverage': () => between(findingsOf(kiHtml(KI_REPORT, { knownIssues: { pr: 100, issues: KI_ISSUES.issues.filter(i => [11, 12].includes(i.number)) } })), '<div class="ki-grp">', '</div></div>') || '(none)',
+	'an issue no scenario reached is listed as not observed': () => between(kiHtml(KI_REPORT, { ledger: KI_LEDGER.replace(/^Issue: #22 observed\n/m, '') }), 'id="ki-list-no"', '</div></div>'),
+	'a confirmed regression says Regressed with a red x': () => findingRow(render(kiWith(2, { verified: 'confirmed' }), { ledger: KI_LEDGER, knownIssues: KI_ISSUES }), 2),
+	'with no issue list, a finding row is a plain link': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: [] } }), 1),
+	'one dupe shows no count': () => findingRow(kiHtml(KI_REPORT, { knownIssues: { ...KI_ISSUES, issues: KI_ISSUES.issues.filter(i => i.number !== 20) } }), 3),
+	'a finding\'s own issue wins the row, and a dupe stays on the card': () => {
+		const html = render({ ...kiWith(1, { known: [11, 25] }), verification: KI_VERIFICATION }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
+		return [findingRow(html, 1), between(card(html, 1), '<div class="meta">', '</div>')].join('\n--\n');
+	},
+	'with no findings, linked counts join the empty state': () => findingsOf(render(NO_FINDINGS, { ledger: passing(KI_LEDGER), knownIssues: KI_ISSUES })),
+	'with no findings and nothing observed, the counts left join the empty state': () => findingsOf(render(NO_FINDINGS, { ledger: passing(KI_LEDGER).replace(/^Issue: #\d+ observed.*\n/gm, ''), knownIssues: KI_ISSUES })),
+	'with no findings and no linked issues, only the empty state shows': () => `${findingsOf(render(NO_FINDINGS, { ledger: passing(KI_LEDGER).replace(/^Issue: .*\n/gm, '') }))}\nscripts: ${scripts(render(NO_FINDINGS))}`,
+};
+
+test('every scene renders as saved', () => {
+	const path = fileURLToPath(new URL('./fixtures/scenes.expected.txt', import.meta.url));
+	// Icons, feedback links and issue links are pinned elsewhere: by the saved
+	// pages, and by the tests that read the links' answers and bodies.
+	const trim = out => out.replace(/<svg[\s\S]*?<\/svg>/g, '<svg>').replace(/<div class="fb" .*?<\/div>/g, '<div class="fb">').replace(/href="https:\/\/github\.com\/posit-dev\/positron\/issues\/new\?[^"]*"/g, 'href="(new issue)"');
+	const text = Object.entries(SCENES).map(([name, scene]) => `==== ${name}\n${trim(scene())}\n`).join('\n');
+	if (process.env.UPDATE_PAGES || !existsSync(path)) {
+		writeFileSync(path, text);
+	}
+	// Scene by scene, so a failure names the scene and its first line that moved.
+	const scenes = s => new Map(s.split(/^==== /m).slice(1).map(part => [part.slice(0, part.indexOf('\n')), part.slice(part.indexOf('\n') + 1)]));
+	const want = scenes(readFileSync(path, 'utf8'));
+	const got = scenes(text);
+	assert.deepEqual([...got.keys()], [...want.keys()], 'scenes were added, removed or renamed; run UPDATE_PAGES=1 node --test report.test.mjs');
+	for (const [name, out] of got) {
+		const a = out.split('\n');
+		const b = want.get(name).split('\n');
+		const at = a.findIndex((line, i) => line !== b[i]);
+		assert.ok(at === -1 && a.length === b.length, `"${name}" changed at line ${at + 1}: ${a[at]}\nIf meant, run UPDATE_PAGES=1 node --test report.test.mjs and review the diff`);
+	}
 });

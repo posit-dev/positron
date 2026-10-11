@@ -123,10 +123,13 @@ To see whether a rule in a prompt changes what an agent does, run its eval:
 (`--dry-run` checks them for free). It costs about $0.17 a sample per arm.
 `RULES.md` says when a rule needs one.
 
-`page.test.mjs` pins the whole page for two saved runs under `fixtures/`. A
-change to the page fails it at the first line that moved; when the change is
-meant, run `UPDATE_PAGES=1 node --test page.test.mjs` and review the diff of
-the saved pages before committing them.
+`page.test.mjs` pins the whole page for two saved runs under `fixtures/`, and
+the scenes in `report.test.mjs` pin the cases those runs do not reach, each
+named for what the page should do in it (`fixtures/scenes.expected.txt`). A
+change to the page fails them at the first line that moved; when the change is
+meant, run `UPDATE_PAGES=1 node --test page.test.mjs report.test.mjs` and
+review the diff of the saved output before committing it. A new case the page
+handles gets a scene, not a test of its markup.
 
 To see a template change on a past run, re-render it:
 `node renderer/render.mjs <run dir>/report.json`.

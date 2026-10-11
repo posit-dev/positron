@@ -127,29 +127,6 @@ function findingFromJson(f) {
 	};
 }
 
-/** Coverage from the report's scenarios, for a run with no ledger. */
-function coverageFromJson(scenarios) {
-	const rows = s => ({ id: s.id, scenarioHtml: inline(s.name), scenario: plainText(s.name), issues: s.issues ?? [] });
-	return {
-		exercised: scenarios.filter(s => s.status !== 'not-run').map(s => ({
-			...rows(s),
-			resultHtml: inline(sentenceCase(s.result ?? '')),
-			status: s.status,
-			finding: s.findings?.[0] ?? null,
-			findings: s.findings ?? [],
-			shot: null,
-			pre: [],
-			steps: [],
-		})),
-		notExercised: scenarios.filter(s => s.status === 'not-run').map(s => ({
-			...rows(s),
-			reasonHtml: inline(sentenceCase(s.reason ?? '')),
-			reason: plainText(s.reason ?? ''),
-		})),
-		notExercisedListed: true,
-	};
-}
-
 /**
  * The Run tile's cost from report.json's `cost.passes`, each
  * `{ label, model, costUsd, turns, maxTurns, durationMs }`, as the markdown
@@ -185,9 +162,7 @@ export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 	const findings = (json.findings ?? []).map(findingFromJson)
 		.sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3) || a.n - b.n);
 	const fromLedger = parseLedger(ledger);
-	const coverage = fromLedger && (fromLedger.exercised.length || fromLedger.notExercised.length)
-		? fromLedger
-		: coverageFromJson(json.scenarios ?? []);
+	const coverage = fromLedger ?? { exercised: [], notExercised: [], notExercisedListed: true };
 	fillStepErrors(findings, coverage);
 	const severityCounts = { major: 0, moderate: 0, minor: 0 };
 	for (const f of findings) {
@@ -209,8 +184,8 @@ export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 		coverage,
 		scenarios: scenarioCounts(coverage),
 		runDetails: withEnvironment(details.length ? details : null, fromLedger?.environment),
-		logs: fromLedger?.logs ?? (json.logs ?? []).map(l => ({ path: l.path, source: l.source ?? '', note: l.note ?? '', sourceHtml: inline(l.source), noteHtml: inline(l.note) })),
-		files: fromLedger?.files ?? (json.files ?? []).map(f => ({ path: f.path, desc: f.desc ?? '', uses: f.uses ?? '', descHtml: inline(f.desc), usesHtml: inline(f.uses) })),
+		logs: fromLedger?.logs ?? [],
+		files: fromLedger?.files ?? [],
 		environment: fromLedger?.environment ?? [],
 		verification: json.verification?.text ? verificationFromJson(json) : pipeline.verification ?? null,
 		cost: json.cost ? costFromJson(json.cost) : pipeline.cost ?? { passes: [], total: null, duration: null },
