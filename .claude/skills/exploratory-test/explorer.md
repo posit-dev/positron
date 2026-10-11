@@ -464,7 +464,7 @@ quick-input action, confirm in the action log that the intended command ran: a
 different row run in its place is a tool error, not a finding. A proven bug
 belongs in the report even if the change did not introduce it.
 
-The report lists the findings in `findings`, worst first. Each part of a
+The report lists the findings in `findings`. Each part of a
 finding has one job. The `title` says what is broken, well enough to stand
 alone. `observed` and `expected` say exactly what differed. `steps` prove it.
 `evidence`, `cause` and `tests` help the reader investigate. Never restate the
@@ -555,8 +555,8 @@ showing it, is never a precondition, even when another finding starts it the
 same way: its steps start it, with a check that it runs.
 
 `n` is the finding's number, given in the order you found them and never
-changed. `findings` lists them worst first, so their numbers need not run in
-order. One finding, with every field it can have:
+changed; the page sorts them by severity, then number. One finding, with every
+field it can have:
 
 ```json
 {

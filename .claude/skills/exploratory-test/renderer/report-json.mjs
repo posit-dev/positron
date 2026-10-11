@@ -182,7 +182,10 @@ function costFromJson(cost) {
  */
 export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 	const header = json.header ?? {};
-	const findings = (json.findings ?? []).map(findingFromJson);
+	// Worst first, then by number, so the numbers run in order within a severity.
+	const rank = { major: 0, moderate: 1, minor: 2 };
+	const findings = (json.findings ?? []).map(findingFromJson)
+		.sort((a, b) => (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3) || a.n - b.n);
 	const fromLedger = parseLedger(ledger);
 	const coverage = fromLedger && (fromLedger.exercised.length || fromLedger.notExercised.length)
 		? fromLedger

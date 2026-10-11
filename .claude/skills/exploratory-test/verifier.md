@@ -84,8 +84,8 @@ VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE
 
 It is read to mark each finding, so use only CONFIRMED, FALSE POSITIVE or
 UNRESOLVED. Key every entry, on this line and every line below, by the
-finding's number as written, its `n`. Never by its position: the findings are
-listed worst first, so the first may be Finding 3. Give one entry for each
+finding's number as written, its `n`. Never by its position: the findings need
+not be listed in number order, so the first may be Finding 3. Give one entry for each
 finding in the report, and no other numbers. When the report has no findings,
 write `VERDICTS: none`.
 

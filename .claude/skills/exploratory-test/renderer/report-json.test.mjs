@@ -159,6 +159,13 @@ test('the header carries the title, chips, PR link, lead and severity counts', (
 	assert.match(r.leadHtml, /<strong>The session picker keeps the old name\.<\/strong>/);
 });
 
+test('findings sort by severity, then by number', () => {
+	const j = json();
+	const at = (n, severity) => ({ ...j.findings[0], n, severity });
+	j.findings = [at(5, 'moderate'), at(2, 'moderate'), at(4, 'minor'), at(1, 'moderate'), at(3, 'major')];
+	assert.deepEqual(reportFromJson(j).findings.map(f => f.n), [3, 1, 2, 5, 4]);
+});
+
 test('a PR repo that is not owner/name gets no link', () => {
 	const j = json();
 	j.header.pr.repo = 'evil.example/x/y';
