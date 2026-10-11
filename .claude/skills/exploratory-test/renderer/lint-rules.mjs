@@ -94,6 +94,7 @@ export const LINT_RULES = {
 	'verify-no-shot': 'error',
 	'fail-missing-fields': 'error',
 	'shot-cited-twice': 'error',
+	'shot-scenario-mismatch': 'error',
 	'environment-missing': 'error',
 	'environment-first-line': 'error',
 	'not-exercised-unlisted': 'error',

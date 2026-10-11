@@ -26,6 +26,8 @@ const SCRATCH_PATH = /(?:^|[\s`'"(])((?:\/private)?\/(?:tmp|var\/folders)\/\S*|\
 // An app already serving is what the steps start, so the reader sees it start.
 const RUNNING_APP = /\b(?:serving|listening)\b|\b(?:running )?on port \d+|\brunning in (?:\w+ ){0,3}console\b/i;
 const DONE_IN_APP = /\b(?:(?:started|opened|launched|clicked|pressed|typed|selected|loaded|sourced|run|ran|executed)\s+(?:with|from|via|by|using)|(?:started|opened|launched|ran|loaded)\s+code|then\s+(?:started|opened|launched|clicked|pressed|typed|selected|ran)|Run(?: Shiny)? App|shown in the|in the session|defined in the|still open|drew|(?:started|opened) (?:in|by) S\d+|S\d+ (?:started|drew|opened|left))\b/i;
+// A finding's reader runs the file as its first step; a ledger row's third field may say how a scenario made it.
+const RUN_IN_SESSION = /\brun in (?:the |its |their |each |both )?(?:\w+ ){0,3}(?:sessions?|consoles?)\b/i;
 // Code a precondition runs rather than describes: loading it is step 1.
 const RUN_COMMAND = /^(?:%run\b|%load\b|!|source\(|library\(|require\(|exec\(|import\s|from\s+\S+\s+import\s|install\.packages\(|pip\s)/;
 const THEN_ACTION = /(?:,|;|\band)\s+then\s+(run|click|press|open|close|save|type|choose|select|pick|put|untick|tick|evaluate|reload|restart|drag|scroll|copy|paste|delete|remove|add|insert|switch|start|stop|focus|clear|set|toggle|expand|collapse|resize|rename|wait)\b/;
@@ -141,7 +143,8 @@ export function lintPreconditionActions(preconditions) {
 		if (command) {
 			problems.push(problem('precondition-runs-command', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" runs \`${command}\`; run it as a step, and keep the precondition to the file or package`));
 		}
-		const done = /^\*\*/.test(text) || command ? null : DONE_IN_APP.exec(text.replace(/`[^`]*`/g, 'code'));
+		const plainText = text.replace(/`[^`]*`/g, 'code');
+		const done = /^\*\*/.test(text) || command ? null : DONE_IN_APP.exec(plainText) ?? (where.startsWith('Finding') ? RUN_IN_SESSION.exec(plainText) : null);
 		if (done) {
 			problems.push(problem('precondition-done-in-app', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`));
 		}

@@ -167,6 +167,12 @@ test('flags a precondition that is something done in the app, in the report and 
 	// State stays a precondition; the command that loads a file is a step.
 	assert.deepEqual(pre('a Python with polars is selected'), []);
 	assert.deepEqual(pre('`slow.py` loaded'), []);
+	// Running a file is the step that comes first, however the precondition words it.
+	assert.deepEqual(pre('`p1_setup.py` run in the first Python session'), ['report: Finding 1 precondition "app running" is done in the app ("run in the first Python session"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(pre('A Python 3.12 venv to run in'), []);
+	// A ledger row's third field says how its scenario made the state, so it may name the run.
+	const made = LEDGER.replace('Status: fail - Finding 1\n', 'Status: fail - Finding 1\n\nPreconditions:\n- Variables loaded | S01 | `setup.py` run in the first Python session\n');
+	assert.deepEqual(lintLedgerOnly(made).filter(x => /done in the app/.test(x)), []);
 	const ledger = LEDGER.replace('Status: fail - Finding 1\n', 'Status: fail - Finding 1\n\nPreconditions:\n- app running | `app.R` started with Run Shiny App\n');
 	assert.deepEqual(lintLedgerOnly(ledger).filter(x => /done in the app/.test(x)), ['ledger: S02 precondition "app running" is done in the app ("started with"); do it as a step, and keep the precondition to the state before step 1']);
 });
@@ -786,4 +792,9 @@ test('flags a long Result and a Cause whose first sentence runs on', () => {
 	assert.deepEqual(caused(`The \`Retry\` handler ${words(38)}`), ['report: Finding 1 cause opens with a 41-word sentence; name the suspect in 40 words or fewer, then give the detail']);
 	assert.deepEqual(caused(`The \`Retry\` handler ${words(37)}`), []);
 	assert.equal(LINT_RULES['result-length'], 'warning');
+});
+
+test('a shot named for another scenario means the scenarios were renumbered', () => {
+	const ledger = '# Test ledger\n\n## S05 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. Click Run.\n2. VERIFY it runs -> PASS\n   Evidence: S06-01.png\n3. VERIFY it stays -> PASS\n   Evidence: S05-02.png\n';
+	assert.deepEqual(lintLedgerOnly(ledger, { fileExists: () => true }).filter(p => /named for/.test(p)), ['ledger: S05 step 2 cites S06-01.png, a shot named for S06; IDs are never renumbered, so give the scenario back the ID its shots were taken under']);
 });

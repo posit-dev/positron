@@ -86,6 +86,14 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 				const missing = fileExists ? files.filter(f => !fileExists(`shots/${f}`)) : [];
 				for (const f of missing) { problems.push(problem('evidence-shot-missing', `ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`)); }
 				const present = files.filter(f => !missing.includes(f));
+				// A shot is named for the scenario it was taken in, so another prefix
+				// means the scenarios were renumbered after their shots were taken.
+				for (const f of new Set(present)) {
+					const prefix = /^([SN]\d+)-\d+\.\w+$/.exec(f)?.[1];
+					if (prefix && prefix !== current.id) {
+						problems.push(problem('shot-scenario-mismatch', `ledger: ${current.id} step ${check.step} cites ${f}, a shot named for ${prefix}; IDs are never renumbered, so give the scenario back the ID its shots were taken under`));
+					}
+				}
 				for (const f of new Set(present)) {
 					if (!citedBy.has(f)) { citedBy.set(f, []); }
 					citedBy.get(f).push({ at: `${current.id} step ${check.step}`, finding: check.fail ? check.finding : null });
