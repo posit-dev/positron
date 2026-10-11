@@ -15,6 +15,9 @@ import { NativeParsedArgs } from '../common/argv.js';
 // the built-in `path` lib for the time being.
 // eslint-disable-next-line local/code-import-patterns
 import { resolve, isAbsolute, join } from 'path';
+// --- Start Positron ---
+import { getPositronEnv } from '../../../base/common/positronEnvironment.js';
+// --- End Positron ---
 
 const cwd = process.env['VSCODE_CWD'] || process.cwd();
 
@@ -49,13 +52,21 @@ function doGetUserDataPath(cliArgs: NativeParsedArgs, productName: string): stri
 	}
 
 	// 1. Support portable mode
-	const portablePath = process.env['VSCODE_PORTABLE'];
+	// --- Start Positron ---
+	// Read POSITRON_PORTABLE first, with VSCODE_PORTABLE as a deprecated fallback.
+	// const portablePath = process.env['VSCODE_PORTABLE'];
+	const portablePath = getPositronEnv(process.env, 'PORTABLE');
+	// --- End Positron ---
 	if (portablePath) {
 		return join(portablePath, 'user-data');
 	}
 
 	// 2. Support global VSCODE_APPDATA environment variable
-	const appDataPath = process.env['VSCODE_APPDATA'];
+	// --- Start Positron ---
+	// Read POSITRON_APPDATA first, with VSCODE_APPDATA as a deprecated fallback.
+	// const appDataPath = process.env['VSCODE_APPDATA'];
+	const appDataPath = getPositronEnv(process.env, 'APPDATA');
+	// --- End Positron ---
 	if (appDataPath) {
 		return join(appDataPath, productName);
 	}

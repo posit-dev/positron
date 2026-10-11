@@ -14,6 +14,9 @@ import { Emitter, Event } from '../../../common/event.js';
 import { Disposable, IDisposable } from '../../../common/lifecycle.js';
 import { join } from '../../../common/path.js';
 import { Platform, platform } from '../../../common/platform.js';
+// --- Start Positron ---
+import { getPositronEnv } from '../../../common/positronEnvironment.js';
+// --- End Positron ---
 import { generateUuid } from '../../../common/uuid.js';
 import { ClientConnectionEvent, IPCServer } from '../common/ipc.js';
 import { Client, ISocket, Protocol, SocketCloseEvent, SocketCloseEventType, SocketDiagnostics, SocketDiagnosticsEventType } from '../common/ipc.net.js';
@@ -788,7 +791,10 @@ export function createStaticIPCHandle(directoryPath: string, type: string, versi
 	const typeForSocket = type.substr(0, 6);
 
 	let result: string;
-	if (process.platform !== 'darwin' && XDG_RUNTIME_DIR && !process.env['VSCODE_PORTABLE']) {
+	// --- Start Positron ---
+	// if (process.platform !== 'darwin' && XDG_RUNTIME_DIR && !process.env['VSCODE_PORTABLE']) {
+	if (process.platform !== 'darwin' && XDG_RUNTIME_DIR && !getPositronEnv(process.env, 'PORTABLE')) {
+		// --- End Positron ---
 		result = join(XDG_RUNTIME_DIR, `vscode-${scopeForSocket}-${versionForSocket}-${typeForSocket}.sock`);
 	} else {
 		result = join(directoryPath, `${versionForSocket}-${typeForSocket}.sock`);
