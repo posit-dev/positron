@@ -144,9 +144,14 @@ export function lintPreconditionActions(preconditions) {
 			problems.push(problem('precondition-runs-command', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" runs \`${command}\`; run it as a step, and keep the precondition to the file or package`));
 		}
 		const plainText = text.replace(/`[^`]*`/g, 'code');
-		const done = /^\*\*/.test(text) || command ? null : DONE_IN_APP.exec(plainText) ?? (where.startsWith('Finding') ? RUN_IN_SESSION.exec(plainText) : null);
+		const done = /^\*\*/.test(text) || command ? null : DONE_IN_APP.exec(plainText);
 		if (done) {
 			problems.push(problem('precondition-done-in-app', `${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`));
+		}
+		// The scenario that ran it may not be the one whose steps the finding shows, so name what it left.
+		const ran = done || !where.startsWith('Finding') ? null : RUN_IN_SESSION.exec(plainText);
+		if (ran) {
+			problems.push(problem('precondition-done-in-app', `report: ${where} precondition "${name}" says a file was ${ran[0]}; name the state it left instead (the variables it defined, in which session), or, if the failing scenario ran it, make it that scenario's first step`));
 		}
 		const running = RUNNING_APP.exec(text.replace(/`[^`]*`/g, 'code'));
 		if (running) {

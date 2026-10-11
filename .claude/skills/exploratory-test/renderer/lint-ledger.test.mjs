@@ -168,7 +168,7 @@ test('flags a precondition that is something done in the app, in the report and 
 	assert.deepEqual(pre('a Python with polars is selected'), []);
 	assert.deepEqual(pre('`slow.py` loaded'), []);
 	// Running a file is the step that comes first, however the precondition words it.
-	assert.deepEqual(pre('`p1_setup.py` run in the first Python session'), ['report: Finding 1 precondition "app running" is done in the app ("run in the first Python session"); do it as a step, and keep the precondition to the state before step 1']);
+	assert.deepEqual(lint(report(f => { f.preconditions = [{ name: 'app running', text: '`p1_setup.py` run in the first Python session' }]; })).filter(x => /says a file was/.test(x)), ['report: Finding 1 precondition "app running" says a file was run in the first Python session; name the state it left instead (the variables it defined, in which session), or, if the failing scenario ran it, make it that scenario\'s first step']);
 	assert.deepEqual(pre('A Python 3.12 venv to run in'), []);
 	// A ledger row's third field says how its scenario made the state, so it may name the run.
 	const made = LEDGER.replace('Status: fail - Finding 1\n', 'Status: fail - Finding 1\n\nPreconditions:\n- Variables loaded | S01 | `setup.py` run in the first Python session\n');
