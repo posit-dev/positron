@@ -83,6 +83,10 @@ const { createPackage, uncache } = nodeRequire('asar') as {
 			copyFile(join(outRoot, 'bootstrap-esm.js'), join(packagedOutRoot, 'bootstrap-esm.js')),
 			copyFile(join(outRoot, 'bootstrap-meta.js'), join(packagedOutRoot, 'bootstrap-meta.js')),
 			copyFile(join(outRoot, 'bootstrap-node.js'), join(packagedOutRoot, 'bootstrap-node.js')),
+			// --- Start Positron ---
+			// bootstrap-node.js imports the portable mode env helpers.
+			copyFile(join(outRoot, 'bootstrap-portable-env.js'), join(packagedOutRoot, 'bootstrap-portable-env.js')),
+			// --- End Positron ---
 			copyFile(join(outRoot, 'vs', 'base', 'common', 'performance.js'), join(packagedOutRoot, 'vs', 'base', 'common', 'performance.js')),
 			writeFile(join(packagedAppRoot, 'product.json'), '{}'),
 			writeFile(join(packagedAppRoot, 'package.json'), '{"type":"module"}'),
