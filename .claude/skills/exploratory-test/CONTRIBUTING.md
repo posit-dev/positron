@@ -44,6 +44,7 @@ the report as the explorer wrote it, with the findings marked unreviewed.
 | To change | Edit |
 |---|---|
 | What an agent is told | `explorer.md`, `verifier.md`, `isolator.md`, `editor.md` |
+| Why each of the explorer's rules exists, and what checks it | `RULES.md` |
 | Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
 | How a local run starts an agent, and its time limit | `renderer/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/finish.mjs` |
@@ -70,6 +71,9 @@ Launching and driving the app belongs to drive-positron. See its
   their replies into the report. Stats and feedback are grouped by version, so
   such a change under an old number muddies both. One bump per PR is enough. A
   change to how the page looks needs none.
+- **A rule in `explorer.md` lands with proof it works:** a lint check with a
+  test that fails without it, or a before-and-after trial. Add or update its
+  row in `RULES.md` in the same PR, and read that file before cutting one.
 - **Verdicts annotate, they never delete.** A wrong FALSE POSITIVE that
   removed a real finding would be invisible to everyone.
 - **Order lives in `pipeline.mjs`.** Don't add a step to SKILL.md or to
