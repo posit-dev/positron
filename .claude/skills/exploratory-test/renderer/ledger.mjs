@@ -394,7 +394,6 @@ export function parseLedger(markdown) {
 			finding,
 			findings: s.findings ?? [],
 			issues: s.issues,
-			shot: null,
 			pre: s.pre.map(p => ({ nameHtml: inline(p.name), from: p.from, howHtml: inline(p.how) })),
 			steps,
 		};

@@ -691,10 +691,6 @@ function renderFindingCard(f, report, options) {
 	// is raw text, and it carries the files itself.
 	const files = options.files ?? [];
 
-	if (f.proseHtml) {
-		return `<article id="f${f.n}" class="card${f.severity === 'major' ? ' major' : ''}">${linkIssues(linkFiles(`${head}<div class="card-prose">${f.proseHtml}</div>`, files), options.refs)}${feedback}${promptBlock}</article>`;
-	}
-
 	// The claim's facts before the procedure, as one comparison: what the run
 	// saw, marked by severity, beside what should have happened.
 	const half = (cls, label, html) => (html ? `<div class="${cls}"><div class="f-lab">${label}</div><p class="f-txt">${html}</p></div>` : '');
@@ -822,10 +818,9 @@ function renderCoverage(report, options = {}) {
 	const passRows = passes.map((row, i) => {
 		const cls = `cf-r cf-p${i < COVERAGE_PASSES_SHOWN ? '' : ' cov-extra'}`;
 		const cells = scenario(row, 'pass') + `<span class="cov-result">${result(row)}</span>`;
-		// With no steps to hang it on, the screenshot is the whole expanded row.
 		const steps = row.steps.length
 			? copyableCode(`<ol class="steps">${row.steps.map(st => renderStep(st, { tail: st.evidence.map(e => photo(row, i, e)).join('') })).join('\n')}</ol>`)
-			: row.shot ? `<p class="cv-shot">Screenshot${photo(row, i, { href: row.shot.href, file: row.shot.label })}</p>` : '';
+			: '';
 		const body = preconditions(row) + steps;
 		if (body) {
 			return `<details class="cv ${cls}" id="${rowId.get(row)}"><summary class="row coverage-grid">${cells}`

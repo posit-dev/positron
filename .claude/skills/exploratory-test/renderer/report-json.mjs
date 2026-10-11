@@ -112,7 +112,6 @@ function findingFromJson(f) {
 		causeHtml: f.cause ? inline(f.cause) : '',
 		errors: (f.errors ?? []).map(errorFromJson),
 		tests: { cases, related },
-		hero: null,
 		text: {
 			observed: f.observed ?? '',
 			expected: f.expected ?? '',
@@ -121,9 +120,7 @@ function findingFromJson(f) {
 			cause: f.cause ?? '',
 			summary: f.summary ?? '',
 			opening: f.summary ? { summary: f.summary, where: f.where ?? '' } : null,
-			prose: '',
 		},
-		proseHtml: '',
 	};
 }
 

@@ -19,7 +19,6 @@ const PROFESSIONAL = `
 	--muted: #6A6F76;
 	--faint: #8A8F96;
 	--faint-rate: #7A7F86;
-	--secondary: #4F535A;
 	--dot-neutral: #CFCAC0;
 	--sep: #B8B4AA;
 	--divider: #CFCAC0;
@@ -43,7 +42,6 @@ const PROFESSIONAL = `
 	--success: #1A7F45;
 	--danger: #A12C1F;
 	--pass-bg: #E8F3EC;
-	--notrun: #E2DFD7;
 	--notrun-bar: #DAD6CD;
 	--stage-1: #5E646C;
 	--stage-2: #CFCAC0;
@@ -60,9 +58,7 @@ const PROFESSIONAL = `
 	--thumb-border: #EFEDE7;
 	--thumb-a: #F9F8F5;
 	--thumb-b: #F3F1EC;
-	--quiet: #767B82;
 	--dash: #D9D5CB;
-	--chip-border: #DAD6CD;
 	--cv-chev: #C4C0B6;
 	--st-ev: #8A8F96;
 	--st-target: #F6F1E4;
@@ -161,7 +157,6 @@ const PARTY = `
 	--muted: #9D95C6;
 	--faint: #8A82B8;
 	--faint-rate: #8A82B8;
-	--secondary: #B8B0DE;
 	--dot-neutral: #4E4580;
 	--sep: #5B4F92;
 	--divider: #4A3F7A;
@@ -184,7 +179,6 @@ const PARTY = `
 	--success: #3BD69E;
 	--danger: #FF8FA8;
 	--pass-bg: #17352C;
-	--notrun: #3A3068;
 	--notrun-bar: #4A3F7A;
 	--stage-1: #5CE1E6;
 	--stage-2: #6E64A8;
@@ -201,9 +195,7 @@ const PARTY = `
 	--thumb-border: #2A2250;
 	--thumb-a: #1C1636;
 	--thumb-b: #19132F;
-	--quiet: #948DBF;
 	--dash: #4A3F7A;
-	--chip-border: #5B4F92;
 	--cv-chev: #5B4F92;
 	--st-ev: #8A82B8;
 	--st-target: #2A2250;
@@ -669,7 +661,6 @@ span.rt-file{color:var(--body)}
 .rt-sep{color:var(--sep)}
 .rt-t{flex:none;min-width:30px;box-sizing:border-box;text-align:center;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;line-height:1}
 .rt-t-tint{padding:3px 5px;border-radius:4px;background:var(--rt-tag-bg);color:var(--rt-tag-ink)}
-.card-prose{font-size:15px;line-height:1.65;color:var(--body)}
 
 /* Coverage */
 /* Filter tabs are labels for hidden radios, which precede the tabs and the
@@ -765,7 +756,6 @@ span.rt-file{color:var(--body)}
 .f-pl li{position:relative}
 .f-pl-p{position:absolute;right:calc(100% + 8px);top:0;font-size:13px;color:var(--faint)}
 .cov-empty{margin:0;font-size:14px;color:var(--muted)}
-.cv-shot{margin:0;font-size:13px;line-height:1.6;color:var(--body)}
 /* The screenshot icon supports the check: faint at rest, ink on hover or focus */
 .st-ev{color:var(--st-ev);white-space:nowrap;padding:2px 3px;margin-left:3px;border-radius:4px;cursor:zoom-in;transition:color .15s ease}
 .st-ev svg{width:1.15em;height:1.15em;stroke-width:1.25;vertical-align:-0.245em}

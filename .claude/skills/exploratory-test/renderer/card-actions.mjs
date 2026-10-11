@@ -311,7 +311,7 @@ function buildIssueBody(f, report, options = {}, { trim = 0 } = {}) {
 	};
 	const fold = (summary, body) => out.push(`<details><summary>${summary}</summary>`, '', escapeLoneTildes(safeLinks(body)), '', '</details>', '');
 
-	section('Describe the issue', opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.prose || t.summary));
+	section('Describe the issue', opening ? [opening.summary, opening.where].filter(Boolean).map(capitalize).join('\n\n') : capitalize(t.summary));
 
 	const files = filesNamedIn(options.files ?? [], [...t.preconditions, ...t.steps].join('\n')).filter(file => file.kind !== 'missing');
 	const marked = new Set();
