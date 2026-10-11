@@ -25,7 +25,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { homedir, machine, release, type } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -57,8 +57,75 @@ export function isolateTimeUpMessage(dir) {
 /** What the explorer is told once its time is up, as CI's is; the limit can change, so no minutes. */
 export const EXPLORE_TIME_UP = 'Time is up: your time for exploring has run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it. The run is stopped in 10 minutes.';
 
-/** The explorer's prompt: explorer.md, the brief, and what a local run sets up for it. */
-export function explorePrompt(dir, brief) {
+/**
+ * The first lines of the ledger's Environment, from facts read before the
+ * run: Positron's version, build and commit, the OS, and the kernels the
+ * checkout ships. The issue button copies them into System details, so they
+ * come from the files, not from the agent. An unread value is `not recorded`.
+ */
+export function environmentLines({ product, codeVersion, commit, os, ark, kallichore }) {
+	// A dev build's number is 0, which is a value.
+	const or = value => (value === undefined || value === null || value === '' ? 'not recorded' : value);
+	const kernels = [ark && `Ark ${ark}`, kallichore && `Kallichore ${kallichore}`].filter(Boolean);
+	return [
+		`- Positron ${or(product?.positronVersion)} build ${or(product?.positronBuildNumber)}, dev build of ${or(commit)} (Code - OSS ${or(codeVersion)}), on ${or(os)}.`,
+		...(kernels.length ? [`- Kernels: ${kernels.join(', ')}.`] : []),
+	];
+}
+
+/** environmentLines' facts, read from the checkout at `repo` and this machine. */
+export function readEnvironment(repo) {
+	const tryRead = (read, fallback = '') => {
+		try {
+			return read();
+		} catch {
+			return fallback;
+		}
+	};
+	const file = path => readFileSync(join(repo, path), 'utf8');
+	const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+	const osName = tryRead(() => (process.platform === 'darwin'
+		? `${run('sw_vers', ['-productName'])} ${run('sw_vers', ['-productVersion'])}`
+		: process.platform === 'linux'
+			? /^PRETTY_NAME="?([^"\n]*)"?$/m.exec(readFileSync('/etc/os-release', 'utf8'))[1]
+			: `${type()} ${release()}`));
+	return {
+		product: tryRead(() => JSON.parse(file('product.json')), null),
+		codeVersion: tryRead(() => JSON.parse(file('package.json')).version),
+		commit: tryRead(() => run('git', ['-C', repo, 'rev-parse', '--short=10', 'HEAD'])),
+		os: osName && `${osName} (${type()} ${machine()})`,
+		ark: tryRead(() => file('extensions/positron-r/resources/ark/VERSION').trim()),
+		kallichore: tryRead(() => file('extensions/positron-supervisor/resources/kallichore/VERSION').trim()),
+	};
+}
+
+/** The brief's Environment part: the lines the ledger's Environment starts with. */
+export function environmentBrief(lines) {
+	return [
+		'## Environment',
+		'',
+		'Read from the checkout and this machine before the run. Start the ledger\'s `## Environment` with these lines as they are, leaving out Ark when the run uses no R:',
+		'',
+		...lines,
+	].join('\n');
+}
+
+/**
+ * Sets report.json's Branch verification to `body`: the pipeline checks the
+ * build before the explorer starts, so the explorer does not. No report, no change.
+ */
+export function recordBranchCheck(dir, body) {
+	const path = reportPath(dir);
+	if (!existsSync(path)) {
+		return;
+	}
+	const report = readReport(path);
+	const details = (report.header?.details ?? []).filter(d => d.title !== 'Branch verification');
+	writeReport(path, { ...report, header: { ...report.header, details: [...details, { title: 'Branch verification', body }] } });
+}
+
+/** The explorer's prompt: explorer.md, the brief, the Environment lines, and what a local run sets up for it. */
+export function explorePrompt(dir, brief, environment = []) {
 	return [
 		readFileSync(EXPLORER_PATH, 'utf8').trim(),
 		'',
@@ -68,6 +135,7 @@ export function explorePrompt(dir, brief) {
 		'',
 		brief.trim(),
 		'',
+		...(environment.length ? [environmentBrief(environment), ''] : []),
 		`Run directory: \`${dir}\``,
 		'',
 		`The renderer is \`${RENDER}\`; \`lint-json.mjs\` and \`report.schema.json\` are beside it.`,
@@ -82,8 +150,8 @@ export function explorePrompt(dir, brief) {
  * `{ role, model, durationMs, turns, costUsd }`, or null when it failed. Its
  * time limit is the minutes in `timeLimitPath`, if any.
  */
-export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, log = () => { } }) {
-	const prompt = explorePrompt(dir, brief);
+export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, environment = environmentLines(readEnvironment(repo)), log = () => { } }) {
+	const prompt = explorePrompt(dir, brief, environment);
 	writeFileSync(join(dir, 'explore-prompt.md'), prompt);
 	log('new explore agent');
 	try {
@@ -248,7 +316,7 @@ export function costPasses(explorer, passes) {
  * A run's end: settle report.json against the ledger, with one retry when the
  * explorer's session can be resumed, run the later passes on it, and render it.
  */
-async function finishLocal(dir, explored, { repo, base, head, baseName, runAgent, agentPrompts, log }) {
+async function finishLocal(dir, explored, { repo, base, head, baseName, runAgent, agentPrompts, branchCheck, log }) {
 	const retries = [];
 	const resume = explored?.sessionId ? async prompt => {
 		const result = await runAgent({ role: 'explore', purpose: 'json retry', model: explored.model, prompt, tools: READ_TOOLS, cwd: repo, resume: explored.sessionId });
@@ -259,6 +327,9 @@ async function finishLocal(dir, explored, { repo, base, head, baseName, runAgent
 		stopInstances(dir);
 		log(`the explorer wrote no report.json; what it left is in ${dir}`);
 		return 1;
+	}
+	if (branchCheck) {
+		recordBranchCheck(dir, branchCheck);
 	}
 	const passes = await finishRun(dir, { repo, base, head, baseName, runAgent, log });
 	const path = reportPath(dir);
@@ -403,7 +474,11 @@ async function main(argv) {
 		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, log });
 	}
 	const explorer = explored ?? { model: values.model ?? 'opus', durationMs: number(values['duration-ms']), turns: number(values.turns), costUsd: null };
-	return finishLocal(dir, explorer, { repo: values.repo, base: values.base, head: values.head, baseName: values['base-name'], runAgent, agentPrompts: !values['no-agent-prompts'], log });
+	// A replay keeps the check its run recorded.
+	const branchCheck = !fresh ? null : values['skip-checkout-check']
+		? 'Not checked: the run was started with `--skip-checkout-check`.'
+		: `Checked by the pipeline before the run: the checkout was at \`${values.head.slice(0, 10)}\`, and \`out/\` was newer than the last commit to touch \`src/\`.`;
+	return finishLocal(dir, explorer, { repo: values.repo, base: values.base, head: values.head, baseName: values['base-name'], runAgent, agentPrompts: !values['no-agent-prompts'], branchCheck, log });
 }
 
 if (process.argv[1] === SELF) {

@@ -23,7 +23,6 @@ import { findingProblems, rateProblems, resultProblems } from './lint-wording.mj
 import { reportFromJson } from './report-json.mjs';
 import { recordCheck } from './stats.mjs';
 import { parseLedger, verifyText } from './ledger.mjs';
-import { plainText } from './text.mjs';
 
 const norm = text => String(text ?? '').replace(/\s+/g, ' ').replace(/[.\s]+$/, '').trim();
 const FILLER = new Set(['a', 'an', 'the', 'of', 'in', 'on', 'at', 'to', 'for', 'from', 'with', 'by', 'and', 'or', 'it', 'its', 'is', 'are', 'was', 'be', 'that', 'this']);
@@ -48,7 +47,6 @@ function stepDistance(ledgerText, reportText) {
 	const added = [...report].filter(w => !ledger.has(w)).length;
 	return report.size >= 3 && added <= Math.floor(report.size / 3) ? added + 0.5 : Infinity;
 }
-const failRate = scenario => /\bFails (\d+\/\d+)\b/.exec(plainText(scenario.resultHtml ?? ''))?.[1] ?? null;
 const named = (scenario, n) => scenario.findings.includes(n) || scenario.steps.some(st => st.finding === n);
 
 /** The finding's steps against one scenario's: each one the ledger's, in its order, with its result. */
@@ -84,8 +82,8 @@ function stepProblems(f, scenario) {
 }
 
 /**
- * Problems with report.json against the ledger, each with the finding number
- * or scenario ID it is about, so a retry can be taken for those parts only.
+ * Problems with report.json's findings against the ledger, each with the
+ * finding number it is about, so a retry can be taken for those parts only.
  */
 export function checkReportJson(json, ledgerText) {
 	const ledger = parseLedger(ledgerText);
@@ -94,9 +92,6 @@ export function checkReportJson(json, ledgerText) {
 	}
 	const problems = [];
 	const onFinding = (n, rule, text) => problems.push(problem(rule, text, { finding: n }));
-	const onScenario = (id, rule, text) => problems.push(problem(rule, text, { scenario: id }));
-	const scenarios = new Map(ledger.exercised.map(s => [s.id, s]));
-	const notRun = new Set(ledger.notExercised.map(s => s.id));
 
 	// Findings: the same numbers the ledger fails.
 	const ledgerFindings = new Set(ledger.exercised.flatMap(s => [...s.findings, ...s.steps.map(st => st.finding).filter(n => n !== null)]));
@@ -109,35 +104,6 @@ export function checkReportJson(json, ledgerText) {
 	for (const n of ledgerFindings) {
 		if (!findings.some(f => f.n === n)) {
 			onFinding(n, 'ledger-finding-missing', `the ledger's Finding ${n} is missing`);
-		}
-	}
-
-	// Scenarios: each one the ledger's, with its status, rate and findings.
-	for (const s of json.scenarios ?? []) {
-		const own = scenarios.get(s.id);
-		if (s.status === 'not-run') {
-			if (!own && !notRun.has(s.id)) {
-				onScenario(s.id, 'scenario-not-in-ledger', `${s.id} is not in the ledger`);
-			} else if (own) {
-				onScenario(s.id, 'scenario-not-run', `${s.id} is not run, but the ledger ran it`);
-			}
-			continue;
-		}
-		if (!own) {
-			onScenario(s.id, 'scenario-not-in-ledger', `${s.id} is not in the ledger${notRun.has(s.id) ? ', which did not run it' : ''}`);
-			continue;
-		}
-		if (s.status !== own.status) {
-			onScenario(s.id, 'scenario-status', `${s.id} is ${s.status}, but the ledger has ${own.status}`);
-		}
-		const rate = /\bFails (\d+\/\d+)\b/.exec(s.result ?? '')?.[1];
-		if (rate && failRate(own) && rate !== failRate(own)) {
-			onScenario(s.id, 'scenario-rate', `${s.id} fails ${rate}, but the ledger has ${failRate(own)}`);
-		}
-		const want = [...new Set(own.findings)].sort().join(',');
-		const got = [...new Set(s.findings ?? [])].sort().join(',');
-		if (own.status === 'fail' && want !== got) {
-			onScenario(s.id, 'scenario-findings', `${s.id} names findings [${got}], but the ledger has [${want}]`);
 		}
 	}
 
@@ -255,7 +221,7 @@ export function formatProblems(json, ledger, options = {}) {
 	}
 	// A markdown link anywhere in the prose is a file the reader opens.
 	const links = stringsOf({ header, findings }).flatMap(t => [...t.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]));
-	problems.push(...absolutePathProblems('report', [...(json.logs ?? []), ...(json.files ?? [])].map(x => x.path ?? '').concat(links)));
+	problems.push(...absolutePathProblems('report', links));
 	problems.push(...modelProblems(reportFromJson(json, { ledger }).findings, ledger, options));
 	problems.push(...runProblems(stringsOf({ header, findings }).join('\n'), ledger, {
 		...options,
@@ -283,30 +249,19 @@ export function buildRetryPrompt(problems) {
 }
 
 /**
- * The first report with the retry's version of each finding and scenario the
- * check flagged, and nothing else of the retry's: a retry asked to fix one
- * thing rewords others, and those were already right. Returns the report and
- * the parts the retry changed that were not taken.
+ * The first report with the retry's version of each finding the check
+ * flagged, and nothing else of the retry's: a retry asked to fix one thing
+ * rewords others, and those were already right. Returns the report and the
+ * findings the retry changed that were not taken.
  */
 export function mergeRetry(first, retry, problems) {
-	const findings = new Set(problems.map(p => p.finding).filter(n => n !== undefined));
-	const scenarios = new Set(problems.map(p => p.scenario).filter(Boolean));
-	const take = (key, flagged, a = [], b = []) => {
-		const theirs = new Map(b.map(x => [x[key], x]));
-		const kept = a.filter(x => !flagged.has(x[key]) || theirs.has(x[key])).map(x => (flagged.has(x[key]) ? theirs.get(x[key]) : x));
-		const added = b.filter(x => flagged.has(x[key]) && !a.some(y => y[key] === x[key]));
-		const ignored = b.filter(x => !flagged.has(x[key]) && JSON.stringify(x) !== JSON.stringify(a.find(y => y[key] === x[key]))).map(x => x[key]);
-		return { list: [...kept, ...added], ignored };
-	};
-	const f = take('n', findings, first.findings, retry.findings);
-	const s = take('id', scenarios, first.scenarios, retry.scenarios);
-	const order = x => [x.id[0] === 'N' ? 1 : 0, Number(x.id.slice(1))];
-	s.list.sort((x, y) => order(x)[0] - order(y)[0] || order(x)[1] - order(y)[1]);
-	f.list.sort((x, y) => x.n - y.n);
-	return {
-		report: { ...first, findings: f.list, scenarios: s.list },
-		ignored: [...f.ignored.map(n => `Finding ${n}`), ...s.ignored],
-	};
+	const flagged = new Set(problems.map(p => p.finding).filter(n => n !== undefined));
+	const theirs = new Map((retry.findings ?? []).map(f => [f.n, f]));
+	const ours = first.findings ?? [];
+	const kept = ours.filter(f => !flagged.has(f.n) || theirs.has(f.n)).map(f => (flagged.has(f.n) ? theirs.get(f.n) : f));
+	const added = (retry.findings ?? []).filter(f => flagged.has(f.n) && !ours.some(g => g.n === f.n));
+	const ignored = (retry.findings ?? []).filter(f => !flagged.has(f.n) && JSON.stringify(f) !== JSON.stringify(ours.find(g => g.n === f.n))).map(f => `Finding ${f.n}`);
+	return { report: { ...first, findings: [...kept, ...added].sort((x, y) => x.n - y.n) }, ignored };
 }
 
 /** Schema problems first: the ledger check reads fields the schema requires. */

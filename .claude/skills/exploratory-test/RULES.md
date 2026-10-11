@@ -55,7 +55,7 @@ Then update the rule's row here in the same PR.
 | Work the riskiest area first. What you don't reach goes under Not run. | A run can be stopped at any time. | Nothing | - | #16421 |
 | Do the exploring yourself; don't delegate. | Not recorded. | Nothing | - | #16162 |
 | Batch independent steps. Read a screenshot back only when no snapshot or log grep can answer. | Every turn re-sends the context, and an image costs about 2,500 tokens on every later turn. | Nothing | 2026-09-21 A/B on #16161, two rounds: no measurable effect on cost or findings. | #16162 |
-| Prove the build is the branch under test before exploring, and record how. | A stale `out/` is main, and a run against main reports clean. | Pipeline: the checkout check, local runs only. | - | #16162 |
+| Don't check or build the branch: the pipeline has, and records it under Branch verification. | A stale `out/` is main, and a run against main reports clean. The explorer spent about 6 turns a run checking it. | Pipeline: the checkout check before a local run; CI builds the branch. Both write Branch verification. | - | #16162, this branch |
 | Name a credential only by its variable. Never run `env`, `printenv` or `set`. Enter keys only into password fields, and blur one that shows. | A report can be published to a public URL. | Publishing: `redact.sh` and `scan-shots.mjs` paint over keys they find. | - | #16262 |
 | Point drive-positron's log and shots at the run directory. Never save a shot elsewhere to copy later. | drive-positron's cleanup deletes its own run directory. | Lint (`evidence-shot-missing`): Evidence not in `shots/`. | - | #16245 |
 | Pipe every launch through `tee -a "$RUN/instances.jsonl"`. | An instance left running is stopped after the run. | `stop-instances.sh` stops what is listed. | - | #16355 |
@@ -93,7 +93,7 @@ Then update the rule's row here in the same PR.
 | One action per step. A VERIFY is only the check. | Runs folded actions into VERIFY steps. | Lint (`two-actions`, `repeated-action`, `verify-acts`): two actions, a repeated action, a VERIFY that acts. | - | #16355, #16463 |
 | Write the ledger as you go, and run `--check` after two scenarios and before `stop.sh`. | A slip that needs a new shot can be fixed only while the instance is up. | Nothing | - | #16421 |
 | A pass that showed something unexpected gets a VERIFY before moving on. | An unexplained pass can hide a bug. | Nothing | - | #16421 |
-| Read `## Environment` values from their files, never guess. | The issue button copies them into System details. | Lint (`environment-first-line`): the first bullet's format. | - | #16247, #16538 |
+| Start `## Environment` with the lines the brief gives, as they are. | The issue button copies them into System details. | Pipeline: reads them from the checkout and the machine. Lint (`environment-first-line`): the first bullet's format. | - | #16247, #16538, this branch |
 | A precondition is state before step 1. Anything done in the app is a step. | Not recorded. | Lint (`precondition-runs-command`, `precondition-done-in-app`, `precondition-running-app`): a precondition that runs a command, acts in the app, or is a running app. | - | #16487 |
 | A scenario that needs an untouched file makes a fresh copy as step 1. | A file remembers its kernel and editor. | Nothing | - | #16421 |
 | Install packages only into the run's own venv. A finding's precondition names the interpreter and package. | Other runs share those. The reader has no run. | Lint (`precondition-the-runs`): a precondition that says "the run's". | - | #16421 |

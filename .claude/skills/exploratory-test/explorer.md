@@ -34,14 +34,8 @@ at 1600x1100 and is paid again on every later call. Read one only when no grep
 of an accessibility snapshot or a log can answer the question. A screenshot you
 never read is still good evidence.
 
-Before exploring, prove the branch under test is the code you are driving. A
-worktree's `out/` is routinely stale main, and a run against main yields a clean
-report indistinguishable from a real one. Build if you need to, then grep the
-compiled output for a string the diff introduced. When the diff changes no
-product code (only tests, docs or skills), check instead that the checkout is
-at the head SHA (`git rev-parse HEAD`) and that `out/` is newer than the last
-commit to touch `src/` (`git log -1 --format=%cI -- src`). Record the check
-under Branch verification in Run details.
+The build is the branch under test: the pipeline checks it before you start
+and records the check in Run details. Do not check or build it again.
 
 ## Credentials
 
@@ -284,15 +278,11 @@ Steps:
   something you did not expect is not a pass yet: check it with a VERIFY step
   before you move to the next area, and if that fails it is a finding. Only
   when time runs out first, note it under Noticed.
-- `## Environment` holds only what is true for the whole run. The issue button
-  copies its first two bullets into System details, so read each value, never
-  guess: version and build from `positronVersion` and `positronBuildNumber` in
-  `product.json`, the commit from `git rev-parse --short=10 HEAD`, Code - OSS
-  from `package.json`'s `version`, the OS from `sw_vers` or `/etc/os-release`
-  and `uname -sm`, Ark from `extensions/positron-r/resources/ark/VERSION`, and
-  Kallichore from `extensions/positron-supervisor/resources/kallichore/VERSION`
-  (in a release build, under the app's `resources/app/`). Leave Ark out when
-  the run uses no R.
+- `## Environment` holds only what is true for the whole run. Your brief gives
+  its first lines, read from the checkout and the machine; copy them as they
+  are, leaving Ark out when the run uses no R. The issue button copies them
+  into System details. If you test a release build instead, read its version,
+  build and kernels from the app's `resources/app/` and write those.
 - `## Logs` is written at the end, one line per file in `logs/` that the app
   or an interpreter wrote, with its errors ("2 errors, both in Finding 1", "no
   errors"). An error no check is tied to is counted here and nowhere else.
@@ -741,27 +731,17 @@ its entire output. Its shape is `report.schema.json` beside the renderer:
 		"notExercised": "<surfaces the change touches that you did not reach, or `none`>",
 		"details": [
 			{ "title": "Change under test", "body": "..." },
-			{ "title": "State manipulation", "body": "..." },
-			{ "title": "Branch verification", "body": "..." }
+			{ "title": "State manipulation", "body": "..." }
 		]
 	},
-	"findings": [],
-	"scenarios": [
-		{ "id": "S01", "name": "<scenario>", "status": "fail", "result": "Fails 3/3", "findings": [1] },
-		{ "id": "N01", "name": "<scenario>", "status": "not-run", "reason": "<why it was out of reach>" }
-	],
-	"logs": [{ "path": "logs/<file>", "source": "<process>", "note": "<what it holds>" }],
-	"files": [{ "path": "files/<file>", "desc": "<what it is>", "uses": "<the scenarios and findings that use it>" }],
-	"environment": { "positron": "<version and build>", "os": "<OS>", "kernels": ["<kernel and version>"] }
+	"findings": []
 }
 ```
 
 `pr` is there only when the run was for a pull request: take it from the
-request, or from `gh pr view --json number,url` on the branch. `scenarios` is
-the coverage the ledger records, one item per scenario, with each one you did
-not run as `not-run` and the linked issues its `Issue:` lines name as
-`issues` (`{ "n": 123, "kind": "held" }`, the kinds the schema lists); `logs`,
-`files` and `environment` are the ledger's too.
+request, or from `gh pr view --json number,url` on the branch. Coverage, Logs,
+Files and Environment come from `ledger.md`, so the report does not repeat
+them.
 Leave out `verified`, `known`, `intended`, `summary`, `where`, `verification`
 and `cost`: the passes after you write them.
 
@@ -771,8 +751,8 @@ enough; do not name a finding or list what you verified, since the findings
 are directly below. When it runs to two sentences, put `**` around the one a
 reader must not miss, never the whole line. `tested` is the surfaces you drove,
 in a phrase. `"notExercised": "none"` claims you reached everything the change
-touches. `details` holds the branch check, the state you manufactured and
-restored, and the local noise you ignored.
+touches. `details` holds the state you manufactured and restored, and the
+local noise you ignored; the pipeline adds the branch check.
 
 Go through "Before you write the ledger" once more against the report, then
 check it: `node <lint-json.mjs beside the renderer> "$RUN/report.json"`. It

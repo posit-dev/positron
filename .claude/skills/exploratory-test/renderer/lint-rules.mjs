@@ -9,16 +9,11 @@
 // another check. Stats count problems by ID, and RULES.md names the IDs.
 
 export const LINT_RULES = {
-	// report.json against its schema and the ledger
+	// report.json's findings against its schema and the ledger
 	'schema': 'error',
 	'no-ledger': 'error',
 	'finding-not-in-ledger': 'error',
 	'ledger-finding-missing': 'error',
-	'scenario-not-in-ledger': 'error',
-	'scenario-not-run': 'error',
-	'scenario-status': 'error',
-	'scenario-rate': 'error',
-	'scenario-findings': 'error',
 	'finding-step-not-in-scenario': 'error',
 	'finding-step-out-of-order': 'error',
 	'finding-step-result': 'error',

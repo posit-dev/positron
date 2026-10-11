@@ -15,7 +15,7 @@ import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/
 import { settleReportJson } from '../../../.claude/skills/exploratory-test/renderer/lint-json.mjs';
 import { reportFromJson, writeJsonPage } from '../../../.claude/skills/exploratory-test/renderer/report-json.mjs';
 import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
-import { finishRun } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
+import { environmentBrief, environmentLines, finishRun, readEnvironment, recordBranchCheck } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
@@ -223,7 +223,7 @@ async function main() {
 		buildTaskLine(FOCUS, upstream),
 		'',
 		...(knownBrief ? [knownBrief, ''] : []),
-		'**The build is already the branch.** `out/` was compiled in this job from the ref under test, and the restored caches hold npm dependencies, built-ins and Playwright, never compiled output. Skip the skill\'s build-vs-branch grep and say in Run details that CI compiled it.',
+		environmentBrief(environmentLines(readEnvironment(REPO_ROOT))),
 		'',
 		'Write the report to `report.json` in the run directory. Return a two or three line summary and nothing else.',
 	].join('\n');
@@ -261,6 +261,11 @@ async function main() {
 		addCost('retry', again.cost);
 	} : null;
 	let report = await settleReportJson(WORK_DIR, { resume, log: line => console.log(line) });
+	// The restored caches hold dependencies, built-ins and Playwright, never compiled output.
+	if (report) {
+		recordBranchCheck(WORK_DIR, `CI compiled \`out/\` in this job from the ref under test (head \`${HEAD_SHA.slice(0, 10)}\`).`);
+		report = JSON.parse(readFileSync(join(WORK_DIR, 'report.json'), 'utf8'));
+	}
 	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
 	if (report && /^\d+$/.test(process.env.PR_NUMBER ?? '') && process.env.GITHUB_REPOSITORY) {
 		report = { ...report, header: { ...report.header, pr: { repo: process.env.GITHUB_REPOSITORY, number: Number(process.env.PR_NUMBER) } } };

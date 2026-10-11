@@ -2,11 +2,7 @@
 	"type": "object",
 	"required": [
 		"header",
-		"findings",
-		"scenarios",
-		"logs",
-		"files",
-		"environment"
+		"findings"
 	],
 	"$defs": {
 		"md": {
@@ -16,28 +12,6 @@
 		"int": {
 			"type": "integer",
 			"minimum": 1
-		},
-		"issueRef": {
-			"type": "object",
-			"required": [
-				"n",
-				"kind"
-			],
-			"properties": {
-				"n": {
-					"$ref": "#/$defs/int"
-				},
-				"kind": {
-					"enum": [
-						"observed",
-						"back",
-						"held",
-						"failed",
-						"skipped",
-						"not-exercised"
-					]
-				}
-			}
 		},
 		"step": {
 			"type": "object",
@@ -420,108 +394,6 @@
 					"where": {
 						"$ref": "#/$defs/md",
 						"description": "Where the finding happens, beside summary. Written by the pipeline after the explorer; the explorer leaves it out."
-					}
-				}
-			}
-		},
-		"scenarios": {
-			"type": "array",
-			"items": {
-				"type": "object",
-				"required": [
-					"id",
-					"name",
-					"status"
-				],
-				"properties": {
-					"id": {
-						"type": "string",
-						"pattern": "^[SN]\\d+$"
-					},
-					"name": {
-						"$ref": "#/$defs/md"
-					},
-					"status": {
-						"enum": [
-							"pass",
-							"fail",
-							"not-run"
-						]
-					},
-					"findings": {
-						"type": "array",
-						"items": {
-							"$ref": "#/$defs/int"
-						}
-					},
-					"result": {
-						"$ref": "#/$defs/md"
-					},
-					"reason": {
-						"$ref": "#/$defs/md"
-					},
-					"issues": {
-						"type": "array",
-						"items": {
-							"$ref": "#/$defs/issueRef"
-						}
-					}
-				}
-			}
-		},
-		"logs": {
-			"type": "array",
-			"items": {
-				"type": "object",
-				"required": [
-					"path"
-				],
-				"properties": {
-					"path": {
-						"type": "string"
-					},
-					"source": {
-						"$ref": "#/$defs/md"
-					},
-					"note": {
-						"$ref": "#/$defs/md"
-					}
-				}
-			}
-		},
-		"files": {
-			"type": "array",
-			"items": {
-				"type": "object",
-				"required": [
-					"path"
-				],
-				"properties": {
-					"path": {
-						"type": "string"
-					},
-					"desc": {
-						"$ref": "#/$defs/md"
-					},
-					"uses": {
-						"$ref": "#/$defs/md"
-					}
-				}
-			}
-		},
-		"environment": {
-			"type": "object",
-			"properties": {
-				"positron": {
-					"type": "string"
-				},
-				"os": {
-					"type": "string"
-				},
-				"kernels": {
-					"type": "array",
-					"items": {
-						"type": "string"
 					}
 				}
 			}

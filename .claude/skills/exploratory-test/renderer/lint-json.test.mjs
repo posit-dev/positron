@@ -68,14 +68,12 @@ test('a step reworded but acting on the same values is the ledger\'s', () => {
 	assert.deepEqual(lint(j), []);
 });
 
-test('a scenario the ledger does not have, or under another rate, is a problem', () => {
+test('a report need not repeat the ledger: the page takes coverage, logs, files and environment from it', () => {
 	const j = json();
-	j.scenarios[0].result = 'Fails 1/1';
-	j.scenarios.push({ id: 'S09', name: 'Invented', status: 'fail', result: 'Fails 1/1', findings: [1] });
-	assert.deepEqual(lint(j), [
-		'report.json: S01 fails 1/1, but the ledger has 2/2',
-		'report.json: S09 is not in the ledger',
-	]);
+	for (const key of ['scenarios', 'logs', 'files', 'environment']) {
+		delete j[key];
+	}
+	assert.deepEqual(lint(j), []);
 });
 
 test('a finding no scenario fails for, or one left out, is a problem', () => {
@@ -125,21 +123,16 @@ test('a log line listed as both found and missing is a problem', () => {
 	assert.deepEqual(lint(j), ['report.json: Finding 1 evidence lists logs/renderer.log as both a log line and missing']);
 });
 
-test('a retry is taken only for the findings and scenarios the check flagged', () => {
+test('a retry is taken only for the findings the check flagged', () => {
 	const first = json();
 	first.findings[0].reproduced = { n: 3, m: 3 };
-	first.scenarios.push({ id: 'S09', name: 'Invented', status: 'fail', result: 'Fails 1/1', findings: [1] });
 	const retry = json();
-	// The flagged finding is taken whole; the unflagged scenario's rewording is not.
-	retry.scenarios[1].result = 'The menu copies it.';
+	// The flagged finding is taken whole, rewording and all.
 	retry.findings[0].observed = 'Reworded';
 	const problems = checkReportJson(first, LEDGER);
-	assert.deepEqual(problems.map(p => p.finding ?? p.scenario), ['S09', 1]);
+	assert.deepEqual(problems.map(p => p.finding), [1]);
 	const { report, ignored } = mergeRetry(first, retry, problems);
-	assert.deepEqual(
-		{ rate: report.findings[0].reproduced, observed: report.findings[0].observed, scenarios: report.scenarios.map(s => [s.id, s.result ?? s.reason]), ignored },
-		{ rate: { n: 2, m: 2 }, observed: 'Reworded', scenarios: [['S01', 'Fails 2/2'], ['S02', 'The menu copies the accessor.'], ['N01', 'no web build']], ignored: ['S02'] },
-	);
+	assert.deepEqual({ rate: report.findings[0].reproduced, observed: report.findings[0].observed, ignored }, { rate: { n: 2, m: 2 }, observed: 'Reworded', ignored: [] });
 	assert.deepEqual(lintReportJson(report, LEDGER), []);
 });
 

@@ -10,7 +10,8 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, costPasses, explore, EXPLORE_TIME_UP, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, reviseMessage } from './pipeline.mjs';
+import { checkoutProblems, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, reviseMessage } from './pipeline.mjs';
+import { parseSystemLine } from './ledger.mjs';
 import { reportFromJson } from './report-json.mjs';
 
 const REPORT = {
@@ -293,4 +294,29 @@ test('checkoutProblems names a checkout off its head, a stale or missing build, 
 	assert.deepEqual(check({ at: '' }), ['it is not a git checkout']);
 	// A Windows checkout's binaries end in .exe.
 	assert.deepEqual(check({ mtimeMs: path => path.endsWith('.exe') ? 1 : null }), []);
+});
+
+test('the Environment lines read as lint and the issue button read them, with 0 as a build number', () => {
+	const lines = environmentLines({ product: { positronVersion: '2026.11.0', positronBuildNumber: 0 }, codeVersion: '1.134.0', commit: '9c6fd69592', os: 'macOS 27.0 (Darwin arm64)', ark: '0.1.252', kallichore: '0.1.71' });
+	assert.deepEqual(lines, [
+		'- Positron 2026.11.0 build 0, dev build of 9c6fd69592 (Code - OSS 1.134.0), on macOS 27.0 (Darwin arm64).',
+		'- Kernels: Ark 0.1.252, Kallichore 0.1.71.',
+	]);
+	assert.deepEqual(parseSystemLine(lines[0]), { positron: '2026.11.0 build 0 (`9c6fd69592`)', os: 'macOS 27.0 (Darwin arm64)' });
+	// What could not be read says so, and a checkout with no kernels has no Kernels line.
+	assert.deepEqual(environmentLines({}), ['- Positron not recorded build not recorded, dev build of not recorded (Code - OSS not recorded), on not recorded.']);
+	assert.match(explorePrompt('/run', 'Test it.', lines), /## Environment\n\nRead from the checkout[^\n]*\n\n- Positron 2026\.11\.0 build 0,[^\n]*\n- Kernels: Ark 0\.1\.252, Kallichore 0\.1\.71\.\n/);
+});
+
+test('recordBranchCheck replaces the Branch verification a report has, and skips a run with no report', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'branch-'));
+	try {
+		recordBranchCheck(dir, 'checked');
+		assert.ok(!existsSync(join(dir, 'report.json')));
+		writeFileSync(join(dir, 'report.json'), JSON.stringify({ header: { details: [{ title: 'State manipulation', body: 'a' }, { title: 'Branch verification', body: 'the explorer grepped' }] }, findings: [] }));
+		recordBranchCheck(dir, 'checked');
+		assert.deepEqual(JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')).header.details, [{ title: 'State manipulation', body: 'a' }, { title: 'Branch verification', body: 'checked' }]);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 });
