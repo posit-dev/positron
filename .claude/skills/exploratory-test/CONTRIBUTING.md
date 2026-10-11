@@ -115,5 +115,10 @@ run the skill locally on a small branch, or start `test-exploratory.yml` with
 workflow_dispatch on your branch. A `/explore` comment always runs main's copy
 of the harness, so it won't test your change.
 
+To see whether a rule in a prompt changes what an agent does, run its eval:
+`node renderer/eval.mjs <case> --samples 4`, with the cases under `evals/`
+(`--dry-run` checks them for free). It costs about $0.17 a sample per arm.
+`RULES.md` says when a rule needs one.
+
 To see a template change on a past run, re-render it:
 `node renderer/render.mjs <run dir>/report.json`.

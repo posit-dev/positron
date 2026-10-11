@@ -15,8 +15,12 @@ A new rule lands only with something that shows it works:
 
 - a lint check, with a test that fails without it, when a run that breaks the
   rule leaves a trace in the ledger, the report or `actions.log`; or
-- a before-and-after trial on the same checkouts and briefs, written into
-  this file's Measured column, when it can't be checked mechanically.
+- an eval, when it can't be checked mechanically: a case under `evals/` that
+  puts the agent where the rule matters and says what its plan must do.
+  `node renderer/eval.mjs <case>` runs the agent with and without the rule,
+  with no tools, and grades each plan. A rule worth keeping passes more often
+  with it than without. Write the result into this file's Measured column.
+  A full run on real checkouts is the fallback for what a plan can't show.
 
 Fix the general instruction. Never add an example or an edge case taken from
 the one run that went wrong: the editor prompt grew stiff that way and was cut
@@ -63,9 +67,9 @@ Then update the rule's row here in the same PR.
 | For a PR, start with the diff's own code paths and the manual checks its description lists. | Not recorded. | Nothing | - | #16421 |
 | Reach each diff action at least once the way a person does: a click, a menu, a key. Keep the palette for setup. | The palette and the toolbar can run different code. | Nothing | - | #16526 |
 | Test the state a real user is in: warm start, a populated workspace, cached state. | That is where this skill found its worst behavior. | Nothing | - | #16162 |
-| Manufacture the state you need, scaled to what you can put back. Restore it and record it. | In the uv A/B, only runs that defeated the extension host's cache reached the feature. | Nothing | Added after the 2026-09-21 A/B, not trialed since. | #16162 |
+| Manufacture the state you need, scaled to what you can put back. Restore it and record it. | In the uv A/B, only runs that defeated the extension host's cache reached the feature. | Nothing | Eval `manufacture-state`, 2026-10-11, Opus: 4/4 plans made uv missing with the rule, 4/4 without. | #16162 |
 | Retry with nothing in between: no edit, save, reload, restart or tab switch. | Each of those clears the state the retry tests. | Nothing | - | #16200 |
-| Look for a second consumer of the same data, and run controls (baseline, another user, an unchanged counterpart, another trigger) before naming a Cause. | It localizes the bug, not just observes it. | The isolator runs controls for findings the verifier can't settle. | - | #16355 |
+| Look for a second consumer of the same data, and run controls (baseline, another user, an unchanged counterpart, another trigger) before naming a Cause. | It localizes the bug, not just observes it. | The isolator runs controls for findings the verifier can't settle. | Eval `controls`, 2026-10-11, Opus: 4/4 plans ran a control with the rule, 4/4 without. | #16355 |
 | Word the Cause only as widely as the cases tried. | Causes were worded wider than the cases tried. | Verifier narrows it. | - | #16355 |
 | Confirm the measurement can see what you think. A log line supports a Cause only if written while the failure was on screen. | A scraping bug reads as a product bug. | Verifier: checks race order against log timestamps. | - | #16233 |
 | A non-default setting a finding needs is a precondition. Re-check under the default. Desktop and web are different findings. | The harness forces settings, so a finding there may be narrower than it looks. | Verifier: asks whether the run's own setup explains the symptom. | - | #16162 |
@@ -194,10 +198,14 @@ reads 6 of its 18 rules from its reply, and nothing confirms it did the other
 12, such as tracing the cause or checking steps against the log. Those 12 are
 how a finding gets judged, so a weak verifier would go unnoticed.
 
-Two of the explorer's rules have been measured. The batching rule showed no
+Four of the explorer's rules have been measured. The batching rule showed no
 effect. Cutting the prose that has a finding's steps copy the ledger more than
-doubled lint errors. Two more, manufacturing state and telling a dead end from
-a door, came out of an A/B but were never trialed themselves.
+doubled lint errors. The first two evals, on controls and on manufacturing
+state, found no difference: Opus planned both with or without the rule, 4 of 4
+times each. That doesn't make the rules safe to cut. A plan isn't a run, both
+fixtures make the right move fairly obvious, and other lines of explorer.md
+still mention controls and manufactured state. A harder fixture, where the
+obvious move fails, would tell more.
 
 Most of the explorer's 24 unchecked rules are about how to explore: risk
 first, real user state, controls, cold replays. That is where the skill finds
