@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyVerification, buildVerifyPrompt, changeBase, findingNumbers, fromVerdictLine, hasFindings, isVerified, observedLinked, parseFeatures, parseIntended, parseKnown, parseTitles, parseVerdicts, verdictMismatch, verifyLogLines } from './finish.mjs';
+import { applyVerification, buildVerifyPrompt, changeBase, findingNumbers, hasFindings, issueMatches, isVerified, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines } from './finish.mjs';
 
 /** report.json with two findings, as the explorer writes them. */
 const REPORT = {
@@ -24,87 +24,80 @@ const REPORT = {
 /** What the verifier wrote on each finding, by number. */
 const marks = report => Object.fromEntries(report.findings.map(f => [f.n, Object.fromEntries(['title', 'feature', 'verified', 'known', 'intended'].filter(k => f[k] !== undefined).map(k => [k, f[k]]))]));
 
-test('parseVerdicts reads the machine-readable line', () => {
-	const v = parseVerdicts('preamble\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nprose');
-	assert.equal(v.get(1), 'confirmed');
-	assert.equal(v.get(2), 'disputed');
+/** A verifier reply: the json block, then notes. */
+const reply = (data, notes = '') => `\`\`\`json\n${JSON.stringify(data, null, '\t')}\n\`\`\`${notes ? `\n\n${notes}` : ''}`;
+const verdicts = (...pairs) => ({ findings: pairs.map(([n, verdict, more = {}]) => ({ n, verdict, ...more })) });
+const apply = (report, data, notes) => applyVerification(report, parseVerifyReply(reply(data, notes)));
+
+test('parseVerifyReply reads the json block and keeps the notes after it, not before', () => {
+	const r = parseVerifyReply(`Let me finalize.\n\n${reply(verdicts([1, 'CONFIRMED'], [2, 'false positive']), '- 1: repro holds.')}`);
+	assert.deepEqual([...r.findings].map(([n, f]) => [n, f.verified]), [[1, 'confirmed'], [2, 'disputed']]);
+	assert.equal(r.notes, '- 1: repro holds.');
+	assert.equal(r.problem, '');
 });
 
-test('fromVerdictLine drops the notes before the VERDICTS line', () => {
-	const reply = 'No conflicting evidence. I have enough to finalize.\n\nVERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.';
-	assert.equal(fromVerdictLine(reply), 'VERDICTS: 1=CONFIRMED\n\n- **Finding 1**: CONFIRMED.');
-	assert.equal(fromVerdictLine('VERDICTS: 1=CONFIRMED\nwhy'), 'VERDICTS: 1=CONFIRMED\nwhy');
-	// No verdict line: keep everything, since the prose is all the reviewer gets.
-	assert.equal(fromVerdictLine('just prose'), 'just prose');
-	assert.equal(fromVerdictLine(null), null);
+test('parseVerifyReply says why it read nothing, and keeps the whole reply as notes', () => {
+	assert.equal(parseVerifyReply('no block here').problem, 'the reply has no ```json block');
+	assert.equal(parseVerifyReply('no block here').notes, 'no block here');
+	assert.match(parseVerifyReply('```json\n{ nope\n```').problem, /^its json block does not parse/);
+	assert.equal(parseVerifyReply(null).findings.size, 0);
 });
 
-test('parseVerdicts returns empty when the line is absent', () => {
-	assert.equal(parseVerdicts('no verdict line here').size, 0);
-	assert.equal(parseVerdicts(null).size, 0);
+test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () => {
+	const r = parseVerifyReply(reply({
+		findings: [
+			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b' },
+			{ n: '2', verdict: 'confirmed' },
+			{ n: 3, verdict: 'maybe' },
+			{ n: 4, verdict: 'unresolved', intended: [14210], related: 'yes' },
+		],
+		linked: [{ issue: 5678, severity: 'Moderate' }, { issue: 5301, severity: 'awful' }, { issue: '9', severity: 'minor' }],
+	}));
+	assert.deepEqual(Object.fromEntries(r.findings), {
+		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, related: false },
+		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, related: false },
+	});
+	assert.deepEqual([...r.linked], [[5678, 'moderate']]);
+	assert.deepEqual([...issueMatches(r, 'known')], [[1, [15102]]]);
+	assert.deepEqual([...issueMatches(r, 'intended')], [[4, [14210]]]);
 });
 
 test('applyVerification marks each finding with its verdict, and only the ones it ruled on', () => {
-	assert.deepEqual(marks(applyVerification(REPORT, 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE')), {
+	assert.deepEqual(marks(apply(REPORT, verdicts([1, 'confirmed'], [2, 'false positive']))), {
 		1: { title: 'first claim', feature: 'modal dialogs', verified: 'confirmed' },
 		2: { title: 'second claim', feature: 'console', verified: 'disputed' },
 	});
-	assert.equal(applyVerification(REPORT, 'VERDICTS: 1=CONFIRMED').findings[1].verified, undefined);
+	assert.equal(apply(REPORT, verdicts([1, 'confirmed'])).findings[1].verified, undefined);
 });
 
-test('parseKnown reads the issue numbers per finding and skips what it cannot read', () => {
-	const k = parseKnown('VERDICTS: 1=CONFIRMED\nKNOWN: 2=#15102; 3=#14991, #15153; 4=none; x=#1; 5=#7,#7\nprose');
-	assert.deepEqual([...k], [[2, [15102]], [3, [14991, 15153]], [5, [7]]]);
-	assert.equal(parseKnown('VERDICTS: 1=CONFIRMED').size, 0);
-	assert.equal(parseKnown(null).size, 0);
-});
-
-test('parseIntended reads its own line, not KNOWN', () => {
-	const reply = 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nKNOWN: 1=#15102\nINTENDED: 2=#14210; x=#1';
-	assert.deepEqual([...parseIntended(reply)], [[2, [14210]]]);
-	assert.deepEqual([...parseKnown(reply)], [[1, [15102]]]);
-});
-
-test('parseFeatures reads the feature per finding and skips what it cannot read', () => {
-	const f = parseFeatures('VERDICTS: 1=CONFIRMED\nFEATURE: 1=new folder flow; 2="modal dialogs"; 3=; x=console; 4=a | b\nprose');
-	assert.deepEqual([...f], [[1, 'new folder flow'], [2, 'modal dialogs']]);
-	assert.equal(parseFeatures('VERDICTS: 1=CONFIRMED').size, 0);
-	assert.equal(parseFeatures(null).size, 0);
-});
-
-test('applyVerification rewrites the Feature and title of a finding on the FEATURE and TITLE lines only', () => {
-	const out = applyVerification(REPORT, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nFEATURE: 1=new folder flow\nTITLE: 1=a slow reply drops the project R\n\n- 1: holds.');
+test('applyVerification rewrites the Feature and title, and adds the known and intended issues, and drops nothing', () => {
+	const out = apply(REPORT, verdicts(
+		[1, 'confirmed', { feature: 'new folder flow', title: 'a slow reply drops the project R', known: [15102, 14991] }],
+		[2, 'confirmed', { intended: [14210] }],
+	));
 	assert.deepEqual(marks(out), {
-		1: { title: 'a slow reply drops the project R', feature: 'new folder flow', verified: 'confirmed' },
-		2: { title: 'second claim', feature: 'console', verified: 'confirmed' },
-	});
-	assert.deepEqual([...parseTitles('TITLE: 1=x; 2=a | b')], [[1, 'x']]);
-});
-
-test('applyVerification leaves the Feature and title alone on a failed pass', () => {
-	const reply = 'VERDICTS: 1=CONFIRMED\nFEATURE: 1=new folder flow\nTITLE: 1=other';
-	const out = applyVerification(REPORT, `_Verification did not complete._\n\n${reply}`, { failed: true });
-	assert.deepEqual([out.findings[0].feature, out.findings[0].title], ['modal dialogs', 'first claim']);
-});
-
-test('fromVerdictLine keeps a FEATURE line written before the VERDICTS line', () => {
-	assert.equal(fromVerdictLine('notes\nFEATURE: 1=console\nVERDICTS: 1=CONFIRMED'), 'FEATURE: 1=console\nVERDICTS: 1=CONFIRMED');
-});
-
-test('fromVerdictLine keeps a KNOWN line written before the VERDICTS line', () => {
-	assert.equal(fromVerdictLine('notes\nKNOWN: 1=#5\nVERDICTS: 1=CONFIRMED'), 'KNOWN: 1=#5\nVERDICTS: 1=CONFIRMED');
-});
-
-test('applyVerification adds the known and intended issues the reply matched, and drops nothing', () => {
-	const out = applyVerification(REPORT, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\nKNOWN: 1=#15102,#14991\nINTENDED: 2=#14210');
-	assert.deepEqual(marks(out), {
-		1: { title: 'first claim', feature: 'modal dialogs', verified: 'confirmed', known: [15102, 14991] },
+		1: { title: 'a slow reply drops the project R', feature: 'new folder flow', verified: 'confirmed', known: [15102, 14991] },
 		2: { title: 'second claim', feature: 'console', verified: 'confirmed', intended: [14210] },
 	});
 });
 
-test('fromVerdictLine keeps an INTENDED line written before the VERDICTS line', () => {
-	assert.equal(fromVerdictLine('notes\nINTENDED: 1=#5\nVERDICTS: 1=CONFIRMED'), 'INTENDED: 1=#5\nVERDICTS: 1=CONFIRMED');
+test('applyVerification keeps the related findings and linked severities beside the notes', () => {
+	const out = apply(REPORT, { ...verdicts([1, 'confirmed', { related: true }], [2, 'confirmed']), linked: [{ issue: 20, severity: 'minor' }] }, '- 1: holds.');
+	assert.deepEqual(out.verification, {
+		failed: false,
+		text: 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.\n\n- 1: holds.',
+		related: [1],
+		linked: [{ issue: 20, severity: 'minor' }],
+	});
+	assert.ok(isVerified(out));
+	assert.ok(!isVerified(REPORT));
+});
+
+test('applyVerification changes no finding on a failed pass, and keeps what was said', () => {
+	const out = applyVerification(REPORT, parseVerifyReply(reply(verdicts([1, 'confirmed', { feature: 'new folder flow', title: 'other' }]))), { failed: true, text: '_Verification did not complete._' });
+	assert.deepEqual(out.findings, REPORT.findings);
+	assert.deepEqual(out.verification, { failed: true, text: '_Verification did not complete._' });
+	assert.ok(isVerified(out));
 });
 
 test('hasFindings is true only for a report with a finding', () => {
@@ -124,9 +117,11 @@ test('buildVerifyPrompt fills verifier.md with the run paths and diff range', ()
 	assert.match(prompt, /`\/tmp\/run\/files\/`/);
 	assert.match(prompt, /git -C \/repo diff aaaa1111\.\.\.bbbb2222/);
 	assert.match(prompt, /`node \/\S+\/renderer\/known-issues\.mjs --search "<key terms>"`/);
-	// parseVerdicts reads this line from the reply, so the example has to survive.
-	assert.match(prompt, /\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n/);
-	assert.match(prompt, /\nKNOWN: 2=#15102; 3=#14991,#15153\n/);
+	// The example is what the verifier copies, so it has to read as a reply.
+	const example = parseVerifyReply(prompt.slice(prompt.indexOf('```json')));
+	assert.equal(example.problem, '');
+	assert.deepEqual([...example.findings].map(([n, f]) => [n, f.verified, f.known]), [[1, 'confirmed', []], [3, 'disputed', [15102]]]);
+	assert.deepEqual([...example.linked], [[5678, 'moderate']]);
 });
 
 test('buildVerifyPrompt gives the verifier lint\'s check of actions.log', () => {
@@ -144,19 +139,6 @@ test('buildVerifyPrompt gives the verifier lint\'s check of actions.log', () => 
 test('buildVerifyPrompt throws when the template and its values drift apart', () => {
 	assert.throws(() => buildVerifyPrompt(`${VERIFIER}\n{{NEW_THING}}`, RUN), /no value for \{\{NEW_THING\}\}/);
 	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
-});
-
-test('applyVerification keeps the reply under the preamble, for the collapsed section', () => {
-	const out = applyVerification(REPORT, 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n\n- 1: repro holds.');
-	assert.deepEqual(out.verification, { failed: false, text: 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.\n\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n\n- 1: repro holds.' });
-	assert.ok(isVerified(out));
-	assert.ok(!isVerified(REPORT));
-});
-
-test('applyVerification keeps a failed pass as it was said, marked failed', () => {
-	const out = applyVerification(REPORT, '_Verification did not complete._', { failed: true });
-	assert.deepEqual(out.verification, { failed: true, text: '_Verification did not complete._' });
-	assert.ok(isVerified(out));
 });
 
 const SCRIPT = fileURLToPath(new URL('./finish.mjs', import.meta.url));
@@ -193,10 +175,10 @@ test('prompt skips a report with no findings', () => {
 	}
 });
 
-test('apply adds the verdicts once, from the VERDICTS line on', () => {
+test('apply adds the verdicts once, and drops the notes before the block', () => {
 	const dir = runDir(REPORT);
 	try {
-		writeFileSync(join(dir, 'reply.md'), 'Let me finalize.\n\nVERDICTS: 1=CONFIRMED; 2=UNRESOLVED\n\n- 2: no log.');
+		writeFileSync(join(dir, 'reply.md'), `Let me finalize.\n\n${reply(verdicts([1, 'confirmed'], [2, 'unresolved']), '- 2: no log.')}`);
 		execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')]);
 		const report = readJson(dir);
 		assert.equal(report.findings[1].verified, 'unresolved');
@@ -209,10 +191,10 @@ test('apply adds the verdicts once, from the VERDICTS line on', () => {
 });
 
 test('apply marks the findings unreviewed when the reply has no verdicts', () => {
-	for (const reply of ['', 'I could not read the report.']) {
+	for (const text of ['', 'I could not read the report.', reply({ findings: [] })]) {
 		const dir = runDir(REPORT);
 		try {
-			writeFileSync(join(dir, 'reply.md'), reply);
+			writeFileSync(join(dir, 'reply.md'), text);
 			execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')]);
 			const report = readJson(dir);
 			assert.equal(report.verification.failed, true);
@@ -230,7 +212,7 @@ test('apply refuses a reply file that is not there, and leaves the report free f
 		const before = readFileSync(join(dir, 'report.json'), 'utf8');
 		assert.throws(() => execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'typo.md')], { stdio: 'pipe' }), e => e.status === 2 && /reply file not found/.test(e.stderr));
 		assert.equal(readFileSync(join(dir, 'report.json'), 'utf8'), before);
-		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED');
+		writeFileSync(join(dir, 'reply.md'), reply(verdicts([1, 'confirmed'], [2, 'confirmed'])));
 		execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')]);
 		assert.equal(readJson(dir).findings[0].verified, 'confirmed');
 	} finally {
@@ -249,18 +231,14 @@ test('observedLinked lists the linked issues the ledger saw, never fixes', () =>
 });
 
 test('verifyLogLines names each observed issue the reply gave no severity', () => {
-	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, 'VERDICTS: none\nLINKED: #20=minor; #21=awful'), ['Couldn\'t rate #21: verifier line missing or malformed']);
-	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, ''), ['Couldn\'t rate #20: verifier line missing or malformed', 'Couldn\'t rate #21: verifier line missing or malformed']);
-	assert.deepEqual(verifyLogLines(null, SEEN_LEDGER, ''), []);
+	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, parseVerifyReply(reply({ findings: [], linked: [{ issue: 20, severity: 'minor' }, { issue: 21, severity: 'awful' }] }))), ['Couldn\'t rate #21: verifier line missing or malformed']);
+	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, parseVerifyReply('')), ['Couldn\'t rate #20: verifier line missing or malformed', 'Couldn\'t rate #21: verifier line missing or malformed']);
+	assert.deepEqual(verifyLogLines(null, SEEN_LEDGER, parseVerifyReply('')), []);
 });
 
-test('verifyLogLines logs a KNOWN match on a fix, which the report does not show', () => {
-	const reply = 'VERDICTS: 1=CONFIRMED\nKNOWN: 1=#10\nLINKED: #20=minor; #21=minor';
-	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, reply), ['Finding 1 matches #10, which this PR fixes; the explorer may have missed a fix that didn\'t hold.']);
-});
-
-test('fromVerdictLine keeps a LINKED line', () => {
-	assert.equal(fromVerdictLine('notes\nVERDICTS: none\nLINKED: #5=minor'), 'VERDICTS: none\nLINKED: #5=minor');
+test('verifyLogLines logs a known match on a fix, which the report does not show', () => {
+	const r = parseVerifyReply(reply({ ...verdicts([1, 'confirmed', { known: [10] }]), linked: [{ issue: 20, severity: 'minor' }, { issue: 21, severity: 'minor' }] }));
+	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, r), ['Finding 1 matches #10, which this PR fixes; the explorer may have missed a fix that didn\'t hold.']);
 });
 
 function knownRunDir() {
@@ -281,15 +259,15 @@ test('prompt still runs with no findings when the run saw a linked issue, and na
 	}
 });
 
-test('apply takes a VERDICTS: none reply and logs the issues it left unrated', () => {
+test('apply takes a reply with no findings and logs the issues it left unrated', () => {
 	const dir = knownRunDir();
 	try {
-		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: none\nLINKED: #20=moderate\n\n- #20: the panel jumped.\n\nNo process issues.');
+		writeFileSync(join(dir, 'reply.md'), reply({ findings: [], linked: [{ issue: 20, severity: 'moderate' }] }, '- #20: the panel jumped.\n\nNo process issues.'));
 		const run = spawnSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')], { encoding: 'utf8' });
 		assert.equal(run.status, 0, run.stderr);
 		assert.match(run.stderr, /finish: Couldn't rate #21: verifier line missing or malformed/);
 		assert.doesNotMatch(run.stderr, /#20/);
-		assert.match(readJson(dir).verification.text, /LINKED: #20=moderate/);
+		assert.deepEqual(readJson(dir).verification.linked, [{ issue: 20, severity: 'moderate' }]);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
@@ -304,9 +282,9 @@ test('findingNumbers reads the findings in their order', () => {
 });
 
 test('verdictMismatch names the numbers a reply keyed by row order gets wrong', () => {
-	assert.equal(verdictMismatch(SORTED, 'VERDICTS: 4=CONFIRMED; 1=CONFIRMED; 2=FALSE POSITIVE'), '');
-	const why = verdictMismatch(SORTED, 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED; 3=FALSE POSITIVE');
-	assert.match(why, /gives findings 1, 2, 3, but the report's findings are 1, 2, 4; missing 4; not in the report: 3\./);
+	assert.equal(verdictMismatch(SORTED, parseVerifyReply(reply(verdicts([4, 'confirmed'], [1, 'confirmed'], [2, 'false positive'])))), '');
+	const why = verdictMismatch(SORTED, parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed'], [3, 'false positive']))));
+	assert.match(why, /verdicts give findings 1, 2, 3, but the report's findings are 1, 2, 4; missing 4; not in the report: 3\./);
 	assert.match(why, /by the finding's number, its `n`/);
 });
 
@@ -314,10 +292,10 @@ test('apply refuses verdicts keyed to other numbers, writes nothing, and takes a
 	const dir = runDir(SORTED);
 	try {
 		const before = readFileSync(join(dir, 'report.json'), 'utf8');
-		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED; 3=FALSE POSITIVE\n\n- 3: no.');
+		writeFileSync(join(dir, 'reply.md'), reply(verdicts([1, 'confirmed'], [2, 'confirmed'], [3, 'false positive']), '- 3: no.'));
 		assert.throws(() => execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')], { stdio: 'pipe' }), e => e.status === 1 && /missing 4; not in the report: 3/.test(e.stderr));
 		assert.equal(readFileSync(join(dir, 'report.json'), 'utf8'), before);
-		writeFileSync(join(dir, 'reply.md'), 'VERDICTS: 4=FALSE POSITIVE; 1=CONFIRMED; 2=CONFIRMED\n\n- 4: no.');
+		writeFileSync(join(dir, 'reply.md'), reply(verdicts([4, 'false positive'], [1, 'confirmed'], [2, 'confirmed']), '- 4: no.'));
 		execFileSync('node', [SCRIPT, 'apply', dir, join(dir, 'reply.md')]);
 		assert.equal(readJson(dir).findings[0].verified, 'disputed');
 	} finally {
@@ -326,8 +304,7 @@ test('apply refuses verdicts keyed to other numbers, writes nothing, and takes a
 });
 
 test('the verify prompt says to key verdicts by finding number, not position', () => {
-	assert.match(VERIFIER, /Key every entry, on this line and every line below, by the\nfinding's number as written, its `n`/);
-	assert.match(VERIFIER, /Never by its position/);
+	assert.match(VERIFIER, /`n` is the finding's number as written, never its position/);
 });
 
 /** A throwaway repo with two commits, for changeBase's rev-list. */
@@ -356,19 +333,15 @@ test('changeBase is usable only with commits between the base and the head', () 
 	}
 });
 
-test('buildVerifyPrompt asks for a CHANGE line only when the base is usable', () => {
+test('buildVerifyPrompt asks for related findings only when the base is usable', () => {
 	const usable = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: true } });
 	assert.match(usable, /The change under test is the commits in `aaaa1111\.\.bbbb2222`\./);
-	assert.match(usable, /\nCHANGE: 1=related; 3=related\n/);
+	assert.match(usable, /`related`: `true` for a finding whose fix likely belongs/);
 	assert.match(usable, /git -C \/repo blame -w -M -C bbbb2222 -L <start>,<end> -- <file>/);
 	assert.match(usable, /git -C \/repo rev-list aaaa1111\.\.bbbb2222/);
 	const none = buildVerifyPrompt(VERIFIER, { ...RUN, changeBase: { usable: false, reason: 'the base is the head' } });
-	assert.match(none, /This run has no usable base \(the base is the head\), so write no CHANGE line/);
+	assert.match(none, /This run has no usable base \(the base is the head\), so mark no finding related/);
 	assert.match(buildVerifyPrompt(VERIFIER, RUN), /no usable base \(none was given\)/);
-});
-
-test('fromVerdictLine keeps a CHANGE line written before the VERDICTS line', () => {
-	assert.equal(fromVerdictLine('thinking...\nCHANGE: 1=related\nVERDICTS: 1=CONFIRMED'), 'CHANGE: 1=related\nVERDICTS: 1=CONFIRMED');
 });
 
 test('prompt records the base for the renderer, named when given', () => {

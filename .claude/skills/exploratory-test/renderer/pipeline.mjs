@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents } from './claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './edit.mjs';
-import { applyVerifyReply, parseVerdicts, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
+import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
 import { settleReportJson } from './lint-json.mjs';
 
 export const ISOLATE_MINUTES = 12;
@@ -46,7 +46,7 @@ const STATE_DIR = join(homedir(), '.local', 'state', 'exploratory-test');
 
 /** What the verifier is sent once the isolator has written isolation.md. */
 export function reviseMessage(dir) {
-	return `Read \`${join(dir, 'isolation.md')}\`, revise those findings' verdicts, and name the Cause and Feature it points to, with a FEATURE line when the Feature changes and a TITLE line when the title names the wrong trigger. If a cause is broader than the cases in its table, narrow it. Reply again in full, in the same format.`;
+	return `Read \`${join(dir, 'isolation.md')}\`, revise those findings' verdicts, and name the Cause and Feature it points to, with a new feature when the Feature changes and a new title when the title names the wrong trigger. If a cause is broader than the cases in its table, narrow it. Reply again in full, in the same format: the json block, then your notes.`;
 }
 
 /** What the isolator is told once its time is up. */
@@ -193,7 +193,7 @@ async function verifyFindings(dir, range, ask, stop, log) {
 	// The latest usable reply: a failed revision keeps the first verdicts.
 	let best = first.text;
 	const session = first.sessionId;
-	const unresolved = [...parseVerdicts(best)].filter(([, word]) => word === 'unresolved').map(([n]) => n);
+	const unresolved = [...parseVerifyReply(best).findings].filter(([, f]) => f.verified === 'unresolved').map(([n]) => n);
 	if (unresolved.length) {
 		const prompt = isolatePrompt(dir, range, unresolved, best);
 		writeFileSync(join(dir, 'isolate-prompt.md'), prompt);

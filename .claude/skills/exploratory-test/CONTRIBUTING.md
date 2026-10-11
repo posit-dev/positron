@@ -14,7 +14,8 @@ is handed:
 2. **Verifier** (`verifier.md`) never touches the app. It reads the report,
    the ledger and the diff, and gives each finding a verdict: CONFIRMED, FALSE
    POSITIVE or UNRESOLVED. It also flags a finding that matches a known issue
-   (`KNOWN:`) or one closed as not planned (`INTENDED:`).
+   or one closed as not planned. It replies with a `json` block, which
+   `parseVerifyReply` in `finish.mjs` reads, then its notes.
 3. **Isolator** (`isolator.md`) runs only when a finding is UNRESOLVED. It
    launches its own instance, runs a few controls in 12 minutes, and writes
    `isolation.md`. The verifier is then sent that file and revises.

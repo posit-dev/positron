@@ -58,6 +58,8 @@ async function runWith(report, agents, options = {}) {
 }
 
 const EDIT = () => 'RESULT: Two things broke.';
+/** A verifier reply: a json block with `findings` as [n, verdict, extra fields], then notes. */
+const verdicts = (findings, notes = '') => `\`\`\`json\n${JSON.stringify({ findings: findings.map(([n, verdict, more = {}]) => ({ n, verdict, ...more })) })}\n\`\`\`${notes ? `\n\n${notes}` : ''}`;
 const fail = message => () => { throw new Error(message); };
 
 test('a report with no findings and no Result needs no agent', async () => {
@@ -67,7 +69,7 @@ test('a report with no findings and no Result needs no agent', async () => {
 });
 
 test('a clean verify goes on to the editor, and each agent is recorded', async () => {
-	const run = await runWith(REPORT, { verify: () => 'notes\nVERDICTS: 1=CONFIRMED; 2=CONFIRMED\n\n- 1: matches.', edit: EDIT });
+	const run = await runWith(REPORT, { verify: () => `notes\n${verdicts([[1, 'confirmed'], [2, 'confirmed']], '- 1: matches.')}`, edit: EDIT });
 	assert.deepEqual(run.purposes, ['verify', 'edit']);
 	const [verify, edit] = run.steps;
 	assert.deepEqual({ ...verify, prompt: undefined }, { model: 'sonnet', role: 'verify', purpose: 'verify', tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', prompt: undefined });
@@ -84,13 +86,13 @@ test('a clean verify goes on to the editor, and each agent is recorded', async (
 
 test('an UNRESOLVED verdict is isolated, then the verifier revises in the same session', async () => {
 	const run = await runWith(REPORT, {
-		verify: () => 'VERDICTS: 1=CONFIRMED; 2=UNRESOLVED\n\n- 2: needs the same steps with the setting off.',
+		verify: () => verdicts([[1, 'confirmed'], [2, 'unresolved']], '- 2: needs the same steps with the setting off.'),
 		isolate: (step, dir) => {
 			assert.equal(JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')).verification, undefined, 'nothing is applied before the revision');
 			writeFileSync(join(dir, 'isolation.md'), '## Finding 2\n\nThe setting decides it.');
 			return 'done';
 		},
-		revise: () => 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED',
+		revise: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]),
 		edit: EDIT,
 	});
 	assert.deepEqual(run.purposes, ['verify', 'isolate', 'revise', 'edit']);
@@ -112,7 +114,7 @@ test('an UNRESOLVED verdict is isolated, then the verifier revises in the same s
 });
 
 test('an isolator that writes nothing, or a revision that fails, keeps the first verdicts', async () => {
-	const unresolved = () => 'VERDICTS: 1=CONFIRMED; 2=UNRESOLVED';
+	const unresolved = () => verdicts([[1, 'confirmed'], [2, 'unresolved']]);
 	const silent = await runWith(REPORT, { verify: unresolved, isolate: () => '', edit: EDIT });
 	assert.deepEqual(silent.purposes, ['verify', 'isolate', 'edit']);
 	assert.equal(silent.report.findings[1].verified, 'unresolved');
@@ -129,14 +131,14 @@ test('an isolator that writes nothing, or a revision that fails, keeps the first
 });
 
 test('verdicts keyed to the wrong numbers get one retry, then mark the findings unreviewed', async () => {
-	const fixed = await runWith(REPORT, { verify: () => 'VERDICTS: 1=CONFIRMED; 3=CONFIRMED', renumber: () => 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED', edit: EDIT });
+	const fixed = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), renumber: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]), edit: EDIT });
 	const retry = fixed.steps[1];
 	assert.equal(retry.resume, 'verify-session');
-	assert.match(retry.prompt, /^the VERDICTS line gives findings 1, 3, but the report's findings are 1, 2.*Reply again in full, in the same format\.$/);
+	assert.match(retry.prompt, /^the verdicts give findings 1, 3, but the report's findings are 1, 2.*Reply again in full, in the same format\.$/);
 	assert.equal(fixed.report.findings[1].verified, 'confirmed');
-	const wrongAgain = await runWith(REPORT, { verify: () => 'VERDICTS: 1=CONFIRMED; 3=CONFIRMED', renumber: () => 'VERDICTS: 2=CONFIRMED; 3=CONFIRMED', edit: EDIT });
+	const wrongAgain = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), renumber: () => verdicts([[2, 'confirmed'], [3, 'confirmed']]), edit: EDIT });
 	assert.equal(wrongAgain.report.verification.failed, true);
-	assert.match(wrongAgain.report.verification.text, /^_Verification did not complete: the VERDICTS line gives findings 2, 3.*The findings above are unreviewed\._/);
+	assert.match(wrongAgain.report.verification.text, /^_Verification did not complete: the verdicts give findings 2, 3.*The findings above are unreviewed\._/);
 });
 
 test('a verifier that fails leaves the findings marked unreviewed, with its error', async () => {
@@ -149,7 +151,7 @@ test('a verifier that fails leaves the findings marked unreviewed, with its erro
 
 test('an edit the guard rejects gets one retry, applied as the last', async () => {
 	const run = await runWith(REPORT, {
-		verify: () => 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED',
+		verify: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]),
 		edit: () => 'RESULT: Two things broke.\n\n=== Finding 1\nTITLE: first | claim',
 		'edit-retry': () => '=== Finding 1\nTITLE: first | claim again',
 	});
@@ -167,12 +169,12 @@ test('with verify off it goes straight to the editor; with it on it needs the di
 
 test('the verdicts, the isolation\'s revision and the edits land in report.json, and the page shows them', async () => {
 	const run = await runWith(REPORT, {
-		verify: () => 'VERDICTS: 1=CONFIRMED; 2=UNRESOLVED\n\n- 2: needs the same steps with the setting off.',
+		verify: () => verdicts([[1, 'confirmed'], [2, 'unresolved']], '- 2: needs the same steps with the setting off.'),
 		isolate: (step, dir) => {
 			writeFileSync(join(dir, 'isolation.md'), '## Finding 2\n\nThe setting decides it.');
 			return 'done';
 		},
-		revise: () => 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nKNOWN: 1=#15102\nINTENDED: 2=#999\nFEATURE: 2=Plot settings\nTITLE: 2=second claim, with the setting off\nCHANGE: 1=related\n\n- 2: the setting decides it.',
+		revise: () => verdicts([[1, 'confirmed', { known: [15102], related: true }], [2, 'false positive', { intended: [999], feature: 'Plot settings', title: 'second claim, with the setting off' }]], '- 2: the setting decides it.'),
 		edit: () => 'RESULT: Two things broke, one by design.\n\n=== Finding 1\nTITLE: first claim, reworded\nSUMMARY: It broke.\nWHERE: It works.',
 	});
 	assert.match(run.steps[1].prompt, /Report: `[^`]*\/report\.json`/);

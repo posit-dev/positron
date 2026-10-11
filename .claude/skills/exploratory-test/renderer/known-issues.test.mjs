@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, parseLinked, readIssueRefs, referencedNumbers } from './known-issues.mjs';
+import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, readIssueRefs, referencedNumbers } from './known-issues.mjs';
 import { parseLedger } from './ledger.mjs';
 
 test('closingRefs reads the keywords for the work a PR does, for this repo only', () => {
@@ -89,12 +89,6 @@ test('buildKnownIssuesBrief lists fixes before linked issues and quotes titles a
 	assert.match(buildKnownIssuesBrief({ issues: [{ number: 3, relation: 'linked', state: 'open', title: 'c' }] }), /the list is `known-issues\.json` in the run directory/);
 	assert.equal(buildKnownIssuesBrief({ issues: [] }), '');
 	assert.equal(buildKnownIssuesBrief(null), '');
-});
-
-test('parseLinked reads the rated entries and drops the rest', () => {
-	const linked = parseLinked('VERDICTS: none\nLINKED: #5678=moderate; 5301=Major; #9=bad; junk\n');
-	assert.deepEqual([...linked], [[5678, 'moderate'], [5301, 'major']]);
-	assert.equal(parseLinked('VERDICTS: none').size, 0);
 });
 
 const ISSUES = {

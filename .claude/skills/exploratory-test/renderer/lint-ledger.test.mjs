@@ -21,7 +21,7 @@ const lintLedgerOnly = (...a) => texts(ledgerLint.lintLedgerOnly(...a));
 const lintShotNames = (...a) => texts(ledgerLint.lintShotNames(...a));
 const lintShotTiming = (...a) => texts(ledgerLint.lintShotTiming(...a));
 const lintReportJson = (...a) => texts(lintReportJsonRaw(...a));
-import { applyVerification } from './finish.mjs';
+import { applyVerification, parseVerifyReply } from './finish.mjs';
 
 /** One finding, as report.json writes it, with the run around it. */
 const BASE = {
@@ -545,8 +545,8 @@ test('a finding step that carries a run note is a format problem', () => {
 });
 
 test('the verifier\'s reply is not the explorer\'s, so lint skips it', () => {
-	const notes = 'VERDICTS: 1=CONFIRMED\n\n- 3. Same as Finding 1: a note from the verifier, citing S02.';
-	assert.deepEqual(lint(applyVerification(report(), notes)), []);
+	const reply = '```json\n{ "findings": [{ "n": 1, "verdict": "confirmed" }] }\n```\n\n- 3. Same as Finding 1: a note from the verifier, citing S02.';
+	assert.deepEqual(lint(applyVerification(report(), parseVerifyReply(reply))), []);
 	// Inside a finding it is still a problem.
 	assert.equal(lint(report(f => { f.steps[0].text = 'Same as Finding 1: click Retry.'; })).filter(p => /points at another finding/.test(p)).length, 1);
 });

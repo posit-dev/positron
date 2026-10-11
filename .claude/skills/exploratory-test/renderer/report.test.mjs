@@ -88,7 +88,7 @@ const FULL = rep({
 		{ id: 'S03', name: 'expand while paused', status: 'fail', result: 'dots never resolve', findings: [1] },
 		{ id: 'N01', name: 'the web build', status: 'not-run', reason: 'desktop only' },
 	],
-	verification: { failed: false, text: 'A second agent re-read this report.\n\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\n\n**1.** Checks out.' },
+	verification: { failed: false, text: 'A second agent re-read this report.\n\n**1.** Checks out.' },
 	cost: {
 		passes: [
 			{ label: 'explore', model: 'claude-opus-5-5', costUsd: 3.12, turns: 77, maxTurns: 200, durationMs: 1560000 },
@@ -164,8 +164,8 @@ test('renderReportHtml ships both themes, defaulting to Professional', () => {
 	assert.match(html, /\.th-sw \.th-sun,:root\[data-theme="party"\] \.th-sw \.th-moon\{display:none\}/);
 });
 
-test('reportFromJson takes Run details from the header and the verdicts from the verification', () => {
-	const r = model(FULL);
+test('reportFromJson takes Run details from the header and the verdicts from the findings', () => {
+	const r = model({ ...FULL, findings: [FULL.findings[0], { ...FULL.findings[1], verified: 'disputed' }] });
 	assert.deepEqual(r.runDetails.map(s => s.title), ['Change under test', 'Environment']);
 	assert.deepEqual(r.verification.verdicts, [
 		{ n: 1, word: 'confirmed' },
@@ -900,7 +900,6 @@ test('a finding the verifier matched to an issue says so on its card and in its 
 	const known = {
 		...FULL,
 		findings: [{ ...FULL.findings[0], known: [15102, 14991] }, FULL.findings[1]],
-		verification: { failed: false, text: FULL.verification.text.replace('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE', 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nKNOWN: 1=#15102,#14991') },
 	};
 	assert.deepEqual(model(known).findings.map(f => f.known), [[15102, 14991], []]);
 	const html = render(known);
@@ -911,8 +910,6 @@ test('a finding the verifier matched to an issue says so on its card and in its 
 	assert.doesNotMatch(promptText(html, 2), /Possible duplicates/);
 	const row = /<a href="#f1" class="row findings-grid">.*?<\/a>\n/s.exec(html)[0];
 	assert.doesNotMatch(row, /Dupe|15102/, 'the row does not repeat it');
-	// The cards carry it, so the verification fold does not repeat the raw line.
-	assert.doesNotMatch(html, /KNOWN:/);
 	assert.doesNotMatch(render(FULL), /class="f-ki"|Possibly known|ki-known/);
 });
 
@@ -920,7 +917,6 @@ test('a finding matched to a not-planned issue says Intended? on its card and in
 	const intended = {
 		...FULL,
 		findings: [FULL.findings[0], { ...FULL.findings[1], intended: [14210] }],
-		verification: { failed: false, text: FULL.verification.text.replace('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE', 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nINTENDED: 2=#14210') },
 	};
 	assert.deepEqual(model(intended).findings.map(f => f.intended), [[], [14210]]);
 	const html = render(intended);
@@ -928,7 +924,6 @@ test('a finding matched to a not-planned issue says Intended? on its card and in
 	assert.doesNotMatch(card(html, 1), /Intended\?/);
 	assert.ok(promptText(html, 2).includes('### Closed as not planned\n- https://github.com/posit-dev/positron/issues/14210\n'));
 	assert.doesNotMatch(promptText(html, 1), /not planned/);
-	assert.doesNotMatch(html, /INTENDED:/);
 });
 
 test('renderReportHtml keeps the level of a missing case the agent could not place', () => {
@@ -2349,7 +2344,7 @@ test('code copy: a page with no inline code in Reproduce ships no script for it'
 });
 
 // Known issues: issues the PR fixes and issues that mention it, fetched before the run.
-const KI_VERIFICATION = 'A second agent.\n\nVERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE; 3=UNRESOLVED\nKNOWN: 1=#11,#15102; 2=#21; 3=#25,#20\nLINKED: #23=major; #20=minor; #26=minor\n\n**1.** Checks out.';
+const KI_VERIFICATION = { failed: false, text: 'A second agent.\n\n**1.** Checks out.', linked: [{ issue: 23, severity: 'major' }, { issue: 20, severity: 'minor' }, { issue: 26, severity: 'minor' }] };
 const KI_REPORT = {
 	header: { title: 'Exploratory test: x', branch: 'b', sha: 'abc1234', result: 'It works.', tested: 'the panel', notExercised: 'the web build' },
 	findings: [
@@ -2361,7 +2356,7 @@ const KI_REPORT = {
 	logs: [],
 	files: [],
 	environment: {},
-	verification: { failed: false, text: KI_VERIFICATION },
+	verification: KI_VERIFICATION,
 };
 /** KI_REPORT with finding `n`'s fields replaced. */
 const kiWith = (n, fields, report = KI_REPORT) => ({ ...report, findings: report.findings.map(f => (f.n === n ? { ...f, ...fields } : f)) });
@@ -2500,7 +2495,7 @@ test('a finding that matches an open linked issue says Dupe? under its verdict, 
 	assert.match(one, /Dupe\? <span class="ki-num-t"[^>]*>#25<\/span><\/span>/);
 	assert.doesNotMatch(findingRow(kiHtml(), 1), /Dupe/, 'a match on a fix or an unlisted issue changes no Status');
 	// A finding's own issue wins, so the cell stays two lines and the match stays on the card.
-	const mixed = render({ ...kiWith(1, { known: [11, 25] }), verification: { failed: false, text: KI_VERIFICATION.replace('KNOWN: 1=#11,#15102', 'KNOWN: 1=#11,#25') } }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
+	const mixed = render({ ...kiWith(1, { known: [11, 25] }), verification: KI_VERIFICATION }, { ledger: KI_LEDGER, knownIssues: KI_ISSUES });
 	assert.equal((findingRow(mixed, 1).match(/ki-state/g) ?? []).length, 1);
 	assert.doesNotMatch(findingRow(mixed, 1), /Dupe/);
 	assert.match(card(mixed, 1), /<span class="f-ki">Dupe\? <a class="ki-num"[^>]*>#25<\/a><\/span>/);
@@ -2550,7 +2545,7 @@ test('the issue body names the fix that did not hold, or the issue that regresse
 	assert.ok(body(2).startsWith('#21 regressed in #100.\n\n'), body(2).slice(0, 80));
 });
 
-const NO_FINDINGS = { ...KI_REPORT, findings: [], verification: { failed: false, text: 'A second agent.\n\nVERDICTS: none\nLINKED: #23=major; #20=minor; #26=minor' } };
+const NO_FINDINGS = { ...KI_REPORT, findings: [], verification: { failed: false, text: 'A second agent.', linked: KI_VERIFICATION.linked } };
 
 const passing = ledger => ledger.replace(/Status: fail - Finding \d/g, 'Status: pass').replace('Issue: #11 fix did not hold', 'Issue: #11 fix held').replace(/^Issue: #2[15] .*\n/gm, '');
 
@@ -2621,14 +2616,14 @@ test('an issue or PR named in a card gets a preview link, and a PR opens as a pu
 
 test('an issue named in the lead or the verifier notes gets a preview link too', () => {
 	const issueRefs = [{ number: 3698, kind: 'issue', state: 'open', title: 'Blurry labels', createdAt: '2026-08-20T00:00:00Z', summary: '' }];
-	const report = { ...FINDINGS_ONLY, verification: { failed: false, text: 'VERDICTS: 1=CONFIRMED; 2=CONFIRMED\n\nSearches returned only #3698 (open).' } };
+	const report = { ...FINDINGS_ONLY, verification: { failed: false, text: 'A second agent.\n\nSearches returned only #3698 (open).' } };
 	const html = render(report, { issueRefs });
 	const verification = html.slice(html.lastIndexOf('Searches returned'));
 	assert.match(verification, /only <a class="ki-num" href="[^"]+\/issues\/3698"[^>]*data-title="Blurry labels"/);
 });
 
-test('the change mark: a confirmed finding on the CHANGE line, on a run with a usable base, in the table only', () => {
-	const src = { ...FULL, verification: { failed: false, text: FULL.verification.text.replace('VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE', 'VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE\nCHANGE: 1=related; 2=related') } };
+test('the change mark: a confirmed finding the verifier marked related, on a run with a usable base, in the table only', () => {
+	const src = { ...FULL, verification: { ...FULL.verification, related: [1, 2] } };
 	const rowOf = (html, n) => html.match(new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>`))[0];
 	const usable = { usable: true, name: 'release/2026.10' };
 	const html = render(src, { changeBase: usable });
@@ -2637,7 +2632,6 @@ test('the change mark: a confirmed finding on the CHANGE line, on a run with a u
 	// The last row's tooltip opens upward, away from the panel's clipped edge.
 	assert.match(rowOf(html, 2), /<span class="chg chg-up">/);
 	assert.equal((html.match(/class="chg[ "]/g) ?? []).length, 2, 'no mark on the cards');
-	assert.doesNotMatch(html, /CHANGE:/, 'the line itself is not shown');
 
 	// Only a confirmed finding: a disputed one keeps no mark.
 	const disputed = render({ ...src, findings: [src.findings[0], { ...src.findings[1], verified: 'disputed' }] }, { changeBase: usable });

@@ -200,26 +200,6 @@ export function buildKnownIssuesBrief(data, { file } = {}) {
 }
 
 /**
- * The verifier's `LINKED: #5678=moderate; #5301=minor` line, as a Map of
- * issue number to severity. Entries it cannot read are left out, and the
- * issue shows unrated.
- */
-export function parseLinked(text) {
-	const out = new Map();
-	const line = String(text ?? '').split('\n').find(l => /^LINKED:/i.test(l.trim()));
-	if (!line) {
-		return out;
-	}
-	for (const part of line.trim().slice('LINKED:'.length).split(';')) {
-		const m = /^#?(\d+)\s*=\s*(major|moderate|minor)\b/i.exec(part.trim());
-		if (m) {
-			out.set(Number(m[1]), m[2].toLowerCase());
-		}
-	}
-	return out;
-}
-
-/**
  * What the run found about each linked issue, from the ledger's `Issue:` lines
  * (on Coverage rows as `issues`), the verifier's severities, and its KNOWN
  * matches (finding number to issue numbers):

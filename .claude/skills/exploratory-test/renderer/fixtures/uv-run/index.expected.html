@@ -1238,13 +1238,13 @@ dependencies = ["requests==2.32.3"]
 <li><code>createEnvApi.unit.test.ts</code> (new case <code>uv is still listed first when it is installed and python.allowUvPythonInstall is off</code>) asserts that uv stays listed when it is installed and the setting is off. That may be intended. It conflicts with the rewritten description, &quot;Positron does not offer to install uv or to install Python with uv&quot;, so the reader decides.</li>
 <li><code>uvCreationProvider.unit.test.ts</code> has no case for the setting, as the report says.</li>
 <li>Searches on &quot;allowUvPythonInstall&quot; and &quot;uv download python setting off&quot; turned up no matching issue.</li>
-<li>The fix is in <code>uvUtils.ts</code>, which the diff does not touch, so I left it off the CHANGE line.</li>
+<li>The fix is in <code>uvUtils.ts</code>, which the diff does not touch, so I did not mark it related.</li>
 </ul>
 </li>
 </ol>
 <ul>
 <li>The ledger&#39;s Noticed note O03 (the error notification&#39;s accessible name reads the raw markdown command URI) is plausible but was not checked, so I did not treat it as a defect.</li>
-<li>Linked issue <a class="ki-num" href="https://github.com/posit-dev/positron/issues/16192" target="_blank" rel="noopener" data-state="open" data-opened="Opened Sep 23" data-title="python interpreters: install uv from the &quot;create venv from file&quot; notification" data-summary="If folks do not have uv installed, if they follow the &quot;Create venv from requirements.txt&quot; notification, we should put folks through the uv installation workflow. Currently it just fails with a &quot;no uv installed&quot; error Screencast with repro">#16192</a> is marked <code>fix held</code>, not observed, so the LINKED line is omitted.</li>
+<li>Linked issue <a class="ki-num" href="https://github.com/posit-dev/positron/issues/16192" target="_blank" rel="noopener" data-state="open" data-opened="Opened Sep 23" data-title="python interpreters: install uv from the &quot;create venv from file&quot; notification" data-summary="If folks do not have uv installed, if they follow the &quot;Create venv from requirements.txt&quot; notification, we should put folks through the uv installation workflow. Currently it just fails with a &quot;no uv installed&quot; error Screencast with repro">#16192</a> is marked <code>fix held</code>, not observed, so it is not rated.</li>
 </ul>
 <p>No process issues.</p>
 

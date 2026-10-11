@@ -10,7 +10,6 @@
 import { join } from 'node:path';
 import { readRunDir, writeRunPage } from './html.mjs';
 import { skillVersion } from './page-common.mjs';
-import { parseLinked } from './known-issues.mjs';
 import { parseLedger, parseLogField, verifyText } from './ledger.mjs';
 import { basename, block, formatMinutes, inline, isDefaultsOnly, modelDisplayName, plainText, safeUrl, sentenceCase } from './text.mjs';
 
@@ -213,7 +212,7 @@ export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 		logs: fromLedger?.logs ?? (json.logs ?? []).map(l => ({ path: l.path, source: l.source ?? '', note: l.note ?? '', sourceHtml: inline(l.source), noteHtml: inline(l.note) })),
 		files: fromLedger?.files ?? (json.files ?? []).map(f => ({ path: f.path, desc: f.desc ?? '', uses: f.uses ?? '', descHtml: inline(f.desc), usesHtml: inline(f.uses) })),
 		environment: fromLedger?.environment ?? [],
-		verification: json.verification?.text ? parseVerification(json.verification.text.split('\n')) : pipeline.verification ?? null,
+		verification: json.verification?.text ? verificationFromJson(json) : pipeline.verification ?? null,
 		cost: json.cost ? costFromJson(json.cost) : pipeline.cost ?? { passes: [], total: null, duration: null },
 	};
 }
@@ -236,52 +235,22 @@ function stepText(step) {
 	return [step.md + result, ...step.rest, ...log].join('\n');
 }
 
-/** Splits Verification details into its preamble, verdict chips and body. */
-function parseVerification(lines) {
-	if (!lines) { return null; }
-	const verdicts = [];
-	const body = [];
-	let preamble = '';
-	let linked = new Map();
-	const change = new Set();
-	for (const line of lines) {
-		const trimmed = line.trim();
-		// The change mark in the Findings table carries these.
-		if (/^CHANGE:/i.test(trimmed)) {
-			for (const part of trimmed.slice(trimmed.indexOf(':') + 1).split(';')) {
-				const m = /^(\d+)\s*=\s*related$/i.exec(part.trim());
-				if (m) { change.add(Number(m[1])); }
-			}
-			continue;
-		}
-		// The findings carry the matches; as a line here it would only repeat them.
-		if (/^(?:KNOWN|INTENDED):/i.test(trimmed)) {
-			continue;
-		}
-		// They order the observed list.
-		if (/^LINKED:/i.test(trimmed)) {
-			linked = parseLinked(trimmed);
-			continue;
-		}
-		if (/^VERDICTS:/i.test(trimmed)) {
-			for (const part of trimmed.slice(trimmed.indexOf(':') + 1).split(';')) {
-				const m = /^(\d+)\s*=\s*(.+)$/.exec(part.trim());
-				if (!m) { continue; }
-				const verdict = m[2].trim().toUpperCase();
-				const word = verdict.startsWith('CONFIRMED') ? 'confirmed'
-					: verdict.startsWith('FALSE') ? 'disputed'
-						: verdict.startsWith('UNRESOLVED') ? 'unresolved' : null;
-				if (word) { verdicts.push({ n: Number(m[1]), word }); }
-			}
-			continue;
-		}
-		if (!preamble && trimmed && !trimmed.startsWith('#')) {
-			preamble = trimmed;
-			continue;
-		}
-		body.push(line);
-	}
-	return { preambleHtml: preamble ? inline(preamble) : '', verdicts, linked, change, bodyHtml: block(body.join('\n')) };
+/**
+ * Verification details: the preamble, a chip per verdict, the verifier's
+ * notes, the findings it marked related to the change, and its severity for
+ * each linked issue the run ran into.
+ */
+function verificationFromJson(json) {
+	const v = json.verification;
+	const lines = String(v.text ?? '').split('\n');
+	const at = lines.findIndex(l => l.trim() && !l.trim().startsWith('#'));
+	return {
+		preambleHtml: at === -1 ? '' : inline(lines[at].trim()),
+		verdicts: (json.findings ?? []).filter(f => f.verified).map(f => ({ n: f.n, word: f.verified })),
+		linked: new Map((v.linked ?? []).map(l => [l.issue, l.severity])),
+		change: new Set(v.related ?? []),
+		bodyHtml: block(lines.slice(at + 1).join('\n')),
+	};
 }
 
 function withMetaHtml(e) {

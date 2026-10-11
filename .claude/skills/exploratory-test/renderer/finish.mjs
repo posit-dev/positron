@@ -19,7 +19,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { knownFixLines, knownIssueOutcomes, parseLinked } from './known-issues.mjs';
+import { knownFixLines, knownIssueOutcomes } from './known-issues.mjs';
 import { lintActionsLog } from './lint-ledger.mjs';
 import { parseLedger } from './ledger.mjs';
 
@@ -48,7 +48,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		CHANGE_RANGE: `${baseSha}..${headSha}`,
 		CHANGE_SCOPE: changeBase?.usable
 			? `The change under test is the commits in \`${baseSha}..${headSha}\`.`
-			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so write no CHANGE line and skip the rest of this section.`,
+			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so mark no finding related and skip the steps below.`,
 		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
@@ -94,121 +94,54 @@ export function writeChangeBase(dir, base) {
 	writeFileSync(join(dir, 'change-base.json'), `${JSON.stringify({ usable: base.usable, name: base.name })}\n`);
 }
 
-/**
- * The verifier's reply from its VERDICTS line on, or from its KNOWN, INTENDED,
- * LINKED, FEATURE, TITLE or CHANGE line if that came first. Its final message can open with notes to
- * itself, which would otherwise lead the Verification details.
- */
-export function fromVerdictLine(text) {
-	if (typeof text !== 'string') {
-		return text;
-	}
-	const lines = text.split('\n');
-	const at = lines.findIndex(l => /^(?:VERDICTS|KNOWN|INTENDED|LINKED|FEATURE|TITLE|CHANGE):/.test(l.trim().toUpperCase()));
-	return at > 0 ? lines.slice(at).join('\n') : text;
-}
+const VERDICTS = { 'confirmed': 'confirmed', 'false positive': 'disputed', 'unresolved': 'unresolved' };
+const SEVERITIES = ['major', 'moderate', 'minor'];
 
 /**
- * Parses the verifier's machine-readable verdict line.
- *
- * Expects `VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE` anywhere in the text.
- * Returns a Map of finding number to the verdict word report.json keeps.
+ * The verifier's reply: the fenced `json` block it opens with, and its notes
+ * after the block. Anything before the block is its notes to itself, and is
+ * dropped. `findings` maps a finding number to `{ verified, known, intended,
+ * feature, title, related }`, `linked` an issue number to its severity, and
+ * `problem` says why the block could not be read, or is ''. An entry it
+ * cannot read is skipped, so one bad entry costs only that finding.
  */
-export function parseVerdicts(text) {
-	const out = new Map();
-	if (typeof text !== 'string') {
+export function parseVerifyReply(text) {
+	const raw = String(text ?? '');
+	const out = { findings: new Map(), linked: new Map(), notes: raw.trim(), problem: '' };
+	const block = /```json[ \t]*\n([\s\S]*?)\n```/.exec(raw);
+	if (!block) {
+		out.problem = 'the reply has no ```json block';
 		return out;
 	}
-	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith('VERDICTS:'));
-	if (!line) {
+	out.notes = raw.slice(block.index + block[0].length).trim();
+	let data;
+	try {
+		data = JSON.parse(block[1]);
+	} catch (err) {
+		out.problem = `its json block does not parse: ${err.message}`;
 		return out;
 	}
-	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
-		const m = part.trim().match(/^(\d+)\s*=\s*(.+)$/);
-		if (!m) {
-			continue;
-		}
-		const verdict = m[2].trim().toUpperCase();
-		const word = verdict.startsWith('CONFIRMED') ? 'confirmed'
-			: verdict.startsWith('FALSE') ? 'disputed'
-				: verdict.startsWith('UNRESOLVED') ? 'unresolved'
-					: null;
-		if (word) {
-			out.set(Number(m[1]), word);
+	const issues = value => (Array.isArray(value) ? [...new Set(value.filter(Number.isInteger))] : []);
+	// A title or feature lands in the filed issue's title, where `|` breaks the table.
+	const words = value => (typeof value === 'string' && value.trim() && !value.includes('|') ? value.trim() : null);
+	for (const f of Array.isArray(data?.findings) ? data.findings : []) {
+		const verified = VERDICTS[String(f?.verdict ?? '').trim().toLowerCase()];
+		if (Number.isInteger(f?.n) && verified) {
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), related: f.related === true });
 		}
 	}
-	return out;
-}
-
-/**
- * Parses the verifier's known-issue line.
- *
- * Expects `KNOWN: 2=#15102; 3=#14991,#15153` anywhere in the text. Returns a
- * Map of finding number to the issue numbers it may duplicate. A part it
- * cannot read is skipped, like parseVerdicts.
- */
-export function parseKnown(text) {
-	return parseIssueLine(text, 'KNOWN');
-}
-
-/**
- * Parses the verifier's INTENDED line, the same shape as KNOWN: findings that
- * match an issue closed as not planned, so the behavior was judged intended.
- */
-export function parseIntended(text) {
-	return parseIssueLine(text, 'INTENDED');
-}
-
-function parseIssueLine(text, name) {
-	const out = new Map();
-	if (typeof text !== 'string') {
-		return out;
-	}
-	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith(`${name}:`));
-	if (!line) {
-		return out;
-	}
-	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
-		const m = part.trim().match(/^(\d+)\s*=\s*(.+)$/);
-		const issues = m ? [...m[2].matchAll(/#(\d+)/g)].map(i => Number(i[1])) : [];
-		if (issues.length) {
-			out.set(Number(m[1]), [...new Set(issues)]);
+	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
+		const severity = String(l?.severity ?? '').toLowerCase();
+		if (Number.isInteger(l?.issue) && SEVERITIES.includes(severity)) {
+			out.linked.set(l.issue, severity);
 		}
 	}
 	return out;
 }
 
-/**
- * Parses one of the verifier's `KEY: 3=text; 4=text` lines into a Map of
- * finding number to text. A part it cannot read, or one with a `|` that would
- * break the table, is skipped.
- */
-function parseNumbered(text, key) {
-	const out = new Map();
-	if (typeof text !== 'string') {
-		return out;
-	}
-	const line = text.split('\n').find(l => l.trim().toUpperCase().startsWith(`${key}:`));
-	if (!line) {
-		return out;
-	}
-	for (const part of line.slice(line.indexOf(':') + 1).split(';')) {
-		const m = part.trim().match(/^(\d+)\s*=\s*"?([^"|]*?)"?$/);
-		if (m && m[2].trim()) {
-			out.set(Number(m[1]), m[2].trim());
-		}
-	}
-	return out;
-}
-
-/** `FEATURE: 3=new folder flow`: the feature the evidence points to. */
-export function parseFeatures(text) {
-	return parseNumbered(text, 'FEATURE');
-}
-
-/** `TITLE: 1=...`: a title naming the trigger the evidence shows. */
-export function parseTitles(text) {
-	return parseNumbered(text, 'TITLE');
+/** Finding number to the issues the reply matched it with, under `key` (`known` or `intended`). */
+export function issueMatches(reply, key) {
+	return new Map([...reply.findings].filter(([, f]) => f[key].length).map(([n, f]) => [n, f[key]]));
 }
 
 /**
@@ -227,22 +160,21 @@ export function findingNumbers(report) {
 }
 
 /**
- * Why the reply's VERDICTS line cannot be applied to this report, or '' when
- * it can: it must give one verdict per finding number, no more, no fewer. A
- * verifier that keyed its line by position instead of by number (the findings
- * are listed worst first) gives a number the report lacks or misses one it has
- * whenever the numbers are not exactly 1..n; within 1..n it cannot be told
- * apart here, which is why the prompt says it plainly.
+ * Why the reply's verdicts cannot be applied to this report, or '' when they
+ * can: one per finding number, no more, no fewer. A verifier that keyed them
+ * by position instead of by number gives a number the report lacks or misses
+ * one it has whenever the numbers are not exactly 1..n; within 1..n it cannot
+ * be told apart here, which is why the prompt says it plainly.
  */
 export function verdictMismatch(report, reply) {
 	const want = [...new Set(findingNumbers(report))].sort((a, b) => a - b);
-	const got = [...parseVerdicts(reply).keys()].sort((a, b) => a - b);
+	const got = [...reply.findings.keys()].sort((a, b) => a - b);
 	const missing = want.filter(n => !got.includes(n));
 	const extra = got.filter(n => !want.includes(n));
 	if (!missing.length && !extra.length) {
 		return '';
 	}
-	return `the VERDICTS line gives findings ${got.join(', ') || 'none'}, but the report's findings are ${want.join(', ')}`
+	return `the verdicts give findings ${got.join(', ') || 'none'}, but the report's findings are ${want.join(', ')}`
 		+ `${missing.length ? `; missing ${missing.join(', ')}` : ''}${extra.length ? `; not in the report: ${extra.join(', ')}` : ''}.`
 		+ ' Key each verdict by the finding\'s number, its `n`, not by its position.';
 }
@@ -258,14 +190,15 @@ export function observedLinked(knownIssues, ledger) {
 
 /**
  * Run-log lines about the linked issues after verify: each observed one the
- * reply gave no severity, and each KNOWN match on a fix or a closed issue.
+ * reply gave no severity, and each known match on a fix or a closed issue.
+ * `reply` is parseVerifyReply's.
  */
 export function verifyLogLines(knownIssues, ledger, reply) {
 	const coverage = knownIssues?.issues?.length && parseLedger(ledger);
 	if (!coverage) {
 		return [];
 	}
-	const ki = knownIssueOutcomes(knownIssues, coverage, parseLinked(reply), parseKnown(reply));
+	const ki = knownIssueOutcomes(knownIssues, coverage, reply.linked, issueMatches(reply, 'known'));
 	return [...ki.unrated.map(n => `Couldn't rate #${n}: verifier line missing or malformed`), ...knownFixLines(ki)];
 }
 
@@ -281,16 +214,37 @@ export function readKnownIssues(dir) {
 const PREAMBLE = 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.';
 
 /**
- * report.json with the verifier's verdicts on its findings, and its reply as
- * `verification`, which the page shows collapsed. A failed pass shows open,
- * because "these findings are unreviewed" is not a detail to hide behind a
- * click, and keeps the explorer's titles and Features.
+ * report.json with the verifier's verdicts on its findings, and its notes as
+ * `verification`, which the page shows collapsed. `reply` is
+ * parseVerifyReply's. A failed pass shows `text` open, because "these
+ * findings are unreviewed" is not a detail to hide behind a click, and
+ * changes no finding.
  */
-export function applyVerification(json, verdicts, { failed = false } = {}) {
-	const fields = [['verified', parseVerdicts(verdicts)], ['known', parseKnown(verdicts)], ['intended', parseIntended(verdicts)],
-		...(failed ? [] : [['title', parseTitles(verdicts)], ['feature', parseFeatures(verdicts)]])];
-	const findings = (json.findings ?? []).map(f => fields.reduce((out, [key, values]) => (values.has(f.n) ? { ...out, [key]: values.get(f.n) } : out), f));
-	return { ...json, findings, verification: { failed, text: failed ? verdicts : `${PREAMBLE}\n\n${verdicts}` } };
+export function applyVerification(json, reply, { failed = false, text = '' } = {}) {
+	if (failed) {
+		return { ...json, verification: { failed, text } };
+	}
+	const findings = (json.findings ?? []).map(f => {
+		const v = reply.findings.get(f.n);
+		if (!v) {
+			return f;
+		}
+		return {
+			...f,
+			verified: v.verified,
+			...(v.known.length ? { known: v.known } : {}),
+			...(v.intended.length ? { intended: v.intended } : {}),
+			...(v.title ? { title: v.title } : {}),
+			...(v.feature ? { feature: v.feature } : {}),
+		};
+	});
+	const related = [...reply.findings].filter(([, f]) => f.related).map(([n]) => n);
+	const linked = [...reply.linked].map(([issue, severity]) => ({ issue, severity }));
+	return {
+		...json,
+		findings,
+		verification: { failed, text: `${PREAMBLE}\n\n${reply.notes}`.trim(), ...(related.length ? { related } : {}), ...(linked.length ? { linked } : {}) },
+	};
 }
 
 /** True once report.json carries a verification, so it is never added twice. */
@@ -345,7 +299,7 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
 
 /**
  * Adds a verifier reply to the run's report. Returns `{ mismatch }`, writing nothing,
- * when its VERDICTS are keyed to other numbers than the report's, so a
+ * when its verdicts are keyed to other numbers than the report's, so a
  * corrected reply can be applied; with `giveUp` that marks the findings
  * unreviewed instead. An `error`, or an empty reply or one with no verdicts,
  * says the verification did not complete rather than leaving the findings
@@ -357,19 +311,18 @@ export function applyVerifyReply(dir, reply, { error = '', giveUp = false } = {}
 		return { already: true };
 	}
 	reply = String(reply ?? '').trim();
+	const parsed = parseVerifyReply(reply);
 	const findings = hasFindings(report);
-	const mismatch = !error && findings && parseVerdicts(reply).size ? verdictMismatch(report, reply) : '';
+	const mismatch = !error && findings && parsed.findings.size ? verdictMismatch(report, parsed) : '';
 	if (mismatch && !giveUp) {
 		return { mismatch };
 	}
-	const failed = Boolean(error || mismatch) || !reply || (findings && !parseVerdicts(reply).size);
+	const failed = Boolean(error || mismatch) || !reply || Boolean(parsed.problem) || (findings && !parsed.findings.size);
 	const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
-	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : reply ? ': the reply had no VERDICTS line' : '';
-	const verdicts = failed
-		? `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`
-		: fromVerdictLine(reply);
-	writeReport(path, applyVerification(report, verdicts, { failed }));
-	return { failed, logLines: verifyLogLines(knownIssues, ledger, error ? '' : reply) };
+	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : !reply ? '' : parsed.problem ? `: ${parsed.problem}` : ': the reply gave no verdicts';
+	const text = `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`;
+	writeReport(path, applyVerification(report, parsed, { failed, text }));
+	return { failed, logLines: verifyLogLines(knownIssues, ledger, failed ? parseVerifyReply('') : parsed) };
 }
 
 function main(argv) {
