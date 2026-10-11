@@ -10,6 +10,8 @@
 // Local usage, each agent a `claude -p` session:
 //   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha>
 //     [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts]
+//     [--skip-checkout-check]
+//     checks the checkout is at --head, built, and has its native binaries,
 //     makes a run directory, prints it, explores with the brief, then runs the
 //     rest and renders the report. --base-name is the base branch, for the
 //     change mark. The time limit is in the file it prints, read throughout:
@@ -22,7 +24,7 @@
 //     --turns and --model are that explorer's, for the Run tile.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -271,6 +273,78 @@ async function finishLocal(dir, explored, { repo, base, head, baseName, runAgent
 	return 0;
 }
 
+// The native binaries a run needs, each with the command that installs it.
+const CHECKOUT_BINARIES = [
+	{ path: 'extensions/positron-python/python-env-tools/pet', name: 'the Python locator (pet)', fix: 'cd extensions/positron-python && npm run install-pet' },
+	{ path: 'extensions/positron-r/resources/ark/ark', name: 'the R kernel (ark)', fix: 'cd extensions/positron-r && npm run install-kernel' },
+	{ path: 'extensions/positron-supervisor/resources/kallichore/kcserver', name: 'the kernel supervisor (kallichore)', fix: 'cd extensions/positron-supervisor && npm run install-kallichore' },
+];
+
+/**
+ * What would make a fresh run explore the wrong code or lose its time to
+ * setup, each with its fix: the checkout not at `head`, a build older than the
+ * last change to src/, or a native binary missing. `git(args)` returns git's
+ * output in the checkout, or '' when it fails; `mtimeMs(path)` a file's time,
+ * or null when it is missing; `builtMs` the newest file's time under out/, or
+ * null with no build. The watch build rewrites only what changed, so no one
+ * file's time says when it last ran.
+ */
+export function checkoutProblems({ head, git, mtimeMs, builtMs }) {
+	const problems = [];
+	const at = git(['rev-parse', 'HEAD']);
+	const want = git(['rev-parse', `${head}^{commit}`]);
+	if (!at) {
+		return ['it is not a git checkout'];
+	}
+	if (!want) {
+		problems.push(`--head ${head} is not a commit in it; fetch it, check it out, then build`);
+	} else if (at !== want) {
+		problems.push(`the checkout is at ${at.slice(0, 10)}, not --head ${want.slice(0, 10)}; check out the head, then build`);
+	}
+	const changed = Number(git(['log', '-1', '--format=%ct', '--', 'src'])) * 1000;
+	if (builtMs === null) {
+		problems.push('there is no build (out/); build it with npm run build-start, then npm run build-check');
+	} else if (builtMs < changed) {
+		problems.push(`the build is older than the last change to src/; rebuild with npm run build-start, then npm run build-check`);
+	}
+	for (const b of CHECKOUT_BINARIES) {
+		if (mtimeMs(b.path) === null && mtimeMs(`${b.path}.exe`) === null) {
+			problems.push(`${b.name} is missing (${b.path}); install it: ${b.fix}`);
+		}
+	}
+	return problems;
+}
+
+function checkCheckout(repo, head) {
+	return checkoutProblems({
+		head,
+		git: args => {
+			try {
+				return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+			} catch {
+				return '';
+			}
+		},
+		mtimeMs: path => existsSync(join(repo, path)) ? statSync(join(repo, path)).mtimeMs : null,
+		builtMs: newestMs(join(repo, 'out', 'vs')),
+	});
+}
+
+/** The newest file's time under `dir`, or null when there is none. */
+function newestMs(dir) {
+	if (!existsSync(dir)) {
+		return null;
+	}
+	let newest = null;
+	for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
+		if (entry.isFile()) {
+			const ms = statSync(join(entry.parentPath, entry.name)).mtimeMs;
+			newest = newest === null || ms > newest ? ms : newest;
+		}
+	}
+	return newest;
+}
+
 async function main(argv) {
 	const { values, positionals } = parseArgs({
 		args: argv,
@@ -279,7 +353,7 @@ async function main(argv) {
 			repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' },
 			brief: { type: 'string' }, 'time-limit': { type: 'string' },
 			'duration-ms': { type: 'string' }, turns: { type: 'string' }, model: { type: 'string' },
-			'no-agent-prompts': { type: 'boolean' },
+			'no-agent-prompts': { type: 'boolean' }, 'skip-checkout-check': { type: 'boolean' },
 		},
 	});
 	const [command, given] = positionals;
@@ -287,7 +361,7 @@ async function main(argv) {
 	const replay = given && existsSync(join(given, 'report.json'));
 	const fresh = !given && values.brief && existsSync(values.brief) && (limit === 'none' || /^\d+$/.test(limit));
 	if (command !== 'run' || !(replay || fresh)) {
-		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts]');
+		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts] [--skip-checkout-check]');
 		console.error('       node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]');
 		return 2;
 	}
@@ -296,6 +370,14 @@ async function main(argv) {
 		return 2;
 	}
 	const log = line => console.error(`pipeline: ${line}`);
+	// Before anything is spent: an explorer finds these only after launching.
+	if (fresh && !values['skip-checkout-check']) {
+		const problems = checkCheckout(values.repo, values.head);
+		if (problems.length) {
+			console.error(`pipeline: ${values.repo} is not ready to explore, so nothing was run:\n${problems.map(p => `  - ${p}`).join('\n')}\nFix these, or pass --skip-checkout-check to run anyway.`);
+			return 1;
+		}
+	}
 	const number = value => value === undefined || value === '' || Number.isNaN(Number(value)) ? null : Number(value);
 	const dir = fresh ? makeRunDir() : given;
 	// The feed names the run directory $RUN and the checkout's files by their paths in it.

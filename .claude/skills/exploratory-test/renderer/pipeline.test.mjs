@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { costPasses, explore, EXPLORE_TIME_UP, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, reviseMessage } from './pipeline.mjs';
+import { checkoutProblems, costPasses, explore, EXPLORE_TIME_UP, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, reviseMessage } from './pipeline.mjs';
 import { reportFromJson } from './report-json.mjs';
 
 const REPORT = {
@@ -253,7 +253,7 @@ test('a stopped run stops the agent it started', async () => {
 	writeFileSync(join(bin, 'claude'), `#!/bin/sh\necho $$ > '${pidFile}'\nexec sleep 60\n`);
 	chmodSync(join(bin, 'claude'), 0o755);
 	writeFileSync(join(home, 'brief.md'), 'Test the Variables pane.\n');
-	const run = spawn('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none'], {
+	const run = spawn('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check'], {
 		env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}` }, stdio: 'ignore',
 	});
 	try {
@@ -272,4 +272,23 @@ test('a stopped run stops the agent it started', async () => {
 		run.kill('SIGKILL');
 		rmSync(home, { recursive: true, force: true });
 	}
+});
+
+test('checkoutProblems names a checkout off its head, a stale or missing build, and each missing binary, with its fix', () => {
+	const git = ({ at = 'bbb', time = '100' } = {}) => args => ({ 'rev-parse HEAD': at, 'rev-parse bbb^{commit}': 'bbb', 'log -1 --format=%ct -- src': time })[args.join(' ')] ?? '';
+	const binaries = path => path.endsWith('.exe') ? null : 1;
+	const check = ({ head = 'bbb', at, time, mtimeMs = binaries, builtMs = 200_000 } = {}) => checkoutProblems({ head, git: git({ at, time }), mtimeMs, builtMs });
+	assert.deepEqual(check(), []);
+	assert.deepEqual(check({ time: '300', mtimeMs: path => path.includes('pet') ? null : binaries(path) }), [
+		'the build is older than the last change to src/; rebuild with npm run build-start, then npm run build-check',
+		'the Python locator (pet) is missing (extensions/positron-python/python-env-tools/pet); install it: cd extensions/positron-python && npm run install-pet',
+	]);
+	assert.deepEqual(check({ at: 'aaa', builtMs: null }), [
+		'the checkout is at aaa, not --head bbb; check out the head, then build',
+		'there is no build (out/); build it with npm run build-start, then npm run build-check',
+	]);
+	assert.deepEqual(check({ head: 'ccc' }), ['--head ccc is not a commit in it; fetch it, check it out, then build']);
+	assert.deepEqual(check({ at: '' }), ['it is not a git checkout']);
+	// A Windows checkout's binaries end in .exe.
+	assert.deepEqual(check({ mtimeMs: path => path.endsWith('.exe') ? 1 : null }), []);
 });
