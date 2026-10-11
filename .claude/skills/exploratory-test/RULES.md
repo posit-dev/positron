@@ -68,13 +68,13 @@ Then update the rule's row here in the same PR.
 | For a PR, start with the diff's own code paths and the manual checks its description lists. | Not recorded. | Nothing | - | #16421 |
 | Reach each diff action at least once the way a person does: a click, a menu, a key. Keep the palette for setup. | The palette and the toolbar can run different code. | Nothing | - | #16526 |
 | Test the state a real user is in: warm start, a populated workspace, cached state. | That is where this skill found its worst behavior. | Nothing | - | #16162 |
-| Manufacture the state you need, scaled to what you can put back. Restore it and record it. | In the uv A/B, only runs that defeated the extension host's cache reached the feature. | Nothing | Eval `manufacture-state`, 2026-10-11, Opus: 4/4 plans made uv missing with the rule, 4/4 without. Eval `stale-state` (a reload keeps the old answer), 2026-10-11, Opus: 3/4 plans got a fresh process with the rules, 2/4 without. | #16162 |
+| Manufacture the state you need, scaled to what you can put back. Restore it and record it. | In the uv A/B, only runs that defeated the extension host's cache reached the feature. | Nothing | Eval `manufacture-state`, 2026-10-11, Opus: 4/4 plans made uv missing with the rule, 4/4 without. Eval `stale-state` (a reload keeps the old answer), 2026-10-11, Opus: 3/4 plans got a fresh process with the rules, 2/4 without; at 20 samples, 5/20 with, 6/20 without. | #16162 |
 | Retry with nothing in between: no edit, save, reload, restart or tab switch. | Each of those clears the state the retry tests. | Nothing | - | #16200 |
 | Look for a second consumer of the same data, and run controls (baseline, another user, an unchanged counterpart, another trigger) before naming a Cause. | It localizes the bug, not just observes it. | The isolator runs controls for findings the verifier can't settle. | Eval `controls`, 2026-10-11, Opus: 4/4 plans ran a control with the rule, 4/4 without. | #16355 |
 | Word the Cause only as widely as the cases tried. | Causes were worded wider than the cases tried. | Verifier narrows it. | Eval `scope-claims`, 2026-10-11, Opus: 4/4 kept the finding narrow with the scope rules, 3/4 without. | #16355 |
 | Confirm the measurement can see what you think. A log line supports a Cause only if written while the failure was on screen. | A scraping bug reads as a product bug. | Verifier: checks race order against log timestamps. | - | #16233 |
 | A non-default setting a finding needs is a precondition. Re-check under the default. Desktop and web are different findings. | The harness forces settings, so a finding there may be narrower than it looks. | Verifier: asks whether the run's own setup explains the symptom. | - | #16162 |
-| Tell a dead end from a door: a reload or a moved binary may be the only way in. Drop mechanisms reachable only in a dev build. | In the uv A/B, the old dead-end wording made agents give up on a path that needed a reload. | Nothing | Eval `stale-state` (a reload keeps the old answer), 2026-10-11, Opus: 3/4 plans got a fresh process with the rules, 2/4 without. | #16162 |
+| Tell a dead end from a door: a reload or a moved binary may be the only way in. Drop mechanisms reachable only in a dev build. | In the uv A/B, the old dead-end wording made agents give up on a path that needed a reload. | Nothing | Eval `stale-state` (a reload keeps the old answer), 2026-10-11, Opus: 3/4 plans got a fresh process with the rules, 2/4 without; at 20 samples, 5/20 with, 6/20 without. | #16162 |
 | A check the machine can't support is neither pass nor fail. Fix the environment, or end the scenario and add an `environment:` Not run row. | A gap in the machine says nothing about Positron. | Nothing | - | #16421 |
 | Test a PR's linked fixes first. An open linked issue seen again is `observed`, not a finding. A closed one seen again is a finding. | Runs re-filed known bugs. | Lint (`issue-line-format`, `issue-not-linked`, `issue-fix-kind`, `issue-linked-kind`, `issue-closed-observed`, `issue-open-came-back`, `issue-needs-finding`, `fix-not-accounted`): `Issue:` forms, membership in `known-issues.json`, and a missing fix result. | - | #16302 |
 | Without a PR, don't search GitHub. | The verifier searches. | Nothing | - | #16421 |
@@ -208,6 +208,15 @@ showed none. Four samples cannot tell a one-in-four difference from chance, so
 none of this says a rule can go. A plan isn't a run either, and other lines of
 the prompts still say much of what an eval cuts. A case worth a bigger sample
 is stale-state, the one where the obvious move fails.
+
+At 20 samples per arm, stale-state showed no effect: 5/20 plans passed with
+the rules, 6/20 without. Both rates are low because the grader is strict and
+uneven: plans that relaunched a fresh instance failed for not saying they
+checked uv was still missing, while others that said no more passed. The
+criterion asks for three things at once, so the grader, not the rule, sets the
+pass rate. A criterion that asks only for the decisive move (a fresh process
+with uv absent, rather than a write-up or another reload) is the next step
+before this case can show anything.
 
 Most of the explorer's 24 unchecked rules are about how to explore: risk
 first, real user state, controls, cold replays. That is where the skill finds
