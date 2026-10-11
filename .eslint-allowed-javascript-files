@@ -314,3 +314,4 @@ versions/show-version.cjs
 .claude/skills/exploratory-test/renderer/lint-json.test.mjs
 .claude/skills/exploratory-test/renderer/report-json.mjs
 .claude/skills/exploratory-test/renderer/report-json.test.mjs
+.claude/skills/exploratory-test/renderer/versioned-files.test.mjs

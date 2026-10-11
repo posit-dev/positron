@@ -4,12 +4,9 @@ description: "Explore a running Positron instance as a real user to find genuine
 disable-model-invocation: true
 metadata:
   # Bump when a run could find or judge findings differently: what an agent is
-  # told or allowed, or what is done with its reply. That is this file,
-  # explorer.md, verifier.md, isolator.md, editor.md, renderer/known-issues.mjs,
-  # pipeline.mjs, finish.mjs, edit.mjs, lint-json.mjs, report.schema.json,
-  # claude-cli.mjs and time-up-hook.mjs, and pr-exploratory-test's run.mjs and
-  # lib.mjs. Feedback is grouped by it, so a
-  # change to how the page looks does not count.
+  # told or allowed, or what is done with its reply. versioned-files.txt lists
+  # the files that count. Feedback is grouped by it, so a change to how the
+  # page looks does not count.
   version: "1.58"
 ---
 

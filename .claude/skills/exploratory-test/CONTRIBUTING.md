@@ -67,9 +67,10 @@ Launching and driving the app belongs to drive-positron. See its
 ## Rules
 
 - **Bump the version when a run could find or judge findings differently.**
-  That is `metadata.version` in SKILL.md; the comment above it lists the files
-  that count: the prompts, and the code that sets what agents may do and turns
-  their replies into the report. Stats and feedback are grouped by version, so
+  That is `metadata.version` in SKILL.md; `versioned-files.txt` lists the
+  files that count: the prompts, the lint, and the code that sets what agents
+  may do and turns their replies into the report. Add a new file of that kind
+  to it. Stats and feedback are grouped by version, so
   such a change under an old number muddies both. One bump per PR is enough. A
   change to how the page looks needs none.
 - **A rule in `explorer.md` lands with proof it works:** a lint check with a
