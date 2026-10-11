@@ -213,6 +213,7 @@ test/unit/reporter.js
 .github/actions/e2e-failure-analyzer/analyze.mjs
 .github/actions/e2e-failure-analyzer/report-format.mjs
 .github/actions/e2e-failure-analyzer/test/report-format.test.mjs
+.github/actions/pr-exploratory-test/imports.test.mjs
 .github/actions/pr-exploratory-test/lib.mjs
 .github/actions/pr-exploratory-test/lib.test.mjs
 .github/actions/pr-exploratory-test/gate.mjs
