@@ -120,8 +120,7 @@ function gitEmail() {
 const issueRefs = await loadIssueRefs(dir, JSON.stringify(json), knownIssues, { offline: Boolean(process.env.NODE_TEST_CONTEXT) });
 
 const out = flags.out ? resolve(flags.out) : join(dir, 'index.html');
-await writeRunPage(out, '', parsed, {
-	report: parsed,
+await writeRunPage(out, parsed, {
 	// Coverage is built from the run's ledger when it wrote one.
 	ledger,
 	agentPrompts: !flags['no-agent-prompts'],

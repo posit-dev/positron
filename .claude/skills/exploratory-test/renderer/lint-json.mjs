@@ -204,16 +204,24 @@ export function schemaProblems(json, schema = SCHEMA, at = 'report', root = sche
 const stringsOf = value => (typeof value === 'string' ? [value] : value && typeof value === 'object' ? Object.values(value).flatMap(stringsOf) : []);
 
 /**
- * The rules report.md is held to, on report.json's fields: its words, steps,
- * preconditions and evidence, and the run directory it was written from.
- * `options` are lintReport's. Layout rules have no counterpart: the schema
- * holds the shape.
+ * The write-up rules on report.json's fields: its words, steps, preconditions
+ * and evidence, and the run directory it was written from. `options` are
+ * runDirOptions'. The schema holds the shape.
  */
 export function formatProblems(json, ledger, options = {}) {
 	const header = json.header ?? {};
 	const findings = json.findings ?? [];
 	const problems = [...resultProblems(header.result ?? '')];
+	// The schema asks only that they are there; the page has nothing to show for an empty one.
+	for (const [key, label] of [['result', 'Result'], ['tested', 'Tested'], ['notExercised', 'Not exercised']]) {
+		if (!String(header[key] ?? '').trim()) {
+			problems.push(`report: header.${key} is empty; write the ${label} line`);
+		}
+	}
 	for (const f of findings) {
+		if (!String(f.feature ?? '').trim()) {
+			problems.push(`report: Finding ${f.n} has no feature; name the area of Positron it is in, such as "data explorer"`);
+		}
 		problems.push(...rateProblems(f.n, f.severity, f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : ''));
 		const steps = (f.steps ?? []).map((s, i) => ({ n: String(i + 1), verify: s.kind === 'verify', text: s.text, result: s.result?.toUpperCase() }));
 		problems.push(...findingProblems(f.n, {
@@ -229,13 +237,25 @@ export function formatProblems(json, ledger, options = {}) {
 		if (frame) {
 			problems.push(`report: map compiled frames to source paths: "${frame.path}:${frame.line}"`);
 		}
-		problems.push(...absolutePathProblems('report', (f.evidence ?? []).map(e => e.path ?? '')));
+		problems.push(...absolutePathProblems('report', [...(f.evidence ?? []).map(e => e.path ?? ''), ...(f.steps ?? []).map(s => String(s.log?.source ?? '').split(/[\s|]/)[0])]));
+		const outside = (f.evidence ?? []).find(e => e.kind === 'shot' && !/^shots\//.test(e.path ?? ''));
+		if (outside) {
+			problems.push(`report: Finding ${f.n} links the screenshot ${outside.path}; link it as shots/<file>`);
+		}
+		if (options.fileExists) {
+			const shots = [...(f.steps ?? []).flatMap(s => s.shots ?? []), ...(f.evidence ?? []).filter(e => e.kind === 'shot').map(e => e.path)];
+			for (const p of [...new Set(shots)].filter(p => p && !options.fileExists(p))) {
+				problems.push(`report: Finding ${f.n} cites ${p}, which is not in the run directory`);
+			}
+		}
 	}
-	problems.push(...absolutePathProblems('report', [...(json.logs ?? []), ...(json.files ?? [])].map(x => x.path ?? '')));
+	// A markdown link anywhere in the prose is a file the reader opens.
+	const links = stringsOf({ header, findings }).flatMap(t => [...t.matchAll(/\]\(([^)\s]+)\)/g)].map(m => m[1]));
+	problems.push(...absolutePathProblems('report', [...(json.logs ?? []), ...(json.files ?? [])].map(x => x.path ?? '').concat(links)));
 	problems.push(...modelProblems(reportFromJson(json, { ledger }).findings, ledger, options));
 	problems.push(...runProblems(stringsOf({ header, findings }).join('\n'), ledger, {
 		...options,
-		needs: findings.flatMap(f => (f.preconditions ?? []).map(p => [`Finding ${f.n}`, `${p.name ? `${p.name} | ` : ''}${p.text ?? ''}`])),
+		needs: findings.flatMap(f => (f.preconditions ?? []).map(p => [`Finding ${f.n}`, p.text ?? '', p.name])),
 		findingNumbers: new Set(findings.map(f => f.n)),
 		notExercised: header.notExercised,
 	}));
@@ -334,7 +354,7 @@ export async function settleReportJson(workDir, { resume, log = console.log }) {
 	return report;
 }
 
-/** lintReport's options for the run directory `dir`, as render.mjs builds them. */
+/** formatProblems' options for the run directory `dir`. */
 function runDirOptions(dir) {
 	const read = name => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : undefined);
 	const files = join(dir, 'files');

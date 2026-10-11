@@ -4,18 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Checks a report and its ledger against the format explorer.md specifies.
- *
- * The parser is lenient on purpose, so a malformed report still renders; that
- * also means it renders wrong without saying so. These are the rules a script
- * can check, returned as one line each. splitProblems sorts them into errors,
- * which make a repro or its evidence wrong, and warnings, which are wording.
+ * Checks a ledger against the format explorer.md specifies, and holds a
+ * report's fields to the write-up rules; lint-json.mjs applies those to
+ * report.json. These are the rules a script can check, returned as one line
+ * each. splitProblems sorts them into errors, which make a repro or its
+ * evidence wrong, and warnings, which are wording.
  */
 
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { basename, isDefaultsOnly, isNewTestFile, isPositronLog, LOWERCASE_NAMES, openingRange, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
+import { basename, isDefaultsOnly, isNewTestFile, isPositronLog, LOWERCASE_NAMES, parseLedger, parseSystemLine } from './report-parse.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
@@ -31,19 +30,6 @@ function prose(markdown) {
 		if (!fence) { out.push({ line, i }); }
 	});
 	return out;
-}
-
-function tableRows(lines, headerTest) {
-	const start = lines.findIndex(({ line }) => /^\s*\|/.test(line) && headerTest(line.toLowerCase()));
-	if (start === -1) { return null; }
-	const cells = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
-	const header = cells(lines[start].line).map(h => h.toLowerCase());
-	const rows = [];
-	for (let k = start + 2; k < lines.length && /^\s*\|/.test(lines[k].line); k++) {
-		const c = cells(lines[k].line);
-		rows.push(Object.fromEntries(header.map((h, j) => [h, c[j] ?? ''])));
-	}
-	return rows;
 }
 
 /** The files an `Evidence:` value names; prose such as "none, DOM read only" names none. */
@@ -285,7 +271,6 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 	return { problems, scenarioCount: scenarios.length, notRun };
 }
 
-const namesFinding = (s, n) => s.findings.includes(n) || s.steps.some(st => st.finding === n);
 const failsOf = s => /\bFails (\d+)\/(\d+)\b/.exec(String(s.resultHtml ?? '').replace(/<[^>]+>/g, ''))?.slice(1).map(Number) ?? null;
 
 /**
@@ -311,47 +296,9 @@ export function rateProblem(rate, owner, failed) {
 }
 
 /**
- * A finding's repro is one ledger scenario's steps: every screenshot its steps
- * cite comes from a single scenario, and that scenario failed for this finding.
- * Another run's screenshots go under Evidence, captioned with the step they prove.
- * The table's rate fits the ledger (see rateProblem).
- */
-function lintReproScenario(findings, scenarios, rates = new Map()) {
-	const problems = [];
-	const shotsOf = steps => new Set(steps.flatMap(st => st.evidence.map(e => basename(e.file || e.href))));
-	const owners = scenarios.map(s => ({ s, shots: shotsOf(s.steps) }));
-	for (const f of findings) {
-		const cited = [...shotsOf(f.steps)].filter(shot => owners.some(o => o.shots.has(shot)));
-		if (!cited.length) { continue; }
-		const whole = owners.filter(o => cited.every(shot => o.shots.has(shot))).map(o => o.s);
-		if (!whole.length) {
-			const ids = owners.filter(o => cited.some(shot => o.shots.has(shot))).map(o => o.s.id);
-			problems.push(`report: Finding ${f.n}'s steps mix ${ids.join(' and ')}; the repro is one scenario's steps, and another run's screenshots go under Evidence, captioned "Step N:" for the step they prove`);
-		} else if (!whole.some(s => namesFinding(s, f.n))) {
-			problems.push(`report: Finding ${f.n}'s steps come from ${whole.map(s => s.id).join(' or ')}, whose Status does not name Finding ${f.n}`);
-		} else {
-			const owner = whole.find(s => namesFinding(s, f.n));
-			const problem = rateProblem(rates.get(String(f.n)), owner, scenarios.filter(s => namesFinding(s, f.n)));
-			if (problem) {
-				problems.push(`report: Finding ${f.n} Reproduction ${problem}`);
-			}
-			// The steps and their shots are one scenario's, so the files they name are too.
-			// The drive-positron scripts a step was run with are not the scenario's files.
-			const names = steps => new Set(steps.flatMap(st => [...String(st.md ?? '').matchAll(FILE_NAME)].map(m => basename(m[1]))).filter(n => !/\.sh$/.test(n)));
-			const used = new Set(whole.flatMap(s => [...names(s.steps)]));
-			const stray = [...names(f.steps)].filter(n => !used.has(n));
-			if (stray.length && used.size) {
-				problems.push(`report: Finding ${f.n}'s steps name ${stray.join(', ')}, which ${whole.map(s => s.id).join(' or ')} never used (it used ${[...used].join(', ')}); write the steps the screenshots show`);
-			}
-		}
-	}
-	return problems;
-}
-
-/**
  * The test-file rules: every file a finding's setup or a scenario's
  * precondition names is saved under `files/` and listed in `## Files`, and the
- * two agree. `needs` is `[where, text]` for each setup line to check.
+ * two agree. `needs` is `[where, text, name?]` for each setup line to check.
  */
 function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 	const problems = [];
@@ -431,26 +378,28 @@ const HELPERS = (() => {
 /** Preconditions that are something done in the app, which the rules make steps, or that name a scratch path or the run. */
 function lintPreconditionActions(preconditions) {
 	const problems = [];
-	for (const [where, line] of preconditions) {
+	for (const [where, line, label] of preconditions) {
 		const text = line.replace(/^[-*]\s+/, '');
+		// A ledger row's first field is its name; report.json gives the name apart.
+		const name = (label || text.split(' | ')[0]).slice(0, 40);
 		const command = /^\*\*/.test(text) ? null : [...text.matchAll(/`([^`]+)`/g)].map(m => m[1].trim()).find(c => RUN_COMMAND.test(c));
 		if (command) {
-			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" runs \`${command}\`; run it as a step, and keep the precondition to the file or package`);
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" runs \`${command}\`; run it as a step, and keep the precondition to the file or package`);
 		}
 		const done = /^\*\*/.test(text) || command ? null : DONE_IN_APP.exec(text.replace(/`[^`]*`/g, 'code'));
 		if (done) {
-			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`);
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is done in the app ("${done[0]}"); do it as a step, and keep the precondition to the state before step 1`);
 		}
 		const running = RUNNING_APP.exec(text.replace(/`[^`]*`/g, 'code'));
 		if (running) {
-			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" is a running app ("${running[0]}"); start it in the steps, with a check that it runs`);
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" is a running app ("${running[0]}"); start it in the steps, with a check that it runs`);
 		}
 		if (where.startsWith('Finding') && /\bthe run's\b/i.test(text)) {
-			problems.push(`report: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" says "the run's", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")`);
+			problems.push(`report: ${where} precondition "${name}" says "the run's", which the reader does not have; name the interpreter and package ("Python 3.12 with shiny 1.9.1")`);
 		}
 		const path = SCRATCH_PATH.exec(text);
 		if (path) {
-			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${text.split(' | ')[0].slice(0, 40)}" names the path ${path[1].replace(/`$/, '')}; name the workspace by what it holds ("A workspace with \`app.R\`"), and keep scratch paths in Run details`);
+			problems.push(`${where.startsWith('Finding') ? 'report' : 'ledger'}: ${where} precondition "${name}" names the path ${path[1].replace(/`$/, '')}; name the workspace by what it holds ("A workspace with \`app.R\`"), and keep scratch paths in Run details`);
 		}
 	}
 	return problems;
@@ -634,8 +583,7 @@ function clarityProblems(n, title, observed, expected) {
 	return problems;
 }
 
-// The rules below take a report's fields, not its layout, so report.md and
-// report.json (lint-json.mjs) share them.
+// The rules below take a report's fields; lint-json.mjs gives them report.json's.
 
 /** The rules on the header's Result line. */
 export function resultProblems(result) {
@@ -680,7 +628,7 @@ export function findingProblems(n, { title, feature, observed, expected, precond
 	// The card shows the short name, as Coverage does, and the full text on hover.
 	for (const { name, text } of preconditions) {
 		if (!name) {
-			problems.push(`report: Finding ${n} precondition "${text.slice(0, 40)}" needs "<short name> | <full text>"`);
+			problems.push(`report: Finding ${n} precondition "${text.slice(0, 40)}" needs a name, 2 to 4 words, for Coverage`);
 		} else if (name.split(/\s+/).length > 5) {
 			problems.push(`report: Finding ${n} precondition name "${name}" is ${name.split(/\s+/).length} words; keep it to 2 to 4`);
 		}
@@ -713,10 +661,7 @@ export function findingProblems(n, { title, feature, observed, expected, precond
 	return problems;
 }
 
-/**
- * The rules on findings as the page shows them: the report model parseReport
- * and reportFromJson both build.
- */
+/** The rules on findings as the page shows them: reportFromJson's model. */
 export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 	const problems = [];
 	// Readers never see scenario IDs, so a finding's prose says what a run was in words.
@@ -810,7 +755,7 @@ export function absolutePathProblems(name, paths) {
 /**
  * The rules on the run directory the report was written from: the ledger, the
  * files the setup names, linked issues and actions.log. `text` is the
- * report's prose, for the files/ paths it names; `needs` is `[where, text]` for
+ * report's prose, for the files/ paths it names; `needs` is `[where, text, name?]` for
  * each of its setup lines.
  */
 export function runProblems(text, ledger, { needs = [], findingNumbers, notExercised, fileExists, listFiles, knownIssues, actionsLog } = {}) {
@@ -841,142 +786,10 @@ export function runProblems(text, ledger, { needs = [], findingNumbers, notExerc
 }
 
 /**
- * @param {string} markdown report.md
- * @param {string | undefined} ledger ledger.md, when the run wrote one
- * @param {{ fileExists?: (path: string) => boolean, listFiles?: () => string[] }} [options]
- * @returns {string[]} one line per problem; empty when the report is clean
- */
-export function lintReport(markdown, ledger, { fileExists, listFiles, repoFileExists, knownIssues, actionsLog } = {}) {
-	const problems = [];
-	// The verifier's section is its own words, added by finish.mjs apply; the explorer cannot fix them.
-	markdown = withoutVerification(markdown);
-	const lines = prose(markdown);
-	const text = String(markdown ?? '');
-
-	const h1 = lines.filter(({ line }) => /^#\s/.test(line));
-	if (h1.length !== 1) { problems.push(`report: needs exactly one "# " heading, found ${h1.length}`); }
-
-	const firstSection = lines.find(({ line }) => /^##\s/.test(line))?.i ?? Infinity;
-	const label = name => lines.find(({ line, i }) => i < firstSection && line.startsWith(`**${name}:**`))?.line.slice(name.length + 5).trim();
-	const result = label('Result');
-	const tested = label('Tested');
-	const notExercised = label('Not exercised');
-	for (const [name, value] of [['Result', result], ['Tested', tested], ['Not exercised', notExercised]]) {
-		if (!value) { problems.push(`report: missing the **${name}:** line above ## Findings`); }
-	}
-	if (result) {
-		problems.push(...resultProblems(result));
-	}
-
-	// A block with no table row (or no table at all) is flagged below, block by block.
-	const rows = tableRows(lines, h => h.includes('finding') && h.includes('severity')) ?? [];
-	if (rows.length && Object.keys(rows[0]).some(k => /^introduced|^origin/.test(k))) {
-		problems.push('report: drop the Introduced?/Origin column; origin goes in Cause, and only when the diff settles it');
-	}
-	if (rows.length && Object.keys(rows[0]).includes('impact')) {
-		problems.push('report: drop the Impact column; the title says what is broken');
-	}
-	for (const row of rows) {
-		problems.push(...rateProblems(row['#'], row.severity, row.reproduction));
-	}
-
-	const blocks = [];
-	lines.forEach(({ line }, k) => {
-		const m = /^###\s+Finding\s+(\d+):\s*\S/.exec(line);
-		if (m) { blocks.push({ n: Number(m[1]), k }); }
-		else if (/^###\s+(Finding\s+)?\d+\b/.test(line)) { problems.push(`report: "${line.trim()}" must read "### Finding N: <claim>"`); }
-	});
-	const tableNumbers = new Set(rows.map(r => Number(r['#'])));
-	const blockNumbers = new Set(blocks.map(b => b.n));
-	for (const n of tableNumbers) { if (!blockNumbers.has(n)) { problems.push(`report: table row ${n} has no "### Finding ${n}:" block`); } }
-	for (const n of blockNumbers) { if (!tableNumbers.has(n)) { problems.push(`report: Finding ${n} has a block but no table row`); } }
-	const needs = [];
-	blocks.forEach((b, j) => {
-		// The last finding ends where Run details or Verification details starts:
-		// the verifier's reply can say "same as Finding 1" about the report.
-		const next = lines.findIndex(({ line }, k) => k > b.k && /^(<details>|## )/.test(line));
-		const end = blocks[j + 1]?.k ?? (next === -1 ? lines.length : next);
-		const card = lines.slice(b.k + 1, end).map(l => l.line);
-		// The edit pass writes the opening after the explorer's checks; it is not the run's.
-		const opening = openingRange(card);
-		const body = opening ? [...card.slice(0, opening.start), ...card.slice(opening.end)] : card;
-		for (const l of body.filter(l => /^\*\*(Repro|Preconditions:)\*\*/.test(l))) {
-			needs.push([`Finding ${b.n}`, l]);
-		}
-		// The bullets under a bare Preconditions: line are its setup too.
-		const at = body.findIndex(l => /^\*\*Preconditions:\*\*\s*$/.test(l));
-		const preconditions = [];
-		for (let k = at + 1; at !== -1 && /^[-*]\s+/.test(body[k] ?? ''); k++) {
-			needs.push([`Finding ${b.n}`, body[k]]);
-			preconditions.push({ name: /^[-*]\s+([^|]+?)\s+\|\s+\S/.exec(body[k])?.[1], text: body[k].replace(/^[-*]\s+/, '') });
-		}
-		const pre = body.find(l => l.startsWith('**Preconditions:**'));
-		if (pre && isDefaultsOnly(pre.slice('**Preconditions:**'.length).trim())) {
-			problems.push(`report: Finding ${b.n} Preconditions: says only "defaults"; leave the line out`);
-		}
-		// The filed issue's title is `<Feature>: <claim>`.
-		const feature = body.find(l => /^\*\*Feature:\*\*\s*\S/.test(l))?.replace(/^\*\*Feature:\*\*\s*/, '').trim();
-		if (!feature) {
-			problems.push(`report: Finding ${b.n} has no "**Feature:** <feature>" line`);
-		}
-		if (body.some(l => /^\*\*Impact:\*\*/.test(l))) {
-			problems.push(`report: Finding ${b.n} has an Impact line; drop it, and put a fact the run saw, such as no error shown or only reopening restores it, at the end of Observed`);
-		}
-		const said = {};
-		for (const label of ['Observed', 'Expected']) {
-			// The first line of a labelled paragraph, through to the blank line after it.
-			const at = body.findIndex(l => l.startsWith(`**${label}:**`));
-			if (at !== -1) {
-				const end = body.findIndex((l, k) => k > at && !l.trim());
-				said[label] = body.slice(at, end === -1 ? body.length : end).join(' ').slice(label.length + 5).trim();
-			}
-		}
-		const steps = body.map(l => /^(\d+)\.\s+(VERIFY\b)?(.*)$/i.exec(l)).filter(Boolean).map(([line, n, verify, text]) => (verify
-			? { n, verify: true, text: text.replace(/\s*->.*$/, '').trim(), raw: text, result: /->\s*(PASS|FAIL)\b/i.exec(text)?.[1].toUpperCase(), line }
-			: { n, verify: false, text, line }));
-		problems.push(...findingProblems(b.n, {
-			title: lines[b.k].line.replace(/^###\s+Finding\s+\d+:\s*/, ''), feature, observed: said.Observed, expected: said.Expected, preconditions, steps, lines: body,
-		}));
-	});
-
-	for (const { line } of lines) {
-		if (!/^\s*Evidence:/.test(line) && /(^|[^[(])`shots\/[^`]+`/.test(line)) {
-			problems.push(`report: cite shots as [shots/<file>](shots/<file>), not in backticks: "${line.trim().slice(0, 60)}"`);
-		}
-		// A URL or shell variable in place of shots/ renders as a broken image.
-		const image = [...line.matchAll(/\]\(([^)\s]+\.(?:png|jpe?g|gif|webp))\)/gi)].map(m => m[1]).find(p => !p.startsWith('shots/'));
-		if (image) { problems.push(`report: link screenshots as shots/<file>, not ${image}`); }
-	}
-	for (const { line } of lines) {
-		problems.push(...absolutePathProblems('report', citedPaths(line)));
-	}
-	// Stacks sit in fences, so this one reads every line. Only out/vs has maps.
-	const frame = text.split('\n').find(line => /^\s+at .*\bout\/vs\/\S+\.js:\d+/.test(line));
-	if (frame) { problems.push(`report: map compiled frames to source paths: "${frame.trim().slice(0, 60)}"`); }
-
-	const raw = text.split('\n');
-	raw.forEach((line, i) => {
-		if (/<\/summary>\s*$/.test(line) && raw[i + 1]?.trim()) { problems.push('report: leave a blank line after </summary>'); }
-		if (/^\s*<\/details>/.test(line) && raw[i - 1]?.trim()) { problems.push('report: leave a blank line before </details>'); }
-	});
-
-	if (fileExists) {
-		const missing = [...new Set([...text.matchAll(/\]\((shots\/[^)\s]+)\)/g)].map(m => m[1]))].filter(p => !fileExists(p));
-		for (const p of missing) { problems.push(`report: links ${p}, which is not in the run directory`); }
-	}
-
-	const rates = new Map(rows.map(row => [row['#'], row.reproduction]));
-	problems.push(...lintReproScenario(parseReport(text).findings, parseLedger(ledger)?.exercised ?? [], rates));
-	problems.push(...modelProblems(parseReport(text).findings, ledger, { repoFileExists }));
-	problems.push(...runProblems(markdown, ledger, { needs, findingNumbers: blockNumbers, notExercised, fileExists, listFiles, knownIssues, actionsLog }));
-	return problems;
-}
-
-/**
  * The ledger alone, mid-run: what can be fixed while the instance is still up,
  * such as a check with no shot or a FAIL with no Log:. Nothing that needs the
  * report, and no linked fix still to be tested.
- * @returns {string[]} one line per problem, as lintReport's
+ * @returns {string[]} one line per problem, as lint-json's
  */
 export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog } = {}) {
 	const problems = [...lintLedger(ledger, null, fileExists).problems];
@@ -991,23 +804,6 @@ export function lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, act
 	return problems;
 }
 
-/** The report without the Verification section finish.mjs apply appends. */
-function withoutVerification(markdown) {
-	const lines = String(markdown ?? '').split('\n');
-	const summary = lines.findIndex((l, i) => l.trim() === '<summary>Verification details</summary>' && lines[i - 1]?.trim() === '<details>');
-	if (summary !== -1) {
-		const close = lines.findIndex((l, i) => i > summary && /^\s*<\/details>/.test(l));
-		lines.splice(summary - 1, (close === -1 ? lines.length : close + 1) - (summary - 1));
-		return lines.join('\n');
-	}
-	const failed = lines.findIndex((l, i) => l === '## Verification' && /^_Verification did not complete/.test(lines[i + 2] ?? ''));
-	if (failed !== -1) {
-		const next = lines.findIndex((l, i) => i > failed && /^## /.test(l));
-		lines.splice(failed, (next === -1 ? lines.length : next) - failed);
-	}
-	return lines.join('\n');
-}
-
 // How every line drive-positron's log writer (write() in dp-lib.ts) appends
 // starts: the UTC time to the second, then a space.
 const LOG_TIME = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) /;
@@ -1020,7 +816,7 @@ const LOG_SLACK_MS = 1000;
  * than one above it. A line in another format was written by hand, and one that
  * goes back in time was backdated or moved: either way the log no longer says
  * what happened when, which is what the verifier checks the steps against.
- * @returns {string[]} one line per kind of problem, as lintReport's
+ * @returns {string[]} one line per kind of problem
  */
 export function lintActionsLog(actionsLog) {
 	const unstamped = [];
@@ -1146,7 +942,7 @@ const WARNINGS = [
 	/ Cause opens with a \d+-word sentence/,
 	/drop the Introduced\?\/Origin column/,
 	/drop the Impact column/,
-	/ precondition ".*?" needs "/,
+	/ precondition ".*?" needs a name/,
 	/ precondition name ".*?" is \S+ words/,
 	/ Preconditions: says only "/,
 	/ has an Impact line/,

@@ -7,58 +7,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { renderReportHtml } from './html.mjs';
 import { reportFromJson } from './report-json.mjs';
-import { parseReport } from './report-parse.mjs';
 
 // The renders these tests run must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
-/** One finding, as report.md writes it. */
-const MARKDOWN = [
-	'# Exploratory test: Save As',
-	'',
-	'`mi/save-as` | `abc1234`',
-	'',
-	'**Result:** Save As works. **The session picker keeps the old name.**',
-	'**Tested:** Save As from untitled documents, 2 scenarios',
-	'',
-	'## Findings',
-	'',
-	'| # | Finding | Severity | Impact | Introduced? | Reproduction | Verified |',
-	'|---|---------|----------|--------|-------------|--------------|----------|',
-	'| 1 | Session picker shows old name | minor | wrong label | yes | 1/1 | confirmed |',
-	'',
-	'### Finding 1: Session picker shows old name',
-	'',
-	'**Feature:** Quarto inline output',
-	'',
-	'**Repro**',
-	'',
-	'**Preconditions:**',
-	'- Python venv | Python 3.14.6 in the workspace `.venv`',
-	'- Inline output on | `"quarto.inlineOutput.enabled": true` in user settings',
-	'',
-	'1. Run `Interpreter: Select Session`.',
-	'2. VERIFY the row reads `Untitled-2.qmd - Python` -> PASS',
-	'   Evidence: S13-01.png',
-	'3. Press Cmd+Shift+S.',
-	'4. VERIFY the row reads `named.qmd - Python` -> FAIL - Finding 1',
-	'   Observed: The row reads `named.qmd - Untitled-2.qmd`',
-	'   Evidence: S13-02.png',
-	'',
-	'**Observed:** The row reads `named.qmd - Untitled-2.qmd`.',
-	'',
-	'**Expected:** The row reads `named.qmd - Python`.',
-	'',
-	'**Evidence**',
-	'',
-	'- [shots/S04-01.png](shots/S04-01.png) -- S04: two rows read `Untitled-1.qmd`',
-	'- `logs/renderer.log:2010` | Renderer process | 22:02:35 -- "Following Save As"',
-	'',
-	'**Cause (hypothesis):** `_followSaveAs` moves the URI but not the name.',
-	'',
-].join('\n');
-
-/** The same finding, as report.json writes it. */
+/** One finding, as report.json writes it. */
 function json() {
 	return {
 		header: {
@@ -100,7 +53,7 @@ function json() {
 	};
 }
 
-/** The fields both sources fill, for comparing them. */
+/** The finding fields the page lays out. */
 function shared(f) {
 	return {
 		title: f.title,
@@ -117,10 +70,84 @@ function shared(f) {
 	};
 }
 
-test('a finding from report.json builds the same model as from report.md', () => {
-	const fromMd = parseReport(MARKDOWN).findings[0];
-	const fromJson = reportFromJson(json()).findings[0];
-	assert.deepEqual(shared(fromJson), shared(fromMd));
+test('a finding from report.json builds the model the page lays out', () => {
+	assert.deepEqual(shared(reportFromJson(json()).findings[0]), {
+		title: 'Session picker shows old name',
+		feature: 'Quarto inline output',
+		severity: 'minor',
+		reproduced: '1/1',
+		observedHtml: 'The row reads <code>named.qmd - Untitled-2.qmd</code>.',
+		expectedHtml: 'The row reads <code>named.qmd - Python</code>.',
+		preconditions: [
+			'Python 3.14.6 in the workspace <code>.venv</code>',
+			'<code>&quot;quarto.inlineOutput.enabled&quot;: true</code> in user settings',
+		],
+		preconditionNames: [
+			'Python venv',
+			'Inline output on',
+		],
+		steps: [
+			{
+				kind: 'action',
+				html: 'Run <code>Interpreter: Select Session</code>.',
+				result: null,
+				finding: null,
+				observedHtml: '',
+				evidence: [],
+			},
+			{
+				kind: 'verify',
+				html: 'Verify the row reads <code>Untitled-2.qmd - Python</code>',
+				result: 'pass',
+				finding: null,
+				observedHtml: '',
+				evidence: [
+					'S13-01.png',
+				],
+			},
+			{
+				kind: 'action',
+				html: 'Press Cmd+Shift+S.',
+				result: null,
+				finding: null,
+				observedHtml: '',
+				evidence: [],
+			},
+			{
+				kind: 'verify',
+				html: 'Verify the row reads <code>named.qmd - Python</code>',
+				result: 'fail',
+				finding: 1,
+				observedHtml: 'The row reads <code>named.qmd - Untitled-2.qmd</code>',
+				evidence: [
+					'S13-02.png',
+				],
+			},
+		],
+		evidence: [
+			{
+				kind: 'shot',
+				file: 'S13-01.png',
+				caption: 'Verify the row reads Untitled-2.qmd - Python',
+			},
+			{
+				kind: 'shot',
+				file: 'S13-02.png',
+				caption: 'Verify the row reads named.qmd - Python',
+			},
+			{
+				kind: 'shot',
+				file: 'S04-01.png',
+				caption: 'S04: two rows read `Untitled-1.qmd`',
+			},
+			{
+				kind: 'log',
+				file: 'logs/renderer.log:2010',
+				caption: 'Following Save As',
+			},
+		],
+		causeHtml: '<code>_followSaveAs</code> moves the URI but not the name.',
+	});
 });
 
 test('the header carries the title, chips, PR link, lead and severity counts', () => {
@@ -189,6 +216,6 @@ test('the pipeline\'s cost passes reach the Run tile, with a total only when eac
 });
 
 test('a report.json model renders through the page', () => {
-	const html = renderReportHtml('', { report: reportFromJson(json()) });
+	const html = renderReportHtml(reportFromJson(json()));
 	assert.match(html, /<h2 class="card-title"[^>]*>Session picker shows old name<\/h2>/);
 });

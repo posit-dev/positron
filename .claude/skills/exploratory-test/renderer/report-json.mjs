@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Builds the page's report model from report.json, the writer's structured
-// report, instead of parsing report.md. The model is parseReport's, so
-// html.mjs renders either. Prose fields are markdown; everything else is data.
+// Builds the page's report model from report.json, the explorer's structured
+// report, for html.mjs to render. Prose fields are markdown; everything else
+// is data.
 
 import { join } from 'node:path';
 import { readRunDir, skillVersion, writeRunPage } from './html.mjs';
@@ -17,7 +17,7 @@ import {
 
 const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
 
-/** A schema step as a typed step, the shape parseReport's steps have. */
+/** A schema step as the page's typed step. */
 function stepFromJson(s) {
 	const md = s.kind === 'verify' ? verifyText(s.text) : s.text;
 	const result = s.kind === 'verify' ? s.result ?? null : null;
@@ -44,7 +44,7 @@ function stepFromJson(s) {
 	};
 }
 
-/** A schema evidence item as parseReport's. */
+/** A schema evidence item as the page lays it out. */
 function evidenceFromJson(e) {
 	if (e.kind === 'shot') {
 		const src = safeUrl(e.path);
@@ -67,10 +67,12 @@ function evidenceFromJson(e) {
 	return { kind: 'note', text: e.caption ?? e.quote ?? '' };
 }
 
-/** A schema error as parseReport's. */
+/** A schema error as the page lays it out. */
 function errorFromJson(e) {
 	const count = e.count ?? 1;
-	const meta = [e.process, count > 1 ? `${count}x` : ''].filter(Boolean);
+	// "Logged 2x (after each Retry)": the count, and when it was logged.
+	const logged = [count > 1 ? `${count}x` : '', e.note ? `(${e.note})` : ''].filter(Boolean).join(' ');
+	const meta = [e.process, logged ? `Logged ${logged}` : ''].filter(Boolean);
 	const frames = (e.frames ?? []).map(f => ({ fn: f.fn ?? '', path: f.path ?? '', line: f.line ?? 0 }));
 	const raw = [e.message, ...frames.map(f => `at ${f.fn ? `${f.fn} (${f.path}:${f.line})` : `${f.path}:${f.line}`}`)].join('\n');
 	return withMetaHtml({ source: e.source, meta, count, message: e.message, frames, raw });
@@ -84,7 +86,7 @@ function findingFromJson(f) {
 	const preconditions = named.map(p => p.text);
 	const reproduced = f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : '';
 	const cases = (f.tests?.cases ?? []).map(c => {
-		const note = c.isNew ? 'new file' : '';
+		const note = c.isNew ? 'new file' : c.note ?? '';
 		return { text: c.text ?? '', level: TEST_LEVEL[c.level] ?? null, path: c.path ?? '', note, textHtml: inline(c.text), noteHtml: note ? inline(note) : '' };
 	});
 	const related = (f.tests?.related ?? []).filter(r => r.path).map(r => (
@@ -218,7 +220,7 @@ export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 export async function writeJsonPage(workDir, json, options) {
 	const { ledger, knownIssues, issueRefs, changeBase, fileExists, readFile } = readRunDir(workDir);
 	const report = reportFromJson(json, { ledger });
-	await writeRunPage(join(workDir, 'index.html'), '', report, {
-		report, ledger, fileExists, readFile, knownIssues, issueRefs, changeBase, skillVersion: skillVersion(), ...options,
+	await writeRunPage(join(workDir, 'index.html'), report, {
+		ledger, fileExists, readFile, knownIssues, issueRefs, changeBase, skillVersion: skillVersion(), ...options,
 	});
 }

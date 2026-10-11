@@ -126,6 +126,10 @@
 							}
 						}
 					}
+				},
+				"note": {
+					"type": "string",
+					"description": "When it was logged, such as \"after each Retry\"."
 				}
 			}
 		}
@@ -341,6 +345,10 @@
 										},
 										"isNew": {
 											"type": "boolean"
+										},
+										"note": {
+											"$ref": "#/$defs/md",
+											"description": "For a case in an existing file, what that file covers now."
 										}
 									},
 									"required": [

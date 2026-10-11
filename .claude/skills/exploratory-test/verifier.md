@@ -42,9 +42,9 @@ For EACH finding, answer these five questions explicitly:
    "Pre-existing") rather than as reasoning. An unchanged counterpart counts as
    evidence in place of a base build: a feature sharing the mechanism that the
    diff does not touch. Check the diff to confirm it is untouched.
-4. For each test file the report says already covers something (`exists,
-   covers ...` under Test gap, or a note under Other tests), open it and
-   say whether it does. A wrong claim does not change the verdict; name the
+4. For each test file the report says already covers something (a
+   `tests.cases` path that is not new, or a `tests.related` note), open it
+   and say whether it does. A wrong claim does not change the verdict; name the
    file and what it actually covers. If a test asserts the very behavior the
    finding reports as wrong, such as expecting different counts from two
    backends, say so: it may be intended, and the reader decides.

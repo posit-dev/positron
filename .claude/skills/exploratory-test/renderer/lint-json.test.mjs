@@ -161,9 +161,25 @@ test('the schema check names each field that is missing or of the wrong kind', (
 	]);
 });
 
-test('the write-up rules report.md is held to apply to report.json\'s fields', () => {
+test('an empty header line or feature, a shot outside shots/ and an absolute link are problems', () => {
 	const j = json();
-	j.header = { result: 'Yes, it copies the accessor from the menu.' };
+	j.header = { result: 'It copies.', tested: '', notExercised: ' ', details: [{ title: 'Branch verification', body: 'See [the log](/tmp/run/out.log).' }] };
+	Object.assign(j.findings[0], {
+		title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', tests: { cases: [], related: [] },
+		feature: '', evidence: [{ kind: 'shot', path: 'https://cdn.example/x.png', step: 1 }],
+	});
+	assert.deepEqual(formatProblems(j, LEDGER).filter(p => /header\.|no feature|links the screenshot|relative to the run/.test(p)), [
+		'report: header.tested is empty; write the Tested line',
+		'report: header.notExercised is empty; write the Not exercised line',
+		'report: Finding 1 has no feature; name the area of Positron it is in, such as "data explorer"',
+		'report: Finding 1 links the screenshot https://cdn.example/x.png; link it as shots/<file>',
+		'report: cite files relative to the run directory, not /tmp/run/out.log',
+	]);
+});
+
+test('the write-up rules apply to report.json\'s fields', () => {
+	const j = json();
+	j.header = { result: 'Yes, it copies the accessor from the menu.', tested: 'the copy menu', notExercised: 'none' };
 	Object.assign(j.findings[0], {
 		severity: 'major', reproduced: { n: 1, m: 1 }, feature: 'object explorer', title: 'Copy may paste the value',
 		observed: 'The pasted text is `x@y.z`.', expected: 'The accessor.', preconditions: [{ text: 'A JSON file open' }], tests: { cases: [], related: [] },
@@ -172,7 +188,7 @@ test('the write-up rules report.md is held to apply to report.json\'s fields', (
 	assert.deepEqual(formatProblems(j, LEDGER).filter(p => p.startsWith('report')), [
 		'report: **Result:** answers a question; state what the change does instead',
 		'report: finding 1 is major and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
-		'report: Finding 1 precondition "A JSON file open" needs "<short name> | <full text>"',
+		'report: Finding 1 precondition "A JSON file open" needs a name, 2 to 4 words, for Coverage',
 		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
 		'report: Finding 1 step 1 is two actions ("then press"); write each as its own step',
 	]);

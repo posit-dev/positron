@@ -583,11 +583,11 @@ order. One finding, with every field it can have:
 		{ "kind": "missing", "path": "logs/<file>", "process": "<process>", "window": "<time window searched>", "quote": "<the exact line you expected>" }
 	],
 	"errors": [
-		{ "source": "logs/<file>:<line>", "process": "<process>", "count": 2, "message": "<the error message>", "frames": [{ "fn": "<function>", "path": "<repo-relative path>", "line": 42 }] }
+		{ "source": "logs/<file>:<line>", "process": "<process>", "count": 2, "note": "<when, such as after each Retry>", "message": "<the error message>", "frames": [{ "fn": "<function>", "path": "<repo-relative path>", "line": 42 }] }
 	],
 	"cause": "<one sentence naming the suspect, then the detail and the code pointers>",
 	"tests": {
-		"cases": [{ "text": "<the missing case, as a sentence>", "level": "unit", "path": "<repo-relative test file, or empty when unsure>", "isNew": false }],
+		"cases": [{ "text": "<the missing case, as a sentence>", "level": "unit", "path": "<repo-relative test file, or empty when unsure>", "isNew": false, "note": "<what that file covers now>" }],
 		"related": [{ "path": "<repo-relative test file>", "level": "e2e", "note": "<what it covers, in a phrase>" }]
 	}
 }
@@ -596,8 +596,9 @@ order. One finding, with every field it can have:
 Leave out `preconditions` when nothing is needed, and `evidence`, `errors` and
 `cause` when there is nothing for them. A step's `log` is on a scenario's first
 FAIL, as the ledger has it, with `"source": "none found in logs/<file>"` when
-nothing was logged. Text fields take markdown: code and data values in
-backticks. The first time evidence names an internal ID (a session, client or
+nothing was logged. A step that pastes a file or a block of code into the app
+puts it in `code`, as a fenced markdown block. Text fields take markdown: code
+and data values in backticks. The first time evidence names an internal ID (a session, client or
 request ID), say which file, document or session it belongs to.
 
 ### Observed and Expected

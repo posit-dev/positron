@@ -12,24 +12,38 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLedger } from './report-parse.mjs';
 import { renderReportHtml } from './html.mjs';
-import { lintReport } from './lint.mjs';
+import { formatProblems } from './lint-json.mjs';
+import { reportFromJson } from './report-json.mjs';
 import { PREVIEW_LINES, EMBED_BYTES, findFile } from './repro-files.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
 const DIR = new URL('./fixtures/logs-run/', import.meta.url);
-const REPORT = readFileSync(new URL('report.md', DIR), 'utf8');
+const REPORT = JSON.parse(readFileSync(new URL('report.json', DIR), 'utf8'));
 const LEDGER = readFileSync(new URL('ledger.md', DIR), 'utf8');
 const SLOW = readFileSync(new URL('files/slow.py', DIR));
 const readFixture = p => (existsSync(new URL(p, DIR)) ? readFileSync(new URL(p, DIR)) : null);
-const render = (options = {}) => renderReportHtml(REPORT, { ledger: LEDGER, base: '/runs/r2', readFile: readFixture, ...options });
+const page = (report, options) => renderReportHtml(reportFromJson(report, { ledger: options.ledger }), options);
+const render = (options = {}) => page(REPORT, { ledger: LEDGER, base: '/runs/r2', readFile: readFixture, ...options });
+
+/** The fixture with Finding 1's precondition reading `text`, and `cause` as its Cause. */
+function withFinding1({ text, cause } = {}) {
+	return {
+		...REPORT,
+		findings: REPORT.findings.map(f => (f.n !== 1 ? f : {
+			...f,
+			...(text ? { preconditions: [{ name: 'setup', text }] } : {}),
+			...(cause ? { cause } : {}),
+		})),
+	};
+}
 
 /** The page with one extra saved file, read from `extra` instead of disk. */
 function renderWith(path, bytes, mention = path.replace(/^files\//, '')) {
 	const ledger = LEDGER.replace('## Files\n', `## Files\n- ${path} | extra | S04\n`);
-	const report = REPORT.replace('**Repro** -- starting state: `slow.py` loaded', `**Repro** -- starting state: \`${mention}\` open, \`slow.py\` loaded`);
-	return renderReportHtml(report, { ledger, readFile: p => (p === path ? bytes : readFixture(p)) });
+	const report = withFinding1({ text: `\`${mention}\` open, \`slow.py\` loaded` });
+	return page(report, { ledger, readFile: p => (p === path ? bytes : readFixture(p)) });
 }
 
 function card(html, n) {
@@ -144,13 +158,13 @@ test('files: Run details lists every test file by its name, with type, use and f
 });
 
 test('files: nothing about files renders when the ledger lists none', () => {
-	const html = renderReportHtml(REPORT, { ledger: LEDGER.replace(/## Files[\s\S]*?\n---/, '---') });
+	const html = page({ ...REPORT, files: [] }, { ledger: LEDGER.replace(/## Files[\s\S]*?\n---/, '---') });
 	assert.doesNotMatch(html, /<a class="fn"|<div class="lb fv"|fold-label">Test files/);
 });
 
 /** The fixture's lint lines about files, with the files it saved on disk. */
 function fileProblems(report, ledger, { exists = p => Boolean(readFixture(p)), list = () => ['files/slow.py'] } = {}) {
-	return lintReport(report, ledger, { fileExists: exists, listFiles: list })
+	return formatProblems(report, ledger, { fileExists: exists, listFiles: list })
 		.filter(p => /files\/|not saved/.test(p));
 }
 
@@ -169,9 +183,9 @@ test('lint: a file a setup names but nobody saved is one line naming every setup
 test('lint: Files and files/ have to agree', () => {
 	assert.deepEqual(fileProblems(REPORT, LEDGER, { exists: () => false }), ['ledger: ## Files lists files/slow.py, which is not in the run directory']);
 	assert.deepEqual(fileProblems(REPORT, LEDGER, { list: () => ['files/slow.py', 'files/extra.csv'] }), ['ledger: files/extra.csv is saved but not listed in ## Files']);
-	const named = REPORT.replace('## Coverage', 'See files/other.qmd too.\n\n## Coverage');
+	const named = withFinding1({ cause: 'See files/other.qmd too.' });
 	assert.deepEqual(fileProblems(named, LEDGER), ['ledger: files/other.qmd is named but not listed in ## Files']);
-	const hyphen = REPORT.replace('## Coverage', 'Open files/mr.code-workspace, then files/rhq/4.6-proj/bin/R.\n\n## Coverage');
+	const hyphen = withFinding1({ cause: 'Open files/mr.code-workspace, then files/rhq/4.6-proj/bin/R.' });
 	assert.deepEqual(fileProblems(hyphen, LEDGER), ['ledger: files/mr.code-workspace is named but not listed in ## Files'], 'a hyphen ends neither path early');
 	assert.ok(fileProblems(REPORT, LEDGER.replace('- files/slow.py |', '- slow.py |'))
 		.includes('ledger: ## Files lists slow.py; save it under files/ and list that path'));
@@ -187,19 +201,18 @@ test('lint: a bare name two saved files share is flagged, not linked to the firs
 test('lint: a setup that names a file and then its files/ path says it twice', () => {
 	const ledger = LEDGER.replace('- files/slow.py |', '- files/a/slow.py | copy | S04\n- files/b/slow.py |').replaceAll('files/slow.py, then run', 'Run');
 	const lint = report => fileProblems(report, ledger, { exists: () => true, list: () => ['files/a/slow.py', 'files/b/slow.py'] });
-	const twice = REPORT.replace('starting state: `slow.py` loaded', 'starting state: `slow.py` (from `files/a/slow.py`) loaded');
+	const twice = withFinding1({ text: '`slow.py` (from `files/a/slow.py`) loaded' });
 	assert.ok(lint(twice).includes('Finding 1 names slow.py twice, bare and as files/a/slow.py; write `files/a/slow.py` once in place of the name, and the page shows it as slow.py'));
-	const once = REPORT.replace('starting state: `slow.py` loaded', 'starting state: `files/a/slow.py` loaded');
+	const once = withFinding1({ text: '`files/a/slow.py` loaded' });
 	assert.ok(!lint(once).some(p => /twice/.test(p)));
-	// The bullets under a Preconditions: line count too.
-	const bullets = REPORT.replace('**Repro** -- starting state: `slow.py` loaded', '**Preconditions:**\n- `slow.py` (from `files/b/slow.py`) loaded\n\n**Repro** -- starting state:');
-	assert.ok(lint(bullets).some(p => p.startsWith('Finding 1 names slow.py twice, bare and as files/b/slow.py')));
 });
 
 test('lint: setting keys, the app\'s own config files and prose are not test files', () => {
-	const report = REPORT.replace('**Repro** -- starting state: `slow.py` loaded',
-		'**Repro** -- starting state: `positron.r.interpreters.default` set in user settings.json, R 4.5.2 running, and `slow.py` loaded');
-	assert.deepEqual(fileProblems(report.replace('## Coverage', 'Points to specific files/lines.\n\n## Coverage'), LEDGER), []);
+	const report = withFinding1({
+		text: '`positron.r.interpreters.default` set in user settings.json, R 4.5.2 running, and `slow.py` loaded',
+		cause: 'Points to specific files/lines.',
+	});
+	assert.deepEqual(fileProblems(report, LEDGER), []);
 });
 
 test('lint: a drive-positron helper a precondition names is not a test file', () => {
