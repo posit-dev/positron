@@ -24,7 +24,7 @@ export function writeGuard(root) {
 	};
 }
 
-export async function runSession({ prompt, systemPrompt, allowedTools, model, maxTurns, cwd, writeRoot, resume, timeLimit = null, timeUpMessage = '', effort = '', thinking, claudeCodePath, label = 'session', query = sdkQuery, minuteMs = 60000, log = console.log }) {
+export async function runSession({ prompt, systemPrompt, allowedTools, model, maxTurns, cwd, writeRoot, resume, timeLimit = null, timeUpMessage = '', effort = '', thinking, claudeCodePath, label = 'session', fullLog = false, query = sdkQuery, minuteMs = 60000, log = console.log }) {
 	const texts = [];
 	let cost = buildCostRecord(null);
 	// Kept so a later message can resume this session.
@@ -87,9 +87,11 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 				if (text.length) {
 					const joined = text.join('\n');
 					texts.push(joined);
-					log(`[msg ${messages}] assistant text (${joined.length} chars):\n${joined.slice(0, 1000)}${joined.length > 1000 ? '\n...(truncated)' : ''}`);
+					const shown = fullLog ? joined : joined.slice(0, 1000);
+					log(`[msg ${messages}] assistant text (${joined.length} chars):\n${shown}${shown.length < joined.length ? '\n...(truncated)' : ''}`);
 				}
-				const tools = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, 200)})`);
+				// The explorer's calls are clipped: hundreds of them, some writing whole files.
+				const tools = content.filter(b => b.type === 'tool_use').map(b => `${b.name}(${JSON.stringify(b.input).slice(0, fullLog ? 4000 : 200)})`);
 				if (tools.length) { log(`[msg ${messages}] tool calls: ${tools.join(' | ')}`); }
 			} else if (message.type === 'result') {
 				cost = buildCostRecord(message);

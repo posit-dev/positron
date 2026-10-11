@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents } from './claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './edit.mjs';
-import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
+import { applyVerifyReply, logCheckMessage, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
 
 export const ISOLATE_MINUTES = 12;
@@ -285,7 +285,15 @@ async function verifyFindings(dir, range, ask, stop, log) {
 	// Numbers that do not match the report get one retry, then mark it unreviewed.
 	if (result.mismatch) {
 		const retry = session ? await ask({ ...verifier, purpose: 'renumber', resume: session, prompt: `${result.mismatch} Reply again in full, in the same format.` }) : { text: '' };
-		result = applyVerifyReply(dir, retry.text || best, { giveUp: true });
+		best = retry.text || best;
+		result = applyVerifyReply(dir, best, { giveUp: true });
+	}
+	// A finding whose steps it did not show it checked against the action log
+	// gets one request for that check; after that the report says it was skipped.
+	if (result.logGaps) {
+		const retry = session ? await ask({ ...verifier, purpose: 'log-check', resume: session, prompt: logCheckMessage(result.logGaps) }) : { text: '' };
+		const usable = retry.text && !parseVerifyReply(retry.text).problem;
+		result = applyVerifyReply(dir, usable ? retry.text : best, { giveUp: true, logGiveUp: true });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
 }

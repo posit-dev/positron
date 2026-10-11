@@ -10,7 +10,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyVerification, buildVerifyPrompt, changeBase, findingNumbers, hasFindings, issueMatches, isVerified, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines } from './finish.mjs';
+import { applyVerification, buildVerifyPrompt, changeBase, findingNumbers, hasFindings, issueMatches, isVerified, logCheckGaps, logCheckMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines } from './finish.mjs';
 
 /** report.json with two findings, as the explorer writes them. */
 const REPORT = {
@@ -46,16 +46,16 @@ test('parseVerifyReply says why it read nothing, and keeps the whole reply as no
 test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () => {
 	const r = parseVerifyReply(reply({
 		findings: [
-			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b' },
+			{ n: 1, verdict: 'confirmed', known: [15102, 15102, 'x'], feature: 'new folder flow', title: 'a | b', log: [12, 30] },
 			{ n: '2', verdict: 'confirmed' },
 			{ n: 3, verdict: 'maybe' },
-			{ n: 4, verdict: 'unresolved', intended: [14210], related: 'yes' },
+			{ n: 4, verdict: 'unresolved', intended: [14210], related: 'yes', log: [30, 12] },
 		],
 		linked: [{ issue: 5678, severity: 'Moderate' }, { issue: 5301, severity: 'awful' }, { issue: '9', severity: 'minor' }],
 	}));
 	assert.deepEqual(Object.fromEntries(r.findings), {
-		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, related: false },
-		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, related: false },
+		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, related: false, log: [12, 30] },
+		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, related: false, log: null },
 	});
 	assert.deepEqual([...r.linked], [[5678, 'moderate']]);
 	assert.deepEqual([...issueMatches(r, 'known')], [[1, [15102]]]);
@@ -355,4 +355,34 @@ test('prompt records the base for the renderer, named when given', () => {
 		rmSync(dir, { recursive: true, force: true });
 		rmSync(repo, { recursive: true, force: true });
 	}
+});
+
+const LOG_LEDGER = [
+	'## S01 - passes', 'Status: pass', 'Steps:', '1. VERIFY it opens -> PASS', '   Evidence: shots/S01-01.png, actions.log:3', '',
+	'## S02 - first breaks', 'Status: fail - Finding 1', 'Steps:', '1. VERIFY it loads -> FAIL - Finding 1', '   Evidence: shots/S02-01.png, actions.log:8', '',
+	'## S03 - second breaks', 'Status: fail - Finding 2', 'Steps:', '1. VERIFY it saves -> FAIL - Finding 2', '   Evidence: shots/S03-01.png, actions.log:14', '',
+].join('\n');
+const ACTIONS = Array.from({ length: 20 }, (_, i) => `2026-10-11T00:00:${String(i).padStart(2, '0')}Z click ${i + 1}`).join('\n');
+
+test('logCheckGaps names each finding whose steps the reply does not show it checked against the action log', () => {
+	const gaps = data => logCheckGaps(REPORT, parseVerifyReply(reply(data)), { ledger: LOG_LEDGER, actionsLog: ACTIONS });
+	assert.deepEqual(gaps(verdicts([1, 'confirmed', { log: [6, 10] }], [2, 'confirmed', { log: [12, 15] }])), []);
+	assert.deepEqual(gaps(verdicts([1, 'confirmed'], [2, 'confirmed', { log: [12, 25] }])), [
+		{ n: 1, why: 'gave no actions.log lines' },
+		{ n: 2, why: 'gave actions.log lines 12-25, but the log has 20' },
+	]);
+	// A range that leaves out the line the failing scenario cites was not read where it matters.
+	assert.deepEqual(gaps(verdicts([1, 'confirmed', { log: [1, 5] }], [2, 'confirmed', { log: [12, 15] }])), [
+		{ n: 1, why: 'gave actions.log lines 1-5, which miss line 8 that its failing scenario cites' },
+	]);
+	// No action log, nothing to check against.
+	assert.deepEqual(logCheckGaps(REPORT, parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']))), { ledger: LOG_LEDGER, actionsLog: '' }), []);
+	assert.match(logCheckMessage([{ n: 1, why: 'gave no actions.log lines' }]), /^Your reply for Finding 1 gave no actions\.log lines\. .*give that range as the finding's `log`/);
+});
+
+test('applyVerification says which findings the verifier did not check against the action log', () => {
+	const out = applyVerification(REPORT, parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']), 'No process issues.')), { unchecked: [2] });
+	assert.deepEqual(out.verification.unchecked, [2]);
+	assert.match(out.verification.text, /No process issues\.\n\n_The verifier did not show it checked the steps of Finding 2 against the action log\._$/);
+	assert.equal(apply(REPORT, verdicts([1, 'confirmed'])).verification.unchecked, undefined);
 });

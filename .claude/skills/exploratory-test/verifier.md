@@ -83,8 +83,8 @@ to mark each finding, so nothing else goes in it:
 ```json
 {
 	"findings": [
-		{ "n": 1, "verdict": "confirmed", "related": true },
-		{ "n": 3, "verdict": "false positive", "known": [15102], "feature": "new folder flow" }
+		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "related": true },
+		{ "n": 3, "verdict": "false positive", "log": [201, 233], "known": [15102], "feature": "new folder flow" }
 	],
 	"linked": [{ "issue": 5678, "severity": "moderate" }]
 }
@@ -95,6 +95,11 @@ to mark each finding, so nothing else goes in it:
   need not be listed in number order, so the first may be Finding 3. `verdict`
   is `confirmed`, `false positive` or `unresolved`. When the report has no
   findings, `findings` is empty.
+- `log`: the first and last line of actions.log you read to check the
+  finding's steps, from its failing scenario's first action to its last
+  VERIFY. The ledger cites an actions.log line on each VERIFY, and the range
+  must cover the ones in that scenario. Give it for every finding: a finding
+  without it is shown as not checked against the log, whatever the notes say.
 - `known`: the issues question 5 matched, when it matched any. A match does
   not change the verdict.
 - `intended`: the issues closed as not planned that the finding matched, when

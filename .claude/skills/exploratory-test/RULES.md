@@ -157,7 +157,7 @@ Then update the rule's row here in the same PR.
 | Correct a Feature the evidence puts elsewhere with a new `feature`. | Not recorded. | `finish.mjs` reads it. | - | #16355 |
 | Retitle a finding with a new `title` when a case the run tried contradicts its trigger. | Titles kept a trigger that fit only the failing cases. | Nothing | - | #16487 |
 | Mark a confirmed finding related to the change only when blame puts its most direct fix in the change. Deleted lines count. | Almost every bug has some fix that touches the diff. | Pipeline: no finding is marked related without a usable base. | - | #16568 |
-| Check each step, VERIFY and screenshot against `actions.log`, each passing Result, and each failed check's Observed against its finding. | Steps were written another way than the run did them. | Lint (`log-unstamped`, `log-backdated`) checks the log's format. Nothing checks the verifier did this. | - | #16421 |
+| Check each step, VERIFY and screenshot against `actions.log`, each passing Result, and each failed check's Observed against its finding. | Steps were written another way than the run did them. | Lint (`log-unstamped`, `log-backdated`) checks the log's format. Pipeline: each finding's `log` range must cover the actions.log lines its failing scenario cites; one without is asked once, then shown as not checked. Nothing checks the passing Results or Observed. | - | #16421, this branch |
 | Keep it short: one line per confirmed finding, a paragraph only for a dispute. Write no files. | The verdict is what a reviewer reads. | Nothing | - | #16162 |
 
 ## The isolator

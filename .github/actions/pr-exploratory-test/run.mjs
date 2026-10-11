@@ -171,7 +171,8 @@ async function runAgent(step) {
 		prompt: step.role === 'isolate' ? step.prompt + ISOLATE_CI_TAIL : step.prompt,
 		allowedTools: step.tools, maxTurns, cwd: step.cwd, resume: step.resume,
 		timeLimit: step.timeLimitMinutes ?? null, timeUpMessage: step.timeUpMessage,
-		...(step.role === 'verify' ? { effort: 'medium' } : {}),
+		// The later passes are few calls, so each is logged in full for whoever audits the run.
+		fullLog: true,
 	});
 	return { text: result.finalText, model: result.cost.model, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId };
 }
