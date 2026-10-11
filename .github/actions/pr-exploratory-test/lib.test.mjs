@@ -6,6 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { costJson } from './json-report.mjs';
 
 test('pickReport returns the last message containing a triage table', () => {
 	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
@@ -612,4 +613,18 @@ test('buildTaskLine targets Positron on top of an upstream merge, unless a focus
 	const upstream = { from: '1.134.0', to: '1.138.0' };
 	assert.match(buildTaskLine('', upstream), /merges upstream Code OSS 1\.134\.0 to 1\.138\.0/);
 	assert.match(buildTaskLine('the console', upstream), /asked you to test this/);
+});
+
+test('costJson keeps the passes that ran, with the cap on the explorer\'s', () => {
+	const record = (usd, turns, ms) => ({ model: 'claude-opus-5-5', total_cost_usd: usd, num_turns: turns, duration_ms: ms });
+	assert.deepEqual(costJson([
+		{ label: 'explore', main: true, cost: record(4, 120, 1500000) },
+		{ label: 'verify', cost: record(0.6, 9, 200000) },
+		{ label: 'isolate', cost: { total_cost_usd: null } },
+	], 250), {
+		passes: [
+			{ label: 'explore', model: 'claude-opus-5-5', costUsd: 4, turns: 120, maxTurns: 250, durationMs: 1500000 },
+			{ label: 'verify', model: 'claude-opus-5-5', costUsd: 0.6, turns: 9, durationMs: 200000 },
+		],
+	});
 });

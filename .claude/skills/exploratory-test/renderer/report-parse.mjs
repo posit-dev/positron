@@ -1017,7 +1017,7 @@ function parseRunDetails(lines) {
 }
 
 /** Splits Verification details into its preamble, verdict chips and body. */
-function parseVerification(lines) {
+export function parseVerification(lines) {
 	if (!lines) { return null; }
 	const verdicts = [];
 	const body = [];

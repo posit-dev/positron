@@ -172,6 +172,22 @@ test('with no ledger, coverage comes from the report\'s scenarios', () => {
 	);
 });
 
+test('the pipeline\'s cost passes reach the Run tile, with a total only when each has a cost', () => {
+	const cost = passes => reportFromJson({ ...json(), cost: { passes } }).cost;
+	assert.deepEqual(cost([
+		{ label: 'explore', model: 'claude-opus-5-5', costUsd: 3.2, turns: 40, maxTurns: 200, durationMs: 1500000 },
+		{ label: 'verify', model: 'sonnet', costUsd: 0.5, turns: 4, durationMs: 120000 },
+	]), {
+		passes: [
+			{ label: 'explore', model: 'Opus 5.5', cost: '$3.20', turns: '40', maxTurns: '200', duration: '25m' },
+			{ label: 'verify', model: 'Sonnet', cost: '$0.50', turns: '4', maxTurns: null, duration: '2m' },
+		],
+		total: '$3.70',
+		duration: '27m',
+	});
+	assert.equal(cost([{ label: 'explore', model: 'opus', costUsd: null, durationMs: 60000 }, { label: 'edit', model: 'sonnet', costUsd: 0.1, durationMs: 1000 }]).total, null);
+});
+
 test('a report.json model renders through the page', () => {
 	const html = renderReportHtml('', { report: reportFromJson(json()) });
 	assert.match(html, /<h2 class="card-title"[^>]*>Session picker shows old name<\/h2>/);

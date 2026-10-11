@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Trial: the explorer writes report.json instead of report.md (REPORT_FORMAT=json).
-// The verifier, isolator and editor read markdown, so they do not run here.
+// Trial: the explorer writes report.json instead of report.md (REPORT_FORMAT=json),
+// and the verifier, isolator and editor edit it.
 
 import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -96,6 +96,23 @@ export function summaryMarkdown(json) {
 		'',
 		'This run wrote `report.json`; `index.html` is the report.',
 	].join('\n');
+}
+
+/**
+ * report.json's `cost` from CI's billed passes, `{ label, main, cost }` with
+ * cost a cost record, as renderCostFooter reads them: a pass with no cost did not run.
+ */
+export function costJson(passes, maxTurns) {
+	return {
+		passes: passes.filter(p => typeof p.cost?.total_cost_usd === 'number').map(p => ({
+			label: p.label,
+			model: p.cost.model ?? null,
+			costUsd: p.cost.total_cost_usd,
+			turns: p.cost.num_turns ?? null,
+			...(p.main ? { maxTurns } : {}),
+			durationMs: p.cost.duration_ms ?? null,
+		})),
+	};
 }
 
 /** Renders report.json as the run's index.html, as render-json.mjs does. */

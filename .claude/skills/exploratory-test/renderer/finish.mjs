@@ -12,7 +12,8 @@
 //     writes <run dir>/verify-prompt.md and prints its path, or says there
 //     are no findings to verify, and writes <run dir>/change-base.json
 //   node finish.mjs apply <run dir> <reply file>
-//     adds the reply's verdicts to report.md
+//     adds the reply's verdicts to report.json, or report.md when the run
+//     wrote no report.json
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -29,7 +30,7 @@ import { parseLedger } from './report-parse.mjs';
  * unless `actionsLog` is given. A placeholder with no value, or a value with
  * no placeholder, throws, so the template and this list cannot drift apart quietly.
  */
-export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, changeBase }) {
+export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSha, actionsLog, changeBase, reportFile = join(workDir, 'report.md') }) {
 	const logPath = join(workDir, 'actions.log');
 	const log = actionsLog ?? (existsSync(logPath) ? readFileSync(logPath, 'utf8') : undefined);
 	const logProblems = log === undefined ? [] : lintActionsLog(log);
@@ -37,7 +38,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		LOG_CHECK: log === undefined
 			? 'no actions.log in the run directory.'
 			: logProblems.length ? `\n\n${logProblems.map(p => `- ${p}`).join('\n')}\n` : 'clean: every line is stamped as the helpers stamp it, in time order.',
-		REPORT: `${workDir}/report.md`,
+		REPORT: reportFile,
 		ACTIONS_LOG: `${workDir}/actions.log`,
 		LEDGER: `${workDir}/ledger.md`,
 		FILES: `${workDir}/files/`,
@@ -316,8 +317,11 @@ export function hasFindings(report) {
 	return findingNumbers(report).length > 0;
 }
 
-/** The Finding numbers in the findings table's # column, in table order. */
+/** The Finding numbers in the findings table's # column, in table order, or report.json's. */
 export function findingNumbers(report) {
+	if (report && typeof report === 'object') {
+		return (report.findings ?? []).map(f => f.n);
+	}
 	const lines = typeof report === 'string' ? report.split('\n') : [];
 	const header = lines.findIndex(l => /^\|\s*#\s*\|/.test(l));
 	const numbers = [];
@@ -392,6 +396,9 @@ const PREAMBLE = 'A second agent re-read this report with the repository but wit
  * lines around the markdown are load bearing.
  */
 export function applyVerification(report, verdicts, { failed = false } = {}) {
+	if (typeof report === 'object') {
+		return verifiedJson(report, verdicts, { failed });
+	}
 	const section = failed
 		? `## Verification\n\n${verdicts}\n`
 		: `<details>\n<summary>Verification details</summary>\n\n${PREAMBLE}\n\n${verdicts}\n\n</details>\n`;
@@ -400,21 +407,54 @@ export function applyVerification(report, verdicts, { failed = false } = {}) {
 }
 
 /**
+ * report.json with the verdicts on its findings, as the markdown's columns
+ * have them, and the reply as `verification`. A failed pass keeps the
+ * explorer's titles and Features, as the markdown does.
+ */
+function verifiedJson(json, verdicts, { failed }) {
+	const fields = [['verified', parseVerdicts(verdicts)], ['known', parseKnown(verdicts)], ['intended', parseIntended(verdicts)],
+		...(failed ? [] : [['title', parseTitles(verdicts)], ['feature', parseFeatures(verdicts)]])];
+	const findings = (json.findings ?? []).map(f => fields.reduce((out, [key, values]) => (values.has(f.n) ? { ...out, [key]: values.get(f.n) } : out), f));
+	return { ...json, findings, verification: { failed, text: failed ? verdicts : `${PREAMBLE}\n\n${verdicts}` } };
+}
+
+/**
  * True once a report carries a verification, so it is never added twice. Only
  * the sections applyVerification writes count: an explorer's own heading does not.
  */
 export function isVerified(report) {
+	if (report && typeof report === 'object') {
+		return Boolean(report.verification);
+	}
 	return /^<summary>Verification details<\/summary>$|^## Verification\n\n_Verification did not complete/m.test(String(report ?? ''));
 }
 
 const VERIFIER_PATH = fileURLToPath(new URL('../verifier.md', import.meta.url));
+
+/** The run's report: report.json when it wrote one, else report.md. */
+export function reportPath(dir) {
+	const json = join(dir, 'report.json');
+	return existsSync(json) ? json : join(dir, 'report.md');
+}
+
+/** The report at `path`: report.json parsed, report.md as text. */
+export function readReport(path) {
+	const text = readFileSync(path, 'utf8');
+	return path.endsWith('.json') ? JSON.parse(text) : text;
+}
+
+/** Writes a report readReport read back to `path`. */
+export function writeReport(path, report) {
+	writeFileSync(path, typeof report === 'object' ? `${JSON.stringify(report, null, '\t')}\n` : report);
+}
 
 /** A run directory's report, ledger and known issues, as the verify steps read them. */
 function readRun(dir) {
 	const ledgerPath = join(dir, 'ledger.md');
 	const knownIssues = readKnownIssues(dir);
 	const ledger = existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : '';
-	return { report: readFileSync(join(dir, 'report.md'), 'utf8'), ledger, knownIssues, observed: observedLinked(knownIssues, ledger) };
+	const path = reportPath(dir);
+	return { path, report: readReport(path), ledger, knownIssues, observed: observedLinked(knownIssues, ledger) };
 }
 
 /**
@@ -425,19 +465,19 @@ function readRun(dir) {
 export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
 	const changed = changeBase(repo, base, head, baseName);
 	writeChangeBase(dir, changed);
-	const { report, observed } = readRun(dir);
+	const { path, report, observed } = readRun(dir);
 	if (!hasFindings(report) && !observed.length) {
 		return null;
 	}
 	const out = join(dir, 'verify-prompt.md');
 	writeFileSync(out, buildVerifyPrompt(readFileSync(VERIFIER_PATH, 'utf8'), {
-		workDir: dir, repoRoot: repo, baseSha: base, headSha: head, changeBase: changed,
+		workDir: dir, repoRoot: repo, baseSha: base, headSha: head, changeBase: changed, reportFile: path,
 	}));
 	return out;
 }
 
 /**
- * Adds a verifier reply to report.md. Returns `{ mismatch }`, writing nothing,
+ * Adds a verifier reply to the run's report. Returns `{ mismatch }`, writing nothing,
  * when its VERDICTS are keyed to other numbers than the report's, so a
  * corrected reply can be applied; with `giveUp` that marks the findings
  * unreviewed instead. An `error`, or an empty reply or one with no verdicts,
@@ -445,7 +485,7 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
  * looking reviewed. Otherwise returns `{ failed, logLines }`.
  */
 export function applyVerifyReply(dir, reply, { error = '', giveUp = false } = {}) {
-	const { report, ledger, knownIssues } = readRun(dir);
+	const { path, report, ledger, knownIssues } = readRun(dir);
 	if (isVerified(report)) {
 		return { already: true };
 	}
@@ -461,7 +501,7 @@ export function applyVerifyReply(dir, reply, { error = '', giveUp = false } = {}
 	const verdicts = failed
 		? `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`
 		: fromVerdictLine(reply);
-	writeFileSync(join(dir, 'report.md'), applyVerification(report.trimEnd(), verdicts, { failed }));
+	writeReport(path, applyVerification(typeof report === 'string' ? report.trimEnd() : report, verdicts, { failed }));
 	return { failed, logLines: verifyLogLines(knownIssues, ledger, error ? '' : reply) };
 }
 
@@ -472,8 +512,8 @@ function main(argv) {
 		options: { repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' } },
 	});
 	const [command, dir, replyFile] = positionals;
-	const reportPath = dir && join(dir, 'report.md');
-	if (!reportPath || !existsSync(reportPath)) {
+	const path = dir && reportPath(dir);
+	if (!path || !existsSync(path)) {
 		console.error('usage: node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>]\n       node finish.mjs apply <run dir> <reply file>');
 		return 2;
 	}
@@ -495,7 +535,7 @@ function main(argv) {
 		}
 		const result = applyVerifyReply(dir, readFileSync(replyFile, 'utf8'));
 		if (result.already) {
-			console.error('finish: report.md is already verified');
+			console.error(`finish: ${path} is already verified`);
 			return 1;
 		}
 		if (result.mismatch) {
@@ -505,7 +545,7 @@ function main(argv) {
 		for (const line of result.logLines) {
 			console.error(`finish: ${line}`);
 		}
-		console.log(`finish: ${result.failed ? 'marked unreviewed' : 'verdicts added to'} ${reportPath}`);
+		console.log(`finish: ${result.failed ? 'marked unreviewed' : 'verdicts added to'} ${path}`);
 		return 0;
 	}
 	console.error(`finish: unknown command ${command ?? ''}`);

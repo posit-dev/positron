@@ -16,7 +16,7 @@ import { readKnownIssues } from '../../../.claude/skills/exploratory-test/render
 import { finishRun } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
-import { jsonOverride, settleReportJson, summaryMarkdown, writeJsonPage } from './json-report.mjs';
+import { costJson, jsonOverride, settleReportJson, summaryMarkdown, writeJsonPage } from './json-report.mjs';
 import { runSession } from './session.mjs';
 import { buildTaskLine, describeChange, resolveReport, withPrLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
@@ -50,7 +50,7 @@ const VERIFY_ENABLED = process.env.VERIFY !== 'false';
 const ISOLATE_MAX_TURNS = parsePosIntEnv('ISOLATE_MAX_TURNS', 100, process.env.ISOLATE_MAX_TURNS);
 // Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
 const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
-// Trial: the explorer writes report.json, and the markdown passes do not run.
+// Trial: the explorer writes report.json, and the passes after it edit it.
 const JSON_REPORT = process.env.REPORT_FORMAT === 'json';
 // Each later pass bills separately from the explore pass, summed over its sessions.
 const passCosts = { verify: buildCostRecord(null), isolate: buildCostRecord(null), edit: buildCostRecord(null), retry: buildCostRecord(null) };
@@ -282,13 +282,14 @@ async function main() {
 	// Lazy: passCosts is not filled in until the verification below has run, and
 	// rendering this eagerly left the verify line and the total out of every
 	// footer. In the order they ran; the gate bills in its own job.
-	const footer = () => renderCostFooter([
+	const billed = () => [
 		{ label: 'explore', main: true, cost },
 		{ label: 'verify', cost: passCosts.verify },
 		{ label: 'isolate', cost: passCosts.isolate },
 		{ label: 'edit', cost: passCosts.edit },
 		{ label: 'json retry', cost: passCosts.retry },
-	], MAX_TURNS);
+	];
+	const footer = () => renderCostFooter(billed(), MAX_TURNS);
 	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
 	const report = withPrLine(resolveReport(fileReport, assistantMessages), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
@@ -346,10 +347,12 @@ async function main() {
 		// fallback write above. Annotation is best effort and never removes a
 		// row, because a wrong FALSE POSITIVE that deleted a real finding would
 		// be invisible to everyone.
+		// A run with report.json has the passes edit it, and report.md follows it.
+		await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
 		if (jsonReport) {
-			writeFileSync(join(WORK_DIR, 'report.md'), report);
-		} else {
-			await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
+			jsonReport = { ...JSON.parse(readFileSync(join(WORK_DIR, 'report.json'), 'utf8')), cost: costJson(billed(), MAX_TURNS) };
+			writeFileSync(join(WORK_DIR, 'report.json'), `${JSON.stringify(jsonReport, null, '\t')}\n`);
+			writeFileSync(join(WORK_DIR, 'report.md'), withPrLine(summaryMarkdown(jsonReport), process.env.GITHUB_REPOSITORY, process.env.PR_NUMBER));
 		}
 		// Read after the pipeline, which writes change-base.json.
 		const run = readRunDir(WORK_DIR);

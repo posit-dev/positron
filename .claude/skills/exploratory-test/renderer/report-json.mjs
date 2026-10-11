@@ -8,9 +8,9 @@
 // html.mjs renders either. Prose fields are markdown; everything else is data.
 
 import {
-	arrangeEvidence, basename, block, fillStepErrors, inline, isDefaultsOnly, leadHtml, parseLedger,
-	parseLogField, plainText, safeUrl, scenarioCounts, scopeHtml, sentenceCase, stepText, verifyText,
-	withEnvironment, withMetaHtml,
+	arrangeEvidence, basename, block, fillStepErrors, formatMinutes, inline, isDefaultsOnly, leadHtml,
+	modelDisplayName, parseLedger, parseLogField, parseVerification, plainText, safeUrl, scenarioCounts,
+	scopeHtml, sentenceCase, stepText, verifyText, withEnvironment, withMetaHtml,
 } from './report-parse.mjs';
 
 const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
@@ -149,9 +149,32 @@ function coverageFromJson(scenarios) {
 }
 
 /**
- * The report model from report.json and the run's ledger.
- * `pipeline` holds what later passes add (`verification`, `cost`), until
- * they write it into report.json themselves.
+ * The Run tile's cost from report.json's `cost.passes`, each
+ * `{ label, model, costUsd, turns, maxTurns, durationMs }`, as the markdown
+ * footer gives it: a total only over several passes, and only when each has a cost.
+ */
+function costFromJson(cost) {
+	const passes = cost?.passes ?? [];
+	const dollars = n => (typeof n === 'number' ? `$${n.toFixed(2)}` : null);
+	const ms = passes.reduce((sum, p) => sum + (p.durationMs ?? 0), 0);
+	return {
+		passes: passes.map(p => ({
+			label: p.label,
+			model: modelDisplayName(p.model),
+			cost: dollars(p.costUsd),
+			turns: typeof p.turns === 'number' ? String(p.turns) : null,
+			maxTurns: typeof p.maxTurns === 'number' ? String(p.maxTurns) : null,
+			duration: typeof p.durationMs === 'number' ? formatMinutes(p.durationMs) : null,
+		})),
+		total: passes.length && passes.every(p => typeof p.costUsd === 'number') ? dollars(passes.reduce((sum, p) => sum + p.costUsd, 0)) : null,
+		duration: ms ? formatMinutes(ms) : null,
+	};
+}
+
+/**
+ * The report model from report.json and the run's ledger. The pipeline writes
+ * `verification` and `cost` into report.json; `pipeline` stands in for a report
+ * without them.
  */
 export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 	const header = json.header ?? {};
@@ -184,7 +207,7 @@ export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 		logs: fromLedger?.logs ?? (json.logs ?? []).map(l => ({ path: l.path, source: l.source ?? '', note: l.note ?? '', sourceHtml: inline(l.source), noteHtml: inline(l.note) })),
 		files: fromLedger?.files ?? (json.files ?? []).map(f => ({ path: f.path, desc: f.desc ?? '', uses: f.uses ?? '', descHtml: inline(f.desc), usesHtml: inline(f.uses) })),
 		environment: fromLedger?.environment ?? [],
-		verification: pipeline.verification ?? null,
-		cost: pipeline.cost ?? { passes: [], total: null, duration: null },
+		verification: json.verification?.text ? parseVerification(json.verification.text.split('\n')) : pipeline.verification ?? null,
+		cost: json.cost ? costFromJson(json.cost) : pipeline.cost ?? { passes: [], total: null, duration: null },
 	};
 }
