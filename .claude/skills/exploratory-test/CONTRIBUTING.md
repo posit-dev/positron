@@ -6,9 +6,11 @@ A run is a chain of agents. Each one is a fresh session that sees only what it
 is handed:
 
 1. **Explorer** (`explorer.md`) drives Positron through drive-positron's
-   helpers and writes two files to the run directory: `report.md`, the
-   findings, and `ledger.md`, what it ran, the files a repro needs, its logs
-   and screenshots.
+   helpers and writes two files to the run directory: `report.json`, the
+   findings in the shape `renderer/report.schema.json` gives, and `ledger.md`,
+   what it ran, the files a repro needs, its logs and screenshots. It checks
+   the report with `renderer/lint-json.mjs`, and a report that still has
+   problems when it is done gets one retry in the same session.
 2. **Verifier** (`verifier.md`) never touches the app. It reads the report,
    the ledger and the diff, and gives each finding a verdict: CONFIRMED, FALSE
    POSITIVE or UNRESOLVED. It also flags a finding that matches a known issue
@@ -20,7 +22,9 @@ is handed:
    reader who wasn't there. It never touches the repro steps, and a rewrite
    that fails `reviewEdits` is dropped in favor of the original.
 
-`renderer/render.mjs` then turns `report.md` into `index.html`.
+Each of them writes what it decided into `report.json`: verdicts, known
+issues, titles and openings, and what each pass cost. `renderer/render.mjs`
+(or `writeJsonPage` in CI) then turns `report.json` into `index.html`.
 
 Local and CI runs share every step after the explorer: `finishRun` in
 `renderer/pipeline.mjs` runs them in order and is given only a way to run an
@@ -44,7 +48,7 @@ the report as the explorer wrote it, with the findings marked unreviewed.
 | How a local run starts an agent, and its time limit | `renderer/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/finish.mjs` |
 | The editor's prompt and how rewrites are checked | `renderer/edit.mjs` |
-| The report format | `explorer.md` (the spec), `renderer/report-parse.mjs` (the parser), `renderer/lint.mjs` (the checks) |
+| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` and `renderer/lint.mjs` (the checks), `renderer/report-json.mjs` (what the page reads) |
 | The page | `renderer/html.mjs` (template), `renderer/report-css.mjs` (tokens) |
 | Linked issues the agents see | `renderer/known-issues.mjs` |
 | Secrets | `renderer/redact.sh` (text), `renderer/scan-shots.mjs` (screenshots) |
@@ -74,8 +78,10 @@ Launching and driving the app belongs to drive-positron. See its
   skipped prelaunch go in its prompt tails, not in the agent files, which
   local runs read too.
 - **A format change lands in three places at once:** `explorer.md`,
-  `report-parse.mjs` and `lint.mjs`, with a test. The parser is lenient on
-  purpose, so a mismatch renders wrong without saying so.
+  `report.schema.json` and `report-json.mjs`, with a test.
+  `explorer-format.test.mjs` checks explorer.md's templates against the
+  schema, but the schema accepts fields it does not name, so a field the page
+  never reads is dropped without a word.
 - **Decide what publishing does with a new run-directory file.**
   `publish.sh` strips working files and redacts the rest. A file it doesn't
   know about gets uploaded.
@@ -93,8 +99,8 @@ Launching and driving the app belongs to drive-positron. See its
 that touches these folders.
 
 No test runs a real agent. For a change to a prompt or to the pipeline,
-replay a saved run: copy a run directory whose `report.md` is as the explorer
-left it, and run `node renderer/pipeline.mjs run <copy> --repo <checkout>
+replay a saved run: copy a run directory whose `report.json` is as the
+explorer left it, and run `node renderer/pipeline.mjs run <copy> --repo <checkout>
 --base <sha> --head <sha>` on it. A replay sends no usage row: a CI run has
 `cost.json`, and a local one keeps the `usage-reported` marker from its first
 render. That covers everything after the explorer,
@@ -104,4 +110,4 @@ workflow_dispatch on your branch. A `/explore` comment always runs main's copy
 of the harness, so it won't test your change.
 
 To see a template change on a past run, re-render it:
-`node renderer/render.mjs <run dir>/report.md`.
+`node renderer/render.mjs <run dir>/report.json`.

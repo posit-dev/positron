@@ -4,18 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Checks report.json against the ledger it was written from, and against the
-// rules report.md is held to that are not its layout (lint.mjs). The ledger is
-// the record of what the run did; the report may leave out, but not add or
-// change. Usage: node lint-json.mjs <report.json> [ledger.md]
-// Each run is logged to json-checks.jsonl beside the report.
+// write-up rules in lint.mjs. The ledger is the record of what the run did; the
+// report may leave out, but not add or change. Usage:
+//   node lint-json.mjs <report.json> [ledger.md]
+// Each check is logged to format-checks.jsonl beside the report, for the run's
+// stats. settleReportJson
+// is the same check once the explorer is done, with one retry.
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readKnownIssues } from './finish.mjs';
 import { absolutePathProblems, findingProblems, modelProblems, rateProblem, rateProblems, resultProblems, runProblems, splitProblems } from './lint.mjs';
 import { reportFromJson } from './report-json.mjs';
+import { recordCheck } from './stats.mjs';
 import { parseLedger, plainText, verifyText } from './report-parse.mjs';
 
 const norm = text => String(text ?? '').replace(/\s+/g, ' ').replace(/[.\s]+$/, '').trim();
@@ -172,8 +175,9 @@ export function schemaProblems(json, schema = SCHEMA, at = 'report', root = sche
 		return schemaProblems(json, root.$defs[schema.$ref.replace('#/$defs/', '')], at, root);
 	}
 	const kind = Array.isArray(json) ? 'array' : json === null ? 'null' : Number.isInteger(json) ? 'integer' : typeof json;
-	if (schema.type && schema.type !== kind && !(schema.type === 'number' && kind === 'integer')) {
-		return [`${at} is ${kind}, not ${schema.type}`];
+	const types = [schema.type ?? []].flat();
+	if (types.length && !types.includes(kind) && !(types.includes('number') && kind === 'integer')) {
+		return [`${at} is ${kind}, not ${types.join(' or ')}`];
 	}
 	if (schema.enum && !schema.enum.includes(json)) {
 		return [`${at} is ${JSON.stringify(json)}, not one of ${schema.enum.join(', ')}`];
@@ -281,6 +285,55 @@ export function mergeRetry(first, retry, problems) {
 	};
 }
 
+/** Schema problems first: the ledger check reads fields the schema requires. */
+function problemsOf(json, ledger) {
+	const shape = schemaProblems(json);
+	return shape.length ? shape.map(text => ({ text })) : checkReportJson(json, ledger);
+}
+
+/**
+ * Checks report.json against the ledger and, if anything is wrong, sends
+ * `resume` the problems once, keeping only the parts it was asked to fix.
+ * Returns the report, or null when the explorer wrote none.
+ */
+export async function settleReportJson(workDir, { resume, log = console.log }) {
+	const path = join(workDir, 'report.json');
+	if (!existsSync(path)) {
+		return null;
+	}
+	const ledger = existsSync(join(workDir, 'ledger.md')) ? readFileSync(join(workDir, 'ledger.md'), 'utf8') : '';
+	const read = () => {
+		try {
+			return JSON.parse(readFileSync(path, 'utf8'));
+		} catch (err) {
+			log(`[json] report.json does not parse: ${err.message}`);
+			return null;
+		}
+	};
+	const first = read();
+	const problems = first ? problemsOf(first, ledger) : [{ text: 'report.json is not valid JSON' }];
+	log(`[json] ${problems.length} problems after the explorer: ${problems.map(p => p.text).join(' | ')}`);
+	if (!problems.length || !resume) {
+		return first;
+	}
+	if (first) {
+		copyFileSync(path, join(workDir, 'report.first.json'));
+	}
+	await resume(`${buildRetryPrompt(problems)}\n\nWrite it to \`${path}\` again and run the check.`);
+	const retry = read();
+	if (!retry) {
+		return first;
+	}
+	copyFileSync(path, join(workDir, 'report.retry.json'));
+	// A broken first draft has nothing to merge into.
+	const { report, ignored } = first && !schemaProblems(first).length ? mergeRetry(first, retry, problems) : { report: retry, ignored: [] };
+	const left = problemsOf(report, ledger);
+	log(`[json] after the retry: ${left.length} problems${ignored.length ? `; kept the first version of ${ignored.join(', ')}` : ''}`);
+	writeFileSync(path, `${JSON.stringify(report, null, '\t')}\n`);
+	writeFileSync(join(workDir, 'json-trial.json'), `${JSON.stringify({ first: problems.map(p => p.text), left: left.map(p => p.text), ignored }, null, 2)}\n`);
+	return report;
+}
+
 /** lintReport's options for the run directory `dir`, as render.mjs builds them. */
 function runDirOptions(dir) {
 	const read = name => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : undefined);
@@ -321,7 +374,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 	}
 	const { errors, warnings } = splitProblems(problems);
 	// How many checks a report took to pass, and what each one found.
-	appendFileSync(join(dirname(input), 'json-checks.jsonl'), `${JSON.stringify({ at: new Date().toISOString(), errors, warnings })}\n`);
+	recordCheck(dirname(input), problems, errors.length);
 	if (errors.length) {
 		console.log(`errors, fix each one and check again:\n${errors.map(p => `  ${p}`).join('\n')}`);
 	}

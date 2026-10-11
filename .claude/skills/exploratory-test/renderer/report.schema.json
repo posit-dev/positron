@@ -53,7 +53,8 @@
 					]
 				},
 				"text": {
-					"$ref": "#/$defs/md"
+					"$ref": "#/$defs/md",
+					"description": "An action, or for a verify step the expectation alone, without a VERIFY prefix."
 				},
 				"result": {
 					"enum": [
@@ -381,6 +382,36 @@
 							"cases",
 							"related"
 						]
+					},
+					"verified": {
+						"enum": [
+							"confirmed",
+							"disputed",
+							"unresolved"
+						],
+						"description": "The verifier's verdict. Written by the pipeline after the explorer; the explorer leaves it out."
+					},
+					"known": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/int"
+						},
+						"description": "Issues the verifier says may already describe this finding. Written by the pipeline after the explorer; the explorer leaves it out."
+					},
+					"intended": {
+						"type": "array",
+						"items": {
+							"$ref": "#/$defs/int"
+						},
+						"description": "Issues closed as not planned that match this finding. Written by the pipeline after the explorer; the explorer leaves it out."
+					},
+					"summary": {
+						"$ref": "#/$defs/md",
+						"description": "The editor's opening, in a reader's words. Written by the pipeline after the explorer; the explorer leaves it out."
+					},
+					"where": {
+						"$ref": "#/$defs/md",
+						"description": "Where the finding happens, beside summary. Written by the pipeline after the explorer; the explorer leaves it out."
 					}
 				}
 			}
@@ -486,6 +517,69 @@
 					}
 				}
 			}
+		},
+		"verification": {
+			"type": "object",
+			"required": [
+				"failed",
+				"text"
+			],
+			"properties": {
+				"failed": {
+					"type": "boolean"
+				},
+				"text": {
+					"$ref": "#/$defs/md"
+				}
+			},
+			"description": "The verifier's reply, as the page's Verification details show it. Written by the pipeline after the explorer; the explorer leaves it out."
+		},
+		"cost": {
+			"type": "object",
+			"properties": {
+				"passes": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"required": [
+							"label"
+						],
+						"properties": {
+							"label": {
+								"type": "string"
+							},
+							"model": {
+								"type": [
+									"string",
+									"null"
+								]
+							},
+							"costUsd": {
+								"type": [
+									"number",
+									"null"
+								]
+							},
+							"turns": {
+								"type": [
+									"integer",
+									"null"
+								]
+							},
+							"maxTurns": {
+								"type": "integer"
+							},
+							"durationMs": {
+								"type": [
+									"number",
+									"null"
+								]
+							}
+						}
+					}
+				}
+			},
+			"description": "Each agent pass's model, cost, turns and time, for the Run tile. Written by the pipeline after the explorer; the explorer leaves it out."
 		}
 	}
 }

@@ -395,9 +395,9 @@ test('apply refuses verdicts keyed to other numbers, writes nothing, and takes a
 	}
 });
 
-test('the verify prompt says to key verdicts by Finding number, not row order', () => {
-	assert.match(VERIFIER, /Key every entry, on this line and every line below, by\nthe Finding number as written/);
-	assert.match(VERIFIER, /Never by the row's position/);
+test('the verify prompt says to key verdicts by finding number, not position', () => {
+	assert.match(VERIFIER, /Key every entry, on this line and every line below, by the\nfinding's number as written, its `n`/);
+	assert.match(VERIFIER, /Never by its position/);
 });
 
 /** A throwaway repo with two commits, for changeBase's rev-list. */

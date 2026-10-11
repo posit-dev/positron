@@ -1,0 +1,265 @@
+{
+	"header": {
+		"title": "Exploratory test: column summaries on slow sources",
+		"branch": "midleman/exp-ab-dx-opus",
+		"sha": "ed2487a1a2",
+		"pr": {
+			"repo": "posit-dev/positron",
+			"number": 1234
+		},
+		"result": "Column summaries load and pause on schedule. **A column over 10 s never loads, and Continue loads the wrong columns.**",
+		"tested": "the summary panel on pandas and a slow source, 4 scenarios",
+		"notExercised": "the web build",
+		"details": [
+			{
+				"title": "Change under test",
+				"body": "The column-profile request timeout drops from 60 s to 10 s, with paced loading and a Retry notice."
+			},
+			{
+				"title": "State manipulation",
+				"body": "`slow.py` makes each value's hash sleep, standing in for a large or remote table."
+			},
+			{
+				"title": "Branch verification",
+				"body": "Grepped `out/` for \"Summaries paused\"; present only on this branch."
+			}
+		]
+	},
+	"findings": [
+		{
+			"n": 1,
+			"severity": "major",
+			"reproduced": {
+				"n": 3,
+				"m": 3
+			},
+			"feature": "data explorer",
+			"title": "A column over 10 s never loads, and Retry cannot help",
+			"preconditions": [
+				{
+					"name": "`slow.py` loaded",
+					"text": "`slow.py`, loaded with `%run -i slow.py`"
+				}
+			],
+			"steps": [
+				{
+					"kind": "action",
+					"text": "Run `one12 = make_slow(ncols=1, nrows=1000, delay=0.012)`. One string column whose frequency table takes about 13 s."
+				},
+				{
+					"kind": "action",
+					"text": "Run `%view one12` and wait 15 s."
+				},
+				{
+					"kind": "verify",
+					"text": "The column summary loads.",
+					"result": "fail",
+					"finding": 1,
+					"observed": "Loading dots, then \"Some summaries unavailable. Retry\"; the sparkline slot empties.",
+					"shots": [
+						"shots/09-one12-unavailable.png",
+						"shots/07-slow12-unavailable.png"
+					],
+					"log": {
+						"source": "logs/44987-app.log:1182 | Renderer | 2x (after each Retry)",
+						"body": "Error: get_column_profiles timed out after 10 seconds\n  at DataExplorerClient.getColumnProfiles (languageRuntimeDataExplorerClient.ts:212)\n  at TableSummaryCache.loadColumnProfiles (tableSummaryCache.ts:538)\n  at TableSummaryCache.retryColumnProfiles (tableSummaryCache.ts:611)"
+					}
+				},
+				{
+					"kind": "action",
+					"text": "Click Retry and wait 15 s. Repeat once."
+				},
+				{
+					"kind": "verify",
+					"text": "The summary loads after Retry.",
+					"result": "fail",
+					"finding": 1,
+					"observed": "Same notice after each Retry.",
+					"shots": [
+						"shots/08-slow12-after-retry.png"
+					]
+				}
+			],
+			"observed": "The summary never loads; the panel shows \"Some summaries unavailable. Retry\", and Retry shows it again.",
+			"expected": "The summary loads, or Retry loads it.",
+			"evidence": [
+				{
+					"kind": "shot",
+					"path": "shots/09-one12-unavailable.png",
+					"step": 3,
+					"caption": "The notice on a one-column frame"
+				},
+				{
+					"kind": "shot",
+					"path": "shots/07-slow12-unavailable.png",
+					"step": 3,
+					"caption": "The notice on a twelve-column frame"
+				},
+				{
+					"kind": "shot",
+					"path": "shots/08-slow12-after-retry.png",
+					"step": 5,
+					"caption": "Same notice after Retry"
+				}
+			],
+			"tests": {
+				"cases": [],
+				"related": []
+			}
+		},
+		{
+			"n": 2,
+			"severity": "moderate",
+			"reproduced": {
+				"n": 2,
+				"m": 2
+			},
+			"feature": "data explorer",
+			"title": "Continue loads off-screen columns, not the visible ones",
+			"preconditions": [
+				{
+					"name": "`slow.py` loaded",
+					"text": "`slow.py`, loaded with `%run -i slow.py`"
+				}
+			],
+			"steps": [
+				{
+					"kind": "action",
+					"text": "Run `slow80 = make_slow(ncols=80, nrows=1000, delay=0.002)`, then `%view slow80`."
+				},
+				{
+					"kind": "action",
+					"text": "Wait about 35 s until \"Summaries paused. Continue\" appears."
+				},
+				{
+					"kind": "verify",
+					"text": "s00 to s13 have sparklines.",
+					"result": "pass"
+				},
+				{
+					"kind": "action",
+					"text": "Scroll the summary panel to the bottom (s62 to s79 visible), click Continue and wait until \"Summaries paused.\" returns (32 s)."
+				},
+				{
+					"kind": "verify",
+					"text": "The visible columns s62 to s79 get sparklines.",
+					"result": "fail",
+					"finding": 2,
+					"observed": "Only s62 has one.",
+					"shots": [
+						"shots/23-continue-visible-still-empty.png"
+					]
+				},
+				{
+					"kind": "action",
+					"text": "Scroll the summary panel up by about one screen."
+				},
+				{
+					"kind": "verify",
+					"text": "Continue spent its budget on the visible columns, not the ones above them.",
+					"result": "fail",
+					"finding": 2,
+					"observed": "s49 to s61, off-screen when Continue was pressed, got sparklines.",
+					"shots": [
+						"shots/22-continue-loaded-offscreen.png"
+					]
+				}
+			],
+			"observed": "After Continue, the visible columns stay empty while columns above them load.",
+			"expected": "Continue loads the columns on screen first.",
+			"evidence": [
+				{
+					"kind": "shot",
+					"path": "shots/23-continue-visible-still-empty.png",
+					"step": 5,
+					"caption": "Visible columns still empty"
+				},
+				{
+					"kind": "shot",
+					"path": "shots/22-continue-loaded-offscreen.png",
+					"step": 7,
+					"caption": "Columns above the fold loaded instead"
+				}
+			],
+			"tests": {
+				"cases": [],
+				"related": []
+			}
+		}
+	],
+	"scenarios": [
+		{
+			"id": "S01",
+			"name": "pandas frame, mixed types",
+			"status": "pass",
+			"result": "Null %, histograms and frequency tables all load"
+		},
+		{
+			"id": "S03",
+			"name": "Expand on a healthy source",
+			"status": "pass",
+			"result": "Summary stats appear for NaN and inf columns"
+		},
+		{
+			"id": "S04",
+			"name": "Paced loading on a slow source",
+			"status": "pass",
+			"result": "Sparklines land about 2 per 4 s, pause at about 30 s"
+		},
+		{
+			"id": "S08",
+			"name": "Retry on a source over 10 s per column",
+			"status": "fail",
+			"result": "Fails 3/3",
+			"findings": [
+				1
+			]
+		},
+		{
+			"id": "S09",
+			"name": "Continue after scrolling down",
+			"status": "fail",
+			"result": "Loads off-screen columns",
+			"findings": [
+				2
+			]
+		},
+		{
+			"id": "N05",
+			"name": "Positron web",
+			"status": "not-run",
+			"reason": "Desktop build only"
+		}
+	],
+	"logs": [
+		{
+			"path": "logs/44987-app.log",
+			"source": "Positron window (renderer and dev-tools console)",
+			"note": "2 errors, both in Finding 1"
+		},
+		{
+			"path": "logs/exthost.log",
+			"source": "Extension host",
+			"note": "no errors"
+		},
+		{
+			"path": "logs/python-console.log",
+			"source": "Python console output",
+			"note": "no errors"
+		}
+	],
+	"files": [
+		{
+			"path": "files/slow.py",
+			"desc": "Python helper that builds the slow sources",
+			"uses": "S04, S08, S09; Findings 1, 2"
+		}
+	],
+	"environment": {
+		"positron": "Positron 2026.10.0 build 12, dev build of ed2487a1a2 (Code - OSS 1.105.0)",
+		"os": "Ubuntu 22.04 (Linux x64)",
+		"kernels": [
+			"Python 3.10.12 with pandas, polars, duckdb and pyarrow"
+		]
+	}
+}

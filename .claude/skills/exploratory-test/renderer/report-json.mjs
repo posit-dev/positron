@@ -7,6 +7,8 @@
 // report, instead of parsing report.md. The model is parseReport's, so
 // html.mjs renders either. Prose fields are markdown; everything else is data.
 
+import { join } from 'node:path';
+import { readRunDir, skillVersion, writeRunPage } from './html.mjs';
 import {
 	arrangeEvidence, basename, block, fillStepErrors, formatMinutes, inline, isDefaultsOnly, leadHtml,
 	modelDisplayName, parseLedger, parseLogField, parseVerification, plainText, safeUrl, scenarioCounts,
@@ -210,4 +212,13 @@ export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 		verification: json.verification?.text ? parseVerification(json.verification.text.split('\n')) : pipeline.verification ?? null,
 		cost: json.cost ? costFromJson(json.cost) : pipeline.cost ?? { passes: [], total: null, duration: null },
 	};
+}
+
+/** Renders report.json as the run's index.html. */
+export async function writeJsonPage(workDir, json, options) {
+	const { ledger, knownIssues, issueRefs, changeBase, fileExists, readFile } = readRunDir(workDir);
+	const report = reportFromJson(json, { ledger });
+	await writeRunPage(join(workDir, 'index.html'), '', report, {
+		report, ledger, fileExists, readFile, knownIssues, issueRefs, changeBase, skillVersion: skillVersion(), ...options,
+	});
 }

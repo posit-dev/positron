@@ -9,18 +9,17 @@
 //
 // Local usage, each agent a `claude -p` session:
 //   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha>
-//     [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts] [--json]
+//     [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts]
 //     makes a run directory, prints it, explores with the brief, then runs the
 //     rest and renders the report. --base-name is the base branch, for the
 //     change mark. The time limit is in the file it prints, read throughout:
 //     write other minutes to it to change it, or 0 to stop exploring now. It
 //     is kept out of the run directory, since an explorer that finds its
-//     budget rushes and wraps up early. --json is CI's report_format=json
-//     trial: the explorer writes report.json, and the passes after it edit it.
+//     budget rushes and wraps up early.
 //   node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha>
 //     [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]
-//     replays a run whose report.json, or report.md, is as its explorer left
-//     it; --duration-ms, --turns and --model are that explorer's, for the Run tile.
+//     replays a run whose report.json is as its explorer left it; --duration-ms,
+//     --turns and --model are that explorer's, for the Run tile.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
@@ -31,7 +30,7 @@ import { parseArgs } from 'node:util';
 import { runClaude, stopAgents } from './claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './edit.mjs';
 import { applyVerifyReply, parseVerdicts, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
-import { jsonOverride, settleReportJson, writeJsonPage } from '../../../../.github/actions/pr-exploratory-test/json-report.mjs';
+import { settleReportJson } from './lint-json.mjs';
 
 export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
@@ -54,10 +53,10 @@ export function isolateTimeUpMessage(dir) {
 }
 
 /** What the explorer is told once its time is up, as CI's is; the limit can change, so no minutes. */
-export const EXPLORE_TIME_UP = 'Time is up: your time for exploring has run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.md and check it. The run is stopped in 10 minutes.';
+export const EXPLORE_TIME_UP = 'Time is up: your time for exploring has run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it. The run is stopped in 10 minutes.';
 
 /** The explorer's prompt: explorer.md, the brief, and what a local run sets up for it. */
-export function explorePrompt(dir, brief, { json = false } = {}) {
+export function explorePrompt(dir, brief) {
 	return [
 		readFileSync(EXPLORER_PATH, 'utf8').trim(),
 		'',
@@ -69,9 +68,9 @@ export function explorePrompt(dir, brief, { json = false } = {}) {
 		'',
 		`Run directory: \`${dir}\``,
 		'',
-		json ? jsonOverride(dir) : `The renderer is \`${RENDER}\`. Do not render the report; check it: run \`node ${RENDER} --check "${dir}/report.md"\`, fix every line it prints, and run it again until it prints none. It is rendered once its findings are verified.`,
+		`The renderer is \`${RENDER}\`; \`lint-json.mjs\` and \`report.schema.json\` are beside it.`,
 		'',
-		`Write the report to \`${json ? 'report.json' : 'report.md'}\` in the run directory. Return a two or three line summary and nothing else.`,
+		'Write the report to `report.json` in the run directory. Return a two or three line summary and nothing else.',
 		'',
 	].join('\n');
 }
@@ -81,12 +80,12 @@ export function explorePrompt(dir, brief, { json = false } = {}) {
  * `{ role, model, durationMs, turns, costUsd }`, or null when it failed. Its
  * time limit is the minutes in `timeLimitPath`, if any.
  */
-export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, json = false, log = () => { } }) {
-	const prompt = explorePrompt(dir, brief, { json });
+export async function explore(dir, { brief, repo, runAgent, model = 'opus', timeLimitPath = null, log = () => { } }) {
+	const prompt = explorePrompt(dir, brief);
 	writeFileSync(join(dir, 'explore-prompt.md'), prompt);
 	log('new explore agent');
 	try {
-		const result = await runAgent({ role: 'explore', purpose: 'explore', model, prompt, tools: READ_TOOLS, cwd: repo, timeLimitPath, timeUpMessage: json ? EXPLORE_TIME_UP.replace('report.md', 'report.json') : EXPLORE_TIME_UP });
+		const result = await runAgent({ role: 'explore', purpose: 'explore', model, prompt, tools: READ_TOOLS, cwd: repo, timeLimitPath, timeUpMessage: EXPLORE_TIME_UP });
 		writeFileSync(join(dir, 'explore-reply.md'), String(result.text ?? '').trim());
 		return { role: 'explore', model, durationMs: result.durationMs ?? null, turns: result.turns ?? null, costUsd: result.costUsd ?? null, ...(result.sessionId ? { sessionId: result.sessionId } : {}) };
 	} catch (err) {
@@ -145,8 +144,7 @@ function isolatePrompt(dir, { repo, base, head }, findings, reply) {
 }
 
 /**
- * Runs every step after the explorer on `dir`, whose report.json (or report.md,
- * when it has none) it rewrites,
+ * Runs every step after the explorer on `dir`, whose report.json it rewrites,
  * and returns each agent's `{ role, model, durationMs, turns, costUsd }`.
  *
  * `runAgent({ role, purpose, model, prompt, tools, cwd, resume, timeLimitMinutes, timeUpMessage })`
@@ -230,33 +228,6 @@ async function editReport(dir, ask, log) {
 }
 
 /**
- * The Run tile's render.mjs flags from the explorer's pass and `passes`: the
- * verifier's summed over its sessions, and the isolator's, with what they cost. None without the
- * explorer's time, which the footer is built on.
- */
-export function renderFlags(explorer, passes) {
-	const sum = role => {
-		const own = passes.filter(p => p.role === role);
-		return own.length ? {
-			model: own[0].model,
-			durationMs: own.reduce((total, p) => total + (p.durationMs ?? 0), 0),
-			turns: own.some(p => p.turns !== null) ? own.reduce((total, p) => total + (p.turns ?? 0), 0) : null,
-			costUsd: own.some(p => p.costUsd !== null) ? own.reduce((total, p) => total + (p.costUsd ?? 0), 0) : null,
-		} : null;
-	};
-	if (explorer?.durationMs === null || explorer?.durationMs === undefined) {
-		return [];
-	}
-	const flags = (prefix, pass) => pass ? [
-		...(pass.model ? [`--${prefix}model`, pass.model] : []),
-		`--${prefix}duration-ms`, String(pass.durationMs),
-		...(pass.turns !== null && pass.turns !== undefined ? [`--${prefix}turns`, String(pass.turns)] : []),
-		...(pass.costUsd !== null && pass.costUsd !== undefined ? [`--${prefix}cost-usd`, String(pass.costUsd)] : []),
-	] : [];
-	return [...flags('', explorer), ...flags('verify-', sum('verify')), ...flags('isolate-', sum('isolate'))];
-}
-
-/**
  * report.json's `cost.passes`: the explorer's, then each later role's summed
  * over its sessions, in the order they first ran.
  */
@@ -272,11 +243,10 @@ export function costPasses(explorer, passes) {
 }
 
 /**
- * A report.json run's end: settle report.json against the ledger, with one
- * retry when the explorer's session can be resumed, run the later passes on it,
- * and render it.
+ * A run's end: settle report.json against the ledger, with one retry when the
+ * explorer's session can be resumed, run the later passes on it, and render it.
  */
-async function finishJson(dir, explored, { repo, base, head, baseName, runAgent, agentPrompts, log }) {
+async function finishLocal(dir, explored, { repo, base, head, baseName, runAgent, agentPrompts, log }) {
 	const retries = [];
 	const resume = explored?.sessionId ? async prompt => {
 		const result = await runAgent({ role: 'explore', purpose: 'json retry', model: explored.model, prompt, tools: READ_TOOLS, cwd: repo, resume: explored.sessionId });
@@ -292,8 +262,12 @@ async function finishJson(dir, explored, { repo, base, head, baseName, runAgent,
 	const path = reportPath(dir);
 	const json = { ...readReport(path), cost: { passes: costPasses(explored, [...retries, ...passes]) } };
 	writeReport(path, json);
-	await writeJsonPage(dir, json, { agentPrompts, base: dir, diff: `${base.slice(0, 8)}...${head.slice(0, 8)}` });
-	console.log(join(dir, 'index.html'));
+	// The page is written even when render exits 1 for a missing file; it says which.
+	try {
+		execFileSync('node', [RENDER, path, ...(agentPrompts ? [] : ['--no-agent-prompts'])], { stdio: 'inherit' });
+	} catch (err) {
+		return err.status ?? 1;
+	}
 	return 0;
 }
 
@@ -305,15 +279,15 @@ async function main(argv) {
 			repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' },
 			brief: { type: 'string' }, 'time-limit': { type: 'string' },
 			'duration-ms': { type: 'string' }, turns: { type: 'string' }, model: { type: 'string' },
-			'no-agent-prompts': { type: 'boolean' }, json: { type: 'boolean' },
+			'no-agent-prompts': { type: 'boolean' },
 		},
 	});
 	const [command, given] = positionals;
 	const limit = values['time-limit'] ?? String(EXPLORE_MINUTES);
-	const replay = given && (existsSync(join(given, 'report.md')) || existsSync(join(given, 'report.json')));
+	const replay = given && existsSync(join(given, 'report.json'));
 	const fresh = !given && values.brief && existsSync(values.brief) && (limit === 'none' || /^\d+$/.test(limit));
 	if (command !== 'run' || !(replay || fresh)) {
-		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts] [--json]');
+		console.error('usage: node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts]');
 		console.error('       node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]');
 		return 2;
 	}
@@ -344,26 +318,10 @@ async function main(argv) {
 		}
 		console.log(`run directory: ${dir}`);
 		log(limit === 'none' ? 'exploring with no time limit' : `exploring for ${limit} minutes; write other minutes to ${timeLimitPath} to change it, or 0 to stop now`);
-		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, json: values.json, log });
-		if (!values.json && !existsSync(join(dir, 'report.md'))) {
-			stopInstances(dir);
-			log(`the explorer wrote no report.md; what it left is in ${dir}`);
-			return 1;
-		}
+		explored = await explore(dir, { brief: readFileSync(values.brief, 'utf8'), repo: values.repo, runAgent, timeLimitPath, log });
 	}
 	const explorer = explored ?? { model: values.model ?? 'opus', durationMs: number(values['duration-ms']), turns: number(values.turns), costUsd: null };
-	if (fresh ? values.json : existsSync(join(dir, 'report.json'))) {
-		return finishJson(dir, explorer, { repo: values.repo, base: values.base, head: values.head, baseName: values['base-name'], runAgent, agentPrompts: !values['no-agent-prompts'], log });
-	}
-	const passes = await finishRun(dir, { repo: values.repo, base: values.base, head: values.head, baseName: values['base-name'], runAgent, log });
-	// The page is written even when render exits 1 for a missing file; it says which.
-	const args = [RENDER, join(dir, 'report.md'), ...renderFlags(explorer, passes), ...(values['no-agent-prompts'] ? ['--no-agent-prompts'] : [])];
-	try {
-		execFileSync('node', args, { stdio: 'inherit' });
-	} catch (err) {
-		return err.status ?? 1;
-	}
-	return 0;
+	return finishLocal(dir, explorer, { repo: values.repo, base: values.base, head: values.head, baseName: values['base-name'], runAgent, agentPrompts: !values['no-agent-prompts'], log });
 }
 
 if (process.argv[1] === SELF) {

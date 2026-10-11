@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { costPasses, explore, EXPLORE_TIME_UP, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, renderFlags, reviseMessage } from './pipeline.mjs';
+import { costPasses, explore, EXPLORE_TIME_UP, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, reviseMessage } from './pipeline.mjs';
 import { reportFromJson } from './report-json.mjs';
 import { parseReport } from './report-parse.mjs';
 
@@ -123,10 +123,11 @@ test('an UNRESOLVED verdict is isolated, then the verifier revises in the same s
 	assert.deepEqual({ resume: revise.resume, prompt: revise.prompt }, { resume: 'verify-session', prompt: reviseMessage(run.dir) });
 	assert.equal(run.stops, 2, 'the isolator\'s instances are stopped too');
 	assert.match(run.report, /\| 2 \| second claim .* \| confirmed \|/);
-	assert.deepEqual(renderFlags({ model: 'opus', durationMs: 60000, turns: 40 }, run.passes), [
-		'--model', 'opus', '--duration-ms', '60000', '--turns', '40',
-		'--verify-model', 'sonnet', '--verify-duration-ms', '2000', '--verify-turns', '4', '--verify-cost-usd', '1',
-		'--isolate-model', 'sonnet', '--isolate-duration-ms', '1000', '--isolate-turns', '2', '--isolate-cost-usd', '0.5',
+	assert.deepEqual(costPasses({ model: 'opus', durationMs: 60000, turns: 40, costUsd: null }, run.passes), [
+		{ label: 'explore', model: 'opus', costUsd: null, turns: 40, durationMs: 60000 },
+		{ label: 'verify', model: 'sonnet', costUsd: 1, turns: 4, durationMs: 2000 },
+		{ label: 'isolate', model: 'sonnet', costUsd: 0.5, turns: 2, durationMs: 1000 },
+		{ label: 'edit', model: 'sonnet', costUsd: 0.5, turns: 2, durationMs: 1000 },
 	]);
 });
 
@@ -230,15 +231,6 @@ test('costPasses sums each later role over its sessions, after the explorer', ()
 	]);
 });
 
-test('renderFlags needs the explorer\'s time', () => {
-	assert.deepEqual(renderFlags({ model: 'opus', durationMs: null, turns: 3 }, []), []);
-	assert.deepEqual(renderFlags({ model: 'opus', durationMs: 60000, turns: null }, []), ['--model', 'opus', '--duration-ms', '60000']);
-});
-
-test('renderFlags passes on the explorer\'s cost when it has one', () => {
-	assert.deepEqual(renderFlags({ model: 'opus', durationMs: 60000, turns: 5, costUsd: 2.5 }, []), ['--model', 'opus', '--duration-ms', '60000', '--turns', '5', '--cost-usd', '2.5']);
-});
-
 test('the explorer gets explorer.md, the brief and its run directory, and keeps its usage', async () => {
 	const dir = mkdtempSync(join(tmpdir(), 'pipeline-'));
 	const calls = [];
@@ -266,13 +258,13 @@ test('the CLI names what it needs', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'pipeline-'));
 	try {
 		assert.match(spawnSync('node', [SCRIPT, 'next', dir], { encoding: 'utf8' }).stderr, /^usage: node pipeline\.mjs run/);
-		writeFileSync(join(dir, 'report.md'), REPORT);
+		writeFileSync(join(dir, 'report.json'), JSON.stringify(TWIN_JSON));
 		const missing = spawnSync('node', [SCRIPT, 'run', dir], { encoding: 'utf8' });
 		assert.equal(missing.status, 2);
 		assert.match(missing.stderr, /verifying needs --repo, --base and --head/);
 		// A fresh run needs a brief that exists and a limit in whole minutes.
 		assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'missing.md')], { encoding: 'utf8' }).status, 2);
-		assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'report.md'), '--time-limit', '10m'], { encoding: 'utf8' }).status, 2);
+		assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'report.json'), '--time-limit', '10m'], { encoding: 'utf8' }).status, 2);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}

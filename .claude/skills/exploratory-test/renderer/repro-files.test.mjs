@@ -214,18 +214,18 @@ test('lint: a drive-positron helper a precondition names is not a test file', ()
 test('files: render.mjs fails the run when a listed file was not saved', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'files-run-'));
 	cpSync(fileURLToPath(DIR), dir, { recursive: true });
-	const run = () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), join(dir, 'report.md')], { encoding: 'utf8' });
-	assert.equal(run().status, 0);
+	const render = fileURLToPath(new URL('./render.mjs', import.meta.url));
+	const run = (...args) => spawnSync(process.execPath, [render, ...args], { encoding: 'utf8' });
+	assert.equal(run(join(dir, 'report.json')).status, 0);
 	rmSync(join(dir, 'files', 'slow.py'));
-	const failed = run();
+	const failed = run(join(dir, 'report.json'));
 	assert.equal(failed.status, 1);
-	assert.match(failed.stderr, /missing test files, listed in ## Files but not beside the report:\n {2}files\/slow\.py/);
+	assert.match(failed.stderr, /missing test files, listed in files but not beside the report:\n {2}files\/slow\.py/);
 	// A saved file the ledger never listed is a lint line, not a failure.
 	writeFileSync(join(dir, 'files', 'slow.py'), SLOW);
 	writeFileSync(join(dir, 'files', 'stray.py'), 'x = 1\n');
-	const stray = run();
-	assert.equal(stray.status, 0);
-	assert.match(stray.stderr, /ledger: files\/stray\.py is saved but not listed in ## Files/);
+	const stray = run('--check', join(dir, 'ledger.md'));
+	assert.match(stray.stderr, /files\/stray\.py is saved but not listed in ## Files/);
 	rmSync(dir, { recursive: true, force: true });
 });
 

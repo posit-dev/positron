@@ -1962,7 +1962,7 @@ test('logs: a listed file that is missing is shown unlinked, and a folder never 
 test('logs: render.mjs fails the run when a listed log was not copied', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
 	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
-	const render = () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), join(dir, 'report.md')], { encoding: 'utf8' });
+	const render = () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), join(dir, 'report.json')], { encoding: 'utf8' });
 	assert.equal(render().status, 0);
 	rmSync(join(dir, 'logs', 'python-console.log'));
 	const failed = render();
@@ -1981,48 +1981,32 @@ test('Run details leaves the explorer\'s format checks to stats.json', () => {
 	assert.doesNotMatch(html, /Format checks|format-rules|Raw stats/);
 });
 
-test('render.mjs writes the explore and verify passes and their total, replacing an earlier footer', () => {
+/** A copy of the logs run with `passes` as report.json's cost, as the pipeline leaves it. */
+function costedRun(passes) {
 	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
 	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
-	const report = join(dir, 'report.md');
-	const render = args => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, ...args], { encoding: 'utf8' });
-	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142']);
-	render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '180000', '--verify-turns', '24', '--verify-cost-usd', '0.4231']);
-	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
-	assert.deepEqual(footer, ['_explore: Opus 5.5 | 142 turns | 25m_', '_verify: Sonnet 5 | $0.42 | 24 turns | 3m_', '_total: 28m_']);
-	const { cost } = parseReport(readFileSync(report, 'utf8'));
-	assert.deepEqual(cost.passes.map(p => [p.label, p.cost]), [['explore', null], ['verify', '$0.42']]);
-	assert.equal(cost.duration, '28m');
-	rmSync(dir, { recursive: true, force: true });
-});
+	const report = join(dir, 'report.json');
+	writeFileSync(report, JSON.stringify({ ...JSON.parse(readFileSync(report, 'utf8')), cost: { passes } }));
+	return { dir, render: () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report], { encoding: 'utf8' }) };
+}
 
-test('render.mjs gives the total and the stats a cost when every pass has one', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
-	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
-	const report = join(dir, 'report.md');
-	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, '--model', 'opus', '--duration-ms', '1500000', '--turns', '142', '--cost-usd', '3.7', '--verify-model', 'sonnet', '--verify-duration-ms', '180000', '--verify-turns', '24', '--verify-cost-usd', '0.4231'], { encoding: 'utf8' });
-	const footer = readFileSync(report, 'utf8').trimEnd().split('\n').slice(-3);
-	assert.deepEqual(footer, ['_explore: Opus | $3.70 | 142 turns | 25m_', '_verify: Sonnet | $0.42 | 24 turns | 3m_', '_total: $4.12 | 28m_']);
+test('render.mjs gives the stats a cost when every pass has one, and shows each pass', () => {
+	const { dir, render } = costedRun([
+		{ label: 'explore', model: 'opus', costUsd: 3.7, turns: 142, durationMs: 1500000 },
+		{ label: 'verify', model: 'sonnet', costUsd: 0.4231, turns: 24, durationMs: 180000 },
+	]);
+	render();
 	assert.equal(JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8')).costUsd, 4.12);
+	assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /<div class="agents-row"><span>Verify<\/span>/);
 	rmSync(dir, { recursive: true, force: true });
 });
 
 test('render.mjs keeps the stats CI recorded when it replays a CI run', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
-	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
+	const { dir, render } = costedRun([{ label: 'explore', model: 'opus', costUsd: null, turns: 10, durationMs: 60000 }]);
 	writeFileSync(join(dir, 'cost.json'), '{}');
 	writeFileSync(join(dir, 'stats.json'), '{"where":"ci"}\n');
-	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), join(dir, 'report.md'), '--duration-ms', '60000']);
+	render();
 	assert.equal(readFileSync(join(dir, 'stats.json'), 'utf8'), '{"where":"ci"}\n');
-	rmSync(dir, { recursive: true, force: true });
-});
-
-test('render.mjs keeps a verify pass that took under a millisecond', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
-	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
-	const report = join(dir, 'report.md');
-	spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report, '--duration-ms', '60000', '--verify-model', 'claude-sonnet-5', '--verify-duration-ms', '0']);
-	assert.match(readFileSync(report, 'utf8'), /_verify: Sonnet 5 \| <1m_\n_total: 1m_\n$/);
 	rmSync(dir, { recursive: true, force: true });
 });
 

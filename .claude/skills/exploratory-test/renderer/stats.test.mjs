@@ -16,6 +16,7 @@ import { buildStats, CHECKS_FILE, readChecks, recordCheck, ruleKey, statsFromLog
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
 const RENDER = fileURLToPath(new URL('./render.mjs', import.meta.url));
+const LINT_JSON = fileURLToPath(new URL('./lint-json.mjs', import.meta.url));
 const SCRIPT = fileURLToPath(new URL('./stats.mjs', import.meta.url));
 const LOGS_DIR = fileURLToPath(new URL('./fixtures/logs-run/', import.meta.url));
 
@@ -107,18 +108,26 @@ test('summarizeByVersion counts a rule once per run it fired in', () => {
 	assert.equal(v12.medianRounds, 4);
 });
 
-test('render.mjs counts the explorer\'s checks, not the harness\'s renders, and the last render writes stats.json', () => {
+/** The fixture run with the passes' cost in its report.json, as the pipeline leaves it. */
+function withCost(dir, passes) {
+	const path = join(dir, 'report.json');
+	writeFileSync(path, JSON.stringify({ ...JSON.parse(readFileSync(path, 'utf8')), cost: { passes } }));
+	return path;
+}
+
+test('lint-json counts the explorer\'s checks, renders do not, and the pipeline\'s render writes stats.json', () => {
 	const dir = tempDir();
 	try {
 		cpSync(LOGS_DIR, dir, { recursive: true });
-		const report = join(dir, 'report.md');
+		const lint = () => spawnSync(process.execPath, [LINT_JSON, join(dir, 'report.json')], { encoding: 'utf8' });
+		lint();
+		lint();
+		assert.equal(readChecks(dir).rounds, 2);
+		const report = withCost(dir, [{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 142, durationMs: 1500000 }]);
 		const render = args => spawnSync(process.execPath, [RENDER, report, ...args], { encoding: 'utf8' });
 		render([]);
-		render(['--check']);
-		assert.equal(readChecks(dir).rounds, 2);
-		render(['--model', 'claude-opus-5-5', '--duration-ms', '1500000', '--turns', '142']);
 		render(['--base', 'https://example.test/run', '--out', join(dir, 'published.html')]);
-		assert.equal(readChecks(dir).rounds, 2, 'the Run tile and publish renders are not the explorer\'s');
+		assert.equal(readChecks(dir).rounds, 2, 'the pipeline\'s and publish\'s renders are not the explorer\'s');
 		const stats = JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8'));
 		assert.equal(stats.where, 'local');
 		assert.equal(stats.turns, 142);
@@ -139,24 +148,20 @@ test('render.mjs counts the explorer\'s checks, not the harness\'s renders, and 
 	}
 });
 
-test('render.mjs records an isolation pass in the footer, the Agents table and stats.json', () => {
+test('render.mjs records an isolation pass in the Agents table and stats.json', () => {
 	const dir = tempDir();
 	try {
 		cpSync(LOGS_DIR, dir, { recursive: true });
-		const report = join(dir, 'report.md');
-		spawnSync(process.execPath, [RENDER, report, '--model', 'claude-opus-5-5', '--duration-ms', '600000', '--turns', '70',
-			'--verify-model', 'claude-sonnet-5-5', '--verify-duration-ms', '60000', '--verify-turns', '10',
-			'--isolate-model', 'claude-sonnet-5-5', '--isolate-duration-ms', '300000', '--isolate-turns', '30'], { encoding: 'utf8' });
-		const md = readFileSync(report, 'utf8');
-		assert.match(md, /^_isolate: [^\n]*30 turns \| 5m_$/m);
-		assert.match(md, /^_total: 16m_$/m);
+		const report = withCost(dir, [
+			{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 70, durationMs: 600000 },
+			{ label: 'verify', model: 'claude-sonnet-5-5', costUsd: null, turns: 10, durationMs: 60000 },
+			{ label: 'isolate', model: 'claude-sonnet-5-5', costUsd: null, turns: 30, durationMs: 300000 },
+		]);
+		spawnSync(process.execPath, [RENDER, report], { encoding: 'utf8' });
 		const stats = JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8'));
 		assert.deepEqual(stats.isolate, { durationMs: 300000, turns: 30 });
 		assert.equal(stats.durationMs, 960000);
 		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /<div class="agents-row"><span>Isolate<\/span>/);
-		// A re-render without the flag drops the line rather than stacking it.
-		spawnSync(process.execPath, [RENDER, report, '--model', 'claude-opus-5-5', '--duration-ms', '600000', '--turns', '70'], { encoding: 'utf8' });
-		assert.doesNotMatch(readFileSync(report, 'utf8'), /_isolate:/);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
