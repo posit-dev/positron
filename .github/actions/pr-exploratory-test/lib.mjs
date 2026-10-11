@@ -369,11 +369,6 @@ export function parseTimeLimit(raw) {
 	return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
 }
 
-/** What the agent is told on each tool result once its time is up. */
-export function timeUpMessage(minutes) {
-	return `Time is up: your ${minutes} minutes for exploring have run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
-}
-
 /**
  * A PostToolUse (and PostToolUseFailure) hook that, once `deadline` has
  * passed, appends the time-up message to every tool result, so the agent
@@ -381,9 +376,10 @@ export function timeUpMessage(minutes) {
  * Before then it adds nothing: told its budget or the time left, the agent
  * rushed from the first step and wrapped up at about 70% of it, in every CI
  * run that had a limit. `onTimeUp` is called the first time. `now` is the
- * clock, for tests. `message` replaces the explorer's.
+ * clock, for tests. `message` is what the agent is told: the pipeline's, for
+ * the explorer and the isolator alike.
  */
-export function timeUpHook({ deadline, minutes, message = '', now = Date.now, onTimeUp = () => {} }) {
+export function timeUpHook({ deadline, message, now = Date.now, onTimeUp = () => {} }) {
 	let told = false;
 	return async input => {
 		if (now() < deadline) {
@@ -393,7 +389,7 @@ export function timeUpHook({ deadline, minutes, message = '', now = Date.now, on
 			told = true;
 			onTimeUp();
 		}
-		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: message || timeUpMessage(minutes) } };
+		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: message } };
 	};
 }
 

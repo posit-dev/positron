@@ -16,7 +16,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { knownFixLines, knownIssueOutcomes } from './known-issues.mjs';
@@ -128,7 +128,8 @@ export function parseVerifyReply(text) {
 		const verified = VERDICTS[String(f?.verdict ?? '').trim().toLowerCase()];
 		if (Number.isInteger(f?.n) && verified) {
 			const log = Array.isArray(f.log) && f.log.length === 2 && f.log.every(Number.isInteger) && f.log[0] >= 1 && f.log[0] <= f.log[1] ? f.log : null;
-			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), related: f.related === true, log });
+			const shots = Array.isArray(f.shots) ? f.shots.filter(x => typeof x === 'string').map(x => basename(x.trim())) : null;
+			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), related: f.related === true, log, shots });
 		}
 	}
 	for (const l of Array.isArray(data?.linked) ? data.linked : []) {
@@ -186,33 +187,46 @@ function citedLogLines(ledger, n) {
 	return [...new Set(failing.flatMap(s => [...s.matchAll(/actions\.log:(\d+)/g)].map(m => Number(m[1]))))].sort((a, b) => a - b);
 }
 
+/** The screenshots finding `f`'s failing VERIFY steps cite, by file name. */
+function failShots(f) {
+	return [...new Set((f.steps ?? []).filter(st => st.kind === 'verify' && st.result === 'fail').flatMap(st => st.shots ?? []).map(p => basename(p)))];
+}
+
 /**
- * Each finding whose steps the reply does not show were checked against the
- * action log, with why: no `log` range, a range past the log's end, or one
- * that misses a line the finding's failing scenario cites. Without a log there
- * is nothing to check against, so nothing is missing.
+ * Each check the reply does not show it made, as `{ n, kind, why }`: a
+ * finding with no `log` range, a range past the log's end or one that misses a
+ * line its failing scenario cites (`kind` 'log'); and a finding whose `shots`
+ * leave out a screenshot its failing VERIFY steps cite ('shots'). Without an
+ * action log there is nothing to check the steps against.
  */
-export function logCheckGaps(report, reply, { ledger, actionsLog }) {
+export function checkGaps(report, reply, { ledger, actionsLog }) {
 	const lines = String(actionsLog ?? '').split('\n').filter(Boolean).length;
-	if (!lines) {
-		return [];
-	}
-	return findingNumbers(report).flatMap(n => {
-		const range = reply.findings.get(n)?.log;
-		if (!range) {
-			return [{ n, why: 'gave no actions.log lines' }];
+	return (report?.findings ?? []).flatMap(f => {
+		const { n } = f;
+		const got = reply.findings.get(n);
+		const gaps = [];
+		const range = got?.log;
+		if (lines && !range) {
+			gaps.push({ n, kind: 'log', why: 'gave no actions.log lines' });
+		} else if (lines && range[1] > lines) {
+			gaps.push({ n, kind: 'log', why: `gave actions.log lines ${range[0]}-${range[1]}, but the log has ${lines}` });
+		} else if (lines) {
+			const missed = citedLogLines(ledger, n).filter(line => line < range[0] || line > range[1]);
+			if (missed.length) {
+				gaps.push({ n, kind: 'log', why: `gave actions.log lines ${range[0]}-${range[1]}, which miss line${missed.length > 1 ? 's' : ''} ${missed.join(', ')} that its failing scenario cites` });
+			}
 		}
-		if (range[1] > lines) {
-			return [{ n, why: `gave actions.log lines ${range[0]}-${range[1]}, but the log has ${lines}` }];
+		const unseen = failShots(f).filter(shot => !(got?.shots ?? []).includes(shot));
+		if (unseen.length) {
+			gaps.push({ n, kind: 'shots', why: `did not list ${unseen.join(', ')}, which its failing VERIFY steps cite` });
 		}
-		const missed = citedLogLines(ledger, n).filter(line => line < range[0] || line > range[1]);
-		return missed.length ? [{ n, why: `gave actions.log lines ${range[0]}-${range[1]}, which miss line${missed.length > 1 ? 's' : ''} ${missed.join(', ')} that its failing scenario cites` }] : [];
+		return gaps;
 	});
 }
 
-/** The message that asks the verifier for the log check it skipped. */
-export function logCheckMessage(gaps) {
-	return `Your reply ${gaps.map(g => `for Finding ${g.n} ${g.why}`).join('; ')}. For each of those findings, read the lines of actions.log that its failing scenario covers, check its steps and VERIFY lines against them as your instructions say, and give that range as the finding's \`log\`. Reply again in full, in the same format.`;
+/** The message that asks the verifier for the checks it did not show it made. */
+export function checkMessage(gaps) {
+	return `Your reply ${gaps.map(g => `for Finding ${g.n} ${g.why}`).join('; ')}. For each of those findings, do the check your instructions ask: read the lines of actions.log its failing scenario covers and check its steps and VERIFY lines against them, giving that range as \`log\`; and look at each screenshot its failing VERIFY steps cite and check its Observed against it, listing them as \`shots\`. Reply again in full, in the same format.`;
 }
 
 /**
@@ -256,7 +270,7 @@ const PREAMBLE = 'A second agent re-read this report with the repository but wit
  * findings are unreviewed" is not a detail to hide behind a click, and
  * changes no finding.
  */
-export function applyVerification(json, reply, { failed = false, text = '', unchecked = [] } = {}) {
+export function applyVerification(json, reply, { failed = false, text = '', gaps = [] } = {}) {
 	if (failed) {
 		return { ...json, verification: { failed, text } };
 	}
@@ -275,6 +289,12 @@ export function applyVerification(json, reply, { failed = false, text = '', unch
 		};
 	});
 	const related = [...reply.findings].filter(([, f]) => f.related).map(([n]) => n);
+	const unchecked = Object.fromEntries(['log', 'shots'].map(kind => [kind, [...new Set(gaps.filter(g => g.kind === kind).map(g => g.n))]]).filter(([, ns]) => ns.length));
+	const named = ns => ns.map(n => `Finding ${n}`).join(', ');
+	const skipped = [
+		unchecked.log ? `the steps of ${named(unchecked.log)} against the action log` : '',
+		unchecked.shots ? `the Observed of ${named(unchecked.shots)} against its screenshots` : '',
+	].filter(Boolean).join(', or ');
 	const linked = [...reply.linked].map(([issue, severity]) => ({ issue, severity }));
 	return {
 		...json,
@@ -282,10 +302,10 @@ export function applyVerification(json, reply, { failed = false, text = '', unch
 		verification: {
 			failed,
 			// A skipped check is said, so "No process issues" is not read as one that passed.
-			text: [PREAMBLE, reply.notes, unchecked.length ? `_The verifier did not show it checked the steps of ${unchecked.map(n => `Finding ${n}`).join(', ')} against the action log._` : ''].filter(Boolean).join('\n\n'),
+			text: [PREAMBLE, reply.notes, skipped ? `_The verifier did not show it checked ${skipped}._` : ''].filter(Boolean).join('\n\n'),
 			...(related.length ? { related } : {}),
 			...(linked.length ? { linked } : {}),
-			...(unchecked.length ? { unchecked } : {}),
+			...(skipped ? { unchecked } : {}),
 		},
 	};
 }
@@ -345,13 +365,13 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
  * Adds a verifier reply to the run's report. Returns `{ mismatch }`, writing nothing,
  * when its verdicts are keyed to other numbers than the report's, so a
  * corrected reply can be applied; with `giveUp` that marks the findings
- * unreviewed instead. Returns `{ logGaps }` the same way when it does not
- * show it checked a finding's steps against the action log; with `logGiveUp`
- * the report says so instead. An `error`, or an empty reply or one with no
+ * unreviewed instead. Returns `{ checkGaps }` the same way when it does not
+ * show it checked a finding's steps against the action log or its Observed
+ * against its screenshots; with `checkGiveUp` the report says so instead. An `error`, or an empty reply or one with no
  * verdicts, says the verification did not complete rather than leaving the
  * findings looking reviewed. Otherwise returns `{ failed, logLines }`.
  */
-export function applyVerifyReply(dir, reply, { error = '', giveUp = false, logGiveUp = false } = {}) {
+export function applyVerifyReply(dir, reply, { error = '', giveUp = false, checkGiveUp = false } = {}) {
 	const { path, report, ledger, actionsLog, knownIssues } = readRun(dir);
 	if (isVerified(report)) {
 		return { already: true };
@@ -364,14 +384,14 @@ export function applyVerifyReply(dir, reply, { error = '', giveUp = false, logGi
 		return { mismatch };
 	}
 	const failed = Boolean(error || mismatch) || !reply || Boolean(parsed.problem) || (findings && !parsed.findings.size);
-	const gaps = failed ? [] : logCheckGaps(report, parsed, { ledger, actionsLog });
-	if (gaps.length && !logGiveUp) {
-		return { logGaps: gaps };
+	const gaps = failed ? [] : checkGaps(report, parsed, { ledger, actionsLog });
+	if (gaps.length && !checkGiveUp) {
+		return { checkGaps: gaps };
 	}
 	const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
 	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : !reply ? '' : parsed.problem ? `: ${parsed.problem}` : ': the reply gave no verdicts';
 	const text = `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`;
-	writeReport(path, applyVerification(report, parsed, { failed, text, unchecked: gaps.map(g => g.n) }));
+	writeReport(path, applyVerification(report, parsed, { failed, text, gaps }));
 	return { failed, logLines: verifyLogLines(knownIssues, ledger, failed ? parseVerifyReply('') : parsed) };
 }
 

@@ -5,7 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
 	const record = buildCostRecord({
@@ -415,21 +416,21 @@ test('runOutcome is timed-out when the hard stop fired, whatever else is true', 
 test('timeUpHook adds nothing before the deadline, then tells every tool result time is up, calling onTimeUp once', async () => {
 	let clock = 1000;
 	let calls = 0;
-	const hook = timeUpHook({ deadline: 2000, minutes: 20, now: () => clock, onTimeUp: () => calls++ });
+	const hook = timeUpHook({ deadline: 2000, message: 'Time is up.', now: () => clock, onTimeUp: () => calls++ });
 	// Told the time left, the agent rushed; before the deadline it hears nothing.
 	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), {});
 	assert.equal(calls, 0);
 	clock = 2000;
-	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: timeUpMessage(20) } });
+	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: 'Time is up.' } });
 	// A failed tool call gets it too, under its own event name.
 	assert.equal((await hook({ hook_event_name: 'PostToolUseFailure' })).hookSpecificOutput.hookEventName, 'PostToolUseFailure');
 	assert.equal(calls, 1);
-	assert.match(timeUpMessage(20), /Stop exploring now\..*Not run.*report\.json/);
-	assert.match(timeUpMessage(20), new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
+	// The explorer's message is the pipeline's, so it must name CI's own hard stop.
+	assert.match(EXPLORE_TIME_UP, new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
 });
 
 test('timeUpHook tells an agent that is not the explorer its own message', async () => {
-	const hook = timeUpHook({ deadline: 0, minutes: 12, message: 'Write isolation.md now.' });
+	const hook = timeUpHook({ deadline: 0, message: 'Write isolation.md now.' });
 	assert.equal((await hook({ hook_event_name: 'PostToolUse' })).hookSpecificOutput.additionalContext, 'Write isolation.md now.');
 });
 

@@ -364,23 +364,24 @@ test('completeRun adds the header, the branch check and every pass\'s cost, or r
 	}
 });
 
-test('a verifier that does not show it checked the action log is asked once, and the report says when it still has not', async () => {
+test('a verifier that does not show it checked the action log and the screenshots is asked once, and the report says when it still has not', async () => {
 	const files = {
 		'ledger.md': ['## S01 - first breaks', 'Status: fail - Finding 1', 'Steps:', '1. VERIFY it loads -> FAIL - Finding 1', '   Evidence: shots/S01-01.png, actions.log:2', '',
 			'## S02 - second breaks', 'Status: fail - Finding 2', 'Steps:', '1. VERIFY it saves -> FAIL - Finding 2', '   Evidence: shots/S02-01.png, actions.log:4', ''].join('\n'),
 		'actions.log': ['a', 'b', 'c', 'd', 'e'].map((x, i) => `2026-10-11T00:00:0${i}Z ${x}`).join('\n'),
 	};
-	const fixed = await runWith(REPORT, {
-		verify: () => verdicts([[1, 'confirmed', { log: [1, 3] }], [2, 'confirmed']]),
-		'log-check': step => {
+	const report = { ...REPORT, findings: REPORT.findings.map(f => ({ ...f, steps: [{ kind: 'verify', text: 'it works', result: 'fail', finding: f.n, shots: [`shots/S0${f.n}-01.png`] }] })) };
+	const fixed = await runWith(report, {
+		verify: () => verdicts([[1, 'confirmed', { log: [1, 3], shots: ['S01-01.png'] }], [2, 'confirmed', { shots: ['S02-01.png'] }]]),
+		recheck: step => {
 			assert.match(step.prompt, /^Your reply for Finding 2 gave no actions\.log lines\./);
-			return verdicts([[1, 'confirmed', { log: [1, 3] }], [2, 'confirmed', { log: [3, 5] }]], 'No process issues.');
+			return verdicts([[1, 'confirmed', { log: [1, 3], shots: ['S01-01.png'] }], [2, 'confirmed', { log: [3, 5], shots: ['S02-01.png'] }]], 'No process issues.');
 		},
 		edit: EDIT,
 	}, { files });
-	assert.deepEqual(fixed.purposes, ['verify', 'log-check', 'edit']);
+	assert.deepEqual(fixed.purposes, ['verify', 'recheck', 'edit']);
 	assert.equal(fixed.report.verification.unchecked, undefined);
-	const skipped = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [2, 'confirmed']], 'No process issues.'), 'log-check': () => 'no block', edit: EDIT }, { files });
-	assert.deepEqual(skipped.report.verification.unchecked, [1, 2]);
+	const skipped = await runWith(report, { verify: () => verdicts([[1, 'confirmed'], [2, 'confirmed', { log: [3, 5] }]], 'No process issues.'), recheck: () => 'no block', edit: EDIT }, { files });
+	assert.deepEqual(skipped.report.verification.unchecked, { log: [1], shots: [1, 2] });
 	assert.deepEqual(skipped.report.findings.map(f => f.verified), ['confirmed', 'confirmed']);
 });

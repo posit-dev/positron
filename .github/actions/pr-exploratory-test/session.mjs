@@ -41,7 +41,6 @@ export async function runSession({ prompt, systemPrompt, allowedTools, model, ma
 	if (timeLimit) {
 		const hook = timeUpHook({
 			deadline: Date.now() + timeLimit * minuteMs,
-			minutes: timeLimit,
 			message: timeUpMessage,
 			onTimeUp: () => { timeWasUp = true; log(`[${label}] time limit: ${timeLimit}m are up; told the agent to wrap up`); },
 		});

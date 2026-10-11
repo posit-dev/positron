@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents } from './claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './edit.mjs';
-import { applyVerifyReply, logCheckMessage, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
+import { applyVerifyReply, checkMessage, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
 
 export const ISOLATE_MINUTES = 12;
@@ -288,12 +288,13 @@ async function verifyFindings(dir, range, ask, stop, log) {
 		best = retry.text || best;
 		result = applyVerifyReply(dir, best, { giveUp: true });
 	}
-	// A finding whose steps it did not show it checked against the action log
-	// gets one request for that check; after that the report says it was skipped.
-	if (result.logGaps) {
-		const retry = session ? await ask({ ...verifier, purpose: 'log-check', resume: session, prompt: logCheckMessage(result.logGaps) }) : { text: '' };
+	// A check it did not show it made (a finding's steps against the action log,
+	// its Observed against its screenshots) is asked for once; after that the
+	// report says it was skipped.
+	if (result.checkGaps) {
+		const retry = session ? await ask({ ...verifier, purpose: 'recheck', resume: session, prompt: checkMessage(result.checkGaps) }) : { text: '' };
 		const usable = retry.text && !parseVerifyReply(retry.text).problem;
-		result = applyVerifyReply(dir, usable ? retry.text : best, { giveUp: true, logGiveUp: true });
+		result = applyVerifyReply(dir, usable ? retry.text : best, { giveUp: true, checkGiveUp: true });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
 }

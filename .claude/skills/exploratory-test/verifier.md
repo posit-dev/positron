@@ -26,10 +26,10 @@ For EACH finding, answer these five questions explicitly:
    title, name one case it covers that the run did not try and check it
    against the code: "any even-length integer column" fails on `c(1L, 3L)`,
    whose median 2 displays correctly. When the claim does not hold, narrow it
-   with a `title`. When Observed says no error appeared or nothing on
-   screen shows the problem, check that against the screenshots, the values
-   beside it included: a Max below the Mean on the same panel is on screen.
-   Say so when a screenshot contradicts it.
+   with a `title`. Look at each screenshot the finding's failing VERIFY steps
+   cite and check Observed against it, the values beside it included: when
+   Observed says nothing on screen shows the problem, a Max below the Mean on
+   the same panel is on screen. Say so when a screenshot contradicts it.
    When the Cause is a race, find the log lines that show the events in the
    order it claims, with their timestamps, or say the order is unconfirmed.
 2. Could anything the reporting agent did to its own test environment produce
@@ -83,8 +83,8 @@ to mark each finding, so nothing else goes in it:
 ```json
 {
 	"findings": [
-		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "related": true },
-		{ "n": 3, "verdict": "false positive", "log": [201, 233], "known": [15102], "feature": "new folder flow" }
+		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": ["S04-03.png"], "related": true },
+		{ "n": 3, "verdict": "false positive", "log": [201, 233], "shots": ["S07-02.png", "S07-04.png"], "known": [15102], "feature": "new folder flow" }
 	],
 	"linked": [{ "issue": 5678, "severity": "moderate" }]
 }
@@ -100,6 +100,10 @@ to mark each finding, so nothing else goes in it:
   VERIFY. The ledger cites an actions.log line on each VERIFY, and the range
   must cover the ones in that scenario. Give it for every finding: a finding
   without it is shown as not checked against the log, whatever the notes say.
+- `shots`: the file names of the screenshots you looked at to check the
+  finding's Observed, as question 1 asks. It must include every screenshot the
+  finding's failing VERIFY steps cite; a finding that leaves one out is shown
+  as not checked against its screenshots.
 - `known`: the issues question 5 matched, when it matched any. A match does
   not change the verdict.
 - `intended`: the issues closed as not planned that the finding matched, when

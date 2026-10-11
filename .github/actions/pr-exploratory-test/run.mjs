@@ -14,7 +14,7 @@ import { missingFiles, readRunDir } from '../../../.claude/skills/exploratory-te
 import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page-common.mjs';
 import { reportFromJson, writeJsonPage } from '../../../.claude/skills/exploratory-test/renderer/report-json.mjs';
 import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
-import { completeRun, costPasses, environmentBrief, environmentLines, readEnvironment } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
+import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
@@ -229,6 +229,7 @@ async function main() {
 		maxTurns: MAX_TURNS,
 		cwd: REPO_ROOT,
 		timeLimit: TIME_LIMIT,
+		timeUpMessage: EXPLORE_TIME_UP,
 		effort: EFFORT,
 		// Summarized display returns the notes the model writes between tool
 		// calls, which otherwise arrive as empty thinking blocks. gate.mjs and the
