@@ -183,4 +183,5 @@ section is for what the verdict cannot say.
   process issues.`
 
 No preamble, no restating the finding, no summary of the report. Do not write
-any files.
+any files. Run every command in the foreground and wait for it: only your last
+message is read, so it must be the whole reply.

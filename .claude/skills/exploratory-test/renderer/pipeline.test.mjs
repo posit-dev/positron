@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, reviseMessage } from './pipeline.mjs';
+import { checkoutProblems, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage } from './pipeline.mjs';
 import { parseSystemLine } from './ledger.mjs';
 import { reportFromJson } from './report-json.mjs';
 
@@ -140,6 +140,17 @@ test('verdicts keyed to the wrong numbers get one retry, then mark the findings 
 	const wrongAgain = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), renumber: () => verdicts([[2, 'confirmed'], [3, 'confirmed']]), edit: EDIT });
 	assert.equal(wrongAgain.report.verification.failed, true);
 	assert.match(wrongAgain.report.verification.text, /^_Verification did not complete: the verdicts give findings 2, 3.*The findings above are unreviewed\._/);
+});
+
+test('a last message with no json block gets one request for the reply again, in the same session', async () => {
+	const late = 'The background search finished; nothing changes.';
+	const fixed = await runWith(REPORT, { verify: () => late, reformat: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]), edit: EDIT });
+	assert.deepEqual(fixed.purposes, ['verify', 'reformat', 'edit']);
+	assert.deepEqual({ resume: fixed.steps[1].resume, prompt: fixed.steps[1].prompt }, { resume: 'verify-session', prompt: REFORMAT_MESSAGE });
+	assert.equal(fixed.report.findings[1].verified, 'confirmed');
+	// Still none: the findings are marked unreviewed, as before.
+	const still = await runWith(REPORT, { verify: () => late, reformat: () => late, edit: EDIT });
+	assert.match(still.report.verification.text, /^_Verification did not complete: the reply has no ```json block\./);
 });
 
 test('a verifier that fails leaves the findings marked unreviewed, with its error', async () => {

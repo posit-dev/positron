@@ -49,6 +49,9 @@ export function reviseMessage(dir) {
 	return `Read \`${join(dir, 'isolation.md')}\`, revise those findings' verdicts, and name the Cause and Feature it points to, with a new feature when the Feature changes and a new title when the title names the wrong trigger. If a cause is broader than the cases in its table, narrow it. Reply again in full, in the same format: the json block, then your notes.`;
 }
 
+/** What the verifier is told when its last message has no json block. */
+export const REFORMAT_MESSAGE = 'Your last message has no json block, and only the last message is read. Reply again in full, in the format your instructions give: the json block, then your notes.';
+
 /** What the isolator is told once its time is up. */
 export function isolateTimeUpMessage(dir) {
 	return `Time is up: your ${ISOLATE_MINUTES} minutes have run out. Run no more cases. Write \`${join(dir, 'isolation.md')}\` now with what you have, and list the findings you did not reach.`;
@@ -272,6 +275,11 @@ async function verifyFindings(dir, range, ask, stop, log) {
 		} else if (session) {
 			best = (await ask({ ...verifier, purpose: 'revise', resume: session, prompt: reviseMessage(dir) })).text || best;
 		}
+	}
+	// Only the last message is read; one sent after the block (a background
+	// command finishing, say) leaves none, so ask once for the reply again.
+	if (best && session && parseVerifyReply(best).problem) {
+		best = (await ask({ ...verifier, purpose: 'reformat', resume: session, prompt: REFORMAT_MESSAGE })).text || best;
 	}
 	let result = applyVerifyReply(dir, best, { error: best ? '' : first.error });
 	// Numbers that do not match the report get one retry, then mark it unreviewed.
