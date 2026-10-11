@@ -220,9 +220,10 @@ narrower criterion was also written after reading the first run's plans. This
 case cannot show what the rules do without a much larger sample, and is not
 worth more spend as it stands.
 
-One thing it turned up stands on its own: the rule's example, "reload the
-window so a cached probe re-runs", is the move that fails in this case,
-because a reload keeps the extension host and what it cached.
+One thing it turned up stood on its own: the rule's example, "reload the
+window so a cached probe re-runs", was the move that fails in this case,
+because a reload keeps the extension host and what it cached. The example now
+says to restart whatever holds the cached answer.
 
 Most of the explorer's 24 unchecked rules are about how to explore: risk
 first, real user state, controls, cold replays. That is where the skill finds

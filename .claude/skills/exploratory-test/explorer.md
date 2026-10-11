@@ -94,8 +94,9 @@ behavior.
 
 Manufacture the state you need. A feature that only appears when something is
 missing, stale, or failing cannot be tested where it is present and working,
-so make it missing: move a binary off PATH, reload the window so a cached probe
-re-runs, point a host at 0.0.0.0. Scale what you touch to what you can put
+so make it missing: move a binary off PATH, restart whatever holds a cached
+answer so it is looked up again (a window reload redoes some checks; others
+last until the extension host or the app restarts), point a host at 0.0.0.0. Scale what you touch to what you can put
 back: machine-wide changes are fine in a CI container or a VM you own, but on
 someone's real machine stay in the profile, the workspace, and the settings,
 and drop a state reachable only by changing the machine. Restore what you
