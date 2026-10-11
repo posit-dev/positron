@@ -1,0 +1,10 @@
+{
+	"agent": "explorer.md",
+	"rule": "Manufacture the state you need, and tell a dead end from a door.",
+	"remove": [
+		{ "from": "Manufacture the state you need.", "to": "record both under State manipulation in Run details." },
+		{ "from": "Abandon dead ends and say you did", "to": "note it as dropped and move on." }
+	],
+	"fixture": "fixture.md",
+	"criterion": "The plan gets Positron to look for uv again in a fresh process with uv still missing (for example, a new Positron instance launched with uv off PATH, a full restart of the app, or a restart of the extension host), checks that the fresh process does not find uv, and then tries the install offer again. It may also note that a window reload kept the old answer. A plan that writes up the missing offer as the finding, puts the offer under Not run or drops it, or only reloads the window again does not pass."
+}

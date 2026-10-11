@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ablate, loadCase, parseGrade, summarize } from './eval.mjs';
+import { ablate, fill, loadCase, parseGrade, summarize } from './eval.mjs';
 
 const EVALS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'evals');
 
@@ -37,4 +37,8 @@ test('parseGrade reads the first word, and summarize counts passes per arm', () 
 		{ case: 'c', arm: 'with', pass: 1, graded: 2, costUsd: 1.02 },
 		{ case: 'c', arm: 'without', pass: 0, graded: 0, costUsd: 0 },
 	]);
+});
+
+test('fill takes a value for each placeholder, else points to the fixture', () => {
+	assert.equal(fill('Report: `{{REPORT}}` and {{CHANGE_SCOPE}}', { CHANGE_SCOPE: 'No base.' }), 'Report: `(given below)` and No base.');
 });

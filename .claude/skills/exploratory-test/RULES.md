@@ -68,13 +68,13 @@ Then update the rule's row here in the same PR.
 | For a PR, start with the diff's own code paths and the manual checks its description lists. | Not recorded. | Nothing | - | #16421 |
 | Reach each diff action at least once the way a person does: a click, a menu, a key. Keep the palette for setup. | The palette and the toolbar can run different code. | Nothing | - | #16526 |
 | Test the state a real user is in: warm start, a populated workspace, cached state. | That is where this skill found its worst behavior. | Nothing | - | #16162 |
-| Manufacture the state you need, scaled to what you can put back. Restore it and record it. | In the uv A/B, only runs that defeated the extension host's cache reached the feature. | Nothing | Eval `manufacture-state`, 2026-10-11, Opus: 4/4 plans made uv missing with the rule, 4/4 without. | #16162 |
+| Manufacture the state you need, scaled to what you can put back. Restore it and record it. | In the uv A/B, only runs that defeated the extension host's cache reached the feature. | Nothing | Eval `manufacture-state`, 2026-10-11, Opus: 4/4 plans made uv missing with the rule, 4/4 without. Eval `stale-state` (a reload keeps the old answer), 2026-10-11, Opus: 3/4 plans got a fresh process with the rules, 2/4 without. | #16162 |
 | Retry with nothing in between: no edit, save, reload, restart or tab switch. | Each of those clears the state the retry tests. | Nothing | - | #16200 |
 | Look for a second consumer of the same data, and run controls (baseline, another user, an unchanged counterpart, another trigger) before naming a Cause. | It localizes the bug, not just observes it. | The isolator runs controls for findings the verifier can't settle. | Eval `controls`, 2026-10-11, Opus: 4/4 plans ran a control with the rule, 4/4 without. | #16355 |
-| Word the Cause only as widely as the cases tried. | Causes were worded wider than the cases tried. | Verifier narrows it. | - | #16355 |
+| Word the Cause only as widely as the cases tried. | Causes were worded wider than the cases tried. | Verifier narrows it. | Eval `scope-claims`, 2026-10-11, Opus: 4/4 kept the finding narrow with the scope rules, 3/4 without. | #16355 |
 | Confirm the measurement can see what you think. A log line supports a Cause only if written while the failure was on screen. | A scraping bug reads as a product bug. | Verifier: checks race order against log timestamps. | - | #16233 |
 | A non-default setting a finding needs is a precondition. Re-check under the default. Desktop and web are different findings. | The harness forces settings, so a finding there may be narrower than it looks. | Verifier: asks whether the run's own setup explains the symptom. | - | #16162 |
-| Tell a dead end from a door: a reload or a moved binary may be the only way in. Drop mechanisms reachable only in a dev build. | In the uv A/B, the old dead-end wording made agents give up on a path that needed a reload. | Nothing | Added after the 2026-09-21 A/B, not trialed since. | #16162 |
+| Tell a dead end from a door: a reload or a moved binary may be the only way in. Drop mechanisms reachable only in a dev build. | In the uv A/B, the old dead-end wording made agents give up on a path that needed a reload. | Nothing | Eval `stale-state` (a reload keeps the old answer), 2026-10-11, Opus: 3/4 plans got a fresh process with the rules, 2/4 without. | #16162 |
 | A check the machine can't support is neither pass nor fail. Fix the environment, or end the scenario and add an `environment:` Not run row. | A gap in the machine says nothing about Positron. | Nothing | - | #16421 |
 | Test a PR's linked fixes first. An open linked issue seen again is `observed`, not a finding. A closed one seen again is a finding. | Runs re-filed known bugs. | Lint (`issue-line-format`, `issue-not-linked`, `issue-fix-kind`, `issue-linked-kind`, `issue-closed-observed`, `issue-open-came-back`, `issue-needs-finding`, `fix-not-accounted`): `Issue:` forms, membership in `known-issues.json`, and a missing fix result. | - | #16302 |
 | Without a PR, don't search GitHub. | The verifier searches. | Nothing | - | #16421 |
@@ -121,19 +121,19 @@ Then update the rule's row here in the same PR.
 | Report genuine problems only, each verifiable from its artifacts. | Not recorded. | Verifier verdicts | - | #16162 |
 | Before reporting a bug after a palette or quick-input action, confirm the intended command ran. | A wrong row run in its place is a tool error. | Nothing | - | #16421 |
 | Set severity by user impact only, with the anchors given. | Not recorded. | Nothing | - | #16421 |
-| A title names what is broken, as a fact, under about 90 characters, with no "any" or "every" beyond what was tried. | Readers often read only the title. | Lint (`title-lowercase`, `title-code`, `title-hedge`, `title-possessive`, `title-parenthetical`): case, code names, hedges, possessives, parentheticals. Verifier: "any" and "every". The editor rewrites it afterwards. | - | #16421, #16487 |
+| A title names what is broken, as a fact, under about 90 characters, with no "any" or "every" beyond what was tried. | Readers often read only the title. | Lint (`title-lowercase`, `title-code`, `title-hedge`, `title-possessive`, `title-parenthetical`): case, code names, hedges, possessives, parentheticals. Verifier: "any" and "every". The editor rewrites it afterwards. | Eval `scope-claims`, 2026-10-11, Opus: 4/4 kept the finding narrow with the scope rules, 3/4 without. | #16421, #16487 |
 | Always give `reproduced`. Another trigger is not another try. | "Every time" and "one in three" are different bugs. | Lint (`rate-format`, `finding-rate`): rate format, and the rate matches the scenario's. | - | #16421 |
 | Cold-replay first-start faults and anything that may depend on state or timing. Scale a race up until it fails every try. | A finding that only fails warm doesn't reproduce for the reader. | Nothing | - | #16355 |
 | Write each precondition in full, one state per item. A running app is never a precondition. | Not recorded. | Lint (`precondition-name-length`, `precondition-scratch-path`, `precondition-running-app`): name length, paths, running apps. | - | #16421 |
 | Observed and Expected lead with the exact difference in one or two sentences. A reference goes in Expected. | The card shows them side by side. | Lint (`comparison-length`, `semicolon`, `judgment-word`, `reference-in-observed`, `digit-grouping`): sentence count, semicolons, judgment words, a reference in Observed, digit grouping. The editor rewrites the opening. | - | #16421 |
-| Claim no more than the run checked. Take Expected from a user or a reference, never from the code. | Code tells you why, not whether it is right. | Verifier: VERIFY and Observed claims against the log and shots. | - | #16421 |
+| Claim no more than the run checked. Take Expected from a user or a reference, never from the code. | Code tells you why, not whether it is right. | Verifier: VERIFY and Observed claims against the log and shots. | Eval `scope-claims`, 2026-10-11, Opus: 4/4 kept the finding narrow with the scope rules, 3/4 without. | #16421 |
 | A failed check is about one finding. A different behavior on the same screen is its own finding. | Not recorded. | Lint (`scenario-fails-other-finding`): Status names another finding. Verifier: Observed against its finding. | - | #16421 |
 | Evidence is Positron's log lines, verbatim, with no note after them. Never `actions.log` or a file the run saved. | A reader must tell what was logged from what the agent concluded. | Lint (`evidence-note`, `evidence-run-file`, `evidence-trailing-note`): notes, run-written files, trailing commentary. | - | #16452 |
 | Add a `missing` item only for a line you can quote exactly. | Not recorded. | Nothing | - | #16452 |
 | The Cause blames the defective line. Say whether the change added it only when the diff settles it, and never label a finding new or pre-existing. | Not recorded. It replaced an Introduced? label. | Verifier: the origin sentence against the diff. | - | #16233 |
 | Map JavaScript stacks through `map-stack.mjs`. | Compiled frames point at `out/`, not the source. | Lint (`compiled-frames`): compiled frames. | - | #16221 |
 | List a test file only after opening it, at the lowest level that catches the bug. Leave the list empty rather than guess. | A wrong test file is worse than none. | Lint (`test-file-missing`): a test file not in the repo. Verifier: coverage claims. | - | #16233 |
-| Write `report.json` with a Bash heredoc, not the Write tool. | The Write tool rejects a subagent's report file, and the run loses its output. | Pipeline: no report means exit 1. | - | #16162 |
+| Write `report.json` with a quoted Bash heredoc. | The explorer has no file-writing tool, and a quoted heredoc keeps backticks and `$` as written. | Pipeline: no report means exit 1. | - | #16162 |
 | Check with `lint-json.mjs` until no errors remain. Don't render. | It's rendered once its findings are verified. | Pipeline: re-checks and retries once. | - | #16221 |
 | Don't file issues or make a merge call. | The person decides what is real. | Nothing | - | #16162 |
 
@@ -143,7 +143,7 @@ Then update the rule's row here in the same PR.
 |---|---|---|---|---|
 | Be adversarial: the report is a claim, not evidence. | Not recorded. | Nothing | - | #16162 |
 | Trace the path from the trigger to the symptom through the blamed code, and read any test file the repro uses. | Cited lines existing doesn't show they cause the bug. | Nothing | - | #16233 |
-| Narrow a Cause worded wider than the cases tried. | Causes were worded wider than the cases tried. | Nothing | - | #16355 |
+| Narrow a Cause worded wider than the cases tried. | Causes were worded wider than the cases tried. | Nothing | Eval `verifier-narrows`, 2026-10-11, Sonnet: 4/4 narrowed the title with the rule, 4/4 without. | #16355 |
 | For each "any", "every", "all" or "always" in a title, check one untried case against the code. | Titles claimed more than the run covered. | Nothing | - | #16421 |
 | Check a claim that no error appeared against the screenshots. | Not recorded. | Nothing | - | #16421 |
 | A race Cause needs log lines that show the events in the claimed order. | Not recorded. | Nothing | - | this branch |
@@ -199,14 +199,15 @@ reads 6 of its 18 rules from its reply, and nothing confirms it did the other
 12, such as tracing the cause or checking steps against the log. Those 12 are
 how a finding gets judged, so a weak verifier would go unnoticed.
 
-Four of the explorer's rules have been measured. The batching rule showed no
-effect. Cutting the prose that has a finding's steps copy the ledger more than
-doubled lint errors. The first two evals, on controls and on manufacturing
-state, found no difference: Opus planned both with or without the rule, 4 of 4
-times each. That doesn't make the rules safe to cut. A plan isn't a run, both
-fixtures make the right move fairly obvious, and other lines of explorer.md
-still mention controls and manufactured state. A harder fixture, where the
-obvious move fails, would tell more.
+The batching rule showed no effect. Cutting the prose that has a finding's
+steps copy the ledger more than doubled lint errors. Five evals, at 4 samples
+per arm, have found at most one plan in four between having a rule and not:
+the stale-state and scope-claims cases leaned toward the rules (3/4 against
+2/4, 4/4 against 3/4), and the controls, manufacture-state and verifier cases
+showed none. Four samples cannot tell a one-in-four difference from chance, so
+none of this says a rule can go. A plan isn't a run either, and other lines of
+the prompts still say much of what an eval cuts. A case worth a bigger sample
+is stale-state, the one where the obvious move fails.
 
 Most of the explorer's 24 unchecked rules are about how to explore: risk
 first, real user state, controls, cold replays. That is where the skill finds

@@ -715,9 +715,9 @@ Leave both lists empty when no test would catch it, such as a spacing bug.
 ## Write and check the report
 
 Write `report.json` in the run directory with Bash, as one quoted heredoc:
-`cat > "$RUN/report.json" <<'REPORT'`, so backticks and `$` pass through. Do
-not use the Write tool: it rejects a subagent's report file, and the run loses
-its entire output. Its shape is `report.schema.json` beside the renderer:
+`cat > "$RUN/report.json" <<'REPORT'`, so backticks and `$` pass through; you
+have no file-writing tool. Its shape is `report.schema.json` beside the
+renderer:
 
 ```json
 {

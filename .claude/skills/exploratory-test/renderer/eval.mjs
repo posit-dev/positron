@@ -9,6 +9,7 @@
 // pass. The agent answers with a plan and no tools, once with the prompt as it
 // is and once with the rule cut out, and Haiku grades each plan. Usage:
 //   node eval.mjs [case ...] [--samples N] [--model opus] [--dry-run]
+// A case may name its own model, and values for its prompt's {{NAME}} placeholders.
 // A case whose rule text is no longer in the prompt fails before anything is
 // spent: update its `remove` when the rule is reworded.
 
@@ -31,10 +32,20 @@ export function loadCase(dir, { readFile = p => readFileSync(p, 'utf8') } = {}) 
 	return {
 		rule: spec.rule,
 		criterion: spec.criterion,
-		with: agent,
-		without: ablate(agent, spec.remove),
+		model: spec.model ?? null,
+		with: fill(agent, spec.fill),
+		without: fill(ablate(agent, spec.remove), spec.fill),
 		fixture: readFile(join(dir, spec.fixture)),
 	};
+}
+
+/**
+ * `text` with its `{{NAME}}` placeholders filled, as the pipeline fills the
+ * verifier's: from `values`, else with a pointer to the fixture, which holds
+ * what the files would.
+ */
+export function fill(text, values = {}) {
+	return text.replace(/\{\{(\w+)\}\}/g, (_, key) => values[key] ?? '(given below)');
 }
 
 /**
@@ -132,9 +143,10 @@ async function main(argv) {
 	const cwd = mkdtempSync(join(tmpdir(), 'exploratory-eval-'));
 	const quiet = () => { };
 	const tasks = cases.flatMap(c => ['with', 'without'].flatMap(arm => Array.from({ length: samples }, (_, i) => async () => {
-		const row = { case: c.name, arm, sample: i + 1, model: values.model };
+		const model = c.model ?? values.model;
+		const row = { case: c.name, arm, sample: i + 1, model };
 		try {
-			const plan = await runClaude({ prompt: agentPrompt(c[arm], c.fixture), model: values.model, cwd, feed: quiet });
+			const plan = await runClaude({ prompt: agentPrompt(c[arm], c.fixture), model, cwd, feed: quiet });
 			const grade = await runClaude({ prompt: gradePrompt(c.criterion, plan.text), model: 'haiku', cwd, feed: quiet });
 			Object.assign(row, { plan: plan.text, costUsd: plan.costUsd, grade: parseGrade(grade.text), why: grade.text, gradeCostUsd: grade.costUsd });
 		} catch (e) {
