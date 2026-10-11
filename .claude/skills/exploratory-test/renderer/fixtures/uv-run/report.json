@@ -1,0 +1,381 @@
+{
+	"header": {
+		"title": "Install uv from the create venv from file notification, and the Allow Uv Python Install gate",
+		"branch": "midleman/python-interpreters-install-uv-from-the-create-v",
+		"sha": "9e0cbdf306",
+		"result": "Without uv, Yes on the requirements.txt or pyproject.toml notification and picking uv in Create Environment now ask to install uv, then build the venv. With Allow Uv Python Install off, uv is hidden or refused while it is missing. **With uv installed and Allow Uv Python Install off, Create Environment's uv option still lists and downloads Pythons that aren't installed.**",
+		"tested": "the create venv notification (requirements.txt and pyproject.toml), Create Environment's uv option, uv install consent, decline, failure and retry, the setting off error and its link, the palette entry, and New Folder from Template's environment list",
+		"notExercised": "the uv.lock notification, New Folder's Install uv button, and the Windows PowerShell installer",
+		"details": [
+			{
+				"title": "Change under test",
+				"body": "The create venv from requirements.txt or pyproject.toml notification now offers uv whenever `python.allowUvPythonInstall` is on, and installs uv (with consent) when it is missing instead of failing. Create Environment's uv provider does the same. With the setting off, uv is left out of Create Environment while it is missing, `Python: Install Python via uv` is hidden, and any uv install is refused with an error that links to the setting."
+			},
+			{
+				"title": "State manipulation",
+				"body": "Each scenario group ran in its own Positron instance launched for this run (four in all, on CDP ports 40783, 37799, 46133 and 38751, each stopped afterwards), with `HOME` pointed at an empty folder under the run directory and `/root/.local/bin` and `/root/.venv/bin` dropped from `PATH`, so uv read as not installed. The real uv installer wrote uv into that empty home. For the install failure, a `curl` stand-in that fails to resolve the host was put first on `PATH`, then deleted to remove the fault. `python.allowUvPythonInstall` was set through a seed settings file and through the Settings editor and user settings.json. Nothing outside the run directory was changed. The launcher's own CDP check uses curl, so it timed out for the instance with the failing curl, which was attached by hand. The pre-launched instance was not driven."
+			},
+			{
+				"title": "Branch verification",
+				"body": "CI compiled `out/` in this job from the ref under test (head 9e0cbdf306). The behavior seen matches the diff: the notification says `Use uv` with uv missing, and the extension logged `Not installing uv: python.allowUvPythonInstall is off`, a line the diff adds."
+			},
+			{
+				"title": "Local noise",
+				"body": "Every instance logged the same startup errors: extension manifests missing `engines`, a Copilot menu command not defined, GitHubLoginFailed, and an asyncio `client_connected_cb` error at each kernel start. None is tied to a check."
+			}
+		],
+		"pr": {
+			"repo": "posit-dev/positron",
+			"number": 16511
+		}
+	},
+	"findings": [
+		{
+			"n": 1,
+			"severity": "moderate",
+			"reproduced": {
+				"n": 2,
+				"m": 2
+			},
+			"feature": "Python environments",
+			"title": "uv option downloads a Python with Allow Uv Python Install off",
+			"preconditions": [
+				{
+					"name": "uv installed",
+					"text": "uv 0.12.9 installed in `~/.local/bin`"
+				},
+				{
+					"name": "Pythons on the machine",
+					"text": "Python 3.12.3 and 3.14.6 installed, and no other version"
+				},
+				{
+					"name": "pyproject workspace",
+					"text": "A workspace with `pyproject.toml` and a `.venv`"
+				}
+			],
+			"steps": [
+				{
+					"kind": "action",
+					"text": "Set `python.allowUvPythonInstall` to `false` in user settings."
+				},
+				{
+					"kind": "action",
+					"text": "Run `Python: Create Environment...`."
+				},
+				{
+					"kind": "verify",
+					"text": "the environment type list still offers uv, which is installed",
+					"result": "pass",
+					"shots": [
+						"shots/S13-01.png"
+					]
+				},
+				{
+					"kind": "action",
+					"text": "Press Escape to close the environment type list."
+				},
+				{
+					"kind": "action",
+					"text": "Run `Python: Create Environment...`."
+				},
+				{
+					"kind": "action",
+					"text": "Pick `uv`."
+				},
+				{
+					"kind": "action",
+					"text": "Pick `Delete and Recreate`."
+				},
+				{
+					"kind": "verify",
+					"text": "the Python version list offers only the Pythons on the machine, 3.14 and 3.12",
+					"result": "fail",
+					"finding": 1,
+					"observed": "The list offers Python `3.14`, `3.13`, `3.12`, `3.11`, `3.10` and `3.9`, though only 3.14 and 3.12 are installed",
+					"shots": [
+						"shots/S13-03.png"
+					],
+					"log": {
+						"source": "logs/38751-python-language-pack.log:448",
+						"body": "Downloading cpython-3.11.17-linux-x86_64-gnu (download) (29.4MiB)"
+					}
+				},
+				{
+					"kind": "action",
+					"text": "Pick the `Python` `3.11` row with the arrow keys and Enter."
+				},
+				{
+					"kind": "verify",
+					"text": "no Python is downloaded",
+					"result": "fail",
+					"finding": 1,
+					"observed": "uv downloads CPython 3.11.17 and a Python 3.11.17 (uv: ws-pyproj) console starts",
+					"shots": [
+						"shots/S13-04.png"
+					]
+				}
+			],
+			"observed": "With Allow Uv Python Install off, picking uv in Create Environment lists Python versions that are not installed, and picking `3.11` downloads CPython 3.11.17 and starts a console on it. A second try with `3.10` downloaded CPython 3.10.22 the same way.",
+			"expected": "With the setting off, Positron does not install Python with uv, as the setting's description now says: uv lists only the Pythons already on the machine, or is not offered.",
+			"evidence": [
+				{
+					"kind": "log",
+					"path": "logs/38751-python-language-pack.log:446",
+					"process": "Extension host",
+					"when": "17:21:46",
+					"quote": "> ~/.local/bin/uv --color never venv .venv --no-project --seed ==-p 3.11=="
+				},
+				{
+					"kind": "log",
+					"path": "logs/38751-python-language-pack.log:448",
+					"process": "Extension host",
+					"when": "17:21:46",
+					"quote": "==Downloading cpython-3.11.17-linux-x86_64-gnu== (download) (29.4MiB)"
+				},
+				{
+					"kind": "log",
+					"path": "logs/38751-python-language-pack.log:514",
+					"process": "Extension host",
+					"when": "17:22:37",
+					"quote": "==Downloading cpython-3.10.22-linux-x86_64-gnu== (download) (28.0MiB)"
+				}
+			],
+			"cause": "The uv provider's version step ignores the setting and offers Pythons that uv would download. In detail, `pickPythonVersion` (`extensions/positron-python/src/client/pythonEnvironments/creation/provider/uvUtils.ts:40`) lists every version from `getUvPythonVersions()`, downloadable ones included, and `uv venv -p <version>` downloads a missing one. `getRankedProviders` (`extensions/positron-python/src/client/pythonEnvironments/creation/createEnvApi.ts:127`) keeps uv in the list whenever it is installed, and the PR's test `uv is still listed first when it is installed and python.allowUvPythonInstall is off` in `createEnvApi.unit.test.ts` asserts that. The version list predates the change, but the change rewrote the setting's description to promise that Positron does not install Python with uv when it is off, and gates uv entirely in the notification path (`autoCreateVenv.ts`) but not here.",
+			"tests": {
+				"cases": [
+					{
+						"text": "With `python.allowUvPythonInstall` off and uv installed, the uv provider's version step offers only installed Pythons, or does not create from a version uv would download.",
+						"level": "unit",
+						"path": "extensions/positron-python/src/test/pythonEnvironments/creation/provider/uvCreationProvider.unit.test.ts",
+						"isNew": false,
+						"note": "covers install declined, workspace and version picks, creation success and failure, and prerelease handling, with no case for the setting"
+					}
+				],
+				"related": [
+					{
+						"path": "extensions/positron-python/src/test/pythonEnvironments/creation/createEnvApi.unit.test.ts",
+						"level": "unit",
+						"note": "provider ranking, including uv kept when installed with the setting off"
+					}
+				]
+			},
+			"verified": "confirmed",
+			"summary": "With Allow Uv Python Install off and uv installed, picking uv in Create Environment lists Python `3.13`, `3.11`, `3.10` and `3.9` though only 3.14 and 3.12 are installed, and picking `3.11` downloads CPython 3.11.17 and starts a console on it.",
+			"where": "Setting `python.allowUvPythonInstall` set to `false`"
+		}
+	],
+	"scenarios": [
+		{
+			"id": "S01",
+			"name": "Install uv from the create venv from requirements.txt notification",
+			"status": "pass",
+			"result": "Yes on the notification asked to install uv, installed it, then created `.venv` with requests and started a uv console.",
+			"issues": [
+				{
+					"n": 16192,
+					"kind": "held"
+				}
+			]
+		},
+		{
+			"id": "S02",
+			"name": "Decline the uv install offered by the requirements.txt notification",
+			"status": "pass",
+			"result": "Cancel on the install uv modal closed it quietly, with no error, no `.venv` and no uv written."
+		},
+		{
+			"id": "S03",
+			"name": "A failed uv install from Create Environment shows an error with logs",
+			"status": "pass",
+			"result": "With the download failing, picking uv and Install uv showed `Failed to install uv.` with Show logs, and created nothing."
+		},
+		{
+			"id": "S04",
+			"name": "Retry Create Environment with uv right after the install failure",
+			"status": "pass",
+			"result": "With the fault removed, the same pick installed uv, offered Python versions and made a `.venv` with requests."
+		},
+		{
+			"id": "S05",
+			"name": "The requirements.txt notification offers venv when the setting is off",
+			"status": "pass",
+			"result": "With Allow Uv Python Install off and no uv, the notification said venv, and Yes opened a type list with Venv and Conda but no uv."
+		},
+		{
+			"id": "S06",
+			"name": "Install Python via uv is hidden from the Command Palette when the setting is off",
+			"status": "pass",
+			"result": "With Allow Uv Python Install off, the palette did not list `Python: Install Python via uv`."
+		},
+		{
+			"id": "S07",
+			"name": "Turning the setting on brings uv back without a reload",
+			"status": "pass",
+			"result": "After setting Allow Uv Python Install to true, the palette listed Install Python via uv and Create Environment listed uv."
+		},
+		{
+			"id": "S08",
+			"name": "Picking uv after the setting is turned off shows an error that links to the setting",
+			"status": "pass",
+			"result": "Picking uv with the setting just turned off showed an error naming the setting, and its link opened Settings at Allow Uv Python Install."
+		},
+		{
+			"id": "S09",
+			"name": "Turning the setting back on from the error's link lets uv be picked again",
+			"status": "pass",
+			"result": "With the setting off uv was missing from Create Environment, and once checked from the error's link, picking uv offered to install it."
+		},
+		{
+			"id": "S10",
+			"name": "New Folder from Template does not offer uv when the setting is off",
+			"status": "pass",
+			"result": "With the setting off and no uv, the Python Environment step offered only Venv and Conda."
+		},
+		{
+			"id": "S11",
+			"name": "Install uv from the pyproject.toml notification and sync",
+			"status": "pass",
+			"result": "Yes on the pyproject.toml notification installed uv after consent, ran `uv sync` and started a uv console with requests."
+		},
+		{
+			"id": "S12",
+			"name": "uv installed by the notification is listed first in Create Environment",
+			"status": "pass",
+			"result": "After the notification installed uv, Create Environment listed uv first, then Venv and Conda."
+		},
+		{
+			"id": "S13",
+			"name": "Create Environment with uv downloads a Python while the setting is off",
+			"status": "fail",
+			"result": "Fails 2/2",
+			"findings": [
+				1
+			]
+		},
+		{
+			"id": "N01",
+			"name": "Install uv from the uv.lock notification",
+			"status": "not-run",
+			"reason": "the change does not touch that path"
+		},
+		{
+			"id": "N02",
+			"name": "Windows PowerShell uv installer",
+			"status": "not-run",
+			"reason": "environment: Linux only"
+		},
+		{
+			"id": "N03",
+			"name": "Install uv from the New Folder flow's Install uv button",
+			"status": "not-run",
+			"reason": "unchanged code, ran out of priority"
+		},
+		{
+			"id": "N04",
+			"name": "Learn more on the install uv modal",
+			"status": "not-run",
+			"reason": "unchanged by the change"
+		}
+	],
+	"logs": [
+		{
+			"path": "logs/40783-python-language-pack.log",
+			"source": "Extension host",
+			"note": "Python extension output for the requirements.txt install, no errors"
+		},
+		{
+			"path": "logs/37799-python-language-pack.log",
+			"source": "Extension host",
+			"note": "Python extension output for decline, failure and retry, 1 expected install error"
+		},
+		{
+			"path": "logs/46133-python-language-pack.log",
+			"source": "Extension host",
+			"note": "Python extension output with the setting off, no errors"
+		},
+		{
+			"path": "logs/38751-python-language-pack.log",
+			"source": "Extension host",
+			"note": "Python extension output for the pyproject.toml instance, holds the downloads in Finding 1"
+		},
+		{
+			"path": "logs/38751-exthost.log",
+			"source": "Extension host",
+			"note": "2 errors, GitHubLoginFailed and a message to an exited kernel after Delete and Recreate"
+		},
+		{
+			"path": "logs/38751-renderer.log",
+			"source": "Renderer process",
+			"note": "7 errors, startup noise"
+		},
+		{
+			"path": "logs/38751-uv-python-dir.txt",
+			"source": "Shell",
+			"note": "listing of uv's Python download folder after Finding 1"
+		},
+		{
+			"path": "logs/all/",
+			"source": "All processes",
+			"note": "full log trees of each instance, by CDP port, startup noise only otherwise"
+		}
+	],
+	"files": [
+		{
+			"path": "files/ws-req/requirements.txt",
+			"desc": "`requirements.txt` pinning requests 2.32.3",
+			"uses": "S01, S02, S03, S04, S05"
+		},
+		{
+			"path": "files/fakebin/curl",
+			"desc": "a `curl` stand-in that fails to resolve the uv installer host",
+			"uses": "S02, S03"
+		},
+		{
+			"path": "files/seed-off/User/settings.json",
+			"desc": "seed user settings with `python.allowUvPythonInstall` false",
+			"uses": "S05, S06"
+		},
+		{
+			"path": "files/ws-pyproj/pyproject.toml",
+			"desc": "`pyproject.toml` depending on requests 2.32.3",
+			"uses": "S11, S13; Finding 1"
+		}
+	],
+	"environment": {
+		"positron": "Positron 2026.10.0 build 0, dev build of 9e0cbdf306 (Code - OSS 1.134.0)",
+		"os": "Ubuntu 24.04.4 LTS (Linux x86_64)",
+		"kernels": [
+			"Kallichore 0.1.71"
+		]
+	},
+	"verification": {
+		"failed": false,
+		"text": "A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.\n\nVERDICTS: 1=CONFIRMED\n\n1. Matches the report's cause. `pickPythonVersion` in `uvUtils.ts` lists every version from `getUvPythonVersions()` with no check of `allowUvPythonInstall`. `uv venv -p 3.11` then downloads the missing Python, and the timestamps agree: the log shows `Selected Python version 3.11` at 17:21:46.381 and the download at 17:21:46.602. The environment setup (empty HOME, uv installed by the official installer) cannot explain a download that uv itself starts.\n   - `createEnvApi.unit.test.ts` (new case `uv is still listed first when it is installed and python.allowUvPythonInstall is off`) asserts that uv stays listed when it is installed and the setting is off. That may be intended. It conflicts with the rewritten description, \"Positron does not offer to install uv or to install Python with uv\", so the reader decides.\n   - `uvCreationProvider.unit.test.ts` has no case for the setting, as the report says.\n   - Searches on \"allowUvPythonInstall\" and \"uv download python setting off\" turned up no matching issue.\n   - The fix is in `uvUtils.ts`, which the diff does not touch, so I left it off the CHANGE line.\n\n- The ledger's Noticed note O03 (the error notification's accessible name reads the raw markdown command URI) is plausible but was not checked, so I did not treat it as a defect.\n- Linked issue #16192 is marked `fix held`, not observed, so the LINKED line is omitted.\n\nNo process issues."
+	},
+	"cost": {
+		"passes": [
+			{
+				"label": "explore",
+				"model": "claude-opus-5-5",
+				"costUsd": 5.070281800000002,
+				"turns": 123,
+				"maxTurns": 200,
+				"durationMs": 1301070
+			},
+			{
+				"label": "verify",
+				"model": "claude-sonnet-5-5",
+				"costUsd": 0.1352275,
+				"turns": 5,
+				"durationMs": 16059
+			},
+			{
+				"label": "edit",
+				"model": "claude-sonnet-5-5",
+				"costUsd": 0.043306500000000005,
+				"turns": 1,
+				"durationMs": 2973
+			}
+		]
+	}
+}

@@ -232,6 +232,7 @@ test/unit/reporter.js
 .claude/skills/exploratory-test/renderer/lint-rules.mjs
 .claude/skills/exploratory-test/renderer/lint-rules.test.mjs
 .claude/skills/exploratory-test/renderer/lint-wording.mjs
+.claude/skills/exploratory-test/renderer/page.test.mjs
 .claude/skills/exploratory-test/renderer/text.mjs
 .claude/skills/exploratory-test/renderer/time-up-hook.mjs
 .claude/skills/exploratory-test/renderer/time-up-hook.test.mjs

@@ -1,0 +1,16 @@
+{
+	"repo": "posit-dev/positron",
+	"pr": 16511,
+	"fetchedAt": "2026-10-11T16:51:24.053Z",
+	"issues": [
+		{
+			"number": 16192,
+			"url": "https://github.com/posit-dev/positron/issues/16192",
+			"relation": "fixes",
+			"title": "python interpreters: install uv from the \"create venv from file\" notification",
+			"state": "open",
+			"createdAt": "2026-09-23T19:13:11Z",
+			"summary": "If folks do not have uv installed, if they follow the \"Create venv from requirements.txt\" notification, we should put folks through the uv installation workflow. Currently it just fails with a \"no uv installed\" error Screencast with repro"
+		}
+	]
+}
