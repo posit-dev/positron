@@ -69,32 +69,35 @@ export function parsePosIntEnv(name, fallback, rawValue) {
 	return n;
 }
 
-export function renderCostFooter(passes, maxTurns) {
+/**
+ * The step summary's cost lines from report.json's `cost.passes`. A pass with
+ * no cost did not run, and only the explorer's carries a turn cap.
+ */
+export function renderCostFooter(passes) {
 	const lines = [];
 	let total = null;
 	let elapsed = 0;
 	for (const pass of passes) {
-		const c = pass?.cost;
-		if (!c || typeof c.total_cost_usd !== 'number') {
+		if (typeof pass?.costUsd !== 'number') {
 			// A pass that did not run has nothing to bill and no line.
 			continue;
 		}
-		const bits = [`$${c.total_cost_usd.toFixed(2)}`];
-		const model = modelDisplayName(c.model);
+		const bits = [`$${pass.costUsd.toFixed(2)}`];
+		const model = modelDisplayName(pass.model);
 		if (model) {
 			bits.unshift(model);
 		}
-		if (typeof c.num_turns === 'number') {
+		if (typeof pass.turns === 'number') {
 			// Only the explore pass has a cap worth watching; showing one for
 			// the others invites reading a limit nobody is near.
-			bits.push(pass.main ? `${c.num_turns}/${maxTurns} turns` : `${c.num_turns} turns`);
+			bits.push(pass.maxTurns ? `${pass.turns}/${pass.maxTurns} turns` : `${pass.turns} turns`);
 		}
-		if (typeof c.duration_ms === 'number') {
-			bits.push(formatMinutes(c.duration_ms));
-			elapsed += c.duration_ms;
+		if (typeof pass.durationMs === 'number') {
+			bits.push(formatMinutes(pass.durationMs));
+			elapsed += pass.durationMs;
 		}
 		lines.push(`_${pass.label}: ${bits.join(' | ')}_`);
-		total = (total === null ? 0 : total) + c.total_cost_usd;
+		total = (total === null ? 0 : total) + pass.costUsd;
 	}
 	if (lines.length === 0) {
 		return '_cost unknown_';
@@ -330,23 +333,6 @@ export function renderStepSummary(report, baseUrl) {
 		lines.push('The report and its screenshots are in the workflow artifact.');
 	}
 	return `${lines.join('\n')}\n`;
-}
-
-/**
- * report.json's `cost` from the billed passes, `{ label, main, cost }` with
- * cost a cost record, as renderCostFooter reads them: a pass with no cost did not run.
- */
-export function costJson(passes, maxTurns) {
-	return {
-		passes: passes.filter(p => typeof p.cost?.total_cost_usd === 'number').map(p => ({
-			label: p.label,
-			model: p.cost.model ?? null,
-			costUsd: p.cost.total_cost_usd,
-			turns: p.cost.num_turns ?? null,
-			...(p.main ? { maxTurns } : {}),
-			durationMs: p.cost.duration_ms ?? null,
-		})),
-	};
 }
 
 /** Labels this workflow's PR comments. Each /test run owns its own comment. */

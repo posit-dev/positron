@@ -9,11 +9,10 @@
 // change. Usage:
 //   node lint-json.mjs <report.json> [ledger.md]
 // Each check is logged to format-checks.jsonl beside the report, for the run's
-// stats. settleReportJson
-// is the same check once the explorer is done, with one retry.
+// stats. readCheckedReport is the same check once the explorer is done, logged.
 
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readKnownIssues } from './finish.mjs';
@@ -237,33 +236,6 @@ export function lintReportJson(json, ledgerText) {
 	return checkReportJson(json, ledgerText).map(p => ({ ...p, text: `report.json: ${p.text}` }));
 }
 
-/** The writer's second chance: the problems, and what to fix them from. */
-export function buildRetryPrompt(problems) {
-	return [
-		'A check compared the report you returned with ledger.md, the record of what the run did, and found these problems:',
-		'',
-		...problems.map(p => `- ${p.text}`),
-		'',
-		'Fix each one from ledger.md: a finding\'s steps and rate are the scenario\'s that failed for it, each step as the ledger words it (you may trim, not add), and each scenario\'s status and rate as the ledger records them. Where the ledger supports neither version, drop the claim. Change nothing else, and return the whole report again.',
-	].join('\n');
-}
-
-/**
- * The first report with the retry's version of each finding the check
- * flagged, and nothing else of the retry's: a retry asked to fix one thing
- * rewords others, and those were already right. Returns the report and the
- * findings the retry changed that were not taken.
- */
-export function mergeRetry(first, retry, problems) {
-	const flagged = new Set(problems.map(p => p.finding).filter(n => n !== undefined));
-	const theirs = new Map((retry.findings ?? []).map(f => [f.n, f]));
-	const ours = first.findings ?? [];
-	const kept = ours.filter(f => !flagged.has(f.n) || theirs.has(f.n)).map(f => (flagged.has(f.n) ? theirs.get(f.n) : f));
-	const added = (retry.findings ?? []).filter(f => flagged.has(f.n) && !ours.some(g => g.n === f.n));
-	const ignored = (retry.findings ?? []).filter(f => !flagged.has(f.n) && JSON.stringify(f) !== JSON.stringify(ours.find(g => g.n === f.n))).map(f => `Finding ${f.n}`);
-	return { report: { ...first, findings: [...kept, ...added].sort((x, y) => x.n - y.n) }, ignored };
-}
-
 /** Schema problems first: the ledger check reads fields the schema requires. */
 function problemsOf(json, ledger) {
 	const shape = schemaProblems(json);
@@ -271,46 +243,26 @@ function problemsOf(json, ledger) {
 }
 
 /**
- * Checks report.json against the ledger and, if anything is wrong, sends
- * `resume` the problems once, keeping only the parts it was asked to fix.
- * Returns the report, or null when the explorer wrote none.
+ * report.json once the explorer is done, or null when it wrote none that
+ * parses. What the check still finds is logged: the explorer runs it until it
+ * passes, so a problem here is one it left on purpose or ran out of time for.
  */
-export async function settleReportJson(workDir, { resume, log = console.log }) {
+export function readCheckedReport(workDir, { log = console.log } = {}) {
 	const path = join(workDir, 'report.json');
 	if (!existsSync(path)) {
 		return null;
 	}
+	let json;
+	try {
+		json = JSON.parse(readFileSync(path, 'utf8'));
+	} catch (err) {
+		log(`[json] report.json does not parse: ${err.message}`);
+		return null;
+	}
 	const ledger = existsSync(join(workDir, 'ledger.md')) ? readFileSync(join(workDir, 'ledger.md'), 'utf8') : '';
-	const read = () => {
-		try {
-			return JSON.parse(readFileSync(path, 'utf8'));
-		} catch (err) {
-			log(`[json] report.json does not parse: ${err.message}`);
-			return null;
-		}
-	};
-	const first = read();
-	const problems = first ? problemsOf(first, ledger) : [problem('schema', 'report.json is not valid JSON')];
-	log(`[json] ${problems.length} problems after the explorer: ${problems.map(p => p.text).join(' | ')}`);
-	if (!problems.length || !resume) {
-		return first;
-	}
-	if (first) {
-		copyFileSync(path, join(workDir, 'report.first.json'));
-	}
-	await resume(`${buildRetryPrompt(problems)}\n\nWrite it to \`${path}\` again and run the check.`);
-	const retry = read();
-	if (!retry) {
-		return first;
-	}
-	copyFileSync(path, join(workDir, 'report.retry.json'));
-	// A broken first draft has nothing to merge into.
-	const { report, ignored } = first && !schemaProblems(first).length ? mergeRetry(first, retry, problems) : { report: retry, ignored: [] };
-	const left = problemsOf(report, ledger);
-	log(`[json] after the retry: ${left.length} problems${ignored.length ? `; kept the first version of ${ignored.join(', ')}` : ''}`);
-	writeFileSync(path, `${JSON.stringify(report, null, '\t')}\n`);
-	writeFileSync(join(workDir, 'json-trial.json'), `${JSON.stringify({ first: problems.map(p => p.text), left: left.map(p => p.text), ignored }, null, 2)}\n`);
-	return report;
+	const problems = problemsOf(json, ledger);
+	log(`[json] ${problems.length} problems after the explorer${problems.length ? `: ${problems.map(p => p.text).join(' | ')}` : ''}`);
+	return json;
 }
 
 /** formatProblems' options for the run directory `dir`. */

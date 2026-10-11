@@ -9,8 +9,8 @@ is handed:
    helpers and writes two files to the run directory: `report.json`, the
    findings in the shape `renderer/report.schema.json` gives, and `ledger.md`,
    what it ran, the files a repro needs, its logs and screenshots. It checks
-   the report with `renderer/lint-json.mjs`, and a report that still has
-   problems when it is done gets one retry in the same session.
+   the report with `renderer/lint-json.mjs` until it passes; the pipeline
+   runs the same check once it is done and logs what is left.
 2. **Verifier** (`verifier.md`) never touches the app. It reads the report,
    the ledger and the diff, and gives each finding a verdict: CONFIRMED, FALSE
    POSITIVE or UNRESOLVED. It also flags a finding that matches a known issue
@@ -27,9 +27,9 @@ Each of them writes what it decided into `report.json`: verdicts, known
 issues, titles and openings, and what each pass cost. `renderer/render.mjs`
 (or `writeJsonPage` in CI) then turns `report.json` into `index.html`.
 
-Local and CI runs share every step after the explorer: `finishRun` in
-`renderer/pipeline.mjs` runs them in order and is given only a way to run an
-agent. Locally that is `claude -p` (`renderer/claude-cli.mjs`), which uses the
+Local and CI runs share every step after the explorer: `completeRun` in
+`renderer/pipeline.mjs` checks the report, runs the later passes in order and
+writes what each cost, and is given only a way to run an agent. Locally that is `claude -p` (`renderer/claude-cli.mjs`), which uses the
 person's own login; in CI it is an Agent SDK session (`run.mjs`). So a change
 to the order, a retry or a fallback goes in `pipeline.mjs`, and both get it.
 A local run's explorer is a `claude -p` session too, started by `pipeline.mjs

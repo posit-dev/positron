@@ -66,6 +66,23 @@ function clip(text, max) {
 }
 
 /**
+ * buildStats' cost fields from report.json's `cost.passes`: the explorer's
+ * model and turns, the total when every pass has a cost, and the isolation
+ * pass apart, since its cost is the one that is a choice.
+ */
+export function passStats(passes = []) {
+	const pass = label => passes.find(p => p.label === label);
+	return {
+		model: pass('explore')?.model ?? null,
+		turns: pass('explore')?.turns ?? null,
+		maxTurns: pass('explore')?.maxTurns ?? null,
+		costUsd: passes.length && passes.every(p => typeof p.costUsd === 'number') ? passes.reduce((sum, p) => sum + p.costUsd, 0) : null,
+		durationMs: passes.reduce((sum, p) => sum + (p.durationMs ?? 0), 0) || null,
+		isolate: pass('isolate') ? { durationMs: pass('isolate').durationMs, turns: pass('isolate').turns ?? null } : null,
+	};
+}
+
+/**
  * One run's stats record. `parsed` is reportFromJson's model of the finished
  * report, so findings and verdicts are counted the way the page shows them.
  */

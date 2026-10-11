@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage } from './pipeline.mjs';
+import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage } from './pipeline.mjs';
 import { parseSystemLine } from './ledger.mjs';
 import { reportFromJson } from './report-json.mjs';
 
@@ -327,6 +327,34 @@ test('recordBranchCheck replaces the Branch verification a report has, and skips
 		writeFileSync(join(dir, 'report.json'), JSON.stringify({ header: { details: [{ title: 'State manipulation', body: 'a' }, { title: 'Branch verification', body: 'the explorer grepped' }] }, findings: [] }));
 		recordBranchCheck(dir, 'checked');
 		assert.deepEqual(JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')).header.details, [{ title: 'State manipulation', body: 'a' }, { title: 'Branch verification', body: 'checked' }]);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test('completeRun adds the header, the branch check and every pass\'s cost, or returns null with no report', async () => {
+	const dir = mkdtempSync(join(tmpdir(), 'complete-'));
+	const options = {
+		...SHAS,
+		verify: false,
+		// The model that answered, when the runner knows it, over the one asked for.
+		runAgent: async () => ({ text: EDIT(), model: 'claude-sonnet-5', durationMs: 1000, turns: 2, costUsd: 0.5 }),
+		stop: () => { },
+		branchCheck: 'Checked by CI.',
+		header: { pr: { repo: 'posit-dev/positron', number: 7 } },
+	};
+	const explored = { model: 'claude-opus-5-5', costUsd: 3, turns: 40, maxTurns: 200, durationMs: 60000 };
+	try {
+		assert.equal(await completeRun(dir, explored, options), null);
+		writeFileSync(join(dir, 'report.json'), JSON.stringify(REPORT));
+		const json = await completeRun(dir, explored, options);
+		assert.deepEqual(json, JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')));
+		assert.deepEqual(json.header.pr, { repo: 'posit-dev/positron', number: 7 });
+		assert.deepEqual(json.header.details.at(-1), { title: 'Branch verification', body: 'Checked by CI.' });
+		assert.deepEqual(json.cost.passes, [
+			{ label: 'explore', model: 'claude-opus-5-5', costUsd: 3, turns: 40, maxTurns: 200, durationMs: 60000 },
+			{ label: 'edit', model: 'claude-sonnet-5', costUsd: 0.5, turns: 2, durationMs: 1000 },
+		]);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}

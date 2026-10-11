@@ -5,7 +5,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkReportJson, formatProblems, lintReportJson, mergeRetry, schemaProblems } from './lint-json.mjs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { formatProblems, lintReportJson, readCheckedReport, schemaProblems } from './lint-json.mjs';
 
 const LEDGER = [
 	'# Scenario ledger',
@@ -123,27 +126,6 @@ test('a log line listed as both found and missing is a problem', () => {
 	assert.deepEqual(lint(j), ['report.json: Finding 1 evidence lists logs/renderer.log as both a log line and missing']);
 });
 
-test('a retry is taken only for the findings the check flagged', () => {
-	const first = json();
-	first.findings[0].reproduced = { n: 3, m: 3 };
-	const retry = json();
-	// The flagged finding is taken whole, rewording and all.
-	retry.findings[0].observed = 'Reworded';
-	const problems = checkReportJson(first, LEDGER);
-	assert.deepEqual(problems.map(p => p.finding), [1]);
-	const { report, ignored } = mergeRetry(first, retry, problems);
-	assert.deepEqual({ rate: report.findings[0].reproduced, observed: report.findings[0].observed, ignored }, { rate: { n: 2, m: 2 }, observed: 'Reworded', ignored: [] });
-	assert.deepEqual(lintReportJson(report, LEDGER), []);
-});
-
-test('a retry can add the finding the check found missing', () => {
-	const first = json();
-	const retry = json();
-	first.findings = [];
-	const { report } = mergeRetry(first, retry, checkReportJson(first, LEDGER));
-	assert.deepEqual(report.findings.map(f => f.n), [1]);
-});
-
 test('the schema check names each field that is missing or of the wrong kind', () => {
 	const schema = { type: 'object', required: ['findings', 'logs'], $defs: { int: { type: 'integer', minimum: 1 } }, properties: { findings: { type: 'array', items: { type: 'object', properties: { n: { $ref: '#/$defs/int' }, severity: { enum: ['major', 'minor'] } } } } } };
 	assert.deepEqual(schemaProblems({ findings: [{ n: 0, severity: 'big' }, { n: '2' }] }, schema), [
@@ -185,4 +167,19 @@ test('the write-up rules apply to report.json\'s fields', () => {
 		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
 		'report: Finding 1 step 1 is two actions ("then press"); write each as its own step',
 	]);
+});
+
+test('readCheckedReport returns the report and logs what the check still finds, or null with none that parses', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'checked-'));
+	const lines = [];
+	const log = line => lines.push(line);
+	assert.equal(readCheckedReport(dir, { log }), null);
+	writeFileSync(join(dir, 'ledger.md'), LEDGER);
+	writeFileSync(join(dir, 'report.json'), '{');
+	assert.equal(readCheckedReport(dir, { log }), null);
+	writeFileSync(join(dir, 'report.json'), JSON.stringify(json()));
+	assert.deepEqual(readCheckedReport(dir, { log }), json());
+	assert.match(lines[0], /does not parse/);
+	assert.match(lines[1], /^\[json\] \d+ problems after the explorer: report\.header is missing/);
+	rmSync(dir, { recursive: true, force: true });
 });

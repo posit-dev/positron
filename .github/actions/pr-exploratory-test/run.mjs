@@ -12,14 +12,13 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { missingFiles, readRunDir } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page-common.mjs';
-import { settleReportJson } from '../../../.claude/skills/exploratory-test/renderer/lint-json.mjs';
 import { reportFromJson, writeJsonPage } from '../../../.claude/skills/exploratory-test/renderer/report-json.mjs';
 import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
-import { environmentBrief, environmentLines, finishRun, readEnvironment, recordBranchCheck } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
+import { completeRun, costPasses, environmentBrief, environmentLines, readEnvironment } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
+import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
-import { buildTaskLine, describeChange, costJson, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, describeChange, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -51,8 +50,6 @@ const VERIFY_ENABLED = process.env.VERIFY !== 'false';
 const ISOLATE_MAX_TURNS = parsePosIntEnv('ISOLATE_MAX_TURNS', 100, process.env.ISOLATE_MAX_TURNS);
 // Off for teams whose AI policy does not allow the report's copy-for-agent prompts.
 const AGENT_PROMPTS = process.env.AGENT_PROMPTS !== 'false';
-// Each later pass bills separately from the explore pass, summed over its sessions.
-const passCosts = { verify: buildCostRecord(null), isolate: buildCostRecord(null), edit: buildCostRecord(null), retry: buildCostRecord(null) };
 const REPORT_BASE_URL = buildShotsBaseUrl(process.env.REPORT_BASE_URL || '');
 const STEP_SUMMARY = process.env.GITHUB_STEP_SUMMARY;
 // Workaround for claude-agent-sdk-typescript#296 (resolver picks musl over
@@ -176,15 +173,7 @@ async function runAgent(step) {
 		timeLimit: step.timeLimitMinutes ?? null, timeUpMessage: step.timeUpMessage,
 		...(step.role === 'verify' ? { effort: 'medium' } : {}),
 	});
-	addCost(step.role, result.cost);
-	return { text: result.finalText, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId };
-}
-
-/** Adds a session's cost to its pass's. */
-function addCost(role, record) {
-	const sum = passCosts[role];
-	const add = key => (sum[key] ?? 0) + (record[key] ?? 0) || null;
-	passCosts[role] = { ...record, total_cost_usd: add('total_cost_usd'), num_turns: add('num_turns'), duration_ms: add('duration_ms') };
+	return { text: result.finalText, model: result.cost.model, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId };
 }
 
 async function main() {
@@ -256,37 +245,18 @@ async function main() {
 
 	// The agent was told to write report.json itself. A report with problems
 	// gets one retry in the same session.
-	const resume = session.sessionId ? async prompt => {
-		const again = await runSession({ prompt, systemPrompt, allowedTools: ['Bash', 'Read', 'Glob', 'Grep'], model: MODEL, maxTurns: 30, cwd: REPO_ROOT, resume: session.sessionId, claudeCodePath: CLAUDE_CODE_PATH, label: 'json-retry' });
-		addCost('retry', again.cost);
-	} : null;
-	let report = await settleReportJson(WORK_DIR, { resume, log: line => console.log(line) });
-	// The restored caches hold dependencies, built-ins and Playwright, never compiled output.
-	if (report) {
-		recordBranchCheck(WORK_DIR, `CI compiled \`out/\` in this job from the ref under test (head \`${HEAD_SHA.slice(0, 10)}\`).`);
-		report = JSON.parse(readFileSync(join(WORK_DIR, 'report.json'), 'utf8'));
-	}
-	// A /test run has the PR from its event; a dispatched one from a lookup of its branch.
-	if (report && /^\d+$/.test(process.env.PR_NUMBER ?? '') && process.env.GITHUB_REPOSITORY) {
-		report = { ...report, header: { ...report.header, pr: { repo: process.env.GITHUB_REPOSITORY, number: Number(process.env.PR_NUMBER) } } };
-		writeFileSync(join(WORK_DIR, 'report.json'), `${JSON.stringify(report, null, '\t')}\n`);
-	}
-
-	// Lazy: passCosts is not filled in until the verification below has run, and
-	// rendering this eagerly left the verify line and the total out of every
-	// footer. In the order they ran; the gate bills in its own job.
-	const billed = () => [
-		{ label: 'explore', main: true, cost },
-		{ label: 'verify', cost: passCosts.verify },
-		{ label: 'isolate', cost: passCosts.isolate },
-		{ label: 'edit', cost: passCosts.edit },
-		{ label: 'json retry', cost: passCosts.retry },
-	];
-	const footer = () => renderCostFooter(billed(), MAX_TURNS);
+	const explored = { model: cost.model, costUsd: cost.total_cost_usd, turns: cost.num_turns, maxTurns: MAX_TURNS, durationMs: cost.duration_ms };
+	const pr = /^\d+$/.test(process.env.PR_NUMBER ?? '') && process.env.GITHUB_REPOSITORY ? { pr: { repo: process.env.GITHUB_REPOSITORY, number: Number(process.env.PR_NUMBER) } } : {};
+	const report = await completeRun(WORK_DIR, explored, {
+		repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL,
+		branchCheck: `CI compiled \`out/\` in this job from the ref under test (head \`${HEAD_SHA.slice(0, 10)}\`).`,
+		header: pr,
+		log: line => console.log(`[pipeline] ${line}`),
+	});
+	// The explorer's alone when there is no report to carry the rest.
+	const passes = report?.cost.passes ?? costPasses(explored, []);
+	const footer = () => renderCostFooter(passes);
 	const partial = typeof cost.num_turns === 'number' && cost.num_turns >= MAX_TURNS;
-	// Read by the workflow to choose the final reaction and the PR comment.
-	// Written before anything below can exit, so a run with no report still
-	// says why.
 	if (process.env.GITHUB_OUTPUT) {
 		appendFileSync(process.env.GITHUB_OUTPUT, `outcome=${runOutcome({ report, numTurns: cost.num_turns, maxTurns: MAX_TURNS, timedOut })}\n`);
 	}
@@ -295,22 +265,13 @@ async function main() {
 		console.log(nearCap);
 	}
 
-	// One line per run that GitHub keeps for 90 days, after the artifact is
-	// gone: stats.mjs reads it back to compare skill versions. Written before
-	// the page, which links stats.json from Run details.
 	const recordStats = parsed => {
 		const stats = buildStats({
 			where: 'ci',
 			date: STARTED_AT.toISOString(),
 			run: process.env.GITHUB_RUN_ID,
 			version: skillVersion(),
-			model: cost.model,
-			turns: cost.num_turns,
-			maxTurns: MAX_TURNS,
-			costUsd: [cost, ...Object.values(passCosts)].reduce((sum, c) => sum + (c.total_cost_usd ?? 0), 0) || null,
-			durationMs: [cost, ...Object.values(passCosts)].reduce((sum, c) => sum + (c.duration_ms ?? 0), 0) || null,
-			// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
-			isolate: passCosts.isolate.duration_ms ? { durationMs: passCosts.isolate.duration_ms, turns: passCosts.isolate.num_turns } : null,
+			...passStats(passes),
 			parsed,
 			checks: readChecks(WORK_DIR),
 			timeLimit: TIME_LIMIT ? { minutes: TIME_LIMIT, reached: timeWasUp, stopped: timedOut } : null,
@@ -319,15 +280,8 @@ async function main() {
 		console.log(`[exploratory] stats: ${JSON.stringify(stats)}`);
 	};
 
-	// The job summary is a signpost: the verdict, and where to read the report.
 	let summary;
 	if (report) {
-		// Annotation is best effort and never removes a finding, because a wrong
-		// FALSE POSITIVE that deleted a real finding would be invisible to everyone.
-		await finishRun(WORK_DIR, { repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL, log: line => console.log(`[pipeline] ${line}`) });
-		// The passes edited report.json; it keeps what each one cost, for the Run tile.
-		report = { ...JSON.parse(readFileSync(join(WORK_DIR, 'report.json'), 'utf8')), cost: costJson(billed(), MAX_TURNS) };
-		writeFileSync(join(WORK_DIR, 'report.json'), `${JSON.stringify(report, null, '\t')}\n`);
 		// Read after the pipeline, which writes change-base.json.
 		const run = readRunDir(WORK_DIR);
 		const parsed = reportFromJson(report, { ledger: run.ledger });

@@ -49,7 +49,7 @@ const { lintLedgerOnly, untaggedShots } = await import('./lint-ledger.mjs');
 const { splitProblems } = await import('./lint-rules.mjs');
 const { reportFromJson } = await import('./report-json.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
-const { buildStats, readChecks } = await import('./stats.mjs');
+const { buildStats, passStats, readChecks } = await import('./stats.mjs');
 const { ranInCi, reportUsageOnce } = await import('./usage.mjs');
 
 const dir = dirname(resolve(input));
@@ -90,18 +90,11 @@ const born = statSync(dir).birthtime;
 // run.mjs does, before the page is written, so the page can link them. A
 // replayed CI run keeps the stats CI recorded, and a publish's render records none.
 const passes = json.cost?.passes ?? [];
-const pass = label => passes.find(p => p.label === label);
 const stats = passes.length && !flags.out && !ranInCi(dir) ? buildStats({
 	where: 'local',
 	date: (born.getTime() > 0 ? born : new Date()).toISOString(),
 	version: skillVersion(),
-	model: pass('explore')?.model ?? null,
-	// claude -p's num_turns, or a replayed run's subagent tool_uses.
-	turns: pass('explore')?.turns ?? null,
-	costUsd: passes.every(p => typeof p.costUsd === 'number') ? passes.reduce((sum, p) => sum + p.costUsd, 0) : null,
-	durationMs: passes.reduce((sum, p) => sum + (p.durationMs ?? 0), 0),
-	// Isolation is the one pass whose cost is a choice, so it is kept apart to judge it.
-	isolate: pass('isolate') ? { durationMs: pass('isolate').durationMs, turns: pass('isolate').turns ?? null } : null,
+	...passStats(passes),
 	parsed,
 	checks: readChecks(dir),
 }) : null;

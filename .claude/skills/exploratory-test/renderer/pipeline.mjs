@@ -32,7 +32,7 @@ import { parseArgs } from 'node:util';
 import { runClaude, stopAgents } from './claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './edit.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
-import { settleReportJson } from './lint-json.mjs';
+import { readCheckedReport } from './lint-json.mjs';
 
 export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
@@ -233,7 +233,7 @@ export async function finishRun(dir, { repo, base, head, baseName, runAgent, ver
 		log(`${step.resume ? 'message to' : 'new'} ${step.role} agent: ${step.purpose}`);
 		try {
 			const result = await runAgent({ model, ...step });
-			passes.push({ role: step.role, model, durationMs: result.durationMs ?? null, turns: result.turns ?? null, costUsd: result.costUsd ?? null });
+			passes.push({ role: step.role, model: result.model ?? model, durationMs: result.durationMs ?? null, turns: result.turns ?? null, costUsd: result.costUsd ?? null });
 			const text = String(result.text ?? '').trim();
 			writeFileSync(join(dir, `${step.purpose}-reply.md`), text);
 			return { text, sessionId: result.sessionId ?? null, error: '' };
@@ -312,7 +312,7 @@ async function editReport(dir, ask, log) {
 export function costPasses(explorer, passes) {
 	const sum = (own, key) => (own.some(p => typeof p[key] === 'number') ? own.reduce((total, p) => total + (p[key] ?? 0), 0) : null);
 	return [
-		{ label: 'explore', model: explorer?.model ?? null, costUsd: explorer?.costUsd ?? null, turns: explorer?.turns ?? null, durationMs: explorer?.durationMs ?? null },
+		{ label: 'explore', model: explorer?.model ?? null, costUsd: explorer?.costUsd ?? null, turns: explorer?.turns ?? null, ...(explorer?.maxTurns ? { maxTurns: explorer.maxTurns } : {}), durationMs: explorer?.durationMs ?? null },
 		...[...new Set(passes.map(p => p.role))].map(role => {
 			const own = passes.filter(p => p.role === role);
 			return { label: role, model: own[0].model ?? null, costUsd: sum(own, 'costUsd'), turns: sum(own, 'turns'), durationMs: sum(own, 'durationMs') };
@@ -321,31 +321,40 @@ export function costPasses(explorer, passes) {
 }
 
 /**
- * A run's end: settle report.json against the ledger, with one retry when the
- * explorer's session can be resumed, run the later passes on it, and render it.
+ * A run's end, local or CI, once the explorer is done: check report.json,
+ * record how the build was checked, add what the runner knows of the header
+ * (CI's PR), run the later passes, and write every pass's cost into it.
+ * `explored` is the explorer's pass, as `explore` returns it. Returns the
+ * report, or null when the explorer wrote none.
  */
-async function finishLocal(dir, explored, { repo, base, head, baseName, runAgent, agentPrompts, branchCheck, log }) {
-	const retries = [];
-	const resume = explored?.sessionId ? async prompt => {
-		const result = await runAgent({ role: 'explore', purpose: 'json retry', model: explored.model, prompt, tools: READ_TOOLS, cwd: repo, resume: explored.sessionId });
-		retries.push({ role: 'json retry', model: explored.model, durationMs: result.durationMs ?? null, turns: result.turns ?? null, costUsd: result.costUsd ?? null });
-		return result;
-	} : null;
-	if (!await settleReportJson(dir, { resume, log })) {
-		stopInstances(dir);
-		log(`the explorer wrote no report.json; what it left is in ${dir}`);
-		return 1;
+export async function completeRun(dir, explored, { branchCheck = '', header = {}, log = () => { }, ...finish }) {
+	if (!readCheckedReport(dir, { log })) {
+		return null;
 	}
 	if (branchCheck) {
 		recordBranchCheck(dir, branchCheck);
 	}
-	const passes = await finishRun(dir, { repo, base, head, baseName, runAgent, log });
 	const path = reportPath(dir);
-	const json = { ...readReport(path), cost: { passes: costPasses(explored, [...retries, ...passes]) } };
+	if (Object.keys(header).length) {
+		const json = readReport(path);
+		writeReport(path, { ...json, header: { ...json.header, ...header } });
+	}
+	const passes = await finishRun(dir, { ...finish, log });
+	const json = { ...readReport(path), cost: { passes: costPasses(explored, passes) } };
 	writeReport(path, json);
+	return json;
+}
+
+/** A local run's end: `completeRun`, then the page. */
+async function finishLocal(dir, explored, { agentPrompts, ...complete }) {
+	if (!await completeRun(dir, explored, complete)) {
+		stopInstances(dir);
+		complete.log(`the explorer wrote no report.json; what it left is in ${dir}`);
+		return 1;
+	}
 	// The page is written even when render exits 1 for a missing file; it says which.
 	try {
-		execFileSync('node', [RENDER, path, ...(agentPrompts ? [] : ['--no-agent-prompts'])], { stdio: 'inherit' });
+		execFileSync('node', [RENDER, reportPath(dir), ...(agentPrompts ? [] : ['--no-agent-prompts'])], { stdio: 'inherit' });
 	} catch (err) {
 		return err.status ?? 1;
 	}
