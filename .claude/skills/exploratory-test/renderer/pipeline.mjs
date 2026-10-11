@@ -31,7 +31,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { runClaude, stopAgents } from './claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './edit.mjs';
-import { applyVerifyReply, checkMessage, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
+import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
 
 export const ISOLATE_MINUTES = 12;
@@ -282,19 +282,14 @@ async function verifyFindings(dir, range, ask, stop, log) {
 		best = (await ask({ ...verifier, purpose: 'reformat', resume: session, prompt: REFORMAT_MESSAGE })).text || best;
 	}
 	let result = applyVerifyReply(dir, best, { error: best ? '' : first.error });
-	// Numbers that do not match the report get one retry, then mark it unreviewed.
-	if (result.mismatch) {
-		const retry = session ? await ask({ ...verifier, purpose: 'renumber', resume: session, prompt: `${result.mismatch} Reply again in full, in the same format.` }) : { text: '' };
-		best = retry.text || best;
-		result = applyVerifyReply(dir, best, { giveUp: true });
-	}
-	// A check it did not show it made (a finding's steps against the action log,
-	// its Observed against its screenshots) is asked for once; after that the
-	// report says it was skipped.
-	if (result.checkGaps) {
-		const retry = session ? await ask({ ...verifier, purpose: 'recheck', resume: session, prompt: checkMessage(result.checkGaps) }) : { text: '' };
-		const usable = retry.text && !parseVerifyReply(retry.text).problem;
-		result = applyVerifyReply(dir, usable ? retry.text : best, { giveUp: true, checkGiveUp: true });
+	// One more ask when its numbers do not match the report's, or it does not
+	// show a check it was asked to make (the action log, the screenshots). After
+	// that, wrong numbers mark the findings unreviewed and a missing check is
+	// named in the report.
+	if (result.retry) {
+		const again = session ? await ask({ ...verifier, purpose: 'recheck', resume: session, prompt: result.retry }) : { text: '' };
+		const usable = again.text && !parseVerifyReply(again.text).problem;
+		result = applyVerifyReply(dir, usable ? again.text : best, { final: true });
 	}
 	(result.logLines ?? []).forEach(line => log(line));
 }

@@ -128,7 +128,10 @@ export function parseVerifyReply(text) {
 		const verified = VERDICTS[String(f?.verdict ?? '').trim().toLowerCase()];
 		if (Number.isInteger(f?.n) && verified) {
 			const log = Array.isArray(f.log) && f.log.length === 2 && f.log.every(Number.isInteger) && f.log[0] >= 1 && f.log[0] <= f.log[1] ? f.log : null;
-			const shots = Array.isArray(f.shots) ? f.shots.filter(x => typeof x === 'string').map(x => basename(x.trim())) : null;
+			// A bare file name is read as a shot listed without saying what it shows.
+			const shots = Array.isArray(f.shots)
+				? f.shots.map(x => (typeof x === 'string' ? { file: x } : x)).filter(x => typeof x?.file === 'string').map(x => ({ file: basename(x.file.trim()), shows: typeof x.shows === 'string' ? x.shows.trim() : '' }))
+				: null;
 			out.findings.set(f.n, { verified, known: issues(f.known), intended: issues(f.intended), feature: words(f.feature), title: words(f.title), related: f.related === true, log, shots });
 		}
 	}
@@ -200,6 +203,8 @@ function failShots(f) {
  * action log there is nothing to check the steps against.
  */
 export function checkGaps(report, reply, { ledger, actionsLog }) {
+	// A shot the notes say was not opened was not checked, whatever the list says.
+	const unopened = new Set([...String(reply.notes ?? '').matchAll(/\b(?:did not|didn't|could not|couldn't) (?:open|view|look at|check|read)\s+`?([\w.-]+\.(?:png|jpe?g))/gi)].map(m => m[1]));
 	const lines = String(actionsLog ?? '').split('\n').filter(Boolean).length;
 	return (report?.findings ?? []).flatMap(f => {
 		const { n } = f;
@@ -216,9 +221,15 @@ export function checkGaps(report, reply, { ledger, actionsLog }) {
 				gaps.push({ n, kind: 'log', why: `gave actions.log lines ${range[0]}-${range[1]}, which miss line${missed.length > 1 ? 's' : ''} ${missed.join(', ')} that its failing scenario cites` });
 			}
 		}
-		const unseen = failShots(f).filter(shot => !(got?.shots ?? []).includes(shot));
-		if (unseen.length) {
-			gaps.push({ n, kind: 'shots', why: `did not list ${unseen.join(', ')}, which its failing VERIFY steps cite` });
+		const listed = new Map((got?.shots ?? []).map(x => [x.file, x.shows]));
+		const cited = failShots(f);
+		const missing = [
+			[cited.filter(shot => !listed.has(shot)), 'did not list'],
+			[cited.filter(shot => listed.has(shot) && !listed.get(shot)), 'listed without saying what it shows'],
+			[cited.filter(shot => listed.get(shot) && unopened.has(shot)), 'listed but says it did not open'],
+		].filter(([shots]) => shots.length);
+		for (const [shots, what] of missing) {
+			gaps.push({ n, kind: 'shots', why: `${what} ${shots.join(', ')}, which its failing VERIFY steps cite` });
 		}
 		return gaps;
 	});
@@ -226,7 +237,7 @@ export function checkGaps(report, reply, { ledger, actionsLog }) {
 
 /** The message that asks the verifier for the checks it did not show it made. */
 export function checkMessage(gaps) {
-	return `Your reply ${gaps.map(g => `for Finding ${g.n} ${g.why}`).join('; ')}. For each of those findings, do the check your instructions ask: read the lines of actions.log its failing scenario covers and check its steps and VERIFY lines against them, giving that range as \`log\`; and look at each screenshot its failing VERIFY steps cite and check its Observed against it, listing them as \`shots\`. Reply again in full, in the same format.`;
+	return `Your reply ${gaps.map(g => `for Finding ${g.n} ${g.why}`).join('; ')}. For each of those findings, do the check your instructions ask: read the lines of actions.log its failing scenario covers and check its steps and VERIFY lines against them, giving that range as \`log\`; and look at each screenshot its failing VERIFY steps cite and check its Observed against it, listing each in \`shots\` with what it shows. Reply again in full, in the same format.`;
 }
 
 /**
@@ -302,7 +313,8 @@ export function applyVerification(json, reply, { failed = false, text = '', gaps
 		verification: {
 			failed,
 			// A skipped check is said, so "No process issues" is not read as one that passed.
-			text: [PREAMBLE, reply.notes, skipped ? `_The verifier did not show it checked ${skipped}._` : ''].filter(Boolean).join('\n\n'),
+			// Its own all-clear would contradict what the pipeline found missing.
+			text: [PREAMBLE, skipped ? reply.notes.replace(/\n*No process issues\.?\s*$/, '') : reply.notes, skipped ? `_The verifier did not show it checked ${skipped}._` : ''].filter(Boolean).join('\n\n'),
 			...(related.length ? { related } : {}),
 			...(linked.length ? { linked } : {}),
 			...(skipped ? { unchecked } : {}),
@@ -362,16 +374,17 @@ export function writeVerifyPrompt(dir, { repo, base, head, baseName }) {
 }
 
 /**
- * Adds a verifier reply to the run's report. Returns `{ mismatch }`, writing nothing,
- * when its verdicts are keyed to other numbers than the report's, so a
- * corrected reply can be applied; with `giveUp` that marks the findings
- * unreviewed instead. Returns `{ checkGaps }` the same way when it does not
- * show it checked a finding's steps against the action log or its Observed
- * against its screenshots; with `checkGiveUp` the report says so instead. An `error`, or an empty reply or one with no
- * verdicts, says the verification did not complete rather than leaving the
- * findings looking reviewed. Otherwise returns `{ failed, logLines }`.
+ * Adds a verifier reply to the run's report. Returns `{ retry }`, writing
+ * nothing, when the reply can be fixed by asking once more: its verdicts keyed
+ * to other numbers than the report's, or a check it does not show it made (a
+ * finding's steps against the action log, its Observed against its
+ * screenshots). `retry` is the message to send. With `final` nothing is asked:
+ * wrong numbers mark the findings unreviewed, and a missing check is named in
+ * the report. An `error`, or an empty reply or one with no verdicts, says the
+ * verification did not complete rather than leaving the findings looking
+ * reviewed. Otherwise returns `{ failed, logLines }`.
  */
-export function applyVerifyReply(dir, reply, { error = '', giveUp = false, checkGiveUp = false } = {}) {
+export function applyVerifyReply(dir, reply, { error = '', final = false } = {}) {
 	const { path, report, ledger, actionsLog, knownIssues } = readRun(dir);
 	if (isVerified(report)) {
 		return { already: true };
@@ -380,13 +393,13 @@ export function applyVerifyReply(dir, reply, { error = '', giveUp = false, check
 	const parsed = parseVerifyReply(reply);
 	const findings = hasFindings(report);
 	const mismatch = !error && findings && parsed.findings.size ? verdictMismatch(report, parsed) : '';
-	if (mismatch && !giveUp) {
-		return { mismatch };
+	if (mismatch && !final) {
+		return { retry: `${mismatch} Reply again in full, in the same format.` };
 	}
 	const failed = Boolean(error || mismatch) || !reply || Boolean(parsed.problem) || (findings && !parsed.findings.size);
 	const gaps = failed ? [] : checkGaps(report, parsed, { ledger, actionsLog });
-	if (gaps.length && !checkGiveUp) {
-		return { checkGaps: gaps };
+	if (gaps.length && !final) {
+		return { retry: checkMessage(gaps) };
 	}
 	const unreviewed = findings ? 'The findings above are unreviewed.' : 'The known issues above are unrated.';
 	const why = error ? `: ${error}` : mismatch ? `: ${mismatch}` : !reply ? '' : parsed.problem ? `: ${parsed.problem}` : ': the reply gave no verdicts';
@@ -399,12 +412,12 @@ function main(argv) {
 	const { values, positionals } = parseArgs({
 		args: argv,
 		allowPositionals: true,
-		options: { repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' } },
+		options: { repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' }, final: { type: 'boolean' } },
 	});
 	const [command, dir, replyFile] = positionals;
 	const path = dir && reportPath(dir);
 	if (!path || !existsSync(path)) {
-		console.error('usage: node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>]\n       node finish.mjs apply <run dir> <reply file>');
+		console.error('usage: node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>]\n       node finish.mjs apply <run dir> <reply file> [--final]');
 		return 2;
 	}
 	if (command === 'prompt') {
@@ -423,13 +436,13 @@ function main(argv) {
 			console.error(`finish: reply file not found: ${replyFile ?? '(none given)'}`);
 			return 2;
 		}
-		const result = applyVerifyReply(dir, readFileSync(replyFile, 'utf8'));
+		const result = applyVerifyReply(dir, readFileSync(replyFile, 'utf8'), { final: values.final });
 		if (result.already) {
 			console.error(`finish: ${path} is already verified`);
 			return 1;
 		}
-		if (result.mismatch) {
-			console.error(`finish: ${result.mismatch} Send the verifier this message, save its corrected reply and apply again.`);
+		if (result.retry) {
+			console.error(`finish: ${result.retry}\nSend the verifier this message, save its corrected reply and apply again, or apply this one as it is with --final.`);
 			return 1;
 		}
 		for (const line of result.logLines) {

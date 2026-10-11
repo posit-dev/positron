@@ -54,7 +54,7 @@ test('parseVerifyReply skips each entry it cannot read, and keeps the rest', () 
 		linked: [{ issue: 5678, severity: 'Moderate' }, { issue: 5301, severity: 'awful' }, { issue: '9', severity: 'minor' }],
 	}));
 	assert.deepEqual(Object.fromEntries(r.findings), {
-		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, related: false, log: [12, 30], shots: ['S01-02.png'] },
+		1: { verified: 'confirmed', known: [15102], intended: [], feature: 'new folder flow', title: null, related: false, log: [12, 30], shots: [{ file: 'S01-02.png', shows: '' }] },
 		4: { verified: 'unresolved', known: [], intended: [14210], feature: null, title: null, related: false, log: null, shots: null },
 	});
 	assert.deepEqual([...r.linked], [[5678, 'moderate']]);
@@ -369,8 +369,8 @@ const SHOT_REPORT = { ...REPORT, findings: REPORT.findings.map(f => ({ ...f, ste
 
 test('checkGaps names each check the reply does not show it made: the action log and the failing steps\' screenshots', () => {
 	const gaps = data => checkGaps(SHOT_REPORT, parseVerifyReply(reply(data)), { ledger: LOG_LEDGER, actionsLog: ACTIONS });
-	const seen = n => ({ shots: [`S0${n + 1}-01.png`] });
-	assert.deepEqual(gaps(verdicts([1, 'confirmed', { log: [6, 10], ...seen(1) }], [2, 'confirmed', { log: [12, 15], shots: ['shots/S03-01.png'] }])), []);
+	const seen = n => ({ shots: [{ file: `S0${n + 1}-01.png`, shows: 'the notice' }] });
+	assert.deepEqual(gaps(verdicts([1, 'confirmed', { log: [6, 10], ...seen(1) }], [2, 'confirmed', { log: [12, 15], shots: [{ file: 'shots/S03-01.png', shows: 'an empty grid' }] }])), []);
 	assert.deepEqual(gaps(verdicts([1, 'confirmed', seen(1)], [2, 'confirmed', { log: [12, 25], ...seen(2) }])), [
 		{ n: 1, kind: 'log', why: 'gave no actions.log lines' },
 		{ n: 2, kind: 'log', why: 'gave actions.log lines 12-25, but the log has 20' },
@@ -380,19 +380,27 @@ test('checkGaps names each check the reply does not show it made: the action log
 		{ n: 1, kind: 'log', why: 'gave actions.log lines 1-5, which miss line 8 that its failing scenario cites' },
 		{ n: 2, kind: 'shots', why: 'did not list S03-01.png, which its failing VERIFY steps cite' },
 	]);
+	// A shot named without what it shows, or that the notes say was not opened, was not checked.
+	assert.deepEqual(checkGaps(SHOT_REPORT, parseVerifyReply(reply(verdicts([1, 'confirmed', { log: [6, 10], shots: ['S02-01.png'] }], [2, 'confirmed', { log: [12, 15], ...seen(2) }]), 'I did not open S03-01.png.')), { ledger: LOG_LEDGER, actionsLog: ACTIONS }), [
+		{ n: 1, kind: 'shots', why: 'listed without saying what it shows S02-01.png, which its failing VERIFY steps cite' },
+		{ n: 2, kind: 'shots', why: 'listed but says it did not open S03-01.png, which its failing VERIFY steps cite' },
+	]);
 	// No action log, nothing to check the steps against; the screenshots still count.
 	assert.deepEqual(checkGaps(SHOT_REPORT, parseVerifyReply(reply(verdicts([1, 'confirmed', seen(1)], [2, 'confirmed']))), { ledger: LOG_LEDGER, actionsLog: '' }), [
 		{ n: 2, kind: 'shots', why: 'did not list S03-01.png, which its failing VERIFY steps cite' },
 	]);
 	// A finding with no failing shots has none to list.
 	assert.deepEqual(checkGaps(REPORT, parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']))), { ledger: LOG_LEDGER, actionsLog: '' }), []);
-	assert.match(checkMessage([{ n: 1, kind: 'log', why: 'gave no actions.log lines' }]), /^Your reply for Finding 1 gave no actions\.log lines\. .*giving that range as `log`.*listing them as `shots`/);
+	assert.match(checkMessage([{ n: 1, kind: 'log', why: 'gave no actions.log lines' }]), /^Your reply for Finding 1 gave no actions\.log lines\. .*giving that range as `log`.*listing each in `shots` with what it shows/);
 });
 
 test('applyVerification says which checks the verifier did not show it made', () => {
 	const gaps = [{ n: 2, kind: 'log', why: '' }, { n: 1, kind: 'shots', why: '' }, { n: 2, kind: 'shots', why: '' }];
 	const out = applyVerification(REPORT, parseVerifyReply(reply(verdicts([1, 'confirmed'], [2, 'confirmed']), 'No process issues.')), { gaps });
 	assert.deepEqual(out.verification.unchecked, { log: [2], shots: [1, 2] });
-	assert.match(out.verification.text, /No process issues\.\n\n_The verifier did not show it checked the steps of Finding 2 against the action log, or the Observed of Finding 1, Finding 2 against its screenshots\._$/);
+	// Its all-clear goes: the pipeline found checks missing.
+	assert.doesNotMatch(out.verification.text, /No process issues/);
+	assert.match(out.verification.text, /\n\n_The verifier did not show it checked the steps of Finding 2 against the action log, or the Observed of Finding 1, Finding 2 against its screenshots\._$/);
+	assert.match(apply(REPORT, verdicts([1, 'confirmed']), 'No process issues.').verification.text, /No process issues\.$/);
 	assert.equal(apply(REPORT, verdicts([1, 'confirmed'])).verification.unchecked, undefined);
 });

@@ -136,12 +136,12 @@ test('an isolator that writes nothing, or a revision that fails, keeps the first
 });
 
 test('verdicts keyed to the wrong numbers get one retry, then mark the findings unreviewed', async () => {
-	const fixed = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), renumber: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]), edit: EDIT });
+	const fixed = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), recheck: () => verdicts([[1, 'confirmed'], [2, 'confirmed']]), edit: EDIT });
 	const retry = fixed.steps[1];
 	assert.equal(retry.resume, 'verify-session');
 	assert.match(retry.prompt, /^the verdicts give findings 1, 3, but the report's findings are 1, 2.*Reply again in full, in the same format\.$/);
 	assert.equal(fixed.report.findings[1].verified, 'confirmed');
-	const wrongAgain = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), renumber: () => verdicts([[2, 'confirmed'], [3, 'confirmed']]), edit: EDIT });
+	const wrongAgain = await runWith(REPORT, { verify: () => verdicts([[1, 'confirmed'], [3, 'confirmed']]), recheck: () => verdicts([[2, 'confirmed'], [3, 'confirmed']]), edit: EDIT });
 	assert.equal(wrongAgain.report.verification.failed, true);
 	assert.match(wrongAgain.report.verification.text, /^_Verification did not complete: the verdicts give findings 2, 3.*The findings above are unreviewed\._/);
 });
@@ -372,10 +372,10 @@ test('a verifier that does not show it checked the action log and the screenshot
 	};
 	const report = { ...REPORT, findings: REPORT.findings.map(f => ({ ...f, steps: [{ kind: 'verify', text: 'it works', result: 'fail', finding: f.n, shots: [`shots/S0${f.n}-01.png`] }] })) };
 	const fixed = await runWith(report, {
-		verify: () => verdicts([[1, 'confirmed', { log: [1, 3], shots: ['S01-01.png'] }], [2, 'confirmed', { shots: ['S02-01.png'] }]]),
+		verify: () => verdicts([[1, 'confirmed', { log: [1, 3], shots: [{ file: 'S01-01.png', shows: 'a spinner' }] }], [2, 'confirmed', { shots: [{ file: 'S02-01.png', shows: 'no file' }] }]]),
 		recheck: step => {
 			assert.match(step.prompt, /^Your reply for Finding 2 gave no actions\.log lines\./);
-			return verdicts([[1, 'confirmed', { log: [1, 3], shots: ['S01-01.png'] }], [2, 'confirmed', { log: [3, 5], shots: ['S02-01.png'] }]], 'No process issues.');
+			return verdicts([[1, 'confirmed', { log: [1, 3], shots: [{ file: 'S01-01.png', shows: 'a spinner' }] }], [2, 'confirmed', { log: [3, 5], shots: [{ file: 'S02-01.png', shows: 'no file' }] }]], 'No process issues.');
 		},
 		edit: EDIT,
 	}, { files });

@@ -83,8 +83,8 @@ to mark each finding, so nothing else goes in it:
 ```json
 {
 	"findings": [
-		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": ["S04-03.png"], "related": true },
-		{ "n": 3, "verdict": "false positive", "log": [201, 233], "shots": ["S07-02.png", "S07-04.png"], "known": [15102], "feature": "new folder flow" }
+		{ "n": 1, "verdict": "confirmed", "log": [112, 140], "shots": [{ "file": "S04-03.png", "shows": "Median N/A beside Mean 2.5" }], "related": true },
+		{ "n": 3, "verdict": "false positive", "log": [201, 233], "shots": [{ "file": "S07-04.png", "shows": "the picker lists R 4.4 once" }], "known": [15102], "feature": "new folder flow" }
 	],
 	"linked": [{ "issue": 5678, "severity": "moderate" }]
 }
@@ -100,10 +100,12 @@ to mark each finding, so nothing else goes in it:
   VERIFY. The ledger cites an actions.log line on each VERIFY, and the range
   must cover the ones in that scenario. Give it for every finding: a finding
   without it is shown as not checked against the log, whatever the notes say.
-- `shots`: the file names of the screenshots you looked at to check the
-  finding's Observed, as question 1 asks. It must include every screenshot the
-  finding's failing VERIFY steps cite; a finding that leaves one out is shown
-  as not checked against its screenshots.
+- `shots`: each screenshot you looked at to check the finding's Observed, as
+  question 1 asks: its file name, and what it shows that bears on Observed, in
+  a few words. It must include every screenshot the finding's failing VERIFY
+  steps cite. List only shots you opened: one left out, listed with nothing it
+  shows, or that your notes say you did not open is shown as not checked
+  against its screenshots.
 - `known`: the issues question 5 matched, when it matched any. A match does
   not change the verdict.
 - `intended`: the issues closed as not planned that the finding matched, when
