@@ -55,7 +55,7 @@ function json() {
 	};
 }
 
-const lint = j => lintReportJson(j, LEDGER);
+const lint = j => lintReportJson(j, LEDGER).map(p => p.text);
 
 test('a report that keeps to the ledger has no problems', () => {
 	assert.deepEqual(lint(json()), []);
@@ -168,7 +168,7 @@ test('an empty header line or feature, a shot outside shots/ and an absolute lin
 		title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', tests: { cases: [], related: [] },
 		feature: '', evidence: [{ kind: 'shot', path: 'https://cdn.example/x.png', step: 1 }],
 	});
-	assert.deepEqual(formatProblems(j, LEDGER).filter(p => /header\.|no feature|links the screenshot|relative to the run/.test(p)), [
+	assert.deepEqual(formatProblems(j, LEDGER).map(p => p.text).filter(p => /header\.|no feature|links the screenshot|relative to the run/.test(p)), [
 		'report: header.tested is empty; write the Tested line',
 		'report: header.notExercised is empty; write the Not exercised line',
 		'report: Finding 1 has no feature; name the area of Positron it is in, such as "data explorer"',
@@ -185,9 +185,9 @@ test('the write-up rules apply to report.json\'s fields', () => {
 		observed: 'The pasted text is `x@y.z`.', expected: 'The accessor.', preconditions: [{ text: 'A JSON file open' }], tests: { cases: [], related: [] },
 	});
 	j.findings[0].steps[0].text = 'Click the `email` row, then press Ctrl+Shift+C.';
-	assert.deepEqual(formatProblems(j, LEDGER).filter(p => p.startsWith('report')), [
-		'report: **Result:** answers a question; state what the change does instead',
-		'report: finding 1 is major and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
+	assert.deepEqual(formatProblems(j, LEDGER).map(p => p.text).filter(p => p.startsWith('report')), [
+		'report: header.result answers a question; state what the change does instead',
+		'report: Finding 1 is major and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
 		'report: Finding 1 precondition "A JSON file open" needs a name, 2 to 4 words, for Coverage',
 		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
 		'report: Finding 1 step 1 is two actions ("then press"); write each as its own step',

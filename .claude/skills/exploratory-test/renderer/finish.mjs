@@ -36,7 +36,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 	const values = {
 		LOG_CHECK: log === undefined
 			? 'no actions.log in the run directory.'
-			: logProblems.length ? `\n\n${logProblems.map(p => `- ${p}`).join('\n')}\n` : 'clean: every line is stamped as the helpers stamp it, in time order.',
+			: logProblems.length ? `\n\n${logProblems.map(p => `- ${p.text}`).join('\n')}\n` : 'clean: every line is stamped as the helpers stamp it, in time order.',
 		REPORT: reportFile,
 		ACTIONS_LOG: `${workDir}/actions.log`,
 		LEDGER: `${workDir}/ledger.md`,

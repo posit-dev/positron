@@ -49,7 +49,7 @@ the report as the explorer wrote it, with the findings marked unreviewed.
 | How a local run starts an agent, and its time limit | `renderer/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/finish.mjs` |
 | The editor's prompt and how rewrites are checked | `renderer/edit.mjs` |
-| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (report.json against the ledger), `renderer/lint-wording.mjs` and `renderer/lint-ledger.mjs` (the write-up rules), `renderer/report-json.mjs` (what the page reads) |
+| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (report.json against the ledger), `renderer/lint-wording.mjs` and `renderer/lint-ledger.mjs` (the write-up rules), `renderer/lint-rules.mjs` (each rule's ID and severity), `renderer/report-json.mjs` (what the page reads) |
 | Reading the ledger | `renderer/ledger.mjs` |
 | The page | `renderer/html.mjs` (template), `renderer/report-css.mjs` (tokens), `renderer/text.mjs` (markdown to safe HTML) |
 | Linked issues the agents see | `renderer/known-issues.mjs` |
@@ -74,8 +74,9 @@ Launching and driving the app belongs to drive-positron. See its
   such a change under an old number muddies both. One bump per PR is enough. A
   change to how the page looks needs none.
 - **A rule in `explorer.md` lands with proof it works:** a lint check with a
-  test that fails without it, or a before-and-after trial. Add or update its
-  row in `RULES.md` in the same PR, and read that file before cutting one.
+  test that fails without it, or an eval. A lint check gets an ID and a
+  severity in `lint-rules.mjs`. Add or update its row in `RULES.md` in the
+  same PR, naming the ID, and read that file before cutting one.
 - **Verdicts annotate, they never delete.** A wrong FALSE POSITIVE that
   removed a real finding would be invisible to everyone.
 - **Order lives in `pipeline.mjs`.** Don't add a step to SKILL.md or to

@@ -12,6 +12,7 @@
 .claude/skills/exploratory-test/renderer/lint-json.mjs
 .claude/skills/exploratory-test/renderer/lint-wording.mjs
 .claude/skills/exploratory-test/renderer/lint-ledger.mjs
+.claude/skills/exploratory-test/renderer/lint-rules.mjs
 .claude/skills/exploratory-test/renderer/known-issues.mjs
 .claude/skills/exploratory-test/renderer/pipeline.mjs
 .claude/skills/exploratory-test/renderer/finish.mjs

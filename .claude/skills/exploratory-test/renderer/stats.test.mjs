@@ -10,7 +10,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildStats, CHECKS_FILE, readChecks, recordCheck, ruleKey, statsFromLog, summarizeByVersion, summarizeChecks } from './stats.mjs';
+import { problem } from './lint-rules.mjs';
+import { buildStats, CHECKS_FILE, readChecks, recordCheck, statsFromLog, summarizeByVersion, summarizeChecks } from './stats.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
@@ -24,43 +25,18 @@ function tempDir() {
 	return mkdtempSync(join(tmpdir(), 'stats-'));
 }
 
-test('ruleKey gives one key per rule, whatever run-specific details a message carries', () => {
-	assert.equal(
-		ruleKey('ledger: S17 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it'),
-		ruleKey('ledger: S03 step 11 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it'),
-	);
-	assert.equal(
-		ruleKey('report: finding 2 Severity must be major, moderate or minor, got "High"'),
-		ruleKey('report: finding 5 Severity must be major, moderate or minor, got "blocker"'),
-	);
-	assert.equal(
-		ruleKey('report: Finding 1 names test file src/vs/a/test/a.vitest.ts, which is not in the repository; fix the path, mark it (new file), or drop it'),
-		ruleKey('report: Finding 3 names test file extensions/b/src/test/b.test.ts, which is not in the repository; fix the path, mark it (new file), or drop it'),
-	);
-	// Lists of places, however long, and file names that start with a scenario ID.
-	assert.equal(
-		ruleKey('data.csv is named by Finding 1, Finding 2, S03, S04 but not saved; save it to files/'),
-		ruleKey('app.py is named by Finding 2, S01 but not saved; save it to files/'),
-	);
-	assert.equal(
-		ruleKey('ledger: S02-02.png is Evidence for S02 step 2 and S03 step 2 and S04 step 1; take a screenshot for each check'),
-		ruleKey('ledger: a.png is Evidence for S20 step 2 and S24 step 2; take a screenshot for each check'),
-	);
-	assert.notEqual(ruleKey('report: leave a blank line after </summary>'), ruleKey('report: leave a blank line before </details>'));
-});
-
 test('recordCheck and summarizeChecks keep the rounds, and the first and last check', () => {
 	const dir = tempDir();
 	try {
 		assert.equal(readChecks(dir), null);
-		recordCheck(dir, ['report: finding 1 Reproduction must be N/M, got "3 of 3"', 'report: finding 2 Reproduction must be N/M, got "always"', 'report: leave a blank line after </summary>']);
-		recordCheck(dir, ['report: leave a blank line after </summary>']);
+		recordCheck(dir, [problem('rate-format', 'report: Finding 1 rate'), problem('rate-format', 'report: Finding 2 rate'), problem('two-actions', 'ledger: S01 step 1')]);
+		recordCheck(dir, [problem('two-actions', 'ledger: S01 step 1')]);
 		recordCheck(dir, []);
 		const checks = readChecks(dir);
 		assert.equal(checks.rounds, 3);
 		assert.equal(checks.first.problems, 3);
 		assert.equal(checks.last, 0);
-		assert.deepEqual(Object.values(checks.first.rules).sort(), [1, 2]);
+		assert.deepEqual(checks.first.rules, { 'rate-format': 2, 'two-actions': 1 });
 		// A torn last line from an interrupted run is skipped, not fatal.
 		writeFileSync(join(dir, CHECKS_FILE), `${readFileSync(join(dir, CHECKS_FILE), 'utf8')}{"at":`);
 		assert.equal(readChecks(dir).rounds, 3);

@@ -45,7 +45,7 @@ if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules'
 }
 const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./html.mjs');
 const { lintLedgerOnly, untaggedShots } = await import('./lint-ledger.mjs');
-const { splitProblems } = await import('./lint-wording.mjs');
+const { splitProblems } = await import('./lint-rules.mjs');
 const { reportFromJson } = await import('./report-json.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, readChecks } = await import('./stats.mjs');
@@ -67,10 +67,10 @@ if (flags.check) {
 		: []);
 	const { errors, warnings } = splitProblems(lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog }));
 	if (errors.length) {
-		console.error(`format errors, fix each one and check again:\n${errors.map(p => `  ${p}`).join('\n')}`);
+		console.error(`format errors, fix each one and check again:\n${errors.map(p => `  ${p.text}`).join('\n')}`);
 	}
 	if (warnings.length) {
-		console.error(`format warnings, fix any that are quick:\n${warnings.map(p => `  ${p}`).join('\n')}`);
+		console.error(`format warnings, fix any that are quick:\n${warnings.map(p => `  ${p.text}`).join('\n')}`);
 	}
 	if (!errors.length) {
 		console.log('no format errors');

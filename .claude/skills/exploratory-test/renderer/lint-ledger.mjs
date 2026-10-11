@@ -14,6 +14,7 @@ import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isPositronLog, parseLedger, parseSystemLine } from './ledger.mjs';
+import { problem } from './lint-rules.mjs';
 import { CAUSE_LEAD_WORDS, lintPreconditionActions, RESULT_MAX, SCENARIO_ID, sentencesOf, stepListProblems, stepProblems, verifyProblems, wordsOf } from './lint-wording.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
 import { basename, isNewTestFile } from './text.mjs';
@@ -62,7 +63,7 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 			problems.push(...stepProblems(`ledger: ${current.id} step ${action[1]}`, action[2]));
 			current.steps.push({ n: action[1], verify: false, text: action[2] });
 			const id = SCENARIO_ID.exec(action[2].replace(/`[^`]*`/g, ''));
-			if (id) { problems.push(`ledger: ${current.id} step ${action[1]} names ${id[0]}; the step is copied into the finding, whose reader has no scenarios, so say what is open instead`); }
+			if (id) { problems.push(problem('ledger-step-scenario-id', `ledger: ${current.id} step ${action[1]} names ${id[0]}; the step is copied into the finding, whose reader has no scenarios, so say what is open instead`)); }
 		}
 		const verify = /^\s*(\d+)\.\s+VERIFY\b(.*)$/i.exec(line);
 		if (verify) {
@@ -80,10 +81,10 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 				// actions.log may sit beside a check's screenshot, never in place of it.
 				const saved = [...field[2].matchAll(/(?:^|[\s,(`])((?:logs|files)\/[\w./-]+\.\w+)/g)].map(m => m[1]);
 				const missingSaved = fileExists ? saved.filter(f => !fileExists(f)) : [];
-				for (const f of missingSaved) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in the run directory`); }
+				for (const f of missingSaved) { problems.push(problem('evidence-file-missing', `ledger: ${current.id} cites Evidence: ${f}, which is not in the run directory`)); }
 				const files = evidenceFiles(field[2].replace(/(?:logs|files)\/[\w./-]+/g, ''));
 				const missing = fileExists ? files.filter(f => !fileExists(`shots/${f}`)) : [];
-				for (const f of missing) { problems.push(`ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`); }
+				for (const f of missing) { problems.push(problem('evidence-shot-missing', `ledger: ${current.id} cites Evidence: ${f}, which is not in shots/`)); }
 				const present = files.filter(f => !missing.includes(f));
 				for (const f of new Set(present)) {
 					if (!citedBy.has(f)) { citedBy.set(f, []); }
@@ -97,41 +98,41 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 
 	const seen = new Set();
 	for (const s of scenarios) {
-		if (seen.has(s.id)) { problems.push(`ledger: ${s.id} appears twice; IDs are never reused`); }
+		if (seen.has(s.id)) { problems.push(problem('scenario-id-reused', `ledger: ${s.id} appears twice; IDs are never reused`)); }
 		seen.add(s.id);
 		if (!s.status) {
-			problems.push(`ledger: ${s.id} has no Status: line`);
+			problems.push(problem('status-missing', `ledger: ${s.id} has no Status: line`));
 		} else if (!/^pass$/i.test(s.status)) {
 			const m = /^fail\s*-\s*Finding\s+(\d+)$/i.exec(s.status);
 			if (!m) {
-				problems.push(`ledger: ${s.id} Status: must be "pass" or "fail - Finding N", got "${s.status}"`);
+				problems.push(problem('status-format', `ledger: ${s.id} Status: must be "pass" or "fail - Finding N", got "${s.status}"`));
 			} else if (findingNumbers && !findingNumbers.has(Number(m[1]))) {
-				problems.push(`ledger: ${s.id} names Finding ${m[1]}, which the report does not have`);
+				problems.push(problem('status-unknown-finding', `ledger: ${s.id} names Finding ${m[1]}, which the report does not have`));
 			}
 			// The Coverage row links to the finding, which says what broke.
 			if (m && s.result && !/^Fails \d+\/\d+\.?$/i.test(s.result)) {
-				problems.push(`ledger: ${s.id} Result: of a failed scenario is its rate only, "Fails N/M"; the finding says what broke`);
+				problems.push(problem('failed-result-rate', `ledger: ${s.id} Result: of a failed scenario is its rate only, "Fails N/M"; the finding says what broke`));
 			}
 			// A scenario fails one finding, so its rate counts only checks of that finding.
 			for (const v of s.verifies.filter(v => v.finding && v.finding !== Number(m?.[1]))) {
-				problems.push(`ledger: ${s.id} step ${v.step} fails Finding ${v.finding} but the scenario's Status names Finding ${m?.[1]}; give Finding ${v.finding}'s check a scenario of its own`);
+				problems.push(problem('scenario-fails-other-finding', `ledger: ${s.id} step ${v.step} fails Finding ${v.finding} but the scenario's Status names Finding ${m?.[1]}; give Finding ${v.finding}'s check a scenario of its own`));
 			}
 		}
-		if (!s.verifies.length) { problems.push(`ledger: ${s.id} has no VERIFY step`); }
+		if (!s.verifies.length) { problems.push(problem('scenario-no-verify', `ledger: ${s.id} has no VERIFY step`)); }
 		problems.push(...stepListProblems(`ledger: ${s.id}`, s.steps));
 		// A Result that runs on is usually carrying something the run did not
 		// expect, and in a pass that is where a finding goes unnoticed.
 		if (s.result && (s.result.length > RESULT_MAX || sentencesOf(s.result).length > 1)) {
-			problems.push(`ledger: ${s.id} Result: is ${sentencesOf(s.result).length > 1 ? `${sentencesOf(s.result).length} sentences` : `${s.result.length} characters`}; keep it to one short sentence, and give anything you did not expect its own VERIFY step`);
+			problems.push(problem('result-too-long', `ledger: ${s.id} Result: is ${sentencesOf(s.result).length > 1 ? `${sentencesOf(s.result).length} sentences` : `${s.result.length} characters`}; keep it to one short sentence, and give anything you did not expect its own VERIFY step`));
 		}
 		// A repeat failure in the same scenario searches the same logs, so only the
 		// scenario's first failed check needs its Log: line.
 		const firstFail = s.verifies.find(v => v.fail);
 		for (const v of s.verifies) {
-			if (!v.evidence) { problems.push(`ledger: ${s.id} step ${v.step} VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it`); }
+			if (!v.evidence) { problems.push(problem('verify-no-shot', `ledger: ${s.id} step ${v.step} VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it`)); }
 			const missing = v.fail ? ['observed', ...(v === firstFail ? ['log'] : [])].filter(key => !v[key]) : [];
 			if (missing.length) {
-				problems.push(`ledger: ${s.id} step ${v.step} FAIL is missing ${missing.map(m => `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`);
+				problems.push(problem('fail-missing-fields', `ledger: ${s.id} step ${v.step} FAIL is missing ${missing.map(m => `${m[0].toUpperCase()}${m.slice(1)}:`).join(', ')}`));
 			}
 		}
 	}
@@ -140,15 +141,15 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 	for (const [f, checks] of citedBy) {
 		const findings = checks.map(c => c.finding);
 		const shared = findings.every(n => n !== null) && new Set(findings).size === findings.length;
-		if (checks.length > 1 && !shared) { problems.push(`ledger: ${f} is Evidence for ${checks.map(c => c.at).join(' and ')}; take a screenshot for each check`); }
+		if (checks.length > 1 && !shared) { problems.push(problem('shot-cited-twice', `ledger: ${f} is Evidence for ${checks.map(c => c.at).join(' and ')}; take a screenshot for each check`)); }
 	}
 	// The issue button's System details come from this line, so it has to parse.
 	const env = lines.findIndex(({ line }) => /^##\s+Environment\b/i.test(line));
 	const first = env < 0 ? null : lines.slice(env + 1).find(({ line }) => /^(?:##\s|[-*]\s)/.test(line));
 	if (env < 0) {
-		problems.push('ledger: no ## Environment section');
+		problems.push(problem('environment-missing', 'ledger: no ## Environment section'));
 	} else if (!first || /^##\s/.test(first.line) || !parseSystemLine(first.line)) {
-		problems.push('ledger: the first Environment bullet must read "- Positron <version> build <n>, <kind> of <commit> (Code - OSS <version>), on <OS> <version> (<platform> <arch>)." with "not recorded" for anything unknown');
+		problems.push(problem('environment-first-line', 'ledger: the first Environment bullet must read "- Positron <version> build <n>, <kind> of <commit> (Code - OSS <version>), on <OS> <version> (<platform> <arch>)." with "not recorded" for anything unknown'));
 	}
 
 	const notRun = lines.filter(({ line }) => /^-\s+N\d+\b/.test(line)).length;
@@ -189,9 +190,9 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 	const files = parseLedger(ledger)?.files ?? [];
 	for (const f of files) {
 		if (!/^files\/./.test(f.path)) {
-			problems.push(`ledger: ## Files lists ${f.path}; save it under files/ and list that path`);
+			problems.push(problem('files-outside-files', `ledger: ## Files lists ${f.path}; save it under files/ and list that path`));
 		} else if (fileExists && !fileExists(f.path)) {
-			problems.push(`ledger: ## Files lists ${f.path}, which is not in the run directory`);
+			problems.push(problem('files-listed-missing', `ledger: ## Files lists ${f.path}, which is not in the run directory`));
 		}
 	}
 	const listed = new Set(files.map(f => f.path));
@@ -203,10 +204,10 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 		for (const m of line.matchAll(FILES_PATH)) { named.add(m[1]); }
 	}
 	for (const p of named) {
-		if (!listed.has(p)) { problems.push(`ledger: ${p} is named but not listed in ## Files`); }
+		if (!listed.has(p)) { problems.push(problem('files-named-unlisted', `ledger: ${p} is named but not listed in ## Files`)); }
 	}
 	for (const p of listFiles ? listFiles() : []) {
-		if (!listed.has(p)) { problems.push(`ledger: ${p} is saved but not listed in ## Files`); }
+		if (!listed.has(p)) { problems.push(problem('files-saved-unlisted', `ledger: ${p} is saved but not listed in ## Files`)); }
 	}
 	// A setup that names a file nobody saved is how a finding stops reproducing.
 	// One line per file, naming every setup that needs it.
@@ -220,7 +221,7 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 			const name = basename(path);
 			if (!twice.has(name) && state.includes(`\`${name}\``)) {
 				twice.add(name);
-				problems.push(`${where} names ${name} twice, bare and as ${path}; write \`${path}\` once in place of the name, and the page shows it as ${name}`);
+				problems.push(problem('file-named-twice', `${where} names ${name} twice, bare and as ${path}; write \`${path}\` once in place of the name, and the page shows it as ${name}`));
 			}
 		}
 		// A setup that is about a file not being there names it on purpose.
@@ -233,7 +234,7 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 			if (findFile(files, m[1]) || APP_CONFIG.test(m[1]) || m[1].startsWith('files/') || HELPERS.has(basename(m[1]))) { continue; }
 			const same = files.filter(f => basename(f.path) === basename(m[1]));
 			if (same.length > 1) {
-				problems.push(`${where} names ${m[1]}, which matches ${same.map(f => f.path).join(' and ')}; name it by its files/ path`);
+				problems.push(problem('file-name-ambiguous', `${where} names ${m[1]}, which matches ${same.map(f => f.path).join(' and ')}; name it by its files/ path`));
 				continue;
 			}
 			const at = unsaved.get(m[1]) ?? [];
@@ -242,7 +243,7 @@ function lintFiles(markdown, ledger, needs, { fileExists, listFiles }) {
 		}
 	}
 	for (const [name, at] of unsaved) {
-		problems.push(`${name} is named by ${at.join(', ')} but not saved; save it to files/ as it was when used and list it under ## Files in the ledger`);
+		problems.push(problem('file-not-saved', `${name} is named by ${at.join(', ')} but not saved; save it to files/ as it was when used and list it under ## Files in the ledger`));
 	}
 	return problems;
 }
@@ -284,7 +285,7 @@ function lintKnownIssues(ledger, knownIssues, { final = true } = {}) {
 		if (head) { id = /^S\d+$/.test(head[1]) ? head[1] : null; continue; }
 		const m = /^Issue:\s*(.*)$/.exec(line);
 		if (id && m && !/^#\d+\s+(observed|came back|fix held|fix did not hold|fix didn't hold)\s*$/i.test(m[1].trim())) {
-			problems.push(`ledger: ${id} "Issue: ${m[1].trim()}" must read "Issue: #<N> observed", "#<N> came back", "#<N> fix held" or "#<N> fix did not hold"`);
+			problems.push(problem('issue-line-format', `ledger: ${id} "Issue: ${m[1].trim()}" must read "Issue: #<N> observed", "#<N> came back", "#<N> fix held" or "#<N> fix did not hold"`));
 		}
 	}
 	const parsed = parseLedger(ledger);
@@ -292,29 +293,29 @@ function lintKnownIssues(ledger, knownIssues, { final = true } = {}) {
 		for (const { n, kind } of s.issues ?? []) {
 			const issue = byNumber.get(n);
 			if (!issue) {
-				problems.push(`ledger: ${s.id} names #${n}, which is not in known-issues.json; only issues linked to the PR get an Issue: line`);
+				problems.push(problem('issue-not-linked', `ledger: ${s.id} names #${n}, which is not in known-issues.json; only issues linked to the PR get an Issue: line`));
 			} else if (issue.relation === 'fixes' && (kind === 'observed' || kind === 'back')) {
-				problems.push(`ledger: ${s.id} #${n} is a fix the PR claims; record "fix held" or "fix did not hold", not "${kind === 'back' ? 'came back' : 'observed'}"`);
+				problems.push(problem('issue-fix-kind', `ledger: ${s.id} #${n} is a fix the PR claims; record "fix held" or "fix did not hold", not "${kind === 'back' ? 'came back' : 'observed'}"`));
 			} else if (issue.relation !== 'fixes' && (kind === 'held' || kind === 'failed')) {
 				// "fix held" tests the PR's claim; a linked issue makes none, so not seeing it says nothing.
-				problems.push(issue.state === 'closed'
+				problems.push(problem('issue-linked-kind', issue.state === 'closed'
 					? `ledger: ${s.id} #${n} is a closed linked issue, not one the PR fixes; record "came back" only if it showed up again, otherwise leave the Issue: line out`
-					: `ledger: ${s.id} #${n} is an open linked issue, not one the PR fixes; record "observed" only if the scenario ran into it, otherwise leave the Issue: line out`);
+					: `ledger: ${s.id} #${n} is an open linked issue, not one the PR fixes; record "observed" only if the scenario ran into it, otherwise leave the Issue: line out`));
 			} else if (kind === 'observed' && issue.state === 'closed') {
-				problems.push(`ledger: ${s.id} #${n} is closed, so seeing it again is a finding; record "came back" with Status: FAIL`);
+				problems.push(problem('issue-closed-observed', `ledger: ${s.id} #${n} is closed, so seeing it again is a finding; record "came back" with Status: FAIL`));
 			} else if (kind === 'back' && issue.state !== 'closed') {
-				problems.push(`ledger: ${s.id} #${n} is still open; record "observed", not "came back"`);
+				problems.push(problem('issue-open-came-back', `ledger: ${s.id} #${n} is still open; record "observed", not "came back"`));
 			} else if ((kind === 'failed' || kind === 'back') && s.status !== 'fail') {
-				problems.push(`ledger: ${s.id} says ${kind === 'failed' ? `the fix for #${n} did not hold` : `#${n} came back`}, so it needs a finding and Status: FAIL`);
+				problems.push(problem('issue-needs-finding', `ledger: ${s.id} says ${kind === 'failed' ? `the fix for #${n} did not hold` : `#${n} came back`}, so it needs a finding and Status: FAIL`));
 			}
 		}
 	}
 	for (const r of parsed?.notExercised ?? []) {
 		for (const { n, kind } of r.issues ?? []) {
 			if (!byNumber.has(n)) {
-				problems.push(`ledger: Not run ${r.id} names #${n}, which is not in known-issues.json`);
+				problems.push(problem('not-run-issue-not-linked', `ledger: Not run ${r.id} names #${n}, which is not in known-issues.json`));
 			} else if ((byNumber.get(n).relation === 'fixes') !== (kind === 'not-exercised')) {
-				problems.push(`ledger: Not run ${r.id} #${n}: use "Fix for #N not exercised" for a fix, "Already filed as #N" for a linked issue`);
+				problems.push(problem('not-run-issue-kind', `ledger: Not run ${r.id} #${n}: use "Fix for #N not exercised" for a fix, "Already filed as #N" for a linked issue`));
 			}
 		}
 	}
@@ -322,7 +323,7 @@ function lintKnownIssues(ledger, knownIssues, { final = true } = {}) {
 	// Mid-run, a fix not yet tested is one still to come.
 	for (const i of final ? byNumber.values() : []) {
 		if (i.relation === 'fixes' && !accounted.has(i.number)) {
-			problems.push(`ledger: the PR fixes #${i.number}; record "Issue: #${i.number} fix held" or "fix did not hold" under a scenario, or a Not run row "Fix for #${i.number} not exercised: <reason>"`);
+			problems.push(problem('fix-not-accounted', `ledger: the PR fixes #${i.number}; record "Issue: #${i.number} fix held" or "fix did not hold" under a scenario, or a Not run row "Fix for #${i.number} not exercised: <reason>"`));
 		}
 	}
 	return problems;
@@ -343,12 +344,12 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 	const problems = [];
 	// Readers never see scenario IDs, so a finding's prose says what a run was in words.
 	for (const f of findings) {
-		const fields = [['title', f.title], ['Observed', f.observedHtml], ['Expected', f.expectedHtml], ['Cause', f.causeHtml]];
+		const fields = [['title', f.title], ['observed', f.observedHtml], ['expected', f.expectedHtml], ['cause', f.causeHtml]];
 		for (const [label, value] of fields) {
 			const words = String(value ?? '').replace(/<code[^>]*>[\s\S]*?<\/code>/g, '').replace(/`[^`]*`/g, '').replace(/<[^>]+>/g, '');
 			const ids = [...new Set([...words.matchAll(/(?<![\w/.-])[SN]\d{2,}(?![\w-])/g)].map(m => m[0]))];
 			if (ids.length) {
-				problems.push(`report: Finding ${f.n} ${label} names ${ids.join(', ')}; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs`);
+				problems.push(problem('finding-scenario-id', `report: Finding ${f.n} ${label} names ${ids.join(', ')}; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs`));
 			}
 		}
 	}
@@ -356,11 +357,11 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 	for (const f of findings) {
 		const lead = f.text.cause && sentencesOf(f.text.cause)[0];
 		if (lead && wordsOf(lead) > CAUSE_LEAD_WORDS) {
-			problems.push(`report: Finding ${f.n} Cause opens with a ${wordsOf(lead)}-word sentence; name the suspect in ${CAUSE_LEAD_WORDS} words or fewer, then give the detail`);
+			problems.push(problem('cause-lead-length', `report: Finding ${f.n} cause opens with a ${wordsOf(lead)}-word sentence; name the suspect in ${CAUSE_LEAD_WORDS} words or fewer, then give the detail`));
 		}
 	}
 	for (const { n, file } of untaggedShots(findings)) {
-		problems.push(`report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step`);
+		problems.push(problem('shot-no-step', `report: Finding ${n} screenshot ${file} names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step`));
 	}
 	// A shot captioned with a scenario is that scenario's run of the bug, so the ledger shows it there.
 	const exercised = parseLedger(ledger)?.exercised;
@@ -368,9 +369,9 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 		for (const e of f.evidence.filter(e => e.kind === 'shot' && e.scenario)) {
 			const s = exercised.find(s => s.id === e.scenario);
 			if (!s) {
-				problems.push(`report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, which the ledger does not have; name the scenario that took it`);
+				problems.push(problem('shot-unknown-scenario', `report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, which the ledger does not have; name the scenario that took it`));
 			} else if (!s.steps.some(st => st.evidence.some(x => basename(x.file || x.href) === e.file))) {
-				problems.push(`report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, but ${e.scenario} never cites it as Evidence; name the scenario that took it`);
+				problems.push(problem('shot-scenario-uncited', `report: Finding ${f.n} screenshot ${e.file} is captioned ${e.scenario}, but ${e.scenario} never cites it as Evidence; name the scenario that took it`));
 			}
 		}
 	}
@@ -384,9 +385,9 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 			const own = new Set(st.evidence.map(x => x.file));
 			const shots = f.evidence.filter(e => e.kind === 'shot' && !e.scenario && own.has(e.file));
 			if (shots.length > 2) {
-				problems.push(`report: Finding ${f.n} step ${i + 1} has ${shots.length} screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out`);
+				problems.push(problem('too-many-shots', `report: Finding ${f.n} step ${i + 1} has ${shots.length} screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out`));
 			} else if (shots.length === 2 && shots[0].caption === shots[1].caption) {
-				problems.push(`report: Finding ${f.n} step ${i + 1}'s second screenshot ${shots[1].file} repeats the first one's caption; caption it under Evidence with what it shows that the first does not`);
+				problems.push(problem('second-shot-caption', `report: Finding ${f.n} step ${i + 1}'s second screenshot ${shots[1].file} repeats the first one's caption; caption it under evidence with what it shows that the first does not`));
 			}
 		});
 	}
@@ -394,18 +395,18 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 	for (const f of findings) {
 		for (const e of f.evidence) {
 			if (e.kind === 'note') {
-				problems.push(`report: Finding ${f.n} Evidence has a note ("${e.text.slice(0, 50)}"); Evidence is log lines only, so state it in Observed or Cause`);
+				problems.push(problem('evidence-note', `report: Finding ${f.n} evidence has a note ("${e.text.slice(0, 50)}"); evidence is log lines only, so state it in observed or cause`));
 			} else if (e.kind === 'log' && !isPositronLog(e.path)) {
-				problems.push(`report: Finding ${f.n} Evidence cites ${e.path}, which the run wrote, not Positron; cite the Positron log line, or state what happened in Observed`);
+				problems.push(problem('evidence-run-file', `report: Finding ${f.n} evidence cites ${e.path}, which the run wrote, not Positron; cite the Positron log line, or state what happened in observed`));
 			} else if ((e.kind === 'log' || e.kind === 'missing') && e.note) {
-				problems.push(`report: Finding ${f.n} Evidence follows ${e.path}'s line with "${e.note.slice(0, 50)}"; quote the line alone, and put what it means in Observed or Cause`);
+				problems.push(problem('evidence-trailing-note', `report: Finding ${f.n} evidence follows ${e.path}'s line with "${e.note.slice(0, 50)}"; quote the line alone, and put what it means in observed or cause`));
 			}
 		}
 	}
 	for (const f of repoFileExists ? findings : []) {
 		const paths = [...f.tests.cases.filter(c => c.path && !isNewTestFile(c)), ...f.tests.related].map(t => t.path);
 		for (const p of new Set(paths.filter(p => !repoFileExists(p)))) {
-			problems.push(`report: Finding ${f.n} names test file ${p}, which is not in the repository; fix the path, mark it (new file), or drop it`);
+			problems.push(problem('test-file-missing', `report: Finding ${f.n} names test file ${p}, which is not in the repository; fix the path, mark it (new file), or drop it`));
 		}
 	}
 	return problems;
@@ -426,7 +427,7 @@ function citedPaths(line) {
 /** The first of `paths` that is absolute, as a problem. */
 export function absolutePathProblems(name, paths) {
 	const abs = paths.find(p => ABSOLUTE.test(p));
-	return abs ? [`${name}: cite files relative to the run directory, not ${abs}`] : [];
+	return abs ? [problem('absolute-path', `${name}: cite files relative to the run directory, not ${abs}`)] : [];
 }
 
 /**
@@ -446,7 +447,7 @@ export function runProblems(text, ledger, { needs = [], findingNumbers, notExerc
 		const l = lintLedger(ledger, findingNumbers, fileExists);
 		problems.push(...l.problems);
 		if (notExercised && !/^`?none`?\.?$/i.test(notExercised) && !l.notRun) {
-			problems.push('ledger: **Not exercised:** names surfaces, so ## Not run needs an N line for each');
+			problems.push(problem('not-exercised-unlisted', 'ledger: header.notExercised names surfaces, so ## Not run needs an N line for each'));
 		}
 		if (knownIssues?.issues?.length) {
 			problems.push(...lintKnownIssues(ledger, knownIssues));
@@ -517,12 +518,12 @@ export function lintActionsLog(actionsLog) {
 	const problems = [];
 	if (unstamped.length) {
 		const first = unstamped[0].line;
-		problems.push(`actions.log: ${lines(unstamped)} ${unstamped.length > 1 ? 'do' : 'does'} not start with the UTC time the helpers write ("2026-01-02T03:04:05Z "), such as "${first.length > 50 ? `${first.slice(0, 47)}...` : first}"; log what no helper logged with \`dp.ts log\`, and never write or rewrite a line yourself`);
+		problems.push(problem('log-unstamped', `actions.log: ${lines(unstamped)} ${unstamped.length > 1 ? 'do' : 'does'} not start with the UTC time the helpers write ("2026-01-02T03:04:05Z "), such as "${first.length > 50 ? `${first.slice(0, 47)}...` : first}"; log what no helper logged with \`dp.ts log\`, and never write or rewrite a line yourself`));
 	}
 	if (back.length) {
 		const [b] = back;
 		const first = `line ${b.n} (${b.at}) is earlier than line ${b.after.n} above it (${b.after.at})`;
-		problems.push(`actions.log: ${back.length > 1 ? `${lines(back)} are earlier than a line above them, first ${first}` : first}; the log is append-only, so log a missed action as a note when you notice it, and never backdate or move a line`);
+		problems.push(problem('log-backdated', `actions.log: ${back.length > 1 ? `${lines(back)} are earlier than a line above them, first ${first}` : first}; the log is append-only, so log a missed action as a note when you notice it, and never backdate or move a line`));
 	}
 	return problems;
 }
@@ -541,7 +542,7 @@ export function lintShotNames(ledger, actionsLog) {
 	const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	return [...cited]
 		.filter(f => !new RegExp(`(^|[^\\w-])${escape(f.replace(/\.png$/i, ''))}(\\.png)?(?![\\w-])`, 'm').test(actionsLog))
-		.map(f => `ledger: ${f} is cited as Evidence but actions.log never takes a shot by that name; keep the name a shot was taken with, or log the rename`);
+		.map(f => problem('shot-name-unlogged', `ledger: ${f} is cited as Evidence but actions.log never takes a shot by that name; keep the name a shot was taken with, or log the rename`));
 }
 
 /**
@@ -587,11 +588,11 @@ export function lintShotTiming(ledger, actionsLog) {
 				const next = cited.slice(k + 1).find(n => n.f !== c.f);
 				const inPlace = (!last || c.when > last.when) && (!next || c.when < next.when);
 				problems.push(inPlace
-					? `ledger: ${c.f} was taken ${at.length} times in actions.log; the file is the last capture, taken before ${id} step ${c.step}'s check and after the one before it, so check that it shows step ${c.step}`
-					: `ledger: ${c.f} was taken ${at.length} times in actions.log, so the file is only the last capture; give each capture its own name and cite the one taken at the check`);
+					? problem('shot-retaken-in-place', `ledger: ${c.f} was taken ${at.length} times in actions.log; the file is the last capture, taken before ${id} step ${c.step}'s check and after the one before it, so check that it shows step ${c.step}`)
+					: problem('shot-retaken', `ledger: ${c.f} was taken ${at.length} times in actions.log, so the file is only the last capture; give each capture its own name and cite the one taken at the check`));
 			}
 			if (last && c.when < last.when) {
-				problems.push(`ledger: ${id} step ${c.step} cites ${c.f}, which actions.log took before ${last.f} (step ${last.step}); cite the shot taken at each check`);
+				problems.push(problem('shot-out-of-order', `ledger: ${id} step ${c.step} cites ${c.f}, which actions.log took before ${last.f} (step ${last.step}); cite the shot taken at each check`));
 			} else {
 				last = c;
 			}

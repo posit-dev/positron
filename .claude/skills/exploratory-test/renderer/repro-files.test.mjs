@@ -165,7 +165,7 @@ test('files: nothing about files renders when the ledger lists none', () => {
 /** The fixture's lint lines about files, with the files it saved on disk. */
 function fileProblems(report, ledger, { exists = p => Boolean(readFixture(p)), list = () => ['files/slow.py'] } = {}) {
 	return formatProblems(report, ledger, { fileExists: exists, listFiles: list })
-		.filter(p => /files\/|not saved/.test(p));
+		.map(p => p.text).filter(p => /files\/|not saved/.test(p));
 }
 
 test('lint: the fixture saves and lists every file it names', () => {

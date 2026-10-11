@@ -18,7 +18,8 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readKnownIssues } from './finish.mjs';
 import { absolutePathProblems, modelProblems, rateProblem, runProblems } from './lint-ledger.mjs';
-import { findingProblems, rateProblems, resultProblems, splitProblems } from './lint-wording.mjs';
+import { problem, splitProblems } from './lint-rules.mjs';
+import { findingProblems, rateProblems, resultProblems } from './lint-wording.mjs';
 import { reportFromJson } from './report-json.mjs';
 import { recordCheck } from './stats.mjs';
 import { parseLedger, verifyText } from './ledger.mjs';
@@ -67,16 +68,16 @@ function stepProblems(f, scenario) {
 		});
 		if (found < 0) {
 			const anywhere = ledger.some(st => distance(st) < Infinity);
-			problems.push(`Finding ${f.n} step ${i + 1} ${anywhere ? 'is out of order against' : 'is not a step of'} ${scenario.id}: "${text}"`);
+			problems.push(problem(anywhere ? 'finding-step-out-of-order' : 'finding-step-not-in-scenario', `Finding ${f.n} step ${i + 1} ${anywhere ? 'is out of order against' : 'is not a step of'} ${scenario.id}: "${text}"`));
 			return;
 		}
 		at = found + 1;
 		const want = ledger[found];
 		const result = s.kind === 'verify' ? s.result ?? null : null;
 		if (result !== want.result) {
-			problems.push(`Finding ${f.n} step ${i + 1} is ${result ?? 'no result'}, but ${scenario.id} recorded ${want.result ?? 'no result'}`);
+			problems.push(problem('finding-step-result', `Finding ${f.n} step ${i + 1} is ${result ?? 'no result'}, but ${scenario.id} recorded ${want.result ?? 'no result'}`));
 		} else if (result === 'fail' && s.finding !== want.finding) {
-			problems.push(`Finding ${f.n} step ${i + 1} fails for Finding ${s.finding}, but ${scenario.id} recorded Finding ${want.finding}`);
+			problems.push(problem('finding-step-finding', `Finding ${f.n} step ${i + 1} fails for Finding ${s.finding}, but ${scenario.id} recorded Finding ${want.finding}`));
 		}
 	});
 	return problems;
@@ -89,11 +90,11 @@ function stepProblems(f, scenario) {
 export function checkReportJson(json, ledgerText) {
 	const ledger = parseLedger(ledgerText);
 	if (!ledger) {
-		return [{ text: 'no ledger to check against' }];
+		return [problem('no-ledger', 'no ledger to check against')];
 	}
 	const problems = [];
-	const onFinding = (n, text) => problems.push({ text, finding: n });
-	const onScenario = (id, text) => problems.push({ text, scenario: id });
+	const onFinding = (n, rule, text) => problems.push(problem(rule, text, { finding: n }));
+	const onScenario = (id, rule, text) => problems.push(problem(rule, text, { scenario: id }));
 	const scenarios = new Map(ledger.exercised.map(s => [s.id, s]));
 	const notRun = new Set(ledger.notExercised.map(s => s.id));
 
@@ -102,12 +103,12 @@ export function checkReportJson(json, ledgerText) {
 	const findings = json.findings ?? [];
 	for (const f of findings) {
 		if (!ledgerFindings.has(f.n)) {
-			onFinding(f.n, `Finding ${f.n} is not in the ledger: no scenario fails for it`);
+			onFinding(f.n, 'finding-not-in-ledger', `Finding ${f.n} is not in the ledger: no scenario fails for it`);
 		}
 	}
 	for (const n of ledgerFindings) {
 		if (!findings.some(f => f.n === n)) {
-			onFinding(n, `the ledger's Finding ${n} is missing`);
+			onFinding(n, 'ledger-finding-missing', `the ledger's Finding ${n} is missing`);
 		}
 	}
 
@@ -116,27 +117,27 @@ export function checkReportJson(json, ledgerText) {
 		const own = scenarios.get(s.id);
 		if (s.status === 'not-run') {
 			if (!own && !notRun.has(s.id)) {
-				onScenario(s.id, `${s.id} is not in the ledger`);
+				onScenario(s.id, 'scenario-not-in-ledger', `${s.id} is not in the ledger`);
 			} else if (own) {
-				onScenario(s.id, `${s.id} is not run, but the ledger ran it`);
+				onScenario(s.id, 'scenario-not-run', `${s.id} is not run, but the ledger ran it`);
 			}
 			continue;
 		}
 		if (!own) {
-			onScenario(s.id, `${s.id} is not in the ledger${notRun.has(s.id) ? ', which did not run it' : ''}`);
+			onScenario(s.id, 'scenario-not-in-ledger', `${s.id} is not in the ledger${notRun.has(s.id) ? ', which did not run it' : ''}`);
 			continue;
 		}
 		if (s.status !== own.status) {
-			onScenario(s.id, `${s.id} is ${s.status}, but the ledger has ${own.status}`);
+			onScenario(s.id, 'scenario-status', `${s.id} is ${s.status}, but the ledger has ${own.status}`);
 		}
 		const rate = /\bFails (\d+\/\d+)\b/.exec(s.result ?? '')?.[1];
 		if (rate && failRate(own) && rate !== failRate(own)) {
-			onScenario(s.id, `${s.id} fails ${rate}, but the ledger has ${failRate(own)}`);
+			onScenario(s.id, 'scenario-rate', `${s.id} fails ${rate}, but the ledger has ${failRate(own)}`);
 		}
 		const want = [...new Set(own.findings)].sort().join(',');
 		const got = [...new Set(s.findings ?? [])].sort().join(',');
 		if (own.status === 'fail' && want !== got) {
-			onScenario(s.id, `${s.id} names findings [${got}], but the ledger has [${want}]`);
+			onScenario(s.id, 'scenario-findings', `${s.id} names findings [${got}], but the ledger has [${want}]`);
 		}
 	}
 
@@ -148,10 +149,10 @@ export function checkReportJson(json, ledgerText) {
 		}
 		const tries = owners.map(s => ({ s, problems: stepProblems(f, s) }));
 		const best = tries.reduce((a, b) => (b.problems.length < a.problems.length ? b : a));
-		best.problems.forEach(text => onFinding(f.n, text));
+		best.problems.forEach(p => problems.push({ ...p, finding: f.n }));
 		const rate = rateProblem(f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : null, best.s, owners);
 		if (rate) {
-			onFinding(f.n, `Finding ${f.n}'s rate ${rate}`);
+			onFinding(f.n, 'finding-rate', `Finding ${f.n}'s rate ${rate}`);
 		}
 		// A log line was either found or looked for and missing, not both.
 		const kinds = new Map();
@@ -163,7 +164,7 @@ export function checkReportJson(json, ledgerText) {
 		}
 		for (const [path, k] of kinds) {
 			if (k.size === 2) {
-				onFinding(f.n, `Finding ${f.n} evidence lists ${path} as both a log line and missing`);
+				onFinding(f.n, 'evidence-found-and-missing', `Finding ${f.n} evidence lists ${path} as both a log line and missing`);
 			}
 		}
 	}
@@ -218,12 +219,12 @@ export function formatProblems(json, ledger, options = {}) {
 	// The schema asks only that they are there; the page has nothing to show for an empty one.
 	for (const [key, label] of [['result', 'Result'], ['tested', 'Tested'], ['notExercised', 'Not exercised']]) {
 		if (!String(header[key] ?? '').trim()) {
-			problems.push(`report: header.${key} is empty; write the ${label} line`);
+			problems.push(problem('header-empty', `report: header.${key} is empty; write the ${label} line`));
 		}
 	}
 	for (const f of findings) {
 		if (!String(f.feature ?? '').trim()) {
-			problems.push(`report: Finding ${f.n} has no feature; name the area of Positron it is in, such as "data explorer"`);
+			problems.push(problem('feature-missing', `report: Finding ${f.n} has no feature; name the area of Positron it is in, such as "data explorer"`));
 		}
 		problems.push(...rateProblems(f.n, f.severity, f.reproduced ? `${f.reproduced.n}/${f.reproduced.m}` : ''));
 		const steps = (f.steps ?? []).map((s, i) => ({ n: String(i + 1), verify: s.kind === 'verify', text: s.text, result: s.result?.toUpperCase() }));
@@ -238,17 +239,17 @@ export function formatProblems(json, ledger, options = {}) {
 		}));
 		const frame = (f.errors ?? []).flatMap(e => e.frames ?? []).find(fr => /\bout\/vs\/\S+\.js$/.test(fr.path ?? ''));
 		if (frame) {
-			problems.push(`report: map compiled frames to source paths: "${frame.path}:${frame.line}"`);
+			problems.push(problem('compiled-frames', `report: map compiled frames to source paths: "${frame.path}:${frame.line}"`));
 		}
 		problems.push(...absolutePathProblems('report', [...(f.evidence ?? []).map(e => e.path ?? ''), ...(f.steps ?? []).map(s => String(s.log?.source ?? '').split(/[\s|]/)[0])]));
 		const outside = (f.evidence ?? []).find(e => e.kind === 'shot' && !/^shots\//.test(e.path ?? ''));
 		if (outside) {
-			problems.push(`report: Finding ${f.n} links the screenshot ${outside.path}; link it as shots/<file>`);
+			problems.push(problem('shot-outside-shots', `report: Finding ${f.n} links the screenshot ${outside.path}; link it as shots/<file>`));
 		}
 		if (options.fileExists) {
 			const shots = [...(f.steps ?? []).flatMap(s => s.shots ?? []), ...(f.evidence ?? []).filter(e => e.kind === 'shot').map(e => e.path)];
 			for (const p of [...new Set(shots)].filter(p => p && !options.fileExists(p))) {
-				problems.push(`report: Finding ${f.n} cites ${p}, which is not in the run directory`);
+				problems.push(problem('shot-missing', `report: Finding ${f.n} cites ${p}, which is not in the run directory`));
 			}
 		}
 	}
@@ -267,7 +268,7 @@ export function formatProblems(json, ledger, options = {}) {
 
 /** Problems with report.json against the ledger, as `report.json: ...` lines. */
 export function lintReportJson(json, ledgerText) {
-	return checkReportJson(json, ledgerText).map(p => `report.json: ${p.text}`);
+	return checkReportJson(json, ledgerText).map(p => ({ ...p, text: `report.json: ${p.text}` }));
 }
 
 /** The writer's second chance: the problems, and what to fix them from. */
@@ -311,7 +312,7 @@ export function mergeRetry(first, retry, problems) {
 /** Schema problems first: the ledger check reads fields the schema requires. */
 function problemsOf(json, ledger) {
 	const shape = schemaProblems(json);
-	return shape.length ? shape.map(text => ({ text })) : checkReportJson(json, ledger);
+	return shape.length ? shape.map(text => problem('schema', text)) : checkReportJson(json, ledger);
 }
 
 /**
@@ -334,7 +335,7 @@ export async function settleReportJson(workDir, { resume, log = console.log }) {
 		}
 	};
 	const first = read();
-	const problems = first ? problemsOf(first, ledger) : [{ text: 'report.json is not valid JSON' }];
+	const problems = first ? problemsOf(first, ledger) : [problem('schema', 'report.json is not valid JSON')];
 	log(`[json] ${problems.length} problems after the explorer: ${problems.map(p => p.text).join(' | ')}`);
 	if (!problems.length || !resume) {
 		return first;
@@ -387,22 +388,22 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 		const json = JSON.parse(readFileSync(input, 'utf8'));
 		const shape = schemaProblems(json);
 		if (shape.length) {
-			problems = shape.map(p => `report.json: ${p}`);
+			problems = shape.map(p => problem('schema', `report.json: ${p}`));
 		} else {
 			const ledger = readFileSync(ledgerPath ?? join(dirname(input), 'ledger.md'), 'utf8');
 			problems = [...lintReportJson(json, ledger), ...formatProblems(json, ledger, runDirOptions(dirname(input)))];
 		}
 	} catch (err) {
-		problems = [`report.json: ${err.message}`];
+		problems = [problem('schema', `report.json: ${err.message}`)];
 	}
 	const { errors, warnings } = splitProblems(problems);
 	// How many checks a report took to pass, and what each one found.
 	recordCheck(dirname(input), problems, errors.length);
 	if (errors.length) {
-		console.log(`errors, fix each one and check again:\n${errors.map(p => `  ${p}`).join('\n')}`);
+		console.log(`errors, fix each one and check again:\n${errors.map(p => `  ${p.text}`).join('\n')}`);
 	}
 	if (warnings.length) {
-		console.log(`warnings, fix any that are quick; they need no further check:\n${warnings.map(p => `  ${p}`).join('\n')}`);
+		console.log(`warnings, fix any that are quick; they need no further check:\n${warnings.map(p => `  ${p.text}`).join('\n')}`);
 	}
 	process.exitCode = errors.length ? 1 : 0;
 }

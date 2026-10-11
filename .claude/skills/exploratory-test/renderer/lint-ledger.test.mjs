@@ -10,9 +10,17 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { lintActionsLog, lintLedgerOnly, lintShotNames, lintShotTiming } from './lint-ledger.mjs';
-import { isWarning, splitProblems } from './lint-wording.mjs';
-import { formatProblems, lintReportJson, schemaProblems } from './lint-json.mjs';
+import * as ledgerLint from './lint-ledger.mjs';
+import { formatProblems, lintReportJson as lintReportJsonRaw, schemaProblems } from './lint-json.mjs';
+import { LINT_RULES, problem, splitProblems } from './lint-rules.mjs';
+
+const texts = ps => ps.map(p => p.text);
+const split = ps => { const { errors, warnings } = splitProblems(ps); return { errors: texts(errors), warnings: texts(warnings) }; };
+const lintActionsLog = (...a) => texts(ledgerLint.lintActionsLog(...a));
+const lintLedgerOnly = (...a) => texts(ledgerLint.lintLedgerOnly(...a));
+const lintShotNames = (...a) => texts(ledgerLint.lintShotNames(...a));
+const lintShotTiming = (...a) => texts(ledgerLint.lintShotTiming(...a));
+const lintReportJson = (...a) => texts(lintReportJsonRaw(...a));
 import { applyVerification } from './finish.mjs';
 
 /** One finding, as report.json writes it, with the run around it. */
@@ -87,7 +95,8 @@ Steps:
 - N01 - web build - no server
 `;
 
-const lint = (json = report(), ledger = LEDGER, options = { fileExists: () => true }) => formatProblems(json, ledger, options);
+const lintRaw = (json = report(), ledger = LEDGER, options = { fileExists: () => true }) => formatProblems(json, ledger, options);
+const lint = (...a) => texts(lintRaw(...a));
 
 
 test('a report written to the format is clean', () => {
@@ -98,7 +107,7 @@ test('a report written to the format is clean', () => {
 
 test('flags a finding with no Feature, and a Feature named in code rather than as a user sees the area', () => {
 	assert.deepEqual(schemaProblems(report(f => { delete f.feature; })), ['report.findings[0].feature is missing']);
-	const problem = feature => `report: Finding 1 Feature "${feature}" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"`;
+	const problem = feature => `report: Finding 1 feature "${feature}" is a code or file name; name the area as a user sees it, such as "data explorer" or "new folder flow"`;
 	for (const feature of ['PositronDynamicModalDialog', 'columnProfileInteger.tsx', '`dataExplorer`']) {
 		assert.deepEqual(lint(report(f => { f.feature = feature; })), [problem(feature)]);
 	}
@@ -114,19 +123,19 @@ test('flags an Observed or Expected that runs past its sentences', () => {
 	// Observed gets one more, for a fact the run saw such as a workaround.
 	assert.deepEqual(pair('The panel is empty. Retry shows the same. After a reload it loads.', 'The panel loads. Retry reloads it.'), []);
 	assert.deepEqual(pair('One. Two. Three. Four.', 'One. Two. Three.'), [
-		'report: Finding 1 Observed: is 4 sentences; keep it to 1-2, plus one for a fact such as no error shown or a workaround you saw work, and move the rest to Reproduce or Evidence',
-		'report: Finding 1 Expected: is 3 sentences; keep it to 1-2, and move the rest to Reproduce or Evidence',
+		'report: Finding 1 observed is 4 sentences; keep it to 1-2, plus one for a fact such as no error shown or a workaround you saw work, and move the rest to the steps or evidence',
+		'report: Finding 1 expected is 3 sentences; keep it to 1-2, and move the rest to the steps or evidence',
 	]);
 });
 
 test('flags a question-shaped Result, and the schema a missing one', () => {
-	assert.ok(lint(report((f, r) => { r.header.result = 'Yes, mostly.'; })).some(p => /Result:\*\* answers a question/.test(p)));
+	assert.ok(lint(report((f, r) => { r.header.result = 'Yes, mostly.'; })).some(p => /header\.result answers a question/.test(p)));
 	assert.deepEqual(schemaProblems(report((f, r) => { delete r.header.notExercised; })), ['report.header.notExercised is missing']);
 });
 
 test('flags a severity outside the allowed words and a missing rate', () => {
 	const problems = lint(report(f => { f.severity = 'High'; delete f.reproduced; }));
-	assert.equal(problems.filter(p => /finding 1 (Severity|Reproduction)/.test(p)).length, 2);
+	assert.equal(problems.filter(p => /Finding 1 (severity|reproduced) must/.test(p)).length, 2);
 });
 
 test('flags a failed step whose finding is not the one the scenario\'s Status names', () => {
@@ -283,18 +292,18 @@ test('Evidence holds Positron log lines only: no notes, no agent files', () => {
 		{ kind: 'log', path: 'actions.log:12', quote: 'click failed' },
 		{ kind: 'log', path: 'logs/S03-later.txt', quote: 'saved' },
 	]).map(p => p.replace(/;.*/, '')), [
-		'report: Finding 1 Evidence has a note ("so nothing resolved the new path")',
-		'report: Finding 1 Evidence cites actions.log:12, which the run wrote, not Positron',
-		'report: Finding 1 Evidence cites logs/S03-later.txt, which the run wrote, not Positron',
+		'report: Finding 1 evidence has a note ("so nothing resolved the new path")',
+		'report: Finding 1 evidence cites actions.log:12, which the run wrote, not Positron',
+		'report: Finding 1 evidence cites logs/S03-later.txt, which the run wrote, not Positron',
 	]);
 });
 
 test('a finding\'s prose names no scenario ID, but an Evidence caption may', () => {
 	const pair = (observed, expected) => lint(report(f => { f.observed = observed; f.expected = expected; }));
 	assert.deepEqual(pair('The panel stays empty.', 'The panel loads, as it did after Restart Kernel (S05, S06).'),
-		['report: Finding 1 Expected names S05, S06; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs']);
+		['report: Finding 1 expected names S05, S06; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs']);
 	assert.deepEqual(pair('The panel stays empty, unlike N01.', 'The panel loads.'),
-		['report: Finding 1 Observed names N01; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs']);
+		['report: Finding 1 observed names N01; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs']);
 	assert.deepEqual(lint(report(f => { f.title = 'Retry does nothing in S03'; })),
 		['report: Finding 1 title names S03; say what it was in words (e.g. "after Restart Kernel"), since readers never see scenario IDs']);
 	// A shot's name, or code, is not prose; a caption may name the scenario that took a shot.
@@ -336,12 +345,12 @@ test('flags a cited screenshot that actions.log never took by that name', () => 
 
 test('a moderate or major finding tried only once is a warning, never an error', () => {
 	const rate = (severity, n, m) => lint(report(f => { f.severity = severity; f.reproduced = { n, m }; })).filter(p => /tried once/.test(p));
-	assert.deepEqual(rate('moderate', 1, 1), ['report: finding 1 is moderate and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up']);
+	assert.deepEqual(rate('moderate', 1, 1), ['report: Finding 1 is moderate and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up']);
 	assert.equal(rate('major', 1, 1).length, 1);
 	assert.deepEqual(rate('minor', 1, 1), []);
 	assert.deepEqual(rate('moderate', 1, 2), []);
 	// Rating it lower must not be the way past an error.
-	assert.deepEqual(splitProblems(rate('major', 1, 1)).errors, []);
+	assert.deepEqual(split(lintRaw(report(f => { f.severity = 'major'; f.reproduced = { n: 1, m: 1 }; })).filter(p => p.rule === 'tried-once')).errors, []);
 });
 
 test('actions.log is append-only: every line stamped as the helpers stamp it, in time order', () => {
@@ -360,8 +369,8 @@ test('actions.log is append-only: every line stamped as the helpers stamp it, in
 	}
 	// Both reports and the mid-run ledger check read it, as errors.
 	const backdated = [at(24), at(16)].join('\n');
-	assert.equal(splitProblems(lint(report(), LEDGER, { fileExists: () => true, actionsLog: backdated })).errors.filter(p => /^actions\.log:/.test(p)).length, 1);
-	assert.equal(splitProblems(lintLedgerOnly(LEDGER, { fileExists: () => true, actionsLog: backdated })).errors.filter(p => /^actions\.log:/.test(p)).length, 1);
+	assert.equal(split(lintRaw(report(), LEDGER, { fileExists: () => true, actionsLog: backdated })).errors.filter(p => /^actions\.log:/.test(p)).length, 1);
+	assert.equal(split(ledgerLint.lintLedgerOnly(LEDGER, { fileExists: () => true, actionsLog: backdated })).errors.filter(p => /^actions\.log:/.test(p)).length, 1);
 });
 
 test('flags a pointer to another finding', () => {
@@ -507,7 +516,7 @@ test('a step with more than two screenshots, or a second that repeats the first,
 	assert.deepEqual(problems(shots(['a.png'])), []);
 	// A second shot with its own caption is a different moment; with the check's caption it is a repeat.
 	assert.deepEqual(problems(shots(['a.png', 'b.png'], [['b.png', 'still empty 15 s later']])), []);
-	assert.deepEqual(problems(shots(['a.png', 'b.png'])), ["report: Finding 1 step 2's second screenshot b.png repeats the first one's caption; caption it under Evidence with what it shows that the first does not"]);
+	assert.deepEqual(problems(shots(['a.png', 'b.png'])), ["report: Finding 1 step 2's second screenshot b.png repeats the first one's caption; caption it under evidence with what it shows that the first does not"]);
 	assert.deepEqual(problems(shots(['a.png', 'b.png', 'c.png'], [['b.png', 'later'], ['c.png', 'pandas loads']])),
 		['report: Finding 1 step 2 has 3 screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out']);
 	// A shot listed under Evidence for the step, and not cited by it, is another run's.
@@ -517,9 +526,9 @@ test('a step with more than two screenshots, or a second that repeats the first,
 test('flags an Observed or Expected written as notes, with the reference in Observed, or with a number written two ways', () => {
 	const pair = (observed, expected) => lint(report(f => { f.observed = observed; f.expected = expected; }));
 	assert.deepEqual(pair('The `n` column, whose largest value is 1,500, shows Max 1.', '`n` shows Max 1,500, as pandas shows for the same data.'), []);
-	assert.deepEqual(pair('Max 1 for 1,500; Min 1 for 1,234,567.', 'Max 1,500.'), ['report: Finding 1 Observed: joins notes with a semicolon; write it as sentences']);
+	assert.deepEqual(pair('Max 1 for 1,500; Min 1 for 1,234,567.', 'Max 1,500.'), ['report: Finding 1 observed joins notes with a semicolon; write it as sentences']);
 	assert.deepEqual(pair('`n` shows Max 1. pandas shows Max 1,500.', 'Max 1,500.'),
-		['report: Finding 1 Observed: names pandas, which the title does not; the reference that shows the right answer goes in Expected ("as pandas shows for the same data")']);
+		['report: Finding 1 observed names pandas, which the title does not; the reference that shows the right answer goes in expected ("as pandas shows for the same data")']);
 	assert.deepEqual(pair('`pop` shows Min 1.', 'Min 1,234,567, as pandas shows 1234567.'),
 		['report: Finding 1 writes 1234567 both with and without digit grouping; write each number one way (1,234,567), except a value quoted exactly as the UI shows it']);
 	// A value the UI shows, quoted as it is, differs from the right one, so it is not the same number twice.
@@ -655,15 +664,15 @@ test('flags a hedged title and an editorial Observed', () => {
 	assert.deepEqual(titled('Retry may leave the panel empty'), ['report: Finding 1 title hedges with "may"; state what the run saw as a fact']);
 	assert.deepEqual(titled('Retry does nothing'), []);
 	const observed = lint(report(f => { f.observed = 'The panel incorrectly stays empty.'; }));
-	assert.deepEqual(observed, ['report: Finding 1 Observed: says "incorrectly"; say what happened in plain words and let the difference speak']);
+	assert.deepEqual(observed, ['report: Finding 1 observed says "incorrectly"; say what happened in plain words and let the difference speak']);
 });
 
 test('flags a possessive, a parenthetical and a code name in a title', () => {
 	const titled = t => lint(report(f => { f.title = t; })).filter(p => /possessive|parenthetical|code name/.test(p));
 	assert.deepEqual(titled('Paused columns\' tooltip is wrong'), ['report: Finding 1 title uses the possessive "columns\'"; say "the <thing> of <owner>" or name the thing on screen']);
-	assert.deepEqual(titled('Retry does nothing (after a reload)'), ['report: Finding 1 title has a parenthetical; fold it into the sentence or move it to Observed']);
-	assert.deepEqual(titled('TableSummaryCache never clears'), ['report: Finding 1 title names TableSummaryCache, a code name a user never sees; say what is on screen, and leave code to Cause']);
-	assert.deepEqual(titled('The quartoNotebookUri is lost on reload'), ['report: Finding 1 title names quartoNotebookUri, a code name a user never sees; say what is on screen, and leave code to Cause']);
+	assert.deepEqual(titled('Retry does nothing (after a reload)'), ['report: Finding 1 title has a parenthetical; fold it into the sentence or move it to observed']);
+	assert.deepEqual(titled('TableSummaryCache never clears'), ['report: Finding 1 title names TableSummaryCache, a code name a user never sees; say what is on screen, and leave code to cause']);
+	assert.deepEqual(titled('The quartoNotebookUri is lost on reload'), ['report: Finding 1 title names quartoNotebookUri, a code name a user never sees; say what is on screen, and leave code to cause']);
 	assert.deepEqual(titled('Plots on macOS lose `TableSummaryCache` on GitHub "Users\' (1)" reload'), []);
 });
 
@@ -695,11 +704,11 @@ test('a shot taken twice is a warning when its last capture falls at the check c
 	// A retake of S01-02 before S01-03: the file is what step 2 judged.
 	const retake = lintShotTiming(ledger, log(['S01-01.png', 'S01-02.png', 'S01-02.png', 'S01-03.png']));
 	assert.deepEqual(retake, ['ledger: S01-02.png was taken 2 times in actions.log; the file is the last capture, taken before S01 step 2\'s check and after the one before it, so check that it shows step 2']);
-	assert.deepEqual(splitProblems(retake).errors, []);
+	assert.deepEqual(split(ledgerLint.lintShotTiming(ledger, log(['S01-01.png', 'S01-02.png', 'S01-02.png', 'S01-03.png']))).errors, []);
 	// Taken again after S01-03: the file shows a later moment than step 2's check.
 	const late = lintShotTiming(ledger, log(['S01-01.png', 'S01-02.png', 'S01-03.png', 'S01-02.png']));
 	assert.ok(late.some(p => /so the file is only the last capture/.test(p)));
-	assert.ok(splitProblems(late).errors.length >= 1);
+	assert.ok(split(ledgerLint.lintShotTiming(ledger, log(['S01-01.png', 'S01-02.png', 'S01-03.png', 'S01-02.png']))).errors.length >= 1);
 });
 
 test('errors are what makes a repro or its evidence wrong; wording and length are warnings', () => {
@@ -709,42 +718,19 @@ test('errors are what makes a repro or its evidence wrong; wording and length ar
 		f.observed = 'The panel is empty; nothing loads.';
 	});
 	const ledger = LEDGER.replace('   Log: none found in logs/r.log\n', '').replace('Result: Fails 2/2', 'Result: Retry leaves the panel empty');
-	const { errors, warnings } = splitProblems(lint(json, ledger));
+	const { errors, warnings } = split(lintRaw(json, ledger));
 	assert.deepEqual(errors, ['ledger: S02 step 2 FAIL is missing Log:']);
 	assert.deepEqual(warnings, [
-		'report: Finding 1 Observed: joins notes with a semicolon; write it as sentences',
+		'report: Finding 1 observed joins notes with a semicolon; write it as sentences',
 		'report: Finding 1 step 1 is two actions ("then click"); write each as its own step',
 		'ledger: S02 Result: of a failed scenario is its rate only, "Fails N/M"; the finding says what broke',
 	]);
 });
 
-test('each rule is an error or a warning, as the table in lint-wording.mjs says', () => {
-	const errors = [
-		'ledger: S02 step 2 FAIL is missing Log:',
-		'ledger: S02 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it',
-		'ledger: a.png is Evidence for S01 step 2 and S02 step 2; take a screenshot for each check',
-		'report: Finding 1 screenshot a.png names no step; caption it "Step N:" for the step it proves or "S06:" for the scenario that took it, and if neither fits, add the step',
-		'ledger: S01-01.png was taken 2 times in actions.log, so the file is only the last capture; give each capture its own name and cite the one taken at the check',
-		'ledger: S01 step 3 cites S01-02.png, which actions.log took before S01-01.png (step 1); cite the shot taken at each check',
-		'report: Finding 1 cites shots/a.png, which is not in the run directory',
-		'ledger: S01 step 2 names python-1a2b3c4d, which changes every launch; write a placeholder such as <Python session ID>',
-		'actions.log: line 3 (2026-10-05T03:58:25Z) is earlier than line 2 above it (2026-10-05T03:59:24Z); the log is append-only, so log a missed action as a note when you notice it, and never backdate or move a line',
-		'actions.log: line 2 does not start with the UTC time the helpers write ("2026-01-02T03:04:05Z "), such as "22:39:56 rec.sh start"; log what no helper logged with `dp.ts log`, and never write or rewrite a line yourself',
-	];
-	const warnings = [
-		'ledger: S01 step 2 repeats an action ("twice"); a step is one action, so write each one as its own step',
-		'ledger: S01 step 2 is two actions ("then open"); write each as its own step',
-		'ledger: S01 step 2 VERIFY does something ("type"); make it a step of its own before the check, and keep the VERIFY to what you expect to see',
-		'ledger: S01 step 1 starts "With ..."; make what it assumes a precondition, or do it as a step of its own',
-		'ledger: S02 Result: is 170 characters; keep it to one short sentence, and give anything you did not expect its own VERIFY step',
-		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
-		'report: Finding 1 Expected: says "incorrectly"; say what happened in plain words and let the difference speak',
-		'report: Finding 1 Observed: names R, which the title does not; the reference that shows the right answer goes in Expected ("as R shows for the same data")',
-		'report: Finding 1 step 2 has 3 screenshots; keep the one that shows the check, add a second only for a different moment, and make a control its own step or leave it out',
-		'report: finding 1 is moderate and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
-	];
-	assert.deepEqual(errors.filter(isWarning), []);
-	assert.deepEqual(warnings.filter(p => !isWarning(p)), []);
+test('each rule has a severity in lint-rules.mjs, and an unknown rule is refused', () => {
+	assert.deepEqual(['fail-missing-fields', 'verify-no-shot', 'shot-cited-twice', 'shot-no-step', 'shot-retaken', 'shot-out-of-order', 'shot-missing', 'session-id', 'log-backdated', 'log-unstamped'].filter(r => LINT_RULES[r] !== 'error'), []);
+	assert.deepEqual(['repeated-action', 'two-actions', 'verify-acts', 'step-starts-with', 'result-too-long', 'title-hedge', 'judgment-word', 'reference-in-observed', 'too-many-shots', 'tried-once'].filter(r => LINT_RULES[r] !== 'warning'), []);
+	assert.throws(() => problem('no-such-rule', 'text'), /unknown lint rule: no-such-rule/);
 });
 
 test('a caption may name the scenario that took the shot instead of a step', () => {
@@ -794,10 +780,10 @@ test('render.mjs --check checks a ledger alone without counting it, and lint-jso
 
 test('flags a long Result and a Cause whose first sentence runs on', () => {
 	const words = n => Array.from({ length: n }, () => 'word').join(' ');
-	const long = lint(report((f, r) => { r.header.result = `${words(61)}.`; })).filter(p => /Result:\*\* is/.test(p));
-	assert.deepEqual(long, ['report: **Result:** is 61 words; keep it to 60 or fewer: what works in a phrase, then in bold what is broken']);
-	const caused = lead => lint(report(f => { f.cause = `${lead}. Then \`a.ts:1\` has the detail.`; })).filter(p => /Cause opens/.test(p));
-	assert.deepEqual(caused(`The \`Retry\` handler ${words(38)}`), ['report: Finding 1 Cause opens with a 41-word sentence; name the suspect in 40 words or fewer, then give the detail']);
+	const long = lint(report((f, r) => { r.header.result = `${words(61)}.`; })).filter(p => /header\.result is/.test(p));
+	assert.deepEqual(long, ['report: header.result is 61 words; keep it to 60 or fewer: what works in a phrase, then in bold what is broken']);
+	const caused = lead => lint(report(f => { f.cause = `${lead}. Then \`a.ts:1\` has the detail.`; })).filter(p => /cause opens/.test(p));
+	assert.deepEqual(caused(`The \`Retry\` handler ${words(38)}`), ['report: Finding 1 cause opens with a 41-word sentence; name the suspect in 40 words or fewer, then give the detail']);
 	assert.deepEqual(caused(`The \`Retry\` handler ${words(37)}`), []);
-	assert.ok(isWarning(long[0]));
+	assert.equal(LINT_RULES['result-length'], 'warning');
 });

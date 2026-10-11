@@ -23,27 +23,11 @@ import { parseArgs } from 'node:util';
 /** Where the explorer's own format checks are recorded, one JSON line each. */
 export const CHECKS_FILE = 'format-checks.jsonl';
 
-/**
- * A lint message with its run-specific parts masked, so the same rule counts as
- * one across runs: quoted text, scenario IDs, paths and numbers.
- */
-export function ruleKey(message) {
-	return String(message)
-		.replace(/"[^"]*"/g, '"…"')
-		// Paths before IDs, so `S02-foo.png` is a path, not an ID and a path.
-		.replace(/(?:[\w.-]+\/)+[\w.-]+|\b[\w-]+\.(?:png|jpe?g|webp|md|log|py|r|qmd|rmd|csv|json|txt|ipynb|ts|tsx|js|mjs)\b/gi, '<path>')
-		.replace(/\b[SN]\d+\b/g, 'S#')
-		.replace(/\b\d+\b/g, '#')
-		// A list of places is one rule however long it is.
-		.replace(/(?:Finding #|S#)(?: step #)?(?:(?:, | and )(?:Finding #|S#)(?: step #)?)+/g, '<places>');
-}
-
-/** Records one format check the explorer ran: how many problems, how many of them errors, and which rules. */
+/** Records one format check the explorer ran: how many problems, how many of them errors, and how many of each rule. */
 export function recordCheck(runDir, problems, errors) {
 	const rules = {};
 	for (const p of problems) {
-		const key = ruleKey(p);
-		rules[key] = (rules[key] ?? 0) + 1;
+		rules[p.rule] = (rules[p.rule] ?? 0) + 1;
 	}
 	appendFileSync(join(runDir, CHECKS_FILE), `${JSON.stringify({ at: new Date().toISOString(), problems: problems.length, ...(errors === undefined ? {} : { errors }), rules })}\n`);
 }
