@@ -43,7 +43,8 @@ const { dependencies } = JSON.parse(readFileSync(join(here, 'package.json'), 'ut
 if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules', name)))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./html.mjs');
+const { missingFiles, readRunDir, writeRunPage } = await import('./html.mjs');
+const { skillVersion } = await import('./page-common.mjs');
 const { lintLedgerOnly, untaggedShots } = await import('./lint-ledger.mjs');
 const { splitProblems } = await import('./lint-rules.mjs');
 const { reportFromJson } = await import('./report-json.mjs');

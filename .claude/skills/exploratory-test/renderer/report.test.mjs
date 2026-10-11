@@ -12,7 +12,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLedger, parseSystemLine } from './ledger.mjs';
 import { modelDisplayName, safeUrl } from './text.mjs';
-import { previewSummary, renderReportHtml, skillVersion } from './html.mjs';
+import { previewSummary, renderReportHtml } from './html.mjs';
+import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
 
 // The renders these tests spawn must not post usage rows.

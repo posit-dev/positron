@@ -216,6 +216,7 @@ test/unit/reporter.js
 .github/actions/pr-exploratory-test/lib.mjs
 .github/actions/pr-exploratory-test/lib.test.mjs
 .github/actions/pr-exploratory-test/gate.mjs
+.claude/skills/exploratory-test/renderer/card-actions.mjs
 .claude/skills/exploratory-test/renderer/eval.mjs
 .claude/skills/exploratory-test/renderer/eval.test.mjs
 .claude/skills/exploratory-test/renderer/html.mjs
@@ -232,6 +233,8 @@ test/unit/reporter.js
 .claude/skills/exploratory-test/renderer/lint-rules.mjs
 .claude/skills/exploratory-test/renderer/lint-rules.test.mjs
 .claude/skills/exploratory-test/renderer/lint-wording.mjs
+.claude/skills/exploratory-test/renderer/page-common.mjs
+.claude/skills/exploratory-test/renderer/page-scripts.mjs
 .claude/skills/exploratory-test/renderer/page.test.mjs
 .claude/skills/exploratory-test/renderer/text.mjs
 .claude/skills/exploratory-test/renderer/time-up-hook.mjs

@@ -8,7 +8,8 @@
 // is data.
 
 import { join } from 'node:path';
-import { readRunDir, skillVersion, writeRunPage } from './html.mjs';
+import { readRunDir, writeRunPage } from './html.mjs';
+import { skillVersion } from './page-common.mjs';
 import { parseLinked } from './known-issues.mjs';
 import { parseLedger, parseLogField, verifyText } from './ledger.mjs';
 import { basename, block, formatMinutes, inline, isDefaultsOnly, modelDisplayName, plainText, safeUrl, sentenceCase } from './text.mjs';
