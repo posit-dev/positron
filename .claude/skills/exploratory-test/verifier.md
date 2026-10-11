@@ -184,8 +184,10 @@ section is for what the verdict cannot say.
   that contradicts it, or what is missing.
 - End with one line naming anything the report claimed but could not have
   checked, and any problem lint's check of the action log lists, which means
-  the log was edited (a line backdated, moved or written by hand), or `No
-  process issues.`
+  the log was edited (a line backdated, moved or written by hand). Write `No
+  process issues.` instead only when no line above names one: not a step done
+  another way than the log shows, a rate counted from one session, or a check
+  you did not make.
 
 No preamble, no restating the finding, no summary of the report. Do not write
 any files. Run every command in the foreground and wait for it: only your last
