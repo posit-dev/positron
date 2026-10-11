@@ -495,6 +495,16 @@ test('ledger: reads the middle-dot and arrow forms the same as ASCII', () => {
 	assert.equal(parseLedger('# Test ledger\n\n## Environment\n- x'), null);
 });
 
+test('ledger: a step\'s code block keeps a fenced block pasted inside it whole', () => {
+	const block = lines => parseLedger(['## S01 - x', 'Status: pass', 'Result: ok', '', 'Steps:', '1. Add a cell with this source:', ...lines.map(l => `   ${l}`), '2. VERIFY it renders -> PASS', ''].join('\n')).exercised[0].steps[0].blockHtml;
+	// Three backticks inside three would otherwise close the block early.
+	assert.equal(block(['```', '# Title', '```python', 'x = 1', '```', 'after', '```']), '<pre><code># Title\n```python\nx = 1\n```\nafter\n</code></pre>\n');
+	assert.equal(block(['```', '```python', 'x = 1', '```', '```']), '<pre><code>```python\nx = 1\n```\n</code></pre>\n');
+	// A tilde fence already holds backticks.
+	assert.equal(block(['~~~', '```python', 'x = 1', '```', '~~~']), '<pre><code>```python\nx = 1\n```\n</code></pre>\n');
+	assert.equal(block(['```', 'no close']), '<pre><code>no close\n</code></pre>\n');
+});
+
 test('ledger: reads its Logs section and a Log field with the stack under it', () => {
 	const ledger = parseLedger(LOGS_LEDGER);
 	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log']);
