@@ -49,8 +49,9 @@ the report as the explorer wrote it, with the findings marked unreviewed.
 | How a local run starts an agent, and its time limit | `renderer/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/finish.mjs` |
 | The editor's prompt and how rewrites are checked | `renderer/edit.mjs` |
-| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` and `renderer/lint.mjs` (the checks), `renderer/report-json.mjs` (what the page reads) |
-| The page | `renderer/html.mjs` (template), `renderer/report-css.mjs` (tokens) |
+| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (report.json against the ledger), `renderer/lint-wording.mjs` and `renderer/lint-ledger.mjs` (the write-up rules), `renderer/report-json.mjs` (what the page reads) |
+| Reading the ledger | `renderer/ledger.mjs` |
+| The page | `renderer/html.mjs` (template), `renderer/report-css.mjs` (tokens), `renderer/text.mjs` (markdown to safe HTML) |
 | Linked issues the agents see | `renderer/known-issues.mjs` |
 | Secrets | `renderer/redact.sh` (text), `renderer/scan-shots.mjs` (screenshots) |
 | Publishing a local run | `renderer/publish.sh` |

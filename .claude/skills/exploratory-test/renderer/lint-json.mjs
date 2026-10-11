@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Checks report.json against the ledger it was written from, and against the
-// write-up rules in lint.mjs. The ledger is the record of what the run did; the
-// report may leave out, but not add or change. Usage:
+// write-up rules in lint-wording.mjs and lint-ledger.mjs. The ledger is the
+// record of what the run did; the report may leave out, but not add or
+// change. Usage:
 //   node lint-json.mjs <report.json> [ledger.md]
 // Each check is logged to format-checks.jsonl beside the report, for the run's
 // stats. settleReportJson
@@ -16,10 +17,12 @@ import { copyFileSync, existsSync, readdirSync, readFileSync, statSync, writeFil
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readKnownIssues } from './finish.mjs';
-import { absolutePathProblems, findingProblems, modelProblems, rateProblem, rateProblems, resultProblems, runProblems, splitProblems } from './lint.mjs';
+import { absolutePathProblems, modelProblems, rateProblem, runProblems } from './lint-ledger.mjs';
+import { findingProblems, rateProblems, resultProblems, splitProblems } from './lint-wording.mjs';
 import { reportFromJson } from './report-json.mjs';
 import { recordCheck } from './stats.mjs';
-import { parseLedger, plainText, verifyText } from './report-parse.mjs';
+import { parseLedger, verifyText } from './ledger.mjs';
+import { plainText } from './text.mjs';
 
 const norm = text => String(text ?? '').replace(/\s+/g, ' ').replace(/[.\s]+$/, '').trim();
 const FILLER = new Set(['a', 'an', 'the', 'of', 'in', 'on', 'at', 'to', 'for', 'from', 'with', 'by', 'and', 'or', 'it', 'its', 'is', 'are', 'was', 'be', 'that', 'this']);

@@ -10,7 +10,8 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isWarning, lintActionsLog, lintLedgerOnly, lintShotNames, lintShotTiming, splitProblems } from './lint.mjs';
+import { lintActionsLog, lintLedgerOnly, lintShotNames, lintShotTiming } from './lint-ledger.mjs';
+import { isWarning, splitProblems } from './lint-wording.mjs';
 import { formatProblems, lintReportJson, schemaProblems } from './lint-json.mjs';
 import { applyVerification } from './finish.mjs';
 
@@ -717,7 +718,7 @@ test('errors are what makes a repro or its evidence wrong; wording and length ar
 	]);
 });
 
-test('each rule is an error or a warning, as the table in lint.mjs says', () => {
+test('each rule is an error or a warning, as the table in lint-wording.mjs says', () => {
 	const errors = [
 		'ledger: S02 step 2 FAIL is missing Log:',
 		'ledger: S02 step 2 VERIFY cites no screenshot; take one at the check (shot.sh) and keep any log or file evidence beside it',

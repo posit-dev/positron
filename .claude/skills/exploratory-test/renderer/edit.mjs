@@ -25,7 +25,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readReport, reportPath, writeReport } from './finish.mjs';
-import { SUMMARY_WORDS, wordsOf } from './lint.mjs';
+import { SUMMARY_WORDS, wordsOf } from './lint-wording.mjs';
 
 // The Result line is keyed 0, beside the findings' own numbers.
 const SUMMARY = 0;

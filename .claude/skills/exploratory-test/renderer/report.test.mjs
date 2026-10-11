@@ -10,7 +10,8 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { modelDisplayName, parseLedger, parseSystemLine, safeUrl } from './report-parse.mjs';
+import { parseLedger, parseSystemLine } from './ledger.mjs';
+import { modelDisplayName, safeUrl } from './text.mjs';
 import { previewSummary, renderReportHtml, skillVersion } from './html.mjs';
 import { reportFromJson } from './report-json.mjs';
 

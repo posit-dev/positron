@@ -9,11 +9,9 @@
 
 import { join } from 'node:path';
 import { readRunDir, skillVersion, writeRunPage } from './html.mjs';
-import {
-	arrangeEvidence, basename, block, fillStepErrors, formatMinutes, inline, isDefaultsOnly, leadHtml,
-	modelDisplayName, parseLedger, parseLogField, parseVerification, plainText, safeUrl, scenarioCounts,
-	scopeHtml, sentenceCase, stepText, verifyText, withEnvironment, withMetaHtml,
-} from './report-parse.mjs';
+import { parseLinked } from './known-issues.mjs';
+import { parseLedger, parseLogField, verifyText } from './ledger.mjs';
+import { basename, block, formatMinutes, inline, isDefaultsOnly, modelDisplayName, plainText, safeUrl, sentenceCase } from './text.mjs';
 
 const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
 
@@ -226,4 +224,181 @@ export async function writeJsonPage(workDir, json, options) {
 	await writeRunPage(join(workDir, 'index.html'), report, {
 		ledger, fileExists, readFile, knownIssues, issueRefs, changeBase, skillVersion: skillVersion(), ...options,
 	});
+}
+
+/** A step as the agent prompt writes it: `Verify ... \u2192 FAIL (observed: ...)`. */
+function stepText(step) {
+	const result = !step.result ? ''
+		: ` \u2192 ${step.result.toUpperCase()}${step.observed ? ` (observed: ${step.observed})` : ''}`;
+	// The card has no place for a log line, so the prompt is where it goes.
+	const log = step.log ? [`Log: ${step.log}`, ...step.logBody.map(l => `  ${l}`)] : [];
+	return [step.md + result, ...step.rest, ...log].join('\n');
+}
+
+/** Splits Verification details into its preamble, verdict chips and body. */
+function parseVerification(lines) {
+	if (!lines) { return null; }
+	const verdicts = [];
+	const body = [];
+	let preamble = '';
+	let linked = new Map();
+	const change = new Set();
+	for (const line of lines) {
+		const trimmed = line.trim();
+		// The change mark in the Findings table carries these.
+		if (/^CHANGE:/i.test(trimmed)) {
+			for (const part of trimmed.slice(trimmed.indexOf(':') + 1).split(';')) {
+				const m = /^(\d+)\s*=\s*related$/i.exec(part.trim());
+				if (m) { change.add(Number(m[1])); }
+			}
+			continue;
+		}
+		// The findings carry the matches; as a line here it would only repeat them.
+		if (/^(?:KNOWN|INTENDED):/i.test(trimmed)) {
+			continue;
+		}
+		// They order the observed list.
+		if (/^LINKED:/i.test(trimmed)) {
+			linked = parseLinked(trimmed);
+			continue;
+		}
+		if (/^VERDICTS:/i.test(trimmed)) {
+			for (const part of trimmed.slice(trimmed.indexOf(':') + 1).split(';')) {
+				const m = /^(\d+)\s*=\s*(.+)$/.exec(part.trim());
+				if (!m) { continue; }
+				const verdict = m[2].trim().toUpperCase();
+				const word = verdict.startsWith('CONFIRMED') ? 'confirmed'
+					: verdict.startsWith('FALSE') ? 'disputed'
+						: verdict.startsWith('UNRESOLVED') ? 'unresolved' : null;
+				if (word) { verdicts.push({ n: Number(m[1]), word }); }
+			}
+			continue;
+		}
+		if (!preamble && trimmed && !trimmed.startsWith('#')) {
+			preamble = trimmed;
+			continue;
+		}
+		body.push(line);
+	}
+	return { preambleHtml: preamble ? inline(preamble) : '', verdicts, linked, change, bodyHtml: block(body.join('\n')) };
+}
+
+function withMetaHtml(e) {
+	// A letter x sits on the baseline where a multiplication sign floats; the
+	// span keeps it lowercase inside an uppercase label.
+	return { ...e, metaHtml: e.meta.map(m => inline(m).replace(/(\d+)\s*(?:x\b|\u00d7)/g, '<span class="n-x">$1x</span>')) };
+}
+
+/** Scenario tallies for the tile, from Coverage rows. */
+function scenarioCounts({ exercised, notExercised }) {
+	const issue = r => r.status === 'fail' || Boolean(r.finding);
+	return {
+		exercised: exercised.length,
+		pass: exercised.filter(r => !issue(r)).length,
+		issues: exercised.filter(issue).length,
+		notRun: notExercised.length,
+	};
+}
+
+/**
+ * A finding's evidence as the card shows it. `steps` are typed steps, each
+ * citing `{ href, file }` shots; shot items are `{ kind, src, file, step,
+ * scenario?, caption, featured? }`. Returns a new array.
+ */
+function arrangeEvidence(steps, evidence, n) {
+	evidence = evidence.map(e => ({ ...e }));
+	const stepOf = new Map();
+	steps.forEach((step, k) => step.evidence.forEach(e => {
+		if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
+	}));
+	// Another scenario's shot of the bug, captioned with that scenario and no
+	// step on this card, shows the failure again: it opens from the step that fails.
+	const failing = steps.findIndex(st => st.result === 'fail' && st.finding === n);
+	const failAt = failing !== -1 ? failing : steps.findIndex(st => st.result === 'fail');
+	for (const e of evidence.filter(e => e.kind === 'shot' && e.scenario && !stepOf.has(e.file))) {
+		const order = e.step?.order;
+		if (failAt !== -1 && !(Number.isInteger(order) && order >= 1 && order <= steps.length)) {
+			e.step = { label: `Step ${failAt + 1}`, order: failAt + 1 };
+		}
+	}
+	// A shot a step cites is evidence whether or not a bullet repeats it, so
+	// every check's picture reaches the gallery.
+	const cited = new Set(evidence.filter(e => e.kind === 'shot').map(e => e.file));
+	for (const step of steps) {
+		for (const e of step.evidence.filter(e => !cited.has(e.file))) {
+			cited.add(e.file);
+			evidence.push({ kind: 'shot', src: e.href, file: e.file, caption: plainText(step.md) });
+		}
+	}
+	// Screenshots in step order, so they read like the repro. Within a step,
+	// the shots its own Evidence: line cites come first, in that order: the
+	// step's icon opens on the one that shows its check, and any extra follows.
+	// Logs and notes keep their order after them. Sort is stable.
+	const order = e => (stepOf.get(e.file) ?? e.step)?.order ?? Number.MAX_SAFE_INTEGER;
+	const citedAt = e => {
+		const k = steps[order(e) - 1]?.evidence.findIndex(x => x.file === e.file) ?? -1;
+		return k === -1 ? Number.MAX_SAFE_INTEGER : k;
+	};
+	const shots = evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b) || citedAt(a) - citedAt(b));
+	// A shot a step names is that step's, whatever its caption says.
+	return [...shots, ...evidence.filter(e => e.kind !== 'shot')].map(e => (e.kind === 'shot'
+		? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
+		: e));
+}
+
+/**
+ * A finding whose report wrote no Error output takes the errors its ledger
+ * checks logged, so the log a check cited reaches the card and the prompt.
+ */
+function fillStepErrors(findings, coverage) {
+	for (const f of findings) {
+		if (f.errors.length) { continue; }
+		const logged = [...f.steps, ...coverage.exercised.flatMap(r => r.steps).filter(st => st.finding === f.n)]
+			.map(st => st.error).filter(Boolean);
+		// The finding's repro usually repeats the ledger step, Log and all.
+		const seen = new Set();
+		f.errors = logged.filter(e => !seen.has(`${e.source}\n${e.message}`) && seen.add(`${e.source}\n${e.message}`))
+			.map(withMetaHtml);
+	}
+}
+
+/**
+ * The lead's emphasis is the agent's: it is the only thing in the pipeline
+ * that watched the run, so it is the only thing that knows which clause is
+ * the point. A `**...**` covering most of the sentence emphasises nothing,
+ * so it is dropped rather than rendered.
+ */
+function leadHtml(result) {
+	const emphasised = [...result.matchAll(/\*\*([\s\S]+?)\*\*/g)]
+		.reduce((sum, m) => sum + m[1].length, 0);
+	const lead = emphasised > result.replace(/\*/g, '').length * 0.8
+		? result.replace(/\*\*/g, '')
+		: result;
+	return lead ? inline(lead) : '';
+}
+
+/**
+ * The scope sentence introduces Coverage, where the scenario count is the
+ * row count of the table directly below it. Repeating the number in the
+ * sentence made the reader check one against the other for no reason.
+ *
+ * `Tested` is written as a phrase completing its label; standing on its own
+ * above the table it has to read as a sentence, so it gets a capital and a
+ * full stop.
+ */
+function scopeHtml(tested) {
+	const phrase = tested.replace(/,\s*\d+\s+scenarios?\s*$/i, '').trim();
+	return phrase ? inline(sentenceCase(phrase) + (/[.!?]$/.test(phrase) ? '' : '.')) : '';
+}
+
+/** Run details' sections with the ledger's Environment after Change under test, unless the report wrote its own. */
+function withEnvironment(runDetails, environment) {
+	const html = environment?.length ? block(environment.join('\n')) : '';
+	if (!html || runDetails?.some(s => /^environment$/i.test(s.title))) {
+		return runDetails;
+	}
+	const sections = runDetails ?? [];
+	const at = sections.findIndex(s => /^change under test$/i.test(s.title)) + 1;
+	sections.splice(at, 0, { title: 'Environment', html });
+	return sections;
 }

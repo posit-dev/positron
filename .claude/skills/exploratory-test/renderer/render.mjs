@@ -44,7 +44,8 @@ if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules'
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
 const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./html.mjs');
-const { lintLedgerOnly, splitProblems, untaggedShots } = await import('./lint.mjs');
+const { lintLedgerOnly, untaggedShots } = await import('./lint-ledger.mjs');
+const { splitProblems } = await import('./lint-wording.mjs');
 const { reportFromJson } = await import('./report-json.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, readChecks } = await import('./stats.mjs');

@@ -20,8 +20,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { knownFixLines, knownIssueOutcomes, parseLinked } from './known-issues.mjs';
-import { lintActionsLog } from './lint.mjs';
-import { parseLedger } from './report-parse.mjs';
+import { lintActionsLog } from './lint-ledger.mjs';
+import { parseLedger } from './ledger.mjs';
 
 /**
  * The verify pass's prompt: verifier.md with the run's paths and diff range

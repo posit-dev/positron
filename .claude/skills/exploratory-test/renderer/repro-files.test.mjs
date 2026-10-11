@@ -10,7 +10,7 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseLedger } from './report-parse.mjs';
+import { parseLedger } from './ledger.mjs';
 import { renderReportHtml } from './html.mjs';
 import { formatProblems } from './lint-json.mjs';
 import { reportFromJson } from './report-json.mjs';

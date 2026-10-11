@@ -3,152 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Parses the ledger the explorer writes as it goes, and holds the helpers the
-// report model (report-json.mjs) and the page share: markdown to HTML, safe
-// URLs, steps, evidence and error output.
+// Parses the ledger the explorer writes as it goes: its scenarios and steps,
+// their Log: lines and the errors under them, Not run, Logs, Files and
+// Environment.
 
-import { Marked } from 'marked';
-import { parseLinked } from './known-issues.mjs';
-
-/** Escapes the characters that would otherwise open markup or close an attribute. */
-export function escapeHtml(text) {
-	return String(text ?? '')
-		.replace(/&/g, '&amp;')
-		.replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;')
-		.replace(/"/g, '&quot;');
-}
-
-/**
- * Returns a URL safe to put in an href or src, or null.
- *
- * A report is not trusted input. The agent writes it while reading a branch's
- * diff, its logs and its UI, so a hostile branch can get a string of its
- * choosing quoted into one -- and the page is published on a report domain
- * shared with every other run. Only http(s), mailto and relative paths
- * survive; `javascript:` and `data:` do not.
- */
-export function safeUrl(url) {
-	// Browsers ignore control characters and spaces inside a scheme, so
-	// `java\nscript:` reaches the same place as `javascript:`. Strip them before
-	// deciding what the scheme is, and keep the stripped form.
-	const cleaned = String(url ?? '').replace(/[\u0000-\u0020]/g, '');
-	if (!cleaned) {
-		return null;
-	}
-	if (/^[a-z][a-z0-9+.-]*:/i.test(cleaned)) {
-		return /^(?:https?|mailto):/i.test(cleaned) ? cleaned : null;
-	}
-	// No scheme, so a relative path. `//host/x` also lands here and resolves to
-	// the page's scheme, which is https and already allowed.
-	return cleaned;
-}
-
-/**
- * The one markdown parser the report uses, configured so nothing in a report
- * can inject markup.
- *
- * marked emits raw HTML verbatim and hrefs unfiltered by default. Every field
- * on the page goes through here, so this is the single place that has to be
- * right rather than each of the thirty call sites.
- */
-const marked = new Marked({
-	tokenizer: {
-		// Only ~~ strikes through: a lone ~ is "about" (~L120), as on most pages but GitHub's.
-		del(src) {
-			if (/^~(?!~)/.test(src)) {
-				return { type: 'text', raw: '~', text: '~' };
-			}
-			return false;
-		},
-	},
-	renderer: {
-		// Raw HTML in a report is something the agent transcribed, so it is text
-		// to show, not markup to run.
-		html(html) {
-			return escapeHtml(html);
-		},
-		link(href, title, text) {
-			const url = safeUrl(href);
-			if (!url) {
-				return text;
-			}
-			const titleAttr = title ? ` title="${escapeHtml(title)}"` : '';
-			return `<a href="${escapeHtml(url)}"${titleAttr}>${text}</a>`;
-		},
-		image(href, title, text) {
-			const url = safeUrl(href);
-			if (!url) {
-				return escapeHtml(text ?? '');
-			}
-			return `<img src="${escapeHtml(url)}" alt="${escapeHtml(text ?? '')}" loading="lazy">`;
-		},
-	},
-});
-
-/** Inline markdown to HTML, for the contents of one line or cell. */
-export function inline(text) {
-	return marked.parseInline(String(text ?? '').trim());
-}
-
-/** The text escaped HTML stands for: the entities marked and escapeHtml write. */
-export function unescapeHtml(html) {
-	return String(html ?? '')
-		.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
-}
-
-/** Inline markdown as plain text, for attributes such as a caption or label. */
-export function plainText(text) {
-	return unescapeHtml(inline(text).replace(/<[^>]*>/g, '')).trim();
-}
-
-/** Block markdown to HTML, for a run of lines that may hold lists or code. */
-export function block(text) {
-	return marked.parse(String(text ?? '').trim());
-}
-
-/**
- * Capitalizes a cell that reads as a sentence.
- *
- * The findings table and Coverage are written as phrases continuing their
- * column header ("user waits 30 s"), but the redesign gives them their own
- * column where they read as statements. Skipped when the cell opens with code,
- * a link or a quote, where a forced capital would corrupt an identifier.
- */
-/** Package and tool names written in lowercase by convention; a sentence may start with one. */
-export const LOWERCASE_NAMES = new Set(['pandas', 'polars', 'numpy', 'dplyr', 'ggplot2', 'tibble', 'data.table', 'pip', 'uv', 'pak', 'renv', 'reticulate', 'ipykernel', 'matplotlib', 'plotly', 'shiny', 'knitr', 'rmarkdown', 'rlang', 'tidyr', 'readr', 'purrr', 'scikit-learn', 'scipy', 'pyarrow', 'duckdb']);
-
-export function sentenceCase(text) {
-	const s = String(text ?? '');
-	if (!/^[a-z]/.test(s)) {
-		return s;
-	}
-	// A package name keeps its real case: dplyr, not Dplyr.
-	if (LOWERCASE_NAMES.has(/^[a-z][\w.-]*/.exec(s)[0])) {
-		return s;
-	}
-	// A bare identifier keeps its case: `polars frame` is prose, `df.copy()` is not.
-	if (/^[a-z_][\w.]*\s*[(=[]/.test(s)) {
-		return s;
-	}
-	return s[0].toUpperCase() + s.slice(1);
-}
-
-/**
- * A precondition that says nothing but "defaults" is not a precondition.
- *
- * The skill makes the agent state where the finding sits on the configuration
- * axis every time, which is worth keeping: a blank there could mean "needs
- * nothing" or "never checked". But once written, "Shipped defaults." on its own
- * is the absence of a condition, and printing it as a bullet asks the reader to
- * take in a line that tells them nothing. The same line qualified by how the
- * state was manufactured does tell them something, so it stays.
- */
-const DEFAULTS_ONLY = /^(?:(?:the\s+)?(?:shipped|stock|product)\s+defaults?|defaults?|default\s+settings?|none)\s*[.!]?$/i;
-
-export function isDefaultsOnly(text) {
-	return DEFAULTS_ONLY.test(String(text ?? '').trim());
-}
+import { basename, block, inline, plainText, safeUrl, sentenceCase } from './text.mjs';
 
 /**
  * A line trimmed for a heading test, or '' when indented four or more spaces:
@@ -203,34 +62,6 @@ function widenOuterFence(text) {
 }
 
 const IMAGE_EXT = /\.(?:png|jpe?g|gif|webp|avif)$/i;
-
-/** The filename at the end of a URL or path, for matching a hero to its caption. */
-export function basename(url) {
-	return String(url ?? '').split(/[?#]/)[0].split('/').pop();
-}
-
-/** A duration in whole minutes, for a run's footer. */
-export function formatMinutes(ms) {
-	const m = Math.round(ms / 60000);
-	// A pass that took forty seconds did happen; "0m" reads as though it did not.
-	return m === 0 ? '<1m' : `${m}m`;
-}
-
-/** `claude-opus-5-5` reads `Opus 5.5`. An id it does not recognise passes through. */
-export function modelDisplayName(id) {
-	if (!id) {
-		return null;
-	}
-	// The alias a local run spawns its agents with.
-	if (/^(?:opus|sonnet|haiku|fable)$/.test(id)) {
-		return `${id[0].toUpperCase()}${id.slice(1)}`;
-	}
-	const m = /^claude-([a-z]+)-(\d+)(?:-(\d{1,2}))?(?:-\d{8})?(?:\[[^\]]*\])?$/.exec(id);
-	if (!m) {
-		return id;
-	}
-	return `${m[1][0].toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}`;
-}
 
 // `Verify <assertion> -> PASS` or `-> FAIL (finding K)`; the ledger's
 // arrow and middle-dot forms read the same.
@@ -313,15 +144,6 @@ function typedStep(lines) {
 	};
 }
 
-/** A step as the agent prompt writes it: `Verify ... \u2192 FAIL (observed: ...)`. */
-export function stepText(step) {
-	const result = !step.result ? ''
-		: ` \u2192 ${step.result.toUpperCase()}${step.observed ? ` (observed: ${step.observed})` : ''}`;
-	// The card has no place for a log line, so the prompt is where it goes.
-	const log = step.log ? [`Log: ${step.log}`, ...step.logBody.map(l => `  ${l}`)] : [];
-	return [step.md + result, ...step.rest, ...log].join('\n');
-}
-
 /** False for a file the agent wrote (actions.log, saved notes): it says what the run did, not what Positron did. */
 export function isPositronLog(path) {
 	const file = String(path ?? '').replace(/:\d+$/, '');
@@ -356,7 +178,7 @@ function outdent(lines) {
 }
 
 /** An error from its log source, its `|` fields, and the message-then-frames body. */
-export function errorFrom(source, meta, body) {
+function errorFrom(source, meta, body) {
 	const message = [];
 	const frames = [];
 	for (const raw of body) {
@@ -389,59 +211,6 @@ export function parseLogField(head, body) {
 	// The ledger writes the bare count; the card reads it as "Logged 2x".
 	const fields = meta.filter(Boolean).map(m => (/^\d+\s*[\u00d7x]/i.test(m) ? `Logged ${m}` : m));
 	return errorFrom(source, fields, body);
-}
-
-/** A suggested case whose file does not exist yet: `(new file)`. */
-export function isNewTestFile(testCase) {
-	return /\bnew\b/i.test(testCase.note) && !/\bexists?\b/i.test(testCase.note);
-}
-
-/** Splits Verification details into its preamble, verdict chips and body. */
-export function parseVerification(lines) {
-	if (!lines) { return null; }
-	const verdicts = [];
-	const body = [];
-	let preamble = '';
-	let linked = new Map();
-	const change = new Set();
-	for (const line of lines) {
-		const trimmed = line.trim();
-		// The change mark in the Findings table carries these.
-		if (/^CHANGE:/i.test(trimmed)) {
-			for (const part of trimmed.slice(trimmed.indexOf(':') + 1).split(';')) {
-				const m = /^(\d+)\s*=\s*related$/i.exec(part.trim());
-				if (m) { change.add(Number(m[1])); }
-			}
-			continue;
-		}
-		// The findings carry the matches; as a line here it would only repeat them.
-		if (/^(?:KNOWN|INTENDED):/i.test(trimmed)) {
-			continue;
-		}
-		// They order the observed list.
-		if (/^LINKED:/i.test(trimmed)) {
-			linked = parseLinked(trimmed);
-			continue;
-		}
-		if (/^VERDICTS:/i.test(trimmed)) {
-			for (const part of trimmed.slice(trimmed.indexOf(':') + 1).split(';')) {
-				const m = /^(\d+)\s*=\s*(.+)$/.exec(part.trim());
-				if (!m) { continue; }
-				const verdict = m[2].trim().toUpperCase();
-				const word = verdict.startsWith('CONFIRMED') ? 'confirmed'
-					: verdict.startsWith('FALSE') ? 'disputed'
-						: verdict.startsWith('UNRESOLVED') ? 'unresolved' : null;
-				if (word) { verdicts.push({ n: Number(m[1]), word }); }
-			}
-			continue;
-		}
-		if (!preamble && trimmed && !trimmed.startsWith('#')) {
-			preamble = trimmed;
-			continue;
-		}
-		body.push(line);
-	}
-	return { preambleHtml: preamble ? inline(preamble) : '', verdicts, linked, change, bodyHtml: block(body.join('\n')) };
 }
 
 // A ledger field separator: the middle dot the example uses, or ASCII ` - ` / ` | `.
@@ -645,124 +414,4 @@ export function parseLedger(markdown) {
 		files,
 		environment,
 	};
-}
-
-export function withMetaHtml(e) {
-	// A letter x sits on the baseline where a multiplication sign floats; the
-	// span keeps it lowercase inside an uppercase label.
-	return { ...e, metaHtml: e.meta.map(m => inline(m).replace(/(\d+)\s*(?:x\b|\u00d7)/g, '<span class="n-x">$1x</span>')) };
-}
-
-/** Scenario tallies for the tile, from Coverage rows. */
-export function scenarioCounts({ exercised, notExercised }) {
-	const issue = r => r.status === 'fail' || Boolean(r.finding);
-	return {
-		exercised: exercised.length,
-		pass: exercised.filter(r => !issue(r)).length,
-		issues: exercised.filter(issue).length,
-		notRun: notExercised.length,
-	};
-}
-
-/**
- * A finding's evidence as the card shows it. `steps` are typed steps, each
- * citing `{ href, file }` shots; shot items are `{ kind, src, file, step,
- * scenario?, caption, featured? }`. Returns a new array.
- */
-export function arrangeEvidence(steps, evidence, n) {
-	evidence = evidence.map(e => ({ ...e }));
-	const stepOf = new Map();
-	steps.forEach((step, k) => step.evidence.forEach(e => {
-		if (!stepOf.has(e.file)) { stepOf.set(e.file, { label: `Step ${k + 1}`, order: k + 1 }); }
-	}));
-	// Another scenario's shot of the bug, captioned with that scenario and no
-	// step on this card, shows the failure again: it opens from the step that fails.
-	const failing = steps.findIndex(st => st.result === 'fail' && st.finding === n);
-	const failAt = failing !== -1 ? failing : steps.findIndex(st => st.result === 'fail');
-	for (const e of evidence.filter(e => e.kind === 'shot' && e.scenario && !stepOf.has(e.file))) {
-		const order = e.step?.order;
-		if (failAt !== -1 && !(Number.isInteger(order) && order >= 1 && order <= steps.length)) {
-			e.step = { label: `Step ${failAt + 1}`, order: failAt + 1 };
-		}
-	}
-	// A shot a step cites is evidence whether or not a bullet repeats it, so
-	// every check's picture reaches the gallery.
-	const cited = new Set(evidence.filter(e => e.kind === 'shot').map(e => e.file));
-	for (const step of steps) {
-		for (const e of step.evidence.filter(e => !cited.has(e.file))) {
-			cited.add(e.file);
-			evidence.push({ kind: 'shot', src: e.href, file: e.file, caption: plainText(step.md) });
-		}
-	}
-	// Screenshots in step order, so they read like the repro. Within a step,
-	// the shots its own Evidence: line cites come first, in that order: the
-	// step's icon opens on the one that shows its check, and any extra follows.
-	// Logs and notes keep their order after them. Sort is stable.
-	const order = e => (stepOf.get(e.file) ?? e.step)?.order ?? Number.MAX_SAFE_INTEGER;
-	const citedAt = e => {
-		const k = steps[order(e) - 1]?.evidence.findIndex(x => x.file === e.file) ?? -1;
-		return k === -1 ? Number.MAX_SAFE_INTEGER : k;
-	};
-	const shots = evidence.filter(e => e.kind === 'shot').sort((a, b) => order(a) - order(b) || citedAt(a) - citedAt(b));
-	// A shot a step names is that step's, whatever its caption says.
-	return [...shots, ...evidence.filter(e => e.kind !== 'shot')].map(e => (e.kind === 'shot'
-		? { ...e, step: stepOf.get(e.file) ?? e.step, caption: sentenceCase(e.caption), captionHtml: inline(sentenceCase(e.caption)) }
-		: e));
-}
-
-/**
- * A finding whose report wrote no Error output takes the errors its ledger
- * checks logged, so the log a check cited reaches the card and the prompt.
- */
-export function fillStepErrors(findings, coverage) {
-	for (const f of findings) {
-		if (f.errors.length) { continue; }
-		const logged = [...f.steps, ...coverage.exercised.flatMap(r => r.steps).filter(st => st.finding === f.n)]
-			.map(st => st.error).filter(Boolean);
-		// The finding's repro usually repeats the ledger step, Log and all.
-		const seen = new Set();
-		f.errors = logged.filter(e => !seen.has(`${e.source}\n${e.message}`) && seen.add(`${e.source}\n${e.message}`))
-			.map(withMetaHtml);
-	}
-}
-
-/**
- * The lead's emphasis is the agent's: it is the only thing in the pipeline
- * that watched the run, so it is the only thing that knows which clause is
- * the point. A `**...**` covering most of the sentence emphasises nothing,
- * so it is dropped rather than rendered.
- */
-export function leadHtml(result) {
-	const emphasised = [...result.matchAll(/\*\*([\s\S]+?)\*\*/g)]
-		.reduce((sum, m) => sum + m[1].length, 0);
-	const lead = emphasised > result.replace(/\*/g, '').length * 0.8
-		? result.replace(/\*\*/g, '')
-		: result;
-	return lead ? inline(lead) : '';
-}
-
-/**
- * The scope sentence introduces Coverage, where the scenario count is the
- * row count of the table directly below it. Repeating the number in the
- * sentence made the reader check one against the other for no reason.
- *
- * `Tested` is written as a phrase completing its label; standing on its own
- * above the table it has to read as a sentence, so it gets a capital and a
- * full stop.
- */
-export function scopeHtml(tested) {
-	const phrase = tested.replace(/,\s*\d+\s+scenarios?\s*$/i, '').trim();
-	return phrase ? inline(sentenceCase(phrase) + (/[.!?]$/.test(phrase) ? '' : '.')) : '';
-}
-
-/** Run details' sections with the ledger's Environment after Change under test, unless the report wrote its own. */
-export function withEnvironment(runDetails, environment) {
-	const html = environment?.length ? block(environment.join('\n')) : '';
-	if (!html || runDetails?.some(s => /^environment$/i.test(s.title))) {
-		return runDetails;
-	}
-	const sections = runDetails ?? [];
-	const at = sections.findIndex(s => /^change under test$/i.test(s.title)) + 1;
-	sections.splice(at, 0, { title: 'Environment', html });
-	return sections;
 }

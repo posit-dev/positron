@@ -6,7 +6,7 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
-import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
+import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/text.mjs';
 
 /** Flatten the SDK result message into the record written to cost.json. */
 export function buildCostRecord(message) {

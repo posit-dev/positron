@@ -9,7 +9,7 @@
 // the file's text. The text is embedded in the page, so Copy and Download keep
 // working when only the HTML is forwarded; `files/<path>` is the fallback.
 
-import { escapeHtml, unescapeHtml, basename } from './report-parse.mjs';
+import { basename, escapeHtml, unescapeHtml } from './text.mjs';
 
 // The viewer shows this many lines; Download has the rest.
 export const PREVIEW_LINES = 400;

@@ -16,7 +16,8 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog, LOWERCASE_NAMES } from './report-parse.mjs';
+import { isPositronLog, parseSystemLine } from './ledger.mjs';
+import { basename, escapeHtml, isNewTestFile, LOWERCASE_NAMES, safeUrl } from './text.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
