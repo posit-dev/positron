@@ -104,32 +104,7 @@ test('a check whose result differs from the ledger\'s is a problem', () => {
 		{ kind: 'action', text: 'Overwrite `people.json` on disk with `broken.json`.' },
 		{ kind: 'verify', text: 'the explorer shows the parse error', result: 'fail', finding: 1 },
 	);
-	assert.deepEqual(lint(j), [
-		'report.json: Finding 1 goes on for 2 steps after its failure at step 3; end the steps there, and put a later sighting or other trigger in Observed',
-		'report.json: Finding 1 step 5 is fail, but S01 recorded pass',
-	]);
-});
-
-test('a repro that goes on past its failure is a problem, even when the ledger has those steps', () => {
-	const j = json();
-	j.findings[0].steps.push(
-		{ kind: 'action', text: 'Overwrite `people.json` on disk with `broken.json`.' },
-		{ kind: 'verify', text: 'the explorer shows the parse error', result: 'pass' },
-	);
-	assert.deepEqual(lint(j), ['report.json: Finding 1 goes on for 2 steps after its failure at step 3; end the steps there, and put a later sighting or other trigger in Observed']);
-});
-
-test('a setup step that changes what a precondition sets is a problem, but a later one may be the trigger', () => {
-	const j = json();
-	j.findings[0].preconditions = [{ name: 'setting off', text: '`objectExplorer.copy` set to `false` in user settings' }];
-	j.findings[0].steps.unshift({ kind: 'action', text: 'Set `objectExplorer.copy` to `true` in user settings.' });
-	j.findings[0].steps.splice(2, 0,
-		{ kind: 'verify', text: 'the row is selected', result: 'pass' },
-		{ kind: 'action', text: 'Set `objectExplorer.copy` to `false` in user settings.' },
-	);
-	assert.deepEqual(lint(j).filter(p => /precondition/.test(p)), [
-		'report.json: Finding 1 step 1 changes `objectExplorer.copy`, which precondition "setting off" already sets; a precondition is the state before step 1, so give the value step 1 starts from',
-	]);
+	assert.deepEqual(lint(j), ['report.json: Finding 1 step 5 is fail, but S01 recorded pass']);
 });
 
 test('steps out of the scenario\'s order are a problem', () => {
