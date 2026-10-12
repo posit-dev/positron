@@ -4,13 +4,10 @@ description: "Explore a running Positron instance as a real user to find genuine
 disable-model-invocation: true
 metadata:
   # Bump when a run could find or judge findings differently: what an agent is
-  # told or allowed, or what is done with its reply. That is this file,
-  # explorer.md, verifier.md, isolator.md, editor.md, renderer/known-issues.mjs,
-  # pipeline.mjs, finish.mjs, edit.mjs, lint-json.mjs, report.schema.json,
-  # claude-cli.mjs and time-up-hook.mjs, and pr-exploratory-test's run.mjs and
-  # lib.mjs. Feedback is grouped by it, so a
-  # change to how the page looks does not count.
-  version: "1.59"
+  # told or allowed, or what is done with its reply. versioned-files.txt lists
+  # the files that count. Feedback is grouped by it, so a change to how the
+  # page looks does not count.
+  version: "1.60"
 ---
 
 # Exploratory testing
@@ -56,7 +53,11 @@ Its first line is what the person sees in the background shell list:
 node <base>/renderer/pipeline.mjs run --brief <brief file> --repo <checkout> --base <base sha> --head <head sha> --base-name <base branch> --time-limit <minutes>
 ```
 
-It makes the run directory and prints it first, then runs each agent as a
+It first checks the checkout: at the head SHA, built since the last change to
+`src/`, and with its native binaries (the Python locator, Ark, Kallichore). If
+not, it exits 1 before anything is spent and prints each fix; relay them, and
+pass `--skip-checkout-check` only when the person wants to run anyway. Then it
+makes the run directory and prints it, and runs each agent as a
 `claude -p` session: an Opus explorer, a verifier that checks its findings, an
 isolator when one needs controls, and an editor that rewrites their openings
 in plain words, as CI does. It prints the `index.html` path last. Keeping the

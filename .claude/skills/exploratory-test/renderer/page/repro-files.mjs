@@ -9,7 +9,8 @@
 // the file's text. The text is embedded in the page, so Copy and Download keep
 // working when only the HTML is forwarded; `files/<path>` is the fallback.
 
-import { escapeHtml, unescapeHtml, basename } from '../report-parse.mjs';
+import { copyScript } from './page-common.mjs';
+import { basename, escapeHtml, escapeRegExp, unescapeHtml } from '../shared/text.mjs';
 
 // The viewer shows this many lines; Download has the rest.
 export const PREVIEW_LINES = 400;
@@ -203,8 +204,7 @@ export function findFile(files, ref) {
 /** Every entry a piece of markdown names, by its path or file name, in list order. */
 export function filesNamedIn(files, markdown) {
 	const text = String(markdown ?? '');
-	const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	return files.filter(f => [f.path, f.name ?? basename(f.path)].some(n => new RegExp(`(?<![\\w/.-])${esc(n)}(?!\\w|\\.\\w)`).test(text)));
+	return files.filter(f => [f.path, f.name ?? basename(f.path)].some(n => new RegExp(`(?<![\\w/.-])${escapeRegExp(n)}(?!\\w|\\.\\w)`).test(text)));
 }
 
 function metaText(f) {
@@ -428,10 +428,7 @@ b._t=setTimeout(function(){b.classList.remove('is-done');label.textContent=was;}
 document.querySelectorAll('.f-copy').forEach(function(b){b.addEventListener('click',function(){
 var t=text(b.dataset.src);if(t===null){return;}
 function done(){flash(b,'Copied');}
-function fallback(){var ta=document.createElement('textarea');ta.value=t;ta.setAttribute('readonly','');
-ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
-var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
-if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(done,fallback);}else{fallback();}});});
+${copyScript('t', 'done')}});});
 // Download builds the file from the embedded text, so it works when only the page was saved.
 document.querySelectorAll('.f-dl[data-src]').forEach(function(a){a.addEventListener('click',function(e){
 var t=text(a.dataset.src);if(t===null){return;}e.preventDefault();

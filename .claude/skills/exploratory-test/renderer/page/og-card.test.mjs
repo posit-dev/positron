@@ -5,11 +5,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PNG } from 'pngjs';
 import { renderCard, writeCard } from './og-card.mjs';
+import { withTmpDir } from '../shared/tmp-dirs.mjs';
 
 // The design's own renders, so a template or renderer change that moves a pixel shows up.
 const SAMPLES = {
@@ -30,13 +30,8 @@ for (const [name, counts] of Object.entries(SAMPLES)) {
 	});
 }
 
-test('writeCard reports a failed write, so the page leaves the image out', async () => {
-	const dir = mkdtempSync(join(tmpdir(), 'og-card-'));
-	try {
-		assert.equal(await writeCard(join(dir, 'og.png'), { minor: 1 }), true);
-		assert.ok(existsSync(join(dir, 'og.png')));
-		assert.equal(await writeCard(join(dir, 'missing', 'og.png'), { minor: 1 }), false);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('writeCard reports a failed write, so the page leaves the image out', () => withTmpDir('og-card-', async dir => {
+	assert.equal(await writeCard(join(dir, 'og.png'), { minor: 1 }), true);
+	assert.ok(existsSync(join(dir, 'og.png')));
+	assert.equal(await writeCard(join(dir, 'missing', 'og.png'), { minor: 1 }), false);
+}));

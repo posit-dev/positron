@@ -6,7 +6,9 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
-import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
+import { execFileSync } from 'node:child_process';
+import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
+export { WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 
 /** Flatten the SDK result message into the record written to cost.json. */
 export function buildCostRecord(message) {
@@ -14,11 +16,8 @@ export function buildCostRecord(message) {
 		total_cost_usd: message?.total_cost_usd ?? null,
 		num_turns: message?.num_turns ?? null,
 		duration_ms: message?.duration_ms ?? null,
-		// input_tokens counts only the uncached input, which for a long run is a
-		// small fraction of what is actually sent: a 142-turn run reported
-		// 11,706. The cache reads are the context re-sent on every turn, and
-		// they are what total_cost_usd is mostly paying for, so record them
-		// too or the cost cannot be decomposed after the fact.
+		// input_tokens is only the uncached input; the cache reads are what the
+		// cost mostly pays for, so they are kept to decompose it.
 		input_tokens: message?.usage?.input_tokens ?? null,
 		cache_read_input_tokens: message?.usage?.cache_read_input_tokens ?? null,
 		cache_creation_input_tokens: message?.usage?.cache_creation_input_tokens ?? null,
@@ -55,6 +54,21 @@ export function buildShotsBaseUrl(reportBaseUrl) {
 	return reportBaseUrl.endsWith('/') ? reportBaseUrl.slice(0, -1) : reportBaseUrl;
 }
 
+/** The value of env var `name`; a missing one stops the script, naming it. */
+export function mustEnv(name) {
+	const v = process.env[name];
+	if (!v) {
+		console.error(`Missing required env var: ${name}`);
+		process.exit(1);
+	}
+	return v;
+}
+
+/** A function that runs git in `root` and returns what it prints. */
+export function gitIn(root) {
+	return args => execFileSync('git', ['-C', root, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+}
+
 /**
  * Parse a positive-integer env var. Falls back to `fallback` (with a logged
  * warning) for unset, empty, NaN, non-integer, or non-positive values.
@@ -69,32 +83,35 @@ export function parsePosIntEnv(name, fallback, rawValue) {
 	return n;
 }
 
-export function renderCostFooter(passes, maxTurns) {
+/**
+ * The step summary's cost lines from report.json's `cost.passes`. A pass with
+ * no cost did not run, and only the explorer's carries a turn cap.
+ */
+export function renderCostFooter(passes) {
 	const lines = [];
 	let total = null;
 	let elapsed = 0;
 	for (const pass of passes) {
-		const c = pass?.cost;
-		if (!c || typeof c.total_cost_usd !== 'number') {
+		if (typeof pass?.costUsd !== 'number') {
 			// A pass that did not run has nothing to bill and no line.
 			continue;
 		}
-		const bits = [`$${c.total_cost_usd.toFixed(2)}`];
-		const model = modelDisplayName(c.model);
+		const bits = [`$${pass.costUsd.toFixed(2)}`];
+		const model = modelDisplayName(pass.model);
 		if (model) {
 			bits.unshift(model);
 		}
-		if (typeof c.num_turns === 'number') {
+		if (typeof pass.turns === 'number') {
 			// Only the explore pass has a cap worth watching; showing one for
 			// the others invites reading a limit nobody is near.
-			bits.push(pass.main ? `${c.num_turns}/${maxTurns} turns` : `${c.num_turns} turns`);
+			bits.push(pass.maxTurns ? `${pass.turns}/${pass.maxTurns} turns` : `${pass.turns} turns`);
 		}
-		if (typeof c.duration_ms === 'number') {
-			bits.push(formatMinutes(c.duration_ms));
-			elapsed += c.duration_ms;
+		if (typeof pass.durationMs === 'number') {
+			bits.push(formatMinutes(pass.durationMs));
+			elapsed += pass.durationMs;
 		}
 		lines.push(`_${pass.label}: ${bits.join(' | ')}_`);
-		total = (total === null ? 0 : total) + c.total_cost_usd;
+		total = (total === null ? 0 : total) + pass.costUsd;
 	}
 	if (lines.length === 0) {
 		return '_cost unknown_';
@@ -305,20 +322,8 @@ function tallyFindings(report) {
 }
 
 /**
- * Renders the job's step summary.
- *
- * The whole report used to be pasted here, which made a reviewer scroll a
- * screenful of repro steps and log excerpts inside a page that cannot show a
- * screenshot properly. The report has its own rendered page now, so this is a
- * signpost: the verdict, and where to read the rest.
- *
- * `baseUrl` is the published run directory. Without one -- a local run, or an
- * upload that failed -- the link is omitted rather than written dead, and the
- * summary says where the report actually is.
- *
- * Nothing else belongs here. The link says what it is, and the cost of the
- * run is on the report's own Run tile; repeating either on the job page is a
- * second thing to read before getting to the one that matters.
+ * The job's step summary: a signpost with the verdict and a link to the run's page.
+ * Without `baseUrl` (a local run or failed upload) it says where the report is instead of linking dead.
  */
 export function renderStepSummary(report, baseUrl) {
 	const tally = tallyFindings(report);
@@ -330,23 +335,6 @@ export function renderStepSummary(report, baseUrl) {
 		lines.push('The report and its screenshots are in the workflow artifact.');
 	}
 	return `${lines.join('\n')}\n`;
-}
-
-/**
- * report.json's `cost` from the billed passes, `{ label, main, cost }` with
- * cost a cost record, as renderCostFooter reads them: a pass with no cost did not run.
- */
-export function costJson(passes, maxTurns) {
-	return {
-		passes: passes.filter(p => typeof p.cost?.total_cost_usd === 'number').map(p => ({
-			label: p.label,
-			model: p.cost.model ?? null,
-			costUsd: p.cost.total_cost_usd,
-			turns: p.cost.num_turns ?? null,
-			...(p.main ? { maxTurns } : {}),
-			durationMs: p.cost.duration_ms ?? null,
-		})),
-	};
 }
 
 /** Labels this workflow's PR comments. Each /test run owns its own comment. */
@@ -369,9 +357,6 @@ export function runOutcome({ report, numTurns, maxTurns, timedOut = false }) {
 	return report ? 'complete' : 'no-report';
 }
 
-/** How long a run has to write up after it is told time is up, before it is stopped. */
-export const WRAP_UP_MINUTES = 10;
-
 /**
  * The time limit, in whole minutes, from a dispatch input or an `/explore 20m`
  * word: `20`, `20m` or empty. Null when there is none or it is not a positive
@@ -383,11 +368,6 @@ export function parseTimeLimit(raw) {
 	return Number.isInteger(minutes) && minutes > 0 ? minutes : null;
 }
 
-/** What the agent is told on each tool result once its time is up. */
-export function timeUpMessage(minutes) {
-	return `Time is up: your ${minutes} minutes for exploring have run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
-}
-
 /**
  * A PostToolUse (and PostToolUseFailure) hook that, once `deadline` has
  * passed, appends the time-up message to every tool result, so the agent
@@ -395,9 +375,10 @@ export function timeUpMessage(minutes) {
  * Before then it adds nothing: told its budget or the time left, the agent
  * rushed from the first step and wrapped up at about 70% of it, in every CI
  * run that had a limit. `onTimeUp` is called the first time. `now` is the
- * clock, for tests. `message` replaces the explorer's.
+ * clock, for tests. `message` is what the agent is told: the pipeline's, for
+ * the explorer and the isolator alike.
  */
-export function timeUpHook({ deadline, minutes, message = '', now = Date.now, onTimeUp = () => {} }) {
+export function timeUpHook({ deadline, message, now = Date.now, onTimeUp = () => {} }) {
 	let told = false;
 	return async input => {
 		if (now() < deadline) {
@@ -407,7 +388,7 @@ export function timeUpHook({ deadline, minutes, message = '', now = Date.now, on
 			told = true;
 			onTimeUp();
 		}
-		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: message || timeUpMessage(minutes) } };
+		return { hookSpecificOutput: { hookEventName: input.hook_event_name, additionalContext: message } };
 	};
 }
 

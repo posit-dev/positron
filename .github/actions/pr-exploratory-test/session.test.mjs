@@ -69,3 +69,18 @@ test('a write root installs the guard', async () => {
 	await runSession({ prompt: 'p', allowedTools: ['Edit'], model: 'opus', maxTurns: 9, cwd: '/r', writeRoot: '/r/x', query, log: quiet });
 	assert.equal(typeof seen.canUseTool, 'function');
 });
+
+test('runSession clips logged tool calls to 200 characters, or logs them in full for a short pass', async () => {
+	const command = 'x'.repeat(500);
+	const query = async function* () {
+		yield { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Bash', input: { command } }] } };
+		yield { type: 'result' };
+	};
+	const logged = async fullLog => {
+		const lines = [];
+		await runSession({ prompt: 'p', allowedTools: [], model: 'sonnet', maxTurns: 2, cwd: '/r', query, fullLog, log: line => lines.push(line) });
+		return lines.find(l => l.includes('tool calls'));
+	};
+	assert.equal((await logged(false)).length, '[msg 1] tool calls: Bash()'.length + 200);
+	assert.ok((await logged(true)).includes(command));
+});

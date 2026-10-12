@@ -5,7 +5,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkReportJson, formatProblems, lintReportJson, mergeRetry, schemaProblems } from './lint-json.mjs';
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { formatProblems, lintReportJson, readCheckedReport, schemaProblems } from './lint-json.mjs';
+import { withTmpDir } from './shared/tmp-dirs.mjs';
 
 const LEDGER = [
 	'# Scenario ledger',
@@ -55,7 +58,7 @@ function json() {
 	};
 }
 
-const lint = j => lintReportJson(j, LEDGER);
+const lint = j => lintReportJson(j, LEDGER).map(p => p.text);
 
 test('a report that keeps to the ledger has no problems', () => {
 	assert.deepEqual(lint(json()), []);
@@ -68,14 +71,12 @@ test('a step reworded but acting on the same values is the ledger\'s', () => {
 	assert.deepEqual(lint(j), []);
 });
 
-test('a scenario the ledger does not have, or under another rate, is a problem', () => {
+test('a report need not repeat the ledger: the page takes coverage, logs, files and environment from it', () => {
 	const j = json();
-	j.scenarios[0].result = 'Fails 1/1';
-	j.scenarios.push({ id: 'S09', name: 'Invented', status: 'fail', result: 'Fails 1/1', findings: [1] });
-	assert.deepEqual(lint(j), [
-		'report.json: S01 fails 1/1, but the ledger has 2/2',
-		'report.json: S09 is not in the ledger',
-	]);
+	for (const key of ['scenarios', 'logs', 'files', 'environment']) {
+		delete j[key];
+	}
+	assert.deepEqual(lint(j), []);
 });
 
 test('a finding no scenario fails for, or one left out, is a problem', () => {
@@ -98,57 +99,16 @@ test('a step with another value, or a check the run did not make, is not the led
 	]);
 });
 
-test('a check whose result differs from the ledger\'s is a problem', () => {
-	const j = json();
-	j.findings[0].steps.push(
-		{ kind: 'action', text: 'Overwrite `people.json` on disk with `broken.json`.' },
-		{ kind: 'verify', text: 'the explorer shows the parse error', result: 'fail', finding: 1 },
-	);
-	assert.deepEqual(lint(j), ['report.json: Finding 1 step 5 is fail, but S01 recorded pass']);
-});
-
 test('steps out of the scenario\'s order are a problem', () => {
 	const j = json();
 	j.findings[0].steps.reverse();
 	assert.equal(lint(j).filter(p => /out of order/.test(p)).length, 2);
 });
 
-test('a rate past the tries of the scenarios that failed for the finding is a problem', () => {
-	const j = json();
-	j.findings[0].reproduced = { n: 3, m: 3 };
-	assert.deepEqual(lint(j), ['report.json: Finding 1\'s rate is 3/3, but S01, whose steps the repro shows, fails 2/2; give that rate']);
-});
-
 test('a log line listed as both found and missing is a problem', () => {
 	const j = json();
 	j.findings[0].evidence.push({ kind: 'missing', path: 'logs/renderer.log', window: '22:00-22:01' });
 	assert.deepEqual(lint(j), ['report.json: Finding 1 evidence lists logs/renderer.log as both a log line and missing']);
-});
-
-test('a retry is taken only for the findings and scenarios the check flagged', () => {
-	const first = json();
-	first.findings[0].reproduced = { n: 3, m: 3 };
-	first.scenarios.push({ id: 'S09', name: 'Invented', status: 'fail', result: 'Fails 1/1', findings: [1] });
-	const retry = json();
-	// The flagged finding is taken whole; the unflagged scenario's rewording is not.
-	retry.scenarios[1].result = 'The menu copies it.';
-	retry.findings[0].observed = 'Reworded';
-	const problems = checkReportJson(first, LEDGER);
-	assert.deepEqual(problems.map(p => p.finding ?? p.scenario), ['S09', 1]);
-	const { report, ignored } = mergeRetry(first, retry, problems);
-	assert.deepEqual(
-		{ rate: report.findings[0].reproduced, observed: report.findings[0].observed, scenarios: report.scenarios.map(s => [s.id, s.result ?? s.reason]), ignored },
-		{ rate: { n: 2, m: 2 }, observed: 'Reworded', scenarios: [['S01', 'Fails 2/2'], ['S02', 'The menu copies the accessor.'], ['N01', 'no web build']], ignored: ['S02'] },
-	);
-	assert.deepEqual(lintReportJson(report, LEDGER), []);
-});
-
-test('a retry can add the finding the check found missing', () => {
-	const first = json();
-	const retry = json();
-	first.findings = [];
-	const { report } = mergeRetry(first, retry, checkReportJson(first, LEDGER));
-	assert.deepEqual(report.findings.map(f => f.n), [1]);
 });
 
 test('the schema check names each field that is missing or of the wrong kind', () => {
@@ -168,7 +128,7 @@ test('an empty header line or feature, a shot outside shots/ and an absolute lin
 		title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', tests: { cases: [], related: [] },
 		feature: '', evidence: [{ kind: 'shot', path: 'https://cdn.example/x.png', step: 1 }],
 	});
-	assert.deepEqual(formatProblems(j, LEDGER).filter(p => /header\.|no feature|links the screenshot|relative to the run/.test(p)), [
+	assert.deepEqual(formatProblems(j, LEDGER).map(p => p.text).filter(p => /header\.|no feature|links the screenshot|relative to the run/.test(p)), [
 		'report: header.tested is empty; write the Tested line',
 		'report: header.notExercised is empty; write the Not exercised line',
 		'report: Finding 1 has no feature; name the area of Positron it is in, such as "data explorer"',
@@ -177,19 +137,26 @@ test('an empty header line or feature, a shot outside shots/ and an absolute lin
 	]);
 });
 
-test('the write-up rules apply to report.json\'s fields', () => {
+// fixtures/lint-scenes.expected.txt pins the other write-up rules on report.json's fields.
+test('a report.json precondition with no name is a problem', () => {
 	const j = json();
-	j.header = { result: 'Yes, it copies the accessor from the menu.', tested: 'the copy menu', notExercised: 'none' };
-	Object.assign(j.findings[0], {
-		severity: 'major', reproduced: { n: 1, m: 1 }, feature: 'object explorer', title: 'Copy may paste the value',
-		observed: 'The pasted text is `x@y.z`.', expected: 'The accessor.', preconditions: [{ text: 'A JSON file open' }], tests: { cases: [], related: [] },
-	});
-	j.findings[0].steps[0].text = 'Click the `email` row, then press Ctrl+Shift+C.';
-	assert.deepEqual(formatProblems(j, LEDGER).filter(p => p.startsWith('report')), [
-		'report: **Result:** answers a question; state what the change does instead',
-		'report: finding 1 is major and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
+	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', preconditions: [{ text: 'A JSON file open' }] });
+	assert.deepEqual(formatProblems(j, LEDGER).map(p => p.text).filter(p => /precondition/.test(p)), [
 		'report: Finding 1 precondition "A JSON file open" needs a name, 2 to 4 words, for Coverage',
-		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
-		'report: Finding 1 step 1 is two actions ("then press"); write each as its own step',
 	]);
+});
+
+test('readCheckedReport returns the report and logs what the check still finds, or null with none that parses', () => {
+	const lines = [];
+	const log = line => lines.push(line);
+	withTmpDir('checked-', dir => {
+		assert.equal(readCheckedReport(dir, { log }), null);
+		writeFileSync(join(dir, 'ledger.md'), LEDGER);
+		writeFileSync(join(dir, 'report.json'), '{');
+		assert.equal(readCheckedReport(dir, { log }), null);
+		writeFileSync(join(dir, 'report.json'), JSON.stringify(json()));
+		assert.deepEqual(readCheckedReport(dir, { log }), json());
+		assert.match(lines[0], /does not parse/);
+		assert.match(lines[1], /^\[json\] \d+ problems after the explorer: report\.header is missing/);
+	});
 });

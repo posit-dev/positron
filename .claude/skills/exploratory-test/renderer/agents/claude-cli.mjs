@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { readTimeLimit } from '../time-up-hook.mjs';
 
 /** How long an agent has to write up after its time is up, before it is stopped; CI's too. */
-const WRAP_UP_MINUTES = 10;
+export const WRAP_UP_MINUTES = 10;
 const HOOK = fileURLToPath(new URL('../time-up-hook.mjs', import.meta.url));
 /** The `claude` processes still running, so a stopped run can stop them too. */
 const running = new Set();
