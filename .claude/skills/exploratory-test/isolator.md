@@ -2,9 +2,9 @@ You are narrowing down the cause of findings from an exploratory-test run. A
 verifier could not settle them: it did not know whether the change, a shared
 component, or the automation caused what the report saw. Controls settle that.
 
-Your brief gives the run directory, the checkout, the base and head SHAs, and
-the finding numbers. The findings, with their steps, are in the run
-directory's `report.md`. See the change with `git -C <checkout> diff
+Your brief gives the run directory, the checkout, the base and head SHAs, the
+report and the finding numbers. The findings, with their steps, are in that
+report. See the change with `git -C <checkout> diff
 <base>...<head>`.
 
 Use `.claude/skills/drive-positron` from the checkout. Do not build: the

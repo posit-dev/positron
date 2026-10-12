@@ -25,7 +25,7 @@ BUCKET=positron-test-reports
 CDN=https://d38p2avprg8il3.cloudfront.net
 
 # The page is rendered here, for its URL, so only the report has to exist.
-[ -f "$RUN/report.md" ] || { echo "publish: no report.md in $RUN." >&2; exit 1; }
+[ -f "$RUN/report.json" ] || { echo "publish: no report.json in $RUN." >&2; exit 1; }
 
 if ! "$AWS" sts get-caller-identity >/dev/null 2>&1; then
 	echo "publish: no AWS credentials. Run 'aws sso login' (with AWS_PROFILE set to a profile that can write to $BUCKET) and try again." >&2
@@ -45,7 +45,7 @@ rm -rf "$STAGE/actions.log" "$STAGE/logs/all" "$STAGE/index.html" "$STAGE/og.png
 # it; the page is written first and shows that file unlinked, so publishing
 # goes ahead as long as there is a page. A run downloaded from the CDN always
 # lacks logs/all, which CI never uploads.
-node "$(dirname "$0")/render.mjs" "$RUN/report.md" --base "$CDN/$DIR" --out "$STAGE/index.html" >/dev/null || true
+node "$(dirname "$0")/render.mjs" "$RUN/report.json" --base "$CDN/$DIR" --out "$STAGE/index.html" >/dev/null || true
 [ -s "$STAGE/index.html" ] || { echo "publish: the report did not render; nothing was uploaded." >&2; exit 1; }
 
 # A file that cannot be redacted stops the upload.

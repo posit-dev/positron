@@ -30,6 +30,8 @@ For EACH finding, answer these five questions explicitly:
    screen shows the problem, check that against the screenshots, the values
    beside it included: a Max below the Mean on the same panel is on screen.
    Say so when a screenshot contradicts it.
+   When the Cause is a race, find the log lines that show the events in the
+   order it claims, with their timestamps, or say the order is unconfirmed.
 2. Could anything the reporting agent did to its own test environment produce
    the reported symptom? Read the action log, the ledger's `## Environment` and
    Run details for how it set the machine up, then ask whether that setup,
@@ -40,9 +42,9 @@ For EACH finding, answer these five questions explicitly:
    "Pre-existing") rather than as reasoning. An unchanged counterpart counts as
    evidence in place of a base build: a feature sharing the mechanism that the
    diff does not touch. Check the diff to confirm it is untouched.
-4. For each test file the report says already covers something (`exists,
-   covers ...` under Test gap, or a note under Other tests), open it and
-   say whether it does. A wrong claim does not change the verdict; name the
+4. For each test file the report says already covers something (a
+   `tests.cases` path that is not new, or a `tests.related` note), open it
+   and say whether it does. A wrong claim does not change the verdict; name the
    file and what it actually covers. If a test asserts the very behavior the
    finding reports as wrong, such as expecting different counts from two
    backends, say so: it may be intended, and the reader decides.
@@ -76,17 +78,16 @@ problem). Read the scenario's steps and its screenshots. Rate only what the run
 saw; do not use the issue's own labels or priority.
 
 Start your reply with a single machine-readable line, exactly this shape, one
-entry per finding in the table:
+entry per finding in the report:
 
 VERDICTS: 1=CONFIRMED; 2=FALSE POSITIVE
 
-It is read to annotate the findings table, so use only CONFIRMED, FALSE
-POSITIVE or UNRESOLVED. Key every entry, on this line and every line below, by
-the Finding number as written: the number in the table's `#` column and in the
-finding's own heading (`### Finding 3: ...`). Never by the row's position: the
-table is sorted by severity, so its first row may be Finding 3. Give one entry
-for each number in the table, and no other numbers. When the report has no
-findings, write `VERDICTS: none`.
+It is read to mark each finding, so use only CONFIRMED, FALSE POSITIVE or
+UNRESOLVED. Key every entry, on this line and every line below, by the
+finding's number as written, its `n`. Never by its position: the findings are
+listed worst first, so the first may be Finding 3. Give one entry for each
+finding in the report, and no other numbers. When the report has no findings,
+write `VERDICTS: none`.
 
 If question 5 found matches, put a second line right after it, listing only
 the findings that matched:
@@ -107,8 +108,8 @@ one entry per issue, rated major, moderate or minor:
 
 LINKED: #5678=moderate; #5301=minor
 
-If the evidence puts a finding in a different area than its `**Feature:**`
-line names, add a line with the one it points to. It replaces the Feature in
+If the evidence puts a finding in a different area than its `feature`
+names, add a line with the one it points to. It replaces the Feature in
 the report and in the filed issue's title:
 
 FEATURE: 3=new folder flow
@@ -120,7 +121,7 @@ does not need, or a case the run tried contradicts the title's trigger (one
 with the trigger passed, or one without it failed), add a line with a title
 that names the trigger the evidence does show, or none when it shows none a
 user can see. Do not keep a title because it fits the cases that failed. It replaces
-the title in the table, the report and the filed issue. Write it as the report
+the title in the report and the filed issue. Write it as the report
 writes titles: what a user sees and what triggers it, starting with a capital,
 with no function, file or type names, which belong in Cause. Use no `;` or `|`:
 
@@ -152,8 +153,8 @@ fix would change. For each one:
 This says where the fix likely goes, not who caused the bug, and nothing was
 run against the base. Leave the line out when no finding is related.
 
-Then keep it short. The table column is what a reviewer reads; this section is
-for what the column cannot say.
+Then keep it short. The verdict on each finding is what a reviewer reads; this
+section is for what the verdict cannot say.
 
 - A finding you CONFIRM gets one line: the evidence that convinced you that
   the report does not already cite, or `Matches the report's cause.` Don't

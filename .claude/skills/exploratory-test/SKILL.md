@@ -6,10 +6,11 @@ metadata:
   # Bump when a run could find or judge findings differently: what an agent is
   # told or allowed, or what is done with its reply. That is this file,
   # explorer.md, verifier.md, isolator.md, editor.md, renderer/known-issues.mjs,
-  # pipeline.mjs, finish.mjs, edit.mjs, claude-cli.mjs and time-up-hook.mjs,
-  # and pr-exploratory-test's run.mjs and lib.mjs. Feedback is grouped by it, so a
+  # pipeline.mjs, finish.mjs, edit.mjs, lint-json.mjs, report.schema.json,
+  # claude-cli.mjs and time-up-hook.mjs, and pr-exploratory-test's run.mjs and
+  # lib.mjs. Feedback is grouped by it, so a
   # change to how the page looks does not count.
-  version: "1.58"
+  version: "1.59"
 ---
 
 # Exploratory testing
@@ -78,7 +79,8 @@ them the run directory.
 
 ## Present it, then offer to publish
 
-Give the user the result, the findings table, and the `index.html` path. Then
+Give the user the result, the findings with their severity and verdict, and
+the `index.html` path. Then
 ask, in these words:
 
 > Publish this report to share it? Feedback on a published report reaches the team with its screenshots and logs.

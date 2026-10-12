@@ -48,7 +48,7 @@ function readReport(workDir) {
 		return null;
 	}
 	try {
-		return readFileSync(join(workDir, 'report.md'), 'utf8');
+		return JSON.parse(readFileSync(join(workDir, 'report.json'), 'utf8'));
 	} catch {
 		// No report: the build failed first, or the agent never wrote one.
 		return null;
@@ -59,7 +59,7 @@ async function main() {
 	const state = process.env.COMMENT_STATE === 'running' ? 'running' : (process.env.OUTCOME || '');
 	const body = renderPrComment({
 		state,
-		markdown: state === 'running' ? null : readReport(process.env.WORK_DIR),
+		report: state === 'running' ? null : readReport(process.env.WORK_DIR),
 		baseUrl: buildShotsBaseUrl(process.env.REPORT_BASE_URL || ''),
 		runUrl: `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
 		headSha: process.env.HEAD_SHA || '',

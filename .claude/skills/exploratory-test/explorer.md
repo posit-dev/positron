@@ -11,8 +11,8 @@ you do not reach goes under Not run.
 Do the exploring yourself. Do not delegate again.
 
 This file is in the order you work: set up, explore, record as you go, stop,
-write up. The renderer's lint checks the format when you render and names each
-fix in its message, so this file covers what lint cannot: what to test, what
+write up. Lint checks the report's shape when you check it and names each fix
+in its message, so this file covers what lint cannot: what to test, what
 counts as a finding, and what a reader needs to trust it.
 
 ## Drive the app
@@ -200,9 +200,9 @@ Lint flags each of these, so get them right the first time:
 - Every VERIFY cites a screenshot; a log line or saved file goes beside it,
   never instead.
 - A shot is taken once, at its check, and cited by that check only.
-- Every shot under a finding's Evidence is captioned `Step N:` for the step it
-  proves, or `S06:` for the scenario that took it (another run of the bug). A
-  control that proves no step is a PASS step or left out.
+- Every shot in a finding's `evidence` names the `step` it proves, or the
+  `scenario` that took it (another run of the bug). A control that proves no
+  step is a PASS step or left out.
 - A finding's steps and their shots are one scenario's, the one that failed for it.
 - A finding's title, Observed, Expected and Cause name no scenario ID (S05,
   N01); readers never see them, so say it in words.
@@ -342,12 +342,14 @@ returns each distinct state with when it appeared and how long it lasted.
   switched by running code is "Run `pass` in the Python console", not "Click
   the Python tab". Two actions are two steps, and so is a repeated click. Merge
   a wait into its action, naming what you waited for: "Run X and wait for the
-  plot to appear." When the bug needs you to act before something finishes,
-  say what it races instead.
+  plot to appear.", never a time ("wait 30 seconds") when the app shows it is
+  done. When the bug needs you to act before something finishes, say what it
+  races instead.
 - Every action that changed state a later step or screenshot depends on is a
   step, even a second run of the same code; never explain away a value with an
   action no step took. Leave out what changed nothing, such as a click repeated
-  because the first did not register, or a snapshot.
+  because the first did not register, or a snapshot. A retry of the same
+  steps is counted in the Result's rate, not written out again.
 - Name the exact way in, as the UI labels it: the palette command in
   backticks, with its category (`Workspaces: New Folder from Template...`),
   the menu path, the button, or the key. Two ways in can open different
@@ -462,29 +464,22 @@ quick-input action, confirm in the action log that the intended command ran: a
 different row run in its place is a tool error, not a finding. A proven bug
 belongs in the report even if the change did not introduce it.
 
-The table opens the Findings section, worst first:
+The report lists the findings in `findings`, worst first. Each part of a
+finding has one job. The `title` says what is broken, well enough to stand
+alone. `observed` and `expected` say exactly what differed. `steps` prove it.
+`evidence`, `cause` and `tests` help the reader investigate. Never restate the
+observed behavior outside `observed`.
 
-```
-| # | Finding | Severity | Reproduction |
-|---|---------|----------|--------------|
-| 1 | <short claim> | major | 3/3 |
-```
-
-Each part of a finding card has one job. The title says what is broken, well
-enough to stand alone. Observed and Expected say exactly what differed.
-Reproduce proves it. Evidence, Cause and Test gap help the reader investigate.
-Never restate the observed behavior outside Observed.
-
-`Severity` is set by the impact on a user only, never by how many tries you
+`severity` is set by the impact on a user only, never by how many tries you
 managed. It is `major` (blocks or materially breaks an important workflow),
 `moderate` (usable but meaningfully wrong or disruptive), or `minor` (small
-usability, visual, or polish problem), justifiable from the title and Observed
+usability, visual, or polish problem), justifiable from the title and `observed`
 alone; if it is not, lower it. Anchors: telling the user to take an action that
 cannot fix their problem is `major`; offering a choice that fails when taken is
 `moderate`, because they can get there another way; a control that wraps onto
 two lines is `minor`. Caution is not a tiebreaker.
 
-`Finding` is the title, and the one line that must be excellent: someone who
+`title` is the one line that must be excellent: someone who
 reads only it knows what is broken. Name the thing and how it is wrong ("A
 saved plot PNG is smaller than the plot in the pane", not "Plot export
 issue"), with the condition when it matters ("A notebook cell over 10 s never
@@ -496,14 +491,14 @@ longer Y"), since that decides whether a reader reverts or fixes forward. Name
 a thing by where the reader sees it, not where it lives: "functions that Go to
 Symbol lists", not "functions the language server reports". The kernel, the
 language server and the extension host are where things live; say the pane,
-list or hover that shows them, here and in Observed and Expected.
+list or hover that shows them, here and in `observed` and `expected`.
 
-`Feature` is the area of Positron the finding is in, in lowercase except for
+`feature` is the area of Positron the finding is in, in lowercase except for
 proper names: "data explorer", "console", "R console", "Positron Assistant".
 It prefixes the filed issue's title.
 
-`Reproduction` is `<N>/<M>`, in the table only: tries of the same steps,
-repeated in the same instance. Always give it, even 5/5, since "every time"
+`reproduced` is `{ "n": <N>, "m": <M> }`, read as N/M: tries of the same
+steps, repeated in the same instance. Always give it, even 5/5, since "every time"
 and "one in three" are different bugs; 0/M (seen but not reproduced) renders
 as Unproven.
 
@@ -525,26 +520,32 @@ Keep one replay instance at a time. A window reload is not cold. If the replay
 fails where the others passed, look for what the steps leave out and write it
 in.
 
+A race that fails only some tries is hard for a reader to see. Scale its
+trigger up (more files, sessions or rows) until it fails every try, then cold
+replay that version twice and make it the finding's steps. Name the smaller
+version and its rate in the finding.
+
 ### Steps and preconditions
 
 A finding's steps are the minimal sequence from the scenario that found it,
-with their `Evidence:` lines: its actions plus the checks that matter, keeping
-PASS checks that show what still works just before the failure. Stop at the
-failure unless the scenario went on. Another scenario's run of the same bug,
-such as a cold replay, goes under Evidence.
+each as the ledger words it, with its screenshots: its actions plus the checks
+that matter, keeping PASS checks that show what still works just before the
+failure. Stop at the failure unless the scenario went on. Another scenario's
+run of the same bug, such as a cold replay, goes in `evidence`.
 
 A precondition that only existed in your head is how a finding stops
 reproducing. So is state you did not create. Before writing a finding, compare
 the screen at its first step with what its steps and preconditions produce: a
 console the app started on launch, a setting the launcher or seeded profile
-applied, an editor restored from last time. Write each in as a precondition,
+applied (including one you wrote into the seed yourself), an editor restored
+from last time. Write each in as a precondition,
 the state before step 1, saying when the app did it on its own ("A Python
 console, which Positron starts on launch"); a step is only what the reader
 does. Launch flags belong in the ledger's Environment, and scratch paths in
 Run details: name a workspace by what it holds ("A workspace with
 `shiny_app.R`"), not its path.
 
-Repeat each finding's preconditions in full, one state per line ("pandas 3.0.3
+Repeat each finding's preconditions in full, one state per item ("pandas 3.0.3
 in `.venv`", "R 4.5.1 with dplyr", the file in backticks), never a catch-all
 such as "Data scripts". Loading the file is a step, with the exact command
 ("Run `%run -i slow.py` in the Python console."). The workspace's files
@@ -553,64 +554,56 @@ their real case (dplyr, not Dplyr). An app the bug needs running, or a pane
 showing it, is never a precondition, even when another finding starts it the
 same way: its steps start it, with a check that it runs.
 
-`N` is the finding's number, given in the order you found them and never
-changed. The table lists findings worst first, so its numbers need not run in
-order.
+`n` is the finding's number, given in the order you found them and never
+changed. `findings` lists them worst first, so their numbers need not run in
+order. One finding, with every field it can have:
 
-````
-### Finding N: <concise claim>
-
-**Feature:** <feature>
-
-**Repro**
-
-**Preconditions:**
-- <short name, 2 to 4 words, for Coverage, e.g. `slow.py`> | <the full line the finding card shows, e.g. `slow.py`, which builds tables that are slow to summarize; the step that runs it comes first. Leave the list out when nothing is needed.>
-
-1. <one action>
-2. VERIFY <expectation> -> PASS
-   Evidence: <file>
-3. <one action>
-4. VERIFY <expectation> -> FAIL - Finding N
-   Observed: <what happened instead, one line>
-   Evidence: <file>
-
-**Observed:** <exactly what happened, in one or two sentences, plus one for a fact you saw that makes it worse or gets past it>
-
-**Expected:** <what should have happened, in one or two sentences>
-
-**Evidence**
-
-- [shots/<file>](shots/<file>) -- Step <N>: <what another scenario's run of this step shows>
-- [shots/<file>](shots/<file>) -- S<NN>: <what that scenario's run of the bug shows>
-- `<log path>:<line>` | <Renderer process, Extension host, Main process, Python kernel or R kernel> | <time, or Logged <N>x> -- "<the line exactly as logged, with ==the value that matters== marked>"
-- **Not logged** -- `<log path>` | <time window searched> -- "<the exact line you expected>"
-
-**Error output** -- `<log path>` | <Renderer process, Extension host, Main process, Python kernel or R kernel> | Logged <N>x (<when>)
-
-```
-<the error message>
-    at <function> (<repo-relative path>:<line>)
-    at <function> (<repo-relative path>:<line>)
+```json
+{
+	"n": 1,
+	"severity": "moderate",
+	"reproduced": { "n": 3, "m": 3 },
+	"feature": "<feature>",
+	"title": "<concise claim>",
+	"preconditions": [
+		{ "name": "<2 to 4 words, for Coverage, e.g. `slow.py`>", "text": "<the full line the finding shows, e.g. `slow.py`, which builds tables that are slow to summarize; the step that runs it comes first>" }
+	],
+	"steps": [
+		{ "kind": "action", "text": "<one action>" },
+		{ "kind": "verify", "text": "<the expectation, without VERIFY>", "result": "pass", "shots": ["shots/<file>"] },
+		{ "kind": "action", "text": "<one action>" },
+		{ "kind": "verify", "text": "<the expectation>", "result": "fail", "finding": 1, "observed": "<what happened instead, one line>", "shots": ["shots/<file>"], "log": { "source": "logs/<file>:<line>", "body": "<the lines it logged>" } }
+	],
+	"observed": "<exactly what happened, in one or two sentences, plus one for a fact you saw that makes it worse or gets past it>",
+	"expected": "<what should have happened, in one or two sentences>",
+	"evidence": [
+		{ "kind": "shot", "path": "shots/<file>", "step": 4, "caption": "<what another scenario's run of this step shows>" },
+		{ "kind": "shot", "path": "shots/<file>", "scenario": "S06", "caption": "<what that scenario's run of the bug shows>" },
+		{ "kind": "log", "path": "logs/<file>:<line>", "process": "<Renderer process, Extension host, Main process, Python kernel or R kernel>", "when": "<time, or Logged <N>x>", "quote": "<the line exactly as logged, with ==the value that matters== marked>" },
+		{ "kind": "missing", "path": "logs/<file>", "process": "<process>", "window": "<time window searched>", "quote": "<the exact line you expected>" }
+	],
+	"errors": [
+		{ "source": "logs/<file>:<line>", "process": "<process>", "count": 2, "note": "<when, such as after each Retry>", "message": "<the error message>", "frames": [{ "fn": "<function>", "path": "<repo-relative path>", "line": 42 }] }
+	],
+	"cause": "<one sentence naming the suspect, then the detail and the code pointers>",
+	"tests": {
+		"cases": [{ "text": "<the missing case, as a sentence>", "level": "unit", "path": "<repo-relative test file, or empty when unsure>", "isNew": false, "note": "<what that file covers now>" }],
+		"related": [{ "path": "<repo-relative test file>", "level": "e2e", "note": "<what it covers, in a phrase>" }]
+	}
+}
 ```
 
-**Cause (hypothesis):** <one sentence naming the suspect, then the detail and
-the code pointers>
-
-**Test gap**
-
-- <the missing case, as a sentence> -- <Unit, Extension, or E2E> `<repo-relative test file, or leave out when unsure>` (<exists, covers ... | new file>)
-
-**Other tests that touch this code**
-
-- `<repo-relative test file>` -- <Unit, Extension, or E2E>, <what it covers, in a phrase>
-````
-
-Keep the blank lines, and keep steps at the left margin.
+Leave out `preconditions` when nothing is needed, and `evidence`, `errors` and
+`cause` when there is nothing for them. A step's `log` is on a scenario's first
+FAIL, as the ledger has it, with `"source": "none found in logs/<file>"` when
+nothing was logged. A step that pastes a file or a block of code into the app
+puts it in `code`, as a fenced markdown block. Text fields take markdown: code
+and data values in backticks. The first time evidence names an internal ID (a session, client or
+request ID), say which file, document or session it belongs to.
 
 ### Observed and Expected
 
-They sit side by side on the card. Lead with the exact difference, and name
+`observed` and `expected` sit side by side on the card. Lead with the exact difference, and name
 what it is on. A reference that shows the right answer, such as another
 language or a terminal, goes in Expected. Observed may end with one fact the
 run saw that makes the finding worse or gets past it, stated as what happened:
@@ -619,23 +612,23 @@ nothing on screen shows the problem only after checking the whole view in your
 screenshot, including anything beside the value that contradicts it. Leave the
 setup, the values that were right, extra runs and log lines to Reproduce and
 Evidence.
-Put data values in backticks, as you do code, here and in a step's
-`Observed:` line.
+Put data values in backticks, as you do code, here and in a failed step's
+`observed`. Too terse, then right:
 
 ```
-**Observed:** PNG 800x600 vs pane 1200x900; legend cut off.
-**Expected:** Same size as pane.
+observed: PNG 800x600 vs pane 1200x900; legend cut off.
+expected: Same size as pane.
 
-**Observed:** The saved PNG is 800 by 600 pixels, and its legend is cut off. The plot in the pane is 1,200 by 900.
-**Expected:** The PNG is 1,200 by 900, like the plot in the pane, with the whole legend.
+observed: The saved PNG is 800 by 600 pixels, and its legend is cut off. The plot in the pane is 1,200 by 900.
+expected: The PNG is 1,200 by 900, like the plot in the pane, with the whole legend.
 ```
 
 ```
-**Observed:** Stuck at +; ) doesn't run it. Terminal R is fine.
-**Expected:** Runs.
+observed: Stuck at +; ) doesn't run it. Terminal R is fine.
+expected: Runs.
 
-**Observed:** After pasting the three-line function, the R console waits at a `+` prompt, and typing `)` does not run it.
-**Expected:** The function runs once `)` is typed, as it does in R in a terminal.
+observed: After pasting the three-line function, the R console waits at a `+` prompt, and typing `)` does not run it.
+expected: The function runs once `)` is typed, as it does in R in a terminal.
 ```
 
 Claim no more than the run checked, here and in the ledger's VERIFY and
@@ -652,31 +645,30 @@ tells you why, not whether it is right. When the PR's own tests assert the
 behavior you think is wrong, report it against the reference anyway and name
 the test that asserts it in Cause.
 
-A failed check is about one finding, and its Observed describes only that
+A failed check is about one finding, and its `observed` describes only that
 finding. A different behavior on the same screen, even one that looks related,
 is its own finding with its own VERIFY in a scenario of its own.
 
 ### Evidence, Cause and Error output
 
-Every screenshot opens from the step it proves, so list one under Evidence only
+Every screenshot opens from the step it proves, so list one in `evidence` only
 to give it a better caption or to add another run's shot of a step. A control
-that proves Expected, such as pandas showing the right values, is not proof of
-the failing step: make it a PASS step of its own, or leave it out when Observed
-already states it. Otherwise Evidence is what Positron logged, and nothing
-else: an error, a stack, a log line. Quote each line exactly as logged, with no
-note after it; what it means goes in Observed (as a fact) or Cause (as a
-reason). Mark the one value that matters, such as a path or an ID, as
-`==value==`. For several lines, leave the quote off the bullet and put them in
-a code block indented under it. Never cite `actions.log` or a file you saved:
-they record what you did, not what Positron did. A path to suspect code goes
-in Cause.
+that proves `expected`, such as pandas showing the right values, is not proof
+of the failing step: make it a PASS step of its own, or leave it out when
+`observed` already states it. Otherwise `evidence` is what Positron logged,
+and nothing else: an error, a stack, a log line. Quote each line exactly as
+logged in a `log` item, with no note after it; what it means goes in
+`observed` (as a fact) or `cause` (as a reason). Mark the one value that
+matters, such as a path or an ID, as `==value==`. Never cite `actions.log` or
+a file you saved: they record what you did, not what Positron did. A path to
+suspect code goes in `cause`.
 
-When a line that should have followed never did, add a `**Not logged**` bullet
-after the line that was logged, with the window you searched. Only name a line
-you can quote exactly, from the code or from a passing run; otherwise leave it
+When a line that should have followed never did, add a `missing` item after
+the line that was logged, with the `window` you searched. Only name a line you
+can quote exactly, from the code or from a passing run; otherwise leave it
 out.
 
-Cause blames the defective line, not the line that made it reachable. R's
+`cause` blames the defective line, not the line that made it reachable. R's
 kernel, Ark, is in this checkout under `extensions/positron-r/ark/` (Rust, in
 `crates/ark/src/`), so an R cause can be read there. If the diff clearly shows
 whether that code was added by this change, or is older code the change now
@@ -687,35 +679,36 @@ diff changes what unchanged code is given, write "reachable through this
 change; cannot tell if it predates it without a base build". Otherwise, if the
 diff does not settle it, leave origin out, and never label a finding new or
 pre-existing. The verifier reads that sentence and decides which findings the
-Findings table marks as likely related to the change; add no column or mark
-for it yourself.
+findings list marks as likely related to the change; add no field or mark for
+it yourself.
 
 To see which language client served a request, turn on its LSP trace: the
 extension's trace setting (`<server>.trace.server` at `verbose`) and its
 output channel's log level at Trace (`Developer: Set Log Level...`), then read
 that channel.
 
-When an error is logged, write an `**Error output**` block for it: the full
-message and stack, one block per distinct error, with how often it was logged
-and its `logs/` path and line. Pipe a JavaScript stack through `map-stack.mjs`,
-beside `render.mjs`, from the checkout, and paste what it prints: it maps
-compiled frames to repo-relative source lines and keeps 10.
+When an error is logged, add an item to `errors` for it: the full `message`
+and its stack as `frames`, one item per distinct error, with how often it was
+logged (`count`) and its `logs/` path and line (`source`). Pipe a JavaScript
+stack through `map-stack.mjs`, beside `render.mjs`, from the checkout, and copy
+the frames it prints: it maps compiled frames to repo-relative source lines and
+keeps 10.
 
 ```bash
 node <map-stack.mjs> < stack.txt
 ```
 
-A Python traceback skips `map-stack.mjs`. Put its last line, the exception
-(`NameError: name 'x' is not defined`), first as the message, then the frames
-as Python prints them, `File "<path>", line <N>, in <function>`, with paths
-repo-relative where the file is in the checkout. Rewrite IPython's console form
-(`Cell In[3], line 2`) to `File "<console>", line 2, in <module>`.
+A Python traceback skips `map-stack.mjs`. Its last line, the exception
+(`NameError: name 'x' is not defined`), is the message, and each
+`File "<path>", line <N>, in <function>` is a frame, with paths repo-relative
+where the file is in the checkout. IPython's console form (`Cell In[3], line 2`)
+is the frame `{ "fn": "<module>", "path": "<console>", "line": 2 }`.
 
 ### Test gap
 
-`**Test gap**` is what a suite would need to catch this next time, in a line
-or two, without describing the bug again. Write only what you checked; a wrong
-file or a test at the wrong level is worse than leaving the block out.
+`tests.cases` is what a suite would need to catch this next time, in a line or
+two each, without describing the bug again. Write only what you checked; a
+wrong file or a test at the wrong level is worse than leaving the list empty.
 
 Find the tests that already touch the changed code by convention (`*.test.ts`
 or `*.vitest.ts` in a `test/` folder beside the source, extension tests under
@@ -724,63 +717,72 @@ the test trees for the changed symbols and the UI strings the finding shows.
 List a file only after opening it, and say what it covers from what you read.
 Then name the case none of them covers, one sentence each, at the level the
 "Where should I put my test?" table in `CLAUDE.md` gives (the lowest that
-catches the bug), in an existing file when one fits; for a `new file`, give the
-level and leave the path out when you cannot tell where it goes. List the other
-tests you found under `**Other tests that touch this code**`. Do not write the
-test. Leave both blocks out when no test would catch it, such as a spacing
-bug.
+catches the bug), in an existing file when one fits; for a new file, set
+`isNew`, give the level and leave the path empty when you cannot tell where it
+goes. List the other tests you found in `tests.related`. Do not write the test.
+Leave both lists empty when no test would catch it, such as a spacing bug.
 
-## Write and render the report
+## Write and check the report
 
-Write `report.md` in the run directory with Bash, as one quoted heredoc:
-`cat > "$RUN/report.md" <<'REPORT'`, so backticks and `$` pass through. Do not
-use the Write tool: it rejects a subagent's report file, and the run loses its
-entire output. Outcome first, evidence second, execution detail last:
+Write `report.json` in the run directory with Bash, as one quoted heredoc:
+`cat > "$RUN/report.json" <<'REPORT'`, so backticks and `$` pass through. Do
+not use the Write tool: it rejects a subagent's report file, and the run loses
+its entire output. Its shape is `report.schema.json` beside the renderer:
 
+```json
+{
+	"header": {
+		"title": "<what you tested>",
+		"branch": "<branch>",
+		"sha": "<short sha>",
+		"pr": { "repo": "<owner>/<repo>", "number": 123 },
+		"result": "<one sentence: what the change now does for a user>",
+		"tested": "<what you exercised, in a phrase>",
+		"notExercised": "<surfaces the change touches that you did not reach, or `none`>",
+		"details": [
+			{ "title": "Change under test", "body": "..." },
+			{ "title": "State manipulation", "body": "..." },
+			{ "title": "Branch verification", "body": "..." }
+		]
+	},
+	"findings": [],
+	"scenarios": [
+		{ "id": "S01", "name": "<scenario>", "status": "fail", "result": "Fails 3/3", "findings": [1] },
+		{ "id": "N01", "name": "<scenario>", "status": "not-run", "reason": "<why it was out of reach>" }
+	],
+	"logs": [{ "path": "logs/<file>", "source": "<process>", "note": "<what it holds>" }],
+	"files": [{ "path": "files/<file>", "desc": "<what it is>", "uses": "<the scenarios and findings that use it>" }],
+	"environment": { "positron": "<version and build>", "os": "<OS>", "kernels": ["<kernel and version>"] }
+}
 ```
-# Exploratory test: <what you tested>
 
-`<branch>` | `<short sha>`
+`pr` is there only when the run was for a pull request: take it from the
+request, or from `gh pr view --json number,url` on the branch. `scenarios` is
+the coverage the ledger records, one item per scenario, with each one you did
+not run as `not-run` and the linked issues its `Issue:` lines name as
+`issues` (`{ "n": 123, "kind": "held" }`, the kinds the schema lists); `logs`,
+`files` and `environment` are the ledger's too.
+Leave out `verified`, `known`, `intended`, `summary`, `where`, `verification`
+and `cost`: the passes after you write them.
 
-PR: <owner>/<repo>#<number>
-
-**Result:** <one sentence: what the change now does for a user>
-**Tested:** <what you exercised, in a phrase>
-**Not exercised:** <surfaces the change touches that you did not reach, or `none`>
-
-## Findings
-
-<the table, then one `### Finding N: <claim>` block per finding, worst first>
-
-<details>
-<summary>Run details</summary>
-
-### Change under test
-### State manipulation
-### Branch verification
-
-</details>
-```
-
-The `PR:` line is there only when the run was for a pull request: take it from
-the request, or from `gh pr view --json number,url` on the branch.
-
-`Result` says what the change now does for a user, in their terms. Where it
+`result` says what the change now does for a user, in their terms. Where it
 falls short, say what it does and where it stops. One clause is usually
-enough; do not name a finding or list what you verified, since the table is
-directly below. When it runs to two sentences, put `**` around the one a
-reader must not miss, never the whole line. `Tested` is the surfaces you drove,
-in a phrase. `**Not exercised:** none` claims you reached everything the change
-touches. Run details holds the branch check, the state you manufactured and
+enough; do not name a finding or list what you verified, since the findings
+are directly below. When it runs to two sentences, put `**` around the one a
+reader must not miss, never the whole line. `tested` is the surfaces you drove,
+in a phrase. `"notExercised": "none"` claims you reached everything the change
+touches. `details` holds the branch check, the state you manufactured and
 restored, and the local noise you ignored.
 
 Go through "Before you write the ledger" once more against the report, then
-render it: `node <render.mjs from your brief> "$RUN/report.md"`. It writes
-`index.html` beside the report and prints its path, then any `format errors`
-and `format warnings`, one per line with its fix. Fix every error and render
-again until there are none; fix a warning if it is quick, since it needs no
-further render. If it fails outright, say so and point at `report.md`.
+check it: `node <lint-json.mjs beside the renderer> "$RUN/report.json"`. It
+checks the schema, the write-up rules above, and that the report agrees with
+`ledger.md`: a finding's rate is the scenario's that failed for it, and each of
+its steps is one of that scenario's, in order, as the ledger words it (you may
+trim, not add). It prints each problem with its fix. Fix every error and check
+again until there are none; fix a warning if it is quick. Do not render the
+report: it is rendered once its findings are verified.
 
 Do not file GitHub issues and do not make a merge call; the person decides what
 is real. When you are done, return a two or three line summary and nothing
-else: how many findings there are, by severity, and the `index.html` path.
+else: how many findings there are, by severity.

@@ -9,7 +9,7 @@
 // what a reader sees writes, for each finding, the opening a person reads
 // first (a summary and where it happens) and a title cut from that summary,
 // and rewrites the Result line. The explorer's repro steps are never
-// rewritten. This file stores the opening at the top of the card and keeps the
+// rewritten. This file stores the opening in report.json and keeps the
 // original of anything that cites a fact the run did not record.
 //
 // Local usage, around an editor subagent:
@@ -17,16 +17,15 @@
 //     writes <run dir>/edit-prompt.md and prints its path, or says there is
 //     nothing to edit
 //   node edit.mjs apply <run dir> <reply file> [--last]
-//     applies the reply's edits to report.md, skipping any the guard rejects.
+//     applies the reply's edits to report.json, skipping any the guard rejects.
 //     When it rejects any, it writes <run dir>/edit-retry-prompt.md and prints
 //     its path, for one more try applied with --last.
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyTitles } from './finish.mjs';
+import { readReport, reportPath, writeReport } from './finish.mjs';
 import { SUMMARY_WORDS, wordsOf } from '../lint.mjs';
-import { openingRange, parseOpening } from '../report-parse.mjs';
 
 // The Result line is keyed 0, beside the findings' own numbers.
 const SUMMARY = 0;
@@ -36,60 +35,43 @@ const TITLE_WORDS = 15;
 const OPENING_WORDS = 60;
 const SCENARIO_ID = /\b[SR]\d{2}(?:-\d{2})?\b/;
 
-/** The `**Result:**` line above the first section, or undefined. */
+/** report.json's Result, or undefined. */
 function resultOf(report) {
-	const top = String(report ?? '').split(/^## /m)[0];
-	return /^\*\*Result:\*\*\s*(.*)$/m.exec(top)?.[1].trim();
+	return report?.header?.result || undefined;
 }
 
-/** Each finding card, by number: its heading's line index, end, title and Feature. */
-function cardsOf(lines) {
-	const out = new Map();
-	let card = null;
-	lines.forEach((line, i) => {
-		const heading = /^###\s+Finding\s+(\d+):\s*(.*)$/.exec(line);
-		if (heading || /^(##\s|###\s|<details>)/.test(line)) {
-			if (card) {
-				card.end = i;
-			}
-			card = null;
-		}
-		if (heading) {
-			card = { at: i, end: lines.length, title: heading[2].trim(), feature: '' };
-			out.set(Number(heading[1]), card);
-		} else if (card && /^\*\*Feature:\*\*/.test(line)) {
-			card.feature = line.replace(/^\*\*Feature:\*\*\s*/, '').trim();
-		}
-	});
-	return out;
+/** A step as the editor reads it, in the ledger's words. */
+function stepLines(s, i) {
+	const indent = text => String(text).split('\n').map(l => `   ${l}`);
+	const verdict = s.result === 'fail' ? ` -> FAIL${s.finding ? ` - Finding ${s.finding}` : ''}` : s.result === 'pass' ? ' -> PASS' : '';
+	return [
+		`${i + 1}. ${s.kind === 'verify' ? `VERIFY ${s.text}${verdict}` : s.text}`,
+		...(s.code ? indent(s.code) : []),
+		...(s.observed ? indent(`Observed: ${s.observed}`) : []),
+	];
 }
 
 /**
- * One card from its heading through Expected, without an opening written
- * before: what the run recorded that a reader sees. Cause and Evidence are left
- * out so the editor cannot pick up the internal names it is meant to remove.
+ * A finding as the editor sees it: heading through Expected, with no opening
+ * written before. Cause and Evidence are left out so the editor cannot pick up
+ * the internal names it is meant to remove.
  */
-function recordOf(lines, card) {
-	const body = lines.slice(card.at + 1, card.end);
-	const opening = openingRange(body);
-	const kept = opening ? [...body.slice(0, opening.start), ...body.slice(opening.end)] : body;
-	const out = [lines[card.at]];
-	for (const line of kept) {
-		if (/^\*\*(Evidence|Error output|Cause|Test gap)/.test(line)) {
-			break;
-		}
-		out.push(line);
-		if (line.startsWith('**Expected:**')) {
-			break;
-		}
-	}
-	return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+function recordOfJson(f) {
+	const pre = (f.preconditions ?? []).map(p => `- ${p.name ? `${p.name} | ` : ''}${p.text}`);
+	return [
+		`### Finding ${f.n}: ${f.title}`,
+		...(f.feature ? ['', `**Feature:** ${f.feature}`] : []),
+		...(pre.length ? ['', '**Preconditions:**', ...pre] : []),
+		'',
+		...(f.steps ?? []).flatMap(stepLines),
+		...(f.observed ? ['', `**Observed:** ${f.observed}`] : []),
+		...(f.expected ? ['', `**Expected:** ${f.expected}`] : []),
+	].join('\n');
 }
 
 /** Every finding's record, as the editor sees them. */
 export function editorFindings(report) {
-	const lines = String(report ?? '').split('\n');
-	return [...cardsOf(lines).values()].map(card => recordOf(lines, card)).join('\n\n');
+	return (report?.findings ?? []).map(recordOfJson).join('\n\n');
 }
 
 /** editor.md with the Result and findings filled in, or null when there is neither. */
@@ -157,16 +139,15 @@ export function parseEdits(text) {
 	return out;
 }
 
-/** The Result, and each finding's title, Feature, record and opening, as the report has them. */
+/** The Result, and each finding's title, Feature, record and opening, as report.json has them. */
 export function currentFields(report) {
 	const out = new Map();
 	const result = resultOf(report);
 	if (result !== undefined) {
 		out.set(SUMMARY, { result });
 	}
-	const lines = String(report ?? '').split('\n');
-	for (const [n, card] of cardsOf(lines)) {
-		out.set(n, { title: card.title, feature: card.feature, record: recordOf(lines, card), opening: parseOpening(lines.slice(card.at + 1, card.end)) });
+	for (const f of report?.findings ?? []) {
+		out.set(f.n, { title: f.title, feature: f.feature ?? '', record: recordOfJson(f), opening: f.summary ? { summary: f.summary, where: f.where ?? '' } : null });
 	}
 	return out;
 }
@@ -312,34 +293,14 @@ export function buildRetryPrompt(template, report, rejected) {
 	].join('\n\n');
 }
 
-/** The opening as the card stores it, at the top of the card. */
-function openingLines({ summary, where }) {
-	return [`**Summary:** ${summary}`, ...(where ? ['', `**Where:** ${where}`] : [])];
-}
-
-/** The report with the kept edits applied: the Result, titles in heading and table, and each opening. */
+/** report.json with the kept edits applied: the Result, titles, and each opening. */
 export function applyEdits(report, kept) {
-	const titles = new Map([...kept].filter(([, f]) => f.title !== undefined).map(([n, f]) => [n, f.title]));
 	const result = kept.get(SUMMARY)?.result;
-	const [top, ...sections] = String(report).split(/^(?=## )/m);
-	const summarized = result === undefined ? report : [top.replace(/^\*\*Result:\*\*.*$/m, () => `**Result:** ${result}`), ...sections].join('');
-	let lines = applyTitles(summarized, titles).split('\n');
-	// Last card first, so the earlier cards' line numbers hold.
-	const cards = [...cardsOf(lines)].sort(([, a], [, b]) => b.at - a.at);
-	for (const [n, card] of cards) {
-		const opening = kept.get(n)?.opening;
-		if (!opening) {
-			continue;
-		}
-		const body = lines.slice(card.at + 1, card.end);
-		const old = openingRange(body);
-		const rest = old ? [...body.slice(0, old.start), ...body.slice(old.end)] : body;
-		while (rest.length && !rest[0].trim()) {
-			rest.shift();
-		}
-		lines = [...lines.slice(0, card.at + 1), '', ...openingLines(opening), '', ...rest, ...lines.slice(card.end)];
-	}
-	return lines.join('\n');
+	const findings = (report.findings ?? []).map(f => {
+		const { title, opening } = kept.get(f.n) ?? {};
+		return { ...f, ...(title !== undefined ? { title } : {}), ...(opening ? { summary: opening.summary, where: opening.where || undefined } : {}) };
+	});
+	return { ...report, ...(result !== undefined ? { header: { ...report.header, result } } : {}), findings };
 }
 
 const EDITOR_PATH = fileURLToPath(new URL('../../editor.md', import.meta.url));
@@ -351,7 +312,7 @@ function named(n, field) {
 
 /** Writes <run dir>/edit-prompt.md and returns its path, or null when there is nothing to edit. */
 export function writeEditPrompt(dir) {
-	const prompt = buildEditPrompt(readFileSync(EDITOR_PATH, 'utf8'), readFileSync(join(dir, 'report.md'), 'utf8'));
+	const prompt = buildEditPrompt(readFileSync(EDITOR_PATH, 'utf8'), readReport(reportPath(dir)));
 	if (!prompt) {
 		return null;
 	}
@@ -361,17 +322,17 @@ export function writeEditPrompt(dir) {
 }
 
 /**
- * Applies an editor reply to report.md, skipping any edit the guard rejects.
+ * Applies an editor reply to the run's report, skipping any edit the guard rejects.
  * Unless `last`, a rejection writes <run dir>/edit-retry-prompt.md for one
  * more try. Returns `{ written, rejected, retry }`, with retry the prompt's
  * path or null, and each rejection as a log line.
  */
 export function applyEditReply(dir, reply, { last = false } = {}) {
-	const reportPath = join(dir, 'report.md');
-	const report = readFileSync(reportPath, 'utf8');
+	const path = reportPath(dir);
+	const report = readReport(path);
 	const { kept, rejected } = reviewEdits(report, parseEdits(String(reply ?? '')));
 	const edited = applyEdits(report, kept);
-	writeFileSync(reportPath, edited);
+	writeReport(path, edited);
 	const prompt = last ? null : buildRetryPrompt(readFileSync(EDITOR_PATH, 'utf8'), edited, rejected);
 	const retry = prompt ? join(dir, 'edit-retry-prompt.md') : null;
 	if (retry) {
@@ -387,8 +348,8 @@ export function applyEditReply(dir, reply, { last = false } = {}) {
 function main(argv) {
 	const last = argv.includes('--last');
 	const [command, dir, replyFile] = argv.filter(a => a !== '--last');
-	const reportPath = dir && join(dir, 'report.md');
-	if (!reportPath || !existsSync(reportPath)) {
+	const path = dir && reportPath(dir);
+	if (!path || !existsSync(path)) {
 		console.error('usage: node edit.mjs prompt <run dir>\n       node edit.mjs apply <run dir> <reply file> [--last]');
 		return 2;
 	}
@@ -405,7 +366,7 @@ function main(argv) {
 		for (const line of rejected) {
 			console.error(`edit: ${line}`);
 		}
-		console.log(`edit: ${written} field(s) written in ${reportPath}`);
+		console.log(`edit: ${written} field(s) written in ${path}`);
 		if (retry) {
 			console.log(`edit: retry prompt at ${retry}`);
 		}

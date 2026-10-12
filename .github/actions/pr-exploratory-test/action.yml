@@ -6,7 +6,7 @@ inputs:
     required: false
     default: ""
   work-dir:
-    description: "Run directory for report.md, actions.log, shots/ and cost.json; not needed in gate mode"
+    description: "Run directory for report.json, actions.log, shots/ and cost.json; not needed in gate mode"
     required: false
     default: ""
   repo-root:

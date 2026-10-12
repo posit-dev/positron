@@ -82,7 +82,7 @@ function clip(text, max) {
 }
 
 /**
- * One run's stats record. `parsed` is parseReport's result for the finished
+ * One run's stats record. `parsed` is reportFromJson's model of the finished
  * report, so findings and verdicts are counted the way the page shows them.
  */
 export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, checks, timeLimit }) {

@@ -308,3 +308,7 @@ versions/show-version.cjs
 .claude/skills/exploratory-test/renderer/shared/usage.test.mjs
 .claude/skills/exploratory-test/renderer/page/og-card.mjs
 .claude/skills/exploratory-test/renderer/page/og-card.test.mjs
+.claude/skills/exploratory-test/renderer/lint-json.mjs
+.claude/skills/exploratory-test/renderer/lint-json.test.mjs
+.claude/skills/exploratory-test/renderer/page/report-json.mjs
+.claude/skills/exploratory-test/renderer/page/report-json.test.mjs

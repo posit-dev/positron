@@ -6,29 +6,7 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
-import { formatMinutes, modelDisplayName, parseReport } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
-
-/** Pick the latest assistant message that looks like the report. */
-export function pickReport(messages) {
-	for (let i = messages.length - 1; i >= 0; i--) {
-		if (/\|\s*#\s*\|\s*Finding\s*\|/.test(messages[i])) {
-			return messages[i];
-		}
-	}
-	return null;
-}
-
-/**
- * Prefer the report the agent wrote to report.md; scrape chat text with
- * pickReport only when that file is missing or empty. A report that came
- * from the file is authoritative and must never be replaced by a scrape.
- */
-export function resolveReport(fileReportContent, messages) {
-	if (typeof fileReportContent === 'string' && fileReportContent.trim().length > 0) {
-		return fileReportContent;
-	}
-	return pickReport(messages);
-}
+import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/report-parse.mjs';
 
 /** Flatten the SDK result message into the record written to cost.json. */
 export function buildCostRecord(message) {
@@ -305,11 +283,19 @@ export function renderSummaryTarget(branch, repo, number, focus, timeLimit) {
 }
 
 /**
- * The per-severity breakdown ("2 moderate · 3 minor"). The total only shows
- * when there is nothing to break down: no findings, or none with a severity.
+ * The per-severity breakdown ("2 moderate · 3 minor") of report.json's
+ * findings. The total only shows when there is nothing to break down: no
+ * findings, or none with a severity.
  */
-function tallyFindings(markdown) {
-	const { findingCount, severityCounts } = parseReport(markdown);
+function tallyFindings(report) {
+	const findings = report?.findings ?? [];
+	const findingCount = findings.length;
+	const severityCounts = { major: 0, moderate: 0, minor: 0 };
+	for (const f of findings) {
+		if (f.severity in severityCounts) {
+			severityCounts[f.severity]++;
+		}
+	}
 	const breakdown = ['major', 'moderate', 'minor']
 		.filter(severity => severityCounts[severity] > 0)
 		.map(severity => `${severityCounts[severity]} ${severity}`)
@@ -334,8 +320,8 @@ function tallyFindings(markdown) {
  * run is on the report's own Run tile; repeating either on the job page is a
  * second thing to read before getting to the one that matters.
  */
-export function renderStepSummary(markdown, baseUrl) {
-	const tally = tallyFindings(markdown);
+export function renderStepSummary(report, baseUrl) {
+	const tally = tallyFindings(report);
 
 	const lines = [`**${tally}**`, ''];
 	if (baseUrl) {
@@ -344,6 +330,23 @@ export function renderStepSummary(markdown, baseUrl) {
 		lines.push('The report and its screenshots are in the workflow artifact.');
 	}
 	return `${lines.join('\n')}\n`;
+}
+
+/**
+ * report.json's `cost` from the billed passes, `{ label, main, cost }` with
+ * cost a cost record, as renderCostFooter reads them: a pass with no cost did not run.
+ */
+export function costJson(passes, maxTurns) {
+	return {
+		passes: passes.filter(p => typeof p.cost?.total_cost_usd === 'number').map(p => ({
+			label: p.label,
+			model: p.cost.model ?? null,
+			costUsd: p.cost.total_cost_usd,
+			turns: p.cost.num_turns ?? null,
+			...(p.main ? { maxTurns } : {}),
+			durationMs: p.cost.duration_ms ?? null,
+		})),
+	};
 }
 
 /** Labels this workflow's PR comments. Each /test run owns its own comment. */
@@ -382,7 +385,7 @@ export function parseTimeLimit(raw) {
 
 /** What the agent is told on each tool result once its time is up. */
 export function timeUpMessage(minutes) {
-	return `Time is up: your ${minutes} minutes for exploring have run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.md and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
+	return `Time is up: your ${minutes} minutes for exploring have run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
 }
 
 /**
@@ -431,7 +434,7 @@ export function turnCapWarning({ numTurns, maxTurns }) {
  * needs, and `reason` says what to do), `cancelled`, or empty when the agent
  * never ran (the build failed first).
  */
-export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, reason, focus }) {
+export function renderPrComment({ state, report, baseUrl, runUrl, headSha, reason, focus }) {
 	const title = `**\u{1F50E} Exploratory testing**${headSha ? ` ${headSha.slice(0, 7)}` : ''}`;
 	const run = `[View run \u2192](${runUrl})`;
 	const focusLine = focus ? `Focus: ${focus}\n\n` : '';
@@ -448,8 +451,8 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 	if (state === 'cancelled') {
 		return comment(['Cancelled before the agent produced a report.', run]);
 	}
-	if (markdown && (state === 'complete' || state === 'partial' || state === 'timed-out')) {
-		const lines = [tallyFindings(markdown)];
+	if (report && (state === 'complete' || state === 'partial' || state === 'timed-out')) {
+		const lines = [tallyFindings(report)];
 		if (state === 'partial') { lines.push('_Partial run: the agent hit the turn cap, so coverage is incomplete._'); }
 		if (state === 'timed-out') { lines.push('_Partial run: the agent was stopped at its time limit, so coverage is incomplete._'); }
 		lines.push(baseUrl ? `[View report \u2192](${baseUrl}/index.html)` : `The report and its screenshots are in the workflow artifact. ${run}`);
@@ -460,26 +463,6 @@ export function renderPrComment({ state, markdown, baseUrl, runUrl, headSha, rea
 			: state === 'no-report' ? 'The agent finished without writing a report.'
 				: 'The run failed before the agent produced a report.';
 	return comment([why, run]);
-}
-
-/**
- * Stamps `PR: <repo>#<n>` under the report's `<branch>` | `<sha>` line, which
- * is where the renderer reads it for the header link. The agent is not asked
- * to write it: CI knows the PR from the event, the agent would only copy it.
- * A report that already names one, or has no meta line, is left alone.
- */
-export function withPrLine(markdown, repo, number) {
-	if (!markdown || !repo || !/^\d+$/.test(String(number ?? '')) || /^(\*\*)?PR:/m.test(markdown)) {
-		return markdown;
-	}
-	const lines = markdown.split('\n');
-	const title = lines.findIndex(l => l.startsWith('# '));
-	const meta = lines.findIndex((l, i) => i > title && title !== -1 && l.trim().startsWith('`'));
-	if (meta === -1 || lines.slice(title + 1, meta).some(l => l.startsWith('#'))) {
-		return markdown;
-	}
-	lines.splice(meta + 1, 0, '', `PR: ${repo}#${number}`);
-	return lines.join('\n');
 }
 
 /**
