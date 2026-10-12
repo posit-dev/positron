@@ -18,13 +18,13 @@ import { reportFromJson } from './report-json.mjs';
 
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
-/** The run in `fixtures/<name>/` as the page, with everything that varies by machine or day held fixed; logs-run as published, uv-run as a local run. */
+/** The run in `fixtures/<name>/` as the page, with everything that varies by machine or day held fixed; logs-run as CI publishes it, uv-run as a local run. */
 function renderFixture(name) {
 	const dir = fileURLToPath(new URL(`../fixtures/${name}/`, import.meta.url));
 	const run = readRunDir(dir);
 	const json = JSON.parse(readFileSync(`${dir}report.json`, 'utf8'));
 	return renderReportHtml(reportFromJson(json, { ledger: run.ledger }), {
-		...run, base: name === 'logs-run' ? 'https://cdn.example/logs-run' : `/runs/${name}`, skillVersion: '1.0', startedAt: new Date('2026-10-11T12:00:00Z'),
+		...run, ...(name === 'logs-run' ? { base: 'https://cdn.example/logs-run', diff: 'aaaa1111...bbbb2222' } : { base: `/runs/${name}` }), skillVersion: '1.0', startedAt: new Date('2026-10-11T12:00:00Z'),
 	});
 }
 

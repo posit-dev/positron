@@ -374,8 +374,6 @@ const foldLabels = html => [...runDetails(html).matchAll(/<div class="fold-label
 const scripts = html => Object.entries({
 	copy: '.cp-btn,.code-cp', codeCopy: 'code.cc\').forEach', feedback: 'exploratory-feedback', issueList: 'closest(\'.ki-cnt\')', issuePreview: 'a.ki-num[data-title]',
 }).filter(([, s]) => html.includes(s)).map(([k]) => k).join(' ') || '(none)';
-/** The body, with each script cut to its first line, since the saved pages pin the scripts. */
-const body = html => html.slice(html.indexOf('<body')).replace(/<script>([\s\S]*?)<\/script>/g, (_, s) => `<script>${s.slice(0, 60)}...</script>`);
 /** The Evidence row of a finding whose evidence is `items`, or '' when it has none. */
 const evidenceRow = items => /<details class="lc ev">[\s\S]*?<\/details>/.exec(card(render(rep({ findings: [fnd(1, { observed: 'it broke.', evidence: items })] })), 1))?.[0] ?? '';
 
@@ -1101,7 +1099,6 @@ const ISSUE_REFS = [
 
 const SCENES = {
 	// Whole pages, each showing most of the layout once.
-	'one of everything: tiles, findings table, cards, coverage, run details, footer': () => body(fullHtml(FULL, { base: '/runs/r1', diff: 'aaaa1111...bbbb2222' })),
 	'a card with every collapsed row, step-tagged shots, errors with frames, and a test gap': () => card(richHtml(RICH, { base: '/runs/r1' }), 1),
 	'typed steps: verify steps carry PASS or FAIL, a PR run links its PR, and Coverage comes from the ledger': () => {
 		const html = typedHtml();
