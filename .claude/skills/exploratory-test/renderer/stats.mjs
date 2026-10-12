@@ -206,13 +206,24 @@ function gh(args) {
 	return execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
-/** Stats records from CI's explore jobs, newest first. Runs from before the line existed are skipped. */
-function ciRecords({ repo, since, limit }) {
+/**
+ * Stats records from CI's explore jobs, newest first. Runs from before the line existed are skipped.
+ * A GitHub error drops what it would have fetched, with a warning, so local runs are still counted.
+ */
+function ciRecords({ repo, since, limit, warn = console.error }) {
+	const api = (path, what) => {
+		try {
+			return JSON.parse(gh(['api', path]));
+		} catch (err) {
+			warn(`stats: skipped ${what}: ${String(err.stderr || err.message).trim().split('\n')[0]}`);
+			return null;
+		}
+	};
 	const query = `repos/${repo}/actions/workflows/test-exploratory.yml/runs?per_page=100${since ? `&created=%3E%3D${since}` : ''}`;
-	const runs = JSON.parse(gh(['api', query])).workflow_runs.filter(r => r.conclusion !== 'skipped').slice(0, limit);
+	const runs = (api(query, 'CI runs')?.workflow_runs ?? []).filter(r => r.conclusion !== 'skipped').slice(0, limit);
 	const records = [];
 	for (const run of runs) {
-		const jobs = JSON.parse(gh(['api', `repos/${repo}/actions/runs/${run.id}/jobs?per_page=100`])).jobs.filter(j => j.name.startsWith('explore'));
+		const jobs = (api(`repos/${repo}/actions/runs/${run.id}/jobs?per_page=100`, `CI run ${run.id}`)?.jobs ?? []).filter(j => j.name.startsWith('explore'));
 		for (const job of jobs) {
 			try {
 				const record = statsFromLog(gh(['api', `repos/${repo}/actions/jobs/${job.id}/logs`]));
