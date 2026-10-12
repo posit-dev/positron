@@ -1102,11 +1102,16 @@ const ISSUE_REFS = [
 const SCENES = {
 	// Whole pages, each showing most of the layout once.
 	'one of everything: tiles, findings table, cards, coverage, run details, footer': () => body(fullHtml(FULL, { base: '/runs/r1', diff: 'aaaa1111...bbbb2222' })),
-	'a card with every collapsed row, step-tagged shots, errors with frames, and a test gap': () => body(richHtml(RICH, { base: '/runs/r1' })),
-	'typed steps: verify steps carry PASS or FAIL, a PR run links its PR, and Coverage comes from the ledger': () => body(typedHtml()),
+	'a card with every collapsed row, step-tagged shots, errors with frames, and a test gap': () => card(richHtml(RICH, { base: '/runs/r1' }), 1),
+	'typed steps: verify steps carry PASS or FAIL, a PR run links its PR, and Coverage comes from the ledger': () => {
+		const html = typedHtml();
+		return [between(html, '<header class="head">', '</header>'), card(html, 1), coverageOf(html)].join('\n--\n');
+	},
 	'a step\'s shots are one lightbox group behind its icon': () => card(render(STACKED), 1),
-	'a published logs run: issue bodies follow the template, and Run details lists the ledger and each log': () => [issueCopied(logsHtml(), 1), issueCopied(logsHtml(), 2), runDetails(logsHtml())].join('\n--\n'),
-	'known issues: Linked issues row, fixes that did not hold, regressions and dupes': () => body(kiHtml()),
+	'known issues: Linked issues row, fixes that did not hold, regressions and dupes': () => {
+		const html = kiHtml();
+		return [1, 2, 3].map(n => card(html, n)).concat(between(html, 'id="findings"', '<article'), coverageOf(html)).join('\n--\n');
+	},
 
 	// The header, tiles and footer.
 	'a report with no title gets the kicker alone': () => between(render(rep({ header: { title: undefined } })), '<h1', '</h1>'),

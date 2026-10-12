@@ -129,8 +129,8 @@ To see whether a rule in a prompt changes what an agent does, run its eval:
 (`--dry-run` checks them for free). It costs about $0.17 a sample per arm.
 `RULES.md` says when a rule needs one.
 
-`page/page.test.mjs` pins the whole page for two saved runs under
-`renderer/fixtures/`, and the scenes in `page/report.test.mjs` pin the cases
+`page/page.test.mjs` pins the whole page, less its stylesheet and scripts,
+for two saved runs under `renderer/fixtures/`, and the scenes in `page/report.test.mjs` pin the cases
 those runs do not reach, each named for what the page should do in it
 (`fixtures/scenes.expected.txt`). Lint's cases are scenes too, in
 `lint/lint-ledger.test.mjs` (`fixtures/lint-scenes.expected.txt`). A change
