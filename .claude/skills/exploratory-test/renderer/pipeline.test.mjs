@@ -6,13 +6,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage } from './pipeline.mjs';
 import { parseSystemLine } from './shared/ledger.mjs';
 import { reportFromJson } from './page/report-json.mjs';
+import { withTmpDir } from './shared/tmp-dirs.mjs';
 
 const REPORT = {
 	header: { title: 'Exploratory test: something', result: 'Two things broke.' },
@@ -29,15 +29,14 @@ const SHAS = { repo: '/repo', base: 'aaaa1111', head: 'bbbb2222', baseName: 'mai
  * `agents[purpose](step, dir)` returns the reply text or throws. Resolves to
  * the steps the agents were given, in order, the stops, the log and the report.
  */
-async function runWith(report, agents, options = {}) {
-	const dir = mkdtempSync(join(tmpdir(), 'pipeline-'));
-	writeFileSync(join(dir, 'report.json'), JSON.stringify(report));
-	for (const [name, text] of Object.entries(options.files ?? {})) {
-		writeFileSync(join(dir, name), text);
-	}
-	delete options.files;
-	const run = { dir, steps: [], stops: 0, logs: [] };
-	try {
+function runWith(report, agents, options = {}) {
+	return withTmpDir('pipeline-', async dir => {
+		writeFileSync(join(dir, 'report.json'), JSON.stringify(report));
+		for (const [name, text] of Object.entries(options.files ?? {})) {
+			writeFileSync(join(dir, name), text);
+		}
+		delete options.files;
+		const run = { dir, steps: [], stops: 0, logs: [] };
 		run.passes = await finishRun(dir, {
 			...SHAS,
 			runAgent: async step => {
@@ -52,14 +51,12 @@ async function runWith(report, agents, options = {}) {
 		});
 		run.report = JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8'));
 		run.purposes = run.steps.map(s => s.purpose);
-		// Listed before the directory is removed below.
+		// Listed before the directory is removed.
 		const files = readdirSync(dir);
 		run.exists = name => files.includes(name);
 		run.changeBase = files.includes('change-base.json') ? JSON.parse(readFileSync(join(dir, 'change-base.json'), 'utf8')) : null;
 		return run;
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 }
 
 const EDIT = () => 'RESULT: Two things broke.';
@@ -223,47 +220,36 @@ test('costPasses sums each later role over its sessions, after the explorer', ()
 	]);
 });
 
-test('the explorer gets explorer.md, the brief and its run directory, and keeps its usage', async () => {
-	const dir = mkdtempSync(join(tmpdir(), 'pipeline-'));
+test('the explorer gets explorer.md, the brief and its run directory, and keeps its usage', () => withTmpDir('pipeline-', async dir => {
 	const calls = [];
-	try {
-		const pass = await explore(dir, {
-			brief: 'Test the Variables pane.\n', repo: '/repo', timeLimitPath: join(dir, 'time-limit'),
-			runAgent: async step => { calls.push(step); return { text: 'Found one.', durationMs: 600000, turns: 70, costUsd: 3.1 }; },
-		});
-		const [step] = calls;
-		assert.match(step.prompt, /^# Exploratory testing: the explorer/);
-		assert.match(step.prompt, /# Brief\n\nTest the Variables pane\.\n/);
-		assert.ok(step.prompt.includes(`Run directory: \`${dir}\``));
-		assert.deepEqual({ ...step, prompt: undefined }, { role: 'explore', purpose: 'explore', model: 'opus', prompt: undefined, tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', timeLimitPath: join(dir, 'time-limit'), timeUpMessage: EXPLORE_TIME_UP });
-		assert.deepEqual(pass, { role: 'explore', model: 'opus', durationMs: 600000, turns: 70, costUsd: 3.1 });
-		assert.equal(readFileSync(join(dir, 'explore-reply.md'), 'utf8'), 'Found one.');
-		assert.equal(await explore(dir, { brief: 'b', repo: '/repo', runAgent: async () => { throw new Error('no login'); } }), null);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+	const pass = await explore(dir, {
+		brief: 'Test the Variables pane.\n', repo: '/repo', timeLimitPath: join(dir, 'time-limit'),
+		runAgent: async step => { calls.push(step); return { text: 'Found one.', durationMs: 600000, turns: 70, costUsd: 3.1 }; },
+	});
+	const [step] = calls;
+	assert.match(step.prompt, /^# Exploratory testing: the explorer/);
+	assert.match(step.prompt, /# Brief\n\nTest the Variables pane\.\n/);
+	assert.ok(step.prompt.includes(`Run directory: \`${dir}\``));
+	assert.deepEqual({ ...step, prompt: undefined }, { role: 'explore', purpose: 'explore', model: 'opus', prompt: undefined, tools: ['Bash', 'Read', 'Glob', 'Grep'], cwd: '/repo', timeLimitPath: join(dir, 'time-limit'), timeUpMessage: EXPLORE_TIME_UP });
+	assert.deepEqual(pass, { role: 'explore', model: 'opus', durationMs: 600000, turns: 70, costUsd: 3.1 });
+	assert.equal(readFileSync(join(dir, 'explore-reply.md'), 'utf8'), 'Found one.');
+	assert.equal(await explore(dir, { brief: 'b', repo: '/repo', runAgent: async () => { throw new Error('no login'); } }), null);
+}));
 
 const SCRIPT = fileURLToPath(new URL('./pipeline.mjs', import.meta.url));
 
-test('the CLI names what it needs', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'pipeline-'));
-	try {
-		assert.match(spawnSync('node', [SCRIPT, 'next', dir], { encoding: 'utf8' }).stderr, /^usage: node pipeline\.mjs run/);
-		writeFileSync(join(dir, 'report.json'), JSON.stringify(REPORT));
-		const missing = spawnSync('node', [SCRIPT, 'run', dir], { encoding: 'utf8' });
-		assert.equal(missing.status, 2);
-		assert.match(missing.stderr, /verifying needs --repo, --base and --head/);
-		// A fresh run needs a brief that exists and a limit in whole minutes.
-		assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'missing.md')], { encoding: 'utf8' }).status, 2);
-		assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'report.json'), '--time-limit', '10m'], { encoding: 'utf8' }).status, 2);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('the CLI names what it needs', () => withTmpDir('pipeline-', dir => {
+	assert.match(spawnSync('node', [SCRIPT, 'next', dir], { encoding: 'utf8' }).stderr, /^usage: node pipeline\.mjs run/);
+	writeFileSync(join(dir, 'report.json'), JSON.stringify(REPORT));
+	const missing = spawnSync('node', [SCRIPT, 'run', dir], { encoding: 'utf8' });
+	assert.equal(missing.status, 2);
+	assert.match(missing.stderr, /verifying needs --repo, --base and --head/);
+	// A fresh run needs a brief that exists and a limit in whole minutes.
+	assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'missing.md')], { encoding: 'utf8' }).status, 2);
+	assert.equal(spawnSync('node', [SCRIPT, 'run', '--brief', join(dir, 'report.json'), '--time-limit', '10m'], { encoding: 'utf8' }).status, 2);
+}));
 
-test('a stopped run stops the agent it started', async () => {
-	const home = mkdtempSync(join(tmpdir(), 'pipeline-stop-'));
+test('a stopped run stops the agent it started', () => withTmpDir('pipeline-stop-', async home => {
 	const bin = join(home, 'bin');
 	const pidFile = join(home, 'agent.pid');
 	mkdirSync(bin);
@@ -288,9 +274,8 @@ test('a stopped run stops the agent it started', async () => {
 		assert.throws(() => process.kill(agent, 0));
 	} finally {
 		run.kill('SIGKILL');
-		rmSync(home, { recursive: true, force: true });
 	}
-});
+}));
 
 test('checkoutProblems names a checkout off its head, a stale or missing build, and each missing binary, with its fix', () => {
 	const git = ({ at = 'bbb', time = '100' } = {}) => args => ({ 'rev-parse HEAD': at, 'rev-parse bbb^{commit}': 'bbb', 'log -1 --format=%ct -- src': time })[args.join(' ')] ?? '';
@@ -323,21 +308,15 @@ test('the Environment lines read as lint and the issue button read them, with 0 
 	assert.match(explorePrompt('/run', 'Test it.', lines), /## Environment\n\nRead from the checkout[^\n]*\n\n- Positron 2026\.11\.0 build 0,[^\n]*\n- Kernels: Ark 0\.1\.252, Kallichore 0\.1\.71\.\n/);
 });
 
-test('recordBranchCheck replaces the Branch verification a report has, and skips a run with no report', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'branch-'));
-	try {
-		recordBranchCheck(dir, 'checked');
-		assert.ok(!existsSync(join(dir, 'report.json')));
-		writeFileSync(join(dir, 'report.json'), JSON.stringify({ header: { details: [{ title: 'State manipulation', body: 'a' }, { title: 'Branch verification', body: 'the explorer grepped' }] }, findings: [] }));
-		recordBranchCheck(dir, 'checked');
-		assert.deepEqual(JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')).header.details, [{ title: 'State manipulation', body: 'a' }, { title: 'Branch verification', body: 'checked' }]);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('recordBranchCheck replaces the Branch verification a report has, and skips a run with no report', () => withTmpDir('branch-', dir => {
+	recordBranchCheck(dir, 'checked');
+	assert.ok(!existsSync(join(dir, 'report.json')));
+	writeFileSync(join(dir, 'report.json'), JSON.stringify({ header: { details: [{ title: 'State manipulation', body: 'a' }, { title: 'Branch verification', body: 'the explorer grepped' }] }, findings: [] }));
+	recordBranchCheck(dir, 'checked');
+	assert.deepEqual(JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')).header.details, [{ title: 'State manipulation', body: 'a' }, { title: 'Branch verification', body: 'checked' }]);
+}));
 
-test('completeRun adds the header, the branch check and every pass\'s cost, or returns null with no report', async () => {
-	const dir = mkdtempSync(join(tmpdir(), 'complete-'));
+test('completeRun adds the header, the branch check and every pass\'s cost, or returns null with no report', () => withTmpDir('complete-', async dir => {
 	const options = {
 		...SHAS,
 		verify: false,
@@ -348,21 +327,17 @@ test('completeRun adds the header, the branch check and every pass\'s cost, or r
 		header: { pr: { repo: 'posit-dev/positron', number: 7 } },
 	};
 	const explored = { model: 'claude-opus-5-5', costUsd: 3, turns: 40, maxTurns: 200, durationMs: 60000 };
-	try {
-		assert.equal(await completeRun(dir, explored, options), null);
-		writeFileSync(join(dir, 'report.json'), JSON.stringify(REPORT));
-		const json = await completeRun(dir, explored, options);
-		assert.deepEqual(json, JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')));
-		assert.deepEqual(json.header.pr, { repo: 'posit-dev/positron', number: 7 });
-		assert.deepEqual(json.header.details.at(-1), { title: 'Branch verification', body: 'Checked by CI.' });
-		assert.deepEqual(json.cost.passes, [
-			{ label: 'explore', model: 'claude-opus-5-5', costUsd: 3, turns: 40, maxTurns: 200, durationMs: 60000 },
-			{ label: 'edit', model: 'claude-sonnet-5', costUsd: 0.5, turns: 2, durationMs: 1000 },
-		]);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+	assert.equal(await completeRun(dir, explored, options), null);
+	writeFileSync(join(dir, 'report.json'), JSON.stringify(REPORT));
+	const json = await completeRun(dir, explored, options);
+	assert.deepEqual(json, JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8')));
+	assert.deepEqual(json.header.pr, { repo: 'posit-dev/positron', number: 7 });
+	assert.deepEqual(json.header.details.at(-1), { title: 'Branch verification', body: 'Checked by CI.' });
+	assert.deepEqual(json.cost.passes, [
+		{ label: 'explore', model: 'claude-opus-5-5', costUsd: 3, turns: 40, maxTurns: 200, durationMs: 60000 },
+		{ label: 'edit', model: 'claude-sonnet-5', costUsd: 0.5, turns: 2, durationMs: 1000 },
+	]);
+}));
 
 test('a verifier that does not show it checked the action log and the screenshots is asked once, and the report says when it still has not', async () => {
 	const files = {

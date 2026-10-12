@@ -11,8 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as ledgerLint from './lint-ledger.mjs';
@@ -28,6 +27,7 @@ const lintShotNames = (...a) => texts(ledgerLint.lintShotNames(...a));
 const lintShotTiming = (...a) => texts(ledgerLint.lintShotTiming(...a));
 const lintReportJson = (...a) => texts(lintReportJsonRaw(...a));
 import { applyVerification, parseVerifyReply } from '../agents/finish.mjs';
+import { withTmpDir } from '../shared/tmp-dirs.mjs';
 
 /** One finding, as report.json writes it, with the run around it. */
 const BASE = {
@@ -159,31 +159,26 @@ test('errors are what makes a repro or its evidence wrong; wording, length and a
 	assert.ok(split(ledgerLint.lintShotTiming(ledger3, shots(['S01-01.png', 'S01-02.png', 'S01-03.png', 'S01-02.png']))).errors.length >= 1);
 });
 
-test('render.mjs --check checks a ledger alone without counting it, and lint-json fails on errors only', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'lint-check-'));
+test('render.mjs --check checks a ledger alone without counting it, and lint-json fails on errors only', () => withTmpDir('lint-check-', dir => {
 	const run = (script, file, ...args) => spawnSync(process.execPath, [fileURLToPath(new URL(script, import.meta.url)), join(dir, file), ...args], { encoding: 'utf8' });
-	try {
-		mkdirSync(join(dir, 'shots'));
-		mkdirSync(join(dir, 'logs'));
-		for (const f of ['shots/a.png', 'shots/p.png', 'logs/r.log']) { writeFileSync(join(dir, f), 'x'); }
-		writeFileSync(join(dir, 'ledger.md'), LEDGER.replace('Result: Fails 2/2', 'Result: Retry leaves the panel empty'));
-		// No report yet: the ledger alone, with a warning only.
-		const early = run('../render.mjs', 'ledger.md', '--check');
-		assert.equal(early.status, 0, early.stderr);
-		assert.match(early.stderr, /format warnings[^\n]*\n {2}ledger: S02 Result: of a failed scenario/);
-		assert.ok(!existsSync(join(dir, 'format-checks.jsonl')), 'a mid-run ledger check is not the report\'s first check');
-		writeFileSync(join(dir, 'ledger.md'), LEDGER);
-		writeFileSync(join(dir, 'report.json'), JSON.stringify(report()));
-		const clean = run('../lint-json.mjs', 'report.json');
-		assert.equal(clean.status, 0, clean.stdout);
-		writeFileSync(join(dir, 'ledger.md'), LEDGER.replace('   Log: none found in logs/r.log\n', ''));
-		const failed = run('../lint-json.mjs', 'report.json');
-		assert.equal(failed.status, 1);
-		assert.match(failed.stdout, /errors[^\n]*\n {2}ledger: S02 step 2 FAIL is missing Log:/);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+	mkdirSync(join(dir, 'shots'));
+	mkdirSync(join(dir, 'logs'));
+	for (const f of ['shots/a.png', 'shots/p.png', 'logs/r.log']) { writeFileSync(join(dir, f), 'x'); }
+	writeFileSync(join(dir, 'ledger.md'), LEDGER.replace('Result: Fails 2/2', 'Result: Retry leaves the panel empty'));
+	// No report yet: the ledger alone, with a warning only.
+	const early = run('../render.mjs', 'ledger.md', '--check');
+	assert.equal(early.status, 0, early.stderr);
+	assert.match(early.stderr, /format warnings[^\n]*\n {2}ledger: S02 Result: of a failed scenario/);
+	assert.ok(!existsSync(join(dir, 'format-checks.jsonl')), 'a mid-run ledger check is not the report\'s first check');
+	writeFileSync(join(dir, 'ledger.md'), LEDGER);
+	writeFileSync(join(dir, 'report.json'), JSON.stringify(report()));
+	const clean = run('../lint-json.mjs', 'report.json');
+	assert.equal(clean.status, 0, clean.stdout);
+	writeFileSync(join(dir, 'ledger.md'), LEDGER.replace('   Log: none found in logs/r.log\n', ''));
+	const failed = run('../lint-json.mjs', 'report.json');
+	assert.equal(failed.status, 1);
+	assert.match(failed.stdout, /errors[^\n]*\n {2}ledger: S02 step 2 FAIL is missing Log:/);
+}));
 
 // ---- Scenes ----------------------------------------------------------------
 

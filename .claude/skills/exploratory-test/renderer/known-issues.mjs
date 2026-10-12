@@ -239,11 +239,7 @@ export function knownIssueOutcomes(data, coverage, severities = new Map(), known
 			}
 			// A failed fix or a returned issue is the row's finding.
 			const findingOf = map => {
-				for (const f of new Set([row.finding, ...(row.findings ?? [])].filter(Boolean))) {
-					const list = map.get(f) ?? [];
-					if (!list.includes(issue)) { list.push(issue); }
-					map.set(f, list);
-				}
+				for (const f of new Set([row.finding, ...(row.findings ?? [])].filter(Boolean))) { push(map, f, issue); }
 			};
 			if (issue.relation === 'fixes') {
 				if (kind === 'held') {
@@ -327,11 +323,8 @@ function push(map, key, value) {
 }
 
 function token() {
-	if (process.env.GH_TOKEN || process.env.GITHUB_TOKEN) {
-		return process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-	}
 	try {
-		return execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+		return process.env.GH_TOKEN || process.env.GITHUB_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 	} catch {
 		return '';
 	}

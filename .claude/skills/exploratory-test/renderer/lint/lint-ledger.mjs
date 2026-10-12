@@ -473,8 +473,9 @@ export function runProblems(text, ledger, { needs = [], findingNumbers, notExerc
 	for (const { line } of prose(ledger)) {
 		problems.push(...absolutePathProblems('ledger', citedPaths(line)));
 	}
-	problems.push(...lintFiles(text, ledger, [...needs, ...ledgerPreconditions(ledger)], { fileExists, listFiles }));
-	problems.push(...lintPreconditionActions([...needs, ...ledgerPreconditions(ledger)]));
+	const preconditions = [...needs, ...ledgerPreconditions(ledger)];
+	problems.push(...lintFiles(text, ledger, preconditions, { fileExists, listFiles }));
+	problems.push(...lintPreconditionActions(preconditions));
 	if (ledger !== undefined) {
 		const l = lintLedger(ledger, findingNumbers, fileExists);
 		problems.push(...l.problems);

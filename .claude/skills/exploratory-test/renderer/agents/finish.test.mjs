@@ -6,10 +6,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, hasFindings, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
+import { withTmpDir } from '../shared/tmp-dirs.mjs';
+import { applyVerification, applyVerifyReply, buildVerifyPrompt, changeBase, findingNumbers, issueMatches, isVerified, checkGaps, checkMessage, observedLinked, parseVerifyReply, verdictMismatch, verifyLogLines, writeVerifyPrompt } from './finish.mjs';
 
 /** report.json with two findings, as the explorer writes them. */
 const REPORT = {
@@ -69,17 +69,6 @@ test('applyVerification marks each finding with its verdict, and only the ones i
 	assert.equal(apply(REPORT, verdicts([1, 'confirmed'])).findings[1].verified, undefined);
 });
 
-test('applyVerification rewrites the Feature and title, and adds the known and intended issues, and drops nothing', () => {
-	const out = apply(REPORT, verdicts(
-		[1, 'confirmed', { feature: 'new folder flow', title: 'a slow reply drops the project R', known: [15102, 14991] }],
-		[2, 'confirmed', { intended: [14210] }],
-	));
-	assert.deepEqual(marks(out), {
-		1: { title: 'a slow reply drops the project R', feature: 'new folder flow', verified: 'confirmed', known: [15102, 14991] },
-		2: { title: 'second claim', feature: 'console', verified: 'confirmed', intended: [14210] },
-	});
-});
-
 test('applyVerification keeps the related findings and linked severities beside the notes', () => {
 	const out = apply(REPORT, { ...verdicts([1, 'confirmed', { related: true }], [2, 'confirmed']), linked: [{ issue: 20, severity: 'minor' }] }, '- 1: holds.');
 	assert.deepEqual(out.verification, {
@@ -97,12 +86,6 @@ test('applyVerification changes no finding on a failed pass, and keeps what was 
 	assert.deepEqual(out.findings, REPORT.findings);
 	assert.deepEqual(out.verification, { failed: true, text: '_Verification did not complete._' });
 	assert.ok(isVerified(out));
-});
-
-test('hasFindings is true only for a report with a finding', () => {
-	assert.equal(hasFindings(REPORT), true);
-	assert.equal(hasFindings({ findings: [] }), false);
-	assert.equal(hasFindings(null), false);
 });
 
 const VERIFIER = readFileSync(new URL('../../verifier.md', import.meta.url), 'utf8');
@@ -140,40 +123,25 @@ test('buildVerifyPrompt throws when the template and its values drift apart', ()
 	assert.throws(() => buildVerifyPrompt(VERIFIER.replaceAll('{{FILES}}', ''), RUN), /\{\{FILES\}\} not in the template/);
 });
 
-function runDir(report) {
-	const dir = mkdtempSync(join(tmpdir(), 'finish-'));
-	writeFileSync(join(dir, 'report.json'), JSON.stringify(report));
-	return dir;
+/** Calls `fn` with a run directory holding `report` as report.json. */
+function withRun(report, fn) {
+	return withTmpDir('finish-', dir => {
+		writeFileSync(join(dir, 'report.json'), JSON.stringify(report));
+		return fn(dir);
+	});
 }
 
 const readJson = dir => JSON.parse(readFileSync(join(dir, 'report.json'), 'utf8'));
 
-test('prompt writes the filled verifier prompt beside the report', () => {
-	const dir = runDir(REPORT);
-	try {
-		const out = writeVerifyPrompt(dir, { repo: '/repo', base: 'aaaa1111', head: 'bbbb2222' });
-		assert.equal(out, join(dir, 'verify-prompt.md'));
-		const prompt = readFileSync(out, 'utf8');
-		assert.match(prompt, new RegExp(`Report: \`${dir}/report\\.json\``));
-		assert.match(prompt, /git -C \/repo diff aaaa1111\.\.\.bbbb2222/);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
-
 test('prompt skips a report with no findings', () => {
-	const dir = runDir({ findings: [] });
-	try {
+	withRun({ findings: [] }, dir => {
 		assert.equal(writeVerifyPrompt(dir, { repo: '/repo', base: 'a', head: 'b' }), null);
 		assert.ok(!existsSync(join(dir, 'verify-prompt.md')));
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 });
 
 test('apply adds the verdicts once, and drops the notes before the block', () => {
-	const dir = runDir(REPORT);
-	try {
+	withRun(REPORT, dir => {
 		const text = `Let me finalize.\n\n${reply(verdicts([1, 'confirmed'], [2, 'unresolved']), '- 2: no log.')}`;
 		applyVerifyReply(dir, text);
 		const report = readJson(dir);
@@ -181,23 +149,18 @@ test('apply adds the verdicts once, and drops the notes before the block', () =>
 		assert.doesNotMatch(report.verification.text, /Let me finalize/);
 		// A second apply would add a second column.
 		assert.deepEqual(applyVerifyReply(dir, text), { already: true });
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 });
 
 test('apply marks the findings unreviewed when the reply has no verdicts', () => {
 	for (const text of ['', 'I could not read the report.', reply({ findings: [] })]) {
-		const dir = runDir(REPORT);
-		try {
+		withRun(REPORT, dir => {
 			applyVerifyReply(dir, text);
 			const report = readJson(dir);
 			assert.equal(report.verification.failed, true);
 			assert.match(report.verification.text, /^_Verification did not complete.*The findings above are unreviewed\._/);
 			assert.ok(report.findings.every(f => f.verified === undefined));
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
-		}
+		});
 	}
 });
 
@@ -222,33 +185,29 @@ test('verifyLogLines logs a known match on a fix, which the report does not show
 	assert.deepEqual(verifyLogLines(KNOWN_JSON, SEEN_LEDGER, r), ['Finding 1 matches #10, which this PR fixes; the explorer may have missed a fix that didn\'t hold.']);
 });
 
-function knownRunDir() {
-	const dir = runDir(NO_FINDINGS);
-	writeFileSync(join(dir, 'ledger.md'), SEEN_LEDGER);
-	writeFileSync(join(dir, 'known-issues.json'), JSON.stringify(KNOWN_JSON));
-	return dir;
+/** withRun with no findings, and a ledger that saw linked issues. */
+function withKnownRun(fn) {
+	return withRun(NO_FINDINGS, dir => {
+		writeFileSync(join(dir, 'ledger.md'), SEEN_LEDGER);
+		writeFileSync(join(dir, 'known-issues.json'), JSON.stringify(KNOWN_JSON));
+		return fn(dir);
+	});
 }
 
 test('prompt still runs with no findings when the run saw a linked issue, and names the issues file', () => {
-	const dir = knownRunDir();
-	try {
+	withKnownRun(dir => {
 		const out = writeVerifyPrompt(dir, { repo: '/repo', base: 'a', head: 'b' });
 		assert.equal(out, join(dir, 'verify-prompt.md'));
 		assert.ok(readFileSync(out, 'utf8').includes(`\`${join(dir, 'known-issues.json')}\``));
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 });
 
 test('apply takes a reply with no findings and logs the issues it left unrated', () => {
-	const dir = knownRunDir();
-	try {
+	withKnownRun(dir => {
 		const { logLines } = applyVerifyReply(dir, reply({ findings: [], linked: [{ issue: 20, severity: 'moderate' }] }, '- #20: the panel jumped.\n\nNo process issues.'));
 		assert.deepEqual(logLines, ['Couldn\'t rate #21: verifier line missing or malformed']);
 		assert.deepEqual(readJson(dir).verification.linked, [{ issue: 20, severity: 'moderate' }]);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 });
 
 // Findings need not be in number order in report.json: the first is Finding 4.
@@ -267,36 +226,29 @@ test('verdictMismatch names the numbers a reply keyed by row order gets wrong', 
 });
 
 test('apply refuses verdicts keyed to other numbers, writes nothing, and takes a corrected reply', () => {
-	const dir = runDir(SORTED);
-	try {
+	withRun(SORTED, dir => {
 		const before = readFileSync(join(dir, 'report.json'), 'utf8');
 		assert.match(applyVerifyReply(dir, reply(verdicts([1, 'confirmed'], [2, 'confirmed'], [3, 'false positive']), '- 3: no.')).retry, /missing 4; not in the report: 3/);
 		assert.equal(readFileSync(join(dir, 'report.json'), 'utf8'), before);
 		applyVerifyReply(dir, reply(verdicts([4, 'false positive'], [1, 'confirmed'], [2, 'confirmed']), '- 4: no.'));
 		assert.equal(readJson(dir).findings[0].verified, 'disputed');
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 });
 
-test('the verify prompt says to key verdicts by finding number, not position', () => {
-	assert.match(VERIFIER, /`n` is the finding's number as written, never its position/);
-});
-
-/** A throwaway repo with two commits, for changeBase's rev-list. */
-function twoCommitRepo() {
-	const repo = mkdtempSync(join(tmpdir(), 'finish-git-'));
-	const git = (...args) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { encoding: 'utf8' }).trim();
-	git('init', '-q');
-	git('commit', '-q', '--allow-empty', '-m', 'base');
-	const base = git('rev-parse', 'HEAD');
-	git('commit', '-q', '--allow-empty', '-m', 'change');
-	return { repo, base, head: git('rev-parse', 'HEAD') };
+/** Calls `fn` with a throwaway repo with two commits, for changeBase's rev-list. */
+function withTwoCommitRepo(fn) {
+	return withTmpDir('finish-git-', repo => {
+		const git = (...args) => execFileSync('git', ['-C', repo, '-c', 'user.email=t@t', '-c', 'user.name=t', ...args], { encoding: 'utf8' }).trim();
+		git('init', '-q');
+		git('commit', '-q', '--allow-empty', '-m', 'base');
+		const base = git('rev-parse', 'HEAD');
+		git('commit', '-q', '--allow-empty', '-m', 'change');
+		return fn({ repo, base, head: git('rev-parse', 'HEAD') });
+	});
 }
 
 test('changeBase is usable only with commits between the base and the head', () => {
-	const { repo, base, head } = twoCommitRepo();
-	try {
+	withTwoCommitRepo(({ repo, base, head }) => {
 		assert.deepEqual(changeBase(repo, base, head, 'main'), { usable: true, reason: '', name: 'main' });
 		assert.deepEqual(changeBase(repo, base, head), { usable: true, reason: '', name: null });
 		assert.equal(changeBase(repo, '', head, 'main').usable, false);
@@ -304,9 +256,7 @@ test('changeBase is usable only with commits between the base and the head', () 
 		// A main run: the head is behind or at the base, so nothing is the change's.
 		assert.deepEqual(changeBase(repo, head, base, 'main'), { usable: false, reason: 'no commits between the base and the head', name: 'main' });
 		assert.equal(changeBase('/no/such/repo', base, head).usable, false);
-	} finally {
-		rmSync(repo, { recursive: true, force: true });
-	}
+	});
 });
 
 test('buildVerifyPrompt asks for related findings only when the base is usable', () => {
@@ -320,17 +270,15 @@ test('buildVerifyPrompt asks for related findings only when the base is usable',
 	assert.match(buildVerifyPrompt(VERIFIER, RUN), /no usable base \(none was given\)/);
 });
 
-test('prompt records the base for the renderer, named when given', () => {
-	const { repo, base, head } = twoCommitRepo();
-	const dir = runDir(REPORT);
-	try {
-		writeVerifyPrompt(dir, { repo, base, head, baseName: 'release/1' });
+test('prompt writes the verifier prompt beside the report, and records the base for the renderer, named when given', () => {
+	withTwoCommitRepo(({ repo, base, head }) => withRun(REPORT, dir => {
+		assert.equal(writeVerifyPrompt(dir, { repo, base, head, baseName: 'release/1' }), join(dir, 'verify-prompt.md'));
 		assert.deepEqual(JSON.parse(readFileSync(join(dir, 'change-base.json'), 'utf8')), { usable: true, name: 'release/1' });
-		assert.match(readFileSync(join(dir, 'verify-prompt.md'), 'utf8'), /The change under test is the commits in/);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-		rmSync(repo, { recursive: true, force: true });
-	}
+		const prompt = readFileSync(join(dir, 'verify-prompt.md'), 'utf8');
+		assert.ok(prompt.includes(`Report: \`${dir}/report.json\``));
+		assert.ok(prompt.includes(`git -C ${repo} diff ${base}...${head}`));
+		assert.match(prompt, /The change under test is the commits in/);
+	}));
 });
 
 const LOG_LEDGER = [

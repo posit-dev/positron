@@ -8,6 +8,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
+export { WRAP_UP_MINUTES } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 
 /** Flatten the SDK result message into the record written to cost.json. */
 export function buildCostRecord(message) {
@@ -15,11 +16,8 @@ export function buildCostRecord(message) {
 		total_cost_usd: message?.total_cost_usd ?? null,
 		num_turns: message?.num_turns ?? null,
 		duration_ms: message?.duration_ms ?? null,
-		// input_tokens counts only the uncached input, which for a long run is a
-		// small fraction of what is actually sent: a 142-turn run reported
-		// 11,706. The cache reads are the context re-sent on every turn, and
-		// they are what total_cost_usd is mostly paying for, so record them
-		// too or the cost cannot be decomposed after the fact.
+		// input_tokens is only the uncached input; the cache reads are what the
+		// cost mostly pays for, so they are kept to decompose it.
 		input_tokens: message?.usage?.input_tokens ?? null,
 		cache_read_input_tokens: message?.usage?.cache_read_input_tokens ?? null,
 		cache_creation_input_tokens: message?.usage?.cache_creation_input_tokens ?? null,
@@ -324,20 +322,8 @@ function tallyFindings(report) {
 }
 
 /**
- * Renders the job's step summary.
- *
- * The whole report used to be pasted here, which made a reviewer scroll a
- * screenful of repro steps and log excerpts inside a page that cannot show a
- * screenshot properly. The report has its own rendered page now, so this is a
- * signpost: the verdict, and where to read the rest.
- *
- * `baseUrl` is the published run directory. Without one -- a local run, or an
- * upload that failed -- the link is omitted rather than written dead, and the
- * summary says where the report actually is.
- *
- * Nothing else belongs here. The link says what it is, and the cost of the
- * run is on the report's own Run tile; repeating either on the job page is a
- * second thing to read before getting to the one that matters.
+ * The job's step summary: a signpost with the verdict and a link to the run's page.
+ * Without `baseUrl` (a local run or failed upload) it says where the report is instead of linking dead.
  */
 export function renderStepSummary(report, baseUrl) {
 	const tally = tallyFindings(report);
@@ -370,9 +356,6 @@ export function runOutcome({ report, numTurns, maxTurns, timedOut = false }) {
 	}
 	return report ? 'complete' : 'no-report';
 }
-
-/** How long a run has to write up after it is told time is up, before it is stopped. */
-export const WRAP_UP_MINUTES = 10;
 
 /**
  * The time limit, in whole minutes, from a dispatch input or an `/explore 20m`

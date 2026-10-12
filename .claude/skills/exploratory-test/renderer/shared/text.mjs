@@ -44,12 +44,8 @@ export function safeUrl(url) {
 }
 
 /**
- * The one markdown parser the report uses, configured so nothing in a report
- * can inject markup.
- *
- * marked emits raw HTML verbatim and hrefs unfiltered by default. Every field
- * on the page goes through here, so this is the single place that has to be
- * right rather than each of the thirty call sites.
+ * The report's one markdown parser, configured so nothing in a report can inject
+ * markup (marked passes raw HTML and unfiltered hrefs through by default).
  */
 const marked = new Marked({
 	tokenizer: {
@@ -134,14 +130,8 @@ export function sentenceCase(text) {
 }
 
 /**
- * A precondition that says nothing but "defaults" is not a precondition.
- *
- * The skill makes the agent state where the finding sits on the configuration
- * axis every time, which is worth keeping: a blank there could mean "needs
- * nothing" or "never checked". But once written, "Shipped defaults." on its own
- * is the absence of a condition, and printing it as a bullet asks the reader to
- * take in a line that tells them nothing. The same line qualified by how the
- * state was manufactured does tell them something, so it stays.
+ * A precondition that says nothing but "defaults" is not one, so it is not shown.
+ * Qualified by how the state was made ("defaults, fresh profile") it says something, so it stays.
  */
 const DEFAULTS_ONLY = /^(?:(?:the\s+)?(?:shipped|stock|product)\s+defaults?|defaults?|default\s+settings?|none)\s*[.!]?$/i;
 

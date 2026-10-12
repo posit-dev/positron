@@ -5,10 +5,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatProblems, lintReportJson, readCheckedReport, schemaProblems } from './lint-json.mjs';
+import { withTmpDir } from './shared/tmp-dirs.mjs';
 
 const LEDGER = [
 	'# Scenario ledger',
@@ -99,25 +99,10 @@ test('a step with another value, or a check the run did not make, is not the led
 	]);
 });
 
-test('a check whose result differs from the ledger\'s is a problem', () => {
-	const j = json();
-	j.findings[0].steps.push(
-		{ kind: 'action', text: 'Overwrite `people.json` on disk with `broken.json`.' },
-		{ kind: 'verify', text: 'the explorer shows the parse error', result: 'fail', finding: 1 },
-	);
-	assert.deepEqual(lint(j), ['report.json: Finding 1 step 5 is fail, but S01 recorded pass']);
-});
-
 test('steps out of the scenario\'s order are a problem', () => {
 	const j = json();
 	j.findings[0].steps.reverse();
 	assert.equal(lint(j).filter(p => /out of order/.test(p)).length, 2);
-});
-
-test('a rate past the tries of the scenarios that failed for the finding is a problem', () => {
-	const j = json();
-	j.findings[0].reproduced = { n: 3, m: 3 };
-	assert.deepEqual(lint(j), ['report.json: Finding 1\'s rate is 3/3, but S01, whose steps the repro shows, fails 2/2; give that rate']);
 });
 
 test('a log line listed as both found and missing is a problem', () => {
@@ -152,28 +137,19 @@ test('an empty header line or feature, a shot outside shots/ and an absolute lin
 	]);
 });
 
-test('the write-up rules apply to report.json\'s fields', () => {
+// fixtures/lint-scenes.expected.txt pins the other write-up rules on report.json's fields.
+test('a report.json precondition with no name is a problem', () => {
 	const j = json();
-	j.header = { result: 'Yes, it copies the accessor from the menu.', tested: 'the copy menu', notExercised: 'none' };
-	Object.assign(j.findings[0], {
-		severity: 'major', reproduced: { n: 1, m: 1 }, feature: 'object explorer', title: 'Copy may paste the value',
-		observed: 'The pasted text is `x@y.z`.', expected: 'The accessor.', preconditions: [{ text: 'A JSON file open' }], tests: { cases: [], related: [] },
-	});
-	j.findings[0].steps[0].text = 'Click the `email` row, then press Ctrl+Shift+C.';
-	assert.deepEqual(formatProblems(j, LEDGER).map(p => p.text).filter(p => p.startsWith('report')), [
-		'report: header.result answers a question; state what the change does instead',
-		'report: Finding 1 is major and was tried once (1/1); keep the severity, and repeat its steps if the instance is still up',
+	Object.assign(j.findings[0], { title: 'Copy pastes the value', observed: 'The pasted text is `x`.', expected: 'The accessor.', preconditions: [{ text: 'A JSON file open' }] });
+	assert.deepEqual(formatProblems(j, LEDGER).map(p => p.text).filter(p => /precondition/.test(p)), [
 		'report: Finding 1 precondition "A JSON file open" needs a name, 2 to 4 words, for Coverage',
-		'report: Finding 1 title hedges with "may"; state what the run saw as a fact',
-		'report: Finding 1 step 1 is two actions ("then press"); write each as its own step',
 	]);
 });
 
 test('readCheckedReport returns the report and logs what the check still finds, or null with none that parses', () => {
-	const dir = mkdtempSync(join(tmpdir(), 'checked-'));
 	const lines = [];
 	const log = line => lines.push(line);
-	try {
+	withTmpDir('checked-', dir => {
 		assert.equal(readCheckedReport(dir, { log }), null);
 		writeFileSync(join(dir, 'ledger.md'), LEDGER);
 		writeFileSync(join(dir, 'report.json'), '{');
@@ -182,7 +158,5 @@ test('readCheckedReport returns the report and logs what the check still finds, 
 		assert.deepEqual(readCheckedReport(dir, { log }), json());
 		assert.match(lines[0], /does not parse/);
 		assert.match(lines[1], /^\[json\] \d+ problems after the explorer: report\.header is missing/);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 });

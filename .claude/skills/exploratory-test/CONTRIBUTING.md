@@ -25,7 +25,8 @@ is handed:
 
 Each of them writes what it decided into `report.json`: verdicts, known
 issues, titles and openings, and what each pass cost. `renderer/render.mjs`
-(or `writeJsonPage` in CI) then turns `report.json` into `index.html`.
+(or `run.mjs` in CI, through the same `writeRunPage`) then turns
+`report.json` into `index.html`.
 
 Local and CI runs share every step after the explorer: `completeRun` in
 `renderer/pipeline.mjs` checks the report, runs the later passes in order and

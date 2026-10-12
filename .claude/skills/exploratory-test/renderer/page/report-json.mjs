@@ -147,10 +147,9 @@ function costFromJson(cost) {
 
 /**
  * The report model from report.json and the run's ledger. The pipeline writes
- * `verification` and `cost` into report.json; `pipeline` stands in for a report
- * without them.
+ * `verification` and `cost` into report.json.
  */
-export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
+export function reportFromJson(json, { ledger } = {}) {
 	const header = json.header ?? {};
 	// Worst first, then by number, so the numbers run in order within a severity.
 	const rank = { major: 0, moderate: 1, minor: 2 };
@@ -182,8 +181,8 @@ export function reportFromJson(json, { ledger, pipeline = {} } = {}) {
 		logs: fromLedger?.logs ?? [],
 		files: fromLedger?.files ?? [],
 		environment: fromLedger?.environment ?? [],
-		verification: json.verification?.text ? verificationFromJson(json) : pipeline.verification ?? null,
-		cost: json.cost ? costFromJson(json.cost) : pipeline.cost ?? { passes: [], total: null, duration: null },
+		verification: json.verification?.text ? verificationFromJson(json) : null,
+		cost: json.cost ? costFromJson(json.cost) : { passes: [], total: null, duration: null },
 	};
 }
 
@@ -316,13 +315,8 @@ function leadHtml(result) {
 }
 
 /**
- * The scope sentence introduces Coverage, where the scenario count is the
- * row count of the table directly below it. Repeating the number in the
- * sentence made the reader check one against the other for no reason.
- *
- * `Tested` is written as a phrase completing its label; standing on its own
- * above the table it has to read as a sentence, so it gets a capital and a
- * full stop.
+ * `Tested` as the sentence above Coverage: capitalised and stopped, without the
+ * scenario count, which the table below already shows.
  */
 function scopeHtml(tested) {
 	const phrase = tested.replace(/,\s*\d+\s+scenarios?\s*$/i, '').trim();

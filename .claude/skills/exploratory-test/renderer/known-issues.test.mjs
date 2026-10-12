@@ -5,11 +5,11 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, readIssueRefs, referencedNumbers } from './known-issues.mjs';
 import { parseLedger } from './shared/ledger.mjs';
+import { withTmpDir } from './shared/tmp-dirs.mjs';
 
 test('closingRefs reads the keywords for the work a PR does, for this repo only', () => {
 	const body = [
@@ -169,18 +169,13 @@ test('knownIssueOutcomes ignores issues that are not in the list', () => {
 	assert.equal(ki.observed.length, 0);
 });
 
-test('loadIssueRefs fetches only the numbers it has no preview for, and saves them beside the report', async () => {
-	const dir = mkdtempSync(join(tmpdir(), 'refs-'));
-	try {
-		writeFileSync(join(dir, 'issue-refs.json'), JSON.stringify({ refs: [{ number: 5, title: 'saved' }] }));
-		const asked = [];
-		const fetch = async ns => { asked.push(ns); return ns.map(n => ({ number: n, title: `t${n}` })); };
-		const markdown = 'See #5, #7 and #7 again, #9 from the list, not a&#8 or x#6.';
-		const refs = await loadIssueRefs(dir, markdown, { issues: [{ number: 9 }] }, { fetch });
-		assert.deepEqual([asked, refs.map(r => r.number)], [[[7]], [5, 7]]);
-		assert.deepEqual(readIssueRefs(dir).map(r => r.number), [5, 7]);
-		assert.deepEqual((await loadIssueRefs(dir, '#11', null, { fetch, offline: true })).map(r => r.number), [5, 7]);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('loadIssueRefs fetches only the numbers it has no preview for, and saves them beside the report', () => withTmpDir('refs-', async dir => {
+	writeFileSync(join(dir, 'issue-refs.json'), JSON.stringify({ refs: [{ number: 5, title: 'saved' }] }));
+	const asked = [];
+	const fetch = async ns => { asked.push(ns); return ns.map(n => ({ number: n, title: `t${n}` })); };
+	const markdown = 'See #5, #7 and #7 again, #9 from the list, not a&#8 or x#6.';
+	const refs = await loadIssueRefs(dir, markdown, { issues: [{ number: 9 }] }, { fetch });
+	assert.deepEqual([asked, refs.map(r => r.number)], [[[7]], [5, 7]]);
+	assert.deepEqual(readIssueRefs(dir).map(r => r.number), [5, 7]);
+	assert.deepEqual((await loadIssueRefs(dir, '#11', null, { fetch, offline: true })).map(r => r.number), [5, 7]);
+}));

@@ -6,28 +6,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { problem } from './lint/lint-rules.mjs';
+import { withLogsRun, withTmpDir } from './shared/tmp-dirs.mjs';
 import { buildStats, CHECKS_FILE, readChecks, recordCheck, statsFromLog, summarizeByVersion, summarizeChecks } from './stats.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
-const RENDER = fileURLToPath(new URL('./render.mjs', import.meta.url));
 const LINT_JSON = fileURLToPath(new URL('./lint-json.mjs', import.meta.url));
 const SCRIPT = fileURLToPath(new URL('./stats.mjs', import.meta.url));
-const LOGS_DIR = fileURLToPath(new URL('./fixtures/logs-run/', import.meta.url));
-
-function tempDir() {
-	return mkdtempSync(join(tmpdir(), 'stats-'));
-}
 
 test('recordCheck and summarizeChecks keep the rounds, and the first and last check', () => {
-	const dir = tempDir();
-	try {
+	withTmpDir('stats-', dir => {
 		assert.equal(readChecks(dir), null);
 		recordCheck(dir, [problem('rate-format', 'report: Finding 1 rate'), problem('rate-format', 'report: Finding 2 rate'), problem('two-actions', 'ledger: S01 step 1')]);
 		recordCheck(dir, [problem('two-actions', 'ledger: S01 step 1')]);
@@ -40,9 +33,7 @@ test('recordCheck and summarizeChecks keep the rounds, and the first and last ch
 		// A torn last line from an interrupted run is skipped, not fatal.
 		writeFileSync(join(dir, CHECKS_FILE), `${readFileSync(join(dir, CHECKS_FILE), 'utf8')}{"at":`);
 		assert.equal(readChecks(dir).rounds, 3);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	});
 	assert.equal(summarizeChecks(''), null);
 });
 
@@ -84,25 +75,14 @@ test('summarizeByVersion counts a rule once per run it fired in', () => {
 	assert.equal(v12.medianRounds, 4);
 });
 
-/** The fixture run with the passes' cost in its report.json, as the pipeline leaves it. */
-function withCost(dir, passes) {
-	const path = join(dir, 'report.json');
-	writeFileSync(path, JSON.stringify({ ...JSON.parse(readFileSync(path, 'utf8')), cost: { passes } }));
-	return path;
-}
-
 test('lint-json counts the explorer\'s checks, renders do not, and the pipeline\'s render writes stats.json', () => {
-	const dir = tempDir();
-	try {
-		cpSync(LOGS_DIR, dir, { recursive: true });
-		const lint = () => spawnSync(process.execPath, [LINT_JSON, join(dir, 'report.json')], { encoding: 'utf8' });
+	withLogsRun(({ dir, report, render }) => {
+		const lint = () => spawnSync(process.execPath, [LINT_JSON, report], { encoding: 'utf8' });
 		lint();
 		lint();
 		assert.equal(readChecks(dir).rounds, 2);
-		const report = withCost(dir, [{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 142, durationMs: 1500000 }]);
-		const render = args => spawnSync(process.execPath, [RENDER, report, ...args], { encoding: 'utf8' });
-		render([]);
-		render(['--base', 'https://example.test/run', '--out', join(dir, 'published.html')]);
+		render(report);
+		render(report, '--base', 'https://example.test/run', '--out', join(dir, 'published.html'));
 		assert.equal(readChecks(dir).rounds, 2, 'the pipeline\'s and publish\'s renders are not the explorer\'s');
 		const stats = JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8'));
 		assert.equal(stats.where, 'local');
@@ -119,28 +99,37 @@ test('lint-json counts the explorer\'s checks, renders do not, and the pipeline\
 		]);
 		// The checks tune the skill, so they stay in stats.json and off the page.
 		assert.doesNotMatch(readFileSync(join(dir, 'index.html'), 'utf8'), /Format checks|Raw stats/);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	}, [{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 142, durationMs: 1500000 }]);
 });
 
 test('render.mjs records an isolation pass in the Agents table and stats.json', () => {
-	const dir = tempDir();
-	try {
-		cpSync(LOGS_DIR, dir, { recursive: true });
-		const report = withCost(dir, [
-			{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 70, durationMs: 600000 },
-			{ label: 'verify', model: 'claude-sonnet-5-5', costUsd: null, turns: 10, durationMs: 60000 },
-			{ label: 'isolate', model: 'claude-sonnet-5-5', costUsd: null, turns: 30, durationMs: 300000 },
-		]);
-		spawnSync(process.execPath, [RENDER, report], { encoding: 'utf8' });
+	withLogsRun(({ dir, report, render }) => {
+		render(report);
 		const stats = JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8'));
 		assert.deepEqual(stats.isolate, { durationMs: 300000, turns: 30 });
 		assert.equal(stats.durationMs, 960000);
 		assert.match(readFileSync(join(dir, 'index.html'), 'utf8'), /<div class="agents-row"><span>Isolate<\/span>/);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
+	}, [
+		{ label: 'explore', model: 'claude-opus-5-5', costUsd: null, turns: 70, durationMs: 600000 },
+		{ label: 'verify', model: 'claude-sonnet-5-5', costUsd: null, turns: 10, durationMs: 60000 },
+		{ label: 'isolate', model: 'claude-sonnet-5-5', costUsd: null, turns: 30, durationMs: 300000 },
+	]);
+});
+
+test('render.mjs gives the stats a cost when every pass has one, and keeps the stats CI recorded', () => {
+	withLogsRun(({ dir, report, render }) => {
+		render(report);
+		assert.equal(JSON.parse(readFileSync(join(dir, 'stats.json'), 'utf8')).costUsd, 4.12);
+	}, [
+		{ label: 'explore', model: 'opus', costUsd: 3.7, turns: 142, durationMs: 1500000 },
+		{ label: 'verify', model: 'sonnet', costUsd: 0.4231, turns: 24, durationMs: 180000 },
+	]);
+	withLogsRun(({ dir, report, render }) => {
+		writeFileSync(join(dir, 'cost.json'), '{}');
+		writeFileSync(join(dir, 'stats.json'), '{"where":"ci"}\n');
+		render(report);
+		assert.equal(readFileSync(join(dir, 'stats.json'), 'utf8'), '{"where":"ci"}\n');
+	}, [{ label: 'explore', model: 'opus', costUsd: null, turns: 10, durationMs: 60000 }]);
 });
 
 test('buildStats clips a long Not run reason', () => {
@@ -151,8 +140,7 @@ test('buildStats clips a long Not run reason', () => {
 });
 
 test('the stats command tables local runs and sums them up by version', () => {
-	const root = tempDir();
-	try {
+	withTmpDir('stats-', root => {
 		for (const [name, version, rounds] of [['20260927T100000', '1.1', 2], ['20260928T100000', '1.2', 3]]) {
 			mkdirSync(join(root, name));
 			writeFileSync(join(root, name, 'stats.json'), JSON.stringify({
@@ -168,9 +156,7 @@ test('the stats command tables local runs and sums them up by version', () => {
 		assert.match(out, /version 1\.2: 1 runs .* median rounds 3/);
 		assert.match(out, /1x {2}report: leave a blank line after <\/summary>/);
 		assert.ok(existsSync(root));
-	} finally {
-		rmSync(root, { recursive: true, force: true });
-	}
+	});
 });
 
 test('the stats command rejects a --limit that is not a positive whole number', () => {

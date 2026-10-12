@@ -5,10 +5,10 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describeEvent, runClaude } from './claude-cli.mjs';
+import { withTmpDir } from '../shared/tmp-dirs.mjs';
 
 const result = fields => JSON.stringify({ type: 'result', is_error: false, result: 'reply', duration_ms: 1000, num_turns: 3, total_cost_usd: 0.25, ...fields });
 
@@ -87,8 +87,7 @@ test('an agent with a time limit is told by a hook, and stopped only after the w
 	assert.equal(out.costUsd, 0.25);
 });
 
-test('a time limit read from a file follows changes to it', async () => {
-	const dir = mkdtempSync(join(tmpdir(), 'limit-test-'));
+test('a time limit read from a file follows changes to it', () => withTmpDir('limit-test-', async dir => {
 	const path = join(dir, 'time-limit');
 	writeFileSync(path, '30\n');
 	const exec = async (args, prompt, options) => {
@@ -96,12 +95,8 @@ test('a time limit read from a file follows changes to it', async () => {
 		writeFileSync(path, '0\n');
 		return { status: 0, killed: false, ms: 1, stdout: result({ result: String([before, options.stopAfterMs()]) }) };
 	};
-	try {
-		assert.equal((await runClaude({ prompt: 'p', model: 'opus', timeLimitPath: path, minuteMs: 1, exec })).text, '40,10');
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+	assert.equal((await runClaude({ prompt: 'p', model: 'opus', timeLimitPath: path, minuteMs: 1, exec })).text, '40,10');
+}));
 
 test('an agent stopped for running past its wrap-up returns no text and no cost', async () => {
 	const { exec } = fakeExec([{ stdout: '', status: null, killed: true, ms: 1320000 }]);

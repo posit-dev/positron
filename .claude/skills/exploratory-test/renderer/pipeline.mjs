@@ -8,20 +8,13 @@
 // verdicts, edit. The caller only says how to run an agent.
 //
 // Local usage, each agent a `claude -p` session:
-//   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha>
-//     [--base-name <ref>] [--time-limit <minutes>|none] [--no-agent-prompts]
-//     [--skip-checkout-check]
-//     checks the checkout is at --head, built, and has its native binaries,
-//     makes a run directory, prints it, explores with the brief, then runs the
-//     rest and renders the report. --base-name is the base branch, for the
-//     change mark. The time limit is in the file it prints, read throughout:
-//     write other minutes to it to change it, or 0 to stop exploring now. It
-//     is kept out of the run directory, since an explorer that finds its
-//     budget rushes and wraps up early.
+//   node pipeline.mjs run --brief <file> --repo <checkout> --base <sha> --head <sha> [...]
+//     checks the checkout, explores in a new run directory, then runs the rest. The time
+//     limit is in the file it prints (write 0 to stop now), outside the run directory
+//     because an explorer that finds its budget rushes.
 //   node pipeline.mjs run <run dir> --repo <checkout> --base <sha> --head <sha>
 //     [--base-name <ref>] [--duration-ms <n> --turns <n> --model <id>] [--no-agent-prompts]
-//     replays a run whose report.json is as its explorer left it; --duration-ms,
-//     --turns and --model are that explorer's, for the Run tile.
+//     replays a run from its explorer's report.json; the explorer's figures fill the Run tile.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -217,15 +210,9 @@ function isolatePrompt(dir, { repo, base, head }, findings, reply) {
 }
 
 /**
- * Runs every step after the explorer on `dir`, whose report.json it rewrites,
- * and returns each agent's `{ role, model, durationMs, turns, costUsd }`.
- *
- * `runAgent({ role, purpose, model, prompt, tools, cwd, resume, timeLimitMinutes, timeUpMessage })`
- * runs one agent and resolves to `{ text, durationMs, turns, costUsd, sessionId }`;
- * `resume` is a session to send `prompt` to. A throw is an agent that failed:
- * verify marks the findings unreviewed, and every later step keeps what it has,
- * so the worst case is the report as the explorer wrote it. Each reply is kept
- * in `<purpose>-reply.md` for whoever debugs the run.
+ * Runs every step after the explorer on `dir`, rewriting its report.json; returns each agent's `{ role, model, durationMs, turns, costUsd }`.
+ * `runAgent({ role, purpose, model, prompt, tools, cwd, resume, timeLimitMinutes, timeUpMessage })` resolves to
+ * `{ text, durationMs, turns, costUsd, sessionId }`; a throw leaves the report as it was. Replies go to `<purpose>-reply.md`.
  */
 export async function finishRun(dir, { repo, base, head, baseName, runAgent, verify = true, model = 'sonnet', stop = stopInstances, log = () => { } }) {
 	const passes = [];

@@ -12,13 +12,13 @@
 // stats. readCheckedReport is the same check once the explorer is done, logged.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { readKnownIssues } from './agents/finish.mjs';
 import { absolutePathProblems, modelProblems, rateProblem, runProblems } from './lint/lint-ledger.mjs';
 import { problem, splitProblems } from './lint/lint-rules.mjs';
 import { findingProblems, rateProblems, resultProblems } from './lint/lint-wording.mjs';
+import { readRunDir } from './page/html.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { recordCheck } from './stats.mjs';
 import { parseLedger, verifyText } from './shared/ledger.mjs';
@@ -267,21 +267,11 @@ export function readCheckedReport(workDir, { log = console.log } = {}) {
 
 /** formatProblems' options for the run directory `dir`. */
 function runDirOptions(dir) {
-	const read = name => (existsSync(join(dir, name)) ? readFileSync(join(dir, name), 'utf8') : undefined);
-	const files = join(dir, 'files');
 	// Test paths are relative to the checkout the explorer runs in.
 	const repo = (() => {
 		try { return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return null; }
 	})();
-	return {
-		fileExists: path => existsSync(join(dir, path)),
-		listFiles: () => (existsSync(files)
-			? readdirSync(files, { recursive: true }).map(p => join(files, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
-			: []),
-		repoFileExists: repo ? path => existsSync(join(repo, path)) : undefined,
-		knownIssues: readKnownIssues(dir) ?? undefined,
-		actionsLog: read('actions.log'),
-	};
+	return { ...readRunDir(dir), repoFileExists: repo ? path => existsSync(join(repo, path)) : undefined };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

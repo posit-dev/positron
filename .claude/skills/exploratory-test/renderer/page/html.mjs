@@ -13,8 +13,8 @@
 
 // escapeHtml is shared with the model rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
-import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { fileProcess, isPositronLog } from '../shared/ledger.mjs';
 import { basename, escapeHtml, isNewTestFile, readJson } from '../shared/text.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
@@ -556,12 +556,11 @@ function renderEvidenceRow(f, sha, exists) {
 		link(e.path),
 		e.window && `<span>${escapeHtml(e.window)}</span>`,
 	], logTextHtml(e.quote))).join('');
-	const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 	const count = errors[0]?.count ?? 1;
 	const lines = logs.reduce((n, e) => n + e.quote.split('\n').length, 0);
 	const tail = [
-		errors.length === 1 ? `1 error${count > 1 ? `, <span class="n-x">${count}x</span>` : ''}` : errors.length ? plural(errors.length, 'error') : '',
-		lines ? plural(lines, 'log line') : '',
+		errors.length === 1 ? `1 error${count > 1 ? `, <span class="n-x">${count}x</span>` : ''}` : errors.length ? plural(errors.length, 'error', 'errors') : '',
+		lines ? plural(lines, 'log line', 'log lines') : '',
 		missing.length ? `${missing.length} missing` : '',
 	].filter(Boolean).join(', ');
 	return collapsedRow(' ev', 'Evidence', tail, errorHtml + logHtml + missingHtml);
@@ -914,22 +913,13 @@ ${report.verification.bodyHtml}
 }
 
 /**
- * The signature: a maker's mark rather than a report section.
- *
- * A bug is found, looked at and fixed, in the time it takes to notice it. The
- * cost of the run is on the Run tile, where it is one figure among the others;
- * repeating it here ended the page on an invoice.
- *
- * The name links to the skill that wrote the report. The arrow says the link
- * leaves the page.
- *
- * The copyright under it is dated by the run, not the render, so re-rendering
- * an old run keeps its year.
+ * The signature: a maker's mark linking to the skill, not a report section (the cost stays on the Run tile).
+ * The copyright is dated by the run, not the render, so re-rendering an old run keeps its year.
  */
-function renderSignature(startedAt = new Date(), version = null, skillUrl = SKILL_URL) {
+function renderSignature(startedAt = new Date(), version = null) {
 	// Read like a package name. Left out, never blank, when there is no version.
 	const name = `exploratory-test ${version ? `<span class="sig-ver">v${escapeHtml(version)}</span> ` : ''}&#8599;`;
-	const link = `<a class="sig-link" href="${escapeHtml(skillUrl)}" target="_blank" rel="noreferrer">${name}</a>`;
+	const link = `<a class="sig-link" href="${escapeHtml(SKILL_URL)}" target="_blank" rel="noreferrer">${name}</a>`;
 
 	// A top-down bug: a solid body, six hairline legs and two feelers.
 	const bug = '<svg width="16" height="14" viewBox="0 0 16 14" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">'
@@ -1057,15 +1047,18 @@ ${viewers}
 </div>
 <script>${PAGE_SCRIPT}</script>
 ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
-	// Code blocks in steps have copy buttons even when agent prompts are off.
-	const copy = prompts || page.includes('class="code-cp"');
-	const issue = page.includes(' data-issue="');
-	const link = page.includes(' data-link-to="');
-	const codeCopy = page.includes('<code class="cc"');
-	const preview = page.includes(' data-title="');
-	const lists = page.includes('<span class="ki-cnt"');
-	const feedback = page.includes('<div class="fb" ');
-	return `${page}${copy ? `<script>${COPY_SCRIPT}</script>\n` : ''}${issue ? `<script>${ISSUE_SCRIPT}</script>\n` : ''}${link ? `<script>${LINK_SCRIPT}</script>\n` : ''}${codeCopy ? `<script>${CODE_CHIP_SCRIPT}</script>\n` : ''}${preview ? `<script>${KI_SCRIPT}</script>\n` : ''}${lists ? `<script>${KI_LIST_SCRIPT}</script>\n` : ''}${feedback ? `<script>${FEEDBACK_SCRIPT}</script>\n` : ''}</body>
+	// Each script ships only when the page has what it drives. Code blocks in
+	// steps have copy buttons even when agent prompts are off.
+	const scripts = [
+		[prompts || page.includes('class="code-cp"'), COPY_SCRIPT],
+		[page.includes(' data-issue="'), ISSUE_SCRIPT],
+		[page.includes(' data-link-to="'), LINK_SCRIPT],
+		[page.includes('<code class="cc"'), CODE_CHIP_SCRIPT],
+		[page.includes(' data-title="'), KI_SCRIPT],
+		[page.includes('<span class="ki-cnt"'), KI_LIST_SCRIPT],
+		[page.includes('<div class="fb" '), FEEDBACK_SCRIPT],
+	].filter(([on]) => on).map(([, script]) => `<script>${script}</script>\n`).join('');
+	return `${page}${scripts}</body>
 </html>
 `;
 }
@@ -1078,6 +1071,7 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 export function readRunDir(dir) {
 	const ledgerPath = join(dir, 'ledger.md');
 	const fileExists = path => existsSync(join(dir, path));
+	const files = join(dir, 'files');
 	return {
 		ledger: existsSync(ledgerPath) ? readFileSync(ledgerPath, 'utf8') : undefined,
 		actionsLog: existsSync(join(dir, 'actions.log')) ? readFileSync(join(dir, 'actions.log'), 'utf8') : undefined,
@@ -1086,6 +1080,10 @@ export function readRunDir(dir) {
 		changeBase: readJson(join(dir, 'change-base.json'), undefined),
 		fileExists,
 		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
+		// Every file saved under files/, so lint can find one the ledger never listed.
+		listFiles: () => (existsSync(files)
+			? readdirSync(files, { recursive: true }).map(p => join(files, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
+			: []),
 	};
 }
 

@@ -23,14 +23,8 @@ function dedent(line) {
 }
 
 /**
- * Lengthens a step's outer code fence past anything nested inside it.
- *
- * A repro step often pastes source that is itself fenced -- a notebook cell
- * holding a ```python block, say. CommonMark closes on the first fence at least
- * as long as the one that opened, so three backticks wrapped around three
- * backticks end the block early and the rest of the source lands on the page as
- * markup. Reports are written by hand and get this wrong; widening the outer
- * fence fixes them without asking the agent to count backticks.
+ * Lengthens a step's outer code fence past any fence nested inside it, which
+ * would otherwise close the block early (CommonMark closes on the first fence as long).
  */
 function widenOuterFence(text) {
 	const lines = text.split('\n');

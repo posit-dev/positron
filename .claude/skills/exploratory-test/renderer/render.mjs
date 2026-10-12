@@ -16,8 +16,8 @@
 // its stats.json and usage.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, relative, resolve } from 'node:path';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -53,7 +53,7 @@ const { buildStats, passStats, readChecks } = await import('./stats.mjs');
 const { ranInCi, reportUsageOnce } = await import('./shared/usage.mjs');
 
 const dir = dirname(resolve(input));
-const { ledger, actionsLog, knownIssues, changeBase, fileExists, readFile } = readRunDir(dir);
+const { ledger, actionsLog, knownIssues, changeBase, fileExists, readFile, listFiles } = readRunDir(dir);
 
 // The ledger alone, while the run is still exploring.
 if (flags.check) {
@@ -61,11 +61,6 @@ if (flags.check) {
 		console.error(`no ledger.md in ${dir}`);
 		process.exit(1);
 	}
-	// Every file saved under files/, so lint can find one the ledger never listed.
-	const root = join(dir, 'files');
-	const listFiles = () => (existsSync(root)
-		? readdirSync(root, { recursive: true }).map(p => join(root, p)).filter(p => statSync(p).isFile()).map(p => relative(dir, p).split('\\').join('/'))
-		: []);
 	const { errors, warnings } = splitProblems(lintLedgerOnly(ledger, { fileExists, listFiles, knownIssues, actionsLog }));
 	if (errors.length) {
 		console.error(`format errors, fix each one and check again:\n${errors.map(p => `  ${p.text}`).join('\n')}`);

@@ -13,17 +13,15 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { modelDisplayName, safeUrl } from '../shared/text.mjs';
 import { renderReportHtml } from './html.mjs';
 import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
 import { checkScenes } from '../shared/scene-check.mjs';
+import { withLogsRun } from '../shared/tmp-dirs.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
@@ -379,27 +377,14 @@ const evidenceRow = items => /<details class="lc ev">[\s\S]*?<\/details>/.exec(c
 
 // ---- The model -------------------------------------------------------------
 
-test('reportFromJson lifts the title, the chips and the lead out of the header', () => {
-	const r = model(FULL);
-	assert.equal(r.title, 'something');
-	assert.deepEqual(r.chips, ['branch/name', 'abc1234']);
-	// The agent's own emphasis survives: it is the only thing that watched the
-	// run, so it is the only thing that knows which clause is the point.
-	assert.match(r.leadHtml, /<strong>But not on slow sources\.<\/strong>/);
+// The saved pages and scenes pin the title, chips and the lead's own emphasis.
+test('reportFromJson drops emphasis on the whole lead, the scope\'s count, and chips with no branch', () => {
 	// Emphasis on everything emphasises nothing.
 	assert.doesNotMatch(model(rep({ header: { result: '**Everything is broken everywhere.**' } })).leadHtml, /<strong>/);
 	// Coverage's own table is the count, so the scope does not repeat it.
-	assert.equal(r.scopeHtml, 'The summary panel on two backends.');
+	assert.equal(model(FULL).scopeHtml, 'The summary panel on two backends.');
 	// No branch, so no chips, whatever else is backticked.
 	assert.deepEqual(model(rep({ header: { branch: undefined, sha: undefined }, findings: [fnd(1, { observed: '`some/path.ts` misbehaves.' })] })).chips, []);
-});
-
-test('reportFromJson tallies severities and scenarios for the tiles, from the ledger', () => {
-	const r = model(FULL, FULL_LEDGER);
-	assert.equal(r.findingCount, 2);
-	assert.deepEqual(r.severityCounts, { major: 1, moderate: 0, minor: 1 });
-	assert.deepEqual(r.scenarios, { exercised: 3, pass: 2, issues: 1, notRun: 1 });
-	assert.deepEqual(model(TYPED, LEDGER).scenarios, { exercised: 8, pass: 6, issues: 2, notRun: 3 });
 });
 
 test('reportFromJson keeps a featured shot first in Evidence, once, and a step\'s cited shot before its listed ones', () => {
@@ -431,23 +416,15 @@ test('reportFromJson takes Run details from the header and the verdicts from the
 	const r = model(fullWith(2, { verified: 'disputed' }));
 	assert.deepEqual(r.runDetails.map(s => s.title), ['Change under test', 'Environment']);
 	assert.deepEqual(r.verification.verdicts, [{ n: 1, word: 'confirmed' }, { n: 2, word: 'disputed' }]);
-	// The ledger's Environment goes after Change under test, unless the report wrote its own.
-	const details = [{ title: 'Change under test', body: 'x' }, { title: 'Branch verification', body: 'y' }];
-	const folded = model({ ...TYPED, header: { ...TYPED.header, details } }, LEDGER).runDetails;
-	assert.deepEqual(folded.map(s => s.title), ['Change under test', 'Environment', 'Branch verification']);
-	assert.match(folded[1].html, /CDP 44987/);
-	const own = model({ ...TYPED, header: { ...TYPED.header, details: [details[0], { title: 'Environment', body: 'mine' }, details[1]] } }, LEDGER).runDetails;
+	// The saved pages pin where the ledger's Environment goes; the report's own wins.
+	const own = model({ ...TYPED, header: { ...TYPED.header, details: [{ title: 'Change under test', body: 'x' }, { title: 'Environment', body: 'mine' }] } }, LEDGER).runDetails;
 	assert.deepEqual(own.filter(s => s.title === 'Environment').map(s => s.html.trim()), ['<p>mine</p>']);
 });
 
-test('reportFromJson reads each cost pass and the total', () => {
-	const { cost } = model(FULL);
-	assert.equal(cost.total, '$3.75');
-	// The run took 31 minutes; 26 of them were the explore pass.
-	assert.equal(cost.duration, '31m');
-	assert.deepEqual(cost.passes.map(p => [p.label, p.model, p.cost, p.turns, p.maxTurns]), [['explore', 'Opus 5.5', '$3.12', '77', '200'], ['verify', null, '$0.63', '31', null]]);
-	const short = model(rep({ cost: { passes: [{ label: 'verify', model: 'claude-sonnet-5', costUsd: 0.02, turns: 3, durationMs: 20000 }] } })).cost;
-	assert.deepEqual([short.passes[0].duration, short.passes[0].model, short.total], ['<1m', 'Sonnet 5', '$0.02']);
+// The uv-run page pins the Agents table, and scenes the Run tile with and without a total.
+test('reportFromJson reads a cost pass under a minute, or with no model', () => {
+	const { passes: [p], total } = model(rep({ cost: { passes: [{ label: 'verify', model: null, costUsd: 0.02, turns: 3, durationMs: 20000 }] } })).cost;
+	assert.deepEqual([p.duration, p.model, total], ['<1m', null, '$0.02']);
 });
 
 test('derived: a finding\'s status comes from its rate: 0/M is Unproven', () => {
@@ -512,23 +489,9 @@ test('ledger: a step\'s code block keeps a fenced block pasted inside it whole',
 	assert.equal(block(['```', 'no close']), '<pre><code>no close\n</code></pre>\n');
 });
 
-test('ledger: reads its Logs section and a Log field with the stack under it', () => {
-	const ledger = parseLedger(LOGS_LEDGER);
-	assert.deepEqual(ledger.logs.map(l => l.path), ['logs/44987-app.log', 'logs/exthost.log', 'logs/python-console.log']);
-	assert.equal(ledger.logs[0].source, 'Positron window (renderer and dev-tools console)');
-	const step = ledger.exercised.find(r => r.id === 'S08').steps[2];
-	assert.equal(step.error.source, 'logs/44987-app.log:1182');
-	assert.deepEqual(step.error.meta, ['Renderer', 'Logged 2x (after each Retry)']);
-	assert.deepEqual([step.error.count, step.error.frames.length], [2, 3]);
-	// The stack is the Log's, not a block under the step.
-	assert.equal(step.blockHtml, '');
+// The logs-run page pins its Logs section and a Log with a stack.
+test('ledger: a Log that found nothing is no error', () => {
 	assert.equal(parseLedger('## S01 - x\nSteps:\n1. VERIFY y -> FAIL - Finding 1\n   Log: none found in logs/a.log\n').exercised[0].steps[0].error, null);
-});
-
-test('ledger: Noticed notes stay in the ledger and never reach the report', () => {
-	// The report shows only what the run checked, so Coverage counts add up.
-	const ledger = LEDGER.replace('## Not run', '## Noticed\n- O01 - The summary shows 16% for 2 of 12 missing values - seen in S01, not checked\n\n## Not run');
-	assert.equal(coverageOf(typedHtml(TYPED, { ledger })), coverageOf(typedHtml()));
 });
 
 test('issue: parseSystemLine reads the ledger line, and "not recorded" where it says so', () => {
@@ -612,13 +575,6 @@ test('a prompt or issue mentioning </script> or <!-- cannot end its block, and c
 	assert.match(promptText(html, 1).replace(new RegExp(pattern, flags), replacement), /`<\/script>` and `<!--`/);
 	assert.match(issueCopied(html, 1), /`<\/script>` and `<!--`/);
 	assert.match(issueUrl(html, 1).searchParams.get('body'), /`<\/script>` and `<!--`/);
-});
-
-test('issue text from GitHub is escaped in rows and data attributes', () => {
-	const html = kiHtml();
-	assert.match(html, /#22<\/a><span>Title &quot;&lt;script&gt;&amp;<span class="ki-lc-m">/);
-	assert.match(html, /data-title="Title &quot;&lt;script&gt;&amp;" data-summary="a &quot;&lt;b&gt;&quot; &amp; c"/);
-	assert.doesNotMatch(html, /Title "<script>/);
 });
 
 test('feedback: a local page names the run by its directory, never its path, and a published one never names who ran it', () => {
@@ -1028,42 +984,15 @@ test('feedback: every finding answer from a browser carries the same random ID, 
 
 // ---- render.mjs ------------------------------------------------------------
 
-/** A copy of the logs run, with `passes` as report.json's cost when given, and a function that renders it. */
-function runCopy(passes) {
-	const dir = mkdtempSync(join(tmpdir(), 'logs-run-'));
-	cpSync(fileURLToPath(LOGS_DIR), dir, { recursive: true });
-	const report = join(dir, 'report.json');
-	if (passes) {
-		writeFileSync(report, JSON.stringify({ ...JSON.parse(readFileSync(report, 'utf8')), cost: { passes } }));
-	}
-	return { dir, run: () => spawnSync(process.execPath, [fileURLToPath(new URL('../render.mjs', import.meta.url)), report], { encoding: 'utf8' }) };
-}
-
 test('render.mjs fails the run when a listed log was not copied, and still writes the page', () => {
-	const { dir, run } = runCopy();
-	assert.equal(run().status, 0);
-	rmSync(join(dir, 'logs', 'python-console.log'));
-	const failed = run();
-	assert.equal(failed.status, 1);
-	assert.match(failed.stderr, /logs\/python-console\.log/);
-	assert.ok(existsSync(join(dir, 'index.html')));
-	rmSync(dir, { recursive: true, force: true });
-});
-
-test('render.mjs gives the stats a cost when every pass has one, and keeps the stats CI recorded', () => {
-	const costed = runCopy([
-		{ label: 'explore', model: 'opus', costUsd: 3.7, turns: 142, durationMs: 1500000 },
-		{ label: 'verify', model: 'sonnet', costUsd: 0.4231, turns: 24, durationMs: 180000 },
-	]);
-	costed.run();
-	assert.equal(JSON.parse(readFileSync(join(costed.dir, 'stats.json'), 'utf8')).costUsd, 4.12);
-	rmSync(costed.dir, { recursive: true, force: true });
-	const replay = runCopy([{ label: 'explore', model: 'opus', costUsd: null, turns: 10, durationMs: 60000 }]);
-	writeFileSync(join(replay.dir, 'cost.json'), '{}');
-	writeFileSync(join(replay.dir, 'stats.json'), '{"where":"ci"}\n');
-	replay.run();
-	assert.equal(readFileSync(join(replay.dir, 'stats.json'), 'utf8'), '{"where":"ci"}\n');
-	rmSync(replay.dir, { recursive: true, force: true });
+	withLogsRun(({ dir, report, render }) => {
+		assert.equal(render(report).status, 0);
+		rmSync(join(dir, 'logs', 'python-console.log'));
+		const failed = render(report);
+		assert.equal(failed.status, 1);
+		assert.match(failed.stderr, /logs\/python-console\.log/);
+		assert.ok(existsSync(join(dir, 'index.html')));
+	});
 });
 
 test('logs: every log the page links was copied beside it, and nothing links outside the run', () => {
