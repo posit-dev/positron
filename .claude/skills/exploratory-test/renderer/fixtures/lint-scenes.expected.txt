@@ -431,6 +431,16 @@ ledger: header.notExercised names surfaces, so ## Not run needs an N line for ea
   -> ledger: no ## Environment section
   -> ledger: header.notExercised names surfaces, so ## Not run needs an N line for each
 
+==== a log line credited to another process than the one whose log file it is in
+ledger, supervisor log as the extension host
+  -> ledger: S02 step 2 Log: credits logs/34353-supervisor.log:515 to Extension host, but that file is the kernel supervisor's log; name the process that wrote it
+ledger, renderer log as the renderer
+  -> (none)
+report, exthost log as the main process
+  -> report: Finding 1 evidence credits logs/1-exthost.log:5 to Main process, but that file is the extension host's log; name the process that wrote it
+report, a log whose name says nothing
+  -> (none)
+
 ==== Evidence holds Positron log lines only: no notes, no agent files
 report: Finding 1 evidence has a note ("so nothing resolved the new path"); evidence is log lines only, so state it in observed or cause
 report: Finding 1 evidence cites actions.log:12, which the run wrote, not Positron; cite the Positron log line, or state what happened in observed

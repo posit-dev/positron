@@ -286,10 +286,17 @@ function fillStepErrors(findings, coverage) {
 		if (f.errors.length) { continue; }
 		const logged = [...f.steps, ...coverage.exercised.flatMap(r => r.steps).filter(st => st.finding === f.n)]
 			.map(st => st.error).filter(Boolean);
-		// The finding's repro usually repeats the ledger step, Log and all.
-		const seen = new Set();
-		f.errors = logged.filter(e => !seen.has(`${e.source}\n${e.message}`) && seen.add(`${e.source}\n${e.message}`))
-			.map(withMetaHtml);
+		// The finding's repro usually repeats the ledger step, Log and all, and
+		// one copy may keep the line's timestamp: a `file:line` is one line
+		// however its text was copied. The copy that says more is kept.
+		const byLine = new Map();
+		for (const e of logged) {
+			const key = /:\d+$/.test(e.source) ? e.source : `${e.source}\n${e.message}`;
+			if ((byLine.get(key)?.meta.length ?? -1) < e.meta.length) {
+				byLine.set(key, e);
+			}
+		}
+		f.errors = [...byLine.values()].map(withMetaHtml);
 	}
 }
 

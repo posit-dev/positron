@@ -77,6 +77,7 @@ export const LINT_RULES = {
 	'evidence-note': 'error',
 	'evidence-run-file': 'error',
 	'evidence-trailing-note': 'error',
+	'log-process-mismatch': 'warning',
 	'test-file-missing': 'error',
 	'absolute-path': 'error',
 	// the ledger

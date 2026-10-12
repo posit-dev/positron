@@ -13,7 +13,7 @@
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isPositronLog, parseLedger, parseSystemLine } from '../shared/ledger.mjs';
+import { fileProcess, isPositronLog, parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { problem } from './lint-rules.mjs';
 import { CAUSE_LEAD_WORDS, lintPreconditionActions, RESULT_MAX, SCENARIO_ID, sentencesOf, stepListProblems, stepProblems, verifyProblems, wordsOf } from './lint-wording.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from '../page/repro-files.mjs';
@@ -37,6 +37,20 @@ function prose(markdown) {
 /** The files an `Evidence:` value names; prose such as "none, DOM read only" names none. */
 function evidenceFiles(value) {
 	return value.split(/[\s,;()[\]]+/).map(t => t.replace(/^shots\//, '')).filter(t => /^[\w.-]+\.[a-z0-9]{2,5}$/i.test(t));
+}
+
+/**
+ * A log line credited to another process than the one whose log file it is in,
+ * which sends the reader to the wrong place; nothing when the file's name does
+ * not say whose it is, or no process is named.
+ */
+function processProblems(where, source, named) {
+	const whose = fileProcess(source);
+	const norm = p => String(p ?? '').toLowerCase().replace(/\s+process$/, '').trim();
+	if (!whose || !named || /^(logged|\d)/i.test(named) || norm(named) === norm(whose)) {
+		return [];
+	}
+	return [problem('log-process-mismatch', `${where} credits ${source} to ${named}, but that file is the ${whose.toLowerCase()}'s log; name the process that wrote it`)];
 }
 
 function lintLedger(ledger, findingNumbers, fileExists) {
@@ -161,6 +175,11 @@ function lintLedger(ledger, findingNumbers, fileExists) {
 	}
 
 	const notRun = lines.filter(({ line }) => /^-\s+N\d+\b/.test(line)).length;
+	for (const s of parseLedger(ledger)?.exercised ?? []) {
+		for (const [k, st] of s.steps.entries()) {
+			problems.push(...processProblems(`ledger: ${s.id} step ${k + 1} Log:`, st.error?.source, st.error?.meta?.[0]));
+		}
+	}
 	return { problems, scenarioCount: scenarios.length, notRun };
 }
 
@@ -400,6 +419,11 @@ export function modelProblems(findings, ledger, { repoFileExists } = {}) {
 		});
 	}
 	// Evidence shows what Positron logged and nothing else; reasons go in Observed or Cause.
+	for (const f of findings) {
+		for (const e of f.evidence.filter(x => x.kind === 'log')) {
+			problems.push(...processProblems(`report: Finding ${f.n} evidence`, e.path, e.process));
+		}
+	}
 	for (const f of findings) {
 		for (const e of f.evidence) {
 			if (e.kind === 'note') {

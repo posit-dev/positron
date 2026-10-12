@@ -150,6 +150,28 @@ export function isPositronLog(path) {
 	return /\.log$/i.test(file) && basename(file) !== 'actions.log';
 }
 
+// The process a collected log comes from, by the name collect-logs.sh gives
+// it, or the name a run copies the kernel supervisor's log under.
+const LOG_PROCESS = [
+	[/-(python|r)(?:-[\w-]+)?-console\.log$/i, m => `${m[1].length === 1 ? 'R' : 'Python'} console`],
+	[/^\d+-console\.log$|-renderer\.log$/i, () => 'Renderer process'],
+	[/-exthost\.log$/i, () => 'Extension host'],
+	[/-code\.log$/i, () => 'Main process'],
+	[/-supervisor\.log$/i, () => 'Kernel supervisor'],
+];
+
+/** The process that writes the log at `path` (with or without `:line`), or '' when its name does not say. */
+export function fileProcess(path) {
+	const name = basename(String(path ?? '').replace(/:\d+$/, ''));
+	for (const [re, label] of LOG_PROCESS) {
+		const m = re.exec(name);
+		if (m) {
+			return label(m);
+		}
+	}
+	return '';
+}
+
 /**
  * `at Fn (path/file.ts:212:7)`, `at path/file.ts:212`, or a Python traceback's
  * `File "path/file.py", line 212, in fn` -> its parts, or null.

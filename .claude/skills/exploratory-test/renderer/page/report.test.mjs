@@ -421,6 +421,13 @@ test('reportFromJson keeps a featured shot first in Evidence, once, and a step\'
 		['S03-03.png Verify it loads', 'S03-03b.png Still loading 15 s later', 'S03-13.png pandas loads the same column']);
 });
 
+test('a log line the report and the ledger both cite is one error, kept as the copy that says more', () => {
+	// The report's copy keeps the line's timestamp; the ledger's names the process and the count.
+	const json = rep({ findings: [fnd(1, { steps: [act('Open it.'), fail('it loads', 1, { log: { source: 'logs/1-supervisor.log:515', body: '01:48:02 [INFO] Child exited: signal 9' } })] })] });
+	const ledger = '## S01 - x\nStatus: fail - Finding 1\nResult: Fails 1/1\n\nSteps:\n1. Open it.\n2. VERIFY it loads -> FAIL - Finding 1\n   Observed: dead\n   Log: logs/1-supervisor.log:515 | Kernel supervisor | 1x (01:48:02)\n     Child exited: signal 9\n';
+	assert.deepEqual(model(json, ledger).findings[0].errors.map(e => [e.source, e.meta]), [['logs/1-supervisor.log:515', ['Kernel supervisor', 'Logged 1x (01:48:02)']]]);
+});
+
 test('reportFromJson takes Run details from the header and the verdicts from the findings', () => {
 	const r = model(fullWith(2, { verified: 'disputed' }));
 	assert.deepEqual(r.runDetails.map(s => s.title), ['Change under test', 'Environment']);

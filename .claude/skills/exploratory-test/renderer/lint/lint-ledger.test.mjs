@@ -359,6 +359,12 @@ test('every lint scene gives what it gave before', () => checkScenes('lint-scene
 	],
 	'a file under a mirrored folder is found by its bare name, and a long extension is kept': () => lint(report(f => { f.preconditions = [{ name: 'app', text: '`app.R` in the `rapp` folder of the workspace' }]; }), '# Test ledger\n\n## Files\n- files/rapp/app.R | app | S01; Finding 1\n\n## S01 - x\nStatus: pass\nResult: ok\n\nSteps:\n1. VERIFY rows -> PASS\n   Evidence: logs/S01-products.parquet\n', { fileExists: p => ['files/rapp/app.R', 'logs/S01-products.parquet', 'shots/a.png'].includes(p), listFiles: () => ['files/rapp/app.R'] }),
 	'one screenshot may serve failed checks of two different findings, and nothing else': () => each(n2 => lint(report(), twoFindings(Number(n2))), ['2', '1']),
+	'a log line credited to another process than the one whose log file it is in': () => ({
+		'ledger, supervisor log as the extension host': ledgerOnly('   Log: none found in logs/r.log', '   Log: logs/34353-supervisor.log:515 | Extension host | 1x (01:48:02)\n     Child process exited with status: signal: 9 (SIGKILL)'),
+		'ledger, renderer log as the renderer': ledgerOnly('   Log: none found in logs/r.log', '   Log: logs/1-renderer.log:5 | Renderer | 1x\n     Error: x'),
+		'report, exthost log as the main process': edited(f => { f.evidence.push({ kind: 'log', path: 'logs/1-exthost.log:5', process: 'Main process', quote: 'x' }); }),
+		'report, a log whose name says nothing': edited(f => { f.evidence.push({ kind: 'log', path: 'logs/python-kernel.log:5', process: 'Extension host', quote: 'x' }); }),
+	}),
 	'Evidence holds Positron log lines only: no notes, no agent files': () => [
 		...edited(f => { f.evidence.push({ kind: 'log', path: 'logs/1-exthost.log:5', process: 'Extension host', when: '00:18:39', quote: 'env change ==/x== remove' }, { kind: 'missing', path: 'logs/1-exthost.log', window: '00:18:39-00:19:24', quote: 'env change /x add' }); }),
 		...edited(f => { f.evidence.push({ kind: 'note', caption: 'so nothing resolved the new path' }, { kind: 'log', path: 'actions.log:12', quote: 'click failed' }, { kind: 'log', path: 'logs/S03-later.txt', quote: 'saved' }); }),

@@ -15,7 +15,7 @@
 // same untrusted report text, and two copies drift.
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { isPositronLog } from '../shared/ledger.mjs';
+import { fileProcess, isPositronLog } from '../shared/ledger.mjs';
 import { basename, escapeHtml, isNewTestFile, readJson } from '../shared/text.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from '../known-issues.mjs';
@@ -487,6 +487,7 @@ const PROCESSES = [
 	[/^renderer( process)?$/i, 'Renderer process', 'Logged by Positron’s renderer process (the UI), not the extension host or a language runtime'],
 	[/^extension host$/i, 'Extension host', 'Logged by the extension host, the process extensions run in'],
 	[/^main( process)?$/i, 'Main process', 'Logged by Positron’s main process, which runs the app and its windows'],
+	[/^kernel supervisor$/i, 'Kernel supervisor', 'Logged by the kernel supervisor (Kallichore), which starts and watches the language runtimes'],
 	[/^(python|r) (kernel|console)$/i, null, 'Logged by the language runtime'],
 ];
 
@@ -498,27 +499,9 @@ function processHtml(text, html) {
 		: `<span>${html}</span>`;
 }
 
-// The process a collected log comes from, by the name collect-logs.sh gives it.
-const LOG_PROCESS = [
-	[/-(python|r)(?:-[\w-]+)?-console\.log$/i, m => `${m[1].length === 1 ? 'R' : 'Python'} console`],
-	[/^\d+-console\.log$|-renderer\.log$/i, () => 'Renderer process'],
-	[/-exthost\.log$/i, () => 'Extension host'],
-	[/-code\.log$/i, () => 'Main process'],
-];
-
 /** The process a log line was logged by: the bullet's own, else its file's. */
 function logProcess(e) {
-	if (e.process) {
-		return e.process;
-	}
-	const name = basename(logFile(e.path)?.path ?? e.path);
-	for (const [re, label] of LOG_PROCESS) {
-		const m = re.exec(name);
-		if (m) {
-			return label(m);
-		}
-	}
-	return '';
+	return e.process || fileProcess(logFile(e.path)?.path ?? e.path);
 }
 
 /** Verbatim log text, with `==value==` as a highlight. */
