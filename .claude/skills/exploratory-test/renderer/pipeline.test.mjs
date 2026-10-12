@@ -173,7 +173,7 @@ test('an edit the guard rejects gets one retry, applied as the last', async () =
 	});
 	assert.deepEqual(run.purposes, ['verify', 'edit', 'edit-retry']);
 	assert.equal(run.logs.filter(line => line.startsWith('kept the original')).length, 2);
-	assert.ok(run.logs.includes('kept the original of Finding 1\'s title: the rewrite has a |, ; or code'));
+	assert.ok(run.logs.includes('kept the original of Finding 1\'s title: the rewrite has a | or ;'));
 });
 
 test('with verify off it goes straight to the editor; with it on it needs the diff range', async () => {

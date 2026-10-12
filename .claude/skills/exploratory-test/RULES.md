@@ -178,7 +178,7 @@ Then update the rule's row here in the same PR.
 | Compress, don't summarize: one sentence by default, leading with the visible failure, with the expected behavior only when it adds something. | Reports read like a log of the test run. | `edit.mjs` rejects an opening over 60 words. | #16526: on 11 findings from two runs, openings went from 36 to 21 words, all one sentence. | #16526 |
 | Don't narrate the test, and prefer concrete product words over the listed stock phrases. | Same as above. | Nothing | Same trial as above. | #16526 |
 | Don't broaden the bug, and keep numbers and on-screen text exact. | A rewrite added facts the run never recorded. | `edit.mjs` rejects a rewrite citing code, quotes or numbers the record lacks, then retries once. | - | #16487 |
-| Keep titles short but specific, without the feature. | The issue title is `<feature>: <title>`. | `edit.mjs` rejects a title over 15 words, or with `\|`, `;`, code or a scenario ID. | - | #16526 |
+| Keep titles short but specific, without the feature. | The issue title is `<feature>: <title>`. | `edit.mjs` rejects a title over 15 words, or with `\|`, `;` or a scenario ID, and drops backticks from it. | - | #16526 |
 | Fill WHERE only for an OS, the web build or a setting. | Not recorded. | Nothing | - | #16526 |
 | Never rewrite the steps. | Steps are the run's record. | `edit.mjs` drops any field it doesn't ask for, such as steps. | - | #16487 |
 

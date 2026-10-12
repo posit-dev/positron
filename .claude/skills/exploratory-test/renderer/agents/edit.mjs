@@ -209,7 +209,7 @@ function bareTitle(title, feature) {
 function titleProblem(title, record) {
 	const words = wordsOf(title);
 	const invented = unsupported(title, record);
-	return /[|;`]/.test(title) ? 'has a |, ; or code'
+	return /[|;]/.test(title) ? 'has a | or ;'
 		: words > TITLE_WORDS ? `is ${words} words, over ${TITLE_WORDS}; cut filler, never a word that narrows the bug`
 			: SCENARIO_ID.test(title) ? `names the scenario ID ${SCENARIO_ID.exec(title)[0]}`
 				: invented.length ? `cites ${invented.join(', ')}, which the record does not have`
@@ -248,7 +248,9 @@ export function reviewEdits(report, edits) {
 	for (const [n, fields] of edits) {
 		const now = current.get(n);
 		for (const [field, value] of Object.entries(fields)) {
-			const after = field === 'title' ? bareTitle(value, now?.feature) : value;
+			// A title quotes on-screen text in backticks however the prompt asks, and
+			// the backticks are all that make it read as code, so they go.
+			const after = field === 'title' ? bareTitle(value.replace(/`/g, ''), now?.feature) : value;
 			const reason = now === undefined ? (n === SUMMARY ? 'the report has no Result' : `Finding ${n} is not in the report`)
 				: field === 'result' ? resultProblem(now.result, after)
 					: field === 'title' ? titleProblem(after, now.record)
