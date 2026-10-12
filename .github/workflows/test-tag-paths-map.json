@@ -166,6 +166,8 @@
   "src/vs/workbench/browser/positronList/": ["@:packages-pane"],
   "src/vs/workbench/browser/positronTree/": ["@:connections"],
   "src/vs/workbench/browser/positronViewPane/": [],
+  "src/vs/workbench/browser/utils/": [],
+  "src/vs/workbench/browser/utils/createFolder.ts": ["@:new-folder-flow"],
   "src/vs/workbench/common/positron/": [],
   "src/vs/workbench/contrib/extensions/": [],
   "src/vs/workbench/contrib/extensions/browser/positronCompatibleVersion.ts": ["@:extensions"],
