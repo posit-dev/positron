@@ -23,6 +23,7 @@ import { modelDisplayName, safeUrl } from './text.mjs';
 import { renderReportHtml } from './html.mjs';
 import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
+import { checkScenes } from './scene-check.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
@@ -1254,24 +1255,7 @@ const SCENES = {
 	'with no findings and no linked issues, only the empty state shows': () => `${findingsOf(render(NO_FINDINGS, { ledger: passing(KI_LEDGER).replace(/^Issue: .*\n/gm, '') }))}\nscripts: ${scripts(render(NO_FINDINGS))}`,
 };
 
-test('every scene renders as saved', () => {
-	const path = fileURLToPath(new URL('./fixtures/scenes.expected.txt', import.meta.url));
-	// Icons, feedback links and issue links are pinned elsewhere: by the saved
-	// pages, and by the tests that read the links' answers and bodies.
-	const trim = out => out.replace(/<svg[\s\S]*?<\/svg>/g, '<svg>').replace(/<div class="fb" .*?<\/div>/g, '<div class="fb">').replace(/href="https:\/\/github\.com\/posit-dev\/positron\/issues\/new\?[^"]*"/g, 'href="(new issue)"');
-	const text = Object.entries(SCENES).map(([name, scene]) => `==== ${name}\n${trim(scene())}\n`).join('\n');
-	if (process.env.UPDATE_PAGES || !existsSync(path)) {
-		writeFileSync(path, text);
-	}
-	// Scene by scene, so a failure names the scene and its first line that moved.
-	const scenes = s => new Map(s.split(/^==== /m).slice(1).map(part => [part.slice(0, part.indexOf('\n')), part.slice(part.indexOf('\n') + 1)]));
-	const want = scenes(readFileSync(path, 'utf8'));
-	const got = scenes(text);
-	assert.deepEqual([...got.keys()], [...want.keys()], 'scenes were added, removed or renamed; run UPDATE_PAGES=1 node --test report.test.mjs');
-	for (const [name, out] of got) {
-		const a = out.split('\n');
-		const b = want.get(name).split('\n');
-		const at = a.findIndex((line, i) => line !== b[i]);
-		assert.ok(at === -1 && a.length === b.length, `"${name}" changed at line ${at + 1}: ${a[at]}\nIf meant, run UPDATE_PAGES=1 node --test report.test.mjs and review the diff`);
-	}
-});
+// Icons, feedback links and issue links are pinned elsewhere: by the saved
+// pages, and by the tests that read the links' answers and bodies.
+const trimScene = out => out.replace(/<svg[\s\S]*?<\/svg>/g, '<svg>').replace(/<div class="fb" .*?<\/div>/g, '<div class="fb">').replace(/href="https:\/\/github\.com\/posit-dev\/positron\/issues\/new\?[^"]*"/g, 'href="(new issue)"');
+test('every scene renders as saved', () => checkScenes('scenes.expected.txt', SCENES, { trim: trimScene }));
