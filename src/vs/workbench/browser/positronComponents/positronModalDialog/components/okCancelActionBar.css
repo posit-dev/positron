@@ -21,3 +21,9 @@
 	width: 80px;
 	height: 32px;
 }
+
+.positron-modal-dialog-box .ok-cancel-action-bar .action-bar-button:disabled {
+	/* Dim the enabled button rather than restyling it, matching upstream's .monaco-button.disabled { opacity: 0.4 }. */
+	opacity: 0.4;
+	cursor: default;
+}
