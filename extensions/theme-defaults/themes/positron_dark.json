@@ -14,6 +14,8 @@
 		"button.background": "#32485B",
 		"button.border": "#32485B",
 		"button.hoverBackground": "#32485BE6",
+		"editorBracketMatch.background": "#3994BC55",
+		"editorBracketMatch.border": "#2A2B2C",
 		"editorGutter.modifiedBackground": "#32485B",
 		"menu.selectionBackground": "#32485B",
 		"panel.background": "#181818",
