@@ -29,7 +29,7 @@ issues, titles and openings, and what each pass cost. `renderer/render.mjs`
 
 Local and CI runs share every step after the explorer: `completeRun` in
 `renderer/pipeline.mjs` checks the report, runs the later passes in order and
-writes what each cost, and is given only a way to run an agent. Locally that is `claude -p` (`renderer/claude-cli.mjs`), which uses the
+writes what each cost, and is given only a way to run an agent. Locally that is `claude -p` (`renderer/agents/claude-cli.mjs`), which uses the
 person's own login; in CI it is an Agent SDK session (`run.mjs`). So a change
 to the order, a retry or a fallback goes in `pipeline.mjs`, and both get it.
 A local run's explorer is a `claude -p` session too, started by `pipeline.mjs
@@ -42,22 +42,28 @@ the report as the explorer wrote it, with the findings marked unreviewed.
 
 ## Where things live
 
+The top of `renderer/` holds only what gets run: the pipeline, `render.mjs`,
+lint, publishing and the scripts the explorer calls, each with its test. What
+they use is in four folders: `page/` builds the report page, `lint/` holds the
+write-up rules, `agents/` starts agents and reads their replies, and `shared/`
+holds the text helpers and the ledger parser.
+
 | To change | Edit |
 |---|---|
 | What an agent is told | `explorer.md`, `verifier.md`, `isolator.md`, `editor.md` |
 | Why each of the explorer's rules exists, and what checks it | `RULES.md` |
 | Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
-| How a local run starts an agent, and its time limit | `renderer/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
-| The verifier's prompt and how verdicts are applied | `renderer/finish.mjs` |
-| The editor's prompt and how rewrites are checked | `renderer/edit.mjs` |
-| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (report.json against the ledger), `renderer/lint-wording.mjs` and `renderer/lint-ledger.mjs` (the write-up rules), `renderer/lint-rules.mjs` (each rule's ID and severity), `renderer/report-json.mjs` (what the page reads) |
-| Reading the ledger | `renderer/ledger.mjs` |
-| The page | `renderer/html.mjs` (template), `renderer/report-css.mjs` (tokens), `renderer/page-scripts.mjs` (its scripts), `renderer/page-common.mjs` (icons and shared helpers), `renderer/text.mjs` (markdown to safe HTML) |
-| A finding card's agent prompt, GitHub issue and feedback links | `renderer/card-actions.mjs` |
+| How a local run starts an agent, and its time limit | `renderer/agents/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
+| The verifier's prompt and how verdicts are applied | `renderer/agents/finish.mjs` |
+| The editor's prompt and how rewrites are checked | `renderer/agents/edit.mjs` |
+| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (report.json against the ledger), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
+| Reading the ledger | `renderer/shared/ledger.mjs` |
+| The page | `renderer/page/html.mjs` (template), `renderer/page/report-css.mjs` (tokens), `renderer/page/page-scripts.mjs` (its scripts), `renderer/page/page-common.mjs` (icons and shared helpers), `renderer/shared/text.mjs` (markdown to safe HTML) |
+| A finding card's agent prompt, GitHub issue and feedback links | `renderer/page/card-actions.mjs` |
 | Linked issues the agents see | `renderer/known-issues.mjs` |
 | Secrets | `renderer/redact.sh` (text), `renderer/scan-shots.mjs` (screenshots) |
 | Publishing a local run | `renderer/publish.sh` |
-| Run stats, usage counts | `renderer/stats.mjs`, `renderer/usage.mjs` |
+| Run stats, usage counts | `renderer/stats.mjs`, `renderer/shared/usage.mjs` |
 | CI's prompt and agent sessions | `.github/actions/pr-exploratory-test/run.mjs`, `lib.mjs`, `session.mjs` |
 | Whether a PR gets a run | `gate.mjs` (declines `/explore`), `suggest.ts` (suggests it) |
 | The PR comment | `renderPrComment` in `lib.mjs`, posted by `comment.mjs` |
@@ -123,13 +129,16 @@ To see whether a rule in a prompt changes what an agent does, run its eval:
 (`--dry-run` checks them for free). It costs about $0.17 a sample per arm.
 `RULES.md` says when a rule needs one.
 
-`page.test.mjs` pins the whole page for two saved runs under `fixtures/`, and
-the scenes in `report.test.mjs` pin the cases those runs do not reach, each
-named for what the page should do in it (`fixtures/scenes.expected.txt`). A
-change to the page fails them at the first line that moved; when the change is
-meant, run `UPDATE_PAGES=1 node --test page.test.mjs report.test.mjs` and
-review the diff of the saved output before committing it. A new case the page
-handles gets a scene, not a test of its markup.
+`page/page.test.mjs` pins the whole page for two saved runs under
+`renderer/fixtures/`, and the scenes in `page/report.test.mjs` pin the cases
+those runs do not reach, each named for what the page should do in it
+(`fixtures/scenes.expected.txt`). Lint's cases are scenes too, in
+`lint/lint-ledger.test.mjs` (`fixtures/lint-scenes.expected.txt`). A change
+fails them at the first line that moved; when the change is meant, run
+`UPDATE_PAGES=1 node --test page/page.test.mjs page/report.test.mjs
+lint/lint-ledger.test.mjs` from `renderer/` and review the diff of the saved
+output before committing it. A new case gets a scene, not a test of its
+markup or message.
 
 To see a template change on a past run, re-render it:
 `node renderer/render.mjs <run dir>/report.json`.

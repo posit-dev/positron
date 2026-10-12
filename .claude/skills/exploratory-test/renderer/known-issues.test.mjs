@@ -9,7 +9,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildKnownIssuesBrief, closingRefs, extractSummary, formatSearch, knownFixLines, knownIssueOutcomes, loadIssueRefs, openedLabel, readIssueRefs, referencedNumbers } from './known-issues.mjs';
-import { parseLedger } from './ledger.mjs';
+import { parseLedger } from './shared/ledger.mjs';
 
 test('closingRefs reads the keywords for the work a PR does, for this repo only', () => {
 	const body = [

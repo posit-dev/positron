@@ -10,7 +10,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { problem } from './lint-rules.mjs';
+import { problem } from './lint/lint-rules.mjs';
 import { buildStats, CHECKS_FILE, readChecks, recordCheck, statsFromLog, summarizeByVersion, summarizeChecks } from './stats.mjs';
 
 // The renders these tests spawn must not post usage rows.

@@ -15,13 +15,13 @@
 // same untrusted report text, and two copies drift.
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { isPositronLog } from './ledger.mjs';
-import { basename, escapeHtml, isNewTestFile, readJson } from './text.mjs';
+import { isPositronLog } from '../shared/ledger.mjs';
+import { basename, escapeHtml, isNewTestFile, readJson } from '../shared/text.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
-import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
+import { knownIssueOutcomes, openedLabel, readIssueRefs } from '../known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, FILE_SCRIPT } from './repro-files.mjs';
 import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
-import { readKnownIssues } from './finish.mjs';
+import { readKnownIssues } from '../agents/finish.mjs';
 import { issueLink, possiblyKnown, renderCopyButton, renderFeedbackRow, renderIssueBlock, renderIssueButton, renderLinkButton, renderPromptBlock } from './card-actions.mjs';
 import { capitalize, ICON, logFile, REPO_URL, SEVERITY_LABEL, statusWord } from './page-common.mjs';
 import { BOOT_SCRIPT, CODE_CHIP_SCRIPT, COPY_SCRIPT, FEEDBACK_SCRIPT, HEADER_ACTIONS, ISSUE_SCRIPT, KI_LIST_SCRIPT, KI_SCRIPT, LINK_SCRIPT, PAGE_SCRIPT } from './page-scripts.mjs';

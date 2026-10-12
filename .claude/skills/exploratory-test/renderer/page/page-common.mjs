@@ -10,7 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LOWERCASE_NAMES, safeUrl } from './text.mjs';
+import { LOWERCASE_NAMES, safeUrl } from '../shared/text.mjs';
 
 export const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -110,7 +110,7 @@ export function escapeLoneTildes(text) {
  */
 export function skillVersion(skillMd) {
 	try {
-		const text = skillMd ?? readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'SKILL.md'), 'utf8');
+		const text = skillMd ?? readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'SKILL.md'), 'utf8');
 		const front = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? '';
 		const version = /^\s+version:\s*["']?v?([^"'\s]+)["']?\s*$/m.exec(front)?.[1];
 		return version ?? null;

@@ -8,8 +8,8 @@
 // is data.
 
 import { join } from 'node:path';
-import { parseLedger, parseLogField, verifyText } from './ledger.mjs';
-import { basename, block, formatMinutes, inline, isDefaultsOnly, modelDisplayName, plainText, safeUrl, sentenceCase } from './text.mjs';
+import { parseLedger, parseLogField, verifyText } from '../shared/ledger.mjs';
+import { basename, block, formatMinutes, inline, isDefaultsOnly, modelDisplayName, plainText, safeUrl, sentenceCase } from '../shared/text.mjs';
 
 const TEST_LEVEL = { unit: 'Unit', extension: 'Extension', e2e: 'E2E' };
 

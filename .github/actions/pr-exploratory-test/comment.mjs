@@ -9,7 +9,7 @@
 import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { readJson } from '../../../.claude/skills/exploratory-test/renderer/text.mjs';
+import { readJson } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
 import { renderPrComment, buildShotsBaseUrl } from './lib.mjs';
 
 const API = 'https://api.github.com';

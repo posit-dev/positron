@@ -12,10 +12,10 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { knownFixLines, knownIssueOutcomes } from './known-issues.mjs';
-import { lintActionsLog } from './lint-ledger.mjs';
-import { parseLedger } from './ledger.mjs';
-import { readJson } from './text.mjs';
+import { knownFixLines, knownIssueOutcomes } from '../known-issues.mjs';
+import { lintActionsLog } from '../lint/lint-ledger.mjs';
+import { parseLedger } from '../shared/ledger.mjs';
+import { readJson } from '../shared/text.mjs';
 
 /**
  * The verify pass's prompt: verifier.md with the run's paths and diff range
@@ -43,7 +43,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		CHANGE_SCOPE: changeBase?.usable
 			? `The change under test is the commits in \`${baseSha}..${headSha}\`.`
 			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so mark no finding related and skip the steps below.`,
-		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), 'known-issues.mjs')} --search`,
+		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), '..', 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
 	const missing = new Set();
@@ -317,7 +317,7 @@ export function isVerified(report) {
 	return Boolean(report?.verification);
 }
 
-const VERIFIER_PATH = fileURLToPath(new URL('../verifier.md', import.meta.url));
+const VERIFIER_PATH = fileURLToPath(new URL('../../verifier.md', import.meta.url));
 
 /** The run's report.json. */
 export function reportPath(dir) {

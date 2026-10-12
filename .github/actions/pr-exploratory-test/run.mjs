@@ -9,10 +9,10 @@
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { missingFiles, readRunDir, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
-import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page-common.mjs';
-import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/report-json.mjs';
-import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
+import { missingFiles, readRunDir, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/page/html.mjs';
+import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page/page-common.mjs';
+import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/page/report-json.mjs';
+import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/agents/finish.mjs';
 import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';

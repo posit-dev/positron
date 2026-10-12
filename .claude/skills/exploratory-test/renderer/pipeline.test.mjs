@@ -11,8 +11,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage } from './pipeline.mjs';
-import { parseSystemLine } from './ledger.mjs';
-import { reportFromJson } from './report-json.mjs';
+import { parseSystemLine } from './shared/ledger.mjs';
+import { reportFromJson } from './page/report-json.mjs';
 
 const REPORT = {
 	header: { title: 'Exploratory test: something', result: 'Two things broke.' },

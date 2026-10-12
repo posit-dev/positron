@@ -43,14 +43,14 @@ const { dependencies } = JSON.parse(readFileSync(join(here, 'package.json'), 'ut
 if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules', name)))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { missingFiles, readRunDir, writeRunPage } = await import('./html.mjs');
-const { skillVersion } = await import('./page-common.mjs');
-const { lintLedgerOnly, untaggedShots } = await import('./lint-ledger.mjs');
-const { splitProblems } = await import('./lint-rules.mjs');
-const { reportFromJson } = await import('./report-json.mjs');
+const { missingFiles, readRunDir, writeRunPage } = await import('./page/html.mjs');
+const { skillVersion } = await import('./page/page-common.mjs');
+const { lintLedgerOnly, untaggedShots } = await import('./lint/lint-ledger.mjs');
+const { splitProblems } = await import('./lint/lint-rules.mjs');
+const { reportFromJson } = await import('./page/report-json.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, passStats, readChecks } = await import('./stats.mjs');
-const { ranInCi, reportUsageOnce } = await import('./usage.mjs');
+const { ranInCi, reportUsageOnce } = await import('./shared/usage.mjs');
 
 const dir = dirname(resolve(input));
 const { ledger, actionsLog, knownIssues, changeBase, fileExists, readFile } = readRunDir(dir);

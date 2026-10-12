@@ -18,7 +18,7 @@ import { homedir, tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { runClaude } from './claude-cli.mjs';
+import { runClaude } from './agents/claude-cli.mjs';
 
 const SKILL_DIR = join(dirname(fileURLToPath(import.meta.url)), '..');
 const EVALS_DIR = join(SKILL_DIR, 'evals');

@@ -25,7 +25,7 @@ function format(value) {
 
 /** Checks each scene's output against fixtures/`file`, scene by scene; `trim` drops what is pinned elsewhere. */
 export function checkScenes(file, scenes, { trim = out => out } = {}) {
-	const path = fileURLToPath(new URL(`./fixtures/${file}`, import.meta.url));
+	const path = fileURLToPath(new URL(`../fixtures/${file}`, import.meta.url));
 	const text = Object.entries(scenes).map(([name, scene]) => `==== ${name}\n${trim(format(scene()))}\n`).join('\n');
 	if (process.env.UPDATE_PAGES || !existsSync(path)) {
 		writeFileSync(path, text);

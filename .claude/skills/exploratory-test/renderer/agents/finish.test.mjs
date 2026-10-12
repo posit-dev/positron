@@ -105,7 +105,7 @@ test('hasFindings is true only for a report with a finding', () => {
 	assert.equal(hasFindings(null), false);
 });
 
-const VERIFIER = readFileSync(new URL('../verifier.md', import.meta.url), 'utf8');
+const VERIFIER = readFileSync(new URL('../../verifier.md', import.meta.url), 'utf8');
 const RUN = { workDir: '/tmp/run', repoRoot: '/repo', baseSha: 'aaaa1111', headSha: 'bbbb2222' };
 
 test('buildVerifyPrompt fills verifier.md with the run paths and diff range', () => {

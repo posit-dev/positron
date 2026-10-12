@@ -16,8 +16,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as ledgerLint from './lint-ledger.mjs';
-import { checkScenes } from './scene-check.mjs';
-import { formatProblems, lintReportJson as lintReportJsonRaw, schemaProblems } from './lint-json.mjs';
+import { checkScenes } from '../shared/scene-check.mjs';
+import { formatProblems, lintReportJson as lintReportJsonRaw, schemaProblems } from '../lint-json.mjs';
 import { LINT_RULES, problem, splitProblems } from './lint-rules.mjs';
 
 const texts = ps => ps.map(p => p.text);
@@ -27,7 +27,7 @@ const lintLedgerOnly = (...a) => texts(ledgerLint.lintLedgerOnly(...a));
 const lintShotNames = (...a) => texts(ledgerLint.lintShotNames(...a));
 const lintShotTiming = (...a) => texts(ledgerLint.lintShotTiming(...a));
 const lintReportJson = (...a) => texts(lintReportJsonRaw(...a));
-import { applyVerification, parseVerifyReply } from './finish.mjs';
+import { applyVerification, parseVerifyReply } from '../agents/finish.mjs';
 
 /** One finding, as report.json writes it, with the run around it. */
 const BASE = {
@@ -159,16 +159,16 @@ test('render.mjs --check checks a ledger alone without counting it, and lint-jso
 		for (const f of ['shots/a.png', 'shots/p.png', 'logs/r.log']) { writeFileSync(join(dir, f), 'x'); }
 		writeFileSync(join(dir, 'ledger.md'), LEDGER.replace('Result: Fails 2/2', 'Result: Retry leaves the panel empty'));
 		// No report yet: the ledger alone, with a warning only.
-		const early = run('./render.mjs', 'ledger.md', '--check');
+		const early = run('../render.mjs', 'ledger.md', '--check');
 		assert.equal(early.status, 0, early.stderr);
 		assert.match(early.stderr, /format warnings[^\n]*\n {2}ledger: S02 Result: of a failed scenario/);
 		assert.ok(!existsSync(join(dir, 'format-checks.jsonl')), 'a mid-run ledger check is not the report\'s first check');
 		writeFileSync(join(dir, 'ledger.md'), LEDGER);
 		writeFileSync(join(dir, 'report.json'), JSON.stringify(report()));
-		const clean = run('./lint-json.mjs', 'report.json');
+		const clean = run('../lint-json.mjs', 'report.json');
 		assert.equal(clean.status, 0, clean.stdout);
 		writeFileSync(join(dir, 'ledger.md'), LEDGER.replace('   Log: none found in logs/r.log\n', ''));
-		const failed = run('./lint-json.mjs', 'report.json');
+		const failed = run('../lint-json.mjs', 'report.json');
 		assert.equal(failed.status, 1);
 		assert.match(failed.stdout, /errors[^\n]*\n {2}ledger: S02 step 2 FAIL is missing Log:/);
 	} finally {

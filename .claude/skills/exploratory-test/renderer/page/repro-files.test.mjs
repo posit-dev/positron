@@ -10,16 +10,16 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseLedger } from './ledger.mjs';
+import { parseLedger } from '../shared/ledger.mjs';
 import { renderReportHtml } from './html.mjs';
-import { formatProblems } from './lint-json.mjs';
+import { formatProblems } from '../lint-json.mjs';
 import { reportFromJson } from './report-json.mjs';
 import { PREVIEW_LINES, EMBED_BYTES, findFile } from './repro-files.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
-const DIR = new URL('./fixtures/logs-run/', import.meta.url);
+const DIR = new URL('../fixtures/logs-run/', import.meta.url);
 const REPORT = JSON.parse(readFileSync(new URL('report.json', DIR), 'utf8'));
 const LEDGER = readFileSync(new URL('ledger.md', DIR), 'utf8');
 const SLOW = readFileSync(new URL('files/slow.py', DIR));
@@ -227,7 +227,7 @@ test('lint: a drive-positron helper a precondition names is not a test file', ()
 test('files: render.mjs fails the run when a listed file was not saved', () => {
 	const dir = mkdtempSync(join(tmpdir(), 'files-run-'));
 	cpSync(fileURLToPath(DIR), dir, { recursive: true });
-	const render = fileURLToPath(new URL('./render.mjs', import.meta.url));
+	const render = fileURLToPath(new URL('../render.mjs', import.meta.url));
 	const run = (...args) => spawnSync(process.execPath, [render, ...args], { encoding: 'utf8' });
 	assert.equal(run(join(dir, 'report.json')).status, 0);
 	rmSync(join(dir, 'files', 'slow.py'));

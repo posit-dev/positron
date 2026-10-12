@@ -38,7 +38,7 @@ Then update the rule's row here in the same PR.
 - **Why** is the failure the rule prevents. "Not recorded" means neither the
   PR nor the commit says.
 - **Caught by** is what notices a run that breaks it, with lint's rule IDs from
-  `renderer/lint-rules.mjs` in brackets. Lint hands the problem back
+  `renderer/lint/lint-rules.mjs` in brackets. Lint hands the problem back
   to the explorer to fix, and the pipeline acts on its own. For the later
   agents, the code that reads their reply (`finish.mjs`, `edit.mjs`) plays
   lint's part. The verifier only adds a note to the finding. "Nothing" means

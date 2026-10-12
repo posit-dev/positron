@@ -18,12 +18,12 @@ import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseLedger, parseSystemLine } from './ledger.mjs';
-import { modelDisplayName, safeUrl } from './text.mjs';
+import { parseLedger, parseSystemLine } from '../shared/ledger.mjs';
+import { modelDisplayName, safeUrl } from '../shared/text.mjs';
 import { renderReportHtml } from './html.mjs';
 import { skillVersion } from './page-common.mjs';
 import { reportFromJson } from './report-json.mjs';
-import { checkScenes } from './scene-check.mjs';
+import { checkScenes } from '../shared/scene-check.mjs';
 
 // The renders these tests spawn must not post usage rows.
 process.env.EXPLORATORY_TEST_NO_USAGE = '1';
@@ -233,7 +233,7 @@ const TYPED = rep({
 		}),
 	],
 });
-const LEDGER = readFileSync(new URL('./fixtures/ledger.md', import.meta.url), 'utf8');
+const LEDGER = readFileSync(new URL('../fixtures/ledger.md', import.meta.url), 'utf8');
 /** TYPED with finding `n`'s step `k` (1-based) replaced. */
 const typedStep = (n, k, step) => ({ ...TYPED, findings: TYPED.findings.map(f => (f.n === n ? { ...f, steps: f.steps.map((s, i) => (i === k - 1 ? step : s)) } : f)) });
 const typedHtml = (json = TYPED, options = {}) => render(json, { ledger: LEDGER, ...options });
@@ -257,7 +257,7 @@ const STACKED = rep({
 	})],
 });
 
-const LOGS_DIR = new URL('./fixtures/logs-run/', import.meta.url);
+const LOGS_DIR = new URL('../fixtures/logs-run/', import.meta.url);
 const LOGS_FIXTURE = JSON.parse(readFileSync(new URL('report.json', LOGS_DIR), 'utf8'));
 /** The logs run's report.json, with no Features and the explorer's cost. */
 const LOGS_REPORT = {
@@ -1030,7 +1030,7 @@ function runCopy(passes) {
 	if (passes) {
 		writeFileSync(report, JSON.stringify({ ...JSON.parse(readFileSync(report, 'utf8')), cost: { passes } }));
 	}
-	return { dir, run: () => spawnSync(process.execPath, [fileURLToPath(new URL('./render.mjs', import.meta.url)), report], { encoding: 'utf8' }) };
+	return { dir, run: () => spawnSync(process.execPath, [fileURLToPath(new URL('../render.mjs', import.meta.url)), report], { encoding: 'utf8' }) };
 }
 
 test('render.mjs fails the run when a listed log was not copied, and still writes the page', () => {

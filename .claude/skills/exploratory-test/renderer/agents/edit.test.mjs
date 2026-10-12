@@ -68,7 +68,7 @@ test('buildEditPrompt fills the Result and findings, or returns null when there 
 });
 
 test('editor.md has the placeholders buildEditPrompt fills', () => {
-	const template = readFileSync(fileURLToPath(new URL('../editor.md', import.meta.url)), 'utf8');
+	const template = readFileSync(fileURLToPath(new URL('../../editor.md', import.meta.url)), 'utf8');
 	assert.ok(buildEditPrompt(template, REPORT).includes('### Finding 1:'));
 });
 

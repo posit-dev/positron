@@ -11,7 +11,7 @@
  */
 
 import { problem } from './lint-rules.mjs';
-import { LOWERCASE_NAMES } from './text.mjs';
+import { LOWERCASE_NAMES } from '../shared/text.mjs';
 
 // A one-line Result, as explorer.md asks; anything longer is a scenario's worth of notes.
 export const RESULT_MAX = 160;

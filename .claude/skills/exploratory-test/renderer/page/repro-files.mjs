@@ -10,7 +10,7 @@
 // working when only the HTML is forwarded; `files/<path>` is the fallback.
 
 import { copyScript } from './page-common.mjs';
-import { basename, escapeHtml, escapeRegExp, unescapeHtml } from './text.mjs';
+import { basename, escapeHtml, escapeRegExp, unescapeHtml } from '../shared/text.mjs';
 
 // The viewer shows this many lines; Download has the rest.
 export const PREVIEW_LINES = 400;

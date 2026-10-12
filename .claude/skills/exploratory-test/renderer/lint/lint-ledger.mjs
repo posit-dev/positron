@@ -13,11 +13,11 @@
 import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isPositronLog, parseLedger, parseSystemLine } from './ledger.mjs';
+import { isPositronLog, parseLedger, parseSystemLine } from '../shared/ledger.mjs';
 import { problem } from './lint-rules.mjs';
 import { CAUSE_LEAD_WORDS, lintPreconditionActions, RESULT_MAX, SCENARIO_ID, sentencesOf, stepListProblems, stepProblems, verifyProblems, wordsOf } from './lint-wording.mjs';
-import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
-import { basename, escapeRegExp, isNewTestFile } from './text.mjs';
+import { FILE_NAME, FILES_PATH, findFile } from '../page/repro-files.mjs';
+import { basename, escapeRegExp, isNewTestFile } from '../shared/text.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
 function prose(markdown) {
@@ -262,7 +262,7 @@ const APP_CONFIG = /^(settings|keybindings|launch|tasks|extensions|argv)\.json$/
 // drive-positron's helper scripts (run-venv.sh, settings.sh, ...), read from its folder.
 const HELPERS = (() => {
 	try {
-		return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'drive-positron', 'scripts')));
+		return new Set(readdirSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', 'drive-positron', 'scripts')));
 	} catch {
 		return new Set();
 	}

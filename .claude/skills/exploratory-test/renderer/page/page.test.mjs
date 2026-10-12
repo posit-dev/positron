@@ -19,7 +19,7 @@ process.env.EXPLORATORY_TEST_NO_USAGE = '1';
 
 /** The run in `fixtures/<name>/` as the page, with everything that varies by machine or day held fixed. */
 function renderFixture(name) {
-	const dir = fileURLToPath(new URL(`./fixtures/${name}/`, import.meta.url));
+	const dir = fileURLToPath(new URL(`../fixtures/${name}/`, import.meta.url));
 	const run = readRunDir(dir);
 	const json = JSON.parse(readFileSync(`${dir}report.json`, 'utf8'));
 	return renderReportHtml(reportFromJson(json, { ledger: run.ledger }), {
@@ -29,7 +29,7 @@ function renderFixture(name) {
 
 for (const name of ['logs-run', 'uv-run']) {
 	test(`the ${name} page is unchanged`, () => {
-		const path = fileURLToPath(new URL(`./fixtures/${name}/index.expected.html`, import.meta.url));
+		const path = fileURLToPath(new URL(`../fixtures/${name}/index.expected.html`, import.meta.url));
 		const html = renderFixture(name);
 		if (process.env.UPDATE_PAGES || !existsSync(path)) {
 			writeFileSync(path, html);

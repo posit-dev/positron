@@ -24,7 +24,7 @@ const SAMPLES = {
 for (const [name, counts] of Object.entries(SAMPLES)) {
 	test(`renderCard draws ${name} as the design does`, async () => {
 		const actual = PNG.sync.read(await renderCard(counts));
-		const expected = PNG.sync.read(readFileSync(new URL(`./fixtures/og-card/${name}.png`, import.meta.url)));
+		const expected = PNG.sync.read(readFileSync(new URL(`../fixtures/og-card/${name}.png`, import.meta.url)));
 		assert.deepEqual([actual.width, actual.height], [expected.width, expected.height]);
 		assert.ok(actual.data.equals(expected.data), `${name} differs from fixtures/og-card/${name}.png`);
 	});

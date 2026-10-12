@@ -7,7 +7,7 @@
 // the Agent SDK or a live container.
 
 import { execFileSync } from 'node:child_process';
-import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/text.mjs';
+import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/shared/text.mjs';
 
 /** Flatten the SDK result message into the record written to cost.json. */
 export function buildCostRecord(message) {

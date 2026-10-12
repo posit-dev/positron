@@ -7,8 +7,8 @@
 // issue, and the team's feedback form, with the evidence and error text they
 // share.
 
-import { parseSystemLine } from './ledger.mjs';
-import { escapeHtml, escapeRegExp } from './text.mjs';
+import { parseSystemLine } from '../shared/ledger.mjs';
+import { escapeHtml, escapeRegExp } from '../shared/text.mjs';
 import { promptFilesSection, filesNamedIn, fileSource } from './repro-files.mjs';
 import { absolutePath, capitalize, countText, escapeLoneTildes, ICON, logFile, REPO_URL, safeLinks, SEVERITY_LABEL, statusWord } from './page-common.mjs';
 
