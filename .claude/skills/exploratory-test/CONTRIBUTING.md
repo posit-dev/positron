@@ -83,7 +83,7 @@ Launching and driving the app belongs to drive-positron. See its
   such a change under an old number muddies both. One bump per PR is enough. A
   change to how the page looks needs none.
 - **A rule in `explorer.md` lands with proof it works:** a lint check with a
-  test that fails without it, or an eval. A lint check gets an ID and a
+  test that fails without it, or a comparison of full runs. A lint check gets an ID and a
   severity in `lint-rules.mjs`. Add or update its row in `RULES.md` in the
   same PR, naming the ID, and read that file before cutting one.
 - **Verdicts annotate, they never delete.** A wrong FALSE POSITIVE that
@@ -124,12 +124,6 @@ the isolator included when a finding comes back UNRESOLVED. For the explorer,
 run the skill locally on a small branch, or start `test-exploratory.yml` with
 workflow_dispatch on your branch. A `/explore` comment always runs main's copy
 of the harness, so it won't test your change.
-
-To see whether a rule in a prompt changes what an agent does, run its eval:
-`node renderer/eval.mjs <case> --samples 4`, with the cases under `evals/`
-(`--dry-run` checks them for free). It costs about $0.17 a sample per arm.
-`RULES.md` says when a rule needs one, and when a case counts: it has to
-fail without the rule first.
 
 `page/page.test.mjs` pins the whole page, less its stylesheet and scripts,
 for two saved runs under `renderer/fixtures/`, and the scenes in `page/report.test.mjs` pin the cases
