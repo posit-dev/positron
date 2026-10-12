@@ -173,13 +173,16 @@ test('readCheckedReport returns the report and logs what the check still finds, 
 	const dir = mkdtempSync(join(tmpdir(), 'checked-'));
 	const lines = [];
 	const log = line => lines.push(line);
-	assert.equal(readCheckedReport(dir, { log }), null);
-	writeFileSync(join(dir, 'ledger.md'), LEDGER);
-	writeFileSync(join(dir, 'report.json'), '{');
-	assert.equal(readCheckedReport(dir, { log }), null);
-	writeFileSync(join(dir, 'report.json'), JSON.stringify(json()));
-	assert.deepEqual(readCheckedReport(dir, { log }), json());
-	assert.match(lines[0], /does not parse/);
-	assert.match(lines[1], /^\[json\] \d+ problems after the explorer: report\.header is missing/);
-	rmSync(dir, { recursive: true, force: true });
+	try {
+		assert.equal(readCheckedReport(dir, { log }), null);
+		writeFileSync(join(dir, 'ledger.md'), LEDGER);
+		writeFileSync(join(dir, 'report.json'), '{');
+		assert.equal(readCheckedReport(dir, { log }), null);
+		writeFileSync(join(dir, 'report.json'), JSON.stringify(json()));
+		assert.deepEqual(readCheckedReport(dir, { log }), json());
+		assert.match(lines[0], /does not parse/);
+		assert.match(lines[1], /^\[json\] \d+ problems after the explorer: report\.header is missing/);
+	} finally {
+		rmSync(dir, { recursive: true, force: true });
+	}
 });

@@ -112,7 +112,16 @@ const pair = (observed, expected) => edited(f => { f.observed = observed; f.expe
 const inLedger = (from, to) => lint(report(), LEDGER.replace(from, to));
 const ledgerOnly = (from, to) => lintLedgerOnly(LEDGER.replace(from, to));
 /** `fn` over each input, keyed by the input, for a scene that tries several. */
-const each = (fn, inputs) => Object.fromEntries(inputs.map(input => [Array.isArray(input) ? input.join(' | ') : input, Array.isArray(input) ? fn(...input) : fn(input)]));
+const each = (fn, inputs) => {
+	const out = {};
+	for (const input of inputs) {
+		const key = Array.isArray(input) ? input.join(' | ') : input;
+		// Two cases under one name would leave one of them unchecked.
+		assert.ok(!(key in out), `two scene cases are named ${key}`);
+		out[key] = Array.isArray(input) ? fn(...input) : fn(input);
+	}
+	return out;
+};
 
 // ---- Severities and the command line ----------------------------------------
 

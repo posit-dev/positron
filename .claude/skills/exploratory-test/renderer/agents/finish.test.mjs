@@ -251,7 +251,7 @@ test('apply takes a reply with no findings and logs the issues it left unrated',
 	}
 });
 
-// Findings listed worst first, as the explorer lists them: the first is Finding 4.
+// Findings need not be in number order in report.json: the first is Finding 4.
 const SORTED = { findings: [{ n: 4, title: 'data lost' }, { n: 1, title: 'wrong label' }, { n: 2, title: 'slow reload' }] };
 
 test('findingNumbers reads the findings in their order', () => {

@@ -51,12 +51,12 @@ holds the text helpers and the ledger parser.
 | To change | Edit |
 |---|---|
 | What an agent is told | `explorer.md`, `verifier.md`, `isolator.md`, `editor.md` |
-| Why each of the explorer's rules exists, and what checks it | `RULES.md` |
+| Why each agent's rules exist, and what checks them | `RULES.md` |
 | Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
 | How a local run starts an agent, and its time limit | `renderer/agents/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
 | The verifier's prompt and how verdicts are applied | `renderer/agents/finish.mjs` |
 | The editor's prompt and how rewrites are checked | `renderer/agents/edit.mjs` |
-| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (report.json against the ledger), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
+| The report format | `explorer.md` (what to write), `renderer/report.schema.json` (the shape), `renderer/lint-json.mjs` (runs every check on report.json: against the ledger, and the write-up rules), `renderer/lint/lint-wording.mjs` and `renderer/lint/lint-ledger.mjs` (the write-up rules), `renderer/lint/lint-rules.mjs` (each rule's ID and severity), `renderer/page/report-json.mjs` (what the page reads) |
 | Reading the ledger | `renderer/shared/ledger.mjs` |
 | The page | `renderer/page/html.mjs` (template), `renderer/page/report-css.mjs` (tokens), `renderer/page/page-scripts.mjs` (its scripts), `renderer/page/page-common.mjs` (icons and shared helpers), `renderer/shared/text.mjs` (markdown to safe HTML) |
 | A finding card's agent prompt, GitHub issue and feedback links | `renderer/page/card-actions.mjs` |

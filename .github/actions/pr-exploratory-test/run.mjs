@@ -161,8 +161,9 @@ async function runAgent(step) {
 		prompt: step.role === 'isolate' ? step.prompt + ISOLATE_CI_TAIL : step.prompt,
 		allowedTools: step.tools, maxTurns, cwd: step.cwd, resume: step.resume,
 		timeLimit: step.timeLimitMinutes ?? null, timeUpMessage: step.timeUpMessage,
-		// The later passes are few calls, so each is logged in full for whoever audits the run.
-		fullLog: true,
+		// The verifier and editor make few calls, so each is logged in full for
+		// whoever audits the run; the isolator drives the app, like the explorer.
+		fullLog: step.role !== 'isolate',
 	});
 	return { text: result.finalText, model: result.cost.model, durationMs: result.cost.duration_ms, turns: result.cost.num_turns, costUsd: result.cost.total_cost_usd, sessionId: result.sessionId };
 }

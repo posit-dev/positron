@@ -130,6 +130,10 @@ async function main(argv) {
 	const names = positionals.length ? positionals : readdirSync(EVALS_DIR).filter(n => !n.startsWith('.'));
 	const cases = names.map(name => ({ name, ...loadCase(join(EVALS_DIR, name)) }));
 	const samples = Number(values.samples);
+	if (!Number.isInteger(samples) || samples < 1) {
+		console.error('eval: --samples must be a positive whole number');
+		return 1;
+	}
 	for (const c of cases) {
 		console.log(`${c.name}: the rule cuts ${c.with.length - c.without.length} characters`);
 	}
@@ -157,8 +161,12 @@ async function main(argv) {
 		return row;
 	})));
 	console.log(`results: ${resultsPath}`);
-	const rows = await pool(tasks, CONCURRENCY);
-	rmSync(cwd, { recursive: true, force: true });
+	let rows;
+	try {
+		rows = await pool(tasks, CONCURRENCY);
+	} finally {
+		rmSync(cwd, { recursive: true, force: true });
+	}
 	const summary = summarize(rows);
 	for (const s of summary) {
 		console.log(`${s.case}\t${s.arm}\t${s.pass}/${s.graded} pass\t$${s.costUsd.toFixed(2)}`);

@@ -17,7 +17,9 @@ test('every name the action imports from a local module is exported there', asyn
 	const missing = [];
 	for (const file of readdirSync(here).filter(f => f.endsWith('.mjs') && !f.endsWith('.test.mjs'))) {
 		const source = readFileSync(join(here, file), 'utf8');
-		for (const m of source.matchAll(/^import \{([^}]+)\} from '(\.{1,2}\/[^']+)';$/gm)) {
+		// An import list split over lines is read as one.
+		const flat = source.replace(/^import \{([^}]+)\}/gm, (_, names) => `import {${names.replace(/\s+/g, ' ')}}`);
+		for (const m of flat.matchAll(/^import \{([^}]+)\} from '(\.{1,2}\/[^']+)';$/gm)) {
 			const target = await import(pathToFileURL(resolve(here, m[2])).href);
 			for (const name of m[1].split(',').map(n => n.trim().split(/\s+as\s+/)[0]).filter(Boolean)) {
 				if (!(name in target)) {

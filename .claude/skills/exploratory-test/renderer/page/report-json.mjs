@@ -335,7 +335,7 @@ function withEnvironment(runDetails, environment) {
 	if (!html || runDetails?.some(s => /^environment$/i.test(s.title))) {
 		return runDetails;
 	}
-	const sections = runDetails ?? [];
+	const sections = [...(runDetails ?? [])];
 	const at = sections.findIndex(s => /^change under test$/i.test(s.title)) + 1;
 	sections.splice(at, 0, { title: 'Environment', html });
 	return sections;

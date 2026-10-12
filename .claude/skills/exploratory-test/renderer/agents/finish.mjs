@@ -102,7 +102,7 @@ const SEVERITIES = ['major', 'moderate', 'minor'];
 export function parseVerifyReply(text) {
 	const raw = String(text ?? '');
 	const out = { findings: new Map(), linked: new Map(), notes: raw.trim(), problem: '' };
-	const block = /```json[ \t]*\n([\s\S]*?)\n```/.exec(raw);
+	const block = /```json[ \t]*\n([\s\S]*?)\n```[ \t]*$/m.exec(raw);
 	if (!block) {
 		out.problem = 'the reply has no ```json block';
 		return out;

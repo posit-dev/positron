@@ -52,7 +52,7 @@ jobs:
           # What the agents are told and allowed, and what is done with their
           # replies: the files versioned-files.txt lists.
           FILES=()
-          while IFS= read -r f; do FILES+=("$f"); done < <(grep -v '^#' "$SKILL/versioned-files.txt" | grep .)
+          while IFS= read -r f; do FILES+=("$f"); done < <(grep -v '^#' "$SKILL/versioned-files.txt" | grep -v '^[[:space:]]*$')
           if [ "${#FILES[@]}" -eq 0 ]; then
             echo "::error file=$SKILL/versioned-files.txt::versioned-files.txt lists no files."
             exit 1

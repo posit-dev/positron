@@ -14,6 +14,9 @@ import { fileURLToPath } from 'node:url';
 
 /** A scene's output as text: a string as it is, a list one item per line, a map one entry per input. */
 function format(value) {
+	if (value === null || value === undefined) {
+		return '(nothing returned)';
+	}
 	if (typeof value === 'string') {
 		return value;
 	}

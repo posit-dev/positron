@@ -29,7 +29,7 @@ import { homedir, machine, release, type } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { runClaude, stopAgents } from './agents/claude-cli.mjs';
+import { runClaude, stopAgents, WRAP_UP_MINUTES } from './agents/claude-cli.mjs';
 import { applyEditReply, writeEditPrompt } from './agents/edit.mjs';
 import { applyVerifyReply, parseVerifyReply, readReport, reportPath, writeReport, writeVerifyPrompt } from './agents/finish.mjs';
 import { readCheckedReport } from './lint-json.mjs';
@@ -58,7 +58,7 @@ export function isolateTimeUpMessage(dir) {
 }
 
 /** What the explorer is told once its time is up, as CI's is; the limit can change, so no minutes. */
-export const EXPLORE_TIME_UP = 'Time is up: your time for exploring has run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it. The run is stopped in 10 minutes.';
+export const EXPLORE_TIME_UP = `Time is up: your time for exploring has run out. Stop exploring now. Finish the ledger, putting every scenario you did not reach under Not run, then write report.json and check it. The run is stopped in ${WRAP_UP_MINUTES} minutes.`;
 
 /**
  * The first lines of the ledger's Environment, from facts read before the
@@ -393,10 +393,11 @@ export function checkoutProblems({ head, git, mtimeMs, builtMs }) {
 	} else if (at !== want) {
 		problems.push(`the checkout is at ${at.slice(0, 10)}, not --head ${want.slice(0, 10)}; check out the head, then build`);
 	}
-	const changed = Number(git(['log', '-1', '--format=%ct', '--', 'src'])) * 1000;
+	// Unknown when git cannot say; the build's age is then not judged.
+	const changed = Number(git(['log', '-1', '--format=%ct', '--', 'src'])) * 1000 || null;
 	if (builtMs === null) {
 		problems.push('there is no build (out/); build it with npm run build-start, then npm run build-check');
-	} else if (builtMs < changed) {
+	} else if (changed !== null && builtMs < changed) {
 		problems.push(`the build is older than the last change to src/; rebuild with npm run build-start, then npm run build-check`);
 	}
 	for (const b of CHECKOUT_BINARIES) {

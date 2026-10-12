@@ -345,7 +345,8 @@ const passing = ledger => ledger.replace(/Status: fail - Finding \d/g, 'Status: 
 /** From `start` to the first `end` after it. */
 const between = (html, start, end) => {
 	const i = html.indexOf(start);
-	return i === -1 ? '' : html.slice(i, html.indexOf(end, i));
+	const j = i === -1 ? -1 : html.indexOf(end, i);
+	return j === -1 ? '' : html.slice(i, j);
 };
 /** The card as rendered, without its prompt block. */
 function card(html, n) {
@@ -366,7 +367,7 @@ const tiles = html => between(html, '<section class="tiles">', '</section>');
 const coverageOf = html => between(html, 'id="coverage"', '</section>');
 const findingsOf = html => between(html, 'id="findings"', '</section>');
 const findingRow = (html, n) => new RegExp(`<a href="#f${n}" class="row findings-grid">[\\s\\S]*?</a>(?=\\n)`).exec(html)?.[0] ?? '';
-const runDetails = html => between(html, '<details id="run-details">', '</details>\n</section>');
+const runDetails = html => between(html, '<details id="run-details">', '</details></section>');
 const footer = html => between(html, '<footer', '</footer>');
 const foldLabels = html => [...runDetails(html).matchAll(/<div class="fold-label">([^<]+)<\/div>/g)].map(m => m[1]).join(', ');
 /** Which of the page's optional scripts it ships. */

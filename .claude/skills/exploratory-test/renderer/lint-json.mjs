@@ -93,7 +93,7 @@ export function checkReportJson(json, ledgerText) {
 	const onFinding = (n, rule, text) => problems.push(problem(rule, text, { finding: n }));
 
 	// Findings: the same numbers the ledger fails.
-	const ledgerFindings = new Set(ledger.exercised.flatMap(s => [...s.findings, ...s.steps.map(st => st.finding).filter(n => n !== null)]));
+	const ledgerFindings = new Set(ledger.exercised.flatMap(s => [...s.findings, ...s.steps.map(st => st.finding).filter(n => n !== null && n !== undefined)]));
 	const findings = json.findings ?? [];
 	for (const f of findings) {
 		if (!ledgerFindings.has(f.n)) {
