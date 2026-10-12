@@ -5,8 +5,9 @@
 
 // Pins the whole page for two saved runs, so a change to html.mjs shows
 // exactly what it does to the page. The stylesheet and the page's scripts are
-// left out: they are the same on every page, and their own files show a change. After a change you meant, rewrite the
-// saved pages and review their diff:
+// left out: they are the same on every page, and their own files show a
+// change. After a change you meant, rewrite the saved pages and review their
+// diff:
 //   UPDATE_PAGES=1 node --test page.test.mjs
 
 import { test } from 'node:test';
