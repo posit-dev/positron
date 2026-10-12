@@ -19,9 +19,9 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { knownFixLines, knownIssueOutcomes, parseLinked } from './known-issues.mjs';
-import { lintActionsLog } from './lint.mjs';
-import { parseLedger } from './report-parse.mjs';
+import { knownFixLines, knownIssueOutcomes, parseLinked } from '../known-issues.mjs';
+import { lintActionsLog } from '../lint.mjs';
+import { parseLedger } from '../report-parse.mjs';
 
 /**
  * The verify pass's prompt: verifier.md with the run's paths and diff range
@@ -49,7 +49,7 @@ export function buildVerifyPrompt(template, { workDir, repoRoot, baseSha, headSh
 		CHANGE_SCOPE: changeBase?.usable
 			? `The change under test is the commits in \`${baseSha}..${headSha}\`.`
 			: `This run has no usable base (${changeBase?.reason ?? 'none was given'}), so write no CHANGE line and skip the rest of this section.`,
-		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), 'known-issues.mjs')} --search`,
+		SEARCH: `node ${join(dirname(fileURLToPath(import.meta.url)), '..', 'known-issues.mjs')} --search`,
 	};
 	const used = new Set();
 	const missing = new Set();
@@ -407,7 +407,7 @@ export function isVerified(report) {
 	return /^<summary>Verification details<\/summary>$|^## Verification\n\n_Verification did not complete/m.test(String(report ?? ''));
 }
 
-const VERIFIER_PATH = fileURLToPath(new URL('../verifier.md', import.meta.url));
+const VERIFIER_PATH = fileURLToPath(new URL('../../verifier.md', import.meta.url));
 
 /** A run directory's report, ledger and known issues, as the verify steps read them. */
 function readRun(dir) {

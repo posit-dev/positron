@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { applyEdits, buildEditPrompt, buildRetryPrompt, editorFindings, factsOf, parseEdits, reviewEdits } from './edit.mjs';
-import { parseReport } from './report-parse.mjs';
+import { parseReport } from '../report-parse.mjs';
 
 // What was rejected and why, without the rejected text.
 const reasons = rejected => rejected.map(({ n, field, reason }) => ({ n, field, reason }));
@@ -81,7 +81,7 @@ test('buildEditPrompt fills the Result and findings, or returns null when there 
 });
 
 test('editor.md has the placeholders buildEditPrompt fills', () => {
-	const template = readFileSync(fileURLToPath(new URL('../editor.md', import.meta.url)), 'utf8');
+	const template = readFileSync(fileURLToPath(new URL('../../editor.md', import.meta.url)), 'utf8');
 	assert.ok(buildEditPrompt(template, REPORT).includes('### Finding 1:'));
 });
 

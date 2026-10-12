@@ -17,12 +17,12 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog, LOWERCASE_NAMES } from './report-parse.mjs';
+import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog, LOWERCASE_NAMES } from '../report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
-import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
+import { knownIssueOutcomes, openedLabel, readIssueRefs } from '../known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
 import { CARD_FILE, CARD_HEIGHT, CARD_WIDTH, writeCard } from './og-card.mjs';
-import { readKnownIssues } from './finish.mjs';
+import { readKnownIssues } from '../agents/finish.mjs';
 
 const ICON = {
 	// Straight down with no tray under it: "jump down the page", not "download".
@@ -738,7 +738,7 @@ const FEEDBACK_VERDICTS = [
  */
 export function skillVersion(skillMd) {
 	try {
-		const text = skillMd ?? readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'SKILL.md'), 'utf8');
+		const text = skillMd ?? readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'SKILL.md'), 'utf8');
 		const front = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? '';
 		const version = /^\s+version:\s*["']?v?([^"'\s]+)["']?\s*$/m.exec(front)?.[1];
 		return version ?? null;

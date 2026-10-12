@@ -25,8 +25,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyTitles } from './finish.mjs';
-import { SUMMARY_WORDS, wordsOf } from './lint.mjs';
-import { openingRange, parseOpening } from './report-parse.mjs';
+import { SUMMARY_WORDS, wordsOf } from '../lint.mjs';
+import { openingRange, parseOpening } from '../report-parse.mjs';
 
 // The Result line is keyed 0, beside the findings' own numbers.
 const SUMMARY = 0;
@@ -342,7 +342,7 @@ export function applyEdits(report, kept) {
 	return lines.join('\n');
 }
 
-const EDITOR_PATH = fileURLToPath(new URL('../editor.md', import.meta.url));
+const EDITOR_PATH = fileURLToPath(new URL('../../editor.md', import.meta.url));
 
 /** What a kept or rejected edit is, for the log. */
 function named(n, field) {
