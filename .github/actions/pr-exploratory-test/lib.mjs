@@ -6,6 +6,7 @@
 // Pure helpers for run.mjs, kept separate so they can be unit tested without
 // the Agent SDK or a live container.
 
+import { execFileSync } from 'node:child_process';
 import { formatMinutes, modelDisplayName } from '../../../.claude/skills/exploratory-test/renderer/text.mjs';
 
 /** Flatten the SDK result message into the record written to cost.json. */
@@ -53,6 +54,21 @@ export function buildShotsBaseUrl(reportBaseUrl) {
 		return '';
 	}
 	return reportBaseUrl.endsWith('/') ? reportBaseUrl.slice(0, -1) : reportBaseUrl;
+}
+
+/** The value of env var `name`; a missing one stops the script, naming it. */
+export function mustEnv(name) {
+	const v = process.env[name];
+	if (!v) {
+		console.error(`Missing required env var: ${name}`);
+		process.exit(1);
+	}
+	return v;
+}
+
+/** A function that runs git in `root` and returns what it prints. */
+export function gitIn(root) {
+	return args => execFileSync('git', ['-C', root, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
 }
 
 /**

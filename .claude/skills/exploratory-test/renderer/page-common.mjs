@@ -118,3 +118,16 @@ export function skillVersion(skillMd) {
 		return null;
 	}
 }
+
+/**
+ * A page script's copy of `value` (a script expression), calling `done` (a
+ * function name) once it is on the clipboard. A frame that blocks the
+ * clipboard API can still allow execCommand, so that is the fallback.
+ */
+export function copyScript(value, done) {
+	return `function fallback(){var ta=document.createElement('textarea');ta.value=${value};ta.setAttribute('readonly','');
+ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){${done}();}}
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(${value}).then(${done},fallback);}
+else{fallback();}`;
+}

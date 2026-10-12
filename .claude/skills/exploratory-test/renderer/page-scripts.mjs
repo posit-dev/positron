@@ -7,7 +7,7 @@
 // copy buttons, the lightbox, feedback rows and the linked-issue previews.
 
 import { FEEDBACK_ID_ENTRY } from './card-actions.mjs';
-import { ICON } from './page-common.mjs';
+import { copyScript, ICON } from './page-common.mjs';
 
 // The theme toggle shows the moon on light and the sun on dark, by CSS, so a
 // saved choice applied before paint shows the right icon.
@@ -33,11 +33,7 @@ share.addEventListener('click',function(){var text=location.href.split('#')[0];
 try{history.replaceState(null,'',location.pathname+location.search);}catch(_){}
 function done(){share.classList.add('is-copied');shareLabel.textContent='Copied';clearTimeout(shareTimer);
 shareTimer=setTimeout(function(){share.classList.remove('is-copied');shareLabel.textContent='Share';},1600);}
-function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
-ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
-var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
-if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
-else{fallback();}});
+${copyScript('text', 'done')}});
 
 var top=document.querySelector('.to-top');
 if(top){var sync=function(){var show=(window.scrollY||document.documentElement.scrollTop||0)>900;
@@ -176,12 +172,7 @@ else{var el=document.getElementById(b.dataset.prompt);if(!el){return;}
 text=el.textContent.trim().replace(/<\\\\(?=\\/script|!--)/gi,'<');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
-// A frame that blocks the clipboard API can still allow execCommand.
-function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
-ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
-var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
-if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
-else{fallback();}});});`;
+${copyScript('text', 'done')}});});`;
 
 // Copy link: this page's URL with the finding's anchor. The address bar
 // follows without scrolling or adding a history entry.
@@ -191,11 +182,7 @@ var text=location.href.split('#')[0]+'#'+id;
 try{history.replaceState(null,'','#'+id);}catch(_){}
 function done(){b.classList.add('is-copied');b.dataset.tip='Link copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},1600);}
-function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
-ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
-var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
-if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
-else{fallback();}});});`;
+${copyScript('text', 'done')}});});`;
 
 // Inline code in steps: a click copies the chip. A drag-selection is left
 // alone, so the usual copy still takes just what was selected. Not a control:
@@ -205,11 +192,7 @@ c.addEventListener('click',function(){if(window.getSelection&&String(window.getS
 var text=c.textContent;
 function done(){c.classList.add('is-copied');c.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){c.classList.remove('is-copied');c.dataset.tip='Copy';},1200);}
-function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
-ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
-var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
-if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(done,fallback);}
-else{fallback();}});});`;
+${copyScript('text', 'done')}});});`;
 
 // A link too long for GitHub opens the form with the title only, so the click
 // copies the description as well and says so. Only pages with such a link ship this.
@@ -221,11 +204,7 @@ document.querySelectorAll('.gh-btn[data-issue]').forEach(function(a){a.addEventL
 var el=document.getElementById(a.dataset.issue);if(!el){return;}
 // Undo scriptText's escapes, or the paste carries them.
 var text=el.textContent.replace(/<\\\\(?=\\/script|!--)/gi,'<');
-function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
-ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
-var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){show();}}
-if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(text).then(show,fallback);}
-else{fallback();}});});})();`;
+${copyScript('text', 'show')}});});})();`;
 
 // The Linked issues counts open their hidden list in one floating panel: on
 // hover (it stays while the pointer is on it), keyboard focus, or tap. Enter or

@@ -6,22 +6,16 @@
 // The verification step every run ends with, shared by CI (run.mjs) and a
 // local run, so a report reads the same wherever it was made. The verifier is
 // an agent and each side runs it its own way; everything around it is here.
-//
-// Local usage, around a verifier subagent:
-//   node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>]
-//     writes <run dir>/verify-prompt.md and prints its path, or says there
-//     are no findings to verify, and writes <run dir>/change-base.json
-//   node finish.mjs apply <run dir> <reply file>
-//     adds the reply's verdicts to report.json
+// The pipeline calls writeVerifyPrompt and applyVerifyReply.
 
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from 'node:util';
 import { knownFixLines, knownIssueOutcomes } from './known-issues.mjs';
 import { lintActionsLog } from './lint-ledger.mjs';
 import { parseLedger } from './ledger.mjs';
+import { readJson } from './text.mjs';
 
 /**
  * The verify pass's prompt: verifier.md with the run's paths and diff range
@@ -265,11 +259,7 @@ export function verifyLogLines(knownIssues, ledger, reply) {
 
 /** Reads a run directory's known-issues.json, or null when there is none or it does not parse. */
 export function readKnownIssues(dir) {
-	try {
-		return JSON.parse(readFileSync(join(dir, 'known-issues.json'), 'utf8'));
-	} catch {
-		return null;
-	}
+	return readJson(join(dir, 'known-issues.json'));
 }
 
 const PREAMBLE = 'A second agent re-read this report with the repository but without driving the app. Advisory only: no finding was changed or removed.';
@@ -406,55 +396,4 @@ export function applyVerifyReply(dir, reply, { error = '', final = false } = {})
 	const text = `_Verification did not complete${why}. ${unreviewed}_${reply ? `\n\n${reply}` : ''}`;
 	writeReport(path, applyVerification(report, parsed, { failed, text, gaps }));
 	return { failed, logLines: verifyLogLines(knownIssues, ledger, failed ? parseVerifyReply('') : parsed) };
-}
-
-function main(argv) {
-	const { values, positionals } = parseArgs({
-		args: argv,
-		allowPositionals: true,
-		options: { repo: { type: 'string' }, base: { type: 'string' }, head: { type: 'string' }, 'base-name': { type: 'string' }, final: { type: 'boolean' } },
-	});
-	const [command, dir, replyFile] = positionals;
-	const path = dir && reportPath(dir);
-	if (!path || !existsSync(path)) {
-		console.error('usage: node finish.mjs prompt <run dir> --repo <checkout> --base <sha> --head <sha> [--base-name <ref>]\n       node finish.mjs apply <run dir> <reply file> [--final]');
-		return 2;
-	}
-	if (command === 'prompt') {
-		if (!values.repo || !values.base || !values.head) {
-			console.error('finish: prompt needs --repo, --base and --head');
-			return 2;
-		}
-		const out = writeVerifyPrompt(dir, { ...values, baseName: values['base-name'] });
-		console.log(out ?? 'no findings: nothing to verify');
-		return 0;
-	}
-	if (command === 'apply') {
-		// Checked before anything is written: marking the findings unreviewed
-		// over a mistyped path would also stop a corrected retry.
-		if (!replyFile || !existsSync(replyFile)) {
-			console.error(`finish: reply file not found: ${replyFile ?? '(none given)'}`);
-			return 2;
-		}
-		const result = applyVerifyReply(dir, readFileSync(replyFile, 'utf8'), { final: values.final });
-		if (result.already) {
-			console.error(`finish: ${path} is already verified`);
-			return 1;
-		}
-		if (result.retry) {
-			console.error(`finish: ${result.retry}\nSend the verifier this message, save its corrected reply and apply again, or apply this one as it is with --final.`);
-			return 1;
-		}
-		for (const line of result.logLines) {
-			console.error(`finish: ${line}`);
-		}
-		console.log(`finish: ${result.failed ? 'marked unreviewed' : 'verdicts added to'} ${path}`);
-		return 0;
-	}
-	console.error(`finish: unknown command ${command ?? ''}`);
-	return 2;
-}
-
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-	process.exitCode = main(process.argv.slice(2));
 }

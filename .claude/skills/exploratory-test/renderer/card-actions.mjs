@@ -8,7 +8,7 @@
 // share.
 
 import { parseSystemLine } from './ledger.mjs';
-import { escapeHtml } from './text.mjs';
+import { escapeHtml, escapeRegExp } from './text.mjs';
 import { promptFilesSection, filesNamedIn, fileSource } from './repro-files.mjs';
 import { absolutePath, capitalize, countText, escapeLoneTildes, ICON, logFile, REPO_URL, safeLinks, SEVERITY_LABEL, statusWord } from './page-common.mjs';
 
@@ -249,8 +249,7 @@ function systemDetails(report) {
 
 /** The first mention of a saved file in `text`, as "`name` (below)"; a mention inside a code span is left alone. */
 function markBelow(text, file) {
-	const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	const names = [...new Set([file.path, file.rel, file.name])].map(esc).join('|');
+	const names = [...new Set([file.path, file.rel, file.name])].map(escapeRegExp).join('|');
 	const bare = new RegExp(`(?<![\\w/.-])(?:${names})(?!\\w|\\.\\w)`);
 	const quoted = new RegExp(`^\`(?:${names})\`$`);
 	let done = false;

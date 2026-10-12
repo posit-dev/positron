@@ -10,22 +10,15 @@
 // first (a summary and where it happens) and a title cut from that summary,
 // and rewrites the Result line. The explorer's repro steps are never
 // rewritten. This file stores the opening in report.json and keeps the
-// original of anything that cites a fact the run did not record.
-//
-// Local usage, around an editor subagent:
-//   node edit.mjs prompt <run dir>
-//     writes <run dir>/edit-prompt.md and prints its path, or says there is
-//     nothing to edit
-//   node edit.mjs apply <run dir> <reply file> [--last]
-//     applies the reply's edits to report.json, skipping any the guard rejects.
-//     When it rejects any, it writes <run dir>/edit-retry-prompt.md and prints
-//     its path, for one more try applied with --last.
+// original of anything that cites a fact the run did not record. The
+// pipeline runs the editor and calls writeEditPrompt and applyEditReply.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readReport, reportPath, writeReport } from './finish.mjs';
 import { SUMMARY_WORDS, wordsOf } from './lint-wording.mjs';
+import { escapeRegExp } from './text.mjs';
 
 // The Result line is keyed 0, beside the findings' own numbers.
 const SUMMARY = 0;
@@ -177,7 +170,6 @@ function resultFacts(text) {
 }
 
 const FENCE = /^[ \t]*(`{3,}|~{3,})[^\n]*\n([\s\S]*?)^[ \t]*\1[ \t]*$/gm;
-const escape = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 // 1,500 and 1500 are the same number.
 const bareNumber = text => text.replace(/(?<=\d),(?=\d{3})/g, '');
 // A code block's lines, trimmed, so indenting it under a step does not count as a change.
@@ -201,7 +193,7 @@ function unsupported(text, record) {
 		const inner = /^`[\d.,]+`$/.test(fact) ? fact.slice(1, -1) : fact;
 		const missing = /^[`"]/.test(inner)
 			? !haystack.includes(inner.slice(1, -1))
-			: !new RegExp(`(?<![\\w.])${escape(bareNumber(inner))}(?![\\w])`).test(bareNumber(haystack));
+			: !new RegExp(`(?<![\\w.])${escapeRegExp(bareNumber(inner))}(?![\\w])`).test(bareNumber(haystack));
 		if (missing) {
 			out.push(fact);
 		}
@@ -236,7 +228,7 @@ function openingProblem(opening, record) {
 }
 
 function resultProblem(before, after) {
-	const lost = resultFacts(before).filter(f => !new RegExp(`(?<![\\w])${escape(f)}(?![\\w])`).test(after));
+	const lost = resultFacts(before).filter(f => !new RegExp(`(?<![\\w])${escapeRegExp(f)}(?![\\w])`).test(after));
 	return lost.length ? `loses ${lost.join(', ')}`
 		: before.includes('**') && !/\*\*[^*]+\*\*/.test(after) ? 'drops the bold'
 			: wordsOf(after) > SUMMARY_WORDS ? `is ${wordsOf(after)} words, over ${SUMMARY_WORDS}`
@@ -343,39 +335,4 @@ export function applyEditReply(dir, reply, { last = false } = {}) {
 		rejected: rejected.map(r => `kept the original of ${named(r.n, r.field)}: the rewrite ${r.reason}`),
 		retry,
 	};
-}
-
-function main(argv) {
-	const last = argv.includes('--last');
-	const [command, dir, replyFile] = argv.filter(a => a !== '--last');
-	const path = dir && reportPath(dir);
-	if (!path || !existsSync(path)) {
-		console.error('usage: node edit.mjs prompt <run dir>\n       node edit.mjs apply <run dir> <reply file> [--last]');
-		return 2;
-	}
-	if (command === 'prompt') {
-		console.log(writeEditPrompt(dir) ?? 'nothing to edit: no Result or findings');
-		return 0;
-	}
-	if (command === 'apply') {
-		if (!replyFile || !existsSync(replyFile)) {
-			console.error(`edit: reply file not found: ${replyFile ?? '(none given)'}`);
-			return 2;
-		}
-		const { written, rejected, retry } = applyEditReply(dir, readFileSync(replyFile, 'utf8'), { last });
-		for (const line of rejected) {
-			console.error(`edit: ${line}`);
-		}
-		console.log(`edit: ${written} field(s) written in ${path}`);
-		if (retry) {
-			console.log(`edit: retry prompt at ${retry}`);
-		}
-		return 0;
-	}
-	console.error(`edit: unknown command ${command ?? ''}`);
-	return 2;
-}
-
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-	process.exitCode = main(process.argv.slice(2));
 }

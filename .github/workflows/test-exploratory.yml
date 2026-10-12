@@ -461,13 +461,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      # The checkout above is the branch under test, and it is the code this job
-      # builds and drives. It is not where the job's own tooling comes from.
-      # `./.github/actions/...` resolves against the workspace root, so every
-      # local action would be whichever version that branch happens to carry:
-      # missing entirely for one this branch adds, and stale for one it changes.
-      # Take the actions and the skill from the ref the workflow was dispatched
-      # from, so a run is driven by this version whatever it is pointed at.
+      # The tooling comes from the dispatching ref, as in the worthiness job.
       - name: Check out the harness
         uses: actions/checkout@v7
         with:

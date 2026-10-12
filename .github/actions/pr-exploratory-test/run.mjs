@@ -6,19 +6,18 @@
 // Drives the Claude Agent SDK to run the exploratory-test skill against a
 // Positron instance already launched and attached by the workflow.
 
-import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { missingFiles, readRunDir } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
+import { missingFiles, readRunDir, writeRunPage } from '../../../.claude/skills/exploratory-test/renderer/html.mjs';
 import { skillVersion } from '../../../.claude/skills/exploratory-test/renderer/page-common.mjs';
-import { reportFromJson, writeJsonPage } from '../../../.claude/skills/exploratory-test/renderer/report-json.mjs';
+import { reportFromJson } from '../../../.claude/skills/exploratory-test/renderer/report-json.mjs';
 import { readKnownIssues } from '../../../.claude/skills/exploratory-test/renderer/finish.mjs';
 import { completeRun, costPasses, environmentBrief, environmentLines, EXPLORE_TIME_UP, readEnvironment } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 import { buildKnownIssuesBrief } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
 import { buildStats, passStats, readChecks } from '../../../.claude/skills/exploratory-test/renderer/stats.mjs';
 import { runSession } from './session.mjs';
-import { buildTaskLine, describeChange, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
+import { buildTaskLine, describeChange, gitIn, mustEnv, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, renderStepSummary, renderSummaryTarget, runOutcome, turnCapWarning, parseTimeLimit, WRAP_UP_MINUTES, ENVIRONMENT } from './lib.mjs';
 
 // Dates the report footer's copyright.
 const STARTED_AT = new Date();
@@ -59,15 +58,6 @@ const CLAUDE_CODE_PATH = process.env.CLAUDE_CODE_PATH || undefined;
 // Fails fast with a named error instead of letting the SDK surface an opaque
 // auth error when a 1Password resolution comes back empty.
 mustEnv('ANTHROPIC_API_KEY');
-
-function mustEnv(name) {
-	const v = process.env[name];
-	if (!v) {
-		console.error(`Missing required env var: ${name}`);
-		process.exit(1);
-	}
-	return v;
-}
 
 // Shots stay relative (`shots/<file>`): index.html and report.json are
 // published beside shots/, so they resolve without a base URL in the prompt.
@@ -187,7 +177,7 @@ async function main() {
 	const knownBrief = buildKnownIssuesBrief(knownIssues);
 
 	const systemPrompt = readFileSync(EXPLORER_PATH, 'utf8') + CI_TAIL;
-	const git = args => execFileSync('git', ['-C', REPO_ROOT, '-c', 'color.ui=never', ...args], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+	const git = gitIn(REPO_ROOT);
 	const { stat, upstream } = describeChange({ git, base: BASE_SHA, head: HEAD_SHA });
 
 	const userPrompt = [
@@ -290,7 +280,7 @@ async function main() {
 		recordStats(parsed);
 		// index.html is what the published run directory's URL already points at.
 		try {
-			await writeJsonPage(WORK_DIR, report, { agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
+			await writeRunPage(join(WORK_DIR, 'index.html'), parsed, { ...run, skillVersion: skillVersion(), agentPrompts: AGENT_PROMPTS, base: REPORT_BASE_URL || WORK_DIR, diff: `${BASE_SHA.slice(0, 8)}...${HEAD_SHA.slice(0, 8)}`, startedAt: STARTED_AT });
 			// Warned rather than failed: the page still renders, with the missing files unlinked.
 			const { logs, files } = missingFiles(parsed, run.fileExists);
 			const missing = [...logs, ...files];

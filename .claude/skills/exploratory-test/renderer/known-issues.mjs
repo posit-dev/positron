@@ -19,7 +19,8 @@
 //     failed search exits 1, so it cannot pass for no matches.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
+import { readJson } from './text.mjs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -407,11 +408,7 @@ export async function fetchRefs(numbers, repo = DEFAULT_REPO, { auth = token() }
 
 /** A run directory's fetched issue and PR previews, or none. */
 export function readIssueRefs(dir) {
-	try {
-		return JSON.parse(readFileSync(join(dir, REFS_FILE), 'utf8')).refs ?? [];
-	} catch {
-		return [];
-	}
+	return readJson(join(dir, REFS_FILE))?.refs ?? [];
 }
 
 /**

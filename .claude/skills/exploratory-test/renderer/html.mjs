@@ -16,7 +16,7 @@
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { isPositronLog } from './ledger.mjs';
-import { basename, escapeHtml, isNewTestFile } from './text.mjs';
+import { basename, escapeHtml, isNewTestFile, readJson } from './text.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from './known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, FILE_SCRIPT } from './repro-files.mjs';
@@ -1089,17 +1089,9 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 
 /**
  * What the page reads from the run directory besides report.json: the ledger,
- * the linked issues known-issues.mjs fetched, and the files the report names.
+ * the linked issues known-issues.mjs fetched, the base finish.mjs recorded in
+ * change-base.json, and the files the report names.
  */
-/** finish.mjs's change-base.json: whether the run had a usable base, and its name. */
-function readChangeBase(dir) {
-	try {
-		return JSON.parse(readFileSync(join(dir, 'change-base.json'), 'utf8'));
-	} catch {
-		return undefined;
-	}
-}
-
 export function readRunDir(dir) {
 	const ledgerPath = join(dir, 'ledger.md');
 	const fileExists = path => existsSync(join(dir, path));
@@ -1108,7 +1100,7 @@ export function readRunDir(dir) {
 		actionsLog: existsSync(join(dir, 'actions.log')) ? readFileSync(join(dir, 'actions.log'), 'utf8') : undefined,
 		knownIssues: readKnownIssues(dir) ?? undefined,
 		issueRefs: readIssueRefs(dir),
-		changeBase: readChangeBase(dir),
+		changeBase: readJson(join(dir, 'change-base.json'), undefined),
 		fileExists,
 		readFile: path => (fileExists(path) && statSync(join(dir, path)).isFile() ? readFileSync(join(dir, path)) : null),
 	};

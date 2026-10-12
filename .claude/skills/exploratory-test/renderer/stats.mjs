@@ -15,6 +15,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readJson } from './text.mjs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -233,13 +234,7 @@ function localRecords(dir, since) {
 	return readdirSync(dir)
 		.map(name => join(dir, name, 'stats.json'))
 		.filter(existsSync)
-		.map(p => {
-			try {
-				return JSON.parse(readFileSync(p, 'utf8'));
-			} catch {
-				return null;
-			}
-		})
+		.map(p => readJson(p))
 		.filter(r => r && (!since || String(r.date) >= since));
 }
 
@@ -250,7 +245,8 @@ function main(argv) {
 			since: { type: 'string' },
 			limit: { type: 'string', default: '50' },
 			repo: { type: 'string', default: 'posit-dev/positron' },
-			'local-dir': { type: 'string', default: join(homedir(), '.claude', 'skills', 'exploratory-test', 'output') },
+			// Where pipeline.mjs writes local runs.
+			'local-dir': { type: 'string', default: join(homedir(), '.local', 'state', 'exploratory-test', 'output') },
 			'no-ci': { type: 'boolean' },
 			'no-local': { type: 'boolean' },
 			json: { type: 'boolean' },

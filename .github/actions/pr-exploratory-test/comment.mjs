@@ -6,9 +6,10 @@
 // Posts or edits the PR comment for one `/explore` run. The body comes from
 // renderPrComment in lib.mjs; this file is only the GitHub I/O around it.
 
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { readJson } from '../../../.claude/skills/exploratory-test/renderer/text.mjs';
 import { renderPrComment, buildShotsBaseUrl } from './lib.mjs';
 
 const API = 'https://api.github.com';
@@ -43,16 +44,9 @@ export async function postOrEditComment({ fetchImpl, token, repo, prNumber, comm
 	return { action: 'created', id: created.id };
 }
 
+/** The run's report.json, or null when the build failed first or the agent never wrote one. */
 function readReport(workDir) {
-	if (!workDir) {
-		return null;
-	}
-	try {
-		return JSON.parse(readFileSync(join(workDir, 'report.json'), 'utf8'));
-	} catch {
-		// No report: the build failed first, or the agent never wrote one.
-		return null;
-	}
+	return workDir ? readJson(join(workDir, 'report.json')) : null;
 }
 
 async function main() {

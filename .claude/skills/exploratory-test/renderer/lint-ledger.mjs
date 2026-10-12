@@ -17,7 +17,7 @@ import { isPositronLog, parseLedger, parseSystemLine } from './ledger.mjs';
 import { problem } from './lint-rules.mjs';
 import { CAUSE_LEAD_WORDS, lintPreconditionActions, RESULT_MAX, SCENARIO_ID, sentencesOf, stepListProblems, stepProblems, verifyProblems, wordsOf } from './lint-wording.mjs';
 import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
-import { basename, isNewTestFile } from './text.mjs';
+import { basename, escapeRegExp, isNewTestFile } from './text.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
 function prose(markdown) {
@@ -547,9 +547,8 @@ export function lintShotNames(ledger, actionsLog) {
 		const evidence = /^\s+Evidence:(.*)$/i.exec(line);
 		if (evidence) { evidenceFiles(evidence[1]).filter(f => /\.png$/i.test(f)).forEach(f => cited.add(f)); }
 	}
-	const escape = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	return [...cited]
-		.filter(f => !new RegExp(`(^|[^\\w-])${escape(f.replace(/\.png$/i, ''))}(\\.png)?(?![\\w-])`, 'm').test(actionsLog))
+		.filter(f => !new RegExp(`(^|[^\\w-])${escapeRegExp(f.replace(/\.png$/i, ''))}(\\.png)?(?![\\w-])`, 'm').test(actionsLog))
 		.map(f => problem('shot-name-unlogged', `ledger: ${f} is cited as Evidence but actions.log never takes a shot by that name; keep the name a shot was taken with, or log the rename`));
 }
 

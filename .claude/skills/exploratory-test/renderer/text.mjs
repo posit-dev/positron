@@ -6,6 +6,7 @@
 // Markdown to safe HTML, and the small text helpers the page, the lint and the
 // action share.
 
+import { readFileSync } from 'node:fs';
 import { Marked } from 'marked';
 
 /** Escapes the characters that would otherwise open markup or close an attribute. */
@@ -179,4 +180,18 @@ export function modelDisplayName(id) {
 /** A suggested case whose file does not exist yet: `(new file)`. */
 export function isNewTestFile(testCase) {
 	return /\bnew\b/i.test(testCase.note) && !/\bexists?\b/i.test(testCase.note);
+}
+
+/** `text` with every regex metacharacter escaped, to match it literally. */
+export function escapeRegExp(text) {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** The JSON file at `path`, parsed, or `fallback` when it is missing or does not parse. */
+export function readJson(path, fallback = null) {
+	try {
+		return JSON.parse(readFileSync(path, 'utf8'));
+	} catch {
+		return fallback;
+	}
 }

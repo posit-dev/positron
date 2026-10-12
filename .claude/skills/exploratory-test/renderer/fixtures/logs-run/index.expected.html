@@ -1442,7 +1442,8 @@ function done(){flash(b,'Copied');}
 function fallback(){var ta=document.createElement('textarea');ta.value=t;ta.setAttribute('readonly','');
 ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
 var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
-if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(done,fallback);}else{fallback();}});});
+if(navigator.clipboard&&window.isSecureContext){navigator.clipboard.writeText(t).then(done,fallback);}
+else{fallback();}});});
 // Download builds the file from the embedded text, so it works when only the page was saved.
 document.querySelectorAll('.f-dl[data-src]').forEach(function(a){a.addEventListener('click',function(e){
 var t=text(a.dataset.src);if(t===null){return;}e.preventDefault();
@@ -1478,7 +1479,6 @@ else{var el=document.getElementById(b.dataset.prompt);if(!el){return;}
 text=el.textContent.trim().replace(/<\\(?=\/script|!--)/gi,'<');}
 function done(){b.classList.add('is-copied');b.dataset.tip='Copied';clearTimeout(t);
 t=setTimeout(function(){b.classList.remove('is-copied');b.dataset.tip=tip;},2000);}
-// A frame that blocks the clipboard API can still allow execCommand.
 function fallback(){var ta=document.createElement('textarea');ta.value=text;ta.setAttribute('readonly','');
 ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
 var ok=false;try{ok=document.execCommand('copy');}catch(e){}ta.remove();if(ok){done();}}
