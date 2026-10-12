@@ -128,7 +128,8 @@ of the harness, so it won't test your change.
 To see whether a rule in a prompt changes what an agent does, run its eval:
 `node renderer/eval.mjs <case> --samples 4`, with the cases under `evals/`
 (`--dry-run` checks them for free). It costs about $0.17 a sample per arm.
-`RULES.md` says when a rule needs one.
+`RULES.md` says when a rule needs one, and when a case counts: it has to
+fail without the rule first.
 
 `page/page.test.mjs` pins the whole page, less its stylesheet and scripts,
 for two saved runs under `renderer/fixtures/`, and the scenes in `page/report.test.mjs` pin the cases

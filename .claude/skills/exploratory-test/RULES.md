@@ -18,9 +18,13 @@ A new rule lands only with something that shows it works:
 - an eval, when it can't be checked mechanically: a case under `evals/` that
   puts the agent where the rule matters and says what its plan must do.
   `node renderer/eval.mjs <case>` runs the agent with and without the rule,
-  with no tools, and grades each plan. A rule worth keeping passes more often
+  with no tools, and grades each plan. First run the arm without the rule:
+  a case counts only if it fails there at least half the time, on two runs
+  of 8 samples. A case the agent passes without the rule can't show what the
+  rule adds, so rework or drop it. A rule worth keeping then passes more often
   with it than without. Write the result into this file's Measured column.
-  A full run on real checkouts is the fallback for what a plan can't show.
+  A full run on real checkouts is the fallback for what a plan can't show,
+  and the measure for any change that touches many rules at once.
 
 Fix the general instruction. Never add an example or an edge case taken from
 the one run that went wrong: the editor prompt grew stiff that way and was cut
@@ -68,9 +72,9 @@ Then update the rule's row here in the same PR.
 | For a PR, start with the diff's own code paths and the manual checks its description lists. | Not recorded. | Nothing | - | #16421 |
 | Reach each diff action at least once the way a person does: a click, a menu, a key. Keep the palette for setup. | The palette and the toolbar can run different code. | Nothing | - | #16526 |
 | Test the state a real user is in: warm start, a populated workspace, cached state. | That is where this skill found its worst behavior. | Nothing | - | #16162 |
-| Manufacture the state you need, scaled to what you can put back. Restore it and record it. | In the uv A/B, only runs that defeated the extension host's cache reached the feature. | Nothing | Eval `manufacture-state`, 2026-10-11, Opus: 4/4 plans made uv missing with the rule, 4/4 without. Eval `stale-state` (a reload keeps the old answer), 2026-10-11, Opus: 3/4 plans got a fresh process with the rules, 2/4 without; at 20 samples, 5/20 with, 6/20 without; with a narrower criterion, 1/20 against 10/20, then 5/20 against 4/20 on a re-run. | #16162 |
+| Manufacture the state you need, scaled to what you can put back. Restore it and record it. | In the uv A/B, only runs that defeated the extension host's cache reached the feature. | Nothing | Eval `manufacture-state`, 2026-10-11, Opus: 4/4 plans made uv missing with the rule, 4/4 without. The case was dropped: it passes without the rule. Eval `stale-state` (a reload keeps the old answer), 2026-10-11, Opus: 3/4 plans got a fresh process with the rules, 2/4 without; at 20 samples, 5/20 with, 6/20 without; with a narrower criterion, 1/20 against 10/20, then 5/20 against 4/20 on a re-run. | #16162 |
 | Retry with nothing in between: no edit, save, reload, restart or tab switch. | Each of those clears the state the retry tests. | Nothing | - | #16200 |
-| Look for a second consumer of the same data, and run controls (baseline, another user, an unchanged counterpart, another trigger) before naming a Cause. | It localizes the bug, not just observes it. | The isolator runs controls for findings the verifier can't settle. | Eval `controls`, 2026-10-11, Opus: 4/4 plans ran a control with the rule, 4/4 without. | #16355 |
+| Look for a second consumer of the same data, and run controls (baseline, another user, an unchanged counterpart, another trigger) before naming a Cause. | It localizes the bug, not just observes it. | The isolator runs controls for findings the verifier can't settle. | Eval `controls`, 2026-10-11, Opus: 4/4 plans ran a control with the rule, 4/4 without. The case was dropped: it passes without the rule. | #16355 |
 | Word the Cause only as widely as the cases tried. | Causes were worded wider than the cases tried. | Verifier narrows it. | Eval `scope-claims`, 2026-10-11, Opus: 4/4 kept the finding narrow with the scope rules, 3/4 without. | #16355 |
 | Confirm the measurement can see what you think. A log line supports a Cause only if written while the failure was on screen. | A scraping bug reads as a product bug. | Verifier: checks race order against log timestamps. | - | #16233 |
 | A non-default setting a finding needs is a precondition. Re-check under the default. Desktop and web are different findings. | The harness forces settings, so a finding there may be narrower than it looks. | Verifier: asks whether the run's own setup explains the symptom. | - | #16162 |
@@ -143,7 +147,7 @@ Then update the rule's row here in the same PR.
 |---|---|---|---|---|
 | Be adversarial: the report is a claim, not evidence. | Not recorded. | Nothing | - | #16162 |
 | Trace the path from the trigger to the symptom through the blamed code, and read any test file the repro uses. | Cited lines existing doesn't show they cause the bug. | Nothing | - | #16233 |
-| Narrow a Cause worded wider than the cases tried. | Causes were worded wider than the cases tried. | Nothing | Eval `verifier-narrows`, 2026-10-11, Sonnet: 4/4 narrowed the title with the rule, 4/4 without. | #16355 |
+| Narrow a Cause worded wider than the cases tried. | Causes were worded wider than the cases tried. | Nothing | Eval `verifier-narrows`, 2026-10-11, Sonnet: 4/4 narrowed the title with the rule, 4/4 without. The case was dropped: it passes without the rule. | #16355 |
 | For each "any", "every", "all" or "always" in a title, check one untried case against the code. | Titles claimed more than the run covered. | Nothing | - | #16421 |
 | Check a claim that no error appeared against the screenshots. | Not recorded. | Nothing | - | #16421 |
 | A race Cause needs log lines that show the events in the claimed order. | Not recorded. | Nothing | - | this branch |
@@ -219,6 +223,11 @@ two identical runs, so at this sample size the case measures noise. The
 narrower criterion was also written after reading the first run's plans. This
 case cannot show what the rules do without a much larger sample, and is not
 worth more spend as it stands.
+
+Three of the five cases, controls, manufacture-state and verifier-narrows,
+passed 4/4 without their rule, so they could not have shown an effect either
+way. They were dropped on 2026-10-12, and a case now has to fail without its
+rule before it counts.
 
 One thing it turned up stood on its own: the rule's example, "reload the
 window so a cached probe re-runs", was the move that fails in this case,

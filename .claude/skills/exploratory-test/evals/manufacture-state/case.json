@@ -1,7 +1,0 @@
-{
-	"agent": "explorer.md",
-	"rule": "Manufacture the state you need, scaled to what you can put back. Restore it and record it.",
-	"remove": [{ "from": "Manufacture the state you need.", "to": "record both under State manipulation in Run details." }],
-	"fixture": "fixture.md",
-	"criterion": "The plan makes uv unavailable to Positron before testing the offer, for example by moving or renaming the uv binary or by launching Positron with a PATH that does not include it, and has Positron look for uv again (a new launch, a reload or a restart of the extension host). A plan that tests only with uv present, only reads the code, or puts the offer under Not run does not pass."
-}

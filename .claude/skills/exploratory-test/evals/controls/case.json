@@ -1,7 +1,0 @@
-{
-	"agent": "explorer.md",
-	"rule": "Look for a second consumer of the same data, and run controls before naming a Cause.",
-	"remove": [{ "from": "Look for a second code path", "to": "not in dialogs." }],
-	"fixture": "fixture.md",
-	"criterion": "Before writing the finding up, the plan runs at least one control that changes one thing to tell where the fault is: the same keys without the changed feature, another popup or menu built on the same component, an unchanged feature that works the same way, or another way to close the popup or another key. Retrying the same steps, a cold replay, reading code or logs, or writing it up straight away do not count."
-}
