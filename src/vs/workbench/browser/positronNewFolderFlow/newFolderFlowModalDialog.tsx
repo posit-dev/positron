@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
+import { useState } from 'react';
+
 // Other dependencies.
 import { NewFolderFlowContextProvider, useNewFolderFlowContext } from './newFolderFlowContext.js';
 import { NewFolderFlowState } from './newFolderFlowState.js';
@@ -13,6 +16,7 @@ import { NewFolderFlowStep } from './interfaces/newFolderFlowEnums.js';
 import { showChooseNewFolderWindowModalDialog } from './chooseNewFolderWindowModalDialog.js';
 import { URI } from '../../../base/common/uri.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
+import { acceptNewFolderFlow, createNewFolderFlowDialogHandlers } from './utilities/acceptNewFolderFlow.js';
 
 /**
  * Shows the NewFolderFlowModalDialog.
@@ -28,14 +32,8 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 			parentFolder={await renderer.services.fileDialogService.defaultFolderPath()}
 		>
 			<NewFolderFlowModalDialog
-				createFolder={async result => {
-					// Create the new folder if it doesn't already exist.
-					const folder = URI.joinPath(result.parentFolder, result.folderName);
-					const existingFolder = await renderer.services.fileService.exists(folder);
-					if (!existingFolder) {
-						await renderer.services.fileService.createFolder(folder);
-					}
-
+				renderer={renderer}
+				setUpFolder={async (result, folder, existingFolder) => {
 					// Install ipykernel if applicable.
 					if (result.installIpykernel) {
 						const pythonPath =
@@ -53,10 +51,17 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 							// If an error occurs while installing ipykernel, a message will be
 							// logged and once the folder is opened, when the chosen runtime is
 							// starting, the user will be prompted again to install ipykernel.
-							await renderer.services.commandService.executeCommand(
-								'python.installIpykernel',
-								String(pythonPath)
-							);
+							try {
+								await renderer.services.commandService.executeCommand(
+									'python.installIpykernel',
+									String(pythonPath)
+								);
+							} catch (err) {
+								renderer.services.logService.warn(
+									'Could not install ipykernel via New Folder Flow; the runtime will prompt again',
+									err
+								);
+							}
 						}
 					}
 
@@ -112,7 +117,6 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 						}
 					);
 				}}
-				renderer={renderer}
 			/>
 		</NewFolderFlowContextProvider>
 	);
@@ -123,7 +127,7 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
  */
 interface NewFolderFlowModalDialogProps {
 	renderer: PositronModalReactRenderer;
-	createFolder: (result: NewFolderFlowState) => Promise<void>;
+	setUpFolder: (result: NewFolderFlowState, folder: URI, existingFolder: boolean) => Promise<void>;
 }
 
 /**
@@ -135,26 +139,27 @@ const NewFolderFlowModalDialog = (props: NewFolderFlowModalDialogProps) => {
 	// State.
 	const context = useNewFolderFlowContext();
 
-	// The accept handler.
-	const acceptHandler = async () => {
-		props.renderer.dispose();
-		await props.createFolder(context.getState());
-	};
-
-	// The cancel handler.
-	const cancelHandler = () => {
-		props.renderer.dispose();
-	};
+	// The accept and cancel handlers, created once so that their in-flight and closed flags
+	// survive re-renders.
+	const [handlers] = useState(() => createNewFolderFlowDialogHandlers(
+		() => acceptNewFolderFlow(
+			context,
+			props.renderer.services,
+			() => props.renderer.dispose(),
+			props.setUpFolder
+		),
+		() => props.renderer.dispose()
+	));
 
 	// Render. Each step renders its own dialog, sized to the step's content.
 	return (
 		<FlowDialogProvider
 			dialog={{
 				renderer: props.renderer,
-				onCancel: cancelHandler,
+				onCancel: handlers.cancel,
 			}}
 		>
-			<NewFolderFlowStepContainer accept={acceptHandler} cancel={cancelHandler} />
+			<NewFolderFlowStepContainer accept={handlers.accept} cancel={handlers.cancel} />
 		</FlowDialogProvider>
 	);
 };

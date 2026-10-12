@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import { PropsWithChildren, createContext, useContext } from 'react';
+import { PropsWithChildren, createContext, useContext, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { NewFolderFlowStateManager, NewFolderFlowStateConfig } from './newFolderFlowState.js';
@@ -19,7 +19,9 @@ const NewFolderFlowContext = createContext<NewFolderFlowStateManager | undefined
  */
 export const NewFolderFlowContextProvider = (props: PropsWithChildren<NewFolderFlowStateConfig>) => {
 	// Hooks.
-	const state = new NewFolderFlowStateManager(props);
+	// Create the state manager once, so the user's choices survive a re-render.
+	const [state] = useState(() => new NewFolderFlowStateManager(props));
+	useEffect(() => () => state.dispose(), [state]);
 
 	// Render.
 	return (
