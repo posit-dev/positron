@@ -320,7 +320,7 @@ export namespace InterpreterQuickPickList {
         export const installFailed = (version: string) => l10n.t('Failed to install Python {0}', version);
         export const uvInstallFailed = l10n.t('Failed to install uv.');
         export const uvInstallDisabled = l10n.t(
-            'uv is not installed, and installing it is turned off by the [Allow Uv Python Install]({0}) setting.',
+            'uv is not installed. Install uv manually, or enable the [Allow Uv Python Install]({0}) setting to let Positron install it.',
             `command:workbench.action.openSettings?${encodeURIComponent(
                 JSON.stringify(['python.allowUvPythonInstall']),
             )}`,
