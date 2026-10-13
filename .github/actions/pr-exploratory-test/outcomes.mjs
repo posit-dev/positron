@@ -6,7 +6,7 @@
 // Decides what happened to each confirmed finding on PRs with an exploratory
 // result comment, and prints a table to read by hand. Run locally from a
 // checkout with origin fetched; the model check uses your own `claude` login.
-//   node outcomes.mjs [--pr N] [--since YYYY-MM-DD] [--out rows.jsonl]
+//   node outcomes.mjs [--pr N] [--since YYYY-MM-DD] [--model opus] [--out rows.jsonl]
 
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
@@ -19,7 +19,7 @@ const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
 // A diff past this is cut; the model sees enough to judge and the call stays cheap.
 const MAX_DIFF_CHARS = 20000;
-const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, out: { type: 'string' } } });
+const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, out: { type: 'string' } } });
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
 
@@ -68,7 +68,7 @@ async function prNumbers() {
 
 async function check(finding, kind, text, source) {
 	try {
-		const { text: reply } = await runClaude({ prompt: buildCheckPrompt({ finding, kind, text }), model: 'haiku', tools: [], cwd: ROOT, feed: () => { } });
+		const { text: reply } = await runClaude({ prompt: buildCheckPrompt({ finding, kind, text }), model: args.model, tools: [], cwd: ROOT, feed: () => { } });
 		return { ...parseCheck(reply), source };
 	} catch (err) {
 		return { answer: 'unclear', reason: `model failed: ${String(err).slice(0, 200)}`, source };

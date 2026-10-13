@@ -102,8 +102,8 @@ harness.
 decides, for each confirmed finding on PRs with a result comment, whether it
 was fixed in the PR, fixed later (on main within 60 days, or a matching issue
 was filed), not acted on, or is still pending. It diffs the files the
-finding's cause names and asks Haiku whether the change addresses it, on your
-own `claude` login. Older runs published only the page, so their findings are
+finding's cause names and asks Opus (`--model` picks another) whether the
+change addresses it, on your own `claude` login. Older runs published only the page, so their findings are
 read from it. Read every "fixed" row before trusting the numbers.
 
 ## Where things live
