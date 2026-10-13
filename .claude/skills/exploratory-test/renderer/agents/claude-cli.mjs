@@ -31,10 +31,10 @@ export function stopAgents() {
  * Runs `claude` with `args`, `prompt` on stdin, passing each streamed event to
  * `onEvent`; stops it once `stopAfterMs()` has passed.
  */
-function execClaude(args, prompt, { cwd, stopAfterMs = () => Infinity, onEvent = () => { }, pollMs = 5000 }) {
+function execClaude(args, prompt, { cwd, env, stopAfterMs = () => Infinity, onEvent = () => { }, pollMs = 5000 }) {
 	return new Promise((resolve, reject) => {
 		const started = Date.now();
-		const child = spawn('claude', args, { cwd, stdio: ['pipe', 'pipe', 'inherit'] });
+		const child = spawn('claude', args, { cwd, env, stdio: ['pipe', 'pipe', 'inherit'] });
 		running.add(child);
 		let stdout = '';
 		let pending = '';
@@ -155,7 +155,11 @@ export async function runClaude({ prompt, model, role = 'agent', tools = [], cwd
 	let run;
 	try {
 		const onEvent = event => describeEvent(event, feedPaths).forEach(line => feed(`  ${role}: ${line}`));
-		run = await exec(args, prompt, { cwd, stopAfterMs: limit ? limit.stopAfterMs : () => Infinity, onEvent });
+		// The checkout's CLAUDE.md and rules are for developing Positron, not
+		// driving it; loaded, they add about 15k tokens to every turn. CI's SDK
+		// sessions do not load them either.
+		const env = { ...process.env, CLAUDE_CODE_DISABLE_CLAUDE_MDS: '1' };
+		run = await exec(args, prompt, { cwd, env, stopAfterMs: limit ? limit.stopAfterMs : () => Infinity, onEvent });
 	} finally {
 		limit?.cleanup();
 	}
