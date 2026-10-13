@@ -6,6 +6,16 @@ set "SCRIPT_DIR=%~dp0"
 
 pushd %SCRIPT_DIR%\..
 
+:: --- Start Positron ---
+:: Same workaround as test-remote-integration.bat and test-web-integration.bat:
+:: resolve TMP to its long form. On CI it is C:\Users\RUNNER~1\..., and under
+:: Node 24.16+ fs.watch on an 8.3 short-name path drops every event (libuv
+:: regression, https://github.com/nodejs/node/issues/63638), which breaks the
+:: extension tests that watch files in temp directories.
+for /f "delims=" %%i in ('node -p "require('fs').realpathSync.native(require('os').tmpdir())"') do set "TMP=%%i"
+set "TEMP=%TMP%"
+:: --- End Positron ---
+
 :: Parse arguments for help and filters
 set "HAS_FILTER="
 set "RUN_FILE="
