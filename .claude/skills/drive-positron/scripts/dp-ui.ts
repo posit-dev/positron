@@ -248,10 +248,15 @@ const typeText: PageFn<{ scope: string; text: string; enter: boolean }> = async 
 };
 
 // runs in run-code
-const pickRow: PageFn<{ text: string }> = async (page, a, lib) => {
+const pickRow: PageFn<{ text: string; nth: number }> = async (page, a, lib) => {
 	if (!await lib.quickOpen()) { return { ok: false, error: 'no quick pick is open' }; }
-	const p = await lib.pick({ exact: a.text });
-	if (!p.ok) { return p; }
+	const p = await lib.pick({ exact: a.text, nth: a.nth });
+	if (!p.ok) {
+		// Rows that share a label: the row as "shown" writes it tells them apart, unless they look the same.
+		const shown = (p as { shown?: string[] }).shown ?? [];
+		const how = new Set(shown).size === shown.length ? 'give the row as "shown" writes it, "label (description)", or pass --nth (1 = first)' : 'pass --nth (1 = first), in list order';
+		return / rows match "[^"]*"$/.test(p.error) ? { ...p, error: `${p.error}; ${how}` } : p;
+	}
 	await lib.clickRow(p.row);
 	await lib.sleep(200);
 	return { ok: true, chose: p.row.label, description: p.row.description, closed: !await lib.quickOpen() };
@@ -363,7 +368,7 @@ export const uiCommands: Record<string, (argv: string[]) => Json | string> = {
 			}
 			case 'pick':
 				need(1, 'the row');
-				out = inPage(p.session, pickRow, { text: r.join(' ') });
+				out = inPage(p.session, pickRow, { text: r.join(' '), nth: count(p, 'nth', 0, 1, 'which matching row to take, 1 = first') });
 				break;
 			default:
 				notACommand(cmd, ['read', 'watch', 'click', 'fill', 'check', 'choose', 'type', 'pick']);

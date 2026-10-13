@@ -66,7 +66,10 @@
 #                         (after a click that opened an input); --enter to submit,
 #                         refused in a quick pick (Enter runs the highlighted
 #                         row, maybe another one): use pick there
-#   pick TEXT             the open quick pick's row whose label is TEXT
+#   pick TEXT             the open quick pick's row whose label is TEXT; when
+#                         several rows share it, TEXT as the error's "shown"
+#                         writes the row, "label (description)", or --nth N
+#                         for the Nth of them in list order
 #
 # Flags:
 #   --session NAME  the @playwright/cli session attached to the instance (or $PW_SESSION)
