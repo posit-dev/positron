@@ -131,3 +131,29 @@ export function renderTable(rows) {
 	}
 	return `${lines.join('\n')}\n\n${Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join('\n')}\n`;
 }
+
+/** The full tested SHA: the report's, or the short one looked up (a force-push can lose it). */
+export async function resolveTestedSha({ headSha, shortSha, lookup }) {
+	if (headSha) {
+		return { sha: headSha, reason: '' };
+	}
+	try {
+		return { sha: await lookup(shortSha), reason: '' };
+	} catch (err) {
+		return { sha: null, reason: `tested commit ${shortSha} not found: ${err}` };
+	}
+}
+
+/** Findings read from the page's per-finding prompt blocks, for runs published without report.json. */
+export function parsePageFindings(html) {
+	const section = (text, heading) => text.match(new RegExp(`^### ${heading}[^\\n]*\\n([\\s\\S]*?)(?=\\n### |$)`, 'm'))?.[1].trim() ?? '';
+	return [...String(html).matchAll(/<script type="text\/plain" id="prompt-f(\d+)">([\s\S]*?)<\/script>/g)].map(([, n, text]) => ({
+		n: Number(n),
+		title: (text.match(/^## Finding \d+[^\n]*\n+([^\n]+)/)?.[1] ?? '').replace(/\.$/, ''),
+		severity: (text.match(/^## Finding \d+\s+\S+\s+(\w+)/)?.[1] ?? '').toLowerCase(),
+		verified: (text.match(/^Status: (\w+)/m)?.[1] ?? '').toLowerCase(),
+		observed: section(text, 'Observed'),
+		expected: section(text, 'Expected'),
+		cause: section(text, 'Likely cause'),
+	}));
+}

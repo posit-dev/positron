@@ -96,6 +96,16 @@ To try the whole path before merging, dispatch `test-exploratory-suggest.yml`
 from your branch with dry run off. The run it starts uses your branch's
 harness.
 
+### What happened to a run's findings
+
+`node .github/actions/pr-exploratory-test/outcomes.mjs [--pr N] [--out rows.jsonl]`
+decides, for each confirmed finding on PRs with a result comment, whether it
+was fixed in the PR, fixed later (on main within 60 days, or a matching issue
+was filed), not acted on, or is still pending. It diffs the files the
+finding's cause names and asks Haiku whether the change addresses it, on your
+own `claude` login. Older runs published only the page, so their findings are
+read from it. Read every "fixed" row before trusting the numbers.
+
 ## Where things live
 
 The top of `renderer/` holds only what gets run: the pipeline, `render.mjs`,

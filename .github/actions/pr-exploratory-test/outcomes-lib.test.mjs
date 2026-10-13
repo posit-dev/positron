@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, parseResultComment, renderTable, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, parsePageFindings, parseResultComment, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -105,4 +105,22 @@ test('renderTable lists each row and the counts, leaving duplicates out of the c
 	]);
 	assert.match(out, /\| #1 \| 10#1 \| minor \| A \\\| B \| fixed-in-pr \| commit abc: x \|/);
 	assert.match(out, /fixed-in-pr: 1/);
+});
+
+test('resolveTestedSha prefers the report\'s full SHA, else looks up the short one, else says why not', async () => {
+	const full = 'a'.repeat(40);
+	assert.deepEqual(await resolveTestedSha({ headSha: full, shortSha: 'bbbbbbb', lookup: async () => { throw new Error('unused'); } }), { sha: full, reason: '' });
+	assert.deepEqual(await resolveTestedSha({ shortSha: 'bbbbbbb', lookup: async s => `${s}${'0'.repeat(33)}` }), { sha: `bbbbbbb${'0'.repeat(33)}`, reason: '' });
+	assert.deepEqual(await resolveTestedSha({ shortSha: 'bbbbbbb', lookup: async () => { throw new Error('404'); } }), { sha: null, reason: 'tested commit bbbbbbb not found: Error: 404' });
+});
+
+test('parsePageFindings reads each finding from the page when report.json was not published', () => {
+	const prompt = (n, sev, title, status, cause) => `<script type="text/plain" id="prompt-f${n}">## Finding ${n} — ${sev}\n\n${title}\n\nStatus: ${status}\nReproduced: 2/2\n\n### Observed\nIt shows uv.\n\n### Expected\nIt hides uv.\n\n### Likely cause (hypothesis, not verified)\n${cause}\n\n### Context\nx</script>`;
+	const html = `<p>x</p>${prompt(1, 'Moderate', 'Lists uv when it is off.', 'Confirmed', '`getRanked` in `src/a/b.ts:126` returns it.')}<script type="text/plain" id="issue-f1">## Describe</script>${prompt(2, 'Minor', 'Focus is lost', 'Unresolved', 'Unknown.')}`;
+	assert.deepEqual(parsePageFindings(html), [
+		{ n: 1, title: 'Lists uv when it is off', severity: 'moderate', verified: 'confirmed', observed: 'It shows uv.', expected: 'It hides uv.', cause: '`getRanked` in `src/a/b.ts:126` returns it.' },
+		{ n: 2, title: 'Focus is lost', severity: 'minor', verified: 'unresolved', observed: 'It shows uv.', expected: 'It hides uv.', cause: 'Unknown.' },
+	]);
+	assert.deepEqual(extractPaths(parsePageFindings(html)[0]), ['src/a/b.ts']);
+	assert.deepEqual(parsePageFindings('<p>no findings</p>'), []);
 });
