@@ -185,6 +185,12 @@ jobs:
       - name: 🧪 Run Extension Host Tests (Electron)
         id: electron-integration-tests
         shell: cmd
+        env:
+          # Prelaunch already ran above. Skipping it here also avoids the
+          # agent host E2E runner's `spawnSync('npm.cmd')`, which Node rejects
+          # with EINVAL on Windows (no `shell: true`). Upstream's Windows CI
+          # sets this the same way.
+          VSCODE_SKIP_PRELAUNCH: '1'
         run: scripts\test-integration.bat
 
       - name: Upload extension host logs
