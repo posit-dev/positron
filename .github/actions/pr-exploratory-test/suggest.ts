@@ -70,8 +70,14 @@ async function ghGet(token, path) {
 /** The auto-run already started for this PR, declined or not, or null. */
 async function findAutoRun(token, pr) {
 	const created = encodeURIComponent(`>=${pr.created_at}`);
-	const runs = await ghGet(token, `/repos/${REPO}/actions/workflows/${RUN_WORKFLOW}/runs?event=workflow_dispatch&created=${created}`);
-	return runs.workflow_runs.find(r => r.display_title === autoRunName(pr.number)) ?? null;
+	// The runs list is an object, so ghGet doesn't follow its pages.
+	for (let page = 1; ; page++) {
+		const { workflow_runs: runs } = await ghGet(token, `/repos/${REPO}/actions/workflows/${RUN_WORKFLOW}/runs?event=workflow_dispatch&created=${created}&page=${page}`);
+		const match = runs.find(r => r.display_title === autoRunName(pr.number));
+		if (match || runs.length < 100) {
+			return match ?? null;
+		}
+	}
 }
 
 /** Active member only: a pending invite, a 404 or any error is not. */
