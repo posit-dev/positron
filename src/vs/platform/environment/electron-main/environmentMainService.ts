@@ -6,6 +6,9 @@
 import { memoize } from '../../../base/common/decorators.js';
 import { join } from '../../../base/common/path.js';
 import { isLinux } from '../../../base/common/platform.js';
+// --- Start Positron ---
+import { getPositronEnv } from '../../../base/common/positronEnvironment.js';
+// --- End Positron ---
 import { createStaticIPCHandle } from '../../../base/parts/ipc/node/ipc.net.js';
 import { IEnvironmentService, INativeEnvironmentService } from '../common/environment.js';
 import { NativeEnvironmentService } from '../node/environmentService.js';
@@ -57,8 +60,12 @@ export class EnvironmentMainService extends NativeEnvironmentService implements 
 	@memoize
 	get disableUpdates(): boolean { return !!this.args['disable-updates']; }
 
+	// --- Start Positron ---
+	// @memoize
+	// get isPortable(): boolean { return !!process.env['VSCODE_PORTABLE']; }
 	@memoize
-	get isPortable(): boolean { return !!process.env['VSCODE_PORTABLE']; }
+	get isPortable(): boolean { return !!getPositronEnv(process.env, 'PORTABLE'); }
+	// --- End Positron ---
 
 	@memoize
 	get crossOriginIsolated(): boolean { return !!this.args['enable-coi']; }

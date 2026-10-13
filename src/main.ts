@@ -14,6 +14,9 @@ import minimist from 'minimist';
 import { product } from './bootstrap-meta.js';
 import { parse } from './vs/base/common/jsonc.js';
 import { getUserDataPath } from './vs/platform/environment/node/userDataPath.js';
+// --- Start Positron ---
+import { getPositronEnv } from './vs/base/common/positronEnvironment.js';
+// --- End Positron ---
 import * as perf from './vs/base/common/performance.js';
 import { resolveNLSConfiguration } from './vs/base/node/nls.js';
 import { getUNCHost, addUNCHostToAllowlist } from './vs/base/node/unc.js';
@@ -442,7 +445,10 @@ function createDefaultArgvConfigSync(argvConfigPath: string): void {
 }
 
 function getArgvConfigPath(): string {
-	const vscodePortable = process.env['VSCODE_PORTABLE'];
+	// --- Start Positron ---
+	// const vscodePortable = process.env['VSCODE_PORTABLE'];
+	const vscodePortable = getPositronEnv(process.env, 'PORTABLE');
+	// --- End Positron ---
 	if (vscodePortable) {
 		return path.join(vscodePortable, 'argv.json');
 	}

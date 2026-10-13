@@ -8,6 +8,9 @@ import * as fs from 'node:fs';
 import { Buffer } from 'node:buffer';
 import { createRequire } from 'node:module';
 import type { IProductConfiguration } from './vs/base/common/product.js';
+// --- Start Positron ---
+import { getPortableEnvOverride, normalizePortableEnv } from './bootstrap-portable-env.js';
+// --- End Positron ---
 
 const require = createRequire(import.meta.url);
 const isWindows = process.platform === 'win32';
@@ -223,9 +226,16 @@ export function configurePortable(product: Partial<IProductConfiguration>): { po
 	}
 
 	function getPortableDataPath(): string {
-		if (process.env['VSCODE_PORTABLE']) {
-			return process.env['VSCODE_PORTABLE'];
+		// --- Start Positron ---
+		// Read POSITRON_PORTABLE first, with VSCODE_PORTABLE as a deprecated fallback.
+		// if (process.env['VSCODE_PORTABLE']) {
+		// 	return process.env['VSCODE_PORTABLE'];
+		// }
+		const portableEnvOverride = getPortableEnvOverride(process.env);
+		if (portableEnvOverride) {
+			return portableEnvOverride;
 		}
+		// --- End Positron ---
 
 		if (process.platform === 'win32' || process.platform === 'linux') {
 			return path.join(getApplicationPath(), 'data');
@@ -240,11 +250,15 @@ export function configurePortable(product: Partial<IProductConfiguration>): { po
 	const portableTempPath = path.join(portableDataPath, 'tmp');
 	const isTempPortable = isPortable && fs.existsSync(portableTempPath);
 
-	if (isPortable) {
-		process.env['VSCODE_PORTABLE'] = portableDataPath;
-	} else {
-		delete process.env['VSCODE_PORTABLE'];
-	}
+	// --- Start Positron ---
+	// Normalize the portable signal to POSITRON_PORTABLE and always remove VSCODE_PORTABLE.
+	// if (isPortable) {
+	// 	process.env['VSCODE_PORTABLE'] = portableDataPath;
+	// } else {
+	// 	delete process.env['VSCODE_PORTABLE'];
+	// }
+	normalizePortableEnv(process.env, portableDataPath, isPortable);
+	// --- End Positron ---
 
 	if (isTempPortable) {
 		if (process.platform === 'win32') {
