@@ -217,6 +217,8 @@ test/unit/reporter.js
 .github/actions/pr-exploratory-test/lib.mjs
 .github/actions/pr-exploratory-test/lib.test.mjs
 .github/actions/pr-exploratory-test/gate.mjs
+.github/actions/pr-exploratory-test/outcomes-lib.mjs
+.github/actions/pr-exploratory-test/outcomes-lib.test.mjs
 .claude/skills/exploratory-test/renderer/page/card-actions.mjs
 .claude/skills/exploratory-test/renderer/page/html.mjs
 .claude/skills/exploratory-test/renderer/shared/ledger.mjs
