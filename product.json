@@ -121,7 +121,7 @@
 	"bootstrapExtensions": [
 		{
 			"name": "charliermarsh.ruff",
-			"version": "2026.84.0",
+			"version": "2026.86.0",
 			"repo": "https://github.com/astral-sh/ruff-vscode",
 			"metadata": {
 				"publisherId": {
@@ -295,8 +295,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.162.0",
-			"sha256": "819e5127fe6c221b868e78145d77e5276ababc49db8e2798014470d31e2f8f22",
+			"version": "0.168.0",
+			"sha256": "72ee76b0d3c149e48c4887de16df9fbbe0cd97820274ccaa7dfd202dc76dd02f",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
