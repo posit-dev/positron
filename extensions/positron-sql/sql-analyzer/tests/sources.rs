@@ -327,3 +327,43 @@ fn the_answer_says_which_way_it_was_reached() {
     // is otherwise indistinguishable from a broken one.
     assert_eq!(all_at_cursor("SELECT | FROM orders").3, "parsed");
 }
+
+#[test]
+fn the_select_list_sees_its_from_clause_while_the_end_of_the_statement_is_unfinished() {
+    // Writing the FROM and WHERE first and filling in the columns after is the ordinary way to
+    // write a query, and the end of it is then often half typed. Parsing only what is before the
+    // cursor would answer `SELECT |`, which reads from nothing.
+    for marked in [
+        "SELECT | FROM orders WHERE",
+        "SELECT | FROM orders GROUP BY",
+        "SELECT | FROM orders LEFT",
+        "SELECT | FROM orders WHERE region IN (",
+    ] {
+        assert_eq!(all_at_cursor(marked).0, ["orders"], "{marked}");
+    }
+    assert_eq!(
+        at_cursor("SELECT o.| FROM orders o JOIN customers c ON c.id ="),
+        ["orders AS o", "customers AS c"]
+    );
+}
+
+#[test]
+fn one_half_of_a_set_operation_does_not_see_the_other() {
+    assert_eq!(at_cursor("SELECT a FROM orders UNION SELECT | FROM refunds"), ["refunds"]);
+    assert_eq!(at_cursor("SELECT | FROM orders UNION SELECT a FROM refunds"), ["orders"]);
+    // The ORDER BY of the whole sees both, and so does a subquery written in it.
+    assert_eq!(
+        at_cursor("SELECT a FROM orders UNION SELECT a FROM refunds ORDER BY |"),
+        ["orders", "refunds"]
+    );
+    assert_eq!(
+        at_cursor("SELECT a FROM orders o ORDER BY (SELECT max(x) FROM refunds r WHERE r.oid = o.|)"),
+        ["refunds AS r", "orders AS o"]
+    );
+}
+
+#[test]
+fn the_query_an_insert_reads_from_does_not_see_the_table_it_writes_to() {
+    assert_eq!(at_cursor("INSERT INTO archive SELECT | FROM orders"), ["orders"]);
+    assert_eq!(at_cursor("UPDATE orders SET status = 1 WHERE |"), ["orders"]);
+}

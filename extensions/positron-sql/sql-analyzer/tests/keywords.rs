@@ -141,6 +141,9 @@ const POSITIONS: &[(&str, &str)] = &[
     ("SELECT * FROM orders LEFT |", "expectingJoin"),
     ("SELECT * FROM orders ORDER BY id NULLS |", "expectingNullsOrder"),
     ("SELECT * FROM orders WHERE a IS |", "expectingIsPredicate"),
+    ("SELECT a FROM orders UNION |", "setOperand"),
+    ("UPDATE orders SET a = 1 |", "assignment"),
+    ("INSERT INTO orders VALUES (1) |", "valuesRow"),
 ];
 
 #[test]
@@ -316,6 +319,37 @@ fn a_write_statement_is_followed_by_its_own_clauses() {
     expect("UPDATE orders |", &["SET", "AS"], &["WHERE", "SELECT", "ZONE"]);
     expect("INSERT INTO orders |", &["VALUES", "SELECT"], &["WHERE", "ASC", "ZONE"]);
     expect("CREATE TABLE orders (id |", &["INTEGER", "PRIMARY KEY", "NOT NULL"], &["SELECT", "WHERE"]);
+}
+
+#[test]
+fn a_set_operator_is_followed_by_the_next_query() {
+    expect("SELECT a FROM orders UNION |", &["SELECT", "ALL", "DISTINCT"], &["WHERE", "JOIN"]);
+    // Its `ALL` and `DISTINCT` are the operator's, not a select list's.
+    assert_eq!(position("SELECT a UNION ALL |"), "setOperand");
+    assert_eq!(position("SELECT a FROM orders EXCEPT DISTINCT |"), "setOperand");
+}
+
+#[test]
+fn an_update_assigns_to_columns_and_is_then_filtered() {
+    assert_eq!(position("UPDATE orders SET |"), "name");
+    assert_eq!(position("UPDATE orders SET a = 1, |"), "name");
+    assert_eq!(position("UPDATE orders SET a = |"), "value");
+    expect("UPDATE orders SET a = 1 |", &["WHERE", "FROM"], &["GROUP BY", "HAVING", "LIMIT"]);
+}
+
+#[test]
+fn a_values_row_holds_values_and_is_followed_by_the_insert_s_own_clauses() {
+    assert_eq!(position("INSERT INTO orders VALUES (|"), "value");
+    assert_eq!(position("INSERT INTO orders VALUES (1), (|"), "value");
+    expect("INSERT INTO orders VALUES (|", &["NULL", "DEFAULT"], &["SELECT"]);
+    expect("INSERT INTO orders VALUES (1) |", &["ON CONFLICT", "RETURNING"], &["GROUP BY", "HAVING"]);
+    // A subquery inside a row is still a subquery.
+    assert_eq!(position("INSERT INTO orders VALUES (1, (|"), "subquery");
+}
+
+#[test]
+fn the_query_an_insert_reads_from_has_ordinary_clauses() {
+    assert_eq!(position("INSERT INTO archive SELECT * FROM orders |"), "tableItem");
 }
 
 #[test]

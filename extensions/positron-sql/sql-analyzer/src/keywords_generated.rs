@@ -125,6 +125,17 @@ pub const BASE: &[&[&str]] = &[
         "DISTINCT FROM", "FALSE", "NOT", "NOT DISTINCT FROM", "NOT FALSE", "NOT NULL", "NOT TRUE",
         "NULL", "TRUE", "UNKNOWN",
     ],
+    // setOperand
+    &["ALL", "DISTINCT", "SELECT", "VALUES"],
+    // assignment
+    &[
+        "AND", "AT TIME ZONE", "BETWEEN", "COLLATE", "FROM", "ILIKE", "IN", "IS",
+        "IS DISTINCT FROM", "IS FALSE", "IS NOT DISTINCT FROM", "IS NOT NULL", "IS NULL",
+        "IS TRUE", "LIKE", "NOT BETWEEN", "NOT ILIKE", "NOT IN", "NOT LIKE", "OR", "OVERLAPS",
+        "RETURNING", "RLIKE", "SIMILAR TO", "WHERE",
+    ],
+    // valuesRow
+    &["ON CONFLICT", "ON DUPLICATE KEY UPDATE", "RETURNING"],
 ];
 
 /// The keywords a single dialect offers on top of [`BASE`], as `(dialect, position, added)`.
