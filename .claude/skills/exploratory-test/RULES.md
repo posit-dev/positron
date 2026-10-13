@@ -104,6 +104,7 @@ Then update the rule's row here in the same PR.
 |---|---|---|---|---|
 | Steps replay `actions.log`. The log is append-only and only helpers write it. | The verifier checks steps against it. | Lint (`log-unstamped`, `log-backdated`): timestamps and order. Verifier: steps against the log. | - | #16421 |
 | Sample a state that lasts under a second with `ui.sh watch`. | A read after the action misses it. | Nothing | - | #16421 |
+| A finding's shot names the step it proves, or the scenario that took it, which cites it as Evidence. A step's second shot gets its own caption. | A reader matches each shot to what it proves. | Lint (`shot-no-step`, `shot-unknown-scenario`, `shot-scenario-uncited`, `too-many-shots`, `second-shot-caption`) | - | TBD |
 | Name the exact way in, as the UI labels it. Palette commands keep their category. | Two ways in can open different features. | Lint (`palette-row-unopened`): a palette row with no step opening the palette. Verifier: a step done another way than the log shows. | - | #16355 |
 | Merge a wait into its action, naming what it waits for, never a time. | Not recorded. | Lint (`fixed-wait`, `wait-only-step`): a fixed-time wait, a wait-only step. | - | #16355 |
 | Write a VERIFY before you look, with one expected outcome. | A check that passes on either outcome checks nothing. | Verifier | - | #16221 |
@@ -128,6 +129,7 @@ Then update the rule's row here in the same PR.
 | A failed check is about one finding. A different behavior on the same screen is its own finding. | Not recorded. | Lint (`scenario-fails-other-finding`): Status names another finding. Verifier: Observed against its finding. | - | #16421 |
 | Evidence is Positron's log lines, verbatim, with no note after them. Never `actions.log` or a file the run saved. | A reader must tell what was logged from what the agent concluded. | Lint (`evidence-note`, `evidence-run-file`, `evidence-trailing-note`, `log-process-mismatch`): notes, run-written files, trailing commentary. | - | #16452 |
 | Add a `missing` item only for a line you can quote exactly. | Not recorded. | Nothing | - | #16452 |
+| A Cause opens with a sentence of 40 words or fewer naming the suspect, then the detail. | Not recorded. | Lint (`cause-lead-length`) | - | TBD |
 | The Cause blames the defective line. Say whether the change added it only when the diff settles it, and never label a finding new or pre-existing. | Not recorded. It replaced an Introduced? label. | Verifier: the origin sentence against the diff. | - | #16233 |
 | Map JavaScript stacks through `map-stack.mjs`. | Compiled frames point at `out/`, not the source. | Lint (`compiled-frames`): compiled frames. | - | #16221 |
 | List a test file only after opening it, at the lowest level that catches the bug. Leave the list empty rather than guess. | A wrong test file is worse than none. | Lint (`test-file-missing`): a test file not in the repo. Verifier: coverage claims. | - | #16233 |

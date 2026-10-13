@@ -200,9 +200,13 @@ Lint flags each of these, so get them right the first time:
   never instead.
 - A shot is taken once, at its check, and cited by that check only.
 - Every shot in a finding's `evidence` names the `step` it proves, or the
-  `scenario` that took it (another run of the bug). A control that proves no
-  step is a PASS step or left out.
+  `scenario` that took it (another run of the bug), which cites it as Evidence.
+  A control that proves no step is a PASS step or left out.
+- A step's second shot gets its own caption, saying what it shows that the
+  first does not.
 - A finding's steps and their shots are one scenario's, the one that failed for it.
+- A finding's Cause opens with a sentence of 40 words or fewer naming the
+  suspect; the detail follows.
 - A finding's title, Observed, Expected and Cause name no scenario ID (S05,
   N01); readers never see them, so say it in words.
 - One action per step: "Run `View: Close Editor`." and "Open `x.qmd`." are two.
