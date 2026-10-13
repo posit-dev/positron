@@ -99,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.10.10",
+			"version": "2026.11.2",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "4eeb036d1c50d663eb8f033831f03a814bfcc34a49af8568e9b0e42ea8caa3f5",
+			"sha256": "6c8f12802d0ffc1cbac44179e1806419efe6dfd16ad383782db7361a69168f83",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
