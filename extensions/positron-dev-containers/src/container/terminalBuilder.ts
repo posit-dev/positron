@@ -8,12 +8,14 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as jsonc from 'jsonc-parser';
+import { URI } from 'vscode-uri';
 import { getLogger } from '../common/logger';
 import { Configuration } from '../common/configuration';
 import { generateDockerBuildCommand, generateDockerCreateCommand } from '../spec/spec-node/devContainersSpecCLI';
 import { formatCommandWithEcho, formatCommandForShell, escapeShellArg } from '../spec/spec-node/commandGeneration';
 import { prepareFeaturesInstallation, generateFeatureInstallScript, cleanupFeaturesDir } from './featuresInstaller';
 import { Mount } from '../spec/spec-configuration/containerFeaturesConfiguration';
+import { substitute, beforeContainerSubstitute } from '../spec/spec-common/variableSubstitution';
 
 /**
  * Result from terminal build
@@ -132,8 +134,25 @@ export class TerminalBuilder {
 			}
 		}
 
-		// Read and parse the devcontainer.json (supports comments via JSONC)
-		const devContainerConfig = jsonc.parse(fs.readFileSync(devcontainerPath, 'utf8'));
+		// Setup folder paths
+		const folderName = path.basename(workspaceFolder);
+		const remoteWorkspaceFolder = `/workspaces/${folderName}`;
+
+		// Labels identifying this dev container, and the inputs to ${devcontainerId}
+		const idLabels = {
+			'devcontainer.local_folder': workspaceFolder,
+			'devcontainer.config_file': devcontainerPath,
+		};
+
+		// Read and parse the devcontainer.json (supports comments via JSONC), then
+		// expand variables (e.g. localEnv) per the dev container spec.
+		const devContainerConfig = beforeContainerSubstitute(idLabels, substitute({
+			platform: process.platform,
+			configFile: URI.file(devcontainerPath),
+			localWorkspaceFolder: workspaceFolder,
+			containerWorkspaceFolder: remoteWorkspaceFolder,
+			env: process.env,
+		}, jsonc.parse(fs.readFileSync(devcontainerPath, 'utf8'))));
 
 		// Determine the Dockerfile or image
 		const devcontainerDir = path.dirname(devcontainerPath);
@@ -153,10 +172,6 @@ export class TerminalBuilder {
 				dockerfilePath = defaultDockerfile;
 			}
 		}
-
-		// Setup folder paths
-		const folderName = path.basename(workspaceFolder);
-		const remoteWorkspaceFolder = `/workspaces/${folderName}`;
 
 		// Build the image name
 		let builtImageName: string;
@@ -313,10 +328,7 @@ export class TerminalBuilder {
 			containerUser: devContainerConfig.remoteUser,
 			env: devContainerConfig.containerEnv,
 			mounts,
-			labels: {
-				'devcontainer.local_folder': workspaceFolder,
-				'devcontainer.config_file': devcontainerPath,
-			},
+			labels: idLabels,
 			runArgs: devContainerConfig.runArgs,
 		});
 
