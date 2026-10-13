@@ -7,18 +7,21 @@
 // test-exploratory-suggest.yml, so each runs with only the access it needs:
 //   precheck  free checks, and the author's team membership (org App token)
 //   judge     one model call with no tools; fails closed, i.e. silent
-//   post      re-checks the thread and posts the suggestion
+//   post      re-checks the thread and posts the suggestion, or for an author
+//             on the auto-run list (#16610), starts test-exploratory.yml
+//             instead. That run posts to the PR only if its gate passes it.
 // DRY_RUN=true runs every step's logic but posts nothing, and judges a PR the
 // precheck would skip, so verdicts can be read on any PR.
 
 import { appendFileSync } from 'node:fs';
 import { postOrEditComment } from './comment.mjs';
-import { buildSuggestPrompt, findPriorUse, parseVerdict, renderSuggestComment, skipReason } from './suggest-lib.ts';
+import { autoRunName, buildSuggestPrompt, findPriorUse, isAutoRunAuthor, parseVerdict, renderSuggestComment, skipReason } from './suggest-lib.ts';
 
 const API = 'https://api.github.com';
 const REPO = mustEnv('GITHUB_REPOSITORY');
 const PR_NUMBER = mustEnv('PR_NUMBER');
 const DRY_RUN = process.env.DRY_RUN === 'true';
+const RUN_WORKFLOW = 'test-exploratory.yml';
 // The cheapest tier that makes the call well; SUGGEST_MODEL overrides it to compare.
 const MODEL = process.env.SUGGEST_MODEL || 'claude-sonnet-5-5';
 
@@ -64,6 +67,13 @@ async function ghGet(token, path) {
 	return all;
 }
 
+/** The auto-run already started for this PR, declined or not, or null. */
+async function findAutoRun(token, pr) {
+	const created = encodeURIComponent(`>=${pr.created_at}`);
+	const runs = await ghGet(token, `/repos/${REPO}/actions/workflows/${RUN_WORKFLOW}/runs?event=workflow_dispatch&created=${created}`);
+	return runs.workflow_runs.find(r => r.display_title === autoRunName(pr.number)) ?? null;
+}
+
 /** Active member only: a pending invite, a 404 or any error is not. */
 async function isMember(orgToken, login) {
 	const res = await fetch(`${API}/orgs/posit-dev/teams/positron-dev/memberships/${encodeURIComponent(login)}`, {
@@ -80,9 +90,14 @@ async function precheck() {
 		ghGet(token, `/repos/${REPO}/issues/${PR_NUMBER}/comments`),
 		isMember(mustEnv('ORG_TOKEN'), pr.user.login),
 	]);
-	const skip = skipReason({ pr, repo: REPO, action: process.env.EVENT_ACTION || '', authorIsMember, files, comments });
-	summary(`**#${PR_NUMBER}** precheck: ${skip ? `skip (${skip})` : 'pass'}`);
-	output({ proceed: !skip || DRY_RUN, reason: skip || '' });
+	const auto = isAutoRunAuthor(pr.user?.login, process.env.AUTO_RUN_AUTHORS);
+	let skip = skipReason({ pr, repo: REPO, action: process.env.EVENT_ACTION || '', authorIsMember, files, comments });
+	if (!skip && auto) {
+		const prior = await findAutoRun(token, pr);
+		skip = prior ? `auto-run already started (${prior.html_url})` : null;
+	}
+	summary(`**#${PR_NUMBER}** precheck: ${skip ? `skip (${skip})` : 'pass'}${auto ? ' (author is on the auto-run list)' : ''}`);
+	output({ proceed: !skip || DRY_RUN, reason: skip || '', auto });
 }
 
 async function judge() {
@@ -121,8 +136,34 @@ async function post() {
 		console.log(`[suggest] not posting: exploratory testing already ${prior.kind} (comment ${prior.id})`);
 		return;
 	}
+	// Anything wrong on the auto-run path falls back to the tip, so the PR still hears.
+	if (process.env.AUTO_RUN === 'true') {
+		try {
+			await startAutoRun(token);
+			return;
+		} catch (err) {
+			console.log(`[suggest] auto-run failed, posting the tip instead: ${err}`);
+		}
+	}
 	const { id } = await postOrEditComment({ fetchImpl: fetch, token, repo: REPO, prNumber: PR_NUMBER, body: renderSuggestComment(mustEnv('REASON')) });
 	console.log(`[suggest] posted comment ${id}`);
+}
+
+/**
+ * Dispatches the run as if `/explore` had been commented, with no comment.
+ * GITHUB_TOKEN can do this: a dispatch is the one event its own actions start.
+ */
+async function startAutoRun(token) {
+	const pr = await ghGet(token, `/repos/${REPO}/pulls/${PR_NUMBER}`);
+	const res = await fetch(`${API}/repos/${REPO}/actions/workflows/${RUN_WORKFLOW}/dispatches`, {
+		method: 'POST',
+		headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+		body: JSON.stringify({ ref: mustEnv('DISPATCH_REF'), inputs: { ref: pr.head.ref, base: pr.base.ref, auto_run_pr: String(pr.number) } }),
+	});
+	if (!res.ok) {
+		throw new Error(`dispatch failed: ${res.status} ${await res.text()}`);
+	}
+	console.log(`[suggest] started ${autoRunName(pr.number)} on ${pr.head.ref} (${RUN_WORKFLOW}@${process.env.DISPATCH_REF})`);
 }
 
 const steps = { precheck, judge, post };
