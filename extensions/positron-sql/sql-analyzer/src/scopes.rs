@@ -443,10 +443,14 @@ impl Visitor for Collector<'_> {
             Statement::CreateView(create) => Some(&create.name),
             _ => None,
         };
-        if let Some(last) = target.and_then(last_ident) {
-            if let Some(span) = self.index.span(last.span) {
+        if let Some(target) = target {
+            if let Some(span) = last_ident(target).and_then(|last| self.index.span(last.span)) {
                 self.definitions.insert(span);
             }
+            // The visitor treats a CREATE TABLE's name as a relation but not a CREATE VIEW's, so
+            // the target is recorded here for both; the visit that follows for a table finds its
+            // span already seen.
+            let _ = self.pre_visit_relation(target);
         }
 
         // An UPDATE's `SET` targets are object names rather than expressions, so the expression
@@ -460,6 +464,15 @@ impl Visitor for Collector<'_> {
                         names.iter().for_each(|name| self.record_assigned(name));
                     }
                 }
+            }
+        }
+
+        // The query an INSERT takes its rows from cannot see the table they go into: the target
+        // sits in the root scope, where its RETURNING and ON CONFLICT clauses resolve against it,
+        // and the query is cut loose from it rather than hung below it.
+        if let Statement::Insert(insert) = statement {
+            if let Some(source) = &insert.source {
+                self.parents.insert(&**source as *const Query, None);
             }
         }
 

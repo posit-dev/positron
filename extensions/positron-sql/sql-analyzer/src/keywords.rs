@@ -98,6 +98,13 @@ pub enum Position {
     ExpectingNullsOrder,
     /// After the `IS` of a predicate.
     ExpectingIsPredicate,
+    /// After `UNION`, `INTERSECT`, `EXCEPT` or `MINUS`, or their `ALL` or `DISTINCT`, where the
+    /// next query begins.
+    SetOperand,
+    /// After a complete assignment in the `SET` of an `UPDATE`.
+    Assignment,
+    /// After a complete row of an `INSERT`'s `VALUES`.
+    ValuesRow,
     /// The position could not be placed, so everything is offered. Deliberately not an empty
     /// list: an empty one is indistinguishable from the extension being broken, and silently
     /// removes a completion that used to work.
@@ -128,6 +135,9 @@ pub const POSITIONS: &[Position] = &[
     Position::ExpectingJoin,
     Position::ExpectingNullsOrder,
     Position::ExpectingIsPredicate,
+    Position::SetOperand,
+    Position::Assignment,
+    Position::ValuesRow,
 ];
 
 impl Position {
@@ -154,6 +164,9 @@ impl Position {
             Position::ExpectingJoin => "expectingJoin",
             Position::ExpectingNullsOrder => "expectingNullsOrder",
             Position::ExpectingIsPredicate => "expectingIsPredicate",
+            Position::SetOperand => "setOperand",
+            Position::Assignment => "assignment",
+            Position::ValuesRow => "valuesRow",
             Position::Everything => "everything",
         }
     }
@@ -203,6 +216,9 @@ impl Position {
             Position::ExpectingJoin => &["SELECT * FROM a LEFT ", "SELECT * FROM a INNER "],
             Position::ExpectingNullsOrder => &["SELECT * FROM orders ORDER BY id NULLS "],
             Position::ExpectingIsPredicate => &["SELECT * FROM orders WHERE a IS "],
+            Position::SetOperand => &["SELECT 1 UNION ", "SELECT 1 UNION ALL "],
+            Position::Assignment => &["UPDATE orders SET a = 1 "],
+            Position::ValuesRow => &["INSERT INTO orders VALUES (1) "],
             Position::Everything => &[],
         }
     }
@@ -278,6 +294,11 @@ impl Position {
                 "NOT TRUE", "NULL", "TRUE", "UNKNOWN",
             ]
             .to_vec(),
+            Position::SetOperand => ["ALL", "DISTINCT", "SELECT", "VALUES"].to_vec(),
+            Position::Assignment => [OPERATORS, &["FROM", "RETURNING", "WHERE"]].concat(),
+            Position::ValuesRow => {
+                ["ON CONFLICT", "ON DUPLICATE KEY UPDATE", "RETURNING"].to_vec()
+            }
             Position::Everything => Vec::new(),
         };
         all.sort_unstable();
@@ -458,6 +479,8 @@ enum Group {
     Definition,
     /// In an `INSERT INTO`, so the group is a list of column names.
     Columns,
+    /// A row of a `VALUES` list, which holds values but not a query.
+    Row,
     /// Anything else: an expression list, a function call, or a subquery.
     Other,
 }
@@ -501,6 +524,7 @@ fn place(tokens: &[TokenWithSpan]) -> Position {
                     _ if verb == Some(Keyword::INSERT) && clause == Some(Keyword::INTO) => {
                         Group::Columns
                     }
+                    _ if clause == Some(Keyword::VALUES) && group == Group::None => Group::Row,
                     _ => Group::Other,
                 };
                 stack.push(group);
@@ -656,6 +680,7 @@ fn decide(
             Group::Window => Position::WindowSpec,
             Group::Definition => Position::ColumnDefinition,
             Group::Columns => Position::Name,
+            Group::Row => Position::Value,
             Group::Cast | Group::Other => Position::Subquery,
             Group::None => Position::StatementStart,
         };
@@ -690,6 +715,15 @@ fn decide(
                     _ => Position::Name,
                 };
             }
+            // Checked before the `DISTINCT` of a select below: `UNION DISTINCT` is the set
+            // operator's, and the query after it has yet to begin.
+            let set_operator = local.len().checked_sub(2).and_then(|before| word(&local[before]));
+            if is_set_operator(previous_word.keyword)
+                || (matches!(previous_word.keyword, Keyword::ALL | Keyword::DISTINCT)
+                    && set_operator.is_some_and(|before| is_set_operator(before.keyword)))
+            {
+                return Position::SetOperand;
+            }
             if previous_word.keyword == Keyword::SELECT
                 || (matches!(previous_word.keyword, Keyword::DISTINCT | Keyword::ALL)
                     && clause == Some(Keyword::SELECT))
@@ -707,6 +741,10 @@ fn decide(
             if group == Group::Window && previous_word.keyword == Keyword::AND {
                 return Position::WindowSpec;
             }
+            // What a `SET` assigns to is a column, not a value.
+            if previous_word.keyword == Keyword::SET {
+                return Position::Name;
+            }
             if starts_value(previous_word.keyword) {
                 return Position::Value;
             }
@@ -717,6 +755,7 @@ fn decide(
         Token::Comma => {
             return match (group, clause) {
                 (Group::Definition, _) | (Group::Columns, _) => Position::Name,
+                (Group::None, Some(Keyword::SET)) => Position::Name,
                 (_, Some(Keyword::FROM | Keyword::JOIN | Keyword::INTO | Keyword::UPDATE)) => {
                     Position::Name
                 }
@@ -740,9 +779,9 @@ fn decide(
     match clause {
         Some(Keyword::ORDER) => Position::OrderItem,
         Some(Keyword::FROM) | Some(Keyword::JOIN) => {
-            if verb == Some(Keyword::INSERT) {
-                Position::InsertTarget
-            } else if joined {
+            // Not an INSERT's target even in an INSERT: a FROM there belongs to the query the
+            // rows come from.
+            if joined {
                 Position::JoinedItem
             } else {
                 Position::TableItem
@@ -757,6 +796,12 @@ fn decide(
         }
         Some(Keyword::UPDATE) => Position::UpdateItem,
         Some(Keyword::SELECT) => Position::SelectItem,
+        Some(Keyword::SET) if matches!(verb, Some(Keyword::UPDATE | Keyword::INSERT)) => {
+            Position::Assignment
+        }
+        Some(Keyword::VALUES) if verb == Some(Keyword::INSERT) && group == Group::None => {
+            Position::ValuesRow
+        }
         Some(Keyword::ON | Keyword::USING) if join_condition => Position::JoinCondition,
         Some(
             Keyword::WHERE
@@ -803,6 +848,11 @@ fn starts_value(keyword: Keyword) -> bool {
             | Keyword::VALUES
             | Keyword::USING
     )
+}
+
+/// Whether a word combines one query with another.
+fn is_set_operator(keyword: Keyword) -> bool {
+    matches!(keyword, Keyword::UNION | Keyword::INTERSECT | Keyword::EXCEPT | Keyword::MINUS)
 }
 
 fn is_ddl_verb(keyword: Keyword) -> bool {

@@ -73,8 +73,21 @@ pub fn parse(tokenized: &Tokenized, dialect: &dyn Dialect, index: &TextIndex) ->
             // construct already carries the diagnostic saying it never closed. The rest of the
             // statement is what the author wrote, and dropping its tables to avoid the one
             // artefact would cost the links and completions in every statement with a stray
-            // quote in it.
-            Ok(parsed) => merge(&mut analysis, scopes::analyze(&parsed, index)),
+            // quote in it. The artefact itself is dropped: it names text the author never closed,
+            // and is placed by a delimiter the original text does not have.
+            Ok(parsed) => {
+                let mut found = scopes::analyze(&parsed, index);
+                if statement.repaired {
+                    let repairs: Vec<(u32, u32)> = tokenized
+                        .errors
+                        .iter()
+                        .filter(|error| error.repaired)
+                        .map(|error| (error.start, error.end))
+                        .collect();
+                    drop_within(&mut found, &repairs);
+                }
+                merge(&mut analysis, found);
+            }
             // A statement the tokenizer had to close a construct for is being reported already,
             // and the parser is now reading a delimiter the author never wrote, so whatever it
             // objects to is an artefact of the repair rather than something to show anyone.
@@ -141,14 +154,37 @@ fn locate(message: &str, statement: &Statement, index: &TextIndex) -> Option<(u3
 
     // `found: <token>` names the text that was rejected, which is how wide the squiggle should
     // be. Counted in UTF-16 units, since that is what the offsets around it are measured in.
-    let width = message[..at]
+    let found = message[..at]
         .rfind("found: ")
-        .map(|found| message[..at][found + "found: ".len()..].chars().map(char::len_utf16).sum::<usize>() as u32)
-        .filter(|width| *width > 0)
+        .map(|found| &message[..at][found + "found: ".len()..])
+        .filter(|found| !found.is_empty());
+    let width = found
+        .map(|found| found.chars().map(char::len_utf16).sum::<usize>() as u32)
         .unwrap_or(1);
+
+    // A few of sqlparser's messages name the token they rejected but carry the position of the
+    // one after it -- `SELECT a, FROM t` blames `FROM` at `t`. The token the message names is the
+    // one to squiggle, so when the position holds something else, the nearest token at or before
+    // it with that text is taken instead.
+    let start = found
+        .and_then(|found| named_at_or_before(found, start, statement, index))
+        .unwrap_or(start);
 
     let start = start.clamp(statement.start, statement.end);
     Some((start, (start + width).min(statement.end)))
+}
+
+/// The offset of the last token of `statement` that starts at or before `offset` and reads as
+/// `text`, or `None` if there is none.
+fn named_at_or_before(text: &str, offset: u32, statement: &Statement, index: &TextIndex) -> Option<u32> {
+    statement
+        .tokens
+        .iter()
+        .filter_map(|token| Some((index.span(token.span)?.0, token)))
+        .take_while(|(start, _)| *start <= offset)
+        .filter(|(_, token)| token.token.to_string() == text)
+        .map(|(start, _)| start)
+        .last()
 }
 
 /// Reads the `` at Line: 3, Column: 7`` suffix sqlparser appends to a located message.
@@ -180,6 +216,28 @@ fn sentence(message: &str) -> String {
     } else {
         format!("{trimmed}.")
     }
+}
+
+/// Removes the tables and columns that begin inside any of `ranges`, renumbering the scopes'
+/// references to the tables that remain.
+fn drop_within(analysis: &mut Analysis, ranges: &[(u32, u32)]) {
+    let inside = |start: u32| ranges.iter().any(|(from, to)| start >= *from && start < *to);
+
+    let mut renumbered: Vec<Option<u32>> = Vec::with_capacity(analysis.tables.len());
+    let mut kept = 0;
+    for table in &analysis.tables {
+        if inside(table.start) {
+            renumbered.push(None);
+        } else {
+            renumbered.push(Some(kept));
+            kept += 1;
+        }
+    }
+    analysis.tables.retain(|table| !inside(table.start));
+    for scope in &mut analysis.scopes {
+        scope.tables = scope.tables.iter().filter_map(|table| renumbered[*table as usize]).collect();
+    }
+    analysis.columns.retain(|column| !inside(column.start));
 }
 
 /// Appends one statement's analysis to the document's, renumbering its scopes.

@@ -75,15 +75,27 @@ pub fn at(
     let (before, after) = tokens::around(&statement.tokens, offset, index);
     let marker = marker(offset, index);
 
-    let whole: Vec<TokenWithSpan> =
-        before.iter().chain(&marker).chain(after.iter()).cloned().collect();
-    // Without the tail, for when the tail is what the statement cannot make sense of. Typing in
-    // the middle of a statement usually leaves something ahead of the cursor that no longer fits
-    // what is behind it, and the tables the cursor can see are nearly always behind it anyway.
-    let prefix: Vec<TokenWithSpan> = before.iter().chain(&marker).cloned().collect();
+    let with_tail = |kept: usize| -> Vec<TokenWithSpan> {
+        before.iter().chain(&marker).chain(&after[..kept]).cloned().collect()
+    };
 
-    [whole, prefix].into_iter().find_map(|tokens| try_parse(close(tokens), dialect, index))
+    // The whole statement first. Then with its last few tokens cut off, for a statement whose
+    // unfinished part is past the cursor: `SELECT | FROM orders WHERE` does not parse, but its
+    // FROM clause is what the select list reads from, and `SELECT | FROM orders` does. Then
+    // without the tail at all, for when the tail is what the statement cannot make sense of --
+    // typing in the middle of a statement usually leaves something ahead of the cursor that no
+    // longer fits what is behind it, and the tables the cursor can see are then behind it.
+    // Bounded, because each attempt is a parse on the user's keystroke.
+    let trims = (1..=TAIL_TRIMS).take_while(|cut| *cut < after.len());
+    std::iter::once(after.len())
+        .chain(trims.map(|cut| after.len() - cut))
+        .chain(std::iter::once(0))
+        .find_map(|kept| try_parse(close(with_tail(kept)), dialect, index))
 }
+
+/// How many tokens may be cut from the end of a statement to make it parse. Enough for the
+/// unfinished end of a clause -- `GROUP BY`, `ON a.id =`, `IN (` -- and no more.
+const TAIL_TRIMS: usize = 4;
 
 /// The marker as a token, positioned where the cursor is.
 ///
@@ -163,6 +175,18 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
     // the same reference twice; see `lift` in [`crate::scopes`].
     let mut seen: HashSet<u32> = HashSet::new();
     let mut named: HashSet<(String, LocalKind)> = HashSet::new();
+
+    // The scopes the walk will pass through. A table further out is only visible from here if it
+    // was found in one of them: the tables a query holds were lifted into it from the selects
+    // inside, and from one half of a `UNION` the other half's FROM clause cannot be seen.
+    let mut path: HashSet<u32> = HashSet::new();
+    let mut up = Some(scope);
+    for _ in 0..analysis.scopes.len() {
+        let Some(id) = up else { break };
+        path.insert(id);
+        up = analysis.scopes.get(id as usize).and_then(|entry| entry.parent);
+    }
+
     let mut at = Some(scope);
 
     // Scopes are numbered as they are opened, so a parent is always a lower number than its child
@@ -171,6 +195,15 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
     for _ in 0..analysis.scopes.len() {
         let Some(id) = at else { break };
         let Some(entry) = analysis.scopes.get(id as usize) else { break };
+
+        // Whether the cursor's own select lifted tables into this level, which makes the others
+        // lifted beside them a sibling's. Not otherwise: a subquery in a query's ORDER BY reaches
+        // the query's tables the same way, and it may be correlated to them. The cursor's own
+        // scope is exempt either way, since what was lifted into it is what its ORDER BY names.
+        let beside = id != scope
+            && entry.tables.iter().any(|at| {
+                analysis.tables.get(*at as usize).is_some_and(|table| table.scope != id && path.contains(&table.scope))
+            });
 
         found.opaque |= entry.opaque;
         // Deduplicated per kind rather than by name alone: a CTE read by its own name is both a
@@ -182,7 +215,7 @@ fn collect(analysis: &Analysis, scope: u32) -> AtCursor {
         }
         for at in &entry.tables {
             let Some(table) = analysis.tables.get(*at as usize) else { continue };
-            if table.name == MARKER || !seen.insert(*at) {
+            if table.name == MARKER || (beside && !path.contains(&table.scope)) || !seen.insert(*at) {
                 continue;
             }
             found.sources.push(SourceRef {

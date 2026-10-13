@@ -128,6 +128,22 @@ fn the_object_a_create_defines_is_not_a_table_reference() {
 }
 
 #[test]
+fn the_object_a_create_defines_is_reported_as_a_definition() {
+    // Reported rather than left out, so it can still be linked and named, for a view as well as a
+    // table: the parser's visitor reaches a table's name but not a view's.
+    for text in ["CREATE TABLE new_orders (id int)", "CREATE OR REPLACE VIEW new_orders AS SELECT 1"] {
+        let definitions: Vec<String> = analyze(text)["tables"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|table| table["definition"].as_bool().unwrap())
+            .map(|table| slice(text, table))
+            .collect();
+        assert_eq!(definitions, ["new_orders"], "{text}");
+    }
+}
+
+#[test]
 fn a_drop_still_names_a_table_that_has_to_exist() {
     assert_eq!(tables("DROP TABLE orders"), [("orders".to_string(), None)]);
 }
