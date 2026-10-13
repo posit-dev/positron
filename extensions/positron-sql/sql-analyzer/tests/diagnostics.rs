@@ -109,6 +109,39 @@ fn a_statement_whose_quote_was_closed_still_gives_up_its_tables() {
 }
 
 #[test]
+fn the_squiggle_covers_the_token_the_message_names() {
+    // sqlparser positions this one at the token after the one it rejected. Postgres, because the
+    // generic dialect accepts a trailing comma in a select list.
+    let text = "SELECT a, b, FROM t;";
+    assert_eq!(
+        diagnostics_of(&analyze_as("postgres", text), text),
+        [("FROM".to_string(), "Expected an expression, found: FROM.".to_string())]
+    );
+}
+
+#[test]
+fn a_name_inside_a_quote_that_was_closed_is_not_reported_as_a_reference() {
+    // The quoted identifier reads to the end of its line, so what it names is text the author
+    // never closed -- an unknown column on top of the syntax error would only be noise. The rest
+    // of the statement is still the author's, and keeps its references.
+    let text = "SELECT a FROM orders WHERE \"b = 1\n;";
+    let analysis = support::analyze(text);
+    let columns: Vec<String> = analysis["columns"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|column| support::slice(text, column))
+        .collect();
+    let tables: Vec<String> = analysis["tables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|table| support::slice(text, table))
+        .collect();
+    assert_eq!((columns, tables), (vec!["a".to_string()], vec!["orders".to_string()]));
+}
+
+#[test]
 fn each_construct_that_never_closed_is_reported_once() {
     // Closing the quote is what lets the comment below it be seen at all, so both are reported,
     // in the order they appear rather than in the order they were found.
