@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Reads and drives a tree in a view: Positron's own trees (Data Connections,
-# Variables-style grids of .positron-tree-row) and upstream ones (Explorer,
-# Outline). Rows are found by label, the whole text of one piece of the row,
-# such as a table's name without its "Table" prefix or type; repeated labels
-# (Tables under each schema) are picked with --nth. Clicks are real mouse
-# clicks, since Positron's buttons ignore a click() from page script.
+# Variables) and upstream ones (Explorer, Outline). Rows are found by label, the
+# whole text of one piece of the row, such as a table's name without its "Table"
+# prefix or type, or a variable's name (a Variables row reads name, value and
+# type); repeated labels (Tables under each schema) are picked with --nth.
+# Clicks are real mouse clicks, since Positron's buttons ignore a click() from
+# page script.
 #
 # Usage:
 #   scripts/tree.sh --session NAME --view 'Data Connections' rows

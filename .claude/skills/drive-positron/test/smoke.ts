@@ -233,6 +233,10 @@ const cases: Case[] = [
 	{ name: 'view-read missing view', run: ['view-read.sh', '--view', 'No Such View'], fail: true },
 	{ name: 'view-read the view without --view', run: ['view-read.sh', 'Variables'], fail: true, check: o => includes(o.stderr, 'unexpected argument "Variables"') || logged('view-read.sh -s=net1: FAILED Variables: unexpected argument') },
 	{ name: 'view-read --view=Variables takes the glued value', run: ['view-read.sh', '--view=Variables'], check: o => includes(o.text, 'smoke_f') },
+	{ name: 'tree rows Variables', run: ['tree.sh', '--view', 'Variables', 'rows'], check: o => includes(o.json!.rows, 'smoke_f') },
+	{ name: 'console-run r a nested list', run: ['console-run.sh', '--language', 'r', 'smoke_l <- list(a = 1, b = list(c = 2))'] },
+	{ name: 'tree expand a Variables row', wait: 1000, run: ['tree.sh', '--view', 'Variables', 'expand', 'smoke_l'], check: o => (o.json!.state !== 'expanded' && `state ${o.json!.state}`) || logged('tree.sh -s=net1: expand "smoke_l" in Variables') },
+	{ name: 'tree collapse a Variables row without --view', run: ['tree.sh', 'collapse', 'smoke_l'], check: o => (o.json!.state !== 'collapsed' && `state ${o.json!.state}`) || logged('tree.sh -s=net1: collapse "smoke_l" in any view') },
 	{ name: 'console-run r opens help', run: ['console-run.sh', '--language', 'r', '?mean'] },
 	{ name: 'view-read Help reads the page', wait: 3000, run: ['view-read.sh', '--view', 'Help'], check: o => includes(o.text, 'Arithmetic Mean') },
 	{ name: 'ui read Help notes the page it leaves out', run: ['ui.sh', 'read', 'Help'], check: o => includes(o.json!.note, 'view-read.sh --view Help') },
@@ -329,6 +333,16 @@ const cases: Case[] = [
 	{ name: 'qmd run the cell that reads it', run: ['qmd.sh', '--file', 'report.qmd', 'run', '2'], check: o => !o.json!.changed && 'nothing changed' },
 	{ name: 'qmd wait for it', run: ['qmd.sh', '--file', 'report.qmd', 'wait', '2', '30'], check: o => includes(o.json!.output?.text, 'sub-answer 42') },
 	{ name: 'open-file report.qmd, the root one', run: ['open-file.sh', 'report.qmd'], check: o => !String(o.json!.path).endsWith('/ws/report.qmd') && `path ${o.json!.path}` },
+	// Two Quick Open rows labelled report.qmd: ui.sh pick takes one by --nth, or as "shown" writes it.
+	{ name: 'palette-run Go to File (two report.qmd)', run: ['palette-run.sh', 'Go to File...'] },
+	{ name: 'ui type report.qmd in Quick Open', run: ['ui.sh', 'type', 'report.qmd', '--in', 'quickpick'] },
+	{ name: 'ui pick a label two rows share says how to choose', run: ['ui.sh', 'pick', 'report.qmd'], fail: true, check: o => includes(o.json!.error, 'give the row as "shown" writes it, "label (description)", or pass --nth (1 = first)') || includes(o.json!.shown, 'report.qmd (sub)') },
+	{ name: 'ui pick --nth 3 of two report.qmd rows', run: ['ui.sh', 'pick', 'report.qmd', '--nth', '3'], fail: true, check: o => includes(o.json!.error, 'so there is no row 3') },
+	{ name: 'ui pick --nth 2 of two report.qmd rows', run: ['ui.sh', 'pick', 'report.qmd', '--nth', '2'], check: o => (o.json!.description !== 'sub' && `chose ${o.json!.chose} (${o.json!.description})`) || (!o.json!.closed && 'the quick pick stayed open') },
+	{ name: 'palette-run Go to File (two report.qmd again)', run: ['palette-run.sh', 'Go to File...'] },
+	{ name: 'ui type report.qmd in Quick Open again', run: ['ui.sh', 'type', 'report.qmd', '--in', 'quickpick'] },
+	{ name: 'ui pick the row as shown writes it', run: ['ui.sh', 'pick', 'report.qmd (sub)'], check: o => o.json!.description !== 'sub' && `chose ${o.json!.chose} (${o.json!.description})` },
+	{ name: 'open-file report.qmd, the root one, after the picks', run: ['open-file.sh', 'report.qmd'], check: o => !String(o.json!.path).endsWith('/ws/report.qmd') && `path ${o.json!.path}` },
 	// Notebook and Quarto sessions are not consoles: sessions --all lists them.
 	{ name: 'panel sessions --all', run: ['panel.sh', 'sessions', '--all'], check: o => (!o.json!.sessions?.some((x: Json) => x.kind === 'notebook' && x.document === 'notebook.ipynb') && `no notebook session: ${JSON.stringify(o.json!.sessions)}`) || (!o.json!.sessions?.some((x: Json) => x.kind === 'quarto' && x.document === 'report.qmd') && 'no quarto session') || (!o.json!.sessions?.some((x: Json) => x.kind === 'console' && x.id) && 'no console session with its id') },
 
