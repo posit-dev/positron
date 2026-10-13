@@ -158,9 +158,18 @@ else
 			esac
 		fi
 	elif [ "\${DOWNLOAD_TOOL}" = "curl" ]; then
-		# curl with -v for verbose error information
-		HTTP_CODE=\$(curl -w "%{http_code}" -fsSL "\${DOWNLOAD_URL}" 2>/tmp/curl.err | tee /tmp/download.tar.gz | tar -xz -C "\${INSTALL_DIR}" --strip-components=1 2>&1 || echo "000")
-		if [ "\${HTTP_CODE}" != "200" ] && [ "\${HTTP_CODE}" != "000" ]; then
+		# Download Positron server over HTTP, saving the HTTP code
+		TARBALL="/tmp/positron-server-\$\$.tar.gz"
+		HTTP_CODE=\$(curl -w "%{http_code}" -fsSL -o "\${TARBALL}" "\${DOWNLOAD_URL}" 2>/tmp/curl.err) || true
+		if [ "\${HTTP_CODE}" = "200" ]; then
+			if ! tar -xzf "\${TARBALL}" -C "\${INSTALL_DIR}" --strip-components=1; then
+				rm -f "\${TARBALL}"
+				error "Failed to extract server archive downloaded from \${DOWNLOAD_URL}"
+			fi
+			rm -f "\${TARBALL}"
+		else
+			rm -f "\${TARBALL}"
+			HTTP_CODE=\${HTTP_CODE:-000}
 			case "\${HTTP_CODE}" in
 				404)
 					error "File not found (HTTP 404): \${DOWNLOAD_URL}. This version may not be available yet or the URL may be incorrect."
