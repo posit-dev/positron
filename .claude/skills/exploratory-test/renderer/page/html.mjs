@@ -3,21 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Renders the report as a page. The markdown stays beside it: the verification
-// pass reads report.md, and a file you can grep is worth keeping.
+// Renders the report as a page.
 //
-// The structure comes from report-parse.mjs and the tokens from
-// report-css.mjs, so this file is only the template: what goes where, and in
+// The structure comes from report-json.mjs's model of report.json and the
+// tokens from report-css.mjs, so this file is only the template: what goes where, and in
 // what order. The output is one self-contained file -- inline CSS and JS, with
 // Google Fonts the only external request and a system fallback behind every
 // family.
 
-// escapeHtml is shared with the parser rather than copied: both sides guard the
+// escapeHtml is shared with the model rather than copied: both sides guard the
 // same untrusted report text, and two copies drift.
 import { existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseReport, parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog, LOWERCASE_NAMES } from '../report-parse.mjs';
+import { parseSystemLine, escapeHtml, safeUrl, basename, isNewTestFile, isPositronLog, LOWERCASE_NAMES } from '../report-parse.mjs';
 import { REPORT_CSS, FONT_HREF } from './report-css.mjs';
 import { knownIssueOutcomes, openedLabel, readIssueRefs } from '../known-issues.mjs';
 import { resolveFiles, linkFiles, linkFilePaths, renderFileViewers, renderTestFilesPart, promptFilesSection, filesNamedIn, fileSource, FILE_SCRIPT } from './repro-files.mjs';
@@ -1766,16 +1765,11 @@ window.addEventListener('scroll',function(){if(cur){place(cur);}},{passive:true}
 window.addEventListener('resize',function(){if(cur){place(cur);}});})();`;
 
 /**
- * Renders the report markdown as a self-contained HTML page.
- *
- * Falls back to nothing: a report whose body does not parse still gets its
- * header, tiles and whatever sections were recognised, and any finding the
- * parser could not break down keeps its prose. `options.ledger` is the run's
- * ledger.md, which Coverage is built from when given. `options.startedAt` is
- * when the run began, which dates the footer's copyright; it defaults to now.
+ * Renders the report model, reportFromJson's, as a self-contained HTML page.
+ * `options.ledger` is the run's ledger.md. `options.startedAt` is when the run
+ * began, which dates the footer's copyright; it defaults to now.
  */
-export function renderReportHtml(markdown, options = {}) {
-	const report = parseReport(markdown, { ledger: options.ledger });
+export function renderReportHtml(report, options = {}) {
 	// `readFile` reads a path beside the report; the viewer, the Test files
 	// list and the prompt all show the same resolved files.
 	options = { ...options, files: resolveFiles(report.files, options.readFile) };
@@ -1894,7 +1888,7 @@ ${viewers ? `<script>${FILE_SCRIPT}</script>\n` : ''}`;
 }
 
 /**
- * What the page reads from the run directory besides report.md: the ledger,
+ * What the page reads from the run directory besides report.json: the ledger,
  * the linked issues known-issues.mjs fetched, and the files the report names.
  */
 /** finish.mjs's change-base.json: whether the run had a usable base, and its name. */
@@ -1933,14 +1927,13 @@ export function missingFiles(parsed, fileExists) {
  * chat apps need an absolute one to fetch the image from.
  *
  * @param {string} out
- * @param {string} markdown report.md
- * @param {{ severityCounts: object }} parsed the report, parsed with its ledger
+ * @param {{ severityCounts: object }} report reportFromJson's model
  * @param {object} options renderReportHtml's options; `base` is required
  */
-export async function writeRunPage(out, markdown, parsed, options) {
+export async function writeRunPage(out, report, options) {
 	const { base } = options;
-	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), parsed.severityCounts)
+	const ogImage = /^https?:\/\//.test(base ?? '') && await writeCard(join(dirname(out), CARD_FILE), report.severityCounts)
 		? `${base.replace(/\/$/, '')}/${CARD_FILE}`
 		: undefined;
-	writeFileSync(out, renderReportHtml(markdown, { ...options, ogImage }));
+	writeFileSync(out, renderReportHtml(report, { ...options, ogImage }));
 }

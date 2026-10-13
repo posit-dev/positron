@@ -8,48 +8,35 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { applyEdits, buildEditPrompt, buildRetryPrompt, editorFindings, factsOf, parseEdits, reviewEdits } from './edit.mjs';
-import { parseReport } from '../report-parse.mjs';
 
 // What was rejected and why, without the rejected text.
 const reasons = rejected => rejected.map(({ n, field, reason }) => ({ n, field, reason }));
 
-const REPORT = [
-	'# Exploratory test: Shiny',
-	'',
-	'**Result:** Python apps preview and reload on edit. **Run Shiny App on an R app never previews it after 30 s.**',
-	'**Tested:** Run App',
-	'',
-	'## Findings',
-	'',
-	'| # | Finding | Severity | Reproduction | Verified |',
-	'|---|---------|----------|--------------|---|',
-	'| 1 | Run Shiny App on an R app never previews it | major | 2/2 | confirmed |',
-	'',
-	'### Finding 1: Run Shiny App on an R app never previews it',
-	'',
-	'**Feature:** Viewer',
-	'',
-	'1. Create `app.R`:',
-	'   ```r',
-	'   shinyApp(ui, server)',
-	'   ```',
-	'2. Click Run Shiny App.',
-	'3. VERIFY the Viewer shows the app -> FAIL - Finding 1',
-	'',
-	'**Observed:** The console prints `Listening on http://127.0.0.1:<port>`, but the Viewer never shows it after 30 s, though a toast says "will preview it".',
-	'',
-	'**Expected:** The Viewer opens on the app (S10).',
-	'',
-	'**Evidence**',
-	'',
-	'**Cause (hypothesis):** `executeVerifiedFragments` drops the execution ID.',
-	'',
-	'<details>',
-	'<summary>Verification details</summary>',
-	'',
-	'**Observed:** not part of a finding',
-	'</details>',
-].join('\n');
+const REPORT = {
+	header: {
+		title: 'Exploratory test: Shiny',
+		result: 'Python apps preview and reload on edit. **Run Shiny App on an R app never previews it after 30 s.**',
+		tested: 'Run App',
+	},
+	findings: [{
+		n: 1,
+		title: 'Run Shiny App on an R app never previews it',
+		feature: 'Viewer',
+		severity: 'major',
+		reproduced: { n: 2, m: 2 },
+		verified: 'confirmed',
+		steps: [
+			{ kind: 'action', text: 'Create `app.R`:', code: '```r\nshinyApp(ui, server)\n```' },
+			{ kind: 'action', text: 'Click Run Shiny App.' },
+			{ kind: 'verify', text: 'the Viewer shows the app', result: 'fail', finding: 1 },
+		],
+		observed: 'The console prints `Listening on http://127.0.0.1:<port>`, but the Viewer never shows it after 30 s, though a toast says "will preview it".',
+		expected: 'The Viewer opens on the app (S10).',
+		cause: '`executeVerifiedFragments` drops the execution ID.',
+		tests: { cases: [], related: [] },
+	}],
+	verification: { failed: false, text: '**Observed:** not part of a finding' },
+};
 
 // A writer reply for Finding 1, with its fields swapped by `with`.
 const reply = (fields = {}) => {
@@ -73,10 +60,10 @@ test('editorFindings keeps each card through Expected, without Cause or an openi
 
 test('buildEditPrompt fills the Result and findings, or returns null when there is neither', () => {
 	const template = '{{RESULT}}\n\n{{FINDINGS}}';
-	assert.equal(buildEditPrompt(template, '# No findings\n'), null);
+	assert.equal(buildEditPrompt(template, { header: {}, findings: [] }), null);
 	assert.ok(buildEditPrompt(template, REPORT).startsWith('**Result:** Python apps'));
 	assert.ok(buildEditPrompt(template, REPORT).includes('### Finding 1:'));
-	assert.equal(buildEditPrompt(template, '# x\n\n**Result:** Loads.\n\n## Findings\n\nNone.'), '**Result:** Loads.\n\nNo findings.');
+	assert.equal(buildEditPrompt(template, { header: { result: 'Loads.' }, findings: [] }), '**Result:** Loads.\n\nNo findings.');
 	assert.throws(() => buildEditPrompt('{{FINDINGS}}', REPORT), /RESULT/);
 });
 
@@ -134,28 +121,24 @@ test('reviewEdits lets a Result shrink what worked, but not lose a name, a numbe
 	assert.deepEqual(reasons(review('Python apps work. **The Viewer stays empty after Run Shiny App starts an app, even after 30 s.**').rejected), [{ n: 0, field: 'result', reason: 'loses R' }]);
 	assert.deepEqual(reasons(review('Python apps work. The Viewer stays empty after Run Shiny App starts an R app, even after 30 s.').rejected), [{ n: 0, field: 'result', reason: 'drops the bold' }]);
 	assert.deepEqual(reasons(review(`${Array.from({ length: 52 }, () => 'word').join(' ')} **The Viewer stays empty after Run Shiny App starts an R app, even after 30 s.**`).rejected), [{ n: 0, field: 'result', reason: 'is 68 words, over 60' }]);
-	assert.deepEqual(reasons(reviewEdits('# x\n', parseEdits('RESULT: Works.')).rejected), [{ n: 0, field: 'result', reason: 'the report has no Result' }]);
+	assert.deepEqual(reasons(reviewEdits({ header: {}, findings: [] }, parseEdits('RESULT: Works.')).rejected), [{ n: 0, field: 'result', reason: 'the report has no Result' }]);
 });
 
-test('applyEdits writes the title in heading and table and the opening atop the card, which the parser reads back', () => {
+test('applyEdits writes the Result, the title and the opening into report.json, and nothing else', () => {
 	const after = applyEdits(REPORT, reviewEdits(REPORT, parseEdits(reply())).kept);
-	assert.ok(after.includes('| 1 | Run Shiny App on an R app leaves the Viewer empty | major | 2/2 | confirmed |'));
-	assert.ok(after.includes([
-		'### Finding 1: Run Shiny App on an R app leaves the Viewer empty',
-		'',
-		'**Summary:** When you run an R Shiny app, the Viewer stays empty, though a toast says "will preview it".',
-		'',
-		'**Where:** Python apps preview as expected.',
-		'',
-		'**Feature:** Viewer',
-	].join('\n')));
-	// The rest of the card parses as it did before.
-	const [f] = parseReport(after).findings;
-	const [before] = parseReport(REPORT).findings;
-	assert.deepEqual([f.text.opening.where, f.text.summary, f.text.steps, f.text.observed, f.feature], ['Python apps preview as expected.', before.text.summary, before.text.steps, before.text.observed, 'Viewer']);
-	// Applied again, it replaces the opening rather than stacking a second.
+	assert.deepEqual(after, {
+		...REPORT,
+		header: { ...REPORT.header, result: 'Python apps work. **Run Shiny App on an R app never previews it after 30 s.**' },
+		findings: [{
+			...REPORT.findings[0],
+			title: 'Run Shiny App on an R app leaves the Viewer empty',
+			summary: 'When you run an R Shiny app, the Viewer stays empty, though a toast says "will preview it".',
+			where: 'Python apps preview as expected.',
+		}],
+	});
+	// Applied again, it replaces the opening.
 	const again = applyEdits(after, reviewEdits(after, parseEdits(reply({ where: 'Only R.' }))).kept);
-	assert.deepEqual([again.match(/\*\*Summary:\*\*/g).length, again.includes('**Where:** Only R.')], [1, true]);
+	assert.equal(again.findings[0].where, 'Only R.');
 });
 
 test('buildRetryPrompt asks again for each rejected field with its reason, or returns null', () => {

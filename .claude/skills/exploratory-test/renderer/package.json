@@ -2,7 +2,7 @@
 	"name": "exploratory-test-renderer",
 	"private": true,
 	"type": "module",
-	"description": "Renders an exploratory-test report.md as the HTML page CI publishes. Shared by local skill runs and the pr-exploratory-test action.",
+	"description": "Renders an exploratory-test report.json as the HTML page CI publishes. Shared by local skill runs and the pr-exploratory-test action.",
 	"dependencies": {
 		"@resvg/resvg-js": "^2.6.2",
 		"@tesseract.js-data/eng": "^1.0.0",

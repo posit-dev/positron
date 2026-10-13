@@ -5,24 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
-
-test('pickReport returns the last message containing a triage table', () => {
-	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
-	assert.match(pickReport(messages), /Finding/);
-});
-
-test('pickReport returns null when no message looks like a report', () => {
-	assert.equal(pickReport(['hello', 'still working']), null);
-});
-
-test('pickReport prefers the latest report when several qualify', () => {
-	const messages = [
-		'# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | first | bug |',
-		'# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | second | bug |',
-	];
-	assert.match(pickReport(messages), /second/);
-});
+import { buildTaskLine, buildCostRecord, costJson, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
 	const record = buildCostRecord({
@@ -68,26 +51,6 @@ test('renderCostFooter reports cost, turns against the cap, and wall clock', () 
 test('renderCostFooter degrades gracefully with no result message', () => {
 	const footer = renderCostFooter([{ label: 'explore', main: true, cost: { total_cost_usd: null, num_turns: null, duration_ms: null } }], 200);
 	assert.match(footer, /unknown/);
-});
-
-test('resolveReport prefers a non-empty report.md over scraped chat text, verbatim', () => {
-	const fileReport = '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from file | bug |';
-	const messages = ['# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
-	assert.equal(resolveReport(fileReport, messages), fileReport);
-});
-
-test('resolveReport falls back to pickReport when report.md is missing (null)', () => {
-	const messages = ['thinking', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
-	assert.match(resolveReport(null, messages), /from chat/);
-});
-
-test('resolveReport falls back to pickReport when report.md is empty or whitespace-only', () => {
-	const messages = ['# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
-	assert.match(resolveReport('   \n', messages), /from chat/);
-});
-
-test('resolveReport returns null when the file is absent and no message looks like a report', () => {
-	assert.equal(resolveReport(null, ['hello', 'still working']), null);
 });
 
 test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
@@ -173,33 +136,15 @@ test('renderCostFooter omits passes that did not run, and the total with them', 
 	assert.match(footer, /explore: \$2\.52/);
 });
 
-const SUMMARY_MD = [
-	'# Exploratory test: something',
-	'',
-	'`branch/name` | `abc1234`',
-	'',
-	'**Result:** It works.',
-	'',
-	'## Findings',
-	'',
-	'| # | Finding | Severity |',
-	'|---|---------|----------|',
-	'| 1 | a claim | major |',
-	'| 2 | b claim | moderate |',
-	'| 3 | c claim | moderate |',
-	'| 4 | d claim | minor |',
-	'| 5 | e claim | minor |',
-	'',
-	'### Finding 1: a claim',
-	'',
-	'**Observed:** it broke.',
-].join('\n');
+/** report.json's findings, as many as the tally needs. */
+const finding = (n, severity) => ({ n, severity, title: `${'abcde'[n - 1]} claim`, observed: 'it broke.' });
+const SUMMARY = { header: { title: 'something', result: 'It works.' }, findings: [finding(1, 'major'), finding(2, 'moderate'), finding(3, 'moderate'), finding(4, 'minor'), finding(5, 'minor')] };
 
 test('renderStepSummary is a tally and a link, and nothing else', () => {
-	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run');
+	const summary = renderStepSummary(SUMMARY, 'https://cdn.example/run');
 	assert.match(summary, /^\*\*1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
 	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
-	assert.doesNotMatch(summary, /report\.md/);
+	assert.doesNotMatch(summary, /report\.json/);
 	// The body of the report belongs on its own page, not pasted in here.
 	assert.doesNotMatch(summary, /Observed|a claim/);
 	// The link says what it is, and the cost is on the report's Run tile.
@@ -210,26 +155,19 @@ test('renderStepSummary is a tally and a link, and nothing else', () => {
 	assert.equal(summary.trim().split('\n').filter(Boolean).length, 2);
 });
 
-test('renderStepSummary counts the table when the report wrote up no blocks', () => {
-	// Only finding 1 has a block; the severities all come from the table.
-	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*1 major/);
-});
-
 test('renderStepSummary omits a breakdown it cannot read', () => {
-	const md = '# T\n\n`b` | `s`\n\n## Findings\n\n| # | Finding |\n|---|---|\n| 1 | a claim |\n';
-	const summary = renderStepSummary(md, 'https://cdn.example/run');
-	// No Severity column, so no severity is claimed -- and never "1 minor".
+	const summary = renderStepSummary({ findings: [{ n: 1, title: 'a claim' }] }, 'https://cdn.example/run');
+	// No severity, so none is claimed -- and never "1 minor".
 	assert.match(summary, /^\*\*1 finding\*\*$/m);
 	assert.doesNotMatch(summary, /minor/);
 });
 
 test('renderStepSummary says so when there is nothing to report', () => {
-	const md = '# T\n\n`b` | `s`\n\n## Findings\n\nNo findings.\n';
-	assert.match(renderStepSummary(md, 'https://cdn.example/run'), /\*\*No findings\*\*/);
+	assert.match(renderStepSummary({ findings: [] }, 'https://cdn.example/run'), /\*\*No findings\*\*/);
 });
 
 test('renderStepSummary points at the artifact when nothing was published', () => {
-	const summary = renderStepSummary(SUMMARY_MD, '');
+	const summary = renderStepSummary(SUMMARY, '');
 	// A dead link is worse than no link.
 	assert.doesNotMatch(summary, /\]\(/);
 	assert.match(summary, /workflow artifact/);
@@ -307,55 +245,55 @@ const SHA = 'abc1234def5678';
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
 	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled']) {
-		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+		const body = renderPrComment({ state, report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
 	}
 });
 
 test('renderPrComment on a finished run is a title, the tally and the report link', () => {
-	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
 test('renderPrComment running state names the head and links the run', () => {
-	const body = renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'running', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nOff exploring, back soon\u2026\n[View run \u2192](${RUN_URL})\n`);
 });
 
 test('renderPrComment on a cancelled run says it was cancelled', () => {
-	const body = renderPrComment({ state: 'cancelled', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'cancelled', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled before the agent produced a report.\n[View run \u2192](${RUN_URL})\n`);
 });
 
 test('renderPrComment on an outdated branch says why and what to do', () => {
 	const reason = 'this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again.';
-	const body = renderPrComment({ state: 'outdated', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason });
+	const body = renderPrComment({ state: 'outdated', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nNot run: ${reason}\n[View run \u2192](${RUN_URL})\n`);
 	assert.match(renderPrComment({ state: 'outdated', runUrl: RUN_URL, headSha: SHA }), /^Not run: .*Rebase it onto main/m);
 });
 
 test('renderPrComment names the focus, so two runs on one head can be told apart', () => {
 	for (const state of ['running', 'complete', 'declined', '']) {
-		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA, focus: 'sorting in the data explorer' });
+		const body = renderPrComment({ state, report: SUMMARY, baseUrl: '', runUrl: RUN_URL, headSha: SHA, focus: 'sorting in the data explorer' });
 		assert.match(body, /abc1234\n\nFocus: sorting in the data explorer\n\n/, `state=${JSON.stringify(state)}`);
 	}
 	assert.doesNotMatch(renderPrComment({ state: 'running', runUrl: RUN_URL, headSha: SHA, focus: '' }), /Focus:/);
 });
 
 test('renderPrComment says No findings for an empty table', () => {
-	const body = renderPrComment({ state: 'complete', markdown: '# X\n\nNo findings.\n', baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'complete', report: { findings: [] }, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /^No findings$/m);
 });
 
 test('renderPrComment points at the artifact when the upload failed', () => {
-	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.doesNotMatch(body, /cdn\.example|index\.html|View report/);
 	assert.match(body, /workflow artifact\. \[View run/);
 });
 
 test('renderPrComment flags a partial run that still wrote a report', () => {
-	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'partial', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /^1 major \u00b7/m);
 	assert.match(body, /turn cap/);
 });
@@ -363,34 +301,19 @@ test('renderPrComment flags a partial run that still wrote a report', () => {
 test('renderPrComment says the run failed when the agent never ran', () => {
 	// The build broke, so there is no outcome and no report. The "running"
 	// comment must still be replaced with something true.
-	const body = renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: '', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /failed before/);
 	assert.doesNotMatch(body, /Off exploring, back soon/);
 });
 
 test('renderPrComment explains a missing report per outcome', () => {
-	assert.match(renderPrComment({ state: 'partial', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /turn cap before writing a report/);
-	assert.match(renderPrComment({ state: 'no-report', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /without writing a report/);
+	assert.match(renderPrComment({ state: 'partial', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /turn cap before writing a report/);
+	assert.match(renderPrComment({ state: 'no-report', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /without writing a report/);
 });
 
 test('renderPrComment leaves the SHA out rather than print an empty one', () => {
-	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
-	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
-});
-
-test('withPrLine stamps the PR under the meta line, once, and only for a number', () => {
-	const report = '# Exploratory test: x\n\n`branch` | `abc1234`\n\n**Result:** fine\n';
-	assert.equal(withPrLine(report, 'posit-dev/positron', '16188'),
-		'# Exploratory test: x\n\n`branch` | `abc1234`\n\nPR: posit-dev/positron#16188\n\n**Result:** fine\n');
-	// A dispatched run has no PR.
-	assert.equal(withPrLine(report, 'posit-dev/positron', ''), report);
-	assert.equal(withPrLine(report, 'posit-dev/positron', undefined), report);
-	assert.equal(withPrLine(report, 'posit-dev/positron', '12; rm'), report);
-	// Already stamped, or nowhere to put it.
-	const stamped = withPrLine(report, 'posit-dev/positron', '1');
-	assert.equal(withPrLine(stamped, 'posit-dev/positron', '1'), stamped);
-	assert.equal(withPrLine('# Exploratory test: x\n\n## Findings\n\n`code`\n', 'posit-dev/positron', '1'), '# Exploratory test: x\n\n## Findings\n\n`code`\n');
-	assert.equal(withPrLine(null, 'posit-dev/positron', '1'), null);
+	assert.match(renderPrComment({ state: '', report: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
+	assert.match(renderPrComment({ state: 'running', report: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
 });
 
 test('isProductPath rejects tests, docs and harness files', () => {
@@ -420,7 +343,7 @@ test('isProductPath keeps source, styles and config', () => {
 });
 
 test('renderPrComment says a declined run was not run, and why', () => {
-	const body = renderPrComment({ state: 'declined', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason: 'only tests changed' });
+	const body = renderPrComment({ state: 'declined', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason: 'only tests changed' });
 	assert.ok(body.startsWith(COMMENT_MARKER));
 	assert.match(body, /Not run/);
 	assert.match(body, /only tests changed/);
@@ -501,7 +424,7 @@ test('timeUpHook adds nothing before the deadline, then tells every tool result 
 	// A failed tool call gets it too, under its own event name.
 	assert.equal((await hook({ hook_event_name: 'PostToolUseFailure' })).hookSpecificOutput.hookEventName, 'PostToolUseFailure');
 	assert.equal(calls, 1);
-	assert.match(timeUpMessage(20), /Stop exploring now\..*Not run.*report\.md/);
+	assert.match(timeUpMessage(20), /Stop exploring now\..*Not run.*report\.json/);
 	assert.match(timeUpMessage(20), new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
 });
 
@@ -511,11 +434,10 @@ test('timeUpHook tells an agent that is not the explorer its own message', async
 });
 
 test('renderPrComment says when a run was stopped at its time limit', () => {
-	const md = ['| # | Finding | Severity |', '|---|---|---|', '| 1 | x | minor |'].join('\n');
-	const withReport = renderPrComment({ state: 'timed-out', markdown: md, baseUrl: 'https://cdn/x', runUrl: 'https://run', headSha: 'abc1234' });
+	const withReport = renderPrComment({ state: 'timed-out', report: { findings: [finding(1, 'minor')] }, baseUrl: 'https://cdn/x', runUrl: 'https://run', headSha: 'abc1234' });
 	assert.match(withReport, /_Partial run: the agent was stopped at its time limit, so coverage is incomplete\._/);
 	assert.match(withReport, /View report/);
-	const without = renderPrComment({ state: 'timed-out', markdown: null, runUrl: 'https://run', headSha: 'abc1234' });
+	const without = renderPrComment({ state: 'timed-out', report: null, runUrl: 'https://run', headSha: 'abc1234' });
 	assert.match(without, /The agent was stopped at its time limit before writing a report\./);
 });
 
@@ -612,4 +534,18 @@ test('buildTaskLine targets Positron on top of an upstream merge, unless a focus
 	const upstream = { from: '1.134.0', to: '1.138.0' };
 	assert.match(buildTaskLine('', upstream), /merges upstream Code OSS 1\.134\.0 to 1\.138\.0/);
 	assert.match(buildTaskLine('the console', upstream), /asked you to test this/);
+});
+
+test('costJson keeps the passes that ran, with the cap on the explorer\'s', () => {
+	const record = (usd, turns, ms) => ({ model: 'claude-opus-5-5', total_cost_usd: usd, num_turns: turns, duration_ms: ms });
+	assert.deepEqual(costJson([
+		{ label: 'explore', main: true, cost: record(4, 120, 1500000) },
+		{ label: 'verify', cost: record(0.6, 9, 200000) },
+		{ label: 'isolate', cost: { total_cost_usd: null } },
+	], 250), {
+		passes: [
+			{ label: 'explore', model: 'claude-opus-5-5', costUsd: 4, turns: 120, maxTurns: 250, durationMs: 1500000 },
+			{ label: 'verify', model: 'claude-opus-5-5', costUsd: 0.6, turns: 9, durationMs: 200000 },
+		],
+	});
 });

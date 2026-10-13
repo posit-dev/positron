@@ -27,7 +27,7 @@ function fixture({ signedIn = true, page = true, report = true, missingLog = fal
 		writeFileSync(join(run, 'index.html'), '<p>local page</p>');
 	}
 	if (!report) {
-		rmSync(join(run, 'report.md'));
+		rmSync(join(run, 'report.json'));
 	}
 	for (const [path, text] of Object.entries(write)) {
 		writeFileSync(join(run, path), text);
@@ -96,7 +96,7 @@ test('publishes a run that was never rendered locally: the page is rendered for 
 test('refuses a run with no report, before checking credentials', () => {
 	const { r, out } = fixture({ report: false });
 	assert.equal(r.status, 1);
-	assert.match(r.stderr, /no report\.md/);
+	assert.match(r.stderr, /no report\.json/);
 	assert.ok(!existsSync(out));
 });
 
