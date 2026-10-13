@@ -288,8 +288,15 @@ suite('Auto Create Venv', () => {
             assert.isTrue((await detectAutoCreateContext(workspace)).useUv);
         });
 
-        test('allowUvPythonInstall off: does not use uv even when installed', async () => {
+        test('allowUvPythonInstall off: still uses uv when it is already installed', async () => {
             stubAllowUvPythonInstall(false);
+
+            assert.isTrue((await detectAutoCreateContext(workspace)).useUv);
+        });
+
+        test('allowUvPythonInstall off and uv not installed: does not use uv', async () => {
+            stubAllowUvPythonInstall(false);
+            isUvInstalledStub.resolves(false);
 
             assert.isFalse((await detectAutoCreateContext(workspace)).useUv);
         });

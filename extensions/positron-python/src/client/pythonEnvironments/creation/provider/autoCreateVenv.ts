@@ -9,6 +9,7 @@ import { CreateEnv } from '../../../common/utils/localize';
 import { traceError } from '../../../logging';
 import { CreateEnvironmentProgress } from '../types';
 import { ensureUvInstalledWithProgress } from '../../common/environmentManagers/uvPythonInstaller';
+import { isUvInstalled } from '../../common/environmentManagers/uv';
 import { executeCommand } from '../../../common/vscodeApis/commandApis';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { showQuickPickWithBack } from '../../../common/vscodeApis/windowApis';
@@ -30,16 +31,15 @@ export interface AutoCreateVenvContext {
 export async function detectAutoCreateContext(workspace: WorkspaceFolder): Promise<AutoCreateVenvContext> {
     const [reqFiles, tomlExists] = await Promise.all([getPipRequirementsFiles(workspace), hasPyprojectToml(workspace)]);
 
-    // uv creates the environment around a Python it may download, so the setting that
-    // gates downloading a Python also gates offering uv at all. Read live so that
-    // turning it off takes effect without a reload. uv need not be installed yet:
-    // autoCreateVenvWithDeps offers to install it.
+    // Use uv when it is already installed. Otherwise only when python.allowUvPythonInstall
+    // is on, since autoCreateVenvWithDeps would have to install it. Read live so that
+    // turning the setting off takes effect without a reload.
     const allowUvPythonInstall = getConfiguration('python').get<boolean>('allowUvPythonInstall') ?? true;
 
     return {
         hasRequirements: (reqFiles?.length ?? 0) > 0,
         hasPyprojectToml: tomlExists,
-        useUv: allowUvPythonInstall,
+        useUv: allowUvPythonInstall || (await isUvInstalled()),
     };
 }
 
