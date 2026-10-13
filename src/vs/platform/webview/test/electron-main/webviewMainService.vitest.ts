@@ -32,6 +32,7 @@ function createContents(id: number) {
 		id,
 		isDestroyed: () => destroyed,
 		setIgnoreMenuShortcuts: (enabled: boolean) => { writes.push(enabled); },
+		on: (event: string, listener: Parameters<EventEmitter['on']>[1]) => { events.on(event, listener); return contents; },
 		once: (event: string, listener: Parameters<EventEmitter['once']>[1]) => { events.once(event, listener); return contents; },
 		removeListener: (event: string, listener: Parameters<EventEmitter['removeListener']>[1]) => { events.removeListener(event, listener); return contents; },
 	});
@@ -152,6 +153,25 @@ describe('WebviewMainService menu shortcut ownership', () => {
 		service.dispose();
 		expect({ old: old.writes, replacement: replacement.writes, listeners: old.events.listenerCount('destroyed') })
 			.toEqual({ old: [true], replacement: [], listeners: 0 });
+	});
+
+	it('releases suppression on main-frame navigation only', async () => {
+		const { writes, events } = setupWindow();
+		const service = setupService();
+		await service.setIgnoreMenuShortcuts({ windowId: 1, webviewId: 'A' }, true);
+		events.emit('did-start-navigation', { isMainFrame: true, isSameDocument: true });
+		events.emit('did-start-navigation', { isMainFrame: false, isSameDocument: false });
+		expect(writes).toEqual([true]);
+		events.emit('did-start-navigation', { isMainFrame: true, isSameDocument: false });
+		expect({ writes, listeners: events.eventNames() }).toEqual({ writes: [true, false], listeners: [] });
+	});
+
+	it('releases suppression when the render process is gone', async () => {
+		const { writes, events } = setupWindow();
+		const service = setupService();
+		await service.setIgnoreMenuShortcuts({ windowId: 1, webviewId: 'A' }, true);
+		events.emit('render-process-gone');
+		expect({ writes, listeners: events.eventNames() }).toEqual({ writes: [true, false], listeners: [] });
 	});
 
 	it('releases suppression and listeners when the service is disposed', async () => {

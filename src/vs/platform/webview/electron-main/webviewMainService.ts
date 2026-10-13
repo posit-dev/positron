@@ -75,10 +75,30 @@ export class WebviewMainService extends Disposable implements IWebviewManagerSer
 				} else {
 					const target = contents;
 					const onDestroyed = () => this._menuShortcutOwners.deleteAndDispose(target);
+					// A renderer crash or reload drops the owning webview, possibly
+					// without its release, and no new webview can match the old owner.
+					const onReset = () => {
+						this._menuShortcutOwners.deleteAndDispose(target);
+						if (!target.isDestroyed()) {
+							target.setIgnoreMenuShortcuts(false);
+						}
+					};
+					// Webviews are subframes, so only main-frame navigations reset.
+					const onNavigate = (event: { isMainFrame: boolean; isSameDocument: boolean }) => {
+						if (event.isMainFrame && !event.isSameDocument) {
+							onReset();
+						}
+					};
 					target.once('destroyed', onDestroyed);
+					target.once('render-process-gone', onReset);
+					target.on('did-start-navigation', onNavigate);
 					this._menuShortcutOwners.set(target, {
 						webviewId: id.webviewId,
-						dispose: () => target.removeListener('destroyed', onDestroyed),
+						dispose: () => {
+							target.removeListener('destroyed', onDestroyed);
+							target.removeListener('render-process-gone', onReset);
+							target.removeListener('did-start-navigation', onNavigate);
+						},
 					});
 				}
 			} else if (owner?.webviewId === id.webviewId) {
