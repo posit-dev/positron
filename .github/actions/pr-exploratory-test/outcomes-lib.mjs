@@ -146,7 +146,7 @@ export async function resolveTestedSha({ headSha, shortSha, lookup }) {
 
 /** Findings read from the page's per-finding prompt blocks, for runs published without report.json. */
 export function parsePageFindings(html) {
-	const section = (text, heading) => text.match(new RegExp(`^### ${heading}[^\\n]*\\n([\\s\\S]*?)(?=\\n### |$)`, 'm'))?.[1].trim() ?? '';
+	const section = (text, heading) => text.match(new RegExp(`\\n### ${heading}[^\\n]*\\n([\\s\\S]*?)(?=\\n### |$)`))?.[1].trim() ?? '';
 	return [...String(html).matchAll(/<script type="text\/plain" id="prompt-f(\d+)">([\s\S]*?)<\/script>/g)].map(([, n, text]) => ({
 		n: Number(n),
 		title: (text.match(/^## Finding \d+[^\n]*\n+([^\n]+)/)?.[1] ?? '').replace(/\.$/, ''),
@@ -156,4 +156,19 @@ export function parsePageFindings(html) {
 		expected: section(text, 'Expected'),
 		cause: section(text, 'Likely cause'),
 	}));
+}
+
+/** The PR's own commits after `testedSha`, from the PR commits API list; null when the tested commit is not in it. */
+export function prOwnCommits(commits, testedSha) {
+	const i = commits.findIndex(c => c.sha === testedSha);
+	return i < 0 ? null : commits.slice(i + 1).filter(c => c.parents.length < 2).map(c => c.sha);
+}
+
+/** `fn`'s checks, or one unclear check saying why the lookup failed. */
+export async function guarded(source, fn) {
+	try {
+		return await fn();
+	} catch (err) {
+		return [{ answer: 'unclear', reason: `${source} failed: ${err}`, source }];
+	}
 }

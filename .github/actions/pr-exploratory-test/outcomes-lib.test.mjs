@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, parsePageFindings, parseResultComment, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, prOwnCommits, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -123,4 +123,24 @@ test('parsePageFindings reads each finding from the page when report.json was no
 	]);
 	assert.deepEqual(extractPaths(parsePageFindings(html)[0]), ['src/a/b.ts']);
 	assert.deepEqual(parsePageFindings('<p>no findings</p>'), []);
+});
+
+test('prOwnCommits keeps the PR\'s own commits after the tested one, leaving out merges from main', () => {
+	const c = (sha, ...parents) => ({ sha, parents: parents.map(p => ({ sha: p })) });
+	const commits = [c('a1', 'm0'), c('t2', 'a1'), c('b3', 't2'), c('x4', 'b3', 'main9'), c('d5', 'x4')];
+	assert.deepEqual(prOwnCommits(commits, 't2'), ['b3', 'd5']);
+	assert.deepEqual(prOwnCommits(commits, 'd5'), []);
+	assert.equal(prOwnCommits(commits, 'zz'), null);
+});
+
+test('guarded turns a failed lookup into an unclear check, never a lost PR', async () => {
+	assert.deepEqual(await guarded('issues', async () => [{ answer: 'no', reason: '', source: 'issue #1' }]), [{ answer: 'no', reason: '', source: 'issue #1' }]);
+	assert.deepEqual(await guarded('issues', async () => { throw new Error('403 rate limit'); }), [{ answer: 'unclear', reason: 'issues failed: Error: 403 rate limit', source: 'issues' }]);
+});
+
+test('parsePageFindings keeps every paragraph of a section', () => {
+	const html = '<script type="text/plain" id="prompt-f1">## Finding 1 — Minor\n\nT\n\nStatus: Confirmed\n\n### Observed\nline one\nline two\n\n### Likely cause (hypothesis, not verified)\nFirst.\n\nThen `src/a/b.ts:3` too.</script>';
+	const [f] = parsePageFindings(html);
+	assert.equal(f.observed, 'line one\nline two');
+	assert.deepEqual(extractPaths(f), ['src/a/b.ts']);
 });

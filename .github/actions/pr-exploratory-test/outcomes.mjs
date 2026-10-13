@@ -13,7 +13,7 @@ import { writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, parsePageFindings, parseResultComment, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, prOwnCommits, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -80,27 +80,38 @@ function pathDiff(from, to, paths) {
 	return git('diff', '--no-color', `${from}..${to}`, '--', ...paths).slice(0, MAX_DIFF_CHARS);
 }
 
+/** The PR's own changes to `paths` in `shas`, leaving out main merged into the branch. */
+function ownDiff(shas, paths) {
+	const parts = shas.map(sha => ({ sha, diff: git('show', '--no-color', '--format=', sha, '--', ...paths) })).filter(p => p.diff);
+	return { diff: parts.map(p => p.diff).join('\n').slice(0, MAX_DIFF_CHARS), commits: parts.map(p => p.sha.slice(0, 10)) };
+}
+
 async function laterChecks(finding, paths, pr, postedAt) {
-	const checks = [];
-	if (paths.length && pr.merged_at) {
+	const main = paths.length && pr.merged_at ? await guarded('main diff', async () => {
 		const diff = pathDiff(pr.merge_commit_sha, 'origin/main', paths);
-		if (diff) {
-			const commits = git('log', '--format=%h', `${pr.merge_commit_sha}..origin/main`, '--', ...paths).split('\n').filter(Boolean);
-			checks.push(await check(finding, 'diff', diff, `main ${commits.join(',')}`));
+		if (!diff) {
+			return [];
 		}
-	}
-	const terms = searchTerms(finding.title);
-	const issues = terms ? (await searchIssues(terms, REPO)).filter(i => !i.pull_request && i.created_at > postedAt) : [];
-	for (const issue of issues) {
-		checks.push(await check(finding, 'issue', `#${issue.number}: ${issue.title}\n\n${String(issue.body ?? '').slice(0, 4000)}`, `issue #${issue.number}`));
-	}
-	return checks;
+		const commits = git('log', '--format=%h', `${pr.merge_commit_sha}..origin/main`, '--', ...paths).split('\n').filter(Boolean);
+		return [await check(finding, 'diff', diff, `main ${commits.join(',')}`)];
+	}) : [];
+	const issues = await guarded('issue search', async () => {
+		const terms = searchTerms(finding.title);
+		const found = terms ? (await searchIssues(terms, REPO)).filter(i => !i.pull_request && i.created_at > postedAt) : [];
+		const checks = [];
+		for (const issue of found) {
+			checks.push(await check(finding, 'issue', `#${issue.number}: ${issue.title}\n\n${String(issue.body ?? '').slice(0, 4000)}`, `issue #${issue.number}`));
+		}
+		return checks;
+	});
+	return [...main, ...issues];
 }
 
 async function prRows(number) {
 	const pr = await gh(`/repos/${REPO}/pulls/${number}`);
 	const prState = pr.merged_at ? 'merged' : pr.state === 'open' ? 'open' : 'closed';
 	git('fetch', '-q', 'origin', `refs/pull/${number}/head`, 'main');
+	const prCommits = await gh(`/repos/${REPO}/pulls/${number}/commits?per_page=100`);
 	const comments = (await gh(`/repos/${REPO}/issues/${number}/comments?per_page=100`)).filter(c => c.user?.login === 'github-actions[bot]');
 	const rows = [];
 	for (const comment of comments) {
@@ -120,15 +131,17 @@ async function prRows(number) {
 			const paths = extractPaths(finding);
 			let prCheck = null;
 			if (tested.sha && paths.length && prState !== 'open') {
+				const own = prOwnCommits(prCommits, tested.sha);
 				let diff = '';
 				let commits = [];
 				try {
-					diff = pathDiff(tested.sha, pr.head.sha, paths);
-					commits = git('log', '--format=%h', `${tested.sha}..${pr.head.sha}`, '--', ...paths).split('\n').filter(Boolean);
-				} catch {
-					prCheck = { answer: 'unclear', reason: 'tested commit not in local history', source: 'pr' };
+					({ diff, commits } = own ? ownDiff(own, paths) : { diff: '', commits: [] });
+				} catch (err) {
+					prCheck = { answer: 'unclear', reason: `pr diff failed: ${String(err).slice(0, 200)}`, source: 'pr' };
 				}
-				if (diff) {
+				if (!own) {
+					prCheck = { answer: 'unclear', reason: 'tested commit is not among the PR\'s commits (force-pushed?)', source: 'pr' };
+				} else if (diff) {
 					prCheck = await check(finding, 'diff', diff, `pr ${commits.join(',')}`);
 				}
 			}
