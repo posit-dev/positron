@@ -6,10 +6,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, sessionName } from './pipeline.mjs';
+import { checkoutProblems, completeRun, costPasses, environmentLines, explore, EXPLORE_TIME_UP, explorePrompt, finishRun, ISOLATE_MINUTES, isolateTimeUpMessage, prepareInstance, recordBranchCheck, REFORMAT_MESSAGE, reviseMessage, sessionName } from './pipeline.mjs';
 import { parseSystemLine } from './shared/ledger.mjs';
 import { reportFromJson } from './page/report-json.mjs';
 import { withTmpDir } from './shared/tmp-dirs.mjs';
@@ -258,7 +258,7 @@ test('a stopped run stops the agent it started', () => withTmpDir('pipeline-stop
 	writeFileSync(join(bin, 'claude'), `#!/bin/sh\necho $$ > '${pidFile}'\nexec sleep 60\n`);
 	chmodSync(join(bin, 'claude'), 0o755);
 	writeFileSync(join(home, 'brief.md'), 'Test the Variables pane.\n');
-	const run = spawn('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check'], {
+	const run = spawn('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check', '--no-launch'], {
 		env: { ...process.env, HOME: home, PATH: `${bin}:${process.env.PATH}` }, stdio: 'ignore',
 	});
 	try {
@@ -283,12 +283,12 @@ test('sessionName is the run directory\'s id, so two runs never share one', () =
 	assert.notEqual(sessionName('/state/output/20261013T122204-EAzyXV'), sessionName('/state/output/20261013T122204-IJD6rF'));
 });
 
-test('a fresh run gives its agents its own Playwright session in their environment', () => withTmpDir('pipeline-session-', home => {
+test('a fresh run gives its agents its own Playwright session and log paths in their environment, and briefs no instance when the launch fails', () => withTmpDir('pipeline-session-', home => {
 	const bin = join(home, 'bin');
 	const seen = join(home, 'env.txt');
 	mkdirSync(bin);
 	// A stand-in for claude that records the session it was given and fails.
-	writeFileSync(join(bin, 'claude'), `#!/bin/sh\ncat > /dev/null\necho "$PW_SESSION $PLAYWRIGHT_CLI_SESSION" > '${seen}'\nexit 1\n`);
+	writeFileSync(join(bin, 'claude'), `#!/bin/sh\ncat > /dev/null\necho "$PW_SESSION $PLAYWRIGHT_CLI_SESSION $RUN $DRIVE_POSITRON_LOG $DRIVE_POSITRON_SHOTS" > '${seen}'\nexit 1\n`);
 	chmodSync(join(bin, 'claude'), 0o755);
 	writeFileSync(join(home, 'brief.md'), 'Test the Variables pane.\n');
 	const run = spawnSync('node', [SCRIPT, 'run', '--brief', join(home, 'brief.md'), '--repo', home, '--base', 'a', '--head', 'b', '--time-limit', 'none', '--skip-checkout-check'], {
@@ -296,7 +296,44 @@ test('a fresh run gives its agents its own Playwright session in their environme
 	});
 	const dir = /run directory: (\S+)/.exec(run.stdout)?.[1];
 	assert.ok(dir, run.stderr);
-	assert.equal(readFileSync(seen, 'utf8').trim(), `${sessionName(dir)} ${sessionName(dir)}`);
+	assert.equal(readFileSync(seen, 'utf8').trim(), `${sessionName(dir)} ${sessionName(dir)} ${dir} ${join(dir, 'actions.log')} ${join(dir, 'shots')}`);
+	// The checkout has no drive-positron, so the launch fails and the explorer launches its own.
+	assert.match(run.stderr, /saving the listeners failed: .*; the explorer launches its own/);
+	assert.doesNotMatch(readFileSync(join(dir, 'explore-prompt.md'), 'utf8'), /The running app/);
+}));
+
+test('prepareInstance launches on the run\'s workspace and venv, lists the instance, and attaches the session', () => withTmpDir('pipeline-prepare-', dir => {
+	const calls = [];
+	const launched = '{"pid":42,"cdpPort":9333,"runDir":"/tmp/positron-dev-launch/x","logFile":"/tmp/positron-dev-launch/x/launch.log"}';
+	const run = (file, args) => {
+		calls.push([basename(file), ...args.map(a => a.replace(dir, '$RUN').replace(/.*\/scripts\//, ''))]);
+		return /launch\.sh$/.test(args[0]) ? `starting\n${launched}\n` : '';
+	};
+	const instance = prepareInstance(dir, { repo: '/repo', session: 'et-abc', run });
+	assert.deepEqual(calls, [
+		['bash', 'listeners.sh', '--save', '$RUN/tmp/listeners-before.txt'],
+		['bash', 'run-venv.sh', '$RUN/tmp/venv'],
+		['bash', 'launch.sh', '--', '--folder-uri', `file://$RUN/workspace`, '--log', 'debug'],
+		['playwright-cli', '-s=et-abc', 'attach', '--cdp=http://127.0.0.1:9333'],
+	]);
+	assert.deepEqual(instance, { pid: 42, cdpPort: 9333, runDir: '/tmp/positron-dev-launch/x', logFile: '/tmp/positron-dev-launch/x/launch.log', workspace: join(dir, 'workspace') });
+	assert.equal(readlinkSync(join(dir, 'workspace', '.venv')), join(dir, 'tmp', 'venv'));
+	assert.equal(readFileSync(join(dir, 'instances.jsonl'), 'utf8'), `${launched}\n`);
+	assert.ok(existsSync(join(dir, 'shots')));
+	const prompt = explorePrompt(dir, 'Test it.', [], instance);
+	assert.match(prompt, /## The running app\n\nPositron is already launched, and the Playwright session `et-[^`]+` is attached to it on CDP port 9333\./);
+	assert.doesNotMatch(explorePrompt(dir, 'Test it.'), /The running app/);
+}));
+
+test('prepareInstance reports the step that failed, and an instance launched before it stays listed to be stopped', () => withTmpDir('pipeline-prepare-', dir => {
+	const run = (file, args) => {
+		if (file.endsWith('playwright-cli')) {
+			throw Object.assign(new Error('Command failed'), { stderr: 'connecting...\nconnect ECONNREFUSED 127.0.0.1:9333\n' });
+		}
+		return /launch\.sh$/.test(args[0]) ? '{"pid":42,"cdpPort":9333}\n' : '';
+	};
+	assert.deepEqual(prepareInstance(dir, { repo: '/repo', session: 'et-abc', run }), { error: 'attaching failed: connect ECONNREFUSED 127.0.0.1:9333' });
+	assert.equal(readFileSync(join(dir, 'instances.jsonl'), 'utf8'), '{"pid":42,"cdpPort":9333}\n');
 }));
 
 test('checkoutProblems names a checkout off its head, a stale or missing build, and each missing binary, with its fix', () => {

@@ -54,10 +54,11 @@ Then update the rule's row here in the same PR.
 | Batch independent steps. Read a screenshot back only when no snapshot or log grep can answer. | Every turn re-sends the context, and an image costs about 2,500 tokens on every later turn. | Nothing | 2026-09-21 A/B on #16161, two rounds: no measurable effect on cost or findings. | #16162 |
 | Don't check or build the branch: the pipeline has, and records it under Branch verification. | A stale `out/` is main, and a run against main reports clean. The explorer spent about 6 turns a run checking it. | Pipeline: the checkout check before a local run; CI builds the branch. Both write Branch verification. | - | #16162, #16597 |
 | Name a credential only by its variable. Never run `env`, `printenv` or `set`. Enter keys only into password fields, and blur one that shows. | A report can be published to a public URL. | Publishing: `redact.sh` and `scan-shots.mjs` paint over keys they find. | - | #16262 |
-| Point drive-positron's log and shots at the run directory. Never save a shot elsewhere to copy later. | drive-positron's cleanup deletes its own run directory. | Lint (`evidence-shot-missing`): Evidence not in `shots/`. | - | #16245 |
+| Point drive-positron's log and shots at the run directory. Never save a shot elsewhere to copy later. | drive-positron's cleanup deletes its own run directory. | Lint (`evidence-shot-missing`): Evidence not in `shots/`. Pipeline: sets both for a local run. | - | #16245 |
 | Pipe every launch through `tee -a "$RUN/instances.jsonl"`. | An instance left running is stopped after the run. | `stop-instances.sh` stops what is listed. | - | #16355 |
 | Keep helpers and scratch files in `$RUN/tmp/`, and write the run path out in full. | Runs on one machine start together, and a shared helper drives the wrong instance. | Nothing | - | #16421 |
 | Attach under the Playwright session your brief names, and use it in every command and helper. | Runs side by side on one checkout share playwright-cli's sessions: in the 2026-10-13 comparison, two runs under one name drove each other's windows. | Lint (`log-other-session`): an `actions.log` line under another session. Pipeline: sets `PW_SESSION` and `PLAYWRIGHT_CLI_SESSION` for a call that leaves it out. | - | TBD |
+| When the brief says Positron is launched, drive that instance. Launch your own only for a state it cannot reach, and stop the one you leave. | Every run spent about 4 turns launching and attaching, the same way each time (2026-10-13 turn breakdown of 12 runs). A local run now gets an instance as CI's does. | Nothing. `stop-instances.sh` stops what is left. | Pending: full runs with and without `--no-launch`. | TBD |
 
 ## How to explore
 
@@ -182,12 +183,12 @@ Then update the rule's row here in the same PR.
 
 ## What this shows
 
-There are 95 rules: 65 for the explorer, 18 for the verifier, 6 for the
+There are 96 rules: 66 for the explorer, 18 for the verifier, 6 for the
 isolator and 6 for the editor.
 
 For the explorer, lint, the pipeline or publishing catches 33 rules when
 they're broken. For 8 more, only the verifier or isolator notices, which adds
-a note to the finding but sends nothing back. The other 24 have nothing behind
+a note to the finding but sends nothing back. The other 25 have nothing behind
 them but the prompt. For 13, no PR or commit says why they exist.
 
 The later agents are the opposite of the explorer. The editor is the best
