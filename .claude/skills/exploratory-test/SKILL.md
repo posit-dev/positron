@@ -9,7 +9,7 @@ metadata:
   # pipeline.mjs, finish.mjs, edit.mjs, claude-cli.mjs and time-up-hook.mjs,
   # and pr-exploratory-test's run.mjs and lib.mjs. Feedback is grouped by it, so a
   # change to how the page looks does not count.
-  version: "1.57"
+  version: "1.58"
 ---
 
 # Exploratory testing

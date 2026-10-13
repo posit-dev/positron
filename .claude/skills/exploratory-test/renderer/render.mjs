@@ -56,12 +56,12 @@ const { dependencies } = JSON.parse(readFileSync(join(here, 'package.json'), 'ut
 if (Object.keys(dependencies).some(name => !existsSync(join(here, 'node_modules', name)))) {
 	execFileSync('npm', ['ci', '--silent', '--no-audit', '--no-fund'], { cwd: here, stdio: 'inherit' });
 }
-const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./html.mjs');
+const { missingFiles, readRunDir, skillVersion, writeRunPage } = await import('./page/html.mjs');
 const { formatMinutes, modelDisplayName, parseReport } = await import('./report-parse.mjs');
 const { lintLedgerOnly, lintReport, splitProblems, untaggedShots } = await import('./lint.mjs');
 const { loadIssueRefs } = await import('./known-issues.mjs');
 const { buildStats, readChecks, recordCheck } = await import('./stats.mjs');
-const { ranInCi, reportUsageOnce } = await import('./usage.mjs');
+const { ranInCi, reportUsageOnce } = await import('./shared/usage.mjs');
 
 const dir = dirname(resolve(input));
 // The ledger alone, while the run is still exploring and there is no report yet.

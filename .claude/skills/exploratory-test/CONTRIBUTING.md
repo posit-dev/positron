@@ -24,7 +24,7 @@ is handed:
 
 Local and CI runs share every step after the explorer: `finishRun` in
 `renderer/pipeline.mjs` runs them in order and is given only a way to run an
-agent. Locally that is `claude -p` (`renderer/claude-cli.mjs`), which uses the
+agent. Locally that is `claude -p` (`renderer/agents/claude-cli.mjs`), which uses the
 person's own login; in CI it is an Agent SDK session (`run.mjs`). So a change
 to the order, a retry or a fallback goes in `pipeline.mjs`, and both get it.
 A local run's explorer is a `claude -p` session too, started by `pipeline.mjs
@@ -41,15 +41,15 @@ the report as the explorer wrote it, with the findings marked unreviewed.
 |---|---|
 | What an agent is told | `explorer.md`, `verifier.md`, `isolator.md`, `editor.md` |
 | Step order, retries, fallbacks, the isolator's brief | `renderer/pipeline.mjs` |
-| How a local run starts an agent, and its time limit | `renderer/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
-| The verifier's prompt and how verdicts are applied | `renderer/finish.mjs` |
-| The editor's prompt and how rewrites are checked | `renderer/edit.mjs` |
+| How a local run starts an agent, and its time limit | `renderer/agents/claude-cli.mjs`, `renderer/time-up-hook.mjs` |
+| The verifier's prompt and how verdicts are applied | `renderer/agents/finish.mjs` |
+| The editor's prompt and how rewrites are checked | `renderer/agents/edit.mjs` |
 | The report format | `explorer.md` (the spec), `renderer/report-parse.mjs` (the parser), `renderer/lint.mjs` (the checks) |
-| The page | `renderer/html.mjs` (template), `renderer/report-css.mjs` (tokens) |
+| The page | `renderer/page/html.mjs` (template), `renderer/page/report-css.mjs` (tokens) |
 | Linked issues the agents see | `renderer/known-issues.mjs` |
 | Secrets | `renderer/redact.sh` (text), `renderer/scan-shots.mjs` (screenshots) |
 | Publishing a local run | `renderer/publish.sh` |
-| Run stats, usage counts | `renderer/stats.mjs`, `renderer/usage.mjs` |
+| Run stats, usage counts | `renderer/stats.mjs`, `renderer/shared/usage.mjs` |
 | CI's prompt and agent sessions | `.github/actions/pr-exploratory-test/run.mjs`, `lib.mjs`, `session.mjs` |
 | Whether a PR gets a run | `gate.mjs` (declines `/explore`), `suggest.ts` (suggests it) |
 | The PR comment | `renderPrComment` in `lib.mjs`, posted by `comment.mjs` |

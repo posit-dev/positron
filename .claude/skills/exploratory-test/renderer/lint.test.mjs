@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isWarning, lintActionsLog, lintLedgerOnly, lintReport, lintShotNames, lintShotTiming, splitProblems } from './lint.mjs';
-import { applyVerification } from './finish.mjs';
+import { applyVerification } from './agents/finish.mjs';
 
 const REPORT = `# Exploratory test: x
 

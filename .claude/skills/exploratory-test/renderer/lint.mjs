@@ -16,7 +16,7 @@ import { readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { basename, isDefaultsOnly, isNewTestFile, isPositronLog, LOWERCASE_NAMES, openingRange, parseLedger, parseReport, parseSystemLine } from './report-parse.mjs';
-import { FILE_NAME, FILES_PATH, findFile } from './repro-files.mjs';
+import { FILE_NAME, FILES_PATH, findFile } from './page/repro-files.mjs';
 
 /** Lines outside fenced code blocks, with their index. */
 function prose(markdown) {

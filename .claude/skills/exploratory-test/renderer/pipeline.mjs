@@ -27,9 +27,9 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
-import { runClaude, stopAgents } from './claude-cli.mjs';
-import { applyEditReply, writeEditPrompt } from './edit.mjs';
-import { applyVerifyReply, parseVerdicts, writeVerifyPrompt } from './finish.mjs';
+import { runClaude, stopAgents } from './agents/claude-cli.mjs';
+import { applyEditReply, writeEditPrompt } from './agents/edit.mjs';
+import { applyVerifyReply, parseVerdicts, writeVerifyPrompt } from './agents/finish.mjs';
 
 export const ISOLATE_MINUTES = 12;
 export const EXPLORE_MINUTES = 30;
