@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, prOwnChanges, prOwnCommits, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, capDiff, pickPrCheck, prOwnChanges, prOwnCommits, prOwnMessages, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -151,4 +151,36 @@ test('prOwnChanges diffs tested..head in one piece unless main was merged in aft
 	assert.deepEqual(prOwnChanges([c('t1', 'm0'), c('b2', 't1'), c('x3', 'b2', 'main9'), c('d4', 'x3')], 't1'), { shas: ['b2', 'd4'] });
 	assert.deepEqual(prOwnChanges([c('t1', 'm0')], 't1'), { shas: [] });
 	assert.equal(prOwnChanges([c('t1', 'm0')], 'zz'), null);
+});
+
+test('buildCheckPrompt adds the commit messages, says when the diff is the whole PR, and counts an unreachable problem as fixed', () => {
+	const finding = { title: 'T', observed: 'O', expected: 'E', cause: 'C' };
+	const narrow = buildCheckPrompt({ finding, kind: 'diff', text: 'DIFF' });
+	assert.ok(!narrow.includes('<commits>'));
+	assert.match(narrow, /can no longer be reached/);
+	const wide = buildCheckPrompt({ finding, kind: 'diff', text: 'DIFF', messages: 'abc1234567 drop the callout\n\nuv is no longer offered', whole: true });
+	assert.match(wide, /<commits>\nabc1234567 drop the callout\n\nuv is no longer offered\n<\/commits>/);
+	assert.match(wide, /whole change/);
+});
+
+test('prOwnMessages gives the messages of the PR\'s own commits after the tested one', () => {
+	const c = (sha, message, ...parents) => ({ sha, commit: { message }, parents: parents.map(p => ({ sha: p })) });
+	const commits = [c('t1aaaaaaaaaa', 'tested', 'm0'), c('b2bbbbbbbbbb', 'fix the text\n\nbecause', 't1'), c('x3', 'Merge main', 'b2', 'main9'), c('d4dddddddddd', 'tidy', 'x3')];
+	assert.equal(prOwnMessages(commits, 't1aaaaaaaaaa'), 'b2bbbbbbbb fix the text\n\nbecause\n\nd4dddddddd tidy');
+	assert.equal(prOwnMessages(commits, 'd4dddddddddd'), '');
+	assert.equal(prOwnMessages(commits, 'zz'), null);
+});
+
+test('pickPrCheck: a yes on the whole PR wins, otherwise the check on the named files stands', () => {
+	const c = (answer, source) => ({ answer, reason: '', source });
+	assert.deepEqual(pickPrCheck(c('no', 'pr a'), c('yes', 'pr (whole) a')), c('yes', 'pr (whole) a'));
+	assert.deepEqual(pickPrCheck(c('unclear', 'pr a'), c('no', 'pr (whole) a')), c('unclear', 'pr a'));
+	assert.deepEqual(pickPrCheck(null, c('no', 'pr (whole) a')), c('no', 'pr (whole) a'));
+	assert.deepEqual(pickPrCheck(c('yes', 'pr a'), null), c('yes', 'pr a'));
+	assert.equal(pickPrCheck(null, null), null);
+});
+
+test('capDiff cuts a long diff and says so, so the model does not read a cut diff as the whole change', () => {
+	assert.equal(capDiff('abc', 5), 'abc');
+	assert.equal(capDiff('abcdefgh', 5), 'abcde\n[diff cut at 5 of 8 characters]');
 });

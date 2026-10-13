@@ -13,12 +13,15 @@ import { writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, prOwnChanges, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, capDiff, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, pickPrCheck, prOwnChanges, prOwnMessages, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
-// A diff past this is cut; the model sees enough to judge and the call stays cheap.
+// A diff past these is cut; the model sees enough to judge and the call stays cheap.
 const MAX_DIFF_CHARS = 20000;
+const MAX_WHOLE_DIFF_CHARS = 60000;
+// The whole PR's change, less lockfiles.
+const WHOLE = ['.', ':(exclude)**/package-lock.json'];
 const { values: args } = parseArgs({ options: { pr: { type: 'string' }, since: { type: 'string', default: '2026-09-15' }, model: { type: 'string', default: 'opus' }, out: { type: 'string' } } });
 const TOKEN = process.env.GH_TOKEN || execFileSync('gh', ['auth', 'token'], { encoding: 'utf8' }).trim();
 const ROOT = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
@@ -66,9 +69,9 @@ async function prNumbers() {
 	return (await gh(`/search/issues?q=${q}&per_page=100`)).items.map(i => i.number);
 }
 
-async function check(finding, kind, text, source) {
+async function check(finding, evidence, source) {
 	try {
-		const { text: reply } = await runClaude({ prompt: buildCheckPrompt({ finding, kind, text }), model: args.model, tools: [], cwd: ROOT, feed: () => { } });
+		const { text: reply } = await runClaude({ prompt: buildCheckPrompt({ finding, ...evidence }), model: args.model, tools: [], cwd: ROOT, feed: () => { } });
 		return { ...parseCheck(reply), source };
 	} catch (err) {
 		return { answer: 'unclear', reason: `model failed: ${String(err).slice(0, 200)}`, source };
@@ -76,20 +79,40 @@ async function check(finding, kind, text, source) {
 }
 
 /** The diff of `paths` between two commits, or '' when they did not change. */
-function pathDiff(from, to, paths) {
-	return git('diff', '--no-color', `${from}..${to}`, '--', ...paths).slice(0, MAX_DIFF_CHARS);
+function pathDiff(from, to, paths, max = MAX_DIFF_CHARS) {
+	return capDiff(git('diff', '--no-color', `${from}..${to}`, '--', ...paths), max);
 }
 
 /** The PR's own changes to `paths`: one range, or commit by commit to leave out main merged into the branch. */
-function ownDiff(own, paths) {
+function ownDiff(own, paths, max) {
 	if (own.range) {
 		const [from, to] = own.range;
 		const commits = git('log', '--format=%h', `${from}..${to}`, '--', ...paths).split('\n').filter(Boolean);
-		return { diff: pathDiff(from, to, paths), commits };
+		return { diff: pathDiff(from, to, paths, max), commits };
 	}
-	const shas = own.shas;
-	const parts = shas.map(sha => ({ sha, diff: git('show', '--no-color', '--format=', sha, '--', ...paths) })).filter(p => p.diff);
-	return { diff: parts.map(p => p.diff).join('\n').slice(0, MAX_DIFF_CHARS), commits: parts.map(p => p.sha.slice(0, 10)) };
+	const parts = own.shas.map(sha => ({ sha, diff: git('show', '--no-color', '--format=', sha, '--', ...paths) })).filter(p => p.diff);
+	return { diff: capDiff(parts.map(p => p.diff).join('\n'), max), commits: parts.map(p => p.sha.slice(0, 10)) };
+}
+
+/** Whether the PR fixed the finding: its own changes to the finding's files, then, unless that said yes, its whole change. */
+async function prCheck(finding, paths, prCommits, testedSha) {
+	const own = prOwnChanges(prCommits, testedSha);
+	if (!own) {
+		return { answer: 'unclear', reason: 'tested commit is not among the PR\'s commits (force-pushed?)', source: 'pr' };
+	}
+	const messages = prOwnMessages(prCommits, testedSha);
+	let named = null;
+	try {
+		const { diff, commits } = paths.length ? ownDiff(own, paths, MAX_DIFF_CHARS) : { diff: '' };
+		named = diff ? await check(finding, { kind: 'diff', text: diff, messages }, `pr ${commits.join(',')}`) : null;
+		if (named?.answer === 'yes') {
+			return named;
+		}
+		const whole = ownDiff(own, WHOLE, MAX_WHOLE_DIFF_CHARS);
+		return pickPrCheck(named, whole.diff ? await check(finding, { kind: 'diff', text: whole.diff, messages, whole: true }, `pr (whole) ${whole.commits.join(',')}`) : null);
+	} catch (err) {
+		return named ?? { answer: 'unclear', reason: `pr diff failed: ${String(err).slice(0, 200)}`, source: 'pr' };
+	}
 }
 
 async function laterChecks(finding, paths, pr, postedAt) {
@@ -99,14 +122,14 @@ async function laterChecks(finding, paths, pr, postedAt) {
 			return [];
 		}
 		const commits = git('log', '--format=%h', `${pr.merge_commit_sha}..origin/main`, '--', ...paths).split('\n').filter(Boolean);
-		return [await check(finding, 'diff', diff, `main ${commits.join(',')}`)];
+		return [await check(finding, { kind: 'diff', text: diff }, `main ${commits.join(',')}`)];
 	}) : [];
 	const issues = await guarded('issue search', async () => {
 		const terms = searchTerms(finding.title);
 		const found = terms ? (await searchIssues(terms, REPO)).filter(i => !i.pull_request && i.created_at > postedAt) : [];
 		const checks = [];
 		for (const issue of found) {
-			checks.push(await check(finding, 'issue', `#${issue.number}: ${issue.title}\n\n${String(issue.body ?? '').slice(0, 4000)}`, `issue #${issue.number}`));
+			checks.push(await check(finding, { kind: 'issue', text: `#${issue.number}: ${issue.title}\n\n${String(issue.body ?? '').slice(0, 4000)}` }, `issue #${issue.number}`));
 		}
 		return checks;
 	});
@@ -135,25 +158,10 @@ async function prRows(number) {
 		const related = new Set(report.verification?.related ?? []);
 		for (const finding of (report.findings ?? []).filter(f => f.verified === 'confirmed')) {
 			const paths = extractPaths(finding);
-			let prCheck = null;
-			if (tested.sha && paths.length && prState !== 'open') {
-				const own = prOwnChanges(prCommits, tested.sha);
-				let diff = '';
-				let commits = [];
-				try {
-					({ diff, commits } = own ? ownDiff(own, paths) : { diff: '', commits: [] });
-				} catch (err) {
-					prCheck = { answer: 'unclear', reason: `pr diff failed: ${String(err).slice(0, 200)}`, source: 'pr' };
-				}
-				if (!own) {
-					prCheck = { answer: 'unclear', reason: 'tested commit is not among the PR\'s commits (force-pushed?)', source: 'pr' };
-				} else if (diff) {
-					prCheck = await check(finding, 'diff', diff, `pr ${commits.join(',')}`);
-				}
-			}
+			const inPr = tested.sha && prState !== 'open' ? await prCheck(finding, paths, prCommits, tested.sha) : null;
 			const later = prState === 'open' ? [] : await laterChecks(finding, paths, pr, comment.created_at);
 			const decided = tested.sha
-				? decideOutcome({ prState, mergedAt: pr.merged_at, now: new Date(), hasPaths: paths.length > 0, prCheck, laterChecks: later })
+				? decideOutcome({ prState, mergedAt: pr.merged_at, now: new Date(), hasPaths: paths.length > 0, prCheck: inPr, laterChecks: later })
 				: { outcome: 'pending', decidedBy: 'sha', evidence: tested.reason };
 			rows.push({
 				pr: number, run: parsed.run, testedSha: tested.sha, reportUrl: `${parsed.reportBase}/index.html`,
