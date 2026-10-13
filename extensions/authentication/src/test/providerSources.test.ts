@@ -35,14 +35,15 @@ suite('PROVIDER_METADATA package.json consistency', () => {
 		assert.deepStrictEqual(resolved, manifestIds);
 	});
 
-	test('every PROVIDER_METADATA entry is declared in the manifest', () => {
+	test('every PROVIDER_METADATA entry has an activation event', () => {
 		// The other direction: metadata for a provider this extension no longer
-		// registers would silently report it in diagnostics.
-		const manifestIds = authPkg.contributes.authentication
-			.map((c: { id: string }) => c.id);
+		// registers would silently report it in diagnostics. Snowflake and
+		// Databricks aren't in contributes.authentication (Posit Assistant may
+		// register them instead), so check the activation events.
+		const activationEvents: string[] = authPkg.activationEvents;
 		const orphans = Object.values(PROVIDER_METADATA)
 			.map(p => p.id)
-			.filter(id => !manifestIds.includes(id));
+			.filter(id => !activationEvents.includes(`onAuthenticationRequest:${id}`));
 
 		assert.deepStrictEqual(orphans, []);
 	});

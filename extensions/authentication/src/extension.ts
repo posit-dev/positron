@@ -50,6 +50,8 @@ import {
 	saveSnowflakeAccount,
 } from './providerCatalog';
 
+const POSIT_ASSISTANT_EXTENSION_ID = 'posit.assistant';
+
 /** A settings migration, named so a failure says which one gave up. */
 interface SettingsMigration {
 	readonly name: string;
@@ -144,8 +146,12 @@ export async function activate(context: vscode.ExtensionContext) {
 	);
 
 	await registerAwsProvider(context);
-	await registerSnowflakeProvider(context);
-	await registerDatabricksProvider(context);
+	const snowflake = registerUnlessAssistantOwns(SNOWFLAKE_AUTH_PROVIDER_ID, () => registerSnowflakeProvider(context));
+	context.subscriptions.push(snowflake.disposable);
+	await snowflake.ready;
+	const databricks = registerUnlessAssistantOwns(DATABRICKS_AUTH_PROVIDER_ID, () => registerDatabricksProvider(context));
+	context.subscriptions.push(databricks.disposable);
+	await databricks.ready;
 
 	// React to provider-catalog changes: drop sessions for providers disabled
 	// in the catalog, and re-resolve chain sessions whose connection changed.
@@ -221,7 +227,82 @@ async function registerAwsProvider(
 	logger.info('Registered auth provider');
 }
 
-async function registerSnowflakeProvider(context: vscode.ExtensionContext): Promise<void> {
+/** An auth provider registration, plus its first look for existing credentials. */
+export interface ProviderRegistration {
+	readonly disposable: vscode.Disposable;
+	readonly ready: Promise<void>;
+}
+
+/**
+ * Registers an auth provider only while Posit Assistant doesn't, since an id can only be registered once.
+ * Re-checks when extensions are installed, enabled or disabled.
+ */
+export function registerUnlessAssistantOwns(
+	authProviderId: string,
+	register: () => ProviderRegistration,
+	isOwnedByAssistant: (authProviderId: string) => boolean = assistantRegisters,
+	onDidChangeExtensions: vscode.Event<void> = vscode.extensions.onDidChange,
+): ProviderRegistration {
+	let current: vscode.Disposable | undefined;
+	const update = (): Promise<void> => {
+		if (isOwnedByAssistant(authProviderId)) {
+			current?.dispose();
+			current = undefined;
+		} else if (!current) {
+			try {
+				const registration = register();
+				current = registration.disposable;
+				return registration.ready;
+			} catch (err) {
+				// Left unregistered, so the next extension change tries again.
+				return Promise.reject(err);
+			}
+		}
+		return Promise.resolve();
+	};
+
+	const listener = onDidChangeExtensions(() => {
+		update().catch(err => log.error(`Could not update the ${authProviderId} auth provider: ${err}`));
+	});
+	return {
+		disposable: new vscode.Disposable(() => {
+			listener.dispose();
+			current?.dispose();
+			current = undefined;
+		}),
+		ready: update(),
+	};
+}
+
+/** Whether Posit Assistant is installed and enabled, and declares this auth provider id. */
+function assistantRegisters(authProviderId: string): boolean {
+	return declaresAuthProvider(vscode.extensions.getExtension(POSIT_ASSISTANT_EXTENSION_ID)?.packageJSON, authProviderId);
+}
+
+/** Whether an extension manifest lists the id in `contributes.authentication`. */
+export function declaresAuthProvider(packageJSON: { contributes?: { authentication?: unknown } } | undefined, authProviderId: string): boolean {
+	const declared = packageJSON?.contributes?.authentication;
+	return Array.isArray(declared) && declared.some(entry => entry?.id === authProviderId);
+}
+
+/** Registers the provider with VS Code and the local registry, disposing it if registration throws. */
+function registerProvider(authProviderId: string, label: string, provider: AuthProvider): vscode.Disposable {
+	try {
+		return vscode.Disposable.from(
+			vscode.authentication.registerAuthenticationProvider(
+				authProviderId, label, provider,
+				{ supportsMultipleAccounts: false }
+			),
+			provider,
+			registerAuthProvider(authProviderId, provider)
+		);
+	} catch (err) {
+		provider.dispose();
+		throw err;
+	}
+}
+
+function registerSnowflakeProvider(context: vscode.ExtensionContext): ProviderRegistration {
 	const logger = new AuthProviderLogger('Snowflake Cortex');
 	let lastTomlCheck: number | undefined;
 	let pendingMtime: number | undefined;
@@ -272,21 +353,15 @@ async function registerSnowflakeProvider(context: vscode.ExtensionContext): Prom
 			},
 		}
 	);
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider
-	);
-	registerAuthProvider(SNOWFLAKE_AUTH_PROVIDER_ID, provider);
-	await provider.resolveChainCredentials();
-	logger.info('Registered auth provider');
+	return {
+		disposable: registerProvider(SNOWFLAKE_AUTH_PROVIDER_ID, 'Snowflake Cortex', provider),
+		ready: provider.resolveChainCredentials().then(() => logger.info('Registered auth provider')),
+	};
 }
 
-async function registerDatabricksProvider(
+function registerDatabricksProvider(
 	context: vscode.ExtensionContext
-): Promise<void> {
+): ProviderRegistration {
 	const logger = new AuthProviderLogger('Databricks');
 	let lastCfgCheck: number | undefined;
 	let pendingMtime: number | undefined;
@@ -349,15 +424,8 @@ async function registerDatabricksProvider(
 			}
 		},
 	});
-	context.subscriptions.push(
-		vscode.authentication.registerAuthenticationProvider(
-			DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', provider,
-			{ supportsMultipleAccounts: false }
-		),
-		provider
-	);
-	registerAuthProvider(DATABRICKS_AUTH_PROVIDER_ID, provider);
-
-	await provider.resolveChainCredentials();
-	logger.info('Registered auth provider');
+	return {
+		disposable: registerProvider(DATABRICKS_AUTH_PROVIDER_ID, 'Databricks', provider),
+		ready: provider.resolveChainCredentials().then(() => logger.info('Registered auth provider')),
+	};
 }

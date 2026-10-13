@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { AuthProvider } from './authProvider';
 
 /**
@@ -14,10 +15,15 @@ import { AuthProvider } from './authProvider';
  */
 export const authProviders = new Map<string, AuthProvider>();
 
-/** Record an auth provider so catalog reactions and diagnostics can find it. */
+/** Record an auth provider so catalog reactions and diagnostics can find it. Dispose to forget it. */
 export function registerAuthProvider(
 	providerId: string,
 	provider: AuthProvider
-): void {
+): vscode.Disposable {
 	authProviders.set(providerId, provider);
+	return new vscode.Disposable(() => {
+		if (authProviders.get(providerId) === provider) {
+			authProviders.delete(providerId);
+		}
+	});
 }
