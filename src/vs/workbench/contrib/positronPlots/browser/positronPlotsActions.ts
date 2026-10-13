@@ -91,7 +91,7 @@ abstract class AbstractPlotsAction extends Action2 {
 			quickPicker.items = quickPickItems;
 			quickPicker.ignoreFocusOut = true;
 			quickPicker.hideInput = true;
-			quickPicker.title = localize('positronPlots.action.selectPlot', 'Select a plot');
+			quickPicker.title = localize('positronPlots.action.selectPlot', 'Select a plot to show');
 
 			quickPicker.onDidAccept((_event) => {
 				const selectedItem =
