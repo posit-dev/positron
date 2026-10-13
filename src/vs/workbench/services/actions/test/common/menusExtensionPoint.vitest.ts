@@ -18,6 +18,7 @@ describe('toAgentMetadata', () => {
 		const metadata = toAgentMetadata({
 			description: 'Restart the session.',
 			returns: 'void',
+			readOnly: true,
 			args: [
 				{ name: 'sessionId', description: 'Session to restart.', required: false },
 				{ name: 'force' },
@@ -42,6 +43,7 @@ describe('toAgentMetadata', () => {
 			    },
 			  ],
 			  "description": "Restart the session.",
+			  "readOnly": true,
 			  "returns": "void",
 			}
 		`);

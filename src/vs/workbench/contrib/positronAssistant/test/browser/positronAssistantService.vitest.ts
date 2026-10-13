@@ -49,7 +49,6 @@ describe('PositronAssistantService', () => {
 				runtime,
 				sessionName: "Test Session",
 				sessionMode: LanguageRuntimeSessionMode.Console,
-				startReason: "Test"
 			}
 		);
 		testNotebookSession = await startTestLanguageRuntimeSession(
@@ -59,7 +58,6 @@ describe('PositronAssistantService', () => {
 				runtime,
 				sessionName: "Test Notebook Session",
 				sessionMode: LanguageRuntimeSessionMode.Notebook,
-				startReason: "Test",
 				notebookUri: URI.file('/path/to/notebook.ipynb')
 			}
 		);

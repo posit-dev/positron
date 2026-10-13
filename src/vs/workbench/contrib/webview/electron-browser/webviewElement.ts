@@ -77,7 +77,10 @@ export class ElectronWebviewElement extends WebviewElement {
 			// --- End Positron ---
 		);
 
-		this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(configurationService, mainProcessService, _nativeHostService);
+		// --- Start Positron ---
+		// this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(configurationService, mainProcessService, _nativeHostService);
+		this._webviewKeyboardHandler = new WindowIgnoreMenuShortcutsManager(this.id, configurationService, mainProcessService, _nativeHostService);
+		// --- End Positron ---
 
 		this._webviewMainService = ProxyChannel.toService<IWebviewManagerService>(mainProcessService.getChannel('webview'));
 

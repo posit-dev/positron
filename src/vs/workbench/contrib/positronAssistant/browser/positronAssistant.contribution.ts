@@ -20,7 +20,7 @@ import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/comm
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ChatAgentLocation, ChatConfiguration } from '../../chat/common/constants.js';
-import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, USER_INITIATED_METADATA_KEY } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { NextEditSuggestionsStatusBarEntry } from './nextEditSuggestionsStatusBar.js';
 import { CommitMessageMenuContribution, registerCommitMessageGeneration } from './commitMessageAction.js';
@@ -135,7 +135,9 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 
 			run(accessor: ServicesAccessor, context: ICodeBlockActionContext): void | Promise<void> {
 				const attribution: IConsoleCodeAttribution = {
-					source: CodeAttributionSource.Assistant
+					source: CodeAttributionSource.Assistant,
+					// The user clicked this button, so the code is theirs to run.
+					metadata: { [USER_INITIATED_METADATA_KEY]: true },
 				};
 				consoleService.executeCode(
 					context.languageId || '',

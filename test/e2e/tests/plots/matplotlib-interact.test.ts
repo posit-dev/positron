@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.POSITRON_NOTEBOOKS] }, () => {
+test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.POSITRON_NOTEBOOKS, tags.PYTHON] }, () => {
 
 	test.afterAll(async function ({ cleanup }) {
 		// Running the cells writes execution counts and outputs back to the notebook.

@@ -24,6 +24,7 @@
 		"./src",
 		"./test",
 		".vscode/extensions/test-extension",
+		"../../src/vscode-dts/vscode.proposed.envIsConnectionMetered.d.ts",
 		// Positron: ambient `declare module 'positron'` so Copilot can type the
 		// `positron` API it consumes at runtime (e.g. positron.ai.getEnabledTools).
 		"../../src/positron-dts/positron.d.ts"

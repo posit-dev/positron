@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { EvalTestCase, RunResult } from '../types';
+import { TestTags } from '../../../infra';
 
 /**
  * Test: No hallucination of execution results
@@ -21,6 +22,7 @@ export const pythonNoExecutionHallucination: EvalTestCase = {
 	fixme: 'Test needs updating to handle the removal of edit mode',
 	prompt,
 	mode,
+	tags: [TestTags.PYTHON],
 
 	run: async ({ app, sessions }): Promise<RunResult> => {
 		const { assistant, console } = app.workbench;

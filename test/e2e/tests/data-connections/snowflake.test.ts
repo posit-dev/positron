@@ -173,4 +173,48 @@ test.describe('Data Connections - Snowflake (External Browser)', {
 		await dataExplorer.waitForIdle();
 		expect(await dataExplorer.grid.getColumnCount()).toBe(previewViewColumnCount);
 	});
+
+	test('Verify a database and a schema open their details on a single click', async function ({ app }) {
+		const { dataConnections } = app.workbench;
+
+		await dataConnections.clickNode(database, 'database');
+		await dataConnections.expectDetailsOpen(database, 'Database');
+		await dataConnections.expectDetailsToContain(`"${database}"`);
+
+		await dataConnections.clickNode(schema, 'schema');
+		await dataConnections.expectDetailsOpen(schema, 'Schema');
+		await dataConnections.expectDetailsToContain(`"${database}"."${schema}"`);
+	});
+
+	test('Verify a view opens its details with its columns', async function ({ app }) {
+		const { dataConnections } = app.workbench;
+
+		await dataConnections.clickNode(previewView, 'view');
+		await dataConnections.expectDetailsOpen(previewView, 'View');
+		await dataConnections.expectDetailsToContain(`"${database}"."${schema}"."${previewView}"`);
+
+		await dataConnections.selectDetailsTab('Columns');
+		await dataConnections.expectDetailsToContain('VARIABLE');
+	});
+
+	test('Verify Copy Name and Copy Path on a view', async function ({ app }) {
+		const { dataConnections, clipboard } = app.workbench;
+
+		await dataConnections.selectNodeMenuItem(previewView, 'view', 'Copy Name');
+		await clipboard.expectClipboardTextToBe(previewView);
+
+		await dataConnections.selectNodeMenuItem(previewView, 'view', 'Copy Path');
+		await clipboard.expectClipboardTextToBe(`"${database}"."${schema}"."${previewView}"`);
+	});
+
+	test('Verify a view opens in the Data Explorer from its details', { tag: [tags.DATA_EXPLORER] }, async function ({ app }) {
+		const { dataConnections, dataExplorer } = app.workbench;
+
+		await dataConnections.clickNode(previewView, 'view');
+		await dataConnections.expectDetailsOpen(previewView, 'View');
+		await dataConnections.clickDetailsOpenInDataExplorer();
+
+		await dataExplorer.waitForIdle();
+		expect(await dataExplorer.grid.getColumnCount()).toBe(previewViewColumnCount);
+	});
 });

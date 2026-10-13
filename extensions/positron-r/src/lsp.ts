@@ -45,12 +45,11 @@ const NOTEBOOK_REPL_PATTERN = /^\/notebook-repl-/;
 
 // The cells of every Quarto virtual notebook, for the console client.
 //
-// When Ark does not declare `notebookDocumentSync`, the client syncs these
-// cells as ordinary text documents and the document selector is the only
-// gate. When it does, `notebookCellFilter` gates sync and this selector only
-// routes requests. Matching the notebook's type keeps real notebooks' (.ipynb)
-// cells out, since no other notebook carries this type. A Quarto session names
-// its own document's notebook instead; see `ArkLsp._quartoCellsUri`.
+// Ark declares `notebookDocumentSync`, so `notebookCellFilter` gates sync and
+// this selector only routes requests. Matching the notebook's type keeps real
+// notebooks' (.ipynb) cells out, since no other notebook carries this type. A
+// Quarto session names its own document's notebook instead; see
+// `ArkLsp._quartoCellsUri`.
 const QUARTO_CELL_SELECTOR = {
 	notebook: { notebookType: QUARTO_CELLS_NOTEBOOK_TYPE },
 	language: 'r',
@@ -84,7 +83,7 @@ function isOwnedQuartoCellUri(uri: vscode.Uri): boolean {
 }
 
 /**
- * Selects notebook cells to sync with Ark when it declares `notebookDocumentSync`.
+ * Selects notebook cells to sync with Ark.
  *
  * For a dedicated session client, this filter accepts only its own notebook.
  * For Quarto, that is the hidden notebook representing the document's chunks.
@@ -344,11 +343,14 @@ export class ArkLsp implements vscode.Disposable {
 					}
 					// Disable diagnostics for Quarto virtual documents:
 					// https://github.com/quarto-dev/quarto/issues/855
-					// Only check file URIs because vdocs are files on disk
+					// Only check file URIs because vdocs are files on disk.
+					// Publish an empty set rather than dropping the publish:
+					// the Quarto extension waits for a diagnostics change on
+					// the vdoc and logs a timeout warning if none arrives.
 					if (uri.scheme === 'file') {
 						const baseName = path.basename(uri.fsPath);
 						if (VDOC_PATTERN.test(baseName)) {
-							return undefined;
+							return next(uri, []);
 						}
 					}
 					// A cell with a session of its own gets its squiggles from that

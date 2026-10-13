@@ -8,9 +8,9 @@
 	cursor: pointer;
 	background-color: transparent;
 
-	/* Unset user agent stylesheet styles. */
-	font-family: unset !important;
-	text-align: unset !important;
+	/* Unset user agent stylesheet styles. No !important, so consumers can override these. */
+	font-family: unset;
+	text-align: unset;
 }
 
 .positron-button.disabled {

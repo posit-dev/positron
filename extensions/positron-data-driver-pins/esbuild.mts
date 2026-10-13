@@ -22,9 +22,10 @@ run({
 	outdir: outDir,
 	additionalOptions: {
 		// @duckdb/node-api loads a native N-API addon (@duckdb/node-bindings) plus a prebuilt
-		// libduckdb; externalize so it's loaded from node_modules at runtime (this extension is
-		// registered in extensionsWithNpmDeps so its dependencies are packaged). Only duckdbWorker.ts
-		// imports these; the extension host bundle never loads the native binding.
+		// libduckdb; externalize so it's loaded from node_modules at runtime. A packaged build
+		// loads it from the shared extensions/node_modules (see
+		// build/lib/positron-duckdb-runtime.ts). Only duckdbWorker.ts imports these; the extension
+		// host bundle never loads the native binding.
 		external: ['vscode', 'positron', '@duckdb/node-api', '@duckdb/node-bindings'],
 	},
 }, process.argv);

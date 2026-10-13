@@ -76,7 +76,6 @@ describe('Positron - console activity routing across a detach', () => {
 			{
 				runtime,
 				sessionName: runtime.runtimeName,
-				startReason: 'Test requested a console session',
 				sessionMode: LanguageRuntimeSessionMode.Console,
 			});
 		session.setRuntimeState(RuntimeState.Ready);

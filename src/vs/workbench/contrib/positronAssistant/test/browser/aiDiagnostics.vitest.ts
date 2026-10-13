@@ -5,7 +5,9 @@
 
 /// <reference types="vitest/globals" />
 
-import { capLogLines, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
+import { IConfigurationService, IConfigurationValue } from '../../../../../platform/configuration/common/configuration.js';
+import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
+import { capLogLines, collectAISettings, describeExtensionStatus, describeFeatureToggle, featureState, generateAIDiagnosticsReport, hasExplicitValue, IAIDiagnosticsInputs, isSensitiveSettingKey, redactProvidersConfig } from '../../browser/aiDiagnostics.js';
 
 function inputs(overrides: Partial<IAIDiagnosticsInputs> = {}): IAIDiagnosticsInputs {
 	return {
@@ -413,6 +415,28 @@ describe('redactProvidersConfig', () => {
 	it('parses tolerantly (comments / trailing commas) and returns the raw text when it cannot parse', () => {
 		expect(redactProvidersConfig('{\n  // a comment\n  "version": 1,\n}')).toBe('{\n  "version": 1\n}');
 		expect(redactProvidersConfig('not json at all')).toBe('not json at all');
+	});
+});
+
+describe('collectAISettings', () => {
+	it('reports enforced AI settings that are no longer declared, and skips non-AI ones', () => {
+		const policyValues: Record<string, unknown> = {
+			'authentication.anthropic.baseUrl': 'https://gateway.example.com',
+			'assistant.provider.deepseek.enabled': false,
+			'telemetry.telemetryLevel': 'off',
+		};
+		const configurationService = stubInterface<IConfigurationService>({
+			keys: () => ({ default: [], policy: Object.keys(policyValues), user: [], workspace: [], workspaceFolder: [] }),
+			inspect: <T>(key: string): IConfigurationValue<T> => {
+				const value = policyValues[key] as T;
+				return { value, policyValue: value };
+			},
+		});
+
+		expect(collectAISettings(configurationService).enforced).toEqual([
+			{ key: 'assistant.provider.deepseek.enabled', value: 'false' },
+			{ key: 'authentication.anthropic.baseUrl', value: 'https://gateway.example.com' },
+		]);
 	});
 });
 

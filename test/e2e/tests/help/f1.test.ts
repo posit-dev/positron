@@ -20,7 +20,7 @@ test.describe('F1 Help', {
 		await hotKeys.closeSecondarySidebar();
 	});
 
-	test('R - Verify basic F1 console help functionality', async function ({ app, page, r, openFile, runCommand }) {
+	test('R - Verify basic F1 console help functionality', { tag: [tags.ARK] }, async function ({ app, page, r, openFile, runCommand }) {
 		const { variables, console, layouts } = app.workbench;
 
 		await layouts.enterLayout('stacked');
@@ -38,7 +38,7 @@ test.describe('F1 Help', {
 		await expect(helpFrame.locator('body')).toContainText('Row and Column Names', { timeout: 30000 });
 	});
 
-	test('R - Verify basic F1 editor help functionality', async function ({ app, page, r, openFile }) {
+	test('R - Verify basic F1 editor help functionality', { tag: [tags.ARK] }, async function ({ app, page, r, openFile }) {
 		await app.workbench.layouts.enterLayout('stacked');
 		await openFile(join('workspaces', 'generate-data-frames-r', 'generate-data-frames.r'));
 		await page.locator('span').filter({ hasText: 'colnames(df) <- paste0(\'col\', 1:num_cols)' }).locator('span').first().dblclick();
@@ -48,7 +48,7 @@ test.describe('F1 Help', {
 		await expect(helpFrame.locator('h2').first()).toContainText('Row and Column Names', { timeout: 30000 });
 	});
 
-	test('Python - Verify basic F1 console help functionality', async function ({ app, page, python, openFile, runCommand }) {
+	test('Python - Verify basic F1 console help functionality', { tag: [tags.PYTHON] }, async function ({ app, page, python, openFile, runCommand }) {
 		const { variables, console, layouts } = app.workbench;
 
 		await layouts.enterLayout('stacked');
@@ -66,7 +66,7 @@ test.describe('F1 Help', {
 		await expect(helpFrame.locator('p').first()).toContainText('Built-in mutable sequence.', { timeout: 30000 });
 	});
 
-	test('Python - Verify basic F1 editor help functionality', async function ({ app, page, python }) {
+	test('Python - Verify basic F1 editor help functionality', { tag: [tags.PYTHON] }, async function ({ app, page, python }) {
 		const fileName = 'generate-data-frames.py';
 		await app.workbench.layouts.enterLayout('stacked');
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'generate-data-frames-py', fileName));
@@ -87,7 +87,7 @@ test.describe('F1 Help', {
 
 	// Notebook tests run last: the notebook->stacked transition leaves the Help
 	// webview unresolvable for a following console/editor test.
-	test('R - Verify basic F1 notebook help functionality', { tag: tags.POSITRON_NOTEBOOKS }, async function ({ app, page, r, openDataFile }) {
+	test('R - Verify basic F1 notebook help functionality', { tag: [tags.POSITRON_NOTEBOOKS, tags.ARK] }, async function ({ app, page, r, openDataFile }) {
 		const { layouts } = app.workbench;
 
 		await openDataFile(join('workspaces', 'large_r_notebook', 'spotify.ipynb'));
@@ -103,7 +103,7 @@ test.describe('F1 Help', {
 		}).toPass({ timeout: 30000 });
 	});
 
-	test('Python - Verify basic F1 notebook help functionality', { tag: tags.POSITRON_NOTEBOOKS }, async function ({ app, page, python, openDataFile }) {
+	test('Python - Verify basic F1 notebook help functionality', { tag: [tags.POSITRON_NOTEBOOKS, tags.PYTHON] }, async function ({ app, page, python, openDataFile }) {
 		const { notebooksPositron, layouts } = app.workbench;
 
 		await openDataFile(join('workspaces', 'large_py_notebook', 'spotify.ipynb'));

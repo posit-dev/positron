@@ -28,7 +28,7 @@ test.describe('Sessions: Console Startup', {
 	});
 
 	for (const { lang, runtime, target } of LANGUAGES) {
-		test(`Console Start: ${lang}`, async function ({ sessions, metric }) {
+		test(`Console Start: ${lang}`, { tag: lang === 'Python' ? [tags.PYTHON] : [tags.ARK] }, async function ({ sessions, metric }) {
 			// `reuse: false` forces a fresh create path rather than piggybacking on an existing idle session.
 			let sessionName = '';
 

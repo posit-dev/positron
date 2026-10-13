@@ -173,14 +173,8 @@ function touchesEdge(piece, key) {
 }
 
 /**
- * The boxes to paint in one shot, from OCR's lines and words: every word that
- * shows a secret, or failing that the shortest run of words that does. Then,
- * once one is found, the pieces of it OCR split off or misread, which the
- * match alone leaves showing: on the same line, any word that shares a
- * stretch of the key; on another, one that shares its start or end, which is
- * how a key wrapped onto a second line reads. One run read `https://` as
- * `hitps:/` and left the start of a URL unpainted, so the pieces allow a
- * misread character too.
+ * The boxes to paint in one shot: every word showing a secret, or else the shortest run that does,
+ * plus the pieces OCR split off or misread (a shared stretch on the line, a shared start or end on another).
  */
 export function boxesToPaint(lines, secrets) {
 	const boxes = [];

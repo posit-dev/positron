@@ -26,7 +26,7 @@ export const pyNotebookGetCells: EvalTestCase = {
 	prompt,
 	mode,
 	language: 'Python',
-	tags: [TestTags.POSITRON_NOTEBOOKS],
+	tags: [TestTags.POSITRON_NOTEBOOKS, TestTags.PYTHON],
 
 	run: async ({ app, hotKeys, settings }): Promise<RunResult> => {
 		const { assistant, notebooksPositron } = app.workbench;

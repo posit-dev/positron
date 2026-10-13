@@ -87,7 +87,7 @@ test.describe('Notebook Edit Mode', {
 		await notebooksPositron.expectCellContentAtIndexToBe(3, 'new cell content');
 	});
 
-	test('Move cells up and down with keyboard shortcuts', async function ({ app, r, }) {
+	test('Move cells up and down with keyboard shortcuts', { tag: [tags.ARK] }, async function ({ app, r, }) {
 		const { notebooksPositron } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
 
@@ -108,7 +108,7 @@ test.describe('Notebook Edit Mode', {
 		await notebooksPositron.expectCellContentsToBe(['# Cell 0', '# Cell 1']);
 	});
 
-	test('Execute and debug cells with keyboard shortcuts', async function ({ app, r, }) {
+	test('Execute and debug cells with keyboard shortcuts', { tag: [tags.PYTHON, tags.ARK] }, async function ({ app, r, }) {
 		const { notebooksPositron, debug } = app.workbench;
 		const keyboard = app.code.driver.currentPage.keyboard;
 

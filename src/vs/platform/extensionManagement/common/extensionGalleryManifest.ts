@@ -99,6 +99,7 @@ export function getExtensionGalleryManifestResourceUri(manifest: IExtensionGalle
 
 export const ExtensionGalleryServiceUrlConfigKey = 'extensions.gallery.serviceUrl';
 
+export const ExtensionGalleryAuthProviderConfigKey = 'extensions.gallery.authProvider';
 // --- Start Positron ---
 export const PositronGallerySourceConfigKey = 'positron.extensions.gallerySource';
 export const PositronCustomGalleryUrlConfigKey = 'positron.extensions.customGalleryUrl';

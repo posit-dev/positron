@@ -32,7 +32,7 @@ import { executeCommand } from '../../../../common/vscodeApis/commandApis';
 import { getGlobalStorage, IPersistentStorage } from '../../../../common/persistentState';
 
 // --- Start Positron ---
-import { getCustomEnvDirs, isPythonStartupDisabled } from '../../../../positron/interpreterSettings';
+import { getCustomEnvDirs, isEagerDiscoveryDisabled } from '../../../../positron/interpreterSettings';
 import { traceVerbose } from '../../../../logging';
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { PythonEnvSource } from '../../info/index';
@@ -241,10 +241,11 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         this._register(new Disposable(() => this.shutdownServer()));
         // void this.configure();
         // this.firstRefreshResults = this.refreshFirstTime();
-        // When Python startup is disabled, skip the eager configure and first
+        // When Python startup is disabled or discovery is limited to
+        // interpreters.definitions, skip the eager configure and first
         // refresh so no PET server spawns at startup; discovery still works
         // lazily when explicitly requested.
-        if (!isPythonStartupDisabled()) {
+        if (!isEagerDiscoveryDisabled()) {
             // configure() rejects when the configuration cannot be assembled; it has
             // already logged and recorded the failure, and the first refresh below
             // reports it too, so swallow it here rather than raising an unhandled

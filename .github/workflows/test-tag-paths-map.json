@@ -133,6 +133,8 @@
   "src/vs/editor/contrib/positronInputBoundaries/": ["@:console"],
   "src/vs/editor/contrib/positronStatementRange/": [],
   "src/vs/platform/actions/": [],
+  "src/vs/platform/agentHost/": [],
+  "src/vs/platform/environment/": [],
   "src/vs/platform/extensionManagement/": [],
   "src/vs/platform/extensionManagement/common/positronGalleryTelemetry.ts": ["@:extensions"],
   "src/vs/platform/extensionManagement/node/positronBootstrapExtensionsInitializer.ts": ["@:extensions"],
@@ -188,6 +190,8 @@
   "src/vs/workbench/services/encryption/browser/browserEncryptionService.ts": ["@:web"],
   "src/vs/workbench/services/log/": [],
   "src/vs/workbench/services/notification/": [],
+  "src/vs/workbench/services/preferences/": [],
+  "src/vs/workbench/services/preferences/common/positronSettingsUtils.ts": ["@:console"],
   "src/vs/workbench/services/themes/": [],
-  "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": []
+  "src/vs/workbench/services/themes/browser/positronColorThemeFilter.ts": ["@:themes"]
 }

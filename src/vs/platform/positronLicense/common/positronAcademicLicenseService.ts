@@ -59,8 +59,9 @@ export function isLicenseHash(value: unknown): value is string {
  * for injection into the served workbench HTML by `webClientServer.ts`. Each global is
  * emitted only when it has something to say, and the script is empty when neither does:
  * an absent academic global means false, and an absent hash global means no license file.
+ * `nonce` is the per-request CSP script nonce.
  */
-export function licenseMarkerScript(isAcademic: boolean, licenseHash?: string): string {
+export function licenseMarkerScript(nonce: string, isAcademic: boolean, licenseHash?: string): string {
 	const assignments: string[] = [];
 	if (isAcademic) {
 		assignments.push(`globalThis.${POSITRON_IS_ACADEMIC_GLOBAL} = true;`);
@@ -68,5 +69,5 @@ export function licenseMarkerScript(isAcademic: boolean, licenseHash?: string): 
 	if (isLicenseHash(licenseHash)) {
 		assignments.push(`globalThis.${POSITRON_LICENSE_HASH_GLOBAL} = '${licenseHash}';`);
 	}
-	return assignments.length > 0 ? `<script>${assignments.join(' ')}</script>` : '';
+	return assignments.length > 0 ? `<script nonce="${nonce}">${assignments.join(' ')}</script>` : '';
 }

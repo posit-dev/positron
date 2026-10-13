@@ -27,7 +27,7 @@ function fixture({ signedIn = true, page = true, report = true, missingLog = fal
 		writeFileSync(join(run, 'index.html'), '<p>local page</p>');
 	}
 	if (!report) {
-		rmSync(join(run, 'report.md'));
+		rmSync(join(run, 'report.json'));
 	}
 	for (const [path, text] of Object.entries(write)) {
 		writeFileSync(join(run, path), text);
@@ -96,7 +96,7 @@ test('publishes a run that was never rendered locally: the page is rendered for 
 test('refuses a run with no report, before checking credentials', () => {
 	const { r, out } = fixture({ report: false });
 	assert.equal(r.status, 1);
-	assert.match(r.stderr, /no report\.md/);
+	assert.match(r.stderr, /no report\.json/);
 	assert.ok(!existsSync(out));
 });
 
@@ -137,4 +137,42 @@ test('refuses a run with a screenshot it cannot paint, naming the shot and never
 	assert.match(r.stderr, /nothing was uploaded/);
 	assert.doesNotMatch(r.stdout + r.stderr, new RegExp(SHOWN));
 	assert.ok(!existsSync(out));
+});
+
+// redact.sh on its own, as CI runs it.
+const redactScript = fileURLToPath(new URL('./redact.sh', import.meta.url));
+
+function redact(args) {
+	return spawnSync('bash', [redactScript, ...args], { env: { ...process.env, FAKE_API_KEY: SECRET }, encoding: 'utf8' });
+}
+
+test('redacts every directory it is given, naming each file in full and never the value', () => {
+	const root = mkdtempSync(join(tmpdir(), 'redact-'));
+	const a = join(root, 'a');
+	const b = join(root, 'b');
+	mkdirSync(a);
+	mkdirSync(b);
+	writeFileSync(join(a, 'x.log'), `key ${SECRET}\n`);
+	writeFileSync(join(b, 'y.log'), `${SECRET}\n`);
+	const r = redact(['--remove', a, b, join(root, 'missing')]);
+	assert.equal(r.status, 0, r.stderr);
+	assert.equal(readFileSync(join(a, 'x.log'), 'utf8'), 'key [REDACTED]\n');
+	assert.equal(readFileSync(join(b, 'y.log'), 'utf8'), '[REDACTED]\n');
+	assert.match(r.stdout, new RegExp(`^Redacting FAKE_API_KEY from ${join(a, 'x.log')}$`, 'm'));
+	assert.doesNotMatch(r.stdout + r.stderr, new RegExp(SECRET));
+});
+
+test('fails on a file it cannot redact, naming the file and never the value', () => {
+	const dir = mkdtempSync(join(tmpdir(), 'redact-'));
+	writeFileSync(join(dir, 'x.log'), `${SECRET}\n`);
+	// perl -i writes a new file beside the old one, which a read-only directory refuses.
+	chmodSync(dir, 0o555);
+	try {
+		const r = redact([dir]);
+		assert.equal(r.status, 1);
+		assert.match(r.stderr, /could not redact FAKE_API_KEY from x\.log/);
+		assert.doesNotMatch(r.stdout + r.stderr, new RegExp(SECRET));
+	} finally {
+		chmodSync(dir, 0o755);
+	}
 });

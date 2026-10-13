@@ -19,7 +19,7 @@ test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE, tags.WEB] }, () 
 		await app.workbench.console.waitForConsoleContents('Because light attracts bugs!');
 	});
 
-	test('Python - Ensure long console output wraps appropriately', async function ({ app, python }) {
+	test('Python - Ensure long console output wraps appropriately', { tag: [tags.PYTHON] }, async function ({ app, python }) {
 		await app.workbench.console.waitForReady('>>>');
 		await app.workbench.console.pasteCodeToConsole(pyCode);
 		await app.workbench.console.sendEnterKey();

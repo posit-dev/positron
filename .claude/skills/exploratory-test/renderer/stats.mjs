@@ -15,6 +15,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readJson } from './shared/text.mjs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,29 +24,13 @@ import { parseArgs } from 'node:util';
 /** Where the explorer's own format checks are recorded, one JSON line each. */
 export const CHECKS_FILE = 'format-checks.jsonl';
 
-/**
- * A lint message with its run-specific parts masked, so the same rule counts as
- * one across runs: quoted text, scenario IDs, paths and numbers.
- */
-export function ruleKey(message) {
-	return String(message)
-		.replace(/"[^"]*"/g, '"…"')
-		// Paths before IDs, so `S02-foo.png` is a path, not an ID and a path.
-		.replace(/(?:[\w.-]+\/)+[\w.-]+|\b[\w-]+\.(?:png|jpe?g|webp|md|log|py|r|qmd|rmd|csv|json|txt|ipynb|ts|tsx|js|mjs)\b/gi, '<path>')
-		.replace(/\b[SN]\d+\b/g, 'S#')
-		.replace(/\b\d+\b/g, '#')
-		// A list of places is one rule however long it is.
-		.replace(/(?:Finding #|S#)(?: step #)?(?:(?:, | and )(?:Finding #|S#)(?: step #)?)+/g, '<places>');
-}
-
-/** Records one format check the explorer ran: how many problems, and which rules. */
-export function recordCheck(runDir, problems) {
+/** Records one format check the explorer ran: how many problems, how many of them errors, and how many of each rule. */
+export function recordCheck(runDir, problems, errors) {
 	const rules = {};
 	for (const p of problems) {
-		const key = ruleKey(p);
-		rules[key] = (rules[key] ?? 0) + 1;
+		rules[p.rule] = (rules[p.rule] ?? 0) + 1;
 	}
-	appendFileSync(join(runDir, CHECKS_FILE), `${JSON.stringify({ at: new Date().toISOString(), problems: problems.length, rules })}\n`);
+	appendFileSync(join(runDir, CHECKS_FILE), `${JSON.stringify({ at: new Date().toISOString(), problems: problems.length, ...(errors === undefined ? {} : { errors }), rules })}\n`);
 }
 
 /**
@@ -66,7 +51,7 @@ export function summarizeChecks(text) {
 	}
 	return {
 		rounds: checks.length,
-		first: { problems: checks[0].problems, rules: checks[0].rules ?? {} },
+		first: { problems: checks[0].problems, ...(checks[0].errors === undefined ? {} : { errors: checks[0].errors }), rules: checks[0].rules ?? {} },
 		last: checks.at(-1).problems,
 		lastRules: checks.at(-1).rules ?? {},
 	};
@@ -82,10 +67,27 @@ function clip(text, max) {
 }
 
 /**
- * One run's stats record. `parsed` is parseReport's result for the finished
+ * buildStats' cost fields from report.json's `cost.passes`: the explorer's
+ * model and turns, the total when every pass has a cost, and the isolation
+ * pass apart, since its cost is the one that is a choice.
+ */
+export function passStats(passes = []) {
+	const pass = label => passes.find(p => p.label === label);
+	return {
+		model: pass('explore')?.model ?? null,
+		turns: pass('explore')?.turns ?? null,
+		maxTurns: pass('explore')?.maxTurns ?? null,
+		costUsd: passes.length && passes.every(p => typeof p.costUsd === 'number') ? passes.reduce((sum, p) => sum + p.costUsd, 0) : null,
+		durationMs: passes.reduce((sum, p) => sum + (p.durationMs ?? 0), 0) || null,
+		isolate: pass('isolate') ? { durationMs: pass('isolate').durationMs, turns: pass('isolate').turns ?? null } : null,
+	};
+}
+
+/**
+ * One run's stats record. `parsed` is reportFromJson's model of the finished
  * report, so findings and verdicts are counted the way the page shows them.
  */
-export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, parsed, checks, timeLimit }) {
+export function buildStats({ where, date, run, version, model, turns, maxTurns, costUsd, durationMs, isolate, parsed, checks, timeLimit }) {
 	const verdicts = {};
 	for (const f of parsed?.findings ?? []) {
 		if (f.verified) {
@@ -104,6 +106,8 @@ export function buildStats({ where, date, run, version, model, turns, maxTurns, 
 		maxTurns: maxTurns ?? null,
 		costUsd: typeof costUsd === 'number' ? Math.round(costUsd * 100) / 100 : null,
 		durationMs: durationMs ?? null,
+		// `{ durationMs, turns }` when an isolation pass ran, else null.
+		isolate: isolate ?? null,
 		findings: parsed?.findings?.length ?? 0,
 		severity: parsed?.severityCounts ?? null,
 		verdicts,
@@ -202,13 +206,24 @@ function gh(args) {
 	return execFileSync('gh', args, { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 }
 
-/** Stats records from CI's explore jobs, newest first. Runs from before the line existed are skipped. */
-function ciRecords({ repo, since, limit }) {
+/**
+ * Stats records from CI's explore jobs, newest first. Runs from before the line existed are skipped.
+ * A GitHub error drops what it would have fetched, with a warning, so local runs are still counted.
+ */
+function ciRecords({ repo, since, limit, warn = console.error }) {
+	const api = (path, what) => {
+		try {
+			return JSON.parse(gh(['api', path]));
+		} catch (err) {
+			warn(`stats: skipped ${what}: ${String(err.stderr || err.message).trim().split('\n')[0]}`);
+			return null;
+		}
+	};
 	const query = `repos/${repo}/actions/workflows/test-exploratory.yml/runs?per_page=100${since ? `&created=%3E%3D${since}` : ''}`;
-	const runs = JSON.parse(gh(['api', query])).workflow_runs.filter(r => r.conclusion !== 'skipped').slice(0, limit);
+	const runs = (api(query, 'CI runs')?.workflow_runs ?? []).filter(r => r.conclusion !== 'skipped').slice(0, limit);
 	const records = [];
 	for (const run of runs) {
-		const jobs = JSON.parse(gh(['api', `repos/${repo}/actions/runs/${run.id}/jobs?per_page=100`])).jobs.filter(j => j.name.startsWith('explore'));
+		const jobs = (api(`repos/${repo}/actions/runs/${run.id}/jobs?per_page=100`, `CI run ${run.id}`)?.jobs ?? []).filter(j => j.name.startsWith('explore'));
 		for (const job of jobs) {
 			try {
 				const record = statsFromLog(gh(['api', `repos/${repo}/actions/jobs/${job.id}/logs`]));
@@ -230,13 +245,7 @@ function localRecords(dir, since) {
 	return readdirSync(dir)
 		.map(name => join(dir, name, 'stats.json'))
 		.filter(existsSync)
-		.map(p => {
-			try {
-				return JSON.parse(readFileSync(p, 'utf8'));
-			} catch {
-				return null;
-			}
-		})
+		.map(p => readJson(p))
 		.filter(r => r && (!since || String(r.date) >= since));
 }
 
@@ -247,7 +256,8 @@ function main(argv) {
 			since: { type: 'string' },
 			limit: { type: 'string', default: '50' },
 			repo: { type: 'string', default: 'posit-dev/positron' },
-			'local-dir': { type: 'string', default: join(homedir(), '.claude', 'skills', 'exploratory-test', 'output') },
+			// Where pipeline.mjs writes local runs.
+			'local-dir': { type: 'string', default: join(homedir(), '.local', 'state', 'exploratory-test', 'output') },
 			'no-ci': { type: 'boolean' },
 			'no-local': { type: 'boolean' },
 			json: { type: 'boolean' },

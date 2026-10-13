@@ -26,7 +26,7 @@ interface CustomFolderMenuItemProps {
 export const CustomFolderMenuItem = (props: CustomFolderMenuItemProps) => {
 	// Render.
 	return (
-		<Button className='custom-folder-menu-item' onPressed={props.onSelected}>
+		<Button ariaDisabled={!props.enabled} className='custom-folder-menu-item' onPressed={props.onSelected}>
 			<div className='title'>
 				{props.label}
 			</div>

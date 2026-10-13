@@ -42,6 +42,10 @@ import { IPreferencesService } from '../../../services/preferences/common/prefer
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 
+// --- Start Positron ---
+import { isColorThemeVisibleInPicker } from '../../../services/themes/browser/positronColorThemeFilter.js';
+// --- End Positron ---
+
 export const manageExtensionIcon = registerIcon('theme-selection-manage-extension', Codicon.gear, localize('manageExtensionIcon', 'Icon for the \'Manage\' action in the theme selection quick pick.'));
 
 type PickerResult = 'back' | 'selected' | 'cancelled';
@@ -461,7 +465,11 @@ registerAction2(class extends Action2 {
 		const instantiationService = accessor.get(IInstantiationService);
 		const picker = instantiationService.createInstance(InstalledThemesPicker, options, setTheme, getMarketplaceColorThemes);
 
-		const themes = await themeService.getColorThemes();
+		// --- Start Positron ---
+		// getColorThemes() is unfiltered; the picker shows only Positron's curated subset.
+		// const themes = await themeService.getColorThemes();
+		const themes = (await themeService.getColorThemes()).filter(t => isColorThemeVisibleInPicker(t.id, themeService.getColorTheme().id));
+		// --- End Positron ---
 		const currentTheme = themeService.getColorTheme();
 
 		// --- Start Positron ---

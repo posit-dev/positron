@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Quarto - Inline Output: Popout', {
-	tag: [tags.WEB, tags.WIN, tags.QUARTO]
+	tag: [tags.WEB, tags.WIN, tags.QUARTO, tags.PYTHON]
 }, () => {
 
 	// Saved under a timestamped name, so teardown cannot know it up front.

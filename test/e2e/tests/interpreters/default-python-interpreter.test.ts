@@ -14,7 +14,7 @@ test.use({
 
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
 test.describe('Default Interpreters - Python', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.PYTHON]
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {

@@ -16,16 +16,10 @@ export async function migrateAwsSettings(): Promise<void> {
 	const oldVars = vscode.workspace
 		.getConfiguration('positron.assistant.providerVariables')
 		.inspect<AwsVars>('bedrock');
-	const oldInference = vscode.workspace
-		.getConfiguration('positron.assistant.bedrock')
-		.inspect<string>('inferenceProfileRegion');
 
 	const newVars = vscode.workspace
 		.getConfiguration('authentication.aws')
 		.inspect<AwsVars>('credentials');
-	const newInference = vscode.workspace
-		.getConfiguration('authentication.aws')
-		.inspect<string>('inferenceProfileRegion');
 
 	const newConfig = vscode.workspace
 		.getConfiguration('authentication.aws');
@@ -39,19 +33,6 @@ export async function migrateAwsSettings(): Promise<void> {
 	if (oldVars?.workspaceValue && !newVars?.workspaceValue) {
 		await newConfig.update(
 			'credentials', oldVars.workspaceValue,
-			vscode.ConfigurationTarget.Workspace
-		);
-	}
-
-	if (oldInference?.globalValue && !newInference?.globalValue) {
-		await newConfig.update(
-			'inferenceProfileRegion', oldInference.globalValue,
-			vscode.ConfigurationTarget.Global
-		);
-	}
-	if (oldInference?.workspaceValue && !newInference?.workspaceValue) {
-		await newConfig.update(
-			'inferenceProfileRegion', oldInference.workspaceValue,
 			vscode.ConfigurationTarget.Workspace
 		);
 	}

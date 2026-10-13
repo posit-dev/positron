@@ -193,7 +193,7 @@ test.describe('Workbench: Language-scoped enforced settings', {
 		await waitForAirExtensionInstalled(runDockerCommand);
 	});
 
-	test('`[r]` scope: messy .R file is reformatted by Air on save', async function ({ app, runDockerCommand, hotKeys, page }) {
+	test('`[r]` scope: messy .R file is reformatted by Air on save', { tag: [tags.ARK] }, async function ({ app, runDockerCommand, hotKeys, page }) {
 		const filePath = await writeOpenAndSave(app, runDockerCommand, hotKeys, page, 'enforced-settings-format-r.R', MESSY_R_CONTENT);
 
 		await expect(async () => {

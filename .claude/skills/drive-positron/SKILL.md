@@ -6,358 +6,314 @@ disable-model-invocation: true
 
 # Drive Positron through CDP
 
-Use this skill to inspect and interact with a running development build of Positron. Treat the resulting profile and application state as disposable.
+Use this skill to inspect and interact with a running development build of
+Positron. Treat the resulting profile and application state as disposable.
 
-This workflow complements automated tests; it does not replace them. Add an appropriate test when the verified behavior needs regression coverage. See `.claude/skills/author-e2e-tests`.
+This workflow complements automated tests; it does not replace them. Add a test
+when the verified behavior needs regression coverage
+(`.claude/skills/author-e2e-tests`).
 
-Do not use this workflow to hand a persistent Positron instance to a person:
+Do not use it to hand a persistent Positron to a person: the profile is deleted
+at cleanup, native dialogs are replaced with in-app ones, and nothing
+recompiles later source edits. Use the `launch-positron` command for that.
 
-- the profile is deleted during cleanup;
-- native file dialogs and modal message boxes are replaced with in-app equivalents;
-- no watch process recompiles subsequent source edits.
-
-Use the `launch-positron` command for that case.
+This file is a guide to choosing and combining the helpers in `scripts/`. Each
+helper's header comment is the reference for its flags, output and exit codes:
+`bash .claude/skills/drive-positron/scripts/X.sh --help` prints it. To change a
+helper or add one, read [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Know what this changes in your checkout
 
 The disposable profile is isolated. The build state is not.
 
-Before it starts the application, `scripts/launch.sh` runs `build/lib/preLaunch.ts` against your real checkout. Pre-launch writes to directories that your normal development build also uses:
+Before it starts the application, `launch.sh` runs `build/lib/preLaunch.ts`
+against your real checkout, which writes to directories your normal development
+build also uses:
 
-- `.build/builtInExtensions/<name>`: pre-launch deletes and re-downloads this directory for every built-in extension whose version on disk does not match `product.json`. A rebase that bumps a built-in extension version is enough to trigger it.
-- `.build/electron`: pre-launch deletes and re-downloads the whole directory when the installed Electron version does not match the expected one.
-- `out/`: pre-launch runs `npm run compile` when this directory is absent. That competes with the build daemons, which own compilation.
+- `.build/builtInExtensions/<name>`: deleted and re-downloaded for every
+  built-in extension whose version on disk does not match `product.json`. A
+  rebase that bumps one is enough.
+- `.build/electron`: deleted and re-downloaded when the Electron version does
+  not match.
+- `out/`: when it is absent, pre-launch runs `npm run compile`, which competes
+  with the build daemons.
 
-An interrupted or failed pre-launch can leave a built-in extension deleted or partially written. Your normal development build then fails to start until you repair it. To repair:
+An interrupted pre-launch can leave a built-in extension deleted or half
+written, and your normal build then fails to start. Do not interrupt the script
+while it reports pre-launch. To repair:
 
 ```bash
 npm run download-builtin-extensions
 npm run electron
 ```
 
-Do not interrupt the script while it reports that it is running pre-launch.
+## Platforms
 
-## Platform support
+macOS, Linux, and Windows from Git Bash (not PowerShell or `cmd`). The helpers
+need `node` and `curl`, `rsync` or `tar`, and `jq` (absent from a bare Git
+Bash); a header lists any other tool its script needs. On Windows, `launch.sh`
+starts the app through WMI on purpose; the comment above that code says why.
 
-These scripts run on macOS, Linux, and Windows. On Windows, run them from Git
-Bash; they are bash scripts and will not work from PowerShell or `cmd`.
+## Launch, attach, clean up
 
-Tools they expect on `PATH`:
-
-| Tool | Used by | Notes |
-|---|---|---|
-| `node`, `npx` | all | the scripts call `node_modules/.bin/playwright-cli` directly and fall back to `npx @playwright/cli` |
-| `curl` | `launch.sh`, `stop.sh` | CDP readiness and liveness probes |
-| `rsync` or `tar` | `launch.sh` | `rsync` preferred; `tar` is the fallback, and is what Git Bash has |
-| `jq` | `monaco-paste.sh`, `quickpick-enum.sh` | not present in a bare Git Bash; install it separately |
-| `sqlite3` | `reseed.sh --list-keys` | optional; only used to print the seeded storage keys |
-| `cygpath` | `launch.sh` on Windows | ships with Git Bash |
-| `tasklist`, `powershell` | `launch.sh` on Windows | liveness check and the WMI launch below |
-
-### Windows launches the app out-of-process on purpose
-
-On Windows `launch.sh` does not spawn the app directly. It writes
-`launch-app.cmd` and `launch-app.ps1` into the run directory and has WMI
-(`Win32_Process.Create`) start the app, which reparents it to `WmiPrvSE` while
-keeping it in the interactive session. Do not "simplify" this back to a direct
-background spawn.
-
-The reason is Ark, the R kernel. It statically links a ZeroMQ built with the
-`wepoll` poller, which opens `\Device\Afd` directly, and that call fails for any
-process inside an agent session's process tree. A directly spawned app therefore
-starts, but every R session dies immediately with `exit code 1073741845` and
-`not a socket (...epoll.cpp:73)`. Python is unaffected, because its ZeroMQ uses
-the `select` poller -- so the symptom looks like an R-specific bug and is not.
-
-macOS and Linux keep the plain background spawn: their ZeroMQ uses kqueue and
-kernel epoll, neither of which opens a device handle.
-
-## Launch Positron
-
-Run:
+Launch, from the repository root:
 
 ```bash
 .claude/skills/drive-positron/scripts/launch.sh -- \
-	--folder-uri file:///private/tmp/myworkspace
+	--folder-uri file:///private/tmp/myworkspace --log debug
 ```
 
-Wait for the script to print one JSON object. Record at least:
+It prints one JSON line; keep `pid`, `cdpPort`, `runDir` and `logFile`.
+Launcher flags go before the `--` and app arguments after it; a launcher flag
+put after it is silently ignored. The header lists both, and the app arguments
+the launcher supplies. Do not opt out of those unless the scenario is what they
+suppress.
 
-- `pid`
-- `cdpPort`
-- `runDir`
-- `logFile`
+The profile is a copy of `$POSITRON_DEV_USER_DATA_DIR` or `~/.positron-dev`,
+or of `--source-user-data-dir`. To avoid reading your own profile, make a
+minimal seed (`mkdir -p /tmp/seed/User` and a `settings.json` in it) and pass
+that. A fresh profile tests only the cold start; for a second launch with the
+state the first one wrote (discovery cache, migrations, recent files),
+`reseed.sh` stops the instance and turns its profile into a seed.
 
-The launcher:
-
-- copies the source profile from `$POSITRON_DEV_USER_DATA_DIR` or `~/.positron-dev`, using `rsync` when present and `tar` otherwise;
-- writes only to the disposable copy;
-- creates an isolated shared-data directory;
-- uses a short run directory under `/tmp` by default;
-- assigns unique ports for CDP and the debug endpoints;
-- converts the profile paths for the native binary on Windows;
-- waits for CDP and verifies that the app remains alive before returning;
-- keeps the renderer painting while the window is covered by passing Chromium's `--disable-backgrounding-occluded-windows` and `--disable-renderer-backgrounding`. Without them a fully occluded window stops producing frames, so every `click` and element `screenshot` times out on Playwright's stability check while keyboard input and `eval` still work.
-
-### Arguments to pass yourself
-
-Everything before the `--` configures the launcher; everything after it is
-handed to the app. Putting a launcher argument after the `--` does not warn:
-the app ignores it and the launcher uses its default instead. Misplacing
-`--source-user-data-dir` this way copies the real `~/.positron-dev` profile.
-
-| Argument | Purpose |
-|---|---|
-| `--folder-uri file:///private/tmp/myworkspace` | Open a workspace reliably. Do not pass a bare positional folder: Positron may discard it. On macOS, use the canonical `/private/tmp` path rather than `/tmp`. On Windows the URI needs a drive letter, so build it with `cygpath -m`: `--folder-uri "file:///$(cygpath -m /tmp/myworkspace)"`. |
-| `--log debug` | Recommended. At the default level the `[Runtime startup] Phase changed to ...` lines are absent, so runtime startup, discovery, and cache replay cannot be told apart from the log. |
-
-### Arguments the launcher supplies
-
-You do not pass these, and should not need to think about them:
-
-| Argument | Purpose |
-|---|---|
-| `--disable-workspace-trust` | Prevent a modal trust dialog from blocking automation when the seed profile has no trust state. Without it the app starts in restricted mode with extensions disabled, so interpreter discovery never runs and an empty picker looks like a product bug. |
-| `--use-mock-keychain` | Avoid using the per-user OS keychain from the disposable instance. A `GitHubLoginFailed` message in the log is expected. |
-| `--skip-welcome` | Keep the Welcome editor from receiving the initial focus. |
-| `--shared-data-dir` | Keep the disposable instance off the normal `~/.positron-shared` store. |
-
-Repeating one of the first three after `--` overrides the supplied copy. Pass `--no-default-app-args` before `--` to launch without any of them, which is only useful when the scenario under test is one of the behaviors they suppress, such as the workspace trust prompt itself.
-
-## Protect the source profile
-
-The launcher reads the source profile with a one-way `rsync` into the run directory. It does not use `--delete`, and it applies `files.simpleDialog.enable` and `window.dialogStyle` only to the disposable copy.
-
-It excludes lock files, sockets, singleton state, caches, logs, and workspace storage so the copied profile can run alongside a normal development instance.
-
-To avoid reading the normal development profile at all, create a minimal seed:
+To relaunch the same instance on its own profile (workspace storage, open
+editors, installed extensions and all):
 
 ```bash
-mkdir -p /tmp/positron-seed/User
-echo '{"positron.notebook.enabled": true}' \
-	> /tmp/positron-seed/User/settings.json
+.claude/skills/drive-positron/scripts/palette-run.sh --session positron 'Close Window'  # saves the window's state
+./node_modules/.bin/playwright-cli -s=positron close
+.claude/skills/drive-positron/scripts/stop.sh --cdp-port "$CDP_PORT"                     # no --run-dir: keep it
+.claude/skills/drive-positron/scripts/launch.sh --reuse-profile "$RUN_DIR" -- --folder-uri file:///private/tmp/ws
 ```
 
-Then launch with it before the `--`, since it is a launcher argument:
+macOS has no Quit in the palette, and Cmd+Q cannot be sent through CDP:
+Close Window, then `stop.sh`. Stop both runs with `--run-dir` at the end.
+
+Attach Playwright under a literal session name, and use that name in every
+command and helper (`--session positron`):
 
 ```bash
-.claude/skills/drive-positron/scripts/launch.sh \
-	--source-user-data-dir /tmp/positron-seed -- \
-	--folder-uri file:///private/tmp/myworkspace
+./node_modules/.bin/playwright-cli -s=positron attach --cdp=http://127.0.0.1:"$CDP_PORT"
 ```
 
-## Launch a second time with the state the first run wrote
+- Do not derive the name from `$$`: each shell call has its own PID, so each
+  would get its own session.
+- Run from the repository root and call the binary directly. `npx` costs about a
+  second per call, and from another folder installs its own copy, which reports
+  `The browser 'NAME' is not open`.
+- Reload the window, open another folder in it, or open a new window with
+  `window.sh` (`reload`, `open-folder PATH`, `new-window`): it waits for the
+  workbench to come back and attaches the session again if it lost the page.
+  Take a fresh snapshot after: refs restart with a frame prefix (`f1e12`).
 
-A fresh profile only exercises the cold-start path. Anything that depends on
-state from a previous run -- the runtime discovery cache, storage-backed
-migrations, the recently opened list -- is untested by a single launch, so a bug
-that only appears on the second launch cannot be seen at all.
-
-To carry the profile forward, stop the instance and turn its profile into a
-seed:
+Log every action. With these set, every helper appends one line per action to
+the log, with the key values it returned after "->" (the plot shown, the
+cursor, the cell's output), every read helper one line with the values it read
+("read ..."), every failed call one line with its error ("FAILED ..."), so a
+negative check has its evidence too, and `shot.sh` saves into the folder and
+logs the shot:
 
 ```bash
-.claude/skills/drive-positron/scripts/reseed.sh \
-	--run-dir "$RUN_DIR" --seed /tmp/positron-warm-seed \
-	--cdp-port "$CDP_PORT" --list-keys
+export DRIVE_POSITRON_LOG="$RUN/actions.log" DRIVE_POSITRON_SHOTS="$RUN/shots"
 ```
 
-`reseed.sh` stops the instance without deleting its run directory, copies the
-profile database and settings into the seed, and prints the launch command for
-the warm run. The instance has to be stopped first: the running app holds
-`User/globalStorage/state.vscdb` open and a copy taken mid-write can be torn.
+Log yourself what the helpers cannot see: a raw `playwright-cli` click or key, a
+shell command outside the app, a wait.
 
-It leaves the run directory in place, so still remove it during cleanup.
-
-## Attach Playwright
-
-Use a literal session name and reuse it for every command:
-
-```bash
-./node_modules/.bin/playwright-cli -s=positron \
-	attach --cdp=http://127.0.0.1:"$CDP_PORT"
-
-./node_modules/.bin/playwright-cli -s=positron snapshot
-```
-
-Do not derive the session name from `$$`. Separate shell invocations receive different process IDs and would silently create different sessions.
-
-Run every command from the repository root, and call the binary directly rather
-than through `npx`. It is the same package `npx` resolves to there, but `npx`
-re-resolves it every invocation and costs about a second each time. From another
-working directory `npx` also installs its own copy, which keeps its sessions
-elsewhere and reports the attached session as `The browser 'NAME' is not open`.
-
-Common operations:
-
-```bash
-./node_modules/.bin/playwright-cli -s=positron click e153
-./node_modules/.bin/playwright-cli -s=positron click e980 right
-./node_modules/.bin/playwright-cli -s=positron type "some text"
-./node_modules/.bin/playwright-cli -s=positron press Enter
-./node_modules/.bin/playwright-cli -s=positron resize 1600 1100
-./node_modules/.bin/playwright-cli -s=positron eval '(() => document.title)()'
-./node_modules/.bin/playwright-cli -s=positron console warning
-./node_modules/.bin/playwright-cli -s=positron \
-	screenshot --filename="$PWD/shots/01.png"
-```
-
-Use element references from the latest snapshot. Do not substitute screen coordinates, and use the positional `right` argument for a right-click.
-
-`click` also takes a selector. Selectors must be unique, or Playwright's strict
-mode fails the step: `button:has-text("Install uv")` also matches a dropdown
-reading "Install uv to select a Python version", where `.install-uv-button` does
-not.
-
-Snapshot a subtree, not the page: a bare `snapshot` renders the whole workbench,
-about 250 lines of YAML, where the ref of the dialog you are in returns a dozen.
-Once a flow's container has a ref, keep reusing it.
-
-Filter a large snapshot rather than piping the whole thing through `grep`. To
-read the tree around a known control, `find` returns only the matching nodes and
-their context:
-
-```bash
-./node_modules/.bin/playwright-cli -s=positron find "Run Cell"
-```
-
-To capture a reference for a script, query the structured snapshot. Matching
-`role` and `name` avoids escaping a regexp over the YAML rendering:
-
-```bash
-R=$(./node_modules/.bin/playwright-cli -s=positron --json snapshot \
-	| jq -r '.. | objects | select(.role == "button" and .name == "Run Cell") | .ref' \
-	| head -1)
-```
-
-Take a screenshot early when the UI does not match expectations. Pass `--hires` when the detail being judged is finer than a CSS pixel. A screenshot often reveals blocking dialogs, an unopened workspace, missing kernels, or focus in the wrong editor faster than DOM inspection.
-
-To make a screenshot point at one control rather than leaving the reader to hunt
-for it in a full workbench, draw an overlay on the element first. `highlight
---hide` clears every overlay on the page:
-
-```bash
-./node_modules/.bin/playwright-cli -s=positron highlight e153
-./node_modules/.bin/playwright-cli -s=positron \
-	screenshot --hires --filename="$PWD/shots/01.png"
-./node_modules/.bin/playwright-cli -s=positron highlight --hide
-```
-
-`console` reads the renderer console, which is a separate source from the log
-file the launcher reports as `logFile`. It takes a minimum level and defaults to
-`info`.
-
-### Enter text in Monaco
-
-Do not use `type` or `fill` for notebook cell editors or chat inputs backed by Monaco. Use:
-
-```bash
-.claude/skills/drive-positron/scripts/monaco-paste.sh \
-	--session positron "text to insert"
-```
-
-Use individual `press` operations when testing actual keyboard handling.
-
-### Read a whole quick pick
-
-Do not count `.monaco-list-row` elements and do not set `scrollTop`. Quick picks
-render only a window of rows and move it with a transform, so both report a
-short list without failing. Use:
-
-```bash
-.claude/skills/drive-positron/scripts/quickpick-enum.sh --session positron
-```
-
-It walks the picker with ArrowDown and prints
-`index|kind|label|description|detail|active` for every row, headings included,
-leaving the picker on the item it started from.
-
-Read `references/reading-ui-state.md` before trusting any other reading of a
-list, tree, or quick input widget. It covers the virtualization, the hidden
-widgets left behind by closed pickers, and how separators are rendered.
-
-## Account for Positron behavior
-
-- Restore focus to the notebook before invoking a notebook action. Opening an output in a plot tab moves focus away from the notebook.
-- Ensure the selected Python environment contains the packages the scenario needs. A fresh profile may discover a bare interpreter without packages such as matplotlib or pandas.
-- To prioritize Positron's development environment, expose it as the workspace environment:
-
-  ```bash
-  ln -s <repo>/extensions/positron-python/.venv \
-	/private/tmp/myworkspace/.venv
-  ```
-
-- Allow interpreter discovery and marketplace extension installation to finish before concluding that a kernel is unavailable.
-- Set `positron.notebook.enabled` to `true` in the workspace or seed profile when testing the Positron notebook editor.
-- Modal message boxes are clickable because the launcher forces `window.dialogStyle: "custom"`. Without it Electron draws a native dialog that CDP can neither see nor dismiss, and the blocked renderer looks like a hung app. Judge such a dialog's wording from this path but not its appearance; a real user sees the native one.
-- Two things are called a modal. `.positron-modal-dialog-box`, which the `Modals` page object matches, is Positron's own React modal such as the New Folder flow. A `showInformationMessage(..., { modal: true })` raised from inside it is the upstream `.monaco-dialog-box`, which that page object will not find.
-- Expect selectors to change. Prefer the maintained page objects under `test/e2e/pages/` when locating Positron controls; otherwise take a fresh snapshot.
-
-## Use upstream debugging guidance
-
-`scripts/launch.sh` is a maintained fork of
-`.agents/skills/launch/scripts/launch.sh`. It does not inherit upstream fixes.
-
-When the upstream script changes:
-
-1. Compare it with this fork.
-2. Port applicable fixes without removing the Positron-specific profile, path, isolation, and liveness behavior.
-3. Revalidate the launch workflow.
-
-Read `.agents/skills/launch/SKILL.md` when you need:
-
-- the debug-port mapping;
-- `dap-cli` breakpoint instructions;
-- parallel-instance guidance;
-- additional Monaco input details.
-
-## Clean up
-
-Always stop the disposable instance; Positron can retain several gigabytes of memory.
+Clean up. Positron can hold several gigabytes, so always stop the instance:
 
 ```bash
 ./node_modules/.bin/playwright-cli -s=positron close
-.claude/skills/drive-positron/scripts/stop.sh \
-	--cdp-port "$CDP_PORT" --run-dir "$RUN_DIR"
+.claude/skills/drive-positron/scripts/stop.sh --cdp-port "$CDP_PORT" --run-dir "$RUN_DIR"
 ```
 
-Run `stop.sh` in its own command, after you have confirmed that every
-screenshot or file you need exists. A command that fails earlier in the same
-chain, such as an element screenshot that times out, cannot be retried once the
-instance is gone.
+- Before `stop.sh`, and before closing a window: copy any logs you need from
+  `runDir` (the instance's logs are in `<runDir>/logs`), and read the browser
+  console (`playwright-cli console`), which exists only in a live window;
+  confirm every screenshot exists, and run
+  `listeners.sh --diff`, which needs the instance running to know its process
+  tree.
+- Run `stop.sh` in a command of its own: a failure earlier in the same chain
+  cannot be retried once the instance is gone.
+- Never `kill "$PID"` (on Windows it is the MSYS shell, not the app), and never
+  remove `.playwright-cli`, which other runs share.
 
-`stop.sh` signals the process that owns the CDP port, waits for the port to stop answering, forces the stop if it does not, and then removes the run directory. It exits non-zero if the instance is still reachable, so a silent failure to clean up is not possible.
+## Principles
 
-`launch.sh` and `stop.sh` each add a timestamped line to `instances.log` beside the run directories (`/tmp/positron-dev-launch/` by default), so you can see how many instances were running at once.
+- **Never press Escape while a `.qmd` is in front.** With its kernel busy,
+  Escape is Quarto: Interrupt Kernel wherever focus is: in the editor, on the
+  workbench, over a completion list or a hover. Only a quick input and a menu
+  that has focus take the key first. The helpers close things without it
+  (`editor.sh suggest` and `hover` close their widget by moving focus); a raw
+  `press Escape` in a `.qmd` can stop the cell under test.
 
-Do not signal the Electron helper processes yourself. Positron reads a terminated renderer as a window crash: it respawns the helpers, shows a "window terminated unexpectedly" dialog, and then ignores the signal sent to the main process, leaving the instance running.
+- **Locate by role and name.** Find controls by the accessible role and name a
+  screen reader announces, not CSS classes or coordinates. `ui.sh read VIEW`
+  shows them; copy the name from there.
+- **Fail loud.** Every helper exits non-zero with `ok: false` and an `error`
+  when it could not do what was asked, and refuses rather than guessing: a
+  command not in the palette, focus not where the keys would go, a file that is
+  not the active editor. Check the exit status. A refusal is often a fact
+  about the app worth recording. An argument a helper does not take is a
+  usage error (exit 2), logged like any failure. When a modal dialog is open,
+  the error of any failing helper names it and its buttons ("dialogs"): it is
+  usually why keys and clicks went nowhere.
+- **Never type into the Command Palette or Quick Open and press Enter.** When
+  no row matches exactly, the highlighted row can be a different command.
+  `palette-run.sh`, `open-file.sh` and `ui.sh pick` run a row only when its
+  label matches exactly.
+- **One call per command.** Each helper is one Playwright call (about a
+  second). Batch independent steps into one Bash call, and use a helper before
+  a string of raw `playwright-cli` commands.
+- **Read before you act.** Read the view, then act on what it shows; actions
+  report what changed, so read the answer before the next step. Take a
+  screenshot early when the UI does not match expectations: it shows a blocking
+  dialog, an unopened workspace, or focus in the wrong place faster than DOM
+  reads.
 
-Pass `--run-dir` only when it is the exact `runDir` the launcher reported. The script refuses any path that does not contain a generated `positron-dev-launch` component, and stops the instance without deleting anything when `--run-dir` is omitted.
+## To do X, use Y
 
-Do not use `kill "$PID"` on its own. On Windows the reported `pid` belongs to the MSYS shell that exec'd the native Electron binary, so killing it can leave the application running. `stop.sh` locates the real process through the CDP port on every platform.
+All in `.claude/skills/drive-positron/scripts/`.
 
-Remove `.playwright-cli` only if it is the session directory created in the intended workspace.
+| To | Use |
+|---|---|
+| Launch a disposable instance | `launch.sh` |
+| Stop it and remove its run directory | `stop.sh` |
+| Launch again warm, from the last run's profile | `reseed.sh` |
+| Give a run its own Python venv to install into | `run-venv.sh` |
+| Find servers a run left listening | `listeners.sh --save`, then `--diff` |
+| Run a Command Palette command, or check one is listed | `palette-run.sh` (`--dry-run`) |
+| Open a workspace file | `open-file.sh` |
+| Start an R or Python console | `start-session.sh` |
+| List the open sessions (`--all`: notebook and Quarto ones too) | `panel.sh sessions` |
+| Make a console the active one, without running code | `panel.sh console` |
+| Run code in a console, and get its output | `console-run.sh` (`--capture`) |
+| Read a console, or the prompt it shows | `console-read.sh` (`--prompt`) |
+| Read, move in, type into, save or run a text editor | `editor.sh` |
+| Completions, the hover, Go to Definition at a place in a file | `editor.sh suggest`, `hover`, `definition` (`--at L:C`) |
+| Reload the window, open another folder, open a new window | `window.sh` |
+| Catch a state that lasts a second (a banner, a status) | `ui.sh watch VIEW` in the background, then act |
+| Breakpoints, stepping, call stack, watches, Debug Console | `debug.sh` |
+| Run Quarto cells and read their inline output | `qmd.sh` |
+| Read and drive the Plots pane, or a plot in an editor | `plots.sh` |
+| Read, run, type into and manage Positron notebook cells | `nb.sh` (`type N TEXT`) |
+| Read a Data Explorer grid | `de-read.sh` |
+| Print a view's accessibility tree (Variables, Viewer page) | `view-read.sh` |
+| Read, click, fill, check or choose in any view or dialog | `ui.sh` |
+| The Viewer's toolbar, and the page in it | `viewer.sh` |
+| Rows of a tree view, expand, context menus | `tree.sh` |
+| Panel tabs, terminals, sessions, editor tabs, pane sizes | `panel.sh` |
+| Toasts and modal dialogs, and their buttons | `notifications.sh` |
+| Run a shell command in a terminal, send a key, read it | `terminal-run.sh` |
+| Click an editor's Run App button | `run-app.sh` |
+| Take and log a screenshot, of any app window | `shot.sh` (`--list`, `--window N`, `--view 'active console'`) |
+| Set a user or workspace setting, merged into its settings.json | `settings.sh` |
+| Read the clipboard's text, or save its image (macOS) | `clipboard.sh` |
+| Read every row of an open quick pick | `quickpick-enum.sh` |
+| Put text into a Monaco chat input | `monaco-paste.sh` |
 
-To confirm independently that no process remains, check that the CDP port no longer answers:
+`ui.sh` works in any view, but where the accessibility tree is thin, use the
+area's own helper: the Variables pane and the Data Explorer grid read as one
+line of text, and Quarto inline output is not in the tree at all.
+
+## Raw playwright-cli, when no helper fits
 
 ```bash
-curl -sf -o /dev/null "http://127.0.0.1:$CDP_PORT/json/version" \
-	&& echo "still running" || echo "stopped"
+./node_modules/.bin/playwright-cli -s=positron snapshot          # ~250 lines; snapshot a container's ref instead
+./node_modules/.bin/playwright-cli -s=positron find "Run Cell"   # matching nodes and their context
+./node_modules/.bin/playwright-cli -s=positron click e153        # `click e980 right` for a right-click
+./node_modules/.bin/playwright-cli -s=positron press ArrowDown   # Playwright key names, exact case
+./node_modules/.bin/playwright-cli -s=positron highlight e153    # overlay before a shot; --hide clears
+./node_modules/.bin/playwright-cli -s=positron console warning   # the renderer console, not logFile
 ```
 
-This works on every platform. `pgrep -f "remote-debugging-port=$CDP_PORT"` is equivalent on macOS and Linux, but `pgrep` is absent from Git Bash on Windows.
+- The agent shell is often zsh, which does not split a variable into words:
+  `PW="playwright-cli -s=x"` then `$PW click ...` runs as one word and fails.
+  Write the command out, or use a function or an array.
+- Use refs from the latest snapshot, never screen coordinates. A selector must
+  match one element, or strict mode fails the step.
+- An unknown key name (`BackSpace`) is rejected and nothing is pressed.
+- Do not `type` or `fill` into Monaco: `editor.sh` for files, `monaco-paste.sh`
+  for chat inputs (it replaces the whole text).
+- To capture a ref in a script, query `--json snapshot` with `jq` on `.role` and
+  `.name` rather than grepping the YAML.
+- A screenshot is taken with `shot.sh`, which logs it; pass `--hires` to a raw
+  `screenshot` only for detail finer than a CSS pixel.
 
-## Troubleshoot failures
+## What the harness changes
 
-- **Attach reports `connect ECONNREFUSED`:** The application exited after opening CDP. Inspect the path reported as `logFile`.
-- **The log reports `listen EINVAL` or an IPC path longer than 103 characters:** The run-directory base is too long. Unset `$POSITRON_LAUNCH_TMP` or point it at a shorter directory. This affects macOS and Linux only; Windows uses named pipes and has no such limit.
-- **`rsync: command not found` (Windows):** You are on an older copy of `launch.sh`. The current script falls back to `tar` when `rsync` is absent.
-- **A command reports an error:** The CLI exits non-zero on a failed command, so check the exit status rather than matching on its output.
-- **Snapshot references disappear:** Look for a modal dialog with a screenshot, then take a new snapshot.
-- **A built-in extension does not load:** Compile extensions with:
+A finding that depends on one of these is about the harness, not the product:
 
-  ```bash
-  npm run gulp compile-extensions
-  ```
+- Modal message boxes are in-app (`window.dialogStyle: "custom"`), so CDP can
+  click them. A real user sees the native dialog: judge its wording here, not
+  its look.
+- The app runs with umask 077, so files it saves are mode 600.
+- Workspace trust is off, the keychain is mocked, Welcome is skipped, and the
+  first-run prompts are suppressed (see the `launch.sh` header).
+- A terminal created while hidden, or a window resized through CDP, can draw
+  text at the wrong size. Compare with a terminal opened by hand at the same
+  size before reporting it.
 
-  Do not rely on `watch-extensions` when another extension is already preventing the watch task from starting.
+## Positron behavior to account for
+
+- Keyboard shortcuts do nothing while focus is in a webview (the Viewer, an HTML
+  output, an app). The helpers move focus out first; before a raw key press,
+  click the editor or a pane.
+- With several sessions, the active console is the one used last; code typed
+  into "the console" lands in the wrong one. `console-run.sh` names the
+  language. Keys typed into "the terminal" go wherever focus is;
+  `terminal-run.sh` checks.
+- In a `.qmd` with a cell running, Escape is Quarto: Interrupt Kernel, wherever
+  focus is (see Principles). Do not press it to close something.
+- In a notebook in command mode, typed keys edit cells (`3` makes a cell
+  Markdown). Restore focus to the notebook before a notebook action: opening an
+  output in a plot tab moves it away.
+- `positron.notebook.enabled` defaults to `true`, so an `.ipynb` opens in the
+  Positron notebook editor. Reopen Editor With sticks to the file. Notebook
+  cells are `[role=article]`, not `<article>`.
+- Notebook: Run All Cells is hidden while a cell runs; the toolbar shows Stop
+  Execution in its place.
+- A fresh window starts sessions by itself: Python when the workspace has a
+  venv, R when it has `.R` files, some seconds after launch. `panel.sh
+  sessions` lists what is open; `start-session.sh` reports an open session of
+  the language rather than starting a second (`--new` starts one anyway).
+- A fresh profile may find a bare interpreter without matplotlib or pandas. Give
+  the run a venv (`run-venv.sh`, linked as the workspace `.venv`), and let
+  interpreter discovery and extension installs finish before deciding a kernel
+  is missing.
+- Lists, trees and quick picks draw only the rows in view, moved with a
+  transform, and closed pickers stay in the DOM. Scroll or filter before saying
+  a row is missing, and read `references/reading-ui-state.md` before trusting
+  any other reading of one.
+- The Viewer's frames get new refs after every reload or app restart; a frame
+  that failed to load shows only as `iframe`, the same as one still loading.
+- Two things are called a modal: Positron's React `.positron-modal-dialog-box`
+  (what the e2e `Modals` page object matches) and the upstream
+  `.monaco-dialog-box`, which a `showInformationMessage(..., { modal: true })`
+  raises even from inside the first.
+- Expect selectors to change. The helpers keep theirs in
+  `scripts/selectors.ts`; the page objects under `test/e2e/pages/` are
+  maintained too; otherwise take a fresh snapshot.
+
+## Troubleshoot
+
+- **Attach reports `connect ECONNREFUSED`:** the app exited after opening CDP.
+  Read `logFile`.
+- **`listen EINVAL`, or an IPC path over 103 characters (macOS, Linux):** the
+  run-directory base is too long. Unset `$POSITRON_LAUNCH_TMP` or shorten it.
+- **Snapshot refs disappear:** look for a modal dialog in a screenshot, then
+  snapshot again. After a reload, attach again.
+- **Keys stop working in every editor** (`editor.sh key` fails with "the key
+  changed nothing"; cursor, text and unsaved state stay as they were):
+  `window.sh reload` clears it.
+- **A built-in extension does not load:** `npm run gulp compile-extensions`. Do
+  not rely on `watch-extensions` when another extension stops the watch task.
+- **Confirm an instance is gone:** `curl -sf -o /dev/null
+  "http://127.0.0.1:$CDP_PORT/json/version" && echo running || echo stopped`
+  works on every platform.
+
+`launch.sh` is a fork of `.agents/skills/launch/scripts/launch.sh` and does not
+inherit its fixes; when the upstream changes, port what applies and keep the
+Positron profile, path, isolation and liveness behavior. Read
+`.agents/skills/launch/SKILL.md` for the debug-port mapping, `dap-cli`
+breakpoints and parallel instances.

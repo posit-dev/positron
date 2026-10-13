@@ -3,7 +3,7 @@
 	"nameShort": "Positron",
 	"nameLong": "Positron",
 	"version": "",
-	"positronVersion": "2026.10.0",
+	"positronVersion": "2026.11.0",
 	"positronBuildNumber": 0,
 	"positronLlmsDocsUrl": "https://cdn.posit.co/positron/releases/docs",
 	"applicationName": "positron",
@@ -99,10 +99,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "2026.10.10",
+			"version": "2026.11.2",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web-pwb",
-			"sha256": "4eeb036d1c50d663eb8f033831f03a814bfcc34a49af8568e9b0e42ea8caa3f5",
+			"sha256": "6c8f12802d0ffc1cbac44179e1806419efe6dfd16ad383782db7361a69168f83",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
@@ -309,8 +309,8 @@
 		},
 		{
 			"name": "posit.assistant",
-			"version": "1.6.1",
-			"sha256": "88f2ed1a29421435693b8b9b15725e53f9acdd6181571dbd5effe6d674d313b0",
+			"version": "1.7.0",
+			"sha256": "53d44aaa72a5a3824c6475cffb3bc36fc7eba6b7578dbc3222b93ed238d2b5ab",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
 				"displayName": "Posit Assistant"
@@ -343,7 +343,8 @@
 		"https://support.posit.co",
 		"https://*.cloud.databricks.com",
 		"https://*.azuredatabricks.net",
-		"https://*.gcp.databricks.com"
+		"https://*.gcp.databricks.com",
+		"https://oidc.*.amazonaws.com"
 	],
 	"defaultChatAgent": {
 		"extensionId": "GitHub.copilot-chat",
@@ -375,6 +376,10 @@
 			"apple": {
 				"id": "apple",
 				"name": "Apple"
+			},
+			"microsoft": {
+				"id": "microsoft",
+				"name": "Microsoft"
 			}
 		},
 		"providerExtensionId": "vscode.github-authentication",
@@ -754,6 +759,9 @@
 		],
 		"custom-providers": [
 			"posit.assistant"
+		],
+		"microsoft": [
+			"vscode.github-authentication"
 		]
 	},
 	"onboardingKeymaps": [

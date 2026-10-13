@@ -86,6 +86,13 @@ suite('providerCatalog', () => {
 		assert.strictEqual(getCachedProvider('does-not-exist'), undefined);
 	});
 
+	test('the cached provider carries its models block', async () => {
+		writeConfig(configPath, { anthropic: { models: { discovery: 'off' } } });
+		await initProviderCatalog(context, { configPath });
+
+		assert.deepStrictEqual(getCachedProvider('anthropic')?.models, { discovery: 'off' });
+	});
+
 	// The only test here that depends on fs.watch delivery. Delivery is normally
 	// ~700ms (300ms debounce plus the settle) but has been observed taking
 	// several seconds under extension-host load, so the wait is deliberately
@@ -255,8 +262,8 @@ suite('providerCatalog', () => {
 	});
 
 	// PROVIDER-SETTINGS-MIGRATION(legacy-positron): delete with the loader
-	// option. The cache opts into the legacy admin channel only — user-set
-	// legacy settings never reach it on this Positron.
+	// option when Workbench drops support for Positron 2026.07. The cache opts
+	// into the legacy admin channel only; user-set legacy settings never reach it.
 	test('POSITRON_ENFORCED_SETTINGS applies above the user file without any reader wiring', async () => {
 		writeConfig(configPath, { anthropic: { baseUrl: 'https://user-file.example.com' } });
 

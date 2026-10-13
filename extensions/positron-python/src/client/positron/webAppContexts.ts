@@ -12,14 +12,59 @@ function getSupportedLibraries(): string[] {
     return libraries;
 }
 
+/**
+ * Context key holding the URIs of open documents detected as web apps.
+ * `pythonAppResources.<framework>` holds the URIs for a single framework.
+ *
+ * Menus check the `resource` context key against these lists rather than
+ * reading a single value for the active editor, so that each editor's run app
+ * actions reflect its own document, even when another editor is focused.
+ */
+const APP_RESOURCES_CONTEXT_KEY = 'pythonAppResources';
+
+/** Detected web app framework by document URI string, for open documents that are web apps. */
+const appByUri = new Map<string, { uri: vscode.Uri; framework: string }>();
+
+/** Detect whether a document is a web app, and update the app resource context keys. */
 export function detectWebApp(document: vscode.TextDocument): void {
-    if (document.languageId !== 'python' || document.uri.scheme === 'vscode-notebook-cell') {
-        executeCommand('setContext', 'pythonAppFramework', undefined);
+    const uri = document.uri.toString();
+    const framework =
+        document.languageId === 'python' && document.uri.scheme !== 'vscode-notebook-cell'
+            ? getFramework(document.getText())
+            : undefined;
+
+    if (framework === appByUri.get(uri)?.framework) {
         return;
     }
-    const text = document.getText();
-    const framework = getFramework(text);
-    executeCommand('setContext', 'pythonAppFramework', framework);
+    if (framework) {
+        appByUri.set(uri, { uri: document.uri, framework });
+    } else {
+        appByUri.delete(uri);
+    }
+    updateAppResourceContexts();
+}
+
+/** Stop tracking a closed document, and update the app resource context keys. */
+export function forgetWebApp(document: vscode.TextDocument): void {
+    if (appByUri.delete(document.uri.toString())) {
+        updateAppResourceContexts();
+    }
+}
+
+function updateAppResourceContexts(): void {
+    // Pass Uri objects, not strings: on web and remote hosts the extension host sees
+    // file: URIs while the editor's `resource` key is vscode-remote:, and only Uri
+    // objects are transformed to match before the workbench stringifies them.
+    const apps = Array.from(appByUri.values());
+    executeCommand(
+        'setContext',
+        APP_RESOURCES_CONTEXT_KEY,
+        apps.map((app) => app.uri),
+    );
+    for (const library of getSupportedLibraries()) {
+        const uris = apps.filter((app) => app.framework === library).map((app) => app.uri);
+        executeCommand('setContext', `${APP_RESOURCES_CONTEXT_KEY}.${library}`, uris);
+    }
 }
 
 export function getFramework(text: string): string | undefined {
@@ -68,62 +113,34 @@ export function getFramework(text: string): string | undefined {
 }
 
 export function activateAppDetection(disposables: vscode.Disposable[]): void {
-    let timeout: NodeJS.Timeout | undefined;
-    let activeEditor = vscode.window.activeTextEditor;
+    const timeoutByUri = new Map<string, NodeJS.Timeout>();
 
-    function updateWebApp() {
-        if (!activeEditor) {
-            return;
-        }
-        detectWebApp(activeEditor.document);
-    }
-
-    // Throttle updates if needed
-    function triggerUpdateApp(throttle = false) {
-        if (!activeEditor) {
-            return;
-        }
-        if (timeout) {
-            clearTimeout(timeout);
-            timeout = undefined;
-        }
-        if (throttle) {
-            timeout = setTimeout(updateWebApp, 500);
-        } else {
-            detectWebApp(activeEditor.document);
-        }
-    }
-
-    // Trigger for the current active editor.
-    if (activeEditor) {
-        triggerUpdateApp();
-    }
+    // Detect apps in documents that are already open.
+    vscode.workspace.textDocuments.forEach(detectWebApp);
 
     disposables.push(
-        // Trigger when the active editor changes
-        vscode.window.onDidChangeActiveTextEditor((editor) => {
-            activeEditor = editor;
-            if (editor) {
-                triggerUpdateApp();
-            } else {
-                executeCommand('setContext', 'pythonAppFramework', undefined);
-            }
-        }),
+        vscode.workspace.onDidOpenTextDocument(detectWebApp),
 
-        // Trigger when the active editor's content changes
+        // Throttle updates while the user is typing.
         vscode.workspace.onDidChangeTextDocument((event) => {
-            if (activeEditor && event.document === activeEditor.document) {
-                triggerUpdateApp(true);
-            }
+            const uri = event.document.uri.toString();
+            clearTimeout(timeoutByUri.get(uri));
+            timeoutByUri.set(
+                uri,
+                setTimeout(() => {
+                    timeoutByUri.delete(uri);
+                    detectWebApp(event.document);
+                }, 500),
+            );
         }),
 
-        // Trigger when new text document is opened
-        vscode.workspace.onDidOpenTextDocument((document) => {
-            if (document.languageId === 'python') {
-                // update to opened text document
-                activeEditor = vscode.window.activeTextEditor;
-                triggerUpdateApp();
-            }
+        vscode.workspace.onDidCloseTextDocument((document) => {
+            const uri = document.uri.toString();
+            clearTimeout(timeoutByUri.get(uri));
+            timeoutByUri.delete(uri);
+            forgetWebApp(document);
         }),
+
+        { dispose: () => timeoutByUri.forEach((timeout) => clearTimeout(timeout)) },
     );
 }

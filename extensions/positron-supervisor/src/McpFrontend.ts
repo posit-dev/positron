@@ -97,7 +97,7 @@ export function saveMcpState(memento: vscode.Memento, state: McpFrontendState): 
 export interface McpTerminalEnvironment {
 	description: string | vscode.MarkdownString | undefined;
 	replace(variable: string, value: string): void;
-	clear(): void;
+	delete(variable: string): void;
 }
 
 /** The slice of the supervisor API the frontend calls. */
@@ -548,7 +548,11 @@ export class McpFrontend implements vscode.Disposable {
 	 * @param connection The registration being given up, if there was one.
 	 */
 	private async clearEnvironment(connection: McpConnection | undefined): Promise<void> {
-		this._environment.clear();
+		// Remove only our own variables; the collection is shared with the
+		// interpreter definition's terminal variables.
+		this._environment.delete(MCP_URL_ENV_VAR);
+		this._environment.delete(MCP_TOKEN_ENV_VAR);
+		this._environment.description = undefined;
 		delete this._processEnv[MCP_URL_ENV_VAR];
 		delete this._processEnv[MCP_TOKEN_ENV_VAR];
 		if (connection) {

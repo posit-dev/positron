@@ -4,6 +4,12 @@ name: "Test: Exploratory Suggest"
 # stays quiet on the rest. Requesting a reviewer is the "ready" signal: agent
 # PRs are often opened as non-drafts well before then.
 #
+# Auto-run experiment (#16610): when the author is on the
+# EXPLORE_AUTO_RUN_AUTHORS repo variable, post starts test-exploratory.yml
+# instead of posting the tip. That run posts to the PR only if its own gate
+# passes it. Empty the variable to end the experiment. The full list of when
+# a PR gets a run is in the exploratory-test skill's CONTRIBUTING.md.
+#
 # Plain `pull_request`, not `pull_request_target`. A fork PR gets no secrets
 # here, and precheck skips it anyway: /explore refuses a head outside this
 # repo, so there is nothing to suggest. A same-repo PR's author can already
@@ -54,10 +60,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      # To find an auto-run already started for the PR.
+      actions: read
       contents: read
       pull-requests: read
     outputs:
       proceed: ${{ steps.check.outputs.proceed }}
+      auto: ${{ steps.check.outputs.auto }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -92,6 +101,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ORG_TOKEN: ${{ steps.app-token.outputs.token }}
           EVENT_ACTION: ${{ github.event.action }}
+          AUTO_RUN_AUTHORS: ${{ vars.EXPLORE_AUTO_RUN_AUTHORS }}
         run: node suggest.ts precheck
 
   # One model call, read-only token. Fails closed: an error or an unclear
@@ -145,11 +155,13 @@ jobs:
   # The only job that can write, and it runs no model.
   post:
     name: post
-    needs: [judge]
+    needs: [precheck, judge]
     if: needs.judge.outputs.suggest == 'true' && !(github.event_name == 'workflow_dispatch' && inputs.dry_run)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
+      # To start an auto-run.
+      actions: write
       contents: read
       issues: write
       pull-requests: write
@@ -176,4 +188,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REASON: ${{ needs.judge.outputs.reason }}
+          AUTO_RUN: ${{ needs.precheck.outputs.auto }}
+          # The run uses this ref's harness: main's, or this branch's when
+          # this workflow is dispatched by hand to try a change.
+          DISPATCH_REF: ${{ github.event_name == 'workflow_dispatch' && github.ref_name || github.event.repository.default_branch }}
         run: node suggest.ts post

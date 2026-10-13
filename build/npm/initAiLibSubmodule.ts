@@ -40,8 +40,18 @@ const SUBMODULE_PATH = 'ai-lib';
  */
 export function initAiLibSubmodule(root: string, log: (message: string) => void): void {
 	const submoduleAbs = path.join(root, SUBMODULE_PATH);
-	if (fs.existsSync(path.join(submoduleAbs, '.git'))) {
-		return;
+	const dotGit = path.join(submoduleAbs, '.git');
+	if (fs.existsSync(dotGit)) {
+		const stubGitDir = findStubGitDir(dotGit);
+		if (!stubGitDir) {
+			return;
+		}
+		// A .git file pointing at a git dir with no HEAD is a clone that never
+		// finished. Every git command in the worktree then fails with "not a git
+		// repository", and the check above would skip re-cloning forever.
+		log(`Submodule points at an incomplete git dir (${stubGitDir}); removing it so git can clone again...`);
+		fs.rmSync(dotGit);
+		fs.rmSync(stubGitDir, { recursive: true, force: true });
 	}
 
 	// Stash inside .build (gitignored, and on the same filesystem as the submodule
@@ -78,6 +88,23 @@ export function initAiLibSubmodule(root: string, log: (message: string) => void)
 			fs.rmSync(stashDir, { recursive: true, force: true });
 		}
 	}
+}
+
+/**
+ * Return the git dir a `.git` file points at if that git dir has no HEAD, i.e. the
+ * clone into it never completed. Returns undefined for a healthy submodule, or for a
+ * `.git` directory, which is left alone.
+ */
+function findStubGitDir(dotGit: string): string | undefined {
+	if (!fs.statSync(dotGit).isFile()) {
+		return undefined;
+	}
+	const match = /^gitdir: (.+)$/m.exec(fs.readFileSync(dotGit, 'utf8'));
+	if (!match) {
+		return undefined;
+	}
+	const gitDir = path.resolve(path.dirname(dotGit), match[1].trim());
+	return fs.existsSync(path.join(gitDir, 'HEAD')) ? undefined : gitDir;
 }
 
 /**

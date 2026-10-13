@@ -20,11 +20,15 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel, SessionStartReasonId } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { getRuntimeDisplayPath } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { getSessionStartReasonLabel } from '../../../../services/runtimeSession/common/sessionStartReasons.js';
+import { openSettingWhereSet } from '../../../../services/preferences/common/positronSettingsUtils.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
+
+const changeStartupBehaviorLabel = localize('positron.console.info.changeStartupBehavior', "You can change the startup behavior in settings");
 
 const OutputChannelNames = {
 	[LanguageRuntimeSessionChannel.Kernel]: localize('positron.console.info.kernel', 'Kernel'),
@@ -98,7 +102,8 @@ interface ConsoleInstanceInfoModalPopupProps {
 	session: ILanguageRuntimeSession;
 }
 
-const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
+export const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps) => {
+	const services = usePositronReactServicesContext();
 	const [sessionState, setSessionState] = useState(() => props.session.getRuntimeState());
 	const [channels, setChannels] = useState<LanguageRuntimeSessionChannel[]>([]);
 
@@ -137,8 +142,26 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		return () => { active = false; };
 	}, [props.session]);
 
+	const startReasonLabel = getSessionStartReasonLabel(props.session, services.extensionService.extensions);
+	const hasStartupBehaviorLink =
+		props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlways ||
+		props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlwaysAllLanguages;
+
 	const showKernelOutputChannelClickHandler = (channel: LanguageRuntimeSessionChannel) => {
 		props.session.showOutput(channel);
+		props.renderer.dispose();
+	};
+
+	const showStartupBehaviorSettingClickHandler = () => {
+		// Open the settings tab the session's value comes from, so the user
+		// sees the value that started the session.
+		openSettingWhereSet(
+			services.preferencesService,
+			services.configurationService,
+			'interpreters.startupBehavior',
+			props.session.runtimeMetadata.languageId,
+			props.session.metadata.startReasonId === SessionStartReasonId.StartupBehaviorAlways,
+		).catch(err => services.logService.error(`Could not open the Startup Behavior setting: ${err}`));
 		props.renderer.dispose();
 	};
 
@@ -168,6 +191,27 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 							'positron.console.info.state', 'State: {0}',
 							sessionState)}
 						</p>
+						{startReasonLabel &&
+							<p className='line' data-testid='session-start-reason'>
+								{hasStartupBehaviorLink ?
+									<>
+										{localize('positron.console.info.startReasonSentence', 'Start Reason: {0}.', startReasonLabel)}
+										{' '}
+										<a
+											className='inline-link'
+											href='#'
+											onClick={e => {
+												e.preventDefault();
+												showStartupBehaviorSettingClickHandler();
+											}}
+										>
+											{changeStartupBehaviorLabel}
+										</a>
+									</> :
+									localize('positron.console.info.startReason', 'Start Reason: {0}', startReasonLabel)
+								}
+							</p>
+						}
 					</div>
 					<div className='top-separator'>
 						<p className='line' data-testid='session-path'>{localize(

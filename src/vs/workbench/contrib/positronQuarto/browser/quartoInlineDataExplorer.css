@@ -5,15 +5,27 @@
 
 /*
  * Overrides for the inline data explorer when rendered inside a Quarto editor
- * view zone, which inherits the editor's monospace font. The header and status
- * areas should use the workbench (proportional) font instead.
+ * view zone. The output container carries the editor font via inline styles,
+ * so the header, status areas, and grid row and column headers would
+ * otherwise inherit its size and line-height. Use the full Data Explorer's
+ * workbench size instead.
+ * InlineDataExplorer.css sets the workbench font family.
+ *
+ * Note: the font size CSS variable is only injected into webviews, not
+ * defined in the workbench, so it cannot be used here. Keep the size and
+ * line-height in sync with .monaco-workbench in
+ * vs/workbench/browser/media/style.css.
  */
-.quarto-output-data-explorer .inline-data-explorer-header,
-.quarto-output-data-explorer .inline-data-explorer-loading,
-.quarto-output-data-explorer .inline-data-explorer-disconnected,
-.quarto-output-data-explorer .inline-data-explorer-error {
-	font-family: var(--vscode-font-family);
-	font-size: var(--vscode-font-size);
+.quarto-output-data-explorer :is(
+	.inline-data-explorer-header,
+	.inline-data-explorer-loading,
+	.inline-data-explorer-disconnected,
+	.inline-data-explorer-error,
+	.data-grid-column-headers,
+	.data-grid-row-headers
+) {
+	font-size: 13px;
+	line-height: 1.4em;
 }
 
 /*

@@ -5,24 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildTaskLine, pickReport, buildCostRecord, renderCostFooter, resolveReport, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, timeUpMessage, WRAP_UP_MINUTES, renderPrComment, withPrLine, isProductPath, renderPrBody, ENVIRONMENT } from './lib.mjs';
-
-test('pickReport returns the last message containing a triage table', () => {
-	const messages = ['thinking out loud', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | x | bug |'];
-	assert.match(pickReport(messages), /Finding/);
-});
-
-test('pickReport returns null when no message looks like a report', () => {
-	assert.equal(pickReport(['hello', 'still working']), null);
-});
-
-test('pickReport prefers the latest report when several qualify', () => {
-	const messages = [
-		'# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | first | bug |',
-		'# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | second | bug |',
-	];
-	assert.match(pickReport(messages), /second/);
-});
+import { buildTaskLine, buildCostRecord, renderCostFooter, buildShotsBaseUrl, parsePosIntEnv, parseGate, renderStepSummary, renderSummaryTarget, COMMENT_MARKER, runOutcome, turnCapWarning, parseTimeLimit, timeUpHook, WRAP_UP_MINUTES, renderPrComment, isProductPath, renderPrBody, ENVIRONMENT, parseNumstat, formatDiffStat, describeChange } from './lib.mjs';
+import { EXPLORE_TIME_UP } from '../../../.claude/skills/exploratory-test/renderer/pipeline.mjs';
 
 test('buildCostRecord extracts the fields the spec names', () => {
 	const record = buildCostRecord({
@@ -59,35 +43,15 @@ test('buildCostRecord tolerates a result message missing usage', () => {
 });
 
 test('renderCostFooter reports cost, turns against the cap, and wall clock', () => {
-	const footer = renderCostFooter([{ label: 'explore', main: true, cost: { total_cost_usd: 1.2, num_turns: 87, duration_ms: 1500000 } }], 200);
+	const footer = renderCostFooter([{ label: 'explore', maxTurns: 200, costUsd: 1.2, turns: 87, durationMs: 1500000 }]);
 	assert.match(footer, /\$1\.20/);
 	assert.match(footer, /87\/200 turns/);
 	assert.match(footer, /25m/);
 });
 
 test('renderCostFooter degrades gracefully with no result message', () => {
-	const footer = renderCostFooter([{ label: 'explore', main: true, cost: { total_cost_usd: null, num_turns: null, duration_ms: null } }], 200);
+	const footer = renderCostFooter([{ label: 'explore', maxTurns: 200, costUsd: null, turns: null, durationMs: null }]);
 	assert.match(footer, /unknown/);
-});
-
-test('resolveReport prefers a non-empty report.md over scraped chat text, verbatim', () => {
-	const fileReport = '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from file | bug |';
-	const messages = ['# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
-	assert.equal(resolveReport(fileReport, messages), fileReport);
-});
-
-test('resolveReport falls back to pickReport when report.md is missing (null)', () => {
-	const messages = ['thinking', '# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
-	assert.match(resolveReport(null, messages), /from chat/);
-});
-
-test('resolveReport falls back to pickReport when report.md is empty or whitespace-only', () => {
-	const messages = ['# Report\n\n| # | Finding | Type |\n|---|---|---|\n| 1 | from chat | bug |'];
-	assert.match(resolveReport('   \n', messages), /from chat/);
-});
-
-test('resolveReport returns null when the file is absent and no message looks like a report', () => {
-	assert.equal(resolveReport(null, ['hello', 'still working']), null);
 });
 
 test('buildShotsBaseUrl passes through a base URL with no trailing slash', () => {
@@ -151,10 +115,10 @@ test('parseGate returns null when it cannot tell, so the run proceeds', () => {
 
 test('renderCostFooter renders passes in the order they ran, then a total', () => {
 	const footer = renderCostFooter([
-		{ label: 'gate', cost: { total_cost_usd: 0.01, num_turns: 3 } },
-		{ label: 'explore', main: true, cost: { total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 } },
-		{ label: 'verify', cost: { total_cost_usd: 0.48, num_turns: 24 } },
-	], 200);
+		{ label: 'gate', costUsd: 0.01, turns: 3 },
+		{ label: 'explore', maxTurns: 200, costUsd: 2.52, turns: 67, durationMs: 930000 },
+		{ label: 'verify', costUsd: 0.48, turns: 24 },
+	]);
 	const lines = footer.split('\n');
 	assert.match(lines[0], /gate: \$0\.01 \| 3 turns/);
 	assert.match(lines[1], /explore: \$2\.52 \| 67\/200 turns \| 16m/);
@@ -165,71 +129,46 @@ test('renderCostFooter renders passes in the order they ran, then a total', () =
 
 test('renderCostFooter omits passes that did not run, and the total with them', () => {
 	const footer = renderCostFooter([
-		{ label: 'gate', cost: { total_cost_usd: null } },
-		{ label: 'explore', main: true, cost: { total_cost_usd: 2.52, num_turns: 67, duration_ms: 930000 } },
-		{ label: 'verify', cost: { total_cost_usd: null } },
-	], 200);
+		{ label: 'gate', costUsd: null },
+		{ label: 'explore', maxTurns: 200, costUsd: 2.52, turns: 67, durationMs: 930000 },
+		{ label: 'verify', costUsd: null },
+	]);
 	assert.doesNotMatch(footer, /gate|verify|total/);
 	assert.match(footer, /explore: \$2\.52/);
 });
 
-const SUMMARY_MD = [
-	'# Exploratory test: something',
-	'',
-	'`branch/name` | `abc1234`',
-	'',
-	'**Result:** It works.',
-	'',
-	'## Findings',
-	'',
-	'| # | Finding | Severity |',
-	'|---|---------|----------|',
-	'| 1 | a claim | major |',
-	'| 2 | b claim | moderate |',
-	'| 3 | c claim | moderate |',
-	'| 4 | d claim | minor |',
-	'| 5 | e claim | minor |',
-	'',
-	'### Finding 1: a claim',
-	'',
-	'**Observed:** it broke.',
-].join('\n');
+/** report.json's findings, as many as the tally needs. */
+const finding = (n, severity) => ({ n, severity, title: `${'abcde'[n - 1]} claim`, observed: 'it broke.' });
+const SUMMARY = { header: { title: 'something', result: 'It works.' }, findings: [finding(1, 'major'), finding(2, 'moderate'), finding(3, 'moderate'), finding(4, 'minor'), finding(5, 'minor')] };
 
-test('renderStepSummary is a tally and two links, and nothing else', () => {
-	const summary = renderStepSummary(SUMMARY_MD, 'https://cdn.example/run');
+test('renderStepSummary is a tally and a link, and nothing else', () => {
+	const summary = renderStepSummary(SUMMARY, 'https://cdn.example/run');
 	assert.match(summary, /^\*\*1 major \u00b7 2 moderate \u00b7 2 minor\*\*$/m);
 	assert.match(summary, /\[Exploratory Test Report\]\(https:\/\/cdn\.example\/run\/index\.html\)/);
-	assert.match(summary, /\[Agent Report\]\(https:\/\/cdn\.example\/run\/report\.md\)/);
+	assert.doesNotMatch(summary, /report\.json/);
 	// The body of the report belongs on its own page, not pasted in here.
 	assert.doesNotMatch(summary, /Observed|a claim/);
-	// The links say what they are, and the cost is on the report's Run tile.
+	// The link says what it is, and the cost is on the report's Run tile.
 	assert.doesNotMatch(summary, /interactive report|structured Markdown/);
-	// Only the tally is bold; the links carry their own weight as links.
+	// Only the tally is bold; the link carries its own weight as a link.
 	assert.doesNotMatch(summary, /\*\*\[|\]\([^)]*\)\*\*/);
 	assert.doesNotMatch(summary, /\$|turns|explore|verify|total/);
-	assert.equal(summary.trim().split('\n').filter(Boolean).length, 3);
-});
-
-test('renderStepSummary counts the table when the report wrote up no blocks', () => {
-	// Only finding 1 has a block; the severities all come from the table.
-	assert.match(renderStepSummary(SUMMARY_MD, ''), /\*\*1 major/);
+	assert.equal(summary.trim().split('\n').filter(Boolean).length, 2);
 });
 
 test('renderStepSummary omits a breakdown it cannot read', () => {
-	const md = '# T\n\n`b` | `s`\n\n## Findings\n\n| # | Finding |\n|---|---|\n| 1 | a claim |\n';
-	const summary = renderStepSummary(md, 'https://cdn.example/run');
-	// No Severity column, so no severity is claimed -- and never "1 minor".
+	const summary = renderStepSummary({ findings: [{ n: 1, title: 'a claim' }] }, 'https://cdn.example/run');
+	// No severity, so none is claimed -- and never "1 minor".
 	assert.match(summary, /^\*\*1 finding\*\*$/m);
 	assert.doesNotMatch(summary, /minor/);
 });
 
 test('renderStepSummary says so when there is nothing to report', () => {
-	const md = '# T\n\n`b` | `s`\n\n## Findings\n\nNo findings.\n';
-	assert.match(renderStepSummary(md, 'https://cdn.example/run'), /\*\*No findings\*\*/);
+	assert.match(renderStepSummary({ findings: [] }, 'https://cdn.example/run'), /\*\*No findings\*\*/);
 });
 
 test('renderStepSummary points at the artifact when nothing was published', () => {
-	const summary = renderStepSummary(SUMMARY_MD, '');
+	const summary = renderStepSummary(SUMMARY, '');
 	// A dead link is worse than no link.
 	assert.doesNotMatch(summary, /\]\(/);
 	assert.match(summary, /workflow artifact/);
@@ -237,9 +176,9 @@ test('renderStepSummary points at the artifact when nothing was published', () =
 
 test('renderCostFooter totals the time as well as the money', () => {
 	const footer = renderCostFooter([
-		{ label: 'explore', main: true, cost: { total_cost_usd: 0.99, num_turns: 20, duration_ms: 408211 } },
-		{ label: 'verify', cost: { total_cost_usd: 0.31, num_turns: 14, duration_ms: 75643 } },
-	], 200);
+		{ label: 'explore', maxTurns: 200, costUsd: 0.99, turns: 20, durationMs: 408211 },
+		{ label: 'verify', costUsd: 0.31, turns: 14, durationMs: 75643 },
+	]);
 	// 6.8m of exploring and 1.3m of verifying is an 8m run, not a 7m one.
 	assert.match(footer, /_explore: \$0\.99 \| 20\/200 turns \| 7m_/);
 	assert.match(footer, /_verify: \$0\.31 \| 14 turns \| 1m_/);
@@ -248,9 +187,9 @@ test('renderCostFooter totals the time as well as the money', () => {
 
 test('renderCostFooter does not report a pass that ran as taking no time', () => {
 	const footer = renderCostFooter([
-		{ label: 'explore', main: true, cost: { total_cost_usd: 0.10, num_turns: 2, duration_ms: 20000 } },
-		{ label: 'verify', cost: { total_cost_usd: 0.05, num_turns: 1, duration_ms: 9000 } },
-	], 200);
+		{ label: 'explore', maxTurns: 200, costUsd: 0.10, turns: 2, durationMs: 20000 },
+		{ label: 'verify', costUsd: 0.05, turns: 1, durationMs: 9000 },
+	]);
 	// Rounding to minutes turned forty seconds of work into "0m".
 	assert.doesNotMatch(footer, /\b0m\b/);
 	assert.match(footer, /_explore: \$0\.10 \| 2\/200 turns \| <1m_/);
@@ -271,8 +210,8 @@ test('buildCostRecord names the model that billed most', () => {
 
 test('renderCostFooter leads a pass with its model when one is known', () => {
 	const footer = renderCostFooter([
-		{ label: 'explore', main: true, cost: { total_cost_usd: 1.2, num_turns: 25, duration_ms: 360000, model: 'claude-opus-5-5' } },
-	], 200);
+		{ label: 'explore', maxTurns: 200, costUsd: 1.2, turns: 25, durationMs: 360000, model: 'claude-opus-5-5' },
+	]);
 	assert.match(footer, /_explore: Opus 5\.5 \| \$1\.20 \| 25\/200 turns \| 6m_/);
 });
 
@@ -306,49 +245,67 @@ const RUN_URL = 'https://github.com/posit-dev/positron/actions/runs/1';
 const SHA = 'abc1234def5678';
 
 test('renderPrComment carries the marker and a run or report link in every state', () => {
-	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'cancelled']) {
-		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	for (const state of ['running', 'complete', 'partial', 'no-report', '', 'declined', 'outdated', 'cancelled']) {
+		const body = renderPrComment({ state, report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 		assert.ok(body.startsWith(COMMENT_MARKER), `state=${JSON.stringify(state)}`);
 		assert.match(body, /\[View (run|report) \u2192\]\(https:\/\//, `state=${JSON.stringify(state)}`);
 	}
 });
 
 test('renderPrComment on a finished run is a title, the tally and the report link', () => {
-	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
+test('renderPrComment on an automatic run says so, and asks for feedback once there is a report', () => {
+	const running = renderPrComment({ state: 'running', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, autoRun: true });
+	// A quote block of its own, set apart from the result above it.
+	assert.match(running, /\)\n\n> Started automatically .*issues\/16610/);
+	assert.doesNotMatch(running, /React with/);
+	const done = renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA, autoRun: true });
+	assert.match(done, /\n\n> Started automatically/);
+	assert.match(done, /React with \u{1F44D} or \u{1F44E}/u);
+	assert.doesNotMatch(renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA }), /automatically/);
+});
+
 test('renderPrComment running state names the head and links the run', () => {
-	const body = renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'running', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nOff exploring, back soon\u2026\n[View run \u2192](${RUN_URL})\n`);
 });
 
 test('renderPrComment on a cancelled run says it was cancelled', () => {
-	const body = renderPrComment({ state: 'cancelled', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'cancelled', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nCancelled before the agent produced a report.\n[View run \u2192](${RUN_URL})\n`);
+});
+
+test('renderPrComment on an outdated branch says why and what to do', () => {
+	const reason = 'this branch predates the drive-positron helper update that exploratory runs need. Rebase it onto main and comment /explore again.';
+	const body = renderPrComment({ state: 'outdated', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason });
+	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nNot run: ${reason}\n[View run \u2192](${RUN_URL})\n`);
+	assert.match(renderPrComment({ state: 'outdated', runUrl: RUN_URL, headSha: SHA }), /^Not run: .*Rebase it onto main/m);
 });
 
 test('renderPrComment names the focus, so two runs on one head can be told apart', () => {
 	for (const state of ['running', 'complete', 'declined', '']) {
-		const body = renderPrComment({ state, markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA, focus: 'sorting in the data explorer' });
+		const body = renderPrComment({ state, report: SUMMARY, baseUrl: '', runUrl: RUN_URL, headSha: SHA, focus: 'sorting in the data explorer' });
 		assert.match(body, /abc1234\n\nFocus: sorting in the data explorer\n\n/, `state=${JSON.stringify(state)}`);
 	}
 	assert.doesNotMatch(renderPrComment({ state: 'running', runUrl: RUN_URL, headSha: SHA, focus: '' }), /Focus:/);
 });
 
 test('renderPrComment says No findings for an empty table', () => {
-	const body = renderPrComment({ state: 'complete', markdown: '# X\n\nNo findings.\n', baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'complete', report: { findings: [] }, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /^No findings$/m);
 });
 
 test('renderPrComment points at the artifact when the upload failed', () => {
-	const body = renderPrComment({ state: 'complete', markdown: SUMMARY_MD, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.doesNotMatch(body, /cdn\.example|index\.html|View report/);
 	assert.match(body, /workflow artifact\. \[View run/);
 });
 
 test('renderPrComment flags a partial run that still wrote a report', () => {
-	const body = renderPrComment({ state: 'partial', markdown: SUMMARY_MD, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: 'partial', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /^1 major \u00b7/m);
 	assert.match(body, /turn cap/);
 });
@@ -356,34 +313,19 @@ test('renderPrComment flags a partial run that still wrote a report', () => {
 test('renderPrComment says the run failed when the agent never ran', () => {
 	// The build broke, so there is no outcome and no report. The "running"
 	// comment must still be replaced with something true.
-	const body = renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
+	const body = renderPrComment({ state: '', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.match(body, /failed before/);
 	assert.doesNotMatch(body, /Off exploring, back soon/);
 });
 
 test('renderPrComment explains a missing report per outcome', () => {
-	assert.match(renderPrComment({ state: 'partial', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /turn cap before writing a report/);
-	assert.match(renderPrComment({ state: 'no-report', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /without writing a report/);
+	assert.match(renderPrComment({ state: 'partial', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /turn cap before writing a report/);
+	assert.match(renderPrComment({ state: 'no-report', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA }), /without writing a report/);
 });
 
 test('renderPrComment leaves the SHA out rather than print an empty one', () => {
-	assert.match(renderPrComment({ state: '', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
-	assert.match(renderPrComment({ state: 'running', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
-});
-
-test('withPrLine stamps the PR under the meta line, once, and only for a number', () => {
-	const report = '# Exploratory test: x\n\n`branch` | `abc1234`\n\n**Result:** fine\n';
-	assert.equal(withPrLine(report, 'posit-dev/positron', '16188'),
-		'# Exploratory test: x\n\n`branch` | `abc1234`\n\nPR: posit-dev/positron#16188\n\n**Result:** fine\n');
-	// A dispatched run has no PR.
-	assert.equal(withPrLine(report, 'posit-dev/positron', ''), report);
-	assert.equal(withPrLine(report, 'posit-dev/positron', undefined), report);
-	assert.equal(withPrLine(report, 'posit-dev/positron', '12; rm'), report);
-	// Already stamped, or nowhere to put it.
-	const stamped = withPrLine(report, 'posit-dev/positron', '1');
-	assert.equal(withPrLine(stamped, 'posit-dev/positron', '1'), stamped);
-	assert.equal(withPrLine('# Exploratory test: x\n\n## Findings\n\n`code`\n', 'posit-dev/positron', '1'), '# Exploratory test: x\n\n## Findings\n\n`code`\n');
-	assert.equal(withPrLine(null, 'posit-dev/positron', '1'), null);
+	assert.match(renderPrComment({ state: '', report: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
+	assert.match(renderPrComment({ state: 'running', report: null, baseUrl: '', runUrl: RUN_URL, headSha: '' }), /^\*\*\u{1F50E} Exploratory testing\*\*$/mu);
 });
 
 test('isProductPath rejects tests, docs and harness files', () => {
@@ -413,7 +355,7 @@ test('isProductPath keeps source, styles and config', () => {
 });
 
 test('renderPrComment says a declined run was not run, and why', () => {
-	const body = renderPrComment({ state: 'declined', markdown: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason: 'only tests changed' });
+	const body = renderPrComment({ state: 'declined', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, reason: 'only tests changed' });
 	assert.ok(body.startsWith(COMMENT_MARKER));
 	assert.match(body, /Not run/);
 	assert.match(body, /only tests changed/);
@@ -485,25 +427,29 @@ test('runOutcome is timed-out when the hard stop fired, whatever else is true', 
 test('timeUpHook adds nothing before the deadline, then tells every tool result time is up, calling onTimeUp once', async () => {
 	let clock = 1000;
 	let calls = 0;
-	const hook = timeUpHook({ deadline: 2000, minutes: 20, now: () => clock, onTimeUp: () => calls++ });
+	const hook = timeUpHook({ deadline: 2000, message: 'Time is up.', now: () => clock, onTimeUp: () => calls++ });
 	// Told the time left, the agent rushed; before the deadline it hears nothing.
 	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), {});
 	assert.equal(calls, 0);
 	clock = 2000;
-	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: timeUpMessage(20) } });
+	assert.deepEqual(await hook({ hook_event_name: 'PostToolUse' }), { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: 'Time is up.' } });
 	// A failed tool call gets it too, under its own event name.
 	assert.equal((await hook({ hook_event_name: 'PostToolUseFailure' })).hookSpecificOutput.hookEventName, 'PostToolUseFailure');
 	assert.equal(calls, 1);
-	assert.match(timeUpMessage(20), /Stop exploring now\..*Not run.*report\.md/);
-	assert.match(timeUpMessage(20), new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
+	// The explorer's message is the pipeline's, so it must name CI's own hard stop.
+	assert.match(EXPLORE_TIME_UP, new RegExp(`stopped in ${WRAP_UP_MINUTES} minutes`));
+});
+
+test('timeUpHook tells an agent that is not the explorer its own message', async () => {
+	const hook = timeUpHook({ deadline: 0, message: 'Write isolation.md now.' });
+	assert.equal((await hook({ hook_event_name: 'PostToolUse' })).hookSpecificOutput.additionalContext, 'Write isolation.md now.');
 });
 
 test('renderPrComment says when a run was stopped at its time limit', () => {
-	const md = ['| # | Finding | Severity |', '|---|---|---|', '| 1 | x | minor |'].join('\n');
-	const withReport = renderPrComment({ state: 'timed-out', markdown: md, baseUrl: 'https://cdn/x', runUrl: 'https://run', headSha: 'abc1234' });
+	const withReport = renderPrComment({ state: 'timed-out', report: { findings: [finding(1, 'minor')] }, baseUrl: 'https://cdn/x', runUrl: 'https://run', headSha: 'abc1234' });
 	assert.match(withReport, /_Partial run: the agent was stopped at its time limit, so coverage is incomplete\._/);
 	assert.match(withReport, /View report/);
-	const without = renderPrComment({ state: 'timed-out', markdown: null, runUrl: 'https://run', headSha: 'abc1234' });
+	const without = renderPrComment({ state: 'timed-out', report: null, runUrl: 'https://run', headSha: 'abc1234' });
 	assert.match(without, /The agent was stopped at its time limit before writing a report\./);
 });
 
@@ -535,4 +481,69 @@ test('renderPrBody is empty for no description, or one that is only template com
 test('ENVIRONMENT lists GitHub and Copilot sign-in as unavailable', () => {
 	const unavailable = ENVIRONMENT.split('Not available')[1];
 	assert.match(unavailable, /GitHub sign-in, and so GitHub Copilot/);
+});
+
+test('parseNumstat reads counts and paths, and counts a binary file as 0/0', () => {
+	assert.deepEqual(parseNumstat('3\t1\tsrc/a.ts\n-\t-\timg.png\n'), [
+		{ path: 'src/a.ts', added: 3, deleted: 1 },
+		{ path: 'img.png', added: 0, deleted: 0 },
+	]);
+});
+
+test('formatDiffStat caps the list but totals every file', () => {
+	const entries = [1, 2, 3].map(n => ({ path: `f${n}`, added: n, deleted: 1 }));
+	assert.equal(formatDiffStat(entries, { max: 2 }), 'f1 | +1 -1\nf2 | +2 -1\n... and 1 more\n3 files changed, 6 insertions(+), 3 deletions(-)');
+	assert.equal(formatDiffStat([]), '(no files changed)');
+});
+
+test('formatDiffStat keeps an upstream-merge-sized diff short', () => {
+	const entries = Array.from({ length: 4500 }, (_, i) => ({ path: `src/vs/${'x'.repeat(200)}/${i}.ts`, added: 1, deleted: 1 }));
+	assert.ok(formatDiffStat(entries).length < 128 * 1024);
+});
+
+function fakeGit({ numstat, log, grep = '', trees = {} }) {
+	return args => {
+		switch (args[0]) {
+			case 'diff': return numstat;
+			case 'log': return log;
+			case 'grep': if (!grep) { throw Object.assign(new Error('exit 1'), { status: 1 }); } return grep;
+			case 'diff-tree': return trees[args.at(-1)] ?? '';
+			default: throw new Error(`unexpected git ${args.join(' ')}`);
+		}
+	};
+}
+
+test('describeChange lists the whole diff when it is not an upstream merge', () => {
+	const git = fakeGit({ numstat: '1\t0\tsrc/a.ts\n', log: 'abc\tFix the thing\n' });
+	const { upstream, stat } = describeChange({ git, base: 'b', head: 'h' });
+	assert.equal(upstream, null);
+	assert.match(stat, /^src\/a\.ts \| \+1 -0$/m);
+});
+
+test('describeChange narrows an upstream merge to where Positron meets it', () => {
+	const git = fakeGit({
+		numstat: [
+			'5\t1\tsrc/vs/editor/plain.ts',
+			'2\t2\tsrc/vs/workbench/marked.ts',
+			'1\t1\tsrc/vs/workbench/contrib/positronConsole/a.ts',
+			'3\t0\tbuild/gulpfile.ts',
+			'4\t0\tsrc/vs/workbench/test/marked.test.ts',
+		].join('\n'),
+		log: 'fix1\tgive gulp more headroom\nmerge1\tUpstream Code OSS changes from 1.134.0 to 1.138.0\n',
+		grep: 'h:src/vs/workbench/marked.ts\nh:src/vs/workbench/test/marked.test.ts\nh:src/vs/untouched.ts\n',
+		trees: { fix1: 'build/gulpfile.ts\n' },
+	});
+	const { upstream, stat } = describeChange({ git, base: 'b', head: 'h' });
+	assert.deepEqual(upstream, { from: '1.134.0', to: '1.138.0', files: 5, seam: 3 });
+	assert.match(stat, /marked\.ts/);
+	assert.match(stat, /positronConsole/);
+	assert.match(stat, /gulpfile/);
+	assert.doesNotMatch(stat, /plain\.ts|marked\.test/);
+	assert.match(stat, /5 files changed, 15 insertions/);
+});
+
+test('buildTaskLine targets Positron on top of an upstream merge, unless a focus is given', () => {
+	const upstream = { from: '1.134.0', to: '1.138.0' };
+	assert.match(buildTaskLine('', upstream), /merges upstream Code OSS 1\.134\.0 to 1\.138\.0/);
+	assert.match(buildTaskLine('the console', upstream), /asked you to test this/);
 });

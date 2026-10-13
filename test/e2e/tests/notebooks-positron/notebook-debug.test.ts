@@ -23,7 +23,7 @@ import { test } from './_test.setup.js';
 test.use({ suiteId: __filename });
 
 test.describe('Positron Notebook Debugging', {
-	tag: [tags.WEB, tags.WIN, tags.DEBUG, tags.POSITRON_NOTEBOOKS]
+	tag: [tags.WEB, tags.WIN, tags.DEBUG, tags.POSITRON_NOTEBOOKS, tags.PYTHON]
 }, () => {
 
 	// Un-skip when #16347 is fixed

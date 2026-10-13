@@ -14,11 +14,12 @@ import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybindi
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { getRuntimeDisplayPath, ILanguageRuntimeMetadata, ILanguageRuntimeService, IRuntimePickerContribution, IRuntimePickerItem, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeStartupPhase, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode, SessionStartReasonId } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { IModelService } from '../../../../editor/common/services/model.js';
 import { getSessionDisplayName, getSessionIconClasses, isQuartoSession } from '../../positronConsole/common/sessionDisplayUtils.js';
+import '../../positronConsole/browser/agentSessionIcon.css';
 import { POSITRON_NOTEBOOK_EDITOR_INPUT_ID, SELECT_KERNEL_ID_POSITRON } from '../../positronNotebook/common/positronNotebookCommon.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IRuntimeDiscoveryCache } from '../../../services/runtimeStartup/common/runtimeDiscoveryCacheService.js';
@@ -36,6 +37,7 @@ import { IProgressService, ProgressLocation } from '../../../../platform/progres
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { getErrorMessage } from '../../../../base/common/errors.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { AI_ENABLED_KEY, AGENT_SESSIONS_ENABLED_KEY } from '../../positronAssistant/common/positronAIConfiguration.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -72,12 +74,14 @@ export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.run
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
 export const LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID = 'workbench.action.language.runtime.discoverAllRuntimes';
 export const LANGUAGE_RUNTIME_GET_REGISTERED_RUNTIMES_ID = 'workbench.action.language.runtime.getRegisteredRuntimes';
+export const LANGUAGE_RUNTIME_REGISTER_RUNTIME_FROM_PATH_ID = 'workbench.action.language.runtime.registerRuntimeFromPath';
 export const LANGUAGE_RUNTIME_GET_ACTIVE_SESSIONS_ID = 'workbench.action.language.runtime.getActiveSessions';
 export const LANGUAGE_RUNTIME_CLEAR_INTERPRETER_CACHE_ID = 'workbench.action.language.runtime.clearInterpreterCache';
 
 // Console Session Specific Action IDs
 export const LANGUAGE_RUNTIME_START_NEW_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.startNewConsoleSession';
 export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_CONSOLE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveConsoleSession';
+export const LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID = 'positron.languageRuntime.startNewAgentSession';
 
 // Notebook Session Specific Action IDs
 export const LANGUAGE_RUNTIME_SELECT_LEGACY_NOTEBOOK_RUNTIME_ID = 'workbench.action.languageRuntime.selectLegacyNotebookRuntime';
@@ -104,15 +108,17 @@ export interface IRegisteredRuntimeSummary {
 	readonly runtimePath: string;
 	readonly startupBehavior: string;
 	readonly extensionId: string;
+	readonly affiliated: boolean;
 }
 
 /**
  * Projects full runtime metadata down to the fields useful to an AI agent.
  *
  * @param metadata The registered runtime's metadata.
+ * @param affiliated Whether the runtime is affiliated with the workspace.
  * @returns A slim summary of the runtime.
  */
-export function summarizeRegisteredRuntime(metadata: ILanguageRuntimeMetadata): IRegisteredRuntimeSummary {
+export function summarizeRegisteredRuntime(metadata: ILanguageRuntimeMetadata, affiliated: boolean): IRegisteredRuntimeSummary {
 	return {
 		runtimeId: metadata.runtimeId,
 		languageId: metadata.languageId,
@@ -125,6 +131,7 @@ export function summarizeRegisteredRuntime(metadata: ILanguageRuntimeMetadata): 
 		runtimePath: getRuntimeDisplayPath(metadata),
 		startupBehavior: metadata.startupBehavior,
 		extensionId: metadata.extensionId.value,
+		affiliated,
 	};
 }
 
@@ -317,6 +324,7 @@ export const selectLanguageRuntimeSession = async (
 				sessionMode: session.metadata.sessionMode,
 				notebookUri: session.metadata.notebookUri,
 				languageId: session.runtimeMetadata.languageId,
+				owner: session.metadata.owner,
 			},
 			modelService,
 			languageService,
@@ -977,7 +985,7 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 				currentSession.dynState.sessionName,
 				LanguageRuntimeSessionMode.Console,
 				undefined,
-				`Duplicated session: ${currentSession.dynState.sessionName}`,
+				{ id: SessionStartReasonId.DuplicatedConsoleSession },
 				RuntimeStartMode.Starting,
 				true
 			);
@@ -987,7 +995,7 @@ export class DuplicateActiveConsoleSessionAction extends Action2 {
 				currentSession.runtimeMetadata.runtimeName,
 				LanguageRuntimeSessionMode.Console,
 				undefined,
-				`Started console session from notebook session: ${currentSession.dynState.sessionName}`,
+				{ id: SessionStartReasonId.DuplicatedNotebookSession },
 				RuntimeStartMode.Starting,
 				true
 			);
@@ -1083,12 +1091,69 @@ export class StartNewConsoleSessionAction extends Action2 {
 			selectedRuntime.runtimeName,
 			LanguageRuntimeSessionMode.Console,
 			undefined,
-			suppliedRuntimeId ? 'Runtime id supplied to startNewConsoleSession command' : 'User selected runtime',
+			suppliedRuntimeId ?
+				{ id: SessionStartReasonId.NewConsoleCommand } :
+				{ id: SessionStartReasonId.UserSelectedRuntime },
 			RuntimeStartMode.Starting,
 			true,
 			{ userSelected: !suppliedRuntimeId }
 		);
 		return { started: true, sessionId };
+	}
+}
+
+/**
+ * Start an agent-owned console session for a runtime. Started by the user,
+ * it takes the foreground like any session they start; only its owner differs.
+ * @returns The new session's id.
+ */
+export function startNewAgentSession(
+	runtimeSessionService: IRuntimeSessionService,
+	runtime: ILanguageRuntimeMetadata,
+): Promise<string> {
+	return runtimeSessionService.startNewRuntimeSession(
+		runtime.runtimeId,
+		runtime.runtimeName,
+		LanguageRuntimeSessionMode.Console,
+		undefined,
+		{ id: SessionStartReasonId.UserStartedAgentSession },
+		RuntimeStartMode.Starting,
+		true,
+		{ userSelected: true, owner: 'agent' }
+	);
+}
+
+/**
+ * Action that lets the user pick a runtime and start it as an agent-owned
+ * console session.
+ */
+export class StartNewAgentSessionAction extends Action2 {
+	constructor() {
+		super({
+			id: LANGUAGE_RUNTIME_START_NEW_AGENT_SESSION_ID,
+			title: localize2('positron.languageRuntime.startNewAgentSession', 'Start Agent Console Session...'),
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				ContextKeyExpr.has(`config.${AI_ENABLED_KEY}`),
+				ContextKeyExpr.has(`config.${AGENT_SESSIONS_ENABLED_KEY}`),
+			),
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<string | undefined> {
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+
+		// Prompt for a runtime, focusing the foreground session's runtime.
+		const runtime = await selectNewLanguageRuntime(accessor, {
+			title: localize('positron.languageRuntime.startNewAgentSession.quickPickTitle', 'Start Agent Console Session'),
+			currentRuntimeId: runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId,
+		});
+		if (!runtime) {
+			return undefined;
+		}
+
+		return startNewAgentSession(runtimeSessionService, runtime);
 	}
 }
 
@@ -1275,6 +1340,8 @@ export function registerLanguageRuntimeActions() {
 	registerAction2(SelectSessionAction);
 
 	registerAction2(StartNewConsoleSessionAction);
+
+	registerAction2(StartNewAgentSessionAction);
 
 	/**
 	 * Action that allows the user to rename an active session.
@@ -1613,17 +1680,53 @@ export function registerLanguageRuntimeActions() {
 							schema: { type: 'string' },
 						},
 					],
-					returns: 'An array of registered interpreters. Each entry has runtimeId, languageId, languageName, languageVersion, runtimeName, runtimeShortName, runtimeVersion, runtimeSource (e.g. System, Pyenv, Conda), runtimePath, startupBehavior, and extensionId. An empty array means no interpreter of the requested language is registered.',
+					returns: 'An array of registered interpreters. Each entry has runtimeId, languageId, languageName, languageVersion, runtimeName, runtimeShortName, runtimeVersion, runtimeSource (e.g. System, Pyenv, Conda), runtimePath, startupBehavior, extensionId, and affiliated (true for the interpreter this workspace uses for its language). An empty array means no interpreter of the requested language is registered.',
 				},
 			});
 		}
 
 		async run(accessor: ServicesAccessor, languageId?: string): Promise<IRegisteredRuntimeSummary[]> {
 			const languageRuntimeService = accessor.get(ILanguageRuntimeService);
+			const runtimeStartupService = accessor.get(IRuntimeStartupService);
 			const filter = typeof languageId === 'string' && languageId.length > 0 ? languageId : undefined;
+			const affiliatedIds = new Set(runtimeStartupService.getAffiliatedRuntimes().map(runtime => runtime.runtimeId));
 			return languageRuntimeService.registeredRuntimes
 				.filter(runtime => !filter || runtime.languageId === filter)
-				.map(summarizeRegisteredRuntime);
+				.map(runtime => summarizeRegisteredRuntime(runtime, affiliatedIds.has(runtime.runtimeId)));
+		}
+	});
+
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: LANGUAGE_RUNTIME_REGISTER_RUNTIME_FROM_PATH_ID,
+				title: localize2('workbench.action.language.runtime.registerRuntimeFromPath', "Register Interpreter from Path"),
+				category,
+				metadata: {
+					description: localize('positron.languageRuntime.registerRuntimeFromPath.description', "Make the interpreter at a path available in Positron, including in future sessions. Use when an installed interpreter does not appear among the registered interpreters; if it can't be used, the error explains why."),
+					agentCompatible: true,
+					args: [
+						{
+							name: 'languageId',
+							description: 'The language of the interpreter, e.g. "python" or "r".',
+							schema: { type: 'string' },
+						},
+						{
+							name: 'path',
+							description: 'The absolute path to the interpreter executable.',
+							schema: { type: 'string' },
+						},
+					],
+					returns: 'The registered interpreter, in the same shape as the entries returned by getRegisteredRuntimes.',
+				},
+			});
+		}
+
+		async run(accessor: ServicesAccessor, languageId: string, path: string): Promise<IRegisteredRuntimeSummary> {
+			const runtimeStartupService = accessor.get(IRuntimeStartupService);
+			const metadata = await runtimeStartupService.registerRuntimeFromPath(languageId, path);
+			const affiliated = runtimeStartupService.getAffiliatedRuntimeMetadata(languageId)?.runtimeId === metadata.runtimeId;
+			return summarizeRegisteredRuntime(metadata, affiliated);
 		}
 	});
 

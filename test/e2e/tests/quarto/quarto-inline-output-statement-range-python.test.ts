@@ -25,7 +25,7 @@ test.use({
 });
 
 test.describe('Quarto - Inline Output: Statement Range (Python)', {
-	tag: [tags.QUARTO, tags.CONSOLE]
+	tag: [tags.QUARTO, tags.CONSOLE, tags.PYTHON]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {

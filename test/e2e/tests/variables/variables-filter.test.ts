@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Variables - Filters', { tag: [tags.WEB, tags.VARIABLES, tags.CROSS_BROWSER] }, () => {
+test.describe('Variables - Filters', { tag: [tags.WEB, tags.VARIABLES, tags.CROSS_BROWSER, tags.PYTHON, tags.ARK] }, () => {
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.layouts.enterLayout('stacked');

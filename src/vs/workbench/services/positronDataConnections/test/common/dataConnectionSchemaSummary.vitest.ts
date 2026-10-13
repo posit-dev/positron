@@ -169,8 +169,9 @@ describe('summarizeDataConnectionSchema', () => {
 
 		const summary = await summarizeDataConnectionSchema(handle);
 
-		// group-stages is not a container kind, so it stays as a node; the stage under it is a leaf.
-		expect(summary.lines).toEqual(['Stages [group-stages]', 'Stages.my_stage [stage]']);
+		// The Stages group only labels its stages, so it folds away like any other group; the stage
+		// under it is a leaf.
+		expect(summary.lines).toEqual(['my_stage [stage]']);
 		expect(expanded).toEqual(['Stages']);
 	});
 

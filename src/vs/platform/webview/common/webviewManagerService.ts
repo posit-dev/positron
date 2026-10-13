@@ -81,12 +81,25 @@ export interface FoundInFrameResult {
 	readonly finalUpdate: boolean;
 }
 
+// --- Start Positron ---
+/**
+ * The window-wide suppression target and the webview claiming or releasing it.
+ */
+export type WebviewMenuShortcutsTarget = (WebviewWebContentsId | WebviewWindowId) & {
+	readonly webviewId: string;
+};
+// --- End Positron ---
+
 export interface IWebviewManagerService {
 	_serviceBrand: unknown;
 
 	readonly onFoundInFrame: Event<FoundInFrameResult>;
 
-	setIgnoreMenuShortcuts(id: WebviewWebContentsId | WebviewWindowId, enabled: boolean): Promise<void>;
+	// --- Start Positron ---
+	// setIgnoreMenuShortcuts(id: WebviewWebContentsId | WebviewWindowId, enabled: boolean): Promise<void>;
+	/** Focus replaces the target's owner; blur/disposal only releases the same owner. */
+	setIgnoreMenuShortcuts(id: WebviewMenuShortcutsTarget, enabled: boolean): Promise<void>;
+	// --- End Positron ---
 
 	findInFrame(windowId: WebviewWindowId, frameName: string, text: string, options: FindInFrameOptions): Promise<void>;
 

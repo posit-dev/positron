@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Sessions: State', {
-	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL],
+	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL, tags.PYTHON, tags.ARK],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13831' }]
 }, () => {
 
@@ -20,7 +20,7 @@ test.describe('Sessions: State', {
 		await sessions.clearConsoleAllSessions();
 	});
 
-	test('Validate session states during start, restart, and shutdown', { tag: [tags.ARK] }, async function ({ app, sessions }) {
+	test('Validate session states during start, restart, and shutdown', async function ({ app, sessions }) {
 		const { console } = app.workbench;
 		// using this session to trigger session tab list view below to verify session states
 		await sessions.start(['r']);

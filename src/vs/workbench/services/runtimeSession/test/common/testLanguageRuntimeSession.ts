@@ -125,6 +125,13 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		this.dynState.sessionName = sessionName;
 	}
 
+	/** The URIs passed to each `updateNotebookUri` call, in order. */
+	readonly notebookUriUpdates: { notebookUri: string; quartoNotebookUri: string | undefined }[] = [];
+
+	updateNotebookUri(notebookUri: URI, quartoNotebookUri: URI | undefined): void {
+		this.notebookUriUpdates.push({ notebookUri: notebookUri.toString(), quartoNotebookUri: quartoNotebookUri?.toString() });
+	}
+
 	getRuntimeState(): RuntimeState {
 		return this._currentState;
 	}

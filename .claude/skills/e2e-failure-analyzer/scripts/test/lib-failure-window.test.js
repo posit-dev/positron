@@ -6,13 +6,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
 	buildDomPresence,
+	describeWindowSource,
 	extractTraceClock,
 	findFailureWindow,
 	logRelevance,
 	parseLogTimestamp,
 	phaseLabel,
+	pickFailureFrames,
 	relevanceHintsForSpec,
+	renderKernelDigest,
+	screencastFrameEntry,
 	snapshotAttrTokens,
+	summarizeKernelLine,
 	traceEpochOrigin,
 	traceTimeToWallMs,
 } from '../lib-failure-window.js';
@@ -55,8 +60,128 @@ test('findFailureWindow pairs the errored after with its opening before', () => 
 		actionStartT: ACTION_START_T,
 		deadlineT: DEADLINE_T,
 		method: 'Frame.expect',
+		selectors: [],
 	});
 	assert.equal(findFailureWindow([{ type: 'after', endTime: 1 }]), null);
+});
+
+test('findFailureWindow reports only the failing call\'s selectors', () => {
+	const events = [
+		// A retry that was caught: not what the test was waiting for when it failed.
+		{ type: 'before', callId: 'r', class: 'Frame', method: 'expect', startTime: 100, params: { selector: '.quick-input-list' } },
+		{ type: 'after', callId: 'r', endTime: 200, error: { message: 'Expect failed' } },
+		{ type: 'before', callId: 'f', class: 'Frame', method: 'expect', startTime: 300, params: { selector: '.positron-packages-list' } },
+		{ type: 'after', callId: 'f', endTime: 900, error: { message: 'Expect failed: locator(\'.packages-list-item-name\') not visible' } },
+		{ type: 'before', callId: 's', class: 'Page', method: 'screenshot', startTime: 910, params: {} },
+	];
+	assert.deepEqual(findFailureWindow(events).selectors, ['.positron-packages-list', '.packages-list-item-name']);
+});
+
+// A test-thrown failure, shaped like positron-builds run 35870872309 attempt 2
+// ("Variables - Progress bar"): `expect(async () => expect(await
+// variables.hasProgressBar()).toBe(true)).toPass({ timeout: 5000 })`. Every
+// isVisible() returned ok, so no `after` carries an error; the reporting
+// fixture's failure screenshot (no `path`) follows the last poll, and afterEach
+// presses keys after that.
+const PROGRESS_SELECTOR = '.variables-core .monaco-progress-container';
+const call = (callId, method, startTime, endTime, params = {}) => [
+	{ type: 'before', callId, class: method === 'screenshot' || method.startsWith('keyboard') ? 'Page' : 'Frame', method, startTime, params },
+	{ type: 'after', callId, endTime },
+];
+const pollLoop = (start, count, selector = PROGRESS_SELECTOR) => Array.from({ length: count }, (_, i) =>
+	call(`poll@${i}`, 'isVisible', start + i * 700, start + i * 700 + 10, { selector })).flat();
+const TOPASS_TRACE = [
+	...call('click@1', 'click', 4460070, 4460131, { selector: '.positron-modal-dialog-box >> internal:role=button[name="Delete"i]' }),
+	...pollLoop(4460194.993, 8),
+	...call('shot@1', 'screenshot', 4465135.537, 4465290, { timeout: 30000 }),
+	...call('key@1', 'keyboardPress', 4465300, 4465310),
+	...call('key@2', 'keyboardPress', 4465320, 4465330),
+];
+
+test('findFailureWindow infers a toPass/poll failure from the retry loop before the failure screenshot', () => {
+	assert.deepEqual(findFailureWindow(TOPASS_TRACE), {
+		actionStartT: 4460194.993,
+		deadlineT: 4460194.993 + 7 * 700 + 10,
+		method: 'Frame.isVisible',
+		selectors: [PROGRESS_SELECTOR],
+		inferredFrom: `retry loop (8 identical calls on ${PROGRESS_SELECTOR})`,
+	});
+	assert.match(describeWindowSource(findFailureWindow(TOPASS_TRACE)), /^The test failed on its own assertion/);
+	// An errored call needs no caveat.
+	assert.equal(describeWindowSource({ actionStartT: 1, deadlineT: 2, method: 'Frame.expect' }), '');
+});
+
+// An errored call that a retry loop caught, long before the failure.
+const caughtRetry = (callId, startTime) => [
+	{ type: 'before', callId, class: 'Frame', method: 'expect', startTime, params: { selector: '.quick-input-widget .quick-input-list .monaco-list-row' } },
+	{ type: 'after', callId, endTime: startTime + 2000, error: { message: 'Expect failed' } },
+];
+
+test('findFailureWindow anchors on the error that escaped, not the first one a retry caught', () => {
+	// Shaped like positron run 37477123593, "Python - Install, search, and
+	// uninstall package": 8 caught "Expect failed" retries from t=1887867, and
+	// the call that failed the test ending 8ms before the failure screenshot.
+	const events = [
+		...[0, 1, 2, 3, 4, 5, 6, 7].flatMap(i => caughtRetry(`retry@${i}`, 1887867 + i * 2050)),
+		{ type: 'before', callId: 'pkg', class: 'Frame', method: 'expect', startTime: 1972511, params: { selector: '.positron-packages-list >> .packages-list-item-name' } },
+		{ type: 'after', callId: 'pkg', endTime: 1987511, error: { message: 'Expect failed' } },
+		...call('shot@1', 'screenshot', 1987519, 1987700),
+		// Teardown that errors after the failure must not win either.
+		...caughtRetry('teardown', 1990000),
+	];
+	assert.deepEqual(findFailureWindow(events), {
+		actionStartT: 1972511, deadlineT: 1987511, method: 'Frame.expect', selectors: ['.positron-packages-list >> .packages-list-item-name'],
+	});
+	// Without the failure screenshot there is nothing to tell them apart: the
+	// first errored call, as before.
+	assert.equal(findFailureWindow(events.filter(e => e.callId !== 'shot@1')).deadlineT, 1887867 + 2000);
+});
+
+test('findFailureWindow pairs an errored call with its own before when calls overlap', () => {
+	// From the same run: a waitForSelector started at t=1926779, an expect
+	// started at t=1927501, and the waitForSelector timed out first. The nearest
+	// preceding `before` is the expect's.
+	const events = [
+		{ type: 'before', callId: 'wait', class: 'Frame', method: 'waitForSelector', startTime: 1926779 },
+		{ type: 'before', callId: 'exp', class: 'Frame', method: 'expect', startTime: 1927501 },
+		{ type: 'after', callId: 'wait', endTime: 1956786, error: { message: 'Timeout 30000ms exceeded.' } },
+	];
+	assert.deepEqual(findFailureWindow(events), { actionStartT: 1926779, deadlineT: 1956786, method: 'Frame.waitForSelector', selectors: [] });
+});
+
+test('findFailureWindow prefers the retry loop over a caught error from earlier', () => {
+	const events = [...caughtRetry('early', 1000), ...TOPASS_TRACE];
+	assert.equal(findFailureWindow(events).inferredFrom, `retry loop (8 identical calls on ${PROGRESS_SELECTOR})`);
+	// No loop either: the screenshot alone, never the stale caught error.
+	assert.deepEqual(
+		findFailureWindow([...caughtRetry('early', 100), ...call('k', 'keyboardPress', 4900, 4910), ...call('s', 'screenshot', 5000, 5100)]),
+		{ actionStartT: null, deadlineT: 5000, method: null, selectors: [], inferredFrom: 'failure screenshot' }
+	);
+});
+
+test('findFailureWindow falls back to the failure screenshot alone when no retry loop ends at it', () => {
+	const screenshotOnly = { actionStartT: null, deadlineT: 5000, method: null, selectors: [], inferredFrom: 'failure screenshot' };
+	// Repeated INPUT is the test pressing keys, not polling.
+	const keys = [...call('k1', 'keyboardPress', 100, 110), ...call('k2', 'keyboardPress', 200, 210), ...call('k3', 'keyboardPress', 300, 310)];
+	assert.deepEqual(findFailureWindow([...keys, ...call('s', 'screenshot', 5000, 5100)]), screenshotOnly);
+	// A loop that ended long before the failure is some earlier wait.
+	assert.deepEqual(findFailureWindow([...pollLoop(100, 3), ...call('s', 'screenshot', 5000, 5100)]), screenshotOnly);
+	// Two calls are not a loop.
+	assert.deepEqual(findFailureWindow([...pollLoop(4000, 2), ...call('s', 'screenshot', 5000, 5100)]), screenshotOnly);
+});
+
+test('findFailureWindow does not infer a window without the failure screenshot', () => {
+	// A loop alone could be teardown polling for something.
+	assert.equal(findFailureWindow(pollLoop(100, 5)), null);
+	// A test's own takeScreenshot always passes a path, so it is not the failure instant.
+	assert.equal(findFailureWindow([...pollLoop(100, 5), ...call('s', 'screenshot', 3600, 3700, { path: '/tmp/1-x.png' })]), null);
+	// Nor is a pathless LOCATOR screenshot a test compares as a buffer (plots,
+	// notebook outputs) -- only the fixture's Page.screenshot is.
+	const locatorShot = [
+		{ type: 'before', callId: 'ls', class: 'ElementHandle', method: 'screenshot', startTime: 3600, params: {} },
+		{ type: 'after', callId: 'ls', endTime: 3700 },
+	];
+	assert.equal(findFailureWindow([...pollLoop(100, 5), ...locatorShot]), null);
 });
 
 test('phaseLabel separates the wait from post-deadline teardown', () => {
@@ -69,6 +194,9 @@ test('phaseLabel separates the wait from post-deadline teardown', () => {
 	assert.equal(phaseLabel(2660000, win), 'during wait');
 	assert.equal(phaseLabel(DEADLINE_T, win), 'during wait');  // boundary is inclusive
 	assert.equal(phaseLabel(123, null), null);
+	// With no known start, nothing establishes a line came during the wait.
+	assert.equal(phaseLabel(2660000, { actionStartT: null, deadlineT: DEADLINE_T }), 'before deadline');
+	assert.equal(phaseLabel(2676172, { actionStartT: null, deadlineT: DEADLINE_T }), 'after deadline');
 });
 
 test('traceEpochOrigin recovers t=0 from a screencast frame, and null without one', () => {
@@ -81,6 +209,128 @@ test('traceEpochOrigin recovers t=0 from a screencast frame, and null without on
 	// A sha1 without the trailing epoch cannot anchor anything.
 	assert.equal(traceEpochOrigin([{ type: 'screencast-frame', sha1: 'abc.jpeg', timestamp: 10 }]), null);
 	assert.equal(traceEpochOrigin([{ type: 'before', startTime: 1 }]), null);
+	// Trace format v9 (Playwright 1.63) names the frame in `file` and has no sha1.
+	assert.equal(
+		traceEpochOrigin([{ type: 'screencast-frame', file: 'screencast/page@f8d6-1790176754807.jpeg', timestamp: 4421993.119 }]),
+		1790176754807 - 4421993.119
+	);
+});
+
+test('screencastFrameEntry finds the frame image in both trace formats', () => {
+	// v9: the path is given outright, under screencast/.
+	assert.equal(
+		screencastFrameEntry({ file: 'screencast/page@f8d6-1790176754807.jpeg', timestamp: 1 }),
+		'screencast/page@f8d6-1790176754807.jpeg'
+	);
+	// Older traces: a bare file name under resources/.
+	assert.equal(screencastFrameEntry({ sha1: 'page@abc-1785521606767.jpeg' }), 'resources/page@abc-1785521606767.jpeg');
+	assert.equal(screencastFrameEntry({}), null);
+	assert.equal(screencastFrameEntry(null), null);
+});
+
+test('pickFailureFrames stops at the failure screenshot, not at teardown', () => {
+	const frame = timestamp => ({ type: 'screencast-frame', file: `screencast/p-${timestamp}.jpeg`, timestamp });
+	// Two frames after the failure screenshot, painted by afterEach's layout
+	// reset. The trace's last frames would show them as the "failure state".
+	const events = [...TOPASS_TRACE, frame(4464000), frame(4464800), frame(4465000), frame(4465342), frame(4465357)];
+	assert.deepEqual(pickFailureFrames(events, 2).map(f => f.timestamp), [4464800, 4465000]);
+	// No failure screenshot => the trace's last frames, as before.
+	assert.deepEqual(pickFailureFrames([frame(1), frame(2), frame(3)], 2).map(f => f.timestamp), [2, 3]);
+	// Not even with an errored call: without the screenshot the first errored
+	// call is often a retry the test caught, long before it failed or finished.
+	assert.deepEqual(pickFailureFrames([...caughtRetry('early', 100), frame(1000), frame(5000), frame(9000)], 1).map(f => f.timestamp), [9000]);
+	assert.deepEqual(pickFailureFrames(events, 0), []);
+});
+
+test('summarizeKernelLine keeps sends and execute/lifecycle states, and drops comm busy/idle noise', () => {
+	const at = '2026-09-23 15:19:53.003 [debug]';
+	assert.deepEqual(
+		summarizeKernelLine(`${at} r-fa94cab0 >>> SEND comm_msg [shell]: {"comm_id":"positron-variables-r-3-aab2aa02","data":{"jsonrpc":"2.0","method":"clear","id":"32ff","params":{"include_hidden_objects":false}}}`),
+		{ session: 'r-fa94cab0', text: 'SEND comm_msg positron-variables-r-3-aab2aa02 method=clear' }
+	);
+	assert.deepEqual(
+		summarizeKernelLine(`${at} r-fa94cab0 >>> SEND execute_request [shell]: {"code":"cat(\\"started\\")\\nSys.sleep(20)","silent":false}`),
+		{ session: 'r-fa94cab0', text: 'SEND execute_request code="cat(\\"started\\"); Sys.sleep(20)"' }
+	);
+	// UI-comm RPCs name the real method inside call_method.
+	assert.equal(
+		summarizeKernelLine(`${at} r-fa94cab0 >>> SEND comm_msg [shell]: {"comm_id":"positron-ui-r-4","data":{"jsonrpc":"2.0","method":"call_method","params":{"method":"setConsoleWidth","params":[25]}}}`).text,
+		'SEND comm_msg positron-ui-r-4 method=call_method(setConsoleWidth)'
+	);
+	// A payload cut short in the log still yields its code.
+	assert.equal(
+		summarizeKernelLine(`${at} python-1 >>> SEND execute_request [shell]: {"code":"import time; time.sleep(5)","sil`).text,
+		'SEND execute_request code="import time; time.sleep(5)"'
+	);
+	assert.deepEqual(
+		summarizeKernelLine(`${at} r-fa94cab0 State: idle => busy (execute_request)`),
+		{ session: 'r-fa94cab0', text: 'State idle => busy (execute_request)' }
+	);
+	assert.equal(summarizeKernelLine(`${at} r-fa94cab0 State: starting => ready (new session)`).text, 'State starting => ready (new session)');
+	// Noise: the busy/idle bracket around every comm request, and comm listing.
+	assert.equal(summarizeKernelLine(`${at} r-fa94cab0 State: idle => busy (comm_msg)`), null);
+	assert.equal(summarizeKernelLine(`${at} r-fa94cab0 >>> SEND comm_info_request [shell]: {}`), null);
+	assert.equal(summarizeKernelLine(`${at} r-fa94cab0 <<< RECV execute_reply [shell]: {"status":"ok"}`), null);
+});
+
+test('summarizeKernelLine decodes cut-short payloads and does not reach into nested fields', () => {
+	const at = '2026-09-23 15:19:53.003 [debug]';
+	// Cut short, with JSON escapes: \\ and \t decode, and a dangling escape at the cut is dropped.
+	assert.equal(
+		summarizeKernelLine(`${at} r-1 >>> SEND execute_request [shell]: {"code":"x <- \\"C:\\\\\\\\tmp\\"\\tcat(x)\\`).text,
+		'SEND execute_request code="x <- \\"C:\\\\\\\\tmp\\"\\tcat(x)"'
+	);
+	// A parsed message with no top-level method names no method, rather than
+	// borrowing one from params.
+	assert.equal(
+		summarizeKernelLine(`${at} r-1 >>> SEND comm_msg [shell]: {"comm_id":"positron-ui-r-4","data":{"params":{"method":"inner"}}}`).text,
+		'SEND comm_msg positron-ui-r-4'
+	);
+});
+
+test('renderKernelDigest orders events, tags them against the wait, and trims the edges first', () => {
+	const ms = hms => Date.parse(`2026-09-23T${hms}Z`);
+	const actionStart = ms('15:19:53.009');
+	const deadline = ms('15:19:57.941');
+	const digest = renderKernelDigest([
+		// Out of order on purpose: the supervisor logs are read one file at a time.
+		{ at: ms('15:19:53.076'), session: 'r-fa94cab0', text: 'SEND execute_request code="Sys.sleep(20)"' },
+		{ at: ms('15:19:53.003'), session: 'r-fa94cab0', text: 'SEND comm_msg positron-variables-r-3 method=clear' },
+		{ at: ms('15:19:58.650'), session: 'r-fa94cab0', text: 'SEND comm_msg positron-ui-r-4 method=did_change_plots_render_settings' },
+	], actionStart, deadline);
+	assert.deepEqual(digest.split('\n').slice(1), [
+		'15:19:53.003 [before action] r-fa94cab0 SEND comm_msg positron-variables-r-3 method=clear',
+		'15:19:53.076 [during wait] r-fa94cab0 SEND execute_request code="Sys.sleep(20)"',
+		'15:19:58.650 [after deadline] r-fa94cab0 SEND comm_msg positron-ui-r-4 method=did_change_plots_render_settings',
+	]);
+	assert.equal(renderKernelDigest([], actionStart, deadline), null);
+
+	// Over budget: post-deadline events go first, then the earliest pre-action ones.
+	const many = [
+		...Array.from({ length: 30 }, (_, i) => ({ at: actionStart - 1000 + i, session: 's', text: `SEND comm_msg before-${i}` })),
+		...Array.from({ length: 15 }, (_, i) => ({ at: actionStart + i, session: 's', text: `SEND comm_msg during-${i}` })),
+		...Array.from({ length: 5 }, (_, i) => ({ at: deadline + 1 + i, session: 's', text: `SEND comm_msg after-${i}` })),
+	];
+	const lines = renderKernelDigest(many, actionStart, deadline).split('\n');
+	assert.equal(lines[1], '... (5 earlier kernel events omitted)');
+	assert.match(lines[2], /before-5$/);
+	assert.match(lines[lines.length - 2], /during-14$/);
+	assert.equal(lines[lines.length - 1], '... (5 later kernel events omitted)');
+	// Consecutive repeats collapse.
+	const repeated = renderKernelDigest([
+		{ at: actionStart + 1, session: 's', text: 'SEND comm_msg x' },
+		{ at: actionStart + 2, session: 's', text: 'SEND comm_msg x' },
+	], actionStart, deadline);
+	assert.match(repeated, /SEND comm_msg x \(x2\)$/);
+
+	// Unknown start (a screenshot-only window): nothing is "before action", so
+	// over budget it keeps the latest lines, nearest the failure.
+	const noStart = renderKernelDigest(
+		Array.from({ length: 50 }, (_, i) => ({ at: deadline - 50 + i, session: 's', text: `SEND comm_msg n-${i}` })),
+		null, deadline).split('\n');
+	assert.equal(noStart[1], '... (10 earlier kernel events omitted)');
+	assert.match(noStart[2], /\[before deadline\] s SEND comm_msg n-10$/);
+	assert.match(noStart[noStart.length - 1], /n-49$/);
 });
 
 test('snapshotAttrTokens reads class/id attributes, not stylesheet text', () => {

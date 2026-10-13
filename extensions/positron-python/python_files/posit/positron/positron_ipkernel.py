@@ -429,6 +429,10 @@ class PositronShell(ZMQInteractiveShell):
         # from the working directory. This allows imports from the editor's directory.
         self._editor_path_added = self._add_editor_dir_to_sys_path()
 
+        # Set `__file__` to the executed file, so code run from an editor behaves
+        # like it does when the file is run as a script.
+        self._set_editor_file()
+
         try:
             self.kernel.variables_service.snapshot_user_ns()
         except Exception:
@@ -462,6 +466,46 @@ class PositronShell(ZMQInteractiveShell):
         except Exception:
             logger.exception("Error polling variables")
 
+    def _get_editor_path(self) -> str | None:
+        """
+        Get the path of the file that the current cell was executed from.
+
+        Uses `code_location` from the execute request's positron metadata.
+        Returns None if the code was not executed from a file on disk.
+        """
+        parent: dict[str, Any] = self.kernel.get_parent("shell")
+        code_location = PositronExecuteRequest.from_message(parent).code_location
+        if code_location is None:
+            return None
+
+        editor_uri = urlparse(code_location.uri)
+        if editor_uri.scheme != "file":
+            return None
+
+        url_path = (
+            f"//{editor_uri.netloc}{editor_uri.path}" if editor_uri.netloc else editor_uri.path
+        )
+        return url2pathname(url_path)
+
+    def _set_editor_file(self) -> None:
+        """
+        Set `__file__` in the user namespace to the executed file.
+
+        The value is intentionally left in place after execution, so that code
+        typed in the console (or functions defined in the file) can still use
+        `__file__`. It is only updated when code is executed from a file.
+        """
+        try:
+            editor_path = self._get_editor_path()
+            if editor_path is None:
+                return
+
+            self.user_ns["__file__"] = editor_path
+            # Hide it from the variables pane, like other module dunders
+            self.user_ns_hidden["__file__"] = editor_path
+        except Exception:
+            logger.warning("Failed to set __file__ to editor path", exc_info=True)
+
     def _add_editor_dir_to_sys_path(self) -> str | None:
         """
         Add the directory of the executed file to sys.path.
@@ -473,19 +517,9 @@ class PositronShell(ZMQInteractiveShell):
         Returns the path that was added, or None if no path was added.
         """
         try:
-            parent: dict[str, Any] = self.kernel.get_parent("shell")
-            code_location = PositronExecuteRequest.from_message(parent).code_location
-            if code_location is None:
+            editor_path = self._get_editor_path()
+            if editor_path is None:
                 return None
-
-            editor_uri = urlparse(code_location.uri)
-            if editor_uri.scheme != "file":
-                return None
-
-            url_path = (
-                f"//{editor_uri.netloc}{editor_uri.path}" if editor_uri.netloc else editor_uri.path
-            )
-            editor_path = url2pathname(url_path)
 
             editor_dir = str(Path(editor_path).parent)
             working_dir = str(self.kernel.ui_service.working_directory or Path.cwd())

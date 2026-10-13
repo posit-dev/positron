@@ -112,11 +112,14 @@ fi
 # ai-lib/packages/ai-provider-bridge/.bridge-watch: the bridge's build coordinator records
 #       the completed generation here as it emits dist (ai-lib's clean script removes the two
 #       together). Cached with dist so a restored dist doesn't read as an unfinished build.
+# .build/typings: electron.d.ts, downloaded by postinstall (build/npm/electronTypes.ts) and
+#       referenced by src/tsconfig.base.json. Missing on a cache hit = "Cannot find module 'electron'".
 #       NOTE: entries are read line-by-line, so no inline comments inside the heredoc.
 read -r -d '' NPM_CORE_PATHS << EOF || true
 .npm-cache
 $NODE_GYP_CACHE
 .build/esm-package-dependencies
+.build/typings
 node_modules
 build/node_modules
 remote/node_modules

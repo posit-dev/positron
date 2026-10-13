@@ -123,7 +123,6 @@ describe('Positron - ForegroundSessionContribution', () => {
 			ctx.instantiationService, ctx.disposables, {
 			runtime,
 			sessionName: runtime.runtimeName,
-			startReason: 'test',
 			sessionMode: LanguageRuntimeSessionMode.Console,
 		});
 		runtimeSessionService.foregroundSession = session;
@@ -137,7 +136,6 @@ describe('Positron - ForegroundSessionContribution', () => {
 			ctx.instantiationService, ctx.disposables, {
 			runtime,
 			sessionName: runtime.runtimeName,
-			startReason: 'test',
 			sessionMode: LanguageRuntimeSessionMode.Notebook,
 			notebookUri: uri,
 		});

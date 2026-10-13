@@ -58,12 +58,6 @@
 					},
 					"additionalProperties": false
 				},
-				"authentication.aws.inferenceProfileRegion": {
-					"markdownDeprecationMessage": "%configuration.deprecation.inferenceProfileRegion%",
-					"type": "string",
-					"default": null,
-					"markdownDescription": "%configuration.aws.inferenceProfileRegion.description%"
-				},
 				"authentication.snowflake.credentials": {
 					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
 					"type": "object",
@@ -80,77 +74,6 @@
 						}
 					},
 					"additionalProperties": false
-				},
-				"authentication.snowflake.customHeaders": {
-					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
-					"type": "object",
-					"default": {},
-					"additionalProperties": {
-						"type": "string"
-					},
-					"markdownDescription": "%configuration.snowflake.customHeaders.description%",
-					"tags": [
-						"preview"
-					]
-				},
-				"authentication.foundry.baseUrl": {
-					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
-					"type": "string",
-					"default": "",
-					"description": "%configuration.foundry.baseUrl.description%"
-				},
-				"authentication.foundry.customHeaders": {
-					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
-					"type": "object",
-					"default": {},
-					"additionalProperties": {
-						"type": "string"
-					},
-					"markdownDescription": "%configuration.foundry.customHeaders.description%",
-					"tags": [
-						"preview"
-					]
-				},
-				"authentication.googleVertex.baseUrl": {
-					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
-					"type": "string",
-					"default": "",
-					"description": "%configuration.googleVertex.baseUrl.description%",
-					"tags": [
-						"experimental"
-					]
-				},
-				"authentication.googleVertex.credentials": {
-					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
-					"type": "object",
-					"default": {},
-					"markdownDescription": "%configuration.googleVertex.credentials.description%",
-					"properties": {
-						"GOOGLE_VERTEX_PROJECT": {
-							"type": "string",
-							"default": null
-						},
-						"GOOGLE_VERTEX_LOCATION": {
-							"type": "string",
-							"default": null
-						}
-					},
-					"additionalProperties": false,
-					"tags": [
-						"experimental"
-					]
-				},
-				"authentication.googleVertex.customHeaders": {
-					"markdownDeprecationMessage": "%configuration.deprecation.providersJson%",
-					"type": "object",
-					"default": {},
-					"additionalProperties": {
-						"type": "string"
-					},
-					"markdownDescription": "%configuration.googleVertex.customHeaders.description%",
-					"tags": [
-						"experimental"
-					]
 				},
 				"positron.assistant.aiExcludes": {
 					"type": "array",

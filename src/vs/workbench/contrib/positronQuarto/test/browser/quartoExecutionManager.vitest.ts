@@ -63,7 +63,8 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 		createdTimestamp: Date.now(),
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
-		startReason: 'Unit Test'
+		startReason: 'Unit Test',
+		owner: 'user',
 	};
 }
 

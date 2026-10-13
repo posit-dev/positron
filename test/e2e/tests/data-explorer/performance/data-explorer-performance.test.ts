@@ -23,6 +23,7 @@ const testCases: {
 			varType: 'py.pandas.DataFrame',
 			preFilterSummary: /336,776/,
 			postFilterSummary: /Showing 1 rows/,
+			tags: [tags.PYTHON],
 		},
 		{
 			env: 'R',
@@ -31,6 +32,7 @@ const testCases: {
 			varType: 'r.tibble',
 			preFilterSummary: /336,776/,
 			postFilterSummary: /Showing 1 rows/,
+			tags: [tags.ARK],
 		},
 		{
 			env: 'Python',
@@ -39,6 +41,7 @@ const testCases: {
 			varType: 'py.pandas.DataFrame',
 			preFilterSummary: /5,051,640/,
 			postFilterSummary: /Showing 15 rows/,
+			tags: [tags.PYTHON],
 		},
 		{
 			env: 'R',

@@ -1,0 +1,23 @@
+---
+title: "Smoke report"
+---
+
+A small document for qmd.sh.
+
+```{python}
+answer = 6 * 7
+print("qmd-answer", answer)
+```
+
+Some text between the cells.
+
+```{python}
+print("second cell")
+```
+
+A long output, cut short with a link to the whole.
+
+```{python}
+for i in range(60):
+    print("qmd-line", i)
+```

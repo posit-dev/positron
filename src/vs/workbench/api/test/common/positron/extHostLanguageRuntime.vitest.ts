@@ -296,6 +296,7 @@ const sessionMetadata: IRuntimeSessionMetadata = {
 	notebookUri: undefined,
 	createdTimestamp: 0,
 	startReason: 'test',
+	owner: 'user',
 };
 const extension = stubInterface<IExtensionDescription>({
 	id: extensionId,
@@ -457,6 +458,37 @@ describe('ExtHostLanguageRuntime', () => {
 			await runtime.$disposeLanguageRuntime(created.handle);
 			await runtime.$disposeLanguageRuntime(restored.handle);
 		});
+
+		it('revives and forwards a notebook URI update to the session', async () => {
+			class UpdatingSession extends TestSession {
+				updates: (string | undefined)[][] = [];
+				override async updateNotebookUri(notebookUri: URI, quartoNotebookUri: URI | undefined): Promise<void> {
+					this.updates.push([
+						notebookUri instanceof URI ? notebookUri.toString() : undefined,
+						quartoNotebookUri instanceof URI ? quartoNotebookUri.toString() : undefined,
+					]);
+				}
+			}
+			const session = new UpdatingSession();
+			runtime.registerLanguageRuntimeManager(extension, 'r', new TestManager(session));
+			const { handle } = await runtime.$createLanguageRuntimeSession(runtimeMetadata, sessionMetadata, 'test');
+			const notebookUri = URI.file('/home/u/a.qmd');
+			const quartoNotebookUri = URI.from({ scheme: 'quarto-cells', path: '/home/u/a.qmd.ipynb' });
+
+			// Over the wire, URIs arrive as plain objects.
+			runtime.$updateNotebookUriLanguageRuntime(handle,
+				JSON.parse(JSON.stringify(notebookUri)), JSON.parse(JSON.stringify(quartoNotebookUri)));
+
+			expect(session.updates).toEqual([['file:///home/u/a.qmd', 'quarto-cells:/home/u/a.qmd.ipynb']]);
+			await runtime.$disposeLanguageRuntime(handle);
+		});
+
+		it('ignores a notebook URI update for a session without the method', async () => {
+			const { handle } = await createAttachedSession(runtime);
+
+			expect(() => runtime.$updateNotebookUriLanguageRuntime(handle, URI.file('/home/u/a.qmd'), undefined)).not.toThrow();
+			await runtime.$disposeLanguageRuntime(handle);
+		});
 	});
 });
 
@@ -582,5 +614,28 @@ describe('ExtHostLanguageRuntime - proxy session', function () {
 			runtime.$notifyProxySessionDisconnected('s-unknown');
 			runtime.$notifyProxySessionReconnected('s-unknown');
 		}).not.toThrow();
+	});
+});
+
+describe('ExtHostLanguageRuntime - queueCode', function () {
+
+	it('sends the session of the kernel that sent the code to the main thread', async () => {
+		const executeCode = vi.fn<MainThreadLanguageRuntimeShape['$executeCode']>(async () => 'session-1');
+		const shape = new class extends mock<MainThreadLanguageRuntimeShape>() {
+			override $executeCode(...args: Parameters<MainThreadLanguageRuntimeShape['$executeCode']>): Promise<string> {
+				return executeCode(...args);
+			}
+		};
+		const runtime = new ExtHostLanguageRuntime(SingleProxyRPCProtocol(shape), new NullLogService());
+
+		await runtime.queueCode('r', '1 + 1', 'positron.positron-supervisor', false, false, 'r-notebook-1');
+
+		const [call] = executeCode.mock.calls;
+		expect({ languageId: call[0], extensionId: call[1], code: call[3], callerSessionId: call[12] }).toEqual({
+			languageId: 'r',
+			extensionId: 'positron.positron-supervisor',
+			code: '1 + 1',
+			callerSessionId: 'r-notebook-1',
+		});
 	});
 });

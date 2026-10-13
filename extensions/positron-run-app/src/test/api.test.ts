@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { DebugAppOptions, RunAppOptions, RunConsoleAppOptions } from '../positron-run-app';
 import { raceTimeout } from '../utils';
 import { PositronRunAppApiImpl } from '../api';
+import { AppSummary, StopAppResult } from '../appRegistry';
 import { log } from '../extension.js';
 
 suite('PositronRunApp', () => {
@@ -209,6 +210,84 @@ suite('PositronRunApp', () => {
 		);
 	});
 
+	test('appLauncher: reports an app that exits before printing its URL', async () => {
+		// An app that fails to start, e.g. due to an import error, should be
+		// reported as soon as it exits rather than after the URL detection timeout.
+		const showErrorMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+		const showWarningMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showWarningMessage').resolves(undefined);
+
+		const didRun = runAppApi.runApplication({
+			...runAppOptions,
+			getTerminalOptions() {
+				return { command: 'node', args: ['-e', 'process.exit(1)'] };
+			},
+			// Longer than the test timeout, so the test fails if the run waits it out.
+			urlDetectionTimeout: 120_000,
+		}).then(() => true);
+		assert.ok(await raceTimeout(didRun, 30_000), 'The run should end when the app exits');
+
+		sinon.assert.notCalled(previewUrlStub);
+		sinon.assert.notCalled(showWarningMessageStub);
+		sinon.assert.calledOnceWithExactly(
+			showErrorMessageStub,
+			sinon.match(/failed to start.*terminal output/),
+			'Show Terminal',
+			'Show Log',
+		);
+	});
+
+	/** The listed app named `name`, as an agent sees it through the command. */
+	async function listedApp(name: string): Promise<AppSummary | undefined> {
+		const apps = await vscode.commands.executeCommand<AppSummary[]>('positronRunApp.listApps');
+		return apps.find(app => app.name === name);
+	}
+
+	function stopApp(file: vscode.Uri): Thenable<StopAppResult> {
+		return vscode.commands.executeCommand<StopAppResult>('positronRunApp.stopApp', file.toString());
+	}
+
+	suite('listApps and stopApp', () => {
+		// Runs the test app as a server that stays up until it is stopped.
+		const serverOptions: RunAppOptions = {
+			name: 'Test Server',
+			getTerminalOptions(runtime, document) {
+				return { command: runtime.runtimePath, args: [document.uri.fsPath, '--keep-running'] };
+			},
+		};
+
+		test('lists a running terminal app with its URL, then stops it with Ctrl+C', async () => {
+			const previewPanel = { dispose: sinon.spy() };
+			previewUrlStub.returns(previewPanel);
+
+			await runAppApi.runApplication(serverOptions);
+			const running = await listedApp(serverOptions.name);
+			const result = await stopApp(uri);
+			const stopped = await listedApp(serverOptions.name);
+
+			assert.deepStrictEqual({
+				running: { file: running?.file, status: running?.status, runsIn: running?.runsIn, localUrl: running?.localUrl, hasUrl: !!running?.url },
+				result,
+				stoppedStatus: stopped?.status,
+				previewClosed: previewPanel.dispose.calledOnce,
+			}, {
+				running: { file: uri.toString(), status: 'running', runsIn: 'terminal', localUrl: 'http://localhost:8000/', hasUrl: true },
+				result: { stopped: true, file: uri.toString(), name: serverOptions.name, method: 'interrupted' },
+				stoppedStatus: 'exited',
+				previewClosed: true,
+			});
+		});
+
+		test('lists an app that exited on its own, with its exit code', async () => {
+			// Without --keep-running the test app exits right after printing its URL.
+			await runAppApi.runApplication(runAppOptions);
+			await waitFor(() => runAppApi.listApps().find(app => app.name === runAppOptions.name)?.status === 'exited',
+				'The app was never reported as exited');
+
+			const app = await listedApp(runAppOptions.name);
+			assert.deepStrictEqual({ status: app?.status, exitCode: app?.exitCode }, { status: 'exited', exitCode: 0 });
+		});
+	});
+
 	suite('runApplicationInConsole', () => {
 		const consoleAppOptions: RunConsoleAppOptions = {
 			name: 'Test Console App',
@@ -333,6 +412,32 @@ suite('PositronRunApp', () => {
 			sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
 		});
 
+		test('reports an app that stops before printing its URL', async () => {
+			// An app that fails to start, e.g. due to an error in the app's code,
+			// should be reported as soon as its execution ends rather than after
+			// the URL detection timeout.
+			const showErrorMessageStub: sinon.SinonStub = sinon.stub(vscode.window, 'showErrorMessage').resolves(undefined);
+
+			const runPromise = runAppApi.runApplicationInConsole({
+				...consoleAppOptions,
+				// Longer than the test timeout, so the test fails if the run waits it out.
+				urlDetectionTimeout: 120_000,
+			});
+
+			await waitFor(() => finishExecution !== undefined, 'Timed out waiting for code execution');
+			finishExecution!();
+			await runPromise;
+
+			sinon.assert.notCalled(previewUrlStub);
+			sinon.assert.notCalled(showWarningMessageStub);
+			sinon.assert.calledOnceWithExactly(
+				showErrorMessageStub,
+				sinon.match(/failed to start.*console output/),
+				'Show Console',
+				'Show Log',
+			);
+		});
+
 		test('stops watching when the console execution finishes without a URL', async () => {
 			// An app that stopped without ever printing a URL is never going to
 			// print one, so the watch must end with the execution rather than
@@ -353,6 +458,29 @@ suite('PositronRunApp', () => {
 			await new Promise(resolve => setTimeout(resolve, 500));
 
 			sinon.assert.notCalled(previewUrlStub);
+		});
+
+		test('stops the app by interrupting its console session', async () => {
+			const interruptSessionStub = sinon.stub(positron.runtime, 'interruptSession').callsFake(async () => {
+				// Interrupting the session ends the app's execution.
+				finishExecution?.();
+			});
+			const runPromise = runAppApi.runApplicationInConsole(consoleAppOptions);
+			await waitFor(() => observer !== undefined, 'Timed out waiting for code execution');
+			observer!.onOutput!('Listening on http://localhost:1234\n');
+			await runPromise;
+
+			const result = await stopApp(uri);
+
+			assert.deepStrictEqual({
+				result,
+				interrupted: interruptSessionStub.calledOnceWithExactly('test-session'),
+				status: (await listedApp(consoleAppOptions.name))?.status,
+			}, {
+				result: { stopped: true, file: uri.toString(), name: consoleAppOptions.name, method: 'interrupted' },
+				interrupted: true,
+				status: 'exited',
+			});
 		});
 	});
 

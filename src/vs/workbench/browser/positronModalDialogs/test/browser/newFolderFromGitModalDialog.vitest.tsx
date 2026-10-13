@@ -5,14 +5,21 @@
 
 /// <reference types="vitest/globals" />
 
-import { screen } from '@testing-library/react';
+import { act, screen } from '@testing-library/react';
 import { userEvent } from '@testing-library/user-event';
 import { URI } from '../../../../../base/common/uri.js';
 import { Event } from '../../../../../base/common/event.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { stubInterface } from '../../../../../test/vitest/stubInterface.js';
 import { setupRTLRenderer } from '../../../../../test/vitest/reactTestingLibrary.js';
 import { createTestContainer } from '../../../../../test/vitest/positronTestContainer.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { CommandsRegistry, ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IExtensionService } from '../../../../services/extensions/common/extensions.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { NewFolderFromGitModalDialog } from '../../newFolderFromGitModalDialog.js';
 
@@ -26,6 +33,16 @@ describe('NewFolderFromGitModalDialog', () => {
 
 	const parentFolder = URI.file('/Users/astrid/projects');
 
+	// The Git extension registers 'git.clone' only when it finds Git.
+	let gitClone: IDisposable | undefined;
+	function registerGitClone() {
+		gitClone = CommandsRegistry.registerCommand('git.clone', () => { });
+	}
+	afterEach(() => {
+		gitClone?.dispose();
+		gitClone = undefined;
+	});
+
 	/**
 	 * Renders the dialog over a parent folder that holds the given folder names, so a test can set
 	 * up the collision it wants to see reported.
@@ -36,6 +53,7 @@ describe('NewFolderFromGitModalDialog', () => {
 			exists: async (resource: URI) =>
 				existingFolders.some(name => resource.path === `${parentFolder.path}/${name}`),
 		});
+		registerGitClone();
 		rtl.render(
 			<NewFolderFromGitModalDialog
 				createFolder={createFolder}
@@ -211,6 +229,22 @@ describe('NewFolderFromGitModalDialog', () => {
 		expect(screen.queryByText('A folder named \'positron\' already exists.')).not.toBeInTheDocument();
 	});
 
+	it('reports a failed clone as an error notification once the dialog is gone', async () => {
+		const user = userEvent.setup();
+		const error = vi.fn();
+		ctx.instantiationService.stub(INotificationService, { error });
+		const { createFolder } = renderDialog();
+		createFolder.mockRejectedValue(new Error('command \'git.clone\' not found'));
+
+		// A URL can carry credentials, so the notification must not repeat it.
+		await user.type(repoUrl(), 'https://astrid:secret-token@github.com/posit-dev/positron.git');
+		await user.click(screen.getByRole('button', { name: 'OK' }));
+
+		await vi.waitFor(() => expect(error).toHaveBeenCalledWith(
+			'Could not clone the repository: command \'git.clone\' not found'
+		));
+	});
+
 	it('refuses to create a folder that already exists', async () => {
 		const user = userEvent.setup();
 		const { createFolder } = renderDialog(['positron']);
@@ -219,5 +253,95 @@ describe('NewFolderFromGitModalDialog', () => {
 		await user.click(screen.getByRole('button', { name: 'OK' }));
 
 		expect(createFolder).not.toHaveBeenCalled();
+	});
+	describe('when Git cannot clone', () => {
+		/**
+		 * Renders the dialog with the Git extension in the given state. Activation waits on
+		 * `activated`, so a test can look at the dialog before the Git extension is ready.
+		 */
+		function renderWithGit(options: { gitEnabled?: boolean; gitMissing?: boolean; activated?: Promise<void> }) {
+			const executeCommand = vi.fn().mockResolvedValue(undefined);
+			ctx.instantiationService.stub(ICommandService, { executeCommand });
+			ctx.instantiationService.stub(IConfigurationService, new TestConfigurationService({ git: { enabled: options.gitEnabled ?? true } }));
+			ctx.instantiationService.stub(IContextKeyService, {
+				getContextKeyValue: <T,>(key: string) => (key === 'git.missing' ? options.gitMissing : undefined) as T | undefined,
+			});
+			ctx.instantiationService.stub(IExtensionService, {
+				activateById: () => options.activated ?? Promise.resolve(),
+			});
+			rtl.render(
+				<NewFolderFromGitModalDialog
+					createFolder={vi.fn()}
+					parentFolder={parentFolder}
+					renderer={renderer}
+				/>
+			);
+			return { executeCommand };
+		}
+
+		it('opens straight to the form when Git is already available', () => {
+			registerGitClone();
+			renderWithGit({ activated: new Promise(() => { }) });
+
+			expect(repoUrl()).toBeInTheDocument();
+			expect(screen.queryByText('Checking for Git...')).not.toBeInTheDocument();
+		});
+
+		it('shows a checking state, then the form once the Git extension finds Git', async () => {
+			let activate!: () => void;
+			renderWithGit({ activated: new Promise<void>(resolve => { activate = resolve; }) });
+
+			expect(screen.getByText('Checking for Git...')).toBeInTheDocument();
+			expect(screen.queryByRole('button', { name: 'OK' })).not.toBeInTheDocument();
+
+			await act(async () => {
+				registerGitClone();
+				activate();
+			});
+
+			expect(await screen.findByLabelText('Git repository URL')).toBeInTheDocument();
+		});
+
+		it('explains that Git was not found, with the git.path setting in code font', async () => {
+			const user = userEvent.setup();
+			const { executeCommand } = renderWithGit({ gitMissing: true });
+
+			expect(await screen.findByText('Git was not found.')).toBeInTheDocument();
+			expect(screen.getByText('git.path', { selector: 'code' })).toBeInTheDocument();
+			expect(screen.queryByLabelText('Git repository URL')).not.toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'OK' }));
+
+			// The dialog blocks the rest of the window, so it offers no fix of its own; OK closes it.
+			expect(renderer.dispose).toHaveBeenCalled();
+			expect(executeCommand).not.toHaveBeenCalled();
+		});
+
+		it('explains that Git is turned off, and closes itself to open the setting', async () => {
+			const user = userEvent.setup();
+			const { executeCommand } = renderWithGit({ gitEnabled: false });
+
+			expect(screen.getByText('Git is turned off.')).toBeInTheDocument();
+			await user.click(screen.getByRole('button', { name: 'Open Settings' }));
+
+			// The dialog would otherwise cover the Settings editor.
+			expect(renderer.dispose).toHaveBeenCalled();
+			expect(executeCommand).toHaveBeenCalledWith('workbench.action.openSettings', 'git.enabled');
+		});
+
+		it('says the Git extension is not ready when it never registers its commands', async () => {
+			vi.useFakeTimers({ shouldAdvanceTime: true });
+			try {
+				renderWithGit({});
+
+				await act(async () => {
+					await vi.advanceTimersByTimeAsync(3000);
+				});
+
+				expect(screen.getByText('The Git extension is not ready.')).toBeInTheDocument();
+				expect(screen.queryByRole('button', { name: 'Reload Window' })).not.toBeInTheDocument();
+			} finally {
+				vi.useRealTimers();
+			}
+		});
 	});
 });

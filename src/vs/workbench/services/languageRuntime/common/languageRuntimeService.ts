@@ -1066,6 +1066,18 @@ export interface ILanguageRuntimeMetadata {
 	 * (e.g. a venv, renv library, or pyenv/asdf shim).
 	 */
 	readonly cacheable?: boolean;
+
+	/**
+	 * When set, this runtime is a variant of another runtime, created from the
+	 * `interpreters.definitions` entry with this label.
+	 */
+	readonly interpreterDefinition?: string;
+
+	/**
+	 * When true, this runtime was found only because an `interpreters.definitions`
+	 * entry points at it. It is not shown; only its variants are.
+	 */
+	readonly definitionOnly?: boolean;
 }
 
 /**
@@ -1154,6 +1166,13 @@ export interface IRuntimeManager {
 	 * and never spuriously triggers via this path.
 	 */
 	getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
+
+	/**
+	 * Register the interpreter at a path with this extension host's manager
+	 * for the language. Returns `undefined` when no manager here can do so;
+	 * throws when the manager rejects the interpreter.
+	 */
+	registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined>;
 
 	/**
 	 * Return one entry per `LanguageRuntimeManager` registered in this

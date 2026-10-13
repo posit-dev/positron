@@ -12,7 +12,7 @@ import { getPipRequirementsFiles } from '../provider/venvUtils';
 import { getExtension } from '../../../common/vscodeApis/extensionsApi';
 import { PVSC_EXTENSION_ID } from '../../../common/constants';
 import { PythonExtension } from '../../../api/types';
-import { traceVerbose } from '../../../logging';
+import { traceInfo, traceVerbose } from '../../../logging';
 import { getConfiguration } from '../../../common/vscodeApis/workspaceApis';
 import { getWorkspaceStateValue } from '../../../common/persistentState';
 
@@ -71,6 +71,7 @@ export async function hasKnownFiles(workspace: WorkspaceFolder): Promise<boolean
 export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promise<boolean> {
     const extension = getExtension<PythonExtension>(PVSC_EXTENSION_ID);
     if (!extension) {
+        traceInfo('CreateEnv Trigger - Python extension not found, treating selected python as non-global');
         return false;
     }
     const extensionApi: PythonExtension = extension.exports as PythonExtension;
@@ -85,6 +86,11 @@ export async function isGlobalPythonSelected(workspace: WorkspaceFolder): Promis
     // --- End Positron ---
     if (isGlobal) {
         traceVerbose(`Selected python for [${workspace.uri.fsPath}] is [global] type: ${interpreter.path}`);
+    } else {
+        traceInfo(
+            `CreateEnv Trigger - Selected python for [${workspace.uri.fsPath}] is not global: ${execPath} ` +
+                `(environment type ${details?.environment?.type})`,
+        );
     }
     return isGlobal;
 }

@@ -711,12 +711,13 @@ export class CreateAIDiagnosticReportAction extends Action2 {
  * admin enforced. An enforced setting arrives as `policyValue`, so the two come
  * from one walk over the AI keys.
  */
-function collectAISettings(configurationService: IConfigurationService): {
+export function collectAISettings(configurationService: IConfigurationService): {
 	settings: IAIDiagnosticsSetting[];
 	enforced: IAIDiagnosticsEnforcedSetting[];
 } {
 	const properties = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).getConfigurationProperties();
-	const keys = Object.keys(properties)
+	// Enforced keys may no longer be declared but still affect providers
+	const keys = [...new Set([...Object.keys(properties), ...configurationService.keys().policy])]
 		.filter(key => AI_SETTING_EXACT_KEYS.includes(key) || AI_SETTING_PREFIXES.some(prefix => key.startsWith(prefix)))
 		.sort();
 

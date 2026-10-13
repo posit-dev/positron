@@ -1,0 +1,23 @@
+{
+	// Type check for drive-positron's scripts and tests only, run by test/check.ts.
+	// Node runs these .ts files directly by stripping types, hence
+	// allowImportingTsExtensions and erasableSyntaxOnly (no enums, no namespaces).
+	"compilerOptions": {
+		"target": "es2024",
+		"lib": ["es2024", "dom", "dom.iterable"],
+		"module": "nodenext",
+		"moduleResolution": "nodenext",
+		"allowImportingTsExtensions": true,
+		"erasableSyntaxOnly": true,
+		"verbatimModuleSyntax": true,
+		"noEmit": true,
+		"strict": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": false,
+		"noImplicitReturns": true,
+		"noFallthroughCasesInSwitch": true,
+		"skipLibCheck": true,
+		"types": ["node"]
+	},
+	"include": ["scripts/*.ts", "test/*.ts", "heal/*.ts"]
+}

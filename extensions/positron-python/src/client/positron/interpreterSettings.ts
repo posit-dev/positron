@@ -114,6 +114,22 @@ function getOverrideInterpreters(): string[] {
 }
 
 /**
+ * Gets the Python interpreter paths named by entries in the `interpreters.definitions` setting.
+ * Paths must be absolute; other entries are ignored.
+ * @returns List of Python interpreter paths from interpreter definitions.
+ */
+export function getInterpreterDefinitionPaths(): string[] {
+    const definitions = getConfiguration('interpreters')?.get<unknown>('definitions');
+    if (!Array.isArray(definitions)) {
+        return [];
+    }
+    const paths = definitions
+        .filter((d) => d?.language === 'python' && typeof d.path === 'string' && path.isAbsolute(d.path))
+        .map((d) => d.path as string);
+    return Array.from(new Set(paths));
+}
+
+/**
  * Get the resolved `interpreters.include`, `.exclude`, and `.override` paths without logging,
  * for the discovery cache key. The key uses resolved paths because the same setting text,
  * e.g. `${workspaceFolder}/.venv`, names a different interpreter in each workspace.
@@ -157,6 +173,24 @@ export function getCustomEnvDirs(): string[] {
  */
 export function isPythonStartupDisabled(): boolean {
     return getConfiguration('interpreters', { languageId: 'python' })?.get<string>('startupBehavior') === 'disabled';
+}
+
+/**
+ * Whether Positron's `interpreters.discovery` setting is `definitionsOnly` for
+ * Python, in which case only the interpreters in `interpreters.definitions`
+ * are used and no other discovery runs.
+ */
+export function isDefinitionsOnlyDiscovery(): boolean {
+    return getConfiguration('interpreters', { languageId: 'python' })?.get<string>('discovery') === 'definitionsOnly';
+}
+
+/**
+ * Whether to skip the eager environment discovery (and the PET server it
+ * spawns) at startup: when Python startup is disabled, or when discovery is
+ * limited to definitions. Discovery still works lazily if explicitly requested.
+ */
+export function isEagerDiscoveryDisabled(): boolean {
+    return isPythonStartupDisabled() || isDefinitionsOnlyDiscovery();
 }
 
 /**

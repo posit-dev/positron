@@ -736,6 +736,61 @@ describe('PositronTreeInstance', () => {
 		});
 	});
 
+	it('loadChildren loads a node\'s children without expanding it, sharing a load in flight', async () => {
+		let fetches = 0;
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => {
+				fetches++;
+				return [leaf(`${node.id}.0`)];
+			},
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+
+		const [first, second] = await Promise.all([instance.loadChildren('r0'), instance.loadChildren('r0')]);
+		const again = await instance.loadChildren('r0');
+
+		expect({
+			children: first?.map(child => child.id),
+			shared: second === first && again === first,
+			fetches,
+			expanded: instance.isExpanded('r0'),
+			rows: instance.rows,
+		}).toEqual({ children: ['r0.0'], shared: true, fetches: 1, expanded: false, rows: 1 });
+	});
+
+	it('loadChildren leaves a failed load in the error state, and tries again next time', async () => {
+		let fail = true;
+		const instance = new PositronTreeInstance<DemoNode>({
+			rowHeight: ROW_HEIGHT,
+			indentWidth: INDENT_WIDTH,
+			getRoots: async () => [branch('r0')],
+			getChildren: async node => {
+				if (fail) {
+					throw new Error('connection refused');
+				}
+				return [leaf(`${node.id}.0`)];
+			},
+			renderNode: visible => <span>{visible.node.data.label}</span>,
+		});
+		store.add(instance);
+		await instance.refresh();
+		// The tree logs a failed fetch; keep that out of the test output.
+		vi.spyOn(console, 'error').mockImplementation(() => { });
+
+		const failed = await instance.loadChildren('r0');
+		const error = instance.getError('r0');
+		fail = false;
+		const retried = await instance.loadChildren('r0');
+
+		expect({ failed, error: (error as Error).message, retried: retried?.map(child => child.id), errorAfter: instance.getError('r0') })
+			.toEqual({ failed: undefined, error: 'connection refused', retried: ['r0.0'], errorAfter: undefined });
+	});
+
 	it('setChildren pushes loaded children without invoking getChildren', async () => {
 		const tree = await newTree(2, 0); // getChildren would yield nothing; push explicitly instead
 		tree.setChildren('r0', [leaf('pushed-a'), leaf('pushed-b')]);

@@ -133,7 +133,7 @@ export class ExtensionHostConnection extends Disposable {
 		// --- Start PWB ---
 		// this._canSendSocket = (!isWindows || !this._environmentService.args['socket-path']);
 		this._canSendSocket = ((!isWindows || !this._environmentService.args['socket-path']) &&
-			!(this._environmentService.args['cert'] && this._environmentService.args['cert-key']));
+			!(this._environmentService.args.cert && this._environmentService.args['cert-key']));
 		// --- End PWB ---
 		this._disposed = false;
 		this._remoteAddress = remoteAddress;

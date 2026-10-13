@@ -10,6 +10,7 @@ import { ILanguageService } from '../../../../editor/common/languages/language.j
 import { getIconClasses, getIconClassesForLanguageId } from '../../../../editor/common/services/getIconClasses.js';
 import { FileKind } from '../../../../platform/files/common/files.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeSessionOwner } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isQuartoDocument } from '../../positronQuarto/common/positronQuartoConfig.js';
 
 /**
@@ -127,6 +128,9 @@ export function getFittedSessionName(
 	return '';
 }
 
+/** Marks an agent-owned session's icon; styled in agentSessionIcon.css. */
+const AGENT_SESSION_ICON_CLASS = 'agent-session-icon';
+
 /**
  * The subset of session info needed to determine the session icon.
  */
@@ -134,6 +138,7 @@ interface SessionIconInfo {
 	readonly sessionMode: LanguageRuntimeSessionMode;
 	readonly notebookUri?: URI;
 	readonly languageId: string;
+	readonly owner?: RuntimeSessionOwner;
 }
 
 /**
@@ -147,6 +152,12 @@ export function getSessionIconClasses(
 	modelService: IModelService,
 	languageService: ILanguageService,
 ): string[] {
+	// Agent-owned sessions keep their language's file icon classes, so the
+	// theme colors them like other sessions, plus a class that swaps in the
+	// sparkle glyph (see agentSessionIcon.css).
+	if (info.owner === 'agent') {
+		return [...getSessionIconClasses({ ...info, owner: 'user' }, modelService, languageService), AGENT_SESSION_ICON_CLASS];
+	}
 	if (info.sessionMode === LanguageRuntimeSessionMode.Notebook && info.notebookUri) {
 		return getIconClasses(modelService, languageService, info.notebookUri, FileKind.FILE);
 	}

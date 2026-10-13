@@ -1,9 +1,10 @@
 # Positron registered interpreter commands
 
 Listing the interpreters registered with Positron -- Python, R, and any other
-language a user has added -- and rescanning when a newly installed one hasn't
-appeared yet. See [SKILL.md]({{skill_dir}}/SKILL.md) for how to call these commands and
-how to handle failures.
+language a user has added -- rescanning when a newly installed one hasn't
+appeared yet, and adding one that discovery missed. See
+[SKILL.md]({{skill_dir}}/SKILL.md) for how to call these commands and how to
+handle failures.
 
 An interpreter being *registered* means Positron knows about it and can start a
 session for it; it does not mean a session is running. To list, start, or switch
@@ -20,6 +21,11 @@ interpreter before creating an environment or starting a session. Read-only and
 always enabled. Pass a `languageId` (e.g. `"python"` or `"r"`) to narrow the
 results to one language; omit it to get every language.
 
+`affiliated: true` marks the interpreter this workspace uses for its language --
+the one Positron starts when the project is opened. That is how you answer
+"which interpreter does this project use". `runtimeSource` names where the
+interpreter came from (`System`, `Conda`, `uv`, `Venv`, and so on).
+
 An empty array means no interpreter of the requested language is registered. If
 you expected one to be there, force a rescan with
 `workbench.action.language.runtime.discoverAllRuntimes` (below) and list again
@@ -33,23 +39,56 @@ but never show it to the user -- refer to the interpreter by name.
 
 {{command:workbench.action.language.runtime.getRegisteredRuntimes}}
 
-## Diagnosing why an interpreter isn't showing up
+## Installing an interpreter
+
+For Python, use the commands in
+[python-setup.md]({{skill_dir}}/references/python-setup.md). Other languages
+have no install command: point the user to the language's installer (for R,
+https://positron.posit.co/r-installations), then rescan with
+`workbench.action.language.runtime.discoverAllRuntimes` once it's installed.
+
+## When an interpreter isn't showing up
 
 ### `workbench.action.language.runtime.discoverAllRuntimes`
 
 Rediscovers all installed interpreters so newly installed environments become
 available. Positron only scans for interpreters at certain points, so a
-freshly installed environment (a new Python, R, or other-language interpreter)
-may not appear until a rescan is forced. No precondition -- always enabled.
+freshly installed environment may not appear until a rescan is forced. No
+precondition -- always enabled.
 
 {{command:workbench.action.language.runtime.discoverAllRuntimes}}
 
+### `workbench.action.language.runtime.registerRuntimeFromPath`
+
+Hands the interpreter at a path to the language's extension, which registers it
+and saves the path in its settings so it stays available in later sessions. Use
+it when a rescan didn't find an interpreter the user knows is installed, or when
+the user asks to make a specific interpreter available. The path must be the
+interpreter executable (e.g. `.../bin/python` or `.../bin/R`), not its folder;
+if the user names an environment rather than a path, find the executable first
+(for example with `which` or the environment manager's own listing).
+
+If the interpreter can't be used, the command fails with an error that says why
+-- an unsupported version, an exclusion setting, a broken installation. Relay
+that reason to the user; it is the answer to "why can't I see it". An error
+saying no manager supports this means the language's extension doesn't offer
+registration by path.
+
+An interpreter inside an environment (Conda, Pixi, a venv) can be registered by
+the executable's path: the language's extension recognizes the environment from
+it and activates the environment when a session starts. If the user expects
+Positron to find a whole class of environments on its own, check with the
+`positron-settings` skill whether the language has a discovery setting for that
+environment manager, and tell the user which one to enable.
+
+{{command:workbench.action.language.runtime.registerRuntimeFromPath}}
+
 ### `positron.startupDiagnostics.show`
 
-Opens the runtime startup diagnostics editor to inspect interpreter
-discovery output. Use this when a rescan alone doesn't surface the missing
-interpreter, or when you need to show the user *why* discovery failed rather
-than just retrying blindly -- it displays the actual discovery log. No
+Opens the runtime startup diagnostics editor, which shows the user the
+discovery settings, the discovered interpreters, and the language extensions'
+logs. You can't read the editor yourself; open it when the user wants to dig
+into discovery, or when the steps below leave the cause unexplained. No
 precondition -- always enabled.
 
 {{command:positron.startupDiagnostics.show}}
@@ -60,9 +99,11 @@ precondition -- always enabled.
    fresh scan.
 2. Call `workbench.action.language.runtime.getRegisteredRuntimes` to check
    whether the interpreter now appears. If it does, you're done.
-3. If it still doesn't appear, call `positron.startupDiagnostics.show` to
-   open the startup diagnostics editor, and report what it shows rather than
-   guessing at the cause.
+3. If it still doesn't appear and you know its path, call
+   `workbench.action.language.runtime.registerRuntimeFromPath`. Either it is
+   now registered, or the error tells you why it can't be used.
+4. If the cause is still unclear, open `positron.startupDiagnostics.show` for
+   the user rather than guessing.
 
 Do not reach for `workbench.action.language.runtime.restartActiveSession` as
 part of this flow -- restarting is for recovering a session that's already

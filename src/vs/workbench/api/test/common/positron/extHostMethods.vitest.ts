@@ -20,6 +20,7 @@ import { ExtHostContextKeyService } from '../../../common/positron/extHostContex
 import { ExtHostLanguageRuntime } from '../../../common/positron/extHostLanguageRuntime.js';
 import { ExtHostMethods } from '../../../common/positron/extHostMethods.js';
 import { ExtHostModalDialogs } from '../../../common/positron/extHostModalDialogs.js';
+import { UiFrontendRequest } from '../../../../services/languageRuntime/common/positronUiComm.js';
 
 /** A minimal fake `vscode.TextEditor` over a single-line document, with edits recorded. */
 function createFakeEditor(fileName: string, text = 'hello'): vscode.TextEditor & { readonly editedRanges: unknown[] } {
@@ -55,6 +56,7 @@ function createMethods(options: {
 	consoleEditors?: Record<string, vscode.TextEditor>;
 	/** The session whose console input was the most recently focused text editor, if any. */
 	consoleInputFocusedLastSessionId?: string;
+	runtime?: ExtHostLanguageRuntime;
 }) {
 	const editors = new class extends mock<ExtHostEditors>() {
 		override getActiveTextEditor(): vscode.TextEditor | undefined {
@@ -75,7 +77,7 @@ function createMethods(options: {
 		editors,
 		new (mock<ExtHostDocuments>())(),
 		new (mock<ExtHostModalDialogs>())(),
-		new (mock<ExtHostLanguageRuntime>())(),
+		options.runtime ?? new (mock<ExtHostLanguageRuntime>())(),
 		new (mock<ExtHostWorkspace>())(),
 		new (mock<ExtHostQuickOpen>())(),
 		new (mock<ExtHostCommands>())(),
@@ -173,6 +175,44 @@ describe('ExtHostMethods', function () {
 		});
 	});
 
+	describe('call: last_active_editor_context', function () {
+
+		function createMethodsWithConsoleFocusedLast() {
+			return createMethods({
+				paneEditor: createFakeEditor('/path/to/file.R'),
+				consoleEditors: { 'session-r': createFakeEditor('inmemory://repl-r') },
+				consoleInputFocusedLastSessionId: 'session-r',
+			});
+		}
+
+		it('returns the editor pane when allow_console is false, even if the console was focused last', async function () {
+			// Regression test for https://github.com/posit-dev/positron/issues/16405.
+			// `rstudioapi::getSourceEditorContext()` must never report the console.
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { allow_console: false }, 'session-r');
+
+			expect(response).toMatchObject({ result: { id: undefined, document: { path: '/path/to/file.R' } } });
+		});
+
+		it('returns the console when allow_console is null', async function () {
+			// Ark serializes an omitted optional param as `null`
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { allow_console: null }, 'session-r');
+
+			expect(response).toMatchObject({ result: { id: '#console', document: { path: '' } } });
+		});
+
+		it('rejects unknown params', async function () {
+			const methods = createMethodsWithConsoleFocusedLast();
+
+			const response = await methods.call('ext', UiFrontendRequest.LastActiveEditorContext, { foo: true }, 'session-r');
+
+			expect(response).toHaveProperty('error');
+		});
+	});
+
 	describe('modifyEditorLocations', function () {
 
 		it('edits the editor pane when there is no caller session id', async function () {
@@ -218,6 +258,20 @@ describe('ExtHostMethods', function () {
 
 			expect(paneEditor.editedRanges).toHaveLength(1);
 			expect(consoleEditor.editedRanges).toHaveLength(0);
+		});
+	});
+
+	describe('executeCode', function () {
+		it('sends the session of the kernel that sent the code along with it', async function () {
+			// A kernel's `execute_code` request reaches Positron through the Kernel
+			// Supervisor; the session ID keeps the supervisor from being credited.
+			const queueCode = vi.fn<ExtHostLanguageRuntime['queueCode']>(async () => { });
+			const methods = createMethods({ runtime: stubInterface<ExtHostLanguageRuntime>({ queueCode }) });
+
+			await methods.call('positron.positron-supervisor', UiFrontendRequest.ExecuteCode,
+				{ language_id: 'r', code: '1 + 1', focus: false, allow_incomplete: false }, 'r-notebook-1');
+
+			expect(queueCode.mock.calls).toEqual([['r', '1 + 1', 'positron.positron-supervisor', false, false, 'r-notebook-1']]);
 		});
 	});
 });

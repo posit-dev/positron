@@ -3533,6 +3533,22 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the selected cells, columns, or rows. Unlike {@link getClipboardData}, column and row
+	 * selections are not expanded into cells and the cursor cell is not a selection.
+	 * @returns The selection, if there is one; otherwise, undefined.
+	 */
+	getSelection(): ClipboardCellIndexes | ClipboardColumnIndexes | ClipboardRowIndexes | undefined {
+		if (this._cellSelectionIndexes) {
+			return new ClipboardCellIndexes(this._cellSelectionIndexes.columnIndexes, this._cellSelectionIndexes.rowIndexes);
+		} else if (this._columnSelectionIndexes?.indexes.length) {
+			return new ClipboardColumnIndexes(this._columnSelectionIndexes.indexes);
+		} else if (this._rowSelectionIndexes?.indexes.length) {
+			return new ClipboardRowIndexes(this._rowSelectionIndexes.indexes);
+		}
+		return undefined;
+	}
+
+	/**
 	 * Gets the clipboard data.
 	 * @returns The clipboard data, if it's available; otherwise, undefined.
 	 */

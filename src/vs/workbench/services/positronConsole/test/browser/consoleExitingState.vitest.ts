@@ -73,7 +73,6 @@ describe('Positron - console state while restarting or exiting', () => {
 			{
 				runtime,
 				sessionName: runtime.runtimeName,
-				startReason: 'Test requested a console session',
 				sessionMode: LanguageRuntimeSessionMode.Console,
 			});
 		session.setRuntimeState(RuntimeState.Ready);

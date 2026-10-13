@@ -141,6 +141,7 @@ describe('MainThreadConsoleService (console editors)', () => {
 			notebookUri: undefined,
 			createdTimestamp: 0,
 			startReason: 'test',
+			owner: 'user',
 		};
 		const runtimeMetadata = stubInterface<ILanguageRuntimeMetadata>({ languageId: 'python' });
 		return new TestPositronConsoleInstance(sessionId, 'Python', sessionMetadata, runtimeMetadata);

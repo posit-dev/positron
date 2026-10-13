@@ -6,12 +6,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { copyFileSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { boxesToPaint, createReader, fold, paintBoxes, scanShots, secretEnv, showsValue } from './scan-shots.mjs';
+import { withTmpDir } from './shared/tmp-dirs.mjs';
 
 // A made-up value with no real provider's prefix, shown in fixtures/shots/leak.png
 // (and leak.jpg) in a terminal line and an unmasked password field; clean.png
@@ -21,13 +21,14 @@ const SECRETS = [{ name: 'EXAMPLE_TOKEN', value: KEY }];
 const SHOTS = fileURLToPath(new URL('./fixtures/shots/', import.meta.url));
 const SCRIPT = fileURLToPath(new URL('./scan-shots.mjs', import.meta.url));
 
-/** A temporary directory holding copies of the named fixture shots. */
-function shots(...names) {
-	const dir = mkdtempSync(join(tmpdir(), 'scan-shots-'));
-	for (const n of names) {
-		copyFileSync(join(SHOTS, n), join(dir, n));
-	}
-	return dir;
+/** Calls `fn` with a temporary directory holding copies of the named fixture shots. */
+function withShots(names, fn) {
+	return withTmpDir('scan-shots-', dir => {
+		for (const n of names) {
+			copyFileSync(join(SHOTS, n), join(dir, n));
+		}
+		return fn(dir);
+	});
 }
 
 const box = (x0, y0, x1, y1) => ({ x0, y0, x1, y1 });
@@ -161,32 +162,21 @@ test('paintBoxes fills each padded box with black and leaves the rest', () => {
 	assert.notDeepEqual(at(30, 30), [0, 0, 0, 255]);
 });
 
-test('scanShots reports a shot OCR cannot read rather than skipping it', async () => {
-	const dir = shots('clean.png');
-	try {
-		const results = await scanShots(dir, SECRETS, async () => {
-			throw new Error('unreadable');
-		});
-		assert.deepEqual(results.map(r => r.status), ['unreadable']);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('scanShots reports a shot OCR cannot read rather than skipping it', () => withShots(['clean.png'], async dir => {
+	const results = await scanShots(dir, SECRETS, async () => {
+		throw new Error('unreadable');
+	});
+	assert.deepEqual(results.map(r => r.status), ['unreadable']);
+}));
 
-test('scanShots calls a shot a leak when painting does not stop the key reading', async () => {
-	const dir = shots('leak.png');
-	try {
-		// This reader sees the key wherever it looks, painted or not.
-		const read = async () => ({ text: KEY, lines: [line([{ text: KEY, bbox: box(0, 0, 50, 10) }])] });
-		const results = await scanShots(dir, SECRETS, read);
-		assert.deepEqual(results.map(r => [r.status, r.names]), [['leak', ['EXAMPLE_TOKEN']]]);
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('scanShots calls a shot a leak when painting does not stop the key reading', () => withShots(['leak.png'], async dir => {
+	// This reader sees the key wherever it looks, painted or not.
+	const read = async () => ({ text: KEY, lines: [line([{ text: KEY, bbox: box(0, 0, 50, 10) }])] });
+	const results = await scanShots(dir, SECRETS, read);
+	assert.deepEqual(results.map(r => [r.status, r.names]), [['leak', ['EXAMPLE_TOKEN']]]);
+}));
 
-test('OCR paints the key out of a PNG, keeps the rest readable, and leaves a JPEG as a leak', async () => {
-	const dir = shots('leak.png', 'leak.jpg', 'clean.png');
+test('OCR paints the key out of a PNG, keeps the rest readable, and leaves a JPEG as a leak', () => withShots(['leak.png', 'leak.jpg', 'clean.png'], async dir => {
 	const ocr = await createReader();
 	try {
 		const results = await scanShots(dir, SECRETS, ocr.read);
@@ -198,24 +188,18 @@ test('OCR paints the key out of a PNG, keeps the rest readable, and leaves a JPE
 		assert.match(after, /Password/);
 	} finally {
 		await ocr.close();
-		rmSync(dir, { recursive: true, force: true });
 	}
-});
+}));
 
-test('the CLI paints what it can, exits 1 on a shot it cannot, and removes that one with --remove', () => {
-	const dir = shots('leak.png', 'leak.jpg', 'clean.png');
-	try {
-		const env = { PATH: process.env.PATH, EXAMPLE_TOKEN: KEY };
-		assert.throws(() => execFileSync('node', [SCRIPT, dir], { env, stdio: 'pipe' }), e => e.status === 1 && /leak\.jpg shows EXAMPLE_TOKEN/.test(e.stderr) && !String(e.stdout + e.stderr).includes(KEY));
-		const out = execFileSync('node', [SCRIPT, dir, '--remove'], { env, encoding: 'utf8' });
-		assert.ok(!existsSync(join(dir, 'leak.jpg')));
-		assert.ok(existsSync(join(dir, 'leak.png')));
-		assert.ok(existsSync(join(dir, 'clean.png')));
-		assert.ok(!out.includes(KEY), 'never prints the value');
-	} finally {
-		rmSync(dir, { recursive: true, force: true });
-	}
-});
+test('the CLI paints what it can, exits 1 on a shot it cannot, and removes that one with --remove', () => withShots(['leak.png', 'leak.jpg', 'clean.png'], dir => {
+	const env = { PATH: process.env.PATH, EXAMPLE_TOKEN: KEY };
+	assert.throws(() => execFileSync('node', [SCRIPT, dir], { env, stdio: 'pipe' }), e => e.status === 1 && /leak\.jpg shows EXAMPLE_TOKEN/.test(e.stderr) && !String(e.stdout + e.stderr).includes(KEY));
+	const out = execFileSync('node', [SCRIPT, dir, '--remove'], { env, encoding: 'utf8' });
+	assert.ok(!existsSync(join(dir, 'leak.jpg')));
+	assert.ok(existsSync(join(dir, 'leak.png')));
+	assert.ok(existsSync(join(dir, 'clean.png')));
+	assert.ok(!out.includes(KEY), 'never prints the value');
+}));
 
 test('showsValue catches a field that shows only the end of a long key', () => {
 	// 39 characters: stepping 20-character windows by 5 stops at 15, short of the tail.

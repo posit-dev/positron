@@ -1,16 +1,8 @@
 {
 	"configuration.aws.credentials.description": "Variables used to configure AWS credentials.\n\nExample: to set the AWS region and profile, add items with keys `AWS_REGION` and `AWS_PROFILE`.",
-	"configuration.aws.inferenceProfileRegion.description": "Override the inference profile region for AWS services.\n\nBy default, the inference profile region is derived from `AWS_REGION` (e.g., 'us-east-1' -> 'us'). Use this setting to explicitly specify a different region.\n\nExamples: 'global', 'us', 'eu', 'apac'.",
 	"configuration.snowflake.credentials.description": "Variables used to configure Snowflake Cortex provider.\n\nExample: to set the Snowflake account and connections path, add items with keys `SNOWFLAKE_ACCOUNT` and `SNOWFLAKE_HOME`.",
-	"configuration.snowflake.customHeaders.description": "Extra HTTP headers attached to every Snowflake Cortex request. Useful for enterprise gateways that require tenancy or routing headers. Entries may override internal headers and break the connection.",
-	"configuration.foundry.baseUrl.description": "Microsoft Foundry endpoint URL.",
-	"configuration.foundry.customHeaders.description": "Extra HTTP headers attached to every Microsoft Foundry request. Useful for enterprise gateways that require tenancy or routing headers. Entries may override internal headers and break the connection.",
-	"configuration.googleVertex.baseUrl.description": "Custom Gemini Enterprise Agent Platform base URL. Overrides the default https://aiplatform.googleapis.com endpoint. Also set automatically from the GOOGLE_VERTEX_BASE_URL environment variable.",
-	"configuration.googleVertex.credentials.description": "Variables used to configure the Gemini Enterprise Agent Platform provider.\n\nExample: to set the project and region, add items with keys `GOOGLE_VERTEX_PROJECT` and `GOOGLE_VERTEX_LOCATION`.",
-	"configuration.googleVertex.customHeaders.description": "Extra HTTP headers attached to every Gemini Enterprise Agent Platform request. Useful for enterprise gateways that require tenancy or routing headers. Entries may override internal headers and break the connection.",
 	"configuration.aiExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from AI features. Files matching these patterns will not have their contents sent to AI providers for inline completions or chat context. Patterns without a `/` will match against the filename only (e.g., `*.py` matches all Python files). Use `**/` prefix for explicit recursive matching.",
 	"configuration.deprecation.providersJson": "This setting is deprecated. Use `~/.posit/ai/providers.json` instead.",
-	"configuration.deprecation.inferenceProfileRegion": "This setting is deprecated and no longer read. Bedrock cross-region inference profiles are derived from the AWS region.",
 	"commands.migrateSettingsToProvidersJson.title": "Migrate AI Provider Settings to providers.json",
 	"commands.category": "Authentication"
 }

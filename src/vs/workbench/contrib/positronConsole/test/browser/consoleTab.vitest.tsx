@@ -49,6 +49,7 @@ describe('ConsoleTab', () => {
 			notebookUri: undefined,
 			createdTimestamp: 0,
 			startReason: 'test',
+			owner: 'user',
 		};
 		// ConsoleTab/RuntimeIcon read base64EncodedIconSvg and languageId off runtimeMetadata.
 		const runtimeMetadata = stubInterface<ILanguageRuntimeMetadata>({

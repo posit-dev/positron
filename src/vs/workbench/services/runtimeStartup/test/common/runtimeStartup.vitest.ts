@@ -6,12 +6,15 @@
 /// <reference types="vitest/globals" />
 
 import { Emitter, Event } from '../../../../../base/common/event.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { isWeb } from '../../../../../base/common/platform.js';
 import { arch as systemArch } from '../../../../../base/common/process.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { IEphemeralStateService } from '../../../../../platform/ephemeralState/common/ephemeralState.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { IFileService, IFileStatWithPartialMetadata } from '../../../../../platform/files/common/files.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
 import { INotificationService, IPromptChoice, IPromptOptions, Severity } from '../../../../../platform/notification/common/notification.js';
 import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 import { IProgressService } from '../../../../../platform/progress/common/progress.js';
@@ -31,10 +34,14 @@ import {
 	RuntimeStartupPhase,
 } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { BeforeShutdownEvent, ILifecycleService, WillShutdownEvent } from '../../../lifecycle/common/lifecycle.js';
+import { IPathService } from '../../../path/common/pathService.js';
 import { IPositronNewFolderService, NewFolderStartupPhase } from '../../../positronNewFolder/common/positronNewFolder.js';
-import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, SessionStartReasonId } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../runtimeSession/test/common/testRuntimeSessionService.js';
 import { RuntimeStartupService } from '../../common/runtimeStartup.js';
+import { RuntimeDiscoveryCache } from '../../common/runtimeDiscoveryCache.js';
+import { SerializedSessionMetadata } from '../../common/runtimeStartupService.js';
+import { ILanguageService } from '../../../../../editor/common/languages/language.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../../platform/storage/common/storage.js';
 import {
 	ICachedRuntime,
@@ -178,6 +185,7 @@ function makeManager(opts: IManagerOptions): IRuntimeManager {
 		recommendWorkspaceRuntimes: async () => [],
 		managesRuntime: async (metadata) => ownsByPath.has(metadata.runtimePath),
 		validateMetadata: opts.validate ?? (async (m) => m),
+		registerRuntimeFromPath: async () => undefined,
 		getDiscoveryRootSignature: async (extensionId: string, languageId: string) => {
 			if (opts.rootSignatureBehavior === 'throws') {
 				throw new Error('boom');
@@ -350,7 +358,7 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			expect(lastFullDiscoveryReason(svc)).toBe('cold-start');
 		});
 
-		it("skips a manager that hosts no contributions at all", async () => {
+		it('skips a manager that hosts no contributions at all', async () => {
 			// Ext host hasn't activated yet (or hosts no language runtime
 			// managers); planner has nothing to do for it. Different from
 			// cold-start, where the ext host *does* host contributions but
@@ -925,6 +933,114 @@ describe('RuntimeStartupService - cache-aware discovery', () => {
 			expect(cache.getEntries('ms.python', 'python').map(e => e.metadata)).toEqual([registered]);
 		});
 	});
+
+	describe('registerRuntimeFromPath', () => {
+		function registerManager(svc: RuntimeStartupService, register: (md: ILanguageRuntimeMetadata) => void) {
+			const manager = makeManager({ id: 1, owns: [] });
+			const md = metadata();
+			const registerRuntimeFromPath = vi.fn(async () => {
+				register(md);
+				return md;
+			});
+			ctx.disposables.add(svc.registerRuntimeManager({ ...manager, registerRuntimeFromPath }));
+			return { md, registerRuntimeFromPath };
+		}
+
+		it('rejects a disabled language without asking the manager', async () => {
+			await config.setUserConfiguration('interpreters.startupBehavior', LanguageStartupBehavior.Disabled);
+			const svc = makeService();
+			const { registerRuntimeFromPath } = registerManager(svc, () => { });
+
+			await expect(svc.registerRuntimeFromPath('python', '/usr/bin/python3')).rejects.toThrow(/disabled/);
+			expect(registerRuntimeFromPath).not.toHaveBeenCalled();
+		});
+
+		it('rejects a runtime the manager returned but that never registered', async () => {
+			const svc = makeService();
+			registerManager(svc, () => { });
+
+			await expect(svc.registerRuntimeFromPath('python', '/usr/bin/python3')).rejects.toThrow(/could not be registered/);
+		});
+
+		it('returns the registered entry', async () => {
+			const svc = makeService();
+			const languageRuntimeService = ctx.get(ILanguageRuntimeService);
+			const { md } = registerManager(svc, m => ctx.disposables.add(languageRuntimeService.registerRuntime(m)));
+
+			const result = await svc.registerRuntimeFromPath('python', '/usr/bin/python3');
+
+			expect(result).toBe(languageRuntimeService.getRegisteredRuntime(md.runtimeId));
+		});
+	});
+
+	describe('expired cache entries', () => {
+		// Uses the real cache. The fake's `upsert` always sets `firstSeen` to
+		// now, so its entries never stay expired.
+		function makeRealCache(): RuntimeDiscoveryCache {
+			const fileService = stubInterface<IFileService>({
+				realpath: async () => undefined,
+				stat: async () => stubInterface<IFileStatWithPartialMetadata>({ isFile: true, isDirectory: false, size: 1, mtime: 1, ctime: 1 }),
+			});
+			return new RuntimeDiscoveryCache(
+				ctx.get(IStorageService),
+				config,
+				fileService,
+				new NullLogService(),
+				stubInterface<IPathService>(),
+			);
+		}
+
+		it('uses the cache again on the launch after expired entries trigger a full discovery', async () => {
+			const md = metadata();
+			const contribution = { extensionId: 'ms.python', languageId: 'python', alwaysRediscover: false };
+
+			async function launch(): Promise<string> {
+				// Disposed at the end: only one `RuntimeStartupService` can exist at a time.
+				const store = new DisposableStore();
+				try {
+					// A new cache, so it loads what the previous launch saved.
+					const realCache = store.add(makeRealCache());
+					ctx.instantiationService.stub(IRuntimeDiscoveryCache, realCache);
+					const svc = store.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+					store.add(svc.registerRuntimeManager(makeManager({ id: 1, owns: [md], contributions: [contribution] })));
+
+					const plans = await managersNeedingFullDiscovery(svc);
+					if (plans.length === 0) {
+						return 'warm-start';
+					}
+					// Fake a full discovery that finds the same interpreter again.
+					realCache.setLastFullDiscovery('ms.python', 'python', Date.now());
+					for (const entry of realCache.getEntries('ms.python', 'python')) {
+						realCache.invalidate('ms.python', 'python', entry.metadata.runtimePath);
+					}
+					await realCache.upsert(md);
+					return lastFullDiscoveryReason(svc);
+				} finally {
+					store.dispose();
+				}
+			}
+
+			const HOUR_MS = 60 * 60 * 1000;
+			const DAY_MS = 24 * HOUR_MS;
+			vi.useFakeTimers({ toFake: ['Date'] });
+			try {
+				const day0 = Date.now();
+				const reasons: string[] = [];
+				reasons.push(await launch());
+				vi.setSystemTime(day0 + HOUR_MS);
+				reasons.push(await launch());
+				// Not opened for 31 days, past the 30-day max age.
+				vi.setSystemTime(day0 + 31 * DAY_MS);
+				reasons.push(await launch());
+				vi.setSystemTime(day0 + 31 * DAY_MS + HOUR_MS);
+				reasons.push(await launch());
+
+				expect(reasons).toEqual(['cold-start', 'warm-start', 'cold-start', 'warm-start']);
+			} finally {
+				vi.useRealTimers();
+			}
+		});
+	});
 });
 
 describe('Positron - RuntimeStartupService Architecture Mismatch', () => {
@@ -1122,6 +1238,109 @@ describe('RuntimeStartupService - affiliation healing', () => {
 		// getAffiliatedRuntimes() returns the live registered metadata (absolute path).
 		expect(svc.getAffiliatedRuntimes()[0].runtimePath).toBe(freshRuntimePath);
 	});
+
+	it('keeps a stored affiliation that follows the current R when an older R re-registers', async () => {
+		// R runtime IDs hash only the binary path and version, so the same
+		// runtime ID comes back after `rig default` points at a newer R. The
+		// R extension's validateMetadata only swaps in the current R when the
+		// stored affiliation says `current: true`.
+		const runtimeId = 'r-4.5-current-flag-test';
+		const languageId = 'r';
+		const runtimePath = '/Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/bin/R';
+		const storageKey = `positron.affiliatedRuntimeMetadata.v2.${languageId}`;
+		const scope = StorageScope.WORKSPACE;
+
+		// Affiliated while R 4.5 was the current R.
+		const affiliated = {
+			metadata: {
+				...metadata({ languageId, runtimePath, runtimeId, extensionId: 'ms.r' }),
+				extraRuntimeData: { binpath: runtimePath, current: true },
+			},
+			lastUsed: 0,
+			lastStarted: 0,
+		};
+		ctx.get(IStorageService).store(storageKey, JSON.stringify(affiliated), scope, StorageTarget.MACHINE);
+
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		(svc as unknown as { _startupPhase: RuntimeStartupPhase })._startupPhase = RuntimeStartupPhase.LoadingCache;
+
+		// Re-discovered after a newer R became current.
+		await ctx.get(ILanguageRuntimeService).registerRuntime({
+			...metadata({ languageId, runtimePath, runtimeId, extensionId: 'ms.r' }),
+			startupBehavior: LanguageRuntimeStartupBehavior.Manual,
+			extraRuntimeData: { binpath: runtimePath, current: false },
+		});
+
+		const stored = JSON.parse(ctx.get(IStorageService).get(storageKey, scope)!);
+		expect(stored.metadata.extraRuntimeData.current).toBe(true);
+	});
+});
+
+describe('RuntimeStartupService - restored sessions', () => {
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem: () => Promise.resolve(),
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: new Emitter<BeforeShutdownEvent>().event,
+			onWillShutdown: new Emitter<WillShutdownEvent>().event,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: new Emitter<NewFolderStartupPhase>().event,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(INotificationService, new TestNotificationService())
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	/** A session as persisted to workspace storage, optionally with an owner. */
+	function storedSession(sessionId: string, lastUsed: number, owner?: string) {
+		return {
+			sessionName: sessionId,
+			metadata: {
+				sessionId,
+				sessionMode: 'console',
+				createdTimestamp: 0,
+				startReason: 'test',
+				...(owner ? { owner } : {}),
+			},
+			sessionState: 'idle',
+			lastUsed,
+			runtimeMetadata: metadata(),
+			workingDirectory: '/',
+			hasConsole: true,
+			localWindowId: 'window-1',
+		};
+	}
+
+	it('treats sessions stored before owners existed as the user\'s', async () => {
+		// The persistent workspace session list, as an older build wrote it:
+		// no owner on the first session.
+		ctx.get(IStorageService).store(
+			'positron.workspaceSessionList.v3',
+			JSON.stringify([
+				storedSession('pre-owner-session', 2),
+				storedSession('agent-session', 1, 'agent'),
+			]),
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE,
+		);
+
+		const svc = ctx.disposables.add(
+			ctx.instantiationService.createInstance(RuntimeStartupService)) as RuntimeStartupService;
+		const sessions = await svc.getRestoredSessions();
+
+		expect(sessions.map(session => [session.metadata.sessionId, session.metadata.owner])).toEqual([
+			['pre-owner-session', 'user'],
+			['agent-session', 'agent'],
+		]);
+	});
 });
 
 describe('RuntimeStartupService - getPreferredRuntime', () => {
@@ -1267,6 +1486,105 @@ describe('RuntimeStartupService - discovery completion', () => {
 
 		expect(ctx.get(ILanguageRuntimeService).registeredRuntimes).toHaveLength(0);
 		expect(errorNotification).not.toHaveBeenCalled();
+	});
+});
+
+describe('RuntimeStartupService - start reasons', () => {
+	const setItem = vi.fn<IEphemeralStateService['setItem']>(async () => { });
+
+	const ctx = createTestContainer()
+		.withRuntimeServices()
+		.stub(IEphemeralStateService, {
+			getItem: () => Promise.resolve(undefined),
+			setItem,
+		})
+		.stub(ILifecycleService, {
+			onBeforeShutdown: Event.None,
+			onWillShutdown: Event.None,
+		})
+		.stub(IPositronNewFolderService, {
+			onDidChangeNewFolderStartupPhase: Event.None,
+			startupPhase: NewFolderStartupPhase.Complete,
+		})
+		.stub(IProgressService, {})
+		.stub(IWorkbenchEnvironmentService, { remoteAuthority: undefined })
+		.stub(IRuntimeDiscoveryCache, {})
+		.build();
+
+	/**
+	 * Creates the service with the given startup behavior, and returns the
+	 * IDs of the start reasons it auto-starts runtimes with.
+	 */
+	function createService(startupBehavior: LanguageStartupBehavior, options?: { overrideIdentifiers?: string[] }) {
+		const configurationService = new TestConfigurationService({ 'interpreters.startupBehavior': startupBehavior });
+		if (options?.overrideIdentifiers) {
+			configurationService.setOverrideIdentifiers('interpreters.startupBehavior', options.overrideIdentifiers);
+		}
+		ctx.instantiationService.stub(IConfigurationService, configurationService);
+		const autoStartRuntime = vi.spyOn(ctx.get(IRuntimeSessionService), 'autoStartRuntime').mockResolvedValue('');
+		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		return () => autoStartRuntime.mock.calls.map(([, startReason]) => startReason.id);
+	}
+
+	function registerRuntime(startupBehavior: LanguageRuntimeStartupBehavior) {
+		ctx.disposables.add(ctx.get(ILanguageRuntimeService).registerRuntime({ ...metadata(), startupBehavior }));
+	}
+
+	function completeDiscovery() {
+		ctx.get(ILanguageRuntimeService).setStartupPhase(RuntimeStartupPhase.Complete);
+	}
+
+	it('starts a runtime marked to start immediately when discovery finishes', () => {
+		const startReasonIds = createService(LanguageStartupBehavior.Auto);
+		registerRuntime(LanguageRuntimeStartupBehavior.Immediate);
+		completeDiscovery();
+
+		expect(startReasonIds()).toEqual([SessionStartReasonId.ExtensionRequestedImmediateStart]);
+	});
+
+	it.each([
+		{ overrideIdentifiers: ['python'], id: SessionStartReasonId.StartupBehaviorAlways },
+		{ overrideIdentifiers: undefined, id: SessionStartReasonId.StartupBehaviorAlwaysAllLanguages },
+		// A value set for another language doesn't apply to Python.
+		{ overrideIdentifiers: ['r'], id: SessionStartReasonId.StartupBehaviorAlwaysAllLanguages },
+	])('starts a runtime set to always start when discovery finishes (language-specific values: $overrideIdentifiers)', ({ overrideIdentifiers, id }) => {
+		const startReasonIds = createService(LanguageStartupBehavior.Always, { overrideIdentifiers });
+		registerRuntime(LanguageRuntimeStartupBehavior.Implicit);
+		completeDiscovery();
+
+		expect(startReasonIds()).toEqual([id]);
+	});
+
+	it('starts a runtime marked to start immediately when it registers after discovery', () => {
+		const startReasonIds = createService(LanguageStartupBehavior.Auto);
+		completeDiscovery();
+		registerRuntime(LanguageRuntimeStartupBehavior.Immediate);
+
+		expect(startReasonIds()).toEqual([SessionStartReasonId.ExtensionRequestedStartAtRegistration]);
+	});
+
+	it('starts a runtime for an open file\'s language when it registers after discovery', () => {
+		const startReasonIds = createService(LanguageStartupBehavior.Auto);
+		completeDiscovery();
+		ctx.get(ILanguageService).requestRichLanguageFeatures('python');
+		registerRuntime(LanguageRuntimeStartupBehavior.Implicit);
+
+		expect(startReasonIds()).toEqual([SessionStartReasonId.LanguageFileOpenedAtRegistration]);
+	});
+
+	it('keeps the start reason ID when saving workspace sessions', async () => {
+		ctx.disposables.add(ctx.instantiationService.createInstance(RuntimeStartupService));
+		const runtime = createTestLanguageRuntimeMetadata(ctx.instantiationService, ctx.disposables, LanguageRuntimeSessionLocation.Workspace);
+
+		await startTestLanguageRuntimeSession(ctx.instantiationService, ctx.disposables, {
+			runtime,
+			startReasonId: SessionStartReasonId.CodeExecutedWithoutSession,
+		});
+
+		await vi.waitFor(() => {
+			const saved = setItem.mock.calls.at(-1)?.[1] as SerializedSessionMetadata[] | undefined;
+			expect(saved?.map(session => session.metadata.startReasonId)).toEqual([SessionStartReasonId.CodeExecutedWithoutSession]);
+		});
 	});
 });
 

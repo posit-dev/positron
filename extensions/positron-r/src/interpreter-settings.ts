@@ -89,6 +89,31 @@ export function userRBinaries(): string[] {
 }
 
 /**
+ * R binaries named by entries in the `interpreters.definitions` setting.
+ * Paths must be absolute; other entries are ignored.
+ * @returns List of R binary paths from interpreter definitions.
+ */
+export function getInterpreterDefinitionPaths(): string[] {
+	const definitions = vscode.workspace.getConfiguration('interpreters').get<unknown>('definitions');
+	if (!Array.isArray(definitions)) {
+		return [];
+	}
+	const paths = definitions
+		.filter(d => d?.language === 'r' && typeof d.path === 'string' && path.isAbsolute(d.path))
+		.map(d => d.path as string);
+	return Array.from(new Set(paths));
+}
+
+/**
+ * Whether `interpreters.discovery` is `definitionsOnly` for R, in which case
+ * only the R binaries in `interpreters.definitions` are used and no other
+ * discovery runs.
+ */
+export function isDefinitionsOnlyDiscovery(): boolean {
+	return vscode.workspace.getConfiguration('interpreters', { languageId: 'r' }).get<string>('discovery') === 'definitionsOnly';
+}
+
+/**
  * Gets the list of R installations excluded via settings.
  * Replaces `${workspaceFolder}` and converts aliased paths to absolute paths. Relative paths are ignored.
  * @returns List of installation paths to exclude.

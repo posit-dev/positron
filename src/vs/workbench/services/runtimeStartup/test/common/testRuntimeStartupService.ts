@@ -55,6 +55,13 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	/**
 	 * {@inheritDoc}
 	 */
+	public registerRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata> {
+		throw new Error('Method not implemented.');
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public hasLanguageRuntimeProvider(languageId: string): boolean {
 		return this.runtimeProviderLanguageIds.has(languageId);
 	}

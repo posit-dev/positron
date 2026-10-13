@@ -35,6 +35,7 @@ import watcher from './watch/index.ts';
 import os from 'os';
 import { getBootstrapExtensionStream } from './bootstrapExtensions.ts';
 import { isPrunedExtensionDependencyFile, isUnusedCopilotOpenTelemetryPackage } from './positron-path-budget.ts';
+import { DUCKDB_EXTENSIONS, DUCKDB_RUNTIME_PACKAGES, DUCKDB_SOURCE_EXTENSION, assertDuckdbVersionsMatch, isDuckdbRuntimeFile } from './positron-duckdb-runtime.ts';
 // --- End Positron ---
 
 import { createRequire } from 'module';
@@ -90,6 +91,21 @@ function updateExtensionPackageJSON(input: Stream, update: (data: any) => any): 
 const positronWebpackExtensions = new Set([
 	'positron-python',
 ]);
+
+/**
+ * Stages one copy of the DuckDB runtime in `extensions/node_modules`. Applies the
+ * same `.moduleignore` filters as the shared production dependencies. See
+ * positron-duckdb-runtime.ts.
+ */
+function sharedDuckdbRuntimeStream(): Stream {
+	assertDuckdbVersionsMatch(path.join(root, 'extensions'));
+	const sourceRoot = path.join('extensions', DUCKDB_SOURCE_EXTENSION);
+	const src = DUCKDB_RUNTIME_PACKAGES.map(pkg => `${sourceRoot}/node_modules/${pkg}/**`);
+	return gulp.src(src, { base: sourceRoot, dot: true })
+		.pipe(rename(p => p.dirname = `extensions/${p.dirname}`))
+		.pipe(util2.cleanNodeModules(path.join(root, 'build', '.moduleignore')))
+		.pipe(util2.cleanNodeModules(path.join(root, 'build', `.moduleignore.${process.platform}`)));
+}
 // --- End Positron ---
 
 function fromLocal(extensionPath: string, forWeb: boolean, disableMangle: boolean): Stream {
@@ -313,7 +329,6 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		const extensionsWithNpmDeps = [
 			'positron-duckdb',
 			'positron-data-driver-databricks',
-			'positron-data-driver-duckdb',
 			'positron-data-driver-pins'
 		];
 
@@ -363,6 +378,11 @@ function fromLocalEsbuild(extensionPath: string, esbuildConfigFileName: string):
 		if (prunedFileNames.length !== fileNames.length) {
 			fancyLog(`Pruned ${ansiColors.yellow(String(fileNames.length - prunedFileNames.length))} unused dependency files from ${ansiColors.cyan(extensionName)}`);
 			fileNames = prunedFileNames;
+		}
+
+		// DuckDB ships once in the shared node_modules. See positron-duckdb-runtime.ts.
+		if (DUCKDB_EXTENSIONS.has(extensionName)) {
+			fileNames = fileNames.filter(fileName => !isDuckdbRuntimeFile(fileName));
 		}
 
 		// Stream the files sequentially rather than eagerly opening a read
@@ -589,6 +609,17 @@ const excludedExtensions = [
 	// DuckDB (and later pins) data driver extensions bundle via esbuild. It is not
 	// an extension and must not be packaged or activated at runtime.
 	'positron-data-explorer-duckdb',
+	// Upstream color theme extensions whose themes Positron hides from the
+	// theme picker (see positronColorThemeFilter.ts). Shipping them would only
+	// list them under @builtin with no way to select their themes (#8162).
+	'theme-abyss',
+	'theme-kimbie-dark',
+	'theme-monokai',
+	'theme-monokai-dimmed',
+	'theme-quietlight',
+	'theme-red',
+	'theme-solarized-dark',
+	'theme-solarized-light',
 	// --- End Positron ---
 ];
 
@@ -754,6 +785,14 @@ function doPackageLocalExtensionsStream(forWeb: boolean, disableMangle: boolean,
 		} else {
 			result = localExtensionsStream;
 		}
+
+		// --- Start Positron ---
+		// The DuckDB extensions are all non-native, so stage their shared
+		// runtime in the same pass that leaves out their own copies.
+		if (!native) {
+			result = es.merge(result, sharedDuckdbRuntimeStream());
+		}
+		// --- End Positron ---
 	}
 
 	return (

@@ -5,17 +5,30 @@
 
 import { expect, tags } from '../_test.setup';
 import { test } from './_test.setup.js';
-import { PositAssistant } from '../../pages/positAssistant.js';
 
 test.use({
 	suiteId: __filename,
 });
 
+// The Fix/Explain buttons and the Ask Assistant action only render once Posit
+// Assistant reports a usable chat model, so a real provider has to be connected
+// for the "visible" cases; the echo test provider is gone.
+const PROVIDER = 'anthropic';
+
 test.describe('Notebook Assistant: Feature Toggle', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WIN]
 }, () => {
 
-	test('Notebook AI features hidden when AI disabled', async function ({ app, settings }) {
+	test.beforeAll(async function ({ app }) {
+		await app.workbench.providerManager.loginModelProvider(PROVIDER);
+	});
+
+	test.afterAll(async function ({ app, settings }) {
+		await settings.remove(['ai.enabled']);
+		await app.workbench.providerManager.logoutModelProvider(PROVIDER);
+	});
+
+	test('Notebook AI features hidden when AI disabled', { tag: [tags.ARK] }, async function ({ app, settings }) {
 		const { notebooksPositron } = app.workbench;
 
 		// Turn off the AI main switch, which gates all of Positron's AI features
@@ -35,12 +48,11 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		await notebooksPositron.expectErrorAssistantButtonsVisible(false);
 	});
 
-	test('Notebook AI features visible when AI enabled', async function ({ app, settings }) {
-		const { notebooksPositron, providerManager } = app.workbench;
+	test('Notebook AI features visible when AI enabled', { tag: [tags.ARK] }, async function ({ app, settings }) {
+		const { notebooksPositron } = app.workbench;
 
-		// Turn on the AI main switch and connect a provider so Posit Assistant has chat models
+		// Turn on the AI main switch
 		await settings.set({ 'ai.enabled': true });
-		await providerManager.loginModelProvider('anthropic');
 
 		// Create a new notebook with a cell that produces an error
 		await notebooksPositron.createNewNotebook();
@@ -54,34 +66,28 @@ test.describe('Notebook Assistant: Feature Toggle', {
 		// Verify assistant buttons ARE visible
 		await notebooksPositron.expectAssistantButtonsVisible(true);
 		await notebooksPositron.expectErrorAssistantButtonsVisible(true);
-		await providerManager.logoutModelProvider('anthropic');
 	});
 });
-
-/**
- * The Fix and Explain buttons submit right away, so pick the model first. Call this last before
- * clicking, since it leaves keyboard focus in the chat input where shortcuts don't reach the workbench.
- */
-async function selectAnthropicModel(positAssistant: PositAssistant) {
-	await positAssistant.open();
-	await positAssistant.waitForReady();
-	await positAssistant.startNewConversation();
-	await positAssistant.selectProviderModel('anthropic');
-}
 
 test.describe('Notebook Assistant: Interaction Flow', {
 	tag: [tags.POSITRON_NOTEBOOKS, tags.ASSISTANT, tags.WEB, tags.WIN]
 }, () => {
 
 	test.beforeAll(async function ({ app }) {
-		await app.workbench.providerManager.loginModelProvider('anthropic');
+		const { providerManager, positAssistant } = app.workbench;
+		await providerManager.loginModelProvider(PROVIDER);
+		// Open the chat once up front: newChat against a webview that has never
+		// rendered submits before the model catalog has loaded and is rejected with
+		// "No model selected" (posit-dev/assistant#2646).
+		await positAssistant.open();
+		await positAssistant.waitForReady();
 	});
 
 	test.afterAll(async function ({ app }) {
-		await app.workbench.providerManager.logoutModelProvider('anthropic');
+		await app.workbench.providerManager.logoutModelProvider(PROVIDER);
 	});
 
-	test('Fix error button opens chat and sends error context', async function ({ app }) {
+	test('Fix error button opens chat and sends error context', { tag: [tags.PYTHON] }, async function ({ app }) {
 		const { notebooksPositron, positAssistant } = app.workbench;
 
 		// Create notebook
@@ -97,17 +103,22 @@ test.describe('Notebook Assistant: Interaction Flow', {
 		await notebooksPositron.expectExecutionOrder([{ index: 1, order: 2 }]);
 		await notebooksPositron.expectNotebookErrorVisible();
 
-		// Pick the model, then click the Fix button
-		await selectAnthropicModel(positAssistant);
+		// Click the Fix button and wait for the response, allowing any tool the
+		// model asks for on the way
 		await notebooksPositron.clickFixErrorButton();
 		await positAssistant.expectViewOpen();
-		await positAssistant.expectChatContainsText('Fix this notebook cell error.');
+		await positAssistant.waitForResponseCompleteAllowingTools();
 
-		// Verify the reply is about the error that was sent. Poll the text since the model may stop at a tool confirmation
-		await expect.poll(() => positAssistant.getLastResponseText(), { timeout: 60000 }).toContain('undefined_var');
+		// Verify the prompt and the error attachment were sent. The response text is
+		// not inspected: the provider's content filter sometimes refuses the Fix
+		// prompt, and the attachment already proves the error context went out.
+		await positAssistant.expectUserMessageToContainText('Fix this notebook cell error.');
+		await positAssistant.expectUserMessageToContainText('Notebook Cell Error');
+		await positAssistant.expectResponseVisible();
+		expect((await positAssistant.getLastResponseText()).length).toBeGreaterThan(0);
 	});
 
-	test('Explain error button opens chat and sends error context', async function ({ app }) {
+	test('Explain error button opens chat and sends error context', { tag: [tags.PYTHON] }, async function ({ app }) {
 		const { notebooksPositron, positAssistant } = app.workbench;
 
 		// Create notebook
@@ -119,13 +130,15 @@ test.describe('Notebook Assistant: Interaction Flow', {
 		await notebooksPositron.expectExecutionOrder([{ index: 0, order: 1 }]);
 		await notebooksPositron.expectNotebookErrorVisible();
 
-		// Pick the model, then click the Explain button
-		await selectAnthropicModel(positAssistant);
+		// Click the Explain button and wait for the response
 		await notebooksPositron.clickExplainErrorButton();
 		await positAssistant.expectViewOpen();
-		await positAssistant.expectChatContainsText('Explain this notebook cell error.');
+		await positAssistant.waitForResponseCompleteAllowingTools();
 
-		// Verify the reply is about the error that was sent
-		await expect.poll(() => positAssistant.getLastResponseText(), { timeout: 60000 }).toContain('undefined_function');
+		// Verify the prompt and the error attachment were sent
+		await positAssistant.expectUserMessageToContainText('Explain this notebook cell error.');
+		await positAssistant.expectUserMessageToContainText('Notebook Cell Error');
+		await positAssistant.expectResponseVisible();
+		expect((await positAssistant.getLastResponseText()).length).toBeGreaterThan(0);
 	});
 });

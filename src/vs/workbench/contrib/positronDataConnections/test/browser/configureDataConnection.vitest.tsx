@@ -121,4 +121,26 @@ describe('ConfigureDataConnection', () => {
 		await waitFor(() => expect(showOpenDialog).toHaveBeenCalled());
 		expect(screen.getByLabelText('Database File')).toHaveValue('/existing/data.duckdb');
 	});
+
+	it('marks an empty Connection Name invalid on Save and clears it once a name is typed', async () => {
+		const user = userEvent.setup();
+		const onSave = vi.fn();
+		rtl.render(
+			<ConfigureDataConnection
+				driver={driver}
+				mechanism={mechanismWithFileParameter('/existing/data.duckdb')}
+				renderer={renderer}
+				onSave={onSave}
+			/>
+		);
+		const connectionName = screen.getByLabelText('Connection Name');
+		expect(connectionName).toBeValid();
+
+		await user.click(screen.getByRole('button', { name: 'Save' }));
+		expect(connectionName).toBeInvalid();
+		expect(onSave).not.toHaveBeenCalled();
+
+		await user.type(connectionName, 'My Connection');
+		expect(connectionName).toBeValid();
+	});
 });

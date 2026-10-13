@@ -15,7 +15,7 @@ test.use({
 });
 
 test.describe('Notebook Working Directory Configuration', {
-	tag: [tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.WIN, tags.NOTEBOOKS, tags.PYTHON]
 	// Web tag removed: path resolution is browser-agnostic; Electron provides full coverage
 }, () => {
 

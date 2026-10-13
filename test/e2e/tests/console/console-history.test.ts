@@ -17,7 +17,7 @@ test.describe('Console History', {
 		page.keyboard.press('Escape');
 	});
 
-	test('Python - Verify first history and full history', async function ({ app, page, python }) {
+	test('Python - Verify first history and full history', { tag: [tags.PYTHON] }, async function ({ app, page, python }) {
 		const pythonLines = [
 			'a = 1',
 			'b = 2',
@@ -49,6 +49,7 @@ test.describe('Console History', {
 	});
 
 	test('Python - Shift+Down extends selection instead of navigating history', {
+		tag: [tags.PYTHON],
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/13419' }]
 	}, async function ({ app, page, python }) {
 		// Build up history so the buggy navigateHistoryDown path would have entries to navigate to.
@@ -79,7 +80,7 @@ test.describe('Console History', {
 		await app.workbench.console.clearInput();
 	});
 
-	test('Python - Cmd+Up engages prefix-match history browser', async function ({ app, page, python }) {
+	test('Python - Cmd+Up engages prefix-match history browser', { tag: [tags.PYTHON] }, async function ({ app, page, python }) {
 		// Build up history with two different prefixes.
 		await enterLines(app, ['apple_count = 1', 'apple_size = 2', 'banana = 3']);
 

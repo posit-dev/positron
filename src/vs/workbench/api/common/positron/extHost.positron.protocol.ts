@@ -15,11 +15,12 @@ import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes
 import { IRange } from '../../../../editor/common/core/range.js';
 import { INotebookCellOutputDTO, INotebookContextDTO, NotebookCellType } from '../../../common/positron/notebookAssistant.js';
 export type { INotebookCellOutputDTO };
-import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, type notebooks } from 'positron';
+import { ActiveRuntimeSessionMetadata, EnvironmentContributionFilter, EnvironmentVariableAction, LanguageRuntimeDynState, LanguageRuntimePackage, PackageSpec, RuntimeConsoleError, RuntimeMissingPackage, RuntimeMissingPackagesTarget, RuntimeSessionMetadata, RuntimeSessionStartOptions, type notebooks, type dataExplorer } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IGenerateAssistantPromptRequest } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
-import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { DataConnectionParameterValuesDTO, IDataConnectionCodeVariantDTO, IDataConnectionDriverMetadataDTO, IDataConnectionDriverSummaryDTO, IDataConnectionNodeDetailsDTO, IDataConnectionNodeDTO, IDataConnectionSummaryDTO, IDiscoveredDataConnectionDTO } from '../../../services/positronDataConnections/common/interfaces/dataConnectionDTOs.js';
+import { IDataConnectionSchemaSummaryOptions, IDataConnectionSchemaWalk } from '../../../services/positronDataConnections/common/dataConnectionSchemaSummary.js';
 import { IDataExplorerRpcDto, IDataExplorerResponseDto, IDataExplorerUiEventDto } from '../../../services/positronDataExplorer/common/dataExplorerRpcTransport.js';
 import { IDataImporterMetadata, IDataImportRequestDto, IDataImportResult } from '../../../services/positronDataExplorer/common/positronDataImporterRegistry.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
@@ -86,11 +87,11 @@ export interface IRuntimePickerItem {
 // This is the interface that the main process exposes to the extension host
 export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
-	$selectLanguageRuntime(runtimeId: string): Promise<void>;
-	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
+	$selectLanguageRuntime(runtimeId: string, requestingExtensionId: string): Promise<void>;
+	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined, requestingExtensionId: string, options: RuntimeSessionStartOptions | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(runtimeId: string): void;
-	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>): Promise<string>;
+	$executeCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string, documentUri?: URI, executionMetadata?: Record<string, unknown>, attributionMetadata?: Record<string, unknown>, callerSessionId?: string): Promise<string>;
 	$executeInlineCells(extensionId: string, documentUri: URI, cellRanges: IRange[], executionMetadata?: Record<string, unknown>[]): Promise<void>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]>;
@@ -100,7 +101,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getNotebookSession(notebookUri: URI): Promise<IActiveRuntimeSessionMetadataDto | undefined>;
 	$subscribeToSession(sessionId: string): void;
 	$unsubscribeFromSession(sessionId: string): void;
-	$restartSession(sessionId: string): Promise<boolean>;
+	$restartSession(sessionId: string, requestingExtensionId: string): Promise<boolean>;
 	$interruptSession(sessionId: string): Promise<void>;
 	$focusSession(sessionId: string): void;
 	$deleteSession(sessionId: string): Promise<boolean>;
@@ -119,7 +120,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$emitLanguageRuntimeResourceUsage(sessionId: string, usage: ILanguageRuntimeResourceUsage): void;
 	$emitLanguageRuntimeDisconnect(sessionId: string): void;
 	$emitLanguageRuntimeReconnect(sessionId: string): void;
-	$evaluateCode(languageId: string, sessionId: string | undefined, code: string, evaluationId: string, whenBusy?: RuntimeBusyBehavior): Promise<EvalResult>;
+	$evaluateCode(languageId: string, extensionId: string, sessionId: string | undefined, code: string, evaluationId: string, whenBusy?: RuntimeBusyBehavior): Promise<EvalResult>;
 	$cancelEvaluation(sessionId: string, evaluationId: string): void;
 	$registerRuntimePickerContribution(handle: number, languageId: string): void;
 	$unregisterRuntimePickerContribution(handle: number): void;
@@ -151,6 +152,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;
 	$listOutputChannelsLanguageRuntime(handle: number): Promise<LanguageRuntimeSessionChannel[]>;
 	$updateSessionNameLanguageRuntime(handle: number, sessionName: string): void;
+	$updateNotebookUriLanguageRuntime(handle: number, notebookUri: UriComponents, quartoNotebookUri: UriComponents | undefined): void;
 	$showProfileLanguageRuntime(handle: number): void;
 	$getLaunchInfo(handle: number): Promise<ILanguageRuntimeLaunchInfo | undefined>;
 	$discoverLanguageRuntimes(disabledLanguageIds: string[], skipLanguageIds?: string[]): void;
@@ -158,6 +160,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$getDiscoveryRootSignature(extensionId: string, languageId: string): Promise<IRuntimeRootSignature | undefined>;
 	$getHostedLanguageContributions(): Promise<IHostedLanguageContribution[]>;
+	$registerLanguageRuntimeFromPath(languageId: string, path: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$onDidRegisterLanguageRuntime(metadata: ILanguageRuntimeMetadata): void;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
 	$updateProxySessionState(sessionId: string, state: RuntimeState): void;
@@ -343,6 +346,45 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
 	 * Releases a connection handle via the main thread service.
 	 */
 	$releaseConnectionViaService(connectionHandle: number): void;
+
+	/**
+	 * Returns the connections the user has configured, live or not.
+	 *
+	 * Unlike the methods above, this is about connections the *user* opened rather than ones the
+	 * calling extension opened itself, so it is keyed by profile id rather than by a connection
+	 * handle. No handle is handed out: a handle carries `disconnect` and `release`, neither of
+	 * which an extension should be able to do to a connection it does not own.
+	 *
+	 * Rejects when the Data Connections feature is disabled, rather than answering with an empty
+	 * list that would read the same as having none.
+	 */
+	$getDataConnections(): Promise<IDataConnectionSummaryDTO[]>;
+
+	/**
+	 * Opens the user's connection for a profile, if it is not already open.
+	 *
+	 * The counterpart to $getDataConnections for a caller that knows which connection it needs. No
+	 * handle comes back, so an extension can ask for one of the user's connections to be opened
+	 * but still cannot disconnect or release it. Idempotent: the service returns the existing
+	 * instance when there is one rather than reconnecting.
+	 *
+	 * Resolves false when no such profile exists. Rejects when the feature is disabled, and with the
+	 * driver's error when the connection was attempted and failed.
+	 */
+	$openDataConnection(profileId: string): Promise<boolean>;
+
+	/**
+	 * Summarizes one live connection's schema tree, bounded by `options`.
+	 *
+	 * A single call rather than a handle to walk, because walking costs a round trip per node and
+	 * a warehouse has thousands of them. The summary says whether a bound truncated it, which a
+	 * caller needs in order to know it cannot tell a name the schema is missing from one the user
+	 * got wrong.
+	 *
+	 * Resolves to `undefined` when the profile has no live connection. Rejects when the feature is
+	 * disabled.
+	 */
+	$getDataConnectionSchema(profileId: string, options: IDataConnectionSchemaSummaryOptions): Promise<IDataConnectionSchemaWalk | undefined>;
 }
 
 /**
@@ -351,6 +393,14 @@ export interface MainThreadDataConnectionsShape extends IDisposable {
  * lifecycle of connections that live in the extension process.
  */
 export interface ExtHostDataConnectionsShape {
+	/**
+	 * Called by the main thread when the user's connections change: one opened or closed, or a
+	 * profile added, renamed or removed.
+	 *
+	 * Carries no payload. The set is small and an extension that cares re-reads it, which is one
+	 * fewer thing for the two sides to keep in step than a diff would be.
+	 */
+	$onDidChangeDataConnections(): void;
 	$driverConnect(driverId: string, mechanismId: string, params: DataConnectionParameterValuesDTO): Promise<number>;
 	$generateConnectionCode(driverId: string, mechanismId: string, languageId: string, params: DataConnectionParameterValuesDTO): Promise<IDataConnectionCodeVariantDTO[]>;
 	$redactParameterValue(driverId: string, mechanismId: string, parameterId: string, value: string): Promise<string | undefined>;
@@ -377,6 +427,7 @@ export interface MainThreadDataExplorerShape extends IDisposable {
 	$open(providerId: string, datasetId: string, displayName: string): Promise<void>;
 	$registerDataImporter(handle: number, metadata: IDataImporterMetadata): void;
 	$unregisterDataImporter(handle: number): void;
+	$getActiveDataExplorerContext(): Promise<dataExplorer.DataExplorerContext | undefined>;
 }
 
 /**

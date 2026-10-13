@@ -3,8 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ChatViewId, IChatWidget } from '../chat.js';
-import { CHAT_CATEGORY, CHAT_CONFIG_MENU_ID } from '../actions/chatActions.js';
+import { IChatWidget } from '../chat.js';
+import { CHAT_CATEGORY } from '../actions/chatActions.js';
 import { localize, localize2 } from '../../../../../nls.js';
 import { ChatContextKeys } from '../../common/actions/chatContextKeys.js';
 import { IPromptsService } from '../../common/promptSyntax/service/promptsService.js';
@@ -16,7 +16,6 @@ import { IChatContextPickerItem, IChatContextPickerPickItem, IChatContextPicker 
 import { IQuickPickSeparator } from '../../../../../platform/quickinput/common/quickInput.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { getCleanPromptName } from '../../common/promptSyntax/config/promptFileLocations.js';
-import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { PromptsType } from '../../common/promptSyntax/promptTypes.js';
 import { compare } from '../../../../../base/common/strings.js';
 import { IPromptFileVariableEntry, PromptFileVariableKind, toPromptFileVariableEntry } from '../../common/attachments/chatVariableEntries.js';
@@ -46,13 +45,7 @@ class ManageInstructionsFilesAction extends Action2 {
 			// Hide when AI features are disabled.
 			precondition: ChatContextKeys.available,
 			// --- End Positron ---
-			category: CHAT_CATEGORY,
-			menu: {
-				id: CHAT_CONFIG_MENU_ID,
-				when: ContextKeyExpr.and(ChatContextKeys.enabled, ContextKeyExpr.equals('view', ChatViewId)),
-				order: 10,
-				group: '1_level'
-			}
+			category: CHAT_CATEGORY
 		});
 	}
 

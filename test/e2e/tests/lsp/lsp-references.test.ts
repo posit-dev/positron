@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('References', {
-	tag: [tags.PYREFLY, tags.WEB]
+	tag: [tags.PYREFLY, tags.WEB, tags.PYTHON]
 }, () => {
 
 	test.afterEach(async ({ app, runCommand }) => {

@@ -17,6 +17,7 @@ import { localize } from '../../../../nls.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { InlineTableDataGridInstance } from '../../../services/positronDataExplorer/browser/inlineTableDataGridInstance.js';
+import { useInlineGridMetrics } from '../../../services/positronDataExplorer/browser/useInlineGridMetrics.js';
 import { TableDataCache } from '../../../services/positronDataExplorer/common/tableDataCache.js';
 import { PositronDataGrid } from '../../../browser/positronDataGrid/positronDataGrid.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -55,9 +56,16 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 	const { commId, shape, title, variablePath, documentUri, onFallback, onHeightChange } = props;
 	const services = PositronReactServices.services;
 	const [state, setState] = useState<QuartoInlineDataExplorerState>({ status: 'loading' });
-	const disposablesRef = useRef<DisposableStore | null>(null);
+	// Read by the init effect to tell a font-only re-run from a new comm.
+	const statusRef = useRef(state.status);
+	statusRef.current = state.status;
+	const initializedCommIdRef = useRef<string | undefined>(undefined);
 	const onFallbackRef = useRef(onFallback);
 	onFallbackRef.current = onFallback;
+
+	// Grid layout metrics scale with the editor font size, so the grid is
+	// rebuilt when they change.
+	const metrics = useInlineGridMetrics(services.configurationService);
 
 	const dataExplorerService = services.positronDataExplorerService;
 	const defaultMaxHeight = 300;
@@ -82,28 +90,33 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 	}, [services.configurationService]);
 
 	// Notify parent of calculated height.
-	const dynamicHeight = calculateInlineDataExplorerHeight(shape.rows, maxHeight);
+	const dynamicHeight = calculateInlineDataExplorerHeight(shape.rows, maxHeight, metrics);
 	useEffect(() => {
 		onHeightChange?.(dynamicHeight);
 	}, [dynamicHeight, onHeightChange]);
 
+	// Initialize the grid. Re-runs when the font-scaled metrics change so the
+	// grid is recreated with layout dimensions that fit the new font size.
 	useEffect(() => {
+		// A font-only re-run for the same comm leaves a disconnected or error
+		// state alone: the comm is gone, so rebuilding would only replace the
+		// message with a lookup failure or the fallback output.
+		if (initializedCommIdRef.current === commId &&
+			(statusRef.current === 'disconnected' || statusRef.current === 'error')) {
+			return;
+		}
+		initializedCommIdRef.current = commId;
+
 		const disposables = new DisposableStore();
-		disposablesRef.current = disposables;
-
-		return () => {
-			disposables.dispose();
-			disposablesRef.current = null;
-		};
-	}, [commId]);
-
-	useEffect(() => {
-		const disposables = disposablesRef.current;
 		let cancelled = false;
+
+		// A re-run disposes the previous grid, so stop rendering it while the
+		// replacement initializes.
+		setState(prev => prev.status === 'connected' ? { status: 'loading' } : prev);
 
 		async function initializeGrid() {
 			try {
-				if (!disposables || disposables.isDisposed) {
+				if (disposables.isDisposed) {
 					return;
 				}
 
@@ -113,7 +126,7 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 				const timeout = onFallbackRef.current ? 500 : 10000;
 				const instance = await dataExplorerService.getInstanceAsync(commId, timeout);
 
-				if (cancelled || !disposables || disposables.isDisposed) {
+				if (cancelled || disposables.isDisposed) {
 					return;
 				}
 
@@ -134,7 +147,8 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 
 				const gridInstance = disposables.add(new InlineTableDataGridInstance(
 					clientInstance,
-					tableDataCache
+					tableDataCache,
+					metrics
 				));
 
 				disposables.add(gridInstance.onDidClose(() => {
@@ -167,8 +181,9 @@ export function QuartoInlineDataExplorer(props: QuartoInlineDataExplorerProps) {
 
 		return () => {
 			cancelled = true;
+			disposables.dispose();
 		};
-	}, [commId, dataExplorerService]);
+	}, [commId, dataExplorerService, metrics]);
 
 	const isGridStale = state.status === 'connected' &&
 		(state.gridInstance.columns === 0 || state.gridInstance.rows === 0);

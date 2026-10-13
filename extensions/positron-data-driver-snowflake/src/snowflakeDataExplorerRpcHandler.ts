@@ -86,6 +86,12 @@ export class SnowflakeDataExplorerRpcHandler implements vscode.Disposable, ISnow
 		kind: 'table' | 'view',
 	): Promise<void> {
 		const schema = await buildSnowflakeSchema(client, database, schemaName, tableName);
+		// INFORMATION_SCHEMA returns no columns, rather than an error, for a table or view that was
+		// dropped or renamed since the tree listed it. None can have zero columns, so fail here and the
+		// open reports it instead of showing an empty grid.
+		if (schema.length === 0) {
+			throw new Error(vscode.l10n.t("'{0}' does not exist or is not authorized.", `${schemaName}.${tableName}`));
+		}
 		this._views.set(datasetId, new SnowflakeTableView(client, tableRef(database, schemaName, tableName), tableName, kind, schema, this._logger));
 	}
 

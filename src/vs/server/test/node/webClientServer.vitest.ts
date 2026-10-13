@@ -24,8 +24,10 @@ const originalEnv = vi.hoisted(() => {
 // eslint-disable-next-line local/code-no-http-import
 import * as http from 'http';
 import * as net from 'net';
-import * as url from 'url';
+import { createHash } from 'crypto';
+import { promises } from 'fs';
 import { FileAccess } from '../../../base/common/network.js';
+import { htmlAttributeEncodeValue } from '../../../base/common/strings.js';
 import { mock, mockObject, upcastPartial } from '../../../base/test/common/mock.js';
 import { URI } from '../../../base/common/uri.js';
 import { ILogService, NullLogService } from '../../../platform/log/common/log.js';
@@ -34,7 +36,7 @@ import { IRequestService } from '../../../platform/request/common/request.js';
 import { IProductService } from '../../../platform/product/common/productService.js';
 import { ICSSDevelopmentService } from '../../../platform/cssDev/node/cssDevService.js';
 import { NoneServerConnectionToken } from '../../node/serverConnectionToken.js';
-import { WebClientServer } from '../../node/webClientServer.js';
+import { createNlsUrl, createScriptNonce, createWorkbenchContentSecurityPolicy, isSafeBasePath, renderWorkbenchTemplate, WebClientServer } from '../../node/webClientServer.js';
 import { ISocketOwnershipCheck } from '../../node/socketOwnership.js';
 import { IPositronAcademicLicenseService } from '../../../platform/positronLicense/common/positronAcademicLicenseService.js';
 
@@ -49,6 +51,176 @@ afterAll(() => {
 	} else {
 		process.env['RSTUDIO_VERSION'] = originalEnv.RSTUDIO_VERSION;
 	}
+});
+
+/**
+ * Decodes the five entities produced by `htmlAttributeEncodeValue`, the same way a browser
+ * does when reading a quoted attribute value back via `getAttribute()`.
+ */
+function decodeHtmlAttribute(value: string): string {
+	return value.replace(/&(lt|gt|quot|apos|amp);/g, (_, entity) => {
+		switch (entity) {
+			case 'lt': return '<';
+			case 'gt': return '>';
+			case 'quot': return '"';
+			case 'apos': return '\'';
+			case 'amp': return '&';
+		}
+		return _;
+	});
+}
+
+function getAttributeValue(html: string, elementId: string): string {
+	const match = new RegExp(`<meta id="${elementId}" data-settings="([^"]*)"`).exec(html);
+	if (!match) {
+		throw new Error(`expected a data-settings attribute on ${elementId}`);
+	}
+	return match[1];
+}
+
+async function readWorkbenchTemplate(): Promise<string> {
+	return (await promises.readFile(`${process.cwd()}/src/vs/code/browser/workbench/workbench.html`)).toString();
+}
+
+describe('WebClientServer', () => {
+
+	it('escapes workbench template substitutions', async () => {
+		const template = await readWorkbenchTemplate();
+		const forwardedPrefix = `/'); alert(document.cookie); new URL('x`;
+		const localeUrl = `https://example.com/fr"><script>alert(document.cookie)</script><x/nls.messages.js`;
+		const values = {
+			WORKBENCH_WEB_CONFIGURATION: JSON.stringify({ serverBasePath: forwardedPrefix }),
+			WORKBENCH_AUTH_SESSION: '',
+			WORKBENCH_WEB_BASE_URL: forwardedPrefix,
+			WORKBENCH_NLS_URL: localeUrl,
+			WORKBENCH_NLS_FALLBACK_URL: '/static/out/nls.messages.js',
+			WORKBENCH_SCRIPT_NONCE: createScriptNonce()
+		};
+
+		const rendered = renderWorkbenchTemplate(template, values);
+
+		expect({
+			scriptElementCount: rendered.match(/<script(?:\s|>)/g)?.length,
+			inlineScriptWithoutNonceCount: rendered.match(/<script(?![^>]*\bsrc=)(?![^>]*\bnonce=)[^>]*>/g)?.length ?? 0,
+			containsRawForwardedPrefix: rendered.includes(forwardedPrefix),
+			containsRawLocaleUrl: rendered.includes(localeUrl),
+			containsEncodedForwardedPrefix: rendered.includes(htmlAttributeEncodeValue(forwardedPrefix)),
+			containsEncodedLocaleUrl: rendered.includes(htmlAttributeEncodeValue(localeUrl))
+		}).toEqual({
+			// Upstream's 6 plus Positron's import map script.
+			scriptElementCount: 7,
+			inlineScriptWithoutNonceCount: 0,
+			containsRawForwardedPrefix: false,
+			containsRawLocaleUrl: false,
+			containsEncodedForwardedPrefix: true,
+			containsEncodedLocaleUrl: true
+		});
+	});
+
+	it('round-trips the workbench configuration through attribute encoding', async () => {
+		const template = await readWorkbenchTemplate();
+		const configuration = {
+			remoteAuthority: 'localhost:3000',
+			serverBasePath: '/proxy&a=1',
+			folderUri: { scheme: 'vscode-remote', path: '/it\'s/a "folder"/<x>' }
+		};
+		const baseUrl = '/proxy&a=1/stable/static';
+
+		const rendered = renderWorkbenchTemplate(template, {
+			WORKBENCH_WEB_CONFIGURATION: JSON.stringify(configuration),
+			WORKBENCH_AUTH_SESSION: '',
+			WORKBENCH_WEB_BASE_URL: baseUrl,
+			WORKBENCH_NLS_URL: '',
+			WORKBENCH_NLS_FALLBACK_URL: `${baseUrl}/out/nls.messages.js`,
+			WORKBENCH_SCRIPT_NONCE: createScriptNonce()
+		});
+
+		expect({
+			configuration: JSON.parse(decodeHtmlAttribute(getAttributeValue(rendered, 'vscode-workbench-web-configuration'))),
+			baseUrl: decodeHtmlAttribute(getAttributeValue(rendered, 'vscode-workbench-web-base-url'))
+		}).toEqual({
+			configuration,
+			baseUrl
+		});
+	});
+
+	it('authorizes exactly the rendered inline scripts via the request nonce', async () => {
+		const template = await readWorkbenchTemplate();
+		const scriptNonce = createScriptNonce();
+
+		const rendered = renderWorkbenchTemplate(template, {
+			WORKBENCH_WEB_CONFIGURATION: '{}',
+			WORKBENCH_AUTH_SESSION: '',
+			WORKBENCH_WEB_BASE_URL: '/static',
+			WORKBENCH_NLS_URL: '',
+			WORKBENCH_NLS_FALLBACK_URL: '/static/out/nls.messages.js',
+			WORKBENCH_SCRIPT_NONCE: scriptNonce
+		});
+		const policy = createWorkbenchContentSecurityPolicy(scriptNonce, undefined, 'localhost:3000', false);
+
+		expect({
+			renderedNonces: [...new Set(Array.from(rendered.matchAll(/nonce="([^"]*)"/g), match => match[1]))],
+			policyAuthorizesRenderedNonce: policy.includes(`'nonce-${scriptNonce}'`)
+		}).toEqual({
+			renderedNonces: [scriptNonce],
+			policyAuthorizesRenderedNonce: true
+		});
+	});
+
+	it('uses a unique nonce without hashing rendered scripts', () => {
+		const firstNonce = createScriptNonce();
+		const secondNonce = createScriptNonce();
+		const injectedScriptHash = `'sha256-${createHash('sha256').update('alert(document.cookie)').digest('base64')}'`;
+		const policy = createWorkbenchContentSecurityPolicy(firstNonce, 'https://example.com/nls/', 'localhost:3000', false);
+
+		expect({
+			noncesDiffer: firstNonce !== secondNonce,
+			hasRequestNonce: policy.includes(`'nonce-${firstNonce}'`),
+			hasStaticNonce: policy.includes('nonce-1nline-m4p'),
+			hasInjectedScriptHash: policy.includes(injectedScriptHash)
+		}).toEqual({
+			noncesDiffer: true,
+			hasRequestNonce: true,
+			hasStaticNonce: false,
+			hasInjectedScriptHash: false
+		});
+	});
+
+	it('encodes the locale as one NLS URL path segment', () => {
+		const locale = `fr"><script>alert(document.cookie)</script><x`;
+
+		expect(createNlsUrl('https://example.com/nls/', 'commit', '1.0.0', locale)).toBe(
+			'https://example.com/nls/commit/1.0.0/fr%22%3E%3Cscript%3Ealert(document.cookie)%3C%2Fscript%3E%3Cx/nls.messages.js'
+		);
+	});
+
+	it('only accepts absolute paths as a forwarded base path', () => {
+		const basePaths = [
+			'/',
+			'/proxy',
+			'/user/123/vscode',
+			'//evil.com',
+			'/\\evil.com',
+			'https://evil.com',
+			'evil.com',
+			'/proxy?next=https://evil.com',
+			'/proxy#fragment',
+			'/proxy\r\nLocation: https://evil.com'
+		];
+
+		expect(basePaths.map(isSafeBasePath)).toEqual([
+			true,
+			true,
+			true,
+			false,
+			false,
+			false,
+			false,
+			false,
+			false,
+			false
+		]);
+	});
 });
 
 // None of the tests below exercise real /proc reads -- getListeningPortUid/isProxyPortOwnershipEnforced
@@ -89,8 +261,8 @@ function listen(server: http.Server | net.Server, port: number, host: string): P
 
 async function requestPath(webClientServer: WebClientServer, pathname: string): Promise<{ status: number | undefined; headers: http.IncomingHttpHeaders; body: string }> {
 	const frontServer = http.createServer((req, res) => {
-		const parsedUrl = url.parse(req.url!, true);
-		webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname!);
+		const parsedUrl = new URL(req.url!, 'http://localhost');
+		webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname);
 	});
 	try {
 		await listen(frontServer, 0, '127.0.0.1');
@@ -151,8 +323,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 			const webClientServer = createWebClientServer(ownershipCheck, logService);
 
 			const frontServer = http.createServer((req, res) => {
-				const parsedUrl = url.parse(req.url!, true);
-				webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname!);
+				const parsedUrl = new URL(req.url!, 'http://localhost');
+				webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname);
 			});
 			try {
 				await listen(frontServer, 0, '127.0.0.1');
@@ -182,8 +354,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 
 			const backendServer = http.createServer((_req, res) => res.end('ok'));
 			const frontServer = http.createServer((req, res) => {
-				const parsedUrl = url.parse(req.url!, true);
-				webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname!);
+				const parsedUrl = new URL(req.url!, 'http://localhost');
+				webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname);
 			});
 			try {
 				await listen(backendServer, 0, '127.0.0.1');
@@ -217,8 +389,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 
 			const backendServer = http.createServer((_req, res) => res.end('ok'));
 			const frontServer = http.createServer((req, res) => {
-				const parsedUrl = url.parse(req.url!, true);
-				webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname!);
+				const parsedUrl = new URL(req.url!, 'http://localhost');
+				webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname);
 			});
 			try {
 				await listen(backendServer, 0, '127.0.0.1');
@@ -256,8 +428,8 @@ describe('WebClientServer /proxy/ port ownership gate', () => {
 
 				const backendServer = http.createServer((_req, res) => res.end('ok'));
 				const frontServer = http.createServer((req, res) => {
-					const parsedUrl = url.parse(req.url!, true);
-					webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname!);
+					const parsedUrl = new URL(req.url!, 'http://localhost');
+					webClientServer.handle(req, res, parsedUrl, parsedUrl.pathname);
 				});
 				try {
 					await listen(backendServer, 0, '127.0.0.1');

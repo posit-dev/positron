@@ -559,17 +559,14 @@ export class Sessions {
 						deprioritize: language === 'Python' ? DEPRIORITIZED_PYTHON_SOURCES : undefined,
 					});
 				} catch (e) {
-					// Auto-discovery is intermittent: POSITRON_PY_VER_SEL's interpreter
-					// can be missing from the quick pick on the first attempt -- notably
-					// on remote hosts, where interpreter registration can lag the
-					// discovery-complete signal. Force a fresh cross-host rescan so the
-					// next retry of this `toPass` iteration sees it. (The former
-					// `python.refreshInterpreters` command does not exist, so this
-					// recovery was silently a no-op.)
-					if (language === 'Python') {
-						await this.quickinput.closeQuickInput().catch(() => { });
-						await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes').catch(() => { });
-					}
+					// The interpreter can be missing from the quick pick on the first attempt:
+					// on remote hosts registration can lag the discovery-complete signal, and
+					// after a reload the startup service may serve the cached runtime list when
+					// the extension misses its 500ms discovery-root signature budget, skipping
+					// roots added via settings such as positron.r.customRootFolders (#16455).
+					// Force a full rescan so the next retry of this `toPass` iteration sees it.
+					await this.quickinput.closeQuickInput().catch(() => { });
+					await this.quickaccess.runCommand('workbench.action.language.runtime.discoverAllRuntimes').catch(() => { });
 					throw e;
 				}
 				await this.quickinput.waitForQuickInputClosed();
