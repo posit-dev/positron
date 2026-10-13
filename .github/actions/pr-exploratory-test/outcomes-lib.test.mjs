@@ -5,7 +5,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, prOwnCommits, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, markDuplicates, parseCheck, guarded, parsePageFindings, parseResultComment, prOwnChanges, prOwnCommits, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
 
 const BASE = 'https://d38p2avprg8il3.cloudfront.net/exploratory-report-38443304195-1-opus-ubuntu-x64';
 const RESULT = `<!-- exploratory-test -->\n**\u{1F50E} Exploratory testing** 78afc20\n\n1 moderate · 1 minor\n[View report →](${BASE}/index.html)\n`;
@@ -143,4 +143,12 @@ test('parsePageFindings keeps every paragraph of a section', () => {
 	const [f] = parsePageFindings(html);
 	assert.equal(f.observed, 'line one\nline two');
 	assert.deepEqual(extractPaths(f), ['src/a/b.ts']);
+});
+
+test('prOwnChanges diffs tested..head in one piece unless main was merged in after the run', () => {
+	const c = (sha, ...parents) => ({ sha, parents: parents.map(p => ({ sha: p })) });
+	assert.deepEqual(prOwnChanges([c('t1', 'm0'), c('b2', 't1'), c('d3', 'b2')], 't1'), { range: ['t1', 'd3'] });
+	assert.deepEqual(prOwnChanges([c('t1', 'm0'), c('b2', 't1'), c('x3', 'b2', 'main9'), c('d4', 'x3')], 't1'), { shas: ['b2', 'd4'] });
+	assert.deepEqual(prOwnChanges([c('t1', 'm0')], 't1'), { shas: [] });
+	assert.equal(prOwnChanges([c('t1', 'm0')], 'zz'), null);
 });

@@ -13,7 +13,7 @@ import { writeFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { runClaude } from '../../../.claude/skills/exploratory-test/renderer/agents/claude-cli.mjs';
 import { searchIssues } from '../../../.claude/skills/exploratory-test/renderer/known-issues.mjs';
-import { buildCheckPrompt, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, prOwnCommits, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
+import { buildCheckPrompt, decideOutcome, extractPaths, guarded, markDuplicates, parseCheck, parsePageFindings, parseResultComment, prOwnChanges, renderTable, resolveTestedSha, searchTerms } from './outcomes-lib.mjs';
 
 const REPO = 'posit-dev/positron';
 const API = 'https://api.github.com';
@@ -80,8 +80,14 @@ function pathDiff(from, to, paths) {
 	return git('diff', '--no-color', `${from}..${to}`, '--', ...paths).slice(0, MAX_DIFF_CHARS);
 }
 
-/** The PR's own changes to `paths` in `shas`, leaving out main merged into the branch. */
-function ownDiff(shas, paths) {
+/** The PR's own changes to `paths`: one range, or commit by commit to leave out main merged into the branch. */
+function ownDiff(own, paths) {
+	if (own.range) {
+		const [from, to] = own.range;
+		const commits = git('log', '--format=%h', `${from}..${to}`, '--', ...paths).split('\n').filter(Boolean);
+		return { diff: pathDiff(from, to, paths), commits };
+	}
+	const shas = own.shas;
 	const parts = shas.map(sha => ({ sha, diff: git('show', '--no-color', '--format=', sha, '--', ...paths) })).filter(p => p.diff);
 	return { diff: parts.map(p => p.diff).join('\n').slice(0, MAX_DIFF_CHARS), commits: parts.map(p => p.sha.slice(0, 10)) };
 }
@@ -131,7 +137,7 @@ async function prRows(number) {
 			const paths = extractPaths(finding);
 			let prCheck = null;
 			if (tested.sha && paths.length && prState !== 'open') {
-				const own = prOwnCommits(prCommits, tested.sha);
+				const own = prOwnChanges(prCommits, tested.sha);
 				let diff = '';
 				let commits = [];
 				try {

@@ -172,3 +172,13 @@ export async function guarded(source, fn) {
 		return [{ answer: 'unclear', reason: `${source} failed: ${err}`, source }];
 	}
 }
+
+/** What to diff for the PR's own changes since the run: one range, or its commits one by one once main was merged in. */
+export function prOwnChanges(commits, testedSha) {
+	const i = commits.findIndex(c => c.sha === testedSha);
+	if (i < 0) {
+		return null;
+	}
+	const after = commits.slice(i + 1);
+	return after.length && after.every(c => c.parents.length < 2) ? { range: [testedSha, after.at(-1).sha] } : { shas: prOwnCommits(commits, testedSha) };
+}
