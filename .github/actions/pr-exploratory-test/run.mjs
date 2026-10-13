@@ -243,7 +243,7 @@ async function main() {
 	const report = await completeRun(WORK_DIR, explored, {
 		repo: REPO_ROOT, base: BASE_SHA, head: HEAD_SHA, baseName: process.env.BASE_REF, runAgent, verify: VERIFY_ENABLED, model: VERIFY_MODEL,
 		branchCheck: `CI compiled \`out/\` in this job from the ref under test (head \`${HEAD_SHA.slice(0, 10)}\`).`,
-		header: pr,
+		header: { ...pr, headSha: HEAD_SHA },
 		log: line => console.log(`[pipeline] ${line}`),
 	});
 	// The explorer's alone when there is no report to carry the rest.
