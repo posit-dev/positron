@@ -240,11 +240,16 @@ export class QuickInputController extends Disposable {
 	 */
 	private watchPositronModal(modalContainer: HTMLElement) {
 		const observer = new MutationObserver(() => {
-			if (this.ui && !modalContainer.contains(this.ui.container)) {
+			if (this.ui && (!modalContainer.isConnected || !modalContainer.contains(this.ui.container))) {
 				this.hide();
 			}
 		});
 		observer.observe(modalContainer, { childList: true });
+		// Closing a modal removes its whole overlay, which the dialog box never sees.
+		const overlayHost = modalContainer.closest('.positron-modal-overlay')?.parentElement;
+		if (overlayHost) {
+			observer.observe(overlayHost, { childList: true });
+		}
 		this.positronModalObserver.value = toDisposable(() => observer.disconnect());
 	}
 

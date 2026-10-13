@@ -170,6 +170,7 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 	 */
 	function addPositronModal(): { overlay: HTMLElement; dialogBox: HTMLElement } {
 		const overlay = document.createElement('div');
+		overlay.className = 'positron-modal-overlay';
 		const dialogBox = document.createElement('div');
 		dialogBox.className = 'positron-modal-dialog-box';
 		overlay.appendChild(dialogBox);
@@ -233,6 +234,17 @@ suite('QuickInput', () => { // https://github.com/microsoft/vscode/issues/147543
 		const modal = addPositronModal();
 		controller.focus();
 		modal.dialogBox.replaceChildren();
+		await timeout(0);
+
+		assert.strictEqual(controller.isVisible(), false);
+	});
+
+	test('visible quick input hides when its modal closes', async () => {
+		const modal = addPositronModal();
+		const quickpick = store.add(controller.createQuickPick());
+		quickpick.show();
+
+		modal.overlay.remove();
 		await timeout(0);
 
 		assert.strictEqual(controller.isVisible(), false);
