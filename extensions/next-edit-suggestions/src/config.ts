@@ -11,7 +11,8 @@ import minimatch from 'minimatch';
 const DEFAULT_BASE_URL = 'https://gateway.posit.ai';
 
 function matchesGlobPattern(fileName: string, pattern: string): boolean {
-	const baseName = fileName.substring(fileName.lastIndexOf('/') + 1);
+	// `document.fileName` uses backslashes on Windows.
+	const baseName = fileName.substring(Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\')) + 1);
 
 	if (pattern.startsWith('*.')) {
 		const extension = pattern.substring(1);

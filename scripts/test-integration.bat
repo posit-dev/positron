@@ -314,10 +314,17 @@ if %errorlevel% neq 0 exit /b %errorlevel%
 :: positron-run-app is left out there too (flaky). Skipped when --suite is
 :: given, since these suites are not selectable by name.
 if defined SUITE_FILTER goto skip_positron
+:: The extension host loads an extension from a path with a lowercase drive
+:: letter (c:\), while vscode-test requires the test files through the config
+:: file's path (C:\). Node keys its module cache by path, so a test that
+:: imports extension modules would get its own copy, separate from the
+:: activated extension's state. Pass the config through a lowercase-drive path
+:: so both load the same modules.
+for /f "delims=" %%i in ('node -p "const p = require('path').resolve('.vscode-test.js'); p[0].toLowerCase() + p.slice(1)"') do set "VSCODE_TEST_CONFIG=%%i"
 for %%e in (authentication positron-skills positron-code-cells next-edit-suggestions positron-r positron-connections positron-duckdb positron-data-driver-duckdb positron-data-driver-sqlite positron-data-driver-databricks positron-data-driver-pins positron-data-driver-odbc positron-zed) do (
 	echo.
 	echo ### %%e tests
-	call npm run test-extension -- -l %%e
+	call npm run test-extension -- -l %%e --config "%VSCODE_TEST_CONFIG%"
 	if errorlevel 1 exit /b 1
 )
 :skip_positron

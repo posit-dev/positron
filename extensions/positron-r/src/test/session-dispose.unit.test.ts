@@ -18,11 +18,11 @@ import { RSessionManager } from '../session-manager';
  */
 suite('RSession disposal', () => {
 	// The RSession constructor registers itself with the session manager
-	// singleton. Stub it rather than relying on the activated extension's
-	// copy: on Windows the extension host loads the extension through a
-	// `c:\` path and the tests through `C:\`, so they get separate module
-	// instances and this one is never initialized. The stub also keeps these
-	// fake sessions out of the live manager.
+	// singleton. Stub it rather than relying on the activated extension
+	// having initialized it: that depends on activation order, and on Windows
+	// the tests can end up with their own copy of the module (loaded through
+	// `C:\` while the extension host uses `c:\`) that is never initialized.
+	// The stub also keeps these fake sessions out of the live manager.
 	let instanceStub: Sinon.SinonStub;
 	setup(() => {
 		instanceStub = Sinon.stub(RSessionManager, 'instance').get(() => ({ setSession: () => { } }));

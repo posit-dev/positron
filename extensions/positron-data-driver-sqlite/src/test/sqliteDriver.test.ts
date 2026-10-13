@@ -18,8 +18,10 @@ suite('SQLite Driver Tests', () => {
 		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'positron-data-driver-sqlite-test-'));
 	});
 
-	teardown(() => {
-		fs.rmSync(tmpDir, { recursive: true, force: true });
+	teardown(async () => {
+		// The worker process can still have the database open for a moment after
+		// disconnect, and Windows will not delete an open file. Retry asynchronously.
+		await fs.promises.rm(tmpDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
 	});
 
 	// Creates a temp SQLite database and returns its path.
