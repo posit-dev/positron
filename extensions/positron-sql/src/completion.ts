@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { SourceRef, SqlAnalyzer } from './analyzer';
+import { LocalKind, SourceRef, SqlAnalyzer } from './analyzer';
 import { probeText, readCursor } from './cursor';
 import { SqlLog } from './log';
 import { SqlColumn, SqlTable } from './schema';
@@ -129,7 +129,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 		// would leave the opening quote of `"Order T` behind and insert a second one after it.
 		const replace = new vscode.Range(document.positionAt(cursor.replaceStart), position);
 
-		const scope = schema.isEmpty ? [] : tablesInScope(analyzer, schema, dialect, text, cursor, offset);
+		const { tables: scope, names } = inScope(analyzer, schema, dialect, text, cursor, offset);
 
 		const qualifier = cursor.qualifiers.length > 0
 			? cursor.qualifiers[cursor.qualifiers.length - 1]
@@ -152,6 +152,7 @@ export class SqlCompletionItemProvider implements vscode.CompletionItemProvider 
 			keywordSource = contextual.source;
 			items = [
 				...columnItems(scope, dialect, replace),
+				...nameItems(names, dialect, replace),
 				...schema.tables.map(table => tableItem(table, dialect, replace)),
 				...contextual.keywords.map(keyword => keywordItem(keyword, replace)),
 			];
@@ -298,28 +299,114 @@ interface ScopeEntry {
 	readonly table: SqlTable;
 }
 
-/** The known tables the cursor can see from where it is. */
-function tablesInScope(
+/** What the cursor can see from where it is. */
+interface InScope {
+	/** The known tables, under the names the statement calls them. */
+	readonly tables: ScopeEntry[];
+
+	/**
+	 * The names the statement made up that the cursor can write: its tables' aliases, and its
+	 * locals. Independent of the schema, since the statement is what defines them.
+	 */
+	readonly names: readonly InScopeName[];
+}
+
+/** A name the statement defines, and what it stands for. */
+interface InScopeName {
+	readonly name: string;
+	readonly kind: 'alias' | LocalKind;
+	/** For a table's alias, the table; for a select-list alias, the column it renames. */
+	readonly of?: string;
+}
+
+function inScope(
 	analyzer: SqlAnalyzer,
 	schema: SchemaIndex,
 	dialect: string,
 	text: string,
 	cursor: ReturnType<typeof readCursor>,
 	offset: number,
-): ScopeEntry[] {
+): InScope {
 	// The identifier being typed is swapped for a plain one first, so that a half typed quoted
 	// identifier does not cost the statement its tables; see `probeText`.
 	const probe = cursor.quoted ? probeText(text, cursor, offset) : { text, offset };
-	const entries: ScopeEntry[] = [];
 	// Scoped to where the cursor is rather than to everything the statement mentions: the select
 	// after a `WITH` reads from the CTE, not from the tables the CTE reads from, and offering
 	// those columns there would be offering names that are errors.
-	for (const source of analyzer.sources(probe.text, dialect, probe.offset).sources) {
+	const { sources, locals } = analyzer.sources(probe.text, dialect, probe.offset);
+
+	const tables: ScopeEntry[] = [];
+	const names: InScopeName[] = [];
+	for (const source of sources) {
 		for (const table of resolveSource(schema, source)) {
-			entries.push({ alias: source.alias, table });
+			tables.push({ alias: source.alias, table });
+		}
+		if (source.alias) {
+			const of = [source.catalog, source.schema, source.name].filter(part => part).join('.');
+			names.push({ name: source.alias, kind: 'alias', of });
 		}
 	}
-	return entries;
+	for (const local of locals) {
+		const of = local.column
+			? [local.column.qualifier, local.column.name].filter(part => part).join('.')
+			: undefined;
+		names.push({ name: local.name, kind: local.kind, of });
+	}
+	return { tables, names };
+}
+
+/**
+ * The names the statement defines, as completions.
+ *
+ * An alias is how the statement refers to its table from then on, and the way to its columns is
+ * typing it and a dot; a select-list alias is what an `ORDER BY` names. Both rank with the
+ * columns. A CTE is read the way a table is, and ranks with the tables. One item per name: a CTE
+ * once read is both a CTE and the relation it is read as, and is the same word to type either way.
+ */
+function nameItems(
+	names: readonly InScopeName[],
+	dialect: string,
+	replace: vscode.Range,
+): vscode.CompletionItem[] {
+	const items: vscode.CompletionItem[] = [];
+	const seen = new Set<string>();
+	for (const { name, kind, of } of names) {
+		const folded = name.toLowerCase();
+		if (seen.has(folded)) {
+			continue;
+		}
+		seen.add(folded);
+
+		const cte = kind === 'cte';
+		const item = new vscode.CompletionItem(
+			name,
+			cte ? vscode.CompletionItemKind.Class : vscode.CompletionItemKind.Variable,
+		);
+		switch (kind) {
+			case 'alias':
+				item.detail = vscode.l10n.t('alias');
+				item.documentation = vscode.l10n.t('Alias of {0}', of ?? name);
+				break;
+			case 'relation':
+				item.detail = vscode.l10n.t('alias');
+				item.documentation = vscode.l10n.t('A subquery, table function or CTE this statement reads');
+				break;
+			case 'output':
+				item.detail = vscode.l10n.t('column alias');
+				item.documentation = of
+					? vscode.l10n.t('Alias of {0}', of)
+					: vscode.l10n.t('Alias of a select-list expression');
+				break;
+			case 'cte':
+				item.detail = vscode.l10n.t('CTE');
+				item.documentation = vscode.l10n.t('Common table expression this statement declares');
+				break;
+		}
+		item.sortText = (cte ? SORT_TABLE : SORT_COLUMN) + folded;
+		item.textEdit = new vscode.TextEdit(replace, insertText(name, dialect));
+		items.push(item);
+	}
+	return items;
 }
 
 function resolveSource(schema: SchemaIndex, source: SourceRef): readonly SqlTable[] {
