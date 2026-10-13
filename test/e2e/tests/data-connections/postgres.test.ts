@@ -37,7 +37,7 @@ const actorColumns = [
 const actorIndexes = ['actor_pkey', 'idx_actor_last_name'];
 
 test.describe('Data Connections - Postgres', {
-	tag: [tags.WEB, tags.WIN, tags.CONNECTIONS, tags.WORKBENCH]
+	tag: [tags.WEB, tags.CONNECTIONS, tags.WORKBENCH]
 }, () => {
 
 	// Configuring the connection is a one-time, stateful action (re-running the new-connection flow
@@ -45,11 +45,6 @@ test.describe('Data Connections - Postgres', {
 	// every test in the suite. Create it and expand the tree to a known baseline once here. Per-test
 	// state that must not leak between tests (an open Data Explorer tab) is reset in afterEach.
 	test.beforeAll(async function ({ app }) {
-		// These tests require a running Postgres container, which is only available on the Windows
-		// and web CI rigs. The macOS CI project runs @:win-tagged tests too (see playwright.config.ts),
-		// but has no Postgres container, so skip the whole suite there.
-		test.skip(process.platform === 'darwin', 'No Postgres container available on macOS CI');
-
 		const { dataConnections } = app.workbench;
 
 		await dataConnections.openDataConnectionsView();
