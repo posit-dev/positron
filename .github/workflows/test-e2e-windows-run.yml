@@ -113,8 +113,6 @@ jobs:
       # connection inputs match the user/password baked into the postgres container.
       E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
       E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
-    outputs:
-      extensions_failed: ${{ steps.extensions.outputs.exit_code != '0' }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -500,33 +498,6 @@ jobs:
           # MaxSessionDuration).
           role-duration-seconds: 21600
 
-      - name: 🧪 Run Extensions Tests
-        if: ${{ matrix.shard == 1 }}
-        id: extensions
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          mkdir -p extensions-tests-logs
-          npm run test-extension -- -l positron-r 2>&1 | tee extensions-tests-logs/runner.log
-          EXIT_CODE=${PIPESTATUS[0]}
-          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-          exit 0
-
-      - name: Save Extensions Tests Logs
-        if: ${{ matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}
-        shell: bash
-        run: |
-          # Save all VSCode integration test logs including output channels
-          if [ -d ".build/logs/integration-tests" ]; then
-            echo "Uploading VSCode integration test logs"
-            mkdir -p extensions-tests-logs
-            cp -r .build/logs/integration-tests/* extensions-tests-logs/ || true
-          else
-            echo "No VSCode logs directory found at .build/logs/integration-tests"
-          fi
-          exit 0
-
       - name: Set Report URL
         uses: ./.github/actions/gen-report-dir
         with:
@@ -670,14 +641,6 @@ jobs:
           name: blob-report-${{ inputs.project }}-${{ matrix.shard }}
           path: blob-report
           retention-days: 1
-
-      - name: Upload Extensions Test Logs If Failed
-        if: ${{ always() && matrix.shard == 1 && steps.extensions.outputs.exit_code != '0' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: extensions-tests-logs
-          path: extensions-tests-logs/
-          if-no-files-found: ignore
 
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}

@@ -1,0 +1,199 @@
+name: "Test: Extension Host (Windows)"
+
+# Windows counterpart of test-ext-host.yml. Runs only the Electron ext-host
+# driver, through test-integration.bat. The Chromium (web) driver is skipped
+# because Positron has no web build on Windows, and the Remote driver because
+# Windows remote (WSL) is already covered by e2e tests.
+#
+# Merge-only by design: test-merge.yml and test-full-suite.yml call this, the
+# PR workflow does not. Windows runners are slow to provision and build, and the
+# Linux ext-host job already gates PRs.
+#
+# Restores caches but never saves them: e2e-windows in the same merge run owns
+# the Windows cache save (see the note at the top of test-e2e-windows-run.yml).
+
+on:
+  workflow_call:
+    inputs:
+      commit:
+        description: "Commit SHA to test"
+        required: false
+        default: ""
+        type: string
+      skip_cache:
+        description: "Skip restoring caches (use when testing a specific commit)"
+        required: false
+        default: false
+        type: boolean
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  ext-host-tests-windows:
+    name: ext-host-win
+    runs-on: windows-latest-8x
+    timeout-minutes: 120
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_SYSTEM_CLOCK_: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Checkout specific commit
+        if: ${{ inputs.commit != '' }}
+        run: |
+          git checkout ${{ inputs.commit }}
+          git submodule update --init --recursive
+
+      - name: Setup Node
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: 📦 Restore caches
+        if: ${{ !inputs.skip_cache }}
+        id: restore-caches
+        uses: ./.github/actions/restore-build-caches
+
+      # Same toolchain workaround as test-e2e-windows-run.yml: node-gyp does
+      # not recognize the runner's VS 2026, so give it VS 2022 to fall back
+      # to. Runs on every run because "Download binaries" below always runs
+      # `npm rebuild`.
+      - name: Install Visual Studio 2022 C++ build tools
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_wait_seconds: 15
+          shell: pwsh
+          command: |
+            $ErrorActionPreference = 'Stop'
+            $bootstrapper = "$env:TEMP\vs_buildtools.exe"
+            Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile $bootstrapper
+            $p = Start-Process -FilePath $bootstrapper -Wait -PassThru -ArgumentList @(
+              '--quiet','--wait','--norestart','--nocache',
+              '--add','Microsoft.VisualStudio.Workload.VCTools',
+              '--add','Microsoft.VisualStudio.Component.VC.Runtimes.x86.x64.Spectre',
+              '--includeRecommended'
+            )
+            if ($p.ExitCode -notin 0,3010) { exit $p.ExitCode }
+
+      - name: Install node dependencies
+        if: steps.restore-caches.outputs.cache-npm-core-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' ||
+            steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true'
+        uses: nick-fields/retry@v4
+        env:
+          npm_config_arch: x64
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+          POSITRON_PARALLEL_INSTALL: '0'         # Disabled on Windows due to native module file locking races
+          NPM_CONFIG_AUDIT: 'false'
+          NPM_CONFIG_FUND: 'false'
+          NPM_CONFIG_UPDATE_NOTIFIER: 'false'
+          # Same extension filter logic as test-e2e-windows-run.yml.
+          POSITRON_EXTENSIONS_FILTER: ${{ (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit == 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit != 'true' && 'stable') || (steps.restore-caches.outputs.cache-npm-extensions-volatile-hit != 'true' && steps.restore-caches.outputs.cache-npm-extensions-stable-hit == 'true' && 'volatile') || '' }}
+        with:
+          timeout_minutes: 90
+          max_attempts: 3
+          retry_wait_seconds: 5
+          shell: bash
+          command: |
+            set -e
+            npm --prefix build ci --no-audit --no-fund --fetch-timeout 120000
+            npm ci --no-audit --no-fund --fetch-timeout 120000
+
+      - name: Download binaries (Ark, Kallichore) with retry
+        uses: nick-fields/retry@v4
+        env:
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+        with:
+          timeout_minutes: 20
+          max_attempts: 3
+          retry_wait_seconds: 10
+          shell: bash
+          command: |
+            set -e
+            cd extensions/positron-r && npm rebuild --foreground-scripts
+            cd ../positron-supervisor && npm rebuild --foreground-scripts
+
+      - name: Compile Positron and Download Electron
+        run: npm exec -- npm-run-all --max-old-space-size=8192 -p compile "electron x64"
+
+      # Downloads Builtin Extensions (needed for integration testing)
+      - name: Prelaunch
+        shell: bash
+        run: npm run prelaunch
+
+      - name: Install rig
+        shell: pwsh
+        run: |
+          winget install --id Posit.rig --accept-source-agreements --accept-package-agreements
+
+      # Same R resolution as test-e2e-windows-run.yml, default version only.
+      # See there for why `rig system add-pak` is called explicitly.
+      - name: Install R
+        id: r-versions
+        shell: pwsh
+        run: |
+          $release = (Invoke-RestMethod -Uri 'https://api.r-hub.io/rversions/r-release' -MaximumRetryCount 3 -RetryIntervalSec 5).version
+          Write-Host "Resolved R release=$release"
+          "r_version=$release" >> $env:GITHUB_OUTPUT
+          rig add $release
+          rig default $release
+          rig system add-pak
+          rig ls
+
+      # The R package deps come from the e2e test-files DESCRIPTION. One
+      # ext-host test ("Connections pane works for R") also reads it from the
+      # repo root.
+      - name: Stage R DESCRIPTION file
+        id: download-r-desc
+        run: |
+          Copy-Item test/e2e/test-files/DESCRIPTION DESCRIPTION
+          $hash = (Get-FileHash DESCRIPTION -Algorithm SHA256).Hash
+          echo "description-hash=$hash" >> $env:GITHUB_OUTPUT
+
+      # Same key as the e2e-windows job, which saves it.
+      - name: Restore R packages cache
+        continue-on-error: true
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~\AppData\Local\R\cache
+            C:\Program Files\R\R-${{ steps.r-versions.outputs.r_version }}\library
+          key: ${{ runner.os }}-r-${{ steps.r-versions.outputs.r_version }}-${{ steps.download-r-desc.outputs.description-hash }}
+          restore-keys: |
+            ${{ runner.os }}-r-${{ steps.r-versions.outputs.r_version }}-
+
+      - name: Install R packages
+        env:
+          # Frozen PPM snapshot, same as test-e2e-windows-run.yml.
+          PPM_REPO: https://packagemanager.posit.co/cran/2026-06-30
+        run: |
+          Rscript -e "options(repos = c(CRAN = Sys.getenv('PPM_REPO'))); pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
+
+      - name: 🧪 Run Extension Host Tests (Electron)
+        id: electron-integration-tests
+        shell: cmd
+        run: scripts\test-integration.bat
+
+      - name: Upload extension host logs
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ext-host-win-logs
+          path: |
+            .build/logs
+            .build/crashes
+          if-no-files-found: ignore
+          retention-days: 7

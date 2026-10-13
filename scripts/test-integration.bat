@@ -171,6 +171,11 @@ call "%INTEGRATION_TEST_ELECTRON_PATH%" %SCRIPT_DIR%\..\extensions\vscode-api-te
 if %errorlevel% neq 0 exit /b %errorlevel%
 :skip_api_workspace
 
+:: --- Start Positron ---
+:: Colorize tests disabled -- see https://github.com/posit-dev/positron/issues/7349
+:: (mirrors test-integration.sh)
+goto skip_colorize
+:: --- End Positron ---
 call :should_run_suite colorize || goto skip_colorize
 echo.
 echo ### Colorize tests
@@ -293,6 +298,20 @@ if defined GREP_PATTERN (
 )
 if %errorlevel% neq 0 exit /b %errorlevel%
 :skip_copilot
+
+:: --- Start Positron ---
+:: Positron extension suites. Keep this list in sync with test-integration.sh.
+:: positron-run-app is left out there too (flaky). Skipped when --suite is
+:: given, since these suites are not selectable by name.
+if defined SUITE_FILTER goto skip_positron
+for %%e in (authentication positron-skills positron-code-cells next-edit-suggestions positron-r positron-connections positron-duckdb positron-data-driver-duckdb positron-data-driver-sqlite positron-data-driver-databricks positron-data-driver-pins positron-data-driver-odbc positron-zed) do (
+	echo.
+	echo ### %%e tests
+	call npm run test-extension -- -l %%e
+	if errorlevel 1 exit /b 1
+)
+:skip_positron
+:: --- End Positron ---
 
 :: Tests standalone (CommonJS)
 
