@@ -28,14 +28,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
   ext-host-tests-windows:
     name: ext-host-win
     runs-on: windows-latest-8x
-    timeout-minutes: 120
+    # Same as test-e2e-windows-run.yml. Leaves room for the npm install retry.
+    timeout-minutes: 150
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases

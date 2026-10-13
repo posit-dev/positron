@@ -17,6 +17,9 @@ const testRoot = import.meta.dirname;
 // suite passed with 0 tests.
 // const files = glob.sync(path.posix.join(testRoot, '../out/test/**/*.test.js'));
 const files = glob.sync('../out/test/**/*.test.js', { cwd: testRoot }).map(file => path.join(testRoot, file));
+if (files.length === 0) {
+	throw new Error(`No test files matched under ${testRoot}`);
+}
 // --- End Positron ---
 
 const stream = run({

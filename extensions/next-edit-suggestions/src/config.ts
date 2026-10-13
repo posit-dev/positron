@@ -10,10 +10,7 @@ import minimatch from 'minimatch';
 
 const DEFAULT_BASE_URL = 'https://gateway.posit.ai';
 
-function matchesGlobPattern(fileName: string, pattern: string): boolean {
-	// `document.fileName` uses backslashes on Windows.
-	const baseName = fileName.substring(Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\')) + 1);
-
+function matchesGlobPattern(baseName: string, pattern: string): boolean {
 	if (pattern.startsWith('*.')) {
 		const extension = pattern.substring(1);
 		return baseName.toLowerCase().endsWith(extension.toLowerCase());
@@ -76,9 +73,10 @@ export function isCompletionEnabledForFileType(document: vscode.TextDocument): b
 		return enableConfig[languageId];
 	}
 
-	const fileName = document.fileName;
+	// From the URI path, not `document.fileName`, which uses backslashes on Windows.
+	const baseName = path.posix.basename(document.uri.path);
 	for (const key of Object.keys(enableConfig)) {
-		if (key !== '*' && matchesGlobPattern(fileName, key)) {
+		if (key !== '*' && matchesGlobPattern(baseName, key)) {
 			return enableConfig[key];
 		}
 	}
