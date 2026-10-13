@@ -106,6 +106,10 @@ inputs:
     description: "Comment mode: the comment to edit; empty posts a new one"
     required: false
     default: ""
+  auto-run:
+    description: "Comment mode: 'true' when the auto-run experiment started this run, not a person"
+    required: false
+    default: "false"
 outputs:
   outcome:
     description: "Explore mode: complete, partial or no-report; empty if the run crashed"
@@ -191,6 +195,7 @@ runs:
         PR_NUMBER: ${{ inputs.pr-number }}
         GH_TOKEN: ${{ inputs.github-token }}
         COMMENT_ID: ${{ inputs.comment-id }}
+        AUTO_RUN: ${{ inputs.auto-run }}
         # VERIFY is deliberately absent: it defaults on, a job-level env var still reaches it for
         # debugging, and verification is what makes an unattended report worth
         # trusting, so it is not a dispatch-time choice.

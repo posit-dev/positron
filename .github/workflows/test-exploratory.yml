@@ -1,5 +1,9 @@
 name: "Test: Exploratory"
 
+# test-exploratory-suggest.yml looks for this name to start one auto-run per
+# PR. Whitespace everywhere else, which GitHub documents as keeping its default.
+run-name: "${{ inputs.auto_run_pr && format('Exploratory auto-run #{0}', inputs.auto_run_pr) || ' ' }}"
+
 on:
   workflow_dispatch:
     inputs:
@@ -45,6 +49,14 @@ on:
         required: false
         default: true
         type: boolean
+      # Set by test-exploratory-suggest.yml for the auto-run experiment
+      # (#16610). The run then posts to this PR like a `/explore`, but only
+      # once the worthiness check passes it: a decline stays off the PR.
+      auto_run_pr:
+        description: "Auto-run: PR to post results on"
+        required: false
+        default: ""
+        type: string
   # `/explore` (or `/test`, `/exploratory-test`) on a PR. Runs from main's copy of this
   # file with full secrets, and the explore job builds and executes the PR's
   # code, so the membership job is the entire defence. See its comment.
@@ -382,6 +394,46 @@ jobs:
           pr-number: ${{ github.event.issue.number }}
           github-token: ${{ github.token }}
           head-sha: ${{ needs.membership.outputs.head_sha }}
+
+  # ack's counterpart for an auto-run, after the gate rather than alongside
+  # it: nobody asked for this run, so a declined one says nothing on the PR.
+  # No reaction, since there is no comment to react to.
+  ack-auto:
+    name: ack-auto
+    needs: [dispatch-ref, worthiness]
+    if: >-
+      ${{ always() && inputs.auto_run_pr != '' &&
+      needs.dispatch-ref.outputs.sha != '' && needs.worthiness.outputs.testable != 'false' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      comment_id: ${{ steps.running.outputs.comment-id }}
+    steps:
+      - name: Check out the harness
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          path: .harness
+          sparse-checkout: |
+            .github/actions
+            .claude/skills/exploratory-test
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+
+      - name: Post running comment
+        id: running
+        continue-on-error: true
+        uses: ./.harness/.github/actions/pr-exploratory-test
+        with:
+          mode: comment
+          comment-state: running
+          auto-run: "true"
+          pr-number: ${{ inputs.auto_run_pr }}
+          github-token: ${{ github.token }}
+          head-sha: ${{ needs.dispatch-ref.outputs.sha }}
 
   explore:
     name: explore (${{ matrix.model }})
@@ -915,10 +967,13 @@ jobs:
   # Replaces this run's "running" comment with the result and swaps the reaction. A separate job
   # for the same reason as ack. always(): a failed build must still replace
   # "running" with the truth.
+  # A /explore's result, or an auto-run's once ack-auto has said it is running.
   report:
     name: report
-    needs: [membership, worthiness, ack, explore, publish]
-    if: always() && needs.membership.outputs.ok == 'true'
+    needs: [membership, dispatch-ref, worthiness, ack, ack-auto, explore, publish]
+    if: >-
+      ${{ always() && (needs.membership.outputs.ok == 'true' ||
+      (inputs.auto_run_pr != '' && needs.ack-auto.result == 'success')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -940,7 +995,7 @@ jobs:
         continue-on-error: true
         uses: actions/download-artifact@v7
         with:
-          name: exploratory-run-${{ needs.membership.outputs.model }}
+          name: exploratory-run-${{ needs.membership.outputs.model || 'opus' }}
           path: /tmp/run-artifact
 
       # The artifact root is the common parent of what matched, so the run dir
@@ -963,17 +1018,18 @@ jobs:
           mode: comment
           comment-state: result
           focus: ${{ needs.membership.outputs.focus }}
+          auto-run: ${{ inputs.auto_run_pr != '' }}
           # Empty when ack could not post; comment mode then posts a new one.
-          comment-id: ${{ needs.ack.outputs.comment_id }}
+          comment-id: ${{ needs.ack.outputs.comment_id || needs.ack-auto.outputs.comment_id }}
           # A declined run never reaches explore, and an outdated branch stops
           # before the build; say which rather than "failed".
           outcome: ${{ needs.worthiness.outputs.testable == 'false' && 'declined' || needs.explore.result == 'cancelled' && 'cancelled' || needs.explore.outputs.outdated != '' && 'outdated' || needs.explore.outputs.outcome }}
           decline-reason: ${{ needs.worthiness.outputs.reason || needs.explore.outputs.outdated }}
           work-dir: ${{ env.WORK_DIR }}
           report-base-url: ${{ needs.publish.outputs.report_base_url }}
-          pr-number: ${{ github.event.issue.number }}
+          pr-number: ${{ github.event.issue.number || inputs.auto_run_pr }}
           github-token: ${{ github.token }}
-          head-sha: ${{ needs.membership.outputs.head_sha }}
+          head-sha: ${{ needs.membership.outputs.head_sha || needs.dispatch-ref.outputs.sha }}
 
       # rocket only when the agent finished on its own, +1 when the gate
       # declined. A partial run (turn cap) and a hard failure both get confused.

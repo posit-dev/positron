@@ -12,6 +12,7 @@ on:
       - ".claude/skills/exploratory-test/**"
       - ".github/actions/pr-exploratory-test/**"
       - ".github/workflows/exploratory-test-checks.yml"
+      - ".github/workflows/test-exploratory.yml"
 
 permissions:
   contents: read
@@ -35,6 +36,7 @@ jobs:
             .claude/skills/exploratory-test
             .claude/skills/drive-positron/scripts
             .github/actions/pr-exploratory-test
+            .github/workflows/test-exploratory.yml
           sparse-checkout-cone-mode: false
           persist-credentials: false
 

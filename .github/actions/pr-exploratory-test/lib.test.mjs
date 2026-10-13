@@ -257,6 +257,17 @@ test('renderPrComment on a finished run is a title, the tally and the report lin
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\n1 major \u00b7 2 moderate \u00b7 2 minor\n[View report \u2192](https://cdn.example/run/index.html)\n`);
 });
 
+test('renderPrComment on an automatic run says so, and asks for feedback once there is a report', () => {
+	const running = renderPrComment({ state: 'running', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA, autoRun: true });
+	// A quote block of its own, set apart from the result above it.
+	assert.match(running, /\)\n\n> Started automatically .*issues\/16610/);
+	assert.doesNotMatch(running, /React with/);
+	const done = renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA, autoRun: true });
+	assert.match(done, /\n\n> Started automatically/);
+	assert.match(done, /React with \u{1F44D} or \u{1F44E}/u);
+	assert.doesNotMatch(renderPrComment({ state: 'complete', report: SUMMARY, baseUrl: 'https://cdn.example/run', runUrl: RUN_URL, headSha: SHA }), /automatically/);
+});
+
 test('renderPrComment running state names the head and links the run', () => {
 	const body = renderPrComment({ state: 'running', report: null, baseUrl: '', runUrl: RUN_URL, headSha: SHA });
 	assert.equal(body, `${COMMENT_MARKER}\n**\u{1F50E} Exploratory testing** abc1234\n\nOff exploring, back soon\u2026\n[View run \u2192](${RUN_URL})\n`);
